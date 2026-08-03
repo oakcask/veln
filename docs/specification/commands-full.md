@@ -237,6 +237,18 @@ locations. The remaining declarations are related locations. Similarity output
 does not instruct maintainers to deduplicate code mechanically, and similarity
 never creates a policy violation under `--check`.
 
+`[tool.metrics] max_findings = "N"` limits only detailed human-output findings
+after the canonical order used by the report. The default is `50`. The value
+must be a positive integer string. Zero, malformed strings, and values outside
+the implementation's integer range are manifest errors at the value span. The
+limit is shared by policy violations, cycles, module rows, ABC subjects, and
+whole-body similarity instances, in that order. Summary counts, section
+headings, policy status, baseline status, related lines for a displayed
+finding, JSON arrays, policy evaluation, and baseline content use the complete
+finding set. When human output is truncated, the final summary names the
+exact omitted count and identifies `veln metrics --json` as the complete
+evidence route.
+
 When `deny_cycles = "true"` is checked with a baseline, a current cycle is
 allowed only when its member set and cyclic edge set are subsets of one
 baseline cycle. This allows unchanged cycles and cycles that lost members or

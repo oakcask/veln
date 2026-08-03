@@ -1,0 +1,44 @@
+command = ["metrics", "--check", "--json"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "policy_violation"
+
+[[json_assert]]
+path = "check.result"
+equals = "fail"
+
+[[json_assert]]
+path = "human_output.max_findings"
+equals = 1
+
+[[json_assert]]
+path = "human_output.total_findings"
+equals = 6
+
+[[json_assert]]
+path = "human_output.omitted_findings"
+equals = 5
+
+[[json_assert]]
+path = "human_output.truncated"
+equals = true
+
+[[json_assert]]
+path = "check.violations.0.policy"
+equals = "deny_cycles"
+
+[[json_assert]]
+path = "cycles.0.path.0"
+equals = "app"
+
+[[json_assert]]
+path = "abc_subjects.1.identity"
+equals = "util.veln::value"

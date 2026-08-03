@@ -1,0 +1,40 @@
+command = ["metrics", "--json"]
+exit = 0
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "human_output.max_findings"
+equals = 2
+
+[[json_assert]]
+path = "human_output.total_findings"
+equals = 5
+
+[[json_assert]]
+path = "human_output.omitted_findings"
+equals = 3
+
+[[json_assert]]
+path = "human_output.truncated"
+equals = true
+
+[[json_assert]]
+path = "cycles.0.path.0"
+equals = "app"
+
+[[json_assert]]
+path = "cycles.0.path.2"
+equals = "app"
+
+[[json_assert]]
+path = "abc_subjects.0.identity"
+equals = "app.veln::main"
+
+[[json_assert]]
+path = "abc_subjects.1.identity"
+equals = "util.veln::value"

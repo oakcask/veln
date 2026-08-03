@@ -1,4 +1,4 @@
-command = ["metrics", "--check", "--json"]
+command = ["metrics", "--json"]
 exit = 1
 
 [stdout]
@@ -8,14 +8,14 @@ format = "json"
 format = "empty"
 
 [[diagnostics]]
-id = "metrics.policy.unsupported_field"
+id = "metrics.policy.invalid_value"
 severity = "error"
 kind = "module"
-message = "unsupported metrics policy field `unknown`"
+message = "invalid metrics policy value `many` for `max_findings`"
 
 [diagnostics.span]
 file = "veln.toml"
-line = 3
+line = 2
 
 [[json_assert]]
 path = "status"

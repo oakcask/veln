@@ -89,27 +89,20 @@ enforcement graduation rules below.
 ## Project Policy
 
 The command reads string-valued fields from `[tool.metrics]` in `veln.toml`.
-The implemented slices recognize `deny_cycles` and `similarity_min_tokens`:
+The implemented slices recognize `deny_cycles`, `similarity_min_tokens`, and
+`max_findings`:
 
 ```toml
 [tool.metrics]
 deny_cycles = "true"
 similarity_min_tokens = "60"
-```
-
-`deny_cycles` is optional and defaults to `false`. `similarity_min_tokens`
-defaults to `60` and must be a positive integer string. Unknown fields and
-invalid values are command errors with a span on the manifest field.
-
-Future slices may add this string-valued field:
-
-```toml
-[tool.metrics]
 max_findings = "50"
 ```
 
-`max_findings` would default to `50` and must be a positive integer when
-implemented.
+`deny_cycles` is optional and defaults to `false`. `similarity_min_tokens`
+defaults to `60` and must be a positive integer string. `max_findings`
+defaults to `50` and must be a positive integer string. Unknown fields and
+invalid values are command errors with a span on the manifest field.
 
 `similarity_min_tokens` controls an experimental advisory signal. It does not
 become an enforcement threshold in the first slice. `max_findings` limits
@@ -266,8 +259,8 @@ mechanically.
 The implemented dependency graph, ABC, cycle policy, baseline, and exact
 whole-body similarity JSON document is specified in
 [metrics-json.md](../specification/metrics-json.md). Remaining JSON work
-extends that document with future policy fields and human-output truncation
-metadata.
+extends that document with future policy fields beyond the current
+configuration.
 
 The current document contains:
 
@@ -290,12 +283,10 @@ Planned executable cases follow the placement rules in
 | Dependency pressure | Modules have high fan-in only, high fan-out only, and both beyond the implemented fixture coverage | Pressure equals the product, output retains both counts, and none is a policy violation |
 | Dependency cycle | Three modules form a cycle and one acyclic module imports a member beyond the implemented fixture coverage | One maximal cycle and a valid closed path are reported; the acyclic caller only changes fan-in |
 | Stable ordering | Discovery order and path separator representation vary | Normalized JSON findings and fingerprints are identical |
-| Truncated human output | Findings exceed `max_findings` | Policy uses the complete set; human output names the omitted count and the JSON evidence command |
-
 Implemented executable cases cover exact whole-body similarity, partial-body
-exclusion, human output placement and locations, coordinated duplicate edits
-under a baseline check, fingerprint collision protection, stable ordering, and
-structural result bounds.
+exclusion, human output placement and locations, human-output truncation,
+coordinated duplicate edits under a baseline check, fingerprint collision
+protection, stable ordering, and structural result bounds.
 
 CLI parsing, human output, JSON shape, and exit status must have integration
 coverage in `veln-cli`. Metric calculation must have table-driven unit

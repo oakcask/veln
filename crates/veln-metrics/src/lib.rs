@@ -16,6 +16,7 @@ pub const JSON_SCHEMA_VERSION: &str = "veln-metrics-json/v0";
 pub const BASELINE_SCHEMA_VERSION: &str = "veln-metrics-baseline/v0";
 pub const METRIC_MODEL_VERSION: &str = "veln-metrics-model/v0";
 pub const DEFAULT_SIMILARITY_MIN_TOKENS: usize = 60;
+pub const DEFAULT_HUMAN_OUTPUT_MAX_FINDINGS: usize = 50;
 
 #[derive(Clone, Debug)]
 pub struct MetricsReport {
@@ -26,6 +27,7 @@ pub struct MetricsReport {
     pub abc_subjects: Vec<AbcSubjectMetric>,
     pub similarities: Vec<SimilarityInstanceMetric>,
     pub summary: MetricsSummary,
+    pub human_output_max_findings: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -51,6 +53,7 @@ pub struct MetricsPolicy {
 pub struct MetricsConfig {
     pub policy: MetricsPolicy,
     pub similarity_min_tokens: usize,
+    pub human_output_max_findings: usize,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -306,6 +309,7 @@ fn read_metrics_config(
     let mut config = MetricsConfig {
         policy: MetricsPolicy { deny_cycles: false },
         similarity_min_tokens: DEFAULT_SIMILARITY_MIN_TOKENS,
+        human_output_max_findings: DEFAULT_HUMAN_OUTPUT_MAX_FINDINGS,
     };
     let Some(tool) = manifest
         .into_iter()
@@ -348,6 +352,21 @@ fn read_metrics_config(
                     Some(field.value_span.clone()),
                     JsonValue::object([
                         ("field", JsonValue::string("similarity_min_tokens")),
+                        ("allowed", JsonValue::string("positive integer string")),
+                    ]),
+                )),
+            },
+            "max_findings" => match field.value.parse::<usize>() {
+                Ok(value) if value > 0 => config.human_output_max_findings = value,
+                _ => diagnostics.push(metrics_policy_diagnostic(
+                    "metrics.policy.invalid_value",
+                    format!(
+                        "invalid metrics policy value `{}` for `max_findings`",
+                        field.value
+                    ),
+                    Some(field.value_span.clone()),
+                    JsonValue::object([
+                        ("field", JsonValue::string("max_findings")),
                         ("allowed", JsonValue::string("positive integer string")),
                     ]),
                 )),
@@ -725,6 +744,7 @@ impl DependencyGraph {
             abc_subjects,
             similarities,
             summary,
+            human_output_max_findings: config.human_output_max_findings,
         }
     }
 
@@ -1308,7 +1328,96 @@ impl<'a> Tarjan<'a> {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct HumanOutputBudget {
+    limit: usize,
+    total: usize,
+    shown: usize,
+}
+
+impl HumanOutputBudget {
+    fn for_report(report: &MetricsReport) -> Self {
+        Self {
+            limit: report.human_output_max_findings,
+            total: detailed_report_finding_count(report),
+            shown: 0,
+        }
+    }
+
+    fn for_check(check: &MetricsCheckReport) -> Self {
+        Self {
+            limit: check.report.human_output_max_findings,
+            total: detailed_check_finding_count(check),
+            shown: 0,
+        }
+    }
+
+    fn allow(&mut self) -> bool {
+        if self.shown < self.limit {
+            self.shown += 1;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn omitted(self) -> usize {
+        self.total.saturating_sub(self.shown)
+    }
+
+    fn append_summary(self, out: &mut String) {
+        let omitted = self.omitted();
+        if omitted > 0 {
+            out.push_str(&format!(
+                "\nDetailed findings omitted: {omitted}; use veln metrics --json for complete evidence.\n"
+            ));
+        }
+    }
+}
+
+struct ReportHumanSelection {
+    modules: Vec<bool>,
+    cycles: Vec<bool>,
+    abc_subjects: Vec<bool>,
+    similarities: Vec<bool>,
+}
+
+fn select_report_findings(
+    report: &MetricsReport,
+    budget: &mut HumanOutputBudget,
+) -> ReportHumanSelection {
+    let cycles = report.cycles.iter().map(|_| budget.allow()).collect();
+    let modules = report.modules.iter().map(|_| budget.allow()).collect();
+    let abc_subjects = report.abc_subjects.iter().map(|_| budget.allow()).collect();
+    let similarities = report.similarities.iter().map(|_| budget.allow()).collect();
+    ReportHumanSelection {
+        modules,
+        cycles,
+        abc_subjects,
+        similarities,
+    }
+}
+
+fn detailed_report_finding_count(report: &MetricsReport) -> usize {
+    report.modules.len()
+        + report.cycles.len()
+        + report.abc_subjects.len()
+        + report.similarities.len()
+}
+
+fn detailed_check_finding_count(check: &MetricsCheckReport) -> usize {
+    check.violations.len() + detailed_report_finding_count(&check.report)
+}
+
 pub fn render_human(report: &MetricsReport) -> String {
+    let mut budget = HumanOutputBudget::for_report(report);
+    let selection = select_report_findings(report, &mut budget);
+    let mut out = render_human_with_selection(report, &selection);
+    budget.append_summary(&mut out);
+    out
+}
+
+fn render_human_with_selection(report: &MetricsReport, selection: &ReportHumanSelection) -> String {
     let mut out = String::new();
     out.push_str("Veln dependency metrics (advisory)\n");
     out.push_str(&format!(
@@ -1328,7 +1437,10 @@ pub fn render_human(report: &MetricsReport) -> String {
     if report.modules.is_empty() {
         out.push_str("  no project modules selected\n");
     } else {
-        for module in &report.modules {
+        for (module, selected) in report.modules.iter().zip(&selection.modules) {
+            if !selected {
+                continue;
+            }
             out.push_str(&format!(
                 "  {} ({}) fan-in={} fan-out={} pressure={} external={}\n",
                 module.module,
@@ -1344,7 +1456,10 @@ pub fn render_human(report: &MetricsReport) -> String {
     if report.cycles.is_empty() {
         out.push_str("  none\n");
     } else {
-        for cycle in &report.cycles {
+        for (cycle, selected) in report.cycles.iter().zip(&selection.cycles) {
+            if !selected {
+                continue;
+            }
             out.push_str(&format!(
                 "  {} | path: {}\n",
                 cycle.members.join(", "),
@@ -1356,7 +1471,10 @@ pub fn render_human(report: &MetricsReport) -> String {
     if report.abc_subjects.is_empty() {
         out.push_str("  no function or test subjects selected\n");
     } else {
-        for subject in &report.abc_subjects {
+        for (subject, selected) in report.abc_subjects.iter().zip(&selection.abc_subjects) {
+            if !selected {
+                continue;
+            }
             out.push_str(&format!(
                 "  {} ({}) {} ABC size={:.1} vector=({}, {}, {}) contracts_included={}\n",
                 subject.identity,
@@ -1376,7 +1494,10 @@ pub fn render_human(report: &MetricsReport) -> String {
     if report.similarities.is_empty() {
         out.push_str("  none\n");
     } else {
-        for instance in &report.similarities {
+        for (instance, selected) in report.similarities.iter().zip(&selection.similarities) {
+            if !selected {
+                continue;
+            }
             let primary = &instance.declarations[0];
             out.push_str(&format!(
                 "  {} token_count={} fingerprint={} primary={} at {} body {}\n",
@@ -1412,6 +1533,13 @@ fn span_label(span: &SourceSpan) -> String {
 }
 
 pub fn render_check_human(check: &MetricsCheckReport) -> String {
+    let mut budget = HumanOutputBudget::for_check(check);
+    let selected_violations = check
+        .violations
+        .iter()
+        .map(|_| budget.allow())
+        .collect::<Vec<_>>();
+    let report_selection = select_report_findings(&check.report, &mut budget);
     let mut out = String::new();
     out.push_str("Veln dependency metrics (check)\n");
     out.push_str("policy checks: deny_cycles\n");
@@ -1431,7 +1559,10 @@ pub fn render_check_human(check: &MetricsCheckReport) -> String {
     } else {
         out.push_str("policy result: fail\n\n");
         out.push_str("Policy violations\n");
-        for violation in &check.violations {
+        for (violation, selected) in check.violations.iter().zip(&selected_violations) {
+            if !selected {
+                continue;
+            }
             out.push_str(&format!(
                 "  {}: dependency cycle path: {}\n",
                 violation.policy,
@@ -1444,16 +1575,20 @@ pub fn render_check_human(check: &MetricsCheckReport) -> String {
         }
         out.push('\n');
     }
-    out.push_str(&render_human(&check.report));
+    out.push_str(&render_human_with_selection(
+        &check.report,
+        &report_selection,
+    ));
+    budget.append_summary(&mut out);
     out
 }
 
 pub fn report_to_json(report: &MetricsReport, tool: ToolInfo) -> JsonValue {
-    JsonValue::object(metrics_report_json_entries(report, tool, "ok", None))
+    JsonValue::object(metrics_report_json_entries(report, tool, "ok", None, true))
 }
 
 pub fn baseline_to_json(report: &MetricsReport, tool: ToolInfo) -> JsonValue {
-    let mut entries = metrics_report_json_entries(report, tool, "ok", None);
+    let mut entries = metrics_report_json_entries(report, tool, "ok", None, false);
     replace_json_entry(
         &mut entries,
         "schema_version",
@@ -1486,6 +1621,7 @@ pub fn report_check_to_json(check: &MetricsCheckReport, tool: ToolInfo) -> JsonV
         tool,
         status,
         Some(check_to_json(check)),
+        true,
     ))
 }
 
@@ -1494,6 +1630,7 @@ fn metrics_report_json_entries(
     tool: ToolInfo,
     status: &str,
     check: Option<JsonValue>,
+    include_human_output: bool,
 ) -> Vec<(&'static str, JsonValue)> {
     let mut entries = vec![
         ("schema_version", JsonValue::string(JSON_SCHEMA_VERSION)),
@@ -1544,10 +1681,48 @@ fn metrics_report_json_entries(
         ),
         ("summary", summary_to_json(&report.summary)),
     ];
+    if include_human_output {
+        entries.push(("human_output", human_output_to_json(report, check.as_ref())));
+    }
     if let Some(check) = check {
         entries.push(("check", check));
     }
     entries
+}
+
+fn human_output_to_json(report: &MetricsReport, check: Option<&JsonValue>) -> JsonValue {
+    let policy_violation_count = match check {
+        Some(JsonValue::Object(entries)) => entries
+            .iter()
+            .find_map(|(key, value)| (key == "violations").then_some(value))
+            .and_then(|value| match value {
+                JsonValue::Array(values) => Some(values.len()),
+                _ => None,
+            })
+            .unwrap_or(0),
+        _ => 0,
+    };
+    let total_findings = policy_violation_count + detailed_report_finding_count(report);
+    let omitted_findings = total_findings.saturating_sub(report.human_output_max_findings);
+    JsonValue::object([
+        (
+            "max_findings",
+            JsonValue::Number(usize_to_json_number(report.human_output_max_findings)),
+        ),
+        (
+            "total_findings",
+            JsonValue::Number(usize_to_json_number(total_findings)),
+        ),
+        (
+            "omitted_findings",
+            JsonValue::Number(usize_to_json_number(omitted_findings)),
+        ),
+        ("truncated", JsonValue::Bool(omitted_findings > 0)),
+    ])
+}
+
+fn usize_to_json_number(value: usize) -> i64 {
+    i64::try_from(value).unwrap_or(i64::MAX)
 }
 
 fn check_to_json(check: &MetricsCheckReport) -> JsonValue {
@@ -2216,8 +2391,49 @@ mod tests {
     }
 
     #[test]
-    fn rejects_unsupported_metrics_policy_fields() {
-        let manifest = metrics_manifest(&[("deny_cycles", "true"), ("max_findings", "5")]);
+    fn reads_metrics_human_output_limit_from_manifest_table() {
+        let cases = [
+            ("omitted", None, Ok(DEFAULT_HUMAN_OUTPUT_MAX_FINDINGS)),
+            ("valid", Some("5"), Ok(5)),
+            ("zero", Some("0"), Err("metrics.policy.invalid_value")),
+            (
+                "malformed",
+                Some("many"),
+                Err("metrics.policy.invalid_value"),
+            ),
+            (
+                "overflow",
+                Some("184467440737095516160"),
+                Err("metrics.policy.invalid_value"),
+            ),
+        ];
+
+        for (name, value, expected) in cases {
+            let manifest = value.map(|value| metrics_manifest(&[("max_findings", value)]));
+            let actual = read_metrics_config(manifest.as_ref());
+            match expected {
+                Ok(max_findings) => {
+                    assert_eq!(
+                        actual.expect(name).human_output_max_findings,
+                        max_findings,
+                        "{name}"
+                    );
+                }
+                Err(id) => {
+                    let diagnostics = actual.expect_err(name);
+                    assert_eq!(diagnostics[0].id, id, "{name}");
+                    assert_eq!(
+                        diagnostics[0].span.as_ref().unwrap().file.as_str(),
+                        "veln.toml"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn rejects_unknown_metrics_policy_fields() {
+        let manifest = metrics_manifest(&[("deny_cycles", "true"), ("unknown", "5")]);
         let diagnostics = read_metrics_policy(Some(&manifest)).expect_err("unsupported field");
 
         assert_eq!(diagnostics.len(), 1);
@@ -2226,6 +2442,75 @@ mod tests {
             diagnostics[0].span.as_ref().unwrap().file.as_str(),
             "veln.toml"
         );
+    }
+
+    #[test]
+    fn render_human_truncates_stable_cross_section_prefix() {
+        let mut report = report_from_edges(&[
+            ("app", "util"),
+            ("util", "app"),
+            ("zeta", "app"),
+            ("alpha", "app"),
+        ]);
+        report.human_output_max_findings = 3;
+
+        let human = render_human(&report);
+
+        assert!(human.contains("app (app.veln) fan-in=3 fan-out=1 pressure=3 external=0"));
+        assert!(human.contains("util (util.veln) fan-in=1 fan-out=1 pressure=1 external=0"));
+        assert!(!human.contains("alpha (alpha.veln) fan-in=0 fan-out=1 pressure=0 external=0"));
+        assert!(!human.contains("zeta (zeta.veln) fan-in=0 fan-out=1 pressure=0 external=0"));
+        assert!(human.contains("app, util | path: app -> util -> app"));
+        assert!(human.contains(
+            "Detailed findings omitted: 6; use veln metrics --json for complete evidence."
+        ));
+    }
+
+    #[test]
+    fn render_check_human_spends_budget_on_policy_violations_first() {
+        let mut report = report_from_edges(&[("app", "util"), ("util", "app")]);
+        report.human_output_max_findings = 1;
+        let check = evaluate_metrics_check(report, MetricsPolicy { deny_cycles: true });
+
+        let human = render_check_human(&check);
+
+        assert!(human.contains("policy result: fail"));
+        assert!(human.contains("deny_cycles: dependency cycle path: app -> util -> app"));
+        assert!(!human.contains("app (app.veln) fan-in=1 fan-out=1 pressure=1 external=0"));
+        assert!(human.contains(
+            "Detailed findings omitted: 5; use veln metrics --json for complete evidence."
+        ));
+    }
+
+    #[test]
+    fn report_json_exposes_human_output_projection_metadata() {
+        let mut report = report_from_edges(&[("app", "util"), ("util", "app")]);
+        report.human_output_max_findings = 2;
+
+        let json = report_to_json(&report, tool_info()).to_json();
+
+        assert!(json.contains("\"human_output\":{\"max_findings\":2"));
+        assert!(json.contains("\"total_findings\":5"));
+        assert!(json.contains("\"omitted_findings\":3"));
+        assert!(json.contains("\"truncated\":true"));
+        assert!(json.contains("\"modules\":["));
+        assert!(json.contains("\"cycles\":["));
+        assert!(json.contains("\"abc_subjects\":["));
+    }
+
+    #[test]
+    fn checked_json_counts_policy_violations_in_human_output_projection() {
+        let mut report = report_from_edges(&[("app", "util"), ("util", "app")]);
+        report.human_output_max_findings = 1;
+        let check = evaluate_metrics_check(report, MetricsPolicy { deny_cycles: true });
+
+        let json = report_check_to_json(&check, tool_info()).to_json();
+
+        assert!(json.contains("\"human_output\":{\"max_findings\":1"));
+        assert!(json.contains("\"total_findings\":6"));
+        assert!(json.contains("\"omitted_findings\":5"));
+        assert!(json.contains("\"status\":\"policy_violation\""));
+        assert!(json.contains("\"violations\":["));
     }
 
     #[test]
@@ -2802,6 +3087,7 @@ mod tests {
         MetricsConfig {
             policy: MetricsPolicy { deny_cycles: false },
             similarity_min_tokens: DEFAULT_SIMILARITY_MIN_TOKENS,
+            human_output_max_findings: DEFAULT_HUMAN_OUTPUT_MAX_FINDINGS,
         }
     }
 
@@ -2839,6 +3125,10 @@ mod tests {
 
     fn token_texts(texts: &[&'static str]) -> Vec<(&'static str, &'static str)> {
         texts.iter().map(|text| ("Ident", *text)).collect()
+    }
+
+    fn tool_info() -> ToolInfo {
+        ToolInfo::new("veln", "test")
     }
 
     fn report_from_edges(edges: &[(&str, &str)]) -> MetricsReport {

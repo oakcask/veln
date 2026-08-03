@@ -47,8 +47,11 @@ requiring the full command reference on the first read.
   With `--check`, `[tool.metrics] deny_cycles = "true"` makes dependency
   cycles an enforced project policy. `--baseline PATH` is valid only with
   `--check` and allows unchanged or reduced dependency cycles while rejecting
-  cycle regressions. Similarity remains advisory during baseline checks. No
-  enabled policy or invalid metrics policy configuration is a command error.
+  cycle regressions. `[tool.metrics] max_findings = "N"` limits detailed
+  human-output findings only; summaries, JSON arrays, policy evaluation, and
+  baseline content still use the complete finding set. Similarity remains
+  advisory during baseline checks. No enabled policy or invalid metrics policy
+  configuration is a command error.
   Use [metrics-json.md](metrics-json.md) for machine-readable output.
 - `doc`: generated Markdown documentation from selected source files,
   package/tool manifest metadata, documentation comments, public API

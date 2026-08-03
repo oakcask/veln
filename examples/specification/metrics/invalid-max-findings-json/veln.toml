@@ -1,0 +1,2 @@
+[tool.metrics]
+max_findings = "many"

@@ -1,0 +1,8 @@
+command = ["metrics"]
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[metrics.policy.invalid_value]: invalid metrics policy value `0` for `max_findings`"]
