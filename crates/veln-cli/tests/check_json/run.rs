@@ -411,7 +411,7 @@ fn run_blocks_holes_reachable_through_qualified_function_values_before_jdk_execu
     let project = TestProject::new("run-qualified-function-value-hole");
     project.write(
         "app/text.veln",
-        concat!("fn stringify(value: Int) -> String\n", "  _\n", "end\n",),
+        concat!("pub fn stringify(value: Int) -> String\n", "  _\n", "end\n",),
     );
     project.write(
         "app/main.veln",
@@ -571,7 +571,7 @@ fn run_blocks_holes_reachable_through_imported_calls_before_jdk_execution() {
     let project = TestProject::new("run-imported-call-hole");
     project.write(
         "app/util.veln",
-        concat!("fn value() -> Int\n", "  _\n", "end\n",),
+        concat!("pub fn value() -> Int\n", "  _\n", "end\n",),
     );
     project.write(
         "app/main.veln",
