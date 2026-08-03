@@ -1,0 +1,6 @@
+use math
+
+test check_companion_public_surface() -> ()
+	let observed: Int = math::identity(8)
+	()
+end

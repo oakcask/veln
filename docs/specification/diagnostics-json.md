@@ -1,3 +1,7 @@
+---
+review-when: The documented diagnostics JSON behavior or executable diagnostic evidence changes.
+---
+
 # Check JSON And Diagnostics
 
 This is the routing page for implemented `veln check --json` output and
@@ -14,6 +18,9 @@ human diagnostics that must stay aligned with structured diagnostic behavior.
   [diagnostics-json-full.md](diagnostics-json-full.md).
 - Stable `details` payloads by diagnostic family:
   [diagnostics-json-full.md](diagnostics-json-full.md).
+- Companion source diagnostics distinguish missing targets from chained
+  companions and expose `details.companion_path` plus
+  `details.target_path`.
 - Local inference diagnostic details:
   [diagnostics-json-full.md#type-inference-diagnostics](diagnostics-json-full.md#type-inference-diagnostics).
 - Advisory repair candidate fields and application-policy routing:
@@ -57,6 +64,11 @@ Invalid literal shift counts use `type.invalid_shift_count` with the operator,
 actual count, and inclusive `0..63` bounds. Removed schema primitives, types,
 constructors, patterns, and helpers use focused removed-vocabulary diagnostics
 with replacement details instead of generic unresolved-name output.
+
+Companion source diagnostics are executable in
+`examples/specification/check/companion-missing-target-json/`,
+`examples/specification/check/companion-missing-target-human/`, and
+`examples/specification/check/companion-chained-target-json/`.
 
 ## Stable Details
 

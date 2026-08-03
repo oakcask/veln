@@ -1,0 +1,3 @@
+test rejected_run_input() -> ()
+	()
+end

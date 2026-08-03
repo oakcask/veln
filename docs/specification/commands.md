@@ -21,9 +21,9 @@ requiring the full command reference on the first read.
   [commands-full.md#command-help](commands-full.md#command-help) when changing
   help parsing or output.
 - `check`: source discovery, source path derived local module identity,
-  manifest dependency metadata validation, path dependency source loading for
-  external imports, parse/semantic diagnostics, checked-core blockers, and
-  check JSON output.
+  `.test.veln` companion target inclusion, manifest dependency metadata
+  validation, path dependency source loading for external imports,
+  parse/semantic diagnostics, checked-core blockers, and check JSON output.
   Use [diagnostics-json.md](diagnostics-json.md) first for diagnostic shape,
   then
   [commands-full.md](commands-full.md) for exact command rules.
@@ -60,9 +60,10 @@ requiring the full command reference on the first read.
   contracts, doctest fences, and ADR-lite records. Use
   [commands-full.md](commands-full.md) when changing generated documentation
   output.
-- `run`: entry resolution, fixed and variadic entry argument conversion,
-  static gates, direct JVM classfile execution without an ordinary Java source
-  compiler requirement,
+- `run`: production source discovery excluding `.test.veln` companions,
+  rejection of explicitly supplied `.test.veln` run inputs, entry resolution,
+  fixed and variadic entry argument conversion, static gates, direct JVM
+  classfile execution without an ordinary Java source compiler requirement,
   human runtime diagnostics for closed-input `ByteView` read truncation,
   schema fixed-field mismatch, binary schema field truncation, reserved-bit
   mismatch, integer range failure, field-local validation failure,

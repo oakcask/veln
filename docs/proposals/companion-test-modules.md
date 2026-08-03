@@ -1,3 +1,7 @@
+---
+review-when: Companion private-access, isolation, export, documentation, or language-server behavior changes.
+---
+
 # Companion Test Modules
 
 Status: proposed
@@ -126,44 +130,17 @@ changing whether its target passes production analysis.
 
 ## File And Package Boundaries
 
-A valid test companion satisfies all of these conditions:
-
-- Its path ends in `.test.veln`.
-- Removing `.test` produces the path of an existing `.veln` target source.
-- The target belongs to the same package.
-- The target is a production source, not another companion source.
-
-If no target exists, analysis reports a companion-target diagnostic at the
-companion path. A chained name such as `X.test.test.veln` is rejected instead
-of targeting `X.test.veln`.
-
-`X.test.veln` and `X_test.veln` may coexist. They select different visibility
-rules and do not conflict in module identity. A normal source named `test`
-inside source directory `X` remains module `X::test`; it has no relationship
-to `X.test.veln`.
-
 External packages cannot import a companion source. Package export lists
 reject companion paths. Distribution and standard-library bundles exclude
 companion sources in the same way that they exclude other test-only sources.
 
 ## Command Behavior
 
-| Command or context | Required behavior |
-| --- | --- |
-| `veln test` without targets | Discover test declarations in both `.test.veln` companions and `_test.veln` integration modules, plus existing same-file and doctest cases |
-| `veln test X.veln` | Select `X.test.veln` when it exists, preserve the existing selection of `X_test.veln` when it exists, and include all selected sources in analysis |
-| `veln test X.test.veln` | Select the companion and automatically include `X.veln` in analysis |
-| `veln test X_test.veln` | Preserve existing ordinary-module and public-visibility behavior |
-| `veln check` | Parse and analyze discovered companions in companion context so private-access errors are reported before `test` execution |
-| `veln check X.test.veln` | Include and analyze `X.veln` as the target dependency |
-| `veln run` | Exclude companion sources from production analysis; reject an explicitly supplied companion path as a test-only input |
-| Documentation and package export | Exclude companion declarations from generated public documentation and reject companion paths as exports |
-| Language server analysis | Diagnose the file in companion context and resolve qualified target-private references for navigation, completion, hover, and rename |
-
-Selecting a production source preserves the existing same-base `_test.veln`
-selection convention and adds the matching `.test.veln` companion convention.
-Dependency-aware selection may select other integration tests under the
-existing rules.
+The implemented file and command boundary is specified in
+`../specification/source-surface.md`, `../specification/commands.md`,
+`../specification/test-json.md`, and `../specification/diagnostics-json.md`.
+The remaining command work is limited to surfaces that need private-access,
+package-export, generated-documentation, or language-server behavior.
 
 ## Acceptance Cases
 
@@ -174,7 +151,6 @@ replace it. Each row describes an externally observable result.
 | --- | --- | --- | --- |
 | Private function access | `math.veln` defines private `increment`; `math.test.veln` writes `use math` and calls `math::increment` | Check succeeds and the test runs | Executable `test` specification case |
 | Private type access | Target defines a private type and constructor used by its companion | Type and constructor resolve under ordinary same-module typing rules | Executable `test` specification case |
-| Public target access | Companion calls a public target declaration | Check succeeds through the same qualified path | Executable `test` specification case |
 | Missing `use` | Companion writes `math::increment` without `use math` | Name diagnostic identifies the unavailable module path | Human and JSON `check` cases |
 | Bare target name | Companion calls bare `increment` with no local or public imported declaration | Unresolved-name diagnostic; target-private lookup is not implicit | Human and JSON `check` cases |
 | Local shadow name | Companion defines local `increment` and target also defines private `increment` | Bare `increment` selects the local declaration; `math::increment` selects the target | Semantic analyzer unit test |
@@ -186,14 +162,7 @@ replace it. Each row describes an externally observable result.
 | Non-transitive access | Target imports `support`; companion attempts `support::private_helper` | Visibility diagnostic rejects the private declaration | Human and JSON `check` cases |
 | Wrong companion | `other.test.veln` attempts a private access to `math` | Visibility diagnostic rejects the private declaration | Human and JSON `check` cases |
 | Integration boundary | `math_test.veln` attempts the same private access | Visibility diagnostic rejects the private declaration | Executable integration-boundary case |
-| Coexistence | Both `math.test.veln` and `math_test.veln` contain tests | Both tests are discovered; only the companion receives friend access | CLI selection case |
-| Missing target | `orphan.test.veln` exists without `orphan.veln` | Companion-target diagnostic blocks checking and testing that source | Human and JSON `check` cases |
-| Chained companion | `math.test.test.veln` is discovered | Companion-path diagnostic rejects the chained suffix | Human and JSON `check` cases |
 | Public companion declaration | Companion contains `pub fn helper` | Diagnostic rejects `pub` in a test-only companion | Human and JSON `check` cases |
-| Explicit target selection | Run `veln test math.veln` with matching `math.test.veln` and `math_test.veln` files | Both test files are selected and selection output distinguishes the two conventions | Human and JSON CLI cases |
-| Explicit companion selection | Run `veln test math.test.veln` | Target is included automatically and companion tests run | Human and JSON CLI cases |
-| Production exclusion | Run a production entry while its companion contains test declarations | No companion declaration enters production lowering or generated output | CLI run and backend inspection case |
-| Explicit production input | Supply `math.test.veln` as a `run` source input | Command diagnostic rejects the test-only input before entry resolution | Human and JSON CLI cases |
 | Tooling identity | Request definition and rename for `math::increment` from the companion | Tooling identifies the declaration in `math.veln` without treating both files as one scope | Language server integration case |
 
 Planned executable cases should live under `../../examples/specification/`.

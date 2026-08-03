@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use veln_source::SourceFile;
 
-use crate::{ProjectManifest, discover_source_paths, manifest::read_manifest};
+use crate::{ProjectManifest, companion_analysis_inputs, manifest::read_manifest};
 
 #[derive(Clone, Debug)]
 pub struct Project {
@@ -15,7 +15,7 @@ pub struct Project {
 impl Project {
     pub fn discover(root: impl Into<PathBuf>, inputs: &[PathBuf]) -> io::Result<Self> {
         let root = root.into();
-        let paths = discover_source_paths(&root, inputs)?;
+        let paths = companion_analysis_inputs(&root, inputs)?;
         let mut files = Vec::new();
         for path in paths {
             files.push(SourceFile::read(&root, &path)?);

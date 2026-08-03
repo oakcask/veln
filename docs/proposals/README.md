@@ -21,10 +21,9 @@ also states it.
 
 ### Language Testing
 
-- [Companion Test Modules](companion-test-modules.md): add `.test.veln`
-  companion modules with non-transitive access to one target module's private
-  declarations while retaining `_test.veln` as the integration-test
-  convention.
+- [Companion Test Modules](companion-test-modules.md): add private target
+  access, isolation, package, documentation, and language-server behavior for
+  implemented `.test.veln` companion file and command boundaries.
 
 ### Toolchain Performance
 

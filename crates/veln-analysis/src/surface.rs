@@ -9,7 +9,10 @@ use veln_ast::{
     lower_surface_ast_with_module_identity,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
-use veln_project::{ManifestDependencySelectorKind, ManifestField, Project, ProjectManifest};
+use veln_project::{
+    ManifestDependencySelectorKind, ManifestField, Project, ProjectManifest,
+    classify_companion_source,
+};
 use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{TokenKind, lex, parse};
 
@@ -28,6 +31,7 @@ pub fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diagnostic>
     );
     diagnostics.extend(validate_manifest_exports(project));
     diagnostics.extend(validate_manifest_dependencies(project));
+    diagnostics.extend(validate_companion_sources(project));
     diagnostics.extend(validate_reserved_standard_package(project, toolchain_std));
     load_external_dependencies(project, &mut diagnostics, &mut parts);
     rewrite_standard_import_targets(&mut parts.module.uses);
@@ -630,6 +634,62 @@ pub fn derive_source_module_path(source: &SourceFile) -> Result<String, Box<Diag
     if let Some(module_name) = derive_doctest_module_path(path) {
         return Ok(module_name);
     }
+    if let Some(companion) = classify_companion_source(path) {
+        if companion.chained {
+            let Some(without_extension) = path.strip_suffix(".veln") else {
+                return Err(Box::new(invalid_source_module_path_diagnostic(
+                    source,
+                    path,
+                    "source module files must use the `.veln` extension",
+                )));
+            };
+            let segments = without_extension
+                .split('/')
+                .map(|segment| {
+                    let sanitized = segment
+                        .chars()
+                        .map(|ch| {
+                            if ch.is_ascii_alphanumeric() || ch == '_' {
+                                ch
+                            } else {
+                                '_'
+                            }
+                        })
+                        .collect::<String>();
+                    format!("{sanitized}__chained_companion")
+                })
+                .collect::<Vec<_>>();
+            return Ok(segments.join("::"));
+        }
+        let Some(target_stem) = companion.target_path.strip_suffix(".veln") else {
+            return Err(Box::new(invalid_source_module_path_diagnostic(
+                source,
+                path,
+                "source module files must use the `.veln` extension",
+            )));
+        };
+        let mut segments = Vec::new();
+        for segment in target_stem.split('/') {
+            if is_module_identifier(segment) {
+                segments.push(segment.to_string());
+            } else {
+                return Err(Box::new(invalid_source_module_path_diagnostic(
+                    source,
+                    segment,
+                    "source path segment cannot be used as a module identifier",
+                )));
+            }
+        }
+        let Some(last) = segments.last_mut() else {
+            return Err(Box::new(invalid_source_module_path_diagnostic(
+                source,
+                path,
+                "source path segment cannot be used as a module identifier",
+            )));
+        };
+        *last = format!("{last}__test_companion");
+        return Ok(segments.join("::"));
+    }
     let Some(without_extension) = path.strip_suffix(".veln") else {
         return Err(Box::new(invalid_source_module_path_diagnostic(
             source,
@@ -668,6 +728,79 @@ fn derive_doctest_module_path(path: &str) -> Option<String> {
 
 fn is_doctest_source(source: &SourceFile) -> bool {
     source.path().as_str().contains("#doctest-")
+}
+
+fn validate_companion_sources(project: &Project) -> Vec<Diagnostic> {
+    let source_paths = project
+        .files
+        .iter()
+        .map(|source| source.path().as_str().to_string())
+        .collect::<BTreeSet<_>>();
+    project
+        .files
+        .iter()
+        .filter_map(|source| {
+            let companion = classify_companion_source(source.path().as_str())?;
+            if companion.chained {
+                Some(chained_companion_diagnostic(source, &companion.target_path))
+            } else if !source_paths.contains(&companion.target_path) {
+                Some(missing_companion_target_diagnostic(
+                    source,
+                    &companion.target_path,
+                ))
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn missing_companion_target_diagnostic(source: &SourceFile, target_path: &str) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "module.companion_missing_target",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!(
+            "test companion `{}` has no matching target `{target_path}`",
+            source.path().as_str()
+        ),
+        Some(source.span(TextRange::new(0, 0))),
+        JsonValue::object([
+            ("phase", JsonValue::string("module")),
+            ("field", JsonValue::string("companion_target")),
+            ("companion_path", JsonValue::string(source.path().as_str())),
+            ("target_path", JsonValue::string(target_path)),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([(
+        "message",
+        JsonValue::string("Create the target source beside the companion or rename the companion."),
+    )]));
+    diagnostic
+}
+
+fn chained_companion_diagnostic(source: &SourceFile, target_path: &str) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "module.chained_companion",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!(
+            "test companion `{}` cannot target another companion `{target_path}`",
+            source.path().as_str()
+        ),
+        Some(source.span(TextRange::new(0, 0))),
+        JsonValue::object([
+            ("phase", JsonValue::string("module")),
+            ("field", JsonValue::string("companion_target")),
+            ("companion_path", JsonValue::string(source.path().as_str())),
+            ("target_path", JsonValue::string(target_path)),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([(
+        "message",
+        JsonValue::string("Use exactly one `.test.veln` suffix for a test companion."),
+    )]));
+    diagnostic
 }
 
 fn source_mod_decl_diagnostic(module: &veln_syntax::ModuleDecl) -> Diagnostic {

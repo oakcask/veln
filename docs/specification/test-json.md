@@ -1,3 +1,7 @@
+---
+review-when: The documented test JSON behavior or executable test JSON evidence changes.
+---
+
 # Test JSON
 
 This page routes implemented JSON output for `veln test --json`.
@@ -7,6 +11,9 @@ This page routes implemented JSON output for `veln test --json`.
 - The envelope uses schema version `veln-test-json/v0`.
 - The top-level status is `passed`, `failed`, `blocked`, or `error`.
 - Parse and semantic diagnostics block Java compilation and execution.
+- Targetless discovery includes valid `.test.veln` companions, and explicit
+  selection of `X.veln` includes existing `X.test.veln` and `X_test.veln`
+  peers. Explicit selection of `X.test.veln` includes `X.veln` in analysis.
 - JDK setup failures become case errors with `reason: "runner_error"`.
 - Doctest `runtime=contract`, `runtime=ensure`, and `runtime=result`
   expectations pass only when the selected runtime failure details match;
@@ -35,6 +42,11 @@ This page routes implemented JSON output for `veln test --json`.
 - Top-level fields: [test-json-full.md](test-json-full.md#envelope).
 - Discovery and explicit target selection:
   [test-json-full.md](test-json-full.md#selection).
+- Companion discovery and explicit target selection:
+  `../../examples/specification/test/companion-discovery/`,
+  `../../examples/specification/test/companion-explicit-target-selection/`,
+  and
+  `../../examples/specification/test/companion-explicit-companion-selection/`.
 - Counts in `summary`: [test-json-full.md](test-json-full.md#summary).
 - Case records, doctests, runtime failures, runtime expectation mismatches,
   expected-output mismatches, and captured stdio events:
