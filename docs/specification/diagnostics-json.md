@@ -88,6 +88,7 @@ Companion private source ADT visibility and explicit-import failures also
 reuse `name.unresolved`; JSON and human boundaries are checked by
 `examples/specification/check/companion-private-source-adt-missing-import/`,
 `examples/specification/check/companion-private-source-adt-wrong-target-human/`,
+`examples/specification/check/companion-private-source-adt-integration-boundary/`,
 and
 `examples/specification/check/companion-private-source-adt-non-transitive/`.
 Companion private-function effect propagation is checked by

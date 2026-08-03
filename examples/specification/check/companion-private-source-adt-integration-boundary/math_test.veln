@@ -1,0 +1,6 @@
+use math
+
+test integration_test_cannot_use_private_target_source_adt() -> ()
+	math::Secret::Hidden(3)
+	()
+end

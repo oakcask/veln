@@ -154,7 +154,7 @@ replace it. Each row describes an externally observable result.
 | Companion does not change remaining private effects | A companion use reaches effectful private target behavior outside the implemented function-call and source ADT slices | Target effect inference is unchanged; the companion test must declare the resulting effect | Semantic analyzer and executable `test` cases |
 | Non-transitive remaining private access | Target imports `support`; companion attempts to inspect a private remaining declaration from `support` | Visibility diagnostic rejects the private declaration | Human and JSON `check` cases |
 | Wrong companion for remaining private access | `other.test.veln` attempts private remaining declaration access to `math` | Visibility diagnostic rejects the private declaration | Human and JSON `check` cases |
-| Integration boundary for remaining private access | `math_test.veln` attempts the same private remaining declaration access | Visibility diagnostic rejects the private declaration | Executable integration-boundary case |
+| Integration boundary for remaining private access | `math_test.veln` attempts remaining private declaration access outside the implemented function and source ADT slices | Visibility diagnostic rejects the private declaration | Executable integration-boundary case |
 | Public companion declaration | Companion contains `pub fn helper` | Diagnostic rejects `pub` in a test-only companion | Human and JSON `check` cases |
 | Tooling identity | Request definition and rename for `math::increment` from the companion | Tooling identifies the declaration in `math.veln` without treating both files as one scope | Language server integration case |
 

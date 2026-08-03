@@ -78,6 +78,7 @@ The checked source ADT cases are
 `examples/specification/check/companion-private-source-adt-access/`,
 `examples/specification/check/companion-private-source-adt-missing-import/`,
 `examples/specification/check/companion-private-source-adt-wrong-target-human/`,
+`examples/specification/check/companion-private-source-adt-integration-boundary/`,
 `examples/specification/check/companion-private-source-adt-non-transitive/`,
 and `examples/specification/test/companion-private-source-adt-access/`.
 

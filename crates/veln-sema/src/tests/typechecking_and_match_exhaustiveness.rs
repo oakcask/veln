@@ -2434,6 +2434,44 @@ fn non_matching_companion_cannot_resolve_private_source_adt_constructor() {
 }
 
 #[test]
+fn integration_test_module_cannot_resolve_private_source_adt_constructor() {
+    let integration_source = SourceFile::new(
+        "math_test.veln",
+        concat!(
+            "mod math_test\n",
+            "use math\n",
+            "test integration_cannot_use_private_target_adt() -> math::Secret\n",
+            "  math::Secret::Hidden(3)\n",
+            "end\n",
+        ),
+    );
+    let target_source = SourceFile::new(
+        "math.veln",
+        concat!("mod math\n", "type Secret\n", "  Hidden(Int)\n", "end\n",),
+    );
+    let integration = lower_surface_ast(&parse(&integration_source).tree);
+    let target = lower_surface_ast(&parse(&target_source).tree);
+    let module = SurfaceModule {
+        module: integration.module,
+        uses: integration.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        types: target.types,
+        functions: integration.functions,
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved call_target `math::Secret::Hidden`"
+    }));
+}
+
+#[test]
 fn matching_companion_private_source_adt_access_is_not_transitive() {
     let companion_source = SourceFile::new(
         "math.test.veln",
