@@ -10,6 +10,8 @@ end
 
 test local_reference() -> ()
   increment()
+  "math::increment()"
+  # math::increment()
 end
 
 test dependency_reference() -> ()

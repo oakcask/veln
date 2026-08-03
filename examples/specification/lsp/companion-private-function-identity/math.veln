@@ -1,4 +1,7 @@
 fn increment() -> ()
+  increment()
+  support::increment()
+  "increment()"
 end
 
 pub fn production() -> ()
