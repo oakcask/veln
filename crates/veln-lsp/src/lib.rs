@@ -10,8 +10,8 @@ use veln_analysis::{DoctestMode, checked_project_diagnostics, parse_diagnostic_t
 use veln_ast::{SurfaceModule, lower_surface_ast};
 use veln_diagnostics::{Diagnostic, Severity};
 use veln_editor::{encode_lsp_semantic_tokens, semantic_token_legend};
-use veln_project::Project;
-use veln_source::{SourceFile, SourceSpan};
+use veln_project::{Project, classify_companion_source};
+use veln_source::{SourceFile, SourceSpan, TextRange};
 use veln_syntax::parse;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -119,6 +119,9 @@ impl Server {
             }
             "textDocument/didClose" => self.handle_document_close(message),
             "textDocument/semanticTokens/full" => self.handle_semantic_tokens(message, id),
+            "textDocument/definition" => self.handle_definition(message, id),
+            "textDocument/prepareRename" => self.handle_prepare_rename(message, id),
+            "textDocument/rename" => self.handle_rename(message, id),
             _ => self.handle_unknown_method(id),
         }
     }
@@ -170,6 +173,48 @@ impl Server {
         id.map(|id| {
             let uri = extract_string_field(message, "uri").unwrap_or_default();
             response(&id, &semantic_tokens_result(&uri, self.document_text(&uri)))
+        })
+        .into_iter()
+        .collect()
+    }
+
+    fn handle_definition(&self, message: &str, id: Option<String>) -> Vec<String> {
+        id.map(|id| {
+            let result = self
+                .symbol_at_request(message)
+                .and_then(|request| request.index.location_json(&request.symbol.declaration))
+                .unwrap_or_else(|| "null".to_string());
+            response(&id, &result)
+        })
+        .into_iter()
+        .collect()
+    }
+
+    fn handle_prepare_rename(&self, message: &str, id: Option<String>) -> Vec<String> {
+        id.map(|id| {
+            let result = self
+                .symbol_at_request(message)
+                .map(|request| range_json(Some(&request.selection)))
+                .unwrap_or_else(|| "null".to_string());
+            response(&id, &result)
+        })
+        .into_iter()
+        .collect()
+    }
+
+    fn handle_rename(&self, message: &str, id: Option<String>) -> Vec<String> {
+        id.map(|id| {
+            let result = extract_string_field(message, "newName")
+                .filter(|new_name| is_identifier(new_name))
+                .and_then(|new_name| {
+                    self.symbol_at_request(message).map(|request| {
+                        request
+                            .index
+                            .workspace_edit_json(&request.symbol, &new_name)
+                    })
+                })
+                .unwrap_or_else(|| "{\"changes\":{}}".to_string());
+            response(&id, &result)
         })
         .into_iter()
         .collect()
@@ -249,6 +294,17 @@ impl Server {
         let root = workspace_root_for_uri(&self.workspace_roots, uri)?;
         workspace_relative_source_path(root, uri)
     }
+
+    fn symbol_at_request(&self, message: &str) -> Option<SymbolRequest> {
+        let uri = extract_string_field(message, "uri")?;
+        let position = extract_position(message)?;
+        let root = workspace_root_for_uri(&self.workspace_roots, &uri)?;
+        let source_path = workspace_relative_source_path(root, &uri)?;
+        let mut project = Project::discover(root.to_path_buf(), &[]).ok()?;
+        self.overlay_open_workspace_documents(root, &mut project);
+        let index = LspSymbolIndex::new(root, project.files);
+        index.symbol_at_position(&source_path, position)
+    }
 }
 
 fn document_uri_and_text(message: &str) -> Option<(String, String)> {
@@ -261,7 +317,7 @@ fn document_uri_and_text(message: &str) -> Option<(String, String)> {
 fn initialize_result() -> String {
     let legend = legend();
     format!(
-        "{{\"capabilities\":{{\"textDocumentSync\":1,\"semanticTokensProvider\":{{\"legend\":{{\"tokenTypes\":[{}],\"tokenModifiers\":[{}]}},\"full\":true,\"range\":false}}}}}}",
+        "{{\"capabilities\":{{\"textDocumentSync\":1,\"definitionProvider\":true,\"renameProvider\":{{\"prepareProvider\":true}},\"semanticTokensProvider\":{{\"legend\":{{\"tokenTypes\":[{}],\"tokenModifiers\":[{}]}},\"full\":true,\"range\":false}}}}}}",
         json_string_list(&legend.token_types),
         json_string_list(&legend.token_modifiers),
     )
@@ -469,6 +525,374 @@ fn workspace_relative_source_path(root: &Path, uri: &str) -> Option<String> {
     Some(relative.to_string_lossy().replace('\\', "/"))
 }
 
+#[derive(Clone, Debug)]
+struct Position {
+    line: usize,
+    character: usize,
+}
+
+#[derive(Clone, Debug)]
+struct FunctionSymbol {
+    module: String,
+    name: String,
+    declaration: SourceSpan,
+}
+
+#[derive(Debug)]
+struct SymbolRequest {
+    index: LspSymbolIndex,
+    symbol: FunctionSymbol,
+    selection: SourceSpan,
+}
+
+#[derive(Debug)]
+struct LspFile {
+    uri: String,
+    source: SourceFile,
+    module: String,
+    companion_target_module: Option<String>,
+    uses: BTreeSet<String>,
+}
+
+#[derive(Debug)]
+struct LspSymbolIndex {
+    files: Vec<LspFile>,
+    functions: Vec<FunctionSymbol>,
+}
+
+impl LspSymbolIndex {
+    fn new(root: &Path, sources: Vec<SourceFile>) -> Self {
+        let files = sources
+            .into_iter()
+            .map(|source| {
+                let path = source.path().as_str().to_string();
+                let companion_target_module = classify_companion_source(&path)
+                    .and_then(|companion| module_name_from_path(&companion.target_path));
+                let module = explicit_module_name(source.text())
+                    .or_else(|| module_name_from_path(&path))
+                    .unwrap_or_default();
+                let uses = use_modules(source.text());
+                let uri = path_to_uri(&root.join(&path));
+                LspFile {
+                    uri,
+                    source,
+                    module,
+                    companion_target_module,
+                    uses,
+                }
+            })
+            .collect::<Vec<_>>();
+        let functions = files
+            .iter()
+            .flat_map(|file| function_declarations(file))
+            .collect();
+        Self { files, functions }
+    }
+
+    fn symbol_at_position(self, source_path: &str, position: Position) -> Option<SymbolRequest> {
+        let file = self
+            .files
+            .iter()
+            .find(|file| file.source.path().as_str() == source_path)?;
+        let offset = offset_for_position(file.source.text(), position)?;
+        let selection = identifier_span_at(&file.source, offset)?;
+        let name = file
+            .source
+            .text()
+            .get(selection.start.offset..selection.end.offset)?
+            .to_string();
+        let symbol = self.symbol_for_selection(file, &name, &selection)?;
+        Some(SymbolRequest {
+            index: self,
+            symbol,
+            selection,
+        })
+    }
+
+    fn symbol_for_selection(
+        &self,
+        file: &LspFile,
+        name: &str,
+        selection: &SourceSpan,
+    ) -> Option<FunctionSymbol> {
+        if let Some(symbol) = self.functions.iter().find(|symbol| {
+            symbol.name == name
+                && symbol.declaration.file == selection.file
+                && symbol.declaration.start.offset == selection.start.offset
+                && symbol.declaration.end.offset == selection.end.offset
+        }) {
+            return Some(symbol.clone());
+        }
+
+        let qualifier = qualifier_before(file.source.text(), selection.start.offset)?;
+        self.functions
+            .iter()
+            .find(|symbol| {
+                symbol.name == name
+                    && symbol.module == qualifier
+                    && file.uses.contains(&symbol.module)
+                    && file
+                        .companion_target_module
+                        .as_ref()
+                        .is_some_and(|target| target == &symbol.module)
+            })
+            .cloned()
+    }
+
+    fn location_json(&self, span: &SourceSpan) -> Option<String> {
+        let uri = self
+            .files
+            .iter()
+            .find(|file| file.source.path() == &span.file)?
+            .uri
+            .as_str();
+        Some(format!(
+            "{{\"uri\":\"{}\",\"range\":{}}}",
+            escape_json(uri),
+            range_json(Some(span))
+        ))
+    }
+
+    fn workspace_edit_json(&self, symbol: &FunctionSymbol, new_name: &str) -> String {
+        let mut changes = BTreeMap::<String, Vec<SourceSpan>>::new();
+        changes
+            .entry(uri_for_span(&self.files, &symbol.declaration))
+            .or_default()
+            .push(symbol.declaration.clone());
+        for file in &self.files {
+            for span in self.references_in_file(file, symbol) {
+                changes.entry(file.uri.clone()).or_default().push(span);
+            }
+        }
+
+        let changes = changes
+            .into_iter()
+            .map(|(uri, mut spans)| {
+                spans.sort_by_key(|span| span.start.offset);
+                spans.dedup_by_key(|span| (span.start.offset, span.end.offset));
+                let edits = spans
+                    .iter()
+                    .map(|span| {
+                        format!(
+                            "{{\"range\":{},\"newText\":\"{}\"}}",
+                            range_json(Some(span)),
+                            escape_json(new_name)
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",");
+                format!("\"{}\":[{}]", escape_json(&uri), edits)
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        format!("{{\"changes\":{{{changes}}}}}")
+    }
+
+    fn references_in_file(&self, file: &LspFile, symbol: &FunctionSymbol) -> Vec<SourceSpan> {
+        if file.module == symbol.module {
+            return call_references(&file.source, &symbol.name);
+        }
+        if file.uses.contains(&symbol.module)
+            && file
+                .companion_target_module
+                .as_ref()
+                .is_some_and(|target| target == &symbol.module)
+        {
+            return qualified_references(&file.source, &symbol.module, &symbol.name);
+        }
+        Vec::new()
+    }
+}
+
+fn uri_for_span(files: &[LspFile], span: &SourceSpan) -> String {
+    files
+        .iter()
+        .find(|file| file.source.path() == &span.file)
+        .map(|file| file.uri.clone())
+        .unwrap_or_else(|| span.file.as_str().to_string())
+}
+
+fn function_declarations(file: &LspFile) -> Vec<FunctionSymbol> {
+    let mut functions = Vec::new();
+    let mut line_start = 0;
+    for line in file.source.text().split_inclusive('\n') {
+        let trimmed = line.trim_start();
+        let leading = line.len() - trimmed.len();
+        let head = trimmed.strip_prefix("fn ");
+        if let Some(rest) = head
+            && let Some(name) = leading_identifier(rest)
+        {
+            let start = line_start + leading + "fn ".len();
+            let end = start + name.len();
+            functions.push(FunctionSymbol {
+                module: file.module.clone(),
+                name: name.to_string(),
+                declaration: file.source.span(TextRange::new(start, end)),
+            });
+        }
+        line_start += line.len();
+    }
+    functions
+}
+
+fn call_references(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
+    identifier_occurrences(source, name)
+        .into_iter()
+        .filter(|span| following_non_space(source.text(), span.end.offset) == Some('('))
+        .collect()
+}
+
+fn qualified_references(source: &SourceFile, module: &str, name: &str) -> Vec<SourceSpan> {
+    let needle = format!("{module}::{name}");
+    let mut spans = Vec::new();
+    let mut start = 0;
+    while let Some(relative) = source.text()[start..].find(&needle) {
+        let qualified_start = start + relative;
+        let name_start = qualified_start + module.len() + "::".len();
+        let name_end = name_start + name.len();
+        if identifier_boundary(source.text(), qualified_start, name_end)
+            && following_non_space(source.text(), name_end) == Some('(')
+        {
+            spans.push(source.span(TextRange::new(name_start, name_end)));
+        }
+        start = name_end;
+    }
+    spans
+}
+
+fn identifier_occurrences(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
+    let mut spans = Vec::new();
+    let mut start = 0;
+    while let Some(relative) = source.text()[start..].find(name) {
+        let name_start = start + relative;
+        let name_end = name_start + name.len();
+        if identifier_boundary(source.text(), name_start, name_end) {
+            spans.push(source.span(TextRange::new(name_start, name_end)));
+        }
+        start = name_end;
+    }
+    spans
+}
+
+fn explicit_module_name(text: &str) -> Option<String> {
+    text.lines().find_map(|line| {
+        let rest = line.trim_start().strip_prefix("mod ")?;
+        leading_module_path(rest).map(str::to_string)
+    })
+}
+
+fn module_name_from_path(path: &str) -> Option<String> {
+    Some(path.strip_suffix(".veln")?.replace('/', "::"))
+}
+
+fn use_modules(text: &str) -> BTreeSet<String> {
+    text.lines()
+        .filter_map(|line| {
+            let rest = line.trim_start().strip_prefix("use ")?;
+            leading_module_path(rest).map(str::to_string)
+        })
+        .collect()
+}
+
+fn leading_identifier(input: &str) -> Option<&str> {
+    let end = input
+        .char_indices()
+        .take_while(|(_, ch)| is_identifier_char(*ch))
+        .map(|(index, ch)| index + ch.len_utf8())
+        .last()?;
+    Some(&input[..end])
+}
+
+fn leading_module_path(input: &str) -> Option<&str> {
+    let end = input
+        .char_indices()
+        .take_while(|(_, ch)| is_identifier_char(*ch) || *ch == ':')
+        .map(|(index, ch)| index + ch.len_utf8())
+        .last()?;
+    Some(&input[..end])
+}
+
+fn identifier_span_at(source: &SourceFile, offset: usize) -> Option<SourceSpan> {
+    let text = source.text();
+    let start = text[..offset]
+        .char_indices()
+        .rev()
+        .find(|(_, ch)| !is_identifier_char(*ch))
+        .map(|(index, ch)| index + ch.len_utf8())
+        .unwrap_or(0);
+    let end = text[offset..]
+        .char_indices()
+        .find(|(_, ch)| !is_identifier_char(*ch))
+        .map(|(index, _)| offset + index)
+        .unwrap_or(text.len());
+    (start < end).then(|| source.span(TextRange::new(start, end)))
+}
+
+fn qualifier_before(text: &str, name_start: usize) -> Option<String> {
+    let before = text.get(..name_start)?;
+    let qualifier_end = before.strip_suffix("::")?.len();
+    let qualifier_start = before[..qualifier_end]
+        .char_indices()
+        .rev()
+        .find(|(_, ch)| !is_identifier_char(*ch) && *ch != ':')
+        .map(|(index, ch)| index + ch.len_utf8())
+        .unwrap_or(0);
+    Some(before[qualifier_start..qualifier_end].to_string())
+}
+
+fn following_non_space(text: &str, offset: usize) -> Option<char> {
+    text[offset..].chars().find(|ch| !ch.is_whitespace())
+}
+
+fn identifier_boundary(text: &str, start: usize, end: usize) -> bool {
+    let before = text[..start].chars().next_back();
+    let after = text[end..].chars().next();
+    before.is_none_or(|ch| !is_identifier_char(ch))
+        && after.is_none_or(|ch| !is_identifier_char(ch))
+}
+
+fn is_identifier(value: &str) -> bool {
+    let mut chars = value.chars();
+    chars.next().is_some_and(is_identifier_start) && chars.all(is_identifier_char)
+}
+
+fn is_identifier_start(ch: char) -> bool {
+    ch == '_' || ch.is_ascii_alphabetic()
+}
+
+fn is_identifier_char(ch: char) -> bool {
+    is_identifier_start(ch) || ch.is_ascii_digit()
+}
+
+fn offset_for_position(text: &str, position: Position) -> Option<usize> {
+    let line_start = line_start_offset(text, position.line)?;
+    let line = text[line_start..]
+        .split_once('\n')
+        .map_or(&text[line_start..], |(line, _)| line);
+    let offset = line
+        .char_indices()
+        .nth(position.character)
+        .map(|(index, _)| line_start + index)
+        .unwrap_or(line_start + line.len());
+    Some(offset)
+}
+
+fn line_start_offset(text: &str, zero_based_line: usize) -> Option<usize> {
+    if zero_based_line == 0 {
+        return Some(0);
+    }
+    let mut line = 0;
+    for (index, ch) in text.char_indices() {
+        if ch == '\n' {
+            line += 1;
+            if line == zero_based_line {
+                return Some(index + 1);
+            }
+        }
+    }
+    None
+}
+
 fn path_to_uri(path: &Path) -> String {
     let path = path.to_string_lossy().replace('\\', "/");
     format!("file://{}", percent_encode_uri_path(&path))
@@ -540,6 +964,26 @@ fn extract_id(message: &str) -> Option<String> {
             .unwrap_or(after_colon.len());
         Some(after_colon[..end].to_string())
     }
+}
+
+fn extract_position(message: &str) -> Option<Position> {
+    let position_index = message.find("\"position\"")?;
+    let position = &message[position_index..];
+    Some(Position {
+        line: extract_usize_field(position, "line")?,
+        character: extract_usize_field(position, "character")?,
+    })
+}
+
+fn extract_usize_field(message: &str, field: &str) -> Option<usize> {
+    let key = format!("\"{field}\"");
+    let index = message.find(&key)?;
+    let after_key = &message[index + key.len()..];
+    let after_colon = after_key[after_key.find(':')? + 1..].trim_start();
+    let end = after_colon
+        .find(|ch: char| !ch.is_ascii_digit())
+        .unwrap_or(after_colon.len());
+    after_colon[..end].parse().ok()
 }
 
 fn extract_string_field(message: &str, field: &str) -> Option<String> {
@@ -678,6 +1122,8 @@ mod tests {
         ));
 
         assert!(responses[0].contains(r#""semanticTokensProvider""#));
+        assert!(responses[0].contains(r#""definitionProvider":true"#));
+        assert!(responses[0].contains(r#""renameProvider":{"prepareProvider":true}"#));
         assert!(responses[0].contains(r#""tokenTypes":["namespace","type""#));
         assert_eq!(
             server.workspace_roots.as_slice(),
@@ -967,6 +1413,159 @@ mod tests {
     }
 
     #[test]
+    fn companion_private_function_definition_returns_target_declaration() {
+        let mut server = Server::default();
+        let project = companion_private_function_project("definition");
+        let root_uri = path_to_uri(&project.root);
+        let math_uri = path_to_uri(&project.root.join("math.veln"));
+        let companion_uri = path_to_uri(&project.root.join("math.test.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&definition_request(&companion_uri, 7, 10));
+
+        assert_eq!(responses.len(), 1);
+        assert!(responses[0].contains(&format!(r#""uri":"{}""#, escape_json(&math_uri))));
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":0,"character":3},"end":{"line":0,"character":12}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
+    fn companion_private_function_prepare_rename_returns_reference_leaf() {
+        let mut server = Server::default();
+        let project = companion_private_function_project("prepare-rename");
+        let root_uri = path_to_uri(&project.root);
+        let companion_uri = path_to_uri(&project.root.join("math.test.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&prepare_rename_request(&companion_uri, 7, 10));
+
+        assert_eq!(responses.len(), 1);
+        assert!(
+            responses[0].contains(
+                r#""result":{"start":{"line":7,"character":8},"end":{"line":7,"character":17}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
+    fn companion_private_function_rename_edits_target_and_matching_companion_references() {
+        let mut server = Server::default();
+        let project = companion_private_function_project("rename");
+        let root_uri = path_to_uri(&project.root);
+        let math_uri = path_to_uri(&project.root.join("math.veln"));
+        let companion_uri = path_to_uri(&project.root.join("math.test.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&rename_request(&companion_uri, 7, 10, "advance"));
+
+        assert_eq!(responses.len(), 1);
+        assert!(
+            responses[0].contains(&format!(r#""{}":["#, escape_json(&math_uri))),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            responses[0].contains(&format!(r#""{}":["#, escape_json(&companion_uri))),
+            "{}",
+            responses[0]
+        );
+        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 3);
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":1,"character":2},"end":{"line":1,"character":11}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":11,"character":2"#),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
+    fn companion_private_function_lsp_rejects_other_private_boundaries() {
+        let mut server = Server::default();
+        let project = TempProject::new("rejected-private-boundaries");
+        project.write(
+            "math.veln",
+            "use support\n\nfn increment(value: Int) -> Int\n  value + 1\nend\n",
+        );
+        project.write(
+            "support.veln",
+            "fn private_helper(value: Int) -> Int\n  value\nend\n",
+        );
+        project.write(
+            "other.test.veln",
+            "use math\n\ntest wrong() -> Int\n  math::increment(1)\nend\n",
+        );
+        project.write(
+            "math_test.veln",
+            "use math\n\ntest integration() -> Int\n  math::increment(1)\nend\n",
+        );
+        project.write(
+            "math.test.veln",
+            "use support\n\ntest transitive() -> Int\n  support::private_helper(1)\nend\n",
+        );
+        let root_uri = path_to_uri(&project.root);
+        server.handle_message(&initialize_request(&root_uri));
+
+        let wrong_uri = path_to_uri(&project.root.join("other.test.veln"));
+        let integration_uri = path_to_uri(&project.root.join("math_test.veln"));
+        let companion_uri = path_to_uri(&project.root.join("math.test.veln"));
+
+        let wrong = server.handle_message(&definition_request(&wrong_uri, 3, 10));
+        let integration = server.handle_message(&definition_request(&integration_uri, 3, 10));
+        let transitive = server.handle_message(&definition_request(&companion_uri, 3, 13));
+
+        assert!(wrong[0].contains(r#""result":null"#), "{}", wrong[0]);
+        assert!(
+            integration[0].contains(r#""result":null"#),
+            "{}",
+            integration[0]
+        );
+        assert!(
+            transitive[0].contains(r#""result":null"#),
+            "{}",
+            transitive[0]
+        );
+    }
+
+    #[test]
+    fn companion_private_function_definition_uses_open_document_overlay() {
+        let mut server = Server::default();
+        let project = companion_private_function_project("definition-overlay");
+        let root_uri = path_to_uri(&project.root);
+        let math_uri = path_to_uri(&project.root.join("math.veln"));
+        let companion_uri = path_to_uri(&project.root.join("math.test.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+        server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{math_uri}","text":"fn bump(value: Int) -> Int\n  value + 1\nend\n"}}}}}}"#
+        ));
+        server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{companion_uri}","text":"use math\n\ntest bump_test() -> Int\n  math::bump(1)\nend\n"}}}}}}"#
+        ));
+
+        let responses = server.handle_message(&definition_request(&companion_uri, 3, 10));
+
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":0,"character":3},"end":{"line":0,"character":7}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
     fn server_returns_full_semantic_tokens_for_open_document() {
         let mut server = Server::default();
         server.handle_message(
@@ -1081,6 +1680,61 @@ mod tests {
             })
             .map(String::as_str)
             .unwrap_or_else(|| panic!("expected publish diagnostics for {uri}: {responses:#?}"))
+    }
+
+    fn companion_private_function_project(name: &str) -> TempProject {
+        let project = TempProject::new(name);
+        project.write(
+            "math.veln",
+            concat!(
+                "fn increment(value: Int) -> Int\n",
+                "  increment(value - 1)\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "math.test.veln",
+            concat!(
+                "use math\n",
+                "\n",
+                "fn increment(value: Int) -> Int\n",
+                "  value\n",
+                "end\n",
+                "\n",
+                "test increment_test() -> Int\n",
+                "  math::increment(1)\n",
+                "end\n",
+                "\n",
+                "test local_increment_test() -> Int\n",
+                "  increment(1)\n",
+                "end\n",
+            ),
+        );
+        project
+    }
+
+    fn initialize_request(root_uri: &str) -> String {
+        format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"rootUri":"{root_uri}"}}}}"#
+        )
+    }
+
+    fn definition_request(uri: &str, line: usize, character: usize) -> String {
+        format!(
+            r#"{{"jsonrpc":"2.0","id":2,"method":"textDocument/definition","params":{{"textDocument":{{"uri":"{uri}"}},"position":{{"line":{line},"character":{character}}}}}}}"#
+        )
+    }
+
+    fn prepare_rename_request(uri: &str, line: usize, character: usize) -> String {
+        format!(
+            r#"{{"jsonrpc":"2.0","id":2,"method":"textDocument/prepareRename","params":{{"textDocument":{{"uri":"{uri}"}},"position":{{"line":{line},"character":{character}}}}}}}"#
+        )
+    }
+
+    fn rename_request(uri: &str, line: usize, character: usize, new_name: &str) -> String {
+        format!(
+            r#"{{"jsonrpc":"2.0","id":2,"method":"textDocument/rename","params":{{"textDocument":{{"uri":"{uri}"}},"position":{{"line":{line},"character":{character}}},"newName":"{new_name}"}}}}"#
+        )
     }
 
     struct TempProject {

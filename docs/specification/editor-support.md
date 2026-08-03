@@ -1,3 +1,7 @@
+---
+review-when: The documented editor-facing behavior or its LSP server evidence changes.
+---
+
 # Editor Support
 
 This page specifies implemented editor-facing classification. It covers the
@@ -10,6 +14,9 @@ used by editor integrations.
 - Editor-neutral semantic records come from `veln-editor`.
 - LSP `textDocument/semanticTokens/full` integer data comes from `veln-lsp`.
 - LSP `textDocument/publishDiagnostics` messages come from `veln-lsp`.
+- LSP `textDocument/definition`, `textDocument/prepareRename`, and
+  `textDocument/rename` handle the implemented companion private-function
+  identity case in `veln-lsp`.
 - The stdio LSP server starts through `veln lsp`.
 - TextMate fallback highlighting is contributed by
   `editors/vscode/syntaxes/veln.tmLanguage.json`.
@@ -63,11 +70,13 @@ The only Veln-specific semantic token modifiers are `test`, `result`, and
 ## LSP Encoding
 
 `veln-lsp` exposes the semantic-token legend, full-token response data, and a
-stdio JSON-RPC server. The server advertises `textDocumentSync` and
+stdio JSON-RPC server. The server advertises `textDocumentSync`,
+`definitionProvider`, `renameProvider.prepareProvider`, and
 `semanticTokensProvider` with full-document semantic token support. It handles
 `initialize`, `initialized`, `shutdown`, `exit`, `textDocument/didOpen`,
-`textDocument/didChange`, `textDocument/didClose`, and
-`textDocument/semanticTokens/full`.
+`textDocument/didChange`, `textDocument/didClose`,
+`textDocument/semanticTokens/full`, `textDocument/definition`,
+`textDocument/prepareRename`, and `textDocument/rename`.
 
 The full response uses LSP relative integer encoding in groups of five:
 
@@ -108,6 +117,28 @@ Published diagnostics use standard LSP severity numbers and zero-based ranges.
 The diagnostic `code` is the Veln diagnostic id, and the diagnostic `source` is
 `veln`.
 
+## LSP Definition And Rename
+
+For a private target function reference written as `target::name` from the
+exact `.test.veln` companion, `textDocument/definition` returns the private
+function declaration location in the target `.veln` source when the companion
+writes an explicit `use` for that target. `textDocument/prepareRename` returns
+the selected function-name range for the same accepted identity.
+
+`textDocument/rename` for that identity returns workspace edits for the target
+function declaration, valid call references in the target source, and valid
+qualified references in the exact matching companion. A same-named
+companion-local declaration or bare companion reference is a different symbol
+and is not edited. Wrong companions, `_test.veln` integration modules, and
+references through a target dependency do not receive private-function
+definition or rename results.
+
+Definition and rename use the same open-document overlays as workspace
+diagnostics. Unsaved target or companion text can provide the declaration and
+reference locations used in the response. The checked evidence is in the
+`veln-lsp` server tests for companion private-function definition, prepare
+rename, rename edits, rejected boundaries, and open-document overlays.
+
 ## VSCode Integration
 
 The VSCode extension contributes the `veln` language, the TextMate grammar,
@@ -146,6 +177,8 @@ Implemented:
 - Editor-neutral semantic token records.
 - Full semantic-token legend and integer data generation for LSP clients.
 - Stdio JSON-RPC lifecycle for semantic highlighting requests.
+- Stdio definition, prepare-rename, and rename responses for exact companion
+  qualified private-function references.
 - Stdio diagnostic publication for discovered workspace Veln files across
   resolved workspace roots, including unopened files, with unsaved open
   document overlays.
@@ -155,9 +188,12 @@ Implemented:
   command.
 - VSCode Problems pane integration for Veln diagnostics.
 - Rust tests for collector classification, LSP relative encoding, ordering, and
-  overlap handling, and server initialize/full-token/diagnostic responses.
+  overlap handling, and server initialize/full-token/diagnostic/navigation
+  responses.
 
 Not implemented:
 
 - LSP range and delta semantic token requests.
-- Completion, hover, rename, and go to definition.
+- Completion and hover.
+- General rename and go-to-definition support outside the implemented
+  companion private-function identity case.
