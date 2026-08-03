@@ -29,6 +29,7 @@ pub(crate) struct TypeEnvironment {
     pub(crate) uses: Vec<UseDecl>,
     pub(crate) adts: AdtRegistry,
     companion_function_access_targets: BTreeMap<String, String>,
+    companion_schema_access_targets: BTreeMap<String, String>,
 }
 
 #[derive(Clone)]
@@ -224,6 +225,7 @@ impl TypeEnvironment {
             uses: module.uses.clone(),
             adts,
             companion_function_access_targets: companion_function_access_targets(module),
+            companion_schema_access_targets: companion_access_targets(module),
         }
     }
 
@@ -430,13 +432,18 @@ impl TypeEnvironment {
             current_module,
             &self.uses,
             true,
+            &self.companion_schema_access_targets,
             &mut Vec::new(),
         )?;
         let helper_name = schema_decode_step_function_name(&schema.name);
         self.functions.iter().find(|function| {
             function.name == helper_name
                 && function.module_name == schema.module_name
-                && self.symbol_is_visible(*function, schema.module_name.as_deref(), current_module)
+                && self.schema_helper_is_visible(
+                    function.visibility,
+                    schema.module_name.as_deref(),
+                    current_module,
+                )
         })
     }
 
@@ -450,13 +457,18 @@ impl TypeEnvironment {
             current_module,
             &self.uses,
             true,
+            &self.companion_schema_access_targets,
             &mut Vec::new(),
         )?;
         let helper_name = schema_encode_function_name(&schema.name);
         self.functions.iter().find(|function| {
             function.name == helper_name
                 && function.module_name == schema.module_name
-                && self.symbol_is_visible(*function, schema.module_name.as_deref(), current_module)
+                && self.schema_helper_is_visible(
+                    function.visibility,
+                    schema.module_name.as_deref(),
+                    current_module,
+                )
         })
     }
 
@@ -470,6 +482,7 @@ impl TypeEnvironment {
             current_module,
             &self.uses,
             true,
+            &self.companion_schema_access_targets,
             &mut Vec::new(),
         )?;
         let field = schema.unsupported_format_neutral_encode_field.clone()?;
@@ -485,10 +498,12 @@ impl TypeEnvironment {
         schema_path: &[String],
         current_module: Option<&str>,
     ) -> SchemaReferenceError {
-        if self
-            .schema_symbols
-            .private_schema(schema_path, current_module, &self.uses)
-        {
+        if self.schema_symbols.private_schema(
+            schema_path,
+            current_module,
+            &self.uses,
+            &self.companion_schema_access_targets,
+        ) {
             return SchemaReferenceError {
                 kind: SchemaReferenceErrorKind::Private,
                 resolved_kind: Some("schema"),
@@ -517,6 +532,16 @@ impl TypeEnvironment {
             kind: SchemaReferenceErrorKind::Unresolved,
             resolved_kind: None,
         }
+    }
+
+    pub(crate) fn companion_schema_access_target(
+        &self,
+        current_module: Option<&str>,
+    ) -> Option<&str> {
+        let current_module = current_module?;
+        self.companion_schema_access_targets
+            .get(current_module)
+            .map(String::as_str)
     }
 
     fn wrong_schema_reference_kind(
@@ -575,6 +600,23 @@ impl TypeEnvironment {
         current_module: Option<&str>,
     ) -> bool {
         module_name == current_module || symbol.visibility() == Visibility::Public
+    }
+
+    fn schema_helper_is_visible(
+        &self,
+        visibility: Visibility,
+        schema_module: Option<&str>,
+        current_module: Option<&str>,
+    ) -> bool {
+        schema_module == current_module
+            || visibility == Visibility::Public
+            || current_module.is_some_and(|current_module| {
+                schema_module.is_some_and(|schema_module| {
+                    self.companion_schema_access_targets
+                        .get(current_module)
+                        .is_some_and(|allowed_target| allowed_target == schema_module)
+                })
+            })
     }
 
     fn imported_codec_helper_is_hidden(
@@ -3118,6 +3160,7 @@ fn schema_reference<'a>(
     allow_private_local_schema: bool,
     visited_aliases: &mut Vec<(Option<String>, String)>,
 ) -> Option<&'a SchemaDecl> {
+    let companion_access_targets = companion_access_targets(module);
     match segments {
         [name] => schema_in_module(
             module,
@@ -3132,7 +3175,17 @@ fn schema_reference<'a>(
                 &segments[..segments.len() - 1],
                 current_module,
             )?;
-            schema_in_module(module, Some(&use_decl.name), name, false, visited_aliases)
+            schema_in_module(
+                module,
+                Some(&use_decl.name),
+                name,
+                companion_private_schema_access_allowed(
+                    use_decl,
+                    current_module,
+                    &companion_access_targets,
+                ),
+                visited_aliases,
+            )
         }
         _ => None,
     }
@@ -5706,9 +5759,16 @@ impl SchemaSymbolTable {
         segments: &[String],
         current_module: Option<&str>,
         uses: &[UseDecl],
+        companion_access_targets: &BTreeMap<String, String>,
     ) -> bool {
-        self.schema_path(segments, current_module, uses, true, &mut Vec::new())
-            == SchemaPathLookup::Private
+        self.schema_path(
+            segments,
+            current_module,
+            uses,
+            true,
+            companion_access_targets,
+            &mut Vec::new(),
+        ) == SchemaPathLookup::Private
     }
 
     fn schema_alias_target(
@@ -5749,6 +5809,7 @@ impl SchemaSymbolTable {
         current_module: Option<&str>,
         uses: &[UseDecl],
         allow_private_local_schema: bool,
+        companion_access_targets: &BTreeMap<String, String>,
         visited_aliases: &mut Vec<(Option<String>, String)>,
     ) -> Option<ResolvedSchemaSymbol> {
         match segments {
@@ -5757,6 +5818,7 @@ impl SchemaSymbolTable {
                 name,
                 allow_private_local_schema,
                 uses,
+                companion_access_targets,
                 visited_aliases,
             ),
             [_, .., name] => {
@@ -5765,8 +5827,13 @@ impl SchemaSymbolTable {
                 self.schema_target_in_module(
                     Some(&use_decl.name),
                     name,
-                    false,
+                    companion_private_schema_access_allowed(
+                        use_decl,
+                        current_module,
+                        companion_access_targets,
+                    ),
                     uses,
+                    companion_access_targets,
                     visited_aliases,
                 )
             }
@@ -5780,6 +5847,7 @@ impl SchemaSymbolTable {
         name: &str,
         allow_private_schema: bool,
         uses: &[UseDecl],
+        companion_access_targets: &BTreeMap<String, String>,
         visited_aliases: &mut Vec<(Option<String>, String)>,
     ) -> Option<ResolvedSchemaSymbol> {
         if let Some(schema) = self
@@ -5812,6 +5880,7 @@ impl SchemaSymbolTable {
             alias.module_name.as_deref(),
             uses,
             false,
+            companion_access_targets,
             visited_aliases,
         );
         visited_aliases.pop();
@@ -5824,6 +5893,7 @@ impl SchemaSymbolTable {
         current_module: Option<&str>,
         uses: &[UseDecl],
         allow_private_local_schema: bool,
+        companion_access_targets: &BTreeMap<String, String>,
         visited_aliases: &mut Vec<(Option<String>, String)>,
     ) -> SchemaPathLookup {
         match segments {
@@ -5832,6 +5902,7 @@ impl SchemaSymbolTable {
                 name,
                 allow_private_local_schema,
                 uses,
+                companion_access_targets,
                 visited_aliases,
             ),
             [_, .., name] => {
@@ -5840,7 +5911,18 @@ impl SchemaSymbolTable {
                 else {
                     return SchemaPathLookup::Missing;
                 };
-                self.schema_in_module(Some(&use_decl.name), name, false, uses, visited_aliases)
+                self.schema_in_module(
+                    Some(&use_decl.name),
+                    name,
+                    companion_private_schema_access_allowed(
+                        use_decl,
+                        current_module,
+                        companion_access_targets,
+                    ),
+                    uses,
+                    companion_access_targets,
+                    visited_aliases,
+                )
             }
             _ => SchemaPathLookup::Missing,
         }
@@ -5852,6 +5934,7 @@ impl SchemaSymbolTable {
         name: &str,
         allow_private_schema: bool,
         uses: &[UseDecl],
+        companion_access_targets: &BTreeMap<String, String>,
         visited_aliases: &mut Vec<(Option<String>, String)>,
     ) -> SchemaPathLookup {
         if let Some(schema) = self
@@ -5882,6 +5965,7 @@ impl SchemaSymbolTable {
             alias.module_name.as_deref(),
             uses,
             false,
+            companion_access_targets,
             visited_aliases,
         );
         visited_aliases.pop();
@@ -6600,6 +6684,42 @@ fn imported_effects_are_visible(
                         .get(current_module)
                         .is_some_and(|allowed| allowed == target_module)
             }))
+}
+
+fn companion_private_schema_access_allowed(
+    use_decl: &UseDecl,
+    current_module: Option<&str>,
+    companion_access_targets: &BTreeMap<String, String>,
+) -> bool {
+    use_decl.package.is_none()
+        && current_module.is_some_and(|current_module| {
+            companion_access_targets
+                .get(current_module)
+                .is_some_and(|allowed| allowed == use_decl.name.as_str())
+        })
+}
+
+fn companion_access_targets(module: &SurfaceModule) -> BTreeMap<String, String> {
+    module
+        .functions
+        .iter()
+        .filter_map(|function| {
+            companion_access_target(function.span.file.as_str(), function.module_name.as_deref())
+        })
+        .chain(module.schemas.iter().filter_map(|schema| {
+            companion_access_target(schema.span.file.as_str(), schema.module_name.as_deref())
+        }))
+        .collect()
+}
+
+fn companion_access_target(path: &str, module_name: Option<&str>) -> Option<(String, String)> {
+    let companion = classify_companion_source(path)?;
+    let companion_module = module_name?.to_string();
+    let target_module = companion
+        .target_path
+        .strip_suffix(".veln")?
+        .replace('/', "::");
+    Some((companion_module, target_module))
 }
 
 fn companion_function_access_targets(module: &SurfaceModule) -> BTreeMap<String, String> {

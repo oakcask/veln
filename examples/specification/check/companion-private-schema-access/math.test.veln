@@ -1,0 +1,20 @@
+use math
+
+schema CompanionEnvelope
+	format binary
+
+	packet: math::Packet
+	trailer: UInt8
+end
+
+fn decode_private_packet(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int, kind: Int}>
+	decode math::Packet from view at base
+end
+
+fn encode_private_packet(packet: {length: Int, kind: Int}) -> Result<ByteChunk, EncodeError>
+	encode math::Packet from packet
+end
+
+fn decode_companion_envelope(view: ByteView, base: ByteOffset) -> DecodeStep<{packet: {length: Int, kind: Int}, trailer: Int}>
+	decode CompanionEnvelope from view at base
+end

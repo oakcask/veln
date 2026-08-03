@@ -3145,6 +3145,195 @@ fn explicit_schema_decode_expression_reports_unresolved_private_and_wrong_kind_s
 }
 
 #[test]
+fn matching_companion_resolves_private_target_schema_operations_and_composition() {
+    let companion_source = SourceFile::new(
+        "math.test.veln",
+        concat!(
+            "mod math__test_companion\n",
+            "use math\n",
+            "schema Wrapped\n",
+            "  format binary\n",
+            "\n",
+            "  packet: math::Packet\n",
+            "end\n",
+            "fn companion_uses_private_schema(view: ByteView, offset: ByteOffset, value: {length: Int}) -> ()\n",
+            "  let decoded: DecodeStep<{length: Int}> = decode math::Packet from view at offset\n",
+            "  let encoded: Result<ByteChunk, EncodeError> = encode math::Packet from value\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let target_source = SourceFile::new(
+        "math.veln",
+        concat!(
+            "mod math\n",
+            "schema Packet\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "end\n",
+        ),
+    );
+    let companion = lower_surface_ast(&parse(&companion_source).tree);
+    let target = lower_surface_ast(&parse(&target_source).tree);
+    let module = SurfaceModule {
+        module: companion.module,
+        uses: companion.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        types: Vec::new(),
+        schemas: companion
+            .schemas
+            .into_iter()
+            .chain(target.schemas)
+            .collect(),
+        codecs: Vec::new(),
+        functions: companion.functions,
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+}
+
+#[test]
+fn companion_private_target_schema_access_preserves_boundaries() {
+    for (companion_path, companion_text, expected_message) in [
+        (
+            "math.test.veln",
+            concat!(
+                "mod math__test_companion\n",
+                "fn missing_import(view: ByteView, offset: ByteOffset) -> ()\n",
+                "  let decoded: DecodeStep<{length: Int}> = decode math::Packet from view at offset\n",
+                "  ()\n",
+                "end\n",
+            ),
+            "schema decode expression cannot resolve `math::Packet` as an eligible binary schema",
+        ),
+        (
+            "math.test.veln",
+            concat!(
+                "mod math__test_companion\n",
+                "use math\n",
+                "fn bare_name(view: ByteView, offset: ByteOffset) -> ()\n",
+                "  let decoded: DecodeStep<{length: Int}> = decode Packet from view at offset\n",
+                "  ()\n",
+                "end\n",
+            ),
+            "schema decode expression cannot resolve `Packet` as an eligible binary schema",
+        ),
+        (
+            "other.test.veln",
+            concat!(
+                "mod other__test_companion\n",
+                "use math\n",
+                "fn wrong_target(view: ByteView, offset: ByteOffset) -> ()\n",
+                "  let decoded: DecodeStep<{length: Int}> = decode math::Packet from view at offset\n",
+                "  ()\n",
+                "end\n",
+            ),
+            "schema decode expression schema `math::Packet` is private",
+        ),
+        (
+            "math_test.veln",
+            concat!(
+                "mod math_test\n",
+                "use math\n",
+                "fn integration(view: ByteView, offset: ByteOffset) -> ()\n",
+                "  let decoded: DecodeStep<{length: Int}> = decode math::Packet from view at offset\n",
+                "  ()\n",
+                "end\n",
+            ),
+            "schema decode expression schema `math::Packet` is private",
+        ),
+        (
+            "math.test.veln",
+            concat!(
+                "mod math__test_companion\n",
+                "use support\n",
+                "fn non_transitive(view: ByteView, offset: ByteOffset) -> ()\n",
+                "  let decoded: DecodeStep<{length: Int}> = decode support::Packet from view at offset\n",
+                "  ()\n",
+                "end\n",
+            ),
+            "schema decode expression schema `support::Packet` is private",
+        ),
+    ] {
+        let companion_source = SourceFile::new(companion_path, companion_text);
+        let target_source = SourceFile::new(
+            "math.veln",
+            concat!(
+                "mod math\n",
+                "use support\n",
+                "schema Packet\n",
+                "  format binary\n",
+                "\n",
+                "  length: UInt8\n",
+                "end\n",
+            ),
+        );
+        let support_source = SourceFile::new(
+            "support.veln",
+            concat!(
+                "mod support\n",
+                "schema Packet\n",
+                "  format binary\n",
+                "\n",
+                "  length: UInt8\n",
+                "end\n",
+            ),
+        );
+        let companion = lower_surface_ast(&parse(&companion_source).tree);
+        let target = lower_surface_ast(&parse(&target_source).tree);
+        let support = lower_surface_ast(&parse(&support_source).tree);
+        let module = SurfaceModule {
+            module: companion.module,
+            uses: companion.uses.into_iter().chain(target.uses).collect(),
+            aliases: Vec::new(),
+            effects: Vec::new(),
+            handlers: Vec::new(),
+            types: Vec::new(),
+            schemas: target.schemas.into_iter().chain(support.schemas).collect(),
+            codecs: Vec::new(),
+            functions: companion.functions,
+        };
+
+        let lowered = lower_checked_surface_module(&module);
+
+        let diagnostic = lowered
+            .diagnostics
+            .iter()
+            .find(|diagnostic| {
+                diagnostic.id == "schema.decode_expression"
+                    && diagnostic.message == expected_message
+            })
+            .unwrap_or_else(|| panic!("{:#?}", lowered.diagnostics));
+        if matches!(companion_path, "other.test.veln" | "math.test.veln")
+            && expected_message.contains(" is private")
+        {
+            let details = diagnostic.details.to_json();
+            let expected_target = if companion_path == "other.test.veln" {
+                "other"
+            } else {
+                "math"
+            };
+            assert!(
+                details.contains(&format!(
+                    "\"companion_target_module\":\"{expected_target}\""
+                )),
+                "{details}"
+            );
+            assert!(diagnostic.related.iter().any(|related| {
+                let related = related.to_json();
+                related.contains("\"kind\":\"companion_target\"")
+                    && related.contains(&format!("`{expected_target}`"))
+            }));
+        }
+    }
+}
+
+#[test]
 fn generated_schema_decode_helpers_keep_schema_level_validation() {
     let source = SourceFile::new(
         "main.veln",

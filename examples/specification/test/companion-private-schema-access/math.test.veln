@@ -1,0 +1,20 @@
+use math
+
+fn encode_private_packet(packet: {length: Int, kind: Int}) -> Result<(), String>
+	match encode math::Packet from packet
+		Ok(_) => Ok(())
+		Err(_) => Err("encode failed")
+	end
+end
+
+test companion_decodes_and_encodes_private_schema() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("0503")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
+	let base: ByteOffset = byte_offset(0)?
+	let decoded: DecodeStep<{length: Int, kind: Int}> = decode math::Packet from view at base
+	match decoded
+		Decoded(packet, _) => encode_private_packet(packet)
+		NeedMore(_) => Err("decode needs more bytes")
+		Invalid(_) => Err("decode failed")
+	end
+end

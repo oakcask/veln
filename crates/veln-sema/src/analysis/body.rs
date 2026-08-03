@@ -1654,9 +1654,10 @@ impl<'a> FunctionChecker<'a> {
         } else {
             schema.join("::")
         };
+        let current_module = self.function.module_name.as_deref();
         let error = self
             .environment
-            .schema_reference_error(schema, self.function.module_name.as_deref());
+            .schema_reference_error(schema, current_module);
         let reason = match error.kind {
             SchemaReferenceErrorKind::Unresolved => "unresolved_schema",
             SchemaReferenceErrorKind::Private => "private_schema",
@@ -1690,14 +1691,41 @@ impl<'a> FunctionChecker<'a> {
         if let Some(kind) = error.resolved_kind {
             details.push(("resolved_kind", JsonValue::string(kind)));
         }
-        self.diagnostics.push(Diagnostic::new(
+        if error.kind == SchemaReferenceErrorKind::Private
+            && let Some(target_module) = self
+                .environment
+                .companion_schema_access_target(current_module)
+        {
+            if let Some(current_module) = current_module {
+                details.push(("companion_module", JsonValue::string(current_module)));
+            }
+            details.push(("companion_target_module", JsonValue::string(target_module)));
+        }
+        let mut diagnostic = Diagnostic::new(
             format!("schema.{operation}_expression"),
             Severity::Error,
             DiagnosticKind::Type,
             message,
             Some(expr.span.clone()),
             JsonValue::object(details),
-        ));
+        );
+        if error.kind == SchemaReferenceErrorKind::Private
+            && let Some(target_module) = self
+                .environment
+                .companion_schema_access_target(current_module)
+        {
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("companion_target")),
+                (
+                    "message",
+                    JsonValue::string(format!(
+                        "This test companion may access private schemas only from target module `{target_module}`."
+                    )),
+                ),
+                ("target_module", JsonValue::string(target_module)),
+            ]));
+        }
+        self.diagnostics.push(diagnostic);
     }
 
     pub(super) fn infer_name_path(

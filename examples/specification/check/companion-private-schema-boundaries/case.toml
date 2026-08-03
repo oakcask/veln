@@ -1,0 +1,13 @@
+command = ["check", "--json", "isolated.test.veln", "math.test.veln", "other.test.veln", "math_test.veln", "isolated.veln", "math.veln", "support.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["schema.decode_expression", "schema.composition_reference", "schema decode expression cannot resolve `isolated::Packet` as an eligible binary schema", "schema decode expression cannot resolve `Packet` as an eligible binary schema", "schema decode expression schema `math::Packet` is private", "schema decode expression schema `support::Packet` is private", "schema field `nested` cannot compose `math::Packet` because it resolves to a private imported schema", "\"reason\":\"private_schema\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

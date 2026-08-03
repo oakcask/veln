@@ -1,0 +1,9 @@
+command = ["check", "other.test.veln", "math.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[schema.decode_expression]: schema decode expression schema `math::Packet` is private", "error[schema.composition_reference]: schema field `nested` cannot compose `math::Packet` because it resolves to a private imported schema", "note: This test companion may access private schemas only from target module `other`."]
+
+[stderr]
+format = "empty"

@@ -1,0 +1,7 @@
+use support
+
+schema Packet
+	format binary
+
+	length: UInt8
+end
