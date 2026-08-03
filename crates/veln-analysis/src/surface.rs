@@ -408,7 +408,10 @@ fn is_toolchain_standard_project(project: &Project) -> bool {
     let mut actual = project
         .files
         .iter()
-        .filter(|source| !source.path().as_str().ends_with("_test.veln"))
+        .filter(|source| {
+            !source.path().as_str().ends_with("_test.veln")
+                && classify_companion_source(source.path().as_str()).is_none()
+        })
         .map(|source| (source.path().as_str(), source.text()))
         .collect::<Vec<_>>();
     let mut expected = bundle
@@ -2533,8 +2536,8 @@ mod tests {
 
     use veln_ast::{FunctionKind, SurfaceModule, UseOrigin, lower_surface_ast};
     use veln_project::{
-        ManifestExport, ManifestLib, ManifestTool, ManifestUnsupportedSection, Project,
-        ProjectManifest,
+        ManifestExport, ManifestField, ManifestLib, ManifestTool, ManifestUnsupportedSection,
+        Project, ProjectManifest,
     };
     use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan};
     use veln_syntax::parse;
@@ -2896,6 +2899,50 @@ mod tests {
                 .count(),
             1
         );
+    }
+
+    #[test]
+    fn toolchain_standard_project_allows_extra_companion_source() {
+        let bundle = veln_stdlib::package_bundle();
+        let mut files = bundle
+            .files
+            .iter()
+            .map(|file| SourceFile::new(file.path, file.text))
+            .collect::<Vec<_>>();
+        files.push(SourceFile::new(
+            "prelude.test.veln",
+            "test companion() -> ()\nend\n",
+        ));
+        let project = Project {
+            root: ".".into(),
+            files,
+            manifest: Some(ProjectManifest {
+                path: SourcePath::new("veln.toml"),
+                package: veln_project::ManifestPackage {
+                    fields: vec![ManifestField {
+                        key: "name".to_string(),
+                        value: veln_stdlib::PACKAGE_NAME.to_string(),
+                        key_span: span("veln.toml", 2, 1, 5),
+                        value_span: span("veln.toml", 2, 8, 13),
+                    }],
+                },
+                lib: ManifestLib {
+                    exports: bundle
+                        .exports
+                        .iter()
+                        .map(|export| ManifestExport {
+                            path: (*export).to_string(),
+                            path_span: span("veln.toml", 4, 1, 1 + export.len()),
+                        })
+                        .collect(),
+                },
+                dependencies: Vec::new(),
+                unsupported_sections: Vec::new(),
+                tools: Vec::new(),
+            }),
+        };
+
+        assert!(super::is_toolchain_standard_project(&project));
     }
 
     #[test]
