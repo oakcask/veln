@@ -9,15 +9,17 @@ Status: proposed
 ## Summary
 
 Extend the implemented `veln metrics` dependency graph, baseline-aware
-dependency-cycle policy check, advisory ABC size command, and baseline command
-forms with dependency pressure policy and exact whole-body similarity groups.
+dependency-cycle policy check, advisory ABC size command, baseline command
+forms, and exact whole-body similarity groups with dependency pressure policy
+and enforcement-graduation evidence.
 
 The command separates measurement from enforcement. The current implementation
 reports advisory module dependency metrics and advisory ABC size metrics. It
-can also enforce `deny_cycles = "true"` during `veln metrics --check`, with
-an explicit baseline when requested. Remaining work must add additional
-advisory or enforceable signals without turning maintainability metrics into
-language errors.
+also reports experimental exact whole-body similarity groups and can enforce
+`deny_cycles = "true"` during `veln metrics --check`, with an explicit
+baseline when requested. Remaining work must add additional advisory or
+enforceable signals without turning maintainability metrics into language
+errors.
 
 ## Motivation
 
@@ -74,8 +76,8 @@ The implemented advisory, baseline, and dependency-cycle check command forms are
 
 Generated project modules remain graph nodes because project-owned source can
 depend on them. Generated and doctest-derived declarations are excluded from
-ABC and future similarity subjects. JSON must continue to identify generated
-graph nodes so a consumer does not mistake them for hand-maintained modules.
+ABC and similarity subjects. JSON must continue to identify generated graph
+nodes so a consumer does not mistake them for hand-maintained modules.
 
 ## Modes And Exit Status
 

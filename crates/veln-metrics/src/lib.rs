@@ -1372,6 +1372,7 @@ pub fn render_human(report: &MetricsReport) -> String {
     }
     out.push_str("\nWhole-body similarity (experimental)\n");
     out.push_str("  Similarity is advisory; it never creates a metrics policy violation.\n");
+    out.push_str("  Review repeated bodies manually; the report does not prescribe automatic deduplication.\n");
     if report.similarities.is_empty() {
         out.push_str("  none\n");
     } else {
