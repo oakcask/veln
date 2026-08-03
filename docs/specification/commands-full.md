@@ -230,12 +230,25 @@ baseline implicitly. Unsupported baseline schema or metric model values are
 comparison errors. A baseline subject that no longer exists in the current
 report is reported as stale but does not by itself fail the check.
 
-Human report output begins with dependency metrics, then cycles, then ABC
-size, and then `Whole-body similarity (experimental)`. Each similarity
-instance names one primary declaration with its declaration and body source
-locations. The remaining declarations are related locations. Similarity output
-does not instruct maintainers to deduplicate code mechanically, and similarity
-never creates a policy violation under `--check`.
+Human report output begins with summary counts, then cycles, then module rows,
+then ABC size, and then `Whole-body similarity (experimental)`. Each
+similarity instance names one primary declaration with its declaration and body
+source locations. The remaining declarations are related locations.
+Similarity output does not instruct maintainers to deduplicate code
+mechanically, and similarity never creates a policy violation under `--check`.
+
+`[tool.metrics] max_findings = "N"` limits only detailed human-output findings
+after the canonical order used by the report. The default is `50`. The value
+must be a positive integer string representable in the metrics JSON number
+domain. Zero, malformed strings, values outside the implementation's integer
+range, and values outside that JSON number domain are manifest errors at the
+value span. The limit is shared by policy violations, cycles, module rows, ABC
+subjects, and whole-body similarity instances, in that order. Summary counts,
+section headings, policy status, baseline status, related lines for a displayed
+finding, JSON arrays, policy evaluation, and baseline content use the complete
+finding set. When human output is truncated, the final summary names the exact
+omitted count and identifies `veln metrics --json` as the complete evidence
+route.
 
 When `deny_cycles = "true"` is checked with a baseline, a current cycle is
 allowed only when its member set and cyclic edge set are subsets of one

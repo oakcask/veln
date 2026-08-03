@@ -1,0 +1,5 @@
+use app
+
+fn value() -> Int
+  1
+end

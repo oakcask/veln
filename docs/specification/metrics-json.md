@@ -22,10 +22,12 @@ policy enforcement. Omitted `deny_cycles` and `deny_cycles = "false"` leave no
 enforceable policy enabled and fail as a command configuration error without a
 clean check report. `[tool.metrics] similarity_min_tokens = "N"` sets the
 minimum normalized token count for experimental whole-body similarity. It
-defaults to `"60"` and must be a positive integer string. Any other
-`[tool.metrics]` field, a `deny_cycles` value other than `"true"` or
-`"false"`, or an invalid `similarity_min_tokens` value is a manifest command
-error at the field span.
+defaults to `"60"` and must be a positive integer string. `[tool.metrics]
+max_findings = "N"` sets the detailed human-output finding limit. It defaults
+to `"50"` and must be a positive integer string representable in the metrics
+JSON number domain. Any other `[tool.metrics]` field, a `deny_cycles` value
+other than `"true"` or `"false"`, an invalid `similarity_min_tokens` value, or
+an invalid `max_findings` value is a manifest command error at the field span.
 
 A successful check keeps the complete metrics report and adds `check.mode:
 "check"`, `check.enabled_policies`, `check.result: "pass"`, and an empty
@@ -68,7 +70,17 @@ The JSON document contains:
   fingerprint;
 - `summary`, with selected module, project module, internal edge, cycle,
   external dependency, ABC subject, ABC contract-subject, similarity
-  fingerprint, similarity instance, and similarity region counts.
+  fingerprint, similarity instance, and similarity region counts;
+- `human_output`, with `max_findings`, `total_findings`, `omitted_findings`,
+  and `truncated` for the corresponding human projection.
+
+`human_output.total_findings` counts detailed human-output findings in the
+canonical order: policy violations for checked reports, cycles, module rows,
+ABC subjects, and whole-body similarity instances. `human_output.omitted_findings`
+is the exact number omitted from the corresponding human projection. The
+report arrays remain complete when `human_output.truncated` is `true`.
+Baseline output does not include `human_output`, and baseline content is
+independent of the human-output limit.
 
 Each module record includes `module`, `path`, `generated`, `fan_in`,
 `fan_out`, `dependency_pressure`, `external_dependency_count`, and `span`.
@@ -137,6 +149,12 @@ Executable evidence:
   `check-invalid-policy-json`, and `check-unsupported-policy-json` cases check
   configuration and manifest policy failures that do not return a clean check
   report.
+- The metrics `human-output-truncated`,
+  `human-output-truncated-json`, `check-human-output-truncated`,
+  `check-human-output-truncated-json`, `invalid-max-findings-human`, and
+  `invalid-max-findings-json` cases check the shared human-output budget,
+  exact omitted counts, unchanged JSON evidence, failing checked status under
+  truncation, and invalid `max_findings` diagnostics.
 - The metrics `baseline-write` and `baseline-existing-file` cases check
   baseline generation, baseline file shape, and overwrite refusal.
 - The metrics `baseline-check-pass-json`,
