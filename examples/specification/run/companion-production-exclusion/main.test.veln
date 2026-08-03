@@ -1,0 +1,7 @@
+fn companion_only_static_error() -> Int
+	"not production"
+end
+
+test companion_is_not_production() -> ()
+	()
+end

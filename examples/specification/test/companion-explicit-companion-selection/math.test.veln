@@ -1,0 +1,5 @@
+use math
+
+test explicit_companion_includes_target() -> () effects [stdio]
+	stdio::println(int_to_string(math::triple(4)))
+end

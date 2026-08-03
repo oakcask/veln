@@ -1,0 +1,9 @@
+command = ["test", "math.test.test.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+contains = ["blocked chained_companion"]
+
+[stderr]
+contains = ["error[module.chained_companion]: test companion `math.test.test.veln` cannot target another companion `math.test.veln`", "note: Use exactly one `.test.veln` suffix for a test companion."]

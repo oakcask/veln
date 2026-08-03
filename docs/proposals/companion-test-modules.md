@@ -1,12 +1,15 @@
+---
+review-when: Companion private-access, isolation, export, documentation, or language-server behavior changes.
+---
+
 # Companion Test Modules
 
 Status: proposed
 
 ## Summary
 
-Add companion modules as a source-file relationship and define
-`module_name.test.veln` as the first companion kind. A test companion can
-inspect the private declarations of its matching production module without
+Extend the existing `.test.veln` companion source boundary so a test companion
+can inspect the private declarations of its matching production module without
 sharing that module's declaration or import scope.
 
 Keep `module_name_test.veln` as an ordinary module and as the existing
@@ -29,32 +32,26 @@ modules' private declarations.
 
 ## Terminology
 
-A **companion source** is a source file whose recognized suffix associates it
-with one production source in the same package and directory.
+A **companion source** is an implemented source-file relationship whose
+recognized suffix associates it with one production source in the same package
+and directory.
 
 A **test companion** is a companion source named `X.test.veln`. Its **target
 source** is the same-directory file named `X.veln`. The target source's
 path-derived module is the **target module**.
 
-The `.test.veln` suffix is the only companion kind introduced by this
-proposal. Other dotted suffixes do not acquire companion semantics.
+The existing `.test.veln` suffix is the only companion kind. Other dotted
+suffixes do not acquire companion semantics.
 
 ## Proposed Source Model
 
-`X.test.veln` is not a second source fragment of module `X`. It has a distinct,
-test-only identity that source code cannot import or export by a module path.
-Its declarations and written imports belong only to the test companion.
+The implemented companion identity and command boundary are specified in
+`../specification/source-surface.md` and `../specification/commands.md`.
+Remaining work must preserve that boundary.
 
 The test companion has friend access to its target module. Friend access
 changes visibility lookup only. It does not merge declarations, aliases,
 imports, inference state, or module initialization behavior.
-
-The companion relationship is derived from the file path. Source syntax does
-not declare or redirect the relationship.
-
-For a target named `http` in the `net` source directory, its companion uses the
-`.test.veln` suffix beside the target, and the target module path remains
-`net::http`.
 
 ## Name Resolution And Visibility
 
@@ -126,44 +123,17 @@ changing whether its target passes production analysis.
 
 ## File And Package Boundaries
 
-A valid test companion satisfies all of these conditions:
-
-- Its path ends in `.test.veln`.
-- Removing `.test` produces the path of an existing `.veln` target source.
-- The target belongs to the same package.
-- The target is a production source, not another companion source.
-
-If no target exists, analysis reports a companion-target diagnostic at the
-companion path. A chained name such as `X.test.test.veln` is rejected instead
-of targeting `X.test.veln`.
-
-`X.test.veln` and `X_test.veln` may coexist. They select different visibility
-rules and do not conflict in module identity. A normal source named `test`
-inside source directory `X` remains module `X::test`; it has no relationship
-to `X.test.veln`.
-
-External packages cannot import a companion source. Package export lists
-reject companion paths. Distribution and standard-library bundles exclude
+External packages cannot import a companion source. Package export lists must
+reject companion paths. Distribution and standard-library bundles must exclude
 companion sources in the same way that they exclude other test-only sources.
 
 ## Command Behavior
 
-| Command or context | Required behavior |
-| --- | --- |
-| `veln test` without targets | Discover test declarations in both `.test.veln` companions and `_test.veln` integration modules, plus existing same-file and doctest cases |
-| `veln test X.veln` | Select `X.test.veln` when it exists, preserve the existing selection of `X_test.veln` when it exists, and include all selected sources in analysis |
-| `veln test X.test.veln` | Select the companion and automatically include `X.veln` in analysis |
-| `veln test X_test.veln` | Preserve existing ordinary-module and public-visibility behavior |
-| `veln check` | Parse and analyze discovered companions in companion context so private-access errors are reported before `test` execution |
-| `veln check X.test.veln` | Include and analyze `X.veln` as the target dependency |
-| `veln run` | Exclude companion sources from production analysis; reject an explicitly supplied companion path as a test-only input |
-| Documentation and package export | Exclude companion declarations from generated public documentation and reject companion paths as exports |
-| Language server analysis | Diagnose the file in companion context and resolve qualified target-private references for navigation, completion, hover, and rename |
-
-Selecting a production source preserves the existing same-base `_test.veln`
-selection convention and adds the matching `.test.veln` companion convention.
-Dependency-aware selection may select other integration tests under the
-existing rules.
+The implemented file and command boundary is specified in
+`../specification/source-surface.md`, `../specification/commands.md`,
+`../specification/test-json.md`, and `../specification/diagnostics-json.md`.
+The remaining command work is limited to surfaces that need private-access,
+package-export, generated-documentation, or language-server behavior.
 
 ## Acceptance Cases
 
@@ -174,7 +144,6 @@ replace it. Each row describes an externally observable result.
 | --- | --- | --- | --- |
 | Private function access | `math.veln` defines private `increment`; `math.test.veln` writes `use math` and calls `math::increment` | Check succeeds and the test runs | Executable `test` specification case |
 | Private type access | Target defines a private type and constructor used by its companion | Type and constructor resolve under ordinary same-module typing rules | Executable `test` specification case |
-| Public target access | Companion calls a public target declaration | Check succeeds through the same qualified path | Executable `test` specification case |
 | Missing `use` | Companion writes `math::increment` without `use math` | Name diagnostic identifies the unavailable module path | Human and JSON `check` cases |
 | Bare target name | Companion calls bare `increment` with no local or public imported declaration | Unresolved-name diagnostic; target-private lookup is not implicit | Human and JSON `check` cases |
 | Local shadow name | Companion defines local `increment` and target also defines private `increment` | Bare `increment` selects the local declaration; `math::increment` selects the target | Semantic analyzer unit test |
@@ -186,14 +155,7 @@ replace it. Each row describes an externally observable result.
 | Non-transitive access | Target imports `support`; companion attempts `support::private_helper` | Visibility diagnostic rejects the private declaration | Human and JSON `check` cases |
 | Wrong companion | `other.test.veln` attempts a private access to `math` | Visibility diagnostic rejects the private declaration | Human and JSON `check` cases |
 | Integration boundary | `math_test.veln` attempts the same private access | Visibility diagnostic rejects the private declaration | Executable integration-boundary case |
-| Coexistence | Both `math.test.veln` and `math_test.veln` contain tests | Both tests are discovered; only the companion receives friend access | CLI selection case |
-| Missing target | `orphan.test.veln` exists without `orphan.veln` | Companion-target diagnostic blocks checking and testing that source | Human and JSON `check` cases |
-| Chained companion | `math.test.test.veln` is discovered | Companion-path diagnostic rejects the chained suffix | Human and JSON `check` cases |
 | Public companion declaration | Companion contains `pub fn helper` | Diagnostic rejects `pub` in a test-only companion | Human and JSON `check` cases |
-| Explicit target selection | Run `veln test math.veln` with matching `math.test.veln` and `math_test.veln` files | Both test files are selected and selection output distinguishes the two conventions | Human and JSON CLI cases |
-| Explicit companion selection | Run `veln test math.test.veln` | Target is included automatically and companion tests run | Human and JSON CLI cases |
-| Production exclusion | Run a production entry while its companion contains test declarations | No companion declaration enters production lowering or generated output | CLI run and backend inspection case |
-| Explicit production input | Supply `math.test.veln` as a `run` source input | Command diagnostic rejects the test-only input before entry resolution | Human and JSON CLI cases |
 | Tooling identity | Request definition and rename for `math::increment` from the companion | Tooling identifies the declaration in `math.veln` without treating both files as one scope | Language server integration case |
 
 Planned executable cases should live under `../../examples/specification/`.
@@ -202,32 +164,25 @@ replace command-visible human and JSON coverage.
 
 ## Diagnostics Contract
 
-Companion diagnostics must distinguish these failed facts:
+Remaining companion diagnostics must distinguish these failed facts:
 
-- the companion path has no matching target source;
-- the companion path attempts to target another companion;
 - a companion declaration uses `pub`;
 - a qualified private declaration belongs to a module other than the target;
 - a companion path appears in a package export list.
 
 The primary message must state the specific failed fact at the relevant path or
-source span. Related notes may identify the derived target path or the valid
-companion target. JSON details must expose the companion path, the derived
-target path when one exists, and a stable reason for the failure.
+source span. Related notes may identify the valid companion target. JSON
+details must expose the companion path and a stable reason for the failure.
 
 Exact diagnostic identifiers and wording are implementation choices until
 executable human and JSON cases establish them.
 
 ## Compatibility
 
-This proposal does not change the meaning or discovery of `_test.veln` files.
-They remain ordinary path-derived modules and integration-test sources. They
-continue to require public access to imported declarations.
-
-Existing same-file tests and doctests retain their visibility behavior.
-Existing source paths containing an otherwise invalid dot do not become valid
-ordinary module paths. Only the exact `.test.veln` suffix receives the new
-classification.
+The implemented `_test.veln`, same-file test, doctest, and exact `.test.veln`
+classification behavior is specified in `../specification/source-surface.md`,
+`../specification/commands.md`, and `../specification/test-json.md`.
+Remaining work must preserve that behavior.
 
 Adding a companion file can add test diagnostics and test cases. It cannot
 change whether the target source succeeds under production analysis.
@@ -257,14 +212,14 @@ files ambiguous. Those outcomes conflict with production analysis isolation.
 
 This section is not normative.
 
-Represent the companion relationship separately from ordinary module identity.
+Keep the companion relationship separate from ordinary module identity.
 Pass the requesting source's companion target into qualified visibility lookup.
 Do not assign the target module identity to declarations or imports parsed from
 the companion source.
 
-Treat companion classification as shared project metadata so the analyzer,
-test selector, command layer, language server, documentation generator, and
-package validator use one path rule.
+Use the shared project companion classification for the analyzer, language
+server, documentation generator, and package validator instead of duplicating
+path rules.
 
 ## Planned Verification Commands
 

@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use veln_ast::{FunctionKind, SurfaceModule, UseOrigin};
 use veln_diagnostics::JsonValue;
-use veln_project::Project;
+use veln_project::{Project, classify_companion_source};
 
 pub struct TestTargetExpansion {
     pub targets: Vec<PathBuf>,
@@ -58,6 +58,9 @@ pub fn expand_test_targets(root: &Path, targets: &[PathBuf]) -> TestTargetExpans
         if let Some(test_target) = paired_test_target(root, target) {
             expanded.push(test_target);
         }
+        if let Some(test_target) = paired_companion_test_target(root, target) {
+            expanded.push(test_target);
+        }
     }
     expanded.sort();
     expanded.dedup();
@@ -100,6 +103,44 @@ fn paired_test_target(root: &Path, target: &Path) -> Option<PathBuf> {
     }
 }
 
+fn paired_companion_test_target(root: &Path, target: &Path) -> Option<PathBuf> {
+    let absolute = if target.is_absolute() {
+        target.to_path_buf()
+    } else {
+        root.join(target)
+    };
+    if absolute.is_dir()
+        || absolute
+            .extension()
+            .is_none_or(|extension| extension != "veln")
+    {
+        return None;
+    }
+    let relative = if target.is_absolute() {
+        absolute.strip_prefix(root).ok()?.to_path_buf()
+    } else {
+        target.to_path_buf()
+    };
+    let relative_text = relative.to_string_lossy().replace('\\', "/");
+    if classify_companion_source(&relative_text).is_some() || relative_text.ends_with("_test.veln")
+    {
+        return None;
+    }
+    let candidate =
+        absolute.with_file_name(format!("{}.test.veln", absolute.file_stem()?.to_str()?));
+    if !candidate.is_file() {
+        return None;
+    }
+    if target.is_absolute() {
+        Some(candidate)
+    } else {
+        candidate.strip_prefix(root).map_or_else(
+            |_| Some(candidate.clone()),
+            |relative| Some(relative.to_path_buf()),
+        )
+    }
+}
+
 pub fn selected_test_files(
     project: &Project,
     module: &SurfaceModule,
@@ -117,7 +158,10 @@ pub fn selected_test_files(
     project
         .files
         .iter()
-        .filter(|source| source.path().as_str().ends_with("_test.veln"))
+        .filter(|source| {
+            let path = source.path().as_str();
+            path.ends_with("_test.veln") || classify_companion_source(path).is_some()
+        })
         .map(|source| source.path().as_str().to_string())
         .chain(same_file_test_files(module))
         .collect()
@@ -324,7 +368,11 @@ impl SourceDependencyGraph {
             .collect::<BTreeSet<_>>();
         paths
             .iter()
-            .filter(|path| path.ends_with("_test.veln") || same_file_tests.contains(*path))
+            .filter(|path| {
+                path.ends_with("_test.veln")
+                    || classify_companion_source(path).is_some()
+                    || same_file_tests.contains(*path)
+            })
             .cloned()
             .collect()
     }

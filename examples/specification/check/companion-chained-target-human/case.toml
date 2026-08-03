@@ -1,0 +1,8 @@
+command = ["check", "math.test.test.veln"]
+exit = 1
+
+[stdout]
+contains = ["error[module.chained_companion]: test companion `math.test.test.veln` cannot target another companion `math.test.veln`", "note: Use exactly one `.test.veln` suffix for a test companion."]
+
+[stderr]
+format = "empty"

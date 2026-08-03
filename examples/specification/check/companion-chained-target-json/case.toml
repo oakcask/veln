@@ -1,0 +1,24 @@
+command = ["check", "--json", "math.test.test.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "module.chained_companion"
+
+[[json_assert]]
+path = "diagnostics.0.details.companion_path"
+equals = "math.test.test.veln"
+
+[[json_assert]]
+path = "diagnostics.0.details.target_path"
+equals = "math.test.veln"

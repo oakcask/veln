@@ -9,7 +9,7 @@ use veln_ast::Function;
 use veln_ast::FunctionKind;
 use veln_backend_jvm::{EntryArgScalar, EntryArgType, generate_classfiles_with_entry_arg_types};
 use veln_diagnostics::{Diagnostic, DiagnosticEnvelope, DiagnosticKind, JsonValue, Severity};
-use veln_project::Project;
+use veln_project::{Project, explicit_companion_inputs, production_analysis_inputs};
 use veln_test::{TestFailure, contract_failure_from_trace, result_failure_from_trace};
 
 use crate::diagnostics::{
@@ -27,6 +27,9 @@ pub(crate) fn run_entry(
     inputs: Vec<PathBuf>,
     entry_args: Vec<String>,
 ) -> Result<ExitCode, String> {
+    if let Some(exit_code) = reject_explicit_companion_run_input(json, &inputs)? {
+        return Ok(exit_code);
+    }
     let analysis = analyze_run_project(&inputs)?;
     write_harness_source_diagnostic_artifact(&analysis.checked_diagnostics())?;
     if report_source_errors(&analysis)? {
@@ -59,18 +62,57 @@ pub(crate) fn run_entry(
 
 fn analyze_run_project(inputs: &[PathBuf]) -> Result<ProjectAnalysis, String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
+    let discovered_inputs;
     let analysis_inputs = if harness_source_diagnostic_artifact_requested() {
-        &[]
+        Vec::new()
     } else {
-        inputs
+        discovered_inputs =
+            production_analysis_inputs(&root, inputs).map_err(|error| error.to_string())?;
+        discovered_inputs
     };
-    let project = Project::discover(root, analysis_inputs).map_err(|error| error.to_string())?;
+    let project = Project::discover(root, &analysis_inputs).map_err(|error| error.to_string())?;
     let doctest_mode = if harness_source_diagnostic_artifact_requested() {
         DoctestMode::Include
     } else {
         DoctestMode::Exclude
     };
     Ok(analyze_project(project, doctest_mode))
+}
+
+fn reject_explicit_companion_run_input(
+    json: bool,
+    inputs: &[PathBuf],
+) -> Result<Option<ExitCode>, String> {
+    let root = env::current_dir().map_err(|error| error.to_string())?;
+    let companions = explicit_companion_inputs(&root, inputs);
+    let Some(companion) = companions.first() else {
+        return Ok(None);
+    };
+    let diagnostic = test_only_run_input_diagnostic(companion);
+    write_harness_source_diagnostic_artifact(&[])?;
+    let envelope = DiagnosticEnvelope::new(tool_info(), vec![diagnostic]);
+    if json {
+        println!("{}", envelope.to_json());
+    } else {
+        print_human_stderr(&envelope)?;
+    }
+    Ok(Some(ExitCode::from(1)))
+}
+
+fn test_only_run_input_diagnostic(path: &str) -> Diagnostic {
+    Diagnostic::new(
+        "module.test_only_run_input",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!("test companion `{path}` cannot be used as a run input"),
+        None,
+        JsonValue::object([
+            ("phase", JsonValue::string("module")),
+            ("field", JsonValue::string("run_input")),
+            ("source_path", JsonValue::string(path)),
+            ("boundary", JsonValue::string("run")),
+        ]),
+    )
 }
 
 fn report_source_errors(analysis: &ProjectAnalysis) -> Result<bool, String> {
@@ -3015,6 +3057,11 @@ fn validate_entry_arg(ty: EntryArgScalar, param_name: &str, raw_arg: &str) -> Re
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    static NEXT_TEST_DIR: AtomicUsize = AtomicUsize::new(0);
 
     fn trace_hex(value: &str) -> String {
         value
@@ -3071,8 +3118,67 @@ mod tests {
         assert!(!details.contains("input_committed"));
     }
 
+    #[test]
+    fn run_generation_excludes_companion_sources() {
+        let root = temp_dir("run-generation-excludes-companion-sources");
+        fs::write(root.join("main.veln"), "pub fn main() -> Int\n\t1\nend\n")
+            .expect("production source should be written");
+        fs::write(
+            root.join("main.test.veln"),
+            "pub fn companion_marker() -> Int\n\t2\nend\n",
+        )
+        .expect("companion source should be written");
+
+        let analysis_inputs =
+            production_analysis_inputs(&root, &[]).expect("production inputs should resolve");
+        assert_eq!(analysis_inputs.len(), 1);
+        assert!(analysis_inputs[0].ends_with("main.veln"));
+        let project = Project::discover(root.clone(), &analysis_inputs)
+            .expect("production project should discover");
+        let analysis = veln_analysis::analyze_project(project, DoctestMode::Exclude);
+        assert!(
+            analysis.checked_diagnostics().is_empty(),
+            "production analysis should exclude companion diagnostics: {:#?}",
+            analysis.checked_diagnostics()
+        );
+        let ir = lower_run_entry(&analysis, "main")
+            .expect("entry should lower")
+            .expect("entry should produce IR");
+
+        let jvm = generate_classfiles_with_entry_arg_types(&ir, "main", &[]);
+
+        assert!(
+            jvm.classes
+                .iter()
+                .any(|class| class.path == "VelnProgram$fn_main.class")
+        );
+        assert!(
+            jvm.classes
+                .iter()
+                .all(|class| !class.path.contains("companion_marker")),
+            "companion function should not be emitted in run classfiles: {:?}",
+            jvm.classes
+                .iter()
+                .map(|class| class.path.as_str())
+                .collect::<Vec<_>>()
+        );
+
+        fs::remove_dir_all(root).expect("test project should be removed");
+    }
+
     fn byte_preview(data: &str) -> JsonValue {
         byte_preview_with_counts(data, (data.len() / 2) as i64, false)
+    }
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let id = NEXT_TEST_DIR.fetch_add(1, Ordering::Relaxed);
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after epoch")
+            .as_nanos();
+        let root = env::temp_dir().join(format!("veln-cli-{name}-{nanos}-{id}"));
+        fs::create_dir_all(&root).expect("test directory should be created");
+        root
     }
 
     fn byte_preview_with_counts(data: &str, total_byte_count: i64, truncated: bool) -> JsonValue {

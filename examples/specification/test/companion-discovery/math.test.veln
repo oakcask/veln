@@ -1,0 +1,5 @@
+use math
+
+test companion_is_discovered() -> () effects [stdio]
+	stdio::println(int_to_string(math::double(3)))
+end

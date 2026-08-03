@@ -1,0 +1,5 @@
+use math
+
+test integration_peer_is_still_selected() -> () effects [stdio]
+	stdio::println(int_to_string(math::value() + 1))
+end

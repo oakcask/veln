@@ -1,0 +1,29 @@
+command = ["test", "--json", "math.test.test.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "blocked"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "module.chained_companion"
+
+[[json_assert]]
+path = "diagnostics.0.details.companion_path"
+equals = "math.test.test.veln"
+
+[[json_assert]]
+path = "diagnostics.0.details.target_path"
+equals = "math.test.veln"
+
+[[json_assert]]
+path = "cases.0.status"
+equals = "blocked"

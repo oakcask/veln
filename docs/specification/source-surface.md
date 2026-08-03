@@ -1,3 +1,7 @@
+---
+review-when: The documented source surface or executable source evidence changes.
+---
+
 # Source Surface
 
 This page routes implemented source syntax. Open
@@ -7,7 +11,7 @@ is not enough.
 ## Read First
 
 - Source path derived local module identity, local and external package
-  imports, functions with optional `<effect E>` row binders, tests, source ADT type declarations, schema
+  imports, `.test.veln` test companion source classification, functions with optional `<effect E>` row binders, tests, source ADT type declarations, schema
   declarations, nominal effect operation declarations, lexical handler
   declarations, public member aliases, canonical `#` comments, `##`
   documentation comments, doctests, ADR-lite metadata, and manifest dependency
@@ -24,6 +28,23 @@ is not enough.
   [source-surface-full.md](source-surface-full.md).
 - Formatter layout and canonical comment spelling:
   [commands.md](commands.md).
+
+## Test Companion Sources
+
+A source file whose path ends exactly in `.test.veln` is a test companion.
+The target source is the same-directory `.veln` path formed by removing the
+`.test` component. The companion has a distinct path-derived module identity
+from both the target source and the existing `_test.veln` integration-test
+convention. A chained path such as `math.test.test.veln` is rejected as a
+companion-target error instead of targeting `math.test.veln`.
+
+Checking or testing a companion requires the target source to exist in the
+same package. Missing and chained targets are executable diagnostics in
+`examples/specification/check/companion-missing-target-json/`,
+`examples/specification/check/companion-missing-target-human/`,
+`examples/specification/check/companion-chained-target-json/`,
+`examples/specification/check/companion-chained-target-human/`, and the
+matching `test/companion-*-target-*` cases.
 
 ## Integer Literals
 
