@@ -780,11 +780,8 @@ fn qualified_references(source: &SourceFile, module: &str, name: &str) -> Vec<So
         .iter()
         .enumerate()
         .filter_map(|(index, token)| {
-            (token.text == name
-                && qualified_reference_matches(&tokens, index, &module_segments)
-                && next_non_layout_token(&tokens, index)
-                    .is_some_and(|next| next.kind == TokenKind::LParen))
-            .then(|| source.span(token.range))
+            (token.text == name && qualified_reference_matches(&tokens, index, &module_segments))
+                .then(|| source.span(token.range))
         })
         .collect()
 }
@@ -1618,6 +1615,7 @@ mod tests {
                 "\n",
                 "test companion() -> Int\n",
                 "  math::increment(1)\n",
+                "  math::increment\n",
                 "end\n",
             ),
         );
@@ -1628,7 +1626,7 @@ mod tests {
         let responses = server.handle_message(&rename_request(&companion_uri, 3, 10, "advance"));
 
         assert_eq!(responses.len(), 1);
-        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 4);
+        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 5);
         assert!(
             responses[0].contains(
                 r#""range":{"start":{"line":1,"character":2},"end":{"line":1,"character":11}}"#
@@ -1639,6 +1637,13 @@ mod tests {
         assert!(
             responses[0].contains(
                 r#""range":{"start":{"line":2,"character":2},"end":{"line":2,"character":11}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":4,"character":8},"end":{"line":4,"character":17}}"#
             ),
             "{}",
             responses[0]
@@ -1683,6 +1688,7 @@ mod tests {
                 "test companion() -> Int\n",
                 "  math::increment(1)\n",
                 "  increment(1)\n",
+                "  math::increment\n",
                 "  \"math::increment(2)\"\n",
                 "  # math::increment(3)\n",
                 "end\n",
@@ -1695,7 +1701,7 @@ mod tests {
         let responses = server.handle_message(&rename_request(&companion_uri, 7, 10, "advance"));
 
         assert_eq!(responses.len(), 1);
-        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 3);
+        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 4);
         assert!(
             responses[0].contains(
                 r#""range":{"start":{"line":2,"character":3},"end":{"line":2,"character":12}}"#
@@ -1718,6 +1724,13 @@ mod tests {
             responses[0]
         );
         assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":9,"character":8},"end":{"line":9,"character":17}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
             !responses[0].contains(r#""line":4,"character":11"#),
             "{}",
             responses[0]
@@ -1728,12 +1741,12 @@ mod tests {
             responses[0]
         );
         assert!(
-            !responses[0].contains(r#""line":9,"character":9"#),
+            !responses[0].contains(r#""line":10,"character":9"#),
             "{}",
             responses[0]
         );
         assert!(
-            !responses[0].contains(r#""line":10,"character":10"#),
+            !responses[0].contains(r#""line":11,"character":10"#),
             "{}",
             responses[0]
         );
