@@ -38,10 +38,10 @@ requiring the full command reference on the first read.
 - `metrics`: advisory module dependency metrics, ABC size metrics, and
   experimental exact whole-body similarity for project-owned Veln source. It
   follows `check` source and project discovery for containing graph analysis
-  and accepts `--json`. Human output prints dependency sections, ABC size, and
+  and accepts `--json`. Human output prints cycles, module rows, ABC size, and
   then whole-body similarity with one primary declaration location and related
-  declaration locations. `--write-baseline PATH` writes the current report as
-  a reviewed baseline and refuses to overwrite an existing file. Without
+  declaration locations. `--write-baseline PATH` writes the current report as a
+  reviewed baseline and refuses to overwrite an existing file. Without
   `--check`, it exits successfully when analysis completes even when
   dependency cycles, large ABC values, or duplicate whole bodies are present.
   With `--check`, `[tool.metrics] deny_cycles = "true"` makes dependency

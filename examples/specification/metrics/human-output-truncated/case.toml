@@ -2,7 +2,7 @@ command = ["metrics"]
 exit = 0
 
 [stdout]
-contains = ["Veln dependency metrics (advisory)", "project modules: 2, selected modules: 2, internal edges: 2, cycles: 1", "app (app.veln) fan-in=1 fan-out=1 pressure=1 external=0", "app, util | path: app -> util -> app", "Detailed findings omitted: 3; use veln metrics --json for complete evidence."]
+contains = ["Veln dependency metrics (advisory)", "project modules: 2, selected modules: 2, internal edges: 2, cycles: 1", "Cycles\n  app, util | path: app -> util -> app\n\nModules\n  app (app.veln) fan-in=1 fan-out=1 pressure=1 external=0", "Detailed findings omitted: 3; use veln metrics --json for complete evidence."]
 
 [stderr]
 format = "empty"

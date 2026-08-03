@@ -1433,7 +1433,22 @@ fn render_human_with_selection(report: &MetricsReport, selection: &ReportHumanSe
         report.summary.similarity_instance_count,
         report.summary.similarity_region_count
     ));
-    out.push_str("Modules\n");
+    out.push_str("Cycles\n");
+    if report.cycles.is_empty() {
+        out.push_str("  none\n");
+    } else {
+        for (cycle, selected) in report.cycles.iter().zip(&selection.cycles) {
+            if !selected {
+                continue;
+            }
+            out.push_str(&format!(
+                "  {} | path: {}\n",
+                cycle.members.join(", "),
+                cycle.path.join(" -> ")
+            ));
+        }
+    }
+    out.push_str("\nModules\n");
     if report.modules.is_empty() {
         out.push_str("  no project modules selected\n");
     } else {
@@ -1449,21 +1464,6 @@ fn render_human_with_selection(report: &MetricsReport, selection: &ReportHumanSe
                 module.fan_out,
                 module.dependency_pressure,
                 module.external_dependency_count
-            ));
-        }
-    }
-    out.push_str("\nCycles\n");
-    if report.cycles.is_empty() {
-        out.push_str("  none\n");
-    } else {
-        for (cycle, selected) in report.cycles.iter().zip(&selection.cycles) {
-            if !selected {
-                continue;
-            }
-            out.push_str(&format!(
-                "  {} | path: {}\n",
-                cycle.members.join(", "),
-                cycle.path.join(" -> ")
             ));
         }
     }
@@ -2461,6 +2461,7 @@ mod tests {
         assert!(!human.contains("alpha (alpha.veln) fan-in=0 fan-out=1 pressure=0 external=0"));
         assert!(!human.contains("zeta (zeta.veln) fan-in=0 fan-out=1 pressure=0 external=0"));
         assert!(human.contains("app, util | path: app -> util -> app"));
+        assert_before(&human, "Cycles\n", "\nModules\n");
         assert!(human.contains(
             "Detailed findings omitted: 6; use veln metrics --json for complete evidence."
         ));
@@ -3266,5 +3267,14 @@ mod tests {
                 fields,
             }],
         }
+    }
+
+    fn assert_before(haystack: &str, first: &str, second: &str) {
+        let first_index = haystack.find(first).expect("first fragment");
+        let second_index = haystack.find(second).expect("second fragment");
+        assert!(
+            first_index < second_index,
+            "expected `{first}` before `{second}` in:\n{haystack}"
+        );
     }
 }
