@@ -109,6 +109,15 @@ and
 declared handler effect list coverage also checks
 `details.boundary = "handler_declaration_effects"` in
 `examples/specification/check/companion-private-effect-handler-effects-wrong-target/`.
+Companion private handler wrong-target access reports
+`handler.private_companion_target` instead of a generic unknown handler. The
+diagnostic exposes `details.companion_path`,
+`details.companion_target_module`, `details.handler_module`, and
+`details.reason = "companion_target_mismatch"`. JSON and human output are
+checked by
+`examples/specification/check/companion-private-handler-wrong-target-json/`
+and
+`examples/specification/check/companion-private-handler-wrong-target-human/`.
 Companion public declaration diagnostics use
 `module.companion_public_declaration`. The diagnostic exposes
 `details.companion_path` and a stable `details.reason` that identifies the

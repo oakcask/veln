@@ -1000,15 +1000,18 @@ impl<'a> CoreLowerer<'a> {
         args: &[Expr],
         expected: Option<&CoreType>,
     ) -> CoreExpr {
-        let Some(handler) = self
+        let handler = match self
             .environment
             .handler_path(handler_path, self.function.module_name.as_deref())
-            .cloned()
-        else {
-            for arg in args {
-                self.lower_expr(arg, None);
+        {
+            crate::types::HandlerPathResolution::Found(handler) => handler.clone(),
+            crate::types::HandlerPathResolution::PrivateCompanionTargetMismatch { .. }
+            | crate::types::HandlerPathResolution::Missing => {
+                for arg in args {
+                    self.lower_expr(arg, None);
+                }
+                return self.lower_expr(body, expected);
             }
-            return self.lower_expr(body, expected);
         };
         let context_args = args
             .iter()

@@ -1,0 +1,5 @@
+use math
+
+test integration_cannot_use_private_target_handler() -> Int
+	handle math::compute() with math::ask(41)
+end

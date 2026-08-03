@@ -1,0 +1,3 @@
+test companion_needs_import_for_private_target_handler() -> Int
+	handle math::compute() with math::ask(41)
+end

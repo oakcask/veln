@@ -1,0 +1,13 @@
+command = ["check", "--json", "math.test.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"handler.unknown\"", "handler `ask` is not known"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

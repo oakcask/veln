@@ -43,8 +43,9 @@ use crate::standard_symbols::prelude_symbol;
 use crate::type_relations::is_assignable;
 use crate::type_syntax::parse_type_annotation;
 use crate::types::{
-    CompanionAccessTarget, EffectSignature, FunctionLookup, MatchScrutineePatternInference,
-    TypeEnvironment, infer_match_scrutinee_type_from_constructor_patterns,
+    CompanionAccessTarget, EffectSignature, FunctionLookup, HandlerPathResolution,
+    HandlerSignature, MatchScrutineePatternInference, TypeEnvironment,
+    infer_match_scrutinee_type_from_constructor_patterns,
 };
 
 mod body;
@@ -134,6 +135,69 @@ fn private_companion_effect_target_diagnostic(
         ),
         ("effect", JsonValue::string(effect.qualified_name.clone())),
         ("span", span_json(&effect.span)),
+    ]));
+    diagnostic
+}
+
+fn private_companion_handler_target_diagnostic(
+    node_id: String,
+    boundary: &'static str,
+    handler_path: &str,
+    handler: &HandlerSignature,
+    access: &CompanionAccessTarget,
+    span: SourceSpan,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "handler.private_companion_target",
+        Severity::Error,
+        DiagnosticKind::Effect,
+        format!(
+            "private handler `{handler_path}` belongs to `{}` instead of companion target `{}`",
+            handler.module_name.clone().unwrap_or_default(),
+            access.target_module
+        ),
+        Some(span),
+        JsonValue::object([
+            ("phase", JsonValue::string("effect")),
+            ("node_id", JsonValue::string(node_id)),
+            ("boundary", JsonValue::string(boundary)),
+            ("handler", JsonValue::string(handler_path.to_string())),
+            (
+                "resolved_handler",
+                JsonValue::string(handler.qualified_name.clone()),
+            ),
+            (
+                "companion_path",
+                JsonValue::string(access.companion_path.clone()),
+            ),
+            (
+                "companion_target_module",
+                JsonValue::string(access.target_module.clone()),
+            ),
+            (
+                "handler_module",
+                JsonValue::string(handler.module_name.clone().unwrap_or_default()),
+            ),
+            ("reason", JsonValue::string("companion_target_mismatch")),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("companion_target")),
+        (
+            "message",
+            JsonValue::string(format!(
+                "This test companion may access private handlers only from target module `{}`.",
+                access.target_module
+            )),
+        ),
+        (
+            "companion_path",
+            JsonValue::string(access.companion_path.clone()),
+        ),
+        (
+            "companion_target_module",
+            JsonValue::string(access.target_module.clone()),
+        ),
     ]));
     diagnostic
 }

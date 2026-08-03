@@ -201,6 +201,15 @@ pub(crate) enum FunctionLookup<'a> {
     Missing,
 }
 
+pub(crate) enum HandlerPathResolution<'a> {
+    Found(&'a HandlerSignature),
+    PrivateCompanionTargetMismatch {
+        handler: &'a HandlerSignature,
+        access: &'a CompanionAccessTarget,
+    },
+    Missing,
+}
+
 pub(crate) enum MatchScrutineePatternInference {
     Uninferred,
     Inferred(Type),
@@ -368,24 +377,52 @@ impl TypeEnvironment {
         &self,
         segments: &[String],
         current_module: Option<&str>,
-    ) -> Option<&HandlerSignature> {
+    ) -> HandlerPathResolution<'_> {
         match segments {
-            [name] => self.handlers.iter().find(|handler| {
-                handler.name == *name && handler.module_name.as_deref() == current_module
-            }),
+            [name] => self
+                .handlers
+                .iter()
+                .find(|handler| {
+                    handler.name == *name && handler.module_name.as_deref() == current_module
+                })
+                .map_or(HandlerPathResolution::Missing, HandlerPathResolution::Found),
             [_, .., name] => {
                 let use_decl = imported_use_for_path(
                     &self.uses,
                     &segments[..segments.len() - 1],
                     current_module,
-                )?;
-                self.handlers.iter().find(|handler| {
+                );
+                let Some(use_decl) = use_decl else {
+                    return HandlerPathResolution::Missing;
+                };
+                let Some(handler) = self.handlers.iter().find(|handler| {
                     handler.name == *name
                         && handler.module_name.as_deref() == Some(use_decl.name.as_str())
-                        && (use_decl.package.is_none() || handler.visibility == Visibility::Public)
-                })
+                }) else {
+                    return HandlerPathResolution::Missing;
+                };
+                if imported_handler_is_visible(
+                    handler,
+                    use_decl,
+                    current_module,
+                    &self.companion_effect_access_targets,
+                ) {
+                    return HandlerPathResolution::Found(handler);
+                }
+                if handler.visibility != Visibility::Public
+                    && use_decl.package.is_none()
+                    && let Some(access) = current_module
+                        .and_then(|module| self.companion_effect_access_targets.get(module))
+                    && access.target_module != use_decl.name
+                {
+                    return HandlerPathResolution::PrivateCompanionTargetMismatch {
+                        handler,
+                        access,
+                    };
+                }
+                HandlerPathResolution::Missing
             }
-            _ => None,
+            _ => HandlerPathResolution::Missing,
         }
     }
 
@@ -6415,7 +6452,12 @@ fn handler_for_path<'a>(
             context.handlers.iter().find(|handler| {
                 handler.name == *name
                     && handler.module_name.as_deref() == Some(use_decl.name.as_str())
-                    && handler.visibility == Visibility::Public
+                    && imported_handler_is_visible(
+                        handler,
+                        use_decl,
+                        context.current_module,
+                        context.companion_effect_access_targets,
+                    )
             })
         }
         _ => None,
@@ -6844,6 +6886,24 @@ fn imported_effects_are_visible(
                     || companion_access_targets
                         .get(current_module)
                         .is_some_and(|allowed| allowed == target_module)
+            }))
+}
+
+fn imported_handler_is_visible(
+    handler: &HandlerSignature,
+    use_decl: &UseDecl,
+    current_module: Option<&str>,
+    companion_access_targets: &BTreeMap<String, CompanionAccessTarget>,
+) -> bool {
+    handler.visibility == Visibility::Public
+        || (use_decl.package.is_none()
+            && current_module.is_some_and(|current_module| {
+                handler.module_name.as_deref().is_some_and(|target_module| {
+                    (current_module.starts_with("std::") && target_module.starts_with("std::"))
+                        || companion_access_targets
+                            .get(current_module)
+                            .is_some_and(|access| access.target_module == target_module)
+                })
             }))
 }
 

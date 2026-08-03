@@ -32,6 +32,12 @@ compiler-known calls.
   lists. The checked
   `companion-private-effect-*` cases fix the exact-target and isolation
   boundaries.
+- A `.test.veln` companion with an explicit target import may use a private
+  target handler through a qualified target path in `handle ... with ...`.
+  The handler's handled effect and retained effects are established from the
+  production target before companion checking. The checked
+  `companion-private-handler-*` cases fix the exact-target, isolation, and
+  declaration boundaries.
 - Private `std::diagnostic` ownership, public prelude aliases, and the nested
   HTTP/2 and HPACK diagnostic detail types:
   [Prelude Helpers](names-effects-full.md#prelude-helpers).
