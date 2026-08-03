@@ -1,0 +1,20 @@
+use math
+use support
+
+fn increment() -> ()
+end
+
+test target_private_reference() -> ()
+  math::increment()
+  math::increment()
+end
+
+test local_reference() -> ()
+  increment()
+  "math::increment()"
+  # math::increment()
+end
+
+test dependency_reference() -> ()
+  support::private_helper()
+end

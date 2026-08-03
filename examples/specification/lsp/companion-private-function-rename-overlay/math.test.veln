@@ -1,0 +1,5 @@
+use math
+
+test increment_test() -> Int
+  math::increment(1)
+end

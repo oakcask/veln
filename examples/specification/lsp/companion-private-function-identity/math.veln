@@ -1,0 +1,54 @@
+fn increment() -> ()
+  increment()
+  support::increment()
+  "increment()"
+end
+
+pub fn production() -> ()
+  increment()
+  increment
+end
+
+fn apply(increment: fn() -> ()) -> ()
+  increment()
+end
+
+fn branch(identity: fn() -> ()) -> ()
+  if true
+    let {callback: increment} = {callback: identity}
+    increment()
+  else if false
+    increment()
+  else
+    ()
+  end
+  increment()
+end
+
+pub fn inspect(value: Int) -> Int
+  let record = {increment: value}
+  record.increment
+end
+
+pub fn apply_shadow() -> ()
+  let increment = increment
+  increment()
+end
+
+type Choice
+  Use {callback: fn() -> ()}
+  Skip
+end
+
+pub fn choose(choice: Choice) -> ()
+  match choice
+    Use {callback: increment} => increment()
+    Skip => increment()
+  end
+end
+
+fn apply_unannotated(increment) -> ()
+  increment()
+end
+
+pub fn advance = increment

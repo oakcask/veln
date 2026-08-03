@@ -1,0 +1,5 @@
+use math
+
+test integration_reference() -> ()
+  math::increment()
+end

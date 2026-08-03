@@ -1,5 +1,5 @@
 ---
-review-when: Companion private-access, isolation, export, documentation, or language-server behavior changes.
+review-when: Companion private-access, isolation, export, or documentation behavior changes.
 ---
 
 # Companion Test Modules
@@ -74,6 +74,15 @@ The implemented function, source ADT, schema, nominal-effect, and handler slices
 are specified in `../specification/source-surface.md`, which routes to the
 checked companion private-function, private source ADT, private schema, private
 effect, and private handler examples.
+The implemented private-function language-server identity is specified in
+`../specification/editor-support.md` and checked by the `veln-lsp` server
+tests and the routed executable LSP example for companion private-function
+definition, prepare rename, rename edits, source-scope isolation, boundary
+rejection, request-origin filtering, target-source function-value references,
+target-source public function-alias targets, companion function-value and
+public-alias rejection, callable shadowing, record-field isolation, match-arm
+binding isolation, local-binding initializer references, and open-document
+overlays.
 Remaining proposal work applies the same exact permission model to other
 declaration kinds that ordinary same-module lookup can select, including
 codecs and aliases.
@@ -146,7 +155,7 @@ The implemented file and command boundary is specified in
 `../specification/source-surface.md`, `../specification/commands.md`,
 `../specification/test-json.md`, and `../specification/diagnostics-json.md`.
 The remaining command work is limited to surfaces that need private-access,
-generated-documentation, or language-server behavior.
+or generated-documentation behavior.
 
 ## Acceptance Cases
 
@@ -162,7 +171,6 @@ replace it. Each row describes an externally observable result.
 | Non-transitive remaining private access | Target imports `support`; companion attempts to inspect a private remaining declaration from `support` | Visibility diagnostic rejects the private declaration | Human and JSON `check` cases |
 | Wrong companion for remaining private access | `other.test.veln` attempts private remaining declaration access to `math` | Visibility diagnostic rejects the private declaration | Human and JSON `check` cases |
 | Integration boundary for remaining private access | `math_test.veln` attempts remaining private declaration access outside the implemented function, source ADT, schema, nominal-effect, and handler slices | Visibility diagnostic rejects the private declaration | Executable integration-boundary case |
-| Tooling identity | Request definition and rename for `math::increment` from the companion | Tooling identifies the declaration in `math.veln` without treating both files as one scope | Language server integration case |
 
 Planned executable cases should live under `../../examples/specification/`.
 Compiler and command unit tests may supplement those cases, but they do not
