@@ -1,0 +1,65 @@
+command = ["check", "--json", "app.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 3
+
+[[json_assert]]
+path = "diagnostics.0.details.reason"
+equals = "test_companion"
+
+[[json_assert]]
+path = "diagnostics.0.details.source_path"
+equals = "math.test.veln"
+
+[[json_assert]]
+path = "diagnostics.0.details.companion_path"
+equals = "math.test.veln"
+
+[[json_assert]]
+path = "diagnostics.1.details.module_path"
+equals = "math__test_companion"
+
+[[diagnostics]]
+id = "manifest.invalid_export"
+severity = "error"
+kind = "module"
+message = "manifest export `math.test.veln` is invalid: export names a test companion"
+
+[diagnostics.span]
+file = "veln.toml"
+line = 6
+column = 4
+
+[[diagnostics]]
+id = "module.unexported_import"
+severity = "error"
+kind = "module"
+message = "external module `math__test_companion` is not exported by package `github.com/oakcask/companion-lib`"
+
+[diagnostics.span]
+file = "app.veln"
+line = 1
+column = 1
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved call_target `math__test_companion::secret`"
+
+[diagnostics.span]
+file = "app.veln"
+line = 4
+column = 3

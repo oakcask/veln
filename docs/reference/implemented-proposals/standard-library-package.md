@@ -1,3 +1,7 @@
+---
+review-when: The standard-library package record is superseded or its evidence changes.
+---
+
 # Standard Library Package
 
 Status: implemented
@@ -13,7 +17,8 @@ specified in
 - `crates/veln-stdlib/veln/veln.toml` defines package `std` and exports
   `prelude.veln`; `compiler_support.veln` is private.
 - The standard-library build scans the package source tree deterministically,
-  embeds all non-test Veln sources, and excludes `*_test.veln`.
+  embeds all non-test Veln sources, and excludes `*_test.veln` and
+  `.test.veln`.
 - Project analysis injects the embedded package and an origin-tagged implicit
   `std::prelude` import. `std::prelude` is the only bootstrap exception.
 - Standard calls resolve to Veln functions with collision-resistant internal

@@ -1,0 +1,43 @@
+command = ["check", "--json", "math.veln", "math.test.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.details.field"
+equals = "lib.exports"
+
+[[json_assert]]
+path = "diagnostics.0.details.source_path"
+equals = "math.test.veln"
+
+[[json_assert]]
+path = "diagnostics.0.details.companion_path"
+equals = "math.test.veln"
+
+[[json_assert]]
+path = "diagnostics.0.details.reason"
+equals = "test_companion"
+
+[[diagnostics]]
+id = "manifest.invalid_export"
+severity = "error"
+kind = "module"
+message = "manifest export `math.test.veln` is invalid: export names a test companion"
+
+[diagnostics.span]
+file = "veln.toml"
+line = 6
+column = 4

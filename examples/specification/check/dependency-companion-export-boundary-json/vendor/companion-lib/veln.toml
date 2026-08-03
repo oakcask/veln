@@ -1,0 +1,7 @@
+[package]
+name = "github.com/oakcask/companion-lib"
+
+[lib]
+exports = [
+  "math.test.veln",
+]

@@ -1,0 +1,7 @@
+fn secret() -> Int
+  7
+end
+
+test companion_can_use_secret() -> Int
+  secret()
+end

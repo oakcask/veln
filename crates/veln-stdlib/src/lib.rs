@@ -70,10 +70,40 @@ mod tests {
         expected.sort();
         assert_eq!(paths, expected);
         assert!(paths.iter().all(|path| !path.ends_with("_test.veln")));
+        assert!(paths.iter().all(|path| !path.ends_with(".test.veln")));
         assert_eq!(
             paths.iter().copied().collect::<BTreeSet<_>>().len(),
             paths.len()
         );
+    }
+
+    #[test]
+    fn distribution_source_collection_excludes_test_filename_classes() {
+        let root = std::env::temp_dir().join(format!(
+            "veln-stdlib-source-collection-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("nested")).expect("test source root should be created");
+        fs::write(root.join("main.veln"), "pub fn main() -> ()\n  ()\nend\n")
+            .expect("production source should be written");
+        fs::write(
+            root.join("main_test.veln"),
+            "test integration() -> ()\nend\n",
+        )
+        .expect("integration test source should be written");
+        fs::write(
+            root.join("nested").join("main.test.veln"),
+            "test companion() -> ()\nend\n",
+        )
+        .expect("companion test source should be written");
+
+        let mut paths = Vec::new();
+        collect_distribution_sources(&root, Path::new(""), &mut paths);
+        let _ = fs::remove_dir_all(&root);
+        paths.sort();
+
+        assert_eq!(paths, vec!["main.veln"]);
     }
 
     #[test]
@@ -152,10 +182,14 @@ mod tests {
                 collect_distribution_sources(root, &entry_relative, paths);
             } else {
                 let path = entry_relative.to_string_lossy().replace('\\', "/");
-                if path.ends_with(".veln") && !path.ends_with("_test.veln") {
+                if is_distribution_source(&path) {
                     paths.push(path);
                 }
             }
         }
+    }
+
+    fn is_distribution_source(path: &str) -> bool {
+        path.ends_with(".veln") && !path.ends_with("_test.veln") && !path.ends_with(".test.veln")
     }
 }

@@ -1,0 +1,9 @@
+command = ["check", "math.veln", "math.test.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[manifest.invalid_export]: manifest export `math.test.veln` is invalid: export names a test companion"]
+
+[stderr]
+format = "empty"

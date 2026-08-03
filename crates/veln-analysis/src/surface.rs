@@ -93,6 +93,9 @@ fn load_project_sources(
     package: Option<&str>,
 ) {
     for source in &project.files {
+        if package.is_some() && classify_companion_source(source.path().as_str()).is_some() {
+            continue;
+        }
         let parsed = parse(source);
         diagnostics.extend(parsed.diagnostics.iter().map(parse_diagnostic_to_envelope));
         if !parsed.diagnostics.is_empty() {
@@ -405,7 +408,10 @@ fn is_toolchain_standard_project(project: &Project) -> bool {
     let mut actual = project
         .files
         .iter()
-        .filter(|source| !source.path().as_str().ends_with("_test.veln"))
+        .filter(|source| {
+            !source.path().as_str().ends_with("_test.veln")
+                && classify_companion_source(source.path().as_str()).is_none()
+        })
         .map(|source| (source.path().as_str(), source.text()))
         .collect::<Vec<_>>();
     let mut expected = bundle
@@ -554,6 +560,9 @@ fn manifest_exported_modules(manifest: &ProjectManifest) -> Vec<String> {
             let normalized_path = SourcePath::new(export.path.clone());
             let path = normalized_path.as_str();
             if !is_package_relative_path(path) || !path.ends_with(".veln") {
+                return None;
+            }
+            if classify_companion_source(path).is_some() {
                 return None;
             }
             derive_source_module_path(&SourceFile::new(path, "")).ok()
@@ -1124,6 +1133,14 @@ pub fn validate_manifest_exports(project: &Project) -> Vec<Diagnostic> {
             ));
             continue;
         }
+        if let Some(companion) = classify_companion_source(path) {
+            diagnostics.push(companion_manifest_export_diagnostic(
+                &export.path_span,
+                &export.path,
+                &companion.companion_path,
+            ));
+            continue;
+        }
         let export_source = SourceFile::new(path, "");
         let module_name = match derive_source_module_path(&export_source) {
             Ok(module_name) => module_name,
@@ -1291,6 +1308,27 @@ fn invalid_manifest_export_path_diagnostic(
             ("field", JsonValue::string("lib.exports")),
             ("source_path", JsonValue::string(path)),
             ("reason", JsonValue::string(reason)),
+        ]),
+    )
+}
+
+fn companion_manifest_export_diagnostic(
+    span: &SourceSpan,
+    source_path: &str,
+    companion_path: &str,
+) -> Diagnostic {
+    Diagnostic::new(
+        "manifest.invalid_export",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!("manifest export `{source_path}` is invalid: export names a test companion"),
+        Some(span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("module")),
+            ("field", JsonValue::string("lib.exports")),
+            ("source_path", JsonValue::string(source_path)),
+            ("companion_path", JsonValue::string(companion_path)),
+            ("reason", JsonValue::string("test_companion")),
         ]),
     )
 }
@@ -2498,8 +2536,8 @@ mod tests {
 
     use veln_ast::{FunctionKind, SurfaceModule, UseOrigin, lower_surface_ast};
     use veln_project::{
-        ManifestExport, ManifestLib, ManifestTool, ManifestUnsupportedSection, Project,
-        ProjectManifest,
+        ManifestExport, ManifestField, ManifestLib, ManifestTool, ManifestUnsupportedSection,
+        Project, ProjectManifest,
     };
     use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan};
     use veln_syntax::parse;
@@ -2861,6 +2899,50 @@ mod tests {
                 .count(),
             1
         );
+    }
+
+    #[test]
+    fn toolchain_standard_project_allows_extra_companion_source() {
+        let bundle = veln_stdlib::package_bundle();
+        let mut files = bundle
+            .files
+            .iter()
+            .map(|file| SourceFile::new(file.path, file.text))
+            .collect::<Vec<_>>();
+        files.push(SourceFile::new(
+            "prelude.test.veln",
+            "test companion() -> ()\nend\n",
+        ));
+        let project = Project {
+            root: ".".into(),
+            files,
+            manifest: Some(ProjectManifest {
+                path: SourcePath::new("veln.toml"),
+                package: veln_project::ManifestPackage {
+                    fields: vec![ManifestField {
+                        key: "name".to_string(),
+                        value: veln_stdlib::PACKAGE_NAME.to_string(),
+                        key_span: span("veln.toml", 2, 1, 5),
+                        value_span: span("veln.toml", 2, 8, 13),
+                    }],
+                },
+                lib: ManifestLib {
+                    exports: bundle
+                        .exports
+                        .iter()
+                        .map(|export| ManifestExport {
+                            path: (*export).to_string(),
+                            path_span: span("veln.toml", 4, 1, 1 + export.len()),
+                        })
+                        .collect(),
+                },
+                dependencies: Vec::new(),
+                unsupported_sections: Vec::new(),
+                tools: Vec::new(),
+            }),
+        };
+
+        assert!(super::is_toolchain_standard_project(&project));
     }
 
     #[test]
@@ -4364,6 +4446,83 @@ mod tests {
                 .iter()
                 .all(|diagnostic| diagnostic.id != "manifest.unselected_export"),
             "{diagnostics:#?}"
+        );
+    }
+
+    #[test]
+    fn companion_manifest_export_reports_boundary_before_selection_checks() {
+        let root = env::temp_dir().join(format!(
+            "veln-surface-companion-export-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).expect("test root should be created");
+        fs::write(root.join("math.test.veln"), "test companion() -> ()\nend\n")
+            .expect("companion source should be written");
+        let source = SourceFile::new("math.veln", "pub fn value() -> Int\n  1\nend\n");
+        let project = Project {
+            root: root.clone(),
+            files: vec![source],
+            manifest: Some(ProjectManifest {
+                path: SourcePath::new("veln.toml"),
+                package: Default::default(),
+                lib: ManifestLib {
+                    exports: vec![
+                        ManifestExport {
+                            path: "math.test.veln".to_string(),
+                            path_span: span("veln.toml", 3, 4, 20),
+                        },
+                        ManifestExport {
+                            path: "missing.test.veln".to_string(),
+                            path_span: span("veln.toml", 4, 4, 23),
+                        },
+                    ],
+                },
+                dependencies: Vec::new(),
+                unsupported_sections: Vec::new(),
+                tools: Vec::new(),
+            }),
+        };
+
+        let (_, diagnostics) = load_surface_module(&project);
+        let _ = fs::remove_dir_all(&root);
+
+        let invalid_exports = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "manifest.invalid_export")
+            .collect::<Vec<_>>();
+        assert_eq!(invalid_exports.len(), 2, "{diagnostics:#?}");
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != "manifest.unselected_export"),
+            "{diagnostics:#?}"
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != "manifest.missing_export"),
+            "{diagnostics:#?}"
+        );
+        assert_eq!(
+            invalid_exports[0].message,
+            "manifest export `math.test.veln` is invalid: export names a test companion"
+        );
+        assert_eq!(
+            detail_string(invalid_exports[0], "field"),
+            Some("lib.exports")
+        );
+        assert_eq!(
+            detail_string(invalid_exports[0], "source_path"),
+            Some("math.test.veln")
+        );
+        assert_eq!(
+            detail_string(invalid_exports[0], "companion_path"),
+            Some("math.test.veln")
+        );
+        assert_eq!(
+            detail_string(invalid_exports[0], "reason"),
+            Some("test_companion")
         );
     }
 

@@ -80,17 +80,20 @@ imports do not fetch packages, resolve git revisions, load vendor or mirror
 dependencies, update dependency checksums, or write lockfiles. Current package
 export entries do not add files to the selected set. Each export must be a
 package-relative `.veln` source path, must use file-path spelling instead of
-module-path spelling, must derive a valid source module path, must match a
-selected source file, and must not duplicate another export for the same
-derived module path. `[modules]` is rejected.
+module-path spelling, must not name a `.test.veln` test companion, must derive
+a valid source module path, must match a selected source file, and must not
+duplicate another export for the same derived module path. `[modules]` is
+rejected.
 
 When a parse-clean source contains `use path from "package"`, the command
 looks for a matching path dependency table in the current project manifest,
 loads that dependency's discovered `.veln` sources, checks that the dependency
 manifest's `[package].name` matches the requested package identity, and
 requires the imported module path to be listed by the dependency package's
-`[lib].exports`. The external import contributes only public declarations and
-public aliases from the exported dependency module to the importing source.
+`[lib].exports`. A dependency manifest export that names a `.test.veln`
+companion is rejected before that path can contribute an exported module. The
+external import contributes only public declarations and public aliases from
+the exported dependency module to the importing source.
 
 Semantic diagnostics are suppressed for a file that has parse diagnostics.
 Other parse-clean files in the same invocation may still produce semantic

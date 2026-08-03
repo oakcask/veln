@@ -34,7 +34,7 @@ fn main() {
         .expect("standard library bundle should be writable");
 }
 
-fn collect_veln_sources(root: &Path, directory: &Path, paths: &mut Vec<String>) {
+pub(crate) fn collect_veln_sources(root: &Path, directory: &Path, paths: &mut Vec<String>) {
     let entries = fs::read_dir(directory).expect("standard library directory should be readable");
     for entry in entries {
         let entry = entry.expect("standard library directory entry should be readable");
@@ -51,10 +51,14 @@ fn collect_veln_sources(root: &Path, directory: &Path, paths: &mut Vec<String>) 
             .expect("standard library source should be below source root")
             .to_string_lossy()
             .replace('\\', "/");
-        if relative.ends_with(".veln") && !relative.ends_with("_test.veln") {
+        if is_distribution_source(&relative) {
             paths.push(relative);
         }
     }
+}
+
+pub(crate) fn is_distribution_source(path: &str) -> bool {
+    path.ends_with(".veln") && !path.ends_with("_test.veln") && !path.ends_with(".test.veln")
 }
 
 fn manifest_exports(manifest: &str) -> Vec<String> {
