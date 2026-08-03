@@ -1,0 +1,6 @@
+use math
+
+test companion_runs_private_target_function() -> ()
+	let observed: Int = math::increment(1)
+	()
+end

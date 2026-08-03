@@ -1,0 +1,5 @@
+use math
+
+test companion_needs_qualified_private_target_function() -> ()
+	increment(1)
+end

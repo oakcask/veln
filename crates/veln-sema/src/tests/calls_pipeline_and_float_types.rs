@@ -460,7 +460,7 @@ fn resolves_qualified_calls_through_import_aliases() {
         "math.veln",
         concat!(
             "mod app.math\n",
-            "fn double(value: Int) -> Int\n",
+            "pub fn double(value: Int) -> Int\n",
             "  value + value\n",
             "end\n",
         ),
@@ -513,7 +513,7 @@ fn resolves_qualified_function_values_through_import_aliases() {
         "text.veln",
         concat!(
             "mod app.text\n",
-            "fn stringify(value: Int) -> String\n",
+            "pub fn stringify(value: Int) -> String\n",
             "  \"ok\"\n",
             "end\n",
         ),
@@ -822,6 +822,98 @@ fn private_functions_are_hidden_from_unqualified_imports() {
 }
 
 #[test]
+fn matching_companion_resolves_qualified_private_function_imports() {
+    let companion_source = SourceFile::new(
+        "math.test.veln",
+        concat!(
+            "mod math__test_companion\n",
+            "use math\n",
+            "test increment_test() -> ()\n",
+            "  let observed: Int = math::increment(1)\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let target_source = SourceFile::new(
+        "math.veln",
+        concat!(
+            "mod math\n",
+            "fn increment(value: Int) -> Int\n",
+            "  value + 1\n",
+            "end\n",
+        ),
+    );
+    let companion = lower_surface_ast(&parse(&companion_source).tree);
+    let target = lower_surface_ast(&parse(&target_source).tree);
+    let module = SurfaceModule {
+        module: companion.module,
+        uses: companion.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        types: Vec::new(),
+        functions: companion
+            .functions
+            .into_iter()
+            .chain(target.functions)
+            .collect(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn non_matching_companion_cannot_resolve_qualified_private_function_imports() {
+    let companion_source = SourceFile::new(
+        "other.test.veln",
+        concat!(
+            "mod other__test_companion\n",
+            "use math\n",
+            "test increment_test() -> Int\n",
+            "  math::increment(1)\n",
+            "end\n",
+        ),
+    );
+    let target_source = SourceFile::new(
+        "math.veln",
+        concat!(
+            "mod math\n",
+            "fn increment(value: Int) -> Int\n",
+            "  value + 1\n",
+            "end\n",
+        ),
+    );
+    let companion = lower_surface_ast(&parse(&companion_source).tree);
+    let target = lower_surface_ast(&parse(&target_source).tree);
+    let module = SurfaceModule {
+        module: companion.module,
+        uses: companion.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        types: Vec::new(),
+        functions: companion
+            .functions
+            .into_iter()
+            .chain(target.functions)
+            .collect(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved call_target `math::increment`"
+    }));
+}
+
+#[test]
 fn public_function_alias_reexports_imported_target() {
     let app_source = SourceFile::new(
         "app.veln",
@@ -845,7 +937,7 @@ fn public_function_alias_reexports_imported_target() {
         "impl.veln",
         concat!(
             "mod spec.impl\n",
-            "fn double(value: Int) -> Int\n",
+            "pub fn double(value: Int) -> Int\n",
             "  value + value\n",
             "end\n",
         ),

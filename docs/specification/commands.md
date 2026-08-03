@@ -22,7 +22,8 @@ requiring the full command reference on the first read.
   help parsing or output.
 - `check`: source discovery, source path derived local module identity,
   `.test.veln` companion target inclusion, manifest dependency metadata
-  validation, path dependency source loading for external imports,
+  validation, exact companion private-function access through qualified target
+  imports, path dependency source loading for external imports,
   parse/semantic diagnostics, checked-core blockers, and check JSON output.
   Use [diagnostics-json.md](diagnostics-json.md) first for diagnostic shape,
   then
@@ -428,7 +429,10 @@ requiring the full command reference on the first read.
   [source-surface.md](source-surface.md) first for doctest fence metadata,
   [test-json.md](test-json.md) first for
   machine-readable output, then [commands-full.md](commands-full.md) for exact
-  command rules. The checked examples
+  command rules. The checked example
+  `../../examples/specification/test/companion-private-function-access/` shows
+  that a selected companion test can execute a private function declared in its
+  exact target. The checked examples
   `../../examples/specification/test/parallel-jobs-one-json/`,
   `../../examples/specification/test/parallel-jobs-two-json/`, and
   `../../examples/specification/test/parallel-jobs-auto-json/` show that

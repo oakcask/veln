@@ -1375,7 +1375,15 @@ pub(crate) fn reachable_entry_module_with_cache(
     let function_targets = cache
         .function_targets
         .get_or_init(|| reachable_function_targets(module));
-    let reachable = reachable_functions(module, entry, entry_kind, function_targets, cache);
+    let companion_access_targets = companion_function_access_targets(module);
+    let reachable = reachable_functions(
+        module,
+        entry,
+        entry_kind,
+        function_targets,
+        &companion_access_targets,
+        cache,
+    );
     module_with_reachable_functions(module, &reachable)
 }
 
@@ -1469,6 +1477,7 @@ fn reachable_functions(
     entry: &str,
     entry_kind: FunctionKind,
     function_targets: &[FunctionTarget],
+    companion_access_targets: &HashMap<String, String>,
     cache: &ReachabilityCache,
 ) -> HashSet<ReachableFunction> {
     let mut reachable = HashSet::<ReachableFunction>::new();
@@ -1494,7 +1503,14 @@ fn reachable_functions(
                             function.module_name.as_ref() == Some(module_name)
                         })
                 })
-                .flat_map(|function| direct_function_callees(function, module, function_targets))
+                .flat_map(|function| {
+                    direct_function_callees(
+                        function,
+                        module,
+                        function_targets,
+                        companion_access_targets,
+                    )
+                })
                 .collect::<Vec<_>>();
             cache
                 .direct_callees
@@ -1632,6 +1648,7 @@ fn direct_function_callees(
     function: &Function,
     module: &SurfaceModule,
     function_targets: &[FunctionTarget],
+    companion_access_targets: &HashMap<String, String>,
 ) -> Vec<ReachableFunction> {
     let mut callees = Vec::new();
     let current_module = function.module_name.as_deref();
@@ -1650,6 +1667,7 @@ fn direct_function_callees(
             current_module,
             uses,
             function_targets,
+            companion_access_targets,
             &mut callees,
         );
     }
@@ -1665,6 +1683,7 @@ fn direct_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    companion_access_targets,
                     &module.handlers,
                     &local_bindings,
                     &mut callees,
@@ -1681,6 +1700,7 @@ fn direct_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    companion_access_targets,
                     &module.handlers,
                     &local_bindings,
                     &mut callees,
@@ -1696,6 +1716,7 @@ fn collect_contract_callees(
     current_module: Option<&str>,
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
+    companion_access_targets: &HashMap<String, String>,
     callees: &mut Vec<ReachableFunction>,
 ) {
     let source = SourceFile::new("<contract>", predicate);
@@ -1727,8 +1748,13 @@ fn collect_contract_callees(
             index += 1;
             continue;
         }
-        for callee in resolve_function_reference(&segments, current_module, uses, function_targets)
-        {
+        for callee in resolve_function_reference(
+            &segments,
+            current_module,
+            uses,
+            function_targets,
+            companion_access_targets,
+        ) {
             push_reachable(callees, callee);
         }
         index = next_index + 1;
@@ -1738,6 +1764,7 @@ fn collect_contract_callees(
         current_module,
         uses,
         function_targets,
+        companion_access_targets,
         callees,
     );
 }
@@ -1747,6 +1774,7 @@ fn collect_contract_function_value_references(
     current_module: Option<&str>,
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
+    companion_access_targets: &HashMap<String, String>,
     callees: &mut Vec<ReachableFunction>,
 ) {
     let mut index = 0usize;
@@ -1796,8 +1824,13 @@ fn collect_contract_function_value_references(
             index += 1;
             segments
         };
-        for callee in resolve_function_reference(&segments, current_module, uses, function_targets)
-        {
+        for callee in resolve_function_reference(
+            &segments,
+            current_module,
+            uses,
+            function_targets,
+            companion_access_targets,
+        ) {
             push_reachable(callees, callee);
         }
     }
@@ -1808,6 +1841,7 @@ fn collect_function_callees(
     current_module: Option<&str>,
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
+    companion_access_targets: &HashMap<String, String>,
     handlers: &[veln_ast::HandlerDecl],
     local_bindings: &[LocalBinding],
     callees: &mut Vec<ReachableFunction>,
@@ -1819,6 +1853,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                companion_access_targets,
                 local_bindings,
                 None,
                 callees,
@@ -1830,6 +1865,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                companion_access_targets,
                 handlers,
                 local_bindings,
                 callees,
@@ -1842,6 +1878,7 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    companion_access_targets,
                     local_bindings,
                     Some(args.len()),
                     callees,
@@ -1852,6 +1889,7 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    companion_access_targets,
                     handlers,
                     local_bindings,
                     callees,
@@ -1863,6 +1901,7 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    companion_access_targets,
                     handlers,
                     local_bindings,
                     callees,
@@ -1876,6 +1915,7 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    companion_access_targets,
                     handlers,
                     local_bindings,
                     callees,
@@ -1888,6 +1928,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                companion_access_targets,
                 handlers,
                 callees,
             );
@@ -1896,6 +1937,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                companion_access_targets,
                 handlers,
                 local_bindings,
                 callees,
@@ -1906,6 +1948,7 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    companion_access_targets,
                     handlers,
                     local_bindings,
                     callees,
@@ -1918,6 +1961,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                companion_access_targets,
                 handlers,
                 local_bindings,
                 callees,
@@ -1927,6 +1971,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                companion_access_targets,
                 handlers,
                 local_bindings,
                 callees,
@@ -1938,6 +1983,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                companion_access_targets,
                 handlers,
                 local_bindings,
                 callees,
@@ -1949,6 +1995,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                companion_access_targets,
                 handlers,
                 local_bindings,
                 callees,
@@ -1959,6 +2006,7 @@ fn collect_function_callees(
             current_module,
             uses,
             function_targets,
+            companion_access_targets,
             handlers,
             local_bindings,
             callees,
@@ -1970,6 +2018,7 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    companion_access_targets,
                     handlers,
                     local_bindings,
                     callees,
@@ -1983,6 +2032,7 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    companion_access_targets,
                     handlers,
                     local_bindings,
                     callees,
@@ -1992,6 +2042,7 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    companion_access_targets,
                     handlers,
                     local_bindings,
                     callees,
@@ -2005,6 +2056,7 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    companion_access_targets,
                     handlers,
                     local_bindings,
                     callees,
@@ -2017,6 +2069,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                companion_access_targets,
                 handlers,
                 local_bindings,
                 callees,
@@ -2029,6 +2082,7 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    companion_access_targets,
                     handlers,
                     &arm_bindings,
                     callees,
@@ -2046,6 +2100,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                companion_access_targets,
                 handlers,
                 local_bindings,
                 callees,
@@ -2055,6 +2110,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                companion_access_targets,
                 handlers,
                 local_bindings,
                 callees,
@@ -2065,6 +2121,7 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    companion_access_targets,
                     handlers,
                     local_bindings,
                     callees,
@@ -2074,6 +2131,7 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    companion_access_targets,
                     handlers,
                     local_bindings,
                     callees,
@@ -2084,6 +2142,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                companion_access_targets,
                 handlers,
                 local_bindings,
                 callees,
@@ -2095,6 +2154,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                companion_access_targets,
                 handlers,
                 local_bindings,
                 callees,
@@ -2106,6 +2166,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                companion_access_targets,
                 handlers,
                 local_bindings,
                 callees,
@@ -2115,6 +2176,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                companion_access_targets,
                 handlers,
                 local_bindings,
                 callees,
@@ -2173,6 +2235,7 @@ fn collect_opaque_function_value_callees(
     current_module: Option<&str>,
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
+    companion_access_targets: &HashMap<String, String>,
     callees: &mut Vec<ReachableFunction>,
 ) {
     if current_module.is_some_and(|module| module.starts_with("std::")) {
@@ -2183,7 +2246,13 @@ fn collect_opaque_function_value_callees(
         return;
     }
     for target in function_targets.iter().filter(|target| {
-        target.shape == *shape && target_visible_from_current_module(target, current_module, uses)
+        target.shape == *shape
+            && target_visible_from_current_module(
+                target,
+                current_module,
+                uses,
+                companion_access_targets,
+            )
     }) {
         push_reachable(
             callees,
@@ -2200,6 +2269,7 @@ fn target_visible_from_current_module(
     target: &FunctionTarget,
     current_module: Option<&str>,
     uses: &[UseDecl],
+    companion_access_targets: &HashMap<String, String>,
 ) -> bool {
     let target_module = target.module_name.as_deref();
     if current_module.is_none() || target_module == current_module {
@@ -2210,7 +2280,12 @@ fn target_visible_from_current_module(
             use_decl.module_name.as_deref() == current_module
                 && use_decl.origin == veln_ast::UseOrigin::Source
                 && use_decl.name == module_name
-                && imported_target_is_visible(target, use_decl)
+                && imported_target_visible_from_module(
+                    target,
+                    use_decl,
+                    current_module,
+                    companion_access_targets,
+                )
         })
     })
 }
@@ -2278,6 +2353,7 @@ fn collect_function_name_reference(
     current_module: Option<&str>,
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
+    companion_access_targets: &HashMap<String, String>,
     local_bindings: &[LocalBinding],
     arg_count: Option<usize>,
     callees: &mut Vec<ReachableFunction>,
@@ -2295,12 +2371,19 @@ fn collect_function_name_reference(
                 current_module,
                 uses,
                 function_targets,
+                companion_access_targets,
                 callees,
             );
         }
         return;
     }
-    for callee in resolve_function_reference(segments, current_module, uses, function_targets) {
+    for callee in resolve_function_reference(
+        segments,
+        current_module,
+        uses,
+        function_targets,
+        companion_access_targets,
+    ) {
         push_reachable(callees, callee);
     }
 }
@@ -2310,6 +2393,7 @@ fn collect_handler_provider_callees(
     current_module: Option<&str>,
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
+    companion_access_targets: &HashMap<String, String>,
     handlers: &[veln_ast::HandlerDecl],
     callees: &mut Vec<ReachableFunction>,
 ) {
@@ -2340,6 +2424,7 @@ fn collect_handler_provider_callees(
                 current_module,
                 uses,
                 function_targets,
+                companion_access_targets,
             ) {
                 push_reachable(callees, callee);
             }
@@ -2352,6 +2437,7 @@ fn resolve_function_reference(
     current_module: Option<&str>,
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
+    companion_access_targets: &HashMap<String, String>,
 ) -> Vec<ReachableFunction> {
     match segments {
         [name] => function_targets
@@ -2377,7 +2463,12 @@ fn resolve_function_reference(
                 .filter(|target| {
                     target.name == *name
                         && target.module_name.as_deref() == Some(module_name)
-                        && imported_target_is_visible(target, use_decl)
+                        && imported_target_visible_from_module(
+                            target,
+                            use_decl,
+                            current_module,
+                            companion_access_targets,
+                        )
                 })
                 .map(|target| ReachableFunction {
                     kind: FunctionKind::Function,
@@ -2407,6 +2498,51 @@ fn imported_target_is_visible(target: &FunctionTarget, use_decl: &UseDecl) -> bo
         return target.visibility == Visibility::Public;
     }
     use_decl.package.is_none() || target.visibility == Visibility::Public
+}
+
+fn imported_target_visible_from_module(
+    target: &FunctionTarget,
+    use_decl: &UseDecl,
+    current_module: Option<&str>,
+    companion_access_targets: &HashMap<String, String>,
+) -> bool {
+    if target.visibility == Visibility::Public {
+        return true;
+    }
+    if target.requires_public_import || use_decl.package.is_some() {
+        return false;
+    }
+    if current_module.is_some_and(|module| module.starts_with("std::"))
+        && target
+            .module_name
+            .as_deref()
+            .is_some_and(|module| module.starts_with("std::"))
+    {
+        return true;
+    }
+    current_module.is_some_and(|current_module| {
+        target.module_name.as_ref().is_some_and(|target_module| {
+            companion_access_targets
+                .get(current_module)
+                .is_some_and(|allowed_target| allowed_target == target_module)
+        })
+    })
+}
+
+fn companion_function_access_targets(module: &SurfaceModule) -> HashMap<String, String> {
+    module
+        .functions
+        .iter()
+        .filter_map(|function| {
+            let companion = classify_companion_source(function.span.file.as_str())?;
+            let companion_module = function.module_name.clone()?;
+            let target_module = companion
+                .target_path
+                .strip_suffix(".veln")?
+                .replace('/', "::");
+            Some((companion_module, target_module))
+        })
+        .collect()
 }
 
 fn bare_target_visible(
@@ -3135,7 +3271,7 @@ mod tests {
                 SourceFile::new(
                     "app/text.veln",
                     concat!(
-                        "fn stringify(value: Int) -> String\n",
+                        "pub fn stringify(value: Int) -> String\n",
                         "  \"ok\"\n",
                         "end\n",
                     ),
@@ -3190,6 +3326,61 @@ mod tests {
                     Some("vec_map_step")
                 ),
             ]
+        );
+    }
+
+    #[test]
+    fn companion_test_entry_reaches_qualified_private_target_function() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "math.test.veln",
+                    concat!(
+                        "use math\n",
+                        "test increment_test() -> Int\n",
+                        "  math::increment(1)\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "math.veln",
+                    concat!(
+                        "fn increment(value: Int) -> Int\n",
+                        "  value + 1\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "increment_test", FunctionKind::Test);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert!(
+            functions.contains(&(
+                Some("math__test_companion"),
+                FunctionKind::Test,
+                Some("increment_test")
+            )),
+            "{functions:#?}"
+        );
+        assert!(
+            functions.contains(&(Some("math"), FunctionKind::Function, Some("increment"))),
+            "{functions:#?}"
         );
     }
 
@@ -3353,7 +3544,7 @@ mod tests {
                 SourceFile::new(
                     "app/rules.veln",
                     concat!(
-                        "fn positive(value: Int) -> Bool\n",
+                        "pub fn positive(value: Int) -> Bool\n",
                         "  value > 0\n",
                         "end\n",
                     ),
@@ -3402,7 +3593,7 @@ mod tests {
                 ),
                 SourceFile::new(
                     "app/util.veln",
-                    concat!("fn value() -> Int\n", "  1\n", "end\n",),
+                    concat!("pub fn value() -> Int\n", "  1\n", "end\n",),
                 ),
             ],
             manifest: None,
@@ -3506,7 +3697,7 @@ mod tests {
                 ),
                 SourceFile::new(
                     "app/rules.veln",
-                    concat!("fn ready() -> Bool\n", "  true\n", "end\n",),
+                    concat!("pub fn ready() -> Bool\n", "  true\n", "end\n",),
                 ),
             ],
             manifest: None,
@@ -3556,7 +3747,7 @@ mod tests {
                 ),
                 SourceFile::new(
                     "app/util.veln",
-                    concat!("fn value() -> Int\n", "  1\n", "end\n",),
+                    concat!("pub fn value() -> Int\n", "  1\n", "end\n",),
                 ),
             ],
             manifest: None,

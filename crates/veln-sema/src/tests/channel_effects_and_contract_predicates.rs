@@ -505,7 +505,7 @@ fn infers_transitive_private_helper_effects_from_body() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn say(text: String) -> ()\n",
+            "pub fn say(text: String) -> () effects [stdio]\n",
             "  stdio::println(text)\n",
             "end\n",
             "fn greet(text: String) -> ()\n",
@@ -549,7 +549,7 @@ fn infers_import_alias_call_effects_from_function_body() {
         "console.veln",
         concat!(
             "mod app.console\n",
-            "fn say(text: String) -> ()\n",
+            "pub fn say(text: String) -> () effects [stdio]\n",
             "  stdio::println(text)\n",
             "end\n",
         ),
@@ -756,7 +756,7 @@ fn contract_predicate_accepts_pure_boolean_function_calls() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn positive(value: Int) -> Bool\n",
+            "pub fn positive(value: Int) -> Bool\n",
             "  value > 0\n",
             "end\n",
             "pub fn identity(value: Int) -> Int\n",
@@ -791,7 +791,7 @@ fn contract_predicate_accepts_qualified_pure_function_calls() {
         "rules.veln",
         concat!(
             "mod app.rules\n",
-            "fn positive(value: Int) -> Bool\n",
+            "pub fn positive(value: Int) -> Bool\n",
             "  value > 0\n",
             "end\n",
         ),

@@ -46,6 +46,16 @@ same package. Missing and chained targets are executable diagnostics in
 `examples/specification/check/companion-chained-target-human/`, and the
 matching `test/companion-*-target-*` cases.
 
+A test companion may call a private function declared by its exact target
+module when the companion writes an explicit `use` for that target and calls
+the function through a qualified path. The permission is limited to functions,
+is not transitive through modules imported by the target, and does not add bare
+target-name lookup. The checked cases are
+`examples/specification/check/companion-private-function-access/`,
+`examples/specification/check/companion-private-function-wrong-target/`,
+`examples/specification/check/companion-private-function-bare-name/`, and
+`examples/specification/test/companion-private-function-access/`.
+
 ## Integer Literals
 
 `Int` literals accept decimal digits, lowercase `0b` plus binary digits, or

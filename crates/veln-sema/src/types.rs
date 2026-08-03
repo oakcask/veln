@@ -8,6 +8,7 @@ use veln_ast::{
     RecordField, SchemaDecl, SchemaField, SurfaceModule, UseDecl, Visibility,
 };
 use veln_literals::parse_integer_literal;
+use veln_project::classify_companion_source;
 use veln_source::SourceSpan;
 
 use crate::adt::{self, AdtRegistry};
@@ -27,6 +28,7 @@ pub(crate) struct TypeEnvironment {
     codec_symbols: Vec<NamedSymbol>,
     pub(crate) uses: Vec<UseDecl>,
     pub(crate) adts: AdtRegistry,
+    companion_function_access_targets: BTreeMap<String, String>,
 }
 
 #[derive(Clone)]
@@ -221,6 +223,7 @@ impl TypeEnvironment {
             codec_symbols: named_codec_symbols(module),
             uses: module.uses.clone(),
             adts,
+            companion_function_access_targets: companion_function_access_targets(module),
         }
     }
 
@@ -379,7 +382,7 @@ impl TypeEnvironment {
                 self.functions.iter().find(|function| {
                     function.name == *name
                         && function.module_name.as_deref() == Some(module_name)
-                        && imported_function_is_visible(function, use_decl)
+                        && self.imported_function_is_visible(function, use_decl, current_module)
                         && !self.imported_codec_helper_is_hidden(function, use_decl)
                 })
             }
@@ -554,6 +557,35 @@ impl TypeEnvironment {
                 codec.module_name.as_deref() == Some(use_decl.name.as_str())
                     && codec.target_name == function.target_name
             })
+    }
+
+    fn imported_function_is_visible(
+        &self,
+        function: &FunctionSignature,
+        use_decl: &UseDecl,
+        current_module: Option<&str>,
+    ) -> bool {
+        if function.visibility == Visibility::Public {
+            return true;
+        }
+        if use_decl.package.is_some() {
+            return false;
+        }
+        if current_module.is_some_and(|module| module.starts_with("std::"))
+            && function
+                .module_name
+                .as_deref()
+                .is_some_and(|module| module.starts_with("std::"))
+        {
+            return true;
+        }
+        current_module.is_some_and(|current_module| {
+            function.module_name.as_ref().is_some_and(|target_module| {
+                self.companion_function_access_targets
+                    .get(current_module)
+                    .is_some_and(|allowed_target| allowed_target == target_module)
+            })
+        })
     }
 
     pub(crate) fn unqualified_codec_calls(
@@ -824,6 +856,7 @@ fn infer_private_handler_effects(
     functions: &[FunctionSignature],
     uses: &[UseDecl],
 ) {
+    let companion_access_targets = companion_access_targets_for_signatures(functions);
     for handler in handlers
         .iter_mut()
         .filter(|handler| handler.visibility != Visibility::Public)
@@ -835,6 +868,7 @@ fn infer_private_handler_effects(
                 uses,
                 functions,
                 handler.module_name.as_deref(),
+                &companion_access_targets,
             ) {
                 for effect in &function.effects {
                     push_unique_effect(&mut inferred, effect);
@@ -5840,6 +5874,7 @@ pub(crate) fn function_alias_signatures(
                 &module.uses,
                 functions,
                 alias.module_name.as_deref(),
+                &companion_function_access_targets(module),
             )?;
             Some(FunctionSignature {
                 name,
@@ -5862,6 +5897,7 @@ fn function_signature_path<'a>(
     uses: &[UseDecl],
     functions: &'a [FunctionSignature],
     current_module: Option<&str>,
+    companion_access_targets: &BTreeMap<String, String>,
 ) -> Option<&'a FunctionSignature> {
     match segments {
         [name] => functions.iter().find(|function| function.name == *name),
@@ -5872,7 +5908,12 @@ fn function_signature_path<'a>(
             functions.iter().find(|function| {
                 function.name == *name
                     && function.module_name.as_deref() == Some(module_name)
-                    && imported_function_is_visible(function, use_decl)
+                    && imported_function_is_visible(
+                        function,
+                        use_decl,
+                        current_module,
+                        companion_access_targets,
+                    )
             })
         }
         _ => None,
@@ -5885,6 +5926,7 @@ pub(crate) fn infer_function_body_effects(
     user_effects: &[EffectSignature],
     handlers: &[HandlerSignature],
 ) {
+    let companion_access_targets = companion_function_access_targets(module);
     let mut effects_by_name = functions
         .iter()
         .map(|function| (function.name.clone(), function.effects.clone()))
@@ -5930,6 +5972,7 @@ pub(crate) fn infer_function_body_effects(
                             functions,
                             effects_by_name: &effects_by_name,
                             effects_by_module_path: &effects_by_module_path,
+                            companion_access_targets: &companion_access_targets,
                             user_effects,
                             handlers,
                         };
@@ -5945,6 +5988,7 @@ pub(crate) fn infer_function_body_effects(
                             functions,
                             effects_by_name: &effects_by_name,
                             effects_by_module_path: &effects_by_module_path,
+                            companion_access_targets: &companion_access_targets,
                             user_effects,
                             handlers,
                         };
@@ -6010,6 +6054,7 @@ struct ExprEffectContext<'a> {
     functions: &'a [FunctionSignature],
     effects_by_name: &'a BTreeMap<String, Vec<String>>,
     effects_by_module_path: &'a BTreeMap<(String, String), (Vec<String>, Visibility)>,
+    companion_access_targets: &'a BTreeMap<String, String>,
     user_effects: &'a [EffectSignature],
     handlers: &'a [HandlerSignature],
 }
@@ -6062,6 +6107,7 @@ fn collect_expr_effects(expr: &Expr, context: &ExprEffectContext<'_>, inferred: 
                     context.uses,
                     context.functions,
                     context.current_module,
+                    context.companion_access_targets,
                 ) {
                     for effect in instantiate_call_effect_rows(signature, args, context) {
                         push_unique_effect(inferred, &effect);
@@ -6074,6 +6120,7 @@ fn collect_expr_effects(expr: &Expr, context: &ExprEffectContext<'_>, inferred: 
                         context.bindings,
                         context.effects_by_name,
                         context.effects_by_module_path,
+                        context.companion_access_targets,
                     ) {
                         push_unique_effect(inferred, effect);
                     }
@@ -6219,6 +6266,7 @@ fn function_type_for_expr(expr: &Expr, context: &ExprEffectContext<'_>) -> Optio
                     context.uses,
                     context.functions,
                     context.current_module,
+                    context.companion_access_targets,
                 )
                 .map(FunctionSignature::ty)
             }),
@@ -6227,6 +6275,7 @@ fn function_type_for_expr(expr: &Expr, context: &ExprEffectContext<'_>) -> Optio
             context.uses,
             context.functions,
             context.current_module,
+            context.companion_access_targets,
         )
         .map(FunctionSignature::ty),
     }
@@ -6353,6 +6402,7 @@ fn concurrency_effects_for_call(
                 context.bindings,
                 context.effects_by_name,
                 context.effects_by_module_path,
+                context.companion_access_targets,
             )
         })
     {
@@ -6370,6 +6420,7 @@ fn effects_for_callee_path<'a>(
     bindings: &'a [Binding],
     effects_by_name: &'a BTreeMap<String, Vec<String>>,
     effects_by_module_path: &'a BTreeMap<(String, String), (Vec<String>, Visibility)>,
+    companion_access_targets: &'a BTreeMap<String, String>,
 ) -> &'a [String] {
     match segments {
         [name] => effects_for_bare_callee(name, bindings, effects_by_name),
@@ -6382,7 +6433,13 @@ fn effects_for_callee_path<'a>(
             effects_by_module_path
                 .get(&(use_decl.name.clone(), name.clone()))
                 .filter(|(_, visibility)| {
-                    use_decl.package.is_none() || *visibility == Visibility::Public
+                    imported_effects_are_visible(
+                        use_decl,
+                        current_module,
+                        use_decl.name.as_str(),
+                        *visibility,
+                        companion_access_targets,
+                    )
                 })
                 .map_or(&[], |(effects, _)| effects.as_slice())
         }
@@ -6402,8 +6459,82 @@ pub(crate) fn imported_use_for_path<'a>(
     })
 }
 
-fn imported_function_is_visible(function: &FunctionSignature, use_decl: &UseDecl) -> bool {
-    use_decl.package.is_none() || function.visibility == Visibility::Public
+fn imported_function_is_visible(
+    function: &FunctionSignature,
+    use_decl: &UseDecl,
+    current_module: Option<&str>,
+    companion_access_targets: &BTreeMap<String, String>,
+) -> bool {
+    if function.visibility == Visibility::Public {
+        return true;
+    }
+    if use_decl.package.is_none()
+        && current_module.is_some_and(|module| module.starts_with("std::"))
+        && function
+            .module_name
+            .as_deref()
+            .is_some_and(|module| module.starts_with("std::"))
+    {
+        return true;
+    }
+    use_decl.package.is_none()
+        && current_module.is_some_and(|current_module| {
+            function.module_name.as_ref().is_some_and(|target_module| {
+                companion_access_targets
+                    .get(current_module)
+                    .is_some_and(|allowed| allowed == target_module)
+            })
+        })
+}
+
+fn imported_effects_are_visible(
+    use_decl: &UseDecl,
+    current_module: Option<&str>,
+    target_module: &str,
+    visibility: Visibility,
+    companion_access_targets: &BTreeMap<String, String>,
+) -> bool {
+    visibility == Visibility::Public
+        || (use_decl.package.is_none()
+            && current_module.is_some_and(|current_module| {
+                (current_module.starts_with("std::") && target_module.starts_with("std::"))
+                    || companion_access_targets
+                        .get(current_module)
+                        .is_some_and(|allowed| allowed == target_module)
+            }))
+}
+
+fn companion_function_access_targets(module: &SurfaceModule) -> BTreeMap<String, String> {
+    module
+        .functions
+        .iter()
+        .filter_map(|function| {
+            let companion = classify_companion_source(function.span.file.as_str())?;
+            let companion_module = function.module_name.clone()?;
+            let target_module = companion
+                .target_path
+                .strip_suffix(".veln")?
+                .replace('/', "::");
+            Some((companion_module, target_module))
+        })
+        .collect()
+}
+
+fn companion_access_targets_for_signatures(
+    functions: &[FunctionSignature],
+) -> BTreeMap<String, String> {
+    functions
+        .iter()
+        .filter_map(|function| {
+            let companion = classify_companion_source(function.span.file.as_str())?;
+            let companion_module = function.module_name.clone()?;
+            let target_module = companion
+                .target_path
+                .strip_suffix(".veln")?
+                .replace('/', "::");
+            Some((companion_module, target_module))
+        })
+        .collect()
 }
 
 fn effects_for_bare_callee<'a>(
