@@ -2017,6 +2017,20 @@ mod tests {
     }
 
     #[test]
+    fn static_numeric_expression_preserves_operator_precedence_and_associativity() {
+        for predicate in [
+            "1 + 2 * 3 == 7",
+            "(1 + 2) * 3 == 9",
+            "8 / 2 / 2 == 2",
+            "8 >> 1 + 1 == 2",
+            "1 | 6 ^ 3 & 5 == 7",
+            "~1 + 3 == 1",
+        ] {
+            assert!(predicate_is_statically_true(predicate), "{predicate}");
+        }
+    }
+
+    #[test]
     fn high_arity_exhaustive_case_splits_are_statically_true() {
         for fields in [
             &["a", "b", "c", "d", "e", "f", "g", "h", "i"][..],
@@ -2278,55 +2292,28 @@ fn static_numeric_expression(predicate: &str) -> Option<StaticNumber> {
         return Some(number);
     }
     if contains_binary_bitwise_operator(predicate) {
-        for operator in ["|", "^", "&"] {
-            if let Some((left, right)) = split_top_level_operator(predicate, operator) {
-                let left = static_numeric_expression(left)?.as_i64()?;
-                let right = static_numeric_expression(right)?.as_i64()?;
-                let value = match operator {
-                    "|" => left | right,
-                    "^" => left ^ right,
-                    "&" => left & right,
-                    _ => unreachable!("operator is selected from the bitwise set"),
-                };
-                return Some(StaticNumber::integer(value));
-            }
+        if let Some(value) =
+            static_binary_numeric_expression(predicate, &["|", "^", "&"], static_bitwise_operation)
+        {
+            return value;
         }
-        for operator in [">>>", ">>", "<<"] {
-            if let Some((left, right)) = split_top_level_operator(predicate, operator) {
-                let left = static_numeric_expression(left)?.as_i64()?;
-                let right = static_numeric_expression(right)?.as_i64()?;
-                let count = u32::try_from(right).ok().filter(|count| *count <= 63)?;
-                let value = match operator {
-                    ">>>" => ((left as u64) >> count) as i64,
-                    ">>" => left >> count,
-                    "<<" => left.wrapping_shl(count),
-                    _ => unreachable!("operator is selected from the shift set"),
-                };
-                return Some(StaticNumber::integer(value));
-            }
+        if let Some(value) = static_binary_numeric_expression(
+            predicate,
+            &[">>>", ">>", "<<"],
+            static_shift_operation,
+        ) {
+            return value;
         }
     }
-    for operator in ["+", "-"] {
-        if let Some((left, right)) = split_top_level_operator(predicate, operator) {
-            let left = static_numeric_expression(left)?;
-            let right = static_numeric_expression(right)?;
-            return match operator {
-                "+" => left.add(right),
-                "-" => left.sub(right),
-                _ => None,
-            };
-        }
+    if let Some(value) =
+        static_binary_numeric_expression(predicate, &["+", "-"], static_additive_operation)
+    {
+        return value;
     }
-    for operator in ["*", "/"] {
-        if let Some((left, right)) = split_top_level_operator(predicate, operator) {
-            let left = static_numeric_expression(left)?;
-            let right = static_numeric_expression(right)?;
-            return match operator {
-                "*" => left.mul(right),
-                "/" => left.div(right),
-                _ => None,
-            };
-        }
+    if let Some(value) =
+        static_binary_numeric_expression(predicate, &["*", "/"], static_multiplicative_operation)
+    {
+        return value;
     }
     if let Some(rest) = predicate.strip_prefix('-') {
         return static_numeric_expression(rest)?.negate();
@@ -2337,6 +2324,77 @@ fn static_numeric_expression(predicate: &str) -> Option<StaticNumber> {
         ));
     }
     None
+}
+
+fn static_binary_numeric_expression(
+    predicate: &str,
+    operators: &[&str],
+    operation: fn(StaticNumber, &str, StaticNumber) -> Option<StaticNumber>,
+) -> Option<Option<StaticNumber>> {
+    operators.iter().find_map(|operator| {
+        split_top_level_operator(predicate, operator).map(|(left, right)| {
+            let left = static_numeric_expression(left)?;
+            let right = static_numeric_expression(right)?;
+            operation(left, operator, right)
+        })
+    })
+}
+
+fn static_bitwise_operation(
+    left: StaticNumber,
+    operator: &str,
+    right: StaticNumber,
+) -> Option<StaticNumber> {
+    let left = left.as_i64()?;
+    let right = right.as_i64()?;
+    let value = match operator {
+        "|" => left | right,
+        "^" => left ^ right,
+        "&" => left & right,
+        _ => return None,
+    };
+    Some(StaticNumber::integer(value))
+}
+
+fn static_shift_operation(
+    left: StaticNumber,
+    operator: &str,
+    right: StaticNumber,
+) -> Option<StaticNumber> {
+    let left = left.as_i64()?;
+    let right = right.as_i64()?;
+    let count = u32::try_from(right).ok().filter(|count| *count <= 63)?;
+    let value = match operator {
+        ">>>" => ((left as u64) >> count) as i64,
+        ">>" => left >> count,
+        "<<" => left.wrapping_shl(count),
+        _ => return None,
+    };
+    Some(StaticNumber::integer(value))
+}
+
+fn static_additive_operation(
+    left: StaticNumber,
+    operator: &str,
+    right: StaticNumber,
+) -> Option<StaticNumber> {
+    match operator {
+        "+" => left.add(right),
+        "-" => left.sub(right),
+        _ => None,
+    }
+}
+
+fn static_multiplicative_operation(
+    left: StaticNumber,
+    operator: &str,
+    right: StaticNumber,
+) -> Option<StaticNumber> {
+    match operator {
+        "*" => left.mul(right),
+        "/" => left.div(right),
+        _ => None,
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
