@@ -9,7 +9,7 @@ use super::repair_reasoning::*;
 use super::*;
 use crate::effects::prelude_effect_origin;
 use crate::standard_symbols::qualified_symbol;
-use crate::types::{SchemaReferenceErrorKind, lowercase_schema_primitive};
+use crate::types::{FunctionSignature, SchemaReferenceErrorKind, lowercase_schema_primitive};
 
 pub(crate) fn check_function_body(
     function: &Function,
@@ -496,98 +496,125 @@ impl<'a> FunctionChecker<'a> {
     }
 
     pub(super) fn check_function_annotations(&mut self) {
+        let function = self.function;
         let variadic_count = self
             .function
             .params
             .iter()
             .filter(|param| param.is_variadic)
             .count();
-        let signature = self.environment.function_for(self.function);
-        for (index, param) in self.function.params.iter().enumerate() {
-            let private_omitted_parameter = self.function.visibility == Visibility::Private
-                && self.function.kind == FunctionKind::Function
-                && parameter_annotation_is_omitted(param);
-            let inferred_private_param = self.inferred_private_parameter_type(param);
-            let ty = param
-                .ty
-                .as_deref()
-                .filter(|annotation| {
-                    !(param.is_variadic && annotation.is_empty() && private_omitted_parameter)
-                })
-                .and_then(|annotation| {
-                    self.parse_annotation(
-                        annotation,
-                        param.node_id,
-                        &param.span,
-                        ExpectedTypeSource::DeclaredParameter,
-                        "Parameter type declared here.",
-                    )
-                });
-            if param.is_variadic {
-                if param.ty.as_deref().is_none_or(str::is_empty) && !private_omitted_parameter {
-                    self.push_variadic_parameter_diagnostic(
-                        param.node_id,
-                        param.span.clone(),
-                        "type.variadic_parameter_type",
-                        format!(
-                            "variadic parameter `{}` is missing an element type",
-                            param.name
-                        ),
-                        "element_type",
-                    );
-                }
-                if self
-                    .function
-                    .params
-                    .last()
-                    .is_some_and(|last| last.node_id != param.node_id)
-                {
-                    self.push_variadic_parameter_diagnostic(
-                        param.node_id,
-                        param.span.clone(),
-                        "type.variadic_parameter_position",
-                        format!(
-                            "variadic parameter `{}` must be the final parameter",
-                            param.name
-                        ),
-                        "final_parameter",
-                    );
-                }
-                if variadic_count > 1 {
-                    self.push_variadic_parameter_diagnostic(
-                        param.node_id,
-                        param.span.clone(),
-                        "type.variadic_parameter_duplicate",
-                        "function parameter list has more than one variadic parameter".to_string(),
-                        "single_variadic_parameter",
-                    );
-                }
-            }
-            if !self.declare_local_name(
-                &param.name,
-                param.node_id.display("param"),
-                param.span.clone(),
-                "parameter",
-            ) {
-                continue;
-            }
-            self.bindings.push(Binding::new(
-                param.name.clone(),
-                signature
-                    .and_then(|signature| signature.params.get(index).cloned())
-                    .or(inferred_private_param.filter(|ty| !type_contains_unknown(ty)))
-                    .unwrap_or_else(|| {
-                        ty.map_or(Type::Unknown, |expected| {
-                            if param.is_variadic {
-                                Type::named("List", vec![expected.ty])
-                            } else {
-                                expected.ty
-                            }
-                        })
-                    }),
-            ));
+        let signature = self.environment.function_for(function);
+        for (index, param) in function.params.iter().enumerate() {
+            self.check_parameter_annotation(param, index, variadic_count, signature);
         }
 
+        self.check_return_annotation();
+        self.check_result_binding_name();
+    }
+
+    fn check_parameter_annotation(
+        &mut self,
+        param: &veln_ast::Param,
+        index: usize,
+        variadic_count: usize,
+        signature: Option<&FunctionSignature>,
+    ) {
+        let private_omitted_parameter = self.function.visibility == Visibility::Private
+            && self.function.kind == FunctionKind::Function
+            && parameter_annotation_is_omitted(param);
+        let inferred_private_param = self.inferred_private_parameter_type(param);
+        let declared_type = param
+            .ty
+            .as_deref()
+            .filter(|annotation| {
+                !(param.is_variadic && annotation.is_empty() && private_omitted_parameter)
+            })
+            .and_then(|annotation| {
+                self.parse_annotation(
+                    annotation,
+                    param.node_id,
+                    &param.span,
+                    ExpectedTypeSource::DeclaredParameter,
+                    "Parameter type declared here.",
+                )
+            });
+
+        self.check_variadic_parameter_shape(param, variadic_count, private_omitted_parameter);
+        if !self.declare_local_name(
+            &param.name,
+            param.node_id.display("param"),
+            param.span.clone(),
+            "parameter",
+        ) {
+            return;
+        }
+
+        let binding_type = signature
+            .and_then(|signature| signature.params.get(index).cloned())
+            .or(inferred_private_param.filter(|ty| !type_contains_unknown(ty)))
+            .unwrap_or_else(|| {
+                declared_type.map_or(Type::Unknown, |expected| {
+                    if param.is_variadic {
+                        Type::named("List", vec![expected.ty])
+                    } else {
+                        expected.ty
+                    }
+                })
+            });
+        self.bindings
+            .push(Binding::new(param.name.clone(), binding_type));
+    }
+
+    fn check_variadic_parameter_shape(
+        &mut self,
+        param: &veln_ast::Param,
+        variadic_count: usize,
+        private_omitted_parameter: bool,
+    ) {
+        if !param.is_variadic {
+            return;
+        }
+        if param.ty.as_deref().is_none_or(str::is_empty) && !private_omitted_parameter {
+            self.push_variadic_parameter_diagnostic(
+                param.node_id,
+                param.span.clone(),
+                "type.variadic_parameter_type",
+                format!(
+                    "variadic parameter `{}` is missing an element type",
+                    param.name
+                ),
+                "element_type",
+            );
+        }
+        if self
+            .function
+            .params
+            .last()
+            .is_some_and(|last| last.node_id != param.node_id)
+        {
+            self.push_variadic_parameter_diagnostic(
+                param.node_id,
+                param.span.clone(),
+                "type.variadic_parameter_position",
+                format!(
+                    "variadic parameter `{}` must be the final parameter",
+                    param.name
+                ),
+                "final_parameter",
+            );
+        }
+        if variadic_count > 1 {
+            self.push_variadic_parameter_diagnostic(
+                param.node_id,
+                param.span.clone(),
+                "type.variadic_parameter_duplicate",
+                "function parameter list has more than one variadic parameter".to_string(),
+                "single_variadic_parameter",
+            );
+        }
+    }
+
+    fn check_return_annotation(&mut self) {
         if let Some(return_type) = &self.function.return_type {
             self.parse_annotation(
                 return_type,
@@ -597,7 +624,9 @@ impl<'a> FunctionChecker<'a> {
                 "Return type declared here.",
             );
         }
+    }
 
+    fn check_result_binding_name(&mut self) {
         if let Some(result_binding) = &self.function.return_binding
             && let Some(param) = self
                 .function

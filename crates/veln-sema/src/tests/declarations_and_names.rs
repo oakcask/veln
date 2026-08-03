@@ -2169,6 +2169,31 @@ fn duplicate_parameter_names_are_static_errors() {
 }
 
 #[test]
+fn duplicate_variadic_parameter_keeps_shape_diagnostics() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn bad(values: ...String, values: ...String) -> String\n  \"\"\nend\n",
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 4, "{diagnostics:#?}");
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "type.variadic_parameter_position",
+            "type.variadic_parameter_duplicate",
+            "type.variadic_parameter_duplicate",
+            "name.duplicate",
+        ]
+    );
+}
+
+#[test]
 fn let_names_cannot_duplicate_the_function_value_scope() {
     let source = SourceFile::new(
         "main.veln",
