@@ -131,13 +131,16 @@ source, and valid qualified call or function-value references in the exact
 matching companion. A same-named companion-local declaration, bare companion
 reference, target callable parameter, target local `let` binding, or target
 pattern binding is a different symbol and is not edited inside the binding's
-scope. Valid target references after nested blocks, including `else if`
-branches, remain part of the production function identity. Calls through
-another qualifier, comments, and string literals are not edited. Definition,
-prepare-rename, and rename requests whose selected text is inside a comment or
-string literal do not identify the private target function. Wrong companions,
-`_test.veln` integration modules, and references through a target dependency do
-not receive private-function definition or rename results.
+scope. Record field labels and field accesses that use the same text are not
+function references. In `let name = name`, the initializer reference remains
+part of the production function identity when it resolves before the local
+binding starts. Valid target references after nested blocks, including
+`else if` branches, remain part of the production function identity. Calls
+through another qualifier, comments, and string literals are not edited.
+Definition, prepare-rename, and rename requests whose selected text is inside a
+comment or string literal do not identify the private target function. Wrong
+companions, `_test.veln` integration modules, and references through a target
+dependency do not receive private-function definition or rename results.
 
 Definition and rename use the same open-document overlays as workspace
 diagnostics. Unsaved target or companion text can provide the declaration and
@@ -145,8 +148,9 @@ reference locations used in the response. The routed executable evidence is
 `../../examples/specification/lsp/companion-private-function-identity/`. The
 `veln-lsp` server tests also cover companion private-function definition,
 prepare rename, rename edits, source-scope isolation, function-value
-references, callable shadowing, rejected boundaries, request-origin filtering,
-and open-document overlays.
+references, callable shadowing, record field isolation, match-arm binding
+isolation, local-binding initializer references, rejected boundaries,
+request-origin filtering, and open-document overlays.
 
 ## VSCode Integration
 

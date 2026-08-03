@@ -772,6 +772,7 @@ fn call_references(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
                 && is_identifier(&token.text)
                 && previous_non_layout_token(&tokens, *index)
                     .is_none_or(|previous| previous.kind != TokenKind::DoubleColon)
+                && !is_field_name(&tokens, *index)
                 && !is_function_declaration_name(&tokens, *index)
                 && !is_parameter_name(&tokens, *index)
                 && !is_local_binding_name(&tokens, *index)
@@ -891,15 +892,27 @@ fn local_bindings(tokens: &[Token], body_start: usize, end: usize) -> Vec<LocalB
             continue;
         }
         let binding_end = local_binding_scope_end(tokens, index, end);
-        bindings.extend(let_pattern_binding_names(tokens, index).into_iter().map(
-            |(name, start)| LocalBinding {
-                name,
-                start,
-                end: binding_end,
-            },
-        ));
+        bindings.extend(
+            let_pattern_binding_names(tokens, index)
+                .into_iter()
+                .map(|(name, _)| LocalBinding {
+                    name,
+                    start: let_binding_scope_start(tokens, index),
+                    end: binding_end,
+                }),
+        );
     }
+    bindings.extend(match_arm_pattern_binding_names(tokens, body_start, end));
     bindings
+}
+
+fn let_binding_scope_start(tokens: &[Token], let_index: usize) -> usize {
+    tokens[let_index + 1..]
+        .iter()
+        .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
+        .last()
+        .map(|token| token.range.end)
+        .unwrap_or_else(|| tokens[let_index].range.end)
 }
 
 fn local_binding_scope_end(tokens: &[Token], let_index: usize, function_end: usize) -> usize {
@@ -948,6 +961,102 @@ fn let_pattern_binding_names(tokens: &[Token], let_index: usize) -> Vec<(String,
     names
 }
 
+fn match_arm_pattern_binding_names(
+    tokens: &[Token],
+    body_start: usize,
+    function_end: usize,
+) -> Vec<LocalBinding> {
+    let mut bindings = Vec::new();
+    for (index, token) in tokens.iter().enumerate() {
+        if token.range.start < body_start
+            || token.range.start >= function_end
+            || token.kind != TokenKind::FatArrow
+            || !inside_match(tokens, index, body_start)
+        {
+            continue;
+        }
+        let scope_start = token.range.end;
+        let scope_end = match_arm_scope_end(tokens, index + 1, function_end);
+        let pattern_start = match_arm_pattern_start(tokens, index, body_start);
+        for name in pattern_binding_names_in_range(tokens, pattern_start, index) {
+            bindings.push(LocalBinding {
+                name,
+                start: scope_start,
+                end: scope_end,
+            });
+        }
+    }
+    bindings
+}
+
+fn inside_match(tokens: &[Token], index: usize, body_start: usize) -> bool {
+    let mut nested_blocks = 0usize;
+    for token in tokens[..index]
+        .iter()
+        .rev()
+        .take_while(|token| token.range.start >= body_start)
+    {
+        match token.kind {
+            TokenKind::End => nested_blocks += 1,
+            TokenKind::Match if nested_blocks == 0 => return true,
+            TokenKind::If | TokenKind::Handler | TokenKind::Match => {
+                nested_blocks = nested_blocks.saturating_sub(1);
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
+fn match_arm_scope_end(tokens: &[Token], start: usize, function_end: usize) -> usize {
+    let mut nested_blocks = 0usize;
+    for token in &tokens[start..] {
+        if token.range.start >= function_end {
+            break;
+        }
+        match token.kind {
+            TokenKind::If | TokenKind::Match | TokenKind::Handler => nested_blocks += 1,
+            TokenKind::End if nested_blocks == 0 => return token.range.start,
+            TokenKind::End => nested_blocks -= 1,
+            TokenKind::FatArrow if nested_blocks == 0 => {
+                return match_arm_pattern_start_from_arrow(tokens, token.range.start);
+            }
+            _ => {}
+        }
+    }
+    function_end
+}
+
+fn match_arm_pattern_start(tokens: &[Token], arrow_index: usize, body_start: usize) -> usize {
+    tokens[..arrow_index]
+        .iter()
+        .rev()
+        .take_while(|token| token.range.start >= body_start)
+        .find(|token| token.kind == TokenKind::Newline || token.kind == TokenKind::Match)
+        .map_or(body_start, |token| token.range.end)
+}
+
+fn match_arm_pattern_start_from_arrow(tokens: &[Token], arrow_start: usize) -> usize {
+    tokens
+        .iter()
+        .position(|token| token.range.start == arrow_start)
+        .map_or(arrow_start, |index| {
+            match_arm_pattern_start(tokens, index, 0)
+        })
+}
+
+fn pattern_binding_names_in_range(tokens: &[Token], start: usize, end_index: usize) -> Vec<String> {
+    tokens[..end_index]
+        .iter()
+        .enumerate()
+        .filter(|(_, token)| token.range.start >= start)
+        .filter(|(index, token)| {
+            token.kind == TokenKind::Ident && is_pattern_binding_token(tokens, *index)
+        })
+        .map(|(_, token)| token.text.clone())
+        .collect()
+}
+
 fn is_pattern_binding_token(tokens: &[Token], index: usize) -> bool {
     let token = &tokens[index];
     token.kind == TokenKind::Ident
@@ -983,6 +1092,7 @@ fn is_parameter_name(tokens: &[Token], index: usize) -> bool {
 fn is_local_binding_name(tokens: &[Token], index: usize) -> bool {
     previous_non_layout_token(tokens, index).is_some_and(|previous| previous.kind == TokenKind::Let)
         || is_let_pattern_binding_name(tokens, index)
+        || is_match_arm_pattern_binding_name(tokens, index)
 }
 
 fn is_let_pattern_binding_name(tokens: &[Token], index: usize) -> bool {
@@ -1004,6 +1114,21 @@ fn is_let_pattern_binding_name(tokens: &[Token], index: usize) -> bool {
     let_pattern_binding_names(tokens, let_index)
         .iter()
         .any(|(name, start)| name == &token.text && *start == token.range.end)
+}
+
+fn is_match_arm_pattern_binding_name(tokens: &[Token], index: usize) -> bool {
+    let token = &tokens[index];
+    token.kind == TokenKind::Ident
+        && tokens[index + 1..]
+            .iter()
+            .take_while(|next| next.kind != TokenKind::Newline && next.kind != TokenKind::Eof)
+            .any(|next| next.kind == TokenKind::FatArrow)
+        && is_pattern_binding_token(tokens, index)
+}
+
+fn is_field_name(tokens: &[Token], index: usize) -> bool {
+    previous_non_layout_token(tokens, index).is_some_and(|previous| previous.kind == TokenKind::Dot)
+        || next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::Colon)
 }
 
 fn identifier_token_at(tokens: &[Token], offset: usize) -> Option<(usize, &Token)> {
@@ -2107,6 +2232,150 @@ mod tests {
         assert!(
             responses[0].contains(
                 r#""range":{"start":{"line":11,"character":2},"end":{"line":11,"character":11}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
+    fn companion_private_function_rename_skips_record_fields() {
+        let mut server = Server::default();
+        let project = TempProject::new("rename-record-field-isolation");
+        project.write(
+            "math.veln",
+            concat!(
+                "fn increment(value: Int) -> Int\n",
+                "  value + 1\n",
+                "end\n",
+                "\n",
+                "pub fn inspect(value: Int) -> Int\n",
+                "  let record = {increment: value}\n",
+                "  record.increment\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "math.test.veln",
+            "use math\n\ntest companion() -> Int\n  math::increment(1)\nend\n",
+        );
+        let root_uri = path_to_uri(&project.root);
+        let companion_uri = path_to_uri(&project.root.join("math.test.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&rename_request(&companion_uri, 3, 10, "advance"));
+
+        assert_eq!(responses.len(), 1);
+        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 2);
+        assert!(
+            !responses[0].contains(r#""line":5,"character":16"#),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":6,"character":9"#),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
+    fn companion_private_function_rename_keeps_same_named_let_initializer_reference() {
+        let mut server = Server::default();
+        let project = TempProject::new("rename-let-initializer-shadow");
+        project.write(
+            "math.veln",
+            concat!(
+                "fn increment(value: Int) -> Int\n",
+                "  value + 1\n",
+                "end\n",
+                "\n",
+                "pub fn apply(value: Int) -> Int\n",
+                "  let increment = increment\n",
+                "  increment(value)\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "math.test.veln",
+            "use math\n\ntest companion() -> Int\n  math::increment(1)\nend\n",
+        );
+        let root_uri = path_to_uri(&project.root);
+        let companion_uri = path_to_uri(&project.root.join("math.test.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&rename_request(&companion_uri, 3, 10, "advance"));
+
+        assert_eq!(responses.len(), 1);
+        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 3);
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":5,"character":18},"end":{"line":5,"character":27}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":5,"character":6"#),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":6,"character":2"#),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
+    fn companion_private_function_rename_skips_match_arm_pattern_bindings() {
+        let mut server = Server::default();
+        let project = TempProject::new("rename-match-arm-pattern-shadow");
+        project.write(
+            "math.veln",
+            concat!(
+                "type Choice\n",
+                "  Use {callback: fn(Int) -> Int}\n",
+                "  Skip\n",
+                "end\n",
+                "\n",
+                "fn increment(value: Int) -> Int\n",
+                "  value + 1\n",
+                "end\n",
+                "\n",
+                "pub fn choose(choice: Choice, value: Int) -> Int\n",
+                "  match choice\n",
+                "    Use {callback: increment} => increment(value)\n",
+                "    Skip => increment(value)\n",
+                "  end\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "math.test.veln",
+            "use math\n\ntest companion() -> Int\n  math::increment(1)\nend\n",
+        );
+        let root_uri = path_to_uri(&project.root);
+        let companion_uri = path_to_uri(&project.root.join("math.test.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&rename_request(&companion_uri, 3, 10, "advance"));
+
+        assert_eq!(responses.len(), 1);
+        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 3);
+        assert!(
+            !responses[0].contains(r#""line":11,"character":19"#),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":11,"character":33"#),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":12,"character":12},"end":{"line":12,"character":21}}"#
             ),
             "{}",
             responses[0]

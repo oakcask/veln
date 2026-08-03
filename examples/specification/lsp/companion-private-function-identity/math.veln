@@ -25,6 +25,28 @@ fn branch(identity: fn() -> ()) -> ()
   increment()
 end
 
+pub fn inspect(value: Int) -> Int
+  let record = {increment: value}
+  record.increment
+end
+
+pub fn apply_shadow() -> ()
+  let increment = increment
+  increment()
+end
+
+type Choice
+  Use {callback: fn() -> ()}
+  Skip
+end
+
+pub fn choose(choice: Choice) -> ()
+  match choice
+    Use {callback: increment} => increment()
+    Skip => increment()
+  end
+end
+
 fn apply_unannotated(increment) -> ()
   increment()
 end
