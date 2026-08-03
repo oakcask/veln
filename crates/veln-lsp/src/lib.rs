@@ -11,7 +11,7 @@ use veln_ast::{SurfaceModule, lower_surface_ast};
 use veln_diagnostics::{Diagnostic, Severity};
 use veln_editor::{encode_lsp_semantic_tokens, semantic_token_legend};
 use veln_project::{Project, classify_companion_source};
-use veln_source::{SourceFile, SourceSpan, TextRange};
+use veln_source::{SourceFile, SourceSpan};
 use veln_syntax::{Token, TokenKind, lex, parse};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -572,6 +572,13 @@ struct LspSymbolIndex {
     functions: Vec<FunctionSymbol>,
 }
 
+#[derive(Debug)]
+struct FunctionScope {
+    body_start: usize,
+    end: usize,
+    params: BTreeSet<String>,
+}
+
 impl LspSymbolIndex {
     fn new(root: &Path, sources: Vec<SourceFile>) -> Self {
         let files = sources
@@ -607,13 +614,15 @@ impl LspSymbolIndex {
             .iter()
             .find(|file| file.source.path().as_str() == source_path)?;
         let offset = offset_for_position(file.source.text(), position)?;
-        let selection = identifier_span_at(&file.source, offset)?;
+        let tokens = lex(&file.source).tokens;
+        let (token_index, token) = identifier_token_at(&tokens, offset)?;
+        let selection = file.source.span(token.range);
         let name = file
             .source
             .text()
             .get(selection.start.offset..selection.end.offset)?
             .to_string();
-        let symbol = self.symbol_for_selection(file, &name, &selection)?;
+        let symbol = self.symbol_for_selection(file, &tokens, token_index, &name, &selection)?;
         Some(SymbolRequest {
             index: self,
             symbol,
@@ -624,6 +633,8 @@ impl LspSymbolIndex {
     fn symbol_for_selection(
         &self,
         file: &LspFile,
+        tokens: &[Token],
+        token_index: usize,
         name: &str,
         selection: &SourceSpan,
     ) -> Option<FunctionSymbol> {
@@ -636,7 +647,7 @@ impl LspSymbolIndex {
             return Some(symbol.clone());
         }
 
-        let qualifier = qualifier_before(file.source.text(), selection.start.offset)?;
+        let qualifier = qualifier_for_token(tokens, token_index)?;
         self.functions
             .iter()
             .find(|symbol| {
@@ -744,6 +755,7 @@ fn function_declarations(file: &LspFile) -> Vec<FunctionSymbol> {
 
 fn call_references(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
     let tokens = lex(source).tokens;
+    let scopes = function_scopes(&tokens);
     tokens
         .iter()
         .enumerate()
@@ -752,8 +764,10 @@ fn call_references(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
                 && is_identifier(&token.text)
                 && previous_non_layout_token(&tokens, *index)
                     .is_none_or(|previous| previous.kind != TokenKind::DoubleColon)
-                && next_non_layout_token(&tokens, *index)
-                    .is_some_and(|next| next.kind == TokenKind::LParen)
+                && !is_function_declaration_name(&tokens, *index)
+                && !is_parameter_name(&tokens, *index)
+                && token_scope(&scopes, token.range.start)
+                    .is_some_and(|scope| !scope.params.contains(name))
         })
         .map(|(_, token)| source.span(token.range))
         .collect()
@@ -773,6 +787,94 @@ fn qualified_references(source: &SourceFile, module: &str, name: &str) -> Vec<So
             .then(|| source.span(token.range))
         })
         .collect()
+}
+
+fn function_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
+    let mut scopes = Vec::new();
+    for (index, token) in tokens.iter().enumerate() {
+        if !matches!(token.kind, TokenKind::Fn | TokenKind::Test) {
+            continue;
+        }
+        let Some(body_start) = tokens[index..]
+            .iter()
+            .find(|token| token.kind == TokenKind::Newline)
+            .map(|token| token.range.end)
+        else {
+            continue;
+        };
+        let end = tokens[index + 1..]
+            .iter()
+            .find(|token| token.kind == TokenKind::End)
+            .map_or(body_start, |token| token.range.start);
+        let params = parameter_names(tokens, index, body_start);
+        scopes.push(FunctionScope {
+            body_start,
+            end,
+            params,
+        });
+    }
+    scopes
+}
+
+fn parameter_names(tokens: &[Token], start: usize, body_start: usize) -> BTreeSet<String> {
+    tokens[start..]
+        .iter()
+        .enumerate()
+        .take_while(|(_, token)| token.range.start < body_start)
+        .filter_map(|(relative_index, token)| {
+            let index = start + relative_index;
+            (token.kind == TokenKind::Ident
+                && next_non_layout_token(tokens, index)
+                    .is_some_and(|next| next.kind == TokenKind::Colon))
+            .then(|| token.text.clone())
+        })
+        .collect()
+}
+
+fn token_scope(scopes: &[FunctionScope], offset: usize) -> Option<&FunctionScope> {
+    scopes
+        .iter()
+        .find(|scope| offset >= scope.body_start && offset < scope.end)
+}
+
+fn is_function_declaration_name(tokens: &[Token], index: usize) -> bool {
+    previous_non_layout_token(tokens, index)
+        .is_some_and(|previous| matches!(previous.kind, TokenKind::Fn | TokenKind::Test))
+}
+
+fn is_parameter_name(tokens: &[Token], index: usize) -> bool {
+    next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::Colon)
+}
+
+fn identifier_token_at(tokens: &[Token], offset: usize) -> Option<(usize, &Token)> {
+    tokens.iter().enumerate().find(|(_, token)| {
+        token.kind == TokenKind::Ident
+            && offset >= token.range.start
+            && offset < token.range.end
+            && is_identifier(&token.text)
+    })
+}
+
+fn qualifier_for_token(tokens: &[Token], name_index: usize) -> Option<String> {
+    let separator_index = previous_non_layout_index(tokens, name_index)?;
+    if tokens[separator_index].kind != TokenKind::DoubleColon {
+        return None;
+    }
+    let segment_index = previous_non_layout_index(tokens, separator_index)?;
+    let mut segments = vec![tokens[segment_index].text.as_str()];
+    let mut cursor = segment_index;
+    while let Some(previous_separator) = previous_non_layout_index(tokens, cursor) {
+        if tokens[previous_separator].kind != TokenKind::DoubleColon {
+            break;
+        }
+        let Some(previous_segment) = previous_non_layout_index(tokens, previous_separator) else {
+            break;
+        };
+        segments.push(tokens[previous_segment].text.as_str());
+        cursor = previous_segment;
+    }
+    segments.reverse();
+    Some(segments.join("::"))
 }
 
 fn qualified_reference_matches(
@@ -850,34 +952,6 @@ fn leading_module_path(input: &str) -> Option<&str> {
         .map(|(index, ch)| index + ch.len_utf8())
         .last()?;
     Some(&input[..end])
-}
-
-fn identifier_span_at(source: &SourceFile, offset: usize) -> Option<SourceSpan> {
-    let text = source.text();
-    let start = text[..offset]
-        .char_indices()
-        .rev()
-        .find(|(_, ch)| !is_identifier_char(*ch))
-        .map(|(index, ch)| index + ch.len_utf8())
-        .unwrap_or(0);
-    let end = text[offset..]
-        .char_indices()
-        .find(|(_, ch)| !is_identifier_char(*ch))
-        .map(|(index, _)| offset + index)
-        .unwrap_or(text.len());
-    (start < end).then(|| source.span(TextRange::new(start, end)))
-}
-
-fn qualifier_before(text: &str, name_start: usize) -> Option<String> {
-    let before = text.get(..name_start)?;
-    let qualifier_end = before.strip_suffix("::")?.len();
-    let qualifier_start = before[..qualifier_end]
-        .char_indices()
-        .rev()
-        .find(|(_, ch)| !is_identifier_char(*ch) && *ch != ':')
-        .map(|(index, ch)| index + ch.len_utf8())
-        .unwrap_or(0);
-    Some(before[qualifier_start..qualifier_end].to_string())
 }
 
 fn is_identifier(value: &str) -> bool {
@@ -1521,6 +1595,62 @@ mod tests {
     }
 
     #[test]
+    fn companion_private_function_rename_preserves_target_symbol_identity() {
+        let mut server = Server::default();
+        let project = TempProject::new("rename-target-identity");
+        project.write(
+            "math.veln",
+            concat!(
+                "fn increment(value: Int) -> Int\n",
+                "  increment(value)\n",
+                "  increment\n",
+                "end\n",
+                "\n",
+                "fn apply(increment: fn(Int) -> Int) -> Int\n",
+                "  increment(1)\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "math.test.veln",
+            concat!(
+                "use math\n",
+                "\n",
+                "test companion() -> Int\n",
+                "  math::increment(1)\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let companion_uri = path_to_uri(&project.root.join("math.test.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&rename_request(&companion_uri, 3, 10, "advance"));
+
+        assert_eq!(responses.len(), 1);
+        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 4);
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":1,"character":2},"end":{"line":1,"character":11}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":2,"character":2},"end":{"line":2,"character":11}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":6,"character":2"#),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
     fn companion_private_function_rename_skips_unrelated_text_and_qualified_calls() {
         let mut server = Server::default();
         let project = TempProject::new("rename-source-isolation");
@@ -1606,6 +1736,52 @@ mod tests {
             !responses[0].contains(r#""line":10,"character":10"#),
             "{}",
             responses[0]
+        );
+    }
+
+    #[test]
+    fn companion_private_function_requests_ignore_comment_and_string_origins() {
+        let mut server = Server::default();
+        let project = TempProject::new("request-origin");
+        project.write(
+            "math.veln",
+            "fn increment(value: Int) -> Int\n  value + 1\nend\n",
+        );
+        project.write(
+            "math.test.veln",
+            concat!(
+                "use math\n",
+                "\n",
+                "test companion() -> Int\n",
+                "  math::increment(1)\n",
+                "  \"math::increment(2)\"\n",
+                "  # math::increment(3)\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let companion_uri = path_to_uri(&project.root.join("math.test.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let string_definition = server.handle_message(&definition_request(&companion_uri, 4, 10));
+        let comment_prepare = server.handle_message(&prepare_rename_request(&companion_uri, 5, 11));
+        let comment_rename =
+            server.handle_message(&rename_request(&companion_uri, 5, 11, "advance"));
+
+        assert!(
+            string_definition[0].contains(r#""result":null"#),
+            "{}",
+            string_definition[0]
+        );
+        assert!(
+            comment_prepare[0].contains(r#""result":null"#),
+            "{}",
+            comment_prepare[0]
+        );
+        assert!(
+            comment_rename[0].contains(r#""changes":{}"#),
+            "{}",
+            comment_rename[0]
         );
     }
 

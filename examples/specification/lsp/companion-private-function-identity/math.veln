@@ -6,4 +6,9 @@ end
 
 pub fn production() -> ()
   increment()
+  increment
+end
+
+fn apply(increment: fn() -> ()) -> ()
+  increment()
 end

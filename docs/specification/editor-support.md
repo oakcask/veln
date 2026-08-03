@@ -126,21 +126,25 @@ writes an explicit `use` for that target. `textDocument/prepareRename` returns
 the selected function-name range for the same accepted identity.
 
 `textDocument/rename` for that identity returns workspace edits for the target
-function declaration, valid call references in the target source, and valid
-qualified references in the exact matching companion. A same-named
-companion-local declaration or bare companion reference is a different symbol
-and is not edited. Calls through another qualifier, comments, and string
-literals are not edited. Wrong companions, `_test.veln` integration modules,
-and references through a target dependency do not receive private-function
-definition or rename results.
+function declaration, valid call or function-value references in the target
+source, and valid qualified call references in the exact matching companion. A
+same-named companion-local declaration, bare companion reference, or target
+source reference shadowed by a callable parameter is a different symbol and is
+not edited. Calls through another qualifier, comments, and string literals are
+not edited. Definition, prepare-rename, and rename requests whose selected text
+is inside a comment or string literal do not identify the private target
+function. Wrong companions, `_test.veln` integration modules, and references
+through a target dependency do not receive private-function definition or rename
+results.
 
 Definition and rename use the same open-document overlays as workspace
 diagnostics. Unsaved target or companion text can provide the declaration and
 reference locations used in the response. The routed executable evidence is
 `../../examples/specification/lsp/companion-private-function-identity/`. The
 `veln-lsp` server tests also cover companion private-function definition,
-prepare rename, rename edits, source-scope isolation, rejected boundaries, and
-open-document overlays.
+prepare rename, rename edits, source-scope isolation, target-source function
+values and callable shadowing, rejected boundaries, request-origin filtering,
+and open-document overlays.
 
 ## VSCode Integration
 
