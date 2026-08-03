@@ -577,6 +577,13 @@ struct FunctionScope {
     body_start: usize,
     end: usize,
     params: BTreeSet<String>,
+    local_bindings: Vec<LocalBinding>,
+}
+
+#[derive(Debug)]
+struct LocalBinding {
+    name: String,
+    start: usize,
 }
 
 impl LspSymbolIndex {
@@ -766,8 +773,9 @@ fn call_references(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
                     .is_none_or(|previous| previous.kind != TokenKind::DoubleColon)
                 && !is_function_declaration_name(&tokens, *index)
                 && !is_parameter_name(&tokens, *index)
+                && !is_local_binding_name(&tokens, *index)
                 && token_scope(&scopes, token.range.start)
-                    .is_some_and(|scope| !scope.params.contains(name))
+                    .is_some_and(|scope| !scope.shadows(name, token.range.start))
         })
         .map(|(_, token)| source.span(token.range))
         .collect()
@@ -799,18 +807,41 @@ fn function_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
         else {
             continue;
         };
-        let end = tokens[index + 1..]
-            .iter()
-            .find(|token| token.kind == TokenKind::End)
-            .map_or(body_start, |token| token.range.start);
+        let end = function_scope_end(tokens, index + 1).unwrap_or(body_start);
         let params = parameter_names(tokens, index, body_start);
+        let local_bindings = local_bindings(tokens, body_start, end);
         scopes.push(FunctionScope {
             body_start,
             end,
             params,
+            local_bindings,
         });
     }
     scopes
+}
+
+impl FunctionScope {
+    fn shadows(&self, name: &str, offset: usize) -> bool {
+        self.params.contains(name)
+            || self
+                .local_bindings
+                .iter()
+                .any(|binding| binding.name == name && binding.start <= offset)
+    }
+}
+
+fn function_scope_end(tokens: &[Token], start: usize) -> Option<usize> {
+    let mut nested_blocks = 0usize;
+    for token in &tokens[start..] {
+        match token.kind {
+            TokenKind::If | TokenKind::Match | TokenKind::Handler => nested_blocks += 1,
+            TokenKind::End if nested_blocks == 0 => return Some(token.range.start),
+            TokenKind::End => nested_blocks -= 1,
+            TokenKind::Eof => return None,
+            _ => {}
+        }
+    }
+    None
 }
 
 fn parameter_names(tokens: &[Token], start: usize, body_start: usize) -> BTreeSet<String> {
@@ -828,6 +859,25 @@ fn parameter_names(tokens: &[Token], start: usize, body_start: usize) -> BTreeSe
         .collect()
 }
 
+fn local_bindings(tokens: &[Token], body_start: usize, end: usize) -> Vec<LocalBinding> {
+    tokens
+        .iter()
+        .enumerate()
+        .skip_while(|(_, token)| token.range.start < body_start)
+        .take_while(|(_, token)| token.range.start < end)
+        .filter_map(|(index, token)| {
+            if token.kind != TokenKind::Let {
+                return None;
+            }
+            let name = next_non_layout_token(tokens, index)?;
+            is_identifier(&name.text).then(|| LocalBinding {
+                name: name.text.clone(),
+                start: name.range.end,
+            })
+        })
+        .collect()
+}
+
 fn token_scope(scopes: &[FunctionScope], offset: usize) -> Option<&FunctionScope> {
     scopes
         .iter()
@@ -841,6 +891,10 @@ fn is_function_declaration_name(tokens: &[Token], index: usize) -> bool {
 
 fn is_parameter_name(tokens: &[Token], index: usize) -> bool {
     next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::Colon)
+}
+
+fn is_local_binding_name(tokens: &[Token], index: usize) -> bool {
+    previous_non_layout_token(tokens, index).is_some_and(|previous| previous.kind == TokenKind::Let)
 }
 
 fn identifier_token_at(tokens: &[Token], offset: usize) -> Option<(usize, &Token)> {
@@ -895,7 +949,8 @@ fn qualified_reference_matches(
         }
         expected_index = segment_index;
     }
-    true
+    previous_non_layout_token(tokens, expected_index)
+        .is_none_or(|previous| previous.kind != TokenKind::DoubleColon)
 }
 
 fn next_non_layout_token(tokens: &[Token], index: usize) -> Option<&Token> {
@@ -1747,6 +1802,150 @@ mod tests {
         );
         assert!(
             !responses[0].contains(r#""line":11,"character":10"#),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
+    fn companion_private_function_rename_keeps_target_references_after_nested_blocks() {
+        let mut server = Server::default();
+        let project = TempProject::new("rename-nested-target-blocks");
+        project.write(
+            "math.veln",
+            concat!(
+                "fn increment(value: Int) -> Int\n",
+                "  value + 1\n",
+                "end\n",
+                "\n",
+                "pub fn use_nested(value: Int) -> Int\n",
+                "  if value > 0\n",
+                "    increment(value)\n",
+                "  else\n",
+                "    0\n",
+                "  end\n",
+                "  increment(value)\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "math.test.veln",
+            "use math\n\ntest companion() -> Int\n  math::increment(1)\nend\n",
+        );
+        let root_uri = path_to_uri(&project.root);
+        let companion_uri = path_to_uri(&project.root.join("math.test.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&rename_request(&companion_uri, 3, 10, "advance"));
+
+        assert_eq!(responses.len(), 1);
+        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 4);
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":6,"character":4},"end":{"line":6,"character":13}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":10,"character":2},"end":{"line":10,"character":11}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
+    fn companion_private_function_rename_skips_local_callable_bindings() {
+        let mut server = Server::default();
+        let project = TempProject::new("rename-local-callable-shadow");
+        project.write(
+            "math.veln",
+            concat!(
+                "fn increment(value: Int) -> Int\n",
+                "  value + 1\n",
+                "end\n",
+                "\n",
+                "pub fn apply(value: Int, identity: fn(Int) -> Int) -> Int\n",
+                "  increment(value)\n",
+                "  let increment = identity\n",
+                "  increment(value)\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "math.test.veln",
+            "use math\n\ntest companion() -> Int\n  math::increment(1)\nend\n",
+        );
+        let root_uri = path_to_uri(&project.root);
+        let companion_uri = path_to_uri(&project.root.join("math.test.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&rename_request(&companion_uri, 3, 10, "advance"));
+
+        assert_eq!(responses.len(), 1);
+        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 3);
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":5,"character":2},"end":{"line":5,"character":11}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":6,"character":6"#),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":7,"character":2"#),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
+    fn companion_private_function_rename_rejects_suffix_qualified_references() {
+        let mut server = Server::default();
+        let project = TempProject::new("rename-qualified-path-boundary");
+        project.write(
+            "math.veln",
+            "fn increment(value: Int) -> Int\n  value + 1\nend\n",
+        );
+        project.write(
+            "other/math.veln",
+            "pub fn increment(value: Int) -> Int\n  value\nend\n",
+        );
+        project.write(
+            "math.test.veln",
+            concat!(
+                "use math\n",
+                "use other::math\n",
+                "\n",
+                "test companion() -> Int\n",
+                "  math::increment(1)\n",
+                "  other::math::increment(1)\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let companion_uri = path_to_uri(&project.root.join("math.test.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&rename_request(&companion_uri, 4, 10, "advance"));
+
+        assert_eq!(responses.len(), 1);
+        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 2);
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":4,"character":8},"end":{"line":4,"character":17}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":5,"character":15"#),
             "{}",
             responses[0]
         );
