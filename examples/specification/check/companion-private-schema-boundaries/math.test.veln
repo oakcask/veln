@@ -1,0 +1,10 @@
+use math
+use support
+
+fn bare_name(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
+	decode Packet from view at base
+end
+
+fn non_transitive(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
+	decode support::Packet from view at base
+end

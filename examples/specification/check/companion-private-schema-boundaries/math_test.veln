@@ -1,0 +1,5 @@
+use math
+
+fn integration(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
+	decode math::Packet from view at base
+end

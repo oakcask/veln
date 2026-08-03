@@ -22,9 +22,9 @@ also states it.
 ### Language Testing
 
 - [Companion Test Modules](companion-test-modules.md): add remaining private
-  target declaration kinds other than functions and source ADTs, plus generated
-  documentation and language-server behavior for the existing `.test.veln`
-  companion boundary.
+  target declaration kinds other than functions, source ADTs, and schemas, plus
+  generated documentation and language-server behavior for the existing
+  `.test.veln` companion boundary.
 
 ### Toolchain Performance
 

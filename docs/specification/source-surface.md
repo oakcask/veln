@@ -52,7 +52,11 @@ the function through a qualified path. A test companion may also use private
 source ADT type names and constructors declared by its exact target when it
 writes the explicit target `use` and refers to them through qualified target
 paths. The source ADT permission applies independently to private source ADT
-types and to private constructors of public source ADTs. These permissions are
+types and to private constructors of public source ADTs. A test companion may
+also reference private schema declarations from its exact target in source
+schema-reference positions, including explicit schema decode and encode
+expressions and schema composition fields, when the companion writes the
+explicit target `use` and uses a qualified target path. These permissions are
 not transitive through modules imported by the target, and they do not add bare
 target-name lookup. The checked function cases are
 `examples/specification/check/companion-private-function-access/`,
@@ -81,6 +85,9 @@ The checked source ADT cases are
 `examples/specification/check/companion-private-source-adt-integration-boundary/`,
 `examples/specification/check/companion-private-source-adt-non-transitive/`,
 and `examples/specification/test/companion-private-source-adt-access/`.
+The checked private schema cases are
+`examples/specification/check/companion-private-schema-boundaries/` and
+`examples/specification/test/companion-private-schema-access/`.
 
 A test companion must not declare public source surface. `pub` functions,
 effects, handlers, types, public type variants, schemas, and public function,

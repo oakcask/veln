@@ -24,9 +24,10 @@ use crate::types::{
     schema_recursive_dispatch_helper_payload_type, schema_recursive_dispatch_payload_type,
     schema_repeat_payload_accepts_lowercase_primitive, supported_encode_reserved_bits,
 };
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use veln_ast::{PublicAliasKind, SchemaDecl, SchemaField, SchemaValidationClause, UseDecl};
 use veln_literals::parse_integer_literal;
+use veln_project::classify_companion_source;
 
 pub(crate) fn check_public_function_boundary(function: &Function) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
@@ -2373,7 +2374,9 @@ fn resolve_imported_schema_repeat_payload_schema<'a>(
     if let Some(candidate) = module.schemas.iter().find(|candidate| {
         candidate.name.as_deref() == Some(name) && candidate.module_name.as_deref() == target_module
     }) {
-        if candidate.visibility != Visibility::Public {
+        if candidate.visibility != Visibility::Public
+            && !companion_private_schema_access_allowed(module, schema, use_decl)
+        {
             diagnostics.push(schema_repeat_payload_diagnostic(
                 schema,
                 field,
@@ -2417,6 +2420,42 @@ fn resolve_imported_schema_repeat_payload_schema<'a>(
         ));
     }
     None
+}
+
+fn companion_private_schema_access_allowed(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    use_decl: &UseDecl,
+) -> bool {
+    use_decl.package.is_none()
+        && schema.module_name.as_deref().is_some_and(|current_module| {
+            companion_access_targets(module)
+                .get(current_module)
+                .is_some_and(|allowed| allowed == use_decl.name.as_str())
+        })
+}
+
+fn companion_access_targets(module: &SurfaceModule) -> BTreeMap<String, String> {
+    module
+        .functions
+        .iter()
+        .filter_map(|function| {
+            companion_access_target(function.span.file.as_str(), function.module_name.as_deref())
+        })
+        .chain(module.schemas.iter().filter_map(|schema| {
+            companion_access_target(schema.span.file.as_str(), schema.module_name.as_deref())
+        }))
+        .collect()
+}
+
+fn companion_access_target(path: &str, module_name: Option<&str>) -> Option<(String, String)> {
+    let companion = classify_companion_source(path)?;
+    let companion_module = module_name?.to_string();
+    let target_module = companion
+        .target_path
+        .strip_suffix(".veln")?
+        .replace('/', "::");
+    Some((companion_module, target_module))
 }
 
 fn schema_repeat_reference_diagnostic<const N: usize>(
@@ -3222,7 +3261,9 @@ fn resolve_imported_schema_dispatch_payload_schema<'a>(
     if let Some(candidate) = module.schemas.iter().find(|candidate| {
         candidate.name.as_deref() == Some(name) && candidate.module_name.as_deref() == target_module
     }) {
-        if candidate.visibility != Visibility::Public {
+        if candidate.visibility != Visibility::Public
+            && !companion_private_schema_access_allowed(module, context.schema, use_decl)
+        {
             diagnostics.push(schema_dispatch_payload_diagnostic(
                 context.schema,
                 context.field,

@@ -1,0 +1,3 @@
+fn missing_import(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
+	decode isolated::Packet from view at base
+end

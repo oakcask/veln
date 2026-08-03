@@ -1,0 +1,11 @@
+use math
+
+fn wrong_target(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
+	decode math::Packet from view at base
+end
+
+schema WrongComposition
+	format binary
+
+	nested: math::Packet
+end
