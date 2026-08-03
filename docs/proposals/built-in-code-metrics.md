@@ -16,7 +16,8 @@ behavior is specified in [commands.md](../specification/commands.md),
 
 The implemented command already reports advisory module dependency metrics,
 advisory ABC size metrics, dependency-cycle policy checks with explicit
-baselines, experimental exact whole-body similarity, and bounded human-output
+baselines, experimental exact whole-body similarity with structural bound
+evidence, a controlled similarity benchmark command, and bounded human-output
 findings through `[tool.metrics] max_findings`.
 
 ## Remaining Scope
@@ -27,9 +28,6 @@ The remaining proposal work is limited to:
   that evidence;
 - stable-ordering evidence beyond the executable cases that currently cover
   the implemented report shape;
-- normal-CI structural bounds for similarity result growth;
-- a controlled benchmark command and review evidence for bounded similarity
-  analysis;
 - enforcement-graduation evidence for any advisory metric that becomes a
   blocking policy.
 
@@ -108,33 +106,12 @@ The evidence set must satisfy all of these conditions:
 The evidence belongs in a review record, not in the current behavior
 specification. A metric that misses any graduation condition remains advisory.
 
-## Bounded Analysis Requirement
+## Implemented Similarity Bounds
 
-Similarity analysis must stay bounded by one normalized token sequence per
-eligible declaration. This internal constraint is normative because it bounds
-the observable result set and prevents unrestricted source-region comparison.
-
-For `N` eligible declarations:
-
-- the command creates exactly `N` declaration fingerprints;
-- each declaration contributes to at most one similarity instance;
-- the total number of reported similarity regions is at most `N`;
-- the number of reported similarity instances is at most `floor(N / 2)`.
-
-Normal CI must include a structural test for these bounds with unrelated
-bodies, one large equivalence class, and many two-declaration equivalence
-classes.
-
-A controlled generated benchmark must contain unrelated functions, repeated
-functions, and repeated token prefixes at three adjacent sizes. It must report
-wall time, user CPU time, peak resident memory, source token count, declaration
-fingerprint count, similarity instance count, and reported region count.
-Doubling unrelated input tokens must not increase median user CPU time or peak
-resident memory by more than three times between adjacent sizes on the same
-machine and build profile.
-
-The benchmark is review evidence, not a portable CI time limit. The structural
-bounds are the authoritative normal-CI guard.
+Bounded exact whole-body similarity analysis is no longer remaining proposal
+scope. Current JSON behavior, structural bounds, executable evidence, and the
+explicit benchmark command are specified in
+[metrics-json.md](../specification/metrics-json.md).
 
 ## Acceptance Cases
 
@@ -146,8 +123,6 @@ Planned executable cases follow the placement rules in
 | Dependency pressure policy | Modules include high fan-in only, high fan-out only, and high pressure cases with a configured policy threshold | Only the configured pressure violation fails `--check`; human and JSON output name pressure, fan-in, fan-out, and the affected module |
 | Baseline pressure allowance | A reviewed baseline contains an equal or worse pressure value for the same module identity | The check passes for equal or improved pressure and fails when pressure worsens beyond the baseline allowance |
 | Stable ordering expansion | Discovery order and path separator representation vary for graph, ABC, and similarity subjects | JSON findings and human prefix order are identical across equivalent inputs |
-| Similarity structural bounds | Generated inputs contain unrelated bodies, one large equivalence class, and many two-declaration equivalence classes | Fingerprint, instance, and region counts satisfy the bounded-analysis requirement |
-| Similarity benchmark evidence | Generated inputs double unrelated token counts across adjacent sizes | The benchmark reports the required metrics and satisfies the bounded-analysis requirement on the same machine and build profile |
 
 CLI parsing, human output, JSON shape, and exit status must have integration
 coverage in `veln-cli`. Metric calculation must have table-driven unit coverage
@@ -200,17 +175,17 @@ Implementation must keep these repository-relative checks available:
 bash scripts/agent-test -p veln-metrics
 bash scripts/agent-test -p veln-cli --test toolchain_harness
 bash scripts/agent-run cargo run --locked -p veln-cli -- metrics --json path/to/project
+bash scripts/agent-run scripts/benchmark-metrics-similarity --runs 3
 ```
 
 The metrics crate, metrics executable cases, and exact whole-body similarity
-executable cases exist. The benchmark command does not exist.
+executable cases exist. The benchmark command exists as explicit review
+evidence.
 
 ## Completion Boundary
 
-This proposal is complete only when all acceptance cases pass, the generated
-structural guard runs in normal CI, the controlled benchmark meets the
-bounded-analysis requirement, and any new policy has repository review
-evidence.
+This proposal is complete only when all remaining acceptance cases pass and
+any new policy has repository review evidence.
 
 Completion must add current command behavior to
 `../specification/commands-full.md`, route it from

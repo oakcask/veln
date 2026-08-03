@@ -1,0 +1,254 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+export REPO_ROOT
+
+python3 - "$@" <<'PY'
+import argparse
+import json
+import os
+import re
+import statistics
+import subprocess
+import sys
+import tempfile
+import shutil
+from pathlib import Path
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Benchmark generated veln metrics whole-body similarity workloads."
+    )
+    parser.add_argument("--sizes", default="32,64,128")
+    parser.add_argument("--runs", type=int, default=5)
+    parser.add_argument("--warmups", type=int, default=1)
+    parser.add_argument("--profile", choices=["debug", "release"], default="debug")
+    parser.add_argument("--no-build", action="store_true")
+    return parser.parse_args()
+
+
+def push_function(lines, name, seed):
+    lines.extend(
+        [
+            f"fn {name}() -> Int",
+            f"  let seed = {seed}",
+            f"  let left = seed + {seed + 1}",
+            f"  let right = left + {seed + 2}",
+            "  right",
+            "end",
+            "",
+        ]
+    )
+
+
+def push_repeated_function(lines, name, seed):
+    lines.extend(
+        [
+            f"fn {name}() -> Int",
+            f"  let seed = {seed}",
+            "  let left = seed + 1",
+            "  let right = left + 2",
+            "  right",
+            "end",
+            "",
+        ]
+    )
+
+
+def push_prefixed_function(lines, name, seed):
+    lines.extend(
+        [
+            f"fn {name}() -> Int",
+            "  let seed = 4000",
+            "  let left = seed + 1",
+            f"  let right = left + {seed}",
+            "  right",
+            "end",
+            "",
+        ]
+    )
+
+
+def generate_project(root, size):
+    unrelated_count = size
+    large_group_count = max(4, size // 8)
+    pair_count = max(4, size // 4)
+    prefix_count = size
+    lines = []
+    for index in range(unrelated_count):
+        push_function(lines, f"unrelated_{index}", index)
+    for index in range(large_group_count):
+        push_repeated_function(lines, f"large_{index}", 1000)
+    for pair in range(pair_count):
+        seed = 2000 + pair
+        push_repeated_function(lines, f"pair_{pair}_left", seed)
+        push_repeated_function(lines, f"pair_{pair}_right", seed)
+    for index in range(prefix_count):
+        push_prefixed_function(lines, f"prefix_{index}", 3000 + index)
+    source = "\n".join(lines)
+    Path(root, "veln.toml").write_text(
+        '[tool.metrics]\nsimilarity_min_tokens = "8"\n', encoding="utf-8"
+    )
+    Path(root, "app.veln").write_text(source, encoding="utf-8")
+    source_token_count = len(re.findall(r"[A-Za-z_][A-Za-z0-9_]*|\d+|==|!=|<=|>=|->|[^\s]", source))
+    return {
+        "source_token_count": source_token_count,
+        "eligible_declaration_count": unrelated_count
+        + large_group_count
+        + (pair_count * 2)
+        + prefix_count,
+    }
+
+
+def run_measured(command, cwd, time_binary):
+    with tempfile.NamedTemporaryFile(prefix="veln-metrics-time-", delete=False) as time_file:
+        time_path = time_file.name
+    try:
+        completed = subprocess.run(
+            [
+                time_binary,
+                "-f",
+                "%e %U %M",
+                "-o",
+                time_path,
+                *command,
+            ],
+            cwd=cwd,
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        if completed.returncode != 0:
+            sys.stderr.write(completed.stdout[:4000])
+            if len(completed.stdout) > 4000:
+                sys.stderr.write("\n... stdout truncated ...\n")
+            sys.stderr.write(completed.stderr)
+            raise SystemExit(completed.returncode)
+        wall_time_seconds, user_cpu_seconds, peak_rss_kb = Path(time_path).read_text(
+            encoding="utf-8"
+        ).split()
+        return (
+            completed.stdout,
+            float(wall_time_seconds),
+            float(user_cpu_seconds),
+            int(peak_rss_kb),
+        )
+    finally:
+        Path(time_path).unlink(missing_ok=True)
+
+
+def median(values):
+    return statistics.median(values)
+
+
+def main():
+    args = parse_args()
+    repo = Path(os.environ["REPO_ROOT"])
+    sizes = [int(value) for value in args.sizes.split(",") if value]
+    if len(sizes) < 2:
+        raise SystemExit("--sizes must contain at least two values")
+    if args.runs < 1:
+        raise SystemExit("--runs must be positive")
+    if args.warmups < 0:
+        raise SystemExit("--warmups must not be negative")
+
+    if not args.no_build:
+        build = ["cargo", "build", "--locked", "-p", "veln-cli"]
+        if args.profile == "release":
+            build.append("--release")
+        subprocess.run(build, cwd=repo, check=True)
+
+    binary = repo / "target" / ("release" if args.profile == "release" else "debug") / "veln"
+    if not binary.exists():
+        raise SystemExit(f"missing built binary: {binary}")
+    time_binary = shutil.which("time")
+    if time_binary is None:
+        raise SystemExit("missing time executable")
+
+    size_results = []
+    with tempfile.TemporaryDirectory(prefix="veln-metrics-similarity-") as tmp:
+        for size in sizes:
+            project_root = Path(tmp) / f"size-{size}"
+            project_root.mkdir()
+            generated = generate_project(project_root, size)
+            command = [str(binary), "metrics", "--json"]
+            for _ in range(args.warmups):
+                run_measured(command, project_root, time_binary)
+
+            runs = []
+            last_report = None
+            for _ in range(args.runs):
+                stdout, wall_time_seconds, user_cpu_seconds, peak_rss_kb = run_measured(
+                    command, project_root, time_binary
+                )
+                last_report = json.loads(stdout)
+                runs.append(
+                    {
+                        "wall_time_seconds": wall_time_seconds,
+                        "user_cpu_seconds": user_cpu_seconds,
+                        "peak_rss_kb": peak_rss_kb,
+                    }
+                )
+
+            summary = last_report["summary"]
+            size_results.append(
+                {
+                    "size": size,
+                    "source_token_count": generated["source_token_count"],
+                    "eligible_declaration_count": generated["eligible_declaration_count"],
+                    "declaration_fingerprint_count": summary[
+                        "similarity_fingerprint_count"
+                    ],
+                    "similarity_instance_count": summary["similarity_instance_count"],
+                    "reported_region_count": summary["similarity_region_count"],
+                    "median_wall_time_seconds": median(
+                        [run["wall_time_seconds"] for run in runs]
+                    ),
+                    "median_user_cpu_seconds": median(
+                        [run["user_cpu_seconds"] for run in runs]
+                    ),
+                    "median_peak_rss_kb": median([run["peak_rss_kb"] for run in runs]),
+                    "runs": runs,
+                }
+            )
+
+    ratios = []
+    failed = False
+    for left, right in zip(size_results, size_results[1:]):
+        user_cpu_ratio = right["median_user_cpu_seconds"] / max(
+            left["median_user_cpu_seconds"], 0.000001
+        )
+        peak_rss_ratio = right["median_peak_rss_kb"] / max(left["median_peak_rss_kb"], 1)
+        ratio = {
+            "from_size": left["size"],
+            "to_size": right["size"],
+            "source_token_ratio": right["source_token_count"]
+            / max(left["source_token_count"], 1),
+            "median_user_cpu_ratio": user_cpu_ratio,
+            "median_peak_rss_ratio": peak_rss_ratio,
+        }
+        ratio["passes_threshold"] = user_cpu_ratio <= 3.0 and peak_rss_ratio <= 3.0
+        failed = failed or not ratio["passes_threshold"]
+        ratios.append(ratio)
+
+    result = {
+        "command": "benchmark-metrics-similarity",
+        "build_profile": args.profile,
+        "warmups": args.warmups,
+        "measured_runs": args.runs,
+        "sizes": size_results,
+        "adjacent_size_ratios": ratios,
+        "passes_threshold": not failed,
+    }
+    print(json.dumps(result, indent=2, sort_keys=True))
+    if failed:
+        raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    main()
+PY

@@ -3122,6 +3122,67 @@ mod tests {
         );
     }
 
+    #[test]
+    fn generated_similarity_workload_preserves_pipeline_bounds() {
+        let workload = GeneratedSimilarityWorkload {
+            unrelated_count: 8,
+            large_group_count: 5,
+            pair_count: 6,
+            prefix_count: 7,
+            min_tokens: 8,
+        };
+        let project = Project {
+            root: ".".into(),
+            manifest: None,
+            files: vec![SourceFile::new("app.veln", &workload.source())],
+        };
+        let selected = ["app.veln".to_string()].into_iter().collect();
+        let graph = DependencyGraph::from_project(&project).expect("graph");
+        let report = graph.report(
+            &project,
+            ProjectIdentity {
+                root: ".".to_string(),
+                selected_paths: vec!["app.veln".to_string()],
+            },
+            &selected,
+            MetricsConfig {
+                similarity_min_tokens: workload.min_tokens,
+                ..default_metrics_config()
+            },
+        );
+        let eligible_declarations = workload.eligible_declaration_count();
+
+        assert_eq!(
+            report.summary.abc_subject_count, eligible_declarations,
+            "the workload should exercise the full parsed function population"
+        );
+        assert_eq!(
+            report.summary.similarity_fingerprint_count,
+            eligible_declarations
+        );
+        assert_eq!(
+            report.summary.similarity_instance_count,
+            workload.expected_instance_count()
+        );
+        assert_eq!(
+            report.summary.similarity_region_count,
+            workload.expected_region_count()
+        );
+        assert!(report.summary.similarity_region_count <= eligible_declarations);
+        assert!(report.summary.similarity_instance_count <= eligible_declarations / 2);
+
+        let mut seen_declarations = BTreeSet::new();
+        for instance in &report.similarities {
+            for declaration in &instance.declarations {
+                assert!(
+                    seen_declarations.insert(declaration.identity.clone()),
+                    "declaration reported in more than one similarity instance: {}",
+                    declaration.identity
+                );
+            }
+        }
+    }
+
     fn first_function_vector(source: &str) -> AbcVector {
         let source = SourceFile::new("case.veln", source);
         let parsed = parse(&source);
@@ -3176,6 +3237,74 @@ mod tests {
                 .collect(),
             fingerprint: fingerprint.to_string(),
         }
+    }
+
+    struct GeneratedSimilarityWorkload {
+        unrelated_count: usize,
+        large_group_count: usize,
+        pair_count: usize,
+        prefix_count: usize,
+        min_tokens: usize,
+    }
+
+    impl GeneratedSimilarityWorkload {
+        fn source(&self) -> String {
+            let mut source = String::new();
+            for index in 0..self.unrelated_count {
+                push_function(&mut source, &format!("unrelated_{index}"), index);
+            }
+            for index in 0..self.large_group_count {
+                push_repeated_function(&mut source, &format!("large_{index}"), 1000);
+            }
+            for pair in 0..self.pair_count {
+                let seed = 2000 + pair;
+                push_repeated_function(&mut source, &format!("pair_{pair}_left"), seed);
+                push_repeated_function(&mut source, &format!("pair_{pair}_right"), seed);
+            }
+            for index in 0..self.prefix_count {
+                push_prefixed_function(&mut source, &format!("prefix_{index}"), 3000 + index);
+            }
+            source
+        }
+
+        fn eligible_declaration_count(&self) -> usize {
+            self.unrelated_count
+                + self.large_group_count
+                + (self.pair_count * 2)
+                + self.prefix_count
+        }
+
+        fn expected_instance_count(&self) -> usize {
+            usize::from(self.large_group_count >= 2) + self.pair_count
+        }
+
+        fn expected_region_count(&self) -> usize {
+            (if self.large_group_count >= 2 {
+                self.large_group_count
+            } else {
+                0
+            }) + (self.pair_count * 2)
+        }
+    }
+
+    fn push_function(source: &mut String, name: &str, seed: usize) {
+        source.push_str(&format!(
+            "fn {name}() -> Int\n  let seed = {seed}\n  let left = seed + {}\n  let right = left + {}\n  right\nend\n\n",
+            seed + 1,
+            seed + 2
+        ));
+    }
+
+    fn push_repeated_function(source: &mut String, name: &str, seed: usize) {
+        source.push_str(&format!(
+            "fn {name}() -> Int\n  let seed = {seed}\n  let left = seed + 1\n  let right = left + 2\n  right\nend\n\n"
+        ));
+    }
+
+    fn push_prefixed_function(source: &mut String, name: &str, seed: usize) {
+        source.push_str(&format!(
+            "fn {name}() -> Int\n  let seed = 4000\n  let left = seed + 1\n  let right = left + {seed}\n  right\nend\n\n"
+        ));
     }
 
     fn token_texts(texts: &[&'static str]) -> Vec<(&'static str, &'static str)> {

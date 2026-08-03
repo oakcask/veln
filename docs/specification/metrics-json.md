@@ -136,6 +136,20 @@ Generated and doctest-derived declarations are excluded. Similarity is
 advisory: it never creates a `--check` policy violation, and baseline checks do
 not fail when a duplicate pair changes together.
 
+Similarity analysis creates one declaration fingerprint for each selected
+eligible declaration whose normalized body has at least the effective
+`similarity_min_tokens` count. Each eligible declaration can appear in at most
+one similarity instance. For `N` such declarations, the report has at most `N`
+similarity regions and at most `floor(N / 2)` similarity instances. The
+explicit `scripts/benchmark-metrics-similarity` review command uses generated
+unrelated functions, repeated functions, and repeated token-prefix functions at
+adjacent sizes. It reports source token count, declaration fingerprint count,
+similarity instance count, reported region count, wall time, user CPU time,
+peak resident memory, medians, and adjacent-size ratios. The benchmark checks
+that median user CPU time and median peak resident memory do not grow by more
+than three times between adjacent sizes on the same machine and build profile;
+this timing check is review evidence, not a portable CI limit.
+
 Executable evidence:
 
 - The metrics `dependency-report` and `dependency-report-json` cases check
@@ -176,3 +190,7 @@ Executable evidence:
   check exact whole-body similarity, identifier-sensitive exclusion,
   partial-body exclusion, human output placement and locations, summary
   counts, and advisory baseline behavior under `--check`.
+- The `generated_similarity_workload_preserves_pipeline_bounds` metrics crate
+  test checks the parsed source and report pipeline with unrelated bodies, one
+  large equivalence class, many two-declaration equivalence classes, and
+  repeated token prefixes.
