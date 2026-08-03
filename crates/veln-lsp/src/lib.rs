@@ -12,7 +12,7 @@ use veln_diagnostics::{Diagnostic, Severity};
 use veln_editor::{encode_lsp_semantic_tokens, semantic_token_legend};
 use veln_project::{Project, classify_companion_source};
 use veln_source::{SourceFile, SourceSpan, TextRange};
-use veln_syntax::parse;
+use veln_syntax::{Token, TokenKind, lex, parse};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SemanticTokensLegend {
@@ -726,64 +726,101 @@ fn uri_for_span(files: &[LspFile], span: &SourceSpan) -> String {
 
 fn function_declarations(file: &LspFile) -> Vec<FunctionSymbol> {
     let mut functions = Vec::new();
-    let mut line_start = 0;
-    for line in file.source.text().split_inclusive('\n') {
-        let trimmed = line.trim_start();
-        let leading = line.len() - trimmed.len();
-        let head = trimmed.strip_prefix("fn ");
-        if let Some(rest) = head
-            && let Some(name) = leading_identifier(rest)
+    let tokens = lex(&file.source).tokens;
+    for (index, token) in tokens.iter().enumerate() {
+        if token.kind == TokenKind::Fn
+            && let Some(name) = next_non_layout_token(&tokens, index)
+            && is_identifier(&name.text)
         {
-            let start = line_start + leading + "fn ".len();
-            let end = start + name.len();
             functions.push(FunctionSymbol {
                 module: file.module.clone(),
-                name: name.to_string(),
-                declaration: file.source.span(TextRange::new(start, end)),
+                name: name.text.clone(),
+                declaration: file.source.span(name.range),
             });
         }
-        line_start += line.len();
     }
     functions
 }
 
 fn call_references(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
-    identifier_occurrences(source, name)
-        .into_iter()
-        .filter(|span| following_non_space(source.text(), span.end.offset) == Some('('))
+    let tokens = lex(source).tokens;
+    tokens
+        .iter()
+        .enumerate()
+        .filter(|(index, token)| {
+            token.text == name
+                && is_identifier(&token.text)
+                && previous_non_layout_token(&tokens, *index)
+                    .is_none_or(|previous| previous.kind != TokenKind::DoubleColon)
+                && next_non_layout_token(&tokens, *index)
+                    .is_some_and(|next| next.kind == TokenKind::LParen)
+        })
+        .map(|(_, token)| source.span(token.range))
         .collect()
 }
 
 fn qualified_references(source: &SourceFile, module: &str, name: &str) -> Vec<SourceSpan> {
-    let needle = format!("{module}::{name}");
-    let mut spans = Vec::new();
-    let mut start = 0;
-    while let Some(relative) = source.text()[start..].find(&needle) {
-        let qualified_start = start + relative;
-        let name_start = qualified_start + module.len() + "::".len();
-        let name_end = name_start + name.len();
-        if identifier_boundary(source.text(), qualified_start, name_end)
-            && following_non_space(source.text(), name_end) == Some('(')
-        {
-            spans.push(source.span(TextRange::new(name_start, name_end)));
-        }
-        start = name_end;
-    }
-    spans
+    let tokens = lex(source).tokens;
+    let module_segments = module.split("::").collect::<Vec<_>>();
+    tokens
+        .iter()
+        .enumerate()
+        .filter_map(|(index, token)| {
+            (token.text == name
+                && qualified_reference_matches(&tokens, index, &module_segments)
+                && next_non_layout_token(&tokens, index)
+                    .is_some_and(|next| next.kind == TokenKind::LParen))
+            .then(|| source.span(token.range))
+        })
+        .collect()
 }
 
-fn identifier_occurrences(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
-    let mut spans = Vec::new();
-    let mut start = 0;
-    while let Some(relative) = source.text()[start..].find(name) {
-        let name_start = start + relative;
-        let name_end = name_start + name.len();
-        if identifier_boundary(source.text(), name_start, name_end) {
-            spans.push(source.span(TextRange::new(name_start, name_end)));
+fn qualified_reference_matches(
+    tokens: &[Token],
+    name_index: usize,
+    module_segments: &[&str],
+) -> bool {
+    let mut expected_index = name_index;
+    for expected_segment in module_segments.iter().rev() {
+        let Some(separator_index) = previous_non_layout_index(tokens, expected_index) else {
+            return false;
+        };
+        if tokens[separator_index].kind != TokenKind::DoubleColon {
+            return false;
         }
-        start = name_end;
+        let Some(segment_index) = previous_non_layout_index(tokens, separator_index) else {
+            return false;
+        };
+        if tokens[segment_index].text != *expected_segment {
+            return false;
+        }
+        expected_index = segment_index;
     }
-    spans
+    true
+}
+
+fn next_non_layout_token(tokens: &[Token], index: usize) -> Option<&Token> {
+    tokens[index + 1..]
+        .iter()
+        .find(|token| !is_layout_token(token))
+}
+
+fn previous_non_layout_token(tokens: &[Token], index: usize) -> Option<&Token> {
+    let previous = previous_non_layout_index(tokens, index)?;
+    Some(&tokens[previous])
+}
+
+fn previous_non_layout_index(tokens: &[Token], index: usize) -> Option<usize> {
+    tokens[..index]
+        .iter()
+        .enumerate()
+        .rev()
+        .find(|(_, token)| !is_layout_token(token))
+        .map(|(index, _)| index)
+}
+
+fn is_layout_token(token: &Token) -> bool {
+    matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline)
 }
 
 fn explicit_module_name(text: &str) -> Option<String> {
@@ -804,15 +841,6 @@ fn use_modules(text: &str) -> BTreeSet<String> {
             leading_module_path(rest).map(str::to_string)
         })
         .collect()
-}
-
-fn leading_identifier(input: &str) -> Option<&str> {
-    let end = input
-        .char_indices()
-        .take_while(|(_, ch)| is_identifier_char(*ch))
-        .map(|(index, ch)| index + ch.len_utf8())
-        .last()?;
-    Some(&input[..end])
 }
 
 fn leading_module_path(input: &str) -> Option<&str> {
@@ -850,17 +878,6 @@ fn qualifier_before(text: &str, name_start: usize) -> Option<String> {
         .map(|(index, ch)| index + ch.len_utf8())
         .unwrap_or(0);
     Some(before[qualifier_start..qualifier_end].to_string())
-}
-
-fn following_non_space(text: &str, offset: usize) -> Option<char> {
-    text[offset..].chars().find(|ch| !ch.is_whitespace())
-}
-
-fn identifier_boundary(text: &str, start: usize, end: usize) -> bool {
-    let before = text[..start].chars().next_back();
-    let after = text[end..].chars().next();
-    before.is_none_or(|ch| !is_identifier_char(ch))
-        && after.is_none_or(|ch| !is_identifier_char(ch))
 }
 
 fn is_identifier(value: &str) -> bool {
@@ -1498,6 +1515,95 @@ mod tests {
         );
         assert!(
             !responses[0].contains(r#""line":11,"character":2"#),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
+    fn companion_private_function_rename_skips_unrelated_text_and_qualified_calls() {
+        let mut server = Server::default();
+        let project = TempProject::new("rename-source-isolation");
+        project.write(
+            "math.veln",
+            concat!(
+                "use support\n",
+                "\n",
+                "fn increment(value: Int) -> Int\n",
+                "  increment(value)\n",
+                "  support::increment(value)\n",
+                "  \"increment(1)\"\n",
+                "  value\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "support.veln",
+            "pub fn increment(value: Int) -> Int\n  value\nend\n",
+        );
+        project.write(
+            "math.test.veln",
+            concat!(
+                "use math\n",
+                "\n",
+                "fn increment(value: Int) -> Int\n",
+                "  value\n",
+                "end\n",
+                "\n",
+                "test companion() -> Int\n",
+                "  math::increment(1)\n",
+                "  increment(1)\n",
+                "  \"math::increment(2)\"\n",
+                "  # math::increment(3)\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let companion_uri = path_to_uri(&project.root.join("math.test.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&rename_request(&companion_uri, 7, 10, "advance"));
+
+        assert_eq!(responses.len(), 1);
+        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 3);
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":2,"character":3},"end":{"line":2,"character":12}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":3,"character":2},"end":{"line":3,"character":11}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":7,"character":8},"end":{"line":7,"character":17}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":4,"character":11"#),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":5,"character":3"#),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":9,"character":9"#),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":10,"character":10"#),
             "{}",
             responses[0]
         );
