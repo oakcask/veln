@@ -1,0 +1,8 @@
+command = ["run", "main", "main.test.veln"]
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[module.test_only_run_input]: test companion `main.test.veln` cannot be used as a run input"]

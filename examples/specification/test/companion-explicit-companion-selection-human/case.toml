@@ -1,0 +1,11 @@
+command = ["test", "math.test.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+contains = ["ok explicit_companion_includes_target"]
+
+[stderr]
+format = "empty"

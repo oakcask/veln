@@ -1,0 +1,11 @@
+command = ["test", "math.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+contains = ["ok companion_peer_is_selected", "ok integration_peer_is_still_selected"]
+
+[stderr]
+contains = ["veln: test selection: added 2 test files by source-to-test convention"]

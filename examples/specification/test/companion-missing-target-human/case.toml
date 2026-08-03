@@ -1,0 +1,9 @@
+command = ["test", "orphan.test.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+contains = ["blocked orphan_companion"]
+
+[stderr]
+contains = ["error[module.companion_missing_target]: test companion `orphan.test.veln` has no matching target `orphan.veln`", "note: Create the target source beside the companion or rename the companion."]

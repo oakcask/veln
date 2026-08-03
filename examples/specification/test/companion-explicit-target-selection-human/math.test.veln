@@ -1,0 +1,5 @@
+use math
+
+test companion_peer_is_selected() -> () effects [stdio]
+	stdio::println(int_to_string(math::value()))
+end
