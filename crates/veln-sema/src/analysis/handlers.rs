@@ -1,6 +1,7 @@
 use super::*;
 use crate::types::{
     EffectOperationSignature, EffectSignature, FunctionSignature, HandlerSignature,
+    UserEffectPathResolution,
 };
 use std::collections::BTreeMap;
 use veln_ast::{HandlerDecl, HandlerProviderDecl};
@@ -35,10 +36,23 @@ fn check_handler_declaration(
     }) else {
         return Vec::new();
     };
-    let Some(effect) =
-        environment.user_effect_path(&handler.effect, handler.module_name.as_deref())
-    else {
-        return vec![unknown_effect_diagnostic(handler, environment)];
+    let effect = match environment
+        .resolve_user_effect_path(&handler.effect, handler.module_name.as_deref())
+    {
+        UserEffectPathResolution::Found(effect) => effect,
+        UserEffectPathResolution::PrivateCompanionTargetMismatch { effect, access } => {
+            return vec![private_companion_effect_target_diagnostic(
+                handler.node_id.display("handler"),
+                "handler_declaration",
+                &handler.effect.join("::"),
+                effect,
+                access,
+                handler.effect_span.clone(),
+            )];
+        }
+        UserEffectPathResolution::Missing => {
+            return vec![unknown_effect_diagnostic(handler, environment)];
+        }
     };
 
     let mut diagnostics = duplicate_provider_diagnostics(handler, signature, effect);

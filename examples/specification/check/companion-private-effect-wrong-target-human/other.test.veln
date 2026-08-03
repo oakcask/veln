@@ -1,0 +1,9 @@
+use math
+
+handler ask() handles math::Ask
+	value = provide
+end
+
+fn provide() -> Int
+	1
+end

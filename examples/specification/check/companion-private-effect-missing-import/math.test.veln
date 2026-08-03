@@ -1,0 +1,4 @@
+test companion_private_target_effect_requires_import() -> () effects [math::Ask]
+	perform math::Ask::value()
+	()
+end

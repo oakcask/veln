@@ -1,0 +1,9 @@
+command = ["check", "math.test.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[effect.unknown]: declared effect `Ask` is not known", "error[effect.unknown]: performed effect `Ask` is not known"]
+
+[stderr]
+format = "empty"

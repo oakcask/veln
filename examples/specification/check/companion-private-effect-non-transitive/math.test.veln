@@ -1,0 +1,7 @@
+use math
+use support
+
+test companion_cannot_use_dependency_private_effect() -> () effects [support::Ask]
+	perform support::Ask::value()
+	()
+end

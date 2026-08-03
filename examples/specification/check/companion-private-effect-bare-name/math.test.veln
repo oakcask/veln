@@ -1,0 +1,6 @@
+use math
+
+test companion_cannot_use_private_target_effect_bare_name() -> () effects [Ask]
+	perform Ask::value()
+	()
+end

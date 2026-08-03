@@ -97,6 +97,15 @@ and
 `examples/specification/check/companion-private-function-established-effects-missing/`;
 the missing-effect case exposes the inferred private target effect in
 diagnostic details.
+Companion private effect wrong-target access reports
+`effect.private_companion_target` instead of a generic unknown effect. The
+diagnostic exposes `details.companion_path`,
+`details.companion_target_module`, `details.effect_module`, and
+`details.reason = "companion_target_mismatch"`. JSON and human output are
+checked by
+`examples/specification/check/companion-private-effect-wrong-target-json/`
+and
+`examples/specification/check/companion-private-effect-wrong-target-human/`.
 Companion public declaration diagnostics use
 `module.companion_public_declaration`. The diagnostic exposes
 `details.companion_path` and a stable `details.reason` that identifies the

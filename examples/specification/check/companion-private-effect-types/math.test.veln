@@ -1,0 +1,15 @@
+use math
+
+fn callback() -> () effects [math::Ask]
+	()
+end
+
+fn accepts_private_effect_callback(operation: fn() -> () effects [math::Ask]) -> () effects [math::Ask]
+	perform math::Ask::value()
+	()
+end
+
+test companion_declares_private_target_effect() -> () effects [math::Ask]
+	perform math::Ask::value()
+	()
+end

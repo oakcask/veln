@@ -30,6 +30,7 @@ pub(crate) struct TypeEnvironment {
     pub(crate) adts: AdtRegistry,
     companion_function_access_targets: BTreeMap<String, String>,
     companion_schema_access_targets: BTreeMap<String, String>,
+    companion_effect_access_targets: BTreeMap<String, CompanionAccessTarget>,
 }
 
 #[derive(Clone)]
@@ -81,6 +82,30 @@ pub(crate) struct EffectSignature {
     pub(crate) visibility: Visibility,
     pub(crate) span: SourceSpan,
     pub(crate) operations: Vec<EffectOperationSignature>,
+}
+
+#[derive(Clone)]
+pub(crate) struct CompanionAccessTarget {
+    pub(crate) companion_path: String,
+    pub(crate) target_module: String,
+}
+
+pub(crate) enum UserEffectPathResolution<'a> {
+    Found(&'a EffectSignature),
+    PrivateCompanionTargetMismatch {
+        effect: &'a EffectSignature,
+        access: &'a CompanionAccessTarget,
+    },
+    Missing,
+}
+
+impl<'a> UserEffectPathResolution<'a> {
+    pub(crate) fn found(self) -> Option<&'a EffectSignature> {
+        match self {
+            Self::Found(effect) => Some(effect),
+            Self::PrivateCompanionTargetMismatch { .. } | Self::Missing => None,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -200,9 +225,11 @@ type PrivateSlotMap = BTreeMap<FunctionKey, PrivateSlotOmissions>;
 impl TypeEnvironment {
     pub(crate) fn from_module(module: &SurfaceModule) -> Self {
         let effects = effect_signatures(module);
-        let mut handlers = handler_signatures(module, &effects);
         let adts = AdtRegistry::from_module(module);
-        let mut functions = ordinary_function_signatures(module, &effects, &adts);
+        let companion_effect_access_targets = companion_access_target_infos(module);
+        let mut handlers = handler_signatures(module, &effects, &companion_effect_access_targets);
+        let mut functions =
+            ordinary_function_signatures(module, &effects, &adts, &companion_effect_access_targets);
         infer_private_function_body_return_types(module, &mut functions, &adts);
         infer_private_function_call_site_signature_types(module, &mut functions, &adts);
         infer_private_function_body_return_types(module, &mut functions, &adts);
@@ -226,6 +253,7 @@ impl TypeEnvironment {
             adts,
             companion_function_access_targets: companion_function_access_targets(module),
             companion_schema_access_targets: companion_access_targets(module),
+            companion_effect_access_targets,
         }
     }
 
@@ -238,7 +266,14 @@ impl TypeEnvironment {
         ty: Type,
         current_module: Option<&str>,
     ) -> Type {
-        canonicalize_type_effects(ty, &self.uses, current_module, &self.effects, &self.adts)
+        canonicalize_type_effects(
+            ty,
+            &self.uses,
+            current_module,
+            &self.effects,
+            &self.adts,
+            &self.companion_effect_access_targets,
+        )
     }
 
     pub(crate) fn user_effect_by_label(
@@ -257,22 +292,57 @@ impl TypeEnvironment {
         segments: &[String],
         current_module: Option<&str>,
     ) -> Option<&EffectSignature> {
+        self.resolve_user_effect_path(segments, current_module)
+            .found()
+    }
+
+    pub(crate) fn resolve_user_effect_path(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> UserEffectPathResolution<'_> {
         match segments {
-            [name] => self.user_effect_by_label(name, current_module),
+            [name] => self.user_effect_by_label(name, current_module).map_or(
+                UserEffectPathResolution::Missing,
+                UserEffectPathResolution::Found,
+            ),
             [_, .., name] => {
-                let use_decl = imported_use_for_path(
+                let Some(use_decl) = imported_use_for_path(
                     &self.uses,
                     &segments[..segments.len() - 1],
                     current_module,
-                )?;
+                ) else {
+                    return UserEffectPathResolution::Missing;
+                };
                 let module_name = use_decl.name.as_str();
-                self.effects.iter().find(|effect| {
-                    effect.name == *name
-                        && effect.module_name.as_deref() == Some(module_name)
-                        && (use_decl.package.is_none() || effect.visibility == Visibility::Public)
-                })
+                let Some(effect) = self.effects.iter().find(|effect| {
+                    effect.name == *name && effect.module_name.as_deref() == Some(module_name)
+                }) else {
+                    return UserEffectPathResolution::Missing;
+                };
+                if imported_effect_is_visible(
+                    use_decl,
+                    current_module,
+                    module_name,
+                    effect.visibility,
+                    &self.companion_effect_access_targets,
+                ) {
+                    return UserEffectPathResolution::Found(effect);
+                }
+                if effect.visibility != Visibility::Public
+                    && use_decl.package.is_none()
+                    && let Some(access) = current_module
+                        .and_then(|module| self.companion_effect_access_targets.get(module))
+                    && access.target_module != module_name
+                {
+                    return UserEffectPathResolution::PrivateCompanionTargetMismatch {
+                        effect,
+                        access,
+                    };
+                }
+                UserEffectPathResolution::Missing
             }
-            _ => None,
+            _ => UserEffectPathResolution::Missing,
         }
     }
 
@@ -285,6 +355,11 @@ impl TypeEnvironment {
             .filter(|effect| {
                 effect.module_name.as_deref() == current_module
                     || effect.visibility == Visibility::Public
+                    || current_module
+                        .and_then(|module| self.companion_effect_access_targets.get(module))
+                        .is_some_and(|access| {
+                            effect.module_name.as_deref() == Some(access.target_module.as_str())
+                        })
             })
             .collect()
     }
@@ -709,6 +784,7 @@ pub(crate) fn ordinary_function_signatures(
     module: &SurfaceModule,
     effects: &[EffectSignature],
     adts: &AdtRegistry,
+    companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Vec<FunctionSignature> {
     module
         .functions
@@ -726,6 +802,7 @@ pub(crate) fn ordinary_function_signatures(
                         function.module_name.as_deref(),
                         effects,
                         adts,
+                        companion_effect_access_targets,
                     )
                 })
                 .collect();
@@ -736,6 +813,7 @@ pub(crate) fn ordinary_function_signatures(
                     function.module_name.as_deref(),
                     effects,
                     adts,
+                    companion_effect_access_targets,
                 )
             });
             let return_type = canonicalize_type_effects(
@@ -744,6 +822,7 @@ pub(crate) fn ordinary_function_signatures(
                 function.module_name.as_deref(),
                 effects,
                 adts,
+                companion_effect_access_targets,
             );
             Some(FunctionSignature {
                 target_name: crate::standard_symbols::standard_function_link_name(
@@ -761,6 +840,7 @@ pub(crate) fn ordinary_function_signatures(
                     &module.uses,
                     function.module_name.as_deref(),
                     effects,
+                    companion_effect_access_targets,
                 ),
                 node_id: function.node_id,
                 span: function.span.clone(),
@@ -775,6 +855,7 @@ fn canonicalize_type_effects(
     current_module: Option<&str>,
     effects: &[EffectSignature],
     adts: &AdtRegistry,
+    companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Type {
     match ty {
         Type::Named { name, args } => Type::Named {
@@ -784,7 +865,16 @@ fn canonicalize_type_effects(
                 .unwrap_or(name),
             args: args
                 .into_iter()
-                .map(|arg| canonicalize_type_effects(arg, uses, current_module, effects, adts))
+                .map(|arg| {
+                    canonicalize_type_effects(
+                        arg,
+                        uses,
+                        current_module,
+                        effects,
+                        adts,
+                        companion_effect_access_targets,
+                    )
+                })
                 .collect(),
         },
         Type::Record(fields) => Type::Record(
@@ -793,7 +883,14 @@ fn canonicalize_type_effects(
                 .map(|(name, ty)| {
                     (
                         name,
-                        canonicalize_type_effects(ty, uses, current_module, effects, adts),
+                        canonicalize_type_effects(
+                            ty,
+                            uses,
+                            current_module,
+                            effects,
+                            adts,
+                            companion_effect_access_targets,
+                        ),
                     )
                 })
                 .collect(),
@@ -806,10 +903,28 @@ fn canonicalize_type_effects(
         } => Type::Function {
             params: params
                 .into_iter()
-                .map(|param| canonicalize_type_effects(param, uses, current_module, effects, adts))
+                .map(|param| {
+                    canonicalize_type_effects(
+                        param,
+                        uses,
+                        current_module,
+                        effects,
+                        adts,
+                        companion_effect_access_targets,
+                    )
+                })
                 .collect(),
             variadic: variadic
-                .map(|ty| canonicalize_type_effects(*ty, uses, current_module, effects, adts))
+                .map(|ty| {
+                    canonicalize_type_effects(
+                        *ty,
+                        uses,
+                        current_module,
+                        effects,
+                        adts,
+                        companion_effect_access_targets,
+                    )
+                })
                 .map(Box::new),
             return_type: Box::new(canonicalize_type_effects(
                 *return_type,
@@ -817,8 +932,15 @@ fn canonicalize_type_effects(
                 current_module,
                 effects,
                 adts,
+                companion_effect_access_targets,
             )),
-            effects: canonical_declared_effects(declared, uses, current_module, effects),
+            effects: canonical_declared_effects(
+                declared,
+                uses,
+                current_module,
+                effects,
+                companion_effect_access_targets,
+            ),
         },
         Type::Unknown => Type::Unknown,
     }
@@ -829,6 +951,7 @@ fn canonical_declared_effects(
     uses: &[UseDecl],
     current_module: Option<&str>,
     effects: &[EffectSignature],
+    companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Vec<String> {
     let mut canonical = Vec::new();
     for effect in declared {
@@ -837,8 +960,14 @@ fn canonical_declared_effects(
             continue;
         }
         let segments = effect.split("::").map(str::to_string).collect::<Vec<_>>();
-        let label =
-            canonical_user_effect_label(&segments, uses, current_module, effects).unwrap_or(effect);
+        let label = canonical_user_effect_label(
+            &segments,
+            uses,
+            current_module,
+            effects,
+            companion_effect_access_targets,
+        )
+        .unwrap_or(effect);
         push_unique_effect(&mut canonical, &label);
     }
     canonical
@@ -886,6 +1015,7 @@ fn effect_signatures(module: &SurfaceModule) -> Vec<EffectSignature> {
 fn handler_signatures(
     module: &SurfaceModule,
     effects: &[EffectSignature],
+    companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Vec<HandlerSignature> {
     module
         .handlers
@@ -902,6 +1032,7 @@ fn handler_signatures(
                 &module.uses,
                 handler.module_name.as_deref(),
                 effects,
+                companion_effect_access_targets,
             )
             .unwrap_or_else(|| handler.effect.join("::"));
             Some(HandlerSignature {
@@ -920,6 +1051,7 @@ fn handler_signatures(
                     &module.uses,
                     handler.module_name.as_deref(),
                     effects,
+                    companion_effect_access_targets,
                 ),
                 providers: handler
                     .providers
@@ -1013,6 +1145,7 @@ pub(crate) fn canonical_user_effect_label(
     uses: &[UseDecl],
     current_module: Option<&str>,
     effects: &[EffectSignature],
+    companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Option<String> {
     match segments {
         [name] => effects
@@ -1027,12 +1160,35 @@ pub(crate) fn canonical_user_effect_label(
                 .find(|effect| {
                     effect.name == *name
                         && effect.module_name.as_deref() == Some(use_decl.name.as_str())
-                        && (use_decl.package.is_none() || effect.visibility == Visibility::Public)
+                        && imported_effect_is_visible(
+                            use_decl,
+                            current_module,
+                            use_decl.name.as_str(),
+                            effect.visibility,
+                            companion_effect_access_targets,
+                        )
                 })
                 .map(|effect| effect.qualified_name.clone())
         }
         _ => None,
     }
+}
+
+pub(crate) fn imported_effect_is_visible(
+    use_decl: &UseDecl,
+    current_module: Option<&str>,
+    target_module: &str,
+    visibility: Visibility,
+    companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
+) -> bool {
+    visibility == Visibility::Public
+        || (use_decl.package.is_none()
+            && current_module.is_some_and(|current_module| {
+                (current_module.starts_with("std::") && target_module.starts_with("std::"))
+                    || companion_effect_access_targets
+                        .get(current_module)
+                        .is_some_and(|access| access.target_module == target_module)
+            }))
 }
 
 fn function_signature_params(function: &veln_ast::Function) -> (Vec<Type>, Option<Type>) {
@@ -6091,6 +6247,7 @@ pub(crate) fn infer_function_body_effects(
     handlers: &[HandlerSignature],
 ) {
     let companion_access_targets = companion_function_access_targets(module);
+    let companion_effect_access_targets = companion_access_target_infos(module);
     let mut effects_by_function = functions
         .iter()
         .map(|function| {
@@ -6146,6 +6303,7 @@ pub(crate) fn infer_function_body_effects(
                             effects_by_function: &effects_by_function,
                             effects_by_module_path: &effects_by_module_path,
                             companion_access_targets: &companion_access_targets,
+                            companion_effect_access_targets: &companion_effect_access_targets,
                             user_effects,
                             handlers,
                         };
@@ -6162,6 +6320,7 @@ pub(crate) fn infer_function_body_effects(
                             effects_by_function: &effects_by_function,
                             effects_by_module_path: &effects_by_module_path,
                             companion_access_targets: &companion_access_targets,
+                            companion_effect_access_targets: &companion_effect_access_targets,
                             user_effects,
                             handlers,
                         };
@@ -6234,6 +6393,7 @@ struct ExprEffectContext<'a> {
     effects_by_function: &'a BTreeMap<(Option<String>, String), Vec<String>>,
     effects_by_module_path: &'a BTreeMap<(String, String), (Vec<String>, Visibility)>,
     companion_access_targets: &'a BTreeMap<String, String>,
+    companion_effect_access_targets: &'a BTreeMap<String, CompanionAccessTarget>,
     user_effects: &'a [EffectSignature],
     handlers: &'a [HandlerSignature],
 }
@@ -6321,6 +6481,7 @@ fn collect_expr_effects(expr: &Expr, context: &ExprEffectContext<'_>, inferred: 
                 context.uses,
                 context.current_module,
                 context.user_effects,
+                context.companion_effect_access_targets,
             ) {
                 push_unique_effect(inferred, &label);
             }
@@ -6720,6 +6881,46 @@ fn companion_access_target(path: &str, module_name: Option<&str>) -> Option<(Str
         .strip_suffix(".veln")?
         .replace('/', "::");
     Some((companion_module, target_module))
+}
+
+fn companion_access_target_infos(
+    module: &SurfaceModule,
+) -> BTreeMap<String, CompanionAccessTarget> {
+    module
+        .functions
+        .iter()
+        .filter_map(|function| {
+            companion_access_target_info(
+                function.span.file.as_str(),
+                function.module_name.as_deref(),
+            )
+        })
+        .chain(module.handlers.iter().filter_map(|handler| {
+            companion_access_target_info(handler.span.file.as_str(), handler.module_name.as_deref())
+        }))
+        .chain(module.effects.iter().filter_map(|effect| {
+            companion_access_target_info(effect.span.file.as_str(), effect.module_name.as_deref())
+        }))
+        .collect()
+}
+
+fn companion_access_target_info(
+    path: &str,
+    module_name: Option<&str>,
+) -> Option<(String, CompanionAccessTarget)> {
+    let companion = classify_companion_source(path)?;
+    let companion_module = module_name?.to_string();
+    let target_module = companion
+        .target_path
+        .strip_suffix(".veln")?
+        .replace('/', "::");
+    Some((
+        companion_module,
+        CompanionAccessTarget {
+            companion_path: companion.companion_path,
+            target_module,
+        },
+    ))
 }
 
 fn companion_function_access_targets(module: &SurfaceModule) -> BTreeMap<String, String> {

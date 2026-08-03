@@ -43,8 +43,8 @@ use crate::standard_symbols::prelude_symbol;
 use crate::type_relations::is_assignable;
 use crate::type_syntax::parse_type_annotation;
 use crate::types::{
-    FunctionLookup, MatchScrutineePatternInference, TypeEnvironment,
-    infer_match_scrutinee_type_from_constructor_patterns,
+    CompanionAccessTarget, EffectSignature, FunctionLookup, MatchScrutineePatternInference,
+    TypeEnvironment, infer_match_scrutinee_type_from_constructor_patterns,
 };
 
 mod body;
@@ -62,3 +62,78 @@ pub(crate) use boundary::{
     check_schema_type_references, check_test_declaration_boundary,
 };
 pub(crate) use handlers::check_handler_declarations;
+
+fn private_companion_effect_target_diagnostic(
+    node_id: String,
+    boundary: &'static str,
+    effect_path: &str,
+    effect: &EffectSignature,
+    access: &CompanionAccessTarget,
+    span: SourceSpan,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "effect.private_companion_target",
+        Severity::Error,
+        DiagnosticKind::Effect,
+        format!(
+            "private effect `{effect_path}` belongs to `{}` instead of companion target `{}`",
+            effect.module_name.clone().unwrap_or_default(),
+            access.target_module
+        ),
+        Some(span),
+        JsonValue::object([
+            ("phase", JsonValue::string("effect")),
+            ("node_id", JsonValue::string(node_id)),
+            ("boundary", JsonValue::string(boundary)),
+            ("effect", JsonValue::string(effect_path.to_string())),
+            (
+                "resolved_effect",
+                JsonValue::string(effect.qualified_name.clone()),
+            ),
+            (
+                "companion_path",
+                JsonValue::string(access.companion_path.clone()),
+            ),
+            (
+                "companion_target_module",
+                JsonValue::string(access.target_module.clone()),
+            ),
+            (
+                "effect_module",
+                JsonValue::string(effect.module_name.clone().unwrap_or_default()),
+            ),
+            ("reason", JsonValue::string("companion_target_mismatch")),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("companion_target")),
+        (
+            "message",
+            JsonValue::string(format!(
+                "This test companion may access private effects only from target module `{}`.",
+                access.target_module
+            )),
+        ),
+        (
+            "companion_path",
+            JsonValue::string(access.companion_path.clone()),
+        ),
+        (
+            "companion_target_module",
+            JsonValue::string(access.target_module.clone()),
+        ),
+    ]));
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("effect_declaration")),
+        (
+            "message",
+            JsonValue::string(format!(
+                "Private effect `{}` is declared here.",
+                effect.qualified_name
+            )),
+        ),
+        ("effect", JsonValue::string(effect.qualified_name.clone())),
+        ("span", span_json(&effect.span)),
+    ]));
+    diagnostic
+}

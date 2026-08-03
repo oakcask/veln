@@ -1,0 +1,9 @@
+command = ["check", "math.test.veln", "math.veln", "support.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[effect.private_companion_target]: private effect `support::Ask` belongs to `support` instead of companion target `math`"]
+
+[stderr]
+format = "empty"

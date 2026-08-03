@@ -1,0 +1,9 @@
+command = ["check", "other.test.veln", "other.veln", "math.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[effect.private_companion_target]: private effect `math::Ask` belongs to `math` instead of companion target `other`", "This test companion may access private effects only from target module `other`."]
+
+[stderr]
+format = "empty"
