@@ -1,0 +1,10 @@
+command = ["lsp"]
+source_errors = "expected"
+stdin = "Content-Length: 78\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"rootUri\":\"file://.\"}}Content-Length: 194\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didOpen\",\"params\":{\"textDocument\":{\"uri\":\"file://./math.veln\",\"languageId\":\"veln\",\"version\":1,\"text\":\"fn bump(value: Int) -> Int\\n  bump(value)\\nend\\n\"}}}Content-Length: 224\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didOpen\",\"params\":{\"textDocument\":{\"uri\":\"file://./math.test.veln\",\"languageId\":\"veln\",\"version\":1,\"text\":\"use math\\n\\ntest bump_test() -> Int\\n  math::bump(1)\\n  math::bump\\nend\\n\"}}}Content-Length: 172\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"textDocument/rename\",\"params\":{\"textDocument\":{\"uri\":\"file://./math.test.veln\"},\"position\":{\"line\":3,\"character\":10},\"newName\":\"advance\"}}Content-Length: 58\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"shutdown\",\"params\":null}Content-Length: 47\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"exit\",\"params\":null}"
+exit = 0
+
+[stdout]
+contains = ["\"id\":2,\"result\":{\"changes\":", "\"newText\":\"advance\"", "\"range\":{\"start\":{\"line\":0,\"character\":3},\"end\":{\"line\":0,\"character\":7}}", "\"range\":{\"start\":{\"line\":1,\"character\":2},\"end\":{\"line\":1,\"character\":6}}", "\"range\":{\"start\":{\"line\":3,\"character\":8},\"end\":{\"line\":3,\"character\":12}}", "\"range\":{\"start\":{\"line\":4,\"character\":8},\"end\":{\"line\":4,\"character\":12}}", "\"id\":3,\"result\":null"]
+
+[stderr]
+format = "empty"

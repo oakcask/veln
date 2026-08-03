@@ -2869,6 +2869,55 @@ mod tests {
     }
 
     #[test]
+    fn companion_private_function_rename_uses_open_document_overlay() {
+        let mut server = Server::default();
+        let project = companion_private_function_project("rename-overlay");
+        let root_uri = path_to_uri(&project.root);
+        let math_uri = path_to_uri(&project.root.join("math.veln"));
+        let companion_uri = path_to_uri(&project.root.join("math.test.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+        server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{math_uri}","text":"fn bump(value: Int) -> Int\n  bump(value)\nend\n"}}}}}}"#
+        ));
+        server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{companion_uri}","text":"use math\n\ntest bump_test() -> Int\n  math::bump(1)\n  math::bump\nend\n"}}}}}}"#
+        ));
+
+        let responses = server.handle_message(&rename_request(&companion_uri, 3, 10, "advance"));
+
+        assert_eq!(responses.len(), 1);
+        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 4);
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":0,"character":3},"end":{"line":0,"character":7}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":1,"character":2},"end":{"line":1,"character":6}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":3,"character":8},"end":{"line":3,"character":12}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":4,"character":8},"end":{"line":4,"character":12}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
     fn server_returns_full_semantic_tokens_for_open_document() {
         let mut server = Server::default();
         server.handle_message(
