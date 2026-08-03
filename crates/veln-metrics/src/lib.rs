@@ -1377,15 +1377,36 @@ pub fn render_human(report: &MetricsReport) -> String {
         for instance in &report.similarities {
             let primary = &instance.declarations[0];
             out.push_str(&format!(
-                "  {} token_count={} fingerprint={} primary={}\n",
-                instance.identity, instance.token_count, instance.fingerprint, primary.identity
+                "  {} token_count={} fingerprint={} primary={} at {} body {}\n",
+                instance.identity,
+                instance.token_count,
+                instance.fingerprint,
+                primary.identity,
+                span_label(&primary.span),
+                span_label(&primary.body_span)
             ));
             for declaration in instance.declarations.iter().skip(1) {
-                out.push_str(&format!("    related: {}\n", declaration.identity));
+                out.push_str(&format!(
+                    "    related: {} at {} body {}\n",
+                    declaration.identity,
+                    span_label(&declaration.span),
+                    span_label(&declaration.body_span)
+                ));
             }
         }
     }
     out
+}
+
+fn span_label(span: &SourceSpan) -> String {
+    format!(
+        "{}:{}:{}-{}:{}",
+        span.file.as_str(),
+        span.start.line,
+        span.start.column,
+        span.end.line,
+        span.end.column
+    )
 }
 
 pub fn render_check_human(check: &MetricsCheckReport) -> String {
@@ -2530,44 +2551,91 @@ mod tests {
     }
 
     #[test]
-    fn normalizes_whitespace_comments_and_formatting_but_preserves_identifiers_and_literals() {
-        let project = Project {
-            root: ".".into(),
-            manifest: None,
-            files: vec![SourceFile::new(
-                "app.veln",
-                "fn first() -> Int\n  # ignored\n  let value = add(1, 2)\n  value\nend\n\nfn second() -> Int\n  let value=add(\n    1,\n    2\n  )\n  value\nend\n\nfn renamed() -> Int\n  let other = add(1, 2)\n  other\nend\n",
-            )],
-        };
-        let selected = ["app.veln".to_string()].into_iter().collect();
-        let (instances, fingerprint_count) = similarity_instances(&project, &selected, 8);
+    fn detects_similarity_from_table_driven_source_boundaries() {
+        struct Case {
+            name: &'static str,
+            source: &'static str,
+            min_tokens: usize,
+            fingerprint_count: usize,
+            groups: Vec<Vec<&'static str>>,
+            token_counts: Vec<usize>,
+        }
 
-        assert_eq!(fingerprint_count, 3);
-        assert_eq!(instances.len(), 1);
-        assert_eq!(instances[0].declarations.len(), 2);
-        assert_eq!(instances[0].token_count, 10);
-        assert_eq!(instances[0].declarations[0].identity, "app.veln::first");
-        assert_eq!(instances[0].declarations[1].identity, "app.veln::second");
+        let cases = [
+            Case {
+                name: "formatting and comments are ignored",
+                source: "fn first() -> Int\n  # ignored\n  let value = add(1, 2)\n  value\nend\n\nfn second() -> Int\n  let value=add(\n    1,\n    2\n  )\n  value\nend\n",
+                min_tokens: 8,
+                fingerprint_count: 2,
+                groups: vec![vec!["app.veln::first", "app.veln::second"]],
+                token_counts: vec![10],
+            },
+            Case {
+                name: "identifier spelling is significant",
+                source: "fn first() -> Int\n  let value = add(1, 2)\n  value\nend\n\nfn renamed() -> Int\n  let other = add(1, 2)\n  other\nend\n",
+                min_tokens: 8,
+                fingerprint_count: 2,
+                groups: vec![],
+                token_counts: vec![],
+            },
+            Case {
+                name: "literal spelling is significant",
+                source: "fn one() -> Int\n  let value = add(1, 2)\n  value\nend\n\nfn two() -> Int\n  let value = add(1, 3)\n  value\nend\n",
+                min_tokens: 8,
+                fingerprint_count: 2,
+                groups: vec![],
+                token_counts: vec![],
+            },
+            Case {
+                name: "only complete bodies match",
+                source: "fn left() -> Int\n  let value = add(1, 2)\n  value\nend\n\nfn right() -> Int\n  let value = add(1, 2)\n  value\nend\n\nfn partial() -> Int\n  let value = add(1, 2)\n  value + 1\nend\n",
+                min_tokens: 10,
+                fingerprint_count: 3,
+                groups: vec![vec!["app.veln::left", "app.veln::right"]],
+                token_counts: vec![10],
+            },
+            Case {
+                name: "minimum token boundary excludes short bodies",
+                source: "fn left() -> Int\n  let value = add(1, 2)\n  value\nend\n\nfn right() -> Int\n  let value = add(1, 2)\n  value\nend\n",
+                min_tokens: 11,
+                fingerprint_count: 0,
+                groups: vec![],
+                token_counts: vec![],
+            },
+        ];
+
+        for case in cases {
+            let project = Project {
+                root: ".".into(),
+                manifest: None,
+                files: vec![SourceFile::new("app.veln", case.source)],
+            };
+            let selected = ["app.veln".to_string()].into_iter().collect();
+            let (instances, fingerprint_count) =
+                similarity_instances(&project, &selected, case.min_tokens);
+            let groups = instances
+                .iter()
+                .map(|instance| {
+                    instance
+                        .declarations
+                        .iter()
+                        .map(|declaration| declaration.identity.as_str())
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>();
+            let token_counts = instances
+                .iter()
+                .map(|instance| instance.token_count)
+                .collect::<Vec<_>>();
+
+            assert_eq!(fingerprint_count, case.fingerprint_count, "{}", case.name);
+            assert_eq!(groups, case.groups, "{}", case.name);
+            assert_eq!(token_counts, case.token_counts, "{}", case.name);
+        }
     }
 
     #[test]
-    fn groups_only_complete_bodies_at_the_minimum_token_boundary() {
-        let project = Project {
-            root: ".".into(),
-            manifest: None,
-            files: vec![SourceFile::new(
-                "app.veln",
-                "fn left() -> Int\n  let value = add(1, 2)\n  value\nend\n\nfn right() -> Int\n  let value = add(1, 2)\n  value\nend\n\nfn partial() -> Int\n  let value = add(1, 2)\n  value + 1\nend\n",
-            )],
-        };
-        let selected = ["app.veln".to_string()].into_iter().collect();
-
-        assert_eq!(similarity_instances(&project, &selected, 10).0.len(), 1);
-        assert_eq!(similarity_instances(&project, &selected, 11).0.len(), 0);
-    }
-
-    #[test]
-    fn verifies_tokens_after_fingerprint_matches() {
+    fn groups_similarity_candidates_by_complete_tokens_after_fingerprint_matches() {
         let candidates = vec![
             similarity_candidate(
                 "a.veln",
@@ -2587,54 +2655,129 @@ mod tests {
                 "same",
                 vec![("Let", "let"), ("Ident", "a")],
             ),
+            similarity_candidate(
+                "d.veln",
+                "fourth",
+                "same",
+                vec![("Let", "let"), ("Ident", "b")],
+            ),
         ];
         let instances = similarity_instances_from_candidates(candidates);
 
-        assert_eq!(instances.len(), 1);
-        assert_eq!(instances[0].declarations.len(), 2);
-        assert_eq!(instances[0].declarations[0].identity, "a.veln::first");
-        assert_eq!(instances[0].declarations[1].identity, "c.veln::third");
+        assert_eq!(instances.len(), 2);
+        assert_eq!(
+            instances
+                .iter()
+                .map(|instance| {
+                    instance
+                        .declarations
+                        .iter()
+                        .map(|declaration| declaration.identity.as_str())
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>(),
+            [
+                vec!["a.veln::first", "c.veln::third"],
+                vec!["b.veln::second", "d.veln::fourth"]
+            ]
+        );
     }
 
     #[test]
     fn orders_similarity_instances_and_respects_structural_bounds() {
-        let project = Project {
-            root: ".".into(),
-            manifest: None,
-            files: vec![
-                SourceFile::new(
-                    "z.veln",
-                    "fn zed() -> Int\n  let value = add(1, 2)\n  value\nend\n",
-                ),
-                SourceFile::new(
-                    "a.veln",
-                    "fn alpha() -> Int\n  let value = add(1, 2)\n  value\nend\n\nfn beta() -> Int\n  let other = add(3, 4)\n  let next = add(other, 5)\n  next\nend\n",
-                ),
-                SourceFile::new(
-                    "b.veln",
-                    "fn gamma() -> Int\n  let other = add(3, 4)\n  let next = add(other, 5)\n  next\nend\n",
-                ),
-            ],
-        };
-        let selected = [
-            "a.veln".to_string(),
-            "b.veln".to_string(),
-            "z.veln".to_string(),
-        ]
-        .into_iter()
-        .collect();
-        let (instances, fingerprint_count) = similarity_instances(&project, &selected, 8);
+        let candidates = vec![
+            similarity_candidate(
+                "ignored.veln",
+                "unique_a",
+                "unique-a",
+                token_texts(&["u", "a"]),
+            ),
+            similarity_candidate(
+                "ignored.veln",
+                "unique_b",
+                "unique-b",
+                token_texts(&["u", "b"]),
+            ),
+            similarity_candidate(
+                "z.veln",
+                "large_z",
+                "large",
+                token_texts(&["l", "a", "r", "g", "e"]),
+            ),
+            similarity_candidate(
+                "a.veln",
+                "large_a",
+                "large",
+                token_texts(&["l", "a", "r", "g", "e"]),
+            ),
+            similarity_candidate(
+                "m.veln",
+                "large_m",
+                "large",
+                token_texts(&["l", "a", "r", "g", "e"]),
+            ),
+            similarity_candidate(
+                "b.veln",
+                "large_b",
+                "large",
+                token_texts(&["l", "a", "r", "g", "e"]),
+            ),
+            similarity_candidate(
+                "dir\\z.veln",
+                "pair_z",
+                "pair-one",
+                token_texts(&["p", "a", "i", "r"]),
+            ),
+            similarity_candidate(
+                "dir/a.veln",
+                "pair_a",
+                "pair-one",
+                token_texts(&["p", "a", "i", "r"]),
+            ),
+            similarity_candidate(
+                "c.veln",
+                "pair_c",
+                "pair-two",
+                token_texts(&["t", "w", "o"]),
+            ),
+            similarity_candidate(
+                "d.veln",
+                "pair_d",
+                "pair-two",
+                token_texts(&["t", "w", "o"]),
+            ),
+            similarity_candidate("e.veln", "pair_e", "pair-three", token_texts(&["o", "k"])),
+            similarity_candidate("f.veln", "pair_f", "pair-three", token_texts(&["o", "k"])),
+        ];
+        let fingerprint_count = candidates.len();
+        let instances = similarity_instances_from_candidates(candidates);
         let region_count = instances
             .iter()
             .map(|instance| instance.declarations.len())
             .sum::<usize>();
 
-        assert_eq!(fingerprint_count, 4);
-        assert_eq!(instances.len(), 2);
-        assert_eq!(instances[0].declarations[0].identity, "a.veln::beta");
-        assert_eq!(instances[1].declarations[0].identity, "a.veln::alpha");
+        assert_eq!(instances.len(), 4);
+        assert_eq!(region_count, 10);
         assert!(region_count <= fingerprint_count);
         assert!(instances.len() <= fingerprint_count / 2);
+        assert_eq!(
+            instances
+                .iter()
+                .map(|instance| {
+                    (
+                        instance.token_count,
+                        instance.declarations[0].identity.as_str(),
+                        instance.declarations.len(),
+                    )
+                })
+                .collect::<Vec<_>>(),
+            [
+                (5, "a.veln::large_a", 4),
+                (4, "dir/a.veln::pair_a", 2),
+                (3, "c.veln::pair_c", 2),
+                (2, "e.veln::pair_e", 2)
+            ]
+        );
     }
 
     fn first_function_vector(source: &str) -> AbcVector {
@@ -2690,6 +2833,10 @@ mod tests {
                 .collect(),
             fingerprint: fingerprint.to_string(),
         }
+    }
+
+    fn token_texts(texts: &[&'static str]) -> Vec<(&'static str, &'static str)> {
+        texts.iter().map(|text| ("Ident", *text)).collect()
     }
 
     fn report_from_edges(edges: &[(&str, &str)]) -> MetricsReport {

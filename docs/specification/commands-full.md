@@ -205,11 +205,12 @@ diagnostics reported at the referenced name span.
 
 ## `veln metrics [--json] [--check] [--baseline PATH] [--write-baseline PATH] [path ...]`
 
-`veln metrics` reports advisory module dependency metrics and ABC size metrics
-for project-owned Veln source. It follows the shared command analysis route
-for source discovery and parse-clean module loading. Without `--check`, the
-command exits successfully when analysis completes, even if dependency cycles
-or large ABC values are present.
+`veln metrics` reports advisory module dependency metrics, ABC size metrics,
+and experimental exact whole-body similarity for project-owned Veln source. It
+follows the shared command analysis route for source discovery and parse-clean
+module loading. Without `--check`, the command exits successfully when
+analysis completes, even if dependency cycles, large ABC values, or duplicate
+whole bodies are present.
 
 `--json` emits the metrics JSON report specified in [metrics-json.md](metrics-json.md).
 `--check` applies enabled metrics policy from `[tool.metrics]`. The current
@@ -228,6 +229,13 @@ explicitly from the command line; the command does not load a manifest
 baseline implicitly. Unsupported baseline schema or metric model values are
 comparison errors. A baseline subject that no longer exists in the current
 report is reported as stale but does not by itself fail the check.
+
+Human report output begins with dependency metrics, then cycles, then ABC
+size, and then `Whole-body similarity (experimental)`. Each similarity
+instance names one primary declaration with its declaration and body source
+locations. The remaining declarations are related locations. Similarity output
+does not instruct maintainers to deduplicate code mechanically, and similarity
+never creates a policy violation under `--check`.
 
 When `deny_cycles = "true"` is checked with a baseline, a current cycle is
 allowed only when its member set and cyclic edge set are subsets of one

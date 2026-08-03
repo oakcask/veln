@@ -229,9 +229,9 @@ The evidence set must satisfy all of these conditions:
 The evidence belongs in a review record, not in the current behavior
 specification. A metric that misses any graduation condition remains advisory.
 
-## Remaining Human Output
+## Human Output
 
-Human output for the remaining metrics starts with a summary and then emits
+Human output for metrics starts with a summary and then emits
 findings in this order:
 
 1. policy violations;
@@ -245,7 +245,8 @@ states whether the invocation is report-only or checked.
 
 The primary line names the measured fact at its source span. Explanations,
 other locations, and similarity peers use related notes. Similarity findings
-use one primary declaration and related notes for the other declarations.
+use one primary declaration location and related notes for the other
+declaration locations.
 
 A cycle violation states the enabled policy, identifies a concrete closed
 path, and tells the maintainer to inspect module ownership and dependency
@@ -290,8 +291,9 @@ Planned executable cases follow the placement rules in
 | Truncated human output | Findings exceed `max_findings` | Policy uses the complete set; human output names the omitted count and the JSON evidence command |
 
 Implemented executable cases cover exact whole-body similarity, partial-body
-exclusion, coordinated duplicate edits under a baseline check, fingerprint
-collision protection, stable ordering, and structural result bounds.
+exclusion, human output placement and locations, coordinated duplicate edits
+under a baseline check, fingerprint collision protection, stable ordering, and
+structural result bounds.
 
 CLI parsing, human output, JSON shape, and exit status must have integration
 coverage in `veln-cli`. Metric calculation must have table-driven unit

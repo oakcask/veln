@@ -23,7 +23,8 @@ details.
 - `metrics --json`, `metrics --check --baseline PATH --json`, and
   `metrics --write-baseline PATH`: [metrics-json.md](metrics-json.md) for
   module dependency metrics, dependency edges, cycles, baseline documents, ABC
-  size subjects, project identity, and summary fields.
+  size subjects, experimental exact whole-body similarity records, project
+  identity, and summary fields.
 - `run --json`: [run-json.md](run-json.md) for run records, output events,
   failures, and summary shape.
   Runtime result failures that carry source-visible diagnostic payload values,

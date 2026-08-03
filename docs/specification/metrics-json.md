@@ -153,7 +153,8 @@ Executable evidence:
   and contract exclusion, and ABC summary fields.
 - The metrics `abc-subject-kinds` case checks function and test subject kinds
   and excludes doctest-like documentation text from ABC subjects.
-- The metrics `similarity-formatted-equal`, `similarity-partial-body`, and
-  `check-similarity-baseline-advisory` cases check exact whole-body
-  similarity, identifier-sensitive exclusion, partial-body exclusion, summary
+- The metrics `similarity-formatted-equal`, `similarity-partial-body`,
+  `similarity-human-output`, and `check-similarity-baseline-advisory` cases
+  check exact whole-body similarity, identifier-sensitive exclusion,
+  partial-body exclusion, human output placement and locations, summary
   counts, and advisory baseline behavior under `--check`.
