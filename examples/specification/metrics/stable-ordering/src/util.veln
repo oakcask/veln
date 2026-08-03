@@ -1,0 +1,11 @@
+use src::app
+
+fn add(left: Int, right: Int) -> Int
+	left + right
+end
+
+fn duplicate_util() -> Int
+	let value = add(1, 2)
+	let other = add(value, 3)
+	other
+end

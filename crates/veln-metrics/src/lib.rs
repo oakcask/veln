@@ -2866,6 +2866,86 @@ mod tests {
     }
 
     #[test]
+    fn canonical_path_ordering_survives_source_insertion_order_and_separators() {
+        let forward = stable_ordering_project(vec![
+            SourceFile::new("nested\\util.veln", STABLE_UTIL_SOURCE),
+            SourceFile::new("nested/app.veln", STABLE_APP_SOURCE),
+        ]);
+        let reversed = stable_ordering_project(vec![
+            SourceFile::new("nested\\app.veln", STABLE_APP_SOURCE),
+            SourceFile::new("nested/util.veln", STABLE_UTIL_SOURCE),
+        ]);
+        let selected = [
+            "nested/app.veln".to_string(),
+            "nested/util.veln".to_string(),
+        ]
+        .into_iter()
+        .collect::<BTreeSet<_>>();
+
+        let forward_report = metrics_report_from_project(&forward, &selected);
+        let reversed_report = metrics_report_from_project(&reversed, &selected);
+        let forward_json = report_to_json(&forward_report, tool_info()).to_json();
+        let reversed_json = report_to_json(&reversed_report, tool_info()).to_json();
+        let forward_human = render_human(&forward_report);
+        let reversed_human = render_human(&reversed_report);
+        let baseline_json = baseline_to_json(&forward_report, tool_info()).to_json();
+
+        assert_eq!(forward_json, reversed_json);
+        assert_eq!(forward_human, reversed_human);
+        assert!(!forward_json.contains('\\'));
+        assert!(!forward_human.contains('\\'));
+        assert!(!baseline_json.contains('\\'));
+        assert_eq!(
+            forward_report.project.selected_paths,
+            ["nested/app.veln", "nested/util.veln"]
+        );
+        assert_eq!(
+            forward_report
+                .modules
+                .iter()
+                .map(|module| module.module.as_str())
+                .collect::<Vec<_>>(),
+            ["nested::app", "nested::util"]
+        );
+        assert_eq!(
+            forward_report
+                .edges
+                .iter()
+                .map(|edge| (edge.source.as_str(), edge.target.as_str()))
+                .collect::<Vec<_>>(),
+            [
+                ("nested::app", "nested::util"),
+                ("nested::util", "nested::app")
+            ]
+        );
+        assert_eq!(
+            forward_report
+                .abc_subjects
+                .iter()
+                .map(|subject| subject.identity.as_str())
+                .collect::<Vec<_>>(),
+            [
+                "nested/app.veln::duplicate_app",
+                "nested/util.veln::duplicate_util",
+                "nested/app.veln::add",
+                "nested/util.veln::add"
+            ]
+        );
+        assert_eq!(forward_report.similarities.len(), 1);
+        assert_eq!(
+            forward_report.similarities[0]
+                .declarations
+                .iter()
+                .map(|declaration| declaration.identity.as_str())
+                .collect::<Vec<_>>(),
+            [
+                "nested/app.veln::duplicate_app",
+                "nested/util.veln::duplicate_util"
+            ]
+        );
+    }
+
+    #[test]
     fn orders_abc_subjects_deterministically() {
         let project = Project {
             root: ".".into(),
@@ -3205,6 +3285,36 @@ mod tests {
             similarity_min_tokens: DEFAULT_SIMILARITY_MIN_TOKENS,
             human_output_max_findings: DEFAULT_HUMAN_OUTPUT_MAX_FINDINGS,
         }
+    }
+
+    const STABLE_APP_SOURCE: &str = "use nested::util\n\nfn add(left: Int, right: Int) -> Int\n  left + right\nend\n\nfn duplicate_app() -> Int\n  let value = add(1, 2)\n  let other = add(value, 3)\n  other\nend\n";
+    const STABLE_UTIL_SOURCE: &str = "use nested::app\n\nfn add(left: Int, right: Int) -> Int\n  left + right\nend\n\nfn duplicate_util() -> Int\n  let value = add(1, 2)\n  let other = add(value, 3)\n  other\nend\n";
+
+    fn stable_ordering_project(files: Vec<SourceFile>) -> Project {
+        Project {
+            root: ".".into(),
+            manifest: None,
+            files,
+        }
+    }
+
+    fn metrics_report_from_project(
+        project: &Project,
+        selected_paths: &BTreeSet<String>,
+    ) -> MetricsReport {
+        let graph = DependencyGraph::from_project(project).expect("graph");
+        graph.report(
+            project,
+            ProjectIdentity {
+                root: ".".to_string(),
+                selected_paths: selected_paths.iter().cloned().collect(),
+            },
+            selected_paths,
+            MetricsConfig {
+                similarity_min_tokens: 8,
+                ..default_metrics_config()
+            },
+        )
     }
 
     fn similarity_candidate(

@@ -176,6 +176,88 @@ fn metrics_baseline_check_preserves_report_fields() {
     }
 }
 
+#[test]
+fn metrics_cli_output_is_stable_for_reversed_input_order() {
+    let project = TestProject::new(
+        "metrics-cli-output-is-stable-for-reversed-input-order".to_string(),
+        &ToolSetup::default(),
+    );
+    fs::create_dir_all(project.root.join("src")).expect("source directory should be created");
+    fs::write(
+        project.root.join("veln.toml"),
+        "[tool.metrics]\nsimilarity_min_tokens = \"8\"\n",
+    )
+    .expect("manifest should be written");
+    fs::write(
+        project.root.join("src/app.veln"),
+        "use src::util\n\nfn add(left: Int, right: Int) -> Int\n  left + right\nend\n\nfn duplicate_app() -> Int\n  let value = add(1, 2)\n  let other = add(value, 3)\n  other\nend\n",
+    )
+    .expect("app source should be written");
+    fs::write(
+        project.root.join("src/util.veln"),
+        "use src::app\n\nfn add(left: Int, right: Int) -> Int\n  left + right\nend\n\nfn duplicate_util() -> Int\n  let value = add(1, 2)\n  let other = add(value, 3)\n  other\nend\n",
+    )
+    .expect("util source should be written");
+
+    let forward_json = project.veln_with_artifact(
+        &[
+            "metrics".to_string(),
+            "--json".to_string(),
+            "src/app.veln".to_string(),
+            "src/util.veln".to_string(),
+        ],
+        &[],
+        None,
+        None,
+    );
+    let reversed_json = project.veln_with_artifact(
+        &[
+            "metrics".to_string(),
+            "--json".to_string(),
+            "src/util.veln".to_string(),
+            "src/app.veln".to_string(),
+        ],
+        &[],
+        None,
+        None,
+    );
+    let forward_human = project.veln_with_artifact(
+        &[
+            "metrics".to_string(),
+            "src/app.veln".to_string(),
+            "src/util.veln".to_string(),
+        ],
+        &[],
+        None,
+        None,
+    );
+    let reversed_human = project.veln_with_artifact(
+        &[
+            "metrics".to_string(),
+            "src/util.veln".to_string(),
+            "src/app.veln".to_string(),
+        ],
+        &[],
+        None,
+        None,
+    );
+
+    assert_success("forward JSON metrics", &forward_json);
+    assert_success("reversed JSON metrics", &reversed_json);
+    assert_success("forward human metrics", &forward_human);
+    assert_success("reversed human metrics", &reversed_human);
+    assert_eq!(forward_json.stdout, reversed_json.stdout);
+    assert_eq!(forward_human.stdout, reversed_human.stdout);
+    assert!(
+        !String::from_utf8_lossy(&forward_json.stdout).contains('\\'),
+        "JSON output should use canonical separators"
+    );
+    assert!(
+        !String::from_utf8_lossy(&forward_human.stdout).contains('\\'),
+        "human output should use canonical separators"
+    );
+}
+
 fn case_name(case_dir: &Path) -> String {
     case_dir
         .components()
@@ -210,6 +292,15 @@ fn assert_no_metrics_baseline_temp_file(context: &CaseRunContext<'_>, project_ro
             context.label()
         );
     }
+}
+
+fn assert_success(label: &str, output: &Output) {
+    assert!(
+        output.status.success(),
+        "{label} failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 struct TestProject {
