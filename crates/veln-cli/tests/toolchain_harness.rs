@@ -185,7 +185,7 @@ fn metrics_cli_output_is_stable_for_reversed_input_order() {
     fs::create_dir_all(project.root.join("src")).expect("source directory should be created");
     fs::write(
         project.root.join("veln.toml"),
-        "[tool.metrics]\nsimilarity_min_tokens = \"8\"\n",
+        "[tool.metrics]\nsimilarity_min_tokens = \"8\"\nmax_findings = \"3\"\n",
     )
     .expect("manifest should be written");
     fs::write(
@@ -248,6 +248,12 @@ fn metrics_cli_output_is_stable_for_reversed_input_order() {
     assert_success("reversed human metrics", &reversed_human);
     assert_eq!(forward_json.stdout, reversed_json.stdout);
     assert_eq!(forward_human.stdout, reversed_human.stdout);
+    assert!(
+        String::from_utf8_lossy(&forward_human.stdout).contains(
+            "Detailed findings omitted: 5; use veln metrics --json for complete evidence."
+        ),
+        "reversed input comparison should exercise stable human truncation"
+    );
     assert!(
         !String::from_utf8_lossy(&forward_json.stdout).contains('\\'),
         "JSON output should use canonical separators"

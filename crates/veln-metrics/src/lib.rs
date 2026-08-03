@@ -3160,13 +3160,13 @@ mod tests {
                 "c.veln",
                 "pair_c",
                 "pair-two",
-                token_texts(&["t", "w", "o"]),
+                token_texts(&["t", "w", "o", "2"]),
             ),
             similarity_candidate(
                 "d.veln",
                 "pair_d",
                 "pair-two",
-                token_texts(&["t", "w", "o"]),
+                token_texts(&["t", "w", "o", "2"]),
             ),
             similarity_candidate("e.veln", "pair_e", "pair-three", token_texts(&["o", "k"])),
             similarity_candidate("f.veln", "pair_f", "pair-three", token_texts(&["o", "k"])),
@@ -3195,10 +3195,83 @@ mod tests {
                 .collect::<Vec<_>>(),
             [
                 (5, "a.veln::large_a", 4),
+                (4, "c.veln::pair_c", 2),
                 (4, "dir/a.veln::pair_a", 2),
-                (3, "c.veln::pair_c", 2),
                 (2, "e.veln::pair_e", 2)
             ]
+        );
+
+        let mut report = report_from_edges(&[]);
+        report.summary.similarity_fingerprint_count = fingerprint_count;
+        report.summary.similarity_instance_count = instances.len();
+        report.summary.similarity_region_count = region_count;
+        report.similarities = instances;
+
+        let json = report_to_json(&report, tool_info()).to_json();
+        let human = render_human(&report);
+
+        assert_before(
+            &json,
+            "\"identity\":\"c.veln::pair_c\"",
+            "\"identity\":\"dir/a.veln::pair_a\"",
+        );
+        assert_before(
+            &human,
+            "primary=c.veln::pair_c",
+            "primary=dir/a.veln::pair_a",
+        );
+    }
+
+    #[test]
+    fn renders_similarity_fingerprint_tiebreak_order_in_public_outputs() {
+        let instances = similarity_instances_from_candidates(vec![
+            similarity_candidate(
+                "same.veln",
+                "primary",
+                "fingerprint-b",
+                token_texts(&["b", "b"]),
+            ),
+            similarity_candidate(
+                "z.veln",
+                "related_b",
+                "fingerprint-b",
+                token_texts(&["b", "b"]),
+            ),
+            similarity_candidate(
+                "same.veln",
+                "primary",
+                "fingerprint-a",
+                token_texts(&["a", "a"]),
+            ),
+            similarity_candidate(
+                "z.veln",
+                "related_a",
+                "fingerprint-a",
+                token_texts(&["a", "a"]),
+            ),
+        ]);
+        let region_count = instances
+            .iter()
+            .map(|instance| instance.declarations.len())
+            .sum::<usize>();
+        let mut report = report_from_edges(&[]);
+        report.summary.similarity_fingerprint_count = 4;
+        report.summary.similarity_instance_count = instances.len();
+        report.summary.similarity_region_count = region_count;
+        report.similarities = instances;
+
+        let json = report_to_json(&report, tool_info()).to_json();
+        let human = render_human(&report);
+
+        assert_before(
+            &json,
+            "\"fingerprint\":\"fingerprint-a\"",
+            "\"fingerprint\":\"fingerprint-b\"",
+        );
+        assert_before(
+            &human,
+            "fingerprint=fingerprint-a",
+            "fingerprint=fingerprint-b",
         );
     }
 
