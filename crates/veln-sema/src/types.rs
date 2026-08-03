@@ -5863,6 +5863,7 @@ pub(crate) fn function_alias_signatures(
     module: &SurfaceModule,
     functions: &[FunctionSignature],
 ) -> Vec<FunctionSignature> {
+    let companion_access_targets = BTreeMap::new();
     module
         .aliases
         .iter()
@@ -5874,7 +5875,7 @@ pub(crate) fn function_alias_signatures(
                 &module.uses,
                 functions,
                 alias.module_name.as_deref(),
-                &companion_function_access_targets(module),
+                &companion_access_targets,
             )?;
             Some(FunctionSignature {
                 name,
@@ -5927,9 +5928,14 @@ pub(crate) fn infer_function_body_effects(
     handlers: &[HandlerSignature],
 ) {
     let companion_access_targets = companion_function_access_targets(module);
-    let mut effects_by_name = functions
+    let mut effects_by_function = functions
         .iter()
-        .map(|function| (function.name.clone(), function.effects.clone()))
+        .map(|function| {
+            (
+                (function.module_name.clone(), function.name.clone()),
+                function.effects.clone(),
+            )
+        })
         .collect::<BTreeMap<_, _>>();
     let mut effects_by_module_path = functions
         .iter()
@@ -5957,7 +5963,11 @@ pub(crate) fn infer_function_body_effects(
                 .iter()
                 .map(|param| Binding::new(param.name.clone(), function_body_param_type(param)))
                 .collect::<Vec<_>>();
-            let mut inferred = effects_by_name.get(name).cloned().unwrap_or_default();
+            let function_key = (function.module_name.clone(), name.clone());
+            let mut inferred = effects_by_function
+                .get(&function_key)
+                .cloned()
+                .unwrap_or_default();
             for line in &function.body {
                 match &line.kind {
                     BodyLineKind::Let {
@@ -5970,7 +5980,7 @@ pub(crate) fn infer_function_body_effects(
                             current_module: function.module_name.as_deref(),
                             bindings: &bindings,
                             functions,
-                            effects_by_name: &effects_by_name,
+                            effects_by_function: &effects_by_function,
                             effects_by_module_path: &effects_by_module_path,
                             companion_access_targets: &companion_access_targets,
                             user_effects,
@@ -5986,7 +5996,7 @@ pub(crate) fn infer_function_body_effects(
                             current_module: function.module_name.as_deref(),
                             bindings: &bindings,
                             functions,
-                            effects_by_name: &effects_by_name,
+                            effects_by_function: &effects_by_function,
                             effects_by_module_path: &effects_by_module_path,
                             companion_access_targets: &companion_access_targets,
                             user_effects,
@@ -5996,12 +6006,16 @@ pub(crate) fn infer_function_body_effects(
                     }
                 }
             }
-            if effects_by_name.get(name) != Some(&inferred) {
-                effects_by_name.insert(name.clone(), inferred);
+            if effects_by_function.get(&function_key) != Some(&inferred) {
+                effects_by_function.insert(function_key, inferred);
                 if let Some(module_name) = &function.module_name {
+                    let effects = effects_by_function
+                        .get(&(Some(module_name.clone()), name.clone()))
+                        .cloned()
+                        .unwrap_or_default();
                     effects_by_module_path.insert(
                         (module_name.clone(), name.clone()),
-                        (effects_by_name[name].clone(), function.visibility),
+                        (effects, function.visibility),
                     );
                 }
                 changed = true;
@@ -6010,7 +6024,9 @@ pub(crate) fn infer_function_body_effects(
     }
 
     for function in functions {
-        if let Some(effects) = effects_by_name.remove(&function.name) {
+        if let Some(effects) =
+            effects_by_function.remove(&(function.module_name.clone(), function.name.clone()))
+        {
             function.effects = effects;
         }
     }
@@ -6052,7 +6068,7 @@ struct ExprEffectContext<'a> {
     current_module: Option<&'a str>,
     bindings: &'a [Binding],
     functions: &'a [FunctionSignature],
-    effects_by_name: &'a BTreeMap<String, Vec<String>>,
+    effects_by_function: &'a BTreeMap<(Option<String>, String), Vec<String>>,
     effects_by_module_path: &'a BTreeMap<(String, String), (Vec<String>, Visibility)>,
     companion_access_targets: &'a BTreeMap<String, String>,
     user_effects: &'a [EffectSignature],
@@ -6118,7 +6134,7 @@ fn collect_expr_effects(expr: &Expr, context: &ExprEffectContext<'_>, inferred: 
                         context.uses,
                         context.current_module,
                         context.bindings,
-                        context.effects_by_name,
+                        context.effects_by_function,
                         context.effects_by_module_path,
                         context.companion_access_targets,
                     ) {
@@ -6400,7 +6416,7 @@ fn concurrency_effects_for_call(
                 context.uses,
                 context.current_module,
                 context.bindings,
-                context.effects_by_name,
+                context.effects_by_function,
                 context.effects_by_module_path,
                 context.companion_access_targets,
             )
@@ -6418,12 +6434,12 @@ fn effects_for_callee_path<'a>(
     uses: &[UseDecl],
     current_module: Option<&str>,
     bindings: &'a [Binding],
-    effects_by_name: &'a BTreeMap<String, Vec<String>>,
+    effects_by_function: &'a BTreeMap<(Option<String>, String), Vec<String>>,
     effects_by_module_path: &'a BTreeMap<(String, String), (Vec<String>, Visibility)>,
     companion_access_targets: &'a BTreeMap<String, String>,
 ) -> &'a [String] {
     match segments {
-        [name] => effects_for_bare_callee(name, bindings, effects_by_name),
+        [name] => effects_for_bare_callee(name, current_module, bindings, effects_by_function),
         [_, .., name] => {
             let Some(use_decl) =
                 imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)
@@ -6539,15 +6555,19 @@ fn companion_access_targets_for_signatures(
 
 fn effects_for_bare_callee<'a>(
     name: &str,
+    current_module: Option<&str>,
     bindings: &'a [Binding],
-    effects_by_name: &'a BTreeMap<String, Vec<String>>,
+    effects_by_function: &'a BTreeMap<(Option<String>, String), Vec<String>>,
 ) -> &'a [String] {
     if let Some(binding) = bindings.iter().rev().find(|binding| binding.name == name)
         && let Some(effects) = binding.ty.function_effects()
     {
         return effects;
     }
-    effects_by_name.get(name).map_or(&[], Vec::as_slice)
+    effects_by_function
+        .get(&(current_module.map(str::to_string), name.to_string()))
+        .or_else(|| effects_by_function.get(&(None, name.to_string())))
+        .map_or(&[], Vec::as_slice)
 }
 
 fn push_unique_effect(effects: &mut Vec<String>, effect: &str) {

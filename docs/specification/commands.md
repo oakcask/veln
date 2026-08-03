@@ -433,7 +433,10 @@ requiring the full command reference on the first read.
   command rules. The checked example
   `../../examples/specification/test/companion-private-function-access/` shows
   that a selected companion test can execute a private function declared in its
-  exact target. The checked examples
+  exact target. The checked
+  `../../examples/specification/test/companion-private-function-established-effects/`
+  case shows that the companion test must declare established effects from the
+  private target function call. The checked examples
   `../../examples/specification/test/parallel-jobs-one-json/`,
   `../../examples/specification/test/parallel-jobs-two-json/`, and
   `../../examples/specification/test/parallel-jobs-auto-json/` show that

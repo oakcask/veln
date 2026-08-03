@@ -1,0 +1,4 @@
+test companion_needs_import_for_private_target_function() -> ()
+	let observed: Int = math::increment(1)
+	()
+end

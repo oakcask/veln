@@ -53,13 +53,17 @@ is not transitive through modules imported by the target, and does not add bare
 target-name lookup. The checked cases are
 `examples/specification/check/companion-private-function-access/`,
 `examples/specification/check/companion-private-function-wrong-target/`,
+`examples/specification/check/companion-private-function-wrong-target-human/`,
 `examples/specification/check/companion-private-function-integration-boundary/`,
 `examples/specification/check/companion-private-function-non-transitive/`,
 `examples/specification/check/companion-private-function-bare-name/`,
+`examples/specification/check/companion-private-function-missing-import/`,
 `examples/specification/check/companion-private-function-target-import-isolation/`,
 `examples/specification/check/companion-private-function-companion-import-isolation/`,
 `examples/specification/check/companion-private-function-production-inference/`, and
-`examples/specification/test/companion-private-function-access/`.
+`examples/specification/test/companion-private-function-access/`. Established
+private target function effects are exercised by
+`examples/specification/test/companion-private-function-established-effects/`.
 
 ## Integer Literals
 

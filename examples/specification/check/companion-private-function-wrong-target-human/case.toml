@@ -1,0 +1,9 @@
+command = ["check", "other.test.veln", "math.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[name.unresolved]: unresolved call_target `math::increment`"]
+
+[stderr]
+format = "empty"

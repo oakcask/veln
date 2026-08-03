@@ -1125,6 +1125,61 @@ fn companion_observes_established_private_signature_and_effects() {
 }
 
 #[test]
+fn companion_local_function_effects_do_not_share_target_private_name() {
+    let companion_source = SourceFile::new(
+        "math.test.veln",
+        concat!(
+            "mod math__test_companion\n",
+            "use math\n",
+            "fn emit(value: String) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "test local_emit_test() -> ()\n",
+            "  emit(\"quiet\")\n",
+            "end\n",
+        ),
+    );
+    let target_source = SourceFile::new(
+        "math.veln",
+        concat!(
+            "mod math\n",
+            "fn emit(value: String) -> ()\n",
+            "  stdio::println(value)\n",
+            "end\n",
+            "pub fn production() -> () effects [stdio]\n",
+            "  emit(\"production\")\n",
+            "end\n",
+        ),
+    );
+    let companion = lower_surface_ast(&parse(&companion_source).tree);
+    let target = lower_surface_ast(&parse(&target_source).tree);
+    let module = SurfaceModule {
+        module: companion.module,
+        uses: companion.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        types: Vec::new(),
+        functions: companion
+            .functions
+            .into_iter()
+            .chain(target.functions)
+            .collect(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        !diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "effect.missing_test"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn public_function_alias_reexports_imported_target() {
     let app_source = SourceFile::new(
         "app.veln",
@@ -1188,6 +1243,58 @@ fn public_function_alias_reexports_imported_target() {
         panic!("alias call should lower as a call");
     };
     assert_eq!(target, &CoreCallTarget::Function("double".to_string()));
+}
+
+#[test]
+fn companion_function_alias_cannot_reexport_private_target_function() {
+    let companion_source = SourceFile::new(
+        "math.test.veln",
+        concat!(
+            "mod math__test_companion\n",
+            "use math\n",
+            "pub fn expose = math::increment\n",
+            "test expose_test() -> Int\n",
+            "  expose(1)\n",
+            "end\n",
+        ),
+    );
+    let target_source = SourceFile::new(
+        "math.veln",
+        concat!(
+            "mod math\n",
+            "fn increment(value: Int) -> Int\n",
+            "  value + 1\n",
+            "end\n",
+        ),
+    );
+    let companion = lower_surface_ast(&parse(&companion_source).tree);
+    let target = lower_surface_ast(&parse(&target_source).tree);
+    let module = SurfaceModule {
+        module: companion.module,
+        uses: companion.uses,
+        aliases: companion.aliases,
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        types: Vec::new(),
+        functions: companion
+            .functions
+            .into_iter()
+            .chain(target.functions)
+            .collect(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(
+        lowered.diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.unresolved"
+                && diagnostic.message == "unresolved call_target `expose`"
+        }),
+        "{:#?}",
+        lowered.diagnostics
+    );
 }
 
 #[test]

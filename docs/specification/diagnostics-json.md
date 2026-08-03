@@ -74,6 +74,13 @@ Companion source diagnostics are executable in
 `examples/specification/test/companion-missing-target-human/`,
 `examples/specification/test/companion-chained-target-json/`, and
 `examples/specification/test/companion-chained-target-human/`.
+Companion private-function visibility and explicit-import failures reuse
+`name.unresolved`; JSON and human boundaries are checked by
+`examples/specification/check/companion-private-function-wrong-target/`,
+`examples/specification/check/companion-private-function-wrong-target-human/`,
+`examples/specification/check/companion-private-function-non-transitive/`,
+`examples/specification/check/companion-private-function-bare-name/`, and
+`examples/specification/check/companion-private-function-missing-import/`.
 
 ## Stable Details
 

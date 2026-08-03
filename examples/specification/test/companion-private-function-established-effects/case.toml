@@ -1,0 +1,27 @@
+command = ["test", "--json", "math.test.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "summary.total"
+equals = 1
+
+[[json_assert]]
+path = "cases.0.name"
+equals = "companion_observes_private_target_effect"
+
+[[json_assert]]
+path = "cases.0.status"
+equals = "passed"
