@@ -4958,104 +4958,140 @@ pub(crate) fn supported_encode_reserved_bits(
     index: usize,
     reserved: (i64, i64),
 ) -> Option<(u8, i64)> {
-    let (bit_width, expected_value) = reserved;
-    if supported_bit_packed_reserved_group(fields, index) {
-        return Some((bit_width as u8, expected_value));
+    ReservedBitsEncodeContext {
+        fields,
+        index,
+        bit_width: reserved.0,
+        expected_value: reserved.1,
     }
-    if supported_byte_interleaved_reserved_group(fields, index, bit_width, expected_value) {
-        return Some((bit_width as u8, expected_value));
+    .is_supported()
+    .then_some((reserved.0 as u8, reserved.1))
+}
+
+struct ReservedBitsEncodeContext<'a> {
+    fields: &'a [veln_ast::SchemaField],
+    index: usize,
+    bit_width: i64,
+    expected_value: i64,
+}
+
+impl ReservedBitsEncodeContext<'_> {
+    fn is_supported(&self) -> bool {
+        supported_bit_packed_reserved_group(self.fields, self.index)
+            || supported_byte_interleaved_reserved_group(
+                self.fields,
+                self.index,
+                self.bit_width,
+                self.expected_value,
+            )
+            || self.supports_forward_layout()
+            || self.supports_backward_layout()
+            || self.supports_middle_layout()
+            || self.supports_standalone_layout()
     }
-    let previous_previous_field = index
-        .checked_sub(2)
-        .and_then(|previous| fields.get(previous));
-    let previous_field = index
-        .checked_sub(1)
-        .and_then(|previous| fields.get(previous));
-    let next_field = fields.get(index + 1);
-    let next_next_field = fields.get(index + 2);
-    if bit_width == 1
-        && expected_value == 0
-        && next_field.is_some_and(|field| canonical_schema_primitive_is(&field.ty, "UInt31be"))
-    {
-        return Some((1, 0));
-    }
-    if supported_reserved_byte_prefix(bit_width, expected_value, next_field) {
-        return Some((bit_width as u8, expected_value));
-    }
-    let packed_storage_bit_width = if (1..=7).contains(&bit_width) {
-        Some(8)
-    } else if (9..=15).contains(&bit_width) {
-        Some(16)
-    } else if (17..=23).contains(&bit_width) {
-        Some(24)
-    } else if (25..=31).contains(&bit_width) {
-        Some(32)
-    } else {
-        None
-    };
-    if packed_storage_bit_width.is_some_and(|storage_bit_width| {
-        next_field
-            .and_then(|field| exact_width_schema_primitive_bit_width(&field.ty))
-            .is_some_and(|next_bit_width| {
-                i64::from(next_bit_width) + bit_width == storage_bit_width
+
+    fn supports_forward_layout(&self) -> bool {
+        let next = self.next();
+        (self.bit_width == 1
+            && self.expected_value == 0
+            && next.is_some_and(|field| canonical_schema_primitive_is(&field.ty, "UInt31be")))
+            || supported_reserved_byte_prefix(self.bit_width, self.expected_value, next)
+            || self.supports_packed_prefix(next)
+            || next.zip(self.next_next()).is_some_and(|(first, second)| {
+                supported_prefix_reserved_group(first, second, self.bit_width, self.expected_value)
             })
-    }) {
-        let max_value = (1_i64 << bit_width) - 1;
-        if expected_value <= max_value {
-            return Some((bit_width as u8, expected_value));
-        }
     }
-    if let (Some(next_field), Some(next_next_field)) = (next_field, next_next_field)
-        && supported_prefix_reserved_group(next_field, next_next_field, bit_width, expected_value)
-    {
-        return Some((bit_width as u8, expected_value));
-    }
-    if let Some(packed_storage_bit_width) = suffix_packed_reserved_storage_bit_width(bit_width)
-        && !previous_previous_field.is_some_and(|field| {
-            previous_field.is_some_and(|visible| supported_packed_reserved_prefix(field, visible))
+
+    fn supports_packed_prefix(&self, next: Option<&veln_ast::SchemaField>) -> bool {
+        packed_reserved_storage_bit_width(self.bit_width).is_some_and(|storage_bit_width| {
+            next.and_then(|field| exact_width_schema_primitive_bit_width(&field.ty))
+                .is_some_and(|next_bit_width| {
+                    i64::from(next_bit_width) + self.bit_width == storage_bit_width
+                })
+                && self
+                    .maximum_value()
+                    .is_some_and(|max_value| self.expected_value <= max_value)
         })
-        && previous_field
-            .and_then(|field| exact_width_schema_primitive_bit_width(&field.ty))
-            .is_some_and(|previous_bit_width| {
-                i64::from(previous_bit_width) + bit_width == packed_storage_bit_width
+    }
+
+    fn supports_backward_layout(&self) -> bool {
+        let previous = self.previous();
+        self.supports_packed_suffix(previous)
+            || previous.is_some_and(|field| {
+                supported_byte_visible_reserved_suffix(field, (self.bit_width, self.expected_value))
             })
-    {
-        let max_value = reserved_bits_max_value(bit_width)?;
-        if expected_value <= max_value {
-            return Some((bit_width as u8, expected_value));
+            || self
+                .previous_previous()
+                .zip(previous)
+                .is_some_and(|(first, second)| {
+                    supported_suffix_reserved_group(
+                        first,
+                        second,
+                        self.bit_width,
+                        self.expected_value,
+                    )
+                })
+    }
+
+    fn supports_packed_suffix(&self, previous: Option<&veln_ast::SchemaField>) -> bool {
+        suffix_packed_reserved_storage_bit_width(self.bit_width).is_some_and(|storage_bit_width| {
+            !self.previous_previous().is_some_and(|field| {
+                previous.is_some_and(|visible| supported_packed_reserved_prefix(field, visible))
+            }) && previous
+                .and_then(|field| exact_width_schema_primitive_bit_width(&field.ty))
+                .is_some_and(|previous_bit_width| {
+                    i64::from(previous_bit_width) + self.bit_width == storage_bit_width
+                })
+                && self
+                    .maximum_value()
+                    .is_some_and(|max_value| self.expected_value <= max_value)
+        })
+    }
+
+    fn supports_middle_layout(&self) -> bool {
+        self.previous()
+            .zip(self.next())
+            .is_some_and(|(previous, next)| {
+                supported_middle_reserved_bits(previous, next, self.bit_width, self.expected_value)
+            })
+    }
+
+    fn supports_standalone_layout(&self) -> bool {
+        self.bit_width > 0
+            && self.bit_width <= 32
+            && self.bit_width % 8 == 0
+            && self
+                .maximum_value()
+                .is_some_and(|max_value| self.expected_value <= max_value)
+    }
+
+    fn maximum_value(&self) -> Option<i64> {
+        if self.bit_width == 32 {
+            Some(0xffff_ffff)
+        } else {
+            reserved_bits_max_value(self.bit_width)
         }
     }
-    if previous_field.is_some_and(|field| supported_byte_visible_reserved_suffix(field, reserved)) {
-        return Some((bit_width as u8, expected_value));
+
+    fn previous_previous(&self) -> Option<&veln_ast::SchemaField> {
+        self.index
+            .checked_sub(2)
+            .and_then(|index| self.fields.get(index))
     }
-    if let (Some(previous_previous_field), Some(previous_field)) =
-        (previous_previous_field, previous_field)
-        && supported_suffix_reserved_group(
-            previous_previous_field,
-            previous_field,
-            bit_width,
-            expected_value,
-        )
-    {
-        return Some((bit_width as u8, expected_value));
+
+    fn previous(&self) -> Option<&veln_ast::SchemaField> {
+        self.index
+            .checked_sub(1)
+            .and_then(|index| self.fields.get(index))
     }
-    if let (Some(previous_field), Some(next_field)) = (previous_field, next_field)
-        && supported_middle_reserved_bits(previous_field, next_field, bit_width, expected_value)
-    {
-        return Some((bit_width as u8, expected_value));
+
+    fn next(&self) -> Option<&veln_ast::SchemaField> {
+        self.fields.get(self.index + 1)
     }
-    if bit_width <= 0 || bit_width > 32 || bit_width % 8 != 0 {
-        return None;
+
+    fn next_next(&self) -> Option<&veln_ast::SchemaField> {
+        self.fields.get(self.index + 2)
     }
-    let max_value = if bit_width == 32 {
-        0xffffffff
-    } else {
-        (1_i64 << bit_width) - 1
-    };
-    if expected_value <= max_value {
-        return Some((bit_width as u8, expected_value));
-    }
-    None
 }
 
 fn supported_bit_packed_reserved_group(fields: &[veln_ast::SchemaField], index: usize) -> bool {

@@ -570,3 +570,34 @@ fn schema_literal_positions_accept_binary_and_hexadecimal_values() {
         vec![10, 11]
     );
 }
+
+#[test]
+fn reserved_bits_encode_supports_each_neighbor_direction() {
+    let source = veln_source::SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema NeighborDirections\n",
+            "  format binary\n",
+            "  forward: ReservedBits(3, 5)\n",
+            "  forward_value: UInt8\n",
+            "  backward_value: UInt8\n",
+            "  backward: ReservedBits(9, 0)\n",
+            "  middle_high: UInt3\n",
+            "  middle: ReservedBits(2, 1)\n",
+            "  middle_low: UInt3\n",
+            "  standalone: ReservedBits(8, 255)\n",
+            "end\n",
+        ),
+    );
+    let parsed = veln_syntax::parse(&source);
+    let module = veln_ast::lower_surface_ast(&parsed.tree);
+    let fields = &module.schemas[0].fields;
+
+    for (index, reserved) in [(0, (3, 5)), (3, (9, 0)), (5, (2, 1)), (7, (8, 255))] {
+        assert_eq!(
+            supported_encode_reserved_bits(fields, index, reserved),
+            Some((reserved.0 as u8, reserved.1)),
+            "reserved field at index {index}"
+        );
+    }
+}
