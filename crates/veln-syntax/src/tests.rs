@@ -503,6 +503,55 @@ fn parses_public_member_aliases() {
 }
 
 #[test]
+fn dispatches_mixed_public_and_private_top_level_declarations_in_source_order() {
+    let source = SourceFile::new(
+        "mixed.veln",
+        concat!(
+            "pub fn public_fn() -> ()\n  ()\nend\n",
+            "fn private_fn() -> ()\n  ()\nend\n",
+            "test parser_test() -> ()\n  ()\nend\n",
+            "pub type PublicType\n  PublicValue\nend\n",
+            "type PrivateType\n  PrivateValue\nend\n",
+            "pub schema PublicSchema\n  format binary\n  value: UInt8\nend\n",
+            "schema PrivateSchema\n  format binary\n  value: UInt8\nend\n",
+            "pub effect PublicEffect\n  call() -> ()\nend\n",
+            "effect PrivateEffect\n  call() -> ()\nend\n",
+            "pub handler public_handler() handles PublicEffect\n  call=public_fn\nend\n",
+            "handler private_handler() handles PrivateEffect\n  call=private_fn\nend\n",
+            "pub fn alias = implementation::function\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let item_kinds = output
+        .tree
+        .items
+        .iter()
+        .map(|item| match item {
+            SyntaxItem::Function(function) => match function.kind {
+                FunctionKind::Function => "function",
+                FunctionKind::Test => "test",
+            },
+            SyntaxItem::Type(_) => "type",
+            SyntaxItem::Schema(_) => "schema",
+            SyntaxItem::Effect(_) => "effect",
+            SyntaxItem::Handler(_) => "handler",
+            SyntaxItem::PublicAlias(_) => "alias",
+            SyntaxItem::Codec(_) => "codec",
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        item_kinds,
+        [
+            "function", "function", "test", "type", "type", "schema", "schema", "effect", "effect",
+            "handler", "handler", "alias",
+        ]
+    );
+}
+
+#[test]
 fn rejects_public_member_alias_call_targets() {
     let source = SourceFile::new(
         "api.veln",

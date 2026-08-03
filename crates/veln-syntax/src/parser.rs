@@ -266,46 +266,8 @@ impl<'a> Parser<'a> {
             if self.at(TokenKind::Eof) {
                 break;
             }
-            if self.at_public_alias_header() {
-                items.push(SyntaxItem::PublicAlias(self.parse_public_alias()));
-            } else if self.at(TokenKind::Pub) && self.peek_at(TokenKind::Type) {
-                items.push(SyntaxItem::Type(self.parse_type_decl()));
-            } else if self.at(TokenKind::Pub) && self.peek_at(TokenKind::Schema) {
-                items.push(SyntaxItem::Schema(self.parse_schema_decl()));
-            } else if self.at(TokenKind::Pub) && self.peek_at(TokenKind::Effect) {
-                items.push(SyntaxItem::Effect(self.parse_effect_decl()));
-            } else if self.at(TokenKind::Pub) && self.peek_at(TokenKind::Handler) {
-                items.push(SyntaxItem::Handler(self.parse_handler_decl()));
-            } else if self.at(TokenKind::Pub) && self.peek_at(TokenKind::Codec) {
-                self.parse_removed_codec_decl();
-            } else if self.at(TokenKind::Pub) || self.at(TokenKind::Fn) {
-                items.push(SyntaxItem::Function(Box::new(
-                    self.parse_function_like(FunctionKind::Function),
-                )));
-            } else if self.at(TokenKind::Type) {
-                items.push(SyntaxItem::Type(self.parse_type_decl()));
-            } else if self.at(TokenKind::Schema) {
-                items.push(SyntaxItem::Schema(self.parse_schema_decl()));
-            } else if self.at(TokenKind::Effect) {
-                items.push(SyntaxItem::Effect(self.parse_effect_decl()));
-            } else if self.at(TokenKind::Handler) {
-                items.push(SyntaxItem::Handler(self.parse_handler_decl()));
-            } else if self.at(TokenKind::Codec) {
-                self.parse_removed_codec_decl();
-            } else if self.at(TokenKind::Test) {
-                items.push(SyntaxItem::Function(Box::new(
-                    self.parse_function_like(FunctionKind::Test),
-                )));
-            } else {
-                self.error_current(
-                    "parse.expected_item",
-                    "expected a function, test, type, effect, handler, or schema declaration",
-                    "module",
-                    vec!["pub", "fn", "test", "type", "effect", "handler", "schema"],
-                    RecoveryStrategy::SynchronizeToAnchor,
-                    Some("fn"),
-                );
-                self.synchronize_to_item();
+            if let Some(item) = self.parse_top_level_item() {
+                items.push(item);
             }
         }
 
@@ -330,6 +292,66 @@ impl<'a> Parser<'a> {
             },
             diagnostics: self.diagnostics,
         }
+    }
+
+    fn parse_top_level_item(&mut self) -> Option<SyntaxItem> {
+        if self.at_public_alias_header() {
+            return Some(SyntaxItem::PublicAlias(self.parse_public_alias()));
+        }
+        if self.at(TokenKind::Pub) {
+            return self.parse_public_top_level_item();
+        }
+
+        self.parse_private_top_level_item()
+    }
+
+    fn parse_private_top_level_item(&mut self) -> Option<SyntaxItem> {
+        match self.current().kind {
+            TokenKind::Fn => Some(SyntaxItem::Function(Box::new(
+                self.parse_function_like(FunctionKind::Function),
+            ))),
+            TokenKind::Type => Some(SyntaxItem::Type(self.parse_type_decl())),
+            TokenKind::Schema => Some(SyntaxItem::Schema(self.parse_schema_decl())),
+            TokenKind::Effect => Some(SyntaxItem::Effect(self.parse_effect_decl())),
+            TokenKind::Handler => Some(SyntaxItem::Handler(self.parse_handler_decl())),
+            TokenKind::Codec => {
+                self.parse_removed_codec_decl();
+                None
+            }
+            TokenKind::Test => Some(SyntaxItem::Function(Box::new(
+                self.parse_function_like(FunctionKind::Test),
+            ))),
+            _ => self.reject_top_level_token(),
+        }
+    }
+
+    fn parse_public_top_level_item(&mut self) -> Option<SyntaxItem> {
+        match self.peek_kind(1) {
+            Some(TokenKind::Type) => Some(SyntaxItem::Type(self.parse_type_decl())),
+            Some(TokenKind::Schema) => Some(SyntaxItem::Schema(self.parse_schema_decl())),
+            Some(TokenKind::Effect) => Some(SyntaxItem::Effect(self.parse_effect_decl())),
+            Some(TokenKind::Handler) => Some(SyntaxItem::Handler(self.parse_handler_decl())),
+            Some(TokenKind::Codec) => {
+                self.parse_removed_codec_decl();
+                None
+            }
+            _ => Some(SyntaxItem::Function(Box::new(
+                self.parse_function_like(FunctionKind::Function),
+            ))),
+        }
+    }
+
+    fn reject_top_level_token(&mut self) -> Option<SyntaxItem> {
+        self.error_current(
+            "parse.expected_item",
+            "expected a function, test, type, effect, handler, or schema declaration",
+            "module",
+            vec!["pub", "fn", "test", "type", "effect", "handler", "schema"],
+            RecoveryStrategy::SynchronizeToAnchor,
+            Some("fn"),
+        );
+        self.synchronize_to_item();
+        None
     }
 
     fn at_public_alias_header(&self) -> bool {
