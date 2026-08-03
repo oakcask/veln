@@ -8,9 +8,8 @@ Status: proposed
 
 ## Summary
 
-Add companion modules as a source-file relationship and define
-`module_name.test.veln` as the first companion kind. A test companion can
-inspect the private declarations of its matching production module without
+Extend the existing `.test.veln` companion source boundary so a test companion
+can inspect the private declarations of its matching production module without
 sharing that module's declaration or import scope.
 
 Keep `module_name_test.veln` as an ordinary module and as the existing
@@ -33,32 +32,26 @@ modules' private declarations.
 
 ## Terminology
 
-A **companion source** is a source file whose recognized suffix associates it
-with one production source in the same package and directory.
+A **companion source** is an implemented source-file relationship whose
+recognized suffix associates it with one production source in the same package
+and directory.
 
 A **test companion** is a companion source named `X.test.veln`. Its **target
 source** is the same-directory file named `X.veln`. The target source's
 path-derived module is the **target module**.
 
-The `.test.veln` suffix is the only companion kind introduced by this
-proposal. Other dotted suffixes do not acquire companion semantics.
+The existing `.test.veln` suffix is the only companion kind. Other dotted
+suffixes do not acquire companion semantics.
 
 ## Proposed Source Model
 
-`X.test.veln` is not a second source fragment of module `X`. It has a distinct,
-test-only identity that source code cannot import or export by a module path.
-Its declarations and written imports belong only to the test companion.
+The implemented companion identity and command boundary are specified in
+`../specification/source-surface.md` and `../specification/commands.md`.
+Remaining work must preserve that boundary.
 
 The test companion has friend access to its target module. Friend access
 changes visibility lookup only. It does not merge declarations, aliases,
 imports, inference state, or module initialization behavior.
-
-The companion relationship is derived from the file path. Source syntax does
-not declare or redirect the relationship.
-
-For a target named `http` in the `net` source directory, its companion uses the
-`.test.veln` suffix beside the target, and the target module path remains
-`net::http`.
 
 ## Name Resolution And Visibility
 
@@ -130,8 +123,8 @@ changing whether its target passes production analysis.
 
 ## File And Package Boundaries
 
-External packages cannot import a companion source. Package export lists
-reject companion paths. Distribution and standard-library bundles exclude
+External packages cannot import a companion source. Package export lists must
+reject companion paths. Distribution and standard-library bundles must exclude
 companion sources in the same way that they exclude other test-only sources.
 
 ## Command Behavior
@@ -171,32 +164,25 @@ replace command-visible human and JSON coverage.
 
 ## Diagnostics Contract
 
-Companion diagnostics must distinguish these failed facts:
+Remaining companion diagnostics must distinguish these failed facts:
 
-- the companion path has no matching target source;
-- the companion path attempts to target another companion;
 - a companion declaration uses `pub`;
 - a qualified private declaration belongs to a module other than the target;
 - a companion path appears in a package export list.
 
 The primary message must state the specific failed fact at the relevant path or
-source span. Related notes may identify the derived target path or the valid
-companion target. JSON details must expose the companion path, the derived
-target path when one exists, and a stable reason for the failure.
+source span. Related notes may identify the valid companion target. JSON
+details must expose the companion path and a stable reason for the failure.
 
 Exact diagnostic identifiers and wording are implementation choices until
 executable human and JSON cases establish them.
 
 ## Compatibility
 
-This proposal does not change the meaning or discovery of `_test.veln` files.
-They remain ordinary path-derived modules and integration-test sources. They
-continue to require public access to imported declarations.
-
-Existing same-file tests and doctests retain their visibility behavior.
-Existing source paths containing an otherwise invalid dot do not become valid
-ordinary module paths. Only the exact `.test.veln` suffix receives the new
-classification.
+The implemented `_test.veln`, same-file test, doctest, and exact `.test.veln`
+classification behavior is specified in `../specification/source-surface.md`,
+`../specification/commands.md`, and `../specification/test-json.md`.
+Remaining work must preserve that behavior.
 
 Adding a companion file can add test diagnostics and test cases. It cannot
 change whether the target source succeeds under production analysis.
@@ -226,14 +212,14 @@ files ambiguous. Those outcomes conflict with production analysis isolation.
 
 This section is not normative.
 
-Represent the companion relationship separately from ordinary module identity.
+Keep the companion relationship separate from ordinary module identity.
 Pass the requesting source's companion target into qualified visibility lookup.
 Do not assign the target module identity to declarations or imports parsed from
 the companion source.
 
-Treat companion classification as shared project metadata so the analyzer,
-test selector, command layer, language server, documentation generator, and
-package validator use one path rule.
+Use the shared project companion classification for the analyzer, language
+server, documentation generator, and package validator instead of duplicating
+path rules.
 
 ## Planned Verification Commands
 

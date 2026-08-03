@@ -41,8 +41,10 @@ companion-target error instead of targeting `math.test.veln`.
 Checking or testing a companion requires the target source to exist in the
 same package. Missing and chained targets are executable diagnostics in
 `examples/specification/check/companion-missing-target-json/`,
-`examples/specification/check/companion-missing-target-human/`, and
-`examples/specification/check/companion-chained-target-json/`.
+`examples/specification/check/companion-missing-target-human/`,
+`examples/specification/check/companion-chained-target-json/`,
+`examples/specification/check/companion-chained-target-human/`, and the
+matching `test/companion-*-target-*` cases.
 
 ## Integer Literals
 

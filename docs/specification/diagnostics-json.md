@@ -67,8 +67,13 @@ with replacement details instead of generic unresolved-name output.
 
 Companion source diagnostics are executable in
 `examples/specification/check/companion-missing-target-json/`,
-`examples/specification/check/companion-missing-target-human/`, and
-`examples/specification/check/companion-chained-target-json/`.
+`examples/specification/check/companion-missing-target-human/`,
+`examples/specification/check/companion-chained-target-json/`,
+`examples/specification/check/companion-chained-target-human/`,
+`examples/specification/test/companion-missing-target-json/`,
+`examples/specification/test/companion-missing-target-human/`,
+`examples/specification/test/companion-chained-target-json/`, and
+`examples/specification/test/companion-chained-target-human/`.
 
 ## Stable Details
 
