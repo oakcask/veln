@@ -23,8 +23,9 @@ requiring the full command reference on the first read.
 - `check`: source discovery, source path derived local module identity,
   `.test.veln` companion target inclusion, manifest dependency metadata
   validation, exact companion private-function and private source ADT access
-  through qualified target imports, companion observation of established
-  private target effects, package export rejection for `.test.veln`
+  through qualified target imports, exact companion private nominal effect
+  access through qualified target imports, companion observation of established
+  private target function effects, package export rejection for `.test.veln`
   companions, path dependency source loading for external imports,
   parse/semantic diagnostics, checked-core blockers, and check JSON output.
   Use [diagnostics-json.md](diagnostics-json.md) first for diagnostic shape,
@@ -441,7 +442,10 @@ requiring the full command reference on the first read.
   source ADT declared in its exact target. The checked
   `../../examples/specification/test/companion-private-function-established-effects/`
   case shows that the companion test must declare established effects from the
-  private target function call. The checked examples
+  private target function call. The checked
+  `../../examples/specification/test/companion-private-effect-operation/`
+  case shows that a selected companion test can perform and handle a private
+  nominal effect declared in its exact target. The checked examples
   `../../examples/specification/test/parallel-jobs-one-json/`,
   `../../examples/specification/test/parallel-jobs-two-json/`, and
   `../../examples/specification/test/parallel-jobs-auto-json/` show that

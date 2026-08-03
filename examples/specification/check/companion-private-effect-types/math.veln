@@ -1,0 +1,7 @@
+effect Ask
+	value() -> Int
+end
+
+effect Trace
+	ping() -> ()
+end

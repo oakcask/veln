@@ -1,0 +1,3 @@
+pub fn keep_other_target_present() -> ()
+	()
+end

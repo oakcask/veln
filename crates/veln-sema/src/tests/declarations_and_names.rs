@@ -260,6 +260,195 @@ fn imported_qualified_effect_is_known_in_function_type() {
 }
 
 #[test]
+fn matching_companion_resolves_qualified_private_target_effects() {
+    let companion_source = SourceFile::new(
+        "math.test.veln",
+        concat!(
+            "mod math__test_companion\n",
+            "use math\n",
+            "\n",
+            "fn provide(offset: Int) -> Int\n",
+            "  offset + 1\n",
+            "end\n",
+            "\n",
+            "handler ask(offset: Int) handles math::Ask\n",
+            "  value = provide\n",
+            "end\n",
+            "\n",
+            "handler traced() handles math::Trace effects [math::Ask]\n",
+            "  ping = trace\n",
+            "end\n",
+            "\n",
+            "fn trace() -> ()\n",
+            "  ()\n",
+            "end\n",
+            "\n",
+            "fn accepts_private_effect_callback(callback: fn() -> () effects [math::Ask]) -> () effects [math::Ask]\n",
+            "  perform math::Ask::value()\n",
+            "  ()\n",
+            "end\n",
+            "\n",
+            "test companion_uses_private_target_effect() -> () effects [math::Ask]\n",
+            "  perform math::Ask::value()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let target_source = SourceFile::new(
+        "math.veln",
+        concat!(
+            "mod math\n",
+            "effect Ask\n",
+            "  value() -> Int\n",
+            "end\n",
+            "\n",
+            "effect Trace\n",
+            "  ping() -> ()\n",
+            "end\n",
+        ),
+    );
+    let companion = lower_surface_ast(&parse(&companion_source).tree);
+    let target = lower_surface_ast(&parse(&target_source).tree);
+    let module = SurfaceModule {
+        module: companion.module,
+        uses: companion.uses,
+        aliases: Vec::new(),
+        effects: target.effects,
+        handlers: companion.handlers,
+        types: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        functions: companion.functions,
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn wrong_companion_handler_effect_reports_target_mismatch() {
+    let companion_source = SourceFile::new(
+        "other.test.veln",
+        concat!(
+            "mod other__test_companion\n",
+            "use other\n",
+            "use math\n",
+            "\n",
+            "handler local() handles other::Local effects [math::Ask]\n",
+            "  value = provide\n",
+            "end\n",
+            "\n",
+            "fn provide() -> Int\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    let target_source = SourceFile::new(
+        "math.veln",
+        concat!("mod math\n", "effect Ask\n", "  value() -> Int\n", "end\n",),
+    );
+    let other_source = SourceFile::new(
+        "other.veln",
+        concat!(
+            "mod other\n",
+            "effect Local\n",
+            "  value() -> Int\n",
+            "end\n",
+        ),
+    );
+    let companion = lower_surface_ast(&parse(&companion_source).tree);
+    let target = lower_surface_ast(&parse(&target_source).tree);
+    let other = lower_surface_ast(&parse(&other_source).tree);
+    let module = SurfaceModule {
+        module: companion.module,
+        uses: companion.uses,
+        aliases: Vec::new(),
+        effects: target.effects.into_iter().chain(other.effects).collect(),
+        handlers: companion.handlers,
+        types: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        functions: companion.functions,
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "effect.private_companion_target")
+        .unwrap_or_else(|| panic!("expected companion target diagnostic: {diagnostics:#?}"));
+    assert_eq!(
+        diagnostic.message,
+        "private effect `math::Ask` belongs to `math` instead of companion target `other`"
+    );
+    let details = diagnostic.details.to_json();
+    assert!(details.contains("\"boundary\":\"handler_declaration_effects\""));
+    assert!(details.contains("\"reason\":\"companion_target_mismatch\""));
+    assert!(details.contains("\"companion_path\":\"other.test.veln\""));
+    assert!(details.contains("\"companion_target_module\":\"other\""));
+    assert!(details.contains("\"effect_module\":\"math\""));
+}
+
+#[test]
+fn wrong_companion_private_target_effect_reports_target_mismatch() {
+    let companion_source = SourceFile::new(
+        "other.test.veln",
+        concat!(
+            "mod other__test_companion\n",
+            "use math\n",
+            "\n",
+            "test wrong_companion_uses_private_target_effect() -> () effects [math::Ask]\n",
+            "  perform math::Ask::value()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let target_source = SourceFile::new(
+        "math.veln",
+        concat!("mod math\n", "effect Ask\n", "  value() -> Int\n", "end\n",),
+    );
+    let other_source = SourceFile::new(
+        "other.veln",
+        concat!("mod other\n", "pub fn present() -> ()\n", "  ()\n", "end\n",),
+    );
+    let companion = lower_surface_ast(&parse(&companion_source).tree);
+    let target = lower_surface_ast(&parse(&target_source).tree);
+    let other = lower_surface_ast(&parse(&other_source).tree);
+    let module = SurfaceModule {
+        module: companion.module,
+        uses: companion.uses,
+        aliases: Vec::new(),
+        effects: target.effects,
+        handlers: Vec::new(),
+        types: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        functions: companion
+            .functions
+            .into_iter()
+            .chain(other.functions)
+            .collect(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "effect.private_companion_target")
+        .unwrap_or_else(|| panic!("expected companion target diagnostic: {diagnostics:#?}"));
+    assert_eq!(
+        diagnostic.message,
+        "private effect `math::Ask` belongs to `math` instead of companion target `other`"
+    );
+    let details = diagnostic.details.to_json();
+    assert!(details.contains("\"reason\":\"companion_target_mismatch\""));
+    assert!(details.contains("\"companion_path\":\"other.test.veln\""));
+    assert!(details.contains("\"companion_target_module\":\"other\""));
+    assert!(details.contains("\"effect_module\":\"math\""));
+}
+
+#[test]
 fn duplicate_effect_operation_reports_operation_name_span() {
     let source = SourceFile::new(
         "main.veln",

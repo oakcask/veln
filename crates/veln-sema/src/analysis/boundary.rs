@@ -1,6 +1,7 @@
 use super::*;
 use crate::adt::AdtRegistry;
 use crate::standard_names::PRELUDE_MODULE;
+use crate::types::UserEffectPathResolution;
 use crate::types::{
     ByteViewLengthExpr, LowercaseSchemaPrimitive, LowercaseSchemaPrimitiveError,
     SchemaDispatchCase, SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaRepeatPayload,
@@ -112,12 +113,44 @@ pub(crate) fn check_declared_effect_labels(
                 }
                 let segments = effect.split("::").map(str::to_string).collect::<Vec<_>>();
                 !KNOWN_EFFECT_LABELS.contains(&effect.as_str())
-                    && environment
-                        .user_effect_path(&segments, function.module_name.as_deref())
-                        .is_none()
+                    && matches!(
+                        environment
+                            .resolve_user_effect_path(&segments, function.module_name.as_deref()),
+                        UserEffectPathResolution::Missing
+                            | UserEffectPathResolution::PrivateCompanionTargetMismatch { .. }
+                    )
             })
             .map(|(index, effect)| {
-                unknown_declared_effect_diagnostic(function, effect, index, node_prefix, boundary)
+                let segments = effect.split("::").map(str::to_string).collect::<Vec<_>>();
+                match environment
+                    .resolve_user_effect_path(&segments, function.module_name.as_deref())
+                {
+                    UserEffectPathResolution::PrivateCompanionTargetMismatch {
+                        effect: signature,
+                        access,
+                    } => private_companion_effect_target_diagnostic(
+                        function.node_id.display(node_prefix),
+                        boundary,
+                        effect,
+                        signature,
+                        access,
+                        function
+                            .effect_spans
+                            .as_ref()
+                            .and_then(|spans| spans.get(index))
+                            .cloned()
+                            .unwrap_or_else(|| function.span.clone()),
+                    ),
+                    UserEffectPathResolution::Found(_) | UserEffectPathResolution::Missing => {
+                        unknown_declared_effect_diagnostic(
+                            function,
+                            effect,
+                            index,
+                            node_prefix,
+                            boundary,
+                        )
+                    }
+                }
             }),
     );
     diagnostics
@@ -351,18 +384,35 @@ fn collect_unknown_type_effects(
                 if effect_row_name(effect).is_some() {
                     continue;
                 }
-                if !KNOWN_EFFECT_LABELS.contains(&effect.as_str())
-                    && environment
-                        .user_effect_by_label(effect, function.module_name.as_deref())
-                        .is_none()
+                if KNOWN_EFFECT_LABELS.contains(&effect.as_str()) {
+                    continue;
+                }
+                let segments = effect.split("::").map(str::to_string).collect::<Vec<_>>();
+                match environment
+                    .resolve_user_effect_path(&segments, function.module_name.as_deref())
                 {
-                    diagnostics.push(unknown_type_effect_diagnostic(
-                        function,
-                        effect,
-                        annotation,
-                        annotation_span,
+                    UserEffectPathResolution::Found(_) => {}
+                    UserEffectPathResolution::PrivateCompanionTargetMismatch {
+                        effect: signature,
+                        access,
+                    } => diagnostics.push(private_companion_effect_target_diagnostic(
+                        function.node_id.display(function.kind.node_prefix()),
                         boundary,
-                    ));
+                        effect,
+                        signature,
+                        access,
+                        type_effect_span(annotation, annotation_span, effect)
+                            .unwrap_or_else(|| annotation_span.clone()),
+                    )),
+                    UserEffectPathResolution::Missing => {
+                        diagnostics.push(unknown_type_effect_diagnostic(
+                            function,
+                            effect,
+                            annotation,
+                            annotation_span,
+                            boundary,
+                        ))
+                    }
                 }
             }
             for param in params {

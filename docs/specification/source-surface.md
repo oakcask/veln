@@ -56,8 +56,13 @@ types and to private constructors of public source ADTs. A test companion may
 also reference private schema declarations from its exact target in source
 schema-reference positions, including explicit schema decode and encode
 expressions and schema composition fields, when the companion writes the
-explicit target `use` and uses a qualified target path. These permissions are
-not transitive through modules imported by the target, and they do not add bare
+explicit target `use` and uses a qualified target path. A test companion may
+also refer to a private nominal effect from its exact target in
+`perform X::Effect::operation(...)`, declaration `effects [X::Effect]` lists,
+function type annotation effect lists, and companion-local
+`handler ... handles X::Effect` declarations and
+`handler ... effects [X::Effect]` lists. These permissions are not
+transitive through modules imported by the target, and they do not add bare
 target-name lookup. The checked function cases are
 `examples/specification/check/companion-private-function-access/`,
 `examples/specification/check/companion-private-function-alias-boundary/`,
@@ -91,6 +96,16 @@ The checked private schema cases are
 `examples/specification/check/companion-private-schema-wrong-target-context/`,
 `examples/specification/check/companion-private-schema-wrong-target-context-human/`, and
 `examples/specification/test/companion-private-schema-access/`.
+The checked private effect cases are
+`examples/specification/test/companion-private-effect-operation/`,
+`examples/specification/check/companion-private-effect-types/`,
+`examples/specification/check/companion-private-effect-bare-name/`,
+`examples/specification/check/companion-private-effect-missing-import/`,
+`examples/specification/check/companion-private-effect-wrong-target-json/`,
+`examples/specification/check/companion-private-effect-wrong-target-human/`,
+`examples/specification/check/companion-private-effect-handler-effects-wrong-target/`,
+`examples/specification/check/companion-private-effect-non-transitive/`, and
+`examples/specification/check/companion-private-effect-integration-boundary/`.
 
 A test companion must not declare public source surface. `pub` functions,
 effects, handlers, types, public type variants, schemas, and public function,

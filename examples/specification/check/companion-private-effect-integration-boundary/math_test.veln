@@ -1,0 +1,6 @@
+use math
+
+test integration_cannot_use_private_target_effect() -> () effects [math::Ask]
+	perform math::Ask::value()
+	()
+end

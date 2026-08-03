@@ -160,6 +160,15 @@ checked behavior is specified by
 `examples/specification/check/user-effect-operation-boundaries/`,
 `examples/specification/run/user-effect-runnable-boundary/`, and
 `examples/specification/test/user-effect-test-boundary/`.
+When a `.test.veln` companion writes an explicit `use` for its exact target,
+the same qualified target path can name a private target nominal effect in
+`perform`, declaration effect lists, function type annotation effect lists,
+companion-local handler `handles` clauses, and declared handler effect lists.
+The permission is exact and
+non-transitive. Bare names, missing imports, wrong-target companions,
+`_test.veln` integration modules, and external packages do not receive this
+private effect access. The checked cases are routed from
+`source-surface.md`.
 
 Lexical handlers provide all operations of one nominal effect for the dynamic
 evaluation of one `handle Body with Handler(arguments)` expression. A handler

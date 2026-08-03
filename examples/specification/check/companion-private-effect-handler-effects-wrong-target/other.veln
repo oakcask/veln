@@ -1,0 +1,3 @@
+effect Local
+	value() -> Int
+end

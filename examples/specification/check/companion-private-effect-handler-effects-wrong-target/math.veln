@@ -1,0 +1,3 @@
+effect Ask
+	value() -> Int
+end

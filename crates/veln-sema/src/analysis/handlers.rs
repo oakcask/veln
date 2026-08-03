@@ -1,6 +1,7 @@
 use super::*;
 use crate::types::{
     EffectOperationSignature, EffectSignature, FunctionSignature, HandlerSignature,
+    UserEffectPathResolution,
 };
 use std::collections::BTreeMap;
 use veln_ast::{HandlerDecl, HandlerProviderDecl};
@@ -35,13 +36,27 @@ fn check_handler_declaration(
     }) else {
         return Vec::new();
     };
-    let Some(effect) =
-        environment.user_effect_path(&handler.effect, handler.module_name.as_deref())
-    else {
-        return vec![unknown_effect_diagnostic(handler, environment)];
+    let effect = match environment
+        .resolve_user_effect_path(&handler.effect, handler.module_name.as_deref())
+    {
+        UserEffectPathResolution::Found(effect) => effect,
+        UserEffectPathResolution::PrivateCompanionTargetMismatch { effect, access } => {
+            return vec![private_companion_effect_target_diagnostic(
+                handler.node_id.display("handler"),
+                "handler_declaration",
+                &handler.effect.join("::"),
+                effect,
+                access,
+                handler.effect_span.clone(),
+            )];
+        }
+        UserEffectPathResolution::Missing => {
+            return vec![unknown_effect_diagnostic(handler, environment)];
+        }
     };
 
-    let mut diagnostics = duplicate_provider_diagnostics(handler, signature, effect);
+    let mut diagnostics = declared_effect_diagnostics(handler, environment);
+    diagnostics.extend(duplicate_provider_diagnostics(handler, signature, effect));
     diagnostics.extend(missing_provider_diagnostics(handler, signature, effect));
     for provider in &handler.providers {
         diagnostics.extend(check_provider(
@@ -53,6 +68,102 @@ fn check_handler_declaration(
         ));
     }
     diagnostics
+}
+
+fn declared_effect_diagnostics(
+    handler: &HandlerDecl,
+    environment: &TypeEnvironment,
+) -> Vec<Diagnostic> {
+    let Some(declared_effects) = &handler.effects else {
+        return Vec::new();
+    };
+    declared_effects
+        .iter()
+        .enumerate()
+        .filter(|(_, effect)| {
+            !effect.starts_with("...")
+                && !KNOWN_EFFECT_LABELS.contains(&effect.as_str())
+                && !matches!(
+                    environment.resolve_user_effect_path(
+                        &effect.split("::").map(str::to_string).collect::<Vec<_>>(),
+                        handler.module_name.as_deref()
+                    ),
+                    UserEffectPathResolution::Found(_)
+                )
+        })
+        .map(|(index, effect)| {
+            let segments = effect.split("::").map(str::to_string).collect::<Vec<_>>();
+            match environment.resolve_user_effect_path(&segments, handler.module_name.as_deref()) {
+                UserEffectPathResolution::PrivateCompanionTargetMismatch {
+                    effect: signature,
+                    access,
+                } => private_companion_effect_target_diagnostic(
+                    handler.node_id.display("handler"),
+                    "handler_declaration_effects",
+                    effect,
+                    signature,
+                    access,
+                    handler
+                        .effect_spans
+                        .as_ref()
+                        .and_then(|spans| spans.get(index))
+                        .cloned()
+                        .unwrap_or_else(|| handler.span.clone()),
+                ),
+                UserEffectPathResolution::Found(_) | UserEffectPathResolution::Missing => {
+                    unknown_declared_effect_diagnostic(handler, effect, index)
+                }
+            }
+        })
+        .collect()
+}
+
+fn unknown_declared_effect_diagnostic(
+    handler: &HandlerDecl,
+    effect: &str,
+    effect_index: usize,
+) -> Diagnostic {
+    let declared_effects = handler
+        .effects
+        .as_ref()
+        .expect("unknown effect diagnostics require a declared effects clause");
+    let mut diagnostic = Diagnostic::new(
+        "effect.unknown",
+        Severity::Error,
+        DiagnosticKind::Effect,
+        format!("declared effect `{effect}` is not known"),
+        handler
+            .effect_spans
+            .as_ref()
+            .and_then(|spans| spans.get(effect_index))
+            .cloned()
+            .or_else(|| Some(handler.span.clone())),
+        JsonValue::object([
+            ("phase", JsonValue::string("effect")),
+            (
+                "node_id",
+                JsonValue::string(handler.node_id.display("handler")),
+            ),
+            ("effect", JsonValue::string(effect.to_string())),
+            ("boundary", JsonValue::string("handler_declaration_effects")),
+            (
+                "declared_effects",
+                JsonValue::array(declared_effects.iter().cloned().map(JsonValue::string)),
+            ),
+            (
+                "known_effects",
+                JsonValue::array(KNOWN_EFFECT_LABELS.iter().copied().map(JsonValue::string)),
+            ),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("repair_hint")),
+        (
+            "message",
+            JsonValue::string("Use a known effect label or remove the declaration."),
+        ),
+    ]));
+    diagnostic
 }
 
 fn unknown_effect_diagnostic(handler: &HandlerDecl, environment: &TypeEnvironment) -> Diagnostic {

@@ -1,0 +1,5 @@
+use support
+
+pub fn keep_math_target_present() -> ()
+	()
+end

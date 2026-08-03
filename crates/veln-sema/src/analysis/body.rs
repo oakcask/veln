@@ -9,7 +9,10 @@ use super::repair_reasoning::*;
 use super::*;
 use crate::effects::prelude_effect_origin;
 use crate::standard_symbols::qualified_symbol;
-use crate::types::{FunctionSignature, SchemaReferenceErrorKind, lowercase_schema_primitive};
+use crate::types::{
+    FunctionSignature, SchemaReferenceErrorKind, UserEffectPathResolution,
+    lowercase_schema_primitive,
+};
 
 pub(crate) fn check_function_body(
     function: &Function,
@@ -1452,22 +1455,40 @@ impl<'a> FunctionChecker<'a> {
         operation_span: &SourceSpan,
         args: &[Expr],
     ) -> Type {
-        let Some(effect) = self
+        let effect = match self
             .environment
-            .user_effect_path(effect_path, self.function.module_name.as_deref())
-        else {
-            for arg in args {
-                self.infer_expr(arg, None);
+            .resolve_user_effect_path(effect_path, self.function.module_name.as_deref())
+        {
+            UserEffectPathResolution::Found(effect) => effect,
+            UserEffectPathResolution::PrivateCompanionTargetMismatch { effect, access } => {
+                for arg in args {
+                    self.infer_expr(arg, None);
+                }
+                self.diagnostics
+                    .push(private_companion_effect_target_diagnostic(
+                        expr.node_id.display("expr"),
+                        "perform_expression",
+                        &effect_path.join("::"),
+                        effect,
+                        access,
+                        effect_span.clone(),
+                    ));
+                return Type::Unknown;
             }
-            self.diagnostics.push(Diagnostic::new(
-                "effect.unknown",
-                Severity::Error,
-                DiagnosticKind::Effect,
-                format!("performed effect `{}` is not known", effect_path.join("::")),
-                Some(effect_span.clone()),
-                effect_details(expr.node_id.display("expr"), "perform_expression"),
-            ));
-            return Type::Unknown;
+            UserEffectPathResolution::Missing => {
+                for arg in args {
+                    self.infer_expr(arg, None);
+                }
+                self.diagnostics.push(Diagnostic::new(
+                    "effect.unknown",
+                    Severity::Error,
+                    DiagnosticKind::Effect,
+                    format!("performed effect `{}` is not known", effect_path.join("::")),
+                    Some(effect_span.clone()),
+                    effect_details(expr.node_id.display("expr"), "perform_expression"),
+                ));
+                return Type::Unknown;
+            }
         };
         let Some(operation) = effect
             .operations
