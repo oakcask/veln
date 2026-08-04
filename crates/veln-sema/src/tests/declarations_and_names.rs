@@ -629,6 +629,79 @@ fn private_function_may_omit_boundary_annotations_when_inference_is_complete() {
 }
 
 #[test]
+fn fully_annotated_private_modules_do_not_scan_private_inference_bodies() {
+    crate::types::private_inference_counters::reset();
+    let module = merged_modules(
+        (0..8)
+            .map(|module_index| {
+                let mut source = format!("mod annotated_{module_index}\n");
+                for function_index in 0..6 {
+                    source.push_str(&format!(
+                        "fn helper_{function_index}(value: Int) -> Int\n  value\nend\n"
+                    ));
+                }
+                SourceFile::new(format!("annotated_{module_index}.veln"), source)
+            })
+            .collect(),
+    );
+
+    let diagnostics = analyze_surface_module(&module);
+    let counters = crate::types::private_inference_counters::snapshot();
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert_eq!(counters.body_return_scans, 0, "{counters:#?}");
+    assert_eq!(counters.call_site_scans, 0, "{counters:#?}");
+    assert_eq!(counters.prelude_callback_scans, 0, "{counters:#?}");
+}
+
+#[test]
+fn omitted_private_signature_chain_skips_unrelated_annotated_modules() {
+    crate::types::private_inference_counters::reset();
+    let mut sources = vec![SourceFile::new(
+        "target.veln",
+        concat!(
+            "mod target\n",
+            "fn identity(value)\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "fn pass(value)\n",
+            "  identity(value)\n",
+            "end\n",
+            "\n",
+            "fn main() -> Int\n",
+            "  pass(1)\n",
+            "end\n",
+        ),
+    )];
+    for module_index in 0..10 {
+        sources.push(SourceFile::new(
+            format!("unrelated_{module_index}.veln"),
+            format!(
+                "mod unrelated_{module_index}\n\
+                 fn helper(value: Int) -> Int\n  value\nend\n"
+            ),
+        ));
+    }
+    let module = merged_modules(sources);
+
+    let diagnostics = analyze_surface_module(&module);
+    let counters = crate::types::private_inference_counters::snapshot();
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert!(counters.body_return_scans > 0, "{counters:#?}");
+    assert!(counters.call_site_scans > 0, "{counters:#?}");
+    assert!(
+        counters.call_site_scans < 10,
+        "call-site inference should not scan unrelated modules: {counters:#?}"
+    );
+    assert!(
+        counters.prelude_callback_scans < 10,
+        "prelude callback inference should not scan unrelated modules: {counters:#?}"
+    );
+}
+
+#[test]
 fn private_function_reports_incomplete_annotation_inference() {
     let source = SourceFile::new("main.veln", "fn helper(value)\n  value\nend\n");
     let parsed = parse(&source);

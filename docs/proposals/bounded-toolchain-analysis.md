@@ -48,6 +48,17 @@ repeated whole-module scans until results stabilize. The HTTP/2 standard
 library makes this behavior visible because its production sources contain a
 large module graph and many functions.
 
+The private-signature inference slice is implemented for private return,
+call-site, and prelude-callback fixed-point passes. Those passes first
+identify omitted private parameter and return slots that can still affect the
+pass. If no such slot exists, they do not traverse function bodies. If such
+slots exist, repeated traversal is limited to functions in modules that own
+eligible private slots. Structural `veln-sema` tests use test-only work
+counters to assert that unrelated fully annotated module sets do not pay
+private-inference body scans, and that an omitted private helper chain still
+reaches the same successful diagnostics while skipping unrelated annotated
+modules.
+
 ## Proposed Outcome
 
 Analysis work must scale with the declarations and dependency relationships
@@ -71,6 +82,12 @@ time part of the Veln language semantics.
 The existing toolchain suite remains authoritative for command behavior. The
 new cache and benchmark tests are authoritative only for analysis reuse and
 performance properties.
+
+The private-signature inference structural tests are the primary evidence for
+the implemented bounded-growth slice that avoids private-inference scans for
+fully annotated unrelated modules. The generated high-cardinality benchmark
+and representative HTTP/2 comparisons remain required before this proposal is
+complete.
 
 ## Analysis Reuse Contract
 
@@ -151,12 +168,39 @@ Likely implementation options include:
 
 - precompute immutable standard-library declarations and signatures;
 - reuse standard-library analysis within a process;
-- infer only declarations with omitted information;
+- infer only declarations with omitted information; the private-signature
+  inference slice implements this for private return, call-site, and
+  prelude-callback type inference;
 - replace repeated global inference scans with dependency-directed work;
 - rebuild only analysis entries affected by changed input identity.
 
 The implementation may combine these options. It must not weaken diagnostic
 coverage to meet the performance target.
+
+## Implemented Slice
+
+The private-signature inference slice is implemented. It keeps Veln syntax,
+type rules, diagnostics, command output, JSON output, and runtime behavior
+unchanged. It narrows only analyzer work:
+
+- private return inference skips the fixed-point pass when no omitted private
+  return slot still contains unknown type information;
+- private call-site signature inference skips the fixed-point pass when no
+  omitted private parameter or return slot can still change;
+- private prelude-callback return inference skips the fixed-point pass when no
+  private return annotation is omitted;
+- when eligible private slots remain, call-site and prelude-callback inference
+  traverse only functions from modules that own those slots.
+
+The remaining proposal work is explicit:
+
+- function and private-handler effect inference still needs bounded traversal
+  or another dependency-directed implementation;
+- analysis cache and project-isolation work remains incomplete;
+- repeated and concurrent determinism evidence remains incomplete;
+- representative HTTP/2 core and connection improvement evidence remains
+  incomplete;
+- generated-size benchmark comparisons remain required completion evidence.
 
 ## Non-Goals
 
@@ -187,8 +231,8 @@ bash scripts/benchmark-toolchain-analysis compare BASELINE_BINARY NEW_BINARY
 This proposal is complete only when the analyzer optimization work lands, the
 functional acceptance cases pass, the structural regression tests run in CI,
 and the controlled benchmark meets all comparison thresholds. The benchmark
-harness slice is implemented, but it does not complete the analyzer
-optimization scope.
+harness and private-signature inference slices are implemented, but they do
+not complete the analyzer optimization scope.
 
 After completion, move this document to
 `../reference/implemented-proposals/` and remove it from the proposal catalog.

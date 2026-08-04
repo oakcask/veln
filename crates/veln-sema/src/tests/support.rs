@@ -62,6 +62,32 @@ pub(super) fn assert_diagnostic_span(
     );
 }
 
+pub(super) fn merged_modules(sources: Vec<SourceFile>) -> SurfaceModule {
+    let mut merged = SurfaceModule {
+        module: None,
+        uses: Vec::new(),
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        types: Vec::new(),
+        functions: Vec::new(),
+    };
+    for source in sources {
+        let module = lower_surface_ast(&parse(&source).tree);
+        merged.uses.extend(module.uses);
+        merged.aliases.extend(module.aliases);
+        merged.effects.extend(module.effects);
+        merged.handlers.extend(module.handlers);
+        merged.schemas.extend(module.schemas);
+        merged.codecs.extend(module.codecs);
+        merged.types.extend(module.types);
+        merged.functions.extend(module.functions);
+    }
+    merged
+}
+
 pub(super) fn partial_case_split_chain_predicate(subject: &str, fields: &[&str]) -> String {
     let mut disjuncts = Vec::new();
     for (index, field) in fields.iter().enumerate() {
