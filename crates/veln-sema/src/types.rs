@@ -270,7 +270,7 @@ type PrivateSlotOmissions = (Vec<bool>, bool);
 type PrivateSlotMap = BTreeMap<FunctionKey, PrivateSlotOmissions>;
 type PrivateReferenceMap = BTreeMap<FunctionKey, BTreeSet<FunctionKey>>;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct StandardSemanticIdentity {
     bundle_hash: u64,
     semantic_model: &'static str,
@@ -288,6 +288,9 @@ const STANDARD_SEMANTIC_MODEL: &str = "standard-semantic-signatures-v1";
 
 impl ReusableStandardEnvironment {
     fn environment_for_modules(&self, module_names: &BTreeSet<String>) -> Arc<TypeEnvironment> {
+        if module_names == &self.module_names {
+            return self.environment.clone();
+        }
         let selected_module_names = module_names
             .intersection(&self.module_names)
             .cloned()
@@ -541,6 +544,36 @@ impl TypeEnvironment {
         #[cfg(test)]
         standard_reuse_counters::record_application_prepare();
         Self::from_module_with_base(&application_module, Some(standard_environment.as_ref()))
+    }
+
+    pub(crate) fn from_application_module_with_standard(
+        application_module: &SurfaceModule,
+        selected_standard_module: &SurfaceModule,
+        standard: &ReusableStandardEnvironment,
+    ) -> Self {
+        let standard_module_names = module_standard_names(selected_standard_module);
+        Self::from_application_module_with_standard_module_names(
+            application_module,
+            &standard_module_names,
+            standard,
+        )
+    }
+
+    pub(crate) fn from_application_module_with_standard_module_names(
+        application_module: &SurfaceModule,
+        standard_module_names: &BTreeSet<String>,
+        standard: &ReusableStandardEnvironment,
+    ) -> Self {
+        if standard.identity != standard_semantic_identity() {
+            return Self::from_module(application_module);
+        }
+        let standard_environment = standard.environment_for_modules(&standard_module_names);
+        if application_module_is_empty(application_module) {
+            return standard_environment.as_ref().clone();
+        }
+        #[cfg(test)]
+        standard_reuse_counters::record_application_prepare();
+        Self::from_module_with_base(application_module, Some(standard_environment.as_ref()))
     }
 
     fn standard_subset(&self, module_names: &BTreeSet<String>) -> Self {

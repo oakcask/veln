@@ -18,7 +18,26 @@ use veln_syntax::{TokenKind, lex, parse};
 
 use crate::diagnostics::parse_diagnostic_to_envelope;
 
+#[derive(Clone)]
+pub(crate) struct LoadedSurfaceModules {
+    pub(crate) combined: SurfaceModule,
+    pub(crate) application: SurfaceModule,
+    pub(crate) selected_standard_module_names: BTreeSet<String>,
+}
+
 pub fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diagnostic>) {
+    let (modules, diagnostics) = load_surface_modules_with_combined(project, true);
+    (modules.combined, diagnostics)
+}
+
+pub(crate) fn load_surface_modules(project: &Project) -> (LoadedSurfaceModules, Vec<Diagnostic>) {
+    load_surface_modules_with_combined(project, false)
+}
+
+fn load_surface_modules_with_combined(
+    project: &Project,
+    include_combined: bool,
+) -> (LoadedSurfaceModules, Vec<Diagnostic>) {
     let mut diagnostics = Vec::new();
     let mut parts = SurfaceParts::new();
     let toolchain_std = is_toolchain_standard_project(project);
@@ -36,16 +55,58 @@ pub fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diagnostic>
     diagnostics.extend(validate_reserved_standard_package(project, toolchain_std));
     load_external_dependencies(project, &mut diagnostics, &mut parts);
     rewrite_standard_import_targets(&mut parts.module.uses);
-    if !toolchain_std {
-        load_embedded_standard_package(&mut diagnostics, &mut parts);
-    }
+    add_implicit_standard_prelude_imports(&mut parts);
+    let selected_standard = if toolchain_std {
+        BTreeSet::new()
+    } else {
+        load_embedded_standard_package(&mut diagnostics, &mut parts, include_combined)
+    };
     diagnostics.extend(unresolved_local_import_diagnostics(
         &parts.module.uses,
         &parts.derived_modules,
     ));
-    add_implicit_standard_prelude_imports(&mut parts);
 
-    (parts.module, diagnostics)
+    (
+        loaded_surface_modules(parts.module, selected_standard, include_combined),
+        diagnostics,
+    )
+}
+
+fn loaded_surface_modules(
+    module: SurfaceModule,
+    selected_standard_module_names: BTreeSet<String>,
+    include_combined: bool,
+) -> LoadedSurfaceModules {
+    if include_combined {
+        return LoadedSurfaceModules {
+            combined: module.clone(),
+            application: module,
+            selected_standard_module_names,
+        };
+    }
+    LoadedSurfaceModules {
+        combined: SurfaceParts::new().module,
+        application: module,
+        selected_standard_module_names,
+    }
+}
+
+pub(crate) fn load_embedded_standard_surface_module_for_names(
+    module_names: &BTreeSet<String>,
+) -> SurfaceModule {
+    let mut parts = SurfaceParts::new();
+    let standard = embedded_standard_package();
+    for module_name in module_names {
+        let Some(module) = standard
+            .modules
+            .get(module_name)
+            .map(EmbeddedStandardModuleEntry::module)
+        else {
+            continue;
+        };
+        merge_surface_parts(&mut parts, &module.parts);
+    }
+    parts.module
 }
 
 pub fn load_embedded_standard_surface_module() -> SurfaceModule {
@@ -311,16 +372,21 @@ fn load_external_dependencies(
     }
 }
 
-fn load_embedded_standard_package(diagnostics: &mut Vec<Diagnostic>, parts: &mut SurfaceParts) {
+fn load_embedded_standard_package(
+    diagnostics: &mut Vec<Diagnostic>,
+    parts: &mut SurfaceParts,
+    merge_into_parts: bool,
+) -> BTreeSet<String> {
     let standard = embedded_standard_package();
-    load_embedded_standard_package_from(standard, diagnostics, parts);
+    load_embedded_standard_package_from(standard, diagnostics, parts, merge_into_parts)
 }
 
 fn load_embedded_standard_package_from(
     standard: &EmbeddedStandardPackage,
     diagnostics: &mut Vec<Diagnostic>,
     parts: &mut SurfaceParts,
-) {
+    merge_into_parts: bool,
+) -> BTreeSet<String> {
     let mut pending = vec![external_module_key(veln_stdlib::PACKAGE_NAME, "prelude")];
     pending.extend(
         parts
@@ -356,8 +422,11 @@ fn load_embedded_standard_package_from(
                 .map(|use_decl| use_decl.name.clone()),
         );
         diagnostics.extend(module.diagnostics.clone());
-        merge_surface_parts(parts, &module.parts);
+        if merge_into_parts {
+            merge_surface_parts(parts, &module.parts);
+        }
     }
+    loaded
 }
 
 fn embedded_standard_package() -> &'static EmbeddedStandardPackage {
@@ -2890,7 +2959,7 @@ mod tests {
             let mut diagnostics = Vec::new();
             let mut parts = SurfaceParts::new();
             load_project_sources(&project, &mut diagnostics, &mut parts, None);
-            load_embedded_standard_package_from(&standard, &mut diagnostics, &mut parts);
+            load_embedded_standard_package_from(&standard, &mut diagnostics, &mut parts, true);
             assert!(diagnostics.is_empty(), "{diagnostics:#?}");
             let loaded_modules = loaded_standard_modules(&parts.module);
             let parsed_lowered_modules = standard

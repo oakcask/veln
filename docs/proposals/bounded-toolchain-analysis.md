@@ -32,6 +32,9 @@ proposal scope:
 - Demand-driven embedded standard-library initialization is implemented. Its
   controlled comparison is recorded in
   [../reviews/toolchain-analysis-demand-standard-library.json](../reviews/toolchain-analysis-demand-standard-library.json).
+- Separate application and selected standard-library analysis inputs are
+  implemented. Their controlled comparison is recorded in
+  [../reviews/toolchain-analysis-separated-standard-inputs.json](../reviews/toolchain-analysis-separated-standard-inputs.json).
 - The existing toolchain suite remains authoritative for command behavior.
 
 The remaining proposal scope starts after those slices. It is limited to
@@ -67,6 +70,15 @@ required one-third ratio in that local comparison. The new stage evidence
 identifies `surface_parse_lower` and `semantic_environment_check` as the next
 HTTP/2 core hot path.
 
+Separating application and selected standard-library analysis inputs reduced
+the HTTP/2 core sum of median `surface_parse_lower` and
+`semantic_environment_check` time from 0.537219144 seconds to 0.283280795
+seconds. It reduced the same HTTP/2 connection stage sum from 0.60004038
+seconds to 0.309804194 seconds. Functional output matched for every measured
+workload, wall-time noise stayed within the accepted boundary, and both
+representative median wall times also fell. The broader one-third HTTP/2
+wall-time thresholds still did not pass, so the proposal remains open.
+
 ## Proposed Outcome
 
 Analysis work must scale with the declarations and dependency relationships
@@ -86,6 +98,7 @@ time part of the Veln language semantics.
 | Determinism | Repeated and concurrent analysis returns diagnostics in the same stable order and does not share mutable project state | Implemented repeated and concurrent analyzer tests |
 | Bounded reachable lowering | Adding unrelated fully annotated modules does not increase reachable function-target or ADT-constructor candidate scans | Implemented structural lookup counters and generated high-cardinality analysis benchmark |
 | Bounded standard initialization | Adding unrelated standard modules outside the selected closure does not increase first-analysis standard parse/lower or semantic prepare work | Implemented closure-driven standard loading and selected standard-environment tests |
+| Separate standard and application inputs | Application analysis keeps application declarations separate from selected standard declarations and builds semantics from application facts plus the selected reusable standard environment | Implemented structural input-separation tests and controlled stage comparison |
 | Representative improvement | HTTP/2 core and connection workloads become materially faster without weakening their assertions | Controlled before-and-after benchmark described below |
 
 The existing toolchain suite remains authoritative for command behavior. New
@@ -176,8 +189,8 @@ dedicated benchmark runner exists.
 - Keep the completed demand-driven standard-library initialization boundary
   that parses, lowers, and prepares only the selected standard-module closure
   during first analysis.
-- Focus the next analyzer slice on the measured `surface_parse_lower` and
-  `semantic_environment_check` hot path in the HTTP/2 core workload.
+- Keep the completed boundary that standard-library and application
+  declarations remain separate analysis inputs after source loading.
 - Replace the current controlled comparison only when every functional
   comparison passes, wall-time noise remains within the accepted boundary,
   and both representative HTTP/2 wall-time thresholds pass.

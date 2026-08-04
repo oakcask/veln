@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 #[cfg(test)]
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
 use veln_ast::{FunctionKind, SurfaceModule};
@@ -10,45 +10,60 @@ use veln_ir::TypedProgram;
 use veln_project::Project;
 use veln_sema::{
     LoweredSurfaceModule, ReusableStandardEnvironment,
-    check_project_surface_module_with_standard_environment,
+    check_project_surface_module_with_standard_modules_environment,
     lower_project_reachable_surface_module_with_standard_environment,
     prepare_current_reusable_standard_surface_module_environment,
 };
 use veln_source::SourceSpan;
 use veln_test::{DoctestExpectation, doctest_sources, reconcile_expected_doctest_failures};
 
-use crate::surface::{ReachabilityCache, load_surface_module, reachable_entry_module_with_cache};
+use crate::surface::{
+    ReachabilityCache, load_embedded_standard_surface_module_for_names, load_surface_modules,
+    reachable_entry_module_with_cache,
+};
 
 static STANDARD_ENVIRONMENTS: OnceLock<StandardEnvironmentCache> = OnceLock::new();
-static EMBEDDED_STANDARD_MODULE_NAMES: OnceLock<BTreeSet<String>> = OnceLock::new();
 
 struct StandardEnvironmentCache {
-    environments: Mutex<BTreeMap<BTreeSet<String>, ReusableStandardEnvironment>>,
+    inputs: Mutex<BTreeMap<BTreeSet<String>, ReusableStandardInput>>,
 }
 
 impl StandardEnvironmentCache {
     fn new() -> Self {
         Self {
-            environments: Mutex::new(BTreeMap::new()),
+            inputs: Mutex::new(BTreeMap::new()),
         }
     }
 
-    fn environment_for_module(&self, module: &SurfaceModule) -> ReusableStandardEnvironment {
-        let module_names = standard_module_names(module);
-        let mut environments = self
-            .environments
+    fn input_for_standard_modules(&self, module_names: &BTreeSet<String>) -> ReusableStandardInput {
+        let mut inputs = self
+            .inputs
             .lock()
             .expect("standard environment cache should not be poisoned");
-        environments
-            .entry(module_names)
-            .or_insert_with(|| prepare_current_reusable_standard_surface_module_environment(module))
+        inputs
+            .entry(module_names.clone())
+            .or_insert_with(|| {
+                let standard_module = load_embedded_standard_surface_module_for_names(module_names);
+                let environment =
+                    prepare_current_reusable_standard_surface_module_environment(&standard_module);
+                ReusableStandardInput {
+                    module: Arc::new(standard_module),
+                    environment,
+                }
+            })
             .clone()
     }
 }
 
+#[derive(Clone)]
+struct ReusableStandardInput {
+    module: Arc<SurfaceModule>,
+    environment: ReusableStandardEnvironment,
+}
+
 #[cfg(test)]
 pub(crate) struct TestStandardEnvironmentCache {
-    environments: Mutex<BTreeMap<BTreeSet<String>, ReusableStandardEnvironment>>,
+    inputs: Mutex<BTreeMap<BTreeSet<String>, ReusableStandardInput>>,
     standard_prepares: AtomicUsize,
     application_analyses: AtomicUsize,
 }
@@ -57,7 +72,7 @@ pub(crate) struct TestStandardEnvironmentCache {
 impl TestStandardEnvironmentCache {
     pub(crate) fn new() -> Self {
         Self {
-            environments: Mutex::new(BTreeMap::new()),
+            inputs: Mutex::new(BTreeMap::new()),
             standard_prepares: AtomicUsize::new(0),
             application_analyses: AtomicUsize::new(0),
         }
@@ -80,6 +95,8 @@ pub enum DoctestMode {
 pub struct ProjectAnalysis {
     pub project: Project,
     pub module: SurfaceModule,
+    selected_standard: Arc<SurfaceModule>,
+    selected_standard_module_names: BTreeSet<String>,
     pub doctest_expectations: BTreeMap<String, DoctestExpectation>,
     source_diagnostics: Vec<Diagnostic>,
     semantic_diagnostics: Vec<Diagnostic>,
@@ -125,7 +142,7 @@ fn analyze_project_with_standard_environment_and_timings(
         project,
         doctest_mode,
         timings,
-        standard_environment_for_module,
+        standard_environment_for_modules,
     )
 }
 
@@ -133,7 +150,7 @@ fn analyze_project_with_standard_provider(
     mut project: Project,
     doctest_mode: DoctestMode,
     mut timings: Option<&mut Vec<AnalysisTiming>>,
-    standard_for_module: impl FnOnce(&SurfaceModule) -> ReusableStandardEnvironment,
+    standard_for_module: impl FnOnce(&BTreeSet<String>) -> ReusableStandardInput,
 ) -> ProjectAnalysis {
     let surface_start = std::time::Instant::now();
     let doctests = match doctest_mode {
@@ -151,14 +168,18 @@ fn analyze_project_with_standard_provider(
         expected_doctest_failures = doctests.expected_failures;
     }
 
-    let (module, parse_diagnostics) = load_surface_module(&project);
+    let (loaded, parse_diagnostics) = load_surface_modules(&project);
     source_diagnostics.extend(parse_diagnostics);
     record_timing(&mut timings, "surface_parse_lower", surface_start.elapsed());
 
+    let standard = standard_for_module(&loaded.selected_standard_module_names);
     let semantic_start = std::time::Instant::now();
-    let standard = standard_for_module(&module);
     let (semantic_diagnostics, checked) =
-        check_project_surface_module_with_standard_environment(&module, &standard);
+        check_project_surface_module_with_standard_modules_environment(
+            &loaded.application,
+            &loaded.selected_standard_module_names,
+            &standard.environment,
+        );
     record_timing(
         &mut timings,
         "semantic_environment_check",
@@ -167,7 +188,9 @@ fn analyze_project_with_standard_provider(
 
     ProjectAnalysis {
         project,
-        module,
+        module: loaded.application,
+        selected_standard: standard.module,
+        selected_standard_module_names: loaded.selected_standard_module_names,
         doctest_expectations,
         source_diagnostics,
         semantic_diagnostics,
@@ -248,15 +271,18 @@ impl ProjectAnalysis {
         entry_kind: FunctionKind,
     ) -> (ReachableEntryAnalysis, AnalysisTiming) {
         let start = std::time::Instant::now();
+        let combined_module = merge_surface_modules(&self.selected_standard, &self.module);
         let module = reachable_entry_module_with_cache(
-            &self.module,
+            &combined_module,
             entry,
             entry_kind,
             &self.reachability_cache,
         );
-        let standard = standard_environment_for_module(&module);
-        let lowered =
-            lower_project_reachable_surface_module_with_standard_environment(&module, &standard);
+        let standard = standard_environment_for_modules(&self.selected_standard_module_names);
+        let lowered = lower_project_reachable_surface_module_with_standard_environment(
+            &module,
+            &standard.environment,
+        );
         (
             ReachableEntryAnalysis { module, lowered },
             AnalysisTiming {
@@ -271,102 +297,52 @@ impl ProjectAnalysis {
     }
 }
 
-fn standard_environment_for_module(module: &SurfaceModule) -> ReusableStandardEnvironment {
+fn standard_environment_for_modules(module_names: &BTreeSet<String>) -> ReusableStandardInput {
     STANDARD_ENVIRONMENTS
         .get_or_init(StandardEnvironmentCache::new)
-        .environment_for_module(module)
+        .input_for_standard_modules(module_names)
 }
 
 #[cfg(test)]
 fn standard_environment_with_test_cache(
     cache: &TestStandardEnvironmentCache,
-    module: &SurfaceModule,
-) -> ReusableStandardEnvironment {
-    let module_names = standard_module_names(module);
-    let mut environments = cache
-        .environments
+    module_names: &BTreeSet<String>,
+) -> ReusableStandardInput {
+    let mut inputs = cache
+        .inputs
         .lock()
         .expect("test standard environment cache should not be poisoned");
-    environments
-        .entry(module_names)
+    inputs
+        .entry(module_names.clone())
         .or_insert_with(|| {
             cache.standard_prepares.fetch_add(1, Ordering::SeqCst);
-            prepare_current_reusable_standard_surface_module_environment(module)
+            let module = load_embedded_standard_surface_module_for_names(module_names);
+            let environment = prepare_current_reusable_standard_surface_module_environment(&module);
+            ReusableStandardInput {
+                module: Arc::new(module),
+                environment,
+            }
         })
         .clone()
 }
 
-fn standard_module_names(module: &SurfaceModule) -> BTreeSet<String> {
-    let mut names = BTreeSet::new();
-    names.extend(
-        module
-            .uses
-            .iter()
-            .filter_map(|decl| standard_name(&decl.module_name)),
-    );
-    names.extend(
-        module
-            .aliases
-            .iter()
-            .filter_map(|decl| standard_name(&decl.module_name)),
-    );
-    names.extend(
-        module
-            .effects
-            .iter()
-            .filter_map(|decl| standard_name(&decl.module_name)),
-    );
-    names.extend(
-        module
-            .handlers
-            .iter()
-            .filter_map(|decl| standard_name(&decl.module_name)),
-    );
-    names.extend(
-        module
-            .types
-            .iter()
-            .filter_map(|decl| standard_name(&decl.module_name)),
-    );
-    names.extend(
-        module
-            .schemas
-            .iter()
-            .filter_map(|decl| standard_name(&decl.module_name)),
-    );
-    names.extend(
-        module
-            .codecs
-            .iter()
-            .filter_map(|decl| standard_name(&decl.module_name)),
-    );
-    names.extend(
-        module
-            .functions
-            .iter()
-            .filter_map(|decl| standard_name(&decl.module_name)),
-    );
-    names
-}
-
-fn standard_name(module_name: &Option<String>) -> Option<String> {
-    module_name
-        .as_deref()
-        .filter(|module_name| embedded_standard_module_names().contains(*module_name))
-        .map(str::to_string)
-}
-
-fn embedded_standard_module_names() -> &'static BTreeSet<String> {
-    EMBEDDED_STANDARD_MODULE_NAMES.get_or_init(|| {
-        veln_stdlib::package_bundle()
-            .files
-            .iter()
-            .filter_map(|file| {
-                file.path.strip_suffix(".veln").and_then(|module| {
-                    (!module.ends_with("_test"))
-                        .then(|| format!("std::{}", module.replace('/', "::")))
-                })
-            })
-            .collect()
-    })
+fn merge_surface_modules(
+    standard_module: &SurfaceModule,
+    application_module: &SurfaceModule,
+) -> SurfaceModule {
+    let mut merged = standard_module.clone();
+    merged.uses.extend(application_module.uses.clone());
+    merged.aliases.extend(application_module.aliases.clone());
+    merged.effects.extend(application_module.effects.clone());
+    merged.handlers.extend(application_module.handlers.clone());
+    merged.types.extend(application_module.types.clone());
+    merged.schemas.extend(application_module.schemas.clone());
+    merged.codecs.extend(application_module.codecs.clone());
+    merged
+        .functions
+        .extend(application_module.functions.clone());
+    if merged.module.is_none() {
+        merged.module = application_module.module.clone();
+    }
+    merged
 }

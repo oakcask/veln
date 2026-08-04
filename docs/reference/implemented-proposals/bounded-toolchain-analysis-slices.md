@@ -15,7 +15,10 @@ for the stage-timing review record, and
 [../../reviews/toolchain-analysis-reachable-lookups.json](../../reviews/toolchain-analysis-reachable-lookups.json)
 for the reachable-lookup comparison. Use
 [../../reviews/toolchain-analysis-demand-standard-library.json](../../reviews/toolchain-analysis-demand-standard-library.json)
-for the demand-driven standard-library initialization comparison.
+for the demand-driven standard-library initialization comparison. Use
+[../../reviews/toolchain-analysis-separated-standard-inputs.json](../../reviews/toolchain-analysis-separated-standard-inputs.json)
+for the separate application and selected standard-library analysis input
+comparison.
 
 ## Completed Scope
 
@@ -59,6 +62,12 @@ Completed implementation scope:
   module set. A cache miss prepares immutable standard facts for that set, and
   each application analysis still constructs separate application inference,
   diagnostic, and lowering state.
+- Application analysis keeps application declarations and the exact selected
+  embedded standard-library closure as distinct inputs after source loading.
+  The semantic environment is built from application declarations plus cached
+  immutable standard facts keyed by the selected closure. Reachable-entry
+  lowering reuses the selected standard surface input so standard bodies remain
+  available without making the application module own standard declarations.
 
 ## Evidence
 
@@ -110,6 +119,21 @@ seconds to 0.950928367 seconds. Its 0.6563367921 ratio does not pass the
 one-third threshold. The generated-growth ratios were 1.5 and 2.0, so both
 remained within the accepted growth threshold.
 
+The separate standard-input comparison used prebuilt debug binaries, one
+warm-up run, and five measured runs. Functional output matched for every
+workload and wall-time noise remained within the accepted boundary. The
+proposal-level one-third HTTP/2 wall-time thresholds still did not pass, so
+the benchmark command exited with the expected failing status for the broader
+proposal threshold.
+
+For the HTTP/2 core workload, the sum of median `surface_parse_lower` and
+`semantic_environment_check` time fell from 0.537219144 seconds to
+0.283280795 seconds, a 47.2690431523 percent reduction. Median wall time fell
+from 0.651842645 seconds to 0.643178737 seconds. For the HTTP/2 connection
+workload, the same stage sum fell from 0.60004038 seconds to 0.309804194
+seconds, a 48.3694424032 percent reduction. Median wall time fell from
+0.95136904 seconds to 0.929512232 seconds.
+
 ## Read When
 
 - Checking why completed bounded-analysis slices are no longer described as
@@ -119,5 +143,8 @@ remained within the accepted growth threshold.
 - Reviewing why reachable candidate indexing and demand-driven
   standard-library initialization are implemented while the HTTP/2 wall-time
   acceptance thresholds remain proposal work.
+- Reviewing why separated application and selected standard-library analysis
+  inputs are implemented while the HTTP/2 wall-time acceptance thresholds
+  remain proposal work.
 - Preserving the boundary that application analysis caching remains outside
   the measurement slice.
