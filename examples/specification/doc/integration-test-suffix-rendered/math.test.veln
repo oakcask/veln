@@ -1,0 +1,7 @@
+use math
+
+## Exact companion documentation.
+test exact_companion_doc_source_is_excluded() -> ()
+	let observed: Int = math::production_visible(3)
+	()
+end

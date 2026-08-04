@@ -1,0 +1,4 @@
+## Integration test suffix documentation.
+pub fn integration_visible(value: Int) -> Int
+	value
+end

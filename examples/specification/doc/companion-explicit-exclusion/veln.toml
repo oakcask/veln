@@ -1,0 +1,3 @@
+[package]
+name = "companion-doc-explicit"
+description = "Generated docs exclude explicitly selected companions."

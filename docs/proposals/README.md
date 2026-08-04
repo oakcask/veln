@@ -23,8 +23,7 @@ also states it.
 
 - [Companion Test Modules](companion-test-modules.md): add remaining private
   target declaration kinds other than functions, source ADTs, schemas,
-  nominal effects, and handlers, plus generated documentation for the existing
-  `.test.veln` companion boundary.
+  nominal effects, and handlers.
 
 ### Toolchain Performance
 

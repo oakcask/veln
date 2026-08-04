@@ -1,0 +1,10 @@
+command = ["doc"]
+exit = 0
+
+[stdout]
+format = "text"
+contains = ["# companion-doc-discovery", "### main", "Source: `main.veln`", "##### schema PublicPacket", "Production schema documentation.", "##### fn visible(value: Int) -> Int", "Production function documentation."]
+not_contains = ["### main.test", "Source: `main.test.veln`", "companion-import-marker", "companion-adr-marker", "Companion-only documentation.", "main::CompanionOnly"]
+
+[stderr]
+format = "empty"

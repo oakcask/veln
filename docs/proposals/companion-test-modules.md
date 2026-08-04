@@ -9,10 +9,10 @@ Status: proposed
 ## Summary
 
 Extend the existing `.test.veln` companion source boundary beyond the
-implemented private-function, source ADT, schema, nominal-effect, and handler
-slices so a test companion can inspect remaining private declaration kinds
-from its matching production module without sharing that module's declaration
-or import scope.
+implemented private-function, source ADT, schema, nominal-effect, handler, and
+generated-documentation slices so a test companion can inspect remaining
+private declaration kinds from its matching production module without sharing
+that module's declaration or import scope.
 
 Keep `module_name_test.veln` as an ordinary module and as the existing
 integration-test convention. This proposal does not deprecate that convention.
@@ -142,20 +142,23 @@ changing whether its target passes production analysis.
 
 ## File And Package Boundaries
 
-The implemented package-publication boundary is specified in
+The implemented package-publication and generated-documentation boundaries are
+specified in
 `../specification/source-surface.md`, `../specification/commands.md`, and
 `../specification/diagnostics-json.md`. Package export lists reject companion
 paths, external packages cannot import a companion source through
 `[lib].exports`, and distribution bundles exclude companion sources in the same
-way that they exclude other test-only sources.
+way that they exclude other test-only sources. Generated public documentation
+excludes exact `.test.veln` companions from discovered and explicit inputs and
+keeps `_test.veln` integration-test modules ordinary.
 
 ## Command Behavior
 
 The implemented file and command boundary is specified in
 `../specification/source-surface.md`, `../specification/commands.md`,
 `../specification/test-json.md`, and `../specification/diagnostics-json.md`.
-The remaining command work is limited to surfaces that need private-access,
-or generated-documentation behavior.
+The remaining command work is limited to surfaces that need private-access
+behavior.
 
 ## Acceptance Cases
 
@@ -192,7 +195,9 @@ executable human and JSON cases establish them.
 ## Compatibility
 
 The implemented `_test.veln`, same-file test, doctest, and exact `.test.veln`
-classification behavior is specified in `../specification/source-surface.md`,
+classification behavior, including generated-documentation exclusion for exact
+`.test.veln` companions and ordinary documentation handling for `_test.veln`
+modules, is specified in `../specification/source-surface.md`,
 `../specification/commands.md`, and `../specification/test-json.md`.
 Remaining work must preserve that behavior.
 

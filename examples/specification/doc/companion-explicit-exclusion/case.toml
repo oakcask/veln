@@ -1,0 +1,10 @@
+command = ["doc", "main.test.veln"]
+exit = 0
+
+[stdout]
+format = "text"
+contains = ["# companion-doc-explicit", "Generated docs exclude explicitly selected companions.", "## Modules", "No source modules selected."]
+not_contains = ["### main", "### main.test", "Source: `main.veln`", "Source: `main.test.veln`", "Explicit companion documentation.", "main::CompanionOnly"]
+
+[stderr]
+format = "empty"

@@ -1,0 +1,8 @@
+use main
+
+## Explicit companion documentation.
+## {@schema main::CompanionOnly}
+test explicit_companion_doc_source_is_excluded() -> ()
+	let observed: Int = main::visible(2)
+	()
+end

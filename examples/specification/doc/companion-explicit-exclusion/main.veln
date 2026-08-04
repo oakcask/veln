@@ -1,0 +1,4 @@
+## Target documentation that is not selected by the explicit companion input.
+pub fn visible(value: Int) -> Int
+	value
+end

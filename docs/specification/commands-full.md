@@ -159,6 +159,12 @@ comment-like text.
 files. It uses the same source discovery rule as `check`: absent paths discover
 `.veln` files recursively below the current project root, explicit directories
 are searched recursively, and selected paths are sorted and deduplicated.
+Exact `.test.veln` test companions are excluded from the generated public
+document after source discovery. Explicit companion path inputs are excluded
+the same way. If no non-companion source remains, `doc` still emits package and
+tool metadata and the generated module section states that no source modules
+were selected. `_test.veln` integration-test modules remain ordinary selected
+sources for generated documentation.
 
 `doc` reads `veln.toml` when present. The implemented manifest documentation
 surface accepts string-valued `[package]` fields and string-valued
@@ -167,9 +173,9 @@ tool fields are emitted under a tool metadata section. The package `name`
 field, when present, is the generated document title; otherwise the title is
 `Veln Project`.
 
-If discovery selects no source files, `doc` still emits package and tool
-metadata from `veln.toml` when present. The generated module section states
-that no source modules were selected.
+If discovery selects no non-companion source files, `doc` still emits package
+and tool metadata from `veln.toml` when present. The generated module section
+states that no source modules were selected.
 
 The command has a parse gate. If any selected source has parse diagnostics, or
 if manifest validation reports errors, `doc` emits human diagnostics on
@@ -180,12 +186,15 @@ derive local module identity from the selected `.veln` path. Path separators
 become `::`. Invalid module path segments produce module diagnostics before
 semantic diagnostics are reported.
 
-For each parse-clean selected source, `doc` emits the path-derived source
-module identity, the source path, imports, public source `type` declarations,
-public constructors, public `schema` declarations, public member aliases, and
-public `fn` declarations. Public `fn` documentation includes attached
-documentation line comments and contract clauses. Public `type` and `schema`
-documentation includes attached documentation line comments.
+For each parse-clean selected non-companion source, `doc` emits the
+path-derived source module identity, the source path, imports, public source
+`type` declarations, public constructors, public `schema` declarations, public
+member aliases, and public `fn` declarations. Public `fn` documentation
+includes attached documentation line comments and contract clauses. Public
+`type` and `schema` documentation includes attached documentation line
+comments. Excluded companion sources contribute no module heading, source
+path, imports, declarations, documentation comments, ADR-lite records, or
+documentation schema-reference diagnostics.
 
 Documentation line comments are attached to the nearest following module,
 public type, public schema, public member alias, or public function

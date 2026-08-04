@@ -37,6 +37,10 @@ The target source is the same-directory `.veln` path formed by removing the
 from both the target source and the existing `_test.veln` integration-test
 convention. A chained path such as `math.test.test.veln` is rejected as a
 companion-target error instead of targeting `math.test.veln`.
+Generated public documentation excludes exact `.test.veln` companions both
+when they are discovered recursively and when they are selected explicitly.
+The existing `_test.veln` integration-test convention does not use companion
+classification and remains ordinary for generated documentation.
 
 Checking or testing a companion requires the target source to exist in the
 same package. Missing and chained targets are executable diagnostics in

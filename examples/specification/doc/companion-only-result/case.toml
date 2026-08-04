@@ -1,0 +1,11 @@
+command = ["doc"]
+source_errors = "expected"
+exit = 0
+
+[stdout]
+format = "text"
+contains = ["# companion-doc-only", "Only companion sources are present.", "## Modules", "No source modules selected."]
+not_contains = ["### orphan.test", "Source: `orphan.test.veln`", "Orphan companion documentation.", "orphan::CompanionOnly"]
+
+[stderr]
+format = "empty"

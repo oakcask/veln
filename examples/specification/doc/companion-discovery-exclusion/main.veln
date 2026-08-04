@@ -1,0 +1,11 @@
+## Production schema documentation.
+pub schema PublicPacket
+	format binary
+
+	value: UInt8
+end
+
+## Production function documentation.
+pub fn visible(value: Int) -> Int
+	value
+end

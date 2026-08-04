@@ -1,0 +1,16 @@
+## @adr
+## id: companion-adr-marker
+## status: accepted
+## scope: docs
+## context: Companion records are test-only.
+## decision: Exclude companion records from generated docs.
+## consequences: Public docs stay production-owned.
+use main
+
+## Companion-only documentation.
+## companion-import-marker
+## {@schema main::CompanionOnly}
+test companion_doc_source_is_excluded() -> ()
+	let observed: Int = main::visible(1)
+	()
+end

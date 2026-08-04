@@ -1001,6 +1001,7 @@ impl CapturedOutput {
 struct StreamExpectation {
     format: Option<StreamFormat>,
     contains: Vec<String>,
+    not_contains: Vec<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -2391,6 +2392,7 @@ fn parse_stream_key(
             });
         }
         "contains" => stream.contains = parse_string_array(path, line_number, value),
+        "not_contains" => stream.not_contains = parse_string_array(path, line_number, value),
         _ => manifest_error(path, line_number, format!("unknown stream key `{key}`")),
     }
 }
@@ -2683,6 +2685,13 @@ fn assert_stream(
 
     for fragment in &expectation.contains {
         assert_contains_fragment(context, name, actual, fragment);
+    }
+    for fragment in &expectation.not_contains {
+        assert!(
+            !actual.contains(fragment),
+            "{}: expected {name} not to contain `{fragment}`, got:\n{actual}",
+            context.label()
+        );
     }
 }
 
