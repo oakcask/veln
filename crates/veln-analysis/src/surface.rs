@@ -16,7 +16,7 @@ use veln_project::{
 use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{TokenKind, lex, parse};
 
-use crate::parse_diagnostic_to_envelope;
+use crate::diagnostics::parse_diagnostic_to_envelope;
 
 pub fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diagnostic>) {
     let mut diagnostics = Vec::new();

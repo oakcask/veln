@@ -187,9 +187,9 @@ fn standard_environment() -> &'static ReusableStandardEnvironment {
     standard_environment_with(&STANDARD_ENVIRONMENT)
 }
 
-fn standard_environment_with<'a>(
-    cache: &'a OnceLock<ReusableStandardEnvironment>,
-) -> &'a ReusableStandardEnvironment {
+fn standard_environment_with(
+    cache: &OnceLock<ReusableStandardEnvironment>,
+) -> &ReusableStandardEnvironment {
     cache.get_or_init(|| {
         let module = load_embedded_standard_surface_module();
         prepare_reusable_standard_surface_module_environment(&module)
