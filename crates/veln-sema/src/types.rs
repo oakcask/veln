@@ -1274,6 +1274,14 @@ pub fn prepare_reusable_standard_environment(
     }
 }
 
+pub fn prepare_current_reusable_standard_environment(
+    module: &SurfaceModule,
+) -> ReusableStandardEnvironment {
+    let mut environment = prepare_reusable_standard_environment(module);
+    environment.identity = standard_semantic_identity();
+    environment
+}
+
 pub fn standard_semantic_identity() -> StandardSemanticIdentity {
     let bundle = veln_stdlib::package_bundle();
     let mut hasher = std::collections::hash_map::DefaultHasher::new();

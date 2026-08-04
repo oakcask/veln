@@ -29,12 +29,15 @@ proposal scope:
 - Indexed reachable-function, semantic-function, and ADT candidate lookup is
   implemented. Its controlled comparison is recorded in
   [../reviews/toolchain-analysis-reachable-lookups.json](../reviews/toolchain-analysis-reachable-lookups.json).
+- Demand-driven embedded standard-library initialization is implemented. Its
+  controlled comparison is recorded in
+  [../reviews/toolchain-analysis-demand-standard-library.json](../reviews/toolchain-analysis-demand-standard-library.json).
 - The existing toolchain suite remains authoritative for command behavior.
 
 The remaining proposal scope starts after those slices. It is limited to
-further work that makes the representative HTTP/2 core workload meet its
-one-third wall-time threshold, plus final benchmark evidence that shows every
-proposal acceptance threshold passes.
+further work that makes the representative HTTP/2 core and connection
+workloads meet their one-third wall-time thresholds, plus final benchmark
+evidence that shows every proposal acceptance threshold passes.
 
 ## Motivation
 
@@ -55,6 +58,15 @@ reachable lowering fell from 0.160090167 seconds to 0.036408763 seconds, but
 its median wall time only fell from 1.391151211 seconds to 1.190085222 seconds.
 That 0.8554679122 wall-time ratio remains above the required one-third ratio.
 
+Demand-driven embedded standard-library initialization reduced HTTP/2 core
+median wall time from 1.191886089 seconds to 0.656577607 seconds. The
+0.5508727831 wall-time ratio remains above the required one-third ratio. It
+also reduced HTTP/2 connection median wall time from 1.448842086 seconds to
+0.950928367 seconds. The 0.6563367921 wall-time ratio remains above the
+required one-third ratio in that local comparison. The new stage evidence
+identifies `surface_parse_lower` and `semantic_environment_check` as the next
+HTTP/2 core hot path.
+
 ## Proposed Outcome
 
 Analysis work must scale with the declarations and dependency relationships
@@ -70,9 +82,10 @@ time part of the Veln language semantics.
 | Requirement | Observable condition | Planned primary evidence |
 | --- | --- | --- |
 | CLI compatibility | Existing toolchain cases retain their exit status, stdout, stderr, JSON values, diagnostics, and generated files | Existing `veln-cli` toolchain suite |
-| Project isolation | Analysis reused for one copied project is not reused after source text, manifest data, command inputs, or dependency identity changes | Cache invalidation and concurrent-project unit tests |
-| Determinism | Repeated and concurrent analysis returns diagnostics in the same stable order and does not share mutable project state | Repeated and concurrent analyzer tests |
-| Bounded reachable lowering | Adding unrelated fully annotated modules does not increase reachable function-target or ADT-constructor candidate scans | Structural lookup counters and generated high-cardinality analysis benchmark |
+| Project isolation | Analysis reused for one copied project is not reused after source text, manifest data, command inputs, or dependency identity changes | Implemented cache invalidation and concurrent-project unit tests |
+| Determinism | Repeated and concurrent analysis returns diagnostics in the same stable order and does not share mutable project state | Implemented repeated and concurrent analyzer tests |
+| Bounded reachable lowering | Adding unrelated fully annotated modules does not increase reachable function-target or ADT-constructor candidate scans | Implemented structural lookup counters and generated high-cardinality analysis benchmark |
+| Bounded standard initialization | Adding unrelated standard modules outside the selected closure does not increase first-analysis standard parse/lower or semantic prepare work | Implemented closure-driven standard loading and selected standard-environment tests |
 | Representative improvement | HTTP/2 core and connection workloads become materially faster without weakening their assertions | Controlled before-and-after benchmark described below |
 
 The existing toolchain suite remains authoritative for command behavior. New
@@ -152,13 +165,19 @@ dedicated benchmark runner exists.
 
 ## Remaining Work
 
-- Reduce the HTTP/2 core direct-analysis wall-time median to at most one third
-  of the baseline median without regressing the completed connection result.
+- Reduce the HTTP/2 core and connection direct-analysis wall-time medians to
+  at most one third of their baseline medians without regressing completed
+  functional comparisons.
 - Preserve normal command stdout, stderr, JSON, exit status, diagnostics, and
   generated output.
 - Preserve existing functional-output comparisons in the controlled benchmark.
 - Keep the completed structural coverage that holds reachable function-target
   and ADT-constructor candidate scans constant as unrelated declarations grow.
+- Keep the completed demand-driven standard-library initialization boundary
+  that parses, lowers, and prepares only the selected standard-module closure
+  during first analysis.
+- Focus the next analyzer slice on the measured `surface_parse_lower` and
+  `semantic_environment_check` hot path in the HTTP/2 core workload.
 - Replace the current controlled comparison only when every functional
   comparison passes, wall-time noise remains within the accepted boundary,
   and both representative HTTP/2 wall-time thresholds pass.

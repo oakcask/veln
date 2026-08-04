@@ -51,7 +51,11 @@ pub fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diagnostic>
 pub fn load_embedded_standard_surface_module() -> SurfaceModule {
     let standard = embedded_standard_package();
     let mut parts = SurfaceParts::new();
-    for module in standard.modules.values() {
+    for module in standard
+        .modules
+        .values()
+        .map(EmbeddedStandardModuleEntry::module)
+    {
         merge_surface_parts(&mut parts, &module.parts);
     }
     parts.module
@@ -63,15 +67,40 @@ struct SurfaceParts {
     derived_modules: Vec<(String, SourceFile)>,
 }
 
-#[derive(Clone)]
 struct EmbeddedStandardPackage {
-    modules: BTreeMap<String, EmbeddedStandardModule>,
+    modules: BTreeMap<String, EmbeddedStandardModuleEntry>,
 }
 
-#[derive(Clone)]
+struct EmbeddedStandardModuleEntry {
+    path: &'static str,
+    text: &'static str,
+    module: OnceLock<EmbeddedStandardModule>,
+}
+
 struct EmbeddedStandardModule {
     parts: SurfaceParts,
     diagnostics: Vec<Diagnostic>,
+}
+
+impl EmbeddedStandardModuleEntry {
+    fn module(&self) -> &EmbeddedStandardModule {
+        self.module.get_or_init(|| {
+            let project = Project {
+                root: ".".into(),
+                files: vec![SourceFile::new(self.path, self.text)],
+                manifest: None,
+            };
+            let mut diagnostics = Vec::new();
+            let mut parts = SurfaceParts::new();
+            load_project_sources(
+                &project,
+                &mut diagnostics,
+                &mut parts,
+                Some(veln_stdlib::PACKAGE_NAME),
+            );
+            EmbeddedStandardModule { parts, diagnostics }
+        })
+    }
 }
 
 static EMBEDDED_STANDARD_PACKAGE: OnceLock<EmbeddedStandardPackage> = OnceLock::new();
@@ -304,7 +333,11 @@ fn load_embedded_standard_package(diagnostics: &mut Vec<Diagnostic>, parts: &mut
         if !loaded.insert(module_name.clone()) {
             continue;
         }
-        let Some(module) = standard.modules.get(&module_name) else {
+        let Some(module) = standard
+            .modules
+            .get(&module_name)
+            .map(EmbeddedStandardModuleEntry::module)
+        else {
             continue;
         };
         pending.extend(
@@ -327,27 +360,28 @@ fn embedded_standard_package() -> &'static EmbeddedStandardPackage {
             .files
             .iter()
             .filter_map(|file| {
-                let project = Project {
-                    root: ".".into(),
-                    files: vec![SourceFile::new(file.path, file.text)],
-                    manifest: None,
-                };
-                let mut diagnostics = Vec::new();
-                let mut parts = SurfaceParts::new();
-                load_project_sources(
-                    &project,
-                    &mut diagnostics,
-                    &mut parts,
-                    Some(veln_stdlib::PACKAGE_NAME),
-                );
-                let module_name = parts
-                    .derived_modules
-                    .first()
-                    .map(|(module_name, _)| module_name.clone())?;
-                Some((module_name, EmbeddedStandardModule { parts, diagnostics }))
+                embedded_standard_module_name_from_path(file.path).map(|module_name| {
+                    (
+                        module_name,
+                        EmbeddedStandardModuleEntry {
+                            path: file.path,
+                            text: file.text,
+                            module: OnceLock::new(),
+                        },
+                    )
+                })
             })
             .collect();
         EmbeddedStandardPackage { modules }
+    })
+}
+
+fn embedded_standard_module_name_from_path(path: &str) -> Option<String> {
+    if classify_companion_source(path).is_some() {
+        return None;
+    }
+    path.strip_suffix(".veln").map(|module_name| {
+        external_module_key(veln_stdlib::PACKAGE_NAME, &module_name.replace('/', "::"))
     })
 }
 

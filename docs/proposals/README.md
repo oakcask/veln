@@ -28,8 +28,9 @@ also states it.
 ### Toolchain Performance
 
 - [Bounded Toolchain Analysis](bounded-toolchain-analysis.md): make the HTTP/2
-  core workload meet its remaining wall-time threshold after completed
-  candidate-indexing, connection-performance, and measurement slices.
+  core and connection workloads meet their remaining wall-time thresholds after
+  completed candidate-indexing, demand-driven standard-library initialization,
+  and measurement slices.
 
 ### Toolchain Quality
 

@@ -14,7 +14,8 @@ use crate::analysis::{
 use crate::lowering::{lower_project_surface_module_to_core, lower_surface_module_to_core};
 use crate::schema;
 use crate::types::{
-    ReusableStandardEnvironment, TypeEnvironment, prepare_reusable_standard_environment,
+    ReusableStandardEnvironment, TypeEnvironment, prepare_current_reusable_standard_environment,
+    prepare_reusable_standard_environment,
 };
 
 #[derive(Clone, Debug)]
@@ -48,6 +49,12 @@ pub fn prepare_reusable_standard_surface_module_environment(
     module: &SurfaceModule,
 ) -> ReusableStandardEnvironment {
     prepare_reusable_standard_environment(module)
+}
+
+pub fn prepare_current_reusable_standard_surface_module_environment(
+    module: &SurfaceModule,
+) -> ReusableStandardEnvironment {
+    prepare_current_reusable_standard_environment(module)
 }
 
 fn check_project_surface_module_with_environment(
