@@ -2786,122 +2786,159 @@ impl<'a> FunctionChecker<'a> {
                 span: pattern.span.clone(),
             }],
             PatternKind::Record(fields) => {
-                let mut bindings = Vec::new();
-                let mut seen_fields = BTreeMap::<String, (String, SourceSpan)>::new();
-                for field in fields {
-                    if let Some((first_node_id, first_span)) = seen_fields.get(&field.name) {
-                        self.diagnostics.push(duplicate_name_diagnostic(
-                            &field.name,
-                            "record_field",
-                            "record pattern field",
-                            field.node_id.display("field"),
-                            field.span.clone(),
-                            first_node_id.clone(),
-                            first_span,
-                        ));
-                    } else {
-                        seen_fields.insert(
-                            field.name.clone(),
-                            (field.node_id.display("field"), field.span.clone()),
-                        );
-                    }
-                    let field_type =
-                        if let Some(field_type) = scrutinee_type.record_field(&field.name) {
-                            field_type
-                        } else {
-                            if scrutinee_type != &Type::Unknown {
-                                self.diagnostics.push(Diagnostic::new(
-                                    "type.field_missing",
-                                    Severity::Error,
-                                    DiagnosticKind::Type,
-                                    format!(
-                                        "type `{}` has no field `{}`",
-                                        scrutinee_type.render(),
-                                        field.name
-                                    ),
-                                    Some(field.span.clone()),
-                                    type_details(
-                                        field.node_id.display("field"),
-                                        format!("record field `{}`", field.name),
-                                        scrutinee_type.render(),
-                                        "record_pattern",
-                                        "inferred_expression",
-                                        "record_pattern",
-                                        [
-                                            self.function.node_id.display("fn"),
-                                            pattern.node_id.display("pattern"),
-                                        ],
-                                    ),
-                                ));
-                            }
-                            &Type::Unknown
-                        };
-                    bindings.extend(self.pattern_bindings(&field.pattern, field_type));
-                }
-                bindings
+                self.record_pattern_bindings(pattern, fields, scrutinee_type)
             }
             PatternKind::Constructor { name, args } => {
-                let Some(descriptor) = self.environment.adts.descriptor_for_type(scrutinee_type)
-                else {
-                    return args
-                        .iter()
-                        .flat_map(|pattern| self.pattern_bindings(pattern, &Type::Unknown))
-                        .collect();
-                };
-                if let Some(constructor) = self.environment.adts.constructor_for_descriptor(
-                    name,
-                    descriptor,
-                    self.function.module_name.as_deref(),
-                    &self.environment.uses,
-                ) {
-                    return args
-                        .iter()
-                        .enumerate()
-                        .flat_map(|(index, pattern)| {
-                            let ty = adt::payload_type(scrutinee_type, constructor, index)
-                                .unwrap_or(Type::Unknown);
-                            self.pattern_bindings(pattern, &ty)
-                        })
-                        .collect();
-                }
-                if let ConstructorLookup::Found(constructor) = self.environment.adts.constructor(
-                    name,
-                    self.function.module_name.as_deref(),
-                    &self.environment.uses,
-                ) {
-                    let actual = adt::constructed_type_from_args(
-                        constructor,
-                        &vec![Type::Unknown; constructor.descriptor.type_parameters.len()],
-                    );
-                    self.diagnostics.push(Diagnostic::new(
-                        "type.mismatch",
-                        Severity::Error,
-                        DiagnosticKind::Type,
-                        format!(
-                            "expected `{}`, but found `{}`",
-                            scrutinee_type.render(),
-                            actual.render()
-                        ),
-                        Some(pattern.span.clone()),
-                        type_details(
-                            pattern.node_id.display("pattern"),
-                            scrutinee_type.render(),
-                            actual.render(),
-                            "inferred_expression",
-                            "constructor_pattern",
-                            "constructor_pattern",
-                            [
-                                self.function.node_id.display("fn"),
-                                pattern.node_id.display("pattern"),
-                            ],
-                        ),
-                    ));
-                }
-                args.iter()
-                    .flat_map(|pattern| self.pattern_bindings(pattern, &Type::Unknown))
-                    .collect()
+                self.constructor_pattern_bindings(pattern, name, args, scrutinee_type)
             }
         }
+    }
+
+    fn record_pattern_bindings(
+        &mut self,
+        pattern: &Pattern,
+        fields: &[PatternField],
+        scrutinee_type: &Type,
+    ) -> Vec<PatternBinding> {
+        let mut bindings = Vec::new();
+        let mut seen_fields = BTreeMap::<String, (String, SourceSpan)>::new();
+        for field in fields {
+            if let Some((first_node_id, first_span)) = seen_fields.get(&field.name) {
+                self.diagnostics.push(duplicate_name_diagnostic(
+                    &field.name,
+                    "record_field",
+                    "record pattern field",
+                    field.node_id.display("field"),
+                    field.span.clone(),
+                    first_node_id.clone(),
+                    first_span,
+                ));
+            } else {
+                seen_fields.insert(
+                    field.name.clone(),
+                    (field.node_id.display("field"), field.span.clone()),
+                );
+            }
+            let field_type = self.record_pattern_field_type(pattern, field, scrutinee_type);
+            bindings.extend(self.pattern_bindings(&field.pattern, &field_type));
+        }
+        bindings
+    }
+
+    fn record_pattern_field_type(
+        &mut self,
+        pattern: &Pattern,
+        field: &PatternField,
+        scrutinee_type: &Type,
+    ) -> Type {
+        if let Some(field_type) = scrutinee_type.record_field(&field.name) {
+            return field_type.clone();
+        }
+        if scrutinee_type != &Type::Unknown {
+            self.diagnostics.push(Diagnostic::new(
+                "type.field_missing",
+                Severity::Error,
+                DiagnosticKind::Type,
+                format!(
+                    "type `{}` has no field `{}`",
+                    scrutinee_type.render(),
+                    field.name
+                ),
+                Some(field.span.clone()),
+                type_details(
+                    field.node_id.display("field"),
+                    format!("record field `{}`", field.name),
+                    scrutinee_type.render(),
+                    "record_pattern",
+                    "inferred_expression",
+                    "record_pattern",
+                    [
+                        self.function.node_id.display("fn"),
+                        pattern.node_id.display("pattern"),
+                    ],
+                ),
+            ));
+        }
+        Type::Unknown
+    }
+
+    fn constructor_pattern_bindings(
+        &mut self,
+        pattern: &Pattern,
+        name: &[String],
+        args: &[Pattern],
+        scrutinee_type: &Type,
+    ) -> Vec<PatternBinding> {
+        let Some(descriptor) = self.environment.adts.descriptor_for_type(scrutinee_type) else {
+            return self.unknown_pattern_bindings(args);
+        };
+        if let Some(constructor) = self.environment.adts.constructor_for_descriptor(
+            name,
+            descriptor,
+            self.function.module_name.as_deref(),
+            &self.environment.uses,
+        ) {
+            return args
+                .iter()
+                .enumerate()
+                .flat_map(|(index, pattern)| {
+                    let ty = adt::payload_type(scrutinee_type, constructor, index)
+                        .unwrap_or(Type::Unknown);
+                    self.pattern_bindings(pattern, &ty)
+                })
+                .collect();
+        }
+        self.report_constructor_pattern_mismatch(pattern, name, scrutinee_type);
+        self.unknown_pattern_bindings(args)
+    }
+
+    fn unknown_pattern_bindings(&mut self, patterns: &[Pattern]) -> Vec<PatternBinding> {
+        patterns
+            .iter()
+            .flat_map(|pattern| self.pattern_bindings(pattern, &Type::Unknown))
+            .collect()
+    }
+
+    fn report_constructor_pattern_mismatch(
+        &mut self,
+        pattern: &Pattern,
+        name: &[String],
+        scrutinee_type: &Type,
+    ) {
+        let ConstructorLookup::Found(constructor) = self.environment.adts.constructor(
+            name,
+            self.function.module_name.as_deref(),
+            &self.environment.uses,
+        ) else {
+            return;
+        };
+        let actual = adt::constructed_type_from_args(
+            constructor,
+            &vec![Type::Unknown; constructor.descriptor.type_parameters.len()],
+        );
+        self.diagnostics.push(Diagnostic::new(
+            "type.mismatch",
+            Severity::Error,
+            DiagnosticKind::Type,
+            format!(
+                "expected `{}`, but found `{}`",
+                scrutinee_type.render(),
+                actual.render()
+            ),
+            Some(pattern.span.clone()),
+            type_details(
+                pattern.node_id.display("pattern"),
+                scrutinee_type.render(),
+                actual.render(),
+                "inferred_expression",
+                "constructor_pattern",
+                "constructor_pattern",
+                [
+                    self.function.node_id.display("fn"),
+                    pattern.node_id.display("pattern"),
+                ],
+            ),
+        ));
     }
 
     pub(super) fn infer_record(

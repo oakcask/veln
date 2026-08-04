@@ -1197,6 +1197,38 @@ fn nested_constructor_let_patterns_bind_payload_types() {
 }
 
 #[test]
+fn constructor_record_pattern_binds_nested_payload_field_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(value: Option<{count: Int}>) -> Int\n",
+            "  let Some({count: count}) = value\n",
+            "  count + 1\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    assert!(main.body.iter().any(|stmt| {
+        matches!(
+            &stmt.kind,
+            CoreStmtKind::Let { name, ty, .. }
+                if name == "count" && ty == &CoreType::int()
+        )
+    }));
+}
+
+#[test]
 fn constructor_let_pattern_wrong_descriptor_reports_mismatch() {
     let source = SourceFile::new(
         "main.veln",
