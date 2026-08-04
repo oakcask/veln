@@ -55,10 +55,10 @@ that can still affect the pass. The prelude-callback pass first identifies
 omitted private returns that still contain unknown type information or whose
 tail expression can still use a prelude callback expected type. If no such
 slot exists, these passes do not traverse function bodies. If such slots
-exist, repeated traversal is limited to functions that own eligible private
-slots or reference them in ways that can contribute constraints. Call-site and
-prelude-callback contributor discovery is not rebuilt inside each
-stabilization round.
+exist, a private-reference index selects functions that own eligible private
+slots or reference them in ways that can contribute constraints before the
+repeated body traversals begin. Call-site and prelude-callback contributor
+discovery is not rebuilt inside each stabilization round.
 Structural `veln-sema` tests use test-only work counters to assert that
 unrelated fully annotated module sets do not pay private-inference body scans,
 and that an omitted private helper chain still reaches the same inferred
@@ -205,9 +205,9 @@ unchanged. It narrows only analyzer work:
   information or has a tail expression that can use a prelude callback
   expected type;
 - when eligible private slots remain, call-site and prelude-callback inference
-  traverse only functions that own those slots or reference them in ways that
-  can contribute constraints, and their contributor sets are not rebuilt in
-  every stabilization round.
+  use a private-reference index to select only functions that own those slots
+  or reference them in ways that can contribute constraints, and their
+  contributor sets are not rebuilt in every stabilization round.
 
 The remaining proposal work is explicit:
 

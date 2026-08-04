@@ -232,6 +232,7 @@ type FunctionSignatureMap = BTreeMap<FunctionKey, FunctionSignature>;
 type FunctionReturnMap = BTreeMap<FunctionKey, Type>;
 type PrivateSlotOmissions = (Vec<bool>, bool);
 type PrivateSlotMap = BTreeMap<FunctionKey, PrivateSlotOmissions>;
+type PrivateReferenceMap = BTreeMap<FunctionKey, BTreeSet<FunctionKey>>;
 
 #[cfg(test)]
 pub(crate) mod private_inference_counters {
@@ -274,10 +275,6 @@ pub(crate) mod private_inference_counters {
 
     pub(super) fn record_body_return_scan() {
         BODY_RETURN_SCANS.set(BODY_RETURN_SCANS.get() + 1);
-    }
-
-    pub(super) fn record_call_site_discovery_scan() {
-        CALL_SITE_DISCOVERY_SCANS.set(CALL_SITE_DISCOVERY_SCANS.get() + 1);
     }
 
     pub(super) fn record_call_site_scan() {
@@ -1375,10 +1372,11 @@ fn infer_private_function_call_site_signature_types(
     if initial_omitted_private_slots.is_empty() {
         return;
     }
+    let private_references = private_reference_map(module, &function_by_path);
     let contributors = private_call_site_constraint_contributors(
         module,
         &initial_omitted_private_slots,
-        &function_by_path,
+        &private_references,
     );
     let mut changed = true;
     while changed {
@@ -1509,6 +1507,183 @@ fn omitted_private_returns_requiring_prelude_pass(
         .collect()
 }
 
+fn private_reference_map(
+    module: &SurfaceModule,
+    function_by_path: &FunctionAstMap<'_>,
+) -> PrivateReferenceMap {
+    module
+        .functions
+        .iter()
+        .filter_map(|function| {
+            let key = function_key(function)?;
+            let mut references = BTreeSet::new();
+            for line in &function.body {
+                collect_private_line_references(
+                    line,
+                    function.module_name.as_deref(),
+                    function_by_path,
+                    &mut references,
+                );
+            }
+            Some((key, references))
+        })
+        .collect()
+}
+
+fn collect_private_line_references(
+    line: &BodyLine,
+    current_module: Option<&str>,
+    function_by_path: &FunctionAstMap<'_>,
+    references: &mut BTreeSet<FunctionKey>,
+) {
+    match &line.kind {
+        BodyLineKind::Let { expr, .. } | BodyLineKind::Expr { expr } => {
+            collect_private_expr_references(expr, current_module, function_by_path, references);
+        }
+    }
+}
+
+fn collect_private_expr_references(
+    expr: &Expr,
+    current_module: Option<&str>,
+    function_by_path: &FunctionAstMap<'_>,
+    references: &mut BTreeSet<FunctionKey>,
+) {
+    if let ExprKind::NamePath(segments) = &expr.kind
+        && let Some(key) = private_name_path_target(segments, current_module, function_by_path)
+    {
+        references.insert(key);
+    }
+    match &expr.kind {
+        ExprKind::List(items) => {
+            for item in items {
+                collect_private_expr_references(item, current_module, function_by_path, references);
+            }
+        }
+        ExprKind::Dict(entries) => {
+            for entry in entries {
+                collect_private_expr_references(
+                    &entry.key,
+                    current_module,
+                    function_by_path,
+                    references,
+                );
+                collect_private_expr_references(
+                    &entry.value,
+                    current_module,
+                    function_by_path,
+                    references,
+                );
+            }
+        }
+        ExprKind::Record(fields) => {
+            for field in fields {
+                collect_private_expr_references(
+                    &field.expr,
+                    current_module,
+                    function_by_path,
+                    references,
+                );
+            }
+        }
+        ExprKind::Call { callee, args } => {
+            collect_private_expr_references(callee, current_module, function_by_path, references);
+            for arg in args {
+                collect_private_expr_references(arg, current_module, function_by_path, references);
+            }
+        }
+        ExprKind::Perform { args, .. } => {
+            for arg in args {
+                collect_private_expr_references(arg, current_module, function_by_path, references);
+            }
+        }
+        ExprKind::Handle { body, args, .. } => {
+            collect_private_expr_references(body, current_module, function_by_path, references);
+            for arg in args {
+                collect_private_expr_references(arg, current_module, function_by_path, references);
+            }
+        }
+        ExprKind::SchemaDecode { input, base, .. } => {
+            collect_private_expr_references(input, current_module, function_by_path, references);
+            collect_private_expr_references(base, current_module, function_by_path, references);
+        }
+        ExprKind::SchemaEncode { value, .. }
+        | ExprKind::FieldAccess { base: value, .. }
+        | ExprKind::Try(value)
+        | ExprKind::Prefix { expr: value, .. } => {
+            collect_private_expr_references(value, current_module, function_by_path, references);
+        }
+        ExprKind::Match { scrutinee, arms } => {
+            collect_private_expr_references(
+                scrutinee,
+                current_module,
+                function_by_path,
+                references,
+            );
+            for arm in arms {
+                collect_private_expr_references(
+                    &arm.expr,
+                    current_module,
+                    function_by_path,
+                    references,
+                );
+            }
+        }
+        ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            collect_private_expr_references(
+                condition,
+                current_module,
+                function_by_path,
+                references,
+            );
+            collect_private_expr_references(
+                then_branch,
+                current_module,
+                function_by_path,
+                references,
+            );
+            for branch in else_if_branches {
+                collect_private_expr_references(
+                    &branch.condition,
+                    current_module,
+                    function_by_path,
+                    references,
+                );
+                collect_private_expr_references(
+                    &branch.expr,
+                    current_module,
+                    function_by_path,
+                    references,
+                );
+            }
+            collect_private_expr_references(
+                else_branch,
+                current_module,
+                function_by_path,
+                references,
+            );
+        }
+        ExprKind::Binary { left, right, .. } => {
+            collect_private_expr_references(left, current_module, function_by_path, references);
+            collect_private_expr_references(right, current_module, function_by_path, references);
+        }
+        ExprKind::NamePath(_)
+        | ExprKind::Missing
+        | ExprKind::Hole { .. }
+        | ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
+        | ExprKind::Unit
+        | ExprKind::TypeApply { .. } => {}
+    }
+}
+
 fn signatures_by_path(functions: &[FunctionSignature]) -> FunctionSignatureMap {
     functions
         .iter()
@@ -1524,7 +1699,7 @@ fn signatures_by_path(functions: &[FunctionSignature]) -> FunctionSignatureMap {
 fn private_call_site_constraint_contributors(
     module: &SurfaceModule,
     omitted_private_slots: &PrivateSlotMap,
-    function_by_path: &FunctionAstMap<'_>,
+    private_references: &PrivateReferenceMap,
 ) -> BTreeSet<FunctionKey> {
     let modules_with_omitted_slots = omitted_private_slots
         .keys()
@@ -1536,233 +1711,15 @@ fn private_call_site_constraint_contributors(
         .filter(|function| modules_with_omitted_slots.contains(&function.module_name))
         .filter_map(|function| {
             let key = function_key(function)?;
-            private_call_site_function_can_constrain(
-                function,
-                &key,
-                omitted_private_slots,
-                function_by_path,
-            )
+            (omitted_private_slots.contains_key(&key)
+                || private_references.get(&key).is_some_and(|references| {
+                    references
+                        .iter()
+                        .any(|reference| omitted_private_slots.contains_key(reference))
+                }))
             .then_some(key)
         })
         .collect()
-}
-
-fn private_call_site_function_can_constrain(
-    function: &Function,
-    key: &FunctionKey,
-    omitted_private_slots: &PrivateSlotMap,
-    function_by_path: &FunctionAstMap<'_>,
-) -> bool {
-    if omitted_private_slots.contains_key(key) {
-        return true;
-    }
-
-    #[cfg(test)]
-    private_inference_counters::record_call_site_discovery_scan();
-
-    function.body.iter().any(|line| {
-        private_call_site_line_references_slot(
-            line,
-            function.module_name.as_deref(),
-            omitted_private_slots,
-            function_by_path,
-        )
-    })
-}
-
-fn private_call_site_line_references_slot(
-    line: &BodyLine,
-    current_module: Option<&str>,
-    omitted_private_slots: &PrivateSlotMap,
-    function_by_path: &FunctionAstMap<'_>,
-) -> bool {
-    match &line.kind {
-        BodyLineKind::Let { expr, .. } | BodyLineKind::Expr { expr } => {
-            private_call_site_expr_references_slot(
-                expr,
-                current_module,
-                omitted_private_slots,
-                function_by_path,
-            )
-        }
-    }
-}
-
-fn private_call_site_expr_references_slot(
-    expr: &Expr,
-    current_module: Option<&str>,
-    omitted_private_slots: &PrivateSlotMap,
-    function_by_path: &FunctionAstMap<'_>,
-) -> bool {
-    if let ExprKind::NamePath(segments) = &expr.kind
-        && private_name_path_target(segments, current_module, function_by_path)
-            .is_some_and(|key| omitted_private_slots.contains_key(&key))
-    {
-        return true;
-    }
-    match &expr.kind {
-        ExprKind::List(items) => items.iter().any(|item| {
-            private_call_site_expr_references_slot(
-                item,
-                current_module,
-                omitted_private_slots,
-                function_by_path,
-            )
-        }),
-        ExprKind::Dict(entries) => entries.iter().any(|entry| {
-            private_call_site_expr_references_slot(
-                &entry.key,
-                current_module,
-                omitted_private_slots,
-                function_by_path,
-            ) || private_call_site_expr_references_slot(
-                &entry.value,
-                current_module,
-                omitted_private_slots,
-                function_by_path,
-            )
-        }),
-        ExprKind::Record(fields) => fields.iter().any(|field| {
-            private_call_site_expr_references_slot(
-                &field.expr,
-                current_module,
-                omitted_private_slots,
-                function_by_path,
-            )
-        }),
-        ExprKind::Call { callee, args } => {
-            private_call_site_expr_references_slot(
-                callee,
-                current_module,
-                omitted_private_slots,
-                function_by_path,
-            ) || args.iter().any(|arg| {
-                private_call_site_expr_references_slot(
-                    arg,
-                    current_module,
-                    omitted_private_slots,
-                    function_by_path,
-                )
-            })
-        }
-        ExprKind::Perform { args, .. } => args.iter().any(|arg| {
-            private_call_site_expr_references_slot(
-                arg,
-                current_module,
-                omitted_private_slots,
-                function_by_path,
-            )
-        }),
-        ExprKind::Handle { body, args, .. } => {
-            private_call_site_expr_references_slot(
-                body,
-                current_module,
-                omitted_private_slots,
-                function_by_path,
-            ) || args.iter().any(|arg| {
-                private_call_site_expr_references_slot(
-                    arg,
-                    current_module,
-                    omitted_private_slots,
-                    function_by_path,
-                )
-            })
-        }
-        ExprKind::SchemaDecode { input, base, .. } => {
-            private_call_site_expr_references_slot(
-                input,
-                current_module,
-                omitted_private_slots,
-                function_by_path,
-            ) || private_call_site_expr_references_slot(
-                base,
-                current_module,
-                omitted_private_slots,
-                function_by_path,
-            )
-        }
-        ExprKind::SchemaEncode { value, .. }
-        | ExprKind::FieldAccess { base: value, .. }
-        | ExprKind::Try(value)
-        | ExprKind::Prefix { expr: value, .. } => private_call_site_expr_references_slot(
-            value,
-            current_module,
-            omitted_private_slots,
-            function_by_path,
-        ),
-        ExprKind::Match { scrutinee, arms } => {
-            private_call_site_expr_references_slot(
-                scrutinee,
-                current_module,
-                omitted_private_slots,
-                function_by_path,
-            ) || arms.iter().any(|arm| {
-                private_call_site_expr_references_slot(
-                    &arm.expr,
-                    current_module,
-                    omitted_private_slots,
-                    function_by_path,
-                )
-            })
-        }
-        ExprKind::If {
-            condition,
-            then_branch,
-            else_if_branches,
-            else_branch,
-        } => {
-            private_call_site_expr_references_slot(
-                condition,
-                current_module,
-                omitted_private_slots,
-                function_by_path,
-            ) || private_call_site_expr_references_slot(
-                then_branch,
-                current_module,
-                omitted_private_slots,
-                function_by_path,
-            ) || else_if_branches.iter().any(|branch| {
-                private_call_site_expr_references_slot(
-                    &branch.condition,
-                    current_module,
-                    omitted_private_slots,
-                    function_by_path,
-                ) || private_call_site_expr_references_slot(
-                    &branch.expr,
-                    current_module,
-                    omitted_private_slots,
-                    function_by_path,
-                )
-            }) || private_call_site_expr_references_slot(
-                else_branch,
-                current_module,
-                omitted_private_slots,
-                function_by_path,
-            )
-        }
-        ExprKind::Binary { left, right, .. } => {
-            private_call_site_expr_references_slot(
-                left,
-                current_module,
-                omitted_private_slots,
-                function_by_path,
-            ) || private_call_site_expr_references_slot(
-                right,
-                current_module,
-                omitted_private_slots,
-                function_by_path,
-            )
-        }
-        ExprKind::NamePath(_)
-        | ExprKind::Missing
-        | ExprKind::Hole { .. }
-        | ExprKind::StringLiteral(_)
-        | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
-        | ExprKind::BoolLiteral(_)
-        | ExprKind::Unit
-        | ExprKind::TypeApply { .. } => false,
-    }
 }
 
 fn signatures_by_path_with_aliases(
@@ -2512,11 +2469,13 @@ fn infer_private_prelude_callback_return_types(
     if initial_omitted_private_returns.is_empty() {
         return;
     }
+    let private_references = private_reference_map(module, &function_by_path);
     let contributors = private_prelude_callback_constraint_contributors(
         module,
         &initial_omitted_private_returns,
         &returns_by_path,
         &function_by_path,
+        &private_references,
         &module.uses,
         adts,
     );
@@ -2656,6 +2615,7 @@ fn private_prelude_callback_constraint_contributors(
     omitted_private_returns: &BTreeSet<FunctionKey>,
     returns_by_path: &FunctionReturnMap,
     function_by_path: &FunctionAstMap<'_>,
+    private_references: &PrivateReferenceMap,
     uses: &[UseDecl],
     adts: &AdtRegistry,
 ) -> BTreeSet<FunctionKey> {
@@ -2669,6 +2629,15 @@ fn private_prelude_callback_constraint_contributors(
         .filter(|function| modules_with_omitted_returns.contains(&function.module_name))
         .filter_map(|function| {
             let key = function_key(function)?;
+            if !omitted_private_returns.contains(&key)
+                && !private_references.get(&key).is_some_and(|references| {
+                    references
+                        .iter()
+                        .any(|reference| omitted_private_returns.contains(reference))
+                })
+            {
+                return None;
+            }
             private_prelude_callback_function_can_constrain(
                 function,
                 &key,
