@@ -52,23 +52,25 @@ The private-signature inference slice is implemented for private return,
 call-site, and prelude-callback fixed-point passes. The private return and
 call-site passes first identify omitted private parameter and return slots
 that can still affect the pass. The prelude-callback pass first identifies
-omitted private returns that are passed through a prelude callback context or
-whose tail can use such an expected return type. If no such slot exists, these
-passes do not traverse function bodies. If such slots exist, repeated
-traversal is limited to functions that own eligible private slots or reference
-them in ways that can contribute constraints.
+omitted private returns that still contain unknown type information or whose
+tail expression can still use a prelude callback expected type. If no such
+slot exists, these passes do not traverse function bodies. If such slots
+exist, repeated traversal is limited to functions that own eligible private
+slots or reference them in ways that can contribute constraints. Call-site and
+prelude-callback contributor discovery is not rebuilt inside each
+stabilization round.
 Structural `veln-sema` tests use test-only work counters to assert that
 unrelated fully annotated module sets do not pay private-inference body scans,
 and that an omitted private helper chain still reaches the same inferred
 parameter and return types while skipping unrelated annotated modules and
 unrelated annotated functions in the same module.
-The same counter coverage includes prelude-callback boundary cases that record
-deterministic body-return, call-site, and prelude-callback scan counts. One
-case combines nested and scalar callback helpers while preserving the inferred
-callback parameter and return types and scanning only the helper that still
-needs prelude-callback refinement. Another case verifies that a helper whose
-return is already fixed before the prelude-callback pass performs no
-prelude-callback body scan.
+The same counter coverage records deterministic body-return, contributor
+discovery, call-site, and prelude-callback scan counts. One case combines
+nested and scalar callback helpers while preserving the inferred callback
+parameter and return types and proving that already fixed prelude-callback
+returns do not enter prelude body traversal. Another case verifies that a
+helper whose return is already fixed before the prelude-callback pass
+performs no prelude-callback discovery or body scan.
 
 ## Proposed Outcome
 
@@ -198,13 +200,14 @@ unchanged. It narrows only analyzer work:
   return slot still contains unknown type information;
 - private call-site signature inference skips the fixed-point pass when no
   omitted private parameter or return slot can still change;
-- private prelude-callback return inference skips body traversal when no
-  omitted private return still contains unknown type information and is passed
-  through a prelude callback context or has a tail expression that can use such
-  an expected return type;
+- private prelude-callback return inference skips contributor discovery and
+  body traversal when no omitted private return still contains unknown type
+  information or has a tail expression that can use a prelude callback
+  expected type;
 - when eligible private slots remain, call-site and prelude-callback inference
   traverse only functions that own those slots or reference them in ways that
-  can contribute constraints.
+  can contribute constraints, and their contributor sets are not rebuilt in
+  every stabilization round.
 
 The remaining proposal work is explicit:
 

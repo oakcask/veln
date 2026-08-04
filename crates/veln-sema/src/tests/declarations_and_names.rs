@@ -650,7 +650,12 @@ fn fully_annotated_private_modules_do_not_scan_private_inference_bodies() {
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     assert_eq!(counters.body_return_scans, 0, "{counters:#?}");
+    assert_eq!(counters.call_site_discovery_scans, 0, "{counters:#?}");
     assert_eq!(counters.call_site_scans, 0, "{counters:#?}");
+    assert_eq!(
+        counters.prelude_callback_discovery_scans, 0,
+        "{counters:#?}"
+    );
     assert_eq!(counters.prelude_callback_scans, 0, "{counters:#?}");
 }
 
@@ -690,7 +695,12 @@ fn omitted_private_signature_chain_skips_unrelated_annotated_modules() {
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     assert!(counters.body_return_scans > 0, "{counters:#?}");
+    assert_eq!(counters.call_site_discovery_scans, 1, "{counters:#?}");
     assert!(counters.call_site_scans > 0, "{counters:#?}");
+    assert_eq!(
+        counters.prelude_callback_discovery_scans, 0,
+        "{counters:#?}"
+    );
     assert_eq!(counters.prelude_callback_scans, 0, "{counters:#?}");
     assert!(
         counters.call_site_scans < 10,
@@ -738,7 +748,12 @@ fn omitted_private_signature_chain_skips_unrelated_annotated_functions_in_same_m
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     assert_eq!(counters.body_return_scans, 2, "{counters:#?}");
-    assert_eq!(counters.call_site_scans, 5, "{counters:#?}");
+    assert_eq!(counters.call_site_discovery_scans, 13, "{counters:#?}");
+    assert_eq!(counters.call_site_scans, 6, "{counters:#?}");
+    assert_eq!(
+        counters.prelude_callback_discovery_scans, 0,
+        "{counters:#?}"
+    );
     assert_eq!(counters.prelude_callback_scans, 0, "{counters:#?}");
 
     let environment = TypeEnvironment::from_module(&module);
@@ -787,7 +802,12 @@ fn prelude_callback_return_inference_skips_already_fixed_helpers() {
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     assert_eq!(counters.body_return_scans, 3, "{counters:#?}");
+    assert_eq!(counters.call_site_discovery_scans, 13, "{counters:#?}");
     assert_eq!(counters.call_site_scans, 3, "{counters:#?}");
+    assert_eq!(
+        counters.prelude_callback_discovery_scans, 14,
+        "{counters:#?}"
+    );
     assert_eq!(counters.prelude_callback_scans, 1, "{counters:#?}");
 
     let environment = TypeEnvironment::from_module(&module);
@@ -835,7 +855,12 @@ fn prelude_callback_return_inference_has_zero_scan_when_helper_return_is_fixed()
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     assert_eq!(counters.body_return_scans, 1, "{counters:#?}");
+    assert_eq!(counters.call_site_discovery_scans, 13, "{counters:#?}");
     assert_eq!(counters.call_site_scans, 2, "{counters:#?}");
+    assert_eq!(
+        counters.prelude_callback_discovery_scans, 0,
+        "{counters:#?}"
+    );
     assert_eq!(counters.prelude_callback_scans, 0, "{counters:#?}");
 
     let environment = TypeEnvironment::from_module(&module);

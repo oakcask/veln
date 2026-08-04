@@ -239,27 +239,35 @@ pub(crate) mod private_inference_counters {
 
     thread_local! {
         static BODY_RETURN_SCANS: Cell<usize> = const { Cell::new(0) };
+        static CALL_SITE_DISCOVERY_SCANS: Cell<usize> = const { Cell::new(0) };
         static CALL_SITE_SCANS: Cell<usize> = const { Cell::new(0) };
+        static PRELUDE_CALLBACK_DISCOVERY_SCANS: Cell<usize> = const { Cell::new(0) };
         static PRELUDE_CALLBACK_SCANS: Cell<usize> = const { Cell::new(0) };
     }
 
     #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
     pub(crate) struct Snapshot {
         pub(crate) body_return_scans: usize,
+        pub(crate) call_site_discovery_scans: usize,
         pub(crate) call_site_scans: usize,
+        pub(crate) prelude_callback_discovery_scans: usize,
         pub(crate) prelude_callback_scans: usize,
     }
 
     pub(crate) fn reset() {
         BODY_RETURN_SCANS.set(0);
+        CALL_SITE_DISCOVERY_SCANS.set(0);
         CALL_SITE_SCANS.set(0);
+        PRELUDE_CALLBACK_DISCOVERY_SCANS.set(0);
         PRELUDE_CALLBACK_SCANS.set(0);
     }
 
     pub(crate) fn snapshot() -> Snapshot {
         Snapshot {
             body_return_scans: BODY_RETURN_SCANS.get(),
+            call_site_discovery_scans: CALL_SITE_DISCOVERY_SCANS.get(),
             call_site_scans: CALL_SITE_SCANS.get(),
+            prelude_callback_discovery_scans: PRELUDE_CALLBACK_DISCOVERY_SCANS.get(),
             prelude_callback_scans: PRELUDE_CALLBACK_SCANS.get(),
         }
     }
@@ -268,8 +276,16 @@ pub(crate) mod private_inference_counters {
         BODY_RETURN_SCANS.set(BODY_RETURN_SCANS.get() + 1);
     }
 
+    pub(super) fn record_call_site_discovery_scan() {
+        CALL_SITE_DISCOVERY_SCANS.set(CALL_SITE_DISCOVERY_SCANS.get() + 1);
+    }
+
     pub(super) fn record_call_site_scan() {
         CALL_SITE_SCANS.set(CALL_SITE_SCANS.get() + 1);
+    }
+
+    pub(super) fn record_prelude_callback_discovery_scan() {
+        PRELUDE_CALLBACK_DISCOVERY_SCANS.set(PRELUDE_CALLBACK_DISCOVERY_SCANS.get() + 1);
     }
 
     pub(super) fn record_prelude_callback_scan() {
@@ -1355,6 +1371,15 @@ fn infer_private_function_call_site_signature_types(
             ))
         })
         .collect::<BTreeMap<_, _>>();
+    let initial_omitted_private_slots = omitted_private_slots_that_can_change(module, functions);
+    if initial_omitted_private_slots.is_empty() {
+        return;
+    }
+    let contributors = private_call_site_constraint_contributors(
+        module,
+        &initial_omitted_private_slots,
+        &function_by_path,
+    );
     let mut changed = true;
     while changed {
         changed = false;
@@ -1362,11 +1387,6 @@ fn infer_private_function_call_site_signature_types(
         if omitted_private_slots.is_empty() {
             return;
         }
-        let contributors = private_call_site_constraint_contributors(
-            module,
-            &omitted_private_slots,
-            &function_by_path,
-        );
         let signatures_by_path = signatures_by_path_with_aliases(module, functions);
         let returns_by_path = returns_by_path(functions);
         for function in module.functions.iter().filter(|function| {
@@ -1427,19 +1447,6 @@ fn omitted_private_returns_that_can_change(
         .collect()
 }
 
-fn omitted_private_returns(module: &SurfaceModule) -> BTreeSet<FunctionKey> {
-    module
-        .functions
-        .iter()
-        .filter(|function| {
-            function.kind == FunctionKind::Function
-                && function.visibility == Visibility::Private
-                && function.return_type.is_none()
-        })
-        .filter_map(private_function_key)
-        .collect()
-}
-
 fn omitted_private_slots_that_can_change(
     module: &SurfaceModule,
     functions: &[FunctionSignature],
@@ -1478,6 +1485,30 @@ fn omitted_private_slots_that_can_change(
         .collect()
 }
 
+fn omitted_private_returns_requiring_prelude_pass(
+    module: &SurfaceModule,
+    functions: &[FunctionSignature],
+    uses: &[UseDecl],
+    adts: &AdtRegistry,
+) -> BTreeSet<FunctionKey> {
+    module
+        .functions
+        .iter()
+        .filter(|function| {
+            function.kind == FunctionKind::Function
+                && function.visibility == Visibility::Private
+                && function.return_type.is_none()
+        })
+        .filter_map(|function| {
+            let key = private_function_key(function)?;
+            let signature = signature_for_key(functions, &key)?;
+            (type_has_unknown(&signature.return_type)
+                || private_tail_can_use_expected(function, &signature.return_type, uses, adts))
+            .then_some(key)
+        })
+        .collect()
+}
+
 fn signatures_by_path(functions: &[FunctionSignature]) -> FunctionSignatureMap {
     functions
         .iter()
@@ -1495,9 +1526,14 @@ fn private_call_site_constraint_contributors(
     omitted_private_slots: &PrivateSlotMap,
     function_by_path: &FunctionAstMap<'_>,
 ) -> BTreeSet<FunctionKey> {
+    let modules_with_omitted_slots = omitted_private_slots
+        .keys()
+        .map(|key| key.0.clone())
+        .collect::<BTreeSet<_>>();
     module
         .functions
         .iter()
+        .filter(|function| modules_with_omitted_slots.contains(&function.module_name))
         .filter_map(|function| {
             let key = function_key(function)?;
             private_call_site_function_can_constrain(
@@ -1517,15 +1553,21 @@ fn private_call_site_function_can_constrain(
     omitted_private_slots: &PrivateSlotMap,
     function_by_path: &FunctionAstMap<'_>,
 ) -> bool {
-    omitted_private_slots.contains_key(key)
-        || function.body.iter().any(|line| {
-            private_call_site_line_references_slot(
-                line,
-                function.module_name.as_deref(),
-                omitted_private_slots,
-                function_by_path,
-            )
-        })
+    if omitted_private_slots.contains_key(key) {
+        return true;
+    }
+
+    #[cfg(test)]
+    private_inference_counters::record_call_site_discovery_scan();
+
+    function.body.iter().any(|line| {
+        private_call_site_line_references_slot(
+            line,
+            function.module_name.as_deref(),
+            omitted_private_slots,
+            function_by_path,
+        )
+    })
 }
 
 fn private_call_site_line_references_slot(
@@ -2465,21 +2507,27 @@ fn infer_private_prelude_callback_return_types(
         })
         .collect::<BTreeMap<_, _>>();
 
+    let initial_omitted_private_returns =
+        omitted_private_returns_requiring_prelude_pass(module, functions, &module.uses, adts);
+    if initial_omitted_private_returns.is_empty() {
+        return;
+    }
+    let contributors = private_prelude_callback_constraint_contributors(
+        module,
+        &initial_omitted_private_returns,
+        &returns_by_path,
+        &function_by_path,
+        &module.uses,
+        adts,
+    );
+    if contributors.is_empty() {
+        return;
+    }
+
     let mut changed = true;
     while changed {
         changed = false;
-        let omitted_private_returns = omitted_private_returns(module);
-        if omitted_private_returns.is_empty() {
-            break;
-        }
-        let contributors = private_prelude_callback_constraint_contributors(
-            module,
-            &omitted_private_returns,
-            &returns_by_path,
-            &function_by_path,
-            &module.uses,
-            adts,
-        );
+        let omitted_private_returns = initial_omitted_private_returns.clone();
         for function in module.functions.iter().filter(|function| {
             function_key(function).is_some_and(|key| contributors.contains(&key))
         }) {
@@ -2611,9 +2659,14 @@ fn private_prelude_callback_constraint_contributors(
     uses: &[UseDecl],
     adts: &AdtRegistry,
 ) -> BTreeSet<FunctionKey> {
+    let modules_with_omitted_returns = omitted_private_returns
+        .iter()
+        .map(|key| key.0.clone())
+        .collect::<BTreeSet<_>>();
     module
         .functions
         .iter()
+        .filter(|function| modules_with_omitted_returns.contains(&function.module_name))
         .filter_map(|function| {
             let key = function_key(function)?;
             private_prelude_callback_function_can_constrain(
@@ -2646,6 +2699,9 @@ fn private_prelude_callback_function_can_constrain(
     {
         return true;
     }
+
+    #[cfg(test)]
+    private_inference_counters::record_prelude_callback_discovery_scan();
 
     let mut bindings = function
         .params
