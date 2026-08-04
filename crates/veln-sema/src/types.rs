@@ -3307,6 +3307,39 @@ fn private_prelude_callback_expr_references_slot(
                     .iter()
                     .any(|arg| private_prelude_callback_expr_references_slot(arg, None, context))
         }
+        ExprKind::List(_) | ExprKind::Dict(_) | ExprKind::Record(_) => {
+            private_prelude_callback_collection_references_slot(expr, expected, context)
+        }
+        ExprKind::Perform { .. }
+        | ExprKind::Handle { .. }
+        | ExprKind::SchemaDecode { .. }
+        | ExprKind::SchemaEncode { .. }
+        | ExprKind::FieldAccess { .. }
+        | ExprKind::Try(_)
+        | ExprKind::Prefix { .. } => {
+            private_prelude_callback_wrapped_expr_references_slot(expr, expected, context)
+        }
+        ExprKind::Match { .. } | ExprKind::If { .. } | ExprKind::Binary { .. } => {
+            private_prelude_callback_control_flow_references_slot(expr, expected, context)
+        }
+        ExprKind::NamePath(_)
+        | ExprKind::Missing
+        | ExprKind::Hole { .. }
+        | ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
+        | ExprKind::Unit
+        | ExprKind::TypeApply { .. } => false,
+    }
+}
+
+fn private_prelude_callback_collection_references_slot(
+    expr: &Expr,
+    expected: Option<&Type>,
+    context: &PrivatePreludeCallbackReferenceContext<'_>,
+) -> bool {
+    match &expr.kind {
         ExprKind::List(items) => items.iter().any(|item| {
             let item_expected = expected.and_then(Type::vec_part);
             private_prelude_callback_expr_references_slot(item, item_expected, context)
@@ -3326,6 +3359,16 @@ fn private_prelude_callback_expr_references_slot(
             let field_expected = expected.and_then(|expected| expected.record_field(&field.name));
             private_prelude_callback_expr_references_slot(&field.expr, field_expected, context)
         }),
+        _ => false,
+    }
+}
+
+fn private_prelude_callback_wrapped_expr_references_slot(
+    expr: &Expr,
+    expected: Option<&Type>,
+    context: &PrivatePreludeCallbackReferenceContext<'_>,
+) -> bool {
+    match &expr.kind {
         ExprKind::Perform { args, .. } => args
             .iter()
             .any(|arg| private_prelude_callback_expr_references_slot(arg, None, context)),
@@ -3352,6 +3395,16 @@ fn private_prelude_callback_expr_references_slot(
         | ExprKind::Prefix { expr: value, .. } => {
             private_prelude_callback_expr_references_slot(value, None, context)
         }
+        _ => false,
+    }
+}
+
+fn private_prelude_callback_control_flow_references_slot(
+    expr: &Expr,
+    expected: Option<&Type>,
+    context: &PrivatePreludeCallbackReferenceContext<'_>,
+) -> bool {
+    match &expr.kind {
         ExprKind::Match { scrutinee, arms } => {
             private_prelude_callback_expr_references_slot(scrutinee, None, context)
                 || arms.iter().any(|arm| {
@@ -3383,15 +3436,7 @@ fn private_prelude_callback_expr_references_slot(
             private_prelude_callback_expr_references_slot(left, expected, context)
                 || private_prelude_callback_expr_references_slot(right, expected, context)
         }
-        ExprKind::NamePath(_)
-        | ExprKind::Missing
-        | ExprKind::Hole { .. }
-        | ExprKind::StringLiteral(_)
-        | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
-        | ExprKind::BoolLiteral(_)
-        | ExprKind::Unit
-        | ExprKind::TypeApply { .. } => false,
+        _ => false,
     }
 }
 
