@@ -788,7 +788,7 @@ fn prelude_callback_return_inference_skips_already_fixed_helpers() {
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     assert_eq!(counters.body_return_scans, 3, "{counters:#?}");
     assert_eq!(counters.call_site_scans, 3, "{counters:#?}");
-    assert_eq!(counters.prelude_callback_scans, 2, "{counters:#?}");
+    assert_eq!(counters.prelude_callback_scans, 1, "{counters:#?}");
 
     let environment = TypeEnvironment::from_module(&module);
     let nested = environment
@@ -805,6 +805,40 @@ fn prelude_callback_return_inference_skips_already_fixed_helpers() {
             )]
         )
     );
+    let fixed = environment
+        .function("fixed")
+        .expect("fixed callback should be present");
+    assert_eq!(fixed.params[0], crate::semantic_model::Type::int());
+    assert_eq!(fixed.return_type, crate::semantic_model::Type::string());
+}
+
+#[test]
+fn prelude_callback_return_inference_has_zero_scan_when_helper_return_is_fixed() {
+    crate::types::private_inference_counters::reset();
+    let mut source = String::from(
+        "mod target\n\
+         fn fixed(value)\n  \"ok\"\nend\n\
+         \n\
+         fn main() -> Vec<String>\n\
+           vec_map([1], fixed)\n\
+         end\n",
+    );
+    for function_index in 0..12 {
+        source.push_str(&format!(
+            "\nfn annotated_{function_index}(value: Int) -> Int\n  value\nend\n"
+        ));
+    }
+    let module = merged_modules(vec![SourceFile::new("target.veln", source)]);
+
+    let diagnostics = analyze_surface_module(&module);
+    let counters = crate::types::private_inference_counters::snapshot();
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert_eq!(counters.body_return_scans, 1, "{counters:#?}");
+    assert_eq!(counters.call_site_scans, 2, "{counters:#?}");
+    assert_eq!(counters.prelude_callback_scans, 0, "{counters:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
     let fixed = environment
         .function("fixed")
         .expect("fixed callback should be present");

@@ -2639,51 +2639,95 @@ fn private_prelude_callback_function_can_constrain(
     uses: &[UseDecl],
     adts: &AdtRegistry,
 ) -> bool {
-    omitted_private_returns.contains(key)
+    if omitted_private_returns.contains(key)
         && returns_by_path.get(key).is_some_and(|return_type| {
             private_tail_can_use_expected(function, return_type, uses, adts)
         })
-        || function.body.iter().any(|line| {
-            private_prelude_callback_line_references_slot(
-                line,
-                None,
-                function.module_name.as_deref(),
-                uses,
-                &[],
-                omitted_private_returns,
-                returns_by_path,
-                function_by_path,
-                adts,
-            )
-        })
-}
+    {
+        return true;
+    }
 
-fn private_prelude_callback_line_references_slot(
-    line: &BodyLine,
-    expected: Option<&Type>,
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-    bindings: &[Binding],
-    omitted_private_returns: &BTreeSet<FunctionKey>,
-    returns_by_path: &FunctionReturnMap,
-    function_by_path: &FunctionAstMap<'_>,
-    adts: &AdtRegistry,
-) -> bool {
-    match &line.kind {
-        BodyLineKind::Let { expr, .. } | BodyLineKind::Expr { expr } => {
-            private_prelude_callback_expr_references_slot(
+    let mut bindings = function
+        .params
+        .iter()
+        .map(|param| Binding::new(param.name.clone(), function_body_param_type(param)))
+        .collect::<Vec<_>>();
+    let declared_return = function
+        .return_type
+        .as_deref()
+        .map(|return_type| parse_type_or_unknown(Some(return_type)));
+    for (index, line) in function.body.iter().enumerate() {
+        match &line.kind {
+            BodyLineKind::Let {
+                pattern,
+                annotation,
                 expr,
-                expected,
-                current_module,
-                uses,
-                bindings,
-                omitted_private_returns,
-                returns_by_path,
-                function_by_path,
-                adts,
-            )
+            } => {
+                let annotation_type = annotation
+                    .as_deref()
+                    .map(|annotation| parse_type_or_unknown(Some(annotation)));
+                if private_prelude_callback_expr_references_slot(
+                    expr,
+                    annotation_type.as_ref(),
+                    function.module_name.as_deref(),
+                    uses,
+                    &bindings,
+                    omitted_private_returns,
+                    returns_by_path,
+                    function_by_path,
+                    adts,
+                ) {
+                    return true;
+                }
+                let initializer_private_function = annotation_type
+                    .is_none()
+                    .then(|| {
+                        private_same_module_call_target(
+                            expr,
+                            function.module_name.as_deref(),
+                            function_by_path,
+                        )
+                    })
+                    .flatten();
+                let ty = annotation_type.unwrap_or_else(|| {
+                    infer_private_signature_expr_type(
+                        expr,
+                        None,
+                        function.module_name.as_deref(),
+                        uses,
+                        &bindings,
+                        returns_by_path,
+                        adts,
+                    )
+                });
+                collect_let_pattern_bindings(
+                    pattern,
+                    &ty,
+                    initializer_private_function,
+                    &mut bindings,
+                );
+            }
+            BodyLineKind::Expr { expr } => {
+                let expected = (index + 1 == function.body.len())
+                    .then_some(declared_return.as_ref())
+                    .flatten();
+                if private_prelude_callback_expr_references_slot(
+                    expr,
+                    expected,
+                    function.module_name.as_deref(),
+                    uses,
+                    &bindings,
+                    omitted_private_returns,
+                    returns_by_path,
+                    function_by_path,
+                    adts,
+                ) {
+                    return true;
+                }
+            }
         }
     }
+    false
 }
 
 fn private_prelude_callback_expr_references_slot(
@@ -2698,8 +2742,19 @@ fn private_prelude_callback_expr_references_slot(
     adts: &AdtRegistry,
 ) -> bool {
     if let ExprKind::NamePath(segments) = &expr.kind
-        && private_name_path_target(segments, current_module, function_by_path)
-            .is_some_and(|key| omitted_private_returns.contains(&key))
+        && expected.is_some_and(|expected| {
+            private_callback_return_constraint_can_update(
+                segments,
+                expected,
+                current_module,
+                bindings,
+                omitted_private_returns,
+                returns_by_path,
+                function_by_path,
+                uses,
+                adts,
+            )
+        })
     {
         return true;
     }
@@ -2996,7 +3051,7 @@ fn private_prelude_callback_expr_references_slot(
 fn private_prelude_callback_call_references_slot(
     callee: &Expr,
     args: &[Expr],
-    _expected: Option<&Type>,
+    expected: Option<&Type>,
     current_module: Option<&str>,
     uses: &[UseDecl],
     bindings: &[Binding],
@@ -3012,48 +3067,130 @@ fn private_prelude_callback_call_references_slot(
     else {
         return false;
     };
-    let _ = name;
-    args.iter().any(|arg| {
-        private_prelude_callback_arg_references_slot(
+    let input_type = private_prelude_input_arg(args, name).map(|arg| {
+        infer_private_signature_expr_type(
             arg,
-            current_module,
-            uses,
-            bindings,
-            omitted_private_returns,
-            returns_by_path,
-            function_by_path,
-            adts,
-        )
-    })
-}
-
-fn private_prelude_callback_arg_references_slot(
-    expr: &Expr,
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-    bindings: &[Binding],
-    omitted_private_returns: &BTreeSet<FunctionKey>,
-    returns_by_path: &FunctionReturnMap,
-    function_by_path: &FunctionAstMap<'_>,
-    adts: &AdtRegistry,
-) -> bool {
-    match &expr.kind {
-        ExprKind::NamePath(segments) => {
-            private_name_path_target(segments, current_module, function_by_path)
-                .is_some_and(|key| omitted_private_returns.contains(&key))
-        }
-        _ => private_prelude_callback_expr_references_slot(
-            expr,
             None,
             current_module,
             uses,
             bindings,
-            omitted_private_returns,
             returns_by_path,
-            function_by_path,
             adts,
+        )
+    });
+    let Some((mut params, _)) =
+        crate::prelude::prelude_signature_with_input(name, expected, input_type.as_ref())
+    else {
+        return false;
+    };
+    if name == "vec_try_map_with" {
+        let context_type = args.first().map(|arg| {
+            infer_private_signature_expr_type(
+                arg,
+                None,
+                current_module,
+                uses,
+                bindings,
+                returns_by_path,
+                adts,
+            )
+        });
+        apply_vec_try_map_with_context_param(&mut params, context_type);
+    }
+    args.iter().zip(params.iter()).any(|(arg, param)| {
+        private_prelude_callback_arg_references_slot(
+            arg,
+            param,
+            PrivatePreludeCallbackReferenceContext {
+                current_module,
+                uses,
+                bindings,
+                omitted_private_returns,
+                returns_by_path,
+                function_by_path,
+                adts,
+            },
+        )
+    })
+}
+
+struct PrivatePreludeCallbackReferenceContext<'a> {
+    current_module: Option<&'a str>,
+    uses: &'a [UseDecl],
+    bindings: &'a [Binding],
+    omitted_private_returns: &'a BTreeSet<FunctionKey>,
+    returns_by_path: &'a FunctionReturnMap,
+    function_by_path: &'a FunctionAstMap<'a>,
+    adts: &'a AdtRegistry,
+}
+
+fn private_prelude_callback_arg_references_slot(
+    expr: &Expr,
+    expected: &Type,
+    context: PrivatePreludeCallbackReferenceContext<'_>,
+) -> bool {
+    match &expr.kind {
+        ExprKind::NamePath(segments) => private_callback_return_constraint_can_update(
+            segments,
+            expected,
+            context.current_module,
+            context.bindings,
+            context.omitted_private_returns,
+            context.returns_by_path,
+            context.function_by_path,
+            context.uses,
+            context.adts,
+        ),
+        _ => private_prelude_callback_expr_references_slot(
+            expr,
+            Some(expected),
+            context.current_module,
+            context.uses,
+            context.bindings,
+            context.omitted_private_returns,
+            context.returns_by_path,
+            context.function_by_path,
+            context.adts,
         ),
     }
+}
+
+fn private_callback_return_constraint_can_update(
+    segments: &[String],
+    expected_callback: &Type,
+    current_module: Option<&str>,
+    bindings: &[Binding],
+    omitted_private_returns: &BTreeSet<FunctionKey>,
+    returns_by_path: &FunctionReturnMap,
+    function_by_path: &FunctionAstMap<'_>,
+    uses: &[UseDecl],
+    adts: &AdtRegistry,
+) -> bool {
+    let Type::Function { return_type, .. } = expected_callback else {
+        return false;
+    };
+    if type_has_unknown(return_type) {
+        return false;
+    }
+    let [name] = segments else {
+        return false;
+    };
+    let key = bindings
+        .iter()
+        .rev()
+        .find(|binding| binding.name == *name)
+        .and_then(|binding| binding.private_function_value.clone())
+        .unwrap_or_else(|| (current_module.map(str::to_string), name.clone()));
+    if !omitted_private_returns.contains(&key) {
+        return false;
+    }
+    let Some(function) = function_by_path.get(&key) else {
+        return false;
+    };
+    if !private_tail_can_use_expected(function, return_type, uses, adts) {
+        return false;
+    }
+    returns_by_path.get(&key) != Some(return_type)
 }
 
 struct PrivatePreludeCallbackConstraintContext<'a> {

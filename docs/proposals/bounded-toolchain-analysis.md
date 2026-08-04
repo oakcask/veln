@@ -62,9 +62,13 @@ unrelated fully annotated module sets do not pay private-inference body scans,
 and that an omitted private helper chain still reaches the same inferred
 parameter and return types while skipping unrelated annotated modules and
 unrelated annotated functions in the same module.
-The same counter coverage includes a prelude-callback refinement case that
-records the deterministic body-return, call-site, and prelude-callback scan
-counts while preserving the inferred callback parameter and return types.
+The same counter coverage includes prelude-callback boundary cases that record
+deterministic body-return, call-site, and prelude-callback scan counts. One
+case combines nested and scalar callback helpers while preserving the inferred
+callback parameter and return types and scanning only the helper that still
+needs prelude-callback refinement. Another case verifies that a helper whose
+return is already fixed before the prelude-callback pass performs no
+prelude-callback body scan.
 
 ## Proposed Outcome
 
@@ -195,8 +199,9 @@ unchanged. It narrows only analyzer work:
 - private call-site signature inference skips the fixed-point pass when no
   omitted private parameter or return slot can still change;
 - private prelude-callback return inference skips body traversal when no
-  omitted private return is passed through a prelude callback context or has a
-  tail expression that can use such an expected return type;
+  omitted private return still contains unknown type information and is passed
+  through a prelude callback context or has a tail expression that can use such
+  an expected return type;
 - when eligible private slots remain, call-site and prelude-callback inference
   traverse only functions that own those slots or reference them in ways that
   can contribute constraints.
