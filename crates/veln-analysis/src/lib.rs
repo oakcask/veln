@@ -16,8 +16,11 @@ pub use surface::{
 
 #[cfg(test)]
 mod tests {
-    use veln_diagnostics::{DiagnosticKind, JsonValue, Severity};
-    use veln_source::{LineCol, SourcePath, SourceSpan};
+    use std::thread;
+
+    use veln_diagnostics::{DiagnosticKind, JsonValue, Severity, diagnostic_to_json};
+    use veln_project::Project;
+    use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan};
     use veln_syntax::{
         ParseDiagnostic, ParseRepairCandidate, ParseRepairEdit, Recovery, RecoveryStrategy,
         UnexpectedToken,
@@ -109,6 +112,180 @@ mod tests {
             JsonValue::array(converted.related).to_json(),
             "[{\"message\":\"Accepted integer form: decimal integer.\"}]"
         );
+    }
+
+    #[test]
+    fn shared_analysis_keeps_diagnostic_json_order_stable_across_projects() {
+        let alpha = project(
+            "src/alpha/shared.veln",
+            concat!(
+                "mod alpha.shared\n",
+                "pub fn entry() -> Int\n",
+                "  \"alpha-only\"\n",
+                "end\n",
+            ),
+        );
+        let beta = project(
+            "src/beta/shared.veln",
+            concat!(
+                "mod beta.shared\n",
+                "pub fn entry() -> Bool\n",
+                "  1\n",
+                "end\n",
+            ),
+        );
+        let alpha_isolated = checked_diagnostic_json(alpha.clone());
+        let beta_isolated = checked_diagnostic_json(beta.clone());
+
+        assert_project_evidence(
+            &alpha_isolated,
+            "src/alpha/shared.veln",
+            "alpha.shared",
+            "expected `Int`, but found `String`",
+        );
+        assert_project_evidence(
+            &beta_isolated,
+            "src/beta/shared.veln",
+            "beta.shared",
+            "expected `Bool`, but found `Int`",
+        );
+        assert_no_project_leak(
+            &alpha_isolated,
+            "src/beta/shared.veln",
+            "beta.shared",
+            "expected `Bool`, but found `Int`",
+        );
+        assert_no_project_leak(
+            &beta_isolated,
+            "src/alpha/shared.veln",
+            "alpha.shared",
+            "expected `Int`, but found `String`",
+        );
+
+        for _ in 0..8 {
+            assert_eq!(checked_diagnostic_json(alpha.clone()), alpha_isolated);
+            assert_eq!(checked_diagnostic_json(beta.clone()), beta_isolated);
+        }
+
+        let handles = (0..16)
+            .map(|index| {
+                let project = if index % 2 == 0 {
+                    alpha.clone()
+                } else {
+                    beta.clone()
+                };
+                thread::spawn(move || (index, checked_diagnostic_json(project)))
+            })
+            .collect::<Vec<_>>();
+
+        for handle in handles {
+            let (index, diagnostics) = handle.join().expect("analysis thread should not panic");
+            if index % 2 == 0 {
+                assert_eq!(diagnostics, alpha_isolated);
+                assert_no_project_leak(
+                    &diagnostics,
+                    "src/beta/shared.veln",
+                    "beta.shared",
+                    "expected `Bool`, but found `Int`",
+                );
+            } else {
+                assert_eq!(diagnostics, beta_isolated);
+                assert_no_project_leak(
+                    &diagnostics,
+                    "src/alpha/shared.veln",
+                    "alpha.shared",
+                    "expected `Int`, but found `String`",
+                );
+            }
+        }
+    }
+
+    fn checked_diagnostic_json(project: Project) -> Vec<String> {
+        analyze_project(project, DoctestMode::Exclude)
+            .checked_diagnostics()
+            .iter()
+            .map(|diagnostic| diagnostic_to_json(diagnostic).to_json())
+            .collect()
+    }
+
+    fn assert_project_evidence(
+        diagnostics: &[String],
+        source_path: &str,
+        module_path: &str,
+        type_message: &str,
+    ) {
+        assert_eq!(
+            diagnostic_ids(diagnostics),
+            ["module.source_mod", "type.mismatch"],
+            "{diagnostics:#?}"
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains(source_path)),
+            "{diagnostics:#?}"
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains(module_path)),
+            "{diagnostics:#?}"
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains(type_message)),
+            "{diagnostics:#?}"
+        );
+    }
+
+    fn assert_no_project_leak(
+        diagnostics: &[String],
+        source_path: &str,
+        module_path: &str,
+        type_message: &str,
+    ) {
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| !diagnostic.contains(source_path)),
+            "{diagnostics:#?}"
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| !diagnostic.contains(module_path)),
+            "{diagnostics:#?}"
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| !diagnostic.contains(type_message)),
+            "{diagnostics:#?}"
+        );
+    }
+
+    fn diagnostic_ids(diagnostics: &[String]) -> Vec<&'static str> {
+        diagnostics
+            .iter()
+            .map(|diagnostic| {
+                if diagnostic.contains("\"id\":\"module.source_mod\"") {
+                    "module.source_mod"
+                } else if diagnostic.contains("\"id\":\"type.mismatch\"") {
+                    "type.mismatch"
+                } else {
+                    "unexpected"
+                }
+            })
+            .collect()
+    }
+
+    fn project(path: &str, text: &str) -> Project {
+        Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(path, text)],
+            manifest: None,
+        }
     }
 
     fn diagnostic(parser_context: &'static str, expected: Vec<&'static str>) -> ParseDiagnostic {
