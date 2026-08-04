@@ -19,6 +19,9 @@ behavior specifications.
 - [toolchain-analysis-demand-standard-library.json](toolchain-analysis-demand-standard-library.json)
   records the controlled comparison for demand-driven embedded
   standard-library initialization.
+- [toolchain-analysis-separated-standard-inputs.json](toolchain-analysis-separated-standard-inputs.json)
+  records the controlled comparison for separate application and selected
+  standard-library analysis inputs.
 - A proposal or reference page links to a named review record.
 - A local benchmark result or audit record is needed to check why a proposal
   slice was accepted.

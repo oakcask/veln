@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use veln_ast::{FunctionKind, SurfaceModule, Visibility};
 use veln_core::CheckedProgram;
 use veln_diagnostics::{Diagnostic, Severity};
@@ -43,6 +45,32 @@ pub fn check_project_surface_module_with_standard_environment(
 ) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
     let environment = TypeEnvironment::from_module_with_standard(module, standard);
     check_project_surface_module_with_environment(module, environment)
+}
+
+pub fn check_project_surface_modules_with_standard_environment(
+    application_module: &SurfaceModule,
+    selected_standard_module: &SurfaceModule,
+    standard: &ReusableStandardEnvironment,
+) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
+    let environment = TypeEnvironment::from_application_module_with_standard(
+        application_module,
+        selected_standard_module,
+        standard,
+    );
+    check_project_surface_module_with_environment(application_module, environment)
+}
+
+pub fn check_project_surface_module_with_standard_modules_environment(
+    application_module: &SurfaceModule,
+    selected_standard_module_names: &BTreeSet<String>,
+    standard: &ReusableStandardEnvironment,
+) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
+    let environment = TypeEnvironment::from_application_module_with_standard_module_names(
+        application_module,
+        selected_standard_module_names,
+        standard,
+    );
+    check_project_surface_module_with_environment(application_module, environment)
 }
 
 pub fn prepare_reusable_standard_surface_module_environment(
@@ -130,6 +158,19 @@ pub fn lower_project_reachable_surface_module_with_standard_environment(
 ) -> LoweredSurfaceModule {
     let environment = TypeEnvironment::from_module_with_standard(module, standard);
     lower_project_reachable_surface_module_with_environment(module, environment)
+}
+
+pub fn lower_project_reachable_surface_modules_with_standard_environment(
+    reachable_module: &SurfaceModule,
+    selected_standard_module: &SurfaceModule,
+    standard: &ReusableStandardEnvironment,
+) -> LoweredSurfaceModule {
+    let environment = TypeEnvironment::from_application_module_with_standard(
+        reachable_module,
+        selected_standard_module,
+        standard,
+    );
+    lower_project_reachable_surface_module_with_environment(reachable_module, environment)
 }
 
 fn lower_project_reachable_surface_module_with_environment(

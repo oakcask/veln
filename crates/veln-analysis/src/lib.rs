@@ -21,7 +21,7 @@ mod tests {
     use std::thread;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use veln_ast::FunctionKind;
+    use veln_ast::{FunctionKind, SurfaceModule};
     use veln_diagnostics::{DiagnosticKind, JsonValue, Severity, diagnostic_to_json};
     use veln_project::Project;
     use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan};
@@ -227,6 +227,49 @@ mod tests {
     }
 
     #[test]
+    fn project_loading_keeps_application_and_selected_standard_inputs_separate() {
+        let project = project(
+            "src/main.veln",
+            concat!(
+                "use http2::frame from \"std\"\n",
+                "\n",
+                "pub fn main(view: ByteView) -> Result<{ length : Int, kind : Int, flags : Int, stream_id : Int, payload : ByteView }, String>\n",
+                "  http2::frame::decode(view)\n",
+                "end\n",
+            ),
+        );
+
+        let (loaded, diagnostics) = crate::surface::load_surface_modules(&project);
+        let (combined, combined_diagnostics) = load_surface_module(&project);
+
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        assert!(combined_diagnostics.is_empty(), "{combined_diagnostics:#?}");
+        assert_eq!(
+            standard_declaration_count(&loaded.application),
+            0,
+            "application input must not own selected standard declarations"
+        );
+        assert!(
+            !loaded.selected_standard_module_names.is_empty(),
+            "selected standard input should identify the selected closure"
+        );
+        assert!(
+            loaded
+                .selected_standard_module_names
+                .contains("std::http2::frame")
+        );
+        let frame_decode_count = combined
+            .functions
+            .iter()
+            .filter(|function| {
+                function.module_name.as_deref() == Some("std::http2::frame")
+                    && function.name.as_deref() == Some("decode")
+            })
+            .count();
+        assert_eq!(frame_decode_count, 1);
+    }
+
+    #[test]
     fn rediscovered_project_analysis_uses_changed_source_text_and_manifest_data() {
         let cache = crate::analysis::TestStandardEnvironmentCache::new();
         let temp = TempProject::new("analysis-rediscovery-isolation");
@@ -277,6 +320,92 @@ mod tests {
         assert!(restored.is_empty(), "{restored:#?}");
         assert_eq!(cache.standard_prepares(), 1);
         assert_eq!(cache.application_analyses(), 3);
+    }
+
+    #[test]
+    fn rediscovered_project_analysis_uses_changed_package_and_command_inputs() {
+        let cache = crate::analysis::TestStandardEnvironmentCache::new();
+        let temp = TempProject::new("analysis-package-and-input-isolation");
+        temp.write(
+            "src/good.veln",
+            concat!("pub fn entry() -> Int\n", "  1\n", "end\n"),
+        );
+        temp.write(
+            "src/bad.veln",
+            concat!("pub fn entry() -> Bool\n", "  1\n", "end\n"),
+        );
+        temp.write(
+            "src/main.veln",
+            concat!(
+                "use exported from \"example/pkg\"\n",
+                "\n",
+                "pub fn entry() -> Int\n",
+                "  exported::value()\n",
+                "end\n",
+            ),
+        );
+        temp.write(
+            "veln.toml",
+            concat!(
+                "[dependencies.\"example/pkg\"]\n",
+                "path = \"vendor/pkg\"\n",
+            ),
+        );
+        temp.write(
+            "vendor/pkg/veln.toml",
+            concat!(
+                "[package]\n",
+                "name = \"example/pkg\"\n",
+                "\n",
+                "[lib]\n",
+                "exports = [\"exported.veln\"]\n",
+            ),
+        );
+        temp.write(
+            "vendor/pkg/exported.veln",
+            concat!("pub fn value() -> Int\n", "  1\n", "end\n"),
+        );
+
+        let good_input = checked_discovered_diagnostic_json_with_cache(
+            &temp,
+            &[PathBuf::from("src/good.veln")],
+            &cache,
+        );
+        let bad_input = checked_discovered_diagnostic_json_with_cache(
+            &temp,
+            &[PathBuf::from("src/bad.veln")],
+            &cache,
+        );
+        let package_baseline = checked_discovered_diagnostic_json_with_cache(
+            &temp,
+            &[PathBuf::from("src/main.veln")],
+            &cache,
+        );
+
+        assert!(good_input.is_empty(), "{good_input:#?}");
+        assert_eq!(diagnostic_ids(&bad_input), ["type.mismatch"]);
+        assert!(package_baseline.is_empty(), "{package_baseline:#?}");
+
+        temp.write(
+            "vendor/pkg/exported.veln",
+            concat!("pub fn value() -> Bool\n", "  true\n", "end\n"),
+        );
+
+        let package_changed = checked_discovered_diagnostic_json_with_cache(
+            &temp,
+            &[PathBuf::from("src/main.veln")],
+            &cache,
+        );
+
+        assert_eq!(diagnostic_ids(&package_changed), ["type.mismatch"]);
+        assert!(
+            package_changed
+                .iter()
+                .any(|diagnostic| diagnostic.contains("expected `Int`, but found `Bool`")),
+            "{package_changed:#?}"
+        );
+        assert_eq!(cache.standard_prepares(), 1);
+        assert_eq!(cache.application_analyses(), 4);
     }
 
     #[test]
@@ -535,6 +664,55 @@ mod tests {
             .iter()
             .map(|function| function.name.as_str())
             .collect()
+    }
+
+    fn standard_declaration_count(module: &SurfaceModule) -> usize {
+        module
+            .uses
+            .iter()
+            .filter(|decl| is_standard(&decl.module_name))
+            .count()
+            + module
+                .aliases
+                .iter()
+                .filter(|decl| is_standard(&decl.module_name))
+                .count()
+            + module
+                .effects
+                .iter()
+                .filter(|decl| is_standard(&decl.module_name))
+                .count()
+            + module
+                .handlers
+                .iter()
+                .filter(|decl| is_standard(&decl.module_name))
+                .count()
+            + module
+                .types
+                .iter()
+                .filter(|decl| is_standard(&decl.module_name))
+                .count()
+            + module
+                .schemas
+                .iter()
+                .filter(|decl| is_standard(&decl.module_name))
+                .count()
+            + module
+                .codecs
+                .iter()
+                .filter(|decl| is_standard(&decl.module_name))
+                .count()
+            + module
+                .functions
+                .iter()
+                .filter(|decl| is_standard(&decl.module_name))
+                .count()
+    }
+
+    fn is_standard(module_name: &Option<String>) -> bool {
+        module_name
+            .as_deref()
+            .is_some_and(|module_name| module_name.starts_with("std::"))
     }
 
     fn checked_discovered_diagnostic_json_with_cache(

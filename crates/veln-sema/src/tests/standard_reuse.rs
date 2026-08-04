@@ -416,6 +416,124 @@ fn reusable_standard_environment_is_prepared_once_for_repeated_and_concurrent_pr
     );
 }
 
+#[test]
+fn reachable_project_lowering_with_reusable_standard_environment_keeps_standard_bodies() {
+    let _guard = standard_reuse_test_lock();
+    let mut standard = standard_module();
+    for decl in &mut standard.types {
+        if decl.name.as_deref() == Some("PayloadShape") {
+            decl.visibility = Visibility::Public;
+        }
+    }
+    for decl in &mut standard.schemas {
+        if decl.name.as_deref() == Some("Packet") {
+            decl.visibility = Visibility::Public;
+        }
+    }
+    for decl in &mut standard.functions {
+        if decl.name.as_deref() == Some("identity") {
+            decl.visibility = Visibility::Public;
+        }
+    }
+    let reusable = prepare_reusable_standard_surface_module_environment(&standard)
+        .with_current_identity_for_test();
+    let app = app_case(
+        "reachable standard bodies",
+        "src/main.veln",
+        concat!(
+            "mod app.main\n",
+            "\n",
+            "fn compute() -> Int effects [prelude::Ask]\n",
+            "  perform prelude::Ask::value()\n",
+            "end\n",
+            "\n",
+            "pub fn main(input: ByteView, base: ByteOffset, payload: prelude::SharedPayload) -> DecodeStep<{value: Int}>\n",
+            "  let observed = handle compute() with prelude::ask(1)\n",
+            "  let boxed = payload\n",
+            "  prelude::PayloadCodec(input, base)\n",
+            "end\n",
+        ),
+    )
+    .module;
+    let module_header = app.module.clone();
+    let mut module = merge_modules(vec![standard, app]);
+    module.module = module_header;
+
+    let lowered =
+        lower_project_reachable_surface_module_with_standard_environment(&module, &reusable);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("reachable core should lower");
+    assert!(
+        core.effects.iter().any(|effect| effect.name == "Ask"),
+        "standard effect should be present: {:#?}",
+        core.effects
+    );
+    assert_core_function(core, "__veln_std$prelude$provide");
+    assert_core_function(core, "__veln_std$prelude$decode_payload_packet");
+    assert!(
+        core.functions.iter().any(|function| {
+            function.name == "main"
+                && function.body.iter().any(|stmt| {
+                    matches!(
+                        &stmt.kind,
+                        CoreStmtKind::Let { expr, .. }
+                            if matches!(
+                                &expr.kind,
+                                CoreExprKind::Handle { providers, .. }
+                                    if providers.iter().any(|provider| {
+                                        provider.function == "__veln_std$prelude$provide"
+                                    })
+                            )
+                    )
+                })
+        }),
+        "application entry should retain the standard handler provider: {:#?}",
+        core.functions
+    );
+    assert!(
+        core.functions.iter().any(|function| {
+            function.name == "main"
+                && function.body.iter().any(|stmt| {
+                    matches!(
+                        &stmt.kind,
+                        CoreStmtKind::Return { expr }
+                            if matches!(
+                                &expr.kind,
+                                CoreExprKind::Call {
+                                    target: CoreCallTarget::CodecDecode { function, codec },
+                                    ..
+                                } if function == "__veln_std$prelude$decode_payload_packet"
+                                    && codec == "PayloadCodec"
+                            )
+                    )
+                })
+        }),
+        "application entry should call the standard codec: {:#?}",
+        core.functions
+    );
+    assert!(
+        core.functions.iter().any(|function| {
+            function.name == "main"
+                && function
+                    .params
+                    .iter()
+                    .any(|param| format!("{:?}", param.ty).contains("SharedPayload"))
+        }),
+        "application entry should retain the standard type: {:#?}",
+        core.functions
+    );
+
+    let ir = lowered.ir.as_ref().expect("reachable IR should lower");
+    assert!(
+        ir.schema_decoders.iter().any(|schema| {
+            schema.schema_name == "Packet" && schema.function_name == "byte_decode_packet"
+        }),
+        "standard schema decoder should be present: {:#?}",
+        ir.schema_decoders
+    );
+}
+
 struct AppCase {
     name: &'static str,
     module: SurfaceModule,
@@ -662,6 +780,17 @@ fn checked_json(module: &SurfaceModule, reusable: &ReusableStandardEnvironment) 
         .iter()
         .map(|diagnostic| diagnostic_to_json(diagnostic).to_json())
         .collect()
+}
+
+fn assert_core_function(core: &veln_core::CheckedProgram, name: &str) {
+    assert!(
+        core.functions.iter().any(|function| function.name == name),
+        "missing core function {name}: {:#?}",
+        core.functions
+            .iter()
+            .map(|function| function.name.as_str())
+            .collect::<Vec<_>>()
+    );
 }
 
 fn diagnostic_json(diagnostics: &[Diagnostic]) -> Vec<String> {
