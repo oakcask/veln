@@ -1533,90 +1533,98 @@ impl<'a> ProtocolDiagnosticContext<'a> {
 
     fn project_connection_lifecycle_rule(&self) -> Option<Diagnostic> {
         match self.id.as_str() {
-            "http2.protocol.closed_with_pending" => {
-                let pending_count = self.number("pending_count")?;
-                let active_continuation = self.string("active_continuation")?;
-                let expected_stream = self.number("expected_stream_id")?;
-                let started_kind = self.number("started_frame_kind")?;
-                let started_offset = self.number("started_byte_offset")?;
-                let accumulated = self.number("accumulated_header_block_bytes")?;
-                let rule_provenance = self.string("rule_provenance")?;
-                let mut diagnostic = self.diagnostic(format!(
-                    "input ended with pending bytes at byte offset {}",
-                    self.byte_offset
-                ));
-                diagnostic.related.push(note_json(format!(
-                    "Input end arrived while {pending_count} byte(s) remained undecoded."
-                )));
-                push_byte_preview_note(&mut diagnostic, self.entries);
-                diagnostic.related.push(note_json(format!(
-                    "Active continuation state: {active_continuation}."
-                )));
-                if active_continuation != "none" {
-                    diagnostic.related.push(note_json(format!(
-                        "Pending header block started with frame kind {started_kind} at byte offset {started_offset} for stream {expected_stream}; accumulated {accumulated} header-block byte(s)."
-                    )));
-                    diagnostic
-                        .related
-                        .push(note_json(format!("Rule provenance: {rule_provenance}.")));
-                }
-                Some(diagnostic)
-            }
-            "http2.protocol.partial_preface" => {
-                let pending_count = self.number("pending_count")?;
-                let expected_count = self.number("expected_count")?;
-                let mut diagnostic = self.diagnostic(format!(
-                    "input ended with partial client connection preface at byte offset {}",
-                    self.byte_offset
-                ));
-                diagnostic.related.push(note_json(format!(
-                    "Input end arrived after {pending_count} of {expected_count} preface byte(s)."
-                )));
-                self.push_preview_state_and_provenance(&mut diagnostic)?;
-                Some(diagnostic)
-            }
-            "http2.protocol.invalid_preface" => {
-                let expected_byte = self.number("expected_byte")?;
-                let actual_byte = self.number("actual_byte")?;
-                let matched_count = self.number("matched_prefix_count")?;
-                let expected_count = self.number("expected_count")?;
-                let mut diagnostic = self.diagnostic(format!(
-                    "invalid client connection preface at byte offset {}",
-                    self.byte_offset
-                ));
-                diagnostic.related.push(note_json(format!(
-                    "Observed byte {actual_byte}; expected byte {expected_byte} after {matched_count} of {expected_count} preface byte(s)."
-                )));
-                self.push_preview_state_and_provenance(&mut diagnostic)?;
-                Some(diagnostic)
-            }
-            "http2.protocol.continuation_expected" => {
-                let actual_kind = self.number("actual_frame_kind")?;
-                let actual_stream = self.number("actual_stream_id")?;
-                let expected_stream = self.number("expected_stream_id")?;
-                let started_kind = self.number("started_frame_kind")?;
-                let started_offset = self.number("started_byte_offset")?;
-                let active_continuation = self.string("active_continuation")?;
-                let accumulated = self.number("accumulated_header_block_bytes")?;
-                let rule_provenance = self.string("rule_provenance")?;
-                let mut diagnostic = self.diagnostic(format!(
-                    "expected CONTINUATION frame at byte offset {}",
-                    self.byte_offset
-                ));
-                diagnostic.related.push(note_json(format!(
-                    "Incoming frame kind {actual_kind} on stream {actual_stream} violated active continuation state `{active_continuation}`."
-                )));
-                diagnostic.related.push(note_json(format!(
-                    "Pending header block started with frame kind {started_kind} at byte offset {started_offset} for stream {expected_stream}; accumulated {accumulated} header-block byte(s)."
-                )));
-                push_byte_preview_note(&mut diagnostic, self.entries);
-                diagnostic
-                    .related
-                    .push(note_json(format!("Rule provenance: {rule_provenance}.")));
-                Some(diagnostic)
-            }
+            "http2.protocol.closed_with_pending" => self.project_closed_with_pending(),
+            "http2.protocol.partial_preface" => self.project_partial_preface(),
+            "http2.protocol.invalid_preface" => self.project_invalid_preface(),
+            "http2.protocol.continuation_expected" => self.project_continuation_expected(),
             _ => None,
         }
+    }
+
+    fn project_closed_with_pending(&self) -> Option<Diagnostic> {
+        let pending_count = self.number("pending_count")?;
+        let active_continuation = self.string("active_continuation")?;
+        let expected_stream = self.number("expected_stream_id")?;
+        let started_kind = self.number("started_frame_kind")?;
+        let started_offset = self.number("started_byte_offset")?;
+        let accumulated = self.number("accumulated_header_block_bytes")?;
+        let rule_provenance = self.string("rule_provenance")?;
+        let mut diagnostic = self.diagnostic(format!(
+            "input ended with pending bytes at byte offset {}",
+            self.byte_offset
+        ));
+        diagnostic.related.push(note_json(format!(
+            "Input end arrived while {pending_count} byte(s) remained undecoded."
+        )));
+        push_byte_preview_note(&mut diagnostic, self.entries);
+        diagnostic.related.push(note_json(format!(
+            "Active continuation state: {active_continuation}."
+        )));
+        if active_continuation != "none" {
+            diagnostic.related.push(note_json(format!(
+                "Pending header block started with frame kind {started_kind} at byte offset {started_offset} for stream {expected_stream}; accumulated {accumulated} header-block byte(s)."
+            )));
+            diagnostic
+                .related
+                .push(note_json(format!("Rule provenance: {rule_provenance}.")));
+        }
+        Some(diagnostic)
+    }
+
+    fn project_partial_preface(&self) -> Option<Diagnostic> {
+        let pending_count = self.number("pending_count")?;
+        let expected_count = self.number("expected_count")?;
+        let mut diagnostic = self.diagnostic(format!(
+            "input ended with partial client connection preface at byte offset {}",
+            self.byte_offset
+        ));
+        diagnostic.related.push(note_json(format!(
+            "Input end arrived after {pending_count} of {expected_count} preface byte(s)."
+        )));
+        self.push_preview_state_and_provenance(&mut diagnostic)?;
+        Some(diagnostic)
+    }
+
+    fn project_invalid_preface(&self) -> Option<Diagnostic> {
+        let expected_byte = self.number("expected_byte")?;
+        let actual_byte = self.number("actual_byte")?;
+        let matched_count = self.number("matched_prefix_count")?;
+        let expected_count = self.number("expected_count")?;
+        let mut diagnostic = self.diagnostic(format!(
+            "invalid client connection preface at byte offset {}",
+            self.byte_offset
+        ));
+        diagnostic.related.push(note_json(format!(
+            "Observed byte {actual_byte}; expected byte {expected_byte} after {matched_count} of {expected_count} preface byte(s)."
+        )));
+        self.push_preview_state_and_provenance(&mut diagnostic)?;
+        Some(diagnostic)
+    }
+
+    fn project_continuation_expected(&self) -> Option<Diagnostic> {
+        let actual_kind = self.number("actual_frame_kind")?;
+        let actual_stream = self.number("actual_stream_id")?;
+        let expected_stream = self.number("expected_stream_id")?;
+        let started_kind = self.number("started_frame_kind")?;
+        let started_offset = self.number("started_byte_offset")?;
+        let active_continuation = self.string("active_continuation")?;
+        let accumulated = self.number("accumulated_header_block_bytes")?;
+        let rule_provenance = self.string("rule_provenance")?;
+        let mut diagnostic = self.diagnostic(format!(
+            "expected CONTINUATION frame at byte offset {}",
+            self.byte_offset
+        ));
+        diagnostic.related.push(note_json(format!(
+            "Incoming frame kind {actual_kind} on stream {actual_stream} violated active continuation state `{active_continuation}`."
+        )));
+        diagnostic.related.push(note_json(format!(
+            "Pending header block started with frame kind {started_kind} at byte offset {started_offset} for stream {expected_stream}; accumulated {accumulated} header-block byte(s)."
+        )));
+        push_byte_preview_note(&mut diagnostic, self.entries);
+        diagnostic
+            .related
+            .push(note_json(format!("Rule provenance: {rule_provenance}.")));
+        Some(diagnostic)
     }
 
     fn project_frame_shape_rule(&self) -> Option<Diagnostic> {
@@ -1628,95 +1636,111 @@ impl<'a> ProtocolDiagnosticContext<'a> {
     fn project_frame_identity_rule(&self) -> Option<Diagnostic> {
         match self.id.as_str() {
             "http2.protocol.initial_peer_settings_required" => {
-                let actual_kind = self.number("actual_frame_kind")?;
-                let actual_flags = self.number("actual_flags")?;
-                let endpoint_role = self.string("endpoint_role")?;
-                let frame = self.frame_ref()?;
-                let mut diagnostic = self.diagnostic(format!(
-                    "initial peer frame must be non-ACK SETTINGS at byte offset {}",
-                    self.byte_offset
-                ));
-                diagnostic.related.push(note_json(format!(
-                    "Frame kind {actual_kind} with flags {actual_flags} on {} {} cannot start a {endpoint_role} endpoint connection.",
-                    frame.stream_ref, frame.stream_id
-                )));
-                self.push_preview_state_and_provenance(&mut diagnostic)?;
-                Some(diagnostic)
+                self.project_initial_peer_settings_required()
             }
-            "http2.protocol.invalid_frame_kind" => {
-                let actual_kind = self.number("actual_frame_kind")?;
-                let expected_kind = self.number("expected_frame_kind")?;
-                let frame = self.frame_ref()?;
-                let mut diagnostic = self.diagnostic(format!(
-                    "invalid frame kind at byte offset {}",
-                    self.byte_offset
-                ));
-                diagnostic.related.push(note_json(format!(
-                    "Frame kind {actual_kind} on {} {} did not match expected frame kind {expected_kind}.",
-                    frame.stream_ref, frame.stream_id
-                )));
-                self.push_preview_state_and_provenance(&mut diagnostic)?;
-                Some(diagnostic)
-            }
-            "http2.protocol.invalid_stream_id" => {
-                let frame_kind = self.number("frame_kind")?;
-                let required_domain = self.string("required_stream_id_domain")?;
-                let endpoint_role = self.string("endpoint_role")?;
-                let frame = self.frame_ref()?;
-                let mut diagnostic = self.diagnostic(format!(
-                    "invalid stream id at byte offset {}",
-                    self.byte_offset
-                ));
-                diagnostic.related.push(note_json(format!(
-                    "Frame kind {frame_kind} on {} {} requires {required_domain} for {endpoint_role}.",
-                    frame.stream_ref, frame.stream_id
-                )));
-                self.push_preview_state_and_provenance(&mut diagnostic)?;
-                Some(diagnostic)
-            }
+            "http2.protocol.invalid_frame_kind" => self.project_invalid_frame_kind(),
+            "http2.protocol.invalid_stream_id" => self.project_invalid_stream_id(),
             "http2.protocol.settings_not_allowed_for_endpoint" => {
-                let setting_identifier = self.number("setting_identifier")?;
-                let setting_name = self.string("setting_name")?;
-                let endpoint_role = self.string("endpoint_role")?;
-                let frame_kind = self.number("frame_kind")?;
-                let mut diagnostic = self.diagnostic(format!(
-                    "{setting_name} is not allowed for {endpoint_role} endpoints at byte offset {}",
-                    self.byte_offset
-                ));
-                diagnostic.related.push(note_json(format!(
-                    "{setting_name} ({setting_identifier}) appeared in frame kind {frame_kind}."
-                )));
-                push_byte_preview_note(&mut diagnostic, self.entries);
-                diagnostic
-                    .related
-                    .push(note_json(format!("Endpoint role: {endpoint_role}.")));
-                self.push_active_state(&mut diagnostic)?;
-                let rule_provenance = self.string("rule_provenance")?;
-                diagnostic
-                    .related
-                    .push(note_json(format!("Rule provenance: {rule_provenance}.")));
-                Some(diagnostic)
+                self.project_settings_not_allowed_for_endpoint()
             }
             "http2.protocol.peer_stream_id_not_increasing" => {
-                let frame = self.frame_ref()?;
-                let previous_stream_id = self.number("previous_peer_stream_id")?;
-                let endpoint_role = self.string("endpoint_role")?;
-                let mut diagnostic = self.diagnostic(format!(
-                    "peer-created stream id {} is not greater than {previous_stream_id} at byte offset {}",
-                    frame.stream_id, self.byte_offset
-                ));
-                diagnostic.related.push(note_json(format!(
-                    "The {endpoint_role} endpoint attempted to create idle stream {} after peer-created stream {previous_stream_id}.",
-                    frame.stream_id
-                )));
-                self.push_preview_state_and_provenance(&mut diagnostic)?;
-                diagnostic.related.push(note_json(format!(
-                    "Use a new peer-created stream id greater than {previous_stream_id}."
-                )));
-                Some(diagnostic)
+                self.project_peer_stream_id_not_increasing()
             }
             _ => None,
         }
+    }
+
+    fn project_initial_peer_settings_required(&self) -> Option<Diagnostic> {
+        let actual_kind = self.number("actual_frame_kind")?;
+        let actual_flags = self.number("actual_flags")?;
+        let endpoint_role = self.string("endpoint_role")?;
+        let frame = self.frame_ref()?;
+        let mut diagnostic = self.diagnostic(format!(
+            "initial peer frame must be non-ACK SETTINGS at byte offset {}",
+            self.byte_offset
+        ));
+        diagnostic.related.push(note_json(format!(
+            "Frame kind {actual_kind} with flags {actual_flags} on {} {} cannot start a {endpoint_role} endpoint connection.",
+            frame.stream_ref, frame.stream_id
+        )));
+        self.push_preview_state_and_provenance(&mut diagnostic)?;
+        Some(diagnostic)
+    }
+
+    fn project_invalid_frame_kind(&self) -> Option<Diagnostic> {
+        let actual_kind = self.number("actual_frame_kind")?;
+        let expected_kind = self.number("expected_frame_kind")?;
+        let frame = self.frame_ref()?;
+        let mut diagnostic = self.diagnostic(format!(
+            "invalid frame kind at byte offset {}",
+            self.byte_offset
+        ));
+        diagnostic.related.push(note_json(format!(
+            "Frame kind {actual_kind} on {} {} did not match expected frame kind {expected_kind}.",
+            frame.stream_ref, frame.stream_id
+        )));
+        self.push_preview_state_and_provenance(&mut diagnostic)?;
+        Some(diagnostic)
+    }
+
+    fn project_invalid_stream_id(&self) -> Option<Diagnostic> {
+        let frame_kind = self.number("frame_kind")?;
+        let required_domain = self.string("required_stream_id_domain")?;
+        let endpoint_role = self.string("endpoint_role")?;
+        let frame = self.frame_ref()?;
+        let mut diagnostic = self.diagnostic(format!(
+            "invalid stream id at byte offset {}",
+            self.byte_offset
+        ));
+        diagnostic.related.push(note_json(format!(
+            "Frame kind {frame_kind} on {} {} requires {required_domain} for {endpoint_role}.",
+            frame.stream_ref, frame.stream_id
+        )));
+        self.push_preview_state_and_provenance(&mut diagnostic)?;
+        Some(diagnostic)
+    }
+
+    fn project_settings_not_allowed_for_endpoint(&self) -> Option<Diagnostic> {
+        let setting_identifier = self.number("setting_identifier")?;
+        let setting_name = self.string("setting_name")?;
+        let endpoint_role = self.string("endpoint_role")?;
+        let frame_kind = self.number("frame_kind")?;
+        let mut diagnostic = self.diagnostic(format!(
+            "{setting_name} is not allowed for {endpoint_role} endpoints at byte offset {}",
+            self.byte_offset
+        ));
+        diagnostic.related.push(note_json(format!(
+            "{setting_name} ({setting_identifier}) appeared in frame kind {frame_kind}."
+        )));
+        push_byte_preview_note(&mut diagnostic, self.entries);
+        diagnostic
+            .related
+            .push(note_json(format!("Endpoint role: {endpoint_role}.")));
+        self.push_active_state(&mut diagnostic)?;
+        let rule_provenance = self.string("rule_provenance")?;
+        diagnostic
+            .related
+            .push(note_json(format!("Rule provenance: {rule_provenance}.")));
+        Some(diagnostic)
+    }
+
+    fn project_peer_stream_id_not_increasing(&self) -> Option<Diagnostic> {
+        let frame = self.frame_ref()?;
+        let previous_stream_id = self.number("previous_peer_stream_id")?;
+        let endpoint_role = self.string("endpoint_role")?;
+        let mut diagnostic = self.diagnostic(format!(
+            "peer-created stream id {} is not greater than {previous_stream_id} at byte offset {}",
+            frame.stream_id, self.byte_offset
+        ));
+        diagnostic.related.push(note_json(format!(
+            "The {endpoint_role} endpoint attempted to create idle stream {} after peer-created stream {previous_stream_id}.",
+            frame.stream_id
+        )));
+        self.push_preview_state_and_provenance(&mut diagnostic)?;
+        diagnostic.related.push(note_json(format!(
+            "Use a new peer-created stream id greater than {previous_stream_id}."
+        )));
+        Some(diagnostic)
     }
 
     fn project_frame_payload_rule(&self) -> Option<Diagnostic> {
@@ -7354,6 +7378,36 @@ mod tests {
                 .to_json()
                 .contains("expect-initial-peer-settings")
         );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_rejects_incomplete_frame_identity_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.protocol.initial_peer_settings_required"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(24)),
+                ]),
+            ),
+            ("actual_frame_kind", JsonValue::Number(6)),
+            ("actual_flags", JsonValue::Number(1)),
+            ("stream_id", JsonValue::Number(0)),
+            ("stream_ref", JsonValue::string("connection")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 initial peer frame context is incomplete".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        assert!(protocol_result_failure_diagnostic(&failure).is_none());
     }
 
     #[test]
