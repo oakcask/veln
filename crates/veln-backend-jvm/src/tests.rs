@@ -740,6 +740,59 @@ fn bytecode_backend_classfiles_run_when_java_is_available() {
 }
 
 #[test]
+fn bytecode_backend_reports_entry_result_failures_when_java_is_available() {
+    let cases = [
+        (
+            "result",
+            "pub fn main() -> Result<(), String>\n  Err(\"entry failed\")\nend\n",
+            "Err(entry failed)",
+        ),
+        (
+            "encode-invalid",
+            concat!(
+                "pub fn main() -> EncodeStep<String>\n",
+                "  EncodeStep::Invalid(EncodeError(\"codec.out_of_range\", \"entry.value\", \"too large\"))\n",
+                "end\n",
+            ),
+            "codec.out_of_range",
+        ),
+        (
+            "decode-invalid",
+            concat!(
+                "pub fn main() -> DecodeStep<Int>\n",
+                "  match byte_offset(9)\n",
+                "    Ok(offset) => DecodeStep::Invalid(DecodeErrorWithReason(\"codec.length_mismatch\", offset, \"entry.value\", \"wrong length\"))\n",
+                "    Err(_) => DecodeStep::NeedMore(NeedEnd)\n",
+                "  end\n",
+                "end\n",
+            ),
+            "codec.length_mismatch",
+        ),
+        (
+            "decode-need-more",
+            "pub fn main() -> DecodeStep<Int>\n  DecodeStep::NeedMore(NeedEnd)\nend\n",
+            "NeedMore(NeedEnd)",
+        ),
+    ];
+
+    for (name, source, expected_error) in cases {
+        let ir = lower_to_ir(source);
+        let program = generate_classfiles_with_entry(&ir, "main");
+        let Some(output) = run_jvm_program_when_java_is_available(name, &program, &[]) else {
+            return;
+        };
+
+        assert_eq!(output.status.code(), Some(1), "{name}");
+        assert_eq!(String::from_utf8_lossy(&output.stdout), "", "{name}");
+        assert!(
+            String::from_utf8_lossy(&output.stderr).contains(expected_error),
+            "{name}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
+#[test]
 fn bytecode_backend_runs_lexical_handlers_when_java_is_available() {
     let ir = lower_to_ir(
         "effect Pick\n\
