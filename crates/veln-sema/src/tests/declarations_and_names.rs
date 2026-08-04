@@ -652,6 +652,10 @@ fn fully_annotated_private_modules_do_not_scan_private_inference_bodies() {
     assert_eq!(counters.body_return_scans, 0, "{counters:#?}");
     assert_eq!(counters.call_site_discovery_scans, 0, "{counters:#?}");
     assert_eq!(counters.call_site_scans, 0, "{counters:#?}");
+    assert_eq!(
+        counters.private_reference_candidate_scans, 0,
+        "{counters:#?}"
+    );
     assert_eq!(counters.private_reference_index_scans, 0, "{counters:#?}");
     assert_eq!(
         counters.prelude_callback_discovery_scans, 0,
@@ -696,8 +700,12 @@ fn omitted_private_signature_chain_skips_unrelated_annotated_modules() {
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     assert!(counters.body_return_scans > 0, "{counters:#?}");
-    assert_eq!(counters.call_site_discovery_scans, 1, "{counters:#?}");
+    assert_eq!(counters.call_site_discovery_scans, 3, "{counters:#?}");
     assert!(counters.call_site_scans > 0, "{counters:#?}");
+    assert_eq!(
+        counters.private_reference_candidate_scans, 1,
+        "{counters:#?}"
+    );
     assert_eq!(counters.private_reference_index_scans, 3, "{counters:#?}");
     assert_eq!(
         counters.prelude_callback_discovery_scans, 0,
@@ -750,8 +758,12 @@ fn omitted_private_signature_chain_skips_unrelated_annotated_functions_in_same_m
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     assert_eq!(counters.body_return_scans, 2, "{counters:#?}");
-    assert_eq!(counters.call_site_discovery_scans, 13, "{counters:#?}");
+    assert_eq!(counters.call_site_discovery_scans, 15, "{counters:#?}");
     assert_eq!(counters.call_site_scans, 6, "{counters:#?}");
+    assert_eq!(
+        counters.private_reference_candidate_scans, 13,
+        "{counters:#?}"
+    );
     assert_eq!(counters.private_reference_index_scans, 3, "{counters:#?}");
     assert_eq!(
         counters.prelude_callback_discovery_scans, 0,
@@ -805,8 +817,12 @@ fn prelude_callback_return_inference_skips_unrelated_annotated_helpers() {
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     assert_eq!(counters.body_return_scans, 3, "{counters:#?}");
-    assert_eq!(counters.call_site_discovery_scans, 27, "{counters:#?}");
+    assert_eq!(counters.call_site_discovery_scans, 15, "{counters:#?}");
     assert_eq!(counters.call_site_scans, 3, "{counters:#?}");
+    assert_eq!(
+        counters.private_reference_candidate_scans, 27,
+        "{counters:#?}"
+    );
     assert_eq!(counters.private_reference_index_scans, 5, "{counters:#?}");
     assert_eq!(
         counters.prelude_callback_discovery_scans, 1,
@@ -859,8 +875,12 @@ fn prelude_callback_return_inference_has_zero_scan_when_helper_return_is_fixed()
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     assert_eq!(counters.body_return_scans, 1, "{counters:#?}");
-    assert_eq!(counters.call_site_discovery_scans, 13, "{counters:#?}");
+    assert_eq!(counters.call_site_discovery_scans, 14, "{counters:#?}");
     assert_eq!(counters.call_site_scans, 2, "{counters:#?}");
+    assert_eq!(
+        counters.private_reference_candidate_scans, 13,
+        "{counters:#?}"
+    );
     assert_eq!(counters.private_reference_index_scans, 2, "{counters:#?}");
     assert_eq!(
         counters.prelude_callback_discovery_scans, 0,

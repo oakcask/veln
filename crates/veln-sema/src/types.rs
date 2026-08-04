@@ -242,6 +242,7 @@ pub(crate) mod private_inference_counters {
         static BODY_RETURN_SCANS: Cell<usize> = const { Cell::new(0) };
         static CALL_SITE_DISCOVERY_SCANS: Cell<usize> = const { Cell::new(0) };
         static CALL_SITE_SCANS: Cell<usize> = const { Cell::new(0) };
+        static PRIVATE_REFERENCE_CANDIDATE_SCANS: Cell<usize> = const { Cell::new(0) };
         static PRIVATE_REFERENCE_INDEX_SCANS: Cell<usize> = const { Cell::new(0) };
         static PRELUDE_CALLBACK_DISCOVERY_SCANS: Cell<usize> = const { Cell::new(0) };
         static PRELUDE_CALLBACK_SCANS: Cell<usize> = const { Cell::new(0) };
@@ -252,6 +253,7 @@ pub(crate) mod private_inference_counters {
         pub(crate) body_return_scans: usize,
         pub(crate) call_site_discovery_scans: usize,
         pub(crate) call_site_scans: usize,
+        pub(crate) private_reference_candidate_scans: usize,
         pub(crate) private_reference_index_scans: usize,
         pub(crate) prelude_callback_discovery_scans: usize,
         pub(crate) prelude_callback_scans: usize,
@@ -261,6 +263,7 @@ pub(crate) mod private_inference_counters {
         BODY_RETURN_SCANS.set(0);
         CALL_SITE_DISCOVERY_SCANS.set(0);
         CALL_SITE_SCANS.set(0);
+        PRIVATE_REFERENCE_CANDIDATE_SCANS.set(0);
         PRIVATE_REFERENCE_INDEX_SCANS.set(0);
         PRELUDE_CALLBACK_DISCOVERY_SCANS.set(0);
         PRELUDE_CALLBACK_SCANS.set(0);
@@ -271,6 +274,7 @@ pub(crate) mod private_inference_counters {
             body_return_scans: BODY_RETURN_SCANS.get(),
             call_site_discovery_scans: CALL_SITE_DISCOVERY_SCANS.get(),
             call_site_scans: CALL_SITE_SCANS.get(),
+            private_reference_candidate_scans: PRIVATE_REFERENCE_CANDIDATE_SCANS.get(),
             private_reference_index_scans: PRIVATE_REFERENCE_INDEX_SCANS.get(),
             prelude_callback_discovery_scans: PRELUDE_CALLBACK_DISCOVERY_SCANS.get(),
             prelude_callback_scans: PRELUDE_CALLBACK_SCANS.get(),
@@ -287,6 +291,10 @@ pub(crate) mod private_inference_counters {
 
     pub(super) fn record_call_site_scan() {
         CALL_SITE_SCANS.set(CALL_SITE_SCANS.get() + 1);
+    }
+
+    pub(super) fn record_private_reference_candidate_scan() {
+        PRIVATE_REFERENCE_CANDIDATE_SCANS.set(PRIVATE_REFERENCE_CANDIDATE_SCANS.get() + 1);
     }
 
     pub(super) fn record_private_reference_index_scan() {
@@ -1609,7 +1617,7 @@ fn private_function_needs_reference_index(
         return false;
     };
     #[cfg(test)]
-    private_inference_counters::record_call_site_discovery_scan();
+    private_inference_counters::record_private_reference_candidate_scan();
     function
         .body
         .iter()
@@ -1884,6 +1892,8 @@ fn private_call_site_constraint_contributors(
         .filter(|function| modules_with_omitted_slots.contains(&function.module_name))
         .filter_map(|function| {
             let key = function_key(function)?;
+            #[cfg(test)]
+            private_inference_counters::record_call_site_discovery_scan();
             (omitted_private_slots.contains_key(&key)
                 || private_references.get(&key).is_some_and(|references| {
                     references

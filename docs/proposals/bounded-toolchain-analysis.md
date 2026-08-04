@@ -66,13 +66,14 @@ unrelated fully annotated module sets do not pay private-inference body scans,
 and that an omitted private helper chain still reaches the same inferred
 parameter and return types while skipping unrelated annotated modules and
 unrelated annotated functions in the same module.
-The same counter coverage records deterministic body-return, private-reference
-index, contributor discovery, call-site, and prelude-callback scan counts. One
-case combines nested and scalar callback helpers while preserving the inferred
-callback parameter and return types and proving that already fixed
-prelude-callback returns do not enter prelude body traversal. Another case
-verifies that a helper whose return is already fixed before the
-prelude-callback pass performs no prelude-callback discovery or body scan.
+The same counter coverage records deterministic body-return,
+private-reference candidate-filter, private-reference index, contributor
+discovery, call-site, and prelude-callback scan counts. One case combines
+nested and scalar callback helpers while preserving the inferred callback
+parameter and return types and proving that already fixed prelude-callback
+returns do not enter prelude body traversal. Another case verifies that a
+helper whose return is already fixed before the prelude-callback pass performs
+no prelude-callback discovery or body scan.
 
 ## Proposed Outcome
 
@@ -214,6 +215,10 @@ unchanged. It narrows only analyzer work:
   eligible omitted private slots or eligible omitted private returns, and it
   skips functions that cannot mention the eligible private slot names in their
   module;
+- private-reference candidate filtering, private-reference indexing, and
+  call-site contributor discovery each have deterministic structural counter
+  coverage, so the tests distinguish candidate-filter traversal from repeated
+  inference body traversal;
 - structural tests record private-reference index scan counts separately from
   repeated inference body traversals and cover unrelated annotated functions in
   the same module.
