@@ -12,7 +12,8 @@ static STANDARD_REUSE_TEST_LOCK: Mutex<()> = Mutex::new(());
 fn reusable_standard_environment_matches_uncached_analysis_for_table_cases() {
     let _guard = standard_reuse_test_lock();
     let standard = standard_module();
-    let reusable = prepare_reusable_standard_surface_module_environment(&standard);
+    let reusable = prepare_reusable_standard_surface_module_environment(&standard)
+        .with_current_identity_for_test();
 
     for case in [
         app_case(
@@ -84,8 +85,7 @@ fn reusable_standard_environment_identity_mismatch_uses_uncached_analysis() {
     let _guard = standard_reuse_test_lock();
     crate::standard_reuse_counters::reset();
     let standard = standard_module();
-    let reusable = prepare_reusable_standard_surface_module_environment(&standard)
-        .with_mismatched_identity_for_test();
+    let reusable = prepare_reusable_standard_surface_module_environment(&standard);
     let module = merge_modules(vec![
         standard,
         app_case(
@@ -110,11 +110,38 @@ fn reusable_standard_environment_identity_mismatch_uses_uncached_analysis() {
 }
 
 #[test]
+fn embedded_reusable_standard_environment_has_current_identity_and_reuses_application_facts() {
+    let _guard = standard_reuse_test_lock();
+    crate::standard_reuse_counters::reset();
+    let standard = crate::types::embedded_standard_surface_module();
+    let reusable = prepare_reusable_standard_surface_module_environment(&standard);
+    assert!(reusable.has_current_identity_for_test());
+
+    let module = merge_modules(vec![
+        standard,
+        app_case(
+            "embedded identity",
+            "src/main.veln",
+            concat!("pub fn main() -> Int\n", "  1\n", "end\n",),
+        )
+        .module,
+    ]);
+
+    let uncached = check_project_surface_module(&module);
+    let cached = check_project_surface_module_with_standard_environment(&module, &reusable);
+
+    assert_same_analysis("embedded identity", uncached, cached);
+    assert_eq!(crate::standard_reuse_counters::standard_prepares(), 1);
+    assert_eq!(crate::standard_reuse_counters::application_prepares(), 1);
+}
+
+#[test]
 fn reusable_standard_environment_is_prepared_once_for_repeated_and_concurrent_projects() {
     let _guard = standard_reuse_test_lock();
     crate::standard_reuse_counters::reset();
     let standard = standard_module();
-    let reusable = prepare_reusable_standard_surface_module_environment(&standard);
+    let reusable = prepare_reusable_standard_surface_module_environment(&standard)
+        .with_current_identity_for_test();
     assert_eq!(crate::standard_reuse_counters::standard_prepares(), 1);
 
     let alpha = merge_modules(vec![

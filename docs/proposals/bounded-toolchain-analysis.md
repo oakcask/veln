@@ -244,17 +244,20 @@ unchanged. It narrows only analyzer work:
   standard environment from the embedded standard-library bundle and passes it
   to `veln-sema` for project checks and reachable-entry lowering. The reusable
   environment is keyed by the embedded standard-library bundle and semantic
-  model. `veln-sema` keeps the uncached path available and compares cached
-  and uncached diagnostic JSON, lowered core output, and lowered IR output for
-  a successful project, a project with type/effect diagnostics, applications
+  model. Preparing reusable facts from a module set that does not match the
+  embedded bundle produces a non-current identity, so application analysis
+  falls back to the uncached path instead of trusting unrelated facts.
+  `veln-sema` keeps the uncached path available and compares cached and
+  uncached diagnostic JSON, lowered core output, and lowered IR output for a
+  successful project, a project with type/effect diagnostics, applications
   with overlapping source paths and declaration names, and a local
   `std::`-prefixed application module that is outside the reusable standard
-  bundle. A stale standard-environment identity falls back to uncached
-  analysis. Process-wide test-only counters prove repeated and concurrent
-  cached analyses prepare the reusable standard signatures once while each
-  non-empty application analysis constructs fresh semantic facts. A
-  `veln-analysis` regression test covers the embedded-standard shared-analysis
-  path for a local `std::`-prefixed application source.
+  bundle. Test-only work counters prove repeated and concurrent cached
+  analyses prepare the reusable standard signatures once while each non-empty
+  application analysis constructs fresh semantic facts. A `veln-analysis`
+  regression test exercises the embedded-standard `OnceLock` path with
+  repeated and concurrent distinct projects, including a local application
+  source whose module name begins with `std::`.
 
 The remaining proposal work is explicit:
 
@@ -262,9 +265,9 @@ The remaining proposal work is explicit:
 - representative HTTP/2 core and connection improvement evidence remains
   incomplete;
 - generated-size benchmark comparisons remain required completion evidence.
-- the reusable standard-environment implementation still needs controlled
-  benchmark evidence that the clone and dependency-closure costs produce the
-  intended wall-time improvement on representative workloads.
+- controlled benchmark evidence must still show whether standard-environment
+  reuse, clone cost, and dependency-closure cost produce the intended wall-time
+  effect on representative workloads.
 
 ## Non-Goals
 

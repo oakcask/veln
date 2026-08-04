@@ -11,11 +11,11 @@ use veln_ast::{
     BodyLine, BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, DictEntry,
     EffectDecl, Expr, ExprKind, Function, FunctionKind, HandlerDecl, IfBranch, MatchArm, NodeId,
     Pattern, PatternKind, PublicAlias, PublicAliasKind, RecordField, SchemaDecl, SchemaField,
-    SurfaceModule, TypeDecl, UseDecl, Visibility,
+    SurfaceModule, TypeDecl, UseDecl, Visibility, lower_surface_ast_with_module_identity,
 };
 use veln_literals::parse_integer_literal;
 use veln_project::classify_companion_source;
-use veln_source::SourceSpan;
+use veln_source::{SourceFile, SourceSpan, TextRange};
 
 use crate::adt::{self, AdtRegistry};
 use crate::effects::{
@@ -263,8 +263,12 @@ const STANDARD_SEMANTIC_MODEL: &str = "standard-semantic-signatures-v1";
 
 #[cfg(test)]
 impl ReusableStandardEnvironment {
-    pub(crate) fn with_mismatched_identity_for_test(mut self) -> Self {
-        self.identity.bundle_hash = self.identity.bundle_hash.wrapping_add(1);
+    pub(crate) fn has_current_identity_for_test(&self) -> bool {
+        self.identity == standard_semantic_identity()
+    }
+
+    pub(crate) fn with_current_identity_for_test(mut self) -> Self {
+        self.identity = standard_semantic_identity();
         self
     }
 }
@@ -1078,9 +1082,10 @@ pub fn prepare_reusable_standard_environment(
     #[cfg(test)]
     standard_reuse_counters::record_standard_prepare();
     let standard_module = module_without_application_declarations(module);
+    let module_names = module_standard_names(&standard_module);
     ReusableStandardEnvironment {
-        identity: standard_semantic_identity(),
-        module_names: module_standard_names(&standard_module),
+        identity: prepared_standard_semantic_identity(&standard_module, &module_names),
+        module_names,
         environment: TypeEnvironment::from_module(&standard_module),
     }
 }
@@ -1136,6 +1141,108 @@ fn module_standard_names(module: &SurfaceModule) -> BTreeSet<String> {
     collect_standard_names(&module.codecs, &mut names);
     collect_standard_names(&module.functions, &mut names);
     names
+}
+
+fn prepared_standard_semantic_identity(
+    module: &SurfaceModule,
+    module_names: &BTreeSet<String>,
+) -> StandardSemanticIdentity {
+    if module_names == &embedded_standard_module_names()
+        && semantic_module_fingerprint(module) == embedded_standard_module_fingerprint()
+    {
+        return standard_semantic_identity();
+    }
+
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    STANDARD_SEMANTIC_MODEL.hash(&mut hasher);
+    module_names.hash(&mut hasher);
+    StandardSemanticIdentity {
+        bundle_hash: hasher.finish(),
+        semantic_model: STANDARD_SEMANTIC_MODEL,
+    }
+}
+
+fn embedded_standard_module_names() -> BTreeSet<String> {
+    veln_stdlib::package_bundle()
+        .files
+        .iter()
+        .filter_map(|file| standard_module_name_from_bundle_path(file.path))
+        .collect()
+}
+
+fn standard_module_name_from_bundle_path(path: &str) -> Option<String> {
+    path.strip_suffix(".veln")
+        .map(|module| format!("std::{}", module.replace('/', "::")))
+}
+
+fn embedded_standard_module_fingerprint() -> u64 {
+    semantic_module_fingerprint(&embedded_standard_surface_module())
+}
+
+fn semantic_module_fingerprint(module: &SurfaceModule) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    format!("{module:?}").hash(&mut hasher);
+    hasher.finish()
+}
+
+pub(crate) fn embedded_standard_surface_module() -> SurfaceModule {
+    let mut merged = SurfaceModule {
+        module: None,
+        uses: Vec::new(),
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        types: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        functions: Vec::new(),
+    };
+    let mut modules = veln_stdlib::package_bundle()
+        .files
+        .iter()
+        .filter_map(|file| {
+            standard_module_name_from_bundle_path(file.path).map(|name| (name, file))
+        })
+        .collect::<Vec<_>>();
+    modules.sort_by(|left, right| left.0.cmp(&right.0));
+    for (module_name, file) in modules {
+        let source = SourceFile::new(file.path, file.text);
+        let parsed = veln_syntax::parse(&source);
+        if !parsed.diagnostics.is_empty() {
+            continue;
+        }
+        let mut module = lower_surface_ast_with_module_identity(
+            &parsed.tree,
+            module_name,
+            source.span(TextRange::new(0, 0)),
+        );
+        rewrite_standard_bundle_import_targets(&mut module.uses);
+        merge_standard_surface_module(&mut merged, module);
+    }
+    merged
+}
+
+fn rewrite_standard_bundle_import_targets(uses: &mut [UseDecl]) {
+    for use_decl in uses {
+        if use_decl.package.is_some() || use_decl.name.starts_with("std::") {
+            continue;
+        }
+        use_decl.name = format!("std::{}", use_decl.name);
+    }
+}
+
+fn merge_standard_surface_module(merged: &mut SurfaceModule, module: SurfaceModule) {
+    if merged.module.is_none() {
+        merged.module = module.module;
+    }
+    merged.uses.extend(module.uses);
+    merged.aliases.extend(module.aliases);
+    merged.effects.extend(module.effects);
+    merged.handlers.extend(module.handlers);
+    merged.types.extend(module.types);
+    merged.schemas.extend(module.schemas);
+    merged.codecs.extend(module.codecs);
+    merged.functions.extend(module.functions);
 }
 
 fn collect_standard_names<T: HasModuleName>(decls: &[T], names: &mut BTreeSet<String>) {

@@ -273,12 +273,83 @@ mod tests {
         assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     }
 
+    #[test]
+    fn shared_analysis_prepares_standard_once_and_rebuilds_each_application() {
+        let cache = crate::analysis::TestStandardEnvironmentCache::new();
+        let alpha = project(
+            "src/shared.veln",
+            concat!("pub fn entry() -> Int\n", "  1\n", "end\n",),
+        );
+        let beta = project(
+            "std/helper.veln",
+            concat!(
+                "fn answer(value: Int) -> Int\n",
+                "  value + 1\n",
+                "end\n",
+                "\n",
+                "pub fn entry() -> Bool\n",
+                "  answer(1)\n",
+                "end\n",
+            ),
+        );
+
+        let alpha_expected = checked_diagnostic_json_with_cache(alpha.clone(), &cache);
+        let beta_expected = checked_diagnostic_json_with_cache(beta.clone(), &cache);
+
+        assert!(alpha_expected.is_empty(), "{alpha_expected:#?}");
+        assert_eq!(diagnostic_ids(&beta_expected), ["type.mismatch"]);
+        assert_eq!(cache.standard_prepares(), 1);
+        assert_eq!(cache.application_analyses(), 2);
+
+        let handles = thread::scope(|scope| {
+            (0..12)
+                .map(|index| {
+                    let project = if index % 2 == 0 {
+                        alpha.clone()
+                    } else {
+                        beta.clone()
+                    };
+                    let cache = &cache;
+                    scope.spawn(move || (index, checked_diagnostic_json_with_cache(project, cache)))
+                })
+                .collect::<Vec<_>>()
+                .into_iter()
+                .map(|handle| handle.join().expect("analysis should not panic"))
+                .collect::<Vec<_>>()
+        });
+
+        for (index, diagnostics) in handles {
+            if index % 2 == 0 {
+                assert_eq!(diagnostics, alpha_expected);
+            } else {
+                assert_eq!(diagnostics, beta_expected);
+            }
+        }
+        assert_eq!(cache.standard_prepares(), 1);
+        assert_eq!(cache.application_analyses(), 14);
+    }
+
     fn checked_diagnostic_json(project: Project) -> Vec<String> {
         analyze_project(project, DoctestMode::Exclude)
             .checked_diagnostics()
             .iter()
             .map(|diagnostic| diagnostic_to_json(diagnostic).to_json())
             .collect()
+    }
+
+    fn checked_diagnostic_json_with_cache(
+        project: Project,
+        cache: &crate::analysis::TestStandardEnvironmentCache,
+    ) -> Vec<String> {
+        crate::analysis::analyze_project_with_test_standard_cache(
+            project,
+            DoctestMode::Exclude,
+            cache,
+        )
+        .checked_diagnostics()
+        .iter()
+        .map(|diagnostic| diagnostic_to_json(diagnostic).to_json())
+        .collect()
     }
 
     fn checked_discovered_diagnostic_json(temp: &TempProject, inputs: &[PathBuf]) -> Vec<String> {
