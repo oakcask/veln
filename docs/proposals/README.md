@@ -28,11 +28,8 @@ also states it.
 ### Toolchain Performance
 
 - [Bounded Toolchain Analysis](bounded-toolchain-analysis.md): finish
-  representative benchmark evidence for large standard-library module graphs
-  after the completed CLI harness source-error artifact, controlled benchmark
-  harness, private-signature inference, function/private-handler effect
-  inference, shared-analysis determinism, and standard-environment reuse
-  slices.
+  bounded reachable-entry selection and lowering for representative HTTP/2
+  applications after completed analysis-bounds and stage-measurement slices.
 
 ### Toolchain Quality
 

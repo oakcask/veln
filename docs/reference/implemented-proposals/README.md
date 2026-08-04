@@ -1,3 +1,7 @@
+---
+review-when: An implemented proposal record is added, moved, reclassified, completed, or removed.
+---
+
 # Implemented Proposal Records
 
 Status: implemented
@@ -43,6 +47,8 @@ under `../../specification/` and its executable example routes.
   original gate details.
 - Shared project analysis:
   [project-analysis-pipeline.md](project-analysis-pipeline.md).
+- Bounded toolchain analysis completed slices:
+  [bounded-toolchain-analysis-slices.md](bounded-toolchain-analysis-slices.md).
 - Formatter stabilization:
   [formatter-stabilization.md](formatter-stabilization.md).
 - Hash line comments:

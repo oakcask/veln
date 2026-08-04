@@ -1,0 +1,1116 @@
+{
+  "build_profile": "debug",
+  "command": [
+    "benchmark-toolchain-analysis",
+    "compare",
+    "target/debug/veln-before-stage-timing",
+    "target/debug/veln",
+    "--build-profile",
+    "debug",
+    "--runs",
+    "5",
+    "--warmups",
+    "1",
+    "--sizes",
+    "32,64,128",
+    "--baseline-label",
+    "<baseline-debug-veln>",
+    "--baseline-identity",
+    "git revision d2de2a03da9284238fb631a6b43eb5e6834e945b debug build without run analysis stage timing records",
+    "--new-identity",
+    "git revision 9131482ddc3a45d7e2f2ded7be8be17c834a34a3 debug build with run analysis stage timing records",
+    "--output",
+    "docs/reviews/toolchain-analysis-stage-benchmark.json"
+  ],
+  "measured_runs": 5,
+  "passes_thresholds": false,
+  "thresholds": [
+    {
+      "description": "HTTP/2 core direct analysis new wall-time median is at most one third of baseline",
+      "id": "http2_core_improvement",
+      "max_ratio": 0.3333333333333333,
+      "ratio": 0.9975419587079746,
+      "status": "failed"
+    },
+    {
+      "description": "HTTP/2 connection direct analysis new wall-time median is at most one third of baseline",
+      "id": "http2_connection_improvement",
+      "max_ratio": 0.3333333333333333,
+      "ratio": 1.0032901790646642,
+      "status": "failed"
+    },
+    {
+      "description": "toolchain-case median is no more than 1.35 times the direct invocation median",
+      "id": "toolchain_case_overhead",
+      "reason": "required workload is unavailable",
+      "status": "skipped"
+    },
+    {
+      "description": "first generated size to second size user CPU median grows by no more than 2.5 times",
+      "id": "generated_first_to_second",
+      "max_ratio": 2.5,
+      "ratio": 1.0224719101123596,
+      "status": "passed"
+    },
+    {
+      "description": "second generated size to third size user CPU median grows by no more than 2.5 times",
+      "id": "generated_second_to_third",
+      "max_ratio": 2.5,
+      "ratio": 1.054945054945055,
+      "status": "passed"
+    },
+    {
+      "description": "baseline and new exit status and normalized output are equal for every workload",
+      "failing_workloads": [],
+      "id": "functional_outputs",
+      "status": "passed"
+    },
+    {
+      "description": "wall-time median absolute deviation is within the noise boundary for every workload",
+      "id": "wall_time_noise",
+      "noisy_workloads": [],
+      "status": "passed"
+    }
+  ],
+  "warmup_runs": 1,
+  "workloads": [
+    {
+      "baseline": {
+        "binary": "<baseline-debug-veln>",
+        "binary_identity": "git revision d2de2a03da9284238fb631a6b43eb5e6834e945b debug build without run analysis stage timing records",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.95,
+            "wall_time_seconds": 1.090309523
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.93,
+            "wall_time_seconds": 1.081571958
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.95,
+            "wall_time_seconds": 1.098653629
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.93,
+            "wall_time_seconds": 1.085493392
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.95,
+            "wall_time_seconds": 1.1149779
+          }
+        ],
+        "stage_timing": {
+          "status": "unavailable"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.008344106000000018,
+          "median_user_cpu_seconds": 0.95,
+          "median_wall_time_seconds": 1.090309523,
+          "wall_time_noisy": false
+        }
+      },
+      "build_profile": "debug",
+      "command": {
+        "baseline": [
+          "<baseline-debug-veln>",
+          "run",
+          "--json",
+          "main",
+          "main.veln",
+          "wire.veln",
+          "facade.veln"
+        ],
+        "display": null,
+        "new": [
+          "target/debug/veln",
+          "run",
+          "--json",
+          "main",
+          "main.veln",
+          "wire.veln",
+          "facade.veln"
+        ]
+      },
+      "cwd": "examples/specification/run/schema-decode-expression",
+      "env": null,
+      "functional_output_comparisons": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "functional_outputs_equal": true,
+      "generated": null,
+      "id": "small_schema",
+      "new": {
+        "binary": "target/debug/veln",
+        "binary_identity": "git revision 9131482ddc3a45d7e2f2ded7be8be17c834a34a3 debug build with run analysis stage timing records",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.94,
+            "wall_time_seconds": 1.093683143
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.96,
+            "wall_time_seconds": 1.105969848
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.95,
+            "wall_time_seconds": 1.096222242
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.98,
+            "wall_time_seconds": 1.115126891
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.94,
+            "wall_time_seconds": 1.11051137
+          }
+        ],
+        "stage_timing": {
+          "dominant_stage": "backend_runtime_remainder",
+          "runs": [
+            {
+              "run": "new-1",
+              "stages": {
+                "backend_runtime_remainder": 0.072454416,
+                "reachable_entry_lowering": 0.008375985,
+                "semantic_environment_check": 0.010296982,
+                "source_loading": 0.000090974,
+                "surface_parse_lower": 0.001639219
+              }
+            },
+            {
+              "run": "new-2",
+              "stages": {
+                "backend_runtime_remainder": 0.070230242,
+                "reachable_entry_lowering": 0.008651273,
+                "semantic_environment_check": 0.010290776,
+                "source_loading": 0.000083033,
+                "surface_parse_lower": 0.001708369
+              }
+            },
+            {
+              "run": "new-3",
+              "stages": {
+                "backend_runtime_remainder": 0.072904237,
+                "reachable_entry_lowering": 0.008483428,
+                "semantic_environment_check": 0.010148266,
+                "source_loading": 0.00008864,
+                "surface_parse_lower": 0.001722864
+              }
+            },
+            {
+              "run": "new-4",
+              "stages": {
+                "backend_runtime_remainder": 0.071225196,
+                "reachable_entry_lowering": 0.008786354,
+                "semantic_environment_check": 0.010517627,
+                "source_loading": 0.000075715,
+                "surface_parse_lower": 0.001672572
+              }
+            },
+            {
+              "run": "new-5",
+              "stages": {
+                "backend_runtime_remainder": 0.072049834,
+                "reachable_entry_lowering": 0.008930033,
+                "semantic_environment_check": 0.010392222,
+                "source_loading": 0.0000893,
+                "surface_parse_lower": 0.001698447
+              }
+            }
+          ],
+          "stage_medians_seconds": {
+            "backend_runtime_remainder": 0.072049834,
+            "reachable_entry_lowering": 0.008651273,
+            "semantic_environment_check": 0.010296982,
+            "source_loading": 0.00008864,
+            "surface_parse_lower": 0.001698447
+          },
+          "status": "available"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.009157043000000087,
+          "median_user_cpu_seconds": 0.95,
+          "median_wall_time_seconds": 1.105969848,
+          "wall_time_noisy": false
+        }
+      }
+    },
+    {
+      "baseline": {
+        "binary": "<baseline-debug-veln>",
+        "binary_identity": "git revision d2de2a03da9284238fb631a6b43eb5e6834e945b debug build without run analysis stage timing records",
+        "runs": [
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.05,
+            "wall_time_seconds": 1.224114788
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.1,
+            "wall_time_seconds": 1.260637327
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.1,
+            "wall_time_seconds": 1.247214889
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.07,
+            "wall_time_seconds": 1.251823622
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.1,
+            "wall_time_seconds": 1.266903447
+          }
+        ],
+        "stage_timing": {
+          "status": "unavailable"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.008813704999999894,
+          "median_user_cpu_seconds": 1.1,
+          "median_wall_time_seconds": 1.251823622,
+          "wall_time_noisy": false
+        }
+      },
+      "build_profile": "debug",
+      "command": {
+        "baseline": [
+          "<baseline-debug-veln>",
+          "run",
+          "main",
+          "main.veln"
+        ],
+        "display": null,
+        "new": [
+          "target/debug/veln",
+          "run",
+          "main",
+          "main.veln"
+        ]
+      },
+      "cwd": "examples/specification/run/hpack-static-index-projection-human",
+      "env": null,
+      "functional_output_comparisons": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "functional_outputs_equal": true,
+      "generated": null,
+      "id": "hpack_static",
+      "new": {
+        "binary": "target/debug/veln",
+        "binary_identity": "git revision 9131482ddc3a45d7e2f2ded7be8be17c834a34a3 debug build with run analysis stage timing records",
+        "runs": [
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.09,
+            "wall_time_seconds": 1.249186618
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.08,
+            "wall_time_seconds": 1.224044624
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.06,
+            "wall_time_seconds": 1.236317068
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.09,
+            "wall_time_seconds": 1.230512731
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.1,
+            "wall_time_seconds": 1.26658292
+          }
+        ],
+        "stage_timing": {
+          "dominant_stage": "semantic_environment_check",
+          "runs": [
+            {
+              "run": "new-1",
+              "stages": {
+                "backend_runtime_remainder": 0.079738782,
+                "reachable_entry_lowering": 0.061359542,
+                "semantic_environment_check": 0.081148752,
+                "source_loading": 0.00005165,
+                "surface_parse_lower": 0.008979318
+              }
+            },
+            {
+              "run": "new-2",
+              "stages": {
+                "backend_runtime_remainder": 0.07813814,
+                "reachable_entry_lowering": 0.059486648,
+                "semantic_environment_check": 0.078340805,
+                "source_loading": 0.000047027,
+                "surface_parse_lower": 0.008603069
+              }
+            },
+            {
+              "run": "new-3",
+              "stages": {
+                "backend_runtime_remainder": 0.07672888,
+                "reachable_entry_lowering": 0.060122881,
+                "semantic_environment_check": 0.079649839,
+                "source_loading": 0.00005655,
+                "surface_parse_lower": 0.009058647
+              }
+            },
+            {
+              "run": "new-4",
+              "stages": {
+                "backend_runtime_remainder": 0.080247777,
+                "reachable_entry_lowering": 0.061025257,
+                "semantic_environment_check": 0.078281843,
+                "source_loading": 0.000052126,
+                "surface_parse_lower": 0.008656274
+              }
+            },
+            {
+              "run": "new-5",
+              "stages": {
+                "backend_runtime_remainder": 0.077735499,
+                "reachable_entry_lowering": 0.061715323,
+                "semantic_environment_check": 0.081255508,
+                "source_loading": 0.000050405,
+                "surface_parse_lower": 0.009880604
+              }
+            }
+          ],
+          "stage_medians_seconds": {
+            "backend_runtime_remainder": 0.07813814,
+            "reachable_entry_lowering": 0.061025257,
+            "semantic_environment_check": 0.079649839,
+            "source_loading": 0.00005165,
+            "surface_parse_lower": 0.008979318
+          },
+          "status": "available"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.012272443999999938,
+          "median_user_cpu_seconds": 1.09,
+          "median_wall_time_seconds": 1.236317068,
+          "wall_time_noisy": false
+        }
+      }
+    },
+    {
+      "baseline": {
+        "binary": "<baseline-debug-veln>",
+        "binary_identity": "git revision d2de2a03da9284238fb631a6b43eb5e6834e945b debug build without run analysis stage timing records",
+        "runs": [
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.21,
+            "wall_time_seconds": 1.378452322
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.2,
+            "wall_time_seconds": 1.356662374
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.2,
+            "wall_time_seconds": 1.365029118
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.21,
+            "wall_time_seconds": 1.361807066
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.17,
+            "wall_time_seconds": 1.355573787
+          }
+        ],
+        "stage_timing": {
+          "status": "unavailable"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.005144692000000006,
+          "median_user_cpu_seconds": 1.2,
+          "median_wall_time_seconds": 1.361807066,
+          "wall_time_noisy": false
+        }
+      },
+      "build_profile": "debug",
+      "command": {
+        "baseline": [
+          "<baseline-debug-veln>",
+          "run",
+          "--json",
+          "main",
+          "main.veln"
+        ],
+        "display": null,
+        "new": [
+          "target/debug/veln",
+          "run",
+          "--json",
+          "main",
+          "main.veln"
+        ]
+      },
+      "cwd": "examples/specification/run/http2-protocol-core-continuation-closed-json",
+      "env": null,
+      "functional_output_comparisons": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "functional_outputs_equal": true,
+      "generated": null,
+      "id": "http2_core",
+      "new": {
+        "binary": "target/debug/veln",
+        "binary_identity": "git revision 9131482ddc3a45d7e2f2ded7be8be17c834a34a3 debug build with run analysis stage timing records",
+        "runs": [
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.18,
+            "wall_time_seconds": 1.358407909
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.18,
+            "wall_time_seconds": 1.358459688
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.19,
+            "wall_time_seconds": 1.357872392
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.2,
+            "wall_time_seconds": 1.36521048
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.17,
+            "wall_time_seconds": 1.363058265
+          }
+        ],
+        "stage_timing": {
+          "dominant_stage": "reachable_entry_lowering",
+          "runs": [
+            {
+              "run": "new-1",
+              "stages": {
+                "backend_runtime_remainder": 0.079389157,
+                "reachable_entry_lowering": 0.155675123,
+                "semantic_environment_check": 0.102649285,
+                "source_loading": 0.000056949,
+                "surface_parse_lower": 0.009765718
+              }
+            },
+            {
+              "run": "new-2",
+              "stages": {
+                "backend_runtime_remainder": 0.080522749,
+                "reachable_entry_lowering": 0.160159885,
+                "semantic_environment_check": 0.104816931,
+                "source_loading": 0.000046151,
+                "surface_parse_lower": 0.009224572
+              }
+            },
+            {
+              "run": "new-3",
+              "stages": {
+                "backend_runtime_remainder": 0.083064519,
+                "reachable_entry_lowering": 0.156398023,
+                "semantic_environment_check": 0.101476167,
+                "source_loading": 0.000059626,
+                "surface_parse_lower": 0.00977658
+              }
+            },
+            {
+              "run": "new-4",
+              "stages": {
+                "backend_runtime_remainder": 0.081496324,
+                "reachable_entry_lowering": 0.156193201,
+                "semantic_environment_check": 0.103124229,
+                "source_loading": 0.000058953,
+                "surface_parse_lower": 0.009387128
+              }
+            },
+            {
+              "run": "new-5",
+              "stages": {
+                "backend_runtime_remainder": 0.081848984,
+                "reachable_entry_lowering": 0.156552466,
+                "semantic_environment_check": 0.103099047,
+                "source_loading": 0.000051216,
+                "surface_parse_lower": 0.009666508
+              }
+            }
+          ],
+          "stage_medians_seconds": {
+            "backend_runtime_remainder": 0.081496324,
+            "reachable_entry_lowering": 0.156398023,
+            "semantic_environment_check": 0.103099047,
+            "source_loading": 0.000056949,
+            "surface_parse_lower": 0.009666508
+          },
+          "status": "available"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.0005872959999999594,
+          "median_user_cpu_seconds": 1.18,
+          "median_wall_time_seconds": 1.358459688,
+          "wall_time_noisy": false
+        }
+      }
+    },
+    {
+      "baseline": {
+        "binary": "<baseline-debug-veln>",
+        "binary_identity": "git revision d2de2a03da9284238fb631a6b43eb5e6834e945b debug build without run analysis stage timing records",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 5.86,
+            "wall_time_seconds": 6.464753087
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 5.9,
+            "wall_time_seconds": 6.512923333
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 5.98,
+            "wall_time_seconds": 6.561996244
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 5.89,
+            "wall_time_seconds": 6.493740712
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 5.89,
+            "wall_time_seconds": 6.518381395
+          }
+        ],
+        "stage_timing": {
+          "status": "unavailable"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.019182620999999678,
+          "median_user_cpu_seconds": 5.89,
+          "median_wall_time_seconds": 6.512923333,
+          "wall_time_noisy": false
+        }
+      },
+      "build_profile": "debug",
+      "command": {
+        "baseline": [
+          "<baseline-debug-veln>",
+          "run",
+          "--json",
+          "main",
+          "main.veln"
+        ],
+        "display": null,
+        "new": [
+          "target/debug/veln",
+          "run",
+          "--json",
+          "main",
+          "main.veln"
+        ]
+      },
+      "cwd": "examples/specification/run/http2-connection-application-unsupported-request-json",
+      "env": {
+        "VELN_NET_PRODUCTION_READS_HEX": "505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000003010400000001828784",
+        "VELN_NET_RUNTIME": "production-loopback"
+      },
+      "functional_output_comparisons": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "functional_outputs_equal": true,
+      "generated": null,
+      "id": "http2_connection",
+      "new": {
+        "binary": "target/debug/veln",
+        "binary_identity": "git revision 9131482ddc3a45d7e2f2ded7be8be17c834a34a3 debug build with run analysis stage timing records",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 5.96,
+            "wall_time_seconds": 6.578305855
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 5.92,
+            "wall_time_seconds": 6.534352017
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 5.91,
+            "wall_time_seconds": 6.519674674
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 5.97,
+            "wall_time_seconds": 6.564134358
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 5.86,
+            "wall_time_seconds": 6.476920198
+          }
+        ],
+        "stage_timing": {
+          "dominant_stage": "reachable_entry_lowering",
+          "runs": [
+            {
+              "run": "new-1",
+              "stages": {
+                "backend_runtime_remainder": 0.229998401,
+                "reachable_entry_lowering": 5.208923419,
+                "semantic_environment_check": 0.095379308,
+                "source_loading": 0.000053264,
+                "surface_parse_lower": 0.010096745
+              }
+            },
+            {
+              "run": "new-2",
+              "stages": {
+                "backend_runtime_remainder": 0.228474104,
+                "reachable_entry_lowering": 5.151530574,
+                "semantic_environment_check": 0.09474014,
+                "source_loading": 0.000051973,
+                "surface_parse_lower": 0.010281019
+              }
+            },
+            {
+              "run": "new-3",
+              "stages": {
+                "backend_runtime_remainder": 0.22414125,
+                "reachable_entry_lowering": 5.156748851,
+                "semantic_environment_check": 0.094349766,
+                "source_loading": 0.000048702,
+                "surface_parse_lower": 0.010048038
+              }
+            },
+            {
+              "run": "new-4",
+              "stages": {
+                "backend_runtime_remainder": 0.22111788,
+                "reachable_entry_lowering": 5.19496702,
+                "semantic_environment_check": 0.094977726,
+                "source_loading": 0.000048806,
+                "surface_parse_lower": 0.009959489
+              }
+            },
+            {
+              "run": "new-5",
+              "stages": {
+                "backend_runtime_remainder": 0.224359927,
+                "reachable_entry_lowering": 5.122904664,
+                "semantic_environment_check": 0.092606962,
+                "source_loading": 0.00005281,
+                "surface_parse_lower": 0.009423838
+              }
+            }
+          ],
+          "stage_medians_seconds": {
+            "backend_runtime_remainder": 0.224359927,
+            "reachable_entry_lowering": 5.156748851,
+            "semantic_environment_check": 0.09474014,
+            "source_loading": 0.000051973,
+            "surface_parse_lower": 0.010048038
+          },
+          "status": "available"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.029782340999999768,
+          "median_user_cpu_seconds": 5.92,
+          "median_wall_time_seconds": 6.534352017,
+          "wall_time_noisy": false
+        }
+      }
+    },
+    {
+      "baseline": {
+        "binary": "<baseline-debug-veln>",
+        "binary_identity": "git revision d2de2a03da9284238fb631a6b43eb5e6834e945b debug build without run analysis stage timing records",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.033414409
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.87,
+            "wall_time_seconds": 1.014915566
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.88,
+            "wall_time_seconds": 1.011607144
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.88,
+            "wall_time_seconds": 1.005887692
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.88,
+            "wall_time_seconds": 1.015503327
+          }
+        ],
+        "stage_timing": {
+          "status": "unavailable"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.003308421999999922,
+          "median_user_cpu_seconds": 0.88,
+          "median_wall_time_seconds": 1.014915566,
+          "wall_time_noisy": false
+        }
+      },
+      "build_profile": "debug",
+      "command": {
+        "baseline": [
+          "<baseline-debug-veln>",
+          "check",
+          "--json"
+        ],
+        "display": null,
+        "new": [
+          "target/debug/veln",
+          "check",
+          "--json"
+        ]
+      },
+      "cwd": "<temporary>/generated_1",
+      "env": null,
+      "functional_output_comparisons": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "functional_outputs_equal": true,
+      "generated": {
+        "command": [
+          "check",
+          "--json"
+        ],
+        "moduleCount": 33,
+        "size": 32
+      },
+      "id": "generated_1",
+      "new": {
+        "binary": "target/debug/veln",
+        "binary_identity": "git revision 9131482ddc3a45d7e2f2ded7be8be17c834a34a3 debug build with run analysis stage timing records",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.006814274
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.9,
+            "wall_time_seconds": 1.025837845
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.87,
+            "wall_time_seconds": 1.014964053
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.03558401
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.033344467
+          }
+        ],
+        "stage_timing": {
+          "status": "unavailable"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.009746164999999918,
+          "median_user_cpu_seconds": 0.89,
+          "median_wall_time_seconds": 1.025837845,
+          "wall_time_noisy": false
+        }
+      }
+    },
+    {
+      "baseline": {
+        "binary": "<baseline-debug-veln>",
+        "binary_identity": "git revision d2de2a03da9284238fb631a6b43eb5e6834e945b debug build without run analysis stage timing records",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.93,
+            "wall_time_seconds": 1.052397423
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.026984689
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.9,
+            "wall_time_seconds": 1.037546124
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.023713606
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.91,
+            "wall_time_seconds": 1.02770353
+          }
+        ],
+        "stage_timing": {
+          "status": "unavailable"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.003989923999999867,
+          "median_user_cpu_seconds": 0.9,
+          "median_wall_time_seconds": 1.02770353,
+          "wall_time_noisy": false
+        }
+      },
+      "build_profile": "debug",
+      "command": {
+        "baseline": [
+          "<baseline-debug-veln>",
+          "check",
+          "--json"
+        ],
+        "display": null,
+        "new": [
+          "target/debug/veln",
+          "check",
+          "--json"
+        ]
+      },
+      "cwd": "<temporary>/generated_2",
+      "env": null,
+      "functional_output_comparisons": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "functional_outputs_equal": true,
+      "generated": {
+        "command": [
+          "check",
+          "--json"
+        ],
+        "moduleCount": 65,
+        "size": 64
+      },
+      "id": "generated_2",
+      "new": {
+        "binary": "target/debug/veln",
+        "binary_identity": "git revision 9131482ddc3a45d7e2f2ded7be8be17c834a34a3 debug build with run analysis stage timing records",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.91,
+            "wall_time_seconds": 1.054500506
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.92,
+            "wall_time_seconds": 1.06050258
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.030115889
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.91,
+            "wall_time_seconds": 1.058391617
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.02698516
+          }
+        ],
+        "stage_timing": {
+          "status": "unavailable"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.00600207400000019,
+          "median_user_cpu_seconds": 0.91,
+          "median_wall_time_seconds": 1.054500506,
+          "wall_time_noisy": false
+        }
+      }
+    },
+    {
+      "baseline": {
+        "binary": "<baseline-debug-veln>",
+        "binary_identity": "git revision d2de2a03da9284238fb631a6b43eb5e6834e945b debug build without run analysis stage timing records",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.96,
+            "wall_time_seconds": 1.093652936
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.96,
+            "wall_time_seconds": 1.085741533
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.95,
+            "wall_time_seconds": 1.086568086
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.97,
+            "wall_time_seconds": 1.101658232
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.93,
+            "wall_time_seconds": 1.087194551
+          }
+        ],
+        "stage_timing": {
+          "status": "unavailable"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.0014530180000000836,
+          "median_user_cpu_seconds": 0.96,
+          "median_wall_time_seconds": 1.087194551,
+          "wall_time_noisy": false
+        }
+      },
+      "build_profile": "debug",
+      "command": {
+        "baseline": [
+          "<baseline-debug-veln>",
+          "check",
+          "--json"
+        ],
+        "display": null,
+        "new": [
+          "target/debug/veln",
+          "check",
+          "--json"
+        ]
+      },
+      "cwd": "<temporary>/generated_3",
+      "env": null,
+      "functional_output_comparisons": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "functional_outputs_equal": true,
+      "generated": {
+        "command": [
+          "check",
+          "--json"
+        ],
+        "moduleCount": 129,
+        "size": 128
+      },
+      "id": "generated_3",
+      "new": {
+        "binary": "target/debug/veln",
+        "binary_identity": "git revision 9131482ddc3a45d7e2f2ded7be8be17c834a34a3 debug build with run analysis stage timing records",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.95,
+            "wall_time_seconds": 1.09290059
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.97,
+            "wall_time_seconds": 1.112160972
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.96,
+            "wall_time_seconds": 1.094575245
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.96,
+            "wall_time_seconds": 1.084519285
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.98,
+            "wall_time_seconds": 1.100470241
+          }
+        ],
+        "stage_timing": {
+          "status": "unavailable"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.005894996000000097,
+          "median_user_cpu_seconds": 0.96,
+          "median_wall_time_seconds": 1.094575245,
+          "wall_time_noisy": false
+        }
+      }
+    }
+  ]
+}

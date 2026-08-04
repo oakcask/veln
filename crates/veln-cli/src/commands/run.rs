@@ -1,10 +1,14 @@
 use std::env;
 use std::fs;
+use std::fs::OpenOptions;
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process::ExitCode;
+use std::time::{Duration, Instant};
 
-use veln_analysis::{DoctestMode, ProjectAnalysis, analyze_project};
+use veln_analysis::{
+    AnalysisTiming, DoctestMode, ProjectAnalysis, analyze_project, analyze_project_with_timings,
+};
 use veln_ast::Function;
 use veln_ast::FunctionKind;
 use veln_backend_jvm::{EntryArgScalar, EntryArgType, generate_classfiles_with_entry_arg_types};
@@ -30,19 +34,24 @@ pub(crate) fn run_entry(
     if let Some(exit_code) = reject_explicit_companion_run_input(json, &inputs)? {
         return Ok(exit_code);
     }
-    let analysis = analyze_run_project(&inputs)?;
+    let mut timings = RunAnalysisTimings::from_env();
+    let analysis = analyze_run_project(&inputs, timings.as_mut())?;
     write_harness_source_diagnostic_artifact(&analysis.checked_diagnostics())?;
     if report_source_errors(&analysis)? {
+        write_timings(&timings)?;
         return Ok(ExitCode::from(1));
     }
 
     let Some(entry_arg_types) = checked_entry_arg_types(&analysis, &entry, &entry_args)? else {
+        write_timings(&timings)?;
         return Ok(ExitCode::from(1));
     };
-    let Some(ir) = lower_run_entry(&analysis, &entry)? else {
+    let Some(ir) = lower_run_entry(&analysis, &entry, timings.as_mut())? else {
+        write_timings(&timings)?;
         return Ok(ExitCode::from(1));
     };
 
+    let backend_start = timings.is_some().then(Instant::now);
     let jvm = generate_classfiles_with_entry_arg_types(&ir, &entry, &entry_arg_types);
     let build_dir = create_build_dir("veln-run").map_err(|error| error.to_string())?;
     let result = if json {
@@ -57,11 +66,19 @@ pub(crate) fn run_entry(
             build_dir.display()
         );
     }
+    if let (Some(timings), Some(start)) = (timings.as_mut(), backend_start) {
+        timings.push("backend_runtime_remainder", start.elapsed());
+    }
+    write_timings(&timings)?;
     result
 }
 
-fn analyze_run_project(inputs: &[PathBuf]) -> Result<ProjectAnalysis, String> {
+fn analyze_run_project(
+    inputs: &[PathBuf],
+    timings: Option<&mut RunAnalysisTimings>,
+) -> Result<ProjectAnalysis, String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
+    let source_start = timings.as_ref().map(|_| Instant::now());
     let discovered_inputs;
     let analysis_inputs = if harness_source_diagnostic_artifact_requested() {
         Vec::new()
@@ -71,6 +88,17 @@ fn analyze_run_project(inputs: &[PathBuf]) -> Result<ProjectAnalysis, String> {
         discovered_inputs
     };
     let project = Project::discover(root, &analysis_inputs).map_err(|error| error.to_string())?;
+    if let (Some(timings), Some(start)) = (timings, source_start) {
+        timings.push("source_loading", start.elapsed());
+        let doctest_mode = if harness_source_diagnostic_artifact_requested() {
+            DoctestMode::Include
+        } else {
+            DoctestMode::Exclude
+        };
+        let (analysis, analysis_timings) = analyze_project_with_timings(project, doctest_mode);
+        timings.extend(analysis_timings);
+        return Ok(analysis);
+    }
     let doctest_mode = if harness_source_diagnostic_artifact_requested() {
         DoctestMode::Include
     } else {
@@ -223,8 +251,16 @@ fn validate_entry_args(
 fn lower_run_entry(
     analysis: &ProjectAnalysis,
     entry: &str,
+    timings: Option<&mut RunAnalysisTimings>,
 ) -> Result<Option<veln_ir::TypedProgram>, String> {
-    let reachable = analysis.lower_reachable_entry(entry, FunctionKind::Function);
+    let reachable = if let Some(timings) = timings {
+        let (reachable, timing) =
+            analysis.lower_reachable_entry_with_timing(entry, FunctionKind::Function);
+        timings.push_analysis(timing);
+        reachable
+    } else {
+        analysis.lower_reachable_entry(entry, FunctionKind::Function)
+    };
     let lowered = reachable.lowered;
     if has_error(&lowered.diagnostics) {
         print_human_stderr(&DiagnosticEnvelope::new(tool_info(), lowered.diagnostics))?;
@@ -245,6 +281,78 @@ fn lower_run_entry(
         return Ok(None);
     };
     Ok(Some(ir))
+}
+
+struct RunAnalysisTimings {
+    file: PathBuf,
+    workload: String,
+    run: String,
+    records: Vec<AnalysisTiming>,
+}
+
+impl RunAnalysisTimings {
+    fn from_env() -> Option<Self> {
+        let file = env::var_os("VELN_ANALYSIS_TIMING_FILE").map(PathBuf::from)?;
+        Some(Self {
+            file,
+            workload: env::var("VELN_ANALYSIS_TIMING_WORKLOAD")
+                .unwrap_or_else(|_| "unknown".to_string()),
+            run: env::var("VELN_ANALYSIS_TIMING_RUN").unwrap_or_else(|_| "unknown".to_string()),
+            records: Vec::new(),
+        })
+    }
+
+    fn push(&mut self, stage: &'static str, duration: Duration) {
+        self.records.push(AnalysisTiming { stage, duration });
+    }
+
+    fn push_analysis(&mut self, timing: AnalysisTiming) {
+        self.records.push(timing);
+    }
+
+    fn extend(&mut self, timings: Vec<AnalysisTiming>) {
+        self.records.extend(timings);
+    }
+
+    fn write(&self) -> Result<(), String> {
+        if self.records.is_empty() {
+            return Ok(());
+        }
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.file)
+            .map_err(|error| error.to_string())?;
+        for record in &self.records {
+            writeln!(
+                file,
+                "{{\"workload\":{},\"run\":{},\"stage\":{},\"boundary\":{},\"duration_seconds\":{}}}",
+                json_literal_string(&self.workload),
+                json_literal_string(&self.run),
+                json_literal_string(record.stage),
+                json_literal_string(record.stage),
+                duration_seconds(record.duration),
+            )
+            .map_err(|error| error.to_string())?;
+        }
+        Ok(())
+    }
+}
+
+fn write_timings(timings: &Option<RunAnalysisTimings>) -> Result<(), String> {
+    if let Some(timings) = timings {
+        timings.write()?;
+    }
+    Ok(())
+}
+
+fn json_literal_string(value: &str) -> String {
+    JsonValue::string(value).to_json()
+}
+
+fn duration_seconds(duration: Duration) -> String {
+    let nanos = duration.as_nanos();
+    format!("{}.{:09}", nanos / 1_000_000_000, nanos % 1_000_000_000)
 }
 
 const HOST_EFFECT_LABELS: &[&str] = &[
@@ -3175,7 +3283,7 @@ mod tests {
             "production analysis should exclude companion diagnostics: {:#?}",
             analysis.checked_diagnostics()
         );
-        let ir = lower_run_entry(&analysis, "main")
+        let ir = lower_run_entry(&analysis, "main", None)
             .expect("entry should lower")
             .expect("entry should produce IR");
 
@@ -3195,6 +3303,28 @@ mod tests {
                 .iter()
                 .map(|class| class.path.as_str())
                 .collect::<Vec<_>>()
+        );
+
+        fs::remove_dir_all(root).expect("test project should be removed");
+    }
+
+    #[test]
+    fn run_analysis_timings_write_deterministic_json_lines() {
+        let root = temp_dir("run-analysis-timings-json-lines");
+        let timing_file = root.join("timings.jsonl");
+        let mut timings = RunAnalysisTimings {
+            file: timing_file.clone(),
+            workload: "http2_core".to_string(),
+            run: "new-1".to_string(),
+            records: Vec::new(),
+        };
+
+        timings.push("source_loading", Duration::from_nanos(250_000_000));
+        timings.write().expect("timing records should be written");
+
+        assert_eq!(
+            fs::read_to_string(&timing_file).expect("timing file should be readable"),
+            "{\"workload\":\"http2_core\",\"run\":\"new-1\",\"stage\":\"source_loading\",\"boundary\":\"source_loading\",\"duration_seconds\":0.250000000}\n"
         );
 
         fs::remove_dir_all(root).expect("test project should be removed");

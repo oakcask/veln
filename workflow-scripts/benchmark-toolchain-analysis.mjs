@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -38,6 +38,14 @@ export const DEFAULT_WORKLOADS = [
 ];
 
 const NOISE_BOUNDARY_RATIO = 0.1;
+const REQUIRED_STAGE_TIMINGS = [
+  "source_loading",
+  "surface_parse_lower",
+  "semantic_environment_check",
+  "reachable_entry_lowering",
+  "backend_runtime_remainder",
+];
+const REQUIRED_STAGE_TIMING_SET = new Set(REQUIRED_STAGE_TIMINGS);
 
 export function median(values) {
   if (values.length === 0) {
@@ -116,6 +124,7 @@ export function workloadCommand(binary, workload) {
 }
 
 export function summarizeRuns(runs) {
+  validateMeasuredRuns(runs);
   const wallTimes = runs.map((run) => run.wall_time_seconds);
   const userCpuTimes = runs.map((run) => run.user_cpu_seconds);
   const wallMedian = median(wallTimes);
@@ -126,6 +135,156 @@ export function summarizeRuns(runs) {
     median_absolute_deviation_wall_time_seconds: wallMad,
     wall_time_noisy: wallMad > wallMedian * NOISE_BOUNDARY_RATIO,
   };
+}
+
+export function validateMeasuredRuns(runs) {
+  runs.forEach((run, index) => {
+    for (const metric of ["wall_time_seconds", "user_cpu_seconds"]) {
+      if (
+        typeof run[metric] !== "number" ||
+        !Number.isFinite(run[metric]) ||
+        run[metric] < 0
+      ) {
+        throw new Error(`measured run ${index + 1} has invalid ${metric}`);
+      }
+    }
+  });
+}
+
+export function parseTimingRecords(text, options = {}) {
+  const seen = new Set();
+  return text
+    .split(/\n/)
+    .filter((line) => line.trim() !== "")
+    .map((line, index) => {
+      let record;
+      try {
+        record = JSON.parse(line);
+      } catch (error) {
+        throw new Error(`invalid timing JSON record at line ${index + 1}`);
+      }
+      const { workload, run, stage, boundary, duration_seconds: durationSeconds } = record;
+      if (
+        typeof workload !== "string" ||
+        workload === "" ||
+        typeof run !== "string" ||
+        run === "" ||
+        typeof stage !== "string" ||
+        stage === "" ||
+        typeof boundary !== "string" ||
+        boundary === ""
+      ) {
+        throw new Error(`timing record at line ${index + 1} must identify workload, run, stage, and boundary`);
+      }
+      if (boundary !== stage) {
+        throw new Error(`timing record at line ${index + 1} does not identify the measured pipeline boundary`);
+      }
+      if (!REQUIRED_STAGE_TIMING_SET.has(stage)) {
+        throw new Error(`timing record at line ${index + 1} has unknown measured pipeline stage: ${stage}`);
+      }
+      if (options.workload && workload !== options.workload) {
+        throw new Error(`timing record at line ${index + 1} identifies unexpected workload: ${workload}`);
+      }
+      if (typeof durationSeconds !== "number" || !Number.isFinite(durationSeconds) || durationSeconds < 0) {
+        throw new Error(`timing record at line ${index + 1} has invalid duration`);
+      }
+      const key = `${workload}\0${run}\0${stage}`;
+      if (seen.has(key)) {
+        throw new Error(`duplicate timing record for workload ${workload}, run ${run}, stage ${stage}`);
+      }
+      seen.add(key);
+      return {
+        workload,
+        run,
+        stage,
+        boundary,
+        duration_seconds: durationSeconds,
+      };
+    });
+}
+
+export function summarizeStageRecords(records, expectedRuns, options = {}) {
+  if (records.length === 0) {
+    if (options.instrumentationRequired) {
+      throw new Error(`missing timing records for run(s): ${expectedRuns.join(", ")}`);
+    }
+    return { status: "unavailable" };
+  }
+  const recordsByRun = new Map();
+  for (const record of records) {
+    if (!recordsByRun.has(record.run)) {
+      recordsByRun.set(record.run, []);
+    }
+    recordsByRun.get(record.run).push(record);
+  }
+  const missingRuns = expectedRuns.filter((run) => !recordsByRun.has(run));
+  if (missingRuns.length > 0) {
+    throw new Error(`missing timing records for run(s): ${missingRuns.join(", ")}`);
+  }
+  for (const run of expectedRuns) {
+    const stages = new Set(recordsByRun.get(run).map((record) => record.stage));
+    const missingStages = REQUIRED_STAGE_TIMINGS.filter((stage) => !stages.has(stage));
+    if (missingStages.length > 0) {
+      throw new Error(`missing timing stage(s) for run ${run}: ${missingStages.join(", ")}`);
+    }
+  }
+
+  const stageDurations = new Map();
+  for (const record of records) {
+    if (!stageDurations.has(record.stage)) {
+      stageDurations.set(record.stage, []);
+    }
+    stageDurations.get(record.stage).push(record.duration_seconds);
+  }
+  const stageMedians = Object.fromEntries(
+    [...stageDurations.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([stage, values]) => [stage, median(values)]),
+  );
+  return {
+    status: "available",
+    stage_medians_seconds: stageMedians,
+    dominant_stage: dominantMeasuredStage(stageMedians),
+    runs: expectedRuns.map((run) => ({
+      run,
+      stages: Object.fromEntries(
+        recordsByRun
+          .get(run)
+          .map((record) => [record.stage, record.duration_seconds])
+          .sort(([left], [right]) => left.localeCompare(right)),
+      ),
+    })),
+  };
+}
+
+export function validateStageSummaryFitsRuns(stageTiming, runs, label) {
+  if (stageTiming.status !== "available") {
+    return;
+  }
+  const runsById = new Map(stageTiming.runs.map((run) => [run.run, run]));
+  runs.forEach((run, index) => {
+    const runId = `${label}-${index + 1}`;
+    const stageRun = runsById.get(runId);
+    if (!stageRun) {
+      throw new Error(`missing stage timing for measured run ${runId}`);
+    }
+    const stageTotal = Object.values(stageRun.stages).reduce((sum, duration) => sum + duration, 0);
+    const roundedWallToleranceSeconds = 0.05;
+    if (stageTotal > run.wall_time_seconds + roundedWallToleranceSeconds) {
+      throw new Error(
+        `stage timing total for ${runId} exceeds measured wall time: ${stageTotal} > ${run.wall_time_seconds}`,
+      );
+    }
+  });
+}
+
+export function dominantMeasuredStage(stageMedians) {
+  const entries = Object.entries(stageMedians);
+  if (entries.length === 0) {
+    return null;
+  }
+  entries.sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]));
+  return entries[0][0];
 }
 
 export function compareFunctionalOutputs(left, right) {
@@ -253,6 +412,15 @@ export function passesBenchmarkThresholds(thresholds) {
   return thresholds.every((threshold) => threshold.status === "passed");
 }
 
+export function validateBenchmarkResult(result) {
+  for (const workload of result.workloads) {
+    validateMeasuredRuns(workload.baseline.runs);
+    validateMeasuredRuns(workload.new.runs);
+    validateStageSummaryFitsRuns(workload.baseline.stage_timing, workload.baseline.runs, "baseline");
+    validateStageSummaryFitsRuns(workload.new.stage_timing, workload.new.runs, "new");
+  }
+}
+
 export function stableJson(value) {
   return `${JSON.stringify(sortJson(value), null, 2)}\n`;
 }
@@ -274,12 +442,17 @@ function sortJson(value) {
 function parseArgs(argv) {
   const [command, baselineBinary, newBinary, ...rest] = argv;
   if (command !== "compare" || !baselineBinary || !newBinary) {
-    throw new Error("usage: benchmark-toolchain-analysis compare BASELINE_BINARY NEW_BINARY [--output PATH] [--runs N] [--warmups N] [--sizes A,B,C]");
+    throw new Error("usage: benchmark-toolchain-analysis compare BASELINE_BINARY NEW_BINARY [--output PATH] [--baseline-label LABEL] [--new-label LABEL] [--baseline-identity TEXT] [--new-identity TEXT] [--build-profile NAME] [--runs N] [--warmups N] [--sizes A,B,C]");
   }
   const args = {
     command,
     baselineBinary,
     newBinary,
+    baselineLabel: baselineBinary,
+    newLabel: newBinary,
+    baselineIdentity: null,
+    newIdentity: null,
+    buildProfile: "debug",
     output: null,
     runs: 5,
     warmups: 1,
@@ -291,6 +464,21 @@ function parseArgs(argv) {
     const value = rest[index + 1];
     if (flag === "--output") {
       args.output = value;
+      index += 1;
+    } else if (flag === "--baseline-label") {
+      args.baselineLabel = value;
+      index += 1;
+    } else if (flag === "--new-label") {
+      args.newLabel = value;
+      index += 1;
+    } else if (flag === "--baseline-identity") {
+      args.baselineIdentity = value;
+      index += 1;
+    } else if (flag === "--new-identity") {
+      args.newIdentity = value;
+      index += 1;
+    } else if (flag === "--build-profile") {
+      args.buildProfile = value;
       index += 1;
     } else if (flag === "--runs") {
       args.runs = Number.parseInt(value, 10);
@@ -322,23 +510,64 @@ function parseArgs(argv) {
   return args;
 }
 
+export function benchmarkCommand(args) {
+  const command = [
+    "benchmark-toolchain-analysis",
+    "compare",
+    args.baselineBinary,
+    args.newBinary,
+    "--build-profile",
+    args.buildProfile,
+    "--runs",
+    String(args.runs),
+    "--warmups",
+    String(args.warmups),
+    "--sizes",
+    args.sizes.join(","),
+  ];
+  if (args.baselineLabel !== args.baselineBinary) {
+    command.push("--baseline-label", args.baselineLabel);
+  }
+  if (args.newLabel !== args.newBinary) {
+    command.push("--new-label", args.newLabel);
+  }
+  if (args.baselineIdentity) {
+    command.push("--baseline-identity", args.baselineIdentity);
+  }
+  if (args.newIdentity) {
+    command.push("--new-identity", args.newIdentity);
+  }
+  if (args.output) {
+    command.push("--output", args.output);
+  }
+  return command;
+}
+
 function parseShellCommand(command) {
   return ["sh", "-c", command];
 }
 
 function runMeasured(command, options) {
+  const env = {
+    ...options.env,
+    ...(options.timing
+      ? {
+          VELN_ANALYSIS_TIMING_FILE: options.timing.file,
+          VELN_ANALYSIS_TIMING_WORKLOAD: options.timing.workload,
+          VELN_ANALYSIS_TIMING_RUN: options.timing.run,
+        }
+      : {}),
+  };
+  const wallStart = process.hrtime.bigint();
   const completed = spawnSync("/usr/bin/time", ["-f", "__veln_time__ %e %U", ...command], {
     cwd: options.cwd,
-    env: options.env,
+    env,
     encoding: "utf8",
     maxBuffer: 10 * 1024 * 1024,
   });
+  const wallTimeSeconds = Number(process.hrtime.bigint() - wallStart) / 1_000_000_000;
   const stderr = completed.stderr ?? "";
-  const timeLine = stderr.split("\n").find((line) => line.startsWith("__veln_time__ "));
-  if (!timeLine) {
-    throw new Error(`time output was missing for command: ${command.join(" ")}`);
-  }
-  const [, wall, user] = timeLine.split(/\s+/);
+  const userCpuSeconds = parseUserCpuSeconds(stderr, command);
   return {
     exit_status: completed.status ?? 1,
     stdout: completed.stdout ?? "",
@@ -346,9 +575,22 @@ function runMeasured(command, options) {
       .split("\n")
       .filter((line) => !line.startsWith("__veln_time__ "))
       .join("\n"),
-    wall_time_seconds: Number.parseFloat(wall),
-    user_cpu_seconds: Number.parseFloat(user),
+    wall_time_seconds: wallTimeSeconds,
+    user_cpu_seconds: userCpuSeconds,
   };
+}
+
+export function parseUserCpuSeconds(stderr, command) {
+  const timeLine = stderr.split("\n").find((line) => line.startsWith("__veln_time__ "));
+  if (!timeLine) {
+    throw new Error(`time output was missing for command: ${command.join(" ")}`);
+  }
+  const [, , user] = timeLine.split(/\s+/);
+  const userCpuSeconds = Number.parseFloat(user);
+  if (!Number.isFinite(userCpuSeconds) || userCpuSeconds < 0) {
+    throw new Error(`time output had invalid user CPU seconds for command: ${command.join(" ")}`);
+  }
+  return userCpuSeconds;
 }
 
 function prepareWorkloads(repoRoot, sizes, generatedRoot) {
@@ -384,6 +626,11 @@ function measurePair(args, workload) {
   const env = { ...process.env, ...(workload.env ?? {}) };
   const baselineBinary = realpathSync(args.baselineBinary);
   const newBinary = realpathSync(args.newBinary);
+  const timingFile = join(
+    mkdtempSync(join(tmpdir(), "veln-analysis-timing-")),
+    `${workload.id}.jsonl`,
+  );
+  const timingRoot = dirname(timingFile);
   const replacements = {
     [args.repoRoot]: "<repo>",
     [workload.cwd]: "<workload>",
@@ -392,6 +639,10 @@ function measurePair(args, workload) {
   };
   const baselineCommand = workloadCommand(baselineBinary, workload);
   const newCommand = workloadCommand(newBinary, workload);
+  const baselineDisplayCommand = workloadCommand(args.baselineLabel, workload);
+  const newDisplayCommand = workloadCommand(args.newLabel, workload);
+  const stageInstrumentationRequired =
+    workload.commandKind === "veln" && workload.args[0] === "run";
 
   for (let index = 0; index < args.warmups; index += 1) {
     if (index % 2 === 0) {
@@ -405,15 +656,59 @@ function measurePair(args, workload) {
 
   const baselineRuns = [];
   const newRuns = [];
+  const baselineTimingRuns = [];
+  const newTimingRuns = [];
   for (let index = 0; index < args.runs; index += 1) {
+    const baselineRunId = `baseline-${index + 1}`;
+    const newRunId = `new-${index + 1}`;
+    baselineTimingRuns.push(baselineRunId);
+    newTimingRuns.push(newRunId);
     if (index % 2 === 0) {
-      baselineRuns.push(runMeasured(baselineCommand, { cwd: workload.cwd, env }));
-      newRuns.push(runMeasured(newCommand, { cwd: workload.cwd, env }));
+      baselineRuns.push(
+        runMeasured(baselineCommand, {
+          cwd: workload.cwd,
+          env,
+          timing: { file: timingFile, workload: workload.id, run: baselineRunId },
+        }),
+      );
+      newRuns.push(
+        runMeasured(newCommand, {
+          cwd: workload.cwd,
+          env,
+          timing: { file: timingFile, workload: workload.id, run: newRunId },
+        }),
+      );
     } else {
-      newRuns.push(runMeasured(newCommand, { cwd: workload.cwd, env }));
-      baselineRuns.push(runMeasured(baselineCommand, { cwd: workload.cwd, env }));
+      newRuns.push(
+        runMeasured(newCommand, {
+          cwd: workload.cwd,
+          env,
+          timing: { file: timingFile, workload: workload.id, run: newRunId },
+        }),
+      );
+      baselineRuns.push(
+        runMeasured(baselineCommand, {
+          cwd: workload.cwd,
+          env,
+          timing: { file: timingFile, workload: workload.id, run: baselineRunId },
+        }),
+      );
     }
   }
+
+  let timingRecords = [];
+  try {
+    timingRecords = parseTimingRecords(readFileSync(timingFile, "utf8"), {
+      workload: workload.id,
+    });
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+  } finally {
+    rmSync(timingRoot, { recursive: true, force: true });
+  }
+  const recordsForRuns = (runs) => timingRecords.filter((record) => runs.includes(record.run));
 
   const functionalComparisons = baselineRuns.map((baselineRun, index) =>
     compareFunctionalOutputs(
@@ -426,14 +721,18 @@ function measurePair(args, workload) {
     id: workload.id,
     cwd: workload.displayCwd ?? (relative(args.repoRoot, workload.cwd) || "."),
     command: {
-      baseline: baselineCommand,
-      new: newCommand,
+      baseline: baselineDisplayCommand,
+      new: newDisplayCommand,
       display: workload.displayCommand ?? null,
     },
+    env: workload.env ?? null,
+    build_profile: args.buildProfile,
     generated: workload.generated ?? null,
     baseline: {
-      binary: baselineBinary,
+      binary: args.baselineLabel,
+      binary_identity: args.baselineIdentity,
       summary: summarizeRuns(baselineRuns),
+      stage_timing: summarizeStageRecords(recordsForRuns(baselineTimingRuns), baselineTimingRuns),
       runs: baselineRuns.map(({ wall_time_seconds, user_cpu_seconds, exit_status }) => ({
         exit_status,
         user_cpu_seconds,
@@ -441,8 +740,12 @@ function measurePair(args, workload) {
       })),
     },
     new: {
-      binary: newBinary,
+      binary: args.newLabel,
+      binary_identity: args.newIdentity,
       summary: summarizeRuns(newRuns),
+      stage_timing: summarizeStageRecords(recordsForRuns(newTimingRuns), newTimingRuns, {
+        instrumentationRequired: stageInstrumentationRequired,
+      }),
       runs: newRuns.map(({ wall_time_seconds, user_cpu_seconds, exit_status }) => ({
         exit_status,
         user_cpu_seconds,
@@ -483,13 +786,15 @@ export function main(argv = process.argv.slice(2)) {
   try {
     const workloads = prepareWorkloads(args.repoRoot, args.sizes, generatedRoot);
     const result = {
-      command: "benchmark-toolchain-analysis compare",
+      command: benchmarkCommand(args),
+      build_profile: args.buildProfile,
       measured_runs: args.runs,
       warmup_runs: args.warmups,
       workloads: workloads.map((workload) => measurePair(args, workload)),
     };
     result.thresholds = thresholdDecisions(result);
     result.passes_thresholds = passesBenchmarkThresholds(result.thresholds);
+    validateBenchmarkResult(result);
     summarizeForHuman(result);
     if (args.output) {
       writeFileSync(args.output, stableJson(result), "utf8");
