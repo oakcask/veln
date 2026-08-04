@@ -286,7 +286,6 @@ The remaining proposal work is explicit:
 - application analysis caching remains out of scope and incomplete;
 - representative HTTP/2 core and connection improvement evidence remains
   incomplete;
-- generated-size benchmark comparisons remain required completion evidence.
 - controlled benchmark evidence must still show which analyzer stage keeps the
   representative HTTP/2 workloads above the intended wall-time threshold after
   standard-environment reuse and dependency-closure restriction.
