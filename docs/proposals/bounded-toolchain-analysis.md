@@ -64,13 +64,13 @@ unrelated fully annotated module sets do not pay private-inference body scans,
 and that an omitted private helper chain still reaches the same inferred
 parameter and return types while skipping unrelated annotated modules and
 unrelated annotated functions in the same module.
-The same counter coverage records deterministic body-return, contributor
-discovery, call-site, and prelude-callback scan counts. One case combines
-nested and scalar callback helpers while preserving the inferred callback
-parameter and return types and proving that already fixed prelude-callback
-returns do not enter prelude body traversal. Another case verifies that a
-helper whose return is already fixed before the prelude-callback pass
-performs no prelude-callback discovery or body scan.
+The same counter coverage records deterministic body-return, private-reference
+index, contributor discovery, call-site, and prelude-callback scan counts. One
+case combines nested and scalar callback helpers while preserving the inferred
+callback parameter and return types and proving that already fixed
+prelude-callback returns do not enter prelude body traversal. Another case
+verifies that a helper whose return is already fixed before the
+prelude-callback pass performs no prelude-callback discovery or body scan.
 
 ## Proposed Outcome
 
@@ -207,7 +207,11 @@ unchanged. It narrows only analyzer work:
 - when eligible private slots remain, call-site and prelude-callback inference
   use a private-reference index to select only functions that own those slots
   or reference them in ways that can contribute constraints, and their
-  contributor sets are not rebuilt in every stabilization round.
+  contributor sets are not rebuilt in every stabilization round;
+- private-reference index construction is limited to modules that contain
+  eligible omitted private slots or eligible omitted private returns, and
+  structural tests record its scan count separately from repeated inference
+  body traversals.
 
 The remaining proposal work is explicit:
 

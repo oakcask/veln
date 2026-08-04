@@ -242,6 +242,7 @@ pub(crate) mod private_inference_counters {
         static BODY_RETURN_SCANS: Cell<usize> = const { Cell::new(0) };
         static CALL_SITE_DISCOVERY_SCANS: Cell<usize> = const { Cell::new(0) };
         static CALL_SITE_SCANS: Cell<usize> = const { Cell::new(0) };
+        static PRIVATE_REFERENCE_INDEX_SCANS: Cell<usize> = const { Cell::new(0) };
         static PRELUDE_CALLBACK_DISCOVERY_SCANS: Cell<usize> = const { Cell::new(0) };
         static PRELUDE_CALLBACK_SCANS: Cell<usize> = const { Cell::new(0) };
     }
@@ -251,6 +252,7 @@ pub(crate) mod private_inference_counters {
         pub(crate) body_return_scans: usize,
         pub(crate) call_site_discovery_scans: usize,
         pub(crate) call_site_scans: usize,
+        pub(crate) private_reference_index_scans: usize,
         pub(crate) prelude_callback_discovery_scans: usize,
         pub(crate) prelude_callback_scans: usize,
     }
@@ -259,6 +261,7 @@ pub(crate) mod private_inference_counters {
         BODY_RETURN_SCANS.set(0);
         CALL_SITE_DISCOVERY_SCANS.set(0);
         CALL_SITE_SCANS.set(0);
+        PRIVATE_REFERENCE_INDEX_SCANS.set(0);
         PRELUDE_CALLBACK_DISCOVERY_SCANS.set(0);
         PRELUDE_CALLBACK_SCANS.set(0);
     }
@@ -268,6 +271,7 @@ pub(crate) mod private_inference_counters {
             body_return_scans: BODY_RETURN_SCANS.get(),
             call_site_discovery_scans: CALL_SITE_DISCOVERY_SCANS.get(),
             call_site_scans: CALL_SITE_SCANS.get(),
+            private_reference_index_scans: PRIVATE_REFERENCE_INDEX_SCANS.get(),
             prelude_callback_discovery_scans: PRELUDE_CALLBACK_DISCOVERY_SCANS.get(),
             prelude_callback_scans: PRELUDE_CALLBACK_SCANS.get(),
         }
@@ -279,6 +283,10 @@ pub(crate) mod private_inference_counters {
 
     pub(super) fn record_call_site_scan() {
         CALL_SITE_SCANS.set(CALL_SITE_SCANS.get() + 1);
+    }
+
+    pub(super) fn record_private_reference_index_scan() {
+        PRIVATE_REFERENCE_INDEX_SCANS.set(PRIVATE_REFERENCE_INDEX_SCANS.get() + 1);
     }
 
     pub(super) fn record_prelude_callback_discovery_scan() {
@@ -1372,7 +1380,11 @@ fn infer_private_function_call_site_signature_types(
     if initial_omitted_private_slots.is_empty() {
         return;
     }
-    let private_references = private_reference_map(module, &function_by_path);
+    let private_references = private_reference_map(
+        module,
+        &function_by_path,
+        &modules_with_private_slot_omissions(&initial_omitted_private_slots),
+    );
     let contributors = private_call_site_constraint_contributors(
         module,
         &initial_omitted_private_slots,
@@ -1483,6 +1495,24 @@ fn omitted_private_slots_that_can_change(
         .collect()
 }
 
+fn modules_with_private_slot_omissions(
+    omitted_private_slots: &PrivateSlotMap,
+) -> BTreeSet<Option<String>> {
+    omitted_private_slots
+        .keys()
+        .map(|key| key.0.clone())
+        .collect()
+}
+
+fn modules_with_private_return_omissions(
+    omitted_private_returns: &BTreeSet<FunctionKey>,
+) -> BTreeSet<Option<String>> {
+    omitted_private_returns
+        .iter()
+        .map(|key| key.0.clone())
+        .collect()
+}
+
 fn omitted_private_returns_requiring_prelude_pass(
     module: &SurfaceModule,
     functions: &[FunctionSignature],
@@ -1510,13 +1540,17 @@ fn omitted_private_returns_requiring_prelude_pass(
 fn private_reference_map(
     module: &SurfaceModule,
     function_by_path: &FunctionAstMap<'_>,
+    modules_with_omitted_slots: &BTreeSet<Option<String>>,
 ) -> PrivateReferenceMap {
     module
         .functions
         .iter()
+        .filter(|function| modules_with_omitted_slots.contains(&function.module_name))
         .filter_map(|function| {
             let key = function_key(function)?;
             let mut references = BTreeSet::new();
+            #[cfg(test)]
+            private_inference_counters::record_private_reference_index_scan();
             for line in &function.body {
                 collect_private_line_references(
                     line,
@@ -2469,7 +2503,11 @@ fn infer_private_prelude_callback_return_types(
     if initial_omitted_private_returns.is_empty() {
         return;
     }
-    let private_references = private_reference_map(module, &function_by_path);
+    let private_references = private_reference_map(
+        module,
+        &function_by_path,
+        &modules_with_private_return_omissions(&initial_omitted_private_returns),
+    );
     let contributors = private_prelude_callback_constraint_contributors(
         module,
         &initial_omitted_private_returns,
