@@ -291,7 +291,7 @@ fn standard_environment_with_test_cache(
         .entry(module_names)
         .or_insert_with(|| {
             cache.standard_prepares.fetch_add(1, Ordering::SeqCst);
-            prepare_current_reusable_standard_surface_module_environment(&module)
+            prepare_current_reusable_standard_surface_module_environment(module)
         })
         .clone()
 }
