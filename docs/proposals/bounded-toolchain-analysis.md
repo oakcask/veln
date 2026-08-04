@@ -262,7 +262,24 @@ unchanged. It narrows only analyzer work:
   non-empty application analysis constructs fresh semantic facts. `veln-analysis`
   regression tests exercise the embedded-standard `OnceLock` path with
   repeated and concurrent distinct projects, local application sources whose
-  module name begins with `std::`, and a local `std::prelude` collision.
+  module name begins with `std::`, and a local `std::prelude` collision;
+- reusable standard-library semantic signatures are restricted to the embedded
+  standard modules that the merged application project actually loaded. The
+  cached path keeps the reusable environment immutable, but it builds each
+  application base environment from only that project's standard dependency
+  closure. `veln-sema` coverage prepares a reusable standard environment with
+  an unused standard module and checks that an application that loaded only
+  `std::prelude` receives only `std::prelude` function facts while still
+  matching uncached diagnostics and lowering.
+
+The controlled benchmark run for the dependency-closure slice kept functional
+outputs equal and wall-time noise within the accepted boundary. Median wall
+time changed from 1.26 to 1.06 seconds for the small schema workload, from
+1.20 to 1.21 seconds for HPACK static, from 1.34 to 1.33 seconds for HTTP/2
+core, from 6.41 to 6.35 seconds for HTTP/2 connection, and from
+1.03/1.14/1.41 to 0.98/1.00/1.08 seconds for generated 32/64/128 module
+workloads. The generated-size CPU growth checks passed. The representative
+HTTP/2 improvement thresholds did not pass.
 
 The remaining proposal work is explicit:
 
@@ -270,9 +287,9 @@ The remaining proposal work is explicit:
 - representative HTTP/2 core and connection improvement evidence remains
   incomplete;
 - generated-size benchmark comparisons remain required completion evidence.
-- controlled benchmark evidence must still show whether standard-environment
-  reuse, clone cost, and dependency-closure cost produce the intended wall-time
-  effect on representative workloads.
+- controlled benchmark evidence must still show which analyzer stage keeps the
+  representative HTTP/2 workloads above the intended wall-time threshold after
+  standard-environment reuse and dependency-closure restriction.
 
 ## Non-Goals
 

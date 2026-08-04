@@ -79,6 +79,32 @@ impl SchemaSymbolTable {
         self.schemas.extend(other.schemas);
         self.aliases.extend(other.aliases);
     }
+
+    fn restricted_to_modules(&self, module_names: &BTreeSet<String>) -> Self {
+        let schemas = self
+            .schemas
+            .iter()
+            .filter(|symbol| {
+                symbol
+                    .module_name
+                    .as_deref()
+                    .is_some_and(|module| module_names.contains(module))
+            })
+            .cloned()
+            .collect();
+        let aliases = self
+            .aliases
+            .iter()
+            .filter(|symbol| {
+                symbol
+                    .module_name
+                    .as_deref()
+                    .is_some_and(|module| module_names.contains(module))
+            })
+            .cloned()
+            .collect();
+        Self { schemas, aliases }
+    }
 }
 
 #[derive(Clone)]
@@ -262,6 +288,16 @@ pub struct ReusableStandardEnvironment {
 
 const STANDARD_SEMANTIC_MODEL: &str = "standard-semantic-signatures-v1";
 
+impl ReusableStandardEnvironment {
+    fn environment_for_modules(&self, module_names: &BTreeSet<String>) -> TypeEnvironment {
+        if module_names == &self.module_names {
+            return self.environment.clone();
+        }
+        self.environment
+            .restricted_to_standard_modules(module_names)
+    }
+}
+
 #[cfg(test)]
 impl ReusableStandardEnvironment {
     pub(crate) fn has_current_identity_for_test(&self) -> bool {
@@ -271,6 +307,13 @@ impl ReusableStandardEnvironment {
     pub(crate) fn with_current_identity_for_test(mut self) -> Self {
         self.identity = standard_semantic_identity();
         self
+    }
+
+    pub(crate) fn environment_for_modules_for_test(
+        &self,
+        module_names: &BTreeSet<String>,
+    ) -> TypeEnvironment {
+        self.environment_for_modules(module_names)
     }
 }
 
@@ -444,12 +487,110 @@ impl TypeEnvironment {
             return Self::from_module(module);
         }
         let application_module = module_without_reusable_standard_declarations(module, standard);
+        let standard_module_names = reusable_standard_module_names_for(module);
+        let standard_environment = standard.environment_for_modules(&standard_module_names);
         if application_module_is_empty(&application_module) {
-            return standard.environment.clone();
+            return standard_environment;
         }
         #[cfg(test)]
         standard_reuse_counters::record_application_prepare();
-        Self::from_module_with_base(&application_module, Some(&standard.environment))
+        Self::from_module_with_base(&application_module, Some(&standard_environment))
+    }
+
+    fn restricted_to_standard_modules(&self, module_names: &BTreeSet<String>) -> Self {
+        let module_selected =
+            |module: Option<&str>| module.is_some_and(|module| module_names.contains(module));
+        let functions = self
+            .functions
+            .iter()
+            .filter(|function| module_selected(function.module_name.as_deref()))
+            .cloned()
+            .collect();
+        let codec_calls = self
+            .codec_calls
+            .iter()
+            .filter(|codec| module_selected(codec.module_name.as_deref()))
+            .cloned()
+            .collect();
+        let effects = self
+            .effects
+            .iter()
+            .filter(|effect| module_selected(effect.module_name.as_deref()))
+            .cloned()
+            .collect();
+        let handlers = self
+            .handlers
+            .iter()
+            .filter(|handler| module_selected(handler.module_name.as_deref()))
+            .cloned()
+            .collect();
+        let schema_symbols = self.schema_symbols.restricted_to_modules(module_names);
+        let type_symbols = self
+            .type_symbols
+            .iter()
+            .filter(|symbol| module_selected(symbol.module_name.as_deref()))
+            .cloned()
+            .collect();
+        let codec_symbols = self
+            .codec_symbols
+            .iter()
+            .filter(|symbol| module_selected(symbol.module_name.as_deref()))
+            .cloned()
+            .collect();
+        let uses = self
+            .uses
+            .iter()
+            .filter(|use_decl| module_selected(use_decl.module_name.as_deref()))
+            .cloned()
+            .collect();
+        let adts = self.adts.restricted_to_modules(module_names);
+        let companion_function_access_targets = self
+            .companion_function_access_targets
+            .iter()
+            .filter(|(module, target)| {
+                module_names.contains(*module) && module_names.contains(*target)
+            })
+            .map(|(module, target)| (module.clone(), target.clone()))
+            .collect();
+        let companion_schema_access_targets = self
+            .companion_schema_access_targets
+            .iter()
+            .filter(|(module, target)| {
+                module_names.contains(*module) && module_names.contains(*target)
+            })
+            .map(|(module, target)| (module.clone(), target.clone()))
+            .collect();
+        let companion_effect_access_targets = self
+            .companion_effect_access_targets
+            .iter()
+            .filter(|(module, target)| {
+                module_names.contains(*module) && module_names.contains(&target.target_module)
+            })
+            .map(|(module, target)| (module.clone(), target.clone()))
+            .collect();
+        Self {
+            functions,
+            codec_calls,
+            effects,
+            handlers,
+            schema_symbols,
+            type_symbols,
+            codec_symbols,
+            uses,
+            adts,
+            companion_function_access_targets,
+            companion_schema_access_targets,
+            companion_effect_access_targets,
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn standard_function_modules_for_test(&self) -> BTreeSet<String> {
+        self.functions
+            .iter()
+            .filter_map(|function| function.module_name.clone())
+            .filter(|module| is_standard_module_name(Some(module.as_str())))
+            .collect()
     }
 
     fn from_module_with_base(module: &SurfaceModule, base: Option<&TypeEnvironment>) -> Self {
@@ -1141,6 +1282,10 @@ fn module_without_reusable_standard_declarations(
         }
         false
     })
+}
+
+fn reusable_standard_module_names_for(module: &SurfaceModule) -> BTreeSet<String> {
+    module_standard_names(&module_without_application_declarations(module))
 }
 
 fn module_without_application_declarations(module: &SurfaceModule) -> SurfaceModule {

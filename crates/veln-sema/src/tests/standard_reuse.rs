@@ -121,6 +121,41 @@ fn reusable_standard_environment_matches_uncached_analysis_for_standard_imports(
 }
 
 #[test]
+fn reusable_standard_environment_uses_only_loaded_standard_modules() {
+    let _guard = standard_reuse_test_lock();
+    let standard = standard_modules_with_unused_module();
+    let reusable = prepare_reusable_standard_surface_module_environment(&standard)
+        .with_current_identity_for_test();
+    let loaded_standard = standard_module();
+    let selected_modules = std::iter::once("std::prelude".to_string()).collect();
+    let selected_environment = reusable.environment_for_modules_for_test(&selected_modules);
+    assert_eq!(
+        selected_environment.standard_function_modules_for_test(),
+        selected_modules
+    );
+
+    let module = merge_modules(vec![
+        loaded_standard,
+        app_case(
+            "loaded prelude only",
+            "src/main.veln",
+            concat!(
+                "pub fn main() -> Int\n",
+                "  let boxed = prelude::answer(prelude::PayloadShape(1))\n",
+                "  1\n",
+                "end\n",
+            ),
+        )
+        .module,
+    ]);
+
+    let uncached = check_project_surface_module(&module);
+    let cached = check_project_surface_module_with_standard_environment(&module, &reusable);
+
+    assert_same_analysis("loaded prelude only", uncached, cached);
+}
+
+#[test]
 fn reusable_standard_environment_identity_mismatch_uses_uncached_analysis() {
     let _guard = standard_reuse_test_lock();
     crate::standard_reuse_counters::reset();
@@ -352,6 +387,21 @@ fn standard_modules_with_imports() -> SurfaceModule {
                 "pub type ImportedPayload = support::PayloadShape\n",
             ),
             "std::prelude",
+        ),
+    ])
+}
+
+fn standard_modules_with_unused_module() -> SurfaceModule {
+    merge_modules(vec![
+        standard_module(),
+        module_with_identity(
+            "unused.veln",
+            concat!(
+                "pub fn unused(value: Int) -> Int\n",
+                "  value + 1\n",
+                "end\n",
+            ),
+            "std::unused",
         ),
     ])
 }
