@@ -838,6 +838,22 @@ impl<'a> CoreLowerer<'a> {
         segments: &[String],
         expected: Option<&CoreType>,
     ) -> CoreExpr {
+        if let Some(constructor) = self.lower_nullary_constructor(expr, segments, expected) {
+            return constructor;
+        }
+
+        match segments {
+            [name] => self.lower_unqualified_name(expr, name, expected),
+            _ => self.lower_qualified_name(expr, segments),
+        }
+    }
+
+    fn lower_nullary_constructor(
+        &self,
+        expr: &Expr,
+        segments: &[String],
+        expected: Option<&CoreType>,
+    ) -> Option<CoreExpr> {
         match self.environment.adts.nullary_constructor(
             segments,
             self.function.module_name.as_deref(),
@@ -850,7 +866,7 @@ impl<'a> CoreLowerer<'a> {
                     })
                     .cloned()
                     .unwrap_or_else(|| adt::core_constructed_type(constructor, &[]));
-                self.core_expr(expr, ty, core_nullary_constructor_kind(constructor))
+                Some(self.core_expr(expr, ty, core_nullary_constructor_kind(constructor)))
             }
             ConstructorLookup::Ambiguous => {
                 if let Some(constructor) = expected
@@ -865,73 +881,89 @@ impl<'a> CoreLowerer<'a> {
                     })
                     .filter(|constructor| constructor.variant.payload_fields.is_empty())
                 {
-                    return self.core_expr(
+                    return Some(self.core_expr(
                         expr,
                         expected.cloned().unwrap_or(CoreType::Unknown),
                         core_nullary_constructor_kind(constructor),
-                    );
+                    ));
                 }
-                self.core_expr(
+                Some(self.core_expr(
                     expr,
                     CoreType::Unknown,
                     CoreExprKind::Local(segments.join("::")),
-                )
+                ))
             }
-            _ => match segments {
-                [name] => {
-                    if let Some(index) = self
-                        .bindings
-                        .iter()
-                        .rposition(|binding| binding.name == *name)
-                    {
-                        let mut ty = self.bindings[index].ty.clone();
-                        if let Some(expected) = expected
-                            && !core_type_contains_unknown(expected)
-                            && (core_type_contains_unknown(&ty)
-                                || matches!(ty, CoreType::Record(ref fields) if fields.is_empty())
-                                    && expected.dict_parts().is_some())
-                        {
-                            ty = expected.clone();
-                            self.bindings[index].ty = ty.clone();
-                        }
-                        self.core_expr(expr, ty, CoreExprKind::Local(name.clone()))
-                    } else {
-                        match self
-                            .environment
-                            .unqualified_function(name, self.function.module_name.as_deref())
-                        {
-                            FunctionLookup::Found(function) => self.core_expr(
-                                expr,
-                                core_type(&function.ty()),
-                                CoreExprKind::FunctionValue(function.target_name.clone()),
-                            ),
-                            FunctionLookup::Ambiguous | FunctionLookup::Missing => self.core_expr(
-                                expr,
-                                CoreType::Unknown,
-                                CoreExprKind::Local(name.clone()),
-                            ),
-                        }
-                    }
-                }
-                _ => {
-                    if let Some(function) = self
-                        .environment
-                        .function_path_for_value(segments, self.function.module_name.as_deref())
-                    {
-                        self.core_expr(
-                            expr,
-                            core_type(&function.ty()),
-                            CoreExprKind::FunctionValue(function.target_name.clone()),
-                        )
-                    } else {
-                        self.core_expr(
-                            expr,
-                            CoreType::Unknown,
-                            CoreExprKind::Local(segments.join("::")),
-                        )
-                    }
-                }
-            },
+            ConstructorLookup::Missing => None,
+        }
+    }
+
+    fn lower_unqualified_name(
+        &mut self,
+        expr: &Expr,
+        name: &str,
+        expected: Option<&CoreType>,
+    ) -> CoreExpr {
+        if let Some(index) = self
+            .bindings
+            .iter()
+            .rposition(|binding| binding.name == name)
+        {
+            return self.lower_local_name(expr, name, index, expected);
+        }
+
+        match self
+            .environment
+            .unqualified_function(name, self.function.module_name.as_deref())
+        {
+            FunctionLookup::Found(function) => self.core_expr(
+                expr,
+                core_type(&function.ty()),
+                CoreExprKind::FunctionValue(function.target_name.clone()),
+            ),
+            FunctionLookup::Ambiguous | FunctionLookup::Missing => self.core_expr(
+                expr,
+                CoreType::Unknown,
+                CoreExprKind::Local(name.to_string()),
+            ),
+        }
+    }
+
+    fn lower_local_name(
+        &mut self,
+        expr: &Expr,
+        name: &str,
+        index: usize,
+        expected: Option<&CoreType>,
+    ) -> CoreExpr {
+        let mut ty = self.bindings[index].ty.clone();
+        if let Some(expected) = expected
+            && !core_type_contains_unknown(expected)
+            && (core_type_contains_unknown(&ty)
+                || matches!(ty, CoreType::Record(ref fields) if fields.is_empty())
+                    && expected.dict_parts().is_some())
+        {
+            ty = expected.clone();
+            self.bindings[index].ty = ty.clone();
+        }
+        self.core_expr(expr, ty, CoreExprKind::Local(name.to_string()))
+    }
+
+    fn lower_qualified_name(&self, expr: &Expr, segments: &[String]) -> CoreExpr {
+        if let Some(function) = self
+            .environment
+            .function_path_for_value(segments, self.function.module_name.as_deref())
+        {
+            self.core_expr(
+                expr,
+                core_type(&function.ty()),
+                CoreExprKind::FunctionValue(function.target_name.clone()),
+            )
+        } else {
+            self.core_expr(
+                expr,
+                CoreType::Unknown,
+                CoreExprKind::Local(segments.join("::")),
+            )
         }
     }
 

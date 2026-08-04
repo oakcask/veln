@@ -309,6 +309,50 @@ fn lowers_qualified_builtin_constructors() {
 }
 
 #[test]
+fn lowers_name_paths_by_resolution_category() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn stringify(value: Int) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
+            "pub fn main(value: Int) -> {local: Int, constructor: Option<String>, callback: fn(Int) -> String}\n",
+            "  {local: value, constructor: None, callback: stringify}\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    let CoreExprKind::Record(fields) = &expr.kind else {
+        panic!("tail expression should lower as a record");
+    };
+    assert!(matches!(
+        &fields[0].expr.kind,
+        CoreExprKind::Local(name) if name == "value"
+    ));
+    assert!(matches!(fields[1].expr.kind, CoreExprKind::OptionNone));
+    assert_eq!(fields[1].expr.ty, CoreType::option(CoreType::string()));
+    assert!(matches!(
+        &fields[2].expr.kind,
+        CoreExprKind::FunctionValue(name) if name == "stringify"
+    ));
+}
+
+#[test]
 fn infers_payload_constructor_type_arguments_without_expected_adt_type() {
     let source = SourceFile::new(
         "main.veln",
