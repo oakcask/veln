@@ -13,6 +13,7 @@ import {
   median,
   medianAbsoluteDeviation,
   passesBenchmarkThresholds,
+  parseUserCpuSeconds,
   parseTimingRecords,
   stableJson,
   validateBenchmarkResult,
@@ -238,6 +239,18 @@ test("writes deterministic machine-readable JSON", () => {
   );
 });
 
+test("parses user CPU time independently from wall clock text", () => {
+  assert.equal(parseUserCpuSeconds("__veln_time__ -3.87 0.95\n", ["veln", "run"]), 0.95);
+  assert.throws(
+    () => parseUserCpuSeconds("__veln_time__ 1.25 -0.01\n", ["veln", "run"]),
+    /invalid user CPU seconds/,
+  );
+  assert.throws(
+    () => parseUserCpuSeconds("runtime stderr\n", ["veln", "run"]),
+    /time output was missing/,
+  );
+});
+
 test("parses and validates stage timing records", () => {
   const records = parseTimingRecords(
     [
@@ -416,11 +429,10 @@ test("checked stage benchmark record includes replay metadata", () => {
   assert.ok(record.command.includes("<baseline-debug-veln>"));
 
   const connection = record.workloads.find((workload) => workload.id === "http2_connection");
-  assert.deepEqual(connection.env, {
-    VELN_NET_PRODUCTION_READS_HEX:
-      "505249202a20485454502f322e300d0a0d0a534d0d0a000006040000000000000500008000000003010400000001828784",
-    VELN_NET_RUNTIME: "production-loopback",
-  });
+  assert.deepEqual(
+    connection.env,
+    DEFAULT_WORKLOADS.find((workload) => workload.id === "http2_connection").env,
+  );
 });
 
 function workload(id, baselineWall, newWall, newUser, functionalOutputsEqual, options = {}) {

@@ -558,18 +558,16 @@ function runMeasured(command, options) {
         }
       : {}),
   };
+  const wallStart = process.hrtime.bigint();
   const completed = spawnSync("/usr/bin/time", ["-f", "__veln_time__ %e %U", ...command], {
     cwd: options.cwd,
     env,
     encoding: "utf8",
     maxBuffer: 10 * 1024 * 1024,
   });
+  const wallTimeSeconds = Number(process.hrtime.bigint() - wallStart) / 1_000_000_000;
   const stderr = completed.stderr ?? "";
-  const timeLine = stderr.split("\n").find((line) => line.startsWith("__veln_time__ "));
-  if (!timeLine) {
-    throw new Error(`time output was missing for command: ${command.join(" ")}`);
-  }
-  const [, wall, user] = timeLine.split(/\s+/);
+  const userCpuSeconds = parseUserCpuSeconds(stderr, command);
   return {
     exit_status: completed.status ?? 1,
     stdout: completed.stdout ?? "",
@@ -577,9 +575,22 @@ function runMeasured(command, options) {
       .split("\n")
       .filter((line) => !line.startsWith("__veln_time__ "))
       .join("\n"),
-    wall_time_seconds: Number.parseFloat(wall),
-    user_cpu_seconds: Number.parseFloat(user),
+    wall_time_seconds: wallTimeSeconds,
+    user_cpu_seconds: userCpuSeconds,
   };
+}
+
+export function parseUserCpuSeconds(stderr, command) {
+  const timeLine = stderr.split("\n").find((line) => line.startsWith("__veln_time__ "));
+  if (!timeLine) {
+    throw new Error(`time output was missing for command: ${command.join(" ")}`);
+  }
+  const [, , user] = timeLine.split(/\s+/);
+  const userCpuSeconds = Number.parseFloat(user);
+  if (!Number.isFinite(userCpuSeconds) || userCpuSeconds < 0) {
+    throw new Error(`time output had invalid user CPU seconds for command: ${command.join(" ")}`);
+  }
+  return userCpuSeconds;
 }
 
 function prepareWorkloads(repoRoot, sizes, generatedRoot) {

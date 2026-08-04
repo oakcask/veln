@@ -18,7 +18,7 @@
     "--baseline-identity",
     "git revision d2de2a03da9284238fb631a6b43eb5e6834e945b debug build without run analysis stage timing records",
     "--new-identity",
-    "git revision 971dd24f9f2acf27eea3a36108b708959db6fbf5 debug build with run analysis stage timing records",
+    "git revision 9131482ddc3a45d7e2f2ded7be8be17c834a34a3 debug build with run analysis stage timing records",
     "--output",
     "docs/reviews/toolchain-analysis-stage-benchmark.json"
   ],
@@ -29,14 +29,14 @@
       "description": "HTTP/2 core direct analysis new wall-time median is at most one third of baseline",
       "id": "http2_core_improvement",
       "max_ratio": 0.3333333333333333,
-      "ratio": 0.31422018348623854,
-      "status": "passed"
+      "ratio": 1.0070499730305007,
+      "status": "failed"
     },
     {
       "description": "HTTP/2 connection direct analysis new wall-time median is at most one third of baseline",
       "id": "http2_connection_improvement",
       "max_ratio": 0.3333333333333333,
-      "ratio": 0.4939024390243903,
+      "ratio": 1.0035694027881494,
       "status": "failed"
     },
     {
@@ -49,14 +49,14 @@
       "description": "first generated size to second size user CPU median grows by no more than 2.5 times",
       "id": "generated_first_to_second",
       "max_ratio": 2.5,
-      "ratio": 1.0568181818181819,
+      "ratio": 1.0112359550561798,
       "status": "passed"
     },
     {
       "description": "second generated size to third size user CPU median grows by no more than 2.5 times",
       "id": "generated_second_to_third",
       "max_ratio": 2.5,
-      "ratio": 1.032258064516129,
+      "ratio": 1.0666666666666667,
       "status": "passed"
     },
     {
@@ -81,37 +81,37 @@
         "runs": [
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.34,
-            "wall_time_seconds": 0.39
+            "user_cpu_seconds": 0.95,
+            "wall_time_seconds": 1.093046408
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.34,
-            "wall_time_seconds": 0.4
+            "user_cpu_seconds": 0.96,
+            "wall_time_seconds": 1.089355436
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.34,
-            "wall_time_seconds": 0.4
+            "user_cpu_seconds": 0.94,
+            "wall_time_seconds": 1.094542874
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.34,
-            "wall_time_seconds": 0.4
+            "user_cpu_seconds": 0.95,
+            "wall_time_seconds": 1.097771195
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.33,
-            "wall_time_seconds": 0.39
+            "user_cpu_seconds": 0.94,
+            "wall_time_seconds": 1.087337556
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0,
-          "median_user_cpu_seconds": 0.34,
-          "median_wall_time_seconds": 0.4,
+          "median_absolute_deviation_wall_time_seconds": 0.0036909720000000146,
+          "median_user_cpu_seconds": 0.95,
+          "median_wall_time_seconds": 1.093046408,
           "wall_time_noisy": false
         }
       },
@@ -151,32 +151,32 @@
       "id": "small_schema",
       "new": {
         "binary": "target/debug/veln",
-        "binary_identity": "git revision 971dd24f9f2acf27eea3a36108b708959db6fbf5 debug build with run analysis stage timing records",
+        "binary_identity": "git revision 9131482ddc3a45d7e2f2ded7be8be17c834a34a3 debug build with run analysis stage timing records",
         "runs": [
           {
             "exit_status": 0,
+            "user_cpu_seconds": 0.96,
+            "wall_time_seconds": 1.110711008
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.98,
+            "wall_time_seconds": 1.121954198
+          },
+          {
+            "exit_status": 0,
             "user_cpu_seconds": 0.95,
-            "wall_time_seconds": 1.11
+            "wall_time_seconds": 1.109760259
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.97,
-            "wall_time_seconds": 1.1
+            "wall_time_seconds": 1.097451639
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.96,
-            "wall_time_seconds": 1.1
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.96,
-            "wall_time_seconds": 1.11
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.93,
-            "wall_time_seconds": 1.08
+            "user_cpu_seconds": 0.95,
+            "wall_time_seconds": 1.091394143
           }
         ],
         "stage_timing": {
@@ -185,67 +185,67 @@
             {
               "run": "new-1",
               "stages": {
-                "backend_runtime_remainder": 0.070886215,
-                "reachable_entry_lowering": 0.008699069,
-                "semantic_environment_check": 0.010388112,
-                "source_loading": 0.000081398,
-                "surface_parse_lower": 0.001682326
+                "backend_runtime_remainder": 0.071251632,
+                "reachable_entry_lowering": 0.00848602,
+                "semantic_environment_check": 0.010392816,
+                "source_loading": 0.000080828,
+                "surface_parse_lower": 0.001705327
               }
             },
             {
               "run": "new-2",
               "stages": {
-                "backend_runtime_remainder": 0.073021519,
-                "reachable_entry_lowering": 0.008667018,
-                "semantic_environment_check": 0.010358885,
-                "source_loading": 0.000106186,
-                "surface_parse_lower": 0.00167957
+                "backend_runtime_remainder": 0.071157687,
+                "reachable_entry_lowering": 0.008633369,
+                "semantic_environment_check": 0.010442355,
+                "source_loading": 0.00007628,
+                "surface_parse_lower": 0.001882136
               }
             },
             {
               "run": "new-3",
               "stages": {
-                "backend_runtime_remainder": 0.072453987,
-                "reachable_entry_lowering": 0.008515806,
-                "semantic_environment_check": 0.010320717,
-                "source_loading": 0.000077525,
-                "surface_parse_lower": 0.001682994
+                "backend_runtime_remainder": 0.07056012,
+                "reachable_entry_lowering": 0.008678532,
+                "semantic_environment_check": 0.010659422,
+                "source_loading": 0.000085789,
+                "surface_parse_lower": 0.001792675
               }
             },
             {
               "run": "new-4",
               "stages": {
-                "backend_runtime_remainder": 0.070512348,
-                "reachable_entry_lowering": 0.008547858,
-                "semantic_environment_check": 0.010178858,
-                "source_loading": 0.000078291,
-                "surface_parse_lower": 0.001755323
+                "backend_runtime_remainder": 0.069411258,
+                "reachable_entry_lowering": 0.008579485,
+                "semantic_environment_check": 0.010368596,
+                "source_loading": 0.000081977,
+                "surface_parse_lower": 0.001670477
               }
             },
             {
               "run": "new-5",
               "stages": {
-                "backend_runtime_remainder": 0.06989244,
-                "reachable_entry_lowering": 0.008486438,
-                "semantic_environment_check": 0.01012676,
-                "source_loading": 0.00008223,
-                "surface_parse_lower": 0.001674054
+                "backend_runtime_remainder": 0.069390322,
+                "reachable_entry_lowering": 0.00841558,
+                "semantic_environment_check": 0.010139892,
+                "source_loading": 0.000087746,
+                "surface_parse_lower": 0.001740583
               }
             }
           ],
           "stage_medians_seconds": {
-            "backend_runtime_remainder": 0.070886215,
-            "reachable_entry_lowering": 0.008547858,
-            "semantic_environment_check": 0.010320717,
-            "source_loading": 0.000081398,
-            "surface_parse_lower": 0.001682326
+            "backend_runtime_remainder": 0.07056012,
+            "reachable_entry_lowering": 0.008579485,
+            "semantic_environment_check": 0.010392816,
+            "source_loading": 0.000081977,
+            "surface_parse_lower": 0.001740583
           },
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.010000000000000009,
+          "median_absolute_deviation_wall_time_seconds": 0.012193939000000098,
           "median_user_cpu_seconds": 0.96,
-          "median_wall_time_seconds": 1.1,
+          "median_wall_time_seconds": 1.109760259,
           "wall_time_noisy": false
         }
       }
@@ -257,37 +257,37 @@
         "runs": [
           {
             "exit_status": 1,
-            "user_cpu_seconds": 3.78,
-            "wall_time_seconds": 4.13
+            "user_cpu_seconds": 1.07,
+            "wall_time_seconds": 1.221989546
           },
           {
             "exit_status": 1,
-            "user_cpu_seconds": 3.77,
-            "wall_time_seconds": 4.11
+            "user_cpu_seconds": 1.08,
+            "wall_time_seconds": 1.258720914
           },
           {
             "exit_status": 1,
-            "user_cpu_seconds": 3.79,
-            "wall_time_seconds": 4.16
+            "user_cpu_seconds": 1.09,
+            "wall_time_seconds": 1.238715503
           },
           {
             "exit_status": 1,
-            "user_cpu_seconds": 3.78,
-            "wall_time_seconds": 4.15
+            "user_cpu_seconds": 1.07,
+            "wall_time_seconds": 1.247600201
           },
           {
             "exit_status": 1,
-            "user_cpu_seconds": 3.76,
-            "wall_time_seconds": 4.12
+            "user_cpu_seconds": 1.08,
+            "wall_time_seconds": 1.248524967
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.019999999999999574,
-          "median_user_cpu_seconds": 3.78,
-          "median_wall_time_seconds": 4.13,
+          "median_absolute_deviation_wall_time_seconds": 0.008884697999999913,
+          "median_user_cpu_seconds": 1.08,
+          "median_wall_time_seconds": 1.247600201,
           "wall_time_noisy": false
         }
       },
@@ -321,32 +321,32 @@
       "id": "hpack_static",
       "new": {
         "binary": "target/debug/veln",
-        "binary_identity": "git revision 971dd24f9f2acf27eea3a36108b708959db6fbf5 debug build with run analysis stage timing records",
+        "binary_identity": "git revision 9131482ddc3a45d7e2f2ded7be8be17c834a34a3 debug build with run analysis stage timing records",
         "runs": [
           {
             "exit_status": 1,
+            "user_cpu_seconds": 1.09,
+            "wall_time_seconds": 1.253339376
+          },
+          {
+            "exit_status": 1,
             "user_cpu_seconds": 1.08,
-            "wall_time_seconds": 1.23
+            "wall_time_seconds": 1.235230203
           },
           {
             "exit_status": 1,
-            "user_cpu_seconds": 1.06,
-            "wall_time_seconds": 1.21
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 1.1,
-            "wall_time_seconds": 1.27
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 1.1,
-            "wall_time_seconds": 1.27
+            "user_cpu_seconds": 1.08,
+            "wall_time_seconds": 1.247768873
           },
           {
             "exit_status": 1,
             "user_cpu_seconds": 1.09,
-            "wall_time_seconds": 1.24
+            "wall_time_seconds": 1.240154267
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.11,
+            "wall_time_seconds": 1.265940485
           }
         ],
         "stage_timing": {
@@ -355,67 +355,67 @@
             {
               "run": "new-1",
               "stages": {
-                "backend_runtime_remainder": 0.075856985,
-                "reachable_entry_lowering": 0.059837158,
-                "semantic_environment_check": 0.078453628,
-                "source_loading": 0.00004929,
-                "surface_parse_lower": 0.008661655
+                "backend_runtime_remainder": 0.077681138,
+                "reachable_entry_lowering": 0.060864469,
+                "semantic_environment_check": 0.080981964,
+                "source_loading": 0.000065181,
+                "surface_parse_lower": 0.009588489
               }
             },
             {
               "run": "new-2",
               "stages": {
-                "backend_runtime_remainder": 0.076806263,
-                "reachable_entry_lowering": 0.059080475,
-                "semantic_environment_check": 0.07752764,
-                "source_loading": 0.000047096,
-                "surface_parse_lower": 0.008570829
+                "backend_runtime_remainder": 0.077008964,
+                "reachable_entry_lowering": 0.059980657,
+                "semantic_environment_check": 0.079345813,
+                "source_loading": 0.000047011,
+                "surface_parse_lower": 0.008727313
               }
             },
             {
               "run": "new-3",
               "stages": {
-                "backend_runtime_remainder": 0.079753001,
-                "reachable_entry_lowering": 0.06189883,
-                "semantic_environment_check": 0.08157032,
-                "source_loading": 0.000057398,
-                "surface_parse_lower": 0.009478949
+                "backend_runtime_remainder": 0.078478424,
+                "reachable_entry_lowering": 0.061488492,
+                "semantic_environment_check": 0.080648841,
+                "source_loading": 0.000046479,
+                "surface_parse_lower": 0.009090784
               }
             },
             {
               "run": "new-4",
               "stages": {
-                "backend_runtime_remainder": 0.078000664,
-                "reachable_entry_lowering": 0.061514392,
-                "semantic_environment_check": 0.080322214,
-                "source_loading": 0.00004328,
-                "surface_parse_lower": 0.009127999
+                "backend_runtime_remainder": 0.076861021,
+                "reachable_entry_lowering": 0.060503769,
+                "semantic_environment_check": 0.079326054,
+                "source_loading": 0.000050814,
+                "surface_parse_lower": 0.008664053
               }
             },
             {
               "run": "new-5",
               "stages": {
-                "backend_runtime_remainder": 0.077310513,
-                "reachable_entry_lowering": 0.060360136,
-                "semantic_environment_check": 0.085126384,
-                "source_loading": 0.000057102,
-                "surface_parse_lower": 0.009277673
+                "backend_runtime_remainder": 0.077588085,
+                "reachable_entry_lowering": 0.060520082,
+                "semantic_environment_check": 0.08035977,
+                "source_loading": 0.000047997,
+                "surface_parse_lower": 0.009092233
               }
             }
           ],
           "stage_medians_seconds": {
-            "backend_runtime_remainder": 0.077310513,
-            "reachable_entry_lowering": 0.060360136,
-            "semantic_environment_check": 0.080322214,
-            "source_loading": 0.00004929,
-            "surface_parse_lower": 0.009127999
+            "backend_runtime_remainder": 0.077588085,
+            "reachable_entry_lowering": 0.060520082,
+            "semantic_environment_check": 0.08035977,
+            "source_loading": 0.000047997,
+            "surface_parse_lower": 0.009090784
           },
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.030000000000000027,
+          "median_absolute_deviation_wall_time_seconds": 0.007614605999999968,
           "median_user_cpu_seconds": 1.09,
-          "median_wall_time_seconds": 1.24,
+          "median_wall_time_seconds": 1.247768873,
           "wall_time_noisy": false
         }
       }
@@ -427,37 +427,37 @@
         "runs": [
           {
             "exit_status": 1,
-            "user_cpu_seconds": 3.95,
-            "wall_time_seconds": 4.32
+            "user_cpu_seconds": 1.16,
+            "wall_time_seconds": 1.346256478
           },
           {
             "exit_status": 1,
-            "user_cpu_seconds": 3.92,
-            "wall_time_seconds": 4.31
+            "user_cpu_seconds": 1.2,
+            "wall_time_seconds": 1.378912618
           },
           {
             "exit_status": 1,
-            "user_cpu_seconds": 3.94,
-            "wall_time_seconds": 4.36
+            "user_cpu_seconds": 1.18,
+            "wall_time_seconds": 1.348328944
           },
           {
             "exit_status": 1,
-            "user_cpu_seconds": 3.98,
-            "wall_time_seconds": 4.41
+            "user_cpu_seconds": 1.2,
+            "wall_time_seconds": 1.367518778
           },
           {
             "exit_status": 1,
-            "user_cpu_seconds": 3.99,
-            "wall_time_seconds": 4.37
+            "user_cpu_seconds": 1.19,
+            "wall_time_seconds": 1.350518216
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.040000000000000036,
-          "median_user_cpu_seconds": 3.95,
-          "median_wall_time_seconds": 4.36,
+          "median_absolute_deviation_wall_time_seconds": 0.00426173800000007,
+          "median_user_cpu_seconds": 1.19,
+          "median_wall_time_seconds": 1.350518216,
           "wall_time_noisy": false
         }
       },
@@ -493,32 +493,32 @@
       "id": "http2_core",
       "new": {
         "binary": "target/debug/veln",
-        "binary_identity": "git revision 971dd24f9f2acf27eea3a36108b708959db6fbf5 debug build with run analysis stage timing records",
+        "binary_identity": "git revision 9131482ddc3a45d7e2f2ded7be8be17c834a34a3 debug build with run analysis stage timing records",
         "runs": [
           {
             "exit_status": 1,
+            "user_cpu_seconds": 1.2,
+            "wall_time_seconds": 1.360039333
+          },
+          {
+            "exit_status": 1,
             "user_cpu_seconds": 1.21,
-            "wall_time_seconds": 1.36
+            "wall_time_seconds": 1.357144862
           },
           {
             "exit_status": 1,
-            "user_cpu_seconds": 1.18,
-            "wall_time_seconds": 1.35
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 1.22,
-            "wall_time_seconds": 1.4
+            "user_cpu_seconds": 1.19,
+            "wall_time_seconds": 1.368178353
           },
           {
             "exit_status": 1,
             "user_cpu_seconds": 1.2,
-            "wall_time_seconds": 1.41
+            "wall_time_seconds": 1.354934175
           },
           {
             "exit_status": 1,
-            "user_cpu_seconds": 1.21,
-            "wall_time_seconds": 1.37
+            "user_cpu_seconds": 1.18,
+            "wall_time_seconds": 1.364839141
           }
         ],
         "stage_timing": {
@@ -527,67 +527,67 @@
             {
               "run": "new-1",
               "stages": {
-                "backend_runtime_remainder": 0.081141551,
-                "reachable_entry_lowering": 0.158566097,
-                "semantic_environment_check": 0.103418243,
-                "source_loading": 0.000056701,
-                "surface_parse_lower": 0.009458763
+                "backend_runtime_remainder": 0.079513412,
+                "reachable_entry_lowering": 0.156299611,
+                "semantic_environment_check": 0.104253441,
+                "source_loading": 0.000050015,
+                "surface_parse_lower": 0.009414221
               }
             },
             {
               "run": "new-2",
               "stages": {
-                "backend_runtime_remainder": 0.080358909,
-                "reachable_entry_lowering": 0.155505268,
-                "semantic_environment_check": 0.102193773,
-                "source_loading": 0.000053145,
-                "surface_parse_lower": 0.009327224
+                "backend_runtime_remainder": 0.079754578,
+                "reachable_entry_lowering": 0.154942102,
+                "semantic_environment_check": 0.102046439,
+                "source_loading": 0.000064046,
+                "surface_parse_lower": 0.009301593
               }
             },
             {
               "run": "new-3",
               "stages": {
-                "backend_runtime_remainder": 0.080966096,
-                "reachable_entry_lowering": 0.159468954,
-                "semantic_environment_check": 0.105775267,
-                "source_loading": 0.000052503,
-                "surface_parse_lower": 0.010013394
+                "backend_runtime_remainder": 0.080549601,
+                "reachable_entry_lowering": 0.156101026,
+                "semantic_environment_check": 0.102566561,
+                "source_loading": 0.000049816,
+                "surface_parse_lower": 0.009359022
               }
             },
             {
               "run": "new-4",
               "stages": {
-                "backend_runtime_remainder": 0.083132395,
-                "reachable_entry_lowering": 0.161549391,
-                "semantic_environment_check": 0.106415159,
-                "source_loading": 0.000057165,
-                "surface_parse_lower": 0.009853163
+                "backend_runtime_remainder": 0.080261761,
+                "reachable_entry_lowering": 0.154430227,
+                "semantic_environment_check": 0.10224451,
+                "source_loading": 0.000051419,
+                "surface_parse_lower": 0.009213126
               }
             },
             {
               "run": "new-5",
               "stages": {
-                "backend_runtime_remainder": 0.079636275,
-                "reachable_entry_lowering": 0.157529777,
-                "semantic_environment_check": 0.10378384,
-                "source_loading": 0.000055177,
-                "surface_parse_lower": 0.010258035
+                "backend_runtime_remainder": 0.080376719,
+                "reachable_entry_lowering": 0.156221484,
+                "semantic_environment_check": 0.102543896,
+                "source_loading": 0.000047347,
+                "surface_parse_lower": 0.009331482
               }
             }
           ],
           "stage_medians_seconds": {
-            "backend_runtime_remainder": 0.080966096,
-            "reachable_entry_lowering": 0.158566097,
-            "semantic_environment_check": 0.10378384,
-            "source_loading": 0.000055177,
-            "surface_parse_lower": 0.009853163
+            "backend_runtime_remainder": 0.080261761,
+            "reachable_entry_lowering": 0.156101026,
+            "semantic_environment_check": 0.102543896,
+            "source_loading": 0.000050015,
+            "surface_parse_lower": 0.009331482
           },
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.020000000000000018,
-          "median_user_cpu_seconds": 1.21,
-          "median_wall_time_seconds": 1.37,
+          "median_absolute_deviation_wall_time_seconds": 0.0047998080000000165,
+          "median_user_cpu_seconds": 1.2,
+          "median_wall_time_seconds": 1.360039333,
           "wall_time_noisy": false
         }
       }
@@ -599,37 +599,37 @@
         "runs": [
           {
             "exit_status": 0,
-            "user_cpu_seconds": 12.01,
-            "wall_time_seconds": 13.12
+            "user_cpu_seconds": 5.89,
+            "wall_time_seconds": 6.480266613
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 12.05,
-            "wall_time_seconds": 13.13
+            "user_cpu_seconds": 5.89,
+            "wall_time_seconds": 6.498123181
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 12.06,
-            "wall_time_seconds": 10.69
+            "user_cpu_seconds": 5.9,
+            "wall_time_seconds": 6.492461334
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 12.17,
-            "wall_time_seconds": 10.71
+            "user_cpu_seconds": 5.97,
+            "wall_time_seconds": 6.55353552
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 12.09,
-            "wall_time_seconds": 13.16
+            "user_cpu_seconds": 5.88,
+            "wall_time_seconds": 6.498989522
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.040000000000000924,
-          "median_user_cpu_seconds": 12.06,
-          "median_wall_time_seconds": 13.12,
+          "median_absolute_deviation_wall_time_seconds": 0.005661847000000719,
+          "median_user_cpu_seconds": 5.89,
+          "median_wall_time_seconds": 6.498123181,
           "wall_time_noisy": false
         }
       },
@@ -653,7 +653,7 @@
       },
       "cwd": "examples/specification/run/http2-connection-application-unsupported-request-json",
       "env": {
-        "VELN_NET_PRODUCTION_READS_HEX": "505249202a20485454502f322e300d0a0d0a534d0d0a000006040000000000000500008000000003010400000001828784",
+        "VELN_NET_PRODUCTION_READS_HEX": "505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000003010400000001828784",
         "VELN_NET_RUNTIME": "production-loopback"
       },
       "functional_output_comparisons": [
@@ -668,32 +668,32 @@
       "id": "http2_connection",
       "new": {
         "binary": "target/debug/veln",
-        "binary_identity": "git revision 971dd24f9f2acf27eea3a36108b708959db6fbf5 debug build with run analysis stage timing records",
+        "binary_identity": "git revision 9131482ddc3a45d7e2f2ded7be8be17c834a34a3 debug build with run analysis stage timing records",
         "runs": [
           {
             "exit_status": 0,
-            "user_cpu_seconds": 5.93,
-            "wall_time_seconds": 6.47
+            "user_cpu_seconds": 5.86,
+            "wall_time_seconds": 6.441205153
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 5.91,
-            "wall_time_seconds": 6.47
+            "user_cpu_seconds": 5.96,
+            "wall_time_seconds": 6.572243314
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 5.94,
-            "wall_time_seconds": 6.51
+            "user_cpu_seconds": 5.97,
+            "wall_time_seconds": 6.510831641
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 5.91,
-            "wall_time_seconds": 6.48
+            "user_cpu_seconds": 5.95,
+            "wall_time_seconds": 6.5213176
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 5.9,
-            "wall_time_seconds": 6.51
+            "user_cpu_seconds": 5.92,
+            "wall_time_seconds": 6.541367041
           }
         ],
         "stage_timing": {
@@ -702,67 +702,67 @@
             {
               "run": "new-1",
               "stages": {
-                "backend_runtime_remainder": 0.221690527,
-                "reachable_entry_lowering": 5.153811574,
-                "semantic_environment_check": 0.098459211,
-                "source_loading": 0.000058019,
-                "surface_parse_lower": 0.009813549
+                "backend_runtime_remainder": 0.224565927,
+                "reachable_entry_lowering": 5.082030154,
+                "semantic_environment_check": 0.094433542,
+                "source_loading": 0.000048099,
+                "surface_parse_lower": 0.009991894
               }
             },
             {
               "run": "new-2",
               "stages": {
-                "backend_runtime_remainder": 0.219836539,
-                "reachable_entry_lowering": 5.127998375,
-                "semantic_environment_check": 0.092857059,
-                "source_loading": 0.000051879,
-                "surface_parse_lower": 0.00944989
+                "backend_runtime_remainder": 0.232050729,
+                "reachable_entry_lowering": 5.176903406,
+                "semantic_environment_check": 0.096300451,
+                "source_loading": 0.000052528,
+                "surface_parse_lower": 0.010444375
               }
             },
             {
               "run": "new-3",
               "stages": {
-                "backend_runtime_remainder": 0.225120637,
-                "reachable_entry_lowering": 5.135779555,
-                "semantic_environment_check": 0.093292584,
-                "source_loading": 0.000047447,
-                "surface_parse_lower": 0.009986266
+                "backend_runtime_remainder": 0.222425284,
+                "reachable_entry_lowering": 5.145577354,
+                "semantic_environment_check": 0.093709981,
+                "source_loading": 0.000047572,
+                "surface_parse_lower": 0.009833774
               }
             },
             {
               "run": "new-4",
               "stages": {
-                "backend_runtime_remainder": 0.222157528,
-                "reachable_entry_lowering": 5.127718079,
-                "semantic_environment_check": 0.09367895,
-                "source_loading": 0.000053982,
-                "surface_parse_lower": 0.009879315
+                "backend_runtime_remainder": 0.225602237,
+                "reachable_entry_lowering": 5.152131207,
+                "semantic_environment_check": 0.094645745,
+                "source_loading": 0.000049137,
+                "surface_parse_lower": 0.010074072
               }
             },
             {
               "run": "new-5",
               "stages": {
-                "backend_runtime_remainder": 0.22535689,
-                "reachable_entry_lowering": 5.15445316,
-                "semantic_environment_check": 0.095691105,
-                "source_loading": 0.000051132,
-                "surface_parse_lower": 0.009792923
+                "backend_runtime_remainder": 0.22495124,
+                "reachable_entry_lowering": 5.15529219,
+                "semantic_environment_check": 0.096251794,
+                "source_loading": 0.000057395,
+                "surface_parse_lower": 0.010187969
               }
             }
           ],
           "stage_medians_seconds": {
-            "backend_runtime_remainder": 0.222157528,
-            "reachable_entry_lowering": 5.135779555,
-            "semantic_environment_check": 0.09367895,
-            "source_loading": 0.000051879,
-            "surface_parse_lower": 0.009813549
+            "backend_runtime_remainder": 0.22495124,
+            "reachable_entry_lowering": 5.152131207,
+            "semantic_environment_check": 0.094645745,
+            "source_loading": 0.000049137,
+            "surface_parse_lower": 0.010074072
           },
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.010000000000000675,
-          "median_user_cpu_seconds": 5.91,
-          "median_wall_time_seconds": 6.48,
+          "median_absolute_deviation_wall_time_seconds": 0.02004944100000028,
+          "median_user_cpu_seconds": 5.95,
+          "median_wall_time_seconds": 6.5213176,
           "wall_time_noisy": false
         }
       }
@@ -774,37 +774,37 @@
         "runs": [
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.29,
-            "wall_time_seconds": 0.33
+            "user_cpu_seconds": 0.87,
+            "wall_time_seconds": 1.007113668
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.28,
-            "wall_time_seconds": 0.32
+            "user_cpu_seconds": 0.88,
+            "wall_time_seconds": 1.003447662
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.28,
-            "wall_time_seconds": 0.32
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.030276868
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.27,
-            "wall_time_seconds": 0.33
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.009546705
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.28,
-            "wall_time_seconds": 0.32
+            "user_cpu_seconds": 0.91,
+            "wall_time_seconds": 1.030962975
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0,
-          "median_user_cpu_seconds": 0.28,
-          "median_wall_time_seconds": 0.32,
+          "median_absolute_deviation_wall_time_seconds": 0.006099043000000082,
+          "median_user_cpu_seconds": 0.89,
+          "median_wall_time_seconds": 1.009546705,
           "wall_time_noisy": false
         }
       },
@@ -843,41 +843,41 @@
       "id": "generated_1",
       "new": {
         "binary": "target/debug/veln",
-        "binary_identity": "git revision 971dd24f9f2acf27eea3a36108b708959db6fbf5 debug build with run analysis stage timing records",
+        "binary_identity": "git revision 9131482ddc3a45d7e2f2ded7be8be17c834a34a3 debug build with run analysis stage timing records",
         "runs": [
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.87,
-            "wall_time_seconds": 1.02
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.02018561
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.88,
-            "wall_time_seconds": 1.01
+            "user_cpu_seconds": 0.87,
+            "wall_time_seconds": 1.006967109
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.89,
-            "wall_time_seconds": 1.02
+            "wall_time_seconds": 1.025718066
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.9,
-            "wall_time_seconds": 1.02
+            "wall_time_seconds": 1.030187264
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.87,
-            "wall_time_seconds": 1.01
+            "user_cpu_seconds": 0.91,
+            "wall_time_seconds": 1.019282538
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0,
-          "median_user_cpu_seconds": 0.88,
-          "median_wall_time_seconds": 1.02,
+          "median_absolute_deviation_wall_time_seconds": 0.005532456000000074,
+          "median_user_cpu_seconds": 0.89,
+          "median_wall_time_seconds": 1.02018561,
           "wall_time_noisy": false
         }
       }
@@ -889,37 +889,37 @@
         "runs": [
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.29,
-            "wall_time_seconds": 0.34
+            "user_cpu_seconds": 0.92,
+            "wall_time_seconds": 1.027552249
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.3,
-            "wall_time_seconds": 0.33
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.049185566
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.31,
-            "wall_time_seconds": 0.33
+            "user_cpu_seconds": 0.9,
+            "wall_time_seconds": 1.0339748
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.29,
-            "wall_time_seconds": 0.33
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.047733565
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.3,
-            "wall_time_seconds": 0.34
+            "user_cpu_seconds": 0.9,
+            "wall_time_seconds": 1.070581593
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0,
-          "median_user_cpu_seconds": 0.3,
-          "median_wall_time_seconds": 0.33,
+          "median_absolute_deviation_wall_time_seconds": 0.01375876499999995,
+          "median_user_cpu_seconds": 0.9,
+          "median_wall_time_seconds": 1.047733565,
           "wall_time_noisy": false
         }
       },
@@ -958,41 +958,41 @@
       "id": "generated_2",
       "new": {
         "binary": "target/debug/veln",
-        "binary_identity": "git revision 971dd24f9f2acf27eea3a36108b708959db6fbf5 debug build with run analysis stage timing records",
+        "binary_identity": "git revision 9131482ddc3a45d7e2f2ded7be8be17c834a34a3 debug build with run analysis stage timing records",
         "runs": [
           {
             "exit_status": 0,
+            "user_cpu_seconds": 0.9,
+            "wall_time_seconds": 1.043129777
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.88,
+            "wall_time_seconds": 1.028987097
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.9,
+            "wall_time_seconds": 1.033819678
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.9,
+            "wall_time_seconds": 1.029407851
+          },
+          {
+            "exit_status": 0,
             "user_cpu_seconds": 0.91,
-            "wall_time_seconds": 1.04
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.93,
-            "wall_time_seconds": 1.04
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.94,
-            "wall_time_seconds": 1.04
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.92,
-            "wall_time_seconds": 1.03
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.93,
-            "wall_time_seconds": 1.04
+            "wall_time_seconds": 1.059915337
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0,
-          "median_user_cpu_seconds": 0.93,
-          "median_wall_time_seconds": 1.04,
+          "median_absolute_deviation_wall_time_seconds": 0.004832581000000058,
+          "median_user_cpu_seconds": 0.9,
+          "median_wall_time_seconds": 1.033819678,
           "wall_time_noisy": false
         }
       }
@@ -1004,37 +1004,37 @@
         "runs": [
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.36,
-            "wall_time_seconds": 0.4
+            "user_cpu_seconds": 0.94,
+            "wall_time_seconds": 1.11959685
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.35,
-            "wall_time_seconds": 0.4
+            "user_cpu_seconds": 0.97,
+            "wall_time_seconds": 1.097430157
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.35,
-            "wall_time_seconds": 0.39
+            "user_cpu_seconds": 0.94,
+            "wall_time_seconds": 1.086165246
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.35,
-            "wall_time_seconds": 0.41
+            "user_cpu_seconds": 0.96,
+            "wall_time_seconds": 1.08872502
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.34,
-            "wall_time_seconds": 0.39
+            "user_cpu_seconds": 0.97,
+            "wall_time_seconds": 1.103676589
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.009999999999999953,
-          "median_user_cpu_seconds": 0.35,
-          "median_wall_time_seconds": 0.4,
+          "median_absolute_deviation_wall_time_seconds": 0.008705136999999974,
+          "median_user_cpu_seconds": 0.96,
+          "median_wall_time_seconds": 1.097430157,
           "wall_time_noisy": false
         }
       },
@@ -1073,41 +1073,41 @@
       "id": "generated_3",
       "new": {
         "binary": "target/debug/veln",
-        "binary_identity": "git revision 971dd24f9f2acf27eea3a36108b708959db6fbf5 debug build with run analysis stage timing records",
+        "binary_identity": "git revision 9131482ddc3a45d7e2f2ded7be8be17c834a34a3 debug build with run analysis stage timing records",
         "runs": [
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.98,
-            "wall_time_seconds": 1.09
+            "user_cpu_seconds": 0.96,
+            "wall_time_seconds": 1.104187606
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.96,
-            "wall_time_seconds": 1.1
+            "wall_time_seconds": 1.103960701
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.98,
+            "wall_time_seconds": 1.103715418
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.95,
+            "wall_time_seconds": 1.09635038
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.97,
-            "wall_time_seconds": 1.1
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.94,
-            "wall_time_seconds": 1.08
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.94,
-            "wall_time_seconds": 1.08
+            "wall_time_seconds": 1.088216525
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.010000000000000009,
+          "median_absolute_deviation_wall_time_seconds": 0.00047218800000004,
           "median_user_cpu_seconds": 0.96,
-          "median_wall_time_seconds": 1.09,
+          "median_wall_time_seconds": 1.103715418,
           "wall_time_noisy": false
         }
       }
