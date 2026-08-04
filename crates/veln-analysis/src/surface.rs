@@ -51,7 +51,11 @@ pub fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diagnostic>
 pub fn load_embedded_standard_surface_module() -> SurfaceModule {
     let standard = embedded_standard_package();
     let mut parts = SurfaceParts::new();
-    for module in standard.modules.values() {
+    for module in standard
+        .modules
+        .values()
+        .map(EmbeddedStandardModuleEntry::module)
+    {
         merge_surface_parts(&mut parts, &module.parts);
     }
     parts.module
@@ -63,15 +67,40 @@ struct SurfaceParts {
     derived_modules: Vec<(String, SourceFile)>,
 }
 
-#[derive(Clone)]
 struct EmbeddedStandardPackage {
-    modules: BTreeMap<String, EmbeddedStandardModule>,
+    modules: BTreeMap<String, EmbeddedStandardModuleEntry>,
 }
 
-#[derive(Clone)]
+struct EmbeddedStandardModuleEntry {
+    path: String,
+    text: String,
+    module: OnceLock<EmbeddedStandardModule>,
+}
+
 struct EmbeddedStandardModule {
     parts: SurfaceParts,
     diagnostics: Vec<Diagnostic>,
+}
+
+impl EmbeddedStandardModuleEntry {
+    fn module(&self) -> &EmbeddedStandardModule {
+        self.module.get_or_init(|| {
+            let project = Project {
+                root: ".".into(),
+                files: vec![SourceFile::new(self.path.as_str(), self.text.as_str())],
+                manifest: None,
+            };
+            let mut diagnostics = Vec::new();
+            let mut parts = SurfaceParts::new();
+            load_project_sources(
+                &project,
+                &mut diagnostics,
+                &mut parts,
+                Some(veln_stdlib::PACKAGE_NAME),
+            );
+            EmbeddedStandardModule { parts, diagnostics }
+        })
+    }
 }
 
 static EMBEDDED_STANDARD_PACKAGE: OnceLock<EmbeddedStandardPackage> = OnceLock::new();
@@ -284,7 +313,14 @@ fn load_external_dependencies(
 
 fn load_embedded_standard_package(diagnostics: &mut Vec<Diagnostic>, parts: &mut SurfaceParts) {
     let standard = embedded_standard_package();
+    load_embedded_standard_package_from(standard, diagnostics, parts);
+}
 
+fn load_embedded_standard_package_from(
+    standard: &EmbeddedStandardPackage,
+    diagnostics: &mut Vec<Diagnostic>,
+    parts: &mut SurfaceParts,
+) {
     let mut pending = vec![external_module_key(veln_stdlib::PACKAGE_NAME, "prelude")];
     pending.extend(
         parts
@@ -304,7 +340,11 @@ fn load_embedded_standard_package(diagnostics: &mut Vec<Diagnostic>, parts: &mut
         if !loaded.insert(module_name.clone()) {
             continue;
         }
-        let Some(module) = standard.modules.get(&module_name) else {
+        let Some(module) = standard
+            .modules
+            .get(&module_name)
+            .map(EmbeddedStandardModuleEntry::module)
+        else {
             continue;
         };
         pending.extend(
@@ -327,27 +367,28 @@ fn embedded_standard_package() -> &'static EmbeddedStandardPackage {
             .files
             .iter()
             .filter_map(|file| {
-                let project = Project {
-                    root: ".".into(),
-                    files: vec![SourceFile::new(file.path, file.text)],
-                    manifest: None,
-                };
-                let mut diagnostics = Vec::new();
-                let mut parts = SurfaceParts::new();
-                load_project_sources(
-                    &project,
-                    &mut diagnostics,
-                    &mut parts,
-                    Some(veln_stdlib::PACKAGE_NAME),
-                );
-                let module_name = parts
-                    .derived_modules
-                    .first()
-                    .map(|(module_name, _)| module_name.clone())?;
-                Some((module_name, EmbeddedStandardModule { parts, diagnostics }))
+                embedded_standard_module_name_from_path(file.path).map(|module_name| {
+                    (
+                        module_name,
+                        EmbeddedStandardModuleEntry {
+                            path: file.path.to_string(),
+                            text: file.text.to_string(),
+                            module: OnceLock::new(),
+                        },
+                    )
+                })
             })
             .collect();
         EmbeddedStandardPackage { modules }
+    })
+}
+
+fn embedded_standard_module_name_from_path(path: &str) -> Option<String> {
+    if classify_companion_source(path).is_some() {
+        return None;
+    }
+    path.strip_suffix(".veln").map(|module_name| {
+        external_module_key(veln_stdlib::PACKAGE_NAME, &module_name.replace('/', "::"))
     })
 }
 
@@ -2687,7 +2728,11 @@ mod tests {
     use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan};
     use veln_syntax::parse;
 
-    use super::{load_surface_module, reachability_counters, reachable_entry_module};
+    use super::{
+        EmbeddedStandardModuleEntry, EmbeddedStandardPackage, SurfaceParts,
+        load_embedded_standard_package_from, load_project_sources, load_surface_module,
+        reachability_counters, reachable_entry_module,
+    };
 
     fn lower(text: &str) -> SurfaceModule {
         let source = SourceFile::new("main_test.veln", text);
@@ -2781,6 +2826,182 @@ mod tests {
                 .as_deref()
                 .is_some_and(|module_name| module_name.starts_with("std::http2::"))
         }));
+    }
+
+    #[test]
+    fn standard_package_loading_keeps_initial_analysis_work_constant_for_unrelated_modules() {
+        #[derive(Debug, PartialEq, Eq)]
+        struct StandardInitializationWork {
+            loaded_modules: Vec<String>,
+            parsed_lowered_modules: usize,
+            prepared_declarations: usize,
+        }
+
+        fn load_synthetic_standard(unrelated_count: usize) -> StandardInitializationWork {
+            let mut modules = std::collections::BTreeMap::new();
+            for (path, text) in [
+                (
+                    "prelude.veln".to_string(),
+                    concat!(
+                        "pub type PreludePayload\n",
+                        "  PreludePayload(Int)\n",
+                        "end\n",
+                        "\n",
+                        "pub fn prelude_answer(value: Int) -> Int\n",
+                        "  value\n",
+                        "end\n",
+                    )
+                    .to_string(),
+                ),
+                (
+                    "extra.veln".to_string(),
+                    concat!(
+                        "pub fn extra_answer(value: Int) -> Int\n",
+                        "  value + 1\n",
+                        "end\n",
+                    )
+                    .to_string(),
+                ),
+                (
+                    "unrelated.veln".to_string(),
+                    unrelated_annotated_standard_module(unrelated_count),
+                ),
+            ] {
+                let module_name =
+                    format!("std::{}", path.trim_end_matches(".veln").replace('/', "::"));
+                modules.insert(
+                    module_name,
+                    EmbeddedStandardModuleEntry {
+                        path,
+                        text,
+                        module: std::sync::OnceLock::new(),
+                    },
+                );
+            }
+            let standard = EmbeddedStandardPackage { modules };
+            let project = Project {
+                root: ".".into(),
+                files: vec![SourceFile::new(
+                    "main.veln",
+                    "pub fn main() -> Int\n  1\nend\n",
+                )],
+                manifest: None,
+            };
+            let mut diagnostics = Vec::new();
+            let mut parts = SurfaceParts::new();
+            load_project_sources(&project, &mut diagnostics, &mut parts, None);
+            load_embedded_standard_package_from(&standard, &mut diagnostics, &mut parts);
+            assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+            let loaded_modules = loaded_standard_modules(&parts.module);
+            let parsed_lowered_modules = standard
+                .modules
+                .values()
+                .filter(|entry| entry.module.get().is_some())
+                .count();
+            let prepared_declarations = standard_declaration_count(&parts.module);
+
+            let reusable = veln_sema::prepare_current_reusable_standard_surface_module_environment(
+                &parts.module,
+            );
+            let (semantic_diagnostics, checked) =
+                veln_sema::check_project_surface_module_with_standard_environment(
+                    &parts.module,
+                    &reusable,
+                );
+            assert!(semantic_diagnostics.is_empty(), "{semantic_diagnostics:#?}");
+            assert!(checked.diagnostics.is_empty(), "{:#?}", checked.diagnostics);
+
+            StandardInitializationWork {
+                loaded_modules,
+                parsed_lowered_modules,
+                prepared_declarations,
+            }
+        }
+
+        fn unrelated_annotated_standard_module(function_count: usize) -> String {
+            let mut text = String::new();
+            for index in 0..function_count {
+                text.push_str(&format!(
+                    "pub fn unrelated_{index}(value: Int) -> Int\n  value + {index}\nend\n\n"
+                ));
+            }
+            text
+        }
+
+        fn loaded_standard_modules(module: &SurfaceModule) -> Vec<String> {
+            let mut modules = module
+                .functions
+                .iter()
+                .filter_map(|function| function.module_name.as_deref())
+                .filter(|module_name| module_name.starts_with("std::"))
+                .chain(
+                    module
+                        .types
+                        .iter()
+                        .filter_map(|decl| decl.module_name.as_deref())
+                        .filter(|module_name| module_name.starts_with("std::")),
+                )
+                .map(str::to_string)
+                .collect::<Vec<_>>();
+            modules.sort_unstable();
+            modules.dedup();
+            modules
+        }
+
+        fn standard_declaration_count(module: &SurfaceModule) -> usize {
+            module
+                .functions
+                .iter()
+                .filter(|decl| is_standard(&decl.module_name))
+                .count()
+                + module
+                    .types
+                    .iter()
+                    .filter(|decl| is_standard(&decl.module_name))
+                    .count()
+                + module
+                    .uses
+                    .iter()
+                    .filter(|decl| is_standard(&decl.module_name))
+                    .count()
+                + module
+                    .aliases
+                    .iter()
+                    .filter(|decl| is_standard(&decl.module_name))
+                    .count()
+                + module
+                    .effects
+                    .iter()
+                    .filter(|decl| is_standard(&decl.module_name))
+                    .count()
+                + module
+                    .handlers
+                    .iter()
+                    .filter(|decl| is_standard(&decl.module_name))
+                    .count()
+                + module
+                    .schemas
+                    .iter()
+                    .filter(|decl| is_standard(&decl.module_name))
+                    .count()
+                + module
+                    .codecs
+                    .iter()
+                    .filter(|decl| is_standard(&decl.module_name))
+                    .count()
+        }
+
+        fn is_standard(module_name: &Option<String>) -> bool {
+            module_name
+                .as_deref()
+                .is_some_and(|module_name| module_name.starts_with("std::"))
+        }
+
+        let base = load_synthetic_standard(0);
+        let expanded = load_synthetic_standard(128);
+
+        assert_eq!(base.loaded_modules, vec!["std::prelude".to_string()]);
+        assert_eq!(expanded, base);
     }
 
     #[test]

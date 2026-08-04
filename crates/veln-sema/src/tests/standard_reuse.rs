@@ -219,6 +219,58 @@ fn reusable_standard_environment_selects_loaded_standard_module_sets() {
 }
 
 #[test]
+fn reusable_standard_environment_keeps_selected_facts_constant_for_unrelated_standard_modules() {
+    let _guard = standard_reuse_test_lock();
+    let selected_modules = std::iter::once("std::prelude".to_string()).collect();
+
+    let base_standard = standard_modules_with_extra_module();
+    let base_reusable = prepare_reusable_standard_surface_module_environment(&base_standard)
+        .with_current_identity_for_test();
+    let base_environment = base_reusable.environment_for_modules_for_test(&selected_modules);
+
+    let expanded_standard = merge_modules(vec![
+        standard_modules_with_extra_module(),
+        unrelated_annotated_standard_module(128),
+    ]);
+    let expanded_reusable =
+        prepare_reusable_standard_surface_module_environment(&expanded_standard)
+            .with_current_identity_for_test();
+    let expanded_environment =
+        expanded_reusable.environment_for_modules_for_test(&selected_modules);
+
+    assert_eq!(
+        expanded_environment.standard_function_modules_for_test(),
+        base_environment.standard_function_modules_for_test()
+    );
+    assert_eq!(
+        expanded_reusable.selected_declaration_count_for_test(&selected_modules),
+        base_reusable.selected_declaration_count_for_test(&selected_modules)
+    );
+
+    let module = merge_modules(vec![
+        standard_module(),
+        app_case(
+            "prelude selected",
+            "src/main.veln",
+            concat!(
+                "pub fn main() -> Int\n",
+                "  let boxed = prelude::answer(prelude::PayloadShape(1))\n",
+                "  1\n",
+                "end\n",
+            ),
+        )
+        .module,
+    ]);
+
+    let base_checked =
+        check_project_surface_module_with_standard_environment(&module, &base_reusable);
+    let expanded_checked =
+        check_project_surface_module_with_standard_environment(&module, &expanded_reusable);
+
+    assert_same_analysis("prelude selected", base_checked, expanded_checked);
+}
+
+#[test]
 fn reusable_standard_environment_identity_mismatch_uses_uncached_analysis() {
     let _guard = standard_reuse_test_lock();
     crate::standard_reuse_counters::reset();
@@ -530,6 +582,16 @@ fn extra_standard_module() -> SurfaceModule {
         ),
         "std::extra",
     )
+}
+
+fn unrelated_annotated_standard_module(function_count: usize) -> SurfaceModule {
+    let mut text = String::new();
+    for index in 0..function_count {
+        text.push_str(&format!(
+            "pub fn unrelated_{index}(value: Int) -> Int\n  value + {index}\nend\n\n"
+        ));
+    }
+    module_with_identity("unrelated.veln", &text, "std::unrelated")
 }
 
 fn module_with_identity(path: &str, text: &str, module_name: &str) -> SurfaceModule {

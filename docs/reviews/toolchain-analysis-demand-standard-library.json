@@ -1,0 +1,1044 @@
+{
+  "build_profile": "debug",
+  "command": [
+    "benchmark-toolchain-analysis",
+    "compare",
+    "/tmp/veln-baseline/target/debug/veln",
+    "target/debug/veln",
+    "--build-profile",
+    "debug",
+    "--runs",
+    "3",
+    "--warmups",
+    "1",
+    "--sizes",
+    "32,64,128",
+    "--baseline-label",
+    "baseline-head",
+    "--new-label",
+    "demand-stdlib",
+    "--baseline-identity",
+    "d8b725e0f19870aae9de9cf3505b2866a8644c5f",
+    "--new-identity",
+    "working-tree-demand-stdlib",
+    "--output",
+    "docs/reviews/toolchain-analysis-demand-standard-library.json"
+  ],
+  "measured_runs": 3,
+  "passes_thresholds": false,
+  "thresholds": [
+    {
+      "description": "HTTP/2 core direct analysis new wall-time median is at most one third of baseline",
+      "id": "http2_core_improvement",
+      "max_ratio": 0.3333333333333333,
+      "ratio": 0.5508727831120781,
+      "status": "failed"
+    },
+    {
+      "description": "HTTP/2 connection direct analysis new wall-time median is at most one third of baseline",
+      "id": "http2_connection_improvement",
+      "max_ratio": 0.3333333333333333,
+      "ratio": 0.6563367921105517,
+      "status": "failed"
+    },
+    {
+      "description": "toolchain-case median is no more than 1.35 times the direct invocation median",
+      "id": "toolchain_case_overhead",
+      "reason": "required workload is unavailable",
+      "status": "skipped"
+    },
+    {
+      "description": "first generated size to second size user CPU median grows by no more than 2.5 times",
+      "id": "generated_first_to_second",
+      "max_ratio": 2.5,
+      "ratio": 1.5,
+      "status": "passed"
+    },
+    {
+      "description": "second generated size to third size user CPU median grows by no more than 2.5 times",
+      "id": "generated_second_to_third",
+      "max_ratio": 2.5,
+      "ratio": 2,
+      "status": "passed"
+    },
+    {
+      "description": "baseline and new exit status and normalized output are equal for every workload",
+      "failing_workloads": [],
+      "id": "functional_outputs",
+      "status": "passed"
+    },
+    {
+      "description": "wall-time median absolute deviation is within the noise boundary for every workload",
+      "id": "wall_time_noise",
+      "noisy_workloads": [],
+      "status": "passed"
+    }
+  ],
+  "warmup_runs": 1,
+  "workloads": [
+    {
+      "baseline": {
+        "binary": "baseline-head",
+        "binary_identity": "d8b725e0f19870aae9de9cf3505b2866a8644c5f",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.93,
+            "wall_time_seconds": 1.091171394
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.94,
+            "wall_time_seconds": 1.096997093
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.95,
+            "wall_time_seconds": 1.097418404
+          }
+        ],
+        "stage_timing": {
+          "dominant_stage": "backend_runtime_remainder",
+          "runs": [
+            {
+              "run": "baseline-1",
+              "stages": {
+                "backend_runtime_remainder": 0.06954512,
+                "reachable_entry_lowering": 0.008220517,
+                "semantic_environment_check": 0.009647575,
+                "source_loading": 0.000079376,
+                "surface_parse_lower": 0.001763761
+              }
+            },
+            {
+              "run": "baseline-2",
+              "stages": {
+                "backend_runtime_remainder": 0.07218375,
+                "reachable_entry_lowering": 0.008224938,
+                "semantic_environment_check": 0.009682677,
+                "source_loading": 0.000078375,
+                "surface_parse_lower": 0.001665636
+              }
+            },
+            {
+              "run": "baseline-3",
+              "stages": {
+                "backend_runtime_remainder": 0.075329194,
+                "reachable_entry_lowering": 0.008646955,
+                "semantic_environment_check": 0.009642604,
+                "source_loading": 0.000074548,
+                "surface_parse_lower": 0.001701001
+              }
+            }
+          ],
+          "stage_medians_seconds": {
+            "backend_runtime_remainder": 0.07218375,
+            "reachable_entry_lowering": 0.008224938,
+            "semantic_environment_check": 0.009647575,
+            "source_loading": 0.000078375,
+            "surface_parse_lower": 0.001701001
+          },
+          "status": "available"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.0004213109999999798,
+          "median_user_cpu_seconds": 0.94,
+          "median_wall_time_seconds": 1.096997093,
+          "wall_time_noisy": false
+        }
+      },
+      "build_profile": "debug",
+      "command": {
+        "baseline": [
+          "baseline-head",
+          "run",
+          "--json",
+          "main",
+          "main.veln",
+          "wire.veln",
+          "facade.veln"
+        ],
+        "display": null,
+        "new": [
+          "demand-stdlib",
+          "run",
+          "--json",
+          "main",
+          "main.veln",
+          "wire.veln",
+          "facade.veln"
+        ]
+      },
+      "cwd": "examples/specification/run/schema-decode-expression",
+      "env": null,
+      "functional_output_comparisons": [
+        true,
+        true,
+        true
+      ],
+      "functional_outputs_equal": true,
+      "generated": null,
+      "id": "small_schema",
+      "new": {
+        "binary": "demand-stdlib",
+        "binary_identity": "working-tree-demand-stdlib",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.08,
+            "wall_time_seconds": 0.113779296
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.07,
+            "wall_time_seconds": 0.113758412
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.09,
+            "wall_time_seconds": 0.115508844
+          }
+        ],
+        "stage_timing": {
+          "dominant_stage": "backend_runtime_remainder",
+          "runs": [
+            {
+              "run": "new-1",
+              "stages": {
+                "backend_runtime_remainder": 0.068769562,
+                "reachable_entry_lowering": 0.007812005,
+                "semantic_environment_check": 0.015630629,
+                "source_loading": 0.000090824,
+                "surface_parse_lower": 0.016705731
+              }
+            },
+            {
+              "run": "new-2",
+              "stages": {
+                "backend_runtime_remainder": 0.069221205,
+                "reachable_entry_lowering": 0.007698703,
+                "semantic_environment_check": 0.015457307,
+                "source_loading": 0.000081872,
+                "surface_parse_lower": 0.016782103
+              }
+            },
+            {
+              "run": "new-3",
+              "stages": {
+                "backend_runtime_remainder": 0.069840209,
+                "reachable_entry_lowering": 0.008092415,
+                "semantic_environment_check": 0.015872407,
+                "source_loading": 0.000084259,
+                "surface_parse_lower": 0.017022122
+              }
+            }
+          ],
+          "stage_medians_seconds": {
+            "backend_runtime_remainder": 0.069221205,
+            "reachable_entry_lowering": 0.007812005,
+            "semantic_environment_check": 0.015630629,
+            "source_loading": 0.000084259,
+            "surface_parse_lower": 0.016782103
+          },
+          "status": "available"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.000020883999999998792,
+          "median_user_cpu_seconds": 0.08,
+          "median_wall_time_seconds": 0.113779296,
+          "wall_time_noisy": false
+        }
+      }
+    },
+    {
+      "baseline": {
+        "binary": "baseline-head",
+        "binary_identity": "d8b725e0f19870aae9de9cf3505b2866a8644c5f",
+        "runs": [
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.02,
+            "wall_time_seconds": 1.202412601
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.02,
+            "wall_time_seconds": 1.200836554
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.03,
+            "wall_time_seconds": 1.189290728
+          }
+        ],
+        "stage_timing": {
+          "dominant_stage": "backend_runtime_remainder",
+          "runs": [
+            {
+              "run": "baseline-1",
+              "stages": {
+                "backend_runtime_remainder": 0.077747448,
+                "reachable_entry_lowering": 0.03443845,
+                "semantic_environment_check": 0.049678032,
+                "source_loading": 0.00004808,
+                "surface_parse_lower": 0.008814733
+              }
+            },
+            {
+              "run": "baseline-2",
+              "stages": {
+                "backend_runtime_remainder": 0.076951377,
+                "reachable_entry_lowering": 0.034042245,
+                "semantic_environment_check": 0.049223093,
+                "source_loading": 0.000052024,
+                "surface_parse_lower": 0.008764924
+              }
+            },
+            {
+              "run": "baseline-3",
+              "stages": {
+                "backend_runtime_remainder": 0.077532564,
+                "reachable_entry_lowering": 0.03459776,
+                "semantic_environment_check": 0.05004383,
+                "source_loading": 0.000050019,
+                "surface_parse_lower": 0.008715589
+              }
+            }
+          ],
+          "stage_medians_seconds": {
+            "backend_runtime_remainder": 0.077532564,
+            "reachable_entry_lowering": 0.03443845,
+            "semantic_environment_check": 0.049678032,
+            "source_loading": 0.000050019,
+            "surface_parse_lower": 0.008764924
+          },
+          "status": "available"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.0015760470000001359,
+          "median_user_cpu_seconds": 1.02,
+          "median_wall_time_seconds": 1.200836554,
+          "wall_time_noisy": false
+        }
+      },
+      "build_profile": "debug",
+      "command": {
+        "baseline": [
+          "baseline-head",
+          "run",
+          "main",
+          "main.veln"
+        ],
+        "display": null,
+        "new": [
+          "demand-stdlib",
+          "run",
+          "main",
+          "main.veln"
+        ]
+      },
+      "cwd": "examples/specification/run/hpack-static-index-projection-human",
+      "env": null,
+      "functional_output_comparisons": [
+        true,
+        true,
+        true
+      ],
+      "functional_outputs_equal": true,
+      "generated": null,
+      "id": "hpack_static",
+      "new": {
+        "binary": "demand-stdlib",
+        "binary_identity": "working-tree-demand-stdlib",
+        "runs": [
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.56,
+            "wall_time_seconds": 0.674066976
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.58,
+            "wall_time_seconds": 0.669268632
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.56,
+            "wall_time_seconds": 0.647855572
+          }
+        ],
+        "stage_timing": {
+          "dominant_stage": "surface_parse_lower",
+          "runs": [
+            {
+              "run": "new-1",
+              "stages": {
+                "backend_runtime_remainder": 0.077866104,
+                "reachable_entry_lowering": 0.021173597,
+                "semantic_environment_check": 0.272334987,
+                "source_loading": 0.00007862,
+                "surface_parse_lower": 0.290080599
+              }
+            },
+            {
+              "run": "new-2",
+              "stages": {
+                "backend_runtime_remainder": 0.082303819,
+                "reachable_entry_lowering": 0.021259731,
+                "semantic_environment_check": 0.274577758,
+                "source_loading": 0.000056057,
+                "surface_parse_lower": 0.278154684
+              }
+            },
+            {
+              "run": "new-3",
+              "stages": {
+                "backend_runtime_remainder": 0.076939842,
+                "reachable_entry_lowering": 0.020488549,
+                "semantic_environment_check": 0.2627796,
+                "source_loading": 0.000053158,
+                "surface_parse_lower": 0.27546471
+              }
+            }
+          ],
+          "stage_medians_seconds": {
+            "backend_runtime_remainder": 0.077866104,
+            "reachable_entry_lowering": 0.021173597,
+            "semantic_environment_check": 0.272334987,
+            "source_loading": 0.000056057,
+            "surface_parse_lower": 0.278154684
+          },
+          "status": "available"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.00479834400000001,
+          "median_user_cpu_seconds": 0.56,
+          "median_wall_time_seconds": 0.669268632,
+          "wall_time_noisy": false
+        }
+      }
+    },
+    {
+      "baseline": {
+        "binary": "baseline-head",
+        "binary_identity": "d8b725e0f19870aae9de9cf3505b2866a8644c5f",
+        "runs": [
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.03,
+            "wall_time_seconds": 1.188980856
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.02,
+            "wall_time_seconds": 1.191886089
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.01,
+            "wall_time_seconds": 1.192540927
+          }
+        ],
+        "stage_timing": {
+          "dominant_stage": "backend_runtime_remainder",
+          "runs": [
+            {
+              "run": "baseline-1",
+              "stages": {
+                "backend_runtime_remainder": 0.081428837,
+                "reachable_entry_lowering": 0.03619983,
+                "semantic_environment_check": 0.050385339,
+                "source_loading": 0.000050641,
+                "surface_parse_lower": 0.009555699
+              }
+            },
+            {
+              "run": "baseline-2",
+              "stages": {
+                "backend_runtime_remainder": 0.080130981,
+                "reachable_entry_lowering": 0.035584294,
+                "semantic_environment_check": 0.04941889,
+                "source_loading": 0.000053407,
+                "surface_parse_lower": 0.009376324
+              }
+            },
+            {
+              "run": "baseline-3",
+              "stages": {
+                "backend_runtime_remainder": 0.079583211,
+                "reachable_entry_lowering": 0.035865898,
+                "semantic_environment_check": 0.049800498,
+                "source_loading": 0.000054872,
+                "surface_parse_lower": 0.009673445
+              }
+            }
+          ],
+          "stage_medians_seconds": {
+            "backend_runtime_remainder": 0.080130981,
+            "reachable_entry_lowering": 0.035865898,
+            "semantic_environment_check": 0.049800498,
+            "source_loading": 0.000053407,
+            "surface_parse_lower": 0.009555699
+          },
+          "status": "available"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.0006548379999999909,
+          "median_user_cpu_seconds": 1.02,
+          "median_wall_time_seconds": 1.191886089,
+          "wall_time_noisy": false
+        }
+      },
+      "build_profile": "debug",
+      "command": {
+        "baseline": [
+          "baseline-head",
+          "run",
+          "--json",
+          "main",
+          "main.veln"
+        ],
+        "display": null,
+        "new": [
+          "demand-stdlib",
+          "run",
+          "--json",
+          "main",
+          "main.veln"
+        ]
+      },
+      "cwd": "examples/specification/run/http2-protocol-core-continuation-closed-json",
+      "env": null,
+      "functional_output_comparisons": [
+        true,
+        true,
+        true
+      ],
+      "functional_outputs_equal": true,
+      "generated": null,
+      "id": "http2_core",
+      "new": {
+        "binary": "demand-stdlib",
+        "binary_identity": "working-tree-demand-stdlib",
+        "runs": [
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.56,
+            "wall_time_seconds": 0.654655925
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.55,
+            "wall_time_seconds": 0.658190938
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.56,
+            "wall_time_seconds": 0.656577607
+          }
+        ],
+        "stage_timing": {
+          "dominant_stage": "surface_parse_lower",
+          "runs": [
+            {
+              "run": "new-1",
+              "stages": {
+                "backend_runtime_remainder": 0.081754626,
+                "reachable_entry_lowering": 0.02349712,
+                "semantic_environment_check": 0.262625894,
+                "source_loading": 0.000049583,
+                "surface_parse_lower": 0.274579943
+              }
+            },
+            {
+              "run": "new-2",
+              "stages": {
+                "backend_runtime_remainder": 0.078180191,
+                "reachable_entry_lowering": 0.023299207,
+                "semantic_environment_check": 0.264203038,
+                "source_loading": 0.000052526,
+                "surface_parse_lower": 0.279246218
+              }
+            },
+            {
+              "run": "new-3",
+              "stages": {
+                "backend_runtime_remainder": 0.079661151,
+                "reachable_entry_lowering": 0.022997434,
+                "semantic_environment_check": 0.264423613,
+                "source_loading": 0.000051698,
+                "surface_parse_lower": 0.275918346
+              }
+            }
+          ],
+          "stage_medians_seconds": {
+            "backend_runtime_remainder": 0.079661151,
+            "reachable_entry_lowering": 0.023299207,
+            "semantic_environment_check": 0.264203038,
+            "source_loading": 0.000051698,
+            "surface_parse_lower": 0.275918346
+          },
+          "status": "available"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.0016133309999999401,
+          "median_user_cpu_seconds": 0.56,
+          "median_wall_time_seconds": 0.656577607,
+          "wall_time_noisy": false
+        }
+      }
+    },
+    {
+      "baseline": {
+        "binary": "baseline-head",
+        "binary_identity": "d8b725e0f19870aae9de9cf3505b2866a8644c5f",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 1.23,
+            "wall_time_seconds": 1.413028981
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 1.23,
+            "wall_time_seconds": 1.448842086
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 1.27,
+            "wall_time_seconds": 1.45545013
+          }
+        ],
+        "stage_timing": {
+          "dominant_stage": "backend_runtime_remainder",
+          "runs": [
+            {
+              "run": "baseline-1",
+              "stages": {
+                "backend_runtime_remainder": 0.232514815,
+                "reachable_entry_lowering": 0.097151516,
+                "semantic_environment_check": 0.052799929,
+                "source_loading": 0.000050895,
+                "surface_parse_lower": 0.009327424
+              }
+            },
+            {
+              "run": "baseline-2",
+              "stages": {
+                "backend_runtime_remainder": 0.239874652,
+                "reachable_entry_lowering": 0.102703229,
+                "semantic_environment_check": 0.055617848,
+                "source_loading": 0.000051027,
+                "surface_parse_lower": 0.01049193
+              }
+            },
+            {
+              "run": "baseline-3",
+              "stages": {
+                "backend_runtime_remainder": 0.232743966,
+                "reachable_entry_lowering": 0.100121399,
+                "semantic_environment_check": 0.055268124,
+                "source_loading": 0.000050366,
+                "surface_parse_lower": 0.009701239
+              }
+            }
+          ],
+          "stage_medians_seconds": {
+            "backend_runtime_remainder": 0.232743966,
+            "reachable_entry_lowering": 0.100121399,
+            "semantic_environment_check": 0.055268124,
+            "source_loading": 0.000050895,
+            "surface_parse_lower": 0.009701239
+          },
+          "status": "available"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.006608044000000035,
+          "median_user_cpu_seconds": 1.23,
+          "median_wall_time_seconds": 1.448842086,
+          "wall_time_noisy": false
+        }
+      },
+      "build_profile": "debug",
+      "command": {
+        "baseline": [
+          "baseline-head",
+          "run",
+          "--json",
+          "main",
+          "main.veln"
+        ],
+        "display": null,
+        "new": [
+          "demand-stdlib",
+          "run",
+          "--json",
+          "main",
+          "main.veln"
+        ]
+      },
+      "cwd": "examples/specification/run/http2-connection-application-unsupported-request-json",
+      "env": {
+        "VELN_NET_PRODUCTION_READS_HEX": "505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000003010400000001828784",
+        "VELN_NET_RUNTIME": "production-loopback"
+      },
+      "functional_output_comparisons": [
+        true,
+        true,
+        true
+      ],
+      "functional_outputs_equal": true,
+      "generated": null,
+      "id": "http2_connection",
+      "new": {
+        "binary": "demand-stdlib",
+        "binary_identity": "working-tree-demand-stdlib",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.79,
+            "wall_time_seconds": 0.965490874
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.78,
+            "wall_time_seconds": 0.948535823
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.8,
+            "wall_time_seconds": 0.950928367
+          }
+        ],
+        "stage_timing": {
+          "dominant_stage": "surface_parse_lower",
+          "runs": [
+            {
+              "run": "new-1",
+              "stages": {
+                "backend_runtime_remainder": 0.234313543,
+                "reachable_entry_lowering": 0.107760892,
+                "semantic_environment_check": 0.297616379,
+                "source_loading": 0.000054322,
+                "surface_parse_lower": 0.301062325
+              }
+            },
+            {
+              "run": "new-2",
+              "stages": {
+                "backend_runtime_remainder": 0.228221601,
+                "reachable_entry_lowering": 0.104216085,
+                "semantic_environment_check": 0.289858416,
+                "source_loading": 0.000051886,
+                "surface_parse_lower": 0.302716407
+              }
+            },
+            {
+              "run": "new-3",
+              "stages": {
+                "backend_runtime_remainder": 0.225977923,
+                "reachable_entry_lowering": 0.103349449,
+                "semantic_environment_check": 0.29626328,
+                "source_loading": 0.000051644,
+                "surface_parse_lower": 0.303037691
+              }
+            }
+          ],
+          "stage_medians_seconds": {
+            "backend_runtime_remainder": 0.228221601,
+            "reachable_entry_lowering": 0.104216085,
+            "semantic_environment_check": 0.29626328,
+            "source_loading": 0.000051886,
+            "surface_parse_lower": 0.302716407
+          },
+          "status": "available"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.0023925440000001075,
+          "median_user_cpu_seconds": 0.79,
+          "median_wall_time_seconds": 0.950928367,
+          "wall_time_noisy": false
+        }
+      }
+    },
+    {
+      "baseline": {
+        "binary": "baseline-head",
+        "binary_identity": "d8b725e0f19870aae9de9cf3505b2866a8644c5f",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.024313542
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.87,
+            "wall_time_seconds": 1.021344449
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.88,
+            "wall_time_seconds": 1.038750944
+          }
+        ],
+        "stage_timing": {
+          "status": "unavailable"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.0029690929999999227,
+          "median_user_cpu_seconds": 0.88,
+          "median_wall_time_seconds": 1.024313542,
+          "wall_time_noisy": false
+        }
+      },
+      "build_profile": "debug",
+      "command": {
+        "baseline": [
+          "baseline-head",
+          "check",
+          "--json"
+        ],
+        "display": null,
+        "new": [
+          "demand-stdlib",
+          "check",
+          "--json"
+        ]
+      },
+      "cwd": "<temporary>/generated_1",
+      "env": null,
+      "functional_output_comparisons": [
+        true,
+        true,
+        true
+      ],
+      "functional_outputs_equal": true,
+      "generated": {
+        "command": [
+          "check",
+          "--json"
+        ],
+        "moduleCount": 33,
+        "size": 32
+      },
+      "id": "generated_1",
+      "new": {
+        "binary": "demand-stdlib",
+        "binary_identity": "working-tree-demand-stdlib",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.02,
+            "wall_time_seconds": 0.037755543
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.02,
+            "wall_time_seconds": 0.037298157
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.02,
+            "wall_time_seconds": 0.037597339
+          }
+        ],
+        "stage_timing": {
+          "status": "unavailable"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.00015820400000000207,
+          "median_user_cpu_seconds": 0.02,
+          "median_wall_time_seconds": 0.037597339,
+          "wall_time_noisy": false
+        }
+      }
+    },
+    {
+      "baseline": {
+        "binary": "baseline-head",
+        "binary_identity": "d8b725e0f19870aae9de9cf3505b2866a8644c5f",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.9,
+            "wall_time_seconds": 1.034280573
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.029124822
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.88,
+            "wall_time_seconds": 1.028274638
+          }
+        ],
+        "stage_timing": {
+          "status": "unavailable"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.0008501839999999206,
+          "median_user_cpu_seconds": 0.89,
+          "median_wall_time_seconds": 1.029124822,
+          "wall_time_noisy": false
+        }
+      },
+      "build_profile": "debug",
+      "command": {
+        "baseline": [
+          "baseline-head",
+          "check",
+          "--json"
+        ],
+        "display": null,
+        "new": [
+          "demand-stdlib",
+          "check",
+          "--json"
+        ]
+      },
+      "cwd": "<temporary>/generated_2",
+      "env": null,
+      "functional_output_comparisons": [
+        true,
+        true,
+        true
+      ],
+      "functional_outputs_equal": true,
+      "generated": {
+        "command": [
+          "check",
+          "--json"
+        ],
+        "moduleCount": 65,
+        "size": 64
+      },
+      "id": "generated_2",
+      "new": {
+        "binary": "demand-stdlib",
+        "binary_identity": "working-tree-demand-stdlib",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.03,
+            "wall_time_seconds": 0.04875224
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.03,
+            "wall_time_seconds": 0.04758253
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.03,
+            "wall_time_seconds": 0.047254474
+          }
+        ],
+        "stage_timing": {
+          "status": "unavailable"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.0003280560000000002,
+          "median_user_cpu_seconds": 0.03,
+          "median_wall_time_seconds": 0.04758253,
+          "wall_time_noisy": false
+        }
+      }
+    },
+    {
+      "baseline": {
+        "binary": "baseline-head",
+        "binary_identity": "d8b725e0f19870aae9de9cf3505b2866a8644c5f",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.93,
+            "wall_time_seconds": 1.092906194
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.92,
+            "wall_time_seconds": 1.063261635
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.91,
+            "wall_time_seconds": 1.063309437
+          }
+        ],
+        "stage_timing": {
+          "status": "unavailable"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.00004780200000009671,
+          "median_user_cpu_seconds": 0.92,
+          "median_wall_time_seconds": 1.063309437,
+          "wall_time_noisy": false
+        }
+      },
+      "build_profile": "debug",
+      "command": {
+        "baseline": [
+          "baseline-head",
+          "check",
+          "--json"
+        ],
+        "display": null,
+        "new": [
+          "demand-stdlib",
+          "check",
+          "--json"
+        ]
+      },
+      "cwd": "<temporary>/generated_3",
+      "env": null,
+      "functional_output_comparisons": [
+        true,
+        true,
+        true
+      ],
+      "functional_outputs_equal": true,
+      "generated": {
+        "command": [
+          "check",
+          "--json"
+        ],
+        "moduleCount": 129,
+        "size": 128
+      },
+      "id": "generated_3",
+      "new": {
+        "binary": "demand-stdlib",
+        "binary_identity": "working-tree-demand-stdlib",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.05,
+            "wall_time_seconds": 0.081178424
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.06,
+            "wall_time_seconds": 0.080273656
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.06,
+            "wall_time_seconds": 0.081936159
+          }
+        ],
+        "stage_timing": {
+          "status": "unavailable"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.0007577349999999955,
+          "median_user_cpu_seconds": 0.06,
+          "median_wall_time_seconds": 0.081178424,
+          "wall_time_noisy": false
+        }
+      }
+    }
+  ]
+}

@@ -16,6 +16,9 @@ behavior specifications.
 - [toolchain-analysis-reachable-lookups.json](toolchain-analysis-reachable-lookups.json)
   records the controlled comparison for indexed reachable and semantic lookup
   candidates.
+- [toolchain-analysis-demand-standard-library.json](toolchain-analysis-demand-standard-library.json)
+  records the controlled comparison for demand-driven embedded
+  standard-library initialization.
 - A proposal or reference page links to a named review record.
 - A local benchmark result or audit record is needed to check why a proposal
   slice was accepted.

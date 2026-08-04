@@ -13,7 +13,9 @@ for remaining planned work,
 [../../reviews/toolchain-analysis-stage-benchmark.json](../../reviews/toolchain-analysis-stage-benchmark.json)
 for the stage-timing review record, and
 [../../reviews/toolchain-analysis-reachable-lookups.json](../../reviews/toolchain-analysis-reachable-lookups.json)
-for the reachable-lookup comparison.
+for the reachable-lookup comparison. Use
+[../../reviews/toolchain-analysis-demand-standard-library.json](../../reviews/toolchain-analysis-demand-standard-library.json)
+for the demand-driven standard-library initialization comparison.
 
 ## Completed Scope
 
@@ -50,15 +52,23 @@ Completed implementation scope:
   and indexes callable targets by name, qualified name, and function shape.
 - Semantic function and ADT resolution indexes candidates by function name,
   ADT type name, and variant name while preserving declaration order.
+- Embedded standard-library source loading parses and lowers only the standard
+  module closure reached from the application project and that closure's
+  standard imports.
+- Reusable standard-library semantic facts are cached by selected standard
+  module set. A cache miss prepares immutable standard facts for that set, and
+  each application analysis still constructs separate application inference,
+  diagnostic, and lowering state.
 
 ## Evidence
 
 Structural tests cover private-reference candidate filtering,
 private-reference indexing, call-site contributor discovery, repeated
 inference body traversal, private handler retained effects, stable effect
-ordering, unrelated fully annotated module growth, standard-environment
-selection, fallback when prepared standard facts are not current, and repeated
-and concurrent application analysis.
+ordering, unrelated fully annotated module growth, initial standard-package
+parse/lower and semantic-prepare work for the selected closure,
+standard-environment selection, fallback when prepared standard facts are not
+current, and repeated and concurrent application analysis.
 
 The controlled stage-timing benchmark used prebuilt debug binaries, one
 warm-up run, and five measured runs. The baseline binary had no stage
@@ -84,13 +94,30 @@ from 1.391151211 seconds to 1.190085222 seconds. Its 0.8554679122 ratio does
 not pass the one-third wall-time threshold, so the proposal remains open for
 that representative workload.
 
+The demand-driven standard-library initialization comparison used prebuilt
+debug binaries, one warm-up run, and three measured runs. A five-run attempt
+with the toolchain-case command exceeded the guarded local runner limit, so
+the toolchain-case overhead threshold is recorded as skipped in that review
+record. Functional output matched for every workload and no wall-time result
+exceeded the accepted noise boundary.
+
+For the HTTP/2 core workload, median wall time fell from 1.191886089 seconds
+to 0.656577607 seconds. Its 0.5508727831 ratio does not pass the one-third
+threshold. The new dominant measured stages were `surface_parse_lower` at
+0.275918346 seconds and `semantic_environment_check` at 0.264203038 seconds.
+For the HTTP/2 connection workload, median wall time fell from 1.448842086
+seconds to 0.950928367 seconds. Its 0.6563367921 ratio does not pass the
+one-third threshold. The generated-growth ratios were 1.5 and 2.0, so both
+remained within the accepted growth threshold.
+
 ## Read When
 
 - Checking why completed bounded-analysis slices are no longer described as
   proposal work.
 - Auditing the evidence behind choosing reachable-entry lowering as the next
   implementation slice.
-- Reviewing why reachable candidate indexing is implemented while the HTTP/2
-  core acceptance threshold remains proposal work.
+- Reviewing why reachable candidate indexing and demand-driven
+  standard-library initialization are implemented while the HTTP/2 wall-time
+  acceptance thresholds remain proposal work.
 - Preserving the boundary that application analysis caching remains outside
   the measurement slice.
