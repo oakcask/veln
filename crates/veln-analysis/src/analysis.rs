@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::sync::OnceLock;
 #[cfg(test)]
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Duration;
 
 use veln_ast::{FunctionKind, SurfaceModule};
 use veln_diagnostics::Diagnostic;
@@ -70,15 +71,45 @@ pub struct ReachableEntryAnalysis {
     pub lowered: LoweredSurfaceModule,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AnalysisTiming {
+    pub stage: &'static str,
+    pub duration: Duration,
+}
+
 pub fn analyze_project(project: Project, doctest_mode: DoctestMode) -> ProjectAnalysis {
     analyze_project_with_standard_environment(project, doctest_mode, standard_environment())
 }
 
+pub fn analyze_project_with_timings(
+    project: Project,
+    doctest_mode: DoctestMode,
+) -> (ProjectAnalysis, Vec<AnalysisTiming>) {
+    let mut timings = Vec::new();
+    let analysis = analyze_project_with_standard_environment_and_timings(
+        project,
+        doctest_mode,
+        standard_environment(),
+        Some(&mut timings),
+    );
+    (analysis, timings)
+}
+
 fn analyze_project_with_standard_environment(
-    mut project: Project,
+    project: Project,
     doctest_mode: DoctestMode,
     standard: &ReusableStandardEnvironment,
 ) -> ProjectAnalysis {
+    analyze_project_with_standard_environment_and_timings(project, doctest_mode, standard, None)
+}
+
+fn analyze_project_with_standard_environment_and_timings(
+    mut project: Project,
+    doctest_mode: DoctestMode,
+    standard: &ReusableStandardEnvironment,
+    mut timings: Option<&mut Vec<AnalysisTiming>>,
+) -> ProjectAnalysis {
+    let surface_start = std::time::Instant::now();
     let doctests = match doctest_mode {
         DoctestMode::Include => Some(doctest_sources(&project.files)),
         DoctestMode::Exclude => None,
@@ -96,8 +127,16 @@ fn analyze_project_with_standard_environment(
 
     let (module, parse_diagnostics) = load_surface_module(&project);
     source_diagnostics.extend(parse_diagnostics);
+    record_timing(&mut timings, "surface_parse_lower", surface_start.elapsed());
+
+    let semantic_start = std::time::Instant::now();
     let (semantic_diagnostics, checked) =
         check_project_surface_module_with_standard_environment(&module, standard);
+    record_timing(
+        &mut timings,
+        "semantic_environment_check",
+        semantic_start.elapsed(),
+    );
 
     ProjectAnalysis {
         project,
@@ -108,6 +147,16 @@ fn analyze_project_with_standard_environment(
         checked,
         expected_doctest_failures,
         reachability_cache: ReachabilityCache::default(),
+    }
+}
+
+fn record_timing(
+    timings: &mut Option<&mut Vec<AnalysisTiming>>,
+    stage: &'static str,
+    duration: Duration,
+) {
+    if let Some(timings) = timings.as_deref_mut() {
+        timings.push(AnalysisTiming { stage, duration });
     }
 }
 
@@ -165,6 +214,15 @@ impl ProjectAnalysis {
         entry: &str,
         entry_kind: FunctionKind,
     ) -> ReachableEntryAnalysis {
+        self.lower_reachable_entry_with_timing(entry, entry_kind).0
+    }
+
+    pub fn lower_reachable_entry_with_timing(
+        &self,
+        entry: &str,
+        entry_kind: FunctionKind,
+    ) -> (ReachableEntryAnalysis, AnalysisTiming) {
+        let start = std::time::Instant::now();
         let module = reachable_entry_module_with_cache(
             &self.module,
             entry,
@@ -175,7 +233,13 @@ impl ProjectAnalysis {
             &module,
             standard_environment(),
         );
-        ReachableEntryAnalysis { module, lowered }
+        (
+            ReachableEntryAnalysis { module, lowered },
+            AnalysisTiming {
+                stage: "reachable_entry_lowering",
+                duration: start.elapsed(),
+            },
+        )
     }
 
     fn reconcile_doctest_failures(&self, diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {

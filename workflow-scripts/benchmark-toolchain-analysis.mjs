@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -38,6 +38,13 @@ export const DEFAULT_WORKLOADS = [
 ];
 
 const NOISE_BOUNDARY_RATIO = 0.1;
+const REQUIRED_STAGE_TIMINGS = [
+  "source_loading",
+  "surface_parse_lower",
+  "semantic_environment_check",
+  "reachable_entry_lowering",
+  "backend_runtime_remainder",
+];
 
 export function median(values) {
   if (values.length === 0) {
@@ -126,6 +133,112 @@ export function summarizeRuns(runs) {
     median_absolute_deviation_wall_time_seconds: wallMad,
     wall_time_noisy: wallMad > wallMedian * NOISE_BOUNDARY_RATIO,
   };
+}
+
+export function parseTimingRecords(text) {
+  const seen = new Set();
+  return text
+    .split(/\n/)
+    .filter((line) => line.trim() !== "")
+    .map((line, index) => {
+      let record;
+      try {
+        record = JSON.parse(line);
+      } catch (error) {
+        throw new Error(`invalid timing JSON record at line ${index + 1}`);
+      }
+      const { workload, run, stage, boundary, duration_seconds: durationSeconds } = record;
+      if (
+        typeof workload !== "string" ||
+        workload === "" ||
+        typeof run !== "string" ||
+        run === "" ||
+        typeof stage !== "string" ||
+        stage === "" ||
+        typeof boundary !== "string" ||
+        boundary === ""
+      ) {
+        throw new Error(`timing record at line ${index + 1} must identify workload, run, stage, and boundary`);
+      }
+      if (boundary !== stage) {
+        throw new Error(`timing record at line ${index + 1} does not identify the measured pipeline boundary`);
+      }
+      if (typeof durationSeconds !== "number" || !Number.isFinite(durationSeconds) || durationSeconds < 0) {
+        throw new Error(`timing record at line ${index + 1} has invalid duration`);
+      }
+      const key = `${workload}\0${run}\0${stage}`;
+      if (seen.has(key)) {
+        throw new Error(`duplicate timing record for workload ${workload}, run ${run}, stage ${stage}`);
+      }
+      seen.add(key);
+      return {
+        workload,
+        run,
+        stage,
+        boundary,
+        duration_seconds: durationSeconds,
+      };
+    });
+}
+
+export function summarizeStageRecords(records, expectedRuns) {
+  if (records.length === 0) {
+    return { status: "unavailable" };
+  }
+  const recordsByRun = new Map();
+  for (const record of records) {
+    if (!recordsByRun.has(record.run)) {
+      recordsByRun.set(record.run, []);
+    }
+    recordsByRun.get(record.run).push(record);
+  }
+  const missingRuns = expectedRuns.filter((run) => !recordsByRun.has(run));
+  if (missingRuns.length > 0) {
+    throw new Error(`missing timing records for run(s): ${missingRuns.join(", ")}`);
+  }
+  for (const run of expectedRuns) {
+    const stages = new Set(recordsByRun.get(run).map((record) => record.stage));
+    const missingStages = REQUIRED_STAGE_TIMINGS.filter((stage) => !stages.has(stage));
+    if (missingStages.length > 0) {
+      throw new Error(`missing timing stage(s) for run ${run}: ${missingStages.join(", ")}`);
+    }
+  }
+
+  const stageDurations = new Map();
+  for (const record of records) {
+    if (!stageDurations.has(record.stage)) {
+      stageDurations.set(record.stage, []);
+    }
+    stageDurations.get(record.stage).push(record.duration_seconds);
+  }
+  const stageMedians = Object.fromEntries(
+    [...stageDurations.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([stage, values]) => [stage, median(values)]),
+  );
+  return {
+    status: "available",
+    stage_medians_seconds: stageMedians,
+    dominant_stage: dominantMeasuredStage(stageMedians),
+    runs: expectedRuns.map((run) => ({
+      run,
+      stages: Object.fromEntries(
+        recordsByRun
+          .get(run)
+          .map((record) => [record.stage, record.duration_seconds])
+          .sort(([left], [right]) => left.localeCompare(right)),
+      ),
+    })),
+  };
+}
+
+export function dominantMeasuredStage(stageMedians) {
+  const entries = Object.entries(stageMedians);
+  if (entries.length === 0) {
+    return null;
+  }
+  entries.sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]));
+  return entries[0][0];
 }
 
 export function compareFunctionalOutputs(left, right) {
@@ -327,9 +440,19 @@ function parseShellCommand(command) {
 }
 
 function runMeasured(command, options) {
+  const env = {
+    ...options.env,
+    ...(options.timing
+      ? {
+          VELN_ANALYSIS_TIMING_FILE: options.timing.file,
+          VELN_ANALYSIS_TIMING_WORKLOAD: options.timing.workload,
+          VELN_ANALYSIS_TIMING_RUN: options.timing.run,
+        }
+      : {}),
+  };
   const completed = spawnSync("/usr/bin/time", ["-f", "__veln_time__ %e %U", ...command], {
     cwd: options.cwd,
-    env: options.env,
+    env,
     encoding: "utf8",
     maxBuffer: 10 * 1024 * 1024,
   });
@@ -384,6 +507,11 @@ function measurePair(args, workload) {
   const env = { ...process.env, ...(workload.env ?? {}) };
   const baselineBinary = realpathSync(args.baselineBinary);
   const newBinary = realpathSync(args.newBinary);
+  const timingFile = join(
+    mkdtempSync(join(tmpdir(), "veln-analysis-timing-")),
+    `${workload.id}.jsonl`,
+  );
+  const timingRoot = dirname(timingFile);
   const replacements = {
     [args.repoRoot]: "<repo>",
     [workload.cwd]: "<workload>",
@@ -405,15 +533,57 @@ function measurePair(args, workload) {
 
   const baselineRuns = [];
   const newRuns = [];
+  const baselineTimingRuns = [];
+  const newTimingRuns = [];
   for (let index = 0; index < args.runs; index += 1) {
+    const baselineRunId = `baseline-${index + 1}`;
+    const newRunId = `new-${index + 1}`;
+    baselineTimingRuns.push(baselineRunId);
+    newTimingRuns.push(newRunId);
     if (index % 2 === 0) {
-      baselineRuns.push(runMeasured(baselineCommand, { cwd: workload.cwd, env }));
-      newRuns.push(runMeasured(newCommand, { cwd: workload.cwd, env }));
+      baselineRuns.push(
+        runMeasured(baselineCommand, {
+          cwd: workload.cwd,
+          env,
+          timing: { file: timingFile, workload: workload.id, run: baselineRunId },
+        }),
+      );
+      newRuns.push(
+        runMeasured(newCommand, {
+          cwd: workload.cwd,
+          env,
+          timing: { file: timingFile, workload: workload.id, run: newRunId },
+        }),
+      );
     } else {
-      newRuns.push(runMeasured(newCommand, { cwd: workload.cwd, env }));
-      baselineRuns.push(runMeasured(baselineCommand, { cwd: workload.cwd, env }));
+      newRuns.push(
+        runMeasured(newCommand, {
+          cwd: workload.cwd,
+          env,
+          timing: { file: timingFile, workload: workload.id, run: newRunId },
+        }),
+      );
+      baselineRuns.push(
+        runMeasured(baselineCommand, {
+          cwd: workload.cwd,
+          env,
+          timing: { file: timingFile, workload: workload.id, run: baselineRunId },
+        }),
+      );
     }
   }
+
+  let timingRecords = [];
+  try {
+    timingRecords = parseTimingRecords(readFileSync(timingFile, "utf8"));
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+  } finally {
+    rmSync(timingRoot, { recursive: true, force: true });
+  }
+  const recordsForRuns = (runs) => timingRecords.filter((record) => runs.includes(record.run));
 
   const functionalComparisons = baselineRuns.map((baselineRun, index) =>
     compareFunctionalOutputs(
@@ -434,6 +604,7 @@ function measurePair(args, workload) {
     baseline: {
       binary: baselineBinary,
       summary: summarizeRuns(baselineRuns),
+      stage_timing: summarizeStageRecords(recordsForRuns(baselineTimingRuns), baselineTimingRuns),
       runs: baselineRuns.map(({ wall_time_seconds, user_cpu_seconds, exit_status }) => ({
         exit_status,
         user_cpu_seconds,
@@ -443,6 +614,7 @@ function measurePair(args, workload) {
     new: {
       binary: newBinary,
       summary: summarizeRuns(newRuns),
+      stage_timing: summarizeStageRecords(recordsForRuns(newTimingRuns), newTimingRuns),
       runs: newRuns.map(({ wall_time_seconds, user_cpu_seconds, exit_status }) => ({
         exit_status,
         user_cpu_seconds,

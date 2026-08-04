@@ -5,8 +5,8 @@ mod diagnostics;
 mod surface;
 
 pub use analysis::{
-    DoctestMode, ProjectAnalysis, ReachableEntryAnalysis, analyze_project,
-    checked_project_diagnostics,
+    AnalysisTiming, DoctestMode, ProjectAnalysis, ReachableEntryAnalysis, analyze_project,
+    analyze_project_with_timings, checked_project_diagnostics,
 };
 pub use diagnostics::parse_diagnostic_to_envelope;
 pub use surface::{
@@ -202,6 +202,28 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn project_analysis_timings_name_pipeline_boundaries() {
+        let project = project(
+            "src/main.veln",
+            concat!("pub fn main() -> Int\n", "  1\n", "end\n"),
+        );
+
+        let (analysis, timings) = analyze_project_with_timings(project, DoctestMode::Exclude);
+        let (reachable, reachable_timing) =
+            analysis.lower_reachable_entry_with_timing("main", FunctionKind::Function);
+
+        assert!(reachable.lowered.diagnostics.is_empty());
+        assert_eq!(
+            timings
+                .iter()
+                .map(|timing| timing.stage)
+                .collect::<Vec<_>>(),
+            vec!["surface_parse_lower", "semantic_environment_check"]
+        );
+        assert_eq!(reachable_timing.stage, "reachable_entry_lowering");
     }
 
     #[test]

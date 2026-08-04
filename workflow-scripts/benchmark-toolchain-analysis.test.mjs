@@ -6,12 +6,15 @@ import test from "node:test";
 import {
   compareFunctionalOutputs,
   DEFAULT_WORKLOADS,
+  dominantMeasuredStage,
   functionalSnapshot,
   generateAnnotatedModuleGraph,
   median,
   medianAbsoluteDeviation,
   passesBenchmarkThresholds,
+  parseTimingRecords,
   stableJson,
+  summarizeStageRecords,
   summarizeRuns,
   thresholdDecisions,
 } from "./benchmark-toolchain-analysis.mjs";
@@ -180,6 +183,104 @@ test("writes deterministic machine-readable JSON", () => {
   );
 });
 
+test("parses and validates stage timing records", () => {
+  const records = parseTimingRecords(
+    [
+      '{"workload":"http2_core","run":"new-1","stage":"source_loading","boundary":"source_loading","duration_seconds":0.25}',
+      '{"workload":"http2_core","run":"new-1","stage":"semantic_environment_check","boundary":"semantic_environment_check","duration_seconds":1.5}',
+      "",
+    ].join("\n"),
+  );
+
+  assert.deepEqual(records, [
+    {
+      workload: "http2_core",
+      run: "new-1",
+      stage: "source_loading",
+      boundary: "source_loading",
+      duration_seconds: 0.25,
+    },
+    {
+      workload: "http2_core",
+      run: "new-1",
+      stage: "semantic_environment_check",
+      boundary: "semantic_environment_check",
+      duration_seconds: 1.5,
+    },
+  ]);
+  assert.throws(
+    () =>
+      parseTimingRecords(
+        [
+          '{"workload":"http2_core","run":"new-1","stage":"source_loading","boundary":"source_loading","duration_seconds":0.25}',
+          '{"workload":"http2_core","run":"new-1","stage":"source_loading","boundary":"source_loading","duration_seconds":0.3}',
+        ].join("\n"),
+      ),
+    /duplicate timing record/,
+  );
+  assert.throws(
+    () =>
+      parseTimingRecords(
+        '{"workload":"http2_core","run":"new-1","stage":"source_loading","boundary":"source_loading","duration_seconds":-1}\n',
+      ),
+    /invalid duration/,
+  );
+  assert.throws(
+    () =>
+      parseTimingRecords(
+        '{"workload":"http2_core","run":"new-1","stage":"source_loading","duration_seconds":1}\n',
+      ),
+    /must identify workload, run, stage, and boundary/,
+  );
+  assert.throws(
+    () =>
+      parseTimingRecords(
+        '{"workload":"http2_core","run":"new-1","stage":"source_loading","boundary":"parse","duration_seconds":1}\n',
+      ),
+    /measured pipeline boundary/,
+  );
+});
+
+test("aggregates stage medians and selects the dominant measured stage", () => {
+  const summary = summarizeStageRecords(
+    [
+      timing("http2_connection", "new-1", "source_loading", 0.1),
+      timing("http2_connection", "new-1", "surface_parse_lower", 0.2),
+      timing("http2_connection", "new-1", "semantic_environment_check", 4),
+      timing("http2_connection", "new-1", "reachable_entry_lowering", 0.4),
+      timing("http2_connection", "new-1", "backend_runtime_remainder", 0.5),
+      timing("http2_connection", "new-2", "source_loading", 0.3),
+      timing("http2_connection", "new-2", "surface_parse_lower", 0.6),
+      timing("http2_connection", "new-2", "semantic_environment_check", 2),
+      timing("http2_connection", "new-2", "reachable_entry_lowering", 0.6),
+      timing("http2_connection", "new-2", "backend_runtime_remainder", 0.7),
+    ],
+    ["new-1", "new-2"],
+  );
+
+  assert.deepEqual(summary.stage_medians_seconds, {
+    backend_runtime_remainder: 0.6,
+    reachable_entry_lowering: 0.5,
+    semantic_environment_check: 3,
+    surface_parse_lower: 0.4,
+    source_loading: 0.2,
+  });
+  assert.equal(summary.dominant_stage, "semantic_environment_check");
+  assert.equal(dominantMeasuredStage({ z_stage: 1, a_stage: 1 }), "a_stage");
+});
+
+test("keeps baseline stage timing unavailable and rejects partial instrumented runs", () => {
+  assert.deepEqual(summarizeStageRecords([], ["baseline-1"]), { status: "unavailable" });
+  assert.throws(
+    () => summarizeStageRecords([timing("http2_core", "new-1", "source_loading", 0.1)], ["new-1", "new-2"]),
+    /missing timing records/,
+  );
+  assert.throws(
+    () => summarizeStageRecords([timing("http2_core", "new-1", "source_loading", 0.1)], ["new-1"]),
+    /missing timing stage/,
+  );
+});
+
 function workload(id, baselineWall, newWall, newUser, functionalOutputsEqual, options = {}) {
   return {
     id,
@@ -198,5 +299,15 @@ function workload(id, baselineWall, newWall, newUser, functionalOutputsEqual, op
       },
     },
     functional_outputs_equal: functionalOutputsEqual,
+  };
+}
+
+function timing(workloadId, run, stage, durationSeconds) {
+  return {
+    workload: workloadId,
+    run,
+    stage,
+    boundary: stage,
+    duration_seconds: durationSeconds,
   };
 }
