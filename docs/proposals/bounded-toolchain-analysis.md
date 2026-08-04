@@ -253,9 +253,12 @@ unchanged. It narrows only analyzer work:
   with overlapping source paths and declaration names, a local `std::`-prefixed
   application module that is outside the reusable standard bundle, and a local
   application source whose module identity collides with an embedded standard
-  module name. Test-only work counters prove repeated and concurrent cached
-  analyses prepare the reusable standard signatures once while each non-empty
-  application analysis constructs fresh semantic facts. `veln-analysis`
+  module name. The cached path removes only the prepared standard declarations
+  from the fresh application environment, so same-path and same-module
+  application declarations still construct project-local facts. Test-only work
+  counters prove repeated and concurrent cached analyses prepare the reusable
+  standard signatures once while each non-empty application analysis constructs
+  fresh semantic facts. `veln-analysis`
   regression tests exercise the embedded-standard `OnceLock` path with
   repeated and concurrent distinct projects, local application sources whose
   module name begins with `std::`, and a local `std::prelude` collision.

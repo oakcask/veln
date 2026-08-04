@@ -257,6 +257,7 @@ pub struct ReusableStandardEnvironment {
     identity: StandardSemanticIdentity,
     environment: TypeEnvironment,
     module_names: BTreeSet<String>,
+    declaration_counts: BTreeMap<StandardDeclarationKey, usize>,
 }
 
 const STANDARD_SEMANTIC_MODEL: &str = "standard-semantic-signatures-v1";
@@ -1086,6 +1087,7 @@ pub fn prepare_reusable_standard_environment(
     ReusableStandardEnvironment {
         identity: prepared_standard_semantic_identity(&standard_module, &module_names),
         module_names,
+        declaration_counts: standard_declaration_counts(&standard_module),
         environment: TypeEnvironment::from_module(&standard_module),
     }
 }
@@ -1121,11 +1123,23 @@ fn module_without_reusable_standard_declarations(
     module: &SurfaceModule,
     standard: &ReusableStandardEnvironment,
 ) -> SurfaceModule {
+    let mut remaining_standard_declarations = standard.declaration_counts.clone();
     filter_module_declarations(module, |decl| {
-        !is_embedded_standard_declaration(decl)
-            || !decl
-                .module_name()
-                .is_some_and(|module_name| standard.module_names.contains(module_name))
+        if !decl
+            .module_name()
+            .is_some_and(|module_name| standard.module_names.contains(module_name))
+        {
+            return true;
+        }
+        let key = standard_declaration_key(decl);
+        let Some(count) = remaining_standard_declarations.get_mut(&key) else {
+            return true;
+        };
+        *count -= 1;
+        if *count == 0 {
+            remaining_standard_declarations.remove(&key);
+        }
+        false
     })
 }
 
@@ -1144,6 +1158,19 @@ fn module_standard_names(module: &SurfaceModule) -> BTreeSet<String> {
     collect_standard_names(&module.codecs, &mut names);
     collect_standard_names(&module.functions, &mut names);
     names
+}
+
+fn standard_declaration_counts(module: &SurfaceModule) -> BTreeMap<StandardDeclarationKey, usize> {
+    let mut counts = BTreeMap::new();
+    count_standard_declarations(&module.uses, &mut counts);
+    count_standard_declarations(&module.aliases, &mut counts);
+    count_standard_declarations(&module.effects, &mut counts);
+    count_standard_declarations(&module.handlers, &mut counts);
+    count_standard_declarations(&module.types, &mut counts);
+    count_standard_declarations(&module.schemas, &mut counts);
+    count_standard_declarations(&module.codecs, &mut counts);
+    count_standard_declarations(&module.functions, &mut counts);
+    counts
 }
 
 fn prepared_standard_semantic_identity(
@@ -1258,41 +1285,159 @@ fn collect_standard_names<T: StandardDeclaration>(decls: &[T], names: &mut BTree
     );
 }
 
+fn count_standard_declarations<T: StandardDeclaration>(
+    decls: &[T],
+    counts: &mut BTreeMap<StandardDeclarationKey, usize>,
+) {
+    for decl in decls
+        .iter()
+        .filter(|decl| is_embedded_standard_declaration(*decl))
+    {
+        *counts.entry(standard_declaration_key(decl)).or_insert(0) += 1;
+    }
+}
+
 trait StandardDeclaration {
     fn module_name(&self) -> Option<&str>;
     fn span(&self) -> &SourceSpan;
+    fn declaration_kind(&self) -> StandardDeclarationKind;
+    fn declaration_name(&self) -> String;
 }
 
-macro_rules! impl_standard_declaration {
-    ($($ty:ty),+ $(,)?) => {
-        $(
-            impl StandardDeclaration for $ty {
-                fn module_name(&self) -> Option<&str> {
-                    self.module_name.as_deref()
-                }
-
-                fn span(&self) -> &SourceSpan {
-                    &self.span
-                }
+macro_rules! impl_named_standard_declaration {
+    ($ty:ty, $kind:expr) => {
+        impl StandardDeclaration for $ty {
+            fn module_name(&self) -> Option<&str> {
+                self.module_name.as_deref()
             }
-        )+
+
+            fn span(&self) -> &SourceSpan {
+                &self.span
+            }
+
+            fn declaration_kind(&self) -> StandardDeclarationKind {
+                $kind
+            }
+
+            fn declaration_name(&self) -> String {
+                self.name.clone().unwrap_or_default()
+            }
+        }
     };
 }
 
-impl_standard_declaration!(
-    UseDecl,
-    PublicAlias,
-    EffectDecl,
-    HandlerDecl,
-    TypeDecl,
-    SchemaDecl,
-    CodecDecl,
+impl StandardDeclaration for UseDecl {
+    fn module_name(&self) -> Option<&str> {
+        self.module_name.as_deref()
+    }
+
+    fn span(&self) -> &SourceSpan {
+        &self.span
+    }
+
+    fn declaration_kind(&self) -> StandardDeclarationKind {
+        StandardDeclarationKind::Use
+    }
+
+    fn declaration_name(&self) -> String {
+        format!(
+            "{}:{}:{}",
+            self.package.as_deref().unwrap_or_default(),
+            self.name,
+            self.alias
+        )
+    }
+}
+
+impl StandardDeclaration for PublicAlias {
+    fn module_name(&self) -> Option<&str> {
+        self.module_name.as_deref()
+    }
+
+    fn span(&self) -> &SourceSpan {
+        &self.span
+    }
+
+    fn declaration_kind(&self) -> StandardDeclarationKind {
+        match self.kind {
+            PublicAliasKind::Function => StandardDeclarationKind::FunctionAlias,
+            PublicAliasKind::Type => StandardDeclarationKind::TypeAlias,
+            PublicAliasKind::Schema => StandardDeclarationKind::SchemaAlias,
+        }
+    }
+
+    fn declaration_name(&self) -> String {
+        self.name.clone().unwrap_or_default()
+    }
+}
+
+impl_named_standard_declaration!(EffectDecl, StandardDeclarationKind::Effect);
+impl_named_standard_declaration!(HandlerDecl, StandardDeclarationKind::Handler);
+impl_named_standard_declaration!(TypeDecl, StandardDeclarationKind::Type);
+impl_named_standard_declaration!(SchemaDecl, StandardDeclarationKind::Schema);
+impl_named_standard_declaration!(CodecDecl, StandardDeclarationKind::Codec);
+
+impl StandardDeclaration for Function {
+    fn module_name(&self) -> Option<&str> {
+        self.module_name.as_deref()
+    }
+
+    fn span(&self) -> &SourceSpan {
+        &self.span
+    }
+
+    fn declaration_kind(&self) -> StandardDeclarationKind {
+        match self.kind {
+            FunctionKind::Function => StandardDeclarationKind::Function,
+            FunctionKind::Test => StandardDeclarationKind::Test,
+        }
+    }
+
+    fn declaration_name(&self) -> String {
+        self.name.clone().unwrap_or_default()
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum StandardDeclarationKind {
+    Use,
+    FunctionAlias,
+    TypeAlias,
+    SchemaAlias,
+    Effect,
+    Handler,
+    Type,
+    Schema,
+    Codec,
     Function,
-);
+    Test,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct StandardDeclarationKey {
+    kind: StandardDeclarationKind,
+    module_name: Option<String>,
+    name: String,
+    file: String,
+    start: usize,
+    end: usize,
+}
+
+fn standard_declaration_key(decl: &dyn StandardDeclaration) -> StandardDeclarationKey {
+    let span = decl.span();
+    StandardDeclarationKey {
+        kind: decl.declaration_kind(),
+        module_name: decl.module_name().map(str::to_string),
+        name: decl.declaration_name(),
+        file: span.file.as_str().to_string(),
+        start: span.start.offset,
+        end: span.end.offset,
+    }
+}
 
 fn filter_module_declarations(
     module: &SurfaceModule,
-    keep: impl Fn(&dyn StandardDeclaration) -> bool,
+    mut keep: impl FnMut(&dyn StandardDeclaration) -> bool,
 ) -> SurfaceModule {
     SurfaceModule {
         module: module.module.clone(),
