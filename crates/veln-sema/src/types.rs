@@ -259,13 +259,13 @@ pub struct ReusableStandardEnvironment {
     module_names: BTreeSet<String>,
     declaration_counts: BTreeMap<StandardDeclarationKey, usize>,
     module: Arc<SurfaceModule>,
-    environments: Arc<Mutex<BTreeMap<BTreeSet<String>, TypeEnvironment>>>,
+    environments: Arc<Mutex<BTreeMap<BTreeSet<String>, Arc<TypeEnvironment>>>>,
 }
 
 const STANDARD_SEMANTIC_MODEL: &str = "standard-semantic-signatures-v1";
 
 impl ReusableStandardEnvironment {
-    fn environment_for_modules(&self, module_names: &BTreeSet<String>) -> TypeEnvironment {
+    fn environment_for_modules(&self, module_names: &BTreeSet<String>) -> Arc<TypeEnvironment> {
         let selected_module_names = module_names
             .intersection(&self.module_names)
             .cloned()
@@ -279,7 +279,7 @@ impl ReusableStandardEnvironment {
             .or_insert_with(|| {
                 let selected_module =
                     standard_module_with_names(self.module.as_ref(), &selected_module_names);
-                TypeEnvironment::from_module(&selected_module)
+                Arc::new(TypeEnvironment::from_module(&selected_module))
             })
             .clone()
     }
@@ -300,7 +300,7 @@ impl ReusableStandardEnvironment {
         &self,
         module_names: &BTreeSet<String>,
     ) -> TypeEnvironment {
-        self.environment_for_modules(module_names)
+        self.environment_for_modules(module_names).as_ref().clone()
     }
 }
 
@@ -477,11 +477,11 @@ impl TypeEnvironment {
         let standard_module_names = reusable_standard_module_names_for(module);
         let standard_environment = standard.environment_for_modules(&standard_module_names);
         if application_module_is_empty(&application_module) {
-            return standard_environment;
+            return standard_environment.as_ref().clone();
         }
         #[cfg(test)]
         standard_reuse_counters::record_application_prepare();
-        Self::from_module_with_base(&application_module, Some(&standard_environment))
+        Self::from_module_with_base(&application_module, Some(standard_environment.as_ref()))
     }
 
     #[cfg(test)]

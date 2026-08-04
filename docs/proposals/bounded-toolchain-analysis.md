@@ -276,14 +276,19 @@ unchanged. It narrows only analyzer work:
   environment before every one-shot application analysis. The reusable value
   still records the embedded bundle identity and declaration fingerprints when
   it is prepared, while each cached environment entry is derived only from
-  the standard declarations selected by that application's dependency closure.
+  the standard declarations selected by that application's dependency closure;
+- cached standard-library environments are stored behind immutable shared
+  ownership. Cache hits share the selected standard environment value and clone
+  standard facts only when combining them with freshly constructed application
+  facts, so repeated application analyses no longer deep-clone the selected
+  standard environment before that combination step.
 
-The controlled benchmark run for the dependency-closure slice kept functional
-outputs equal and wall-time noise within the accepted boundary. Median wall
-time changed from 1.26 to 1.06 seconds for the small schema workload, from
-1.20 to 1.21 seconds for HPACK static, from 1.34 to 1.33 seconds for HTTP/2
-core, from 6.41 to 6.35 seconds for HTTP/2 connection, and from
-1.03/1.14/1.41 to 0.98/1.00/1.08 seconds for generated 32/64/128 module
+The controlled benchmark run for the shared cache-hit ownership slice kept
+functional outputs equal and wall-time noise within the accepted boundary.
+Median wall time changed from 0.87 to 0.88 seconds for the small schema
+workload, from 1.45 to 1.43 seconds for HPACK static, from 1.59 to 1.59
+seconds for HTTP/2 core, from 6.35 to 6.41 seconds for HTTP/2 connection, and
+from 0.79/0.81/0.84 to 0.78/0.81/0.85 seconds for generated 32/64/128 module
 workloads. The generated-size CPU growth checks passed. The representative
 HTTP/2 improvement thresholds did not pass.
 
@@ -294,8 +299,8 @@ The remaining proposal work is explicit:
   incomplete;
 - controlled benchmark evidence must still show which analyzer stage keeps the
   representative HTTP/2 workloads above the intended wall-time threshold after
-  standard-environment reuse, dependency-closure restriction, and lazy standard
-  environment construction.
+  standard-environment reuse, dependency-closure restriction, lazy standard
+  environment construction, and shared cache-hit ownership.
 
 ## Non-Goals
 
