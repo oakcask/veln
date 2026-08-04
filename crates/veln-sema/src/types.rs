@@ -6465,156 +6465,175 @@ fn handler_for_path<'a>(
 }
 
 fn collect_expr_effects(expr: &Expr, context: &ExprEffectContext<'_>, inferred: &mut Vec<String>) {
-    match &expr.kind {
-        ExprKind::Call { callee, args } => {
-            if let Some(segments) = callee_name_path(callee) {
-                if is_stdio_call(segments) {
-                    push_unique_effect(inferred, "stdio");
-                } else if let Some(effects) = concurrency_effects_for_call(segments, args, context)
-                {
-                    for effect in &effects {
-                        push_unique_effect(inferred, effect);
-                    }
-                } else if let Some(effects) = standard_library_effects(segments) {
-                    for effect in effects {
-                        push_unique_effect(inferred, effect);
-                    }
-                } else if let Some(effects) = prelude_effects(segments) {
-                    for effect in effects {
-                        push_unique_effect(inferred, effect);
-                    }
-                } else if let Some(signature) = function_signature_path(
-                    segments,
-                    context.uses,
-                    context.functions,
-                    context.current_module,
-                    context.companion_access_targets,
-                ) {
-                    for effect in instantiate_call_effect_rows(signature, args, context) {
-                        push_unique_effect(inferred, &effect);
-                    }
-                } else {
-                    for effect in effects_for_callee_path(
-                        segments,
-                        context.uses,
-                        context.current_module,
-                        context.bindings,
-                        context.effects_by_function,
-                        context.effects_by_module_path,
-                        context.companion_access_targets,
-                    ) {
-                        push_unique_effect(inferred, effect);
-                    }
-                }
-            } else {
-                collect_expr_effects(callee, context, inferred);
-            }
-            for arg in args {
-                collect_expr_effects(arg, context, inferred);
-            }
+    ExprEffectCollector { context, inferred }.collect(expr);
+}
+
+struct ExprEffectCollector<'context, 'data, 'output> {
+    context: &'context ExprEffectContext<'data>,
+    inferred: &'output mut Vec<String>,
+}
+
+impl ExprEffectCollector<'_, '_, '_> {
+    fn collect(&mut self, expr: &Expr) {
+        match &expr.kind {
+            ExprKind::Call { callee, args } => self.collect_call(callee, args),
+            ExprKind::SchemaDecode { input, base, .. } => self.collect_pair(input, base),
+            ExprKind::Perform { effect, args, .. } => self.collect_perform(effect, args),
+            ExprKind::Handle {
+                body,
+                handler,
+                args,
+                ..
+            } => self.collect_handle(body, handler, args),
+            ExprKind::SchemaEncode { value, .. } => self.collect(value),
+            ExprKind::FieldAccess { base, .. }
+            | ExprKind::Try(base)
+            | ExprKind::TypeApply { callee: base, .. }
+            | ExprKind::Prefix { expr: base, .. } => self.collect(base),
+            ExprKind::Record(fields) => self.collect_record_fields(fields),
+            ExprKind::Dict(entries) => self.collect_dict_entries(entries),
+            ExprKind::List(items) => self.collect_all(items),
+            ExprKind::Match { scrutinee, arms } => self.collect_match(scrutinee, arms),
+            ExprKind::If {
+                condition,
+                then_branch,
+                else_if_branches,
+                else_branch,
+            } => self.collect_if(condition, then_branch, else_if_branches, else_branch),
+            ExprKind::Binary { left, right, .. } => self.collect_pair(left, right),
+            ExprKind::Missing
+            | ExprKind::Hole { .. }
+            | ExprKind::NamePath(_)
+            | ExprKind::StringLiteral(_)
+            | ExprKind::IntLiteral(_)
+            | ExprKind::FloatLiteral(_)
+            | ExprKind::BoolLiteral(_)
+            | ExprKind::Unit => {}
         }
-        ExprKind::SchemaDecode { input, base, .. } => {
-            collect_expr_effects(input, context, inferred);
-            collect_expr_effects(base, context, inferred);
-        }
-        ExprKind::Perform { effect, args, .. } => {
-            if let Some(label) = canonical_user_effect_label(
-                effect,
-                context.uses,
-                context.current_module,
-                context.user_effects,
-                context.companion_effect_access_targets,
+    }
+
+    fn collect_call(&mut self, callee: &Expr, args: &[Expr]) {
+        let Some(segments) = callee_name_path(callee) else {
+            self.collect(callee);
+            self.collect_all(args);
+            return;
+        };
+        if is_stdio_call(segments) {
+            push_unique_effect(self.inferred, "stdio");
+        } else if let Some(effects) = concurrency_effects_for_call(segments, args, self.context) {
+            self.push_all(&effects);
+        } else if let Some(effects) = standard_library_effects(segments) {
+            for effect in effects {
+                push_unique_effect(self.inferred, effect);
+            }
+        } else if let Some(effects) = prelude_effects(segments) {
+            for effect in effects {
+                push_unique_effect(self.inferred, effect);
+            }
+        } else if let Some(signature) = function_signature_path(
+            segments,
+            self.context.uses,
+            self.context.functions,
+            self.context.current_module,
+            self.context.companion_access_targets,
+        ) {
+            self.push_all(&instantiate_call_effect_rows(signature, args, self.context));
+        } else {
+            for effect in effects_for_callee_path(
+                segments,
+                self.context.uses,
+                self.context.current_module,
+                self.context.bindings,
+                self.context.effects_by_function,
+                self.context.effects_by_module_path,
+                self.context.companion_access_targets,
             ) {
-                push_unique_effect(inferred, &label);
-            }
-            for arg in args {
-                collect_expr_effects(arg, context, inferred);
+                push_unique_effect(self.inferred, effect);
             }
         }
-        ExprKind::Handle {
-            body,
-            handler,
-            args,
-            ..
-        } => {
-            for arg in args {
-                collect_expr_effects(arg, context, inferred);
-            }
-            let Some(handler) = handler_for_path(handler, context) else {
-                collect_expr_effects(body, context, inferred);
-                return;
-            };
-            let before_body = inferred.len();
-            collect_expr_effects(body, context, inferred);
-            let mut retained = inferred[..before_body].to_vec();
-            retained.extend(
-                inferred[before_body..]
-                    .iter()
-                    .filter(|effect| *effect != &handler.effect)
-                    .cloned(),
-            );
-            *inferred = retained;
-            for effect in &handler.effects {
-                push_unique_effect(inferred, effect);
-            }
+        self.collect_all(args);
+    }
+
+    fn collect_perform(&mut self, effect: &[String], args: &[Expr]) {
+        if let Some(label) = canonical_user_effect_label(
+            effect,
+            self.context.uses,
+            self.context.current_module,
+            self.context.user_effects,
+            self.context.companion_effect_access_targets,
+        ) {
+            push_unique_effect(self.inferred, &label);
         }
-        ExprKind::SchemaEncode { value, .. } => {
-            collect_expr_effects(value, context, inferred);
+        self.collect_all(args);
+    }
+
+    fn collect_handle(&mut self, body: &Expr, handler: &[String], args: &[Expr]) {
+        self.collect_all(args);
+        let Some((handled_effect, handler_effects)) = handler_for_path(handler, self.context)
+            .map(|handler| (handler.effect.clone(), handler.effects.clone()))
+        else {
+            self.collect(body);
+            return;
+        };
+        let before_body = self.inferred.len();
+        self.collect(body);
+        let retained_body_effects = self
+            .inferred
+            .drain(before_body..)
+            .filter(|effect| effect != &handled_effect)
+            .collect::<Vec<_>>();
+        self.inferred.extend(retained_body_effects);
+        self.push_all(&handler_effects);
+    }
+
+    fn collect_pair(&mut self, first: &Expr, second: &Expr) {
+        self.collect(first);
+        self.collect(second);
+    }
+
+    fn collect_all(&mut self, expressions: &[Expr]) {
+        for expression in expressions {
+            self.collect(expression);
         }
-        ExprKind::FieldAccess { base, .. }
-        | ExprKind::Try(base)
-        | ExprKind::TypeApply { callee: base, .. }
-        | ExprKind::Prefix { expr: base, .. } => {
-            collect_expr_effects(base, context, inferred);
+    }
+
+    fn collect_record_fields(&mut self, fields: &[RecordField]) {
+        for field in fields {
+            self.collect(&field.expr);
         }
-        ExprKind::Record(fields) => {
-            for field in fields {
-                collect_expr_effects(&field.expr, context, inferred);
-            }
+    }
+
+    fn collect_dict_entries(&mut self, entries: &[DictEntry]) {
+        for entry in entries {
+            self.collect_pair(&entry.key, &entry.value);
         }
-        ExprKind::Dict(entries) => {
-            for entry in entries {
-                collect_expr_effects(&entry.key, context, inferred);
-                collect_expr_effects(&entry.value, context, inferred);
-            }
+    }
+
+    fn collect_match(&mut self, scrutinee: &Expr, arms: &[MatchArm]) {
+        self.collect(scrutinee);
+        for arm in arms {
+            self.collect(&arm.expr);
         }
-        ExprKind::List(items) => {
-            for item in items {
-                collect_expr_effects(item, context, inferred);
-            }
+    }
+
+    fn collect_if(
+        &mut self,
+        condition: &Expr,
+        then_branch: &Expr,
+        else_if_branches: &[IfBranch],
+        else_branch: &Expr,
+    ) {
+        self.collect_pair(condition, then_branch);
+        for branch in else_if_branches {
+            self.collect_pair(&branch.condition, &branch.expr);
         }
-        ExprKind::Match { scrutinee, arms } => {
-            collect_expr_effects(scrutinee, context, inferred);
-            for arm in arms {
-                collect_expr_effects(&arm.expr, context, inferred);
-            }
+        self.collect(else_branch);
+    }
+
+    fn push_all(&mut self, effects: &[String]) {
+        for effect in effects {
+            push_unique_effect(self.inferred, effect);
         }
-        ExprKind::If {
-            condition,
-            then_branch,
-            else_if_branches,
-            else_branch,
-        } => {
-            collect_expr_effects(condition, context, inferred);
-            collect_expr_effects(then_branch, context, inferred);
-            for branch in else_if_branches {
-                collect_expr_effects(&branch.condition, context, inferred);
-                collect_expr_effects(&branch.expr, context, inferred);
-            }
-            collect_expr_effects(else_branch, context, inferred);
-        }
-        ExprKind::Binary { left, right, .. } => {
-            collect_expr_effects(left, context, inferred);
-            collect_expr_effects(right, context, inferred);
-        }
-        ExprKind::Missing
-        | ExprKind::Hole { .. }
-        | ExprKind::NamePath(_)
-        | ExprKind::StringLiteral(_)
-        | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
-        | ExprKind::BoolLiteral(_)
-        | ExprKind::Unit => {}
     }
 }
 

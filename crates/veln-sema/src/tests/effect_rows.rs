@@ -144,6 +144,35 @@ fn concrete_handler_replacement_preserves_row_effects() {
 }
 
 #[test]
+fn handler_arguments_keep_effects_outside_the_handled_body() {
+    let module = module(concat!(
+        "effect Ask\n",
+        "\tvalue() -> Int\n",
+        "end\n",
+        "\n",
+        "effect Audit\n",
+        "\toffset() -> Int\n",
+        "end\n",
+        "\n",
+        "fn provide(offset: Int) -> Int\n",
+        "\toffset\n",
+        "end\n",
+        "\n",
+        "handler ask(offset: Int) handles Ask\n",
+        "\tvalue = provide\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> Int effects [Audit]\n",
+        "\thandle perform Ask::value() with ask(perform Audit::offset())\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn private_helper_instantiates_effect_row_before_public_caller() {
     let module = module(concat!(
         "effect Transport\n",
