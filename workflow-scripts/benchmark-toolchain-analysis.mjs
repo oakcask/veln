@@ -510,12 +510,12 @@ function parseArgs(argv) {
   return args;
 }
 
-function benchmarkCommand(args) {
+export function benchmarkCommand(args) {
   const command = [
     "benchmark-toolchain-analysis",
     "compare",
-    args.baselineLabel,
-    args.newLabel,
+    args.baselineBinary,
+    args.newBinary,
     "--build-profile",
     args.buildProfile,
     "--runs",
@@ -525,6 +525,12 @@ function benchmarkCommand(args) {
     "--sizes",
     args.sizes.join(","),
   ];
+  if (args.baselineLabel !== args.baselineBinary) {
+    command.push("--baseline-label", args.baselineLabel);
+  }
+  if (args.newLabel !== args.newBinary) {
+    command.push("--new-label", args.newLabel);
+  }
   if (args.baselineIdentity) {
     command.push("--baseline-identity", args.baselineIdentity);
   }
@@ -708,6 +714,7 @@ function measurePair(args, workload) {
       new: newDisplayCommand,
       display: workload.displayCommand ?? null,
     },
+    env: workload.env ?? null,
     build_profile: args.buildProfile,
     generated: workload.generated ?? null,
     baseline: {

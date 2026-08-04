@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import {
+  benchmarkCommand,
   compareFunctionalOutputs,
   DEFAULT_WORKLOADS,
   dominantMeasuredStage,
@@ -26,6 +27,46 @@ test("uses the complete tracked schema decode command", () => {
   assert.deepEqual(
     DEFAULT_WORKLOADS.find((workload) => workload.id === "small_schema").args,
     ["run", "--json", "main", "main.veln", "wire.veln", "facade.veln"],
+  );
+});
+
+test("records replay command labels separately from executable paths", () => {
+  assert.deepEqual(
+    benchmarkCommand({
+      baselineBinary: "target/debug/veln-before-stage-timing",
+      newBinary: "target/debug/veln",
+      baselineLabel: "<baseline-debug-veln>",
+      newLabel: "target/debug/veln",
+      baselineIdentity: "baseline build",
+      newIdentity: "new build",
+      buildProfile: "debug",
+      runs: 5,
+      warmups: 1,
+      sizes: [32, 64, 128],
+      output: "docs/reviews/toolchain-analysis-stage-benchmark.json",
+    }),
+    [
+      "benchmark-toolchain-analysis",
+      "compare",
+      "target/debug/veln-before-stage-timing",
+      "target/debug/veln",
+      "--build-profile",
+      "debug",
+      "--runs",
+      "5",
+      "--warmups",
+      "1",
+      "--sizes",
+      "32,64,128",
+      "--baseline-label",
+      "<baseline-debug-veln>",
+      "--baseline-identity",
+      "baseline build",
+      "--new-identity",
+      "new build",
+      "--output",
+      "docs/reviews/toolchain-analysis-stage-benchmark.json",
+    ],
   );
 });
 
@@ -360,6 +401,26 @@ test("validates checked benchmark result structure", () => {
       ],
     }),
   );
+});
+
+test("checked stage benchmark record includes replay metadata", () => {
+  const record = JSON.parse(readFileSync("docs/reviews/toolchain-analysis-stage-benchmark.json", "utf8"));
+
+  assert.deepEqual(record.command.slice(0, 4), [
+    "benchmark-toolchain-analysis",
+    "compare",
+    "target/debug/veln-before-stage-timing",
+    "target/debug/veln",
+  ]);
+  assert.ok(record.command.includes("--baseline-label"));
+  assert.ok(record.command.includes("<baseline-debug-veln>"));
+
+  const connection = record.workloads.find((workload) => workload.id === "http2_connection");
+  assert.deepEqual(connection.env, {
+    VELN_NET_PRODUCTION_READS_HEX:
+      "505249202a20485454502f322e300d0a0d0a534d0d0a000006040000000000000500008000000003010400000001828784",
+    VELN_NET_RUNTIME: "production-loopback",
+  });
 });
 
 function workload(id, baselineWall, newWall, newUser, functionalOutputsEqual, options = {}) {

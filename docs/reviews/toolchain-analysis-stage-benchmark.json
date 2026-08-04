@@ -13,6 +13,8 @@
     "1",
     "--sizes",
     "32,64,128",
+    "--baseline-label",
+    "<baseline-debug-veln>",
     "--baseline-identity",
     "git revision d2de2a03da9284238fb631a6b43eb5e6834e945b debug build without run analysis stage timing records",
     "--new-identity",
@@ -136,6 +138,7 @@
         ]
       },
       "cwd": "examples/specification/run/schema-decode-expression",
+      "env": null,
       "functional_output_comparisons": [
         true,
         true,
@@ -305,6 +308,7 @@
         ]
       },
       "cwd": "examples/specification/run/hpack-static-index-projection-human",
+      "env": null,
       "functional_output_comparisons": [
         true,
         true,
@@ -476,6 +480,7 @@
         ]
       },
       "cwd": "examples/specification/run/http2-protocol-core-continuation-closed-json",
+      "env": null,
       "functional_output_comparisons": [
         true,
         true,
@@ -647,6 +652,10 @@
         ]
       },
       "cwd": "examples/specification/run/http2-connection-application-unsupported-request-json",
+      "env": {
+        "VELN_NET_PRODUCTION_READS_HEX": "505249202a20485454502f322e300d0a0d0a534d0d0a000006040000000000000500008000000003010400000001828784",
+        "VELN_NET_RUNTIME": "production-loopback"
+      },
       "functional_output_comparisons": [
         true,
         true,
@@ -814,6 +823,7 @@
         ]
       },
       "cwd": "<temporary>/generated_1",
+      "env": null,
       "functional_output_comparisons": [
         true,
         true,
@@ -928,6 +938,7 @@
         ]
       },
       "cwd": "<temporary>/generated_2",
+      "env": null,
       "functional_output_comparisons": [
         true,
         true,
@@ -1042,6 +1053,7 @@
         ]
       },
       "cwd": "<temporary>/generated_3",
+      "env": null,
       "functional_output_comparisons": [
         true,
         true,
