@@ -567,7 +567,7 @@ impl TypeEnvironment {
         if standard.identity != standard_semantic_identity() {
             return Self::from_module(application_module);
         }
-        let standard_environment = standard.environment_for_modules(&standard_module_names);
+        let standard_environment = standard.environment_for_modules(standard_module_names);
         if application_module_is_empty(application_module) {
             return standard_environment.as_ref().clone();
         }
