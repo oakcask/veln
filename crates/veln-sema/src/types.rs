@@ -1567,6 +1567,7 @@ fn private_reference_map(
         .filter(|function| {
             private_function_needs_reference_index(
                 function,
+                function_by_path,
                 &candidates_by_module,
                 omitted_private_keys,
             )
@@ -1576,14 +1577,7 @@ fn private_reference_map(
             let mut references = BTreeSet::new();
             #[cfg(test)]
             private_inference_counters::record_private_reference_index_scan();
-            for line in &function.body {
-                collect_private_line_references(
-                    line,
-                    function.module_name.as_deref(),
-                    function_by_path,
-                    &mut references,
-                );
-            }
+            collect_private_function_references(function, function_by_path, &mut references);
             Some((key, references))
         })
         .collect()
@@ -1604,6 +1598,7 @@ fn private_reference_candidates_by_module(
 
 fn private_function_needs_reference_index(
     function: &Function,
+    function_by_path: &FunctionAstMap<'_>,
     candidates_by_module: &BTreeMap<Option<String>, BTreeSet<String>>,
     omitted_private_keys: &BTreeSet<FunctionKey>,
 ) -> bool {
@@ -1618,68 +1613,198 @@ fn private_function_needs_reference_index(
     };
     #[cfg(test)]
     private_inference_counters::record_private_reference_candidate_scan();
-    function
-        .body
-        .iter()
-        .any(|line| private_line_mentions_candidate(line, candidates))
+    private_function_mentions_candidate(function, function_by_path, candidates)
 }
 
-fn private_line_mentions_candidate(line: &BodyLine, candidates: &BTreeSet<String>) -> bool {
-    match &line.kind {
-        BodyLineKind::Let { expr, .. } | BodyLineKind::Expr { expr } => {
-            private_expr_mentions_candidate(expr, candidates)
+fn private_function_mentions_candidate(
+    function: &Function,
+    function_by_path: &FunctionAstMap<'_>,
+    candidates: &BTreeSet<String>,
+) -> bool {
+    let current_module = function.module_name.as_deref();
+    let mut bindings = private_reference_initial_bindings(function);
+    for line in &function.body {
+        if private_line_mentions_candidate(
+            line,
+            current_module,
+            function_by_path,
+            candidates,
+            &mut bindings,
+        ) {
+            return true;
         }
+    }
+    false
+}
+
+fn private_line_mentions_candidate(
+    line: &BodyLine,
+    current_module: Option<&str>,
+    function_by_path: &FunctionAstMap<'_>,
+    candidates: &BTreeSet<String>,
+    bindings: &mut Vec<Binding>,
+) -> bool {
+    match &line.kind {
+        BodyLineKind::Let { pattern, expr, .. } => {
+            let mentions = private_expr_mentions_candidate(
+                expr,
+                current_module,
+                function_by_path,
+                candidates,
+                bindings,
+            );
+            let initializer_private_function =
+                private_expr_reference_target(expr, current_module, function_by_path, bindings);
+            collect_let_pattern_bindings(
+                pattern,
+                &Type::Unknown,
+                initializer_private_function,
+                bindings,
+            );
+            mentions
+        }
+        BodyLineKind::Expr { expr } => private_expr_mentions_candidate(
+            expr,
+            current_module,
+            function_by_path,
+            candidates,
+            bindings,
+        ),
     }
 }
 
-fn private_expr_mentions_candidate(expr: &Expr, candidates: &BTreeSet<String>) -> bool {
-    if let ExprKind::NamePath(segments) = &expr.kind
-        && let [name] = segments.as_slice()
-        && candidates.contains(name)
+fn private_expr_mentions_candidate(
+    expr: &Expr,
+    current_module: Option<&str>,
+    function_by_path: &FunctionAstMap<'_>,
+    candidates: &BTreeSet<String>,
+    bindings: &[Binding],
+) -> bool {
+    if private_expr_reference_target(expr, current_module, function_by_path, bindings)
+        .is_some_and(|key| key.0.as_deref() == current_module && candidates.contains(&key.1))
     {
         return true;
     }
     match &expr.kind {
-        ExprKind::List(items) => items
-            .iter()
-            .any(|item| private_expr_mentions_candidate(item, candidates)),
-        ExprKind::Dict(entries) => entries.iter().any(|entry| {
-            private_expr_mentions_candidate(&entry.key, candidates)
-                || private_expr_mentions_candidate(&entry.value, candidates)
+        ExprKind::List(items) => items.iter().any(|item| {
+            private_expr_mentions_candidate(
+                item,
+                current_module,
+                function_by_path,
+                candidates,
+                bindings,
+            )
         }),
-        ExprKind::Record(fields) => fields
-            .iter()
-            .any(|field| private_expr_mentions_candidate(&field.expr, candidates)),
+        ExprKind::Dict(entries) => entries.iter().any(|entry| {
+            private_expr_mentions_candidate(
+                &entry.key,
+                current_module,
+                function_by_path,
+                candidates,
+                bindings,
+            ) || private_expr_mentions_candidate(
+                &entry.value,
+                current_module,
+                function_by_path,
+                candidates,
+                bindings,
+            )
+        }),
+        ExprKind::Record(fields) => fields.iter().any(|field| {
+            private_expr_mentions_candidate(
+                &field.expr,
+                current_module,
+                function_by_path,
+                candidates,
+                bindings,
+            )
+        }),
         ExprKind::Call { callee, args } => {
-            private_expr_mentions_candidate(callee, candidates)
-                || args
-                    .iter()
-                    .any(|arg| private_expr_mentions_candidate(arg, candidates))
+            private_expr_mentions_candidate(
+                callee,
+                current_module,
+                function_by_path,
+                candidates,
+                bindings,
+            ) || args.iter().any(|arg| {
+                private_expr_mentions_candidate(
+                    arg,
+                    current_module,
+                    function_by_path,
+                    candidates,
+                    bindings,
+                )
+            })
         }
-        ExprKind::Perform { args, .. } => args
-            .iter()
-            .any(|arg| private_expr_mentions_candidate(arg, candidates)),
+        ExprKind::Perform { args, .. } => args.iter().any(|arg| {
+            private_expr_mentions_candidate(
+                arg,
+                current_module,
+                function_by_path,
+                candidates,
+                bindings,
+            )
+        }),
         ExprKind::Handle { body, args, .. } => {
-            private_expr_mentions_candidate(body, candidates)
-                || args
-                    .iter()
-                    .any(|arg| private_expr_mentions_candidate(arg, candidates))
+            private_expr_mentions_candidate(
+                body,
+                current_module,
+                function_by_path,
+                candidates,
+                bindings,
+            ) || args.iter().any(|arg| {
+                private_expr_mentions_candidate(
+                    arg,
+                    current_module,
+                    function_by_path,
+                    candidates,
+                    bindings,
+                )
+            })
         }
         ExprKind::SchemaDecode { input, base, .. } => {
-            private_expr_mentions_candidate(input, candidates)
-                || private_expr_mentions_candidate(base, candidates)
+            private_expr_mentions_candidate(
+                input,
+                current_module,
+                function_by_path,
+                candidates,
+                bindings,
+            ) || private_expr_mentions_candidate(
+                base,
+                current_module,
+                function_by_path,
+                candidates,
+                bindings,
+            )
         }
         ExprKind::SchemaEncode { value, .. }
         | ExprKind::FieldAccess { base: value, .. }
         | ExprKind::Try(value)
-        | ExprKind::Prefix { expr: value, .. } => {
-            private_expr_mentions_candidate(value, candidates)
-        }
+        | ExprKind::Prefix { expr: value, .. } => private_expr_mentions_candidate(
+            value,
+            current_module,
+            function_by_path,
+            candidates,
+            bindings,
+        ),
         ExprKind::Match { scrutinee, arms } => {
-            private_expr_mentions_candidate(scrutinee, candidates)
-                || arms
-                    .iter()
-                    .any(|arm| private_expr_mentions_candidate(&arm.expr, candidates))
+            private_expr_mentions_candidate(
+                scrutinee,
+                current_module,
+                function_by_path,
+                candidates,
+                bindings,
+            ) || arms.iter().any(|arm| {
+                let mut arm_bindings = bindings.to_vec();
+                collect_private_reference_pattern_bindings(&arm.pattern, &mut arm_bindings);
+                private_expr_mentions_candidate(
+                    &arm.expr,
+                    current_module,
+                    function_by_path,
+                    candidates,
+                    &arm_bindings,
+                )
+            })
         }
         ExprKind::If {
             condition,
@@ -1687,17 +1812,54 @@ fn private_expr_mentions_candidate(expr: &Expr, candidates: &BTreeSet<String>) -
             else_if_branches,
             else_branch,
         } => {
-            private_expr_mentions_candidate(condition, candidates)
-                || private_expr_mentions_candidate(then_branch, candidates)
-                || else_if_branches.iter().any(|branch| {
-                    private_expr_mentions_candidate(&branch.condition, candidates)
-                        || private_expr_mentions_candidate(&branch.expr, candidates)
-                })
-                || private_expr_mentions_candidate(else_branch, candidates)
+            private_expr_mentions_candidate(
+                condition,
+                current_module,
+                function_by_path,
+                candidates,
+                bindings,
+            ) || private_expr_mentions_candidate(
+                then_branch,
+                current_module,
+                function_by_path,
+                candidates,
+                bindings,
+            ) || else_if_branches.iter().any(|branch| {
+                private_expr_mentions_candidate(
+                    &branch.condition,
+                    current_module,
+                    function_by_path,
+                    candidates,
+                    bindings,
+                ) || private_expr_mentions_candidate(
+                    &branch.expr,
+                    current_module,
+                    function_by_path,
+                    candidates,
+                    bindings,
+                )
+            }) || private_expr_mentions_candidate(
+                else_branch,
+                current_module,
+                function_by_path,
+                candidates,
+                bindings,
+            )
         }
         ExprKind::Binary { left, right, .. } => {
-            private_expr_mentions_candidate(left, candidates)
-                || private_expr_mentions_candidate(right, candidates)
+            private_expr_mentions_candidate(
+                left,
+                current_module,
+                function_by_path,
+                candidates,
+                bindings,
+            ) || private_expr_mentions_candidate(
+                right,
+                current_module,
+                function_by_path,
+                candidates,
+                bindings,
+            )
         }
         ExprKind::NamePath(_)
         | ExprKind::Missing
@@ -1711,16 +1873,86 @@ fn private_expr_mentions_candidate(expr: &Expr, candidates: &BTreeSet<String>) -
     }
 }
 
+fn private_reference_initial_bindings(function: &Function) -> Vec<Binding> {
+    function
+        .params
+        .iter()
+        .map(|param| Binding::new(param.name.clone(), function_body_param_type(param)))
+        .collect()
+}
+
+fn collect_private_reference_pattern_bindings(pattern: &Pattern, bindings: &mut Vec<Binding>) {
+    match &pattern.kind {
+        PatternKind::Binding(name) => bindings.push(Binding::new(name.clone(), Type::Unknown)),
+        PatternKind::Record(fields) => {
+            for field in fields {
+                collect_private_reference_pattern_bindings(&field.pattern, bindings);
+            }
+        }
+        PatternKind::Constructor { args, .. } => {
+            for arg in args {
+                collect_private_reference_pattern_bindings(arg, bindings);
+            }
+        }
+        PatternKind::Wildcard
+        | PatternKind::StringLiteral(_)
+        | PatternKind::IntLiteral(_)
+        | PatternKind::FloatLiteral(_)
+        | PatternKind::BoolLiteral(_)
+        | PatternKind::Unit => {}
+    }
+}
+
+fn collect_private_function_references(
+    function: &Function,
+    function_by_path: &FunctionAstMap<'_>,
+    references: &mut BTreeSet<FunctionKey>,
+) {
+    let current_module = function.module_name.as_deref();
+    let mut bindings = private_reference_initial_bindings(function);
+    for line in &function.body {
+        collect_private_line_references(
+            line,
+            current_module,
+            function_by_path,
+            references,
+            &mut bindings,
+        );
+    }
+}
+
 fn collect_private_line_references(
     line: &BodyLine,
     current_module: Option<&str>,
     function_by_path: &FunctionAstMap<'_>,
     references: &mut BTreeSet<FunctionKey>,
+    bindings: &mut Vec<Binding>,
 ) {
     match &line.kind {
-        BodyLineKind::Let { expr, .. } | BodyLineKind::Expr { expr } => {
-            collect_private_expr_references(expr, current_module, function_by_path, references);
+        BodyLineKind::Let { pattern, expr, .. } => {
+            collect_private_expr_references(
+                expr,
+                current_module,
+                function_by_path,
+                references,
+                bindings,
+            );
+            let initializer_private_function =
+                private_expr_reference_target(expr, current_module, function_by_path, bindings);
+            collect_let_pattern_bindings(
+                pattern,
+                &Type::Unknown,
+                initializer_private_function,
+                bindings,
+            );
         }
+        BodyLineKind::Expr { expr } => collect_private_expr_references(
+            expr,
+            current_module,
+            function_by_path,
+            references,
+            bindings,
+        ),
     }
 }
 
@@ -1729,16 +1961,23 @@ fn collect_private_expr_references(
     current_module: Option<&str>,
     function_by_path: &FunctionAstMap<'_>,
     references: &mut BTreeSet<FunctionKey>,
+    bindings: &[Binding],
 ) {
-    if let ExprKind::NamePath(segments) = &expr.kind
-        && let Some(key) = private_name_path_target(segments, current_module, function_by_path)
+    if let Some(key) =
+        private_expr_reference_target(expr, current_module, function_by_path, bindings)
     {
         references.insert(key);
     }
     match &expr.kind {
         ExprKind::List(items) => {
             for item in items {
-                collect_private_expr_references(item, current_module, function_by_path, references);
+                collect_private_expr_references(
+                    item,
+                    current_module,
+                    function_by_path,
+                    references,
+                    bindings,
+                );
             }
         }
         ExprKind::Dict(entries) => {
@@ -1748,12 +1987,14 @@ fn collect_private_expr_references(
                     current_module,
                     function_by_path,
                     references,
+                    bindings,
                 );
                 collect_private_expr_references(
                     &entry.value,
                     current_module,
                     function_by_path,
                     references,
+                    bindings,
                 );
             }
         }
@@ -1764,35 +2005,84 @@ fn collect_private_expr_references(
                     current_module,
                     function_by_path,
                     references,
+                    bindings,
                 );
             }
         }
         ExprKind::Call { callee, args } => {
-            collect_private_expr_references(callee, current_module, function_by_path, references);
+            collect_private_expr_references(
+                callee,
+                current_module,
+                function_by_path,
+                references,
+                bindings,
+            );
             for arg in args {
-                collect_private_expr_references(arg, current_module, function_by_path, references);
+                collect_private_expr_references(
+                    arg,
+                    current_module,
+                    function_by_path,
+                    references,
+                    bindings,
+                );
             }
         }
         ExprKind::Perform { args, .. } => {
             for arg in args {
-                collect_private_expr_references(arg, current_module, function_by_path, references);
+                collect_private_expr_references(
+                    arg,
+                    current_module,
+                    function_by_path,
+                    references,
+                    bindings,
+                );
             }
         }
         ExprKind::Handle { body, args, .. } => {
-            collect_private_expr_references(body, current_module, function_by_path, references);
+            collect_private_expr_references(
+                body,
+                current_module,
+                function_by_path,
+                references,
+                bindings,
+            );
             for arg in args {
-                collect_private_expr_references(arg, current_module, function_by_path, references);
+                collect_private_expr_references(
+                    arg,
+                    current_module,
+                    function_by_path,
+                    references,
+                    bindings,
+                );
             }
         }
         ExprKind::SchemaDecode { input, base, .. } => {
-            collect_private_expr_references(input, current_module, function_by_path, references);
-            collect_private_expr_references(base, current_module, function_by_path, references);
+            collect_private_expr_references(
+                input,
+                current_module,
+                function_by_path,
+                references,
+                bindings,
+            );
+            collect_private_expr_references(
+                base,
+                current_module,
+                function_by_path,
+                references,
+                bindings,
+            );
         }
         ExprKind::SchemaEncode { value, .. }
         | ExprKind::FieldAccess { base: value, .. }
         | ExprKind::Try(value)
         | ExprKind::Prefix { expr: value, .. } => {
-            collect_private_expr_references(value, current_module, function_by_path, references);
+            collect_private_expr_references(
+                value,
+                current_module,
+                function_by_path,
+                references,
+                bindings,
+            );
         }
         ExprKind::Match { scrutinee, arms } => {
             collect_private_expr_references(
@@ -1800,13 +2090,17 @@ fn collect_private_expr_references(
                 current_module,
                 function_by_path,
                 references,
+                bindings,
             );
             for arm in arms {
+                let mut arm_bindings = bindings.to_vec();
+                collect_private_reference_pattern_bindings(&arm.pattern, &mut arm_bindings);
                 collect_private_expr_references(
                     &arm.expr,
                     current_module,
                     function_by_path,
                     references,
+                    &arm_bindings,
                 );
             }
         }
@@ -1821,12 +2115,14 @@ fn collect_private_expr_references(
                 current_module,
                 function_by_path,
                 references,
+                bindings,
             );
             collect_private_expr_references(
                 then_branch,
                 current_module,
                 function_by_path,
                 references,
+                bindings,
             );
             for branch in else_if_branches {
                 collect_private_expr_references(
@@ -1834,12 +2130,14 @@ fn collect_private_expr_references(
                     current_module,
                     function_by_path,
                     references,
+                    bindings,
                 );
                 collect_private_expr_references(
                     &branch.expr,
                     current_module,
                     function_by_path,
                     references,
+                    bindings,
                 );
             }
             collect_private_expr_references(
@@ -1847,11 +2145,24 @@ fn collect_private_expr_references(
                 current_module,
                 function_by_path,
                 references,
+                bindings,
             );
         }
         ExprKind::Binary { left, right, .. } => {
-            collect_private_expr_references(left, current_module, function_by_path, references);
-            collect_private_expr_references(right, current_module, function_by_path, references);
+            collect_private_expr_references(
+                left,
+                current_module,
+                function_by_path,
+                references,
+                bindings,
+            );
+            collect_private_expr_references(
+                right,
+                current_module,
+                function_by_path,
+                references,
+                bindings,
+            );
         }
         ExprKind::NamePath(_)
         | ExprKind::Missing
@@ -1863,6 +2174,33 @@ fn collect_private_expr_references(
         | ExprKind::Unit
         | ExprKind::TypeApply { .. } => {}
     }
+}
+
+fn private_expr_reference_target(
+    expr: &Expr,
+    current_module: Option<&str>,
+    function_by_path: &FunctionAstMap<'_>,
+    bindings: &[Binding],
+) -> Option<FunctionKey> {
+    let ExprKind::NamePath(segments) = &expr.kind else {
+        return None;
+    };
+    private_reference_name_path_target(segments, current_module, function_by_path, bindings)
+}
+
+fn private_reference_name_path_target(
+    segments: &[String],
+    current_module: Option<&str>,
+    function_by_path: &FunctionAstMap<'_>,
+    bindings: &[Binding],
+) -> Option<FunctionKey> {
+    let [name] = segments else {
+        return None;
+    };
+    if let Some(binding) = bindings.iter().rev().find(|binding| binding.name == *name) {
+        return binding.private_function_value.clone();
+    }
+    private_name_path_target(segments, current_module, function_by_path)
 }
 
 fn signatures_by_path(functions: &[FunctionSignature]) -> FunctionSignatureMap {

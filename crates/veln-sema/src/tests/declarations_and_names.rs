@@ -790,6 +790,80 @@ fn omitted_private_signature_chain_skips_unrelated_annotated_functions_in_same_m
 }
 
 #[test]
+fn omitted_private_signature_index_ignores_local_candidate_name_shadows() {
+    crate::types::private_inference_counters::reset();
+    let source = SourceFile::new(
+        "target.veln",
+        concat!(
+            "mod target\n",
+            "fn identity(value)\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "fn pass(value)\n",
+            "  identity(value)\n",
+            "end\n",
+            "\n",
+            "fn main() -> Int\n",
+            "  pass(1)\n",
+            "end\n",
+            "\n",
+            "fn parameter_shadow(identity: Int) -> Int\n",
+            "  identity\n",
+            "end\n",
+            "\n",
+            "fn local_shadow(value: Int) -> Int\n",
+            "  let identity = value\n",
+            "  identity\n",
+            "end\n",
+            "\n",
+            "fn match_shadow(input: Option<Int>) -> Int\n",
+            "  match input\n",
+            "    Some(identity) => identity\n",
+            "    None => 0\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let module = merged_modules(vec![source]);
+
+    let diagnostics = analyze_surface_module(&module);
+    let counters = crate::types::private_inference_counters::snapshot();
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert_eq!(counters.body_return_scans, 2, "{counters:#?}");
+    assert_eq!(counters.call_site_discovery_scans, 6, "{counters:#?}");
+    assert_eq!(counters.call_site_scans, 6, "{counters:#?}");
+    assert_eq!(
+        counters.private_reference_candidate_scans, 4,
+        "{counters:#?}"
+    );
+    assert_eq!(counters.private_reference_index_scans, 3, "{counters:#?}");
+    assert_eq!(
+        counters.prelude_callback_discovery_scans, 0,
+        "{counters:#?}"
+    );
+    assert_eq!(counters.prelude_callback_scans, 0, "{counters:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    for name in ["identity", "pass"] {
+        let function = environment
+            .function(name)
+            .unwrap_or_else(|| panic!("{name} should be present"));
+        assert_eq!(
+            function.params[0],
+            crate::semantic_model::Type::int(),
+            "{name}"
+        );
+        assert_eq!(
+            function.return_type,
+            crate::semantic_model::Type::int(),
+            "{name}"
+        );
+    }
+}
+
+#[test]
 fn prelude_callback_return_inference_skips_unrelated_annotated_helpers() {
     crate::types::private_inference_counters::reset();
     let mut source = String::from(
