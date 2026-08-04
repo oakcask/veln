@@ -281,6 +281,10 @@ pub(crate) mod private_inference_counters {
         BODY_RETURN_SCANS.set(BODY_RETURN_SCANS.get() + 1);
     }
 
+    pub(super) fn record_call_site_discovery_scan() {
+        CALL_SITE_DISCOVERY_SCANS.set(CALL_SITE_DISCOVERY_SCANS.get() + 1);
+    }
+
     pub(super) fn record_call_site_scan() {
         CALL_SITE_SCANS.set(CALL_SITE_SCANS.get() + 1);
     }
@@ -1604,6 +1608,8 @@ fn private_function_needs_reference_index(
     let Some(candidates) = candidates_by_module.get(&function.module_name) else {
         return false;
     };
+    #[cfg(test)]
+    private_inference_counters::record_call_site_discovery_scan();
     function
         .body
         .iter()
