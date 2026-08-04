@@ -123,3 +123,47 @@ fn dictionary_value_callback_expected_type_reports_missing_context() {
             && diagnostic.message == "constructor `GenericHandlers` needs type context"
     }));
 }
+
+#[test]
+fn match_arm_expected_function_type_infers_private_callback_returns() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn first_item(value: Int)\n",
+            "  Some([value])\n",
+            "end\n",
+            "fn next_item(value: Int)\n",
+            "  Some([value + 1])\n",
+            "end\n",
+            "fn choose_item(flag: Bool) -> fn(Int) -> Option<Vec<Int>>\n",
+            "  match flag\n",
+            "    true => first_item\n",
+            "    false => next_item\n",
+            "  end\n",
+            "end\n",
+            "pub fn main() -> Option<Vec<Int>>\n",
+            "  let callback: fn(Int) -> Option<Vec<Int>> = choose_item(false)\n",
+            "  callback(1)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    for name in ["first_item", "next_item"] {
+        let callback = core
+            .functions
+            .iter()
+            .find(|function| function.name == name)
+            .unwrap_or_else(|| panic!("{name} should be lowered"));
+        assert_eq!(
+            callback.return_type,
+            CoreType::option(CoreType::vec(CoreType::int())),
+            "{name}"
+        );
+    }
+}
