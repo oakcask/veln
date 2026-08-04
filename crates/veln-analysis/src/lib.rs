@@ -409,6 +409,70 @@ mod tests {
         assert_eq!(cache.application_analyses(), 2);
     }
 
+    #[test]
+    fn shared_analysis_keeps_generated_doctest_sources_project_local() {
+        let cache = crate::analysis::TestStandardEnvironmentCache::new();
+        let alpha = project(
+            "src/alpha.veln",
+            concat!(
+                "## ```veln\n",
+                "## let value: Int = \"alpha-only\"\n",
+                "## ```\n",
+                "pub fn documented() -> ()\n",
+                "  ()\n",
+                "end\n",
+            ),
+        );
+        let beta = project(
+            "src/beta.veln",
+            concat!(
+                "## ```veln\n",
+                "## let value: Bool = 1\n",
+                "## ```\n",
+                "pub fn documented() -> ()\n",
+                "  ()\n",
+                "end\n",
+            ),
+        );
+
+        let alpha_diagnostics = checked_diagnostic_json_with_cache_and_mode(
+            alpha.clone(),
+            DoctestMode::Include,
+            &cache,
+        );
+        let beta_diagnostics =
+            checked_diagnostic_json_with_cache_and_mode(beta.clone(), DoctestMode::Include, &cache);
+
+        assert_eq!(diagnostic_ids(&alpha_diagnostics), ["type.mismatch"]);
+        assert_eq!(diagnostic_ids(&beta_diagnostics), ["type.mismatch"]);
+        assert_diagnostics_contain(
+            &alpha_diagnostics,
+            "src/alpha.veln#doctest-1_test.veln",
+            "expected `Int`, but found `String`",
+        );
+        assert_diagnostics_contain(
+            &beta_diagnostics,
+            "src/beta.veln#doctest-1_test.veln",
+            "expected `Bool`, but found `Int`",
+        );
+        assert_no_project_leak(
+            &alpha_diagnostics,
+            "src/beta.veln#doctest-1_test.veln",
+            "src/beta.veln",
+            "expected `Bool`, but found `Int`",
+        );
+        assert_no_project_leak(
+            &beta_diagnostics,
+            "src/alpha.veln#doctest-1_test.veln",
+            "src/alpha.veln",
+            "expected `Int`, but found `String`",
+        );
+        assert!(checked_diagnostic_json_with_cache(alpha, &cache).is_empty());
+        assert!(checked_diagnostic_json_with_cache(beta, &cache).is_empty());
+        assert_eq!(cache.standard_prepares(), 1);
+        assert_eq!(cache.application_analyses(), 4);
+    }
+
     fn checked_diagnostic_json(project: Project) -> Vec<String> {
         analyze_project(project, DoctestMode::Exclude)
             .checked_diagnostics()
@@ -421,15 +485,19 @@ mod tests {
         project: Project,
         cache: &crate::analysis::TestStandardEnvironmentCache,
     ) -> Vec<String> {
-        crate::analysis::analyze_project_with_test_standard_cache(
-            project,
-            DoctestMode::Exclude,
-            cache,
-        )
-        .checked_diagnostics()
-        .iter()
-        .map(|diagnostic| diagnostic_to_json(diagnostic).to_json())
-        .collect()
+        checked_diagnostic_json_with_cache_and_mode(project, DoctestMode::Exclude, cache)
+    }
+
+    fn checked_diagnostic_json_with_cache_and_mode(
+        project: Project,
+        doctest_mode: DoctestMode,
+        cache: &crate::analysis::TestStandardEnvironmentCache,
+    ) -> Vec<String> {
+        crate::analysis::analyze_project_with_test_standard_cache(project, doctest_mode, cache)
+            .checked_diagnostics()
+            .iter()
+            .map(|diagnostic| diagnostic_to_json(diagnostic).to_json())
+            .collect()
     }
 
     fn lowered_function_names(analysis: &ReachableEntryAnalysis) -> Vec<&str> {
@@ -504,6 +572,21 @@ mod tests {
             diagnostics
                 .iter()
                 .all(|diagnostic| !diagnostic.contains(type_message)),
+            "{diagnostics:#?}"
+        );
+    }
+
+    fn assert_diagnostics_contain(diagnostics: &[String], source_path: &str, type_message: &str) {
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains(source_path)),
+            "{diagnostics:#?}"
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains(type_message)),
             "{diagnostics:#?}"
         );
     }
