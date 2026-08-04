@@ -277,6 +277,8 @@ impl ReusableStandardEnvironment {
         environments
             .entry(selected_module_names.clone())
             .or_insert_with(|| {
+                #[cfg(test)]
+                standard_reuse_counters::record_standard_environment_build();
                 let selected_module =
                     standard_module_with_names(self.module.as_ref(), &selected_module_names);
                 Arc::new(TypeEnvironment::from_module(&selected_module))
@@ -444,15 +446,21 @@ pub mod standard_reuse_counters {
     use super::*;
 
     static STANDARD_PREPARES: AtomicUsize = AtomicUsize::new(0);
+    static STANDARD_ENVIRONMENT_BUILDS: AtomicUsize = AtomicUsize::new(0);
     static APPLICATION_PREPARES: AtomicUsize = AtomicUsize::new(0);
 
     pub fn reset() {
         STANDARD_PREPARES.store(0, Ordering::SeqCst);
+        STANDARD_ENVIRONMENT_BUILDS.store(0, Ordering::SeqCst);
         APPLICATION_PREPARES.store(0, Ordering::SeqCst);
     }
 
     pub fn standard_prepares() -> usize {
         STANDARD_PREPARES.load(Ordering::SeqCst)
+    }
+
+    pub fn standard_environment_builds() -> usize {
+        STANDARD_ENVIRONMENT_BUILDS.load(Ordering::SeqCst)
     }
 
     pub fn application_prepares() -> usize {
@@ -461,6 +469,10 @@ pub mod standard_reuse_counters {
 
     pub(super) fn record_standard_prepare() {
         STANDARD_PREPARES.fetch_add(1, Ordering::SeqCst);
+    }
+
+    pub(super) fn record_standard_environment_build() {
+        STANDARD_ENVIRONMENT_BUILDS.fetch_add(1, Ordering::SeqCst);
     }
 
     pub(super) fn record_application_prepare() {

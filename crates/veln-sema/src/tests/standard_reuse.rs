@@ -283,6 +283,10 @@ fn reusable_standard_environment_is_prepared_once_for_repeated_and_concurrent_pr
     let reusable = prepare_reusable_standard_surface_module_environment(&standard)
         .with_current_identity_for_test();
     assert_eq!(crate::standard_reuse_counters::standard_prepares(), 1);
+    assert_eq!(
+        crate::standard_reuse_counters::standard_environment_builds(),
+        0
+    );
 
     let alpha = merge_modules(vec![
         standard.clone(),
@@ -317,12 +321,20 @@ fn reusable_standard_environment_is_prepared_once_for_repeated_and_concurrent_pr
     let beta_expected = checked_json(&beta, &reusable);
     assert_ne!(alpha_expected, beta_expected);
     assert_eq!(crate::standard_reuse_counters::application_prepares(), 2);
+    assert_eq!(
+        crate::standard_reuse_counters::standard_environment_builds(),
+        1
+    );
 
     for module in [alpha.clone(), beta.clone(), alpha.clone(), beta.clone()] {
         let _ = check_project_surface_module_with_standard_environment(&module, &reusable);
     }
     assert_eq!(crate::standard_reuse_counters::standard_prepares(), 1);
     assert_eq!(crate::standard_reuse_counters::application_prepares(), 6);
+    assert_eq!(
+        crate::standard_reuse_counters::standard_environment_builds(),
+        1
+    );
 
     thread::scope(|scope| {
         let handles = (0..12)
@@ -348,6 +360,10 @@ fn reusable_standard_environment_is_prepared_once_for_repeated_and_concurrent_pr
     });
     assert_eq!(crate::standard_reuse_counters::standard_prepares(), 1);
     assert_eq!(crate::standard_reuse_counters::application_prepares(), 18);
+    assert_eq!(
+        crate::standard_reuse_counters::standard_environment_builds(),
+        1
+    );
 }
 
 struct AppCase {
