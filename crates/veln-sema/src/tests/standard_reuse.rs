@@ -95,6 +95,32 @@ fn reusable_standard_environment_matches_uncached_analysis_for_table_cases() {
 }
 
 #[test]
+fn reusable_standard_environment_matches_uncached_analysis_for_standard_imports() {
+    let _guard = standard_reuse_test_lock();
+    let standard = standard_modules_with_imports();
+    let reusable = prepare_reusable_standard_surface_module_environment(&standard)
+        .with_current_identity_for_test();
+    let module = merge_modules(vec![
+        standard,
+        app_case(
+            "standard import",
+            "src/main.veln",
+            concat!(
+                "pub fn main(value: prelude::ImportedPayload) -> prelude::ImportedPayload\n",
+                "  value\n",
+                "end\n",
+            ),
+        )
+        .module,
+    ]);
+
+    let uncached = check_project_surface_module(&module);
+    let cached = check_project_surface_module_with_standard_environment(&module, &reusable);
+
+    assert_same_analysis("standard import", uncached, cached);
+}
+
+#[test]
 fn reusable_standard_environment_identity_mismatch_uses_uncached_analysis() {
     let _guard = standard_reuse_test_lock();
     crate::standard_reuse_counters::reset();
@@ -309,6 +335,25 @@ fn standard_module() -> SurfaceModule {
         ),
         "std::prelude",
     )
+}
+
+fn standard_modules_with_imports() -> SurfaceModule {
+    merge_modules(vec![
+        module_with_identity(
+            "support.veln",
+            concat!("type PayloadShape\n", "  PayloadShape(Int)\n", "end\n",),
+            "std::support",
+        ),
+        module_with_identity(
+            "prelude.veln",
+            concat!(
+                "use std::support\n",
+                "\n",
+                "pub type ImportedPayload = support::PayloadShape\n",
+            ),
+            "std::prelude",
+        ),
+    ])
 }
 
 fn module_with_identity(path: &str, text: &str, module_name: &str) -> SurfaceModule {
