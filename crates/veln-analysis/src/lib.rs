@@ -16,7 +16,10 @@ pub use surface::{
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::path::{Path, PathBuf};
     use std::thread;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     use veln_diagnostics::{DiagnosticKind, JsonValue, Severity, diagnostic_to_json};
     use veln_project::Project;
@@ -200,12 +203,69 @@ mod tests {
         }
     }
 
+    #[test]
+    fn rediscovered_project_analysis_uses_changed_source_text_and_manifest_data() {
+        let temp = TempProject::new("analysis-rediscovery-isolation");
+        temp.write(
+            "src/main.veln",
+            concat!("pub fn entry() -> Int\n", "  1\n", "end\n"),
+        );
+        temp.write("veln.toml", "[lib]\nexports = [\"src/main.veln\"]\n");
+
+        let baseline = checked_discovered_diagnostic_json(&temp, &[]);
+
+        assert!(baseline.is_empty(), "{baseline:#?}");
+
+        temp.write(
+            "src/main.veln",
+            concat!("pub fn entry() -> Bool\n", "  1\n", "end\n"),
+        );
+        temp.write("veln.toml", "[lib]\nexports = [\"src/other.veln\"]\n");
+
+        let changed = checked_discovered_diagnostic_json(&temp, &[]);
+
+        assert_eq!(
+            diagnostic_ids(&changed),
+            ["manifest.missing_export", "type.mismatch"],
+            "{changed:#?}"
+        );
+        assert!(
+            changed
+                .iter()
+                .any(|diagnostic| diagnostic.contains("src/other.veln")),
+            "{changed:#?}"
+        );
+        assert!(
+            changed
+                .iter()
+                .any(|diagnostic| diagnostic.contains("expected `Bool`, but found `Int`")),
+            "{changed:#?}"
+        );
+
+        temp.write(
+            "src/main.veln",
+            concat!("pub fn entry() -> Int\n", "  1\n", "end\n"),
+        );
+        temp.write("veln.toml", "[lib]\nexports = [\"src/main.veln\"]\n");
+
+        let restored = checked_discovered_diagnostic_json(&temp, &[]);
+
+        assert!(restored.is_empty(), "{restored:#?}");
+    }
+
     fn checked_diagnostic_json(project: Project) -> Vec<String> {
         analyze_project(project, DoctestMode::Exclude)
             .checked_diagnostics()
             .iter()
             .map(|diagnostic| diagnostic_to_json(diagnostic).to_json())
             .collect()
+    }
+
+    fn checked_discovered_diagnostic_json(temp: &TempProject, inputs: &[PathBuf]) -> Vec<String> {
+        checked_diagnostic_json(
+            Project::discover(temp.root().to_path_buf(), inputs)
+                .expect("project discovery should succeed"),
+        )
     }
 
     fn assert_project_evidence(
@@ -271,6 +331,8 @@ mod tests {
             .map(|diagnostic| {
                 if diagnostic.contains("\"id\":\"module.source_mod\"") {
                     "module.source_mod"
+                } else if diagnostic.contains("\"id\":\"manifest.missing_export\"") {
+                    "manifest.missing_export"
                 } else if diagnostic.contains("\"id\":\"type.mismatch\"") {
                     "type.mismatch"
                 } else {
@@ -285,6 +347,44 @@ mod tests {
             root: ".".into(),
             files: vec![SourceFile::new(path, text)],
             manifest: None,
+        }
+    }
+
+    struct TempProject {
+        root: PathBuf,
+    }
+
+    impl TempProject {
+        fn new(name: &str) -> Self {
+            let unique = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system time should be after Unix epoch")
+                .as_nanos();
+            let root = std::env::temp_dir().join(format!(
+                "veln-analysis-{name}-{}-{unique}",
+                std::process::id()
+            ));
+            let _ = fs::remove_dir_all(&root);
+            fs::create_dir_all(&root).expect("temporary project root should be created");
+            Self { root }
+        }
+
+        fn root(&self) -> &Path {
+            &self.root
+        }
+
+        fn write(&self, relative: &str, contents: &str) {
+            let path = self.root.join(relative);
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent).expect("temporary project parent should be created");
+            }
+            fs::write(path, contents).expect("temporary project file should be written");
+        }
+    }
+
+    impl Drop for TempProject {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.root);
         }
     }
 
