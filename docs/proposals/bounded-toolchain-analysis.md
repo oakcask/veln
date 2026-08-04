@@ -270,7 +270,13 @@ unchanged. It narrows only analyzer work:
   closure. `veln-sema` coverage prepares a reusable standard environment with
   an unused standard module and checks that an application that loaded only
   `std::prelude` receives only `std::prelude` function facts while still
-  matching uncached diagnostics and lowering.
+  matching uncached diagnostics and lowering;
+- reusable standard-library environments are built lazily per loaded standard
+  module set instead of eagerly constructing the full embedded standard
+  environment before every one-shot application analysis. The reusable value
+  still records the embedded bundle identity and declaration fingerprints when
+  it is prepared, while each cached environment entry is derived only from
+  the standard declarations selected by that application's dependency closure.
 
 The controlled benchmark run for the dependency-closure slice kept functional
 outputs equal and wall-time noise within the accepted boundary. Median wall
@@ -288,7 +294,8 @@ The remaining proposal work is explicit:
   incomplete;
 - controlled benchmark evidence must still show which analyzer stage keeps the
   representative HTTP/2 workloads above the intended wall-time threshold after
-  standard-environment reuse and dependency-closure restriction.
+  standard-environment reuse, dependency-closure restriction, and lazy standard
+  environment construction.
 
 ## Non-Goals
 
