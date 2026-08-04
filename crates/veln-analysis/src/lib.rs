@@ -116,38 +116,48 @@ mod tests {
 
     #[test]
     fn shared_analysis_keeps_diagnostic_json_order_stable_across_projects() {
-        let alpha = project(concat!(
-            "mod alpha.shared\n",
-            "pub fn entry() -> Int\n",
-            "  \"alpha-only\"\n",
-            "end\n",
-        ));
-        let beta = project(concat!(
-            "mod beta.shared\n",
-            "pub fn entry() -> Bool\n",
-            "  1\n",
-            "end\n",
-        ));
+        let alpha = project(
+            "src/alpha/shared.veln",
+            concat!(
+                "mod alpha.shared\n",
+                "pub fn entry() -> Int\n",
+                "  \"alpha-only\"\n",
+                "end\n",
+            ),
+        );
+        let beta = project(
+            "src/beta/shared.veln",
+            concat!(
+                "mod beta.shared\n",
+                "pub fn entry() -> Bool\n",
+                "  1\n",
+                "end\n",
+            ),
+        );
         let alpha_isolated = checked_diagnostic_json(alpha.clone());
         let beta_isolated = checked_diagnostic_json(beta.clone());
 
         assert_project_evidence(
             &alpha_isolated,
+            "src/alpha/shared.veln",
             "alpha.shared",
             "expected `Int`, but found `String`",
         );
         assert_project_evidence(
             &beta_isolated,
+            "src/beta/shared.veln",
             "beta.shared",
             "expected `Bool`, but found `Int`",
         );
         assert_no_project_leak(
             &alpha_isolated,
+            "src/beta/shared.veln",
             "beta.shared",
             "expected `Bool`, but found `Int`",
         );
         assert_no_project_leak(
             &beta_isolated,
+            "src/alpha/shared.veln",
             "alpha.shared",
             "expected `Int`, but found `String`",
         );
@@ -174,6 +184,7 @@ mod tests {
                 assert_eq!(diagnostics, alpha_isolated);
                 assert_no_project_leak(
                     &diagnostics,
+                    "src/beta/shared.veln",
                     "beta.shared",
                     "expected `Bool`, but found `Int`",
                 );
@@ -181,6 +192,7 @@ mod tests {
                 assert_eq!(diagnostics, beta_isolated);
                 assert_no_project_leak(
                     &diagnostics,
+                    "src/alpha/shared.veln",
                     "alpha.shared",
                     "expected `Int`, but found `String`",
                 );
@@ -196,10 +208,21 @@ mod tests {
             .collect()
     }
 
-    fn assert_project_evidence(diagnostics: &[String], module_path: &str, type_message: &str) {
+    fn assert_project_evidence(
+        diagnostics: &[String],
+        source_path: &str,
+        module_path: &str,
+        type_message: &str,
+    ) {
         assert_eq!(
             diagnostic_ids(diagnostics),
             ["module.source_mod", "type.mismatch"],
+            "{diagnostics:#?}"
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains(source_path)),
             "{diagnostics:#?}"
         );
         assert!(
@@ -216,7 +239,18 @@ mod tests {
         );
     }
 
-    fn assert_no_project_leak(diagnostics: &[String], module_path: &str, type_message: &str) {
+    fn assert_no_project_leak(
+        diagnostics: &[String],
+        source_path: &str,
+        module_path: &str,
+        type_message: &str,
+    ) {
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| !diagnostic.contains(source_path)),
+            "{diagnostics:#?}"
+        );
         assert!(
             diagnostics
                 .iter()
@@ -246,10 +280,10 @@ mod tests {
             .collect()
     }
 
-    fn project(text: &str) -> Project {
+    fn project(path: &str, text: &str) -> Project {
         Project {
             root: ".".into(),
-            files: vec![SourceFile::new("src/shared.veln", text)],
+            files: vec![SourceFile::new(path, text)],
             manifest: None,
         }
     }
