@@ -296,15 +296,29 @@ connection, and from 0.77/0.78/0.86 to 0.99/1.00/1.09 seconds for generated
 32/64/128 module workloads. The generated-size CPU growth checks passed. The
 representative HTTP/2 improvement thresholds did not pass.
 
+The controlled
+[stage-timing benchmark](../reviews/toolchain-analysis-stage-benchmark.json)
+for the measurement slice used prebuilt debug binaries, one warm-up run, and
+five measured runs. The baseline binary had no stage instrumentation, so its
+stage data is recorded as unavailable while its wall-time and functional
+comparisons remain active. The new binary kept functional outputs equal for
+all tracked workloads and kept wall-time noise within the accepted boundary.
+For the measured HTTP/2 workloads, `reachable_entry_lowering` was the dominant
+stage. The HTTP/2 core workload recorded a 0.158566097 second median for that
+stage, ahead of semantic environment construction and checking at 0.10378384
+seconds. The HTTP/2 connection workload recorded a 5.135779555 second median
+for that stage, ahead of the backend and runtime remainder at 0.222157528
+seconds. The evidence-driven next implementation slice is therefore bounded
+reachable-entry selection and lowering work for representative HTTP/2
+applications. It must preserve the existing functional-output comparisons and
+must not add application-analysis caching as part of this measurement slice.
+
 The remaining proposal work is explicit:
 
 - application analysis caching remains out of scope and incomplete;
-- representative HTTP/2 core and connection improvement evidence remains
-  incomplete;
-- controlled benchmark evidence must still show which analyzer stage keeps the
-  representative HTTP/2 workloads above the intended wall-time threshold after
-  standard-environment reuse, dependency-closure restriction, immutable
-  standard-environment preparation, and shared cache-hit ownership.
+- representative HTTP/2 connection improvement evidence remains incomplete;
+- bounded reachable-entry selection and lowering for representative HTTP/2
+  applications remains incomplete.
 
 ## Non-Goals
 

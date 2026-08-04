@@ -10,6 +10,9 @@ behavior specifications.
 
 ## Read When
 
+- [toolchain-analysis-stage-benchmark.json](toolchain-analysis-stage-benchmark.json)
+  records the controlled stage-timing benchmark for the bounded toolchain
+  analysis proposal.
 - A proposal or reference page links to a named review record.
 - A local benchmark result or audit record is needed to check why a proposal
   slice was accepted.

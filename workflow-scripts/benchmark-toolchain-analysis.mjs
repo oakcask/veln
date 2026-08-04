@@ -181,8 +181,11 @@ export function parseTimingRecords(text) {
     });
 }
 
-export function summarizeStageRecords(records, expectedRuns) {
+export function summarizeStageRecords(records, expectedRuns, options = {}) {
   if (records.length === 0) {
+    if (options.instrumentationRequired) {
+      throw new Error(`missing timing records for run(s): ${expectedRuns.join(", ")}`);
+    }
     return { status: "unavailable" };
   }
   const recordsByRun = new Map();
@@ -387,12 +390,15 @@ function sortJson(value) {
 function parseArgs(argv) {
   const [command, baselineBinary, newBinary, ...rest] = argv;
   if (command !== "compare" || !baselineBinary || !newBinary) {
-    throw new Error("usage: benchmark-toolchain-analysis compare BASELINE_BINARY NEW_BINARY [--output PATH] [--runs N] [--warmups N] [--sizes A,B,C]");
+    throw new Error("usage: benchmark-toolchain-analysis compare BASELINE_BINARY NEW_BINARY [--output PATH] [--baseline-label LABEL] [--new-label LABEL] [--build-profile NAME] [--runs N] [--warmups N] [--sizes A,B,C]");
   }
   const args = {
     command,
     baselineBinary,
     newBinary,
+    baselineLabel: baselineBinary,
+    newLabel: newBinary,
+    buildProfile: "debug",
     output: null,
     runs: 5,
     warmups: 1,
@@ -404,6 +410,15 @@ function parseArgs(argv) {
     const value = rest[index + 1];
     if (flag === "--output") {
       args.output = value;
+      index += 1;
+    } else if (flag === "--baseline-label") {
+      args.baselineLabel = value;
+      index += 1;
+    } else if (flag === "--new-label") {
+      args.newLabel = value;
+      index += 1;
+    } else if (flag === "--build-profile") {
+      args.buildProfile = value;
       index += 1;
     } else if (flag === "--runs") {
       args.runs = Number.parseInt(value, 10);
@@ -520,6 +535,10 @@ function measurePair(args, workload) {
   };
   const baselineCommand = workloadCommand(baselineBinary, workload);
   const newCommand = workloadCommand(newBinary, workload);
+  const baselineDisplayCommand = workloadCommand(args.baselineLabel, workload);
+  const newDisplayCommand = workloadCommand(args.newLabel, workload);
+  const stageInstrumentationRequired =
+    workload.commandKind === "veln" && workload.args[0] === "run";
 
   for (let index = 0; index < args.warmups; index += 1) {
     if (index % 2 === 0) {
@@ -596,13 +615,14 @@ function measurePair(args, workload) {
     id: workload.id,
     cwd: workload.displayCwd ?? (relative(args.repoRoot, workload.cwd) || "."),
     command: {
-      baseline: baselineCommand,
-      new: newCommand,
+      baseline: baselineDisplayCommand,
+      new: newDisplayCommand,
       display: workload.displayCommand ?? null,
     },
+    build_profile: args.buildProfile,
     generated: workload.generated ?? null,
     baseline: {
-      binary: baselineBinary,
+      binary: args.baselineLabel,
       summary: summarizeRuns(baselineRuns),
       stage_timing: summarizeStageRecords(recordsForRuns(baselineTimingRuns), baselineTimingRuns),
       runs: baselineRuns.map(({ wall_time_seconds, user_cpu_seconds, exit_status }) => ({
@@ -612,9 +632,11 @@ function measurePair(args, workload) {
       })),
     },
     new: {
-      binary: newBinary,
+      binary: args.newLabel,
       summary: summarizeRuns(newRuns),
-      stage_timing: summarizeStageRecords(recordsForRuns(newTimingRuns), newTimingRuns),
+      stage_timing: summarizeStageRecords(recordsForRuns(newTimingRuns), newTimingRuns, {
+        instrumentationRequired: stageInstrumentationRequired,
+      }),
       runs: newRuns.map(({ wall_time_seconds, user_cpu_seconds, exit_status }) => ({
         exit_status,
         user_cpu_seconds,
@@ -656,6 +678,7 @@ export function main(argv = process.argv.slice(2)) {
     const workloads = prepareWorkloads(args.repoRoot, args.sizes, generatedRoot);
     const result = {
       command: "benchmark-toolchain-analysis compare",
+      build_profile: args.buildProfile,
       measured_runs: args.runs,
       warmup_runs: args.warmups,
       workloads: workloads.map((workload) => measurePair(args, workload)),

@@ -272,6 +272,10 @@ test("aggregates stage medians and selects the dominant measured stage", () => {
 test("keeps baseline stage timing unavailable and rejects partial instrumented runs", () => {
   assert.deepEqual(summarizeStageRecords([], ["baseline-1"]), { status: "unavailable" });
   assert.throws(
+    () => summarizeStageRecords([], ["new-1"], { instrumentationRequired: true }),
+    /missing timing records/,
+  );
+  assert.throws(
     () => summarizeStageRecords([timing("http2_core", "new-1", "source_loading", 0.1)], ["new-1", "new-2"]),
     /missing timing records/,
   );
