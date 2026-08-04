@@ -250,14 +250,15 @@ unchanged. It narrows only analyzer work:
   `veln-sema` keeps the uncached path available and compares cached and
   uncached diagnostic JSON, lowered core output, and lowered IR output for a
   successful project, a project with type/effect diagnostics, applications
-  with overlapping source paths and declaration names, and a local
-  `std::`-prefixed application module that is outside the reusable standard
-  bundle. Test-only work counters prove repeated and concurrent cached
+  with overlapping source paths and declaration names, a local `std::`-prefixed
+  application module that is outside the reusable standard bundle, and a local
+  application source whose module identity collides with an embedded standard
+  module name. Test-only work counters prove repeated and concurrent cached
   analyses prepare the reusable standard signatures once while each non-empty
-  application analysis constructs fresh semantic facts. A `veln-analysis`
-  regression test exercises the embedded-standard `OnceLock` path with
-  repeated and concurrent distinct projects, including a local application
-  source whose module name begins with `std::`.
+  application analysis constructs fresh semantic facts. `veln-analysis`
+  regression tests exercise the embedded-standard `OnceLock` path with
+  repeated and concurrent distinct projects, local application sources whose
+  module name begins with `std::`, and a local `std::prelude` collision.
 
 The remaining proposal work is explicit:
 

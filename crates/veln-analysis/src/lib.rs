@@ -274,6 +274,29 @@ mod tests {
     }
 
     #[test]
+    fn shared_analysis_keeps_embedded_standard_module_name_collisions_fresh() {
+        let cache = crate::analysis::TestStandardEnvironmentCache::new();
+        let project = project(
+            "std/prelude.veln",
+            concat!(
+                "fn local_only(value: Int) -> Int\n",
+                "  value + 1\n",
+                "end\n",
+                "\n",
+                "pub fn entry() -> Int\n",
+                "  local_only(1)\n",
+                "end\n",
+            ),
+        );
+
+        let diagnostics = checked_diagnostic_json_with_cache(project, &cache);
+
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        assert_eq!(cache.standard_prepares(), 1);
+        assert_eq!(cache.application_analyses(), 1);
+    }
+
+    #[test]
     fn shared_analysis_prepares_standard_once_and_rebuilds_each_application() {
         let cache = crate::analysis::TestStandardEnvironmentCache::new();
         let alpha = project(

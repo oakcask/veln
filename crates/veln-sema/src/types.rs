@@ -1121,13 +1121,16 @@ fn module_without_reusable_standard_declarations(
     module: &SurfaceModule,
     standard: &ReusableStandardEnvironment,
 ) -> SurfaceModule {
-    filter_module_declarations(module, |module_name| {
-        !module_name.is_some_and(|module_name| standard.module_names.contains(module_name))
+    filter_module_declarations(module, |decl| {
+        !is_embedded_standard_declaration(decl)
+            || !decl
+                .module_name()
+                .is_some_and(|module_name| standard.module_names.contains(module_name))
     })
 }
 
 fn module_without_application_declarations(module: &SurfaceModule) -> SurfaceModule {
-    filter_module_declarations(module, is_standard_module_name)
+    filter_module_declarations(module, is_embedded_standard_declaration)
 }
 
 fn module_standard_names(module: &SurfaceModule) -> BTreeSet<String> {
@@ -1245,33 +1248,38 @@ fn merge_standard_surface_module(merged: &mut SurfaceModule, module: SurfaceModu
     merged.functions.extend(module.functions);
 }
 
-fn collect_standard_names<T: HasModuleName>(decls: &[T], names: &mut BTreeSet<String>) {
+fn collect_standard_names<T: StandardDeclaration>(decls: &[T], names: &mut BTreeSet<String>) {
     names.extend(
         decls
             .iter()
-            .filter_map(HasModuleName::module_name)
+            .filter_map(StandardDeclaration::module_name)
             .filter(|name| is_standard_module_name(Some(name)))
             .map(str::to_string),
     );
 }
 
-trait HasModuleName {
+trait StandardDeclaration {
     fn module_name(&self) -> Option<&str>;
+    fn span(&self) -> &SourceSpan;
 }
 
-macro_rules! impl_has_module_name {
+macro_rules! impl_standard_declaration {
     ($($ty:ty),+ $(,)?) => {
         $(
-            impl HasModuleName for $ty {
+            impl StandardDeclaration for $ty {
                 fn module_name(&self) -> Option<&str> {
                     self.module_name.as_deref()
+                }
+
+                fn span(&self) -> &SourceSpan {
+                    &self.span
                 }
             }
         )+
     };
 }
 
-impl_has_module_name!(
+impl_standard_declaration!(
     UseDecl,
     PublicAlias,
     EffectDecl,
@@ -1284,59 +1292,66 @@ impl_has_module_name!(
 
 fn filter_module_declarations(
     module: &SurfaceModule,
-    keep: impl Fn(Option<&str>) -> bool,
+    keep: impl Fn(&dyn StandardDeclaration) -> bool,
 ) -> SurfaceModule {
     SurfaceModule {
         module: module.module.clone(),
         uses: module
             .uses
             .iter()
-            .filter(|decl| keep(decl.module_name.as_deref()))
+            .filter(|decl| keep(*decl))
             .cloned()
             .collect(),
         aliases: module
             .aliases
             .iter()
-            .filter(|decl| keep(decl.module_name.as_deref()))
+            .filter(|decl| keep(*decl))
             .cloned()
             .collect(),
         effects: module
             .effects
             .iter()
-            .filter(|decl| keep(decl.module_name.as_deref()))
+            .filter(|decl| keep(*decl))
             .cloned()
             .collect(),
         handlers: module
             .handlers
             .iter()
-            .filter(|decl| keep(decl.module_name.as_deref()))
+            .filter(|decl| keep(*decl))
             .cloned()
             .collect(),
         types: module
             .types
             .iter()
-            .filter(|decl| keep(decl.module_name.as_deref()))
+            .filter(|decl| keep(*decl))
             .cloned()
             .collect(),
         schemas: module
             .schemas
             .iter()
-            .filter(|decl| keep(decl.module_name.as_deref()))
+            .filter(|decl| keep(*decl))
             .cloned()
             .collect(),
         codecs: module
             .codecs
             .iter()
-            .filter(|decl| keep(decl.module_name.as_deref()))
+            .filter(|decl| keep(*decl))
             .cloned()
             .collect(),
         functions: module
             .functions
             .iter()
-            .filter(|decl| keep(decl.module_name.as_deref()))
+            .filter(|decl| keep(*decl))
             .cloned()
             .collect(),
     }
+}
+
+fn is_embedded_standard_declaration(decl: &dyn StandardDeclaration) -> bool {
+    let Some(module_name) = decl.module_name() else {
+        return false;
+    };
+    standard_module_name_from_bundle_path(decl.span().file.as_str()).as_deref() == Some(module_name)
 }
 
 fn is_standard_module_name(module_name: Option<&str>) -> bool {

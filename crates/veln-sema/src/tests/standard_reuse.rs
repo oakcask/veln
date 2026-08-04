@@ -71,6 +71,20 @@ fn reusable_standard_environment_matches_uncached_analysis_for_table_cases() {
             ),
         )
         .with_module_name("std::helper"),
+        app_case(
+            "application module collides with embedded standard module name",
+            "std/prelude.veln",
+            concat!(
+                "fn local_only(value: Int) -> Int\n",
+                "  value + 1\n",
+                "end\n",
+                "\n",
+                "pub fn main() -> Int\n",
+                "  local_only(1)\n",
+                "end\n",
+            ),
+        )
+        .with_module_name("std::prelude"),
     ] {
         let module = merge_modules(vec![standard.clone(), case.module]);
         let uncached = check_project_surface_module(&module);
