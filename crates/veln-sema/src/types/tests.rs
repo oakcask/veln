@@ -572,6 +572,41 @@ fn schema_literal_positions_accept_binary_and_hexadecimal_values() {
 }
 
 #[test]
+fn schema_grammar_composes_nested_repeat_and_dispatch_payloads() {
+    let repeat = repeat_schema_primitive("[ByteView(row_size + padding); row_count]")
+        .expect("nested repeat payload should parse");
+    assert_eq!(repeat.count_field, "row_count");
+    assert_eq!(
+        repeat.payload,
+        SchemaRepeatPayload::ByteView {
+            length_field: "row_size + padding".to_string(),
+        }
+    );
+
+    let dispatch = extension_dispatch_schema_primitive(
+        "ExtensionDispatch(kind, payload_length, 1 => uint16le, 2 => wire::Packet)",
+    )
+    .expect("nested dispatch payloads should parse");
+    assert_eq!(dispatch.tag_field, "kind");
+    assert_eq!(dispatch.length_field.as_deref(), Some("payload_length"));
+    assert!(dispatch.preserves_unknown);
+    assert_eq!(dispatch.cases.len(), 2);
+    assert_eq!(
+        dispatch.cases[0].payload,
+        SchemaDispatchCasePayload::Primitive {
+            width: 2,
+            little_endian: true,
+        }
+    );
+    assert_eq!(
+        dispatch.cases[1].payload,
+        SchemaDispatchCasePayload::Schema {
+            schema_name: "wire::Packet".to_string(),
+        }
+    );
+}
+
+#[test]
 fn reserved_bits_encode_supports_each_neighbor_direction() {
     let source = veln_source::SourceFile::new(
         "main.veln",

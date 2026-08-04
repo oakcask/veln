@@ -7,20 +7,26 @@ use veln_ir::{
 };
 
 use crate::adt::AdtRegistry;
+use crate::schema::dispatch::{
+    SchemaDispatchCase, SchemaDispatchCasePayload, SchemaDispatchSpec,
+    closed_dispatch_schema_primitive, extension_dispatch_schema_primitive,
+};
+use crate::schema::primitives::{
+    SchemaRepeatPayload, SchemaRepeatSpec, byte_view_multiple_constraint,
+    byte_view_schema_primitive, exact_width_schema_primitive,
+    exact_width_schema_primitive_little_endian, exact_width_schema_primitive_max_value,
+    repeat_schema_primitive, reserved_bits_schema_primitive, schema_field_reference_type,
+    schema_length_expression_references,
+};
+use crate::schema::reserved_layout::supported_encode_reserved_bits;
 use crate::semantic_model::Type;
 use crate::type_syntax::parse_type_annotation;
 use crate::types::{
-    SchemaDispatchCase, SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaRepeatPayload,
-    SchemaRepeatSpec, byte_view_multiple_constraint, byte_view_schema_primitive,
-    closed_dispatch_schema_primitive, exact_width_schema_primitive,
-    exact_width_schema_primitive_little_endian, exact_width_schema_primitive_max_value,
-    extension_dispatch_schema_primitive, format_neutral_schema_field_type_for_schema,
+    format_neutral_schema_field_type_for_schema,
     recursive_dispatch_decode_only_payload_case_is_eligible,
-    recursive_dispatch_payload_case_is_eligible, repeat_schema_primitive,
-    reserved_bits_schema_primitive, schema_decode_function_name, schema_decode_value_type,
-    schema_dispatch_payload_schema, schema_field_reference_type, schema_field_target,
-    schema_length_expression_references, schema_recursive_dispatch_helper_payload_type,
-    schema_recursive_dispatch_payload_type, supported_encode_reserved_bits,
+    recursive_dispatch_payload_case_is_eligible, schema_decode_function_name,
+    schema_decode_value_type, schema_dispatch_payload_schema, schema_field_target,
+    schema_recursive_dispatch_helper_payload_type, schema_recursive_dispatch_payload_type,
 };
 
 pub(crate) fn schema_decode_specs(module: &SurfaceModule) -> Vec<IrSchemaDecodeSpec> {

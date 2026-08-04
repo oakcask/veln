@@ -8,11 +8,9 @@ use super::boundary::{
 use super::repair_reasoning::*;
 use super::*;
 use crate::effects::prelude_effect_origin;
+use crate::schema::primitives::lowercase_schema_primitive;
 use crate::standard_symbols::qualified_symbol;
-use crate::types::{
-    FunctionSignature, SchemaReferenceErrorKind, UserEffectPathResolution,
-    lowercase_schema_primitive,
-};
+use crate::types::{FunctionSignature, SchemaReferenceErrorKind, UserEffectPathResolution};
 
 pub(crate) fn check_function_body(
     function: &Function,

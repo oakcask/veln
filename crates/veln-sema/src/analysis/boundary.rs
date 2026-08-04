@@ -1,29 +1,39 @@
 use super::*;
 use crate::adt::AdtRegistry;
+use crate::schema::dispatch::{
+    SchemaDispatchCase, SchemaDispatchCasePayload, SchemaDispatchSpec,
+    closed_dispatch_schema_primitive, extension_dispatch_schema_primitive,
+    lowercase_schema_primitive_nested_payloads,
+    schema_dispatch_payload_accepts_lowercase_primitive,
+};
+use crate::schema::primitives::{
+    ByteViewLengthExpr, LowercaseSchemaPrimitive, LowercaseSchemaPrimitiveError,
+    SchemaRepeatPayload, SchemaRepeatSpec, byte_view_multiple_constraint,
+    byte_view_schema_primitive, exact_width_schema_primitive,
+    exact_width_schema_primitive_bit_width, lowercase_reserved_bits_schema_primitive,
+    lowercase_schema_primitive, repeat_schema_primitive, reserved_bits_schema_primitive,
+    schema_field_reference_type, schema_length_expression_references,
+    schema_payload_name_last_segment, schema_payload_name_path,
+    schema_repeat_payload_accepts_lowercase_primitive,
+};
+use crate::schema::reserved_layout::{
+    schema_field_uses_generalized_reserved_byte_prefix,
+    schema_payload_has_generalized_reserved_byte_prefix, supported_encode_reserved_bits,
+};
 use crate::standard_names::PRELUDE_MODULE;
 use crate::types::UserEffectPathResolution;
 use crate::types::{
-    ByteViewLengthExpr, LowercaseSchemaPrimitive, LowercaseSchemaPrimitiveError,
-    SchemaDispatchCase, SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaRepeatPayload,
-    binary_schema_anonymous_record_decode_type, byte_view_multiple_constraint,
-    byte_view_schema_primitive, closed_dispatch_schema_primitive, exact_width_schema_primitive,
-    exact_width_schema_primitive_bit_width, extension_dispatch_schema_primitive,
+    binary_schema_anonymous_record_decode_type,
     format_neutral_schema_encode_field_is_source_adt_candidate,
     format_neutral_schema_encode_field_type_for_schema,
-    format_neutral_schema_field_type_for_schema, lowercase_reserved_bits_schema_primitive,
-    lowercase_schema_primitive, lowercase_schema_primitive_nested_payloads,
+    format_neutral_schema_field_type_for_schema,
     recursive_dispatch_decode_only_payload_case_is_eligible,
     recursive_dispatch_payload_case_is_eligible, recursive_dispatch_payload_is_eligible,
-    repeat_schema_primitive, reserved_bits_schema_primitive, schema_decode_step_function_name,
-    schema_decode_value_type, schema_dispatch_payload_accepts_lowercase_primitive,
-    schema_dispatch_payload_schema, schema_encode_function_name, schema_encode_value_type,
-    schema_field_reference_type, schema_field_target, schema_field_uses_existing_grammar,
-    schema_field_uses_generalized_reserved_byte_prefix,
-    schema_has_eligible_recursive_dispatch_payload, schema_has_recursive_dispatch_payload,
-    schema_length_expression_references, schema_payload_has_generalized_reserved_byte_prefix,
-    schema_payload_name_last_segment, schema_payload_name_path,
-    schema_recursive_dispatch_helper_payload_type, schema_recursive_dispatch_payload_type,
-    schema_repeat_payload_accepts_lowercase_primitive, supported_encode_reserved_bits,
+    schema_decode_step_function_name, schema_decode_value_type, schema_dispatch_payload_schema,
+    schema_encode_function_name, schema_encode_value_type, schema_field_target,
+    schema_field_uses_existing_grammar, schema_has_eligible_recursive_dispatch_payload,
+    schema_has_recursive_dispatch_payload, schema_recursive_dispatch_helper_payload_type,
+    schema_recursive_dispatch_payload_type,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use veln_ast::{PublicAliasKind, SchemaDecl, SchemaField, SchemaValidationClause, UseDecl};
@@ -1968,7 +1978,7 @@ fn check_schema_repeat_field(
     module: &SurfaceModule,
     schema: &SchemaDecl,
     field: &SchemaField,
-    repeat: &crate::types::SchemaRepeatSpec,
+    repeat: &SchemaRepeatSpec,
     decoded_fields: &BTreeMap<String, Type>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<Type> {
