@@ -160,6 +160,38 @@ fn reusable_standard_environment_uses_only_loaded_standard_modules() {
 }
 
 #[test]
+fn reusable_standard_environment_does_not_expose_unloaded_standard_functions() {
+    let _guard = standard_reuse_test_lock();
+    let reusable =
+        prepare_reusable_standard_surface_module_environment(&standard_modules_with_extra_module())
+            .with_current_identity_for_test();
+    let module = merge_modules(vec![
+        standard_module(),
+        app_case(
+            "unloaded extra module",
+            "src/main.veln",
+            concat!(
+                "pub fn main() -> Int\n",
+                "  extra::extra_answer(1)\n",
+                "end\n",
+            ),
+        )
+        .module,
+    ]);
+
+    let uncached = check_project_surface_module(&module);
+    let cached = check_project_surface_module_with_standard_environment(&module, &reusable);
+
+    assert!(
+        diagnostic_json(&cached.0)
+            .iter()
+            .any(|diagnostic| diagnostic.contains("extra_answer")),
+        "the unloaded standard function should remain unresolved"
+    );
+    assert_same_analysis("unloaded extra module", uncached, cached);
+}
+
+#[test]
 fn reusable_standard_environment_selects_loaded_standard_module_sets() {
     let _guard = standard_reuse_test_lock();
     let standard = standard_modules_with_extra_module();
