@@ -1291,7 +1291,7 @@ fn infer_function_and_private_handler_effects(
             ))
         })
         .collect::<BTreeMap<_, _>>();
-    let mut queue = graph.nodes.iter().cloned().collect::<VecDeque<_>>();
+    let mut queue = graph.ordered_nodes.iter().cloned().collect::<VecDeque<_>>();
     let mut queued = graph.nodes.clone();
     let mut evaluated = BTreeSet::new();
 
@@ -1371,6 +1371,7 @@ fn infer_function_and_private_handler_effects(
 
 struct EffectDependencyGraph {
     nodes: BTreeSet<EffectDependencyNode>,
+    ordered_nodes: Vec<EffectDependencyNode>,
     dependents: BTreeMap<EffectDependencyNode, BTreeSet<EffectDependencyNode>>,
 }
 
@@ -1401,6 +1402,7 @@ fn effect_dependency_graph(
         })
         .collect::<BTreeMap<_, _>>();
     let mut nodes = BTreeSet::new();
+    let mut ordered_nodes = Vec::new();
     let mut dependents = BTreeMap::<EffectDependencyNode, BTreeSet<EffectDependencyNode>>::new();
     for function in module
         .functions
@@ -1413,7 +1415,9 @@ fn effect_dependency_graph(
         #[cfg(test)]
         effect_inference_counters::record_dependency_discovery_scan();
         let node = EffectDependencyNode::Function((function.module_name.clone(), name.clone()));
-        nodes.insert(node.clone());
+        if nodes.insert(node.clone()) {
+            ordered_nodes.push(node.clone());
+        }
         for dependency in function_effect_dependencies(
             function,
             module,
@@ -1438,7 +1442,9 @@ fn effect_dependency_graph(
         #[cfg(test)]
         effect_inference_counters::record_dependency_discovery_scan();
         let node = EffectDependencyNode::PrivateHandler(handler.qualified_name.clone());
-        nodes.insert(node.clone());
+        if nodes.insert(node.clone()) {
+            ordered_nodes.push(node.clone());
+        }
         for provider in &handler.providers {
             if let Some(function) = function_signature_path(
                 &provider.provider,
@@ -1458,7 +1464,11 @@ fn effect_dependency_graph(
             }
         }
     }
-    EffectDependencyGraph { nodes, dependents }
+    EffectDependencyGraph {
+        nodes,
+        ordered_nodes,
+        dependents,
+    }
 }
 
 fn collect_private_handler_effects(

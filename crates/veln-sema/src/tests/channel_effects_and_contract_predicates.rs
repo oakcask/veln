@@ -731,6 +731,52 @@ fn bounded_effect_inference_preserves_private_propagation_paths() {
 }
 
 #[test]
+fn bounded_effect_inference_preserves_stable_order_in_multi_effect_cycle() {
+    crate::types::effect_inference_counters::reset();
+    let module = merged_modules(vec![SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn z() -> Int\n",
+            "  a()\n",
+            "  stdio::println(\"z\")\n",
+            "  1\n",
+            "end\n",
+            "\n",
+            "fn a() -> Int\n",
+            "  z()\n",
+            "  time::monotonic_ms()\n",
+            "end\n",
+            "\n",
+            "pub fn main() -> Int\n",
+            "  z()\n",
+            "end\n",
+        ),
+    )]);
+
+    let diagnostics = analyze_surface_module(&module);
+    let counters = crate::types::effect_inference_counters::snapshot();
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `stdio`"
+    );
+    assert_eq!(diagnostics[1].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[1].message,
+        "public function uses undeclared effect `time`"
+    );
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"symbol\":\"main\""), "{details}");
+    assert!(
+        details.contains("\"inferred_effects\":[\"stdio\",\"time\"]"),
+        "{details}"
+    );
+    assert!(counters.changed_reevaluations > 0, "{counters:#?}");
+}
+
+#[test]
 fn bounded_effect_inference_work_grows_linearly_for_unrelated_annotated_modules() {
     fn fixture(unrelated_count: usize) -> SurfaceModule {
         let mut sources = vec![SourceFile::new(
