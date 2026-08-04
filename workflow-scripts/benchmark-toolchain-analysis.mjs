@@ -10,7 +10,7 @@ export const DEFAULT_WORKLOADS = [
     id: "small_schema",
     commandKind: "veln",
     cwd: "examples/specification/run/schema-decode-expression",
-    args: ["run", "--json", "main", "main.veln"],
+    args: ["run", "--json", "main", "main.veln", "wire.veln", "facade.veln"],
   },
   {
     id: "hpack_static",
@@ -165,52 +165,92 @@ export function thresholdDecisions(result) {
 
   const newMedian = (id, metric) => workloads.get(id)?.new?.summary?.[metric];
   const baselineMedian = (id, metric) => workloads.get(id)?.baseline?.summary?.[metric];
-
-  ratioDecision(
-    "http2_core_improvement",
-    "HTTP/2 core direct analysis new wall-time median is at most one third of baseline",
-    newMedian("http2_core", "median_wall_time_seconds"),
-    baselineMedian("http2_core", "median_wall_time_seconds"),
-    1 / 3,
-  );
-  ratioDecision(
-    "http2_connection_improvement",
-    "HTTP/2 connection direct analysis new wall-time median is at most one third of baseline",
-    newMedian("http2_connection", "median_wall_time_seconds"),
-    baselineMedian("http2_connection", "median_wall_time_seconds"),
-    1 / 3,
-  );
-  ratioDecision(
-    "toolchain_case_overhead",
-    "toolchain-case median is no more than 1.35 times the direct invocation median",
-    newMedian("http2_core_toolchain_case", "median_wall_time_seconds"),
-    newMedian("http2_core", "median_wall_time_seconds"),
-    1.35,
-  );
-  ratioDecision(
-    "generated_first_to_second",
-    "first generated size to second size user CPU median grows by no more than 2.5 times",
-    newMedian("generated_2", "median_user_cpu_seconds"),
-    newMedian("generated_1", "median_user_cpu_seconds"),
-    2.5,
-  );
-  ratioDecision(
-    "generated_second_to_third",
-    "second generated size to third size user CPU median grows by no more than 2.5 times",
-    newMedian("generated_3", "median_user_cpu_seconds"),
-    newMedian("generated_2", "median_user_cpu_seconds"),
-    2.5,
-  );
-
   const functionalFailures = result.workloads.filter((workload) => !workload.functional_outputs_equal);
+  const noisyWorkloads = result.workloads.filter(
+    (workload) =>
+      workload.baseline.summary.wall_time_noisy || workload.new.summary.wall_time_noisy,
+  );
+  const performanceThresholds = [
+    {
+      id: "http2_core_improvement",
+      description: "HTTP/2 core direct analysis new wall-time median is at most one third of baseline",
+      numerator: newMedian("http2_core", "median_wall_time_seconds"),
+      denominator: baselineMedian("http2_core", "median_wall_time_seconds"),
+      maxRatio: 1 / 3,
+    },
+    {
+      id: "http2_connection_improvement",
+      description: "HTTP/2 connection direct analysis new wall-time median is at most one third of baseline",
+      numerator: newMedian("http2_connection", "median_wall_time_seconds"),
+      denominator: baselineMedian("http2_connection", "median_wall_time_seconds"),
+      maxRatio: 1 / 3,
+    },
+    {
+      id: "toolchain_case_overhead",
+      description: "toolchain-case median is no more than 1.35 times the direct invocation median",
+      numerator: newMedian("http2_core_toolchain_case", "median_wall_time_seconds"),
+      denominator: newMedian("http2_core", "median_wall_time_seconds"),
+      maxRatio: 1.35,
+    },
+    {
+      id: "generated_first_to_second",
+      description: "first generated size to second size user CPU median grows by no more than 2.5 times",
+      numerator: newMedian("generated_2", "median_user_cpu_seconds"),
+      denominator: newMedian("generated_1", "median_user_cpu_seconds"),
+      maxRatio: 2.5,
+    },
+    {
+      id: "generated_second_to_third",
+      description: "second generated size to third size user CPU median grows by no more than 2.5 times",
+      numerator: newMedian("generated_3", "median_user_cpu_seconds"),
+      denominator: newMedian("generated_2", "median_user_cpu_seconds"),
+      maxRatio: 2.5,
+    },
+  ];
+
+  if (functionalFailures.length === 0 && noisyWorkloads.length === 0) {
+    for (const threshold of performanceThresholds) {
+      ratioDecision(
+        threshold.id,
+        threshold.description,
+        threshold.numerator,
+        threshold.denominator,
+        threshold.maxRatio,
+      );
+    }
+  } else {
+    const reason =
+      functionalFailures.length > 0
+        ? "functional outputs differ"
+        : "wall-time measurements are noisy";
+    for (const threshold of performanceThresholds) {
+      decisions.push({
+        id: threshold.id,
+        description: threshold.description,
+        status: "skipped",
+        reason,
+      });
+    }
+  }
+
   decisions.push({
     id: "functional_outputs",
     description: "baseline and new exit status and normalized output are equal for every workload",
     status: functionalFailures.length === 0 ? "passed" : "failed",
     failing_workloads: functionalFailures.map((workload) => workload.id),
   });
+  decisions.push({
+    id: "wall_time_noise",
+    description: "wall-time median absolute deviation is within the noise boundary for every workload",
+    status: noisyWorkloads.length === 0 ? "passed" : "failed",
+    noisy_workloads: noisyWorkloads.map((workload) => workload.id),
+  });
 
   return decisions;
+}
+
+export function passesBenchmarkThresholds(thresholds) {
+  return thresholds.every((threshold) => threshold.status === "passed");
 }
 
 export function stableJson(value) {
@@ -415,14 +455,19 @@ function measurePair(args, workload) {
 }
 
 function summarizeForHuman(result) {
-  const failed = result.thresholds.filter((threshold) => threshold.status === "failed");
   const skipped = result.thresholds.filter((threshold) => threshold.status === "skipped");
-  console.log(`toolchain analysis benchmark: ${failed.length === 0 ? "passed" : "failed"}`);
+  console.log(`toolchain analysis benchmark: ${result.passes_thresholds ? "passed" : "failed"}`);
   for (const workload of result.workloads) {
     const noisy = workload.baseline.summary.wall_time_noisy || workload.new.summary.wall_time_noisy;
-    console.log(
-      `${workload.id}: baseline ${workload.baseline.summary.median_wall_time_seconds.toFixed(3)}s, new ${workload.new.summary.median_wall_time_seconds.toFixed(3)}s, functional ${workload.functional_outputs_equal ? "equal" : "different"}${noisy ? ", noisy" : ""}`,
-    );
+    if (workload.functional_outputs_equal && !noisy) {
+      console.log(
+        `${workload.id}: baseline ${workload.baseline.summary.median_wall_time_seconds.toFixed(3)}s, new ${workload.new.summary.median_wall_time_seconds.toFixed(3)}s, functional equal`,
+      );
+    } else {
+      console.log(
+        `${workload.id}: performance suppressed, functional ${workload.functional_outputs_equal ? "equal" : "different"}${noisy ? ", noisy" : ""}`,
+      );
+    }
   }
   for (const threshold of result.thresholds) {
     console.log(`${threshold.id}: ${threshold.status}`);
@@ -444,7 +489,7 @@ export function main(argv = process.argv.slice(2)) {
       workloads: workloads.map((workload) => measurePair(args, workload)),
     };
     result.thresholds = thresholdDecisions(result);
-    result.passes_thresholds = result.thresholds.every((threshold) => threshold.status !== "failed");
+    result.passes_thresholds = passesBenchmarkThresholds(result.thresholds);
     summarizeForHuman(result);
     if (args.output) {
       writeFileSync(args.output, stableJson(result), "utf8");

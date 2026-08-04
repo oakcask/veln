@@ -5,14 +5,23 @@ import { join } from "node:path";
 import test from "node:test";
 import {
   compareFunctionalOutputs,
+  DEFAULT_WORKLOADS,
   functionalSnapshot,
   generateAnnotatedModuleGraph,
   median,
   medianAbsoluteDeviation,
+  passesBenchmarkThresholds,
   stableJson,
   summarizeRuns,
   thresholdDecisions,
 } from "./benchmark-toolchain-analysis.mjs";
+
+test("uses the complete tracked schema decode command", () => {
+  assert.deepEqual(
+    DEFAULT_WORKLOADS.find((workload) => workload.id === "small_schema").args,
+    ["run", "--json", "main", "main.veln", "wire.veln", "facade.veln"],
+  );
+});
 
 test("generates adjacent fully annotated module graph workloads", () => {
   const root = mkdtempSync(join(tmpdir(), "veln-benchmark-generation-"));
@@ -90,6 +99,78 @@ test("evaluates threshold decisions including skipped toolchain-case comparison"
   assert.equal(decisions.find((decision) => decision.id === "toolchain_case_overhead").status, "skipped");
   assert.equal(decisions.find((decision) => decision.id === "generated_second_to_third").status, "passed");
   assert.equal(decisions.find((decision) => decision.id === "functional_outputs").status, "passed");
+  assert.equal(decisions.find((decision) => decision.id === "wall_time_noise").status, "passed");
+  assert.equal(passesBenchmarkThresholds(decisions), false);
+});
+
+test("requires every acceptance threshold to pass", () => {
+  assert.equal(
+    passesBenchmarkThresholds([
+      { id: "one", status: "passed" },
+      { id: "two", status: "skipped" },
+    ]),
+    false,
+  );
+  assert.equal(
+    passesBenchmarkThresholds([
+      { id: "one", status: "passed" },
+      { id: "two", status: "failed" },
+    ]),
+    false,
+  );
+  assert.equal(passesBenchmarkThresholds([{ id: "one", status: "passed" }]), true);
+});
+
+test("fails acceptance and suppresses performance thresholds for noisy runs", () => {
+  const result = {
+    workloads: [
+      workload("http2_core", 9, 3, 1, true, { baselineNoisy: true }),
+      workload("http2_connection", 12, 4, 1, true),
+      workload("generated_1", 1, 1, 1, true),
+      workload("generated_2", 1, 1, 2.5, true),
+      workload("generated_3", 1, 1, 6.25, true),
+      workload("http2_core_toolchain_case", 1, 1.3, 1, true),
+    ],
+  };
+
+  const decisions = thresholdDecisions(result);
+
+  assert.equal(decisions.find((decision) => decision.id === "http2_core_improvement").status, "skipped");
+  assert.equal(
+    decisions.find((decision) => decision.id === "http2_core_improvement").reason,
+    "wall-time measurements are noisy",
+  );
+  assert.equal(decisions.find((decision) => decision.id === "wall_time_noise").status, "failed");
+  assert.deepEqual(decisions.find((decision) => decision.id === "wall_time_noise").noisy_workloads, [
+    "http2_core",
+  ]);
+  assert.equal(passesBenchmarkThresholds(decisions), false);
+});
+
+test("suppresses performance thresholds when functional outputs differ", () => {
+  const result = {
+    workloads: [
+      workload("http2_core", 9, 3, 1, true),
+      workload("http2_connection", 12, 4, 1, false),
+      workload("generated_1", 1, 1, 1, true),
+      workload("generated_2", 1, 1, 2.5, true),
+      workload("generated_3", 1, 1, 6.25, true),
+      workload("http2_core_toolchain_case", 1, 1.3, 1, true),
+    ],
+  };
+
+  const decisions = thresholdDecisions(result);
+
+  assert.equal(decisions.find((decision) => decision.id === "http2_connection_improvement").status, "skipped");
+  assert.equal(
+    decisions.find((decision) => decision.id === "http2_connection_improvement").reason,
+    "functional outputs differ",
+  );
+  assert.equal(decisions.find((decision) => decision.id === "functional_outputs").status, "failed");
+  assert.deepEqual(decisions.find((decision) => decision.id === "functional_outputs").failing_workloads, [
+    "http2_connection",
+  ]);
+  assert.equal(passesBenchmarkThresholds(decisions), false);
 });
 
 test("writes deterministic machine-readable JSON", () => {
@@ -99,19 +180,21 @@ test("writes deterministic machine-readable JSON", () => {
   );
 });
 
-function workload(id, baselineWall, newWall, newUser, functionalOutputsEqual) {
+function workload(id, baselineWall, newWall, newUser, functionalOutputsEqual, options = {}) {
   return {
     id,
     baseline: {
       summary: {
         median_wall_time_seconds: baselineWall,
         median_user_cpu_seconds: 1,
+        wall_time_noisy: options.baselineNoisy ?? false,
       },
     },
     new: {
       summary: {
         median_wall_time_seconds: newWall,
         median_user_cpu_seconds: newUser,
+        wall_time_noisy: options.newNoisy ?? false,
       },
     },
     functional_outputs_equal: functionalOutputsEqual,
