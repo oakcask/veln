@@ -30,7 +30,7 @@ also states it.
 
 - [Bounded Toolchain Analysis](bounded-toolchain-analysis.md): finish bounding
   analysis growth for large standard-library module graphs after the completed
-  CLI harness source-error artifact slice.
+  CLI harness source-error artifact and controlled benchmark harness slices.
 
 ### Toolchain Quality
 

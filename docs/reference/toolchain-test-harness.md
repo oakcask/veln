@@ -156,6 +156,27 @@ were:
 
 These observations are local review evidence, not CI failure thresholds.
 
+## Toolchain Analysis Benchmark
+
+Use `scripts/benchmark-toolchain-analysis compare BASELINE_BINARY NEW_BINARY`
+when reviewing the bounded toolchain-analysis proposal's controlled benchmark.
+The command expects prebuilt CLI binaries. It does not build either binary
+during measured runs.
+
+The benchmark covers the small schema, HPACK static codec, HTTP/2 core, HTTP/2
+connection, and three generated unrelated fully annotated module-graph
+workloads at adjacent doubling sizes. It keeps generated projects in temporary
+storage and compares measured-run exit status and normalized functional
+output before reporting threshold results. When `--output PATH` is supplied,
+it writes deterministic JSON with the exact binary path and command used for
+every workload.
+
+The optional toolchain-case overhead comparison needs an explicit command
+because it is not part of the CLI binary interface. Set
+`VELN_TOOLCHAIN_CASE_COMMAND` to include that workload in a comparison run.
+Without that environment variable, the benchmark reports the comparison as
+skipped.
+
 ## Boundaries
 
 The harness standardizes CLI integration tests. It does not replace parser,
