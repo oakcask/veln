@@ -49,15 +49,19 @@ library makes this behavior visible because its production sources contain a
 large module graph and many functions.
 
 The private-signature inference slice is implemented for private return,
-call-site, and prelude-callback fixed-point passes. Those passes first
-identify omitted private parameter and return slots that can still affect the
-pass. If no such slot exists, they do not traverse function bodies. If such
-slots exist, repeated traversal is limited to functions in modules that own
-eligible private slots. Structural `veln-sema` tests use test-only work
-counters to assert that unrelated fully annotated module sets do not pay
-private-inference body scans, and that an omitted private helper chain still
-reaches the same successful diagnostics while skipping unrelated annotated
-modules.
+call-site, and prelude-callback fixed-point passes. The private return and
+call-site passes first identify omitted private parameter and return slots
+that can still affect the pass. The prelude-callback pass first identifies
+omitted private returns that are passed through a prelude callback context or
+whose tail can use such an expected return type. If no such slot exists, these
+passes do not traverse function bodies. If such slots exist, repeated
+traversal is limited to functions that own eligible private slots or reference
+them in ways that can contribute constraints.
+Structural `veln-sema` tests use test-only work counters to assert that
+unrelated fully annotated module sets do not pay private-inference body scans,
+and that an omitted private helper chain still reaches the same inferred
+parameter and return types while skipping unrelated annotated modules and
+unrelated annotated functions in the same module.
 
 ## Proposed Outcome
 
@@ -187,10 +191,12 @@ unchanged. It narrows only analyzer work:
   return slot still contains unknown type information;
 - private call-site signature inference skips the fixed-point pass when no
   omitted private parameter or return slot can still change;
-- private prelude-callback return inference skips the fixed-point pass when no
-  private return annotation is omitted;
+- private prelude-callback return inference skips body traversal when no
+  omitted private return is passed through a prelude callback context or has a
+  tail expression that can use such an expected return type;
 - when eligible private slots remain, call-site and prelude-callback inference
-  traverse only functions from modules that own those slots.
+  traverse only functions that own those slots or reference them in ways that
+  can contribute constraints.
 
 The remaining proposal work is explicit:
 

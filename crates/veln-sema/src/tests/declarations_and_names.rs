@@ -691,14 +691,72 @@ fn omitted_private_signature_chain_skips_unrelated_annotated_modules() {
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     assert!(counters.body_return_scans > 0, "{counters:#?}");
     assert!(counters.call_site_scans > 0, "{counters:#?}");
+    assert_eq!(counters.prelude_callback_scans, 0, "{counters:#?}");
     assert!(
         counters.call_site_scans < 10,
         "call-site inference should not scan unrelated modules: {counters:#?}"
     );
-    assert!(
-        counters.prelude_callback_scans < 10,
-        "prelude callback inference should not scan unrelated modules: {counters:#?}"
+
+    let environment = TypeEnvironment::from_module(&module);
+    for name in ["identity", "pass"] {
+        let function = environment
+            .function(name)
+            .unwrap_or_else(|| panic!("{name} should be present"));
+        assert_eq!(
+            function.params[0],
+            crate::semantic_model::Type::int(),
+            "{name}"
+        );
+        assert_eq!(
+            function.return_type,
+            crate::semantic_model::Type::int(),
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn omitted_private_signature_chain_skips_unrelated_annotated_functions_in_same_module() {
+    crate::types::private_inference_counters::reset();
+    let mut source = String::from(
+        "mod target\n\
+         fn identity(value)\n  value\nend\n\
+         \n\
+         fn pass(value)\n  identity(value)\nend\n\
+         \n\
+         fn main() -> Int\n  pass(1)\nend\n",
     );
+    for function_index in 0..12 {
+        source.push_str(&format!(
+            "\nfn annotated_{function_index}(value: Int) -> Int\n  value\nend\n"
+        ));
+    }
+    let module = merged_modules(vec![SourceFile::new("target.veln", source)]);
+
+    let diagnostics = analyze_surface_module(&module);
+    let counters = crate::types::private_inference_counters::snapshot();
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert_eq!(counters.body_return_scans, 2, "{counters:#?}");
+    assert_eq!(counters.call_site_scans, 5, "{counters:#?}");
+    assert_eq!(counters.prelude_callback_scans, 0, "{counters:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    for name in ["identity", "pass"] {
+        let function = environment
+            .function(name)
+            .unwrap_or_else(|| panic!("{name} should be present"));
+        assert_eq!(
+            function.params[0],
+            crate::semantic_model::Type::int(),
+            "{name}"
+        );
+        assert_eq!(
+            function.return_type,
+            crate::semantic_model::Type::int(),
+            "{name}"
+        );
+    }
 }
 
 #[test]
