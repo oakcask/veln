@@ -103,7 +103,8 @@ The private-signature inference structural tests are the primary evidence for
 the implemented bounded-growth slice that avoids private-inference scans for
 fully annotated unrelated modules. The generated high-cardinality benchmark
 and representative HTTP/2 comparisons remain required before this proposal is
-complete.
+complete. The `veln-analysis` shared-analysis determinism test is the primary
+evidence for the implemented repeated and concurrent diagnostic-order slice.
 
 ## Analysis Reuse Contract
 
@@ -231,12 +232,17 @@ unchanged. It narrows only analyzer work:
   handler dependencies changed. Structural `veln-sema` tests cover private
   helper chains, private handler retained effects flowing through lexical
   handlers, cyclic dependencies with stable effect ordering, and unrelated
-  fully annotated module growth at `W(0)`, `W(N)`, and `W(2N)`.
+  fully annotated module growth at `W(0)`, `W(N)`, and `W(2N)`;
+- shared project analysis has `veln-analysis` regression coverage for repeated
+  and concurrent checked diagnostic JSON generation across two distinct
+  projects that use overlapping source paths and declaration names. The test
+  compares each result with that project's isolated ordered JSON sequence and
+  checks that project-specific module and type facts do not appear in the
+  other project's result.
 
 The remaining proposal work is explicit:
 
 - analysis cache and project-isolation work remains incomplete;
-- repeated and concurrent determinism evidence remains incomplete;
 - representative HTTP/2 core and connection improvement evidence remains
   incomplete;
 - generated-size benchmark comparisons remain required completion evidence.

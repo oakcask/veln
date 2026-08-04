@@ -27,11 +27,12 @@ also states it.
 
 ### Toolchain Performance
 
-- [Bounded Toolchain Analysis](bounded-toolchain-analysis.md): finish cache,
-  determinism, and representative benchmark evidence for large
+- [Bounded Toolchain Analysis](bounded-toolchain-analysis.md): finish cache
+  and representative benchmark evidence for large
   standard-library module graphs after the completed CLI harness source-error
   artifact, controlled benchmark harness, private-signature inference, and
-  function/private-handler effect inference slices.
+  function/private-handler effect inference, and shared-analysis determinism
+  slices.
 
 ### Toolchain Quality
 
