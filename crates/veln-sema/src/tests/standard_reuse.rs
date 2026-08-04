@@ -1,11 +1,16 @@
+use std::sync::{Mutex, MutexGuard};
 use std::thread;
 
 use super::*;
 use veln_ast::{UseDecl, lower_surface_ast_with_module_identity};
+use veln_diagnostics::diagnostic_to_json;
 use veln_source::TextRange;
+
+static STANDARD_REUSE_TEST_LOCK: Mutex<()> = Mutex::new(());
 
 #[test]
 fn reusable_standard_environment_matches_uncached_analysis_for_table_cases() {
+    let _guard = standard_reuse_test_lock();
     let standard = standard_module();
     let reusable = prepare_reusable_standard_surface_module_environment(&standard);
 
@@ -51,6 +56,20 @@ fn reusable_standard_environment_matches_uncached_analysis_for_table_cases() {
                 "end\n",
             ),
         ),
+        app_case(
+            "application std path outside reusable bundle",
+            "std/helper.veln",
+            concat!(
+                "fn answer(value: Int) -> Int\n",
+                "  value + 1\n",
+                "end\n",
+                "\n",
+                "pub fn main() -> Int\n",
+                "  answer(1)\n",
+                "end\n",
+            ),
+        )
+        .with_module_name("std::helper"),
     ] {
         let module = merge_modules(vec![standard.clone(), case.module]);
         let uncached = check_project_surface_module(&module);
@@ -61,7 +80,38 @@ fn reusable_standard_environment_matches_uncached_analysis_for_table_cases() {
 }
 
 #[test]
+fn reusable_standard_environment_identity_mismatch_uses_uncached_analysis() {
+    let _guard = standard_reuse_test_lock();
+    crate::standard_reuse_counters::reset();
+    let standard = standard_module();
+    let reusable = prepare_reusable_standard_surface_module_environment(&standard)
+        .with_mismatched_identity_for_test();
+    let module = merge_modules(vec![
+        standard,
+        app_case(
+            "identity mismatch",
+            "src/main.veln",
+            concat!(
+                "pub fn main() -> Int\n",
+                "  let boxed = prelude::answer(prelude::PayloadShape(1))\n",
+                "  1\n",
+                "end\n",
+            ),
+        )
+        .module,
+    ]);
+
+    let uncached = check_project_surface_module(&module);
+    let cached = check_project_surface_module_with_standard_environment(&module, &reusable);
+
+    assert_same_analysis("identity mismatch", uncached, cached);
+    assert_eq!(crate::standard_reuse_counters::standard_prepares(), 1);
+    assert_eq!(crate::standard_reuse_counters::application_prepares(), 0);
+}
+
+#[test]
 fn reusable_standard_environment_is_prepared_once_for_repeated_and_concurrent_projects() {
+    let _guard = standard_reuse_test_lock();
     crate::standard_reuse_counters::reset();
     let standard = standard_module();
     let reusable = prepare_reusable_standard_surface_module_environment(&standard);
@@ -99,11 +149,13 @@ fn reusable_standard_environment_is_prepared_once_for_repeated_and_concurrent_pr
     let alpha_expected = checked_json(&alpha, &reusable);
     let beta_expected = checked_json(&beta, &reusable);
     assert_ne!(alpha_expected, beta_expected);
+    assert_eq!(crate::standard_reuse_counters::application_prepares(), 2);
 
     for module in [alpha.clone(), beta.clone(), alpha.clone(), beta.clone()] {
         let _ = check_project_surface_module_with_standard_environment(&module, &reusable);
     }
     assert_eq!(crate::standard_reuse_counters::standard_prepares(), 1);
+    assert_eq!(crate::standard_reuse_counters::application_prepares(), 6);
 
     thread::scope(|scope| {
         let handles = (0..12)
@@ -128,11 +180,19 @@ fn reusable_standard_environment_is_prepared_once_for_repeated_and_concurrent_pr
         }
     });
     assert_eq!(crate::standard_reuse_counters::standard_prepares(), 1);
+    assert_eq!(crate::standard_reuse_counters::application_prepares(), 18);
 }
 
 struct AppCase {
     name: &'static str,
     module: SurfaceModule,
+}
+
+impl AppCase {
+    fn with_module_name(mut self, module_name: &str) -> Self {
+        set_module_name(&mut self.module, module_name);
+        self
+    }
 }
 
 fn app_case(name: &'static str, path: &str, text: &str) -> AppCase {
@@ -142,6 +202,34 @@ fn app_case(name: &'static str, path: &str, text: &str) -> AppCase {
         .uses
         .push(UseDecl::implicit_standard_prelude("app".to_string(), span));
     AppCase { name, module }
+}
+
+fn set_module_name(module: &mut SurfaceModule, module_name: &str) {
+    let module_name = Some(module_name.to_string());
+    for decl in &mut module.uses {
+        decl.module_name = module_name.clone();
+    }
+    for decl in &mut module.aliases {
+        decl.module_name = module_name.clone();
+    }
+    for decl in &mut module.effects {
+        decl.module_name = module_name.clone();
+    }
+    for decl in &mut module.handlers {
+        decl.module_name = module_name.clone();
+    }
+    for decl in &mut module.schemas {
+        decl.module_name = module_name.clone();
+    }
+    for decl in &mut module.codecs {
+        decl.module_name = module_name.clone();
+    }
+    for decl in &mut module.types {
+        decl.module_name = module_name.clone();
+    }
+    for decl in &mut module.functions {
+        decl.module_name = module_name.clone();
+    }
 }
 
 fn standard_module() -> SurfaceModule {
@@ -222,13 +310,13 @@ fn assert_same_analysis(
     cached: (Vec<Diagnostic>, LoweredSurfaceModule),
 ) {
     assert_eq!(
-        diagnostic_messages(&cached.0),
-        diagnostic_messages(&uncached.0),
+        diagnostic_json(&cached.0),
+        diagnostic_json(&uncached.0),
         "{name}: semantic diagnostics differ"
     );
     assert_eq!(
-        diagnostic_messages(&cached.1.diagnostics),
-        diagnostic_messages(&uncached.1.diagnostics),
+        diagnostic_json(&cached.1.diagnostics),
+        diagnostic_json(&uncached.1.diagnostics),
         "{name}: checked diagnostics differ"
     );
     assert_eq!(
@@ -248,13 +336,19 @@ fn checked_json(module: &SurfaceModule, reusable: &ReusableStandardEnvironment) 
     checked
         .diagnostics
         .iter()
-        .map(|diagnostic| format!("{}:{}", diagnostic.id, diagnostic.message))
+        .map(|diagnostic| diagnostic_to_json(diagnostic).to_json())
         .collect()
 }
 
-fn diagnostic_messages(diagnostics: &[Diagnostic]) -> Vec<String> {
+fn diagnostic_json(diagnostics: &[Diagnostic]) -> Vec<String> {
     diagnostics
         .iter()
-        .map(|diagnostic| format!("{}:{}", diagnostic.id, diagnostic.message))
+        .map(|diagnostic| diagnostic_to_json(diagnostic).to_json())
         .collect()
+}
+
+fn standard_reuse_test_lock() -> MutexGuard<'static, ()> {
+    STANDARD_REUSE_TEST_LOCK
+        .lock()
+        .expect("standard reuse tests should not poison their counter lock")
 }

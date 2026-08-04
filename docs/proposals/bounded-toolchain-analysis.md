@@ -244,12 +244,17 @@ unchanged. It narrows only analyzer work:
   standard environment from the embedded standard-library bundle and passes it
   to `veln-sema` for project checks and reachable-entry lowering. The reusable
   environment is keyed by the embedded standard-library bundle and semantic
-  model. `veln-sema` keeps the uncached path available and has table-driven
-  cached-versus-uncached tests for a successful project, a project with
-  type/effect diagnostics, and applications with overlapping source paths and
-  declaration names. Test-only counters prove repeated and concurrent analyses
-  prepare the reusable standard signatures once while each application
-  constructs its own semantic facts.
+  model. `veln-sema` keeps the uncached path available and compares cached
+  and uncached diagnostic JSON, lowered core output, and lowered IR output for
+  a successful project, a project with type/effect diagnostics, applications
+  with overlapping source paths and declaration names, and a local
+  `std::`-prefixed application module that is outside the reusable standard
+  bundle. A stale standard-environment identity falls back to uncached
+  analysis. Process-wide test-only counters prove repeated and concurrent
+  cached analyses prepare the reusable standard signatures once while each
+  non-empty application analysis constructs fresh semantic facts. A
+  `veln-analysis` regression test covers the embedded-standard shared-analysis
+  path for a local `std::`-prefixed application source.
 
 The remaining proposal work is explicit:
 
@@ -257,6 +262,9 @@ The remaining proposal work is explicit:
 - representative HTTP/2 core and connection improvement evidence remains
   incomplete;
 - generated-size benchmark comparisons remain required completion evidence.
+- the reusable standard-environment implementation still needs controlled
+  benchmark evidence that the clone and dependency-closure costs produce the
+  intended wall-time improvement on representative workloads.
 
 ## Non-Goals
 

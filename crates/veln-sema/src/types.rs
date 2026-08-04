@@ -4,11 +4,14 @@ mod schema_encode;
 use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::hash::{Hash, Hasher};
+#[cfg(test)]
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use veln_ast::{
-    BodyLine, BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, DictEntry, Expr,
-    ExprKind, Function, FunctionKind, IfBranch, MatchArm, NodeId, Pattern, PatternKind,
-    PublicAliasKind, RecordField, SchemaDecl, SchemaField, SurfaceModule, UseDecl, Visibility,
+    BodyLine, BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, DictEntry,
+    EffectDecl, Expr, ExprKind, Function, FunctionKind, HandlerDecl, IfBranch, MatchArm, NodeId,
+    Pattern, PatternKind, PublicAlias, PublicAliasKind, RecordField, SchemaDecl, SchemaField,
+    SurfaceModule, TypeDecl, UseDecl, Visibility,
 };
 use veln_literals::parse_integer_literal;
 use veln_project::classify_companion_source;
@@ -253,9 +256,18 @@ pub struct StandardSemanticIdentity {
 pub struct ReusableStandardEnvironment {
     identity: StandardSemanticIdentity,
     environment: TypeEnvironment,
+    module_names: BTreeSet<String>,
 }
 
 const STANDARD_SEMANTIC_MODEL: &str = "standard-semantic-signatures-v1";
+
+#[cfg(test)]
+impl ReusableStandardEnvironment {
+    pub(crate) fn with_mismatched_identity_for_test(mut self) -> Self {
+        self.identity.bundle_hash = self.identity.bundle_hash.wrapping_add(1);
+        self
+    }
+}
 
 #[cfg(test)]
 pub(crate) mod private_inference_counters {
@@ -389,20 +401,28 @@ pub(crate) mod effect_inference_counters {
 pub mod standard_reuse_counters {
     use super::*;
 
-    thread_local! {
-        static STANDARD_PREPARES: Cell<usize> = const { Cell::new(0) };
-    }
+    static STANDARD_PREPARES: AtomicUsize = AtomicUsize::new(0);
+    static APPLICATION_PREPARES: AtomicUsize = AtomicUsize::new(0);
 
     pub fn reset() {
-        STANDARD_PREPARES.set(0);
+        STANDARD_PREPARES.store(0, Ordering::SeqCst);
+        APPLICATION_PREPARES.store(0, Ordering::SeqCst);
     }
 
     pub fn standard_prepares() -> usize {
-        STANDARD_PREPARES.get()
+        STANDARD_PREPARES.load(Ordering::SeqCst)
+    }
+
+    pub fn application_prepares() -> usize {
+        APPLICATION_PREPARES.load(Ordering::SeqCst)
     }
 
     pub(super) fn record_standard_prepare() {
-        STANDARD_PREPARES.set(STANDARD_PREPARES.get() + 1);
+        STANDARD_PREPARES.fetch_add(1, Ordering::SeqCst);
+    }
+
+    pub(super) fn record_application_prepare() {
+        APPLICATION_PREPARES.fetch_add(1, Ordering::SeqCst);
     }
 }
 
@@ -418,10 +438,12 @@ impl TypeEnvironment {
         if standard.identity != standard_semantic_identity() {
             return Self::from_module(module);
         }
-        let application_module = module_without_standard_declarations(module);
+        let application_module = module_without_reusable_standard_declarations(module, standard);
         if application_module_is_empty(&application_module) {
             return standard.environment.clone();
         }
+        #[cfg(test)]
+        standard_reuse_counters::record_application_prepare();
         Self::from_module_with_base(&application_module, Some(&standard.environment))
     }
 
@@ -1055,9 +1077,11 @@ pub fn prepare_reusable_standard_environment(
 ) -> ReusableStandardEnvironment {
     #[cfg(test)]
     standard_reuse_counters::record_standard_prepare();
+    let standard_module = module_without_application_declarations(module);
     ReusableStandardEnvironment {
         identity: standard_semantic_identity(),
-        environment: TypeEnvironment::from_module(&module_without_application_declarations(module)),
+        module_names: module_standard_names(&standard_module),
+        environment: TypeEnvironment::from_module(&standard_module),
     }
 }
 
@@ -1088,13 +1112,68 @@ fn application_module_is_empty(module: &SurfaceModule) -> bool {
         && module.functions.is_empty()
 }
 
-fn module_without_standard_declarations(module: &SurfaceModule) -> SurfaceModule {
-    filter_module_declarations(module, |module_name| !is_standard_module_name(module_name))
+fn module_without_reusable_standard_declarations(
+    module: &SurfaceModule,
+    standard: &ReusableStandardEnvironment,
+) -> SurfaceModule {
+    filter_module_declarations(module, |module_name| {
+        !module_name.is_some_and(|module_name| standard.module_names.contains(module_name))
+    })
 }
 
 fn module_without_application_declarations(module: &SurfaceModule) -> SurfaceModule {
     filter_module_declarations(module, is_standard_module_name)
 }
+
+fn module_standard_names(module: &SurfaceModule) -> BTreeSet<String> {
+    let mut names = BTreeSet::new();
+    collect_standard_names(&module.uses, &mut names);
+    collect_standard_names(&module.aliases, &mut names);
+    collect_standard_names(&module.effects, &mut names);
+    collect_standard_names(&module.handlers, &mut names);
+    collect_standard_names(&module.types, &mut names);
+    collect_standard_names(&module.schemas, &mut names);
+    collect_standard_names(&module.codecs, &mut names);
+    collect_standard_names(&module.functions, &mut names);
+    names
+}
+
+fn collect_standard_names<T: HasModuleName>(decls: &[T], names: &mut BTreeSet<String>) {
+    names.extend(
+        decls
+            .iter()
+            .filter_map(HasModuleName::module_name)
+            .filter(|name| is_standard_module_name(Some(name)))
+            .map(str::to_string),
+    );
+}
+
+trait HasModuleName {
+    fn module_name(&self) -> Option<&str>;
+}
+
+macro_rules! impl_has_module_name {
+    ($($ty:ty),+ $(,)?) => {
+        $(
+            impl HasModuleName for $ty {
+                fn module_name(&self) -> Option<&str> {
+                    self.module_name.as_deref()
+                }
+            }
+        )+
+    };
+}
+
+impl_has_module_name!(
+    UseDecl,
+    PublicAlias,
+    EffectDecl,
+    HandlerDecl,
+    TypeDecl,
+    SchemaDecl,
+    CodecDecl,
+    Function,
+);
 
 fn filter_module_declarations(
     module: &SurfaceModule,

@@ -253,6 +253,26 @@ mod tests {
         assert!(restored.is_empty(), "{restored:#?}");
     }
 
+    #[test]
+    fn shared_analysis_keeps_local_std_prefixed_application_modules_fresh() {
+        let project = project(
+            "std/helper.veln",
+            concat!(
+                "fn answer(value: Int) -> Int\n",
+                "  value + 1\n",
+                "end\n",
+                "\n",
+                "pub fn entry() -> Int\n",
+                "  answer(1)\n",
+                "end\n",
+            ),
+        );
+
+        let diagnostics = checked_diagnostic_json(project);
+
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    }
+
     fn checked_diagnostic_json(project: Project) -> Vec<String> {
         analyze_project(project, DoctestMode::Exclude)
             .checked_diagnostics()
