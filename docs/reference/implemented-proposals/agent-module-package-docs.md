@@ -1,3 +1,7 @@
+---
+review-when: Generated documentation behavior or its executable evidence changes.
+---
+
 # Agent Module, Package, And Documentation Model
 
 Status: implemented
@@ -23,11 +27,14 @@ module and manifest work superseded the original source `mod` and manifest
 module metadata boundary; use the current specification for source module
 identity and manifest export behavior.
 
-`veln doc` generates Markdown from selected source files and the manifest. The
-output includes package and tool metadata, source modules, imports, public
-types, public constructors, public functions, contracts, documentation line
-comments, executable doctest fences, expected-output fences, and ADR-lite
-records. Hidden doctest setup lines are omitted from generated examples.
+`veln doc` generates Markdown from selected non-companion source files and the
+manifest. The output includes package and tool metadata, source modules,
+imports, public types, public constructors, public functions, contracts,
+documentation line comments, executable doctest fences, expected-output
+fences, and ADR-lite records. Hidden doctest setup lines are omitted from
+generated examples. Exact `.test.veln` companions are excluded from generated
+public documentation, and `_test.veln` integration-test modules remain
+ordinary documentation inputs.
 
 Dedicated export lists were not added by this target. Later manifest work
 added the current `[lib].exports` package export surface.
@@ -40,6 +47,11 @@ added the current `[lib].exports` package export surface.
   validation reports errors.
 - Generated documentation is covered by
   `../../../examples/specification/doc/generated-markdown/`.
+- Companion exclusion from generated documentation is covered by
+  `../../../examples/specification/doc/companion-discovery-exclusion/`,
+  `../../../examples/specification/doc/companion-explicit-exclusion/`,
+  `../../../examples/specification/doc/companion-only-result/`, and
+  `../../../examples/specification/doc/integration-test-suffix-rendered/`.
 - Public API documentation derives from declarations and attached source
   comments, not from proposal text.
 - ADR-lite records remain source metadata and appear in generated docs without

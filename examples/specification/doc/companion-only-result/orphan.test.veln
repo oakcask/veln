@@ -1,0 +1,5 @@
+## Orphan companion documentation.
+## {@schema orphan::CompanionOnly}
+test orphan_companion_doc_source_is_excluded() -> Int
+	1
+end

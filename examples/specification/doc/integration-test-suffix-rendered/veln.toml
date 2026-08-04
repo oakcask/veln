@@ -1,0 +1,3 @@
+[package]
+name = "integration-doc-suffix"
+description = "Generated docs keep underscore test suffix modules ordinary."

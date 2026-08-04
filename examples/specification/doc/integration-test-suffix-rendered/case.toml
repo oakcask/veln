@@ -1,0 +1,10 @@
+command = ["doc"]
+exit = 0
+
+[stdout]
+format = "text"
+contains = ["# integration-doc-suffix", "### math", "Source: `math.veln`", "##### fn production_visible(value: Int) -> Int", "### math_test", "Source: `math_test.veln`", "##### fn integration_visible(value: Int) -> Int", "Integration test suffix documentation."]
+not_contains = ["### math.test", "Source: `math.test.veln`", "Exact companion documentation."]
+
+[stderr]
+format = "empty"

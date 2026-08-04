@@ -1,4 +1,5 @@
 use std::env;
+use std::io;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -9,7 +10,9 @@ use veln_analysis::{
 };
 use veln_ast::{PublicAliasKind as AstPublicAliasKind, SurfaceModule, UseDecl};
 use veln_diagnostics::{Diagnostic, DiagnosticEnvelope, DiagnosticKind, JsonValue, Severity};
-use veln_project::{ManifestField, Project};
+use veln_project::{
+    ManifestField, Project, classify_companion_source, production_analysis_inputs, read_manifest,
+};
 use veln_source::{SourceFile, TextRange};
 use veln_syntax::{
     AdrLiteAnchor, ContractClause, ContractKind, FunctionDecl, FunctionKind, PublicAliasDecl,
@@ -21,7 +24,7 @@ use crate::diagnostics::{print_human_stderr, tool_info};
 
 pub(crate) fn doc(inputs: Vec<PathBuf>) -> Result<ExitCode, String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
-    let project = Project::discover(root, &inputs).map_err(|error| error.to_string())?;
+    let project = discover_doc_project(root, &inputs).map_err(|error| error.to_string())?;
     let generated = generate_markdown(&project);
     if !generated.diagnostics.is_empty() {
         let envelope = DiagnosticEnvelope::new(tool_info(), generated.diagnostics);
@@ -31,6 +34,20 @@ pub(crate) fn doc(inputs: Vec<PathBuf>) -> Result<ExitCode, String> {
 
     print!("{}", generated.markdown);
     Ok(ExitCode::SUCCESS)
+}
+
+fn discover_doc_project(root: PathBuf, inputs: &[PathBuf]) -> io::Result<Project> {
+    let paths = production_analysis_inputs(&root, inputs)?;
+    let mut files = Vec::new();
+    for path in paths {
+        files.push(SourceFile::read(&root, &path)?);
+    }
+    let manifest = read_manifest(&root)?;
+    Ok(Project {
+        root,
+        files,
+        manifest,
+    })
 }
 
 struct GeneratedDocs {
@@ -43,6 +60,9 @@ fn generate_markdown(project: &Project) -> GeneratedDocs {
     let mut sources = Vec::new();
 
     for source in &project.files {
+        if classify_companion_source(source.path().as_str()).is_some() {
+            continue;
+        }
         let parsed = parse(source);
         diagnostics.extend(parsed.diagnostics.iter().map(parse_diagnostic_to_envelope));
         if !parsed.diagnostics.is_empty() {

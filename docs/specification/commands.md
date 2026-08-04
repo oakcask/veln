@@ -59,10 +59,13 @@ requiring the full command reference on the first read.
   advisory during baseline checks. No enabled policy or invalid metrics policy
   configuration is a command error.
   Use [metrics-json.md](metrics-json.md) for machine-readable output.
-- `doc`: generated Markdown documentation from selected source files,
-  package/tool manifest metadata, documentation comments, public API
+- `doc`: generated Markdown documentation from selected non-companion source
+  files, package/tool manifest metadata, documentation comments, public API
   declarations including public schemas and schema aliases, schema references,
-  contracts, doctest fences, and ADR-lite records. Use
+  contracts, doctest fences, and ADR-lite records. Exact `.test.veln`
+  companions are excluded from generated documentation even when discovered
+  recursively or selected explicitly. `_test.veln` integration-test modules
+  remain ordinary documentation inputs. Use
   [commands-full.md](commands-full.md) when changing generated documentation
   output.
 - `run`: production source discovery excluding `.test.veln` companions,
