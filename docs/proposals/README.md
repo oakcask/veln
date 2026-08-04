@@ -27,10 +27,11 @@ also states it.
 
 ### Toolchain Performance
 
-- [Bounded Toolchain Analysis](bounded-toolchain-analysis.md): finish bounding
-  analysis growth for large standard-library module graphs after the completed
-  CLI harness source-error artifact, controlled benchmark harness, and
-  private-signature inference slices.
+- [Bounded Toolchain Analysis](bounded-toolchain-analysis.md): finish cache,
+  determinism, and representative benchmark evidence for large
+  standard-library module graphs after the completed CLI harness source-error
+  artifact, controlled benchmark harness, private-signature inference, and
+  function/private-handler effect inference slices.
 
 ### Toolchain Quality
 

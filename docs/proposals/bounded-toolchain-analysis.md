@@ -221,12 +221,20 @@ unchanged. It narrows only analyzer work:
   inference body traversal;
 - structural tests record private-reference index scan counts separately from
   repeated inference body traversals and cover unrelated annotated functions in
-  the same module.
+  the same module;
+- function-body effect inference and private-handler retained-effect inference
+  now share one dependency graph over functions and private handlers. Initial
+  dependency discovery, function body collection, private-handler provider
+  evaluation, and dependency-triggered reevaluation have separate test-only
+  structural counters;
+- effect inference reevaluates only declarations whose function or private
+  handler dependencies changed. Structural `veln-sema` tests cover private
+  helper chains, private handler retained effects flowing through lexical
+  handlers, cyclic dependencies with stable effect ordering, and unrelated
+  fully annotated module growth at `W(0)`, `W(N)`, and `W(2N)`.
 
 The remaining proposal work is explicit:
 
-- function and private-handler effect inference still needs bounded traversal
-  or another dependency-directed implementation;
 - analysis cache and project-isolation work remains incomplete;
 - repeated and concurrent determinism evidence remains incomplete;
 - representative HTTP/2 core and connection improvement evidence remains
