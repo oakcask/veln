@@ -2,7 +2,10 @@ use std::sync::{Mutex, MutexGuard};
 use std::thread;
 
 use super::*;
-use veln_ast::{UseDecl, lower_surface_ast_with_module_identity};
+use veln_ast::{
+    CodecDecl, CodecDirection, CodecImplementationClause, CodecImplementationKind, UseDecl,
+    Visibility, lower_surface_ast_with_module_identity,
+};
 use veln_diagnostics::diagnostic_to_json;
 use veln_source::TextRange;
 
@@ -24,9 +27,10 @@ fn reusable_standard_environment_matches_uncached_analysis_for_table_cases() {
                 "  perform prelude::Ask::value()\n",
                 "end\n",
                 "\n",
-                "pub fn main(value: {value: Int}) -> Result<{value: Int}, String>\n",
+                "pub fn main(input: ByteView, base: ByteOffset, value: {value: Int}) -> Result<{value: Int}, String>\n",
                 "  let observed = handle compute() with prelude::ask(1)\n",
                 "  let boxed = prelude::answer(prelude::PayloadShape(observed))\n",
+                "  let decoded = prelude::PayloadCodec(input, base)\n",
                 "  prelude::byte_decode_public_packet(value)\n",
                 "end\n",
             ),
@@ -335,7 +339,7 @@ fn set_module_name(module: &mut SurfaceModule, module_name: &str) {
 }
 
 fn standard_module() -> SurfaceModule {
-    module_with_identity(
+    let mut module = module_with_identity(
         "prelude.veln",
         concat!(
             "pub effect Ask\n",
@@ -367,9 +371,40 @@ fn standard_module() -> SurfaceModule {
             "end\n",
             "\n",
             "pub fn answer = identity\n",
+            "\n",
+            "fn decode_payload_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{value: Int}>\n",
+            "  NeedMore(NeedEnd)\n",
+            "end\n",
         ),
         "std::prelude",
-    )
+    );
+    add_payload_codec(&mut module);
+    module
+}
+
+fn add_payload_codec(module: &mut SurfaceModule) {
+    let schema = module
+        .schemas
+        .iter()
+        .find(|schema| schema.name.as_deref() == Some("Packet"))
+        .expect("test standard module should define Packet schema");
+    module.codecs.push(CodecDecl {
+        node_id: schema.node_id,
+        module_name: Some("std::prelude".to_string()),
+        visibility: Visibility::Public,
+        name: Some("PayloadCodec".to_string()),
+        schema: Some("Packet".to_string()),
+        directions: vec![CodecDirection::Decode],
+        implementations: vec![CodecImplementationClause {
+            node_id: schema.node_id,
+            direction: CodecDirection::Decode,
+            kind: CodecImplementationKind::With {
+                function: Some("decode_payload_packet".to_string()),
+            },
+            span: schema.span.clone(),
+        }],
+        span: schema.span.clone(),
+    });
 }
 
 fn standard_modules_with_imports() -> SurfaceModule {
