@@ -2616,36 +2616,71 @@ fn private_prelude_callback_constraint_contributors(
         .iter()
         .filter_map(|function| {
             let key = function_key(function)?;
-            (omitted_private_returns.contains(&key)
-                && returns_by_path.get(&key).is_some_and(|return_type| {
-                    private_tail_can_use_expected(function, return_type, uses, adts)
-                })
-                || function.body.iter().any(|line| {
-                    private_prelude_callback_line_references_slot(
-                        line,
-                        function.module_name.as_deref(),
-                        omitted_private_returns,
-                        function_by_path,
-                    )
-                }))
+            private_prelude_callback_function_can_constrain(
+                function,
+                &key,
+                omitted_private_returns,
+                returns_by_path,
+                function_by_path,
+                uses,
+                adts,
+            )
             .then_some(key)
         })
         .collect()
 }
 
+fn private_prelude_callback_function_can_constrain(
+    function: &Function,
+    key: &FunctionKey,
+    omitted_private_returns: &BTreeSet<FunctionKey>,
+    returns_by_path: &FunctionReturnMap,
+    function_by_path: &FunctionAstMap<'_>,
+    uses: &[UseDecl],
+    adts: &AdtRegistry,
+) -> bool {
+    omitted_private_returns.contains(key)
+        && returns_by_path.get(key).is_some_and(|return_type| {
+            private_tail_can_use_expected(function, return_type, uses, adts)
+        })
+        || function.body.iter().any(|line| {
+            private_prelude_callback_line_references_slot(
+                line,
+                None,
+                function.module_name.as_deref(),
+                uses,
+                &[],
+                omitted_private_returns,
+                returns_by_path,
+                function_by_path,
+                adts,
+            )
+        })
+}
+
 fn private_prelude_callback_line_references_slot(
     line: &BodyLine,
+    expected: Option<&Type>,
     current_module: Option<&str>,
+    uses: &[UseDecl],
+    bindings: &[Binding],
     omitted_private_returns: &BTreeSet<FunctionKey>,
+    returns_by_path: &FunctionReturnMap,
     function_by_path: &FunctionAstMap<'_>,
+    adts: &AdtRegistry,
 ) -> bool {
     match &line.kind {
         BodyLineKind::Let { expr, .. } | BodyLineKind::Expr { expr } => {
             private_prelude_callback_expr_references_slot(
                 expr,
+                expected,
                 current_module,
+                uses,
+                bindings,
                 omitted_private_returns,
+                returns_by_path,
                 function_by_path,
+                adts,
             )
         }
     }
@@ -2653,9 +2688,14 @@ fn private_prelude_callback_line_references_slot(
 
 fn private_prelude_callback_expr_references_slot(
     expr: &Expr,
+    expected: Option<&Type>,
     current_module: Option<&str>,
+    uses: &[UseDecl],
+    bindings: &[Binding],
     omitted_private_returns: &BTreeSet<FunctionKey>,
+    returns_by_path: &FunctionReturnMap,
     function_by_path: &FunctionAstMap<'_>,
+    adts: &AdtRegistry,
 ) -> bool {
     if let ExprKind::NamePath(segments) = &expr.kind
         && private_name_path_target(segments, current_module, function_by_path)
@@ -2668,90 +2708,155 @@ fn private_prelude_callback_expr_references_slot(
             let direct_reference = private_prelude_callback_call_references_slot(
                 callee,
                 args,
+                expected,
                 current_module,
+                uses,
+                bindings,
                 omitted_private_returns,
+                returns_by_path,
                 function_by_path,
+                adts,
             );
             direct_reference
                 || !matches!(callee.kind, ExprKind::NamePath(_))
                     && private_prelude_callback_expr_references_slot(
                         callee,
+                        None,
                         current_module,
+                        uses,
+                        bindings,
                         omitted_private_returns,
+                        returns_by_path,
                         function_by_path,
+                        adts,
                     )
                 || args.iter().any(|arg| {
                     private_prelude_callback_expr_references_slot(
                         arg,
+                        None,
                         current_module,
+                        uses,
+                        bindings,
                         omitted_private_returns,
+                        returns_by_path,
                         function_by_path,
+                        adts,
                     )
                 })
         }
         ExprKind::List(items) => items.iter().any(|item| {
+            let item_expected = expected.and_then(Type::vec_part);
             private_prelude_callback_expr_references_slot(
                 item,
+                item_expected,
                 current_module,
+                uses,
+                bindings,
                 omitted_private_returns,
+                returns_by_path,
                 function_by_path,
+                adts,
             )
         }),
         ExprKind::Dict(entries) => entries.iter().any(|entry| {
+            let (key_expected, value_expected) = expected
+                .and_then(Type::dict_parts)
+                .map_or((None, None), |(key, value)| (Some(key), Some(value)));
             private_prelude_callback_expr_references_slot(
                 &entry.key,
+                key_expected,
                 current_module,
+                uses,
+                bindings,
                 omitted_private_returns,
+                returns_by_path,
                 function_by_path,
+                adts,
             ) || private_prelude_callback_expr_references_slot(
                 &entry.value,
+                value_expected,
                 current_module,
+                uses,
+                bindings,
                 omitted_private_returns,
+                returns_by_path,
                 function_by_path,
+                adts,
             )
         }),
         ExprKind::Record(fields) => fields.iter().any(|field| {
+            let field_expected = expected.and_then(|expected| expected.record_field(&field.name));
             private_prelude_callback_expr_references_slot(
                 &field.expr,
+                field_expected,
                 current_module,
+                uses,
+                bindings,
                 omitted_private_returns,
+                returns_by_path,
                 function_by_path,
+                adts,
             )
         }),
         ExprKind::Perform { args, .. } => args.iter().any(|arg| {
             private_prelude_callback_expr_references_slot(
                 arg,
+                None,
                 current_module,
+                uses,
+                bindings,
                 omitted_private_returns,
+                returns_by_path,
                 function_by_path,
+                adts,
             )
         }),
         ExprKind::Handle { body, args, .. } => {
             private_prelude_callback_expr_references_slot(
                 body,
+                expected,
                 current_module,
+                uses,
+                bindings,
                 omitted_private_returns,
+                returns_by_path,
                 function_by_path,
+                adts,
             ) || args.iter().any(|arg| {
                 private_prelude_callback_expr_references_slot(
                     arg,
+                    None,
                     current_module,
+                    uses,
+                    bindings,
                     omitted_private_returns,
+                    returns_by_path,
                     function_by_path,
+                    adts,
                 )
             })
         }
         ExprKind::SchemaDecode { input, base, .. } => {
             private_prelude_callback_expr_references_slot(
                 input,
+                Some(&Type::named("ByteView", Vec::new())),
                 current_module,
+                uses,
+                bindings,
                 omitted_private_returns,
+                returns_by_path,
                 function_by_path,
+                adts,
             ) || private_prelude_callback_expr_references_slot(
                 base,
+                Some(&Type::named("ByteOffset", Vec::new())),
                 current_module,
+                uses,
+                bindings,
                 omitted_private_returns,
+                returns_by_path,
                 function_by_path,
+                adts,
             )
         }
         ExprKind::SchemaEncode { value, .. }
@@ -2759,22 +2864,37 @@ fn private_prelude_callback_expr_references_slot(
         | ExprKind::Try(value)
         | ExprKind::Prefix { expr: value, .. } => private_prelude_callback_expr_references_slot(
             value,
+            None,
             current_module,
+            uses,
+            bindings,
             omitted_private_returns,
+            returns_by_path,
             function_by_path,
+            adts,
         ),
         ExprKind::Match { scrutinee, arms } => {
             private_prelude_callback_expr_references_slot(
                 scrutinee,
+                None,
                 current_module,
+                uses,
+                bindings,
                 omitted_private_returns,
+                returns_by_path,
                 function_by_path,
+                adts,
             ) || arms.iter().any(|arm| {
                 private_prelude_callback_expr_references_slot(
                     &arm.expr,
+                    expected,
                     current_module,
+                    uses,
+                    bindings,
                     omitted_private_returns,
+                    returns_by_path,
                     function_by_path,
+                    adts,
                 )
             })
         }
@@ -2786,44 +2906,79 @@ fn private_prelude_callback_expr_references_slot(
         } => {
             private_prelude_callback_expr_references_slot(
                 condition,
+                Some(&Type::bool()),
                 current_module,
+                uses,
+                bindings,
                 omitted_private_returns,
+                returns_by_path,
                 function_by_path,
+                adts,
             ) || private_prelude_callback_expr_references_slot(
                 then_branch,
+                expected,
                 current_module,
+                uses,
+                bindings,
                 omitted_private_returns,
+                returns_by_path,
                 function_by_path,
+                adts,
             ) || else_if_branches.iter().any(|branch| {
                 private_prelude_callback_expr_references_slot(
                     &branch.condition,
+                    Some(&Type::bool()),
                     current_module,
+                    uses,
+                    bindings,
                     omitted_private_returns,
+                    returns_by_path,
                     function_by_path,
+                    adts,
                 ) || private_prelude_callback_expr_references_slot(
                     &branch.expr,
+                    expected,
                     current_module,
+                    uses,
+                    bindings,
                     omitted_private_returns,
+                    returns_by_path,
                     function_by_path,
+                    adts,
                 )
             }) || private_prelude_callback_expr_references_slot(
                 else_branch,
+                expected,
                 current_module,
+                uses,
+                bindings,
                 omitted_private_returns,
+                returns_by_path,
                 function_by_path,
+                adts,
             )
         }
         ExprKind::Binary { left, right, .. } => {
             private_prelude_callback_expr_references_slot(
                 left,
+                expected,
                 current_module,
+                uses,
+                bindings,
                 omitted_private_returns,
+                returns_by_path,
                 function_by_path,
+                adts,
             ) || private_prelude_callback_expr_references_slot(
                 right,
+                expected,
                 current_module,
+                uses,
+                bindings,
                 omitted_private_returns,
+                returns_by_path,
                 function_by_path,
+                adts,
             )
         }
         ExprKind::NamePath(_)
@@ -2841,22 +2996,33 @@ fn private_prelude_callback_expr_references_slot(
 fn private_prelude_callback_call_references_slot(
     callee: &Expr,
     args: &[Expr],
+    _expected: Option<&Type>,
     current_module: Option<&str>,
+    uses: &[UseDecl],
+    bindings: &[Binding],
     omitted_private_returns: &BTreeSet<FunctionKey>,
+    returns_by_path: &FunctionReturnMap,
     function_by_path: &FunctionAstMap<'_>,
+    adts: &AdtRegistry,
 ) -> bool {
     let ExprKind::NamePath(segments) = &callee.kind else {
         return false;
     };
-    if private_prelude_constraint_name(segments, current_module, function_by_path).is_none() {
+    let Some(name) = private_prelude_constraint_name(segments, current_module, function_by_path)
+    else {
         return false;
-    }
+    };
+    let _ = name;
     args.iter().any(|arg| {
         private_prelude_callback_arg_references_slot(
             arg,
             current_module,
+            uses,
+            bindings,
             omitted_private_returns,
+            returns_by_path,
             function_by_path,
+            adts,
         )
     })
 }
@@ -2864,8 +3030,12 @@ fn private_prelude_callback_call_references_slot(
 fn private_prelude_callback_arg_references_slot(
     expr: &Expr,
     current_module: Option<&str>,
+    uses: &[UseDecl],
+    bindings: &[Binding],
     omitted_private_returns: &BTreeSet<FunctionKey>,
+    returns_by_path: &FunctionReturnMap,
     function_by_path: &FunctionAstMap<'_>,
+    adts: &AdtRegistry,
 ) -> bool {
     match &expr.kind {
         ExprKind::NamePath(segments) => {
@@ -2874,9 +3044,14 @@ fn private_prelude_callback_arg_references_slot(
         }
         _ => private_prelude_callback_expr_references_slot(
             expr,
+            None,
             current_module,
+            uses,
+            bindings,
             omitted_private_returns,
+            returns_by_path,
             function_by_path,
+            adts,
         ),
     }
 }

@@ -62,6 +62,9 @@ unrelated fully annotated module sets do not pay private-inference body scans,
 and that an omitted private helper chain still reaches the same inferred
 parameter and return types while skipping unrelated annotated modules and
 unrelated annotated functions in the same module.
+The same counter coverage includes a prelude-callback refinement case that
+records the deterministic body-return, call-site, and prelude-callback scan
+counts while preserving the inferred callback parameter and return types.
 
 ## Proposed Outcome
 

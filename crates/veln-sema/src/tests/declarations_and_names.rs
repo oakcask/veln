@@ -760,6 +760,59 @@ fn omitted_private_signature_chain_skips_unrelated_annotated_functions_in_same_m
 }
 
 #[test]
+fn prelude_callback_return_inference_skips_already_fixed_helpers() {
+    crate::types::private_inference_counters::reset();
+    let mut source = String::from(
+        "mod target\n\
+         fn nested(value)\n  Some([])\nend\n\
+         \n\
+         fn fixed(value)\n  \"ok\"\nend\n\
+         \n\
+         fn main() -> {nested: Vec<Option<Vec<String>>>, fixed: Vec<String>}\n\
+           {\n\
+             nested: vec_map([1], nested),\n\
+             fixed: vec_map([1], fixed)\n\
+           }\n\
+         end\n",
+    );
+    for function_index in 0..12 {
+        source.push_str(&format!(
+            "\nfn annotated_{function_index}(value: Int) -> Int\n  value\nend\n"
+        ));
+    }
+    let module = merged_modules(vec![SourceFile::new("target.veln", source)]);
+
+    let diagnostics = analyze_surface_module(&module);
+    let counters = crate::types::private_inference_counters::snapshot();
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert_eq!(counters.body_return_scans, 3, "{counters:#?}");
+    assert_eq!(counters.call_site_scans, 3, "{counters:#?}");
+    assert_eq!(counters.prelude_callback_scans, 2, "{counters:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    let nested = environment
+        .function("nested")
+        .expect("nested callback should be present");
+    assert_eq!(nested.params[0], crate::semantic_model::Type::int());
+    assert_eq!(
+        nested.return_type,
+        crate::semantic_model::Type::named(
+            "Option",
+            vec![crate::semantic_model::Type::named(
+                "Vec",
+                vec![crate::semantic_model::Type::string()]
+            )]
+        )
+    );
+    let fixed = environment
+        .function("fixed")
+        .expect("fixed callback should be present");
+    assert_eq!(fixed.params[0], crate::semantic_model::Type::int());
+    assert_eq!(fixed.return_type, crate::semantic_model::Type::string());
+}
+
+#[test]
 fn private_function_reports_incomplete_annotation_inference() {
     let source = SourceFile::new("main.veln", "fn helper(value)\n  value\nend\n");
     let parsed = parse(&source);
