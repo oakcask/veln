@@ -79,7 +79,13 @@ pub(crate) enum ConstructorLookup<'a> {
 
 impl AdtRegistry {
     pub(crate) fn from_module(module: &SurfaceModule) -> Self {
-        let mut descriptors = builtin_descriptors();
+        Self::from_module_with_base(module, None)
+    }
+
+    pub(crate) fn from_module_with_base(module: &SurfaceModule, base: Option<&Self>) -> Self {
+        let mut descriptors = base
+            .map(|base| base.descriptors.clone())
+            .unwrap_or_else(builtin_descriptors);
         let source_descriptors = module
             .types
             .iter()
@@ -107,9 +113,13 @@ impl AdtRegistry {
         let aliases = type_alias_descriptors(module, &source_descriptors);
         descriptors.extend(aliases);
         descriptors.extend(source_descriptors);
+        let mut companion_targets = base
+            .map(|base| base.companion_access_targets.clone())
+            .unwrap_or_default();
+        companion_targets.extend(companion_access_targets(module));
         Self {
             descriptors,
-            companion_access_targets: companion_access_targets(module),
+            companion_access_targets: companion_targets,
         }
     }
 

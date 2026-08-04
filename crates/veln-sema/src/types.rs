@@ -3,6 +3,7 @@ mod schema_encode;
 #[cfg(test)]
 use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::hash::{Hash, Hasher};
 
 use veln_ast::{
     BodyLine, BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, DictEntry, Expr,
@@ -20,6 +21,7 @@ use crate::effects::{
 use crate::semantic_model::{Binding, FunctionKey, Type};
 use crate::type_syntax::{parse_type_annotation, parse_type_or_unknown};
 
+#[derive(Clone)]
 pub(crate) struct TypeEnvironment {
     functions: Vec<FunctionSignature>,
     codec_calls: Vec<CodecCallSignature>,
@@ -67,6 +69,13 @@ struct ResolvedSchemaSymbol {
 struct SchemaAliasTarget {
     target: Vec<String>,
     module_name: Option<String>,
+}
+
+impl SchemaSymbolTable {
+    fn extend(&mut self, other: Self) {
+        self.schemas.extend(other.schemas);
+        self.aliases.extend(other.aliases);
+    }
 }
 
 #[derive(Clone)]
@@ -234,6 +243,20 @@ type PrivateSlotOmissions = (Vec<bool>, bool);
 type PrivateSlotMap = BTreeMap<FunctionKey, PrivateSlotOmissions>;
 type PrivateReferenceMap = BTreeMap<FunctionKey, BTreeSet<FunctionKey>>;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct StandardSemanticIdentity {
+    bundle_hash: u64,
+    semantic_model: &'static str,
+}
+
+#[derive(Clone)]
+pub struct ReusableStandardEnvironment {
+    identity: StandardSemanticIdentity,
+    environment: TypeEnvironment,
+}
+
+const STANDARD_SEMANTIC_MODEL: &str = "standard-semantic-signatures-v1";
+
 #[cfg(test)]
 pub(crate) mod private_inference_counters {
     use super::*;
@@ -362,14 +385,65 @@ pub(crate) mod effect_inference_counters {
     }
 }
 
+#[cfg(test)]
+pub mod standard_reuse_counters {
+    use super::*;
+
+    thread_local! {
+        static STANDARD_PREPARES: Cell<usize> = const { Cell::new(0) };
+    }
+
+    pub fn reset() {
+        STANDARD_PREPARES.set(0);
+    }
+
+    pub fn standard_prepares() -> usize {
+        STANDARD_PREPARES.get()
+    }
+
+    pub(super) fn record_standard_prepare() {
+        STANDARD_PREPARES.set(STANDARD_PREPARES.get() + 1);
+    }
+}
+
 impl TypeEnvironment {
     pub(crate) fn from_module(module: &SurfaceModule) -> Self {
-        let effects = effect_signatures(module);
-        let adts = AdtRegistry::from_module(module);
-        let companion_effect_access_targets = companion_access_target_infos(module);
+        Self::from_module_with_base(module, None)
+    }
+
+    pub(crate) fn from_module_with_standard(
+        module: &SurfaceModule,
+        standard: &ReusableStandardEnvironment,
+    ) -> Self {
+        if standard.identity != standard_semantic_identity() {
+            return Self::from_module(module);
+        }
+        let application_module = module_without_standard_declarations(module);
+        if application_module_is_empty(&application_module) {
+            return standard.environment.clone();
+        }
+        Self::from_module_with_base(&application_module, Some(&standard.environment))
+    }
+
+    fn from_module_with_base(module: &SurfaceModule, base: Option<&TypeEnvironment>) -> Self {
+        let mut effects = effect_signatures(module);
+        if let Some(base) = base {
+            effects.extend(base.effects.clone());
+        }
+        let adts = AdtRegistry::from_module_with_base(module, base.map(|base| &base.adts));
+        let mut companion_effect_access_targets = companion_access_target_infos(module);
+        if let Some(base) = base {
+            companion_effect_access_targets.extend(base.companion_effect_access_targets.clone());
+        }
         let mut handlers = handler_signatures(module, &effects, &companion_effect_access_targets);
+        if let Some(base) = base {
+            handlers.extend(base.handlers.clone());
+        }
         let mut functions =
             ordinary_function_signatures(module, &effects, &adts, &companion_effect_access_targets);
+        if let Some(base) = base {
+            functions.extend(base.functions.clone());
+        }
         infer_private_function_body_return_types(module, &mut functions, &adts);
         infer_private_function_call_site_signature_types(module, &mut functions, &adts);
         infer_private_function_body_return_types(module, &mut functions, &adts);
@@ -378,21 +452,49 @@ impl TypeEnvironment {
         functions.extend(schema_encode_function_signatures(module));
         functions.extend(schema_validate_function_signatures(module));
         infer_function_and_private_handler_effects(module, &mut functions, &effects, &mut handlers);
-        let codec_calls = codec_call_signatures(module, &functions);
+        let mut codec_calls = codec_call_signatures(module, &functions);
+        if let Some(base) = base {
+            codec_calls.extend(base.codec_calls.clone());
+        }
         let aliases = function_alias_signatures(module, &functions);
         functions.extend(aliases);
+        let mut schema_symbols = SchemaSymbolTable::from_module(module);
+        if let Some(base) = base {
+            schema_symbols.extend(base.schema_symbols.clone());
+        }
+        let mut type_symbols = named_type_symbols(module);
+        if let Some(base) = base {
+            type_symbols.extend(base.type_symbols.clone());
+        }
+        let mut codec_symbols = named_codec_symbols(module);
+        if let Some(base) = base {
+            codec_symbols.extend(base.codec_symbols.clone());
+        }
+        let mut uses = module.uses.clone();
+        if let Some(base) = base {
+            uses.extend(base.uses.clone());
+        }
+        let mut companion_function_targets = companion_function_access_targets(module);
+        if let Some(base) = base {
+            companion_function_targets.extend(base.companion_function_access_targets.clone());
+        }
+        let mut companion_schema_access_targets = companion_access_targets(module);
+        if let Some(base) = base {
+            companion_schema_access_targets.extend(base.companion_schema_access_targets.clone());
+        }
+        codec_calls.shrink_to_fit();
         Self {
             functions,
             codec_calls,
             effects,
             handlers,
-            schema_symbols: SchemaSymbolTable::from_module(module),
-            type_symbols: named_type_symbols(module),
-            codec_symbols: named_codec_symbols(module),
-            uses: module.uses.clone(),
+            schema_symbols,
+            type_symbols,
+            codec_symbols,
+            uses,
             adts,
-            companion_function_access_targets: companion_function_access_targets(module),
-            companion_schema_access_targets: companion_access_targets(module),
+            companion_function_access_targets: companion_function_targets,
+            companion_schema_access_targets,
             companion_effect_access_targets,
         }
     }
@@ -946,6 +1048,113 @@ impl TypeEnvironment {
             _ => Vec::new(),
         }
     }
+}
+
+pub fn prepare_reusable_standard_environment(
+    module: &SurfaceModule,
+) -> ReusableStandardEnvironment {
+    #[cfg(test)]
+    standard_reuse_counters::record_standard_prepare();
+    ReusableStandardEnvironment {
+        identity: standard_semantic_identity(),
+        environment: TypeEnvironment::from_module(&module_without_application_declarations(module)),
+    }
+}
+
+pub fn standard_semantic_identity() -> StandardSemanticIdentity {
+    let bundle = veln_stdlib::package_bundle();
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    STANDARD_SEMANTIC_MODEL.hash(&mut hasher);
+    bundle.manifest.hash(&mut hasher);
+    bundle.exports.hash(&mut hasher);
+    for file in bundle.files {
+        file.path.hash(&mut hasher);
+        file.text.hash(&mut hasher);
+    }
+    StandardSemanticIdentity {
+        bundle_hash: hasher.finish(),
+        semantic_model: STANDARD_SEMANTIC_MODEL,
+    }
+}
+
+fn application_module_is_empty(module: &SurfaceModule) -> bool {
+    module.uses.is_empty()
+        && module.aliases.is_empty()
+        && module.effects.is_empty()
+        && module.handlers.is_empty()
+        && module.types.is_empty()
+        && module.schemas.is_empty()
+        && module.codecs.is_empty()
+        && module.functions.is_empty()
+}
+
+fn module_without_standard_declarations(module: &SurfaceModule) -> SurfaceModule {
+    filter_module_declarations(module, |module_name| !is_standard_module_name(module_name))
+}
+
+fn module_without_application_declarations(module: &SurfaceModule) -> SurfaceModule {
+    filter_module_declarations(module, is_standard_module_name)
+}
+
+fn filter_module_declarations(
+    module: &SurfaceModule,
+    keep: impl Fn(Option<&str>) -> bool,
+) -> SurfaceModule {
+    SurfaceModule {
+        module: module.module.clone(),
+        uses: module
+            .uses
+            .iter()
+            .filter(|decl| keep(decl.module_name.as_deref()))
+            .cloned()
+            .collect(),
+        aliases: module
+            .aliases
+            .iter()
+            .filter(|decl| keep(decl.module_name.as_deref()))
+            .cloned()
+            .collect(),
+        effects: module
+            .effects
+            .iter()
+            .filter(|decl| keep(decl.module_name.as_deref()))
+            .cloned()
+            .collect(),
+        handlers: module
+            .handlers
+            .iter()
+            .filter(|decl| keep(decl.module_name.as_deref()))
+            .cloned()
+            .collect(),
+        types: module
+            .types
+            .iter()
+            .filter(|decl| keep(decl.module_name.as_deref()))
+            .cloned()
+            .collect(),
+        schemas: module
+            .schemas
+            .iter()
+            .filter(|decl| keep(decl.module_name.as_deref()))
+            .cloned()
+            .collect(),
+        codecs: module
+            .codecs
+            .iter()
+            .filter(|decl| keep(decl.module_name.as_deref()))
+            .cloned()
+            .collect(),
+        functions: module
+            .functions
+            .iter()
+            .filter(|decl| keep(decl.module_name.as_deref()))
+            .cloned()
+            .collect(),
+    }
+}
+
+fn is_standard_module_name(module_name: Option<&str>) -> bool {
+    module_name.is_some_and(|module_name| module_name.starts_with("std::"))
 }
 
 pub(crate) fn ordinary_function_signatures(
@@ -1509,6 +1718,15 @@ fn effect_dependency_graph(
     let companion_access_targets = companion_function_access_targets(module);
     let companion_effect_access_targets = companion_access_target_infos(module);
     let (effects_by_function, effects_by_module_path) = effect_lookup_maps(functions);
+    let module_private_handlers = module
+        .handlers
+        .iter()
+        .filter(|handler| handler.visibility != Visibility::Public)
+        .filter_map(|handler| {
+            let name = handler.name.as_deref()?;
+            Some(qualified_name(handler.module_name.as_deref(), name))
+        })
+        .collect::<BTreeSet<_>>();
     let context = FunctionEffectContext {
         module,
         functions,
@@ -1530,6 +1748,7 @@ fn effect_dependency_graph(
     for handler in handlers
         .iter()
         .filter(|handler| handler.visibility != Visibility::Public)
+        .filter(|handler| module_private_handlers.contains(&handler.qualified_name))
     {
         insert_handler_effect_dependencies(
             &mut graph,
@@ -1540,6 +1759,13 @@ fn effect_dependency_graph(
         );
     }
     graph
+}
+
+fn qualified_name(module_name: Option<&str>, name: &str) -> String {
+    module_name.map_or_else(
+        || name.to_string(),
+        |module_name| format!("{module_name}::{name}"),
+    )
 }
 
 fn insert_function_effect_dependencies(

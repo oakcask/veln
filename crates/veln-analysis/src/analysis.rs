@@ -1,16 +1,25 @@
 use std::collections::BTreeMap;
+use std::sync::OnceLock;
 
 use veln_ast::{FunctionKind, SurfaceModule};
 use veln_diagnostics::Diagnostic;
 use veln_ir::TypedProgram;
 use veln_project::Project;
 use veln_sema::{
-    LoweredSurfaceModule, check_project_surface_module, lower_project_reachable_surface_module,
+    LoweredSurfaceModule, ReusableStandardEnvironment,
+    check_project_surface_module_with_standard_environment,
+    lower_project_reachable_surface_module_with_standard_environment,
+    prepare_reusable_standard_surface_module_environment,
 };
 use veln_source::SourceSpan;
 use veln_test::{DoctestExpectation, doctest_sources, reconcile_expected_doctest_failures};
 
-use crate::surface::{ReachabilityCache, load_surface_module, reachable_entry_module_with_cache};
+use crate::surface::{
+    ReachabilityCache, load_embedded_standard_surface_module, load_surface_module,
+    reachable_entry_module_with_cache,
+};
+
+static STANDARD_ENVIRONMENT: OnceLock<ReusableStandardEnvironment> = OnceLock::new();
 
 pub enum DoctestMode {
     Include,
@@ -51,7 +60,8 @@ pub fn analyze_project(mut project: Project, doctest_mode: DoctestMode) -> Proje
 
     let (module, parse_diagnostics) = load_surface_module(&project);
     source_diagnostics.extend(parse_diagnostics);
-    let (semantic_diagnostics, checked) = check_project_surface_module(&module);
+    let (semantic_diagnostics, checked) =
+        check_project_surface_module_with_standard_environment(&module, standard_environment());
 
     ProjectAnalysis {
         project,
@@ -111,11 +121,21 @@ impl ProjectAnalysis {
             entry_kind,
             &self.reachability_cache,
         );
-        let lowered = lower_project_reachable_surface_module(&module);
+        let lowered = lower_project_reachable_surface_module_with_standard_environment(
+            &module,
+            standard_environment(),
+        );
         ReachableEntryAnalysis { module, lowered }
     }
 
     fn reconcile_doctest_failures(&self, diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
         reconcile_expected_doctest_failures(diagnostics, &self.expected_doctest_failures)
     }
+}
+
+fn standard_environment() -> &'static ReusableStandardEnvironment {
+    STANDARD_ENVIRONMENT.get_or_init(|| {
+        let module = load_embedded_standard_surface_module();
+        prepare_reusable_standard_surface_module_environment(&module)
+    })
 }

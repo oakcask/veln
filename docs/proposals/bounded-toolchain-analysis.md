@@ -238,11 +238,22 @@ unchanged. It narrows only analyzer work:
   projects that use overlapping source paths and declaration names. The test
   compares each result with that project's isolated ordered JSON sequence and
   checks that project-specific module and type facts do not appear in the
-  other project's result.
+  other project's result;
+- reusable standard-library semantic signatures are implemented for
+  application project analysis. `veln-analysis` prepares one immutable
+  standard environment from the embedded standard-library bundle and passes it
+  to `veln-sema` for project checks and reachable-entry lowering. The reusable
+  environment is keyed by the embedded standard-library bundle and semantic
+  model. `veln-sema` keeps the uncached path available and has table-driven
+  cached-versus-uncached tests for a successful project, a project with
+  type/effect diagnostics, and applications with overlapping source paths and
+  declaration names. Test-only counters prove repeated and concurrent analyses
+  prepare the reusable standard signatures once while each application
+  constructs its own semantic facts.
 
 The remaining proposal work is explicit:
 
-- analysis cache and project-isolation work remains incomplete;
+- application analysis caching remains out of scope and incomplete;
 - representative HTTP/2 core and connection improvement evidence remains
   incomplete;
 - generated-size benchmark comparisons remain required completion evidence.

@@ -23,6 +23,11 @@ mod types;
 
 pub use pipeline::{
     LoweredSurfaceModule, analyze_surface_module, check_project_surface_module,
-    lower_analyzed_surface_module, lower_checked_surface_module,
-    lower_project_reachable_surface_module,
+    check_project_surface_module_with_standard_environment, lower_analyzed_surface_module,
+    lower_checked_surface_module, lower_project_reachable_surface_module,
+    lower_project_reachable_surface_module_with_standard_environment,
+    prepare_reusable_standard_surface_module_environment,
 };
+pub use types::ReusableStandardEnvironment;
+#[cfg(test)]
+pub use types::standard_reuse_counters;
