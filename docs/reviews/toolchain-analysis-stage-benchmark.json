@@ -1,6 +1,25 @@
 {
   "build_profile": "debug",
-  "command": "benchmark-toolchain-analysis compare",
+  "command": [
+    "benchmark-toolchain-analysis",
+    "compare",
+    "target/debug/veln-before-stage-timing",
+    "target/debug/veln",
+    "--build-profile",
+    "debug",
+    "--runs",
+    "5",
+    "--warmups",
+    "1",
+    "--sizes",
+    "32,64,128",
+    "--baseline-identity",
+    "git revision d2de2a03da9284238fb631a6b43eb5e6834e945b debug build without run analysis stage timing records",
+    "--new-identity",
+    "git revision 971dd24f9f2acf27eea3a36108b708959db6fbf5 debug build with run analysis stage timing records",
+    "--output",
+    "docs/reviews/toolchain-analysis-stage-benchmark.json"
+  ],
   "measured_runs": 5,
   "passes_thresholds": false,
   "thresholds": [
@@ -56,6 +75,7 @@
     {
       "baseline": {
         "binary": "<baseline-debug-veln>",
+        "binary_identity": "git revision d2de2a03da9284238fb631a6b43eb5e6834e945b debug build without run analysis stage timing records",
         "runs": [
           {
             "exit_status": 0,
@@ -128,6 +148,7 @@
       "id": "small_schema",
       "new": {
         "binary": "target/debug/veln",
+        "binary_identity": "git revision 971dd24f9f2acf27eea3a36108b708959db6fbf5 debug build with run analysis stage timing records",
         "runs": [
           {
             "exit_status": 0,
@@ -229,6 +250,7 @@
     {
       "baseline": {
         "binary": "<baseline-debug-veln>",
+        "binary_identity": "git revision d2de2a03da9284238fb631a6b43eb5e6834e945b debug build without run analysis stage timing records",
         "runs": [
           {
             "exit_status": 1,
@@ -295,6 +317,7 @@
       "id": "hpack_static",
       "new": {
         "binary": "target/debug/veln",
+        "binary_identity": "git revision 971dd24f9f2acf27eea3a36108b708959db6fbf5 debug build with run analysis stage timing records",
         "runs": [
           {
             "exit_status": 1,
@@ -396,6 +419,7 @@
     {
       "baseline": {
         "binary": "<baseline-debug-veln>",
+        "binary_identity": "git revision d2de2a03da9284238fb631a6b43eb5e6834e945b debug build without run analysis stage timing records",
         "runs": [
           {
             "exit_status": 1,
@@ -464,6 +488,7 @@
       "id": "http2_core",
       "new": {
         "binary": "target/debug/veln",
+        "binary_identity": "git revision 971dd24f9f2acf27eea3a36108b708959db6fbf5 debug build with run analysis stage timing records",
         "runs": [
           {
             "exit_status": 1,
@@ -565,6 +590,7 @@
     {
       "baseline": {
         "binary": "<baseline-debug-veln>",
+        "binary_identity": "git revision d2de2a03da9284238fb631a6b43eb5e6834e945b debug build without run analysis stage timing records",
         "runs": [
           {
             "exit_status": 0,
@@ -633,11 +659,12 @@
       "id": "http2_connection",
       "new": {
         "binary": "target/debug/veln",
+        "binary_identity": "git revision 971dd24f9f2acf27eea3a36108b708959db6fbf5 debug build with run analysis stage timing records",
         "runs": [
           {
             "exit_status": 0,
             "user_cpu_seconds": 5.93,
-            "wall_time_seconds": 3.97
+            "wall_time_seconds": 6.47
           },
           {
             "exit_status": 0,
@@ -724,7 +751,7 @@
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.02999999999999936,
+          "median_absolute_deviation_wall_time_seconds": 0.010000000000000675,
           "median_user_cpu_seconds": 5.91,
           "median_wall_time_seconds": 6.48,
           "wall_time_noisy": false
@@ -734,6 +761,7 @@
     {
       "baseline": {
         "binary": "<baseline-debug-veln>",
+        "binary_identity": "git revision d2de2a03da9284238fb631a6b43eb5e6834e945b debug build without run analysis stage timing records",
         "runs": [
           {
             "exit_status": 0,
@@ -805,6 +833,7 @@
       "id": "generated_1",
       "new": {
         "binary": "target/debug/veln",
+        "binary_identity": "git revision 971dd24f9f2acf27eea3a36108b708959db6fbf5 debug build with run analysis stage timing records",
         "runs": [
           {
             "exit_status": 0,
@@ -846,6 +875,7 @@
     {
       "baseline": {
         "binary": "<baseline-debug-veln>",
+        "binary_identity": "git revision d2de2a03da9284238fb631a6b43eb5e6834e945b debug build without run analysis stage timing records",
         "runs": [
           {
             "exit_status": 0,
@@ -860,7 +890,7 @@
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.31,
-            "wall_time_seconds": -3.75
+            "wall_time_seconds": 0.33
           },
           {
             "exit_status": 0,
@@ -877,7 +907,7 @@
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.010000000000000009,
+          "median_absolute_deviation_wall_time_seconds": 0,
           "median_user_cpu_seconds": 0.3,
           "median_wall_time_seconds": 0.33,
           "wall_time_noisy": false
@@ -917,6 +947,7 @@
       "id": "generated_2",
       "new": {
         "binary": "target/debug/veln",
+        "binary_identity": "git revision 971dd24f9f2acf27eea3a36108b708959db6fbf5 debug build with run analysis stage timing records",
         "runs": [
           {
             "exit_status": 0,
@@ -958,6 +989,7 @@
     {
       "baseline": {
         "binary": "<baseline-debug-veln>",
+        "binary_identity": "git revision d2de2a03da9284238fb631a6b43eb5e6834e945b debug build without run analysis stage timing records",
         "runs": [
           {
             "exit_status": 0,
@@ -1029,6 +1061,7 @@
       "id": "generated_3",
       "new": {
         "binary": "target/debug/veln",
+        "binary_identity": "git revision 971dd24f9f2acf27eea3a36108b708959db6fbf5 debug build with run analysis stage timing records",
         "runs": [
           {
             "exit_status": 0,

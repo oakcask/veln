@@ -124,6 +124,7 @@ export function workloadCommand(binary, workload) {
 }
 
 export function summarizeRuns(runs) {
+  validateMeasuredRuns(runs);
   const wallTimes = runs.map((run) => run.wall_time_seconds);
   const userCpuTimes = runs.map((run) => run.user_cpu_seconds);
   const wallMedian = median(wallTimes);
@@ -134,6 +135,20 @@ export function summarizeRuns(runs) {
     median_absolute_deviation_wall_time_seconds: wallMad,
     wall_time_noisy: wallMad > wallMedian * NOISE_BOUNDARY_RATIO,
   };
+}
+
+export function validateMeasuredRuns(runs) {
+  runs.forEach((run, index) => {
+    for (const metric of ["wall_time_seconds", "user_cpu_seconds"]) {
+      if (
+        typeof run[metric] !== "number" ||
+        !Number.isFinite(run[metric]) ||
+        run[metric] < 0
+      ) {
+        throw new Error(`measured run ${index + 1} has invalid ${metric}`);
+      }
+    }
+  });
 }
 
 export function parseTimingRecords(text, options = {}) {
@@ -240,6 +255,27 @@ export function summarizeStageRecords(records, expectedRuns, options = {}) {
       ),
     })),
   };
+}
+
+export function validateStageSummaryFitsRuns(stageTiming, runs, label) {
+  if (stageTiming.status !== "available") {
+    return;
+  }
+  const runsById = new Map(stageTiming.runs.map((run) => [run.run, run]));
+  runs.forEach((run, index) => {
+    const runId = `${label}-${index + 1}`;
+    const stageRun = runsById.get(runId);
+    if (!stageRun) {
+      throw new Error(`missing stage timing for measured run ${runId}`);
+    }
+    const stageTotal = Object.values(stageRun.stages).reduce((sum, duration) => sum + duration, 0);
+    const roundedWallToleranceSeconds = 0.05;
+    if (stageTotal > run.wall_time_seconds + roundedWallToleranceSeconds) {
+      throw new Error(
+        `stage timing total for ${runId} exceeds measured wall time: ${stageTotal} > ${run.wall_time_seconds}`,
+      );
+    }
+  });
 }
 
 export function dominantMeasuredStage(stageMedians) {
@@ -376,6 +412,15 @@ export function passesBenchmarkThresholds(thresholds) {
   return thresholds.every((threshold) => threshold.status === "passed");
 }
 
+export function validateBenchmarkResult(result) {
+  for (const workload of result.workloads) {
+    validateMeasuredRuns(workload.baseline.runs);
+    validateMeasuredRuns(workload.new.runs);
+    validateStageSummaryFitsRuns(workload.baseline.stage_timing, workload.baseline.runs, "baseline");
+    validateStageSummaryFitsRuns(workload.new.stage_timing, workload.new.runs, "new");
+  }
+}
+
 export function stableJson(value) {
   return `${JSON.stringify(sortJson(value), null, 2)}\n`;
 }
@@ -397,7 +442,7 @@ function sortJson(value) {
 function parseArgs(argv) {
   const [command, baselineBinary, newBinary, ...rest] = argv;
   if (command !== "compare" || !baselineBinary || !newBinary) {
-    throw new Error("usage: benchmark-toolchain-analysis compare BASELINE_BINARY NEW_BINARY [--output PATH] [--baseline-label LABEL] [--new-label LABEL] [--build-profile NAME] [--runs N] [--warmups N] [--sizes A,B,C]");
+    throw new Error("usage: benchmark-toolchain-analysis compare BASELINE_BINARY NEW_BINARY [--output PATH] [--baseline-label LABEL] [--new-label LABEL] [--baseline-identity TEXT] [--new-identity TEXT] [--build-profile NAME] [--runs N] [--warmups N] [--sizes A,B,C]");
   }
   const args = {
     command,
@@ -405,6 +450,8 @@ function parseArgs(argv) {
     newBinary,
     baselineLabel: baselineBinary,
     newLabel: newBinary,
+    baselineIdentity: null,
+    newIdentity: null,
     buildProfile: "debug",
     output: null,
     runs: 5,
@@ -423,6 +470,12 @@ function parseArgs(argv) {
       index += 1;
     } else if (flag === "--new-label") {
       args.newLabel = value;
+      index += 1;
+    } else if (flag === "--baseline-identity") {
+      args.baselineIdentity = value;
+      index += 1;
+    } else if (flag === "--new-identity") {
+      args.newIdentity = value;
       index += 1;
     } else if (flag === "--build-profile") {
       args.buildProfile = value;
@@ -455,6 +508,33 @@ function parseArgs(argv) {
     );
   }
   return args;
+}
+
+function benchmarkCommand(args) {
+  const command = [
+    "benchmark-toolchain-analysis",
+    "compare",
+    args.baselineLabel,
+    args.newLabel,
+    "--build-profile",
+    args.buildProfile,
+    "--runs",
+    String(args.runs),
+    "--warmups",
+    String(args.warmups),
+    "--sizes",
+    args.sizes.join(","),
+  ];
+  if (args.baselineIdentity) {
+    command.push("--baseline-identity", args.baselineIdentity);
+  }
+  if (args.newIdentity) {
+    command.push("--new-identity", args.newIdentity);
+  }
+  if (args.output) {
+    command.push("--output", args.output);
+  }
+  return command;
 }
 
 function parseShellCommand(command) {
@@ -632,6 +712,7 @@ function measurePair(args, workload) {
     generated: workload.generated ?? null,
     baseline: {
       binary: args.baselineLabel,
+      binary_identity: args.baselineIdentity,
       summary: summarizeRuns(baselineRuns),
       stage_timing: summarizeStageRecords(recordsForRuns(baselineTimingRuns), baselineTimingRuns),
       runs: baselineRuns.map(({ wall_time_seconds, user_cpu_seconds, exit_status }) => ({
@@ -642,6 +723,7 @@ function measurePair(args, workload) {
     },
     new: {
       binary: args.newLabel,
+      binary_identity: args.newIdentity,
       summary: summarizeRuns(newRuns),
       stage_timing: summarizeStageRecords(recordsForRuns(newTimingRuns), newTimingRuns, {
         instrumentationRequired: stageInstrumentationRequired,
@@ -686,7 +768,7 @@ export function main(argv = process.argv.slice(2)) {
   try {
     const workloads = prepareWorkloads(args.repoRoot, args.sizes, generatedRoot);
     const result = {
-      command: "benchmark-toolchain-analysis compare",
+      command: benchmarkCommand(args),
       build_profile: args.buildProfile,
       measured_runs: args.runs,
       warmup_runs: args.warmups,
@@ -694,6 +776,7 @@ export function main(argv = process.argv.slice(2)) {
     };
     result.thresholds = thresholdDecisions(result);
     result.passes_thresholds = passesBenchmarkThresholds(result.thresholds);
+    validateBenchmarkResult(result);
     summarizeForHuman(result);
     if (args.output) {
       writeFileSync(args.output, stableJson(result), "utf8");

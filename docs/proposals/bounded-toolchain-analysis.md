@@ -299,10 +299,12 @@ representative HTTP/2 improvement thresholds did not pass.
 The controlled
 [stage-timing benchmark](../reviews/toolchain-analysis-stage-benchmark.json)
 for the measurement slice used prebuilt debug binaries, one warm-up run, and
-five measured runs. The baseline binary had no stage instrumentation, so its
-stage data is recorded as unavailable while its wall-time and functional
-comparisons remain active. The new binary kept functional outputs equal for
-all tracked workloads and kept wall-time noise within the accepted boundary.
+five measured runs. The review record names the baseline and new debug binary
+source revisions used for the comparison. The baseline binary had no stage
+instrumentation, so its stage data is recorded as unavailable while its
+wall-time and functional comparisons remain active. The new binary kept
+functional outputs equal for all tracked workloads and kept wall-time noise
+within the accepted boundary.
 For the measured HTTP/2 workloads, `reachable_entry_lowering` was the dominant
 stage. The HTTP/2 core workload recorded a 0.158566097 second median for that
 stage, ahead of semantic environment construction and checking at 0.10378384

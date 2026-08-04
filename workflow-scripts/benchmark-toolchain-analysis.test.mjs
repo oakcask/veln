@@ -14,6 +14,9 @@ import {
   passesBenchmarkThresholds,
   parseTimingRecords,
   stableJson,
+  validateBenchmarkResult,
+  validateMeasuredRuns,
+  validateStageSummaryFitsRuns,
   summarizeStageRecords,
   summarizeRuns,
   thresholdDecisions,
@@ -83,6 +86,17 @@ test("marks noisy wall-time summaries", () => {
   assert.equal(summary.median_wall_time_seconds, 1.5);
   assert.equal(summary.median_absolute_deviation_wall_time_seconds, 0.5);
   assert.equal(summary.wall_time_noisy, true);
+});
+
+test("rejects invalid measured run durations", () => {
+  assert.throws(
+    () => validateMeasuredRuns([{ wall_time_seconds: -1, user_cpu_seconds: 0.1 }]),
+    /invalid wall_time_seconds/,
+  );
+  assert.throws(
+    () => validateMeasuredRuns([{ wall_time_seconds: 1, user_cpu_seconds: Number.NaN }]),
+    /invalid user_cpu_seconds/,
+  );
 });
 
 test("evaluates threshold decisions including skipped toolchain-case comparison", () => {
@@ -297,6 +311,54 @@ test("keeps baseline stage timing unavailable and rejects partial instrumented r
   assert.throws(
     () => summarizeStageRecords([timing("http2_core", "new-1", "source_loading", 0.1)], ["new-1"]),
     /missing timing stage/,
+  );
+});
+
+test("rejects stage totals that exceed the measured wall time", () => {
+  const stageTiming = summarizeStageRecords(
+    [
+      timing("http2_connection", "new-1", "source_loading", 0.1),
+      timing("http2_connection", "new-1", "surface_parse_lower", 0.2),
+      timing("http2_connection", "new-1", "semantic_environment_check", 0.3),
+      timing("http2_connection", "new-1", "reachable_entry_lowering", 4),
+      timing("http2_connection", "new-1", "backend_runtime_remainder", 0.4),
+    ],
+    ["new-1"],
+  );
+
+  assert.throws(
+    () => validateStageSummaryFitsRuns(stageTiming, [{ wall_time_seconds: 3.9, user_cpu_seconds: 5 }], "new"),
+    /exceeds measured wall time/,
+  );
+});
+
+test("validates checked benchmark result structure", () => {
+  const stageTiming = summarizeStageRecords(
+    [
+      timing("http2_core", "new-1", "source_loading", 0.1),
+      timing("http2_core", "new-1", "surface_parse_lower", 0.2),
+      timing("http2_core", "new-1", "semantic_environment_check", 0.3),
+      timing("http2_core", "new-1", "reachable_entry_lowering", 0.4),
+      timing("http2_core", "new-1", "backend_runtime_remainder", 0.5),
+    ],
+    ["new-1"],
+  );
+
+  assert.doesNotThrow(() =>
+    validateBenchmarkResult({
+      workloads: [
+        {
+          baseline: {
+            runs: [{ wall_time_seconds: 2, user_cpu_seconds: 1 }],
+            stage_timing: { status: "unavailable" },
+          },
+          new: {
+            runs: [{ wall_time_seconds: 1.5, user_cpu_seconds: 1 }],
+            stage_timing: stageTiming,
+          },
+        },
+      ],
+    }),
   );
 });
 
