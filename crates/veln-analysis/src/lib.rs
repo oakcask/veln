@@ -10,14 +10,18 @@ pub use analysis::{
 };
 pub use diagnostics::parse_diagnostic_to_envelope;
 pub use surface::{
-    derive_source_module_path, load_surface_module, validate_manifest_dependencies,
-    validate_manifest_exports,
+    derive_source_module_path, load_embedded_standard_surface_module, load_surface_module,
+    validate_manifest_dependencies, validate_manifest_exports,
 };
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::path::{Path, PathBuf};
     use std::thread;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
+    use veln_ast::FunctionKind;
     use veln_diagnostics::{DiagnosticKind, JsonValue, Severity, diagnostic_to_json};
     use veln_project::Project;
     use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan};
@@ -200,12 +204,327 @@ mod tests {
         }
     }
 
+    #[test]
+    fn rediscovered_project_analysis_uses_changed_source_text_and_manifest_data() {
+        let cache = crate::analysis::TestStandardEnvironmentCache::new();
+        let temp = TempProject::new("analysis-rediscovery-isolation");
+        temp.write(
+            "src/main.veln",
+            concat!("pub fn entry() -> Int\n", "  1\n", "end\n"),
+        );
+        temp.write("veln.toml", "[lib]\nexports = [\"src/main.veln\"]\n");
+
+        let baseline = checked_discovered_diagnostic_json_with_cache(&temp, &[], &cache);
+
+        assert!(baseline.is_empty(), "{baseline:#?}");
+
+        temp.write(
+            "src/main.veln",
+            concat!("pub fn entry() -> Bool\n", "  1\n", "end\n"),
+        );
+        temp.write("veln.toml", "[lib]\nexports = [\"src/other.veln\"]\n");
+
+        let changed = checked_discovered_diagnostic_json_with_cache(&temp, &[], &cache);
+
+        assert_eq!(
+            diagnostic_ids(&changed),
+            ["manifest.missing_export", "type.mismatch"],
+            "{changed:#?}"
+        );
+        assert!(
+            changed
+                .iter()
+                .any(|diagnostic| diagnostic.contains("src/other.veln")),
+            "{changed:#?}"
+        );
+        assert!(
+            changed
+                .iter()
+                .any(|diagnostic| diagnostic.contains("expected `Bool`, but found `Int`")),
+            "{changed:#?}"
+        );
+
+        temp.write(
+            "src/main.veln",
+            concat!("pub fn entry() -> Int\n", "  1\n", "end\n"),
+        );
+        temp.write("veln.toml", "[lib]\nexports = [\"src/main.veln\"]\n");
+
+        let restored = checked_discovered_diagnostic_json_with_cache(&temp, &[], &cache);
+
+        assert!(restored.is_empty(), "{restored:#?}");
+        assert_eq!(cache.standard_prepares(), 1);
+        assert_eq!(cache.application_analyses(), 3);
+    }
+
+    #[test]
+    fn shared_analysis_keeps_local_std_prefixed_application_modules_fresh() {
+        let project = project(
+            "std/helper.veln",
+            concat!(
+                "fn answer(value: Int) -> Int\n",
+                "  value + 1\n",
+                "end\n",
+                "\n",
+                "pub fn entry() -> Int\n",
+                "  answer(1)\n",
+                "end\n",
+            ),
+        );
+
+        let diagnostics = checked_diagnostic_json(project);
+
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    }
+
+    #[test]
+    fn shared_analysis_keeps_embedded_standard_module_name_collisions_fresh() {
+        let cache = crate::analysis::TestStandardEnvironmentCache::new();
+        let project = project(
+            "std/prelude.veln",
+            concat!(
+                "fn local_only(value: Int) -> Int\n",
+                "  value + 1\n",
+                "end\n",
+                "\n",
+                "pub fn entry() -> Int\n",
+                "  local_only(1)\n",
+                "end\n",
+            ),
+        );
+
+        let diagnostics = checked_diagnostic_json_with_cache(project, &cache);
+
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        assert_eq!(cache.standard_prepares(), 1);
+        assert_eq!(cache.application_analyses(), 1);
+    }
+
+    #[test]
+    fn shared_analysis_prepares_standard_once_and_rebuilds_each_application() {
+        let cache = crate::analysis::TestStandardEnvironmentCache::new();
+        let alpha = project(
+            "src/shared.veln",
+            concat!("pub fn entry() -> Int\n", "  1\n", "end\n",),
+        );
+        let beta = project(
+            "std/helper.veln",
+            concat!(
+                "fn answer(value: Int) -> Int\n",
+                "  value + 1\n",
+                "end\n",
+                "\n",
+                "pub fn entry() -> Bool\n",
+                "  answer(1)\n",
+                "end\n",
+            ),
+        );
+
+        let alpha_expected = checked_diagnostic_json_with_cache(alpha.clone(), &cache);
+        let beta_expected = checked_diagnostic_json_with_cache(beta.clone(), &cache);
+
+        assert!(alpha_expected.is_empty(), "{alpha_expected:#?}");
+        assert_eq!(diagnostic_ids(&beta_expected), ["type.mismatch"]);
+        assert_eq!(cache.standard_prepares(), 1);
+        assert_eq!(cache.application_analyses(), 2);
+
+        let handles = thread::scope(|scope| {
+            (0..12)
+                .map(|index| {
+                    let project = if index % 2 == 0 {
+                        alpha.clone()
+                    } else {
+                        beta.clone()
+                    };
+                    let cache = &cache;
+                    scope.spawn(move || (index, checked_diagnostic_json_with_cache(project, cache)))
+                })
+                .collect::<Vec<_>>()
+                .into_iter()
+                .map(|handle| handle.join().expect("analysis should not panic"))
+                .collect::<Vec<_>>()
+        });
+
+        for (index, diagnostics) in handles {
+            if index % 2 == 0 {
+                assert_eq!(diagnostics, alpha_expected);
+            } else {
+                assert_eq!(diagnostics, beta_expected);
+            }
+        }
+        assert_eq!(cache.standard_prepares(), 1);
+        assert_eq!(cache.application_analyses(), 14);
+    }
+
+    #[test]
+    fn reachable_entry_lowering_keeps_application_reachability_project_local() {
+        let cache = crate::analysis::TestStandardEnvironmentCache::new();
+        let alpha = project(
+            "src/main.veln",
+            concat!(
+                "fn alpha_helper() -> Int\n",
+                "  1\n",
+                "end\n",
+                "\n",
+                "pub fn main() -> Int\n",
+                "  alpha_helper()\n",
+                "end\n",
+            ),
+        );
+        let beta = project(
+            "src/main.veln",
+            concat!(
+                "fn beta_helper() -> Int\n",
+                "  2\n",
+                "end\n",
+                "\n",
+                "pub fn main() -> Int\n",
+                "  beta_helper()\n",
+                "end\n",
+            ),
+        );
+
+        let alpha = crate::analysis::analyze_project_with_test_standard_cache(
+            alpha,
+            DoctestMode::Exclude,
+            &cache,
+        );
+        let beta = crate::analysis::analyze_project_with_test_standard_cache(
+            beta,
+            DoctestMode::Exclude,
+            &cache,
+        );
+
+        let alpha_reachable = alpha.lower_reachable_entry("main", FunctionKind::Function);
+        let beta_reachable = beta.lower_reachable_entry("main", FunctionKind::Function);
+
+        assert!(alpha_reachable.lowered.diagnostics.is_empty());
+        assert!(beta_reachable.lowered.diagnostics.is_empty());
+        assert_eq!(
+            lowered_function_names(&alpha_reachable),
+            ["alpha_helper", "main"]
+        );
+        assert_eq!(
+            lowered_function_names(&beta_reachable),
+            ["beta_helper", "main"]
+        );
+        assert_eq!(cache.standard_prepares(), 1);
+        assert_eq!(cache.application_analyses(), 2);
+    }
+
+    #[test]
+    fn shared_analysis_keeps_generated_doctest_sources_project_local() {
+        let cache = crate::analysis::TestStandardEnvironmentCache::new();
+        let alpha = project(
+            "src/alpha.veln",
+            concat!(
+                "## ```veln\n",
+                "## let value: Int = \"alpha-only\"\n",
+                "## ```\n",
+                "pub fn documented() -> ()\n",
+                "  ()\n",
+                "end\n",
+            ),
+        );
+        let beta = project(
+            "src/beta.veln",
+            concat!(
+                "## ```veln\n",
+                "## let value: Bool = 1\n",
+                "## ```\n",
+                "pub fn documented() -> ()\n",
+                "  ()\n",
+                "end\n",
+            ),
+        );
+
+        let alpha_diagnostics = checked_diagnostic_json_with_cache_and_mode(
+            alpha.clone(),
+            DoctestMode::Include,
+            &cache,
+        );
+        let beta_diagnostics =
+            checked_diagnostic_json_with_cache_and_mode(beta.clone(), DoctestMode::Include, &cache);
+
+        assert_eq!(diagnostic_ids(&alpha_diagnostics), ["type.mismatch"]);
+        assert_eq!(diagnostic_ids(&beta_diagnostics), ["type.mismatch"]);
+        assert_diagnostics_contain(
+            &alpha_diagnostics,
+            "src/alpha.veln#doctest-1_test.veln",
+            "expected `Int`, but found `String`",
+        );
+        assert_diagnostics_contain(
+            &beta_diagnostics,
+            "src/beta.veln#doctest-1_test.veln",
+            "expected `Bool`, but found `Int`",
+        );
+        assert_no_project_leak(
+            &alpha_diagnostics,
+            "src/beta.veln#doctest-1_test.veln",
+            "src/beta.veln",
+            "expected `Bool`, but found `Int`",
+        );
+        assert_no_project_leak(
+            &beta_diagnostics,
+            "src/alpha.veln#doctest-1_test.veln",
+            "src/alpha.veln",
+            "expected `Int`, but found `String`",
+        );
+        assert!(checked_diagnostic_json_with_cache(alpha, &cache).is_empty());
+        assert!(checked_diagnostic_json_with_cache(beta, &cache).is_empty());
+        assert_eq!(cache.standard_prepares(), 1);
+        assert_eq!(cache.application_analyses(), 4);
+    }
+
     fn checked_diagnostic_json(project: Project) -> Vec<String> {
         analyze_project(project, DoctestMode::Exclude)
             .checked_diagnostics()
             .iter()
             .map(|diagnostic| diagnostic_to_json(diagnostic).to_json())
             .collect()
+    }
+
+    fn checked_diagnostic_json_with_cache(
+        project: Project,
+        cache: &crate::analysis::TestStandardEnvironmentCache,
+    ) -> Vec<String> {
+        checked_diagnostic_json_with_cache_and_mode(project, DoctestMode::Exclude, cache)
+    }
+
+    fn checked_diagnostic_json_with_cache_and_mode(
+        project: Project,
+        doctest_mode: DoctestMode,
+        cache: &crate::analysis::TestStandardEnvironmentCache,
+    ) -> Vec<String> {
+        crate::analysis::analyze_project_with_test_standard_cache(project, doctest_mode, cache)
+            .checked_diagnostics()
+            .iter()
+            .map(|diagnostic| diagnostic_to_json(diagnostic).to_json())
+            .collect()
+    }
+
+    fn lowered_function_names(analysis: &ReachableEntryAnalysis) -> Vec<&str> {
+        analysis
+            .lowered
+            .core
+            .as_ref()
+            .expect("reachable entry should lower to core")
+            .functions
+            .iter()
+            .map(|function| function.name.as_str())
+            .collect()
+    }
+
+    fn checked_discovered_diagnostic_json_with_cache(
+        temp: &TempProject,
+        inputs: &[PathBuf],
+        cache: &crate::analysis::TestStandardEnvironmentCache,
+    ) -> Vec<String> {
+        checked_diagnostic_json_with_cache(
+            Project::discover(temp.root().to_path_buf(), inputs)
+                .expect("project discovery should succeed"),
+            cache,
+        )
     }
 
     fn assert_project_evidence(
@@ -265,12 +584,29 @@ mod tests {
         );
     }
 
+    fn assert_diagnostics_contain(diagnostics: &[String], source_path: &str, type_message: &str) {
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains(source_path)),
+            "{diagnostics:#?}"
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains(type_message)),
+            "{diagnostics:#?}"
+        );
+    }
+
     fn diagnostic_ids(diagnostics: &[String]) -> Vec<&'static str> {
         diagnostics
             .iter()
             .map(|diagnostic| {
                 if diagnostic.contains("\"id\":\"module.source_mod\"") {
                     "module.source_mod"
+                } else if diagnostic.contains("\"id\":\"manifest.missing_export\"") {
+                    "manifest.missing_export"
                 } else if diagnostic.contains("\"id\":\"type.mismatch\"") {
                     "type.mismatch"
                 } else {
@@ -285,6 +621,44 @@ mod tests {
             root: ".".into(),
             files: vec![SourceFile::new(path, text)],
             manifest: None,
+        }
+    }
+
+    struct TempProject {
+        root: PathBuf,
+    }
+
+    impl TempProject {
+        fn new(name: &str) -> Self {
+            let unique = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system time should be after Unix epoch")
+                .as_nanos();
+            let root = std::env::temp_dir().join(format!(
+                "veln-analysis-{name}-{}-{unique}",
+                std::process::id()
+            ));
+            let _ = fs::remove_dir_all(&root);
+            fs::create_dir_all(&root).expect("temporary project root should be created");
+            Self { root }
+        }
+
+        fn root(&self) -> &Path {
+            &self.root
+        }
+
+        fn write(&self, relative: &str, contents: &str) {
+            let path = self.root.join(relative);
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent).expect("temporary project parent should be created");
+            }
+            fs::write(path, contents).expect("temporary project file should be written");
+        }
+    }
+
+    impl Drop for TempProject {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.root);
         }
     }
 

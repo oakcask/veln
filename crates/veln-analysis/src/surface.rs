@@ -16,7 +16,7 @@ use veln_project::{
 use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{TokenKind, lex, parse};
 
-use crate::parse_diagnostic_to_envelope;
+use crate::diagnostics::parse_diagnostic_to_envelope;
 
 pub fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diagnostic>) {
     let mut diagnostics = Vec::new();
@@ -46,6 +46,15 @@ pub fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diagnostic>
     add_implicit_standard_prelude_imports(&mut parts);
 
     (parts.module, diagnostics)
+}
+
+pub fn load_embedded_standard_surface_module() -> SurfaceModule {
+    let standard = embedded_standard_package();
+    let mut parts = SurfaceParts::new();
+    for module in standard.modules.values() {
+        merge_surface_parts(&mut parts, &module.parts);
+    }
+    parts.module
 }
 
 #[derive(Clone)]
@@ -274,34 +283,7 @@ fn load_external_dependencies(
 }
 
 fn load_embedded_standard_package(diagnostics: &mut Vec<Diagnostic>, parts: &mut SurfaceParts) {
-    let standard = EMBEDDED_STANDARD_PACKAGE.get_or_init(|| {
-        let bundle = veln_stdlib::package_bundle();
-        let modules = bundle
-            .files
-            .iter()
-            .filter_map(|file| {
-                let project = Project {
-                    root: ".".into(),
-                    files: vec![SourceFile::new(file.path, file.text)],
-                    manifest: None,
-                };
-                let mut diagnostics = Vec::new();
-                let mut parts = SurfaceParts::new();
-                load_project_sources(
-                    &project,
-                    &mut diagnostics,
-                    &mut parts,
-                    Some(veln_stdlib::PACKAGE_NAME),
-                );
-                let module_name = parts
-                    .derived_modules
-                    .first()
-                    .map(|(module_name, _)| module_name.clone())?;
-                Some((module_name, EmbeddedStandardModule { parts, diagnostics }))
-            })
-            .collect();
-        EmbeddedStandardPackage { modules }
-    });
+    let standard = embedded_standard_package();
 
     let mut pending = vec![external_module_key(veln_stdlib::PACKAGE_NAME, "prelude")];
     pending.extend(
@@ -336,6 +318,37 @@ fn load_embedded_standard_package(diagnostics: &mut Vec<Diagnostic>, parts: &mut
         diagnostics.extend(module.diagnostics.clone());
         merge_surface_parts(parts, &module.parts);
     }
+}
+
+fn embedded_standard_package() -> &'static EmbeddedStandardPackage {
+    EMBEDDED_STANDARD_PACKAGE.get_or_init(|| {
+        let bundle = veln_stdlib::package_bundle();
+        let modules = bundle
+            .files
+            .iter()
+            .filter_map(|file| {
+                let project = Project {
+                    root: ".".into(),
+                    files: vec![SourceFile::new(file.path, file.text)],
+                    manifest: None,
+                };
+                let mut diagnostics = Vec::new();
+                let mut parts = SurfaceParts::new();
+                load_project_sources(
+                    &project,
+                    &mut diagnostics,
+                    &mut parts,
+                    Some(veln_stdlib::PACKAGE_NAME),
+                );
+                let module_name = parts
+                    .derived_modules
+                    .first()
+                    .map(|(module_name, _)| module_name.clone())?;
+                Some((module_name, EmbeddedStandardModule { parts, diagnostics }))
+            })
+            .collect();
+        EmbeddedStandardPackage { modules }
+    })
 }
 
 fn merge_surface_parts(parts: &mut SurfaceParts, additions: &SurfaceParts) {

@@ -238,14 +238,73 @@ unchanged. It narrows only analyzer work:
   projects that use overlapping source paths and declaration names. The test
   compares each result with that project's isolated ordered JSON sequence and
   checks that project-specific module and type facts do not appear in the
-  other project's result.
+  other project's result;
+- reusable standard-library semantic signatures are implemented for
+  application project analysis. `veln-analysis` prepares one immutable
+  standard environment from the embedded standard-library bundle and passes it
+  to `veln-sema` for project checks and reachable-entry lowering. The reusable
+  environment is keyed by the embedded standard-library bundle and semantic
+  model. Preparing reusable facts from a module set that does not match the
+  embedded bundle produces a non-current identity, so application analysis
+  falls back to the uncached path instead of trusting unrelated facts.
+  `veln-sema` keeps the uncached path available and compares cached and
+  uncached diagnostic JSON, lowered core output, and lowered IR output for a
+  successful project, a project with type/effect diagnostics, applications
+  with overlapping source paths and declaration names, a local `std::`-prefixed
+  application module that is outside the reusable standard bundle, and a local
+  application source whose module identity collides with an embedded standard
+  module name. The same `veln-sema` coverage also checks a standard module
+  import used by a standard public alias. The cached path removes only the
+  prepared standard declarations from the fresh application environment, so
+  same-path and same-module application declarations still construct
+  project-local facts. Test-only work counters prove repeated and concurrent
+  cached analyses prepare the reusable standard signatures once while each
+  non-empty application analysis constructs fresh semantic facts. `veln-analysis`
+  regression tests exercise the embedded-standard `OnceLock` path with
+  repeated and concurrent distinct projects, local application sources whose
+  module name begins with `std::`, and a local `std::prelude` collision;
+- reusable standard-library semantic signatures are restricted to the embedded
+  standard modules that the merged application project actually loaded. The
+  cached path keeps the reusable environment immutable and combines each
+  application environment with only that project's standard dependency closure.
+  `veln-sema` coverage prepares a reusable standard environment with an unused
+  standard module and checks that an application that loaded only
+  `std::prelude` receives only `std::prelude` function facts while still
+  matching uncached diagnostics and lowering;
+- reusable standard-library environments are prepared eagerly and immutably
+  from the embedded standard module set. Preparation constructs the standard
+  semantic signature environment once, records the embedded bundle identity and
+  declaration fingerprints, and stores the result behind shared ownership
+  without a mutable cross-project environment map. Each cached application
+  analysis derives its selected standard base from the prepared signatures
+  instead of rebuilding standard signatures during application analysis.
+  `veln-sema` coverage checks applications that load only `std::prelude` and
+  applications that load `std::prelude` plus another standard module while the
+  prepared standard-environment work counter remains at one across repeated
+  and concurrent analyses;
+- cached standard-library facts are cloned only when combining selected
+  prepared facts with freshly constructed application facts. Cache hits do not
+  share mutable application state, diagnostics, lowering state, reachability
+  state, or IR between projects.
+
+The controlled benchmark run for the immutable standard-environment
+preparation slice kept functional outputs equal and wall-time noise within the
+accepted boundary. Median wall time changed from 0.86 to 1.09 seconds for the
+small schema workload, from 1.44 to 1.26 seconds for HPACK static, from 1.51
+to 1.33 seconds for HTTP/2 core, from 6.44 to 6.38 seconds for HTTP/2
+connection, and from 0.77/0.78/0.86 to 0.99/1.00/1.09 seconds for generated
+32/64/128 module workloads. The generated-size CPU growth checks passed. The
+representative HTTP/2 improvement thresholds did not pass.
 
 The remaining proposal work is explicit:
 
-- analysis cache and project-isolation work remains incomplete;
+- application analysis caching remains out of scope and incomplete;
 - representative HTTP/2 core and connection improvement evidence remains
   incomplete;
-- generated-size benchmark comparisons remain required completion evidence.
+- controlled benchmark evidence must still show which analyzer stage keeps the
+  representative HTTP/2 workloads above the intended wall-time threshold after
+  standard-environment reuse, dependency-closure restriction, immutable
+  standard-environment preparation, and shared cache-hit ownership.
 
 ## Non-Goals
 

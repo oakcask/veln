@@ -13,7 +13,9 @@ use crate::analysis::{
 };
 use crate::lowering::{lower_project_surface_module_to_core, lower_surface_module_to_core};
 use crate::schema;
-use crate::types::TypeEnvironment;
+use crate::types::{
+    ReusableStandardEnvironment, TypeEnvironment, prepare_reusable_standard_environment,
+};
 
 #[derive(Clone, Debug)]
 pub struct LoweredSurfaceModule {
@@ -31,6 +33,27 @@ pub fn check_project_surface_module(
     module: &SurfaceModule,
 ) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
     let environment = TypeEnvironment::from_module(module);
+    check_project_surface_module_with_environment(module, environment)
+}
+
+pub fn check_project_surface_module_with_standard_environment(
+    module: &SurfaceModule,
+    standard: &ReusableStandardEnvironment,
+) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
+    let environment = TypeEnvironment::from_module_with_standard(module, standard);
+    check_project_surface_module_with_environment(module, environment)
+}
+
+pub fn prepare_reusable_standard_surface_module_environment(
+    module: &SurfaceModule,
+) -> ReusableStandardEnvironment {
+    prepare_reusable_standard_environment(module)
+}
+
+fn check_project_surface_module_with_environment(
+    module: &SurfaceModule,
+    environment: TypeEnvironment,
+) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
     let validate_standard_bodies = should_validate_standard_bodies(module);
     let semantic_diagnostics =
         analyze_surface_module_with_environment(module, &environment, validate_standard_bodies);
@@ -91,6 +114,21 @@ pub fn lower_checked_surface_module(module: &SurfaceModule) -> LoweredSurfaceMod
 
 pub fn lower_project_reachable_surface_module(module: &SurfaceModule) -> LoweredSurfaceModule {
     let environment = TypeEnvironment::from_module(module);
+    lower_project_reachable_surface_module_with_environment(module, environment)
+}
+
+pub fn lower_project_reachable_surface_module_with_standard_environment(
+    module: &SurfaceModule,
+    standard: &ReusableStandardEnvironment,
+) -> LoweredSurfaceModule {
+    let environment = TypeEnvironment::from_module_with_standard(module, standard);
+    lower_project_reachable_surface_module_with_environment(module, environment)
+}
+
+fn lower_project_reachable_surface_module_with_environment(
+    module: &SurfaceModule,
+    environment: TypeEnvironment,
+) -> LoweredSurfaceModule {
     let diagnostics = analyze_surface_module_with_environment(
         module,
         &environment,
