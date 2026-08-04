@@ -265,36 +265,36 @@ unchanged. It narrows only analyzer work:
   module name begins with `std::`, and a local `std::prelude` collision;
 - reusable standard-library semantic signatures are restricted to the embedded
   standard modules that the merged application project actually loaded. The
-  cached path keeps the reusable environment immutable, but it builds each
-  application base environment from only that project's standard dependency
-  closure. `veln-sema` coverage prepares a reusable standard environment with
-  an unused standard module and checks that an application that loaded only
+  cached path keeps the reusable environment immutable and combines each
+  application environment with only that project's standard dependency closure.
+  `veln-sema` coverage prepares a reusable standard environment with an unused
+  standard module and checks that an application that loaded only
   `std::prelude` receives only `std::prelude` function facts while still
   matching uncached diagnostics and lowering;
-- reusable standard-library environments are built lazily per loaded standard
-  module set instead of eagerly constructing the full embedded standard
-  environment before every one-shot application analysis. The reusable value
-  still records the embedded bundle identity and declaration fingerprints when
-  it is prepared, while each cached environment entry is derived only from
-  the standard declarations selected by that application's dependency closure.
-  `veln-sema` coverage checks that the same reusable value creates distinct
-  lazy entries for applications that load only `std::prelude` and applications
-  that load `std::prelude` plus another standard module, and that later
-  analyses of the same loaded set reuse the existing entry;
-- cached standard-library environments are stored behind immutable shared
-  ownership. Cache hits share the selected standard environment value and clone
-  standard facts only when combining them with freshly constructed application
-  facts, so repeated application analyses no longer deep-clone the selected
-  standard environment before that combination step.
+- reusable standard-library environments are prepared eagerly and immutably
+  from the embedded standard module set. Preparation constructs the standard
+  semantic signature environment once, records the embedded bundle identity and
+  declaration fingerprints, and stores the result behind shared ownership
+  without a mutable cross-project environment map. Each cached application
+  analysis derives its selected standard base from the prepared signatures
+  instead of rebuilding standard signatures during application analysis.
+  `veln-sema` coverage checks applications that load only `std::prelude` and
+  applications that load `std::prelude` plus another standard module while the
+  prepared standard-environment work counter remains at one across repeated
+  and concurrent analyses;
+- cached standard-library facts are cloned only when combining selected
+  prepared facts with freshly constructed application facts. Cache hits do not
+  share mutable application state, diagnostics, lowering state, reachability
+  state, or IR between projects.
 
-The controlled benchmark run for the shared cache-hit ownership slice kept
-functional outputs equal and wall-time noise within the accepted boundary.
-Median wall time changed from 0.87 to 0.88 seconds for the small schema
-workload, from 1.45 to 1.43 seconds for HPACK static, from 1.59 to 1.59
-seconds for HTTP/2 core, from 6.35 to 6.41 seconds for HTTP/2 connection, and
-from 0.79/0.81/0.84 to 0.78/0.81/0.85 seconds for generated 32/64/128 module
-workloads. The generated-size CPU growth checks passed. The representative
-HTTP/2 improvement thresholds did not pass.
+The controlled benchmark run for the immutable standard-environment
+preparation slice kept functional outputs equal and wall-time noise within the
+accepted boundary. Median wall time changed from 0.86 to 1.09 seconds for the
+small schema workload, from 1.44 to 1.26 seconds for HPACK static, from 1.51
+to 1.33 seconds for HTTP/2 core, from 6.44 to 6.38 seconds for HTTP/2
+connection, and from 0.77/0.78/0.86 to 0.99/1.00/1.09 seconds for generated
+32/64/128 module workloads. The generated-size CPU growth checks passed. The
+representative HTTP/2 improvement thresholds did not pass.
 
 The remaining proposal work is explicit:
 
@@ -303,8 +303,8 @@ The remaining proposal work is explicit:
   incomplete;
 - controlled benchmark evidence must still show which analyzer stage keeps the
   representative HTTP/2 workloads above the intended wall-time threshold after
-  standard-environment reuse, dependency-closure restriction, lazy standard
-  environment construction, and shared cache-hit ownership.
+  standard-environment reuse, dependency-closure restriction, immutable
+  standard-environment preparation, and shared cache-hit ownership.
 
 ## Non-Goals
 

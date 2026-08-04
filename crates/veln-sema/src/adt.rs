@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use veln_ast::{PublicAliasKind, SurfaceModule, TypeDecl, UseDecl, Visibility};
 use veln_core::CoreType;
@@ -125,6 +125,30 @@ impl AdtRegistry {
 
     pub(crate) fn descriptors(&self) -> &[AdtDescriptor] {
         &self.descriptors
+    }
+
+    pub(crate) fn standard_subset(&self, module_names: &BTreeSet<String>) -> Self {
+        Self {
+            descriptors: self
+                .descriptors
+                .iter()
+                .filter(|descriptor| {
+                    descriptor
+                        .module_name
+                        .as_deref()
+                        .is_none_or(|module_name| module_names.contains(module_name))
+                })
+                .cloned()
+                .collect(),
+            companion_access_targets: self
+                .companion_access_targets
+                .iter()
+                .filter(|(module, target)| {
+                    module_names.contains(module.as_str()) && module_names.contains(target.as_str())
+                })
+                .map(|(module, target)| (module.clone(), target.clone()))
+                .collect(),
+        }
     }
 
     pub(crate) fn descriptor_for_type(&self, ty: &Type) -> Option<&AdtDescriptor> {

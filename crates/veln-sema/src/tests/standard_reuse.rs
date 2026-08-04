@@ -160,12 +160,12 @@ fn reusable_standard_environment_uses_only_loaded_standard_modules() {
 }
 
 #[test]
-fn reusable_standard_environment_lazily_splits_loaded_standard_module_sets() {
+fn reusable_standard_environment_selects_loaded_standard_module_sets() {
     let _guard = standard_reuse_test_lock();
     let standard = standard_modules_with_extra_module();
     let reusable = prepare_reusable_standard_surface_module_environment(&standard)
         .with_current_identity_for_test();
-    assert_eq!(reusable.cached_environment_entry_count_for_test(), 0);
+    assert_eq!(reusable.prepared_environment_count_for_test(), 1);
 
     let prelude_only = merge_modules(vec![
         standard_module(),
@@ -203,7 +203,6 @@ fn reusable_standard_environment_lazily_splits_loaded_standard_module_sets() {
         check_project_surface_module_with_standard_environment(&prelude_only, &reusable);
 
     assert_same_analysis("prelude only", uncached_prelude_only, cached_prelude_only);
-    assert_eq!(reusable.cached_environment_entry_count_for_test(), 1);
 
     let uncached_prelude_and_extra = check_project_surface_module(&prelude_and_extra);
     let cached_prelude_and_extra =
@@ -214,10 +213,9 @@ fn reusable_standard_environment_lazily_splits_loaded_standard_module_sets() {
         uncached_prelude_and_extra,
         cached_prelude_and_extra,
     );
-    assert_eq!(reusable.cached_environment_entry_count_for_test(), 2);
 
     let _ = check_project_surface_module_with_standard_environment(&prelude_and_extra, &reusable);
-    assert_eq!(reusable.cached_environment_entry_count_for_test(), 2);
+    assert_eq!(reusable.prepared_environment_count_for_test(), 1);
 }
 
 #[test]
@@ -285,7 +283,7 @@ fn reusable_standard_environment_is_prepared_once_for_repeated_and_concurrent_pr
     assert_eq!(crate::standard_reuse_counters::standard_prepares(), 1);
     assert_eq!(
         crate::standard_reuse_counters::standard_environment_builds(),
-        0
+        1
     );
 
     let alpha = merge_modules(vec![

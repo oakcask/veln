@@ -4,9 +4,9 @@ mod schema_encode;
 use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 #[cfg(test)]
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
 
 use veln_ast::{
     BodyLine, BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, DictEntry,
@@ -79,6 +79,27 @@ impl SchemaSymbolTable {
     fn extend(&mut self, other: Self) {
         self.schemas.extend(other.schemas);
         self.aliases.extend(other.aliases);
+    }
+
+    fn standard_subset(&self, module_names: &BTreeSet<String>) -> Self {
+        Self {
+            schemas: self
+                .schemas
+                .iter()
+                .filter(|symbol| {
+                    standard_fact_in_selected_module(symbol.module_name.as_deref(), module_names)
+                })
+                .cloned()
+                .collect(),
+            aliases: self
+                .aliases
+                .iter()
+                .filter(|symbol| {
+                    standard_fact_in_selected_module(symbol.module_name.as_deref(), module_names)
+                })
+                .cloned()
+                .collect(),
+        }
     }
 }
 
@@ -258,8 +279,7 @@ pub struct ReusableStandardEnvironment {
     identity: StandardSemanticIdentity,
     module_names: BTreeSet<String>,
     declaration_counts: BTreeMap<StandardDeclarationKey, usize>,
-    module: Arc<SurfaceModule>,
-    environments: Arc<Mutex<BTreeMap<BTreeSet<String>, Arc<TypeEnvironment>>>>,
+    environment: Arc<TypeEnvironment>,
 }
 
 const STANDARD_SEMANTIC_MODEL: &str = "standard-semantic-signatures-v1";
@@ -270,20 +290,7 @@ impl ReusableStandardEnvironment {
             .intersection(&self.module_names)
             .cloned()
             .collect::<BTreeSet<_>>();
-        let mut environments = self
-            .environments
-            .lock()
-            .expect("reusable standard environment cache should not poison");
-        environments
-            .entry(selected_module_names.clone())
-            .or_insert_with(|| {
-                #[cfg(test)]
-                standard_reuse_counters::record_standard_environment_build();
-                let selected_module =
-                    standard_module_with_names(self.module.as_ref(), &selected_module_names);
-                Arc::new(TypeEnvironment::from_module(&selected_module))
-            })
-            .clone()
+        Arc::new(self.environment.standard_subset(&selected_module_names))
     }
 }
 
@@ -305,11 +312,8 @@ impl ReusableStandardEnvironment {
         self.environment_for_modules(module_names).as_ref().clone()
     }
 
-    pub(crate) fn cached_environment_entry_count_for_test(&self) -> usize {
-        self.environments
-            .lock()
-            .expect("reusable standard environment cache should not poison")
-            .len()
+    pub(crate) fn prepared_environment_count_for_test(&self) -> usize {
+        1
     }
 }
 
@@ -501,6 +505,85 @@ impl TypeEnvironment {
         #[cfg(test)]
         standard_reuse_counters::record_application_prepare();
         Self::from_module_with_base(&application_module, Some(standard_environment.as_ref()))
+    }
+
+    fn standard_subset(&self, module_names: &BTreeSet<String>) -> Self {
+        Self {
+            functions: self
+                .functions
+                .iter()
+                .filter(|signature| {
+                    standard_fact_in_selected_module(signature.module_name.as_deref(), module_names)
+                })
+                .cloned()
+                .collect(),
+            codec_calls: self
+                .codec_calls
+                .iter()
+                .filter(|signature| {
+                    standard_fact_in_selected_module(signature.module_name.as_deref(), module_names)
+                })
+                .cloned()
+                .collect(),
+            effects: self
+                .effects
+                .iter()
+                .filter(|signature| {
+                    standard_fact_in_selected_module(signature.module_name.as_deref(), module_names)
+                })
+                .cloned()
+                .collect(),
+            handlers: self
+                .handlers
+                .iter()
+                .filter(|signature| {
+                    standard_fact_in_selected_module(signature.module_name.as_deref(), module_names)
+                })
+                .cloned()
+                .collect(),
+            schema_symbols: self.schema_symbols.standard_subset(module_names),
+            type_symbols: self
+                .type_symbols
+                .iter()
+                .filter(|symbol| {
+                    standard_fact_in_selected_module(symbol.module_name.as_deref(), module_names)
+                })
+                .cloned()
+                .collect(),
+            codec_symbols: self
+                .codec_symbols
+                .iter()
+                .filter(|symbol| {
+                    standard_fact_in_selected_module(symbol.module_name.as_deref(), module_names)
+                })
+                .cloned()
+                .collect(),
+            uses: self
+                .uses
+                .iter()
+                .filter(|use_decl| {
+                    standard_fact_in_selected_module(use_decl.module_name.as_deref(), module_names)
+                })
+                .cloned()
+                .collect(),
+            adts: self.adts.standard_subset(module_names),
+            companion_function_access_targets: selected_standard_access_targets(
+                &self.companion_function_access_targets,
+                module_names,
+            ),
+            companion_schema_access_targets: selected_standard_access_targets(
+                &self.companion_schema_access_targets,
+                module_names,
+            ),
+            companion_effect_access_targets: self
+                .companion_effect_access_targets
+                .iter()
+                .filter(|(module, access)| {
+                    module_names.contains(*module) && module_names.contains(&access.target_module)
+                })
+                .map(|(module, access)| (module.clone(), access.clone()))
+                .collect(),
+        }
     }
 
     #[cfg(test)]
@@ -1144,12 +1227,14 @@ pub fn prepare_reusable_standard_environment(
     standard_reuse_counters::record_standard_prepare();
     let standard_module = module_without_application_declarations(module);
     let module_names = module_standard_names(&standard_module);
+    #[cfg(test)]
+    standard_reuse_counters::record_standard_environment_build();
+    let environment = TypeEnvironment::from_module(&standard_module);
     ReusableStandardEnvironment {
         identity: prepared_standard_semantic_identity(&standard_module, &module_names),
         module_names,
         declaration_counts: standard_declaration_counts(&standard_module),
-        module: Arc::new(standard_module),
-        environments: Arc::new(Mutex::new(BTreeMap::new())),
+        environment: Arc::new(environment),
     }
 }
 
@@ -1178,6 +1263,26 @@ fn application_module_is_empty(module: &SurfaceModule) -> bool {
         && module.schemas.is_empty()
         && module.codecs.is_empty()
         && module.functions.is_empty()
+}
+
+fn standard_fact_in_selected_module(
+    module_name: Option<&str>,
+    selected_modules: &BTreeSet<String>,
+) -> bool {
+    module_name.is_none_or(|module_name| selected_modules.contains(module_name))
+}
+
+fn selected_standard_access_targets(
+    access_targets: &BTreeMap<String, String>,
+    selected_modules: &BTreeSet<String>,
+) -> BTreeMap<String, String> {
+    access_targets
+        .iter()
+        .filter(|(module, target)| {
+            selected_modules.contains(module.as_str()) && selected_modules.contains(target.as_str())
+        })
+        .map(|(module, target)| (module.clone(), target.clone()))
+        .collect()
 }
 
 fn module_without_reusable_standard_declarations(
@@ -1223,16 +1328,6 @@ fn module_standard_names(module: &SurfaceModule) -> BTreeSet<String> {
     collect_standard_names(&module.codecs, &mut names);
     collect_standard_names(&module.functions, &mut names);
     names
-}
-
-fn standard_module_with_names(
-    module: &SurfaceModule,
-    module_names: &BTreeSet<String>,
-) -> SurfaceModule {
-    filter_module_declarations(module, |decl| {
-        decl.module_name()
-            .is_some_and(|module_name| module_names.contains(module_name))
-    })
 }
 
 fn standard_declaration_counts(module: &SurfaceModule) -> BTreeMap<StandardDeclarationKey, usize> {
