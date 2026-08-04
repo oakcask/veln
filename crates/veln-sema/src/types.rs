@@ -85,22 +85,12 @@ impl SchemaSymbolTable {
 
     fn standard_subset(&self, module_names: &BTreeSet<String>) -> Self {
         Self {
-            schemas: self
-                .schemas
-                .iter()
-                .filter(|symbol| {
-                    standard_fact_in_selected_module(symbol.module_name.as_deref(), module_names)
-                })
-                .cloned()
-                .collect(),
-            aliases: self
-                .aliases
-                .iter()
-                .filter(|symbol| {
-                    standard_fact_in_selected_module(symbol.module_name.as_deref(), module_names)
-                })
-                .cloned()
-                .collect(),
+            schemas: selected_standard_facts(&self.schemas, module_names, |symbol| {
+                symbol.module_name.as_deref()
+            }),
+            aliases: selected_standard_facts(&self.aliases, module_names, |symbol| {
+                symbol.module_name.as_deref()
+            }),
         }
     }
 }
@@ -577,67 +567,32 @@ impl TypeEnvironment {
     }
 
     fn standard_subset(&self, module_names: &BTreeSet<String>) -> Self {
-        let functions = self
-            .functions
-            .iter()
-            .filter(|signature| {
-                standard_fact_in_selected_module(signature.module_name.as_deref(), module_names)
-            })
-            .cloned()
-            .collect::<Vec<_>>();
+        let functions = selected_standard_facts(&self.functions, module_names, |signature| {
+            signature.module_name.as_deref()
+        });
         let functions_by_name = Self::function_name_index(&functions);
         Self {
             functions,
             functions_by_name,
-            codec_calls: self
-                .codec_calls
-                .iter()
-                .filter(|signature| {
-                    standard_fact_in_selected_module(signature.module_name.as_deref(), module_names)
-                })
-                .cloned()
-                .collect(),
-            effects: self
-                .effects
-                .iter()
-                .filter(|signature| {
-                    standard_fact_in_selected_module(signature.module_name.as_deref(), module_names)
-                })
-                .cloned()
-                .collect(),
-            handlers: self
-                .handlers
-                .iter()
-                .filter(|signature| {
-                    standard_fact_in_selected_module(signature.module_name.as_deref(), module_names)
-                })
-                .cloned()
-                .collect(),
+            codec_calls: selected_standard_facts(&self.codec_calls, module_names, |signature| {
+                signature.module_name.as_deref()
+            }),
+            effects: selected_standard_facts(&self.effects, module_names, |signature| {
+                signature.module_name.as_deref()
+            }),
+            handlers: selected_standard_facts(&self.handlers, module_names, |signature| {
+                signature.module_name.as_deref()
+            }),
             schema_symbols: self.schema_symbols.standard_subset(module_names),
-            type_symbols: self
-                .type_symbols
-                .iter()
-                .filter(|symbol| {
-                    standard_fact_in_selected_module(symbol.module_name.as_deref(), module_names)
-                })
-                .cloned()
-                .collect(),
-            codec_symbols: self
-                .codec_symbols
-                .iter()
-                .filter(|symbol| {
-                    standard_fact_in_selected_module(symbol.module_name.as_deref(), module_names)
-                })
-                .cloned()
-                .collect(),
-            uses: self
-                .uses
-                .iter()
-                .filter(|use_decl| {
-                    standard_fact_in_selected_module(use_decl.module_name.as_deref(), module_names)
-                })
-                .cloned()
-                .collect(),
+            type_symbols: selected_standard_facts(&self.type_symbols, module_names, |symbol| {
+                symbol.module_name.as_deref()
+            }),
+            codec_symbols: selected_standard_facts(&self.codec_symbols, module_names, |symbol| {
+                symbol.module_name.as_deref()
+            }),
+            uses: selected_standard_facts(&self.uses, module_names, |use_decl| {
+                use_decl.module_name.as_deref()
+            }),
             adts: self.adts.standard_subset(module_names),
             companion_function_access_targets: selected_standard_access_targets(
                 &self.companion_function_access_targets,
@@ -1347,6 +1302,18 @@ fn standard_fact_in_selected_module(
     selected_modules: &BTreeSet<String>,
 ) -> bool {
     module_name.is_none_or(|module_name| selected_modules.contains(module_name))
+}
+
+fn selected_standard_facts<T: Clone>(
+    facts: &[T],
+    selected_modules: &BTreeSet<String>,
+    module_name: impl for<'a> Fn(&'a T) -> Option<&'a str>,
+) -> Vec<T> {
+    facts
+        .iter()
+        .filter(|fact| standard_fact_in_selected_module(module_name(fact), selected_modules))
+        .cloned()
+        .collect()
 }
 
 fn selected_standard_access_targets(
