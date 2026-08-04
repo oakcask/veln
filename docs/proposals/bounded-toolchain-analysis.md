@@ -89,9 +89,11 @@ lowering state.
 
 ## Performance Acceptance Model
 
-Implementation must add `scripts/benchmark-toolchain-analysis`. The script
-will build or select one debug toolchain binary before measurement. It will
-measure these tracked workloads:
+The implemented benchmark slice provides
+`scripts/benchmark-toolchain-analysis`. The script compares two prebuilt
+toolchain binaries. Toolchain builds stay outside measured runs. The script
+records the exact binary and workload command used for every result. It
+measures these tracked workloads:
 
 - a small schema example that does not import HTTP/2;
 - the HPACK static codec boundary example;
@@ -99,9 +101,10 @@ measure these tracked workloads:
 - the HTTP/2 connection application example;
 - generated fully annotated module graphs at three adjacent sizes.
 
-For each workload, the script will perform one warm-up run and five measured
-runs. It will report wall time, user CPU time, and the median for each metric.
-It will write machine-readable JSON when an output path is supplied.
+For each workload, the script performs one warm-up run and five measured runs
+by default. It alternates the baseline and new binary during comparison. It
+reports wall time, user CPU time, and the median for each metric. It writes
+deterministic machine-readable JSON when an output path is supplied.
 
 Before-and-after binaries must run on the same machine with the same build
 profile. Runs must alternate between the two binaries to reduce ordering bias.
@@ -109,7 +112,9 @@ If the median absolute deviation of wall time exceeds ten percent of the
 median, the result is noisy and must be repeated before it is used as
 acceptance evidence.
 
-The implementation is accepted when all of these comparisons pass:
+The script compares exit status and normalized functional output before it
+reports a performance result. The controlled benchmark result is accepted when
+all of these comparisons pass:
 
 | Comparison | Required result |
 | --- | --- |
@@ -119,6 +124,12 @@ The implementation is accepted when all of these comparisons pass:
 | First generated size versus second size | Doubling declarations increases median user CPU time by no more than 2.5 times |
 | Second generated size versus third size | Doubling declarations increases median user CPU time by no more than 2.5 times |
 | Functional outputs | Before-and-after exit status and normalized output are equal for every tracked workload |
+
+The toolchain-case overhead comparison requires a harness command that cannot
+be derived from the two CLI binary paths alone. Set
+`VELN_TOOLCHAIN_CASE_COMMAND` to the exact command to measure that case. When
+the variable is absent, the script reports that comparison as skipped instead
+of silently treating it as passing.
 
 Hosted CI wall time is not a stable acceptance threshold. CI will continue to
 report nextest slow cases, but a particular hosted-run duration will not fail
@@ -170,13 +181,13 @@ bash scripts/agent-test -p veln-sema
 bash scripts/benchmark-toolchain-analysis compare BASELINE_BINARY NEW_BINARY
 ```
 
-The benchmark command does not exist until this proposal is implemented.
-
 ## Completion Boundary
 
-This proposal is complete only when the functional acceptance cases pass, the
-structural regression tests run in CI, and the controlled benchmark meets all
-comparison thresholds.
+This proposal is complete only when the analyzer optimization work lands, the
+functional acceptance cases pass, the structural regression tests run in CI,
+and the controlled benchmark meets all comparison thresholds. The benchmark
+harness slice is implemented, but it does not complete the analyzer
+optimization scope.
 
 After completion, move this document to
 `../reference/implemented-proposals/` and remove it from the proposal catalog.
