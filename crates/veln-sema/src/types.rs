@@ -302,6 +302,13 @@ impl ReusableStandardEnvironment {
     ) -> TypeEnvironment {
         self.environment_for_modules(module_names).as_ref().clone()
     }
+
+    pub(crate) fn cached_environment_entry_count_for_test(&self) -> usize {
+        self.environments
+            .lock()
+            .expect("reusable standard environment cache should not poison")
+            .len()
+    }
 }
 
 #[cfg(test)]

@@ -276,7 +276,11 @@ unchanged. It narrows only analyzer work:
   environment before every one-shot application analysis. The reusable value
   still records the embedded bundle identity and declaration fingerprints when
   it is prepared, while each cached environment entry is derived only from
-  the standard declarations selected by that application's dependency closure;
+  the standard declarations selected by that application's dependency closure.
+  `veln-sema` coverage checks that the same reusable value creates distinct
+  lazy entries for applications that load only `std::prelude` and applications
+  that load `std::prelude` plus another standard module, and that later
+  analyses of the same loaded set reuse the existing entry;
 - cached standard-library environments are stored behind immutable shared
   ownership. Cache hits share the selected standard environment value and clone
   standard facts only when combining them with freshly constructed application

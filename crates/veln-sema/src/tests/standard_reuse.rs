@@ -160,6 +160,67 @@ fn reusable_standard_environment_uses_only_loaded_standard_modules() {
 }
 
 #[test]
+fn reusable_standard_environment_lazily_splits_loaded_standard_module_sets() {
+    let _guard = standard_reuse_test_lock();
+    let standard = standard_modules_with_extra_module();
+    let reusable = prepare_reusable_standard_surface_module_environment(&standard)
+        .with_current_identity_for_test();
+    assert_eq!(reusable.cached_environment_entry_count_for_test(), 0);
+
+    let prelude_only = merge_modules(vec![
+        standard_module(),
+        app_case(
+            "prelude only",
+            "src/main.veln",
+            concat!(
+                "pub fn main() -> Int\n",
+                "  let boxed = prelude::answer(prelude::PayloadShape(1))\n",
+                "  1\n",
+                "end\n",
+            ),
+        )
+        .module,
+    ]);
+    let prelude_and_extra = merge_modules(vec![
+        standard_module(),
+        extra_standard_module(),
+        app_case(
+            "prelude and extra",
+            "src/main.veln",
+            concat!(
+                "use std::extra\n",
+                "\n",
+                "pub fn main() -> Int\n",
+                "  extra::extra_answer(1)\n",
+                "end\n",
+            ),
+        )
+        .module,
+    ]);
+
+    let uncached_prelude_only = check_project_surface_module(&prelude_only);
+    let cached_prelude_only =
+        check_project_surface_module_with_standard_environment(&prelude_only, &reusable);
+
+    assert_same_analysis("prelude only", uncached_prelude_only, cached_prelude_only);
+    assert_eq!(reusable.cached_environment_entry_count_for_test(), 1);
+
+    let uncached_prelude_and_extra = check_project_surface_module(&prelude_and_extra);
+    let cached_prelude_and_extra =
+        check_project_surface_module_with_standard_environment(&prelude_and_extra, &reusable);
+
+    assert_same_analysis(
+        "prelude and extra",
+        uncached_prelude_and_extra,
+        cached_prelude_and_extra,
+    );
+    assert_eq!(reusable.cached_environment_entry_count_for_test(), 2);
+
+    let _ = check_project_surface_module_with_standard_environment(&prelude_and_extra, &reusable);
+    assert_eq!(reusable.cached_environment_entry_count_for_test(), 2);
+}
+
+#[test]
 fn reusable_standard_environment_identity_mismatch_uses_uncached_analysis() {
     let _guard = standard_reuse_test_lock();
     crate::standard_reuse_counters::reset();
@@ -439,6 +500,22 @@ fn standard_modules_with_unused_module() -> SurfaceModule {
             "std::unused",
         ),
     ])
+}
+
+fn standard_modules_with_extra_module() -> SurfaceModule {
+    merge_modules(vec![standard_module(), extra_standard_module()])
+}
+
+fn extra_standard_module() -> SurfaceModule {
+    module_with_identity(
+        "extra.veln",
+        concat!(
+            "pub fn extra_answer(value: Int) -> Int\n",
+            "  value + 1\n",
+            "end\n",
+        ),
+        "std::extra",
+    )
 }
 
 fn module_with_identity(path: &str, text: &str, module_name: &str) -> SurfaceModule {
