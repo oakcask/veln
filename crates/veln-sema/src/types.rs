@@ -1259,141 +1259,163 @@ fn infer_function_and_private_handler_effects(
     user_effects: &[EffectSignature],
     handlers: &mut [HandlerSignature],
 ) {
-    let graph = effect_dependency_graph(module, functions, user_effects, handlers);
-    let companion_access_targets = companion_function_access_targets(module);
-    let companion_effect_access_targets = companion_access_target_infos(module);
-    let provider_companion_access_targets = companion_access_targets_for_signatures(functions);
-    let mut effects_by_function = functions
-        .iter()
-        .map(|function| {
-            (
-                (function.module_name.clone(), function.name.clone()),
-                function.effects.clone(),
-            )
-        })
-        .collect::<BTreeMap<_, _>>();
-    let mut effects_by_module_path = functions
-        .iter()
-        .filter_map(|function| {
-            Some((
-                (function.module_name.clone()?, function.name.clone()),
-                (function.effects.clone(), function.visibility),
-            ))
-        })
-        .collect::<BTreeMap<_, _>>();
-    let handler_index = handlers
-        .iter()
-        .enumerate()
-        .map(|(index, handler)| (handler.qualified_name.clone(), index))
-        .collect::<BTreeMap<_, _>>();
-    let function_index = functions
-        .iter()
-        .enumerate()
-        .map(|(index, function)| ((function.module_name.clone(), function.name.clone()), index))
-        .collect::<BTreeMap<_, _>>();
-    let function_ast_by_key = module
-        .functions
-        .iter()
-        .filter(|function| function.kind == FunctionKind::Function)
-        .filter_map(|function| {
-            Some((
-                (function.module_name.clone(), function.name.clone()?),
-                function,
-            ))
-        })
-        .collect::<BTreeMap<_, _>>();
-    let mut queue = graph.ordered_nodes.iter().cloned().collect::<VecDeque<_>>();
-    let mut queued = graph.nodes.clone();
-    let mut evaluated = BTreeSet::new();
+    EffectInference::new(module, functions, user_effects, handlers).run();
+}
 
-    while let Some(node) = queue.pop_front() {
-        queued.remove(&node);
-        let is_reevaluation = evaluated.contains(&node);
-        let changed = match &node {
-            EffectDependencyNode::Function(function_key) => {
-                let Some(function) = function_ast_by_key.get(function_key).copied() else {
-                    continue;
-                };
-                if is_reevaluation {
-                    #[cfg(test)]
-                    effect_inference_counters::record_changed_reevaluation();
-                }
-                let context = FunctionEffectContext {
-                    module,
-                    functions,
-                    user_effects,
-                    handlers,
-                    effects_by_function: &effects_by_function,
-                    effects_by_module_path: &effects_by_module_path,
-                    companion_access_targets: &companion_access_targets,
-                    companion_effect_access_targets: &companion_effect_access_targets,
-                };
-                let inferred = collect_function_body_effects(function, &context);
-                let changed = effects_by_function.get(function_key) != Some(&inferred);
-                if changed {
-                    effects_by_function.insert(function_key.clone(), inferred.clone());
-                    if let Some(module_name) = &function_key.0 {
-                        let visibility = function_index
-                            .get(function_key)
-                            .map(|index| functions[*index].visibility)
-                            .unwrap_or(Visibility::Private);
-                        effects_by_module_path.insert(
-                            (module_name.clone(), function_key.1.clone()),
-                            (inferred.clone(), visibility),
-                        );
-                    }
-                    if let Some(index) = function_index.get(function_key).copied() {
-                        functions[index].effects = inferred;
-                    }
-                }
-                changed
+type EffectsByFunction = BTreeMap<(Option<String>, String), Vec<String>>;
+type EffectsByModulePath = BTreeMap<(String, String), (Vec<String>, Visibility)>;
+
+struct EffectInference<'a> {
+    module: &'a SurfaceModule,
+    functions: &'a mut [FunctionSignature],
+    user_effects: &'a [EffectSignature],
+    handlers: &'a mut [HandlerSignature],
+    graph: EffectDependencyGraph,
+    companion_access_targets: BTreeMap<String, String>,
+    companion_effect_access_targets: BTreeMap<String, CompanionAccessTarget>,
+    provider_companion_access_targets: BTreeMap<String, String>,
+    effects_by_function: EffectsByFunction,
+    effects_by_module_path: EffectsByModulePath,
+    handler_index: BTreeMap<String, usize>,
+    function_index: BTreeMap<FunctionKey, usize>,
+    function_ast_by_key: BTreeMap<FunctionKey, &'a Function>,
+    queue: VecDeque<EffectDependencyNode>,
+    queued: BTreeSet<EffectDependencyNode>,
+    evaluated: BTreeSet<EffectDependencyNode>,
+}
+
+impl<'a> EffectInference<'a> {
+    fn new(
+        module: &'a SurfaceModule,
+        functions: &'a mut [FunctionSignature],
+        user_effects: &'a [EffectSignature],
+        handlers: &'a mut [HandlerSignature],
+    ) -> Self {
+        let graph = effect_dependency_graph(module, functions, user_effects, handlers);
+        let (effects_by_function, effects_by_module_path) = effect_lookup_maps(functions);
+        let queue = graph.ordered_nodes.iter().cloned().collect();
+        let queued = graph.nodes.clone();
+        Self {
+            module,
+            companion_access_targets: companion_function_access_targets(module),
+            companion_effect_access_targets: companion_access_target_infos(module),
+            provider_companion_access_targets: companion_access_targets_for_signatures(functions),
+            effects_by_function,
+            effects_by_module_path,
+            handler_index: handler_signature_index(handlers),
+            function_index: function_signature_index(functions),
+            function_ast_by_key: function_ast_index(module),
+            queue,
+            queued,
+            evaluated: BTreeSet::new(),
+            graph,
+            functions,
+            user_effects,
+            handlers,
+        }
+    }
+
+    fn run(mut self) {
+        while let Some(node) = self.queue.pop_front() {
+            self.queued.remove(&node);
+            let is_reevaluation = self.evaluated.contains(&node);
+            let Some(changed) = self.evaluate_node(&node, is_reevaluation) else {
+                continue;
+            };
+            self.evaluated.insert(node.clone());
+            if changed {
+                self.enqueue_dependents(&node);
             }
+        }
+    }
+
+    fn evaluate_node(
+        &mut self,
+        node: &EffectDependencyNode,
+        is_reevaluation: bool,
+    ) -> Option<bool> {
+        if is_reevaluation {
+            #[cfg(test)]
+            effect_inference_counters::record_changed_reevaluation();
+        }
+        match node {
+            EffectDependencyNode::Function(function_key) => self.evaluate_function(function_key),
             EffectDependencyNode::PrivateHandler(qualified_name) => {
-                let Some(index) = handler_index.get(qualified_name).copied() else {
-                    continue;
-                };
-                if is_reevaluation {
-                    #[cfg(test)]
-                    effect_inference_counters::record_changed_reevaluation();
-                }
-                let inferred = collect_private_handler_effects(
-                    &handlers[index],
-                    functions,
-                    &module.uses,
-                    &provider_companion_access_targets,
-                );
-                let changed = handlers[index].effects != inferred;
-                if changed {
-                    handlers[index].effects = inferred;
-                }
-                changed
+                self.evaluate_handler(qualified_name)
             }
+        }
+    }
+
+    fn evaluate_function(&mut self, function_key: &FunctionKey) -> Option<bool> {
+        let function = self.function_ast_by_key.get(function_key).copied()?;
+        let inferred = collect_function_body_effects(function, &self.function_context());
+        let changed = self.effects_by_function.get(function_key) != Some(&inferred);
+        if changed {
+            self.update_function_effects(function_key, inferred);
+        }
+        Some(changed)
+    }
+
+    fn evaluate_handler(&mut self, qualified_name: &str) -> Option<bool> {
+        let index = self.handler_index.get(qualified_name).copied()?;
+        let inferred = collect_private_handler_effects(
+            &self.handlers[index],
+            self.functions,
+            &self.module.uses,
+            &self.provider_companion_access_targets,
+        );
+        let changed = self.handlers[index].effects != inferred;
+        if changed {
+            self.handlers[index].effects = inferred;
+        }
+        Some(changed)
+    }
+
+    fn function_context(&self) -> FunctionEffectContext<'_> {
+        FunctionEffectContext {
+            module: self.module,
+            functions: self.functions,
+            user_effects: self.user_effects,
+            handlers: self.handlers,
+            effects_by_function: &self.effects_by_function,
+            effects_by_module_path: &self.effects_by_module_path,
+            companion_access_targets: &self.companion_access_targets,
+            companion_effect_access_targets: &self.companion_effect_access_targets,
+        }
+    }
+
+    fn update_function_effects(&mut self, function_key: &FunctionKey, inferred: Vec<String>) {
+        self.effects_by_function
+            .insert(function_key.clone(), inferred.clone());
+        if let Some(module_name) = &function_key.0 {
+            let visibility = self
+                .function_index
+                .get(function_key)
+                .map(|index| self.functions[*index].visibility)
+                .unwrap_or(Visibility::Private);
+            self.effects_by_module_path.insert(
+                (module_name.clone(), function_key.1.clone()),
+                (inferred.clone(), visibility),
+            );
+        }
+        if let Some(index) = self.function_index.get(function_key).copied() {
+            self.functions[index].effects = inferred;
+        }
+    }
+
+    fn enqueue_dependents(&mut self, node: &EffectDependencyNode) {
+        let Some(dependents) = self.graph.dependents.get(node) else {
+            return;
         };
-        evaluated.insert(node.clone());
-        if changed && let Some(dependents) = graph.dependents.get(&node) {
-            for dependent in dependents {
-                if queued.insert(dependent.clone()) {
-                    queue.push_back(dependent.clone());
-                }
+        for dependent in dependents {
+            if self.queued.insert(dependent.clone()) {
+                self.queue.push_back(dependent.clone());
             }
         }
     }
 }
 
-struct EffectDependencyGraph {
-    nodes: BTreeSet<EffectDependencyNode>,
-    ordered_nodes: Vec<EffectDependencyNode>,
-    dependents: BTreeMap<EffectDependencyNode, BTreeSet<EffectDependencyNode>>,
-}
-
-fn effect_dependency_graph(
-    module: &SurfaceModule,
-    functions: &[FunctionSignature],
-    user_effects: &[EffectSignature],
-    handlers: &[HandlerSignature],
-) -> EffectDependencyGraph {
-    let companion_access_targets = companion_function_access_targets(module);
-    let companion_effect_access_targets = companion_access_target_infos(module);
+fn effect_lookup_maps(functions: &[FunctionSignature]) -> (EffectsByFunction, EffectsByModulePath) {
     let effects_by_function = functions
         .iter()
         .map(|function| {
@@ -1412,73 +1434,156 @@ fn effect_dependency_graph(
             ))
         })
         .collect::<BTreeMap<_, _>>();
-    let mut nodes = BTreeSet::new();
-    let mut ordered_nodes = Vec::new();
-    let mut dependents = BTreeMap::<EffectDependencyNode, BTreeSet<EffectDependencyNode>>::new();
+    (effects_by_function, effects_by_module_path)
+}
+
+fn handler_signature_index(handlers: &[HandlerSignature]) -> BTreeMap<String, usize> {
+    handlers
+        .iter()
+        .enumerate()
+        .map(|(index, handler)| (handler.qualified_name.clone(), index))
+        .collect()
+}
+
+fn function_signature_index(functions: &[FunctionSignature]) -> BTreeMap<FunctionKey, usize> {
+    functions
+        .iter()
+        .enumerate()
+        .map(|(index, function)| ((function.module_name.clone(), function.name.clone()), index))
+        .collect()
+}
+
+fn function_ast_index(module: &SurfaceModule) -> BTreeMap<FunctionKey, &Function> {
+    module
+        .functions
+        .iter()
+        .filter(|function| function.kind == FunctionKind::Function)
+        .filter_map(|function| {
+            Some((
+                (function.module_name.clone(), function.name.clone()?),
+                function,
+            ))
+        })
+        .collect()
+}
+
+struct EffectDependencyGraph {
+    nodes: BTreeSet<EffectDependencyNode>,
+    ordered_nodes: Vec<EffectDependencyNode>,
+    dependents: BTreeMap<EffectDependencyNode, BTreeSet<EffectDependencyNode>>,
+}
+
+impl EffectDependencyGraph {
+    fn new() -> Self {
+        Self {
+            nodes: BTreeSet::new(),
+            ordered_nodes: Vec::new(),
+            dependents: BTreeMap::new(),
+        }
+    }
+
+    fn insert_node(&mut self, node: EffectDependencyNode) {
+        if self.nodes.insert(node.clone()) {
+            self.ordered_nodes.push(node);
+        }
+    }
+
+    fn insert_dependency(
+        &mut self,
+        dependency: EffectDependencyNode,
+        dependent: EffectDependencyNode,
+    ) {
+        self.dependents
+            .entry(dependency)
+            .or_default()
+            .insert(dependent);
+    }
+}
+
+fn effect_dependency_graph(
+    module: &SurfaceModule,
+    functions: &[FunctionSignature],
+    user_effects: &[EffectSignature],
+    handlers: &[HandlerSignature],
+) -> EffectDependencyGraph {
+    let companion_access_targets = companion_function_access_targets(module);
+    let companion_effect_access_targets = companion_access_target_infos(module);
+    let (effects_by_function, effects_by_module_path) = effect_lookup_maps(functions);
+    let context = FunctionEffectContext {
+        module,
+        functions,
+        user_effects,
+        handlers,
+        effects_by_function: &effects_by_function,
+        effects_by_module_path: &effects_by_module_path,
+        companion_access_targets: &companion_access_targets,
+        companion_effect_access_targets: &companion_effect_access_targets,
+    };
+    let mut graph = EffectDependencyGraph::new();
     for function in module
         .functions
         .iter()
         .filter(|function| function.kind == FunctionKind::Function)
     {
-        let Some(name) = &function.name else {
-            continue;
-        };
-        #[cfg(test)]
-        effect_inference_counters::record_dependency_discovery_scan();
-        let node = EffectDependencyNode::Function((function.module_name.clone(), name.clone()));
-        if nodes.insert(node.clone()) {
-            ordered_nodes.push(node.clone());
-        }
-        let context = FunctionEffectContext {
-            module,
-            functions,
-            user_effects,
-            handlers,
-            effects_by_function: &effects_by_function,
-            effects_by_module_path: &effects_by_module_path,
-            companion_access_targets: &companion_access_targets,
-            companion_effect_access_targets: &companion_effect_access_targets,
-        };
-        for dependency in function_effect_dependencies(function, &context) {
-            dependents
-                .entry(dependency)
-                .or_default()
-                .insert(node.clone());
-        }
+        insert_function_effect_dependencies(&mut graph, function, &context);
     }
     for handler in handlers
         .iter()
         .filter(|handler| handler.visibility != Visibility::Public)
     {
-        #[cfg(test)]
-        effect_inference_counters::record_dependency_discovery_scan();
-        let node = EffectDependencyNode::PrivateHandler(handler.qualified_name.clone());
-        if nodes.insert(node.clone()) {
-            ordered_nodes.push(node.clone());
-        }
-        for provider in &handler.providers {
-            if let Some(function) = function_signature_path(
-                &provider.provider,
-                &module.uses,
-                functions,
-                handler.module_name.as_deref(),
-                &companion_access_targets,
-            ) {
-                let dependency = EffectDependencyNode::Function((
-                    function.module_name.clone(),
-                    function.name.clone(),
-                ));
-                dependents
-                    .entry(dependency)
-                    .or_default()
-                    .insert(node.clone());
-            }
-        }
+        insert_handler_effect_dependencies(
+            &mut graph,
+            handler,
+            module,
+            functions,
+            &companion_access_targets,
+        );
     }
-    EffectDependencyGraph {
-        nodes,
-        ordered_nodes,
-        dependents,
+    graph
+}
+
+fn insert_function_effect_dependencies(
+    graph: &mut EffectDependencyGraph,
+    function: &Function,
+    context: &FunctionEffectContext<'_>,
+) {
+    let Some(name) = &function.name else {
+        return;
+    };
+    #[cfg(test)]
+    effect_inference_counters::record_dependency_discovery_scan();
+    let node = EffectDependencyNode::Function((function.module_name.clone(), name.clone()));
+    graph.insert_node(node.clone());
+    for dependency in function_effect_dependencies(function, context) {
+        graph.insert_dependency(dependency, node.clone());
+    }
+}
+
+fn insert_handler_effect_dependencies(
+    graph: &mut EffectDependencyGraph,
+    handler: &HandlerSignature,
+    module: &SurfaceModule,
+    functions: &[FunctionSignature],
+    companion_access_targets: &BTreeMap<String, String>,
+) {
+    #[cfg(test)]
+    effect_inference_counters::record_dependency_discovery_scan();
+    let node = EffectDependencyNode::PrivateHandler(handler.qualified_name.clone());
+    graph.insert_node(node.clone());
+    for provider in &handler.providers {
+        if let Some(function) = function_signature_path(
+            &provider.provider,
+            &module.uses,
+            functions,
+            handler.module_name.as_deref(),
+            companion_access_targets,
+        ) {
+            let dependency = EffectDependencyNode::Function((
+                function.module_name.clone(),
+                function.name.clone(),
+            ));
+            graph.insert_dependency(dependency, node.clone());
+        }
     }
 }
 

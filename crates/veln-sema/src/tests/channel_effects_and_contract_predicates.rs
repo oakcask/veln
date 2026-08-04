@@ -731,6 +731,54 @@ fn bounded_effect_inference_preserves_private_propagation_paths() {
 }
 
 #[test]
+fn effect_inference_updates_shared_function_and_handler_dependents() {
+    crate::types::effect_inference_counters::reset();
+    let module = merged_modules(vec![SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Ask\n",
+            "  value() -> Int\n",
+            "end\n",
+            "\n",
+            "fn terminal() -> Int\n",
+            "  stdio::println(\"terminal\")\n",
+            "  1\n",
+            "end\n",
+            "\n",
+            "fn direct() -> Int\n",
+            "  terminal()\n",
+            "end\n",
+            "\n",
+            "handler ask() handles Ask\n",
+            "  value = terminal\n",
+            "end\n",
+            "\n",
+            "fn compute() -> Int effects [Ask]\n",
+            "  perform Ask::value()\n",
+            "end\n",
+            "\n",
+            "pub fn main() -> Int\n",
+            "  direct()\n",
+            "  handle compute() with ask()\n",
+            "end\n",
+        ),
+    )]);
+
+    let diagnostics = analyze_surface_module(&module);
+    let counters = crate::types::effect_inference_counters::snapshot();
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    let details = diagnostics[0].details.to_json();
+    assert!(
+        details.contains("\"inferred_effects\":[\"stdio\"]"),
+        "{details}"
+    );
+    assert!(counters.handler_provider_evaluations > 0, "{counters:#?}");
+    assert!(counters.changed_reevaluations > 0, "{counters:#?}");
+}
+
+#[test]
 fn bounded_effect_inference_preserves_stable_order_in_multi_effect_cycle() {
     crate::types::effect_inference_counters::reset();
     let module = merged_modules(vec![SourceFile::new(
