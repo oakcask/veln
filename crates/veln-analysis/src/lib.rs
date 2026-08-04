@@ -206,6 +206,7 @@ mod tests {
 
     #[test]
     fn rediscovered_project_analysis_uses_changed_source_text_and_manifest_data() {
+        let cache = crate::analysis::TestStandardEnvironmentCache::new();
         let temp = TempProject::new("analysis-rediscovery-isolation");
         temp.write(
             "src/main.veln",
@@ -213,7 +214,7 @@ mod tests {
         );
         temp.write("veln.toml", "[lib]\nexports = [\"src/main.veln\"]\n");
 
-        let baseline = checked_discovered_diagnostic_json(&temp, &[]);
+        let baseline = checked_discovered_diagnostic_json_with_cache(&temp, &[], &cache);
 
         assert!(baseline.is_empty(), "{baseline:#?}");
 
@@ -223,7 +224,7 @@ mod tests {
         );
         temp.write("veln.toml", "[lib]\nexports = [\"src/other.veln\"]\n");
 
-        let changed = checked_discovered_diagnostic_json(&temp, &[]);
+        let changed = checked_discovered_diagnostic_json_with_cache(&temp, &[], &cache);
 
         assert_eq!(
             diagnostic_ids(&changed),
@@ -249,9 +250,11 @@ mod tests {
         );
         temp.write("veln.toml", "[lib]\nexports = [\"src/main.veln\"]\n");
 
-        let restored = checked_discovered_diagnostic_json(&temp, &[]);
+        let restored = checked_discovered_diagnostic_json_with_cache(&temp, &[], &cache);
 
         assert!(restored.is_empty(), "{restored:#?}");
+        assert_eq!(cache.standard_prepares(), 1);
+        assert_eq!(cache.application_analyses(), 3);
     }
 
     #[test]
@@ -512,10 +515,15 @@ mod tests {
             .collect()
     }
 
-    fn checked_discovered_diagnostic_json(temp: &TempProject, inputs: &[PathBuf]) -> Vec<String> {
-        checked_diagnostic_json(
+    fn checked_discovered_diagnostic_json_with_cache(
+        temp: &TempProject,
+        inputs: &[PathBuf],
+        cache: &crate::analysis::TestStandardEnvironmentCache,
+    ) -> Vec<String> {
+        checked_diagnostic_json_with_cache(
             Project::discover(temp.root().to_path_buf(), inputs)
                 .expect("project discovery should succeed"),
+            cache,
         )
     }
 
