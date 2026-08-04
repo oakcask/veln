@@ -239,6 +239,21 @@ test("parses and validates stage timing records", () => {
       ),
     /measured pipeline boundary/,
   );
+  assert.throws(
+    () =>
+      parseTimingRecords(
+        '{"workload":"http2_core","run":"new-1","stage":"made_up_stage","boundary":"made_up_stage","duration_seconds":1}\n',
+      ),
+    /unknown measured pipeline stage/,
+  );
+  assert.throws(
+    () =>
+      parseTimingRecords(
+        '{"workload":"http2_connection","run":"new-1","stage":"source_loading","boundary":"source_loading","duration_seconds":1}\n',
+        { workload: "http2_core" },
+      ),
+    /unexpected workload/,
+  );
 });
 
 test("aggregates stage medians and selects the dominant measured stage", () => {

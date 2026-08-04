@@ -45,6 +45,7 @@ const REQUIRED_STAGE_TIMINGS = [
   "reachable_entry_lowering",
   "backend_runtime_remainder",
 ];
+const REQUIRED_STAGE_TIMING_SET = new Set(REQUIRED_STAGE_TIMINGS);
 
 export function median(values) {
   if (values.length === 0) {
@@ -135,7 +136,7 @@ export function summarizeRuns(runs) {
   };
 }
 
-export function parseTimingRecords(text) {
+export function parseTimingRecords(text, options = {}) {
   const seen = new Set();
   return text
     .split(/\n/)
@@ -162,6 +163,12 @@ export function parseTimingRecords(text) {
       }
       if (boundary !== stage) {
         throw new Error(`timing record at line ${index + 1} does not identify the measured pipeline boundary`);
+      }
+      if (!REQUIRED_STAGE_TIMING_SET.has(stage)) {
+        throw new Error(`timing record at line ${index + 1} has unknown measured pipeline stage: ${stage}`);
+      }
+      if (options.workload && workload !== options.workload) {
+        throw new Error(`timing record at line ${index + 1} identifies unexpected workload: ${workload}`);
       }
       if (typeof durationSeconds !== "number" || !Number.isFinite(durationSeconds) || durationSeconds < 0) {
         throw new Error(`timing record at line ${index + 1} has invalid duration`);
@@ -594,7 +601,9 @@ function measurePair(args, workload) {
 
   let timingRecords = [];
   try {
-    timingRecords = parseTimingRecords(readFileSync(timingFile, "utf8"));
+    timingRecords = parseTimingRecords(readFileSync(timingFile, "utf8"), {
+      workload: workload.id,
+    });
   } catch (error) {
     if (error.code !== "ENOENT") {
       throw error;
