@@ -1550,8 +1550,141 @@ pub(crate) fn reachable_entry_module(
 
 #[derive(Default)]
 pub(crate) struct ReachabilityCache {
-    function_targets: OnceCell<Vec<FunctionTarget>>,
+    function_targets: OnceCell<ReachabilityIndex>,
     direct_callees: RefCell<HashMap<ReachableFunction, Vec<ReachableFunction>>>,
+}
+
+struct ReachabilityIndex {
+    function_targets: FunctionTargetIndex,
+    functions_by_name: HashMap<(FunctionKind, String), Vec<usize>>,
+    functions_by_qualified_name: HashMap<(FunctionKind, String, String), Vec<usize>>,
+}
+
+impl ReachabilityIndex {
+    fn new(module: &SurfaceModule, function_targets: Vec<FunctionTarget>) -> Self {
+        let mut functions_by_name = HashMap::<(FunctionKind, String), Vec<usize>>::new();
+        let mut functions_by_qualified_name =
+            HashMap::<(FunctionKind, String, String), Vec<usize>>::new();
+        for (index, function) in module.functions.iter().enumerate() {
+            let Some(name) = &function.name else {
+                continue;
+            };
+            functions_by_name
+                .entry((function.kind, name.clone()))
+                .or_default()
+                .push(index);
+            if let Some(module_name) = &function.module_name {
+                functions_by_qualified_name
+                    .entry((function.kind, module_name.clone(), name.clone()))
+                    .or_default()
+                    .push(index);
+            }
+        }
+        Self {
+            function_targets: FunctionTargetIndex::new(function_targets),
+            functions_by_name,
+            functions_by_qualified_name,
+        }
+    }
+
+    fn function_indices(&self, key: &ReachableFunction) -> &[usize] {
+        if let Some(module_name) = &key.module_name {
+            self.functions_by_qualified_name
+                .get(&(key.kind, module_name.clone(), key.name.clone()))
+                .map(Vec::as_slice)
+                .unwrap_or_default()
+        } else {
+            self.functions_by_name
+                .get(&(key.kind, key.name.clone()))
+                .map(Vec::as_slice)
+                .unwrap_or_default()
+        }
+    }
+}
+
+struct FunctionTargetIndex {
+    all: Vec<FunctionTarget>,
+    by_name: HashMap<String, Vec<usize>>,
+    by_qualified_name: HashMap<(String, String), Vec<usize>>,
+    by_shape: HashMap<FunctionShape, Vec<usize>>,
+}
+
+impl FunctionTargetIndex {
+    fn new(all: Vec<FunctionTarget>) -> Self {
+        let mut by_name = HashMap::<String, Vec<usize>>::new();
+        let mut by_qualified_name = HashMap::<(String, String), Vec<usize>>::new();
+        let mut by_shape = HashMap::<FunctionShape, Vec<usize>>::new();
+        for (index, target) in all.iter().enumerate() {
+            by_name.entry(target.name.clone()).or_default().push(index);
+            if let Some(module_name) = &target.module_name {
+                by_qualified_name
+                    .entry((module_name.clone(), target.name.clone()))
+                    .or_default()
+                    .push(index);
+            }
+            by_shape
+                .entry(target.shape.clone())
+                .or_default()
+                .push(index);
+        }
+        Self {
+            all,
+            by_name,
+            by_qualified_name,
+            by_shape,
+        }
+    }
+
+    fn named(&self, name: &str) -> impl Iterator<Item = &FunctionTarget> {
+        self.by_name
+            .get(name)
+            .into_iter()
+            .flatten()
+            .map(|index| &self.all[*index])
+    }
+
+    fn qualified(&self, module_name: &str, name: &str) -> impl Iterator<Item = &FunctionTarget> {
+        self.by_qualified_name
+            .get(&(module_name.to_string(), name.to_string()))
+            .into_iter()
+            .flatten()
+            .map(|index| &self.all[*index])
+    }
+
+    fn shaped(&self, shape: &FunctionShape) -> impl Iterator<Item = &FunctionTarget> {
+        self.by_shape
+            .get(shape)
+            .into_iter()
+            .flatten()
+            .map(|index| &self.all[*index])
+    }
+}
+
+#[cfg(test)]
+mod reachability_counters {
+    use std::cell::Cell;
+
+    thread_local! {
+        static FUNCTION_LOOKUP_SCANS: Cell<usize> = const { Cell::new(0) };
+        static TARGET_RESOLUTION_SCANS: Cell<usize> = const { Cell::new(0) };
+    }
+
+    pub(super) fn reset() {
+        FUNCTION_LOOKUP_SCANS.set(0);
+        TARGET_RESOLUTION_SCANS.set(0);
+    }
+
+    pub(super) fn record_function_lookup_scan() {
+        FUNCTION_LOOKUP_SCANS.set(FUNCTION_LOOKUP_SCANS.get() + 1);
+    }
+
+    pub(super) fn record_target_resolution_scan() {
+        TARGET_RESOLUTION_SCANS.set(TARGET_RESOLUTION_SCANS.get() + 1);
+    }
+
+    pub(super) fn snapshot() -> (usize, usize) {
+        (FUNCTION_LOOKUP_SCANS.get(), TARGET_RESOLUTION_SCANS.get())
+    }
 }
 
 pub(crate) fn reachable_entry_module_with_cache(
@@ -1560,7 +1693,7 @@ pub(crate) fn reachable_entry_module_with_cache(
     entry_kind: FunctionKind,
     cache: &ReachabilityCache,
 ) -> SurfaceModule {
-    let function_targets = cache
+    let reachability_index = cache
         .function_targets
         .get_or_init(|| reachable_function_targets(module));
     let companion_access_targets = companion_function_access_targets(module);
@@ -1568,18 +1701,18 @@ pub(crate) fn reachable_entry_module_with_cache(
         module,
         entry,
         entry_kind,
-        function_targets,
+        reachability_index,
         &companion_access_targets,
         cache,
     );
     module_with_reachable_functions(module, &reachable)
 }
 
-fn reachable_function_targets(module: &SurfaceModule) -> Vec<FunctionTarget> {
+fn reachable_function_targets(module: &SurfaceModule) -> ReachabilityIndex {
     let mut function_targets = function_targets(module);
     function_targets.extend(function_alias_targets(module, &function_targets));
     function_targets.extend(codec_with_targets(module));
-    function_targets
+    ReachabilityIndex::new(module, function_targets)
 }
 
 fn function_targets(module: &SurfaceModule) -> Vec<FunctionTarget> {
@@ -1664,7 +1797,7 @@ fn reachable_functions(
     module: &SurfaceModule,
     entry: &str,
     entry_kind: FunctionKind,
-    function_targets: &[FunctionTarget],
+    reachability_index: &ReachabilityIndex,
     companion_access_targets: &HashMap<String, String>,
     cache: &ReachabilityCache,
 ) -> HashSet<ReachableFunction> {
@@ -1681,21 +1814,19 @@ fn reachable_functions(
         }
         let cached_callees = cache.direct_callees.borrow().get(&key).cloned();
         let callees = cached_callees.unwrap_or_else(|| {
-            let callees = module
-                .functions
+            let callees = reachability_index
+                .function_indices(&key)
                 .iter()
-                .filter(|function| {
-                    function.name.as_deref() == Some(key.name.as_str())
-                        && function.kind == key.kind
-                        && key.module_name.as_ref().is_none_or(|module_name| {
-                            function.module_name.as_ref() == Some(module_name)
-                        })
+                .map(|index| {
+                    #[cfg(test)]
+                    reachability_counters::record_function_lookup_scan();
+                    &module.functions[*index]
                 })
                 .flat_map(|function| {
                     direct_function_callees(
                         function,
                         module,
-                        function_targets,
+                        &reachability_index.function_targets,
                         companion_access_targets,
                     )
                 })
@@ -1768,7 +1899,7 @@ struct FunctionTarget {
     requires_public_import: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct FunctionShape {
     fixed_arity: usize,
     variadic: Option<String>,
@@ -1847,7 +1978,7 @@ struct LocalBinding {
 struct FunctionCalleeContext<'a> {
     current_module: Option<&'a str>,
     uses: &'a [UseDecl],
-    function_targets: &'a [FunctionTarget],
+    function_targets: &'a FunctionTargetIndex,
     companion_access_targets: &'a HashMap<String, String>,
     handlers: &'a [veln_ast::HandlerDecl],
 }
@@ -1855,7 +1986,7 @@ struct FunctionCalleeContext<'a> {
 fn direct_function_callees(
     function: &Function,
     module: &SurfaceModule,
-    function_targets: &[FunctionTarget],
+    function_targets: &FunctionTargetIndex,
     companion_access_targets: &HashMap<String, String>,
 ) -> Vec<ReachableFunction> {
     let mut callees = Vec::new();
@@ -1910,7 +2041,7 @@ fn collect_contract_callees(
     predicate: &str,
     current_module: Option<&str>,
     uses: &[UseDecl],
-    function_targets: &[FunctionTarget],
+    function_targets: &FunctionTargetIndex,
     companion_access_targets: &HashMap<String, String>,
     callees: &mut Vec<ReachableFunction>,
 ) {
@@ -1968,7 +2099,7 @@ fn collect_contract_function_value_references(
     tokens: &[veln_syntax::Token],
     current_module: Option<&str>,
     uses: &[UseDecl],
-    function_targets: &[FunctionTarget],
+    function_targets: &FunctionTargetIndex,
     _companion_access_targets: &HashMap<String, String>,
     callees: &mut Vec<ReachableFunction>,
 ) {
@@ -2195,7 +2326,7 @@ fn collect_opaque_function_value_callees(
     arg_count: Option<usize>,
     current_module: Option<&str>,
     uses: &[UseDecl],
-    function_targets: &[FunctionTarget],
+    function_targets: &FunctionTargetIndex,
     _companion_access_targets: &HashMap<String, String>,
     callees: &mut Vec<ReachableFunction>,
 ) {
@@ -2207,14 +2338,13 @@ fn collect_opaque_function_value_callees(
         return;
     }
     let public_or_same_module_access = HashMap::new();
-    for target in function_targets.iter().filter(|target| {
-        target.shape == *shape
-            && target_visible_from_current_module(
-                target,
-                current_module,
-                uses,
-                &public_or_same_module_access,
-            )
+    for target in function_targets.shaped(shape).filter(|target| {
+        target_visible_from_current_module(
+            target,
+            current_module,
+            uses,
+            &public_or_same_module_access,
+        )
     }) {
         push_reachable(
             callees,
@@ -2363,7 +2493,7 @@ fn collect_handler_provider_callees(
     expr: &Expr,
     current_module: Option<&str>,
     uses: &[UseDecl],
-    function_targets: &[FunctionTarget],
+    function_targets: &FunctionTargetIndex,
     companion_access_targets: &HashMap<String, String>,
     handlers: &[veln_ast::HandlerDecl],
     callees: &mut Vec<ReachableFunction>,
@@ -2407,13 +2537,15 @@ fn resolve_function_reference(
     segments: &[String],
     current_module: Option<&str>,
     uses: &[UseDecl],
-    function_targets: &[FunctionTarget],
+    function_targets: &FunctionTargetIndex,
     companion_access_targets: &HashMap<String, String>,
 ) -> Vec<ReachableFunction> {
     match segments {
         [name] => function_targets
-            .iter()
+            .named(name)
             .filter(|target| {
+                #[cfg(test)]
+                reachability_counters::record_target_resolution_scan();
                 target.name == *name && bare_target_visible(target, current_module, uses)
             })
             .map(|target| ReachableFunction {
@@ -2430,16 +2562,16 @@ fn resolve_function_reference(
             };
             let module_name = use_decl.name.as_str();
             function_targets
-                .iter()
+                .qualified(module_name, name)
                 .filter(|target| {
-                    target.name == *name
-                        && target.module_name.as_deref() == Some(module_name)
-                        && imported_target_visible_from_module(
-                            target,
-                            use_decl,
-                            current_module,
-                            companion_access_targets,
-                        )
+                    #[cfg(test)]
+                    reachability_counters::record_target_resolution_scan();
+                    imported_target_visible_from_module(
+                        target,
+                        use_decl,
+                        current_module,
+                        companion_access_targets,
+                    )
                 })
                 .map(|target| ReachableFunction {
                     kind: FunctionKind::Function,
@@ -2555,7 +2687,7 @@ mod tests {
     use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan};
     use veln_syntax::parse;
 
-    use super::{load_surface_module, reachable_entry_module};
+    use super::{load_surface_module, reachability_counters, reachable_entry_module};
 
     fn lower(text: &str) -> SurfaceModule {
         let source = SourceFile::new("main_test.veln", text);
@@ -2566,6 +2698,33 @@ mod tests {
             parsed.diagnostics
         );
         lower_surface_ast(&parsed.tree)
+    }
+
+    #[test]
+    fn reachable_resolution_skips_unrelated_annotated_functions() {
+        fn resolution_scans(unrelated_count: usize) -> (usize, usize) {
+            let mut source = String::from(
+                "pub fn main() -> Int\n  helper()\nend\n\nfn helper() -> Int\n  1\nend\n",
+            );
+            for index in 0..unrelated_count {
+                source.push_str(&format!(
+                    "\nfn unrelated_{index}(value: Int) -> Int\n  value\nend\n"
+                ));
+            }
+            let module = lower(&source);
+            reachability_counters::reset();
+            let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+            assert_eq!(reachable.functions.len(), 2);
+            reachability_counters::snapshot()
+        }
+
+        let base = resolution_scans(0);
+        let expanded = resolution_scans(128);
+
+        assert_eq!(
+            expanded, base,
+            "unrelated annotated functions must not add repeated resolution scans"
+        );
     }
 
     #[test]

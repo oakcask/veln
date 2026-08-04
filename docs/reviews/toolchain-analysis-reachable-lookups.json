@@ -1,0 +1,1587 @@
+{
+  "build_profile": "debug",
+  "command": [
+    "benchmark-toolchain-analysis",
+    "compare",
+    "target/debug/veln-main",
+    "target/debug/veln",
+    "--build-profile",
+    "debug",
+    "--runs",
+    "5",
+    "--warmups",
+    "1",
+    "--sizes",
+    "32,64,128",
+    "--baseline-label",
+    "main",
+    "--new-label",
+    "indexed-lookups",
+    "--baseline-identity",
+    "9ed4704ec81a6ecf3dc388a99d654f7a50d09c10",
+    "--new-identity",
+    "working-tree",
+    "--output",
+    "docs/reviews/toolchain-analysis-reachable-lookups.json"
+  ],
+  "measured_runs": 5,
+  "passes_thresholds": false,
+  "thresholds": [
+    {
+      "description": "HTTP/2 core direct analysis new wall-time median is at most one third of baseline",
+      "id": "http2_core_improvement",
+      "max_ratio": 0.3333333333333333,
+      "ratio": 0.85546791217939,
+      "status": "failed"
+    },
+    {
+      "description": "HTTP/2 connection direct analysis new wall-time median is at most one third of baseline",
+      "id": "http2_connection_improvement",
+      "max_ratio": 0.3333333333333333,
+      "ratio": 0.21700100331257607,
+      "status": "passed"
+    },
+    {
+      "description": "toolchain-case median is no more than 1.35 times the direct invocation median",
+      "id": "toolchain_case_overhead",
+      "max_ratio": 1.35,
+      "ratio": 1.0585586592554126,
+      "status": "passed"
+    },
+    {
+      "description": "first generated size to second size user CPU median grows by no more than 2.5 times",
+      "id": "generated_first_to_second",
+      "max_ratio": 2.5,
+      "ratio": 1.0113636363636365,
+      "status": "passed"
+    },
+    {
+      "description": "second generated size to third size user CPU median grows by no more than 2.5 times",
+      "id": "generated_second_to_third",
+      "max_ratio": 2.5,
+      "ratio": 1.0224719101123596,
+      "status": "passed"
+    },
+    {
+      "description": "baseline and new exit status and normalized output are equal for every workload",
+      "failing_workloads": [],
+      "id": "functional_outputs",
+      "status": "passed"
+    },
+    {
+      "description": "wall-time median absolute deviation is within the noise boundary for every workload",
+      "id": "wall_time_noise",
+      "noisy_workloads": [],
+      "status": "passed"
+    }
+  ],
+  "warmup_runs": 1,
+  "workloads": [
+    {
+      "baseline": {
+        "binary": "main",
+        "binary_identity": "9ed4704ec81a6ecf3dc388a99d654f7a50d09c10",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.96,
+            "wall_time_seconds": 1.109767077
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.95,
+            "wall_time_seconds": 1.107530471
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.96,
+            "wall_time_seconds": 1.108048886
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.97,
+            "wall_time_seconds": 1.12402566
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.95,
+            "wall_time_seconds": 1.114164196
+          }
+        ],
+        "stage_timing": {
+          "dominant_stage": "backend_runtime_remainder",
+          "runs": [
+            {
+              "run": "baseline-1",
+              "stages": {
+                "backend_runtime_remainder": 0.070308015,
+                "reachable_entry_lowering": 0.008603135,
+                "semantic_environment_check": 0.010393216,
+                "source_loading": 0.000085466,
+                "surface_parse_lower": 0.001756271
+              }
+            },
+            {
+              "run": "baseline-2",
+              "stages": {
+                "backend_runtime_remainder": 0.071281541,
+                "reachable_entry_lowering": 0.008638644,
+                "semantic_environment_check": 0.010410883,
+                "source_loading": 0.000085037,
+                "surface_parse_lower": 0.001729667
+              }
+            },
+            {
+              "run": "baseline-3",
+              "stages": {
+                "backend_runtime_remainder": 0.069844182,
+                "reachable_entry_lowering": 0.008638952,
+                "semantic_environment_check": 0.010444198,
+                "source_loading": 0.000078998,
+                "surface_parse_lower": 0.001711339
+              }
+            },
+            {
+              "run": "baseline-4",
+              "stages": {
+                "backend_runtime_remainder": 0.071702771,
+                "reachable_entry_lowering": 0.009092393,
+                "semantic_environment_check": 0.010548269,
+                "source_loading": 0.000086999,
+                "surface_parse_lower": 0.001757076
+              }
+            },
+            {
+              "run": "baseline-5",
+              "stages": {
+                "backend_runtime_remainder": 0.070602734,
+                "reachable_entry_lowering": 0.008543157,
+                "semantic_environment_check": 0.010378901,
+                "source_loading": 0.000081896,
+                "surface_parse_lower": 0.001751642
+              }
+            }
+          ],
+          "stage_medians_seconds": {
+            "backend_runtime_remainder": 0.070602734,
+            "reachable_entry_lowering": 0.008638644,
+            "semantic_environment_check": 0.010410883,
+            "source_loading": 0.000085037,
+            "surface_parse_lower": 0.001751642
+          },
+          "status": "available"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.0022366060000000854,
+          "median_user_cpu_seconds": 0.96,
+          "median_wall_time_seconds": 1.109767077,
+          "wall_time_noisy": false
+        }
+      },
+      "build_profile": "debug",
+      "command": {
+        "baseline": [
+          "main",
+          "run",
+          "--json",
+          "main",
+          "main.veln",
+          "wire.veln",
+          "facade.veln"
+        ],
+        "display": null,
+        "new": [
+          "indexed-lookups",
+          "run",
+          "--json",
+          "main",
+          "main.veln",
+          "wire.veln",
+          "facade.veln"
+        ]
+      },
+      "cwd": "examples/specification/run/schema-decode-expression",
+      "env": null,
+      "functional_output_comparisons": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "functional_outputs_equal": true,
+      "generated": null,
+      "id": "small_schema",
+      "new": {
+        "binary": "indexed-lookups",
+        "binary_identity": "working-tree",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.93,
+            "wall_time_seconds": 1.096380758
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.92,
+            "wall_time_seconds": 1.095287858
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.93,
+            "wall_time_seconds": 1.109061303
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.95,
+            "wall_time_seconds": 1.111648735
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.9,
+            "wall_time_seconds": 1.089461563
+          }
+        ],
+        "stage_timing": {
+          "dominant_stage": "backend_runtime_remainder",
+          "runs": [
+            {
+              "run": "new-1",
+              "stages": {
+                "backend_runtime_remainder": 0.070118269,
+                "reachable_entry_lowering": 0.008573125,
+                "semantic_environment_check": 0.009834381,
+                "source_loading": 0.000081642,
+                "surface_parse_lower": 0.001765594
+              }
+            },
+            {
+              "run": "new-2",
+              "stages": {
+                "backend_runtime_remainder": 0.069372942,
+                "reachable_entry_lowering": 0.008310773,
+                "semantic_environment_check": 0.009691519,
+                "source_loading": 0.000077455,
+                "surface_parse_lower": 0.001697364
+              }
+            },
+            {
+              "run": "new-3",
+              "stages": {
+                "backend_runtime_remainder": 0.069964825,
+                "reachable_entry_lowering": 0.008508179,
+                "semantic_environment_check": 0.009916653,
+                "source_loading": 0.000081675,
+                "surface_parse_lower": 0.001784693
+              }
+            },
+            {
+              "run": "new-4",
+              "stages": {
+                "backend_runtime_remainder": 0.07160607,
+                "reachable_entry_lowering": 0.008347098,
+                "semantic_environment_check": 0.009871842,
+                "source_loading": 0.000080331,
+                "surface_parse_lower": 0.00177505
+              }
+            },
+            {
+              "run": "new-5",
+              "stages": {
+                "backend_runtime_remainder": 0.070136442,
+                "reachable_entry_lowering": 0.008312261,
+                "semantic_environment_check": 0.009524598,
+                "source_loading": 0.000083726,
+                "surface_parse_lower": 0.001706588
+              }
+            }
+          ],
+          "stage_medians_seconds": {
+            "backend_runtime_remainder": 0.070118269,
+            "reachable_entry_lowering": 0.008347098,
+            "semantic_environment_check": 0.009834381,
+            "source_loading": 0.000081642,
+            "surface_parse_lower": 0.001765594
+          },
+          "status": "available"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.006919195000000045,
+          "median_user_cpu_seconds": 0.93,
+          "median_wall_time_seconds": 1.096380758,
+          "wall_time_noisy": false
+        }
+      }
+    },
+    {
+      "baseline": {
+        "binary": "main",
+        "binary_identity": "9ed4704ec81a6ecf3dc388a99d654f7a50d09c10",
+        "runs": [
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.09,
+            "wall_time_seconds": 1.26463959
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.08,
+            "wall_time_seconds": 1.265119847
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.08,
+            "wall_time_seconds": 1.262476498
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.08,
+            "wall_time_seconds": 1.245975663
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.06,
+            "wall_time_seconds": 1.238997191
+          }
+        ],
+        "stage_timing": {
+          "dominant_stage": "semantic_environment_check",
+          "runs": [
+            {
+              "run": "baseline-1",
+              "stages": {
+                "backend_runtime_remainder": 0.077540408,
+                "reachable_entry_lowering": 0.060948687,
+                "semantic_environment_check": 0.080873576,
+                "source_loading": 0.000053329,
+                "surface_parse_lower": 0.009115901
+              }
+            },
+            {
+              "run": "baseline-2",
+              "stages": {
+                "backend_runtime_remainder": 0.077893078,
+                "reachable_entry_lowering": 0.061847854,
+                "semantic_environment_check": 0.081747066,
+                "source_loading": 0.000050332,
+                "surface_parse_lower": 0.009637793
+              }
+            },
+            {
+              "run": "baseline-3",
+              "stages": {
+                "backend_runtime_remainder": 0.079323615,
+                "reachable_entry_lowering": 0.062106303,
+                "semantic_environment_check": 0.083096919,
+                "source_loading": 0.00004664,
+                "surface_parse_lower": 0.009871733
+              }
+            },
+            {
+              "run": "baseline-4",
+              "stages": {
+                "backend_runtime_remainder": 0.076929854,
+                "reachable_entry_lowering": 0.060856451,
+                "semantic_environment_check": 0.081164217,
+                "source_loading": 0.000049109,
+                "surface_parse_lower": 0.009646785
+              }
+            },
+            {
+              "run": "baseline-5",
+              "stages": {
+                "backend_runtime_remainder": 0.078498859,
+                "reachable_entry_lowering": 0.059911812,
+                "semantic_environment_check": 0.078804984,
+                "source_loading": 0.000051643,
+                "surface_parse_lower": 0.008794159
+              }
+            }
+          ],
+          "stage_medians_seconds": {
+            "backend_runtime_remainder": 0.077893078,
+            "reachable_entry_lowering": 0.060948687,
+            "semantic_environment_check": 0.081164217,
+            "source_loading": 0.000050332,
+            "surface_parse_lower": 0.009637793
+          },
+          "status": "available"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.0026433489999999615,
+          "median_user_cpu_seconds": 1.08,
+          "median_wall_time_seconds": 1.262476498,
+          "wall_time_noisy": false
+        }
+      },
+      "build_profile": "debug",
+      "command": {
+        "baseline": [
+          "main",
+          "run",
+          "main",
+          "main.veln"
+        ],
+        "display": null,
+        "new": [
+          "indexed-lookups",
+          "run",
+          "main",
+          "main.veln"
+        ]
+      },
+      "cwd": "examples/specification/run/hpack-static-index-projection-human",
+      "env": null,
+      "functional_output_comparisons": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "functional_outputs_equal": true,
+      "generated": null,
+      "id": "hpack_static",
+      "new": {
+        "binary": "indexed-lookups",
+        "binary_identity": "working-tree",
+        "runs": [
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.03,
+            "wall_time_seconds": 1.204602073
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.04,
+            "wall_time_seconds": 1.199582404
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.02,
+            "wall_time_seconds": 1.193790319
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1,
+            "wall_time_seconds": 1.172908581
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.02,
+            "wall_time_seconds": 1.181134708
+          }
+        ],
+        "stage_timing": {
+          "dominant_stage": "backend_runtime_remainder",
+          "runs": [
+            {
+              "run": "new-1",
+              "stages": {
+                "backend_runtime_remainder": 0.078443975,
+                "reachable_entry_lowering": 0.035343456,
+                "semantic_environment_check": 0.050889797,
+                "source_loading": 0.000046695,
+                "surface_parse_lower": 0.00926887
+              }
+            },
+            {
+              "run": "new-2",
+              "stages": {
+                "backend_runtime_remainder": 0.077959045,
+                "reachable_entry_lowering": 0.034496415,
+                "semantic_environment_check": 0.051295199,
+                "source_loading": 0.000064163,
+                "surface_parse_lower": 0.009501918
+              }
+            },
+            {
+              "run": "new-3",
+              "stages": {
+                "backend_runtime_remainder": 0.077172412,
+                "reachable_entry_lowering": 0.034881197,
+                "semantic_environment_check": 0.050769394,
+                "source_loading": 0.000046431,
+                "surface_parse_lower": 0.009356441
+              }
+            },
+            {
+              "run": "new-4",
+              "stages": {
+                "backend_runtime_remainder": 0.076490168,
+                "reachable_entry_lowering": 0.034263921,
+                "semantic_environment_check": 0.049490592,
+                "source_loading": 0.000048371,
+                "surface_parse_lower": 0.009266524
+              }
+            },
+            {
+              "run": "new-5",
+              "stages": {
+                "backend_runtime_remainder": 0.076541295,
+                "reachable_entry_lowering": 0.034975536,
+                "semantic_environment_check": 0.050819815,
+                "source_loading": 0.000049638,
+                "surface_parse_lower": 0.009242674
+              }
+            }
+          ],
+          "stage_medians_seconds": {
+            "backend_runtime_remainder": 0.077172412,
+            "reachable_entry_lowering": 0.034881197,
+            "semantic_environment_check": 0.050819815,
+            "source_loading": 0.000048371,
+            "surface_parse_lower": 0.00926887
+          },
+          "status": "available"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.010811753999999896,
+          "median_user_cpu_seconds": 1.02,
+          "median_wall_time_seconds": 1.193790319,
+          "wall_time_noisy": false
+        }
+      }
+    },
+    {
+      "baseline": {
+        "binary": "main",
+        "binary_identity": "9ed4704ec81a6ecf3dc388a99d654f7a50d09c10",
+        "runs": [
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.19,
+            "wall_time_seconds": 1.367319347
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.2,
+            "wall_time_seconds": 1.391151211
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.23,
+            "wall_time_seconds": 1.419242424
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.19,
+            "wall_time_seconds": 1.395930756
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.21,
+            "wall_time_seconds": 1.374273484
+          }
+        ],
+        "stage_timing": {
+          "dominant_stage": "reachable_entry_lowering",
+          "runs": [
+            {
+              "run": "baseline-1",
+              "stages": {
+                "backend_runtime_remainder": 0.081793827,
+                "reachable_entry_lowering": 0.158167694,
+                "semantic_environment_check": 0.103073686,
+                "source_loading": 0.000051655,
+                "surface_parse_lower": 0.009762493
+              }
+            },
+            {
+              "run": "baseline-2",
+              "stages": {
+                "backend_runtime_remainder": 0.081355319,
+                "reachable_entry_lowering": 0.160161001,
+                "semantic_environment_check": 0.105596697,
+                "source_loading": 0.000053297,
+                "surface_parse_lower": 0.009876669
+              }
+            },
+            {
+              "run": "baseline-3",
+              "stages": {
+                "backend_runtime_remainder": 0.08174765,
+                "reachable_entry_lowering": 0.161129331,
+                "semantic_environment_check": 0.107754104,
+                "source_loading": 0.000052084,
+                "surface_parse_lower": 0.01029102
+              }
+            },
+            {
+              "run": "baseline-4",
+              "stages": {
+                "backend_runtime_remainder": 0.081564627,
+                "reachable_entry_lowering": 0.160090167,
+                "semantic_environment_check": 0.10539248,
+                "source_loading": 0.000060295,
+                "surface_parse_lower": 0.009994845
+              }
+            },
+            {
+              "run": "baseline-5",
+              "stages": {
+                "backend_runtime_remainder": 0.081743494,
+                "reachable_entry_lowering": 0.157849892,
+                "semantic_environment_check": 0.104886139,
+                "source_loading": 0.000051622,
+                "surface_parse_lower": 0.009623873
+              }
+            }
+          ],
+          "stage_medians_seconds": {
+            "backend_runtime_remainder": 0.081743494,
+            "reachable_entry_lowering": 0.160090167,
+            "semantic_environment_check": 0.10539248,
+            "source_loading": 0.000052084,
+            "surface_parse_lower": 0.009876669
+          },
+          "status": "available"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.01687772700000001,
+          "median_user_cpu_seconds": 1.2,
+          "median_wall_time_seconds": 1.391151211,
+          "wall_time_noisy": false
+        }
+      },
+      "build_profile": "debug",
+      "command": {
+        "baseline": [
+          "main",
+          "run",
+          "--json",
+          "main",
+          "main.veln"
+        ],
+        "display": null,
+        "new": [
+          "indexed-lookups",
+          "run",
+          "--json",
+          "main",
+          "main.veln"
+        ]
+      },
+      "cwd": "examples/specification/run/http2-protocol-core-continuation-closed-json",
+      "env": null,
+      "functional_output_comparisons": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "functional_outputs_equal": true,
+      "generated": null,
+      "id": "http2_core",
+      "new": {
+        "binary": "indexed-lookups",
+        "binary_identity": "working-tree",
+        "runs": [
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.04,
+            "wall_time_seconds": 1.190085222
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.02,
+            "wall_time_seconds": 1.188015754
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.08,
+            "wall_time_seconds": 1.22567333
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.99,
+            "wall_time_seconds": 1.184668592
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.02,
+            "wall_time_seconds": 1.2042359
+          }
+        ],
+        "stage_timing": {
+          "dominant_stage": "backend_runtime_remainder",
+          "runs": [
+            {
+              "run": "new-1",
+              "stages": {
+                "backend_runtime_remainder": 0.081666579,
+                "reachable_entry_lowering": 0.036379305,
+                "semantic_environment_check": 0.051076479,
+                "source_loading": 0.000048679,
+                "surface_parse_lower": 0.009518867
+              }
+            },
+            {
+              "run": "new-2",
+              "stages": {
+                "backend_runtime_remainder": 0.079688867,
+                "reachable_entry_lowering": 0.036475494,
+                "semantic_environment_check": 0.050926056,
+                "source_loading": 0.000049913,
+                "surface_parse_lower": 0.00983846
+              }
+            },
+            {
+              "run": "new-3",
+              "stages": {
+                "backend_runtime_remainder": 0.08168246,
+                "reachable_entry_lowering": 0.037351144,
+                "semantic_environment_check": 0.052359206,
+                "source_loading": 0.000051049,
+                "surface_parse_lower": 0.010122842
+              }
+            },
+            {
+              "run": "new-4",
+              "stages": {
+                "backend_runtime_remainder": 0.080790193,
+                "reachable_entry_lowering": 0.035822467,
+                "semantic_environment_check": 0.050068679,
+                "source_loading": 0.000049781,
+                "surface_parse_lower": 0.009732418
+              }
+            },
+            {
+              "run": "new-5",
+              "stages": {
+                "backend_runtime_remainder": 0.081010949,
+                "reachable_entry_lowering": 0.036408763,
+                "semantic_environment_check": 0.051664222,
+                "source_loading": 0.000058201,
+                "surface_parse_lower": 0.010142404
+              }
+            }
+          ],
+          "stage_medians_seconds": {
+            "backend_runtime_remainder": 0.081010949,
+            "reachable_entry_lowering": 0.036408763,
+            "semantic_environment_check": 0.051076479,
+            "source_loading": 0.000049913,
+            "surface_parse_lower": 0.00983846
+          },
+          "status": "available"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.005416630000000033,
+          "median_user_cpu_seconds": 1.02,
+          "median_wall_time_seconds": 1.190085222,
+          "wall_time_noisy": false
+        }
+      }
+    },
+    {
+      "baseline": {
+        "binary": "main",
+        "binary_identity": "9ed4704ec81a6ecf3dc388a99d654f7a50d09c10",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 5.94,
+            "wall_time_seconds": 6.622037029
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 5.85,
+            "wall_time_seconds": 6.538961996
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 5.93,
+            "wall_time_seconds": 6.608558708
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 5.89,
+            "wall_time_seconds": 6.580130816
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 5.86,
+            "wall_time_seconds": 6.522491505
+          }
+        ],
+        "stage_timing": {
+          "dominant_stage": "reachable_entry_lowering",
+          "runs": [
+            {
+              "run": "baseline-1",
+              "stages": {
+                "backend_runtime_remainder": 0.2272558,
+                "reachable_entry_lowering": 5.243632504,
+                "semantic_environment_check": 0.094236499,
+                "source_loading": 0.000058069,
+                "surface_parse_lower": 0.009846219
+              }
+            },
+            {
+              "run": "baseline-2",
+              "stages": {
+                "backend_runtime_remainder": 0.232000635,
+                "reachable_entry_lowering": 5.165166379,
+                "semantic_environment_check": 0.093943985,
+                "source_loading": 0.000055688,
+                "surface_parse_lower": 0.009922351
+              }
+            },
+            {
+              "run": "baseline-3",
+              "stages": {
+                "backend_runtime_remainder": 0.223929556,
+                "reachable_entry_lowering": 5.216808242,
+                "semantic_environment_check": 0.096095443,
+                "source_loading": 0.000053969,
+                "surface_parse_lower": 0.010225225
+              }
+            },
+            {
+              "run": "baseline-4",
+              "stages": {
+                "backend_runtime_remainder": 0.226229859,
+                "reachable_entry_lowering": 5.217859195,
+                "semantic_environment_check": 0.094122326,
+                "source_loading": 0.000073288,
+                "surface_parse_lower": 0.009496164
+              }
+            },
+            {
+              "run": "baseline-5",
+              "stages": {
+                "backend_runtime_remainder": 0.222367315,
+                "reachable_entry_lowering": 5.156492523,
+                "semantic_environment_check": 0.094572602,
+                "source_loading": 0.000053132,
+                "surface_parse_lower": 0.009985368
+              }
+            }
+          ],
+          "stage_medians_seconds": {
+            "backend_runtime_remainder": 0.226229859,
+            "reachable_entry_lowering": 5.216808242,
+            "semantic_environment_check": 0.094236499,
+            "source_loading": 0.000055688,
+            "surface_parse_lower": 0.009922351
+          },
+          "status": "available"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.04116881999999933,
+          "median_user_cpu_seconds": 5.89,
+          "median_wall_time_seconds": 6.580130816,
+          "wall_time_noisy": false
+        }
+      },
+      "build_profile": "debug",
+      "command": {
+        "baseline": [
+          "main",
+          "run",
+          "--json",
+          "main",
+          "main.veln"
+        ],
+        "display": null,
+        "new": [
+          "indexed-lookups",
+          "run",
+          "--json",
+          "main",
+          "main.veln"
+        ]
+      },
+      "cwd": "examples/specification/run/http2-connection-application-unsupported-request-json",
+      "env": {
+        "VELN_NET_PRODUCTION_READS_HEX": "505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000003010400000001828784",
+        "VELN_NET_RUNTIME": "production-loopback"
+      },
+      "functional_output_comparisons": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "functional_outputs_equal": true,
+      "generated": null,
+      "id": "http2_connection",
+      "new": {
+        "binary": "indexed-lookups",
+        "binary_identity": "working-tree",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 1.28,
+            "wall_time_seconds": 1.446810791
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 1.21,
+            "wall_time_seconds": 1.41621755
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 1.24,
+            "wall_time_seconds": 1.421728629
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 1.21,
+            "wall_time_seconds": 1.43209438
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 1.25,
+            "wall_time_seconds": 1.427894989
+          }
+        ],
+        "stage_timing": {
+          "dominant_stage": "backend_runtime_remainder",
+          "runs": [
+            {
+              "run": "new-1",
+              "stages": {
+                "backend_runtime_remainder": 0.225399139,
+                "reachable_entry_lowering": 0.10232158,
+                "semantic_environment_check": 0.056850992,
+                "source_loading": 0.000051776,
+                "surface_parse_lower": 0.010277454
+              }
+            },
+            {
+              "run": "new-2",
+              "stages": {
+                "backend_runtime_remainder": 0.227467571,
+                "reachable_entry_lowering": 0.098681074,
+                "semantic_environment_check": 0.054304825,
+                "source_loading": 0.000053903,
+                "surface_parse_lower": 0.009735889
+              }
+            },
+            {
+              "run": "new-3",
+              "stages": {
+                "backend_runtime_remainder": 0.225115275,
+                "reachable_entry_lowering": 0.098376182,
+                "semantic_environment_check": 0.055975045,
+                "source_loading": 0.000057882,
+                "surface_parse_lower": 0.009996444
+              }
+            },
+            {
+              "run": "new-4",
+              "stages": {
+                "backend_runtime_remainder": 0.232487687,
+                "reachable_entry_lowering": 0.102869556,
+                "semantic_environment_check": 0.056420926,
+                "source_loading": 0.000060416,
+                "surface_parse_lower": 0.010271347
+              }
+            },
+            {
+              "run": "new-5",
+              "stages": {
+                "backend_runtime_remainder": 0.227536343,
+                "reachable_entry_lowering": 0.100644811,
+                "semantic_environment_check": 0.056161485,
+                "source_loading": 0.000052823,
+                "surface_parse_lower": 0.010339479
+              }
+            }
+          ],
+          "stage_medians_seconds": {
+            "backend_runtime_remainder": 0.227467571,
+            "reachable_entry_lowering": 0.100644811,
+            "semantic_environment_check": 0.056161485,
+            "source_loading": 0.000053903,
+            "surface_parse_lower": 0.010271347
+          },
+          "status": "available"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.006166359999999926,
+          "median_user_cpu_seconds": 1.24,
+          "median_wall_time_seconds": 1.427894989,
+          "wall_time_noisy": false
+        }
+      }
+    },
+    {
+      "baseline": {
+        "binary": "main",
+        "binary_identity": "9ed4704ec81a6ecf3dc388a99d654f7a50d09c10",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.88,
+            "wall_time_seconds": 1.020818187
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.050480401
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.042470223
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.028115931
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.87,
+            "wall_time_seconds": 1.022604679
+          }
+        ],
+        "stage_timing": {
+          "status": "unavailable"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.0072977440000001614,
+          "median_user_cpu_seconds": 0.89,
+          "median_wall_time_seconds": 1.028115931,
+          "wall_time_noisy": false
+        }
+      },
+      "build_profile": "debug",
+      "command": {
+        "baseline": [
+          "main",
+          "check",
+          "--json"
+        ],
+        "display": null,
+        "new": [
+          "indexed-lookups",
+          "check",
+          "--json"
+        ]
+      },
+      "cwd": "<temporary>/generated_1",
+      "env": null,
+      "functional_output_comparisons": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "functional_outputs_equal": true,
+      "generated": {
+        "command": [
+          "check",
+          "--json"
+        ],
+        "moduleCount": 33,
+        "size": 32
+      },
+      "id": "generated_1",
+      "new": {
+        "binary": "indexed-lookups",
+        "binary_identity": "working-tree",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.86,
+            "wall_time_seconds": 1.007484284
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.88,
+            "wall_time_seconds": 1.013192354
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.88,
+            "wall_time_seconds": 1.022342757
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.87,
+            "wall_time_seconds": 1.003997464
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.88,
+            "wall_time_seconds": 1.008642092
+          }
+        ],
+        "stage_timing": {
+          "status": "unavailable"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.004550261999999972,
+          "median_user_cpu_seconds": 0.88,
+          "median_wall_time_seconds": 1.008642092,
+          "wall_time_noisy": false
+        }
+      }
+    },
+    {
+      "baseline": {
+        "binary": "main",
+        "binary_identity": "9ed4704ec81a6ecf3dc388a99d654f7a50d09c10",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.91,
+            "wall_time_seconds": 1.047766171
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.9,
+            "wall_time_seconds": 1.054422958
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.88,
+            "wall_time_seconds": 1.04169657
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.91,
+            "wall_time_seconds": 1.045797435
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.92,
+            "wall_time_seconds": 1.05426031
+          }
+        ],
+        "stage_timing": {
+          "status": "unavailable"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.006069600999999869,
+          "median_user_cpu_seconds": 0.91,
+          "median_wall_time_seconds": 1.047766171,
+          "wall_time_noisy": false
+        }
+      },
+      "build_profile": "debug",
+      "command": {
+        "baseline": [
+          "main",
+          "check",
+          "--json"
+        ],
+        "display": null,
+        "new": [
+          "indexed-lookups",
+          "check",
+          "--json"
+        ]
+      },
+      "cwd": "<temporary>/generated_2",
+      "env": null,
+      "functional_output_comparisons": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "functional_outputs_equal": true,
+      "generated": {
+        "command": [
+          "check",
+          "--json"
+        ],
+        "moduleCount": 65,
+        "size": 64
+      },
+      "id": "generated_2",
+      "new": {
+        "binary": "indexed-lookups",
+        "binary_identity": "working-tree",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.9,
+            "wall_time_seconds": 1.026974234
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.025606196
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.87,
+            "wall_time_seconds": 1.019113221
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.025461373
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.87,
+            "wall_time_seconds": 1.035339279
+          }
+        ],
+        "stage_timing": {
+          "status": "unavailable"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.0013680380000000714,
+          "median_user_cpu_seconds": 0.89,
+          "median_wall_time_seconds": 1.025606196,
+          "wall_time_noisy": false
+        }
+      }
+    },
+    {
+      "baseline": {
+        "binary": "main",
+        "binary_identity": "9ed4704ec81a6ecf3dc388a99d654f7a50d09c10",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.95,
+            "wall_time_seconds": 1.103385669
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.96,
+            "wall_time_seconds": 1.130352822
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.97,
+            "wall_time_seconds": 1.105168211
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.93,
+            "wall_time_seconds": 1.104338638
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.96,
+            "wall_time_seconds": 1.102232482
+          }
+        ],
+        "stage_timing": {
+          "status": "unavailable"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.0009529690000000812,
+          "median_user_cpu_seconds": 0.96,
+          "median_wall_time_seconds": 1.104338638,
+          "wall_time_noisy": false
+        }
+      },
+      "build_profile": "debug",
+      "command": {
+        "baseline": [
+          "main",
+          "check",
+          "--json"
+        ],
+        "display": null,
+        "new": [
+          "indexed-lookups",
+          "check",
+          "--json"
+        ]
+      },
+      "cwd": "<temporary>/generated_3",
+      "env": null,
+      "functional_output_comparisons": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "functional_outputs_equal": true,
+      "generated": {
+        "command": [
+          "check",
+          "--json"
+        ],
+        "moduleCount": 129,
+        "size": 128
+      },
+      "id": "generated_3",
+      "new": {
+        "binary": "indexed-lookups",
+        "binary_identity": "working-tree",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.91,
+            "wall_time_seconds": 1.055984335
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.93,
+            "wall_time_seconds": 1.065859977
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.95,
+            "wall_time_seconds": 1.07736132
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.91,
+            "wall_time_seconds": 1.072142863
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.91,
+            "wall_time_seconds": 1.053200527
+          }
+        ],
+        "stage_timing": {
+          "status": "unavailable"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.009875641999999907,
+          "median_user_cpu_seconds": 0.91,
+          "median_wall_time_seconds": 1.065859977,
+          "wall_time_noisy": false
+        }
+      }
+    },
+    {
+      "baseline": {
+        "binary": "main",
+        "binary_identity": "9ed4704ec81a6ecf3dc388a99d654f7a50d09c10",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 1.05,
+            "wall_time_seconds": 1.252016097
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 1.03,
+            "wall_time_seconds": 1.25026744
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 1.1,
+            "wall_time_seconds": 1.269117339
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 1.09,
+            "wall_time_seconds": 1.276703911
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 1.06,
+            "wall_time_seconds": 1.253544051
+          }
+        ],
+        "stage_timing": {
+          "dominant_stage": "backend_runtime_remainder",
+          "runs": [
+            {
+              "run": "baseline-1",
+              "stages": {
+                "backend_runtime_remainder": 0.079803431,
+                "reachable_entry_lowering": 0.037012188,
+                "semantic_environment_check": 0.050712098,
+                "source_loading": 0.00006283,
+                "surface_parse_lower": 0.009896441
+              }
+            },
+            {
+              "run": "baseline-2",
+              "stages": {
+                "backend_runtime_remainder": 0.078849807,
+                "reachable_entry_lowering": 0.03574293,
+                "semantic_environment_check": 0.050195694,
+                "source_loading": 0.000063712,
+                "surface_parse_lower": 0.009703874
+              }
+            },
+            {
+              "run": "baseline-3",
+              "stages": {
+                "backend_runtime_remainder": 0.079127377,
+                "reachable_entry_lowering": 0.03579498,
+                "semantic_environment_check": 0.049918453,
+                "source_loading": 0.000072804,
+                "surface_parse_lower": 0.009449579
+              }
+            },
+            {
+              "run": "baseline-4",
+              "stages": {
+                "backend_runtime_remainder": 0.080612447,
+                "reachable_entry_lowering": 0.036920483,
+                "semantic_environment_check": 0.05072595,
+                "source_loading": 0.000070148,
+                "surface_parse_lower": 0.009788822
+              }
+            },
+            {
+              "run": "baseline-5",
+              "stages": {
+                "backend_runtime_remainder": 0.081096845,
+                "reachable_entry_lowering": 0.036254251,
+                "semantic_environment_check": 0.05046631,
+                "source_loading": 0.000064339,
+                "surface_parse_lower": 0.009807679
+              }
+            }
+          ],
+          "stage_medians_seconds": {
+            "backend_runtime_remainder": 0.079803431,
+            "reachable_entry_lowering": 0.036254251,
+            "semantic_environment_check": 0.05046631,
+            "source_loading": 0.000064339,
+            "surface_parse_lower": 0.009788822
+          },
+          "status": "available"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.003276610999999985,
+          "median_user_cpu_seconds": 1.06,
+          "median_wall_time_seconds": 1.253544051,
+          "wall_time_noisy": false
+        }
+      },
+      "build_profile": "debug",
+      "command": {
+        "baseline": [
+          "sh",
+          "-c",
+          "target/debug/deps/toolchain_harness-096bbacc96da15d1 generated_toolchain_cases::toolchain_case_examples_specification_run_http2_protocol_core_continuation_clos_d90be0f2c7b9f304 --exact >/dev/null"
+        ],
+        "display": "target/debug/deps/toolchain_harness-096bbacc96da15d1 generated_toolchain_cases::toolchain_case_examples_specification_run_http2_protocol_core_continuation_clos_d90be0f2c7b9f304 --exact >/dev/null",
+        "new": [
+          "sh",
+          "-c",
+          "target/debug/deps/toolchain_harness-096bbacc96da15d1 generated_toolchain_cases::toolchain_case_examples_specification_run_http2_protocol_core_continuation_clos_d90be0f2c7b9f304 --exact >/dev/null"
+        ]
+      },
+      "cwd": ".",
+      "env": null,
+      "functional_output_comparisons": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "functional_outputs_equal": true,
+      "generated": null,
+      "id": "http2_core_toolchain_case",
+      "new": {
+        "binary": "indexed-lookups",
+        "binary_identity": "working-tree",
+        "runs": [
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 1.06,
+            "wall_time_seconds": 1.246711879
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 1.06,
+            "wall_time_seconds": 1.259775017
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 1.03,
+            "wall_time_seconds": 1.262618195
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 1.06,
+            "wall_time_seconds": 1.257012582
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 1.05,
+            "wall_time_seconds": 1.264102999
+          }
+        ],
+        "stage_timing": {
+          "dominant_stage": "backend_runtime_remainder",
+          "runs": [
+            {
+              "run": "new-1",
+              "stages": {
+                "backend_runtime_remainder": 0.078455283,
+                "reachable_entry_lowering": 0.035331564,
+                "semantic_environment_check": 0.049154809,
+                "source_loading": 0.000066224,
+                "surface_parse_lower": 0.009318848
+              }
+            },
+            {
+              "run": "new-2",
+              "stages": {
+                "backend_runtime_remainder": 0.078667886,
+                "reachable_entry_lowering": 0.036930269,
+                "semantic_environment_check": 0.050659991,
+                "source_loading": 0.000063524,
+                "surface_parse_lower": 0.009706894
+              }
+            },
+            {
+              "run": "new-3",
+              "stages": {
+                "backend_runtime_remainder": 0.080906935,
+                "reachable_entry_lowering": 0.036392033,
+                "semantic_environment_check": 0.050215476,
+                "source_loading": 0.000063347,
+                "surface_parse_lower": 0.010025704
+              }
+            },
+            {
+              "run": "new-4",
+              "stages": {
+                "backend_runtime_remainder": 0.078840264,
+                "reachable_entry_lowering": 0.036466193,
+                "semantic_environment_check": 0.050221991,
+                "source_loading": 0.000064108,
+                "surface_parse_lower": 0.00982194
+              }
+            },
+            {
+              "run": "new-5",
+              "stages": {
+                "backend_runtime_remainder": 0.078639552,
+                "reachable_entry_lowering": 0.035588406,
+                "semantic_environment_check": 0.049630435,
+                "source_loading": 0.000063844,
+                "surface_parse_lower": 0.010224433
+              }
+            }
+          ],
+          "stage_medians_seconds": {
+            "backend_runtime_remainder": 0.078667886,
+            "reachable_entry_lowering": 0.036392033,
+            "semantic_environment_check": 0.050215476,
+            "source_loading": 0.000063844,
+            "surface_parse_lower": 0.00982194
+          },
+          "status": "available"
+        },
+        "summary": {
+          "median_absolute_deviation_wall_time_seconds": 0.0028431780000000018,
+          "median_user_cpu_seconds": 1.06,
+          "median_wall_time_seconds": 1.259775017,
+          "wall_time_noisy": false
+        }
+      }
+    }
+  ]
+}

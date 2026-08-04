@@ -4,7 +4,7 @@ use crate::schema::*;
 
 #[cfg(test)]
 use std::cell::Cell;
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 #[cfg(test)]
@@ -29,6 +29,7 @@ use crate::type_syntax::{parse_type_annotation, parse_type_or_unknown};
 #[derive(Clone)]
 pub(crate) struct TypeEnvironment {
     functions: Vec<FunctionSignature>,
+    functions_by_name: HashMap<String, Vec<usize>>,
     codec_calls: Vec<CodecCallSignature>,
     effects: Vec<EffectSignature>,
     handlers: Vec<HandlerSignature>,
@@ -486,6 +487,25 @@ pub mod standard_reuse_counters {
 }
 
 impl TypeEnvironment {
+    fn function_name_index(functions: &[FunctionSignature]) -> HashMap<String, Vec<usize>> {
+        let mut index = HashMap::<String, Vec<usize>>::new();
+        for (position, function) in functions.iter().enumerate() {
+            index
+                .entry(function.name.clone())
+                .or_default()
+                .push(position);
+        }
+        index
+    }
+
+    fn functions_named(&self, name: &str) -> impl Iterator<Item = &FunctionSignature> {
+        self.functions_by_name
+            .get(name)
+            .into_iter()
+            .flatten()
+            .map(|index| &self.functions[*index])
+    }
+
     pub(crate) fn from_module(module: &SurfaceModule) -> Self {
         Self::from_module_with_base(module, None)
     }
@@ -509,15 +529,18 @@ impl TypeEnvironment {
     }
 
     fn standard_subset(&self, module_names: &BTreeSet<String>) -> Self {
+        let functions = self
+            .functions
+            .iter()
+            .filter(|signature| {
+                standard_fact_in_selected_module(signature.module_name.as_deref(), module_names)
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        let functions_by_name = Self::function_name_index(&functions);
         Self {
-            functions: self
-                .functions
-                .iter()
-                .filter(|signature| {
-                    standard_fact_in_selected_module(signature.module_name.as_deref(), module_names)
-                })
-                .cloned()
-                .collect(),
+            functions,
+            functions_by_name,
             codec_calls: self
                 .codec_calls
                 .iter()
@@ -654,8 +677,10 @@ impl TypeEnvironment {
             companion_schema_access_targets.extend(base.companion_schema_access_targets.clone());
         }
         codec_calls.shrink_to_fit();
+        let functions_by_name = Self::function_name_index(&functions);
         Self {
             functions,
+            functions_by_name,
             codec_calls,
             effects,
             handlers,
@@ -671,7 +696,7 @@ impl TypeEnvironment {
     }
 
     pub(crate) fn function(&self, name: &str) -> Option<&FunctionSignature> {
-        self.functions.iter().find(|function| function.name == name)
+        self.functions_named(name).next()
     }
 
     pub(crate) fn canonicalize_type_annotation(
@@ -832,7 +857,7 @@ impl TypeEnvironment {
 
     pub(crate) fn function_for(&self, source: &Function) -> Option<&FunctionSignature> {
         let name = source.name.as_deref()?;
-        self.functions.iter().find(|function| {
+        self.functions_named(name).find(|function| {
             function.node_id == source.node_id
                 && function.name == name
                 && function.module_name == source.module_name
@@ -845,13 +870,13 @@ impl TypeEnvironment {
         name: &str,
         current_module: Option<&str>,
     ) -> FunctionLookup<'_> {
-        if let Some(function) = self.functions.iter().find(|function| {
+        if let Some(function) = self.functions_named(name).find(|function| {
             function.name == name && function.module_name.as_deref() == current_module
         }) {
             return FunctionLookup::Found(function);
         }
 
-        let mut matches = self.functions.iter().filter(|function| {
+        let mut matches = self.functions_named(name).filter(|function| {
             function.name == name
                 && function.visibility == Visibility::Public
                 && function.module_name.as_deref().is_some_and(|module_name| {
@@ -876,8 +901,7 @@ impl TypeEnvironment {
         name: &str,
         current_module: Option<&str>,
     ) -> Vec<&FunctionSignature> {
-        self.functions
-            .iter()
+        self.functions_named(name)
             .filter(|function| {
                 function.name == name
                     && function.visibility == Visibility::Public
@@ -922,9 +946,8 @@ impl TypeEnvironment {
                     current_module,
                 )?;
                 let module_name = use_decl.name.as_str();
-                self.functions.iter().find(|function| {
-                    function.name == *name
-                        && function.module_name.as_deref() == Some(module_name)
+                self.functions_named(name).find(|function| {
+                    function.module_name.as_deref() == Some(module_name)
                         && self.imported_function_is_visible(
                             function,
                             use_decl,
@@ -952,9 +975,8 @@ impl TypeEnvironment {
             &mut Vec::new(),
         )?;
         let helper_name = schema_decode_step_function_name(&schema.name);
-        self.functions.iter().find(|function| {
-            function.name == helper_name
-                && function.module_name == schema.module_name
+        self.functions_named(&helper_name).find(|function| {
+            function.module_name == schema.module_name
                 && self.schema_helper_is_visible(
                     function.visibility,
                     schema.module_name.as_deref(),
@@ -977,9 +999,8 @@ impl TypeEnvironment {
             &mut Vec::new(),
         )?;
         let helper_name = schema_encode_function_name(&schema.name);
-        self.functions.iter().find(|function| {
-            function.name == helper_name
-                && function.module_name == schema.module_name
+        self.functions_named(&helper_name).find(|function| {
+            function.module_name == schema.module_name
                 && self.schema_helper_is_visible(
                     function.visibility,
                     schema.module_name.as_deref(),
@@ -1073,9 +1094,8 @@ impl TypeEnvironment {
         }) {
             return Some("type");
         }
-        if self.functions.iter().any(|function| {
-            function.name == name.as_str()
-                && function.module_name.as_deref() == module_name.as_deref()
+        if self.functions_named(&name).any(|function| {
+            function.module_name.as_deref() == module_name.as_deref()
                 && self.symbol_is_visible(function, module_name.as_deref(), current_module)
         }) {
             return Some("function");

@@ -27,9 +27,9 @@ also states it.
 
 ### Toolchain Performance
 
-- [Bounded Toolchain Analysis](bounded-toolchain-analysis.md): finish
-  bounded reachable-entry selection and lowering for representative HTTP/2
-  applications after completed analysis-bounds and stage-measurement slices.
+- [Bounded Toolchain Analysis](bounded-toolchain-analysis.md): make the HTTP/2
+  core workload meet its remaining wall-time threshold after completed
+  candidate-indexing, connection-performance, and measurement slices.
 
 ### Toolchain Quality
 
