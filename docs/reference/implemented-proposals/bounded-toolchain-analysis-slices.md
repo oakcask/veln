@@ -65,9 +65,10 @@ Completed implementation scope:
 Structural tests cover private-reference candidate filtering,
 private-reference indexing, call-site contributor discovery, repeated
 inference body traversal, private handler retained effects, stable effect
-ordering, unrelated fully annotated module growth, standard-environment
-selection, fallback when prepared standard facts are not current, and repeated
-and concurrent application analysis.
+ordering, unrelated fully annotated module growth, initial standard-package
+parse/lower and semantic-prepare work for the selected closure,
+standard-environment selection, fallback when prepared standard facts are not
+current, and repeated and concurrent application analysis.
 
 The controlled stage-timing benchmark used prebuilt debug binaries, one
 warm-up run, and five measured runs. The baseline binary had no stage

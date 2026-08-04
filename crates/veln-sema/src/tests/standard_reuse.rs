@@ -219,7 +219,7 @@ fn reusable_standard_environment_selects_loaded_standard_module_sets() {
 }
 
 #[test]
-fn reusable_standard_environment_keeps_selected_work_constant_for_unrelated_standard_modules() {
+fn reusable_standard_environment_keeps_selected_facts_constant_for_unrelated_standard_modules() {
     let _guard = standard_reuse_test_lock();
     let selected_modules = std::iter::once("std::prelude".to_string()).collect();
 

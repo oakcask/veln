@@ -2829,8 +2829,15 @@ mod tests {
     }
 
     #[test]
-    fn standard_package_loading_keeps_work_constant_for_unrelated_modules() {
-        fn load_synthetic_standard(unrelated_count: usize) -> SurfaceModule {
+    fn standard_package_loading_keeps_initial_analysis_work_constant_for_unrelated_modules() {
+        #[derive(Debug, PartialEq, Eq)]
+        struct StandardInitializationWork {
+            loaded_modules: Vec<String>,
+            parsed_lowered_modules: usize,
+            prepared_declarations: usize,
+        }
+
+        fn load_synthetic_standard(unrelated_count: usize) -> StandardInitializationWork {
             let mut modules = std::collections::BTreeMap::new();
             for (path, text) in [
                 (
@@ -2885,7 +2892,30 @@ mod tests {
             load_project_sources(&project, &mut diagnostics, &mut parts, None);
             load_embedded_standard_package_from(&standard, &mut diagnostics, &mut parts);
             assert!(diagnostics.is_empty(), "{diagnostics:#?}");
-            parts.module
+            let loaded_modules = loaded_standard_modules(&parts.module);
+            let parsed_lowered_modules = standard
+                .modules
+                .values()
+                .filter(|entry| entry.module.get().is_some())
+                .count();
+            let prepared_declarations = standard_declaration_count(&parts.module);
+
+            let reusable = veln_sema::prepare_current_reusable_standard_surface_module_environment(
+                &parts.module,
+            );
+            let (semantic_diagnostics, checked) =
+                veln_sema::check_project_surface_module_with_standard_environment(
+                    &parts.module,
+                    &reusable,
+                );
+            assert!(semantic_diagnostics.is_empty(), "{semantic_diagnostics:#?}");
+            assert!(checked.diagnostics.is_empty(), "{:#?}", checked.diagnostics);
+
+            StandardInitializationWork {
+                loaded_modules,
+                parsed_lowered_modules,
+                prepared_declarations,
+            }
         }
 
         fn unrelated_annotated_standard_module(function_count: usize) -> String {
@@ -2898,7 +2928,7 @@ mod tests {
             text
         }
 
-        fn loaded_standard_modules(module: &SurfaceModule) -> Vec<&str> {
+        fn loaded_standard_modules(module: &SurfaceModule) -> Vec<String> {
             let mut modules = module
                 .functions
                 .iter()
@@ -2911,6 +2941,7 @@ mod tests {
                         .filter_map(|decl| decl.module_name.as_deref())
                         .filter(|module_name| module_name.starts_with("std::")),
                 )
+                .map(str::to_string)
                 .collect::<Vec<_>>();
             modules.sort_unstable();
             modules.dedup();
@@ -2969,16 +3000,8 @@ mod tests {
         let base = load_synthetic_standard(0);
         let expanded = load_synthetic_standard(128);
 
-        assert_eq!(loaded_standard_modules(&base), ["std::prelude"]);
-        assert_eq!(
-            loaded_standard_modules(&expanded),
-            loaded_standard_modules(&base)
-        );
-        assert_eq!(
-            standard_declaration_count(&expanded),
-            standard_declaration_count(&base),
-            "unrelated annotated standard modules must not add initial parse/lower declarations"
-        );
+        assert_eq!(base.loaded_modules, vec!["std::prelude".to_string()]);
+        assert_eq!(expanded, base);
     }
 
     #[test]
