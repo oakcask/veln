@@ -164,10 +164,12 @@ The command expects prebuilt CLI binaries. It does not build either binary
 during measured runs.
 
 The benchmark covers the small schema, HPACK static codec, HTTP/2 core, HTTP/2
-connection, and three generated fully annotated module-graph workloads. It
-keeps generated projects in temporary storage. When `--output PATH` is
-supplied, it writes deterministic JSON with the exact binary path and command
-used for every workload.
+connection, and three generated unrelated fully annotated module-graph
+workloads at adjacent doubling sizes. It keeps generated projects in temporary
+storage and compares measured-run exit status and normalized functional
+output before reporting threshold results. When `--output PATH` is supplied,
+it writes deterministic JSON with the exact binary path and command used for
+every workload.
 
 The optional toolchain-case overhead comparison needs an explicit command
 because it is not part of the CLI binary interface. Set

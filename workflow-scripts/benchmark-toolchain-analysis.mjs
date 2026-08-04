@@ -70,19 +70,17 @@ export function generateAnnotatedModuleGraph(root, size) {
   }
 
   const imports = [];
+  const calls = [];
   for (let index = 0; index < size; index += 1) {
     const moduleName = `generated_${index}`;
     imports.push(`use ${moduleName}`);
-    const priorImport = index === 0 ? "" : `use generated_${index - 1}\n\n`;
-    const priorCall =
-      index === 0 ? "seed" : `seed + generated_${index - 1}::value_${index - 1}()`;
+    calls.push(`${moduleName}::value_${index}()`);
     writeFileSync(
       join(root, `${moduleName}.veln`),
       [
-        priorImport +
-          `pub fn value_${index}() -> Int`,
+        `pub fn value_${index}() -> Int`,
         `\tlet seed: Int = ${index + 1}`,
-        `\t${priorCall}`,
+        "\tseed",
         "end",
         "",
       ].join("\n"),
@@ -96,7 +94,7 @@ export function generateAnnotatedModuleGraph(root, size) {
       ...imports,
       "",
       "pub fn main() -> Int",
-      `\tgenerated_${size - 1}::value_${size - 1}()`,
+      `\t${calls.join(" + ")}`,
       "end",
       "",
     ].join("\n"),
@@ -106,7 +104,7 @@ export function generateAnnotatedModuleGraph(root, size) {
   return {
     size,
     moduleCount: size + 1,
-    command: ["check", "--json", "main.veln"],
+    command: ["check", "--json"],
   };
 }
 
@@ -136,6 +134,14 @@ export function compareFunctionalOutputs(left, right) {
     left.normalized_stdout === right.normalized_stdout &&
     left.normalized_stderr === right.normalized_stderr
   );
+}
+
+export function functionalSnapshot(run, replacements = {}) {
+  return {
+    exit_status: run.exit_status,
+    normalized_stdout: normalizeFunctionalOutput(run.stdout, replacements),
+    normalized_stderr: normalizeFunctionalOutput(run.stderr, replacements),
+  };
 }
 
 export function thresholdDecisions(result) {
@@ -259,10 +265,25 @@ function parseArgs(argv) {
       throw new Error(`unknown option: ${flag}`);
     }
   }
-  if (args.runs < 1 || args.warmups < 0 || args.sizes.length !== 3 || args.sizes.some((size) => !Number.isInteger(size))) {
-    throw new Error("--runs must be positive, --warmups must not be negative, and --sizes must contain three integers");
+  if (
+    args.runs < 1 ||
+    args.warmups < 0 ||
+    args.sizes.length !== 3 ||
+    args.sizes.some((size) => !Number.isInteger(size) || size < 2) ||
+    !(
+      args.sizes[1] === args.sizes[0] * 2 &&
+      args.sizes[2] === args.sizes[1] * 2
+    )
+  ) {
+    throw new Error(
+      "--runs must be positive, --warmups must not be negative, and --sizes must contain three adjacent doubling integers greater than one",
+    );
   }
   return args;
+}
+
+function parseShellCommand(command) {
+  return ["sh", "-c", command];
 }
 
 function runMeasured(command, options) {
@@ -302,6 +323,7 @@ function prepareWorkloads(repoRoot, sizes, generatedRoot) {
       id: `generated_${index + 1}`,
       commandKind: "veln",
       cwd: actualCwd,
+      displayCwd: `<temporary>/generated_${index + 1}`,
       args: generated.command,
       generated,
     });
@@ -311,7 +333,8 @@ function prepareWorkloads(repoRoot, sizes, generatedRoot) {
       id: "http2_core_toolchain_case",
       commandKind: "shell",
       cwd: repoRoot,
-      args: process.env.VELN_TOOLCHAIN_CASE_COMMAND.split(/\s+/).filter(Boolean),
+      args: parseShellCommand(process.env.VELN_TOOLCHAIN_CASE_COMMAND),
+      displayCommand: process.env.VELN_TOOLCHAIN_CASE_COMMAND,
     });
   }
   return workloads;
@@ -319,48 +342,57 @@ function prepareWorkloads(repoRoot, sizes, generatedRoot) {
 
 function measurePair(args, workload) {
   const env = { ...process.env, ...(workload.env ?? {}) };
+  const baselineBinary = realpathSync(args.baselineBinary);
+  const newBinary = realpathSync(args.newBinary);
   const replacements = {
     [args.repoRoot]: "<repo>",
     [workload.cwd]: "<workload>",
+    [baselineBinary]: "<baseline-binary>",
+    [newBinary]: "<new-binary>",
   };
-  const baselineCommand = workloadCommand(realpathSync(args.baselineBinary), workload);
-  const newCommand = workloadCommand(realpathSync(args.newBinary), workload);
+  const baselineCommand = workloadCommand(baselineBinary, workload);
+  const newCommand = workloadCommand(newBinary, workload);
 
   for (let index = 0; index < args.warmups; index += 1) {
-    runMeasured(baselineCommand, { cwd: workload.cwd, env });
-    runMeasured(newCommand, { cwd: workload.cwd, env });
+    if (index % 2 === 0) {
+      runMeasured(baselineCommand, { cwd: workload.cwd, env });
+      runMeasured(newCommand, { cwd: workload.cwd, env });
+    } else {
+      runMeasured(newCommand, { cwd: workload.cwd, env });
+      runMeasured(baselineCommand, { cwd: workload.cwd, env });
+    }
   }
 
   const baselineRuns = [];
   const newRuns = [];
   for (let index = 0; index < args.runs; index += 1) {
-    baselineRuns.push(runMeasured(baselineCommand, { cwd: workload.cwd, env }));
-    newRuns.push(runMeasured(newCommand, { cwd: workload.cwd, env }));
+    if (index % 2 === 0) {
+      baselineRuns.push(runMeasured(baselineCommand, { cwd: workload.cwd, env }));
+      newRuns.push(runMeasured(newCommand, { cwd: workload.cwd, env }));
+    } else {
+      newRuns.push(runMeasured(newCommand, { cwd: workload.cwd, env }));
+      baselineRuns.push(runMeasured(baselineCommand, { cwd: workload.cwd, env }));
+    }
   }
 
-  const baselineLast = baselineRuns.at(-1);
-  const newLast = newRuns.at(-1);
-  const baselineFunctional = {
-    exit_status: baselineLast.exit_status,
-    normalized_stdout: normalizeFunctionalOutput(baselineLast.stdout, replacements),
-    normalized_stderr: normalizeFunctionalOutput(baselineLast.stderr, replacements),
-  };
-  const newFunctional = {
-    exit_status: newLast.exit_status,
-    normalized_stdout: normalizeFunctionalOutput(newLast.stdout, replacements),
-    normalized_stderr: normalizeFunctionalOutput(newLast.stderr, replacements),
-  };
+  const functionalComparisons = baselineRuns.map((baselineRun, index) =>
+    compareFunctionalOutputs(
+      functionalSnapshot(baselineRun, replacements),
+      functionalSnapshot(newRuns[index], replacements),
+    ),
+  );
 
   return {
     id: workload.id,
-    cwd: relative(args.repoRoot, workload.cwd) || ".",
+    cwd: workload.displayCwd ?? (relative(args.repoRoot, workload.cwd) || "."),
     command: {
       baseline: baselineCommand,
       new: newCommand,
+      display: workload.displayCommand ?? null,
     },
     generated: workload.generated ?? null,
     baseline: {
-      binary: realpathSync(args.baselineBinary),
+      binary: baselineBinary,
       summary: summarizeRuns(baselineRuns),
       runs: baselineRuns.map(({ wall_time_seconds, user_cpu_seconds, exit_status }) => ({
         exit_status,
@@ -369,7 +401,7 @@ function measurePair(args, workload) {
       })),
     },
     new: {
-      binary: realpathSync(args.newBinary),
+      binary: newBinary,
       summary: summarizeRuns(newRuns),
       runs: newRuns.map(({ wall_time_seconds, user_cpu_seconds, exit_status }) => ({
         exit_status,
@@ -377,7 +409,8 @@ function measurePair(args, workload) {
         wall_time_seconds,
       })),
     },
-    functional_outputs_equal: compareFunctionalOutputs(baselineFunctional, newFunctional),
+    functional_output_comparisons: functionalComparisons,
+    functional_outputs_equal: functionalComparisons.every(Boolean),
   };
 }
 
@@ -386,8 +419,9 @@ function summarizeForHuman(result) {
   const skipped = result.thresholds.filter((threshold) => threshold.status === "skipped");
   console.log(`toolchain analysis benchmark: ${failed.length === 0 ? "passed" : "failed"}`);
   for (const workload of result.workloads) {
+    const noisy = workload.baseline.summary.wall_time_noisy || workload.new.summary.wall_time_noisy;
     console.log(
-      `${workload.id}: baseline ${workload.baseline.summary.median_wall_time_seconds.toFixed(3)}s, new ${workload.new.summary.median_wall_time_seconds.toFixed(3)}s, functional ${workload.functional_outputs_equal ? "equal" : "different"}`,
+      `${workload.id}: baseline ${workload.baseline.summary.median_wall_time_seconds.toFixed(3)}s, new ${workload.new.summary.median_wall_time_seconds.toFixed(3)}s, functional ${workload.functional_outputs_equal ? "equal" : "different"}${noisy ? ", noisy" : ""}`,
     );
   }
   for (const threshold of result.thresholds) {

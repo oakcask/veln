@@ -99,7 +99,8 @@ measures these tracked workloads:
 - the HPACK static codec boundary example;
 - the HTTP/2 protocol closed-input example;
 - the HTTP/2 connection application example;
-- generated fully annotated module graphs at three adjacent sizes.
+- generated unrelated fully annotated module graphs at three adjacent doubling
+  sizes.
 
 For each workload, the script performs one warm-up run and five measured runs
 by default. It alternates the baseline and new binary during comparison. It
@@ -112,9 +113,9 @@ If the median absolute deviation of wall time exceeds ten percent of the
 median, the result is noisy and must be repeated before it is used as
 acceptance evidence.
 
-The script compares exit status and normalized functional output before it
-reports a performance result. The controlled benchmark result is accepted when
-all of these comparisons pass:
+The script compares exit status and normalized functional output for measured
+runs before it reports a performance result. The controlled benchmark result
+is accepted when all of these comparisons pass:
 
 | Comparison | Required result |
 | --- | --- |

@@ -5,10 +5,10 @@ import { join } from "node:path";
 import test from "node:test";
 import {
   compareFunctionalOutputs,
+  functionalSnapshot,
   generateAnnotatedModuleGraph,
   median,
   medianAbsoluteDeviation,
-  normalizeFunctionalOutput,
   stableJson,
   summarizeRuns,
   thresholdDecisions,
@@ -21,13 +21,18 @@ test("generates adjacent fully annotated module graph workloads", () => {
   assert.deepEqual(generated, {
     size: 4,
     moduleCount: 5,
-    command: ["check", "--json", "main.veln"],
+    command: ["check", "--json"],
   });
   assert.match(readFileSync(join(root, "main.veln"), "utf8"), /use generated_3/);
   assert.match(
-    readFileSync(join(root, "generated_3.veln"), "utf8"),
-    /pub fn value_3\(\) -> Int\n\tlet seed: Int = 4\n\tseed \+ generated_2::value_2\(\)/,
+    readFileSync(join(root, "main.veln"), "utf8"),
+    /generated_0::value_0\(\) \+ generated_1::value_1\(\) \+ generated_2::value_2\(\) \+ generated_3::value_3\(\)/,
   );
+  assert.match(
+    readFileSync(join(root, "generated_3.veln"), "utf8"),
+    /pub fn value_3\(\) -> Int\n\tlet seed: Int = 4\n\tseed/,
+  );
+  assert.doesNotMatch(readFileSync(join(root, "generated_3.veln"), "utf8"), /use generated_2/);
 });
 
 test("calculates median and median absolute deviation", () => {
@@ -37,11 +42,14 @@ test("calculates median and median absolute deviation", () => {
 });
 
 test("normalizes functional output before comparison", () => {
-  const left = {
-    exit_status: 1,
-    normalized_stdout: normalizeFunctionalOutput("ok\r\n/tmp/run\n", { "/tmp/run": "<workload>" }),
-    normalized_stderr: "",
-  };
+  const left = functionalSnapshot(
+    {
+      exit_status: 1,
+      stdout: "ok\r\n/tmp/run\n",
+      stderr: "",
+    },
+    { "/tmp/run": "<workload>" },
+  );
   const right = {
     exit_status: 1,
     normalized_stdout: "ok\n<workload>",
