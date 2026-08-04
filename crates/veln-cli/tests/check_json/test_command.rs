@@ -149,6 +149,7 @@ fn test_json_reports_parse_static_gate_without_jdk_execution() {
             "\"status\":\"blocked\"",
             "\"selection\":{\"mode\":\"discovered\",\"targets\":[\"broken_test.veln\"],\"confidence\":\"complete\",\"reason\":\"pattern_discovery\"}",
             "\"summary\":{\"total\":0,\"passed\":0,\"failed\":0,\"skipped\":0,\"todo\":0,\"blocked\":0,\"errors\":0}",
+            "\"suite_errors\":[]",
             "\"diagnostics\":[{\"id\":\"parse.invalid_token\"",
             "\"message\":\"invalid token in expression\"",
             "\"span\":{\"file\":\"broken_test.veln\"",

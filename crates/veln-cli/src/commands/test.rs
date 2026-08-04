@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -34,16 +35,43 @@ pub(crate) fn test(
     targets: Vec<PathBuf>,
 ) -> Result<ExitCode, String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
+    let suite = prepare_test_suite(root, &targets)?;
+    let report = run_test_suite(suite, jobs)?;
+
+    if json {
+        println!("{}", report.to_json());
+    } else {
+        print_test_human(&report)?;
+    }
+
+    Ok(if report.status == TestRunStatus::Passed {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::from(1)
+    })
+}
+
+struct PreparedTestSuite {
+    explicit: bool,
+    selection_plan: TestSelectionPlan,
+    analysis: ProjectAnalysis,
+    test_files: BTreeSet<String>,
+    cases: Vec<TestCase>,
+    diagnostics: Vec<Diagnostic>,
+    suite_errors: Vec<SuiteError>,
+}
+
+fn prepare_test_suite(root: PathBuf, targets: &[PathBuf]) -> Result<PreparedTestSuite, String> {
     let explicit = !targets.is_empty();
-    let target_expansion = expand_test_targets(&root, &targets);
-    let selection_plan = selection_plan(&root, &targets, explicit, &target_expansion)?;
+    let target_expansion = expand_test_targets(&root, targets);
+    let selection_plan = selection_plan(&root, targets, explicit, &target_expansion)?;
     let analysis_targets = if harness_source_diagnostic_artifact_requested() {
         &[]
     } else {
         selection_plan.analysis_targets.as_slice()
     };
     let project = Project::discover(root, analysis_targets).map_err(|error| error.to_string())?;
-    let mut analysis = analyze_project(project, DoctestMode::Include);
+    let analysis = analyze_project(project, DoctestMode::Include);
     let test_files = selected_test_files(
         &analysis.project,
         &analysis.module,
@@ -62,6 +90,29 @@ pub(crate) fn test(
         ));
     }
 
+    Ok(PreparedTestSuite {
+        explicit,
+        selection_plan,
+        analysis,
+        test_files,
+        cases,
+        diagnostics,
+        suite_errors,
+    })
+}
+
+fn run_test_suite(suite: PreparedTestSuite, jobs: Option<usize>) -> Result<TestReport, String> {
+    let PreparedTestSuite {
+        explicit,
+        selection_plan,
+        mut analysis,
+        test_files,
+        mut cases,
+        diagnostics,
+        suite_errors,
+    } = suite;
+    let diagnostics_have_errors = has_error(&diagnostics);
+
     let mut analysis_slot = Some(analysis);
     process_discovered_test_cases(
         &mut cases,
@@ -71,64 +122,60 @@ pub(crate) fn test(
             let analysis = analysis_slot
                 .take()
                 .expect("analysis state should be available before test execution");
-            let reusable_program = analysis.reusable_standard_ir().map(|ir| {
-                generate_classfiles_with_test_entries(
-                    ir,
-                    &runnable_cases
-                        .iter()
-                        .map(|case| case.name.clone())
-                        .collect::<Vec<_>>(),
-                )
-            });
-            let active_jobs = resolve_test_jobs(jobs, runnable_cases.len(), || {
-                std::thread::available_parallelism().ok()
-            });
-            let analysis_mutex = Mutex::new(analysis);
-            let cases = run_test_case_jobs(
-                runnable_cases,
-                active_jobs,
-                |case| {
-                    let analysis = analysis_mutex
-                        .lock()
-                        .map_err(|_| "test analysis state was poisoned".to_string())?;
-                    Ok(prepare_test_case_job(
-                        &analysis,
-                        reusable_program.as_ref(),
-                        case,
-                    ))
-                },
-                execute_test_case_job,
-            )
-            .map_err(test_scheduler_error)?;
-            analysis_slot = Some(
-                analysis_mutex
-                    .into_inner()
-                    .map_err(|_| "test analysis state was poisoned".to_string())?,
-            );
+            let (analysis, cases) = execute_runnable_test_cases(analysis, runnable_cases, jobs)?;
+            analysis_slot = Some(analysis);
             Ok::<_, String>(cases)
         },
     )?;
     analysis = analysis_slot.expect("analysis state should be available after test execution");
 
-    let report = TestReport::new(
+    Ok(TestReport::new(
         TestSelection::new(&analysis.project, &test_files, explicit)
             .apply_metadata(selection_plan.metadata),
         diagnostics,
         suite_errors,
         cases,
-    );
+    ))
+}
 
-    if json {
-        println!("{}", report.to_json());
-    } else {
-        print_test_human(&report)?;
-    }
-
-    Ok(if report.status == TestRunStatus::Passed {
-        ExitCode::SUCCESS
-    } else {
-        ExitCode::from(1)
-    })
+fn execute_runnable_test_cases(
+    analysis: ProjectAnalysis,
+    runnable_cases: Vec<TestCase>,
+    jobs: Option<usize>,
+) -> Result<(ProjectAnalysis, Vec<TestCase>), String> {
+    let reusable_program = analysis.reusable_standard_ir().map(|ir| {
+        generate_classfiles_with_test_entries(
+            ir,
+            &runnable_cases
+                .iter()
+                .map(|case| case.name.clone())
+                .collect::<Vec<_>>(),
+        )
+    });
+    let active_jobs = resolve_test_jobs(jobs, runnable_cases.len(), || {
+        std::thread::available_parallelism().ok()
+    });
+    let analysis_mutex = Mutex::new(analysis);
+    let cases = run_test_case_jobs(
+        runnable_cases,
+        active_jobs,
+        |case| {
+            let analysis = analysis_mutex
+                .lock()
+                .map_err(|_| "test analysis state was poisoned".to_string())?;
+            Ok(prepare_test_case_job(
+                &analysis,
+                reusable_program.as_ref(),
+                case,
+            ))
+        },
+        execute_test_case_job,
+    )
+    .map_err(test_scheduler_error)?;
+    let analysis = analysis_mutex
+        .into_inner()
+        .map_err(|_| "test analysis state was poisoned".to_string())?;
+    Ok((analysis, cases))
 }
 
 pub(crate) fn resolve_test_jobs(
