@@ -55,10 +55,12 @@ that can still affect the pass. The prelude-callback pass first identifies
 omitted private returns that still contain unknown type information or whose
 tail expression can still use a prelude callback expected type. If no such
 slot exists, these passes do not traverse function bodies. If such slots
-exist, a private-reference index selects functions that own eligible private
-slots or reference them in ways that can contribute constraints before the
-repeated body traversals begin. Call-site and prelude-callback contributor
-discovery is not rebuilt inside each stabilization round.
+exist, a private-reference index first excludes functions whose body cannot
+mention any eligible private slot name in the same module. The index then
+selects functions that own eligible private slots or reference them in ways
+that can contribute constraints before the repeated body traversals begin.
+Call-site and prelude-callback contributor discovery is not rebuilt inside
+each stabilization round.
 Structural `veln-sema` tests use test-only work counters to assert that
 unrelated fully annotated module sets do not pay private-inference body scans,
 and that an omitted private helper chain still reaches the same inferred
@@ -209,9 +211,12 @@ unchanged. It narrows only analyzer work:
   or reference them in ways that can contribute constraints, and their
   contributor sets are not rebuilt in every stabilization round;
 - private-reference index construction is limited to modules that contain
-  eligible omitted private slots or eligible omitted private returns, and
-  structural tests record its scan count separately from repeated inference
-  body traversals.
+  eligible omitted private slots or eligible omitted private returns, and it
+  skips functions that cannot mention the eligible private slot names in their
+  module;
+- structural tests record private-reference index scan counts separately from
+  repeated inference body traversals and cover unrelated annotated functions in
+  the same module.
 
 The remaining proposal work is explicit:
 

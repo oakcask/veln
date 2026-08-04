@@ -752,7 +752,7 @@ fn omitted_private_signature_chain_skips_unrelated_annotated_functions_in_same_m
     assert_eq!(counters.body_return_scans, 2, "{counters:#?}");
     assert_eq!(counters.call_site_discovery_scans, 0, "{counters:#?}");
     assert_eq!(counters.call_site_scans, 6, "{counters:#?}");
-    assert_eq!(counters.private_reference_index_scans, 15, "{counters:#?}");
+    assert_eq!(counters.private_reference_index_scans, 3, "{counters:#?}");
     assert_eq!(
         counters.prelude_callback_discovery_scans, 0,
         "{counters:#?}"
@@ -807,7 +807,7 @@ fn prelude_callback_return_inference_skips_unrelated_annotated_helpers() {
     assert_eq!(counters.body_return_scans, 3, "{counters:#?}");
     assert_eq!(counters.call_site_discovery_scans, 0, "{counters:#?}");
     assert_eq!(counters.call_site_scans, 3, "{counters:#?}");
-    assert_eq!(counters.private_reference_index_scans, 30, "{counters:#?}");
+    assert_eq!(counters.private_reference_index_scans, 5, "{counters:#?}");
     assert_eq!(
         counters.prelude_callback_discovery_scans, 1,
         "{counters:#?}"
@@ -861,7 +861,7 @@ fn prelude_callback_return_inference_has_zero_scan_when_helper_return_is_fixed()
     assert_eq!(counters.body_return_scans, 1, "{counters:#?}");
     assert_eq!(counters.call_site_discovery_scans, 0, "{counters:#?}");
     assert_eq!(counters.call_site_scans, 2, "{counters:#?}");
-    assert_eq!(counters.private_reference_index_scans, 14, "{counters:#?}");
+    assert_eq!(counters.private_reference_index_scans, 2, "{counters:#?}");
     assert_eq!(
         counters.prelude_callback_discovery_scans, 0,
         "{counters:#?}"
