@@ -29,14 +29,14 @@
       "description": "HTTP/2 core direct analysis new wall-time median is at most one third of baseline",
       "id": "http2_core_improvement",
       "max_ratio": 0.3333333333333333,
-      "ratio": 1.0070499730305007,
+      "ratio": 0.9975419587079746,
       "status": "failed"
     },
     {
       "description": "HTTP/2 connection direct analysis new wall-time median is at most one third of baseline",
       "id": "http2_connection_improvement",
       "max_ratio": 0.3333333333333333,
-      "ratio": 1.0035694027881494,
+      "ratio": 1.0032901790646642,
       "status": "failed"
     },
     {
@@ -49,14 +49,14 @@
       "description": "first generated size to second size user CPU median grows by no more than 2.5 times",
       "id": "generated_first_to_second",
       "max_ratio": 2.5,
-      "ratio": 1.0112359550561798,
+      "ratio": 1.0224719101123596,
       "status": "passed"
     },
     {
       "description": "second generated size to third size user CPU median grows by no more than 2.5 times",
       "id": "generated_second_to_third",
       "max_ratio": 2.5,
-      "ratio": 1.0666666666666667,
+      "ratio": 1.054945054945055,
       "status": "passed"
     },
     {
@@ -82,36 +82,36 @@
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.95,
-            "wall_time_seconds": 1.093046408
+            "wall_time_seconds": 1.090309523
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.96,
-            "wall_time_seconds": 1.089355436
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.94,
-            "wall_time_seconds": 1.094542874
+            "user_cpu_seconds": 0.93,
+            "wall_time_seconds": 1.081571958
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.95,
-            "wall_time_seconds": 1.097771195
+            "wall_time_seconds": 1.098653629
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.94,
-            "wall_time_seconds": 1.087337556
+            "user_cpu_seconds": 0.93,
+            "wall_time_seconds": 1.085493392
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.95,
+            "wall_time_seconds": 1.1149779
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.0036909720000000146,
+          "median_absolute_deviation_wall_time_seconds": 0.008344106000000018,
           "median_user_cpu_seconds": 0.95,
-          "median_wall_time_seconds": 1.093046408,
+          "median_wall_time_seconds": 1.090309523,
           "wall_time_noisy": false
         }
       },
@@ -155,28 +155,28 @@
         "runs": [
           {
             "exit_status": 0,
+            "user_cpu_seconds": 0.94,
+            "wall_time_seconds": 1.093683143
+          },
+          {
+            "exit_status": 0,
             "user_cpu_seconds": 0.96,
-            "wall_time_seconds": 1.110711008
+            "wall_time_seconds": 1.105969848
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.95,
+            "wall_time_seconds": 1.096222242
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.98,
-            "wall_time_seconds": 1.121954198
+            "wall_time_seconds": 1.115126891
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.95,
-            "wall_time_seconds": 1.109760259
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.97,
-            "wall_time_seconds": 1.097451639
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.95,
-            "wall_time_seconds": 1.091394143
+            "user_cpu_seconds": 0.94,
+            "wall_time_seconds": 1.11051137
           }
         ],
         "stage_timing": {
@@ -185,67 +185,67 @@
             {
               "run": "new-1",
               "stages": {
-                "backend_runtime_remainder": 0.071251632,
-                "reachable_entry_lowering": 0.00848602,
-                "semantic_environment_check": 0.010392816,
-                "source_loading": 0.000080828,
-                "surface_parse_lower": 0.001705327
+                "backend_runtime_remainder": 0.072454416,
+                "reachable_entry_lowering": 0.008375985,
+                "semantic_environment_check": 0.010296982,
+                "source_loading": 0.000090974,
+                "surface_parse_lower": 0.001639219
               }
             },
             {
               "run": "new-2",
               "stages": {
-                "backend_runtime_remainder": 0.071157687,
-                "reachable_entry_lowering": 0.008633369,
-                "semantic_environment_check": 0.010442355,
-                "source_loading": 0.00007628,
-                "surface_parse_lower": 0.001882136
+                "backend_runtime_remainder": 0.070230242,
+                "reachable_entry_lowering": 0.008651273,
+                "semantic_environment_check": 0.010290776,
+                "source_loading": 0.000083033,
+                "surface_parse_lower": 0.001708369
               }
             },
             {
               "run": "new-3",
               "stages": {
-                "backend_runtime_remainder": 0.07056012,
-                "reachable_entry_lowering": 0.008678532,
-                "semantic_environment_check": 0.010659422,
-                "source_loading": 0.000085789,
-                "surface_parse_lower": 0.001792675
+                "backend_runtime_remainder": 0.072904237,
+                "reachable_entry_lowering": 0.008483428,
+                "semantic_environment_check": 0.010148266,
+                "source_loading": 0.00008864,
+                "surface_parse_lower": 0.001722864
               }
             },
             {
               "run": "new-4",
               "stages": {
-                "backend_runtime_remainder": 0.069411258,
-                "reachable_entry_lowering": 0.008579485,
-                "semantic_environment_check": 0.010368596,
-                "source_loading": 0.000081977,
-                "surface_parse_lower": 0.001670477
+                "backend_runtime_remainder": 0.071225196,
+                "reachable_entry_lowering": 0.008786354,
+                "semantic_environment_check": 0.010517627,
+                "source_loading": 0.000075715,
+                "surface_parse_lower": 0.001672572
               }
             },
             {
               "run": "new-5",
               "stages": {
-                "backend_runtime_remainder": 0.069390322,
-                "reachable_entry_lowering": 0.00841558,
-                "semantic_environment_check": 0.010139892,
-                "source_loading": 0.000087746,
-                "surface_parse_lower": 0.001740583
+                "backend_runtime_remainder": 0.072049834,
+                "reachable_entry_lowering": 0.008930033,
+                "semantic_environment_check": 0.010392222,
+                "source_loading": 0.0000893,
+                "surface_parse_lower": 0.001698447
               }
             }
           ],
           "stage_medians_seconds": {
-            "backend_runtime_remainder": 0.07056012,
-            "reachable_entry_lowering": 0.008579485,
-            "semantic_environment_check": 0.010392816,
-            "source_loading": 0.000081977,
-            "surface_parse_lower": 0.001740583
+            "backend_runtime_remainder": 0.072049834,
+            "reachable_entry_lowering": 0.008651273,
+            "semantic_environment_check": 0.010296982,
+            "source_loading": 0.00008864,
+            "surface_parse_lower": 0.001698447
           },
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.012193939000000098,
-          "median_user_cpu_seconds": 0.96,
-          "median_wall_time_seconds": 1.109760259,
+          "median_absolute_deviation_wall_time_seconds": 0.009157043000000087,
+          "median_user_cpu_seconds": 0.95,
+          "median_wall_time_seconds": 1.105969848,
           "wall_time_noisy": false
         }
       }
@@ -257,37 +257,37 @@
         "runs": [
           {
             "exit_status": 1,
+            "user_cpu_seconds": 1.05,
+            "wall_time_seconds": 1.224114788
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.1,
+            "wall_time_seconds": 1.260637327
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.1,
+            "wall_time_seconds": 1.247214889
+          },
+          {
+            "exit_status": 1,
             "user_cpu_seconds": 1.07,
-            "wall_time_seconds": 1.221989546
+            "wall_time_seconds": 1.251823622
           },
           {
             "exit_status": 1,
-            "user_cpu_seconds": 1.08,
-            "wall_time_seconds": 1.258720914
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 1.09,
-            "wall_time_seconds": 1.238715503
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 1.07,
-            "wall_time_seconds": 1.247600201
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 1.08,
-            "wall_time_seconds": 1.248524967
+            "user_cpu_seconds": 1.1,
+            "wall_time_seconds": 1.266903447
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.008884697999999913,
-          "median_user_cpu_seconds": 1.08,
-          "median_wall_time_seconds": 1.247600201,
+          "median_absolute_deviation_wall_time_seconds": 0.008813704999999894,
+          "median_user_cpu_seconds": 1.1,
+          "median_wall_time_seconds": 1.251823622,
           "wall_time_noisy": false
         }
       },
@@ -326,27 +326,27 @@
           {
             "exit_status": 1,
             "user_cpu_seconds": 1.09,
-            "wall_time_seconds": 1.253339376
+            "wall_time_seconds": 1.249186618
           },
           {
             "exit_status": 1,
             "user_cpu_seconds": 1.08,
-            "wall_time_seconds": 1.235230203
+            "wall_time_seconds": 1.224044624
           },
           {
             "exit_status": 1,
-            "user_cpu_seconds": 1.08,
-            "wall_time_seconds": 1.247768873
+            "user_cpu_seconds": 1.06,
+            "wall_time_seconds": 1.236317068
           },
           {
             "exit_status": 1,
             "user_cpu_seconds": 1.09,
-            "wall_time_seconds": 1.240154267
+            "wall_time_seconds": 1.230512731
           },
           {
             "exit_status": 1,
-            "user_cpu_seconds": 1.11,
-            "wall_time_seconds": 1.265940485
+            "user_cpu_seconds": 1.1,
+            "wall_time_seconds": 1.26658292
           }
         ],
         "stage_timing": {
@@ -355,67 +355,67 @@
             {
               "run": "new-1",
               "stages": {
-                "backend_runtime_remainder": 0.077681138,
-                "reachable_entry_lowering": 0.060864469,
-                "semantic_environment_check": 0.080981964,
-                "source_loading": 0.000065181,
-                "surface_parse_lower": 0.009588489
+                "backend_runtime_remainder": 0.079738782,
+                "reachable_entry_lowering": 0.061359542,
+                "semantic_environment_check": 0.081148752,
+                "source_loading": 0.00005165,
+                "surface_parse_lower": 0.008979318
               }
             },
             {
               "run": "new-2",
               "stages": {
-                "backend_runtime_remainder": 0.077008964,
-                "reachable_entry_lowering": 0.059980657,
-                "semantic_environment_check": 0.079345813,
-                "source_loading": 0.000047011,
-                "surface_parse_lower": 0.008727313
+                "backend_runtime_remainder": 0.07813814,
+                "reachable_entry_lowering": 0.059486648,
+                "semantic_environment_check": 0.078340805,
+                "source_loading": 0.000047027,
+                "surface_parse_lower": 0.008603069
               }
             },
             {
               "run": "new-3",
               "stages": {
-                "backend_runtime_remainder": 0.078478424,
-                "reachable_entry_lowering": 0.061488492,
-                "semantic_environment_check": 0.080648841,
-                "source_loading": 0.000046479,
-                "surface_parse_lower": 0.009090784
+                "backend_runtime_remainder": 0.07672888,
+                "reachable_entry_lowering": 0.060122881,
+                "semantic_environment_check": 0.079649839,
+                "source_loading": 0.00005655,
+                "surface_parse_lower": 0.009058647
               }
             },
             {
               "run": "new-4",
               "stages": {
-                "backend_runtime_remainder": 0.076861021,
-                "reachable_entry_lowering": 0.060503769,
-                "semantic_environment_check": 0.079326054,
-                "source_loading": 0.000050814,
-                "surface_parse_lower": 0.008664053
+                "backend_runtime_remainder": 0.080247777,
+                "reachable_entry_lowering": 0.061025257,
+                "semantic_environment_check": 0.078281843,
+                "source_loading": 0.000052126,
+                "surface_parse_lower": 0.008656274
               }
             },
             {
               "run": "new-5",
               "stages": {
-                "backend_runtime_remainder": 0.077588085,
-                "reachable_entry_lowering": 0.060520082,
-                "semantic_environment_check": 0.08035977,
-                "source_loading": 0.000047997,
-                "surface_parse_lower": 0.009092233
+                "backend_runtime_remainder": 0.077735499,
+                "reachable_entry_lowering": 0.061715323,
+                "semantic_environment_check": 0.081255508,
+                "source_loading": 0.000050405,
+                "surface_parse_lower": 0.009880604
               }
             }
           ],
           "stage_medians_seconds": {
-            "backend_runtime_remainder": 0.077588085,
-            "reachable_entry_lowering": 0.060520082,
-            "semantic_environment_check": 0.08035977,
-            "source_loading": 0.000047997,
-            "surface_parse_lower": 0.009090784
+            "backend_runtime_remainder": 0.07813814,
+            "reachable_entry_lowering": 0.061025257,
+            "semantic_environment_check": 0.079649839,
+            "source_loading": 0.00005165,
+            "surface_parse_lower": 0.008979318
           },
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.007614605999999968,
+          "median_absolute_deviation_wall_time_seconds": 0.012272443999999938,
           "median_user_cpu_seconds": 1.09,
-          "median_wall_time_seconds": 1.247768873,
+          "median_wall_time_seconds": 1.236317068,
           "wall_time_noisy": false
         }
       }
@@ -427,37 +427,37 @@
         "runs": [
           {
             "exit_status": 1,
-            "user_cpu_seconds": 1.16,
-            "wall_time_seconds": 1.346256478
+            "user_cpu_seconds": 1.21,
+            "wall_time_seconds": 1.378452322
           },
           {
             "exit_status": 1,
             "user_cpu_seconds": 1.2,
-            "wall_time_seconds": 1.378912618
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 1.18,
-            "wall_time_seconds": 1.348328944
+            "wall_time_seconds": 1.356662374
           },
           {
             "exit_status": 1,
             "user_cpu_seconds": 1.2,
-            "wall_time_seconds": 1.367518778
+            "wall_time_seconds": 1.365029118
           },
           {
             "exit_status": 1,
-            "user_cpu_seconds": 1.19,
-            "wall_time_seconds": 1.350518216
+            "user_cpu_seconds": 1.21,
+            "wall_time_seconds": 1.361807066
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.17,
+            "wall_time_seconds": 1.355573787
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.00426173800000007,
-          "median_user_cpu_seconds": 1.19,
-          "median_wall_time_seconds": 1.350518216,
+          "median_absolute_deviation_wall_time_seconds": 0.005144692000000006,
+          "median_user_cpu_seconds": 1.2,
+          "median_wall_time_seconds": 1.361807066,
           "wall_time_noisy": false
         }
       },
@@ -497,28 +497,28 @@
         "runs": [
           {
             "exit_status": 1,
-            "user_cpu_seconds": 1.2,
-            "wall_time_seconds": 1.360039333
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 1.21,
-            "wall_time_seconds": 1.357144862
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 1.19,
-            "wall_time_seconds": 1.368178353
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 1.2,
-            "wall_time_seconds": 1.354934175
+            "user_cpu_seconds": 1.18,
+            "wall_time_seconds": 1.358407909
           },
           {
             "exit_status": 1,
             "user_cpu_seconds": 1.18,
-            "wall_time_seconds": 1.364839141
+            "wall_time_seconds": 1.358459688
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.19,
+            "wall_time_seconds": 1.357872392
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.2,
+            "wall_time_seconds": 1.36521048
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 1.17,
+            "wall_time_seconds": 1.363058265
           }
         ],
         "stage_timing": {
@@ -527,67 +527,67 @@
             {
               "run": "new-1",
               "stages": {
-                "backend_runtime_remainder": 0.079513412,
-                "reachable_entry_lowering": 0.156299611,
-                "semantic_environment_check": 0.104253441,
-                "source_loading": 0.000050015,
-                "surface_parse_lower": 0.009414221
+                "backend_runtime_remainder": 0.079389157,
+                "reachable_entry_lowering": 0.155675123,
+                "semantic_environment_check": 0.102649285,
+                "source_loading": 0.000056949,
+                "surface_parse_lower": 0.009765718
               }
             },
             {
               "run": "new-2",
               "stages": {
-                "backend_runtime_remainder": 0.079754578,
-                "reachable_entry_lowering": 0.154942102,
-                "semantic_environment_check": 0.102046439,
-                "source_loading": 0.000064046,
-                "surface_parse_lower": 0.009301593
+                "backend_runtime_remainder": 0.080522749,
+                "reachable_entry_lowering": 0.160159885,
+                "semantic_environment_check": 0.104816931,
+                "source_loading": 0.000046151,
+                "surface_parse_lower": 0.009224572
               }
             },
             {
               "run": "new-3",
               "stages": {
-                "backend_runtime_remainder": 0.080549601,
-                "reachable_entry_lowering": 0.156101026,
-                "semantic_environment_check": 0.102566561,
-                "source_loading": 0.000049816,
-                "surface_parse_lower": 0.009359022
+                "backend_runtime_remainder": 0.083064519,
+                "reachable_entry_lowering": 0.156398023,
+                "semantic_environment_check": 0.101476167,
+                "source_loading": 0.000059626,
+                "surface_parse_lower": 0.00977658
               }
             },
             {
               "run": "new-4",
               "stages": {
-                "backend_runtime_remainder": 0.080261761,
-                "reachable_entry_lowering": 0.154430227,
-                "semantic_environment_check": 0.10224451,
-                "source_loading": 0.000051419,
-                "surface_parse_lower": 0.009213126
+                "backend_runtime_remainder": 0.081496324,
+                "reachable_entry_lowering": 0.156193201,
+                "semantic_environment_check": 0.103124229,
+                "source_loading": 0.000058953,
+                "surface_parse_lower": 0.009387128
               }
             },
             {
               "run": "new-5",
               "stages": {
-                "backend_runtime_remainder": 0.080376719,
-                "reachable_entry_lowering": 0.156221484,
-                "semantic_environment_check": 0.102543896,
-                "source_loading": 0.000047347,
-                "surface_parse_lower": 0.009331482
+                "backend_runtime_remainder": 0.081848984,
+                "reachable_entry_lowering": 0.156552466,
+                "semantic_environment_check": 0.103099047,
+                "source_loading": 0.000051216,
+                "surface_parse_lower": 0.009666508
               }
             }
           ],
           "stage_medians_seconds": {
-            "backend_runtime_remainder": 0.080261761,
-            "reachable_entry_lowering": 0.156101026,
-            "semantic_environment_check": 0.102543896,
-            "source_loading": 0.000050015,
-            "surface_parse_lower": 0.009331482
+            "backend_runtime_remainder": 0.081496324,
+            "reachable_entry_lowering": 0.156398023,
+            "semantic_environment_check": 0.103099047,
+            "source_loading": 0.000056949,
+            "surface_parse_lower": 0.009666508
           },
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.0047998080000000165,
-          "median_user_cpu_seconds": 1.2,
-          "median_wall_time_seconds": 1.360039333,
+          "median_absolute_deviation_wall_time_seconds": 0.0005872959999999594,
+          "median_user_cpu_seconds": 1.18,
+          "median_wall_time_seconds": 1.358459688,
           "wall_time_noisy": false
         }
       }
@@ -599,37 +599,37 @@
         "runs": [
           {
             "exit_status": 0,
-            "user_cpu_seconds": 5.89,
-            "wall_time_seconds": 6.480266613
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 5.89,
-            "wall_time_seconds": 6.498123181
+            "user_cpu_seconds": 5.86,
+            "wall_time_seconds": 6.464753087
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 5.9,
-            "wall_time_seconds": 6.492461334
+            "wall_time_seconds": 6.512923333
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 5.97,
-            "wall_time_seconds": 6.55353552
+            "user_cpu_seconds": 5.98,
+            "wall_time_seconds": 6.561996244
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 5.88,
-            "wall_time_seconds": 6.498989522
+            "user_cpu_seconds": 5.89,
+            "wall_time_seconds": 6.493740712
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 5.89,
+            "wall_time_seconds": 6.518381395
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.005661847000000719,
+          "median_absolute_deviation_wall_time_seconds": 0.019182620999999678,
           "median_user_cpu_seconds": 5.89,
-          "median_wall_time_seconds": 6.498123181,
+          "median_wall_time_seconds": 6.512923333,
           "wall_time_noisy": false
         }
       },
@@ -672,28 +672,28 @@
         "runs": [
           {
             "exit_status": 0,
-            "user_cpu_seconds": 5.86,
-            "wall_time_seconds": 6.441205153
-          },
-          {
-            "exit_status": 0,
             "user_cpu_seconds": 5.96,
-            "wall_time_seconds": 6.572243314
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 5.97,
-            "wall_time_seconds": 6.510831641
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 5.95,
-            "wall_time_seconds": 6.5213176
+            "wall_time_seconds": 6.578305855
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 5.92,
-            "wall_time_seconds": 6.541367041
+            "wall_time_seconds": 6.534352017
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 5.91,
+            "wall_time_seconds": 6.519674674
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 5.97,
+            "wall_time_seconds": 6.564134358
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 5.86,
+            "wall_time_seconds": 6.476920198
           }
         ],
         "stage_timing": {
@@ -702,67 +702,67 @@
             {
               "run": "new-1",
               "stages": {
-                "backend_runtime_remainder": 0.224565927,
-                "reachable_entry_lowering": 5.082030154,
-                "semantic_environment_check": 0.094433542,
-                "source_loading": 0.000048099,
-                "surface_parse_lower": 0.009991894
+                "backend_runtime_remainder": 0.229998401,
+                "reachable_entry_lowering": 5.208923419,
+                "semantic_environment_check": 0.095379308,
+                "source_loading": 0.000053264,
+                "surface_parse_lower": 0.010096745
               }
             },
             {
               "run": "new-2",
               "stages": {
-                "backend_runtime_remainder": 0.232050729,
-                "reachable_entry_lowering": 5.176903406,
-                "semantic_environment_check": 0.096300451,
-                "source_loading": 0.000052528,
-                "surface_parse_lower": 0.010444375
+                "backend_runtime_remainder": 0.228474104,
+                "reachable_entry_lowering": 5.151530574,
+                "semantic_environment_check": 0.09474014,
+                "source_loading": 0.000051973,
+                "surface_parse_lower": 0.010281019
               }
             },
             {
               "run": "new-3",
               "stages": {
-                "backend_runtime_remainder": 0.222425284,
-                "reachable_entry_lowering": 5.145577354,
-                "semantic_environment_check": 0.093709981,
-                "source_loading": 0.000047572,
-                "surface_parse_lower": 0.009833774
+                "backend_runtime_remainder": 0.22414125,
+                "reachable_entry_lowering": 5.156748851,
+                "semantic_environment_check": 0.094349766,
+                "source_loading": 0.000048702,
+                "surface_parse_lower": 0.010048038
               }
             },
             {
               "run": "new-4",
               "stages": {
-                "backend_runtime_remainder": 0.225602237,
-                "reachable_entry_lowering": 5.152131207,
-                "semantic_environment_check": 0.094645745,
-                "source_loading": 0.000049137,
-                "surface_parse_lower": 0.010074072
+                "backend_runtime_remainder": 0.22111788,
+                "reachable_entry_lowering": 5.19496702,
+                "semantic_environment_check": 0.094977726,
+                "source_loading": 0.000048806,
+                "surface_parse_lower": 0.009959489
               }
             },
             {
               "run": "new-5",
               "stages": {
-                "backend_runtime_remainder": 0.22495124,
-                "reachable_entry_lowering": 5.15529219,
-                "semantic_environment_check": 0.096251794,
-                "source_loading": 0.000057395,
-                "surface_parse_lower": 0.010187969
+                "backend_runtime_remainder": 0.224359927,
+                "reachable_entry_lowering": 5.122904664,
+                "semantic_environment_check": 0.092606962,
+                "source_loading": 0.00005281,
+                "surface_parse_lower": 0.009423838
               }
             }
           ],
           "stage_medians_seconds": {
-            "backend_runtime_remainder": 0.22495124,
-            "reachable_entry_lowering": 5.152131207,
-            "semantic_environment_check": 0.094645745,
-            "source_loading": 0.000049137,
-            "surface_parse_lower": 0.010074072
+            "backend_runtime_remainder": 0.224359927,
+            "reachable_entry_lowering": 5.156748851,
+            "semantic_environment_check": 0.09474014,
+            "source_loading": 0.000051973,
+            "surface_parse_lower": 0.010048038
           },
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.02004944100000028,
-          "median_user_cpu_seconds": 5.95,
-          "median_wall_time_seconds": 6.5213176,
+          "median_absolute_deviation_wall_time_seconds": 0.029782340999999768,
+          "median_user_cpu_seconds": 5.92,
+          "median_wall_time_seconds": 6.534352017,
           "wall_time_noisy": false
         }
       }
@@ -774,37 +774,37 @@
         "runs": [
           {
             "exit_status": 0,
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.033414409
+          },
+          {
+            "exit_status": 0,
             "user_cpu_seconds": 0.87,
-            "wall_time_seconds": 1.007113668
+            "wall_time_seconds": 1.014915566
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.88,
-            "wall_time_seconds": 1.003447662
+            "wall_time_seconds": 1.011607144
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.89,
-            "wall_time_seconds": 1.030276868
+            "user_cpu_seconds": 0.88,
+            "wall_time_seconds": 1.005887692
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.89,
-            "wall_time_seconds": 1.009546705
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.91,
-            "wall_time_seconds": 1.030962975
+            "user_cpu_seconds": 0.88,
+            "wall_time_seconds": 1.015503327
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.006099043000000082,
-          "median_user_cpu_seconds": 0.89,
-          "median_wall_time_seconds": 1.009546705,
+          "median_absolute_deviation_wall_time_seconds": 0.003308421999999922,
+          "median_user_cpu_seconds": 0.88,
+          "median_wall_time_seconds": 1.014915566,
           "wall_time_noisy": false
         }
       },
@@ -848,36 +848,36 @@
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.89,
-            "wall_time_seconds": 1.02018561
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.87,
-            "wall_time_seconds": 1.006967109
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.89,
-            "wall_time_seconds": 1.025718066
+            "wall_time_seconds": 1.006814274
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.9,
-            "wall_time_seconds": 1.030187264
+            "wall_time_seconds": 1.025837845
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.91,
-            "wall_time_seconds": 1.019282538
+            "user_cpu_seconds": 0.87,
+            "wall_time_seconds": 1.014964053
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.03558401
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.033344467
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.005532456000000074,
+          "median_absolute_deviation_wall_time_seconds": 0.009746164999999918,
           "median_user_cpu_seconds": 0.89,
-          "median_wall_time_seconds": 1.02018561,
+          "median_wall_time_seconds": 1.025837845,
           "wall_time_noisy": false
         }
       }
@@ -889,37 +889,37 @@
         "runs": [
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.92,
-            "wall_time_seconds": 1.027552249
+            "user_cpu_seconds": 0.93,
+            "wall_time_seconds": 1.052397423
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.89,
-            "wall_time_seconds": 1.049185566
+            "wall_time_seconds": 1.026984689
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.9,
-            "wall_time_seconds": 1.0339748
+            "wall_time_seconds": 1.037546124
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.89,
-            "wall_time_seconds": 1.047733565
+            "wall_time_seconds": 1.023713606
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.9,
-            "wall_time_seconds": 1.070581593
+            "user_cpu_seconds": 0.91,
+            "wall_time_seconds": 1.02770353
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.01375876499999995,
+          "median_absolute_deviation_wall_time_seconds": 0.003989923999999867,
           "median_user_cpu_seconds": 0.9,
-          "median_wall_time_seconds": 1.047733565,
+          "median_wall_time_seconds": 1.02770353,
           "wall_time_noisy": false
         }
       },
@@ -962,37 +962,37 @@
         "runs": [
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.9,
-            "wall_time_seconds": 1.043129777
+            "user_cpu_seconds": 0.91,
+            "wall_time_seconds": 1.054500506
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.88,
-            "wall_time_seconds": 1.028987097
+            "user_cpu_seconds": 0.92,
+            "wall_time_seconds": 1.06050258
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.9,
-            "wall_time_seconds": 1.033819678
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.9,
-            "wall_time_seconds": 1.029407851
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.030115889
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.91,
-            "wall_time_seconds": 1.059915337
+            "wall_time_seconds": 1.058391617
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.89,
+            "wall_time_seconds": 1.02698516
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.004832581000000058,
-          "median_user_cpu_seconds": 0.9,
-          "median_wall_time_seconds": 1.033819678,
+          "median_absolute_deviation_wall_time_seconds": 0.00600207400000019,
+          "median_user_cpu_seconds": 0.91,
+          "median_wall_time_seconds": 1.054500506,
           "wall_time_noisy": false
         }
       }
@@ -1004,37 +1004,37 @@
         "runs": [
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.94,
-            "wall_time_seconds": 1.11959685
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.97,
-            "wall_time_seconds": 1.097430157
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.94,
-            "wall_time_seconds": 1.086165246
+            "user_cpu_seconds": 0.96,
+            "wall_time_seconds": 1.093652936
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.96,
-            "wall_time_seconds": 1.08872502
+            "wall_time_seconds": 1.085741533
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.95,
+            "wall_time_seconds": 1.086568086
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.97,
-            "wall_time_seconds": 1.103676589
+            "wall_time_seconds": 1.101658232
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.93,
+            "wall_time_seconds": 1.087194551
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.008705136999999974,
+          "median_absolute_deviation_wall_time_seconds": 0.0014530180000000836,
           "median_user_cpu_seconds": 0.96,
-          "median_wall_time_seconds": 1.097430157,
+          "median_wall_time_seconds": 1.087194551,
           "wall_time_noisy": false
         }
       },
@@ -1077,37 +1077,37 @@
         "runs": [
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.96,
-            "wall_time_seconds": 1.104187606
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.96,
-            "wall_time_seconds": 1.103960701
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.98,
-            "wall_time_seconds": 1.103715418
-          },
-          {
-            "exit_status": 0,
             "user_cpu_seconds": 0.95,
-            "wall_time_seconds": 1.09635038
+            "wall_time_seconds": 1.09290059
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.97,
-            "wall_time_seconds": 1.088216525
+            "wall_time_seconds": 1.112160972
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.96,
+            "wall_time_seconds": 1.094575245
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.96,
+            "wall_time_seconds": 1.084519285
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.98,
+            "wall_time_seconds": 1.100470241
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.00047218800000004,
+          "median_absolute_deviation_wall_time_seconds": 0.005894996000000097,
           "median_user_cpu_seconds": 0.96,
-          "median_wall_time_seconds": 1.103715418,
+          "median_wall_time_seconds": 1.094575245,
           "wall_time_noisy": false
         }
       }

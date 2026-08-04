@@ -44,10 +44,10 @@ stdout, stderr, JSON, exit status, or generated output.
 The stage-resolved review record shows that the remaining dominant measured
 stage for both representative HTTP/2 workloads is
 `reachable_entry_lowering`. The HTTP/2 core workload recorded a
-0.156101026 second median for that stage, ahead of semantic environment
-construction and checking at 0.102543896 seconds. The HTTP/2 connection
-workload recorded a 5.152131207 second median for that stage, ahead of the
-backend and runtime remainder at 0.22495124 seconds. That evidence selects the
+0.156398023 second median for that stage, ahead of semantic environment
+construction and checking at 0.103099047 seconds. The HTTP/2 connection
+workload recorded a 5.156748851 second median for that stage, ahead of the
+backend and runtime remainder at 0.224359927 seconds. That evidence selects the
 next implementation slice. It does not complete the proposal.
 
 ## Proposed Outcome

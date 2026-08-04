@@ -60,9 +60,9 @@ instrumentation, so baseline stage data is recorded as unavailable while
 wall-time and functional comparisons remain active.
 
 The measured HTTP/2 workloads identified `reachable_entry_lowering` as the
-dominant remaining stage. The HTTP/2 core workload recorded a 0.158566097
+dominant remaining stage. The HTTP/2 core workload recorded a 0.156398023
 second median for that stage. The HTTP/2 connection workload recorded a
-5.135779555 second median for that stage. The next proposal slice is bounded
+5.156748851 second median for that stage. The next proposal slice is bounded
 reachable-entry selection and lowering for representative HTTP/2
 applications.
 
