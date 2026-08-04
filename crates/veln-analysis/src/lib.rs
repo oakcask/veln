@@ -21,6 +21,7 @@ mod tests {
     use std::thread;
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    use veln_ast::FunctionKind;
     use veln_diagnostics::{DiagnosticKind, JsonValue, Severity, diagnostic_to_json};
     use veln_project::Project;
     use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan};
@@ -352,6 +353,62 @@ mod tests {
         assert_eq!(cache.application_analyses(), 14);
     }
 
+    #[test]
+    fn reachable_entry_lowering_keeps_application_reachability_project_local() {
+        let cache = crate::analysis::TestStandardEnvironmentCache::new();
+        let alpha = project(
+            "src/main.veln",
+            concat!(
+                "fn alpha_helper() -> Int\n",
+                "  1\n",
+                "end\n",
+                "\n",
+                "pub fn main() -> Int\n",
+                "  alpha_helper()\n",
+                "end\n",
+            ),
+        );
+        let beta = project(
+            "src/main.veln",
+            concat!(
+                "fn beta_helper() -> Int\n",
+                "  2\n",
+                "end\n",
+                "\n",
+                "pub fn main() -> Int\n",
+                "  beta_helper()\n",
+                "end\n",
+            ),
+        );
+
+        let alpha = crate::analysis::analyze_project_with_test_standard_cache(
+            alpha,
+            DoctestMode::Exclude,
+            &cache,
+        );
+        let beta = crate::analysis::analyze_project_with_test_standard_cache(
+            beta,
+            DoctestMode::Exclude,
+            &cache,
+        );
+
+        let alpha_reachable = alpha.lower_reachable_entry("main", FunctionKind::Function);
+        let beta_reachable = beta.lower_reachable_entry("main", FunctionKind::Function);
+
+        assert!(alpha_reachable.lowered.diagnostics.is_empty());
+        assert!(beta_reachable.lowered.diagnostics.is_empty());
+        assert_eq!(
+            lowered_function_names(&alpha_reachable),
+            ["alpha_helper", "main"]
+        );
+        assert_eq!(
+            lowered_function_names(&beta_reachable),
+            ["beta_helper", "main"]
+        );
+        assert_eq!(cache.standard_prepares(), 1);
+        assert_eq!(cache.application_analyses(), 2);
+    }
+
     fn checked_diagnostic_json(project: Project) -> Vec<String> {
         analyze_project(project, DoctestMode::Exclude)
             .checked_diagnostics()
@@ -373,6 +430,18 @@ mod tests {
         .iter()
         .map(|diagnostic| diagnostic_to_json(diagnostic).to_json())
         .collect()
+    }
+
+    fn lowered_function_names(analysis: &ReachableEntryAnalysis) -> Vec<&str> {
+        analysis
+            .lowered
+            .core
+            .as_ref()
+            .expect("reachable entry should lower to core")
+            .functions
+            .iter()
+            .map(|function| function.name.as_str())
+            .collect()
     }
 
     fn checked_discovered_diagnostic_json(temp: &TempProject, inputs: &[PathBuf]) -> Vec<String> {
