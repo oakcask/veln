@@ -317,6 +317,21 @@ impl ReusableStandardEnvironment {
     pub(crate) fn prepared_environment_count_for_test(&self) -> usize {
         1
     }
+
+    pub(crate) fn selected_declaration_count_for_test(
+        &self,
+        module_names: &BTreeSet<String>,
+    ) -> usize {
+        self.declaration_counts
+            .iter()
+            .filter(|(key, _)| {
+                key.module_name
+                    .as_deref()
+                    .is_some_and(|module_name| module_names.contains(module_name))
+            })
+            .map(|(_, count)| count)
+            .sum()
+    }
 }
 
 #[cfg(test)]
