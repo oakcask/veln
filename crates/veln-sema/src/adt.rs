@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use veln_ast::{PublicAliasKind, SurfaceModule, TypeDecl, UseDecl, Visibility};
 use veln_core::CoreType;
@@ -67,6 +67,8 @@ pub(crate) struct AdtConstructor<'a> {
 #[derive(Clone, Debug)]
 pub(crate) struct AdtRegistry {
     descriptors: Vec<AdtDescriptor>,
+    descriptors_by_type_name: HashMap<String, Vec<usize>>,
+    variants_by_name: HashMap<String, Vec<(usize, usize)>>,
     companion_access_targets: BTreeMap<String, String>,
 }
 
@@ -77,7 +79,74 @@ pub(crate) enum ConstructorLookup<'a> {
     Missing,
 }
 
+#[cfg(test)]
+mod constructor_lookup_counters {
+    use std::cell::Cell;
+
+    thread_local! {
+        static CANDIDATE_SCANS: Cell<usize> = const { Cell::new(0) };
+    }
+
+    pub(super) fn reset() {
+        CANDIDATE_SCANS.set(0);
+    }
+
+    pub(super) fn record_candidate_scan() {
+        CANDIDATE_SCANS.set(CANDIDATE_SCANS.get() + 1);
+    }
+
+    pub(super) fn candidate_scans() -> usize {
+        CANDIDATE_SCANS.get()
+    }
+}
+
 impl AdtRegistry {
+    fn from_parts(
+        descriptors: Vec<AdtDescriptor>,
+        companion_access_targets: BTreeMap<String, String>,
+    ) -> Self {
+        let mut descriptors_by_type_name = HashMap::<String, Vec<usize>>::new();
+        let mut variants_by_name = HashMap::<String, Vec<(usize, usize)>>::new();
+        for (descriptor_index, descriptor) in descriptors.iter().enumerate() {
+            descriptors_by_type_name
+                .entry(descriptor.type_name.clone())
+                .or_default()
+                .push(descriptor_index);
+            for (variant_index, variant) in descriptor.variants.iter().enumerate() {
+                variants_by_name
+                    .entry(variant.name.clone())
+                    .or_default()
+                    .push((descriptor_index, variant_index));
+            }
+        }
+        Self {
+            descriptors,
+            descriptors_by_type_name,
+            variants_by_name,
+            companion_access_targets,
+        }
+    }
+
+    fn descriptors_named(&self, name: &str) -> impl DoubleEndedIterator<Item = &AdtDescriptor> {
+        self.descriptors_by_type_name
+            .get(name)
+            .into_iter()
+            .flatten()
+            .map(|index| &self.descriptors[*index])
+    }
+
+    fn variants_named(
+        &self,
+        name: &str,
+    ) -> impl Iterator<Item = (&AdtDescriptor, &AdtVariantDescriptor)> {
+        self.variants_by_name.get(name).into_iter().flatten().map(
+            |(descriptor_index, variant_index)| {
+                let descriptor = &self.descriptors[*descriptor_index];
+                (descriptor, &descriptor.variants[*variant_index])
+            },
+        )
+    }
+
     pub(crate) fn from_module(module: &SurfaceModule) -> Self {
         Self::from_module_with_base(module, None)
     }
@@ -117,10 +186,7 @@ impl AdtRegistry {
             .map(|base| base.companion_access_targets.clone())
             .unwrap_or_default();
         companion_targets.extend(companion_access_targets(module));
-        Self {
-            descriptors,
-            companion_access_targets: companion_targets,
-        }
+        Self::from_parts(descriptors, companion_targets)
     }
 
     pub(crate) fn descriptors(&self) -> &[AdtDescriptor] {
@@ -128,34 +194,33 @@ impl AdtRegistry {
     }
 
     pub(crate) fn standard_subset(&self, module_names: &BTreeSet<String>) -> Self {
-        Self {
-            descriptors: self
-                .descriptors
-                .iter()
-                .filter(|descriptor| {
-                    descriptor
-                        .module_name
-                        .as_deref()
-                        .is_none_or(|module_name| module_names.contains(module_name))
-                })
-                .cloned()
-                .collect(),
-            companion_access_targets: self
-                .companion_access_targets
-                .iter()
-                .filter(|(module, target)| {
-                    module_names.contains(module.as_str()) && module_names.contains(target.as_str())
-                })
-                .map(|(module, target)| (module.clone(), target.clone()))
-                .collect(),
-        }
+        let descriptors = self
+            .descriptors
+            .iter()
+            .filter(|descriptor| {
+                descriptor
+                    .module_name
+                    .as_deref()
+                    .is_none_or(|module_name| module_names.contains(module_name))
+            })
+            .cloned()
+            .collect();
+        let companion_access_targets = self
+            .companion_access_targets
+            .iter()
+            .filter(|(module, target)| {
+                module_names.contains(module.as_str()) && module_names.contains(target.as_str())
+            })
+            .map(|(module, target)| (module.clone(), target.clone()))
+            .collect();
+        Self::from_parts(descriptors, companion_access_targets)
     }
 
     pub(crate) fn descriptor_for_type(&self, ty: &Type) -> Option<&AdtDescriptor> {
         let Type::Named { name, args } = ty else {
             return None;
         };
-        self.descriptors.iter().find(|descriptor| {
+        self.descriptors_named(name).find(|descriptor| {
             descriptor.type_name == *name && descriptor.type_parameters.len() == args.len()
         })
     }
@@ -171,9 +236,8 @@ impl AdtRegistry {
         if name.contains("::") {
             return None;
         }
-        self.descriptors.iter().rev().find(|descriptor| {
-            descriptor.type_name == *name
-                && descriptor.module_name.as_deref() == module_name
+        self.descriptors_named(name).rev().find(|descriptor| {
+            descriptor.module_name.as_deref() == module_name
                 && descriptor.type_parameters.len() == args.len()
         })
     }
@@ -186,17 +250,15 @@ impl AdtRegistry {
         uses: &[UseDecl],
     ) -> Option<&AdtDescriptor> {
         if !name.contains("::") {
-            return self.descriptors.iter().rev().find(|descriptor| {
-                descriptor.type_name == name
-                    && descriptor.module_name.as_deref() == current_module
+            return self.descriptors_named(name).rev().find(|descriptor| {
+                descriptor.module_name.as_deref() == current_module
                     && descriptor.type_parameters.len() == args_len
             });
         }
         let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
         let type_name = segments.last()?;
-        self.descriptors.iter().rev().find(|descriptor| {
-            descriptor.type_name == *type_name
-                && descriptor.type_parameters.len() == args_len
+        self.descriptors_named(type_name).rev().find(|descriptor| {
+            descriptor.type_parameters.len() == args_len
                 && self.descriptor_visible(descriptor, &segments, current_module, uses, true)
         })
     }
@@ -205,7 +267,7 @@ impl AdtRegistry {
         let CoreType::Named { name, args } = ty else {
             return None;
         };
-        self.descriptors.iter().find(|descriptor| {
+        self.descriptors_named(name).find(|descriptor| {
             descriptor.type_name == *name && descriptor.type_parameters.len() == args.len()
         })
     }
@@ -264,26 +326,20 @@ impl AdtRegistry {
         }
 
         let mut matches = Vec::new();
-        for candidate in &self.descriptors {
+        let name = segments.last()?;
+        for (candidate, variant) in self.variants_named(name) {
             if !same_descriptor(candidate, descriptor)
                 || !self.descriptor_visible(candidate, segments, current_module, uses, true)
             {
                 continue;
             }
-            for variant in &candidate.variants {
-                if constructor_matches_visible_path(
-                    candidate,
+            if constructor_matches_visible_path(candidate, variant, segments, uses, current_module)
+                && self.variant_visible(candidate, variant, current_module, uses, segments)
+            {
+                matches.push(AdtConstructor {
+                    descriptor: candidate,
                     variant,
-                    segments,
-                    uses,
-                    current_module,
-                ) && self.variant_visible(candidate, variant, current_module, uses, segments)
-                {
-                    matches.push(AdtConstructor {
-                        descriptor: candidate,
-                        variant,
-                    });
-                }
+                });
             }
         }
         match matches.as_slice() {
@@ -317,25 +373,23 @@ impl AdtRegistry {
         include_imports: bool,
     ) -> Vec<AdtConstructor<'_>> {
         let mut matches = Vec::new();
-        for descriptor in &self.descriptors {
+        let Some(name) = segments.last() else {
+            return matches;
+        };
+        for (descriptor, variant) in self.variants_named(name) {
+            #[cfg(test)]
+            constructor_lookup_counters::record_candidate_scan();
             if !self.descriptor_visible(descriptor, segments, current_module, uses, include_imports)
             {
                 continue;
             }
-            for variant in &descriptor.variants {
-                if constructor_matches_visible_path(
+            if constructor_matches_visible_path(descriptor, variant, segments, uses, current_module)
+                && self.variant_visible(descriptor, variant, current_module, uses, segments)
+            {
+                matches.push(AdtConstructor {
                     descriptor,
                     variant,
-                    segments,
-                    uses,
-                    current_module,
-                ) && self.variant_visible(descriptor, variant, current_module, uses, segments)
-                {
-                    matches.push(AdtConstructor {
-                        descriptor,
-                        variant,
-                    });
-                }
+                });
             }
         }
         matches

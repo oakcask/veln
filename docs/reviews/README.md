@@ -13,6 +13,9 @@ behavior specifications.
 - [toolchain-analysis-stage-benchmark.json](toolchain-analysis-stage-benchmark.json)
   records the controlled stage-timing benchmark for the bounded toolchain
   analysis proposal.
+- [toolchain-analysis-reachable-lookups.json](toolchain-analysis-reachable-lookups.json)
+  records the controlled comparison for indexed reachable and semantic lookup
+  candidates.
 - A proposal or reference page links to a named review record.
 - A local benchmark result or audit record is needed to check why a proposal
   slice was accepted.

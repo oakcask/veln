@@ -26,12 +26,15 @@ proposal scope:
   [../reference/implemented-proposals/bounded-toolchain-analysis-slices.md](../reference/implemented-proposals/bounded-toolchain-analysis-slices.md).
 - The controlled stage-timing evidence is recorded in
   [../reviews/toolchain-analysis-stage-benchmark.json](../reviews/toolchain-analysis-stage-benchmark.json).
+- Indexed reachable-function, semantic-function, and ADT candidate lookup is
+  implemented. Its controlled comparison is recorded in
+  [../reviews/toolchain-analysis-reachable-lookups.json](../reviews/toolchain-analysis-reachable-lookups.json).
 - The existing toolchain suite remains authoritative for command behavior.
 
 The remaining proposal scope starts after those slices. It is limited to
-bounded reachable-entry selection and lowering work for representative HTTP/2
-applications, plus the benchmark evidence that shows the proposal's
-representative HTTP/2 acceptance thresholds are met.
+further work that makes the representative HTTP/2 core workload meet its
+one-third wall-time threshold, plus final benchmark evidence that shows every
+proposal acceptance threshold passes.
 
 ## Motivation
 
@@ -41,14 +44,16 @@ slices bounded several repeated semantic-analysis paths and made the benchmark
 harness capable of measuring pipeline stages without changing normal CLI
 stdout, stderr, JSON, exit status, or generated output.
 
-The stage-resolved review record shows that the remaining dominant measured
-stage for both representative HTTP/2 workloads is
-`reachable_entry_lowering`. The HTTP/2 core workload recorded a
-0.156398023 second median for that stage, ahead of semantic environment
-construction and checking at 0.103099047 seconds. The HTTP/2 connection
-workload recorded a 5.156748851 second median for that stage, ahead of the
-backend and runtime remainder at 0.224359927 seconds. That evidence selects the
-next implementation slice. It does not complete the proposal.
+The first stage-resolved review record selected `reachable_entry_lowering` as
+the next implementation slice. Indexed candidate lookup completed that slice:
+the controlled comparison reduced HTTP/2 connection median wall time from
+6.580130816 seconds to 1.427894989 seconds and reduced its median reachable
+lowering time from 5.216808242 seconds to 0.100644811 seconds.
+
+The same comparison did not complete the proposal. HTTP/2 core median
+reachable lowering fell from 0.160090167 seconds to 0.036408763 seconds, but
+its median wall time only fell from 1.391151211 seconds to 1.190085222 seconds.
+That 0.8554679122 wall-time ratio remains above the required one-third ratio.
 
 ## Proposed Outcome
 
@@ -67,7 +72,7 @@ time part of the Veln language semantics.
 | CLI compatibility | Existing toolchain cases retain their exit status, stdout, stderr, JSON values, diagnostics, and generated files | Existing `veln-cli` toolchain suite |
 | Project isolation | Analysis reused for one copied project is not reused after source text, manifest data, command inputs, or dependency identity changes | Cache invalidation and concurrent-project unit tests |
 | Determinism | Repeated and concurrent analysis returns diagnostics in the same stable order and does not share mutable project state | Repeated and concurrent analyzer tests |
-| Bounded reachable lowering | Adding unrelated fully annotated modules does not produce superlinear reachable-entry selection or lowering work | Generated high-cardinality analysis benchmark and structural lowering counters |
+| Bounded reachable lowering | Adding unrelated fully annotated modules does not increase reachable function-target or ADT-constructor candidate scans | Structural lookup counters and generated high-cardinality analysis benchmark |
 | Representative improvement | HTTP/2 core and connection workloads become materially faster without weakening their assertions | Controlled before-and-after benchmark described below |
 
 The existing toolchain suite remains authoritative for command behavior. New
@@ -147,15 +152,16 @@ dedicated benchmark runner exists.
 
 ## Remaining Work
 
-- Add bounded reachable-entry selection and lowering for representative HTTP/2
-  applications.
+- Reduce the HTTP/2 core direct-analysis wall-time median to at most one third
+  of the baseline median without regressing the completed connection result.
 - Preserve normal command stdout, stderr, JSON, exit status, diagnostics, and
   generated output.
 - Preserve existing functional-output comparisons in the controlled benchmark.
-- Add structural coverage that proves unrelated annotated modules do not cause
-  unbounded reachable-lowering work.
-- Record new controlled benchmark evidence only when functional comparisons
-  pass and wall-time noise remains within the accepted boundary.
+- Keep the completed structural coverage that holds reachable function-target
+  and ADT-constructor candidate scans constant as unrelated declarations grow.
+- Replace the current controlled comparison only when every functional
+  comparison passes, wall-time noise remains within the accepted boundary,
+  and both representative HTTP/2 wall-time thresholds pass.
 - Keep application analysis caching out of scope for this proposal slice.
 
 ## Non-Goals
