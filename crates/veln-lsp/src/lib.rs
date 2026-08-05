@@ -1035,10 +1035,12 @@ fn handler_operation_clause_body_end(
     file_end: usize,
 ) -> usize {
     let mut nested_blocks = 0usize;
-    for token in &tokens[arrow_index + 1..] {
+    for (relative_index, token) in tokens[arrow_index + 1..].iter().enumerate() {
+        let index = arrow_index + 1 + relative_index;
         match token.kind {
             TokenKind::Eof => return file_end,
-            TokenKind::If | TokenKind::Match | TokenKind::Handler => nested_blocks += 1,
+            TokenKind::If if !is_else_if(tokens, index) => nested_blocks += 1,
+            TokenKind::Match | TokenKind::Handler => nested_blocks += 1,
             TokenKind::End if nested_blocks == 0 => return token.range.start,
             TokenKind::End => nested_blocks = nested_blocks.saturating_sub(1),
             TokenKind::FatArrow if nested_blocks == 0 => {
@@ -3177,6 +3179,64 @@ mod tests {
         );
         assert!(
             !responses[0].contains(r#""line":7,"character":13"#),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
+    fn handler_operation_clause_binding_rename_keeps_else_if_body_scope_bounded() {
+        let mut server = Server::default();
+        let project = TempProject::new("rename-handler-operation-clause-else-if-body");
+        project.write(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  pick(value: Int) -> Int\n",
+                "  fallback(value: Int) -> Int\n",
+                "end\n",
+                "\n",
+                "handler choose() handles Choose\n",
+                "  pick(value) => if value == 0\n",
+                "    value\n",
+                "  else if value == 1\n",
+                "    value\n",
+                "  else\n",
+                "    value\n",
+                "  end\n",
+                "  fallback(value) => value\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&rename_request(&main_uri, 6, 8, "input"));
+
+        assert_eq!(responses.len(), 1);
+        assert_eq!(responses[0].matches(r#""newText":"input""#).count(), 6);
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":8,"character":10},"end":{"line":8,"character":15}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":11,"character":4},"end":{"line":11,"character":9}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":13,"character":11"#),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":13,"character":21"#),
             "{}",
             responses[0]
         );

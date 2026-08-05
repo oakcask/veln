@@ -9,5 +9,11 @@ end
 
 handler ask(ctx:Int) handles Ask
   value()=>provide(ctx,1)
-  add(left,right)=>provide(ctx,left + { left: right }.left)
+  add(left,right)=>if left == 0
+    provide(ctx,right)
+  else if left == 1
+    provide(ctx,left)
+  else
+    provide(ctx,left + { left: right }.left)
+  end
 end

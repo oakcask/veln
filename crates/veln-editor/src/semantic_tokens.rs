@@ -373,10 +373,12 @@ impl<'a> Classifier<'a> {
             return self.source.text().len();
         };
         let mut nested_blocks = 0usize;
-        for token in &self.tokens[arrow_index + 1..] {
+        for (relative_index, token) in self.tokens[arrow_index + 1..].iter().enumerate() {
+            let index = arrow_index + 1 + relative_index;
             match token.kind {
                 TokenKind::Eof => return self.source.text().len(),
-                TokenKind::If | TokenKind::Match | TokenKind::Handler => nested_blocks += 1,
+                TokenKind::If if !is_else_if(self.tokens, index) => nested_blocks += 1,
+                TokenKind::Match | TokenKind::Handler => nested_blocks += 1,
                 TokenKind::End if nested_blocks == 0 => return token.range.start,
                 TokenKind::End => nested_blocks = nested_blocks.saturating_sub(1),
                 TokenKind::FatArrow if nested_blocks == 0 => {
@@ -958,6 +960,14 @@ fn is_prelude_function(text: &str) -> bool {
     )
 }
 
+fn is_else_if(tokens: &[Token], index: usize) -> bool {
+    tokens[..index]
+        .iter()
+        .rev()
+        .find(|token| !matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline))
+        .is_some_and(|token| token.kind == TokenKind::Else)
+}
+
 const TOKEN_TYPES: [SemanticTokenType; 12] = [
     SemanticTokenType::Namespace,
     SemanticTokenType::Type,
@@ -1348,6 +1358,52 @@ mod tests {
                 })
                 .count()
                 >= 4
+        );
+        assert!(tokens.contains(&(
+            "fallback".to_string(),
+            SemanticTokenType::Property,
+            SemanticTokenModifiers::empty().bits()
+        )));
+    }
+
+    #[test]
+    fn collector_bounds_handler_operation_clause_else_if_bodies() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  pick(value: Int) -> Int\n",
+                "  fallback() -> Int\n",
+                "end\n",
+                "\n",
+                "handler choose() handles Choose\n",
+                "  pick(value) => if value == 0\n",
+                "    value\n",
+                "  else if value == 1\n",
+                "    value\n",
+                "  else\n",
+                "    value\n",
+                "  end\n",
+                "  fallback() => 1\n",
+                "end\n",
+            ),
+        );
+
+        let tokens = collect_text(&source);
+        let readonly_parameter = SemanticTokenModifiers::empty()
+            .with(SemanticTokenModifier::Readonly)
+            .bits();
+
+        assert!(
+            tokens
+                .iter()
+                .filter(|(text, kind, modifiers)| {
+                    text == "value"
+                        && *kind == SemanticTokenType::Parameter
+                        && *modifiers == readonly_parameter
+                })
+                .count()
+                >= 5
         );
         assert!(tokens.contains(&(
             "fallback".to_string(),
