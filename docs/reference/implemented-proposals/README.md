@@ -1,10 +1,9 @@
 ---
+role: routing
 review-when: An implemented proposal record is added, moved, reclassified, completed, or removed.
 ---
 
 # Implemented Proposal Records
-
-Status: implemented
 
 This directory keeps completed proposal records after their observable behavior
 has moved into `../../specification/` or checked examples. Use it for history,

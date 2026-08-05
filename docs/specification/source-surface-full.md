@@ -1,10 +1,10 @@
 ---
+role: specification
+authority: normative
 review-when: The source grammar or executable source-surface fixtures change.
 ---
 
 # Source Surface Details
-
-Status: routing
 
 Use [source-surface.md](source-surface.md) first. The executable grammar in
 [source-surface-executable.pl](source-surface-executable.pl) and checked cases

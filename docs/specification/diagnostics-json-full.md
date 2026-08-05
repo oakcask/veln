@@ -1,10 +1,10 @@
 ---
+role: specification
+authority: normative
 review-when: The diagnostic JSON contract or checked diagnostic examples change.
 ---
 
 # Diagnostics JSON Details
-
-Status: routing
 
 Use [diagnostics-json.md](diagnostics-json.md) first. Command-specific JSON
 projection is documented in [json-output.md](json-output.md),

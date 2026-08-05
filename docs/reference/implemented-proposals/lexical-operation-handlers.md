@@ -1,10 +1,10 @@
 ---
+role: implementation-record
+authority: supporting
 review-when: The lexical handler implementation boundary, replacement proposal, or executable handler evidence changes.
 ---
 
 # Lexical Operation Handlers
-
-Status: implemented
 
 ## Summary
 
