@@ -31,15 +31,8 @@ also states it.
 - [Bounded Toolchain Analysis](bounded-toolchain-analysis.md): make the HTTP/2
   core and connection workloads meet their remaining wall-time thresholds after
   completed candidate-indexing, demand-driven standard-library initialization,
-  and measurement slices.
-
-### Toolchain Quality
-
-- [Built-In Code Metrics](built-in-code-metrics.md): add remaining dependency
-  pressure policy and graduation evidence beyond the implemented dependency
-  graph, baseline-aware dependency-cycle policy check, advisory ABC size,
-  exact whole-body similarity bounds, controlled similarity benchmark,
-  and human-output truncation.
+  and measurement slices. Each slice compares against the implementation state
+  immediately before that slice.
 
 ## Selection Rule
 

@@ -151,6 +151,13 @@ If the median absolute deviation of wall time exceeds ten percent of the
 median, the result is noisy and must be repeated before it is used as
 acceptance evidence.
 
+The baseline binary for each optimization slice must represent the
+implementation state immediately before that slice. The new binary must
+contain that slice. Ratios from separate slices do not accumulate for
+acceptance. The completion comparison uses the state immediately before the
+final optimization slice as its baseline, and the review record must identify
+both binary states.
+
 The script compares exit status and normalized functional output for measured
 runs before it reports a performance result. The controlled benchmark result
 is accepted when all of these comparisons pass:
@@ -179,8 +186,9 @@ dedicated benchmark runner exists.
 ## Remaining Work
 
 - Reduce the HTTP/2 core and connection direct-analysis wall-time medians to
-  at most one third of their baseline medians without regressing completed
-  functional comparisons.
+  at most one third of the medians from the implementation state immediately
+  before the final optimization slice, without regressing completed functional
+  comparisons.
 - Preserve normal command stdout, stderr, JSON, exit status, diagnostics, and
   generated output.
 - Preserve existing functional-output comparisons in the controlled benchmark.
