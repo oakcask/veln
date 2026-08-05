@@ -415,10 +415,10 @@ handler_operation_clause -->
     expr,
     nl.
 
-handler_operation_params_opt --> ident, handler_operation_params_tail, !.
+handler_operation_params_opt --> ident, handler_operation_params_tail_no_trailing, !.
 handler_operation_params_opt --> [].
-handler_operation_params_tail --> tok(comma), ident, !, handler_operation_params_tail.
-handler_operation_params_tail --> [].
+handler_operation_params_tail_no_trailing --> tok(comma), ident, !, handler_operation_params_tail_no_trailing.
+handler_operation_params_tail_no_trailing --> [].
 
 effect_params_opt --> effect_param, effect_params_tail, trailing_comma_opt, !.
 effect_params_opt --> [].

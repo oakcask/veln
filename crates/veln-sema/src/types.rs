@@ -2051,7 +2051,7 @@ struct EffectInference<'a> {
     graph: EffectDependencyGraph,
     companion_access_targets: BTreeMap<String, String>,
     companion_effect_access_targets: BTreeMap<String, CompanionAccessTarget>,
-    provider_companion_access_targets: BTreeMap<String, String>,
+    clause_companion_access_targets: BTreeMap<String, String>,
     effects_by_function: EffectsByFunction,
     effects_by_module_path: EffectsByModulePath,
     handler_index: BTreeMap<String, usize>,
@@ -2077,7 +2077,7 @@ impl<'a> EffectInference<'a> {
             module,
             companion_access_targets: companion_function_access_targets(module),
             companion_effect_access_targets: companion_access_target_infos(module),
-            provider_companion_access_targets: companion_access_targets_for_signatures(functions),
+            clause_companion_access_targets: companion_access_targets_for_signatures(functions),
             effects_by_function,
             effects_by_module_path,
             handler_index: handler_signature_index(handlers),
@@ -2144,7 +2144,7 @@ impl<'a> EffectInference<'a> {
             &self.effects_by_function,
             &self.effects_by_module_path,
             self.handlers,
-            &self.provider_companion_access_targets,
+            &self.clause_companion_access_targets,
             &self.companion_effect_access_targets,
         );
         let changed = self.handlers[index].effects != inferred;

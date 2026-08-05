@@ -184,7 +184,7 @@ impl Server {
         id.map(|id| {
             let result = self
                 .symbol_at_request(message)
-                .and_then(|request| request.index.location_json(&request.symbol.declaration))
+                .and_then(|request| request.index.symbol_location_json(&request.symbol))
                 .unwrap_or_else(|| "null".to_string());
             response(&id, &result)
         })
@@ -196,7 +196,7 @@ impl Server {
         id.map(|id| {
             let result = self
                 .symbol_at_request(message)
-                .map(|request| request.index.references_json(&request.symbol, true))
+                .map(|request| request.index.symbol_references_json(&request.symbol, true))
                 .unwrap_or_else(|| "[]".to_string());
             response(&id, &result)
         })
@@ -233,7 +233,7 @@ impl Server {
                     self.symbol_at_request(message).map(|request| {
                         request
                             .index
-                            .workspace_edit_json(&request.symbol, &new_name)
+                            .symbol_workspace_edit_json(&request.symbol, &new_name)
                     })
                 })
                 .unwrap_or_else(|| "{\"changes\":{}}".to_string());
@@ -609,8 +609,23 @@ struct FunctionSymbol {
 #[derive(Debug)]
 struct SymbolRequest {
     index: LspSymbolIndex,
-    symbol: FunctionSymbol,
+    symbol: LspSymbol,
     selection: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+enum LspSymbol {
+    Function(FunctionSymbol),
+    Local(LocalSymbol),
+}
+
+#[derive(Clone, Debug)]
+struct LocalSymbol {
+    name: String,
+    declaration: SourceSpan,
+    scope_file: String,
+    scope_start: usize,
+    scope_end: usize,
 }
 
 #[derive(Debug)]
@@ -640,6 +655,14 @@ struct FunctionScope {
 #[derive(Debug)]
 struct LocalBinding {
     name: String,
+    start: usize,
+    end: usize,
+}
+
+#[derive(Debug)]
+struct ClauseBinding {
+    name: String,
+    declaration: SourceSpan,
     start: usize,
     end: usize,
 }
@@ -699,14 +722,20 @@ impl LspSymbolIndex {
         token_index: usize,
         name: &str,
         selection: &SourceSpan,
-    ) -> Option<FunctionSymbol> {
+    ) -> Option<LspSymbol> {
+        if let Some(symbol) =
+            handler_operation_clause_symbol(file, tokens, token_index, name, selection)
+        {
+            return Some(LspSymbol::Local(symbol));
+        }
+
         if let Some(symbol) = self.functions.iter().find(|symbol| {
             symbol.name == name
                 && symbol.declaration.file == selection.file
                 && symbol.declaration.start.offset == selection.start.offset
                 && symbol.declaration.end.offset == selection.end.offset
         }) {
-            return Some(symbol.clone());
+            return Some(LspSymbol::Function(symbol.clone()));
         }
 
         if !is_call_target_token(tokens, token_index) {
@@ -717,7 +746,8 @@ impl LspSymbolIndex {
                 .functions
                 .iter()
                 .find(|symbol| symbol.name == name && symbol.module == file.module)
-                .cloned();
+                .cloned()
+                .map(LspSymbol::Function);
         };
         self.functions
             .iter()
@@ -731,6 +761,7 @@ impl LspSymbolIndex {
                         .is_some_and(|target| target == &symbol.module)
             })
             .cloned()
+            .map(LspSymbol::Function)
     }
 
     fn location_json(&self, span: &SourceSpan) -> Option<String> {
@@ -782,6 +813,23 @@ impl LspSymbolIndex {
         format!("{{\"changes\":{{{changes}}}}}")
     }
 
+    fn local_workspace_edit_json(&self, symbol: &LocalSymbol, new_name: &str) -> String {
+        let spans = self.local_references(symbol, true);
+        let edits = spans
+            .iter()
+            .map(|span| {
+                format!(
+                    "{{\"range\":{},\"newText\":\"{}\"}}",
+                    range_json(Some(span)),
+                    escape_json(new_name)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        let uri = uri_for_span(&self.files, &symbol.declaration);
+        format!("{{\"changes\":{{\"{}\":[{edits}]}}}}", escape_json(&uri))
+    }
+
     fn references_json(&self, symbol: &FunctionSymbol, include_declaration: bool) -> String {
         let mut locations = Vec::new();
         if include_declaration && let Some(location) = self.location_json(&symbol.declaration) {
@@ -797,6 +845,67 @@ impl LspSymbolIndex {
         locations.sort();
         locations.dedup();
         format!("[{}]", locations.join(","))
+    }
+
+    fn local_references_json(&self, symbol: &LocalSymbol, include_declaration: bool) -> String {
+        let locations = self
+            .local_references(symbol, include_declaration)
+            .into_iter()
+            .filter_map(|span| self.location_json(&span))
+            .collect::<Vec<_>>();
+        format!("[{}]", locations.join(","))
+    }
+
+    fn local_references(&self, symbol: &LocalSymbol, include_declaration: bool) -> Vec<SourceSpan> {
+        let Some(file) = self
+            .files
+            .iter()
+            .find(|file| file.source.path().as_str() == symbol.scope_file)
+        else {
+            return Vec::new();
+        };
+        let tokens = lex(&file.source).tokens;
+        let mut spans = Vec::new();
+        if include_declaration {
+            spans.push(symbol.declaration.clone());
+        }
+        spans.extend(
+            tokens
+                .iter()
+                .enumerate()
+                .filter(|(index, token)| {
+                    token.text == symbol.name
+                        && token.kind == TokenKind::Ident
+                        && token.range.start >= symbol.scope_start
+                        && token.range.start < symbol.scope_end
+                        && !is_field_name(&tokens, *index)
+                })
+                .map(|(_, token)| file.source.span(token.range)),
+        );
+        spans.sort_by_key(|span| span.start.offset);
+        spans.dedup_by_key(|span| (span.start.offset, span.end.offset));
+        spans
+    }
+
+    fn symbol_location_json(&self, symbol: &LspSymbol) -> Option<String> {
+        match symbol {
+            LspSymbol::Function(symbol) => self.location_json(&symbol.declaration),
+            LspSymbol::Local(symbol) => self.location_json(&symbol.declaration),
+        }
+    }
+
+    fn symbol_references_json(&self, symbol: &LspSymbol, include_declaration: bool) -> String {
+        match symbol {
+            LspSymbol::Function(symbol) => self.references_json(symbol, include_declaration),
+            LspSymbol::Local(symbol) => self.local_references_json(symbol, include_declaration),
+        }
+    }
+
+    fn symbol_workspace_edit_json(&self, symbol: &LspSymbol, new_name: &str) -> String {
+        match symbol {
+            LspSymbol::Function(symbol) => self.workspace_edit_json(symbol, new_name),
+            LspSymbol::Local(symbol) => self.local_workspace_edit_json(symbol, new_name),
+        }
     }
 
     fn references_in_file(&self, file: &LspFile, symbol: &FunctionSymbol) -> Vec<SourceSpan> {
@@ -839,6 +948,80 @@ fn function_declarations(file: &LspFile) -> Vec<FunctionSymbol> {
         }
     }
     functions
+}
+
+fn handler_operation_clause_symbol(
+    file: &LspFile,
+    tokens: &[Token],
+    token_index: usize,
+    name: &str,
+    selection: &SourceSpan,
+) -> Option<LocalSymbol> {
+    handler_operation_clause_bindings(file, tokens)
+        .into_iter()
+        .find(|binding| {
+            binding.name == name
+                && ((selection.start.offset >= binding.declaration.start.offset
+                    && selection.start.offset < binding.declaration.end.offset)
+                    || (tokens[token_index].range.start >= binding.start
+                        && tokens[token_index].range.start < binding.end))
+        })
+        .map(|binding| LocalSymbol {
+            name: binding.name,
+            declaration: binding.declaration,
+            scope_file: file.source.path().as_str().to_string(),
+            scope_start: binding.start,
+            scope_end: binding.end,
+        })
+}
+
+fn handler_operation_clause_bindings(file: &LspFile, tokens: &[Token]) -> Vec<ClauseBinding> {
+    let mut bindings = Vec::new();
+    for (arrow_index, arrow) in tokens.iter().enumerate() {
+        if arrow.kind != TokenKind::FatArrow
+            || !inside_top_level_block(tokens, arrow_index, TokenKind::Handler)
+        {
+            continue;
+        }
+        let line_start_index = line_start_index(tokens, arrow_index);
+        let line_end = tokens[arrow_index + 1..]
+            .iter()
+            .find(|token| token.kind == TokenKind::Newline || token.kind == TokenKind::Eof)
+            .map(|token| token.range.start)
+            .unwrap_or_else(|| file.source.text().len());
+        let Some(lparen_index) = tokens[line_start_index..arrow_index]
+            .iter()
+            .position(|token| token.kind == TokenKind::LParen)
+            .map(|index| line_start_index + index)
+        else {
+            continue;
+        };
+        let Some(rparen_index) = tokens[lparen_index + 1..arrow_index]
+            .iter()
+            .position(|token| token.kind == TokenKind::RParen)
+            .map(|index| lparen_index + 1 + index)
+        else {
+            continue;
+        };
+        for token in &tokens[lparen_index + 1..rparen_index] {
+            if token.kind == TokenKind::Ident && is_identifier(&token.text) {
+                bindings.push(ClauseBinding {
+                    name: token.text.clone(),
+                    declaration: file.source.span(token.range),
+                    start: arrow.range.end,
+                    end: line_end,
+                });
+            }
+        }
+    }
+    bindings
+}
+
+fn line_start_index(tokens: &[Token], index: usize) -> usize {
+    tokens[..index]
+        .iter()
+        .rposition(|token| token.kind == TokenKind::Newline)
+        .map_or(0, |index| index + 1)
 }
 
 fn call_references(source: &SourceFile, name: &str) -> Vec<SourceSpan> {

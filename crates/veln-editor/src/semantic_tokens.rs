@@ -319,6 +319,65 @@ impl<'a> Classifier<'a> {
                 self.cursor += 1;
             }
         }
+        while self.at(TokenKind::Newline) {
+            self.cursor += 1;
+        }
+        let handler_params = self.params.clone();
+        while !self.at(TokenKind::End) && !self.at(TokenKind::Eof) {
+            self.params = handler_params.clone();
+            self.collect_handler_operation_clause(semantic_tokens);
+            while self.at(TokenKind::Newline) {
+                self.cursor += 1;
+            }
+        }
+        self.params = handler_params;
+        if self.at(TokenKind::End) {
+            let token = &self.tokens[self.cursor];
+            semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
+            self.cursor += 1;
+        }
+    }
+
+    fn collect_handler_operation_clause(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
+        self.skip_trivia();
+        if self.at(TokenKind::Ident) {
+            let token = &self.tokens[self.cursor];
+            semantic_tokens.push(self.simple(token, SemanticTokenType::Property));
+            self.cursor += 1;
+        }
+        if self.eat(TokenKind::LParen, semantic_tokens) {
+            self.collect_handler_operation_parameters(semantic_tokens);
+        }
+        while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
+            if let Some(classified) = self.classify_current_token() {
+                semantic_tokens.push(classified);
+            }
+            self.cursor += 1;
+        }
+    }
+
+    fn collect_handler_operation_parameters(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
+        while !self.at(TokenKind::RParen) && !self.at(TokenKind::Eof) {
+            let token = &self.tokens[self.cursor];
+            if token.kind == TokenKind::Ident {
+                self.params.insert(token.text.clone());
+                semantic_tokens.push(self.modified(
+                    token,
+                    SemanticTokenType::Parameter,
+                    &[
+                        SemanticTokenModifier::Declaration,
+                        SemanticTokenModifier::Readonly,
+                    ],
+                ));
+                self.cursor += 1;
+            } else {
+                if let Some(classified) = self.classify_current_token() {
+                    semantic_tokens.push(classified);
+                }
+                self.cursor += 1;
+            }
+        }
+        self.eat(TokenKind::RParen, semantic_tokens);
     }
 
     fn collect_effect_path(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
@@ -1124,11 +1183,11 @@ mod tests {
             "main.veln",
             concat!(
                 "pub handler ask(ctx: Int) handles Ask effects [stdio]\n",
-                "  value = provide_value\n",
+                "  value(item) => provide_value(ctx, item)\n",
                 "end\n",
                 "\n",
-                "fn provide_value(ctx: Int) -> Int\n",
-                "  ctx\n",
+                "fn provide_value(ctx: Int, item: Int) -> Int\n",
+                "  ctx + item\n",
                 "end\n",
             ),
         );
@@ -1179,11 +1238,30 @@ mod tests {
             SemanticTokenType::Property,
             SemanticTokenModifiers::empty().bits()
         )));
+        assert!(
+            tokens.contains(&(
+                "item".to_string(),
+                SemanticTokenType::Parameter,
+                SemanticTokenModifiers::empty()
+                    .with(SemanticTokenModifier::Declaration)
+                    .with(SemanticTokenModifier::Readonly)
+                    .bits()
+            ))
+        );
         assert!(tokens.contains(&(
             "provide_value".to_string(),
             SemanticTokenType::Function,
             SemanticTokenModifiers::empty().bits()
         )));
+        assert!(
+            tokens.contains(&(
+                "item".to_string(),
+                SemanticTokenType::Parameter,
+                SemanticTokenModifiers::empty()
+                    .with(SemanticTokenModifier::Readonly)
+                    .bits()
+            ))
+        );
     }
 
     #[test]

@@ -5,6 +5,7 @@ use crate::types::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 use veln_ast::{HandlerDecl, HandlerOperationClauseDecl};
+use veln_source::SourceSpan;
 
 pub(crate) fn check_handler_declarations(
     module: &SurfaceModule,
@@ -354,7 +355,7 @@ fn clause_binding_diagnostics(
                 operation.params.len(),
                 clause.params.len()
             ),
-            Some(clause.span.clone()),
+            Some(clause_parameter_span(clause)),
             clause_details(
                 clause.node_id.display("clause"),
                 signature,
@@ -384,6 +385,20 @@ fn clause_binding_diagnostics(
         }
     }
     diagnostics
+}
+
+fn clause_parameter_span(clause: &HandlerOperationClauseDecl) -> SourceSpan {
+    clause.params.first().map_or_else(
+        || clause.operation_span.clone(),
+        |first| {
+            let last = clause.params.last().unwrap_or(first);
+            SourceSpan {
+                file: first.span.file.clone(),
+                start: first.span.start,
+                end: last.span.end,
+            }
+        },
+    )
 }
 
 fn clause_body_diagnostics(

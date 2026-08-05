@@ -8,7 +8,8 @@ Status: implemented
 
 ## Summary
 
-Replace handler provider references with explicit operation clauses. Each
+This record tracks the completed replacement of handler provider references
+with explicit operation clauses. Each
 clause binds the handled operation arguments and evaluates an ordinary Veln
 expression. A clause that delegates to an external function writes an ordinary
 function call with every argument visible at the call site.
@@ -24,7 +25,7 @@ current source grammar is specified in
 
 ## Motivation
 
-The current syntax hides a calling convention:
+The former syntax hid a calling convention:
 
 ```veln
 handler console(prefix: String) handles Console effects [stdio]
@@ -42,7 +43,7 @@ the reader has applied that convention incorrectly. The convention also makes
 handler context look like implicit mutable state even though the context is a
 lexically captured value.
 
-## Proposed Source Form
+## Implemented Source Form
 
 An operation clause has this form:
 
@@ -202,28 +203,19 @@ cases together cover the completed migration.
 | Standard duplex handler | `check/http2-connection-transport-handler-effects`, `run/http2-connection-transport-handler-loopback`, and HTTP/2 service transport cases | Static effect replacement and loopback runtime behavior retain their observations |
 | Editor behavior | `lsp/handler-semantic-tokens` and `lsp/handler-operation-editor` | Rename, definition, references, semantic tokens, and formatting operate on ordinary calls inside clauses |
 
-## Migration Plan
+## Completed Migration Audit
 
-Implementation may use temporary internal commits in which both source forms
-parse. Such coexistence is an implementation staging tool and is not a
-completed language state.
+The completed migration added operation-clause syntax, AST representation,
+formatting, lowering, semantic checks, editor behavior, and executable
+specification evidence. Compiler tests, executable grammar cases,
+specification examples, standard-library handlers, and editor fixtures use
+operation clauses. The old parser production, provider-reference AST surface,
+provider-signature checking, provider-reference editor special cases, and
+formatter support were removed from current behavior.
 
-1. Add operation-clause syntax, AST representation, formatting, lowering, and
-   semantic checks.
-2. Convert compiler tests, executable grammar cases, specification examples,
-   standard-library handlers, and editor tests to operation clauses.
-3. Replace public provider-specific diagnostics and structured fields with the
-   operation-clause contract.
-4. Remove the old parser production, provider-reference AST surface,
-   provider-signature checking, provider-reference editor special cases, and
-   formatter support.
-5. Search all source, tests, current documentation, generated grammar, standard
-   library, diagnostics, and editor code for residual old syntax and
-   provider-reference terminology. Classify any residual occurrence as a
-   historical explanation or remove it.
-6. Promote the implemented behavior and executable evidence to the current
-   specification. Move this proposal to the implemented-proposal records and
-   remove it from the proposal catalog.
+Residual old-syntax and provider-reference wording is limited to historical
+explanation in this record and implementation names below the checked-core
+handler-table boundary.
 
 ## Migration Map
 

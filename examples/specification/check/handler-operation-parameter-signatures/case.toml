@@ -59,3 +59,25 @@ equals = "one"
 [[json_assert]]
 path = "diagnostics.2.details.reason"
 equals = "duplicate_operation_binding"
+
+[[diagnostics]]
+id = "handler.operation_clause_arity"
+severity = "error"
+kind = "type"
+message = "operation `zero` expects 0 parameter bindings, but clause declares 1"
+
+[diagnostics.span]
+file = "main.veln"
+line = 12
+column = 7
+
+[[diagnostics]]
+id = "handler.operation_clause_arity"
+severity = "error"
+kind = "type"
+message = "operation `one` expects 1 parameter bindings, but clause declares 2"
+
+[diagnostics.span]
+file = "main.veln"
+line = 13
+column = 6
