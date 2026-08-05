@@ -235,6 +235,46 @@ fn rejects_trailing_comma_in_handler_operation_parameters() {
 }
 
 #[test]
+fn rejects_old_handler_operation_syntax_with_one_migration_diagnostic() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Ask\n",
+            "  value() -> Int\n",
+            "end\n",
+            "\n",
+            "fn provide() -> Int\n",
+            "  1\n",
+            "end\n",
+            "\n",
+            "handler ask() handles Ask\n",
+            "  value = provide\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert_eq!(output.diagnostics.len(), 1, "{:#?}", output.diagnostics);
+    let diagnostic = &output.diagnostics[0];
+    assert_eq!(diagnostic.id, "parse.handler_operation_old_syntax");
+    assert_eq!(
+        diagnostic.message,
+        "handler operation clause must bind operation parameters with `(` and evaluate an expression with `=>`"
+    );
+    assert_eq!(diagnostic.parser_context, "handler_operation_clause");
+    assert_eq!(diagnostic.unexpected.text, "=");
+    assert_eq!(diagnostic.expected, vec!["("]);
+    assert_eq!(
+        diagnostic.recovery.strategy,
+        RecoveryStrategy::SynchronizeToAnchor
+    );
+    assert_eq!(diagnostic.recovery.anchor.as_deref(), Some("newline"));
+    assert_eq!(diagnostic.span.as_ref().unwrap().start.line, 10);
+    assert_eq!(diagnostic.span.as_ref().unwrap().start.column, 9);
+}
+
+#[test]
 fn rejects_effect_operation_parameter_without_type() {
     let source = SourceFile::new(
         "main.veln",

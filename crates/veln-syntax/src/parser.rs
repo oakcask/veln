@@ -651,6 +651,33 @@ impl<'a> Parser<'a> {
         let start = self.current().range;
         let operation_span = self.source.span(start);
         let operation = self.expect_ident("handler_operation_clause", "operation name");
+        if self.at(TokenKind::Equal) {
+            let equal = self.current().clone();
+            self.error_at_token(
+                &equal,
+                DiagnosticRequest {
+                    id: "parse.handler_operation_old_syntax",
+                    message: "handler operation clause must bind operation parameters with `(` and evaluate an expression with `=>`".to_string(),
+                    parser_context: "handler_operation_clause",
+                    expected: vec!["("],
+                    strategy: RecoveryStrategy::SynchronizeToAnchor,
+                    anchor: Some("newline"),
+                    repair_candidates: Vec::new(),
+                },
+            );
+            self.skip_to_next_line();
+            let body = Expr {
+                kind: ExprKind::Missing,
+                span: self.source.span(equal.range),
+            };
+            return HandlerOperationClauseDecl {
+                operation,
+                operation_span,
+                params: Vec::new(),
+                body,
+                span: self.source.span(start.cover(equal.range)),
+            };
+        }
         self.expect(TokenKind::LParen, "handler_operation_clause", vec!["("]);
         let params = self.parse_handler_operation_params();
         self.expect(TokenKind::RParen, "handler_operation_clause", vec![")"]);
