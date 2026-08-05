@@ -14,9 +14,10 @@ used by editor integrations.
 - Editor-neutral semantic records come from `veln-editor`.
 - LSP `textDocument/semanticTokens/full` integer data comes from `veln-lsp`.
 - LSP `textDocument/publishDiagnostics` messages come from `veln-lsp`.
-- LSP `textDocument/definition`, `textDocument/prepareRename`, and
-  `textDocument/rename` handle the implemented companion private-function
-  identity case in `veln-lsp`.
+- LSP `textDocument/definition`, `textDocument/references`,
+  `textDocument/formatting`, `textDocument/prepareRename`, and
+  `textDocument/rename` handle the implemented navigation, formatting, and
+  rename cases in `veln-lsp`.
 - The stdio LSP server starts through `veln lsp`.
 - TextMate fallback highlighting is contributed by
   `editors/vscode/syntaxes/veln.tmLanguage.json`.
@@ -51,6 +52,8 @@ The implemented semantic token types are standard LSP token types:
 | let binding declaration | `variable` | `declaration`, `readonly` |
 | local binding reference | `variable` | `readonly` |
 | result binding | `variable` | `declaration`, `readonly`, `result` |
+| handler operation clause binding | `parameter` | `declaration`, `readonly` |
+| handler operation clause binding reference | `parameter` | `readonly` |
 | type name | `type` | none |
 | effect label | `enumMember` | none |
 | schema format name | `enumMember` | none |
@@ -71,12 +74,14 @@ The only Veln-specific semantic token modifiers are `test`, `result`, and
 
 `veln-lsp` exposes the semantic-token legend, full-token response data, and a
 stdio JSON-RPC server. The server advertises `textDocumentSync`,
-`definitionProvider`, `renameProvider.prepareProvider`, and
-`semanticTokensProvider` with full-document semantic token support. It handles
-`initialize`, `initialized`, `shutdown`, `exit`, `textDocument/didOpen`,
-`textDocument/didChange`, `textDocument/didClose`,
-`textDocument/semanticTokens/full`, `textDocument/definition`,
-`textDocument/prepareRename`, and `textDocument/rename`.
+`definitionProvider`, `referencesProvider`, `documentFormattingProvider`,
+`renameProvider.prepareProvider`, and `semanticTokensProvider` with
+full-document semantic token support. It handles `initialize`, `initialized`,
+`shutdown`, `exit`, `textDocument/didOpen`, `textDocument/didChange`,
+`textDocument/didClose`, `textDocument/semanticTokens/full`,
+`textDocument/definition`, `textDocument/references`,
+`textDocument/formatting`, `textDocument/prepareRename`, and
+`textDocument/rename`.
 
 The full response uses LSP relative integer encoding in groups of five:
 
@@ -117,13 +122,23 @@ Published diagnostics use standard LSP severity numbers and zero-based ranges.
 The diagnostic `code` is the Veln diagnostic id, and the diagnostic `source` is
 `veln`.
 
-## LSP Definition And Rename
+## LSP Navigation, Formatting, And Rename
+
+`textDocument/formatting` returns a single whole-document text edit containing
+the same canonical formatting produced by the formatter. Handler operation
+clauses are formatted as `operation(binding, ...) => expression`, with
+operation-clause bodies formatted as ordinary expressions.
 
 For a private target function reference written as `target::name` from the
 exact `.test.veln` companion, `textDocument/definition` returns the private
 function declaration location in the target `.veln` source when the companion
 writes an explicit `use` for that target. `textDocument/prepareRename` returns
 the selected function-name range for the same accepted identity.
+
+`textDocument/references` for a private target function identity returns the
+same declaration and reference set that rename edits. Handler operation clause
+calls to the target function are references when the call resolves inside the
+target source.
 
 `textDocument/rename` for that identity returns workspace edits for the target
 function declaration, valid call or function-value references in the target
@@ -154,6 +169,17 @@ references, target function-alias targets, companion function-value and alias
 rejection, callable shadowing, record field isolation, match-arm binding
 isolation, local-binding initializer references, rejected boundaries,
 request-origin filtering, and open-document overlays.
+
+For a handler operation clause binding, `textDocument/definition` returns the
+binding location from the operation clause parameter list.
+`textDocument/references` returns the binding and ordinary expression
+references inside the clause body. `textDocument/prepareRename` returns the
+binding range, and `textDocument/rename` edits the binding and references in the
+clause body. Record field labels and field accesses that use the same text are
+not binding references. The routed executable evidence is
+`../../examples/specification/lsp/handler-operation-editor/`. The `veln-lsp`
+server tests also cover handler operation clause function-call references and
+record field isolation for binding rename.
 
 ## VSCode Integration
 
@@ -192,9 +218,14 @@ Implemented:
   identifiers.
 - Editor-neutral semantic token records.
 - Full semantic-token legend and integer data generation for LSP clients.
-- Stdio JSON-RPC lifecycle for semantic highlighting requests.
+- Stdio JSON-RPC lifecycle for semantic highlighting and whole-document
+  formatting requests.
 - Stdio definition, prepare-rename, and rename responses for exact companion
   qualified private-function references.
+- Stdio references responses for exact companion qualified private-function
+  references.
+- Stdio definition, references, prepare-rename, and rename responses for
+  handler operation clause bindings.
 - Stdio diagnostic publication for discovered workspace Veln files across
   resolved workspace roots, including unopened files, with unsaved open
   document overlays.
@@ -212,4 +243,5 @@ Not implemented:
 - LSP range and delta semantic token requests.
 - Completion and hover.
 - General rename and go-to-definition support outside the implemented
-  companion private-function identity case.
+  companion private-function identity and handler operation clause binding
+  cases.
