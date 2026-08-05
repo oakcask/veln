@@ -1,0 +1,29 @@
+effect First
+	c() -> Int
+end
+
+effect Second
+	b_c() -> Int
+end
+
+handler a_b(seed: Int) handles First
+	c() => seed + 1
+end
+
+handler a(seed: Int) handles Second
+	b_c() => seed + 2
+end
+
+fn first_value() -> Int effects [First]
+	perform First::c()
+end
+
+fn second_value() -> Int effects [Second]
+	perform Second::b_c()
+end
+
+pub fn main() -> () effects [stdio]
+	let left = handle first_value() with a_b(10)
+	let right = handle second_value() with a(20)
+	stdio::println(int_to_string(left + right))
+end

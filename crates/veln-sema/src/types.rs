@@ -2011,7 +2011,11 @@ fn handler_signatures(
 }
 
 pub(crate) fn synthetic_handler_clause_function_name(handler: &str, operation: &str) -> String {
-    format!("__handler_{handler}_{operation}")
+    format!(
+        "__handler_{}${handler}_{}${operation}",
+        handler.len(),
+        operation.len()
+    )
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -2337,13 +2341,7 @@ fn effect_dependency_graph(
         .filter(|handler| handler.visibility != Visibility::Public)
         .filter(|handler| module_private_handlers.contains(&handler.qualified_name))
     {
-        insert_handler_effect_dependencies(
-            &mut graph,
-            handler,
-            module,
-            functions,
-            &companion_access_targets,
-        );
+        insert_handler_effect_dependencies(&mut graph, handler, module, &context);
     }
     graph
 }
@@ -2376,8 +2374,7 @@ fn insert_handler_effect_dependencies(
     graph: &mut EffectDependencyGraph,
     handler: &HandlerSignature,
     module: &SurfaceModule,
-    functions: &[FunctionSignature],
-    companion_access_targets: &BTreeMap<String, String>,
+    context: &FunctionEffectContext<'_>,
 ) {
     #[cfg(test)]
     effect_inference_counters::record_dependency_discovery_scan();
@@ -2412,13 +2409,13 @@ fn insert_handler_effect_dependencies(
             uses: &module.uses,
             current_module: handler.module_name.as_deref(),
             bindings: &bindings,
-            functions,
-            effects_by_function: &BTreeMap::new(),
-            effects_by_module_path: &BTreeMap::new(),
-            companion_access_targets,
-            companion_effect_access_targets: &BTreeMap::new(),
-            user_effects: &[],
-            handlers: &[],
+            functions: context.functions,
+            effects_by_function: context.effects_by_function,
+            effects_by_module_path: context.effects_by_module_path,
+            companion_access_targets: context.companion_access_targets,
+            companion_effect_access_targets: context.companion_effect_access_targets,
+            user_effects: context.user_effects,
+            handlers: context.handlers,
         };
         let mut dependencies = BTreeSet::new();
         collect_expr_effect_dependencies(&clause.body, &expr_context, &mut dependencies);

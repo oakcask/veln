@@ -515,7 +515,7 @@ fn reachable_project_lowering_with_reusable_standard_environment_keeps_standard_
                                 CoreExprKind::Handle { providers, .. }
                                     if providers.iter().any(|provider| {
                                         provider.function
-                                            == "__veln_std$prelude$__handler_ask_value"
+                                            == "__veln_std$prelude$__handler_3$ask_5$value"
                                     })
                             )
                     )
