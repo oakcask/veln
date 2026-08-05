@@ -2314,7 +2314,7 @@ fn collect_function_callees(
             }
         }
         ExprKind::Handle { body, args, .. } => {
-            collect_handler_provider_callees(
+            collect_handler_operation_clause_callees(
                 expr,
                 current_module,
                 uses,
@@ -2599,7 +2599,7 @@ fn collect_function_name_reference(
     }
 }
 
-fn collect_handler_provider_callees(
+fn collect_handler_operation_clause_callees(
     expr: &Expr,
     current_module: Option<&str>,
     uses: &[UseDecl],
@@ -2644,7 +2644,7 @@ fn collect_handler_provider_callees(
                 function_shape: param.ty.as_deref().and_then(function_type_shape),
             })
             .collect::<Vec<_>>();
-        for clause in &handler.providers {
+        for clause in &handler.operation_clauses {
             let binding_count = local_bindings.len();
             local_bindings.extend(clause.params.iter().map(|param| LocalBinding {
                 name: param.name.clone(),
@@ -4088,7 +4088,7 @@ mod tests {
                     "  ()\n",
                     "end\n",
                     "pub handler visible() handles Ask\n",
-                    "  call=provide\n",
+                    "  call() => provide()\n",
                     "end\n",
                 ),
             ),

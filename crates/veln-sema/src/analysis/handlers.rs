@@ -52,7 +52,7 @@ fn check_handler_declaration(
     let mut diagnostics = declared_effect_diagnostics(handler, environment);
     diagnostics.extend(duplicate_clause_diagnostics(handler, signature, effect));
     diagnostics.extend(missing_clause_diagnostics(handler, signature, effect));
-    for clause in &handler.providers {
+    for clause in &handler.operation_clauses {
         diagnostics.extend(check_clause(
             handler,
             clause,
@@ -177,7 +177,6 @@ fn unknown_effect_diagnostic(handler: &HandlerDecl, environment: &TypeEnvironmen
             handler.name.clone().unwrap_or_default(),
             handler.effect.join("::"),
             None,
-            None,
             "unknown_handled_effect",
         ),
     );
@@ -217,7 +216,7 @@ fn duplicate_clause_diagnostics(
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     let mut seen = BTreeMap::<String, SourceSpan>::new();
-    for clause in &handler.providers {
+    for clause in &handler.operation_clauses {
         let Some(operation_name) = &clause.operation else {
             continue;
         };
@@ -267,9 +266,9 @@ fn missing_clause_diagnostics(
         .iter()
         .filter(|operation| {
             !signature
-                .providers
+                .operation_clauses
                 .iter()
-                .any(|provider| provider.operation == operation.name)
+                .any(|clause| clause.operation == operation.name)
         })
         .map(|operation| {
             let mut diagnostic = Diagnostic::new(
@@ -613,7 +612,6 @@ fn clause_details(
         signature.qualified_name.clone(),
         effect.qualified_name.clone(),
         operation,
-        None,
         reason,
     )
 }

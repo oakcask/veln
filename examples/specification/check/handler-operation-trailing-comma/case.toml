@@ -1,0 +1,21 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["parse.handler_operation_parameter", "handler operation parameter list cannot end with a comma"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "parse.handler_operation_parameter"
+
+[[json_assert]]
+path = "diagnostics.0.details.parser_context"
+equals = "handler_operation_clause"

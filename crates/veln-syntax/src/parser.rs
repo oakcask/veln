@@ -605,7 +605,7 @@ impl<'a> Parser<'a> {
         };
         self.expect_newline("handler_declaration");
 
-        let mut providers = Vec::new();
+        let mut operation_clauses = Vec::new();
         let mut end_present = false;
         while !self.at(TokenKind::Eof) {
             self.eat_newlines();
@@ -620,7 +620,7 @@ impl<'a> Parser<'a> {
             if self.at(TokenKind::Eof) {
                 break;
             }
-            providers.push(self.parse_handler_operation_clause_decl());
+            operation_clauses.push(self.parse_handler_operation_clause_decl());
         }
         if !end_present {
             self.error_current(
@@ -641,7 +641,7 @@ impl<'a> Parser<'a> {
             effect_span,
             effects,
             effect_spans,
-            providers,
+            operation_clauses,
             span: self.source.span(start.cover(end)),
             end_present,
         }
@@ -683,6 +683,17 @@ impl<'a> Parser<'a> {
                 span: self.source.span(start),
             });
             if self.eat(TokenKind::Comma).is_none() {
+                break;
+            }
+            if self.at(TokenKind::RParen) {
+                self.error_current(
+                    "parse.handler_operation_parameter",
+                    "handler operation parameter list cannot end with a comma",
+                    "handler_operation_clause",
+                    vec!["operation parameter"],
+                    RecoveryStrategy::InsertToken,
+                    Some("parameter"),
+                );
                 break;
             }
         }

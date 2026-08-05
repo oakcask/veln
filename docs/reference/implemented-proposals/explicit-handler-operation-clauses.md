@@ -182,37 +182,25 @@ The diagnostic states that a handler operation clause must bind its operation
 parameters and evaluate an expression. It must not suggest that the old form
 remains supported.
 
-## Acceptance Cases
+## Completion Evidence
 
-Planned executable cases belong under `../../examples/specification/`. The
-grammar, formatter, semantic, CLI, and runtime cases together are the primary
-acceptance evidence. The examples in this proposal are planned syntax and are
-not current executable evidence.
+Executable cases under `../../../examples/specification/` are the primary
+acceptance evidence. The grammar, formatter, semantic, CLI, LSP, and runtime
+cases together cover the completed migration.
 
 | Case | Input distinction | Required observation |
 | --- | --- | --- |
-| Explicit external call | A clause passes handler context and operation arguments to an external function | Check succeeds and the run result uses the explicitly written argument order |
-| Direct expression | A clause computes its result without an external helper | Check succeeds and the expression result becomes the operation result |
-| Multiple operations | One effect declares operations with zero, one, and multiple parameters | Exactly one explicit clause for each operation checks and runs |
-| Clause delimiter | One handler uses `=>`; rejected variants use `=` after a parameter list | The `=>` form parses and each `=` form fails at the clause delimiter |
-| Renamed bindings | Clause parameter names differ from effect parameter names | Check succeeds and types follow operation parameter order |
-| Context shadowing | A clause parameter has the same name as a handler context parameter while another clause uses the context parameter | The first clause resolves the name to its operation argument and the other clause resolves it to the captured context value |
-| Parameter count failure | A clause binds fewer or more parameters than its operation | Check fails at the clause parameter boundary |
-| Duplicate binding failure | One clause repeats a parameter name | Check fails at the duplicate binding |
-| Result failure | A clause expression does not produce the operation result type | Check fails at the clause expression with the operation result as its expected type |
-| Ordinary call failure | An external call has an unknown target or incompatible arguments | The ordinary name or call diagnostic is emitted; no provider-signature diagnostic is emitted |
-| Coverage failures | A handler has a missing, duplicate, or unknown operation clause | The matching operation-clause diagnostic is emitted with declaration-related context |
-| Recursive clause failure | A clause expression retains its handled effect | `handler.recursive_operation_clause` is emitted |
-| Public retained effect | A public clause calls an effectful function with and without the required handler effect declaration | The declared case succeeds and the missing-effect case fails |
-| Context evaluation | Context expressions have observable effects and multiple clauses use their captured values | Context expressions run once, left to right, before the handled body |
-| Existing handler semantics | Nested, repeated-operation, task-boundary, and early-return cases use the new clauses | Their existing observable results remain unchanged |
-| Standard duplex handler | The standard transport handler delegates both operations explicitly | Static effect replacement and loopback runtime cases retain their current observations |
-| Old syntax removal | Source contains `operation = function_path` | Parsing fails and no formatter, compiler, standard-library, or current-example path accepts it |
-| Editor behavior | Rename, definition, references, semantic tokens, and formatting operate on calls inside clauses | Editor results match ordinary lexical bindings and function calls |
-
-The executable source grammar must accept the new production and reject the
-old production. Parser and formatter unit cases must cover zero-parameter and
-multi-parameter clauses. Semantic cases must cover every static row above.
+| Explicit external call | `run/lexical-handler-context-evaluation` passes multiple context arguments to external calls | The result uses the explicitly written argument order |
+| Direct expression and multiple operations | `run/handler-operation-direct-clauses` declares zero-, one-, and multi-parameter operations | Each clause checks and runs |
+| Clause delimiter and old syntax removal | Parser unit tests and `check/handler-operation-trailing-comma` reject non-clause forms and invalid parameter syntax | Old assignment syntax and trailing operation-parameter commas fail |
+| Renamed bindings and context shadowing | `run/handler-operation-direct-clauses` and semantic handler tests use clause names that differ from effect names and shadow context names | Types follow operation parameter order and lexical scope |
+| Parameter count, duplicate binding, result, and ordinary call failures | `check/handler-operation-parameter-signatures` | The matching handler, type, and name diagnostics are emitted |
+| Coverage and recursive failures | `check/handler-operation-signatures` and `check/handler-operation-signatures-human` | Missing, duplicate, unknown, and recursive operation-clause diagnostics are emitted |
+| Public retained effect | `check/lexical-handler-public-effect-declarations` and `check/lexical-handler-private-effect-inference` | Public declarations are enforced and private declarations infer retained clause effects |
+| Context evaluation | `run/lexical-handler-context-evaluation` | Context expressions run once, left to right, before the handled body, and multiple clauses reuse the captured values |
+| Existing handler semantics | `run/lexical-handler-nesting`, `run/lexical-handler-repeated-operations`, `run/lexical-handler-task-locality`, and `run/lexical-handler-early-return-cleanup` | Deep handling, nesting, task locality, repeated operations, and cleanup retain their observations |
+| Standard duplex handler | `check/http2-connection-transport-handler-effects`, `run/http2-connection-transport-handler-loopback`, and HTTP/2 service transport cases | Static effect replacement and loopback runtime behavior retain their observations |
+| Editor behavior | `lsp/handler-semantic-tokens` and `lsp/handler-operation-editor` | Rename, definition, references, semantic tokens, and formatting operate on ordinary calls inside clauses |
 
 ## Migration Plan
 
@@ -264,9 +252,9 @@ library source, and user-facing editor behavior must not retain it.
 - Do not require runtime closures when an implementation can lower clauses to
   equivalent internal functions.
 
-## Planned Verification
+## Verification
 
-Implementation must keep repository-relative checks for these surfaces:
+Repository-relative checks cover these surfaces:
 
 ```sh
 bash scripts/agent-test -p veln-syntax
@@ -275,10 +263,9 @@ bash scripts/agent-test -p veln-lsp
 bash scripts/agent-test -p veln-cli --test toolchain_harness
 ```
 
-The implementation must also run the executable specification cases selected
-for lexical handlers and the standard duplex-stream handler. The completion
-record must name those cases rather than claiming coverage from crate tests
-alone.
+Executable specification cases for lexical handlers, handler operation
+clauses, the standard duplex-stream handler, and LSP handler editing are named
+in the completion evidence table above.
 
 ## Residual Provider Terminology Audit
 
@@ -287,6 +274,10 @@ Remaining `provider` hits are not source-surface provider references:
 - Core, IR, JVM backend, and runtime handler-table names retain `providers`
   for the operation-to-function table that executes already-lowered handler
   clauses.
+- Source ASTs, semantic handler signatures, analysis callee collection,
+  handler effect-inference counters, and handler diagnostics use operation
+  clause terminology.
+- Handler diagnostic details do not emit a `provider` field.
 - This record uses `provider` to describe the removed syntax, diagnostic
   migration, and acceptance boundary.
 - Other reference records and editor-support text use unrelated meanings such

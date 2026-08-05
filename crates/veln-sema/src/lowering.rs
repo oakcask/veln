@@ -163,7 +163,7 @@ fn lower_handler_clause_functions(
         | UserEffectPathResolution::Missing => return Vec::new(),
     };
     handler
-        .providers
+        .operation_clauses
         .iter()
         .filter_map(|clause| {
             let operation_name = clause.operation.as_deref()?;
@@ -1127,15 +1127,15 @@ impl<'a> CoreLowerer<'a> {
                 self.lower_expr(arg, handler.params.get(index).map(core_type).as_ref())
             })
             .collect::<Vec<_>>();
-        let providers = handler
-            .providers
+        let operation_clauses = handler
+            .operation_clauses
             .iter()
-            .map(|provider| {
+            .map(|clause| {
                 Some(CoreHandlerProvider {
-                    operation: provider.operation.clone(),
+                    operation: clause.operation.clone(),
                     function: crate::standard_symbols::standard_function_link_name(
-                        provider.module_name.as_deref(),
-                        &provider.function,
+                        clause.module_name.as_deref(),
+                        &clause.function,
                     ),
                 })
             })
@@ -1147,7 +1147,7 @@ impl<'a> CoreLowerer<'a> {
             lowered.ty.clone(),
             CoreExprKind::Handle {
                 effect: handler.effect,
-                providers,
+                providers: operation_clauses,
                 context_args,
                 body: Box::new(lowered),
             },

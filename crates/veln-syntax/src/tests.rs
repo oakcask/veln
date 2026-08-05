@@ -167,7 +167,10 @@ fn parses_and_formats_lexical_handler_declarations_and_expressions() {
     };
     assert_eq!(handler.name.as_deref(), Some("ask"));
     assert_eq!(handler.effect, vec!["Ask".to_string()]);
-    assert_eq!(handler.providers[0].operation.as_deref(), Some("value"));
+    assert_eq!(
+        handler.operation_clauses[0].operation.as_deref(),
+        Some("value")
+    );
     let SyntaxItem::Function(function) = &output.tree.items[3] else {
         panic!("expected main function");
     };
@@ -222,8 +225,8 @@ fn rejects_trailing_comma_in_handler_operation_parameters() {
 
     assert!(
         output.diagnostics.iter().any(|diagnostic| {
-            diagnostic.id == "parse.expected_identifier"
-                && diagnostic.message == "expected operation parameter"
+            diagnostic.id == "parse.handler_operation_parameter"
+                && diagnostic.message == "handler operation parameter list cannot end with a comma"
                 && diagnostic.parser_context == "handler_operation_clause"
         }),
         "{:#?}",

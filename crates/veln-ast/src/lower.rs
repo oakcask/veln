@@ -329,10 +329,10 @@ impl AstBuilder {
             effect_span: handler.effect_span.clone(),
             effects: handler.effects.clone(),
             effect_spans: handler.effect_spans.clone(),
-            providers: handler
-                .providers
+            operation_clauses: handler
+                .operation_clauses
                 .iter()
-                .map(|provider| self.lower_handler_operation_clause_decl(provider))
+                .map(|clause| self.lower_handler_operation_clause_decl(clause))
                 .collect(),
             span: handler.span.clone(),
         }
@@ -340,13 +340,13 @@ impl AstBuilder {
 
     fn lower_handler_operation_clause_decl(
         &mut self,
-        provider: &SyntaxHandlerOperationClauseDecl,
+        clause: &SyntaxHandlerOperationClauseDecl,
     ) -> HandlerOperationClauseDecl {
         HandlerOperationClauseDecl {
             node_id: self.alloc(),
-            operation: provider.operation.clone(),
-            operation_span: provider.operation_span.clone(),
-            params: provider
+            operation: clause.operation.clone(),
+            operation_span: clause.operation_span.clone(),
+            params: clause
                 .params
                 .iter()
                 .map(|param| Param {
@@ -358,8 +358,8 @@ impl AstBuilder {
                     span: param.span.clone(),
                 })
                 .collect(),
-            body: self.lower_expr(&provider.body),
-            span: provider.span.clone(),
+            body: self.lower_expr(&clause.body),
+            span: clause.span.clone(),
         }
     }
 

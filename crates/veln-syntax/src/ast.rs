@@ -57,7 +57,7 @@ pub struct HandlerDecl {
     pub effect_span: SourceSpan,
     pub effects: Option<Vec<String>>,
     pub effect_spans: Option<Vec<SourceSpan>>,
-    pub providers: Vec<HandlerOperationClauseDecl>,
+    pub operation_clauses: Vec<HandlerOperationClauseDecl>,
     pub span: SourceSpan,
     pub end_present: bool,
 }

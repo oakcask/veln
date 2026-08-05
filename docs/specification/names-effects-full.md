@@ -210,7 +210,7 @@ The exported `transport::net` module declares
 `net_stream(stream: NetStream)` as a public lexical handler for
 `transport::DuplexStream`. Handling a body with `transport::net::net_stream`
 removes `std::transport::DuplexStream` from the inferred effect set and adds
-the existing coarse `net` effect from the handler providers. A public function
+the existing coarse `net` effect from the handler clauses. A public function
 that performs a duplex-stream operation without a handler must declare the
 duplex-stream effect. A public function that wraps that body with the
 `net_stream` handler must declare `net` and does not retain the handled

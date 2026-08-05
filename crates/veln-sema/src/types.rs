@@ -154,11 +154,11 @@ pub(crate) struct HandlerSignature {
     pub(crate) params: Vec<Type>,
     pub(crate) effect: String,
     pub(crate) effects: Vec<String>,
-    pub(crate) providers: Vec<HandlerProviderSignature>,
+    pub(crate) operation_clauses: Vec<HandlerOperationClauseSignature>,
 }
 
 #[derive(Clone)]
-pub(crate) struct HandlerProviderSignature {
+pub(crate) struct HandlerOperationClauseSignature {
     pub(crate) operation: String,
     pub(crate) function: String,
     pub(crate) module_name: Option<String>,
@@ -411,7 +411,7 @@ pub(crate) mod effect_inference_counters {
     thread_local! {
         static DEPENDENCY_DISCOVERY_SCANS: Cell<usize> = const { Cell::new(0) };
         static FUNCTION_BODY_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
-        static HANDLER_PROVIDER_EVALUATIONS: Cell<usize> = const { Cell::new(0) };
+        static HANDLER_OPERATION_CLAUSE_EVALUATIONS: Cell<usize> = const { Cell::new(0) };
         static CHANGED_REEVALUATIONS: Cell<usize> = const { Cell::new(0) };
     }
 
@@ -419,14 +419,14 @@ pub(crate) mod effect_inference_counters {
     pub(crate) struct Snapshot {
         pub(crate) dependency_discovery_scans: usize,
         pub(crate) function_body_collections: usize,
-        pub(crate) handler_provider_evaluations: usize,
+        pub(crate) handler_operation_clause_evaluations: usize,
         pub(crate) changed_reevaluations: usize,
     }
 
     pub(crate) fn reset() {
         DEPENDENCY_DISCOVERY_SCANS.set(0);
         FUNCTION_BODY_COLLECTIONS.set(0);
-        HANDLER_PROVIDER_EVALUATIONS.set(0);
+        HANDLER_OPERATION_CLAUSE_EVALUATIONS.set(0);
         CHANGED_REEVALUATIONS.set(0);
     }
 
@@ -434,7 +434,7 @@ pub(crate) mod effect_inference_counters {
         Snapshot {
             dependency_discovery_scans: DEPENDENCY_DISCOVERY_SCANS.get(),
             function_body_collections: FUNCTION_BODY_COLLECTIONS.get(),
-            handler_provider_evaluations: HANDLER_PROVIDER_EVALUATIONS.get(),
+            handler_operation_clause_evaluations: HANDLER_OPERATION_CLAUSE_EVALUATIONS.get(),
             changed_reevaluations: CHANGED_REEVALUATIONS.get(),
         }
     }
@@ -447,8 +447,8 @@ pub(crate) mod effect_inference_counters {
         FUNCTION_BODY_COLLECTIONS.set(FUNCTION_BODY_COLLECTIONS.get() + 1);
     }
 
-    pub(super) fn record_handler_provider_evaluation() {
-        HANDLER_PROVIDER_EVALUATIONS.set(HANDLER_PROVIDER_EVALUATIONS.get() + 1);
+    pub(super) fn record_handler_operation_clause_evaluation() {
+        HANDLER_OPERATION_CLAUSE_EVALUATIONS.set(HANDLER_OPERATION_CLAUSE_EVALUATIONS.get() + 1);
     }
 
     pub(super) fn record_changed_reevaluation() {
@@ -1991,15 +1991,15 @@ fn handler_signatures(
                     effects,
                     companion_effect_access_targets,
                 ),
-                providers: handler
-                    .providers
+                operation_clauses: handler
+                    .operation_clauses
                     .iter()
-                    .filter_map(|provider| {
-                        Some(HandlerProviderSignature {
-                            operation: provider.operation.clone()?,
+                    .filter_map(|clause| {
+                        Some(HandlerOperationClauseSignature {
+                            operation: clause.operation.clone()?,
                             function: synthetic_handler_clause_function_name(
                                 handler.name.as_deref().unwrap_or("missing"),
-                                provider.operation.as_deref().unwrap_or("missing"),
+                                clause.operation.as_deref().unwrap_or("missing"),
                             ),
                             module_name: handler.module_name.clone(),
                         })
@@ -2387,7 +2387,7 @@ fn insert_handler_effect_dependencies(
             )
         })
         .collect::<Vec<_>>();
-    for clause in &decl.providers {
+    for clause in &decl.operation_clauses {
         let binding_count = bindings.len();
         bindings.extend(
             clause
@@ -2428,7 +2428,7 @@ fn collect_private_handler_effects(
     companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Vec<String> {
     #[cfg(test)]
-    effect_inference_counters::record_handler_provider_evaluation();
+    effect_inference_counters::record_handler_operation_clause_evaluation();
     let Some(decl) = module.handlers.iter().find(|decl| {
         decl.name.as_deref() == Some(handler.name.as_str())
             && decl.module_name == handler.module_name
@@ -2442,7 +2442,7 @@ fn collect_private_handler_effects(
         return Vec::new();
     };
     let mut inferred = Vec::new();
-    for clause in &decl.providers {
+    for clause in &decl.operation_clauses {
         let Some(operation_name) = clause.operation.as_deref() else {
             continue;
         };

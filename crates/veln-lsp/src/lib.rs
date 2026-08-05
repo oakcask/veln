@@ -12,7 +12,7 @@ use veln_diagnostics::{Diagnostic, Severity};
 use veln_editor::{encode_lsp_semantic_tokens, semantic_token_legend};
 use veln_project::{Project, classify_companion_source};
 use veln_source::{SourceFile, SourceSpan};
-use veln_syntax::{Token, TokenKind, lex, parse};
+use veln_syntax::{Token, TokenKind, format_tree, lex, parse};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SemanticTokensLegend {
@@ -120,6 +120,8 @@ impl Server {
             "textDocument/didClose" => self.handle_document_close(message),
             "textDocument/semanticTokens/full" => self.handle_semantic_tokens(message, id),
             "textDocument/definition" => self.handle_definition(message, id),
+            "textDocument/references" => self.handle_references(message, id),
+            "textDocument/formatting" => self.handle_formatting(message, id),
             "textDocument/prepareRename" => self.handle_prepare_rename(message, id),
             "textDocument/rename" => self.handle_rename(message, id),
             _ => self.handle_unknown_method(id),
@@ -185,6 +187,27 @@ impl Server {
                 .and_then(|request| request.index.location_json(&request.symbol.declaration))
                 .unwrap_or_else(|| "null".to_string());
             response(&id, &result)
+        })
+        .into_iter()
+        .collect()
+    }
+
+    fn handle_references(&self, message: &str, id: Option<String>) -> Vec<String> {
+        id.map(|id| {
+            let result = self
+                .symbol_at_request(message)
+                .map(|request| request.index.references_json(&request.symbol, true))
+                .unwrap_or_else(|| "[]".to_string());
+            response(&id, &result)
+        })
+        .into_iter()
+        .collect()
+    }
+
+    fn handle_formatting(&self, message: &str, id: Option<String>) -> Vec<String> {
+        id.map(|id| {
+            let uri = extract_string_field(message, "uri").unwrap_or_default();
+            response(&id, &formatting_result(&uri, self.document_text(&uri)))
         })
         .into_iter()
         .collect()
@@ -317,7 +340,7 @@ fn document_uri_and_text(message: &str) -> Option<(String, String)> {
 fn initialize_result() -> String {
     let legend = legend();
     format!(
-        "{{\"capabilities\":{{\"textDocumentSync\":1,\"definitionProvider\":true,\"renameProvider\":{{\"prepareProvider\":true}},\"semanticTokensProvider\":{{\"legend\":{{\"tokenTypes\":[{}],\"tokenModifiers\":[{}]}},\"full\":true,\"range\":false}}}}}}",
+        "{{\"capabilities\":{{\"textDocumentSync\":1,\"definitionProvider\":true,\"referencesProvider\":true,\"documentFormattingProvider\":true,\"renameProvider\":{{\"prepareProvider\":true}},\"semanticTokensProvider\":{{\"legend\":{{\"tokenTypes\":[{}],\"tokenModifiers\":[{}]}},\"full\":true,\"range\":false}}}}}}",
         json_string_list(&legend.token_types),
         json_string_list(&legend.token_modifiers),
     )
@@ -332,6 +355,23 @@ fn semantic_tokens_result(uri: &str, text: String) -> String {
         .collect::<Vec<_>>()
         .join(",");
     format!("{{\"data\":[{data}]}}")
+}
+
+fn formatting_result(uri: &str, text: String) -> String {
+    let source = SourceFile::new(display_path(uri), text.clone());
+    let parsed = parse(&source);
+    if !parsed.diagnostics.is_empty() {
+        return "[]".to_string();
+    }
+    let formatted = format_tree(&parsed.tree);
+    if formatted == text {
+        return "[]".to_string();
+    }
+    format!(
+        "[{{\"range\":{},\"newText\":\"{}\"}}]",
+        full_document_range_json(&text),
+        escape_json(&formatted)
+    )
 }
 
 fn publish_diagnostics(uri: &str, text: String) -> String {
@@ -396,6 +436,22 @@ fn position_json(line: usize, column: usize) -> String {
         "{{\"line\":{},\"character\":{}}}",
         line.saturating_sub(1),
         column.saturating_sub(1),
+    )
+}
+
+fn full_document_range_json(text: &str) -> String {
+    let mut line = 0usize;
+    let mut character = 0usize;
+    for ch in text.chars() {
+        if ch == '\n' {
+            line += 1;
+            character = 0;
+        } else {
+            character += 1;
+        }
+    }
+    format!(
+        "{{\"start\":{{\"line\":0,\"character\":0}},\"end\":{{\"line\":{line},\"character\":{character}}}}}"
     )
 }
 
@@ -653,10 +709,16 @@ impl LspSymbolIndex {
             return Some(symbol.clone());
         }
 
-        let qualifier = qualifier_for_token(tokens, token_index)?;
         if !is_call_target_token(tokens, token_index) {
             return None;
         }
+        let Some(qualifier) = qualifier_for_token(tokens, token_index) else {
+            return self
+                .functions
+                .iter()
+                .find(|symbol| symbol.name == name && symbol.module == file.module)
+                .cloned();
+        };
         self.functions
             .iter()
             .find(|symbol| {
@@ -718,6 +780,23 @@ impl LspSymbolIndex {
             .collect::<Vec<_>>()
             .join(",");
         format!("{{\"changes\":{{{changes}}}}}")
+    }
+
+    fn references_json(&self, symbol: &FunctionSymbol, include_declaration: bool) -> String {
+        let mut locations = Vec::new();
+        if include_declaration && let Some(location) = self.location_json(&symbol.declaration) {
+            locations.push(location);
+        }
+        for file in &self.files {
+            for span in self.references_in_file(file, symbol) {
+                if let Some(location) = self.location_json(&span) {
+                    locations.push(location);
+                }
+            }
+        }
+        locations.sort();
+        locations.dedup();
+        format!("[{}]", locations.join(","))
     }
 
     fn references_in_file(&self, file: &LspFile, symbol: &FunctionSymbol) -> Vec<SourceSpan> {

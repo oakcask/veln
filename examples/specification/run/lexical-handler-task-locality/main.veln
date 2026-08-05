@@ -1,0 +1,19 @@
+effect Ask
+	value() -> Int
+end
+
+handler ask(ctx: Int) handles Ask
+	value() => ctx + 2
+end
+
+fn worker() -> Int effects [Ask]
+	perform Ask::value()
+end
+
+pub fn main() -> () effects [concurrency, stdio]
+	let task = handle task::spawn(worker) with ask(9)
+	match task::join(task)
+		Ok(value) => stdio::println(int_to_string(value))
+		Err(_) => stdio::println("join-error")
+	end
+end
