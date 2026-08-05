@@ -204,6 +204,34 @@ fn parses_and_formats_lexical_handler_declarations_and_expressions() {
 }
 
 #[test]
+fn rejects_trailing_comma_in_handler_operation_parameters() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Pick\n",
+            "  next(step: Int) -> Int\n",
+            "end\n",
+            "\n",
+            "handler pick() handles Pick\n",
+            "  next(step,) => step\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(
+        output.diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "parse.expected_identifier"
+                && diagnostic.message == "expected operation parameter"
+                && diagnostic.parser_context == "handler_operation_clause"
+        }),
+        "{:#?}",
+        output.diagnostics
+    );
+}
+
+#[test]
 fn rejects_effect_operation_parameter_without_type() {
     let source = SourceFile::new(
         "main.veln",

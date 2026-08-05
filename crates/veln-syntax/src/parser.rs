@@ -685,9 +685,6 @@ impl<'a> Parser<'a> {
             if self.eat(TokenKind::Comma).is_none() {
                 break;
             }
-            if self.at(TokenKind::RParen) {
-                break;
-            }
         }
         params
     }

@@ -1,0 +1,61 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["handler.operation_clause_arity", "handler.duplicate_operation_binding", "type.mismatch", "name.unresolved"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 5
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "handler.operation_clause_arity"
+
+[[json_assert]]
+path = "diagnostics.0.kind"
+equals = "type"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "handler.operation_clause_arity"
+
+[[json_assert]]
+path = "diagnostics.1.kind"
+equals = "type"
+
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "handler.duplicate_operation_binding"
+
+[[json_assert]]
+path = "diagnostics.2.kind"
+equals = "name"
+
+[[json_assert]]
+path = "diagnostics.3.id"
+equals = "type.mismatch"
+
+[[json_assert]]
+path = "diagnostics.4.id"
+equals = "name.unresolved"
+
+[[json_assert]]
+path = "diagnostics.0.details.operation"
+equals = "zero"
+
+[[json_assert]]
+path = "diagnostics.1.details.operation"
+equals = "one"
+
+[[json_assert]]
+path = "diagnostics.2.details.reason"
+equals = "duplicate_operation_binding"
