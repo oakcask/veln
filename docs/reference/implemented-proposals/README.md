@@ -65,6 +65,8 @@ under `../../specification/` and its executable example routes.
   [agent-test-selection-graph.md](agent-test-selection-graph.md).
 - Parallel test execution:
   [parallel-test-execution.md](parallel-test-execution.md).
+- Companion test modules:
+  [companion-test-modules.md](companion-test-modules.md).
 - Agent module, package, and documentation model:
   [agent-module-package-docs.md](agent-module-package-docs.md).
 - Self-hosting standard library:
