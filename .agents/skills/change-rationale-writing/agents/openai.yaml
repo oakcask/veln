@@ -1,4 +1,4 @@
 interface:
   display_name: "Change Rationale Writing"
-  short_description: "Draft intent-focused change descriptions"
-  default_prompt: "Use $change-rationale-writing to draft a commit body, pull request description, or decision record focused on intent, consequences, tradeoffs, and risks."
+  short_description: "Draft what-why-why-not change rationale"
+  default_prompt: "Use $change-rationale-writing to draft a commit body, pull request description, or decision record around what changed, why, and why not."

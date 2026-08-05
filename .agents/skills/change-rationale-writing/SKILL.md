@@ -9,6 +9,20 @@ description: Use when drafting or revising commit message bodies, pull request d
 
 When writing commit message bodies or pull request descriptions, explain why the change exists and what it means. For important choices, leave enough decision context that future reviewers can understand the accepted tradeoff without reconstructing the discussion. Do not spend most of the text restating implementation details that reviewers can read directly from the diff.
 
+## What, Why, Why Not
+
+Frame the change description around three questions:
+
+- **What** changes, is decided, or remains true?
+- **Why** is the change needed, and why is this approach appropriate?
+- **Why not** keep the status quo, use a likely alternative, expand the scope,
+  or add another mitigation or check?
+
+Apply these questions across the whole description. Do not add the three labels
+mechanically to every section or invent rejected alternatives to complete the
+pattern. Include `Why not` when a reviewer could reasonably question an
+alternative, omission, scope boundary, or accepted tradeoff.
+
 ## Core Emphasis
 
 Prioritize:
@@ -32,11 +46,16 @@ De-emphasize:
 Before drafting:
 
 1. Inspect the actual diff, issue context, tests, and user request when available.
-2. Infer the central intention of the change.
-3. Identify durable decisions in the change, especially configuration, linting, dependency, API, data model, security, compatibility, or workflow choices.
-4. Identify direct consequences for users, operators, developers, APIs, data, or deployment.
-5. Identify residual risks, review expectations, and any verification performed.
-6. Write the body or description so a future reader understands the decision without rereading the entire diff.
+2. Identify what behavior, contract, decision, or project state changes.
+3. Explain why the change is needed and why the chosen approach fits.
+4. Identify meaningful alternatives, omissions, and scope boundaries, and
+   explain why they are not part of the change when that context aids review.
+5. Identify direct consequences for users, operators, developers, APIs, data,
+   or deployment.
+6. Identify residual risks, review expectations, and the evidence that addresses
+   them. Distinguish behavior-relevant verification from incidental repository
+   hygiene checks.
+7. Write the body or description so a future reader understands the decision without rereading the entire diff.
 
 If the intent or risk cannot be inferred, state the uncertainty briefly instead of inventing a reason.
 
@@ -46,8 +65,9 @@ Use a commit body when the subject alone does not explain the reason or implicat
 
 Good commit bodies answer:
 
-- Why was this change necessary now?
-- What important behavior or contract changes?
+- What important behavior, contract, or decision changes?
+- Why was this change necessary, and why was this approach chosen?
+- Why was a likely alternative or adjacent change left out, when relevant?
 - What tradeoff or risk should future maintainers know?
 
 Avoid bodies that only say what files changed.
@@ -75,6 +95,34 @@ Prefer this structure when no repository template exists:
 ```
 
 Adapt headings to the repository's existing template. If a template asks for "Summary", use that section to describe intent and impact, not just implementation.
+
+Use the framework across the sections:
+
+- **Intent**: State what problem or decision the change addresses, why it should
+  be addressed, and why the status quo or a likely alternative is unsuitable.
+- **Consequences**: State what changes for affected users, operators, or
+  maintainers, why those effects are acceptable, and why the scope is not
+  broader or narrower when that boundary matters.
+- **Risks**: State what could still fail or surprise maintainers, why the risk is
+  acceptable, and why further mitigation is not included when reviewers might
+  expect it.
+- **Verification**: State what behavior, contract, risk, or claim was verified,
+  why the evidence is relevant, and why broader or alternative verification was
+  unnecessary when its omission would otherwise be unclear.
+
+Treat `Verification` as part of the rationale, not as an execution transcript.
+
+Name a command only when it helps reviewers reproduce or understand the
+evidence. Do not list a command merely because it was run. In particular, omit
+generic hygiene checks such as `git diff --check` when they provide no evidence
+about the change's intended behavior, consequences, or material risks. The same
+rule applies to formatting, linting, compilation, and broad test commands: keep
+them when they validate a claim or meaningful integration boundary, and leave
+them out when they only add activity without decision-relevant confidence.
+
+When verification was not run, state the relevant unverified behavior or risk
+and why it was not checked. Use a bare `Not run` only when the surrounding
+template requires that exact marker; follow it with the reason.
 
 When a pull request changes public behavior or compatibility, mark the PR title with `!` and include a `BREAKING CHANGE: ...` line in the description. Put the line where the repository template discusses compatibility or consequences, and explain the removed, changed, or incompatible contract from the consumer's point of view.
 
@@ -108,7 +156,7 @@ Avoid:
 - Mention implementation details only when they clarify the rationale, consequence, or review focus.
 - Keep claims proportional to evidence.
 - Do not include environment-specific or personal information.
-- Avoid GitHub mention syntax unless the purpose is to notify that user or team. For verification commands in PR descriptions, prefer root scripts like `pnpm build`, package paths like `packages/web`, or escaped scoped package names so package scopes do not become mentions.
+- Avoid GitHub mention syntax unless the purpose is to notify that user or team. When a verification command is decision-relevant, prefer root scripts like `pnpm build`, package paths like `packages/web`, or escaped scoped package names so package scopes do not become mentions.
 - In PR descriptions, write every command line inside inline backticks or a fenced code block. This is required for verification entries too, because raw command text can contain `@` and accidentally notify users or teams.
 
 ## Examples
@@ -142,18 +190,49 @@ Better:
 ## Intent
 
 Expired sessions were being reported as generic authorization failures, which made support and retry behavior harder to distinguish from genuine permission problems.
+Keeping the shared failure path would preserve that ambiguity; changing session
+validation itself is unnecessary because only the resulting classification is
+wrong.
 
 ## Consequences
 
 Clients now receive a session-specific failure path and can prompt reauthentication without treating the account as unauthorized.
+Permission failures remain unchanged because they require different client
+guidance and are outside this classification fix.
 
 ## Risks
 
 This changes an error classification that some callers may have matched directly. The compatibility risk is limited to expired-session handling.
+No compatibility alias is retained because it would keep expired sessions
+indistinguishable from genuine authorization failures.
 
 ## Verification
 
-Covered the expired-session branch and the existing unauthorized branch in tests.
+Tests distinguish the new expired-session response from the unchanged
+unauthorized response. This directly covers the compatibility boundary at risk;
+broader authentication tests were not repeated because the middleware's other
+branches and session validation are unchanged.
+```
+
+Weak verification:
+
+```markdown
+## Verification
+
+- `git diff --check`
+- `cargo fmt --check`
+- `cargo test`
+```
+
+Better verification:
+
+```markdown
+## Verification
+
+The parser tests cover empty input as a valid no-op and malformed input as an
+error, which verifies both the new behavior and the preserved failure contract.
+The full workspace suite was unnecessary because the change does not alter
+lowering or runtime behavior.
 ```
 
 Decision record example:
