@@ -1551,12 +1551,35 @@ fn is_call_target_token(tokens: &[Token], index: usize) -> bool {
 
 fn is_handler_operation_clause_call_target(tokens: &[Token], index: usize) -> bool {
     is_call_target_token(tokens, index)
-        && inside_top_level_block(tokens, index, TokenKind::Handler)
-        && tokens[..index]
+        && inside_handler_operation_clause_body(tokens, tokens[index].range.start)
+}
+
+fn inside_handler_operation_clause_body(tokens: &[Token], offset: usize) -> bool {
+    let file_end = tokens.last().map_or(offset, |token| token.range.end);
+    tokens.iter().enumerate().any(|(arrow_index, arrow)| {
+        arrow.kind == TokenKind::FatArrow
+            && is_handler_operation_clause_arrow(tokens, arrow_index)
+            && offset >= arrow.range.end
+            && offset < handler_operation_clause_body_end(tokens, arrow_index, file_end)
+    })
+}
+
+fn is_handler_operation_clause_arrow(tokens: &[Token], arrow_index: usize) -> bool {
+    if !inside_top_level_block(tokens, arrow_index, TokenKind::Handler) {
+        return false;
+    }
+    let line_start_index = line_start_index(tokens, arrow_index);
+    let line_tokens = &tokens[line_start_index..arrow_index];
+    line_tokens
+        .iter()
+        .find(|token| !matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline))
+        .is_some_and(|token| token.kind == TokenKind::Ident && is_identifier(&token.text))
+        && line_tokens
             .iter()
-            .rev()
-            .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
-            .any(|token| token.kind == TokenKind::FatArrow)
+            .any(|token| token.kind == TokenKind::LParen)
+        && line_tokens
+            .iter()
+            .any(|token| token.kind == TokenKind::RParen)
 }
 
 fn next_non_whitespace_token(tokens: &[Token], index: usize) -> Option<&Token> {
@@ -3064,6 +3087,58 @@ mod tests {
         assert!(
             responses[0].contains(
                 r#""range":{"start":{"line":9,"character":19},"end":{"line":9,"character":28}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
+    fn companion_private_function_rename_from_multiline_clause_call_covers_clause_body_calls() {
+        let mut server = Server::default();
+        let project = TempProject::new("rename-handler-operation-clause-multiline-call");
+        project.write(
+            "math.veln",
+            concat!(
+                "effect Adjust\n",
+                "  amount(value: Int) -> Int\n",
+                "end\n",
+                "\n",
+                "fn increment(value: Int) -> Int\n",
+                "  value + 1\n",
+                "end\n",
+                "\n",
+                "handler adjust() handles Adjust\n",
+                "  amount(value) => if value == 0\n",
+                "    increment(value)\n",
+                "  else\n",
+                "    increment(value + 1)\n",
+                "  end\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "math.test.veln",
+            "use math\n\ntest companion() -> Int\n  math::increment(1)\nend\n",
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("math.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&rename_request(&main_uri, 10, 6, "advance"));
+
+        assert_eq!(responses.len(), 1);
+        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 4);
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":10,"character":4},"end":{"line":10,"character":13}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":12,"character":4},"end":{"line":12,"character":13}}"#
             ),
             "{}",
             responses[0]
