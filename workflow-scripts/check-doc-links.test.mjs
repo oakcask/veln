@@ -106,7 +106,7 @@ test("rejects specification links to proposals", () => {
   );
   fixture.write(
     "proposals/future.md",
-    ["# Future", "", "Status: proposed", "", "## Scope"].join("\n"),
+    ["---", "role: proposal", "---", "", "# Future", "", "## Scope"].join("\n"),
   );
 
   const result = validateDocsLinks(fixture.root);
@@ -123,9 +123,11 @@ test("allows proposal links to specifications", () => {
   fixture.write(
     "proposals/future.md",
     [
-      "# Future",
+      "---",
+      "role: proposal",
+      "---",
       "",
-      "Status: proposed",
+      "# Future",
       "",
       "[current behavior](../specification/README.md)",
     ].join("\n"),
@@ -138,10 +140,10 @@ test("allows proposal links to specifications", () => {
   assert.equal(result.valid, true);
 });
 
-test("allows only proposed proposal pages", () => {
-  using fixture = tempDocs("doc-links-proposal-status");
-  fixture.write("proposals/README.md", "# Proposals\n\nStatus: routing\n");
-  fixture.write("proposals/active.md", "# Active\n\nStatus: proposed\n");
+test("allows only active proposal roles", () => {
+  using fixture = tempDocs("doc-links-proposal-role");
+  fixture.write("proposals/README.md", "---\nrole: routing\n---\n\n# Proposals\n");
+  fixture.write("proposals/active.md", "---\nrole: proposal\n---\n\n# Active\n");
 
   const result = validateDocsLinks(fixture.root);
 
@@ -149,33 +151,33 @@ test("allows only proposed proposal pages", () => {
   assert.equal(result.valid, true);
 });
 
-test("rejects closed proposal pages", () => {
-  using fixture = tempDocs("doc-links-closed-proposal-status");
-  fixture.write("proposals/implemented.md", "# Implemented\n\nStatus: implemented\n");
-  fixture.write("proposals/rejected.md", "# Rejected\n\nStatus: rejected\n");
-  fixture.write("proposals/superseded.md", "# Superseded\n\nStatus: superseded\n");
+test("rejects non-proposal roles and closed proposal pages", () => {
+  using fixture = tempDocs("doc-links-closed-proposal-role");
+  fixture.write("proposals/implemented.md", "---\nrole: implementation-record\n---\n\n# Implemented\n");
+  fixture.write("proposals/rejected.md", "---\nrole: proposal\nstatus: rejected\n---\n\n# Rejected\n");
+  fixture.write("proposals/superseded.md", "---\nrole: proposal\nstatus: superseded\n---\n\n# Superseded\n");
 
   const result = validateDocsLinks(fixture.root);
 
   assert.equal(result.valid, false);
   assert.deepEqual(result.errors, [
-    "proposals/implemented.md:3: move or remove this Status: implemented page; docs/proposals contains only active proposals with Status: proposed",
-    "proposals/rejected.md:3: move or remove this Status: rejected page; docs/proposals contains only active proposals with Status: proposed",
-    "proposals/superseded.md:3: move or remove this Status: superseded page; docs/proposals contains only active proposals with Status: proposed",
+    "proposals/implemented.md:2: move this role: implementation-record page out of docs/proposals or change it to role: proposal while the work remains active",
+    "proposals/rejected.md:3: move or remove this status: rejected page; active proposals do not declare an exceptional lifecycle status",
+    "proposals/superseded.md:3: move or remove this status: superseded page; active proposals do not declare an exceptional lifecycle status",
   ]);
 });
 
-test("rejects missing or duplicate proposal status", () => {
-  using fixture = tempDocs("doc-links-invalid-proposal-status");
-  fixture.write("proposals/duplicate.md", "# Duplicate\n\nStatus: proposed\n\nStatus: proposed\n");
+test("rejects missing or duplicate proposal roles", () => {
+  using fixture = tempDocs("doc-links-invalid-proposal-role");
+  fixture.write("proposals/duplicate.md", "---\nrole: proposal\nrole: proposal\n---\n\n# Duplicate\n");
   fixture.write("proposals/missing.md", "# Missing\n");
 
   const result = validateDocsLinks(fixture.root);
 
   assert.equal(result.valid, false);
   assert.deepEqual(result.errors, [
-    "proposals/duplicate.md:5: keep exactly one Status: proposed line so the proposal lifecycle is unambiguous",
-    "proposals/missing.md: add exactly one Status: proposed line; docs/proposals contains only active proposal pages",
+    "proposals/duplicate.md:3: keep exactly one role: proposal field so the proposal purpose is unambiguous",
+    "proposals/missing.md: add YAML frontmatter with role: proposal; docs/proposals contains only active proposal pages",
   ]);
 });
 
@@ -266,7 +268,7 @@ test("rejects implemented records listed as remaining proposal routes", () => {
       "- [completed](completed.md)",
     ].join("\n"),
   );
-  fixture.write("proposals/active.md", "# Active\n\nStatus: proposed\n");
+  fixture.write("proposals/active.md", "---\nrole: proposal\n---\n\n# Active\n");
   fixture.write(
     "reference/implemented-proposals/completed.md",
     "# Completed\n",

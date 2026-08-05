@@ -22,8 +22,50 @@ Keep documentation discoverable without forcing agents to read long historical o
 6. When a normally important file grows long, keep the original expected path as a short index and move the full body to a clearly named sibling such as `*-full.md` or `*-plan.md`.
 7. Update relative links after moves and verify that Markdown links resolve.
 8. If planned behavior, phase scope, diagnostics gates, or quality rationale change, keep the relevant docs aligned with the code change.
-9. Add or update one `review-when:` field in the YAML frontmatter of every
-   Markdown document that the change adds or modifies under `docs/`.
+9. Add or update the `role:` and `review-when:` fields in the YAML frontmatter
+   of every Markdown document that the change adds or modifies under `docs/`.
+   Add `authority:` and `status:` only when the metadata rules require them.
+
+## Document Metadata
+
+Every added or modified Markdown document under `docs/` must declare one role:
+
+- `routing`: an index or selection route that does not define behavior.
+- `specification`: current behavior or a current project contract.
+- `proposal`: planned or incomplete behavior.
+- `reference`: stable requirements, policy, rationale, or source support.
+- `review`: bounded findings, diagnostics evidence, or quality-gate results.
+- `implementation-record`: completed proposal history or completion evidence.
+
+Use `authority:` only when the document itself can support a claim:
+
+- A `specification` must use `authority: normative`.
+- A `reference` must use `authority: normative` or `authority: supporting`.
+- A `review` or `implementation-record` may use `authority: supporting`.
+- A `routing` or `proposal` must not declare `authority:`.
+
+Use `status:` only for an exceptional lifecycle state. The allowed states are
+`closed`, `rejected`, and `superseded`. A `specification` cannot declare a
+status. A `routing` document can be `closed` or `superseded`. A `proposal` can
+be `closed`, `rejected`, or `superseded` after it is moved out of
+`docs/proposals/`. A `reference`, `review`, or `implementation-record` can be
+`superseded`. Do not add `status:` for an active proposal, ordinary route, or
+current supporting record. Do not put a `Status:` label in the document body.
+
+```markdown
+---
+role: specification
+authority: normative
+review-when: The documented behavior or its executable evidence changes.
+---
+```
+
+```markdown
+---
+role: routing
+review-when: A routed document is added, moved, or reclassified.
+---
+```
 
 ## Review Triggers
 
@@ -71,30 +113,13 @@ same field when any one of them requires review. Do not add a second
   history.
 - Use `docs/reference/implemented-proposals/` for completed proposal history
   and completion evidence, not current behavior.
-- Use `docs/proposals/` only for `Status: proposed` targets that are not fully
-  implemented. Remove or relocate rejected, superseded, implemented, and
-  otherwise closed proposal pages.
+- Use `docs/proposals/` only for `role: proposal` targets that are not fully
+  implemented. The directory README uses `role: routing`. Remove or relocate
+  rejected, superseded, implemented, and otherwise closed proposal pages.
 - Keep implementation gaps, verification evidence, and correction lists in the
   matching proposal or reference page.
 - When prose and executable evidence disagree, update the implementation,
   executable evidence, or prose together.
-
-## Status Labels
-
-Use durable document labels narrowly:
-
-- `implemented`: current behavior or implemented rationale supported by code
-  and tests.
-- `proposed`: committed proposal text whose implementation is absent or
-  incomplete.
-- `routing`: an index or selection route that does not define behavior.
-- `closed`: a former proposal route preserved only for old links.
-- `superseded`: another document replaces this one.
-- `rejected`: the project decided not to pursue the design.
-
-`Status:` describes document authority and placement, not whether every idea in
-the file exists in the product. Proposal pages should not use
-`Implementation:` to describe current behavior.
 
 ## Index Page Rules
 
@@ -125,5 +150,6 @@ Do not split when:
 - Check line counts with `wc -l` for changed index and detail files.
 - Search for stale links with `rg`.
 - Run a Markdown link existence check when files were moved.
-- Run `node workflow-scripts/check-doc-review-triggers.mjs` with the changed
-  Markdown paths. CI applies the same check to added and modified documents.
+- Run `node workflow-scripts/check-doc-frontmatter.mjs` with the changed
+  Markdown paths. CI applies the same check to added, modified, and moved
+  documents.
