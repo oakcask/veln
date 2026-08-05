@@ -348,12 +348,44 @@ impl<'a> Classifier<'a> {
         if self.eat(TokenKind::LParen, semantic_tokens) {
             self.collect_handler_operation_parameters(semantic_tokens);
         }
-        while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
+        let body_end = self.handler_operation_clause_body_end();
+        while self
+            .tokens
+            .get(self.cursor)
+            .is_some_and(|token| token.kind != TokenKind::Eof && token.range.start < body_end)
+        {
             if let Some(classified) = self.classify_current_token() {
                 semantic_tokens.push(classified);
             }
             self.cursor += 1;
         }
+    }
+
+    fn handler_operation_clause_body_end(&self) -> usize {
+        let Some(arrow_index) = self
+            .tokens
+            .iter()
+            .enumerate()
+            .skip(self.cursor)
+            .take_while(|(_, token)| !matches!(token.kind, TokenKind::Newline | TokenKind::Eof))
+            .find_map(|(index, token)| (token.kind == TokenKind::FatArrow).then_some(index))
+        else {
+            return self.source.text().len();
+        };
+        let mut nested_blocks = 0usize;
+        for token in &self.tokens[arrow_index + 1..] {
+            match token.kind {
+                TokenKind::Eof => return self.source.text().len(),
+                TokenKind::If | TokenKind::Match | TokenKind::Handler => nested_blocks += 1,
+                TokenKind::End if nested_blocks == 0 => return token.range.start,
+                TokenKind::End => nested_blocks = nested_blocks.saturating_sub(1),
+                TokenKind::FatArrow if nested_blocks == 0 => {
+                    return handler_clause_pattern_start_from_arrow(self.tokens, token.range.start);
+                }
+                _ => {}
+            }
+        }
+        self.source.text().len()
     }
 
     fn collect_handler_operation_parameters(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
@@ -841,6 +873,20 @@ fn collect_function_names(tokens: &[Token]) -> BTreeSet<String> {
     names
 }
 
+fn handler_clause_pattern_start_from_arrow(tokens: &[Token], arrow_start: usize) -> usize {
+    let Some(arrow_index) = tokens
+        .iter()
+        .position(|token| token.range.start == arrow_start)
+    else {
+        return arrow_start;
+    };
+    tokens[..arrow_index]
+        .iter()
+        .rev()
+        .find(|token| token.kind == TokenKind::Newline)
+        .map_or(arrow_start, |token| token.range.end)
+}
+
 fn token_type_index(token_type: SemanticTokenType) -> usize {
     TOKEN_TYPES
         .iter()
@@ -1262,6 +1308,52 @@ mod tests {
                     .bits()
             ))
         );
+    }
+
+    #[test]
+    fn collector_classifies_multiline_handler_operation_clause_bodies() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  pick(value: Bool) -> Int\n",
+                "  fallback() -> Int\n",
+                "end\n",
+                "\n",
+                "handler choose() handles Choose\n",
+                "  pick(value) => match value\n",
+                "    true => value\n",
+                "    false => match value\n",
+                "      true => value\n",
+                "      false => 0\n",
+                "    end\n",
+                "  end\n",
+                "  fallback() => 1\n",
+                "end\n",
+            ),
+        );
+
+        let tokens = collect_text(&source);
+        let readonly_parameter = SemanticTokenModifiers::empty()
+            .with(SemanticTokenModifier::Readonly)
+            .bits();
+
+        assert!(
+            tokens
+                .iter()
+                .filter(|(text, kind, modifiers)| {
+                    text == "value"
+                        && *kind == SemanticTokenType::Parameter
+                        && *modifiers == readonly_parameter
+                })
+                .count()
+                >= 4
+        );
+        assert!(tokens.contains(&(
+            "fallback".to_string(),
+            SemanticTokenType::Property,
+            SemanticTokenModifiers::empty().bits()
+        )));
     }
 
     #[test]

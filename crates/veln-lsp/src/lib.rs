@@ -879,6 +879,14 @@ impl LspSymbolIndex {
                         && token.range.start >= symbol.scope_start
                         && token.range.start < symbol.scope_end
                         && !is_field_name(&tokens, *index)
+                        && !is_local_binding_name(&tokens, *index)
+                        && !local_binding_shadows_name(
+                            &tokens,
+                            &symbol.name,
+                            token.range.start,
+                            symbol.scope_start,
+                            symbol.scope_end,
+                        )
                 })
                 .map(|(_, token)| file.source.span(token.range)),
         );
@@ -964,7 +972,14 @@ fn handler_operation_clause_symbol(
                 && ((selection.start.offset >= binding.declaration.start.offset
                     && selection.start.offset < binding.declaration.end.offset)
                     || (tokens[token_index].range.start >= binding.start
-                        && tokens[token_index].range.start < binding.end))
+                        && tokens[token_index].range.start < binding.end
+                        && !local_binding_shadows_name(
+                            tokens,
+                            &binding.name,
+                            tokens[token_index].range.start,
+                            binding.start,
+                            binding.end,
+                        )))
         })
         .map(|binding| LocalSymbol {
             name: binding.name,
@@ -984,11 +999,8 @@ fn handler_operation_clause_bindings(file: &LspFile, tokens: &[Token]) -> Vec<Cl
             continue;
         }
         let line_start_index = line_start_index(tokens, arrow_index);
-        let line_end = tokens[arrow_index + 1..]
-            .iter()
-            .find(|token| token.kind == TokenKind::Newline || token.kind == TokenKind::Eof)
-            .map(|token| token.range.start)
-            .unwrap_or_else(|| file.source.text().len());
+        let body_end =
+            handler_operation_clause_body_end(tokens, arrow_index, file.source.text().len());
         let Some(lparen_index) = tokens[line_start_index..arrow_index]
             .iter()
             .position(|token| token.kind == TokenKind::LParen)
@@ -1009,12 +1021,33 @@ fn handler_operation_clause_bindings(file: &LspFile, tokens: &[Token]) -> Vec<Cl
                     name: token.text.clone(),
                     declaration: file.source.span(token.range),
                     start: arrow.range.end,
-                    end: line_end,
+                    end: body_end,
                 });
             }
         }
     }
     bindings
+}
+
+fn handler_operation_clause_body_end(
+    tokens: &[Token],
+    arrow_index: usize,
+    file_end: usize,
+) -> usize {
+    let mut nested_blocks = 0usize;
+    for token in &tokens[arrow_index + 1..] {
+        match token.kind {
+            TokenKind::Eof => return file_end,
+            TokenKind::If | TokenKind::Match | TokenKind::Handler => nested_blocks += 1,
+            TokenKind::End if nested_blocks == 0 => return token.range.start,
+            TokenKind::End => nested_blocks = nested_blocks.saturating_sub(1),
+            TokenKind::FatArrow if nested_blocks == 0 => {
+                return match_arm_pattern_start_from_arrow(tokens, token.range.start);
+            }
+            _ => {}
+        }
+    }
+    file_end
 }
 
 fn line_start_index(tokens: &[Token], index: usize) -> usize {
@@ -1224,6 +1257,18 @@ fn local_binding_scope_end(tokens: &[Token], let_index: usize, function_end: usi
         }
     }
     function_end
+}
+
+fn local_binding_shadows_name(
+    tokens: &[Token],
+    name: &str,
+    offset: usize,
+    scope_start: usize,
+    scope_end: usize,
+) -> bool {
+    local_bindings(tokens, scope_start, scope_end)
+        .iter()
+        .any(|binding| binding.name == name && offset >= binding.start && offset < binding.end)
 }
 
 fn let_pattern_binding_names(tokens: &[Token], let_index: usize) -> Vec<(String, usize)> {
@@ -3081,6 +3126,99 @@ mod tests {
             "{}",
             responses[0]
         );
+    }
+
+    #[test]
+    fn handler_operation_clause_binding_rename_covers_multiline_body_references() {
+        let mut server = Server::default();
+        let project = TempProject::new("rename-handler-operation-clause-multiline-body");
+        project.write(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  pick(value: Bool) -> Int\n",
+                "end\n",
+                "\n",
+                "handler choose() handles Choose\n",
+                "  pick(value) => match value\n",
+                "    true => value\n",
+                "    value => value\n",
+                "    false => value\n",
+                "  end\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&rename_request(&main_uri, 5, 8, "input"));
+
+        assert_eq!(responses.len(), 1);
+        assert_eq!(responses[0].matches(r#""newText":"input""#).count(), 4);
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":6,"character":12},"end":{"line":6,"character":17}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":8,"character":13},"end":{"line":8,"character":18}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":7,"character":4"#),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":7,"character":13"#),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
+    fn handler_operation_clause_binding_definition_uses_multiline_body_scope() {
+        let mut server = Server::default();
+        let project = TempProject::new("definition-handler-operation-clause-multiline-body");
+        project.write(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  pick(value: Bool) -> Int\n",
+                "end\n",
+                "\n",
+                "handler choose() handles Choose\n",
+                "  pick(value) => match value\n",
+                "    true => value\n",
+                "    value => value\n",
+                "    false => value\n",
+                "  end\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&definition_request(&main_uri, 8, 15));
+
+        assert_eq!(responses.len(), 1);
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":5,"character":7},"end":{"line":5,"character":12}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        let shadowed = server.handle_message(&definition_request(&main_uri, 7, 15));
+        assert_eq!(shadowed.len(), 1);
+        assert!(shadowed[0].contains(r#""result":null"#), "{}", shadowed[0]);
     }
 
     #[test]
