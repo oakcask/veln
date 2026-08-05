@@ -1130,16 +1130,13 @@ impl<'a> CoreLowerer<'a> {
         let operation_clauses = handler
             .operation_clauses
             .iter()
-            .map(|clause| {
-                Some(CoreHandlerProvider {
-                    operation: clause.operation.clone(),
-                    function: crate::standard_symbols::standard_function_link_name(
-                        clause.module_name.as_deref(),
-                        &clause.function,
-                    ),
-                })
+            .map(|clause| CoreHandlerProvider {
+                operation: clause.operation.clone(),
+                function: crate::standard_symbols::standard_function_link_name(
+                    clause.module_name.as_deref(),
+                    &clause.function,
+                ),
             })
-            .flatten()
             .collect::<Vec<_>>();
         let lowered = self.lower_expr(body, expected);
         self.core_expr(

@@ -2031,6 +2031,17 @@ struct FunctionEffectContext<'a> {
     companion_effect_access_targets: &'a BTreeMap<String, CompanionAccessTarget>,
 }
 
+struct HandlerEffectContext<'a> {
+    module: &'a SurfaceModule,
+    user_effects: &'a [EffectSignature],
+    functions: &'a [FunctionSignature],
+    effects_by_function: &'a EffectsByFunction,
+    effects_by_module_path: &'a EffectsByModulePath,
+    handlers: &'a [HandlerSignature],
+    companion_access_targets: &'a BTreeMap<String, String>,
+    companion_effect_access_targets: &'a BTreeMap<String, CompanionAccessTarget>,
+}
+
 fn infer_function_and_private_handler_effects(
     module: &SurfaceModule,
     functions: &mut [FunctionSignature],
@@ -2138,14 +2149,16 @@ impl<'a> EffectInference<'a> {
         let index = self.handler_index.get(qualified_name).copied()?;
         let inferred = collect_private_handler_effects(
             &self.handlers[index],
-            self.module,
-            self.user_effects,
-            self.functions,
-            &self.effects_by_function,
-            &self.effects_by_module_path,
-            self.handlers,
-            &self.clause_companion_access_targets,
-            &self.companion_effect_access_targets,
+            &HandlerEffectContext {
+                module: self.module,
+                user_effects: self.user_effects,
+                functions: self.functions,
+                effects_by_function: &self.effects_by_function,
+                effects_by_module_path: &self.effects_by_module_path,
+                handlers: self.handlers,
+                companion_access_targets: &self.clause_companion_access_targets,
+                companion_effect_access_targets: &self.companion_effect_access_targets,
+            },
         );
         let changed = self.handlers[index].effects != inferred;
         if changed {
@@ -2418,24 +2431,18 @@ fn insert_handler_effect_dependencies(
 
 fn collect_private_handler_effects(
     handler: &HandlerSignature,
-    module: &SurfaceModule,
-    user_effects: &[EffectSignature],
-    functions: &[FunctionSignature],
-    effects_by_function: &EffectsByFunction,
-    effects_by_module_path: &EffectsByModulePath,
-    handlers: &[HandlerSignature],
-    companion_access_targets: &BTreeMap<String, String>,
-    companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
+    context: &HandlerEffectContext<'_>,
 ) -> Vec<String> {
     #[cfg(test)]
     effect_inference_counters::record_handler_operation_clause_evaluation();
-    let Some(decl) = module.handlers.iter().find(|decl| {
+    let Some(decl) = context.module.handlers.iter().find(|decl| {
         decl.name.as_deref() == Some(handler.name.as_str())
             && decl.module_name == handler.module_name
     }) else {
         return Vec::new();
     };
-    let Some(effect) = user_effects
+    let Some(effect) = context
+        .user_effects
         .iter()
         .find(|effect| effect.qualified_name == handler.effect)
     else {
@@ -2475,16 +2482,16 @@ fn collect_private_handler_effects(
             )
         }));
         let expr_context = ExprEffectContext {
-            uses: &module.uses,
+            uses: &context.module.uses,
             current_module: handler.module_name.as_deref(),
             bindings: &bindings,
-            functions,
-            effects_by_function,
-            effects_by_module_path,
-            companion_access_targets,
-            companion_effect_access_targets,
-            user_effects,
-            handlers,
+            functions: context.functions,
+            effects_by_function: context.effects_by_function,
+            effects_by_module_path: context.effects_by_module_path,
+            companion_access_targets: context.companion_access_targets,
+            companion_effect_access_targets: context.companion_effect_access_targets,
+            user_effects: context.user_effects,
+            handlers: context.handlers,
         };
         collect_expr_effects(&clause.body, &expr_context, &mut inferred);
     }
