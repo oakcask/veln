@@ -1043,7 +1043,7 @@ fn handler_operation_clause_body_end(
             TokenKind::Match | TokenKind::Handler => nested_blocks += 1,
             TokenKind::End if nested_blocks == 0 => return token.range.start,
             TokenKind::End => nested_blocks = nested_blocks.saturating_sub(1),
-            TokenKind::FatArrow if nested_blocks == 0 => {
+            TokenKind::FatArrow if nested_blocks == 0 && !is_satisfy_arrow(tokens, index) => {
                 return match_arm_pattern_start_from_arrow(tokens, token.range.start);
             }
             _ => {}
@@ -1390,7 +1390,8 @@ fn inside_match(tokens: &[Token], index: usize, body_start: usize) -> bool {
 
 fn match_arm_scope_end(tokens: &[Token], start: usize, function_end: usize) -> usize {
     let mut nested_blocks = 0usize;
-    for token in &tokens[start..] {
+    for (relative_index, token) in tokens[start..].iter().enumerate() {
+        let index = start + relative_index;
         if token.range.start >= function_end {
             break;
         }
@@ -1398,7 +1399,7 @@ fn match_arm_scope_end(tokens: &[Token], start: usize, function_end: usize) -> u
             TokenKind::If | TokenKind::Match | TokenKind::Handler => nested_blocks += 1,
             TokenKind::End if nested_blocks == 0 => return token.range.start,
             TokenKind::End => nested_blocks -= 1,
-            TokenKind::FatArrow if nested_blocks == 0 => {
+            TokenKind::FatArrow if nested_blocks == 0 && !is_satisfy_arrow(tokens, index) => {
                 return match_arm_pattern_start_from_arrow(tokens, token.range.start);
             }
             _ => {}
@@ -1512,6 +1513,17 @@ fn is_satisfy_candidate_binding_name(tokens: &[Token], index: usize) -> bool {
         && previous_non_layout_token(tokens, index)
             .is_some_and(|previous| previous.kind == TokenKind::Ident && previous.text == "satisfy")
         && next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::FatArrow)
+}
+
+fn is_satisfy_arrow(tokens: &[Token], index: usize) -> bool {
+    let Some(candidate_index) = previous_non_layout_index(tokens, index) else {
+        return false;
+    };
+    if tokens[candidate_index].kind != TokenKind::Ident {
+        return false;
+    }
+    previous_non_layout_token(tokens, candidate_index)
+        .is_some_and(|previous| previous.kind == TokenKind::Ident && previous.text == "satisfy")
 }
 
 fn is_field_name(tokens: &[Token], index: usize) -> bool {
@@ -1987,6 +1999,35 @@ mod tests {
 
         assert_eq!(response.data.len() % 5, 0);
         assert!(response.data.len() >= 10);
+    }
+
+    #[test]
+    fn server_returns_semantic_tokens_for_handler_clause_satisfy_body() {
+        let mut server = Server::default();
+        let project = TempProject::new("semantic-handler-satisfy-body");
+        project.write(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  pick(value: Int) -> Int\n",
+                "  fallback() -> Int\n",
+                "end\n",
+                "\n",
+                "handler choose() handles Choose\n",
+                "  pick(value) => _choice satisfy candidate => candidate == value\n",
+                "  fallback() => 0\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&semantic_tokens_request(&main_uri));
+
+        assert_eq!(responses.len(), 1);
+        assert!(responses[0].contains(r#""id":2,"result":{"data":["#));
+        assert!(!responses[0].contains(r#""data":[]"#), "{}", responses[0]);
     }
 
     #[test]
@@ -3773,6 +3814,12 @@ mod tests {
     fn rename_request(uri: &str, line: usize, character: usize, new_name: &str) -> String {
         format!(
             r#"{{"jsonrpc":"2.0","id":2,"method":"textDocument/rename","params":{{"textDocument":{{"uri":"{uri}"}},"position":{{"line":{line},"character":{character}}},"newName":"{new_name}"}}}}"#
+        )
+    }
+
+    fn semantic_tokens_request(uri: &str) -> String {
+        format!(
+            r#"{{"jsonrpc":"2.0","id":2,"method":"textDocument/semanticTokens/full","params":{{"textDocument":{{"uri":"{uri}"}}}}}}"#
         )
     }
 

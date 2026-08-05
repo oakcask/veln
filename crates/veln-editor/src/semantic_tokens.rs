@@ -381,7 +381,9 @@ impl<'a> Classifier<'a> {
                 TokenKind::Match | TokenKind::Handler => nested_blocks += 1,
                 TokenKind::End if nested_blocks == 0 => return token.range.start,
                 TokenKind::End => nested_blocks = nested_blocks.saturating_sub(1),
-                TokenKind::FatArrow if nested_blocks == 0 => {
+                TokenKind::FatArrow
+                    if nested_blocks == 0 && !is_satisfy_arrow(self.tokens, index) =>
+                {
                     return handler_clause_pattern_start_from_arrow(self.tokens, token.range.start);
                 }
                 _ => {}
@@ -968,6 +970,29 @@ fn is_else_if(tokens: &[Token], index: usize) -> bool {
         .is_some_and(|token| token.kind == TokenKind::Else)
 }
 
+fn is_satisfy_arrow(tokens: &[Token], index: usize) -> bool {
+    let Some(candidate_index) = previous_significant_index(tokens, index) else {
+        return false;
+    };
+    let candidate = &tokens[candidate_index];
+    if candidate.kind != TokenKind::Ident {
+        return false;
+    }
+    let Some(satisfy_index) = previous_significant_index(tokens, candidate_index) else {
+        return false;
+    };
+    tokens[satisfy_index].kind == TokenKind::Ident && tokens[satisfy_index].text == "satisfy"
+}
+
+fn previous_significant_index(tokens: &[Token], index: usize) -> Option<usize> {
+    tokens[..index]
+        .iter()
+        .enumerate()
+        .rev()
+        .find(|(_, token)| !matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline))
+        .map(|(index, _)| index)
+}
+
 const TOKEN_TYPES: [SemanticTokenType; 12] = [
     SemanticTokenType::Namespace,
     SemanticTokenType::Type,
@@ -1405,6 +1430,45 @@ mod tests {
                 .count()
                 >= 5
         );
+        assert!(tokens.contains(&(
+            "fallback".to_string(),
+            SemanticTokenType::Property,
+            SemanticTokenModifiers::empty().bits()
+        )));
+    }
+
+    #[test]
+    fn collector_keeps_satisfy_arrow_inside_handler_operation_clause_body() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  pick(value: Int) -> Int\n",
+                "  fallback() -> Int\n",
+                "end\n",
+                "\n",
+                "handler choose() handles Choose\n",
+                "  pick(value) => _choice satisfy candidate => candidate == value\n",
+                "  fallback() => 0\n",
+                "end\n",
+            ),
+        );
+
+        let tokens = collect_text(&source);
+        let readonly_parameter = SemanticTokenModifiers::empty()
+            .with(SemanticTokenModifier::Readonly)
+            .bits();
+
+        assert!(tokens.contains(&(
+            "candidate".to_string(),
+            SemanticTokenType::Variable,
+            SemanticTokenModifiers::empty().bits()
+        )));
+        assert!(tokens.contains(&(
+            "value".to_string(),
+            SemanticTokenType::Parameter,
+            readonly_parameter
+        )));
         assert!(tokens.contains(&(
             "fallback".to_string(),
             SemanticTokenType::Property,
