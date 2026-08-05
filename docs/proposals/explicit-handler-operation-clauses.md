@@ -126,6 +126,11 @@ Handler context parameters keep their declared types and are available by
 normal lexical name resolution. Referencing a context parameter does not add
 an implicit argument to an external call.
 
+A clause parameter may use the same name as a handler context parameter. The
+clause parameter is the inner lexical binding and shadows that context
+parameter throughout the clause expression. Other clauses keep access to the
+context parameter unless they declare the same clause parameter name.
+
 Each handler must contain exactly one clause for each operation in the handled
 effect. A missing clause, duplicate clause, or clause for an unknown operation
 is an error. A clause with the wrong parameter count or duplicate parameter
@@ -192,6 +197,7 @@ not current executable evidence.
 | Multiple operations | One effect declares operations with zero, one, and multiple parameters | Exactly one explicit clause for each operation checks and runs |
 | Clause delimiter | One handler uses `=>`; rejected variants use `=` after a parameter list | The `=>` form parses and each `=` form fails at the clause delimiter |
 | Renamed bindings | Clause parameter names differ from effect parameter names | Check succeeds and types follow operation parameter order |
+| Context shadowing | A clause parameter has the same name as a handler context parameter while another clause uses the context parameter | The first clause resolves the name to its operation argument and the other clause resolves it to the captured context value |
 | Parameter count failure | A clause binds fewer or more parameters than its operation | Check fails at the clause parameter boundary |
 | Duplicate binding failure | One clause repeats a parameter name | Check fails at the duplicate binding |
 | Result failure | A clause expression does not produce the operation result type | Check fails at the clause expression with the operation result as its expected type |
