@@ -8035,6 +8035,22 @@ impl ExprEffectCollector<'_, '_, '_> {
             for effect in effects {
                 push_unique_effect(self.inferred, effect);
             }
+        } else if let [name] = segments.as_slice()
+            && let Some(effects) = lexical_effects_for_bare_callee(
+                name,
+                self.context.bindings,
+                self.context.effects_by_function,
+            )
+        {
+            self.push_all(effects);
+        } else if let Some(signature) = function_signature_path(
+            segments,
+            self.context.uses,
+            self.context.functions,
+            self.context.current_module,
+            self.context.companion_access_targets,
+        ) {
+            self.push_all(&instantiate_call_effect_rows(signature, args, self.context));
         } else {
             if let Some(effects) = effects_for_callee_path(
                 segments,
@@ -8046,16 +8062,6 @@ impl ExprEffectCollector<'_, '_, '_> {
                 self.context.companion_access_targets,
             ) {
                 self.push_all(effects);
-            } else {
-                if let Some(signature) = function_signature_path(
-                    segments,
-                    self.context.uses,
-                    self.context.functions,
-                    self.context.current_module,
-                    self.context.companion_access_targets,
-                ) {
-                    self.push_all(&instantiate_call_effect_rows(signature, args, self.context));
-                }
             }
         }
         self.collect_all(args);
@@ -8339,11 +8345,8 @@ fn effects_for_callee_path<'a>(
     match segments {
         [name] => effects_for_bare_callee(name, current_module, bindings, effects_by_function),
         [_, .., name] => {
-            let Some(use_decl) =
-                imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)
-            else {
-                return None;
-            };
+            let use_decl =
+                imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)?;
             effects_by_module_path
                 .get(&(use_decl.name.clone(), name.clone()))
                 .filter(|(_, visibility)| {
@@ -8359,6 +8362,18 @@ fn effects_for_callee_path<'a>(
         }
         _ => None,
     }
+}
+
+fn lexical_effects_for_bare_callee<'a>(
+    name: &str,
+    bindings: &'a [Binding],
+    effects_by_function: &'a BTreeMap<(Option<String>, String), Vec<String>>,
+) -> Option<&'a [String]> {
+    let binding = bindings.iter().rev().find(|binding| binding.name == name)?;
+    if let Some(target) = &binding.private_function_value {
+        return effects_by_function.get(target).map(Vec::as_slice);
+    }
+    Some(binding.ty.function_effects().unwrap_or(&[]))
 }
 
 pub(crate) fn imported_use_for_path<'a>(
@@ -8551,8 +8566,8 @@ fn effects_for_bare_callee<'a>(
     bindings: &'a [Binding],
     effects_by_function: &'a BTreeMap<(Option<String>, String), Vec<String>>,
 ) -> Option<&'a [String]> {
-    if let Some(binding) = bindings.iter().rev().find(|binding| binding.name == name) {
-        return Some(binding.ty.function_effects().unwrap_or(&[]));
+    if let Some(effects) = lexical_effects_for_bare_callee(name, bindings, effects_by_function) {
+        return Some(effects);
     }
     if let Some(current_module) = current_module {
         return effects_by_function
