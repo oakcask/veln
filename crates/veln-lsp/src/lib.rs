@@ -3024,6 +3024,66 @@ mod tests {
     }
 
     #[test]
+    fn handler_operation_clause_binding_rename_skips_record_fields() {
+        let mut server = Server::default();
+        let project = TempProject::new("rename-handler-operation-clause-field-isolation");
+        project.write(
+            "main.veln",
+            concat!(
+                "effect Adjust\n",
+                "  amount(value: Int) -> Int\n",
+                "end\n",
+                "\n",
+                "handler adjust() handles Adjust\n",
+                "  amount(value) => { value: value, other: 1 }.value + value\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&rename_request(&main_uri, 5, 10, "amount_value"));
+
+        assert_eq!(responses.len(), 1);
+        assert_eq!(
+            responses[0].matches(r#""newText":"amount_value""#).count(),
+            3
+        );
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":5,"character":9},"end":{"line":5,"character":14}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":5,"character":28},"end":{"line":5,"character":33}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":5,"character":54},"end":{"line":5,"character":59}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":5,"character":21"#),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":5,"character":46"#),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
     fn companion_private_function_rename_includes_target_function_alias_target() {
         let mut server = Server::default();
         let project = TempProject::new("rename-function-alias-target");
