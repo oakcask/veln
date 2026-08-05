@@ -97,6 +97,19 @@ The rejected surface fixture
 keeps the superseded `operation = function_path` form out of the current
 grammar.
 
+## Superseded Provider Boundary
+
+Provider bindings, implicit context-then-operation argument ordering,
+provider-retained effects, and provider-specific coverage diagnostics describe
+only the first implementation of lexical handlers. They are not part of the
+current source surface or public diagnostic contract.
+
+The current boundary is the explicit operation-clause contract: clauses bind
+operation parameters in source, call external functions only through ordinary
+expressions, retain effects from those expressions, and report coverage through
+operation-clause diagnostics. Remaining provider wording in this record is
+historical and points to the completed replacement record above.
+
 ## Boundary Decision
 
 The project rejected explicit one-shot resumptions because no checked example
