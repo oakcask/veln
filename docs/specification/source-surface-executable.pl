@@ -415,7 +415,7 @@ handler_operation_clause -->
     expr,
     nl.
 
-handler_operation_params_opt --> ident, handler_operation_params_tail, trailing_comma_opt, !.
+handler_operation_params_opt --> ident, handler_operation_params_tail, !.
 handler_operation_params_opt --> [].
 handler_operation_params_tail --> tok(comma), ident, !, handler_operation_params_tail.
 handler_operation_params_tail --> [].
