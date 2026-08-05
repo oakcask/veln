@@ -1,13 +1,12 @@
 ---
+role: routing
 review-when: A proposal is added, moved, reclassified, completed, or removed.
 ---
 
 # Proposals
 
-Status: routing
-
 The catalog in this directory contains only planned or incomplete work. Every
-proposal page in this directory has `Status: proposed`. Proposal text is not
+proposal page in this directory declares `role: proposal`. Proposal text is not
 current language behavior unless the matching page under `../specification/`
 also states it.
 

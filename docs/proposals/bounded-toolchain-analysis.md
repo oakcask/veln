@@ -1,10 +1,9 @@
 ---
+role: proposal
 review-when: The standard-library analysis growth evidence, benchmark scope, or implementation status changes.
 ---
 
 # Bounded Toolchain Analysis
-
-Status: proposed
 
 ## Summary
 

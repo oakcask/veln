@@ -5,12 +5,16 @@ on:
     branches:
       - main
     paths:
+      - .agents/skills/docs-progressive-disclosure/SKILL.md
       - .github/workflows/workflow--test-scripts.yaml
+      - AGENTS.md
       - docs/**/*.md
       - workflow-scripts/**/*.mjs
   pull_request:
     paths:
+      - .agents/skills/docs-progressive-disclosure/SKILL.md
       - .github/workflows/workflow--test-scripts.yaml
+      - AGENTS.md
       - docs/**/*.md
       - workflow-scripts/**/*.mjs
 
@@ -32,8 +36,8 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - name: Test workflow scripts
         run: node --test workflow-scripts/*.test.mjs
-      - name: Require review triggers in changed documentation
+      - name: Validate frontmatter in changed documentation
         env:
-          DOC_REVIEW_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          DOC_REVIEW_HEAD_SHA: ${{ github.sha }}
-        run: node workflow-scripts/check-doc-review-triggers.mjs
+          DOC_FRONTMATTER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          DOC_FRONTMATTER_HEAD_SHA: ${{ github.sha }}
+        run: node workflow-scripts/check-doc-frontmatter.mjs

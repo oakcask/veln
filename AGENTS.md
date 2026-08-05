@@ -4,7 +4,7 @@
   or metadata unless testing date-pattern behavior or preserving an externally
   defined identifier such as a URL.
 * Treat `docs/specification/` as the source of current implemented
-  behavior. Keep only `Status: proposed` proposal pages in `docs/proposals/`;
+  behavior. Keep only `role: proposal` proposal pages in `docs/proposals/`;
   remove or relocate rejected, superseded, implemented, or otherwise closed
   proposals. Do not cite or edit proposal text as current behavior unless the
   matching specification page also states it.
@@ -13,13 +13,12 @@
   `docs/specification/` and `examples/specification/`, and to remove completed
   work from `docs/proposals/`.
 * When adding, moving, or reclassifying documentation, use
-  `$docs-progressive-disclosure` to keep documentation routes short and status
-  boundaries consistent.
-* Every added or changed Markdown document under `docs/` must contain one
-  `review-when:` field in its YAML frontmatter. The field must name a concrete
-  project-state change that requires the document to be checked again. Use
-  `$docs-progressive-disclosure` to choose a trigger that matches the
-  document's authority and purpose.
+  `$docs-progressive-disclosure` to keep documentation routes short and role,
+  authority, and lifecycle boundaries consistent.
+* Every added or changed Markdown document under `docs/` must declare its
+  `role:` and one concrete `review-when:` trigger in YAML frontmatter. Declare
+  `authority:` and exceptional `status:` only where the role permits them. Use
+  `$docs-progressive-disclosure` to classify and validate the metadata.
 * When creating or substantially revising any document that specifies
   behavior, including proposals, design notes, and reference material, use
   `$verifiable-specification-writing`.
