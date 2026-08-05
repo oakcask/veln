@@ -19,12 +19,6 @@ also states it.
 
 ## Catalog
 
-### Language Testing
-
-- [Companion Test Modules](companion-test-modules.md): add remaining private
-  target declaration kinds other than functions, source ADTs, schemas,
-  nominal effects, and handlers.
-
 ### Toolchain Performance
 
 - [Bounded Toolchain Analysis](bounded-toolchain-analysis.md): make the HTTP/2
