@@ -7930,18 +7930,6 @@ impl ExprEffectDependencyCollector<'_, '_, '_> {
     }
 
     fn collect_name_path(&mut self, segments: &[String]) {
-        if let Some(signature) = function_signature_path(
-            segments,
-            self.context.uses,
-            self.context.functions,
-            self.context.current_module,
-            self.context.companion_access_targets,
-        ) {
-            self.dependencies.insert(EffectDependencyNode::Function((
-                signature.module_name.clone(),
-                signature.name.clone(),
-            )));
-        }
         if let [name] = segments
             && let Some(target) = self
                 .context
@@ -7953,6 +7941,19 @@ impl ExprEffectDependencyCollector<'_, '_, '_> {
         {
             self.dependencies
                 .insert(EffectDependencyNode::Function(target));
+            return;
+        }
+        if let Some(signature) = function_signature_path(
+            segments,
+            self.context.uses,
+            self.context.functions,
+            self.context.current_module,
+            self.context.companion_access_targets,
+        ) {
+            self.dependencies.insert(EffectDependencyNode::Function((
+                signature.module_name.clone(),
+                signature.name.clone(),
+            )));
         }
     }
 
@@ -8034,16 +8035,8 @@ impl ExprEffectCollector<'_, '_, '_> {
             for effect in effects {
                 push_unique_effect(self.inferred, effect);
             }
-        } else if let Some(signature) = function_signature_path(
-            segments,
-            self.context.uses,
-            self.context.functions,
-            self.context.current_module,
-            self.context.companion_access_targets,
-        ) {
-            self.push_all(&instantiate_call_effect_rows(signature, args, self.context));
         } else {
-            for effect in effects_for_callee_path(
+            if let Some(effects) = effects_for_callee_path(
                 segments,
                 self.context.uses,
                 self.context.current_module,
@@ -8052,7 +8045,17 @@ impl ExprEffectCollector<'_, '_, '_> {
                 self.context.effects_by_module_path,
                 self.context.companion_access_targets,
             ) {
-                push_unique_effect(self.inferred, effect);
+                self.push_all(effects);
+            } else {
+                if let Some(signature) = function_signature_path(
+                    segments,
+                    self.context.uses,
+                    self.context.functions,
+                    self.context.current_module,
+                    self.context.companion_access_targets,
+                ) {
+                    self.push_all(&instantiate_call_effect_rows(signature, args, self.context));
+                }
             }
         }
         self.collect_all(args);
@@ -8302,17 +8305,20 @@ fn concurrency_effects_for_call(
         .map(|effect| (*effect).to_string())
         .collect::<Vec<_>>();
     if matches!(segments, [module, name] if module == "task" && matches!(name.as_str(), "spawn" | "spawn_with"))
-        && let Some(job_effects) = args.first().and_then(callee_name_path).map(|segments| {
-            effects_for_callee_path(
-                segments,
-                context.uses,
-                context.current_module,
-                context.bindings,
-                context.effects_by_function,
-                context.effects_by_module_path,
-                context.companion_access_targets,
-            )
-        })
+        && let Some(job_effects) = args
+            .first()
+            .and_then(callee_name_path)
+            .and_then(|segments| {
+                effects_for_callee_path(
+                    segments,
+                    context.uses,
+                    context.current_module,
+                    context.bindings,
+                    context.effects_by_function,
+                    context.effects_by_module_path,
+                    context.companion_access_targets,
+                )
+            })
     {
         for effect in job_effects {
             push_unique_effect(&mut effects, effect);
@@ -8329,14 +8335,14 @@ fn effects_for_callee_path<'a>(
     effects_by_function: &'a BTreeMap<(Option<String>, String), Vec<String>>,
     effects_by_module_path: &'a BTreeMap<(String, String), (Vec<String>, Visibility)>,
     companion_access_targets: &'a BTreeMap<String, String>,
-) -> &'a [String] {
+) -> Option<&'a [String]> {
     match segments {
         [name] => effects_for_bare_callee(name, current_module, bindings, effects_by_function),
         [_, .., name] => {
             let Some(use_decl) =
                 imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)
             else {
-                return &[];
+                return None;
             };
             effects_by_module_path
                 .get(&(use_decl.name.clone(), name.clone()))
@@ -8349,9 +8355,9 @@ fn effects_for_callee_path<'a>(
                         companion_access_targets,
                     )
                 })
-                .map_or(&[], |(effects, _)| effects.as_slice())
+                .map(|(effects, _)| effects.as_slice())
         }
-        _ => &[],
+        _ => None,
     }
 }
 
@@ -8544,20 +8550,18 @@ fn effects_for_bare_callee<'a>(
     current_module: Option<&str>,
     bindings: &'a [Binding],
     effects_by_function: &'a BTreeMap<(Option<String>, String), Vec<String>>,
-) -> &'a [String] {
-    if let Some(binding) = bindings.iter().rev().find(|binding| binding.name == name)
-        && let Some(effects) = binding.ty.function_effects()
-    {
-        return effects;
+) -> Option<&'a [String]> {
+    if let Some(binding) = bindings.iter().rev().find(|binding| binding.name == name) {
+        return Some(binding.ty.function_effects().unwrap_or(&[]));
     }
     if let Some(current_module) = current_module {
         return effects_by_function
             .get(&(Some(current_module.to_string()), name.to_string()))
-            .map_or(&[], Vec::as_slice);
+            .map(Vec::as_slice);
     }
     effects_by_function
         .get(&(None, name.to_string()))
-        .map_or(&[], Vec::as_slice)
+        .map(Vec::as_slice)
 }
 
 fn push_unique_effect(effects: &mut Vec<String>, effect: &str) {
