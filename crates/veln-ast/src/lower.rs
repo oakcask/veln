@@ -6,7 +6,7 @@ use veln_syntax::{
     DictEntry as SyntaxDictEntry, EffectDecl as SyntaxEffectDecl,
     EffectOperationDecl as SyntaxEffectOperationDecl, Expr as SyntaxExpr,
     ExprKind as SyntaxExprKind, FunctionDecl as SyntaxFunction, HandlerDecl as SyntaxHandlerDecl,
-    HandlerProviderDecl as SyntaxHandlerProviderDecl, ModuleDecl as SyntaxModule,
+    HandlerOperationClauseDecl as SyntaxHandlerOperationClauseDecl, ModuleDecl as SyntaxModule,
     Pattern as SyntaxPattern, PatternKind as SyntaxPatternKind, PrefixOp as SyntaxPrefixOp,
     PublicAliasDecl as SyntaxPublicAlias, PublicAliasKind as SyntaxPublicAliasKind,
     RecordField as SyntaxRecordField, SchemaDecl as SyntaxSchemaDecl, SyntaxItem, SyntaxTree,
@@ -16,7 +16,7 @@ use veln_syntax::{
 use crate::{
     BinaryOp, BodyLine, BodyLineKind, CodecDecl, CodecDirection, CodecImplementationClause,
     CodecImplementationKind, Contract, ContractKind, DictEntry, EffectDecl, EffectOperationDecl,
-    Expr, ExprKind, Function, FunctionKind, HandlerDecl, HandlerProviderDecl, MatchArm,
+    Expr, ExprKind, Function, FunctionKind, HandlerDecl, HandlerOperationClauseDecl, MatchArm,
     ModuleHeader, NodeId, Param, Pattern, PatternField, PatternKind, PrefixOp, PublicAlias,
     PublicAliasKind, RecordField, ResultBinding, SchemaDecl, SchemaField, SchemaFieldWhereClause,
     SchemaFormatClause, SchemaValidationClause, SurfaceModule, TypeDecl, TypeVariantDecl,
@@ -332,22 +332,33 @@ impl AstBuilder {
             providers: handler
                 .providers
                 .iter()
-                .map(|provider| self.lower_handler_provider_decl(provider))
+                .map(|provider| self.lower_handler_operation_clause_decl(provider))
                 .collect(),
             span: handler.span.clone(),
         }
     }
 
-    fn lower_handler_provider_decl(
+    fn lower_handler_operation_clause_decl(
         &mut self,
-        provider: &SyntaxHandlerProviderDecl,
-    ) -> HandlerProviderDecl {
-        HandlerProviderDecl {
+        provider: &SyntaxHandlerOperationClauseDecl,
+    ) -> HandlerOperationClauseDecl {
+        HandlerOperationClauseDecl {
             node_id: self.alloc(),
             operation: provider.operation.clone(),
             operation_span: provider.operation_span.clone(),
-            provider: provider.provider.clone(),
-            provider_span: provider.provider_span.clone(),
+            params: provider
+                .params
+                .iter()
+                .map(|param| Param {
+                    node_id: self.alloc(),
+                    name: param.name.clone(),
+                    ty: None,
+                    ty_span: None,
+                    is_variadic: false,
+                    span: param.span.clone(),
+                })
+                .collect(),
+            body: self.lower_expr(&provider.body),
             span: provider.span.clone(),
         }
     }

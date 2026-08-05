@@ -47,8 +47,8 @@ fn discard_write_chunks(chunk: ByteChunk, chunks: List<ByteChunk>) -> ()
 end
 
 handler fixed_duplex(chunk: ByteChunk) handles transport::DuplexStream
-	read_chunk = fixed_read_chunk
-	write_chunks = discard_write_chunks
+	read_chunk() => fixed_read_chunk(chunk)
+	write_chunks(chunks) => discard_write_chunks(chunk, chunks)
 end
 
 fn fail_if_called_handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>

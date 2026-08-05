@@ -31,9 +31,5 @@ path = "diagnostics.0.details.operation"
 equals = "value"
 
 [[json_assert]]
-path = "diagnostics.0.details.provider"
-equals = "traced"
-
-[[json_assert]]
 path = "diagnostics.0.details.reason"
 equals = "missing_public_effect"

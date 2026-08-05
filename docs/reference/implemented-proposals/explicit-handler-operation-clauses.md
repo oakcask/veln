@@ -4,7 +4,7 @@ review-when: The handler clause syntax, migration boundary, acceptance evidence,
 
 # Explicit Handler Operation Clauses
 
-Status: proposed
+Status: implemented
 
 ## Summary
 
@@ -18,10 +18,9 @@ There is no permanent compatibility alias, feature flag, or formatter output
 for that syntax.
 
 Current handler behavior is specified in
-[names-effects-full.md](../specification/names-effects-full.md) and the current
-source grammar is specified in
-[source-surface-full.md](../specification/source-surface-full.md). Those pages
-remain authoritative until this proposal is implemented.
+[names-effects-full.md](../../specification/names-effects-full.md) and the
+current source grammar is specified in
+[source-surface-full.md](../../specification/source-surface-full.md).
 
 ## Motivation
 
@@ -281,6 +280,19 @@ for lexical handlers and the standard duplex-stream handler. The completion
 record must name those cases rather than claiming coverage from crate tests
 alone.
 
+## Residual Provider Terminology Audit
+
+Remaining `provider` hits are not source-surface provider references:
+
+- Core, IR, JVM backend, and runtime handler-table names retain `providers`
+  for the operation-to-function table that executes already-lowered handler
+  clauses.
+- This record uses `provider` to describe the removed syntax, diagnostic
+  migration, and acceptance boundary.
+- Other reference records and editor-support text use unrelated meanings such
+  as extension semantic token providers or cryptography providers.
+- Example string literals that print `provider` are ordinary program data.
+
 ## Completion Boundary
 
 This proposal is complete only when all acceptance cases pass and the old
@@ -291,6 +303,5 @@ typing and effect specification, diagnostics JSON specification, standard
 duplex-stream example, and lexical-handler executable cases. A repository-wide
 residual-name audit must classify every remaining provider-reference hit.
 
-After completion, move this document to
-`../reference/implemented-proposals/`, remove it from the proposal catalog,
-and keep current behavior only in `../specification/` and executable evidence.
+This completed record is retained only for history. Current behavior lives in
+`../../specification/` and executable evidence.

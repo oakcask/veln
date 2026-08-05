@@ -161,11 +161,11 @@ fn public_handler_requires_and_canonicalizes_declared_provider_effects() {
             "end\n",
             "\n",
             "pub handler missing(offset: Int) handles Ask\n",
-            "  value = traced\n",
+            "  value() => traced(offset)\n",
             "end\n",
             "\n",
             "pub handler declared(offset: Int) handles Ask effects [stdio, stdio]\n",
-            "  value = traced\n",
+            "  value() => traced(offset)\n",
             "end\n",
         ),
     );
@@ -189,7 +189,7 @@ fn public_handler_requires_and_canonicalizes_declared_provider_effects() {
         missing.message,
         "public handler `missing` uses undeclared effect `stdio`"
     );
-    assert_eq!(missing.span.as_ref().unwrap().start.line, 10);
+    assert_eq!(missing.span.as_ref().unwrap().start.line, 11);
 }
 
 #[test]
@@ -274,11 +274,11 @@ fn matching_companion_resolves_qualified_private_target_effects() {
             "end\n",
             "\n",
             "handler ask(offset: Int) handles math::Ask\n",
-            "  value = provide\n",
+            "  value() => provide()\n",
             "end\n",
             "\n",
             "handler traced() handles math::Trace effects [math::Ask]\n",
-            "  ping = trace\n",
+            "  ping() => trace()\n",
             "end\n",
             "\n",
             "fn trace() -> ()\n",
@@ -338,7 +338,7 @@ fn wrong_companion_handler_effect_reports_target_mismatch() {
             "use math\n",
             "\n",
             "handler local() handles other::Local effects [math::Ask]\n",
-            "  value = provide\n",
+            "  value() => provide(offset)\n",
             "end\n",
             "\n",
             "fn provide() -> Int\n",
@@ -481,7 +481,7 @@ fn matching_companion_handles_with_private_target_handler() {
             "end\n",
             "\n",
             "handler ask(offset: Int) handles Ask\n",
-            "  value = provide\n",
+            "  value() => provide(offset)\n",
             "end\n",
             "\n",
             "pub fn compute() -> Int effects [Ask]\n",
@@ -544,7 +544,7 @@ fn wrong_companion_private_target_handler_reports_target_mismatch() {
             "end\n",
             "\n",
             "handler ask(offset: Int) handles Ask\n",
-            "  value = provide\n",
+            "  value() => provide(ctx)\n",
             "end\n",
         ),
     );
@@ -2939,7 +2939,7 @@ fn lexical_handler_lowers_through_checked_core_and_typed_ir() {
             "end\n",
             "\n",
             "handler ask(ctx: Int) handles Ask\n",
-            "  value = provide\n",
+            "  value() => provide(ctx)\n",
             "end\n",
             "\n",
             "pub fn main() -> Int\n",

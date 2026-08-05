@@ -779,8 +779,8 @@ fn call_references(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
                 && !is_local_binding_name(&tokens, *index)
                 && (token_scope(&scopes, token.range.start)
                     .is_some_and(|scope| !scope.shadows(name, &tokens, *index))
+                    || is_handler_operation_clause_call_target(&tokens, *index)
                     || is_function_alias_target_reference(&tokens, *index, name)
-                    || is_handler_provider_function_reference(&tokens, *index, name)
                     || is_codec_implementation_function_reference(&tokens, *index, name))
         })
         .map(|(_, token)| source.span(token.range))
@@ -1218,18 +1218,6 @@ fn is_ensure_reference(tokens: &[Token], index: usize) -> bool {
         .any(|token| token.kind == TokenKind::Ensure)
 }
 
-fn is_handler_provider_function_reference(tokens: &[Token], index: usize, name: &str) -> bool {
-    tokens[index].text == name
-        && previous_non_layout_token(tokens, index)
-            .is_some_and(|previous| previous.kind == TokenKind::Equal)
-        && tokens[..index]
-            .iter()
-            .rev()
-            .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
-            .any(|token| token.kind == TokenKind::Equal)
-        && inside_handler_declaration(tokens, index)
-}
-
 fn is_function_alias_target_reference(tokens: &[Token], index: usize, name: &str) -> bool {
     tokens[index].text == name
         && previous_non_layout_token(tokens, index)
@@ -1252,15 +1240,21 @@ fn is_call_target_token(tokens: &[Token], index: usize) -> bool {
     next_non_whitespace_token(tokens, index).is_some_and(|next| next.kind == TokenKind::LParen)
 }
 
+fn is_handler_operation_clause_call_target(tokens: &[Token], index: usize) -> bool {
+    is_call_target_token(tokens, index)
+        && inside_top_level_block(tokens, index, TokenKind::Handler)
+        && tokens[..index]
+            .iter()
+            .rev()
+            .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
+            .any(|token| token.kind == TokenKind::FatArrow)
+}
+
 fn next_non_whitespace_token(tokens: &[Token], index: usize) -> Option<&Token> {
     tokens[index + 1..]
         .iter()
         .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
         .find(|token| token.kind != TokenKind::Whitespace)
-}
-
-fn inside_handler_declaration(tokens: &[Token], index: usize) -> bool {
-    inside_top_level_block(tokens, index, TokenKind::Handler)
 }
 
 fn inside_codec_declaration(tokens: &[Token], index: usize) -> bool {
@@ -2727,9 +2721,9 @@ mod tests {
     }
 
     #[test]
-    fn companion_private_function_rename_includes_handler_provider_references() {
+    fn companion_private_function_rename_includes_handler_operation_clause_calls() {
         let mut server = Server::default();
-        let project = TempProject::new("rename-handler-provider-reference");
+        let project = TempProject::new("rename-handler-operation-clause-call");
         project.write(
             "math.veln",
             concat!(
@@ -2742,7 +2736,7 @@ mod tests {
                 "end\n",
                 "\n",
                 "handler adjust() handles Adjust\n",
-                "  amount = increment\n",
+                "  amount(value) => increment(value)\n",
                 "end\n",
             ),
         );
@@ -2760,7 +2754,7 @@ mod tests {
         assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 3);
         assert!(
             responses[0].contains(
-                r#""range":{"start":{"line":9,"character":11},"end":{"line":9,"character":20}}"#
+                r#""range":{"start":{"line":9,"character":19},"end":{"line":9,"character":28}}"#
             ),
             "{}",
             responses[0]

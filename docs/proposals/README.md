@@ -19,13 +19,6 @@ also states it.
 
 ## Catalog
 
-### Language Design
-
-- [Explicit Handler Operation Clauses](explicit-handler-operation-clauses.md):
-  replace implicit provider references with clauses that bind operation
-  parameters and evaluate explicit expressions, then remove the old handler
-  syntax before proposal completion.
-
 ### Toolchain Performance
 
 - [Bounded Toolchain Analysis](bounded-toolchain-analysis.md): make the HTTP/2

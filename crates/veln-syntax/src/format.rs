@@ -142,15 +142,22 @@ fn format_handler_decl(out: &mut String, comments: &LineComments, handler: &Hand
     }
     push_source_line(out, comments, handler.span.start.line, 0, header);
     for provider in &handler.providers {
+        let params = provider
+            .params
+            .iter()
+            .map(|param| param.name.clone())
+            .collect::<Vec<_>>()
+            .join(", ");
         push_source_line(
             out,
             comments,
             provider.span.start.line,
             1,
             format!(
-                "{} = {}",
+                "{}({}) => {}",
                 provider.operation.as_deref().unwrap_or("<missing>"),
-                provider.provider.join("::")
+                params,
+                format_expr_at_indent(&provider.body, 1)
             ),
         );
     }

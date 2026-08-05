@@ -76,7 +76,7 @@ pub(crate) fn handler_details(
     provider: Option<&[String]>,
     reason: &'static str,
 ) -> JsonValue {
-    JsonValue::object([
+    let mut entries = vec![
         ("phase", JsonValue::string("effect")),
         ("node_id", JsonValue::string(node_id)),
         ("boundary", JsonValue::string(boundary)),
@@ -86,14 +86,17 @@ pub(crate) fn handler_details(
             "operation",
             operation.map_or(JsonValue::Null, JsonValue::string),
         ),
-        (
+    ];
+    if provider.is_some() {
+        entries.push((
             "provider",
             provider.map_or(JsonValue::Null, |segments| {
                 JsonValue::string(segments.join("::"))
             }),
-        ),
-        ("reason", JsonValue::string(reason)),
-    ])
+        ));
+    }
+    entries.push(("reason", JsonValue::string(reason)));
+    JsonValue::object(entries)
 }
 
 pub(crate) fn module_details(

@@ -160,7 +160,8 @@ pub(crate) struct HandlerSignature {
 #[derive(Clone)]
 pub(crate) struct HandlerProviderSignature {
     pub(crate) operation: String,
-    pub(crate) provider: Vec<String>,
+    pub(crate) function: String,
+    pub(crate) module_name: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1996,13 +1997,21 @@ fn handler_signatures(
                     .filter_map(|provider| {
                         Some(HandlerProviderSignature {
                             operation: provider.operation.clone()?,
-                            provider: provider.provider.clone(),
+                            function: synthetic_handler_clause_function_name(
+                                handler.name.as_deref().unwrap_or("missing"),
+                                provider.operation.as_deref().unwrap_or("missing"),
+                            ),
+                            module_name: handler.module_name.clone(),
                         })
                     })
                     .collect(),
             })
         })
         .collect()
+}
+
+pub(crate) fn synthetic_handler_clause_function_name(handler: &str, operation: &str) -> String {
+    format!("__handler_{handler}_{operation}")
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -2129,9 +2138,14 @@ impl<'a> EffectInference<'a> {
         let index = self.handler_index.get(qualified_name).copied()?;
         let inferred = collect_private_handler_effects(
             &self.handlers[index],
+            self.module,
+            self.user_effects,
             self.functions,
-            &self.module.uses,
+            &self.effects_by_function,
+            &self.effects_by_module_path,
+            self.handlers,
             &self.provider_companion_access_targets,
+            &self.companion_effect_access_targets,
         );
         let changed = self.handlers[index].effects != inferred;
         if changed {
@@ -2356,44 +2370,123 @@ fn insert_handler_effect_dependencies(
     effect_inference_counters::record_dependency_discovery_scan();
     let node = EffectDependencyNode::PrivateHandler(handler.qualified_name.clone());
     graph.insert_node(node.clone());
-    for provider in &handler.providers {
-        if let Some(function) = function_signature_path(
-            &provider.provider,
-            &module.uses,
+    let Some(decl) = module.handlers.iter().find(|decl| {
+        decl.name.as_deref() == Some(handler.name.as_str())
+            && decl.module_name == handler.module_name
+    }) else {
+        return;
+    };
+    let mut bindings = decl
+        .params
+        .iter()
+        .enumerate()
+        .map(|(index, param)| {
+            Binding::new(
+                param.name.clone(),
+                handler.params.get(index).cloned().unwrap_or(Type::Unknown),
+            )
+        })
+        .collect::<Vec<_>>();
+    for clause in &decl.providers {
+        let binding_count = bindings.len();
+        bindings.extend(
+            clause
+                .params
+                .iter()
+                .map(|param| Binding::new(param.name.clone(), Type::Unknown)),
+        );
+        let expr_context = ExprEffectContext {
+            uses: &module.uses,
+            current_module: handler.module_name.as_deref(),
+            bindings: &bindings,
             functions,
-            handler.module_name.as_deref(),
+            effects_by_function: &BTreeMap::new(),
+            effects_by_module_path: &BTreeMap::new(),
             companion_access_targets,
-        ) {
-            let dependency = EffectDependencyNode::Function((
-                function.module_name.clone(),
-                function.name.clone(),
-            ));
+            companion_effect_access_targets: &BTreeMap::new(),
+            user_effects: &[],
+            handlers: &[],
+        };
+        let mut dependencies = BTreeSet::new();
+        collect_expr_effect_dependencies(&clause.body, &expr_context, &mut dependencies);
+        for dependency in dependencies {
             graph.insert_dependency(dependency, node.clone());
         }
+        bindings.truncate(binding_count);
     }
 }
 
 fn collect_private_handler_effects(
     handler: &HandlerSignature,
+    module: &SurfaceModule,
+    user_effects: &[EffectSignature],
     functions: &[FunctionSignature],
-    uses: &[UseDecl],
+    effects_by_function: &EffectsByFunction,
+    effects_by_module_path: &EffectsByModulePath,
+    handlers: &[HandlerSignature],
     companion_access_targets: &BTreeMap<String, String>,
+    companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Vec<String> {
     #[cfg(test)]
     effect_inference_counters::record_handler_provider_evaluation();
+    let Some(decl) = module.handlers.iter().find(|decl| {
+        decl.name.as_deref() == Some(handler.name.as_str())
+            && decl.module_name == handler.module_name
+    }) else {
+        return Vec::new();
+    };
+    let Some(effect) = user_effects
+        .iter()
+        .find(|effect| effect.qualified_name == handler.effect)
+    else {
+        return Vec::new();
+    };
     let mut inferred = Vec::new();
-    for provider in &handler.providers {
-        if let Some(function) = function_signature_path(
-            &provider.provider,
-            uses,
+    for clause in &decl.providers {
+        let Some(operation_name) = clause.operation.as_deref() else {
+            continue;
+        };
+        let Some(operation) = effect
+            .operations
+            .iter()
+            .find(|operation| operation.name == operation_name)
+        else {
+            continue;
+        };
+        let mut bindings = decl
+            .params
+            .iter()
+            .enumerate()
+            .map(|(index, param)| {
+                Binding::new(
+                    param.name.clone(),
+                    handler.params.get(index).cloned().unwrap_or(Type::Unknown),
+                )
+            })
+            .collect::<Vec<_>>();
+        bindings.extend(clause.params.iter().enumerate().map(|(index, param)| {
+            Binding::new(
+                param.name.clone(),
+                operation
+                    .params
+                    .get(index)
+                    .cloned()
+                    .unwrap_or(Type::Unknown),
+            )
+        }));
+        let expr_context = ExprEffectContext {
+            uses: &module.uses,
+            current_module: handler.module_name.as_deref(),
+            bindings: &bindings,
             functions,
-            handler.module_name.as_deref(),
+            effects_by_function,
+            effects_by_module_path,
             companion_access_targets,
-        ) {
-            for effect in &function.effects {
-                push_unique_effect(&mut inferred, effect);
-            }
-        }
+            companion_effect_access_targets,
+            user_effects,
+            handlers,
+        };
+        collect_expr_effects(&clause.body, &expr_context, &mut inferred);
     }
     inferred
 }

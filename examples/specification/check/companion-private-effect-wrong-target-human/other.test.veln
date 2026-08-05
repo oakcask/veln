@@ -1,7 +1,7 @@
 use math
 
 handler ask() handles math::Ask
-	value = provide
+	value() => provide()
 end
 
 fn provide() -> Int

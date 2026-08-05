@@ -173,14 +173,16 @@ private effect access. The checked cases are routed from
 Lexical handlers provide all operations of one nominal effect for the dynamic
 evaluation of one `handle Body with Handler(arguments)` expression. A handler
 declaration names context parameters, the handled effect, an optional
-`effects [...]` list, and one provider function per handled operation. A
-provider receives handler context arguments before operation arguments and
-must return the operation result type. A handler declaration is rejected when
-an operation provider is missing, repeated, or names an operation absent from
-the handled effect. A provider may not retain the handled effect. A public
-handler must declare every effect retained by its providers. A private handler
-infers retained effects from its providers. Declared handler effect lists are
-canonical, unordered, and duplicate-free.
+`effects [...]` list, and one operation clause per handled operation. An
+operation clause binds the operation arguments and evaluates an ordinary
+expression. Handler context parameters are in lexical scope for each clause.
+A handler declaration is rejected when an operation clause is missing,
+repeated, names an operation absent from the handled effect, binds the wrong
+number of operation parameters, or repeats a clause binding. A clause body
+must return the operation result type and must not retain the handled effect.
+A public handler must declare every other effect retained by its clauses. A
+private handler infers retained effects from its clauses. Declared handler
+effect lists are canonical, unordered, and duplicate-free.
 
 The checker evaluates the effect set of a handle expression as the union of
 context argument effects, body effects with the handled nominal effect removed,

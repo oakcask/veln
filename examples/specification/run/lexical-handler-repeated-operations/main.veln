@@ -7,7 +7,7 @@ fn provide(base: Int, step: Int) -> Int
 end
 
 handler pick(base: Int) handles Pick
-	next = provide
+	next(step) => provide(base, step)
 end
 
 fn total() -> Int effects [Pick]
