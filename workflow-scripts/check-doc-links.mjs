@@ -2,6 +2,10 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  frontmatterField,
+  markdownFrontmatter,
+} from "./check-doc-frontmatter.mjs";
 
 if (isMainModule()) {
   const result = validateDocsLinks(path.resolve("docs"));
@@ -25,7 +29,7 @@ export function validateDocsLinks(docsRoot) {
 
   for (const file of markdownFiles) {
     const text = fs.readFileSync(file, "utf8");
-    errors.push(...validateProposalPageStatus({ docsRoot, file, text }));
+    errors.push(...validateProposalPageRole({ docsRoot, file, text }));
     const links = localMarkdownLinks(stripMarkdownCode(text));
     for (const link of links) {
       const error = validateLocalLink({ docsRoot, fromFile: file, link });
@@ -50,7 +54,7 @@ export function validateDocsLinks(docsRoot) {
   };
 }
 
-function validateProposalPageStatus({ docsRoot, file, text }) {
+function validateProposalPageRole({ docsRoot, file, text }) {
   const relativeFrom = path.relative(docsRoot, file);
   if (
     path.dirname(relativeFrom) !== "proposals" ||
@@ -59,24 +63,36 @@ function validateProposalPageStatus({ docsRoot, file, text }) {
     return [];
   }
 
-  const matches = [
-    ...stripMarkdownCode(text).matchAll(/^Status:\s*(.*?)\s*$/gim),
-  ];
-  if (matches.length === 0) {
+  const frontmatter = markdownFrontmatter(text);
+  if (frontmatter === undefined || !frontmatter.closed) {
     return [
-      `${relativeFrom}: add exactly one Status: proposed line; docs/proposals contains only active proposal pages`,
-    ];
-  }
-  if (matches.length > 1) {
-    return [
-      `${relativeFrom}:${lineNumberAt(text, matches[1].index)}: keep exactly one Status: proposed line so the proposal lifecycle is unambiguous`,
+      `${relativeFrom}: add YAML frontmatter with role: proposal; docs/proposals contains only active proposal pages`,
     ];
   }
 
-  const status = matches[0][1].trim().toLowerCase();
-  if (status !== "proposed") {
+  const roles = frontmatterField(frontmatter, "role");
+  if (roles.length === 0) {
     return [
-      `${relativeFrom}:${lineNumberAt(text, matches[0].index)}: move or remove this Status: ${status} page; docs/proposals contains only active proposals with Status: proposed`,
+      `${relativeFrom}: add exactly one role: proposal field; docs/proposals contains only active proposal pages`,
+    ];
+  }
+  if (roles.length > 1) {
+    return [
+      `${relativeFrom}:${roles[1].line}: keep exactly one role: proposal field so the proposal purpose is unambiguous`,
+    ];
+  }
+
+  const role = roles[0].parsed.value;
+  if (!roles[0].parsed.valid || role !== "proposal") {
+    return [
+      `${relativeFrom}:${roles[0].line}: move this role: ${role || "invalid"} page out of docs/proposals or change it to role: proposal while the work remains active`,
+    ];
+  }
+
+  const statuses = frontmatterField(frontmatter, "status");
+  if (statuses.length > 0) {
+    return [
+      `${relativeFrom}:${statuses[0].line}: move or remove this status: ${statuses[0].parsed.value || "invalid"} page; active proposals do not declare an exceptional lifecycle status`,
     ];
   }
 

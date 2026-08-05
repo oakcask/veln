@@ -1,3 +1,8 @@
+---
+role: routing
+review-when: A documentation route is added, moved, reclassified, or no longer answers the routed task.
+---
+
 # Veln Design Notes
 
 This directory routes durable design notes for the experimental Veln
@@ -65,7 +70,7 @@ must route to checked evidence when practical.
 - `reference/`: durable rationale, source support, and completed proposal
   records.
 - `proposals/`: planned or accepted targets not fully implemented. Proposal
-  pages in this directory have `Status: proposed`.
+  pages in this directory declare `role: proposal`.
 
 ## Skip Unless Needed
 
