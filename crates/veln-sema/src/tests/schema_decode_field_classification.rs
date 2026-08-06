@@ -1,6 +1,6 @@
 use super::*;
 use crate::semantic_model::Type;
-use crate::types::schema_decode_record_fields;
+use crate::types::schema_types::schema_decode_record_fields;
 
 #[test]
 fn mixed_binary_schema_fields_keep_their_decoded_record_shape() {

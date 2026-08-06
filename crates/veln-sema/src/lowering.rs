@@ -21,9 +21,11 @@ use crate::prelude::{
 use crate::semantic_model::Type;
 use crate::type_lowering::core_type;
 use crate::type_syntax::{parse_type_annotation, parse_type_or_unknown};
-use crate::types::{
-    FunctionLookup, SCHEMA_DECODE_STEP_TARGET_PREFIX, SCHEMA_ENCODE_TARGET_PREFIX,
-    SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX, TypeEnvironment, UserEffectPathResolution,
+use crate::types::environment::TypeEnvironment;
+use crate::types::signatures::{
+    FunctionLookup, HandlerPathResolution, SCHEMA_DECODE_STEP_TARGET_PREFIX,
+    SCHEMA_ENCODE_TARGET_PREFIX, SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX, UserEffectPathResolution,
+    synthetic_handler_clause_function_name,
 };
 
 #[derive(Clone)]
@@ -191,7 +193,7 @@ fn lower_handler_clause_functions(
                 module_name: handler.module_name.clone(),
                 kind: FunctionKind::Function,
                 visibility: Visibility::Private,
-                name: Some(crate::types::synthetic_handler_clause_function_name(
+                name: Some(synthetic_handler_clause_function_name(
                     handler.name.as_deref().unwrap_or("missing"),
                     operation_name,
                 )),
@@ -1111,9 +1113,9 @@ impl<'a> CoreLowerer<'a> {
             .environment
             .handler_path(handler_path, self.function.module_name.as_deref())
         {
-            crate::types::HandlerPathResolution::Found(handler) => handler.clone(),
-            crate::types::HandlerPathResolution::PrivateCompanionTargetMismatch { .. }
-            | crate::types::HandlerPathResolution::Missing => {
+            HandlerPathResolution::Found(handler) => handler.clone(),
+            HandlerPathResolution::PrivateCompanionTargetMismatch { .. }
+            | HandlerPathResolution::Missing => {
                 for arg in args {
                     self.lower_expr(arg, None);
                 }

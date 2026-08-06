@@ -14,11 +14,12 @@ use crate::semantic_model::{CallOrigin, Type};
 use crate::type_lowering::core_type;
 use crate::type_relations::is_assignable;
 use crate::type_syntax::parse_type_annotation;
-use crate::types::{
+use crate::types::environment::TypeEnvironment;
+use crate::types::signatures::{
     CodecCallBoundary, CodecCallSignature, FunctionSignature, SCHEMA_DECODE_STEP_TARGET_PREFIX,
     SCHEMA_DECODE_TARGET_PREFIX, SCHEMA_ENCODE_STEP_TARGET_PREFIX, SCHEMA_ENCODE_TARGET_PREFIX,
     SCHEMA_NEUTRAL_DECODE_TARGET_PREFIX, SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX,
-    SCHEMA_VALIDATE_TARGET_PREFIX, TypeEnvironment,
+    SCHEMA_VALIDATE_TARGET_PREFIX,
 };
 
 pub(crate) struct TypeBinding<'a> {
@@ -505,7 +506,7 @@ fn core_codec_call_target(codec: &CodecCallSignature) -> CoreCallTarget {
 }
 
 fn narrow_codec_candidates_by_arity(
-    codecs: &mut Vec<&crate::types::CodecCallSignature>,
+    codecs: &mut Vec<&CodecCallSignature>,
     arg_count: Option<usize>,
 ) {
     let Some(arg_count) = arg_count else {
@@ -517,9 +518,9 @@ fn narrow_codec_candidates_by_arity(
 }
 
 fn select_codec_type_call<'a>(
-    codecs: Vec<&'a crate::types::CodecCallSignature>,
+    codecs: Vec<&'a CodecCallSignature>,
     expected: Option<&Type>,
-) -> Option<&'a crate::types::CodecCallSignature> {
+) -> Option<&'a CodecCallSignature> {
     if codecs.len() == 1 {
         return codecs.into_iter().next();
     }
@@ -530,9 +531,9 @@ fn select_codec_type_call<'a>(
 }
 
 fn select_codec_core_call<'a>(
-    codecs: Vec<&'a crate::types::CodecCallSignature>,
+    codecs: Vec<&'a CodecCallSignature>,
     expected: Option<&CoreType>,
-) -> Option<&'a crate::types::CodecCallSignature> {
+) -> Option<&'a CodecCallSignature> {
     if codecs.len() == 1 {
         return codecs.into_iter().next();
     }
