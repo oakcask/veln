@@ -626,6 +626,13 @@ struct LocalSymbol {
     scope_file: String,
     scope_start: usize,
     scope_end: usize,
+    kind: LocalSymbolKind,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum LocalSymbolKind {
+    HandlerContextParameter,
+    HandlerOperationClauseParameter,
 }
 
 #[derive(Debug)]
@@ -665,6 +672,7 @@ struct ClauseBinding {
     declaration: SourceSpan,
     start: usize,
     end: usize,
+    kind: LocalSymbolKind,
 }
 
 impl LspSymbolIndex {
@@ -887,6 +895,14 @@ impl LspSymbolIndex {
                             symbol.scope_start,
                             symbol.scope_end,
                         )
+                        && (symbol.kind != LocalSymbolKind::HandlerContextParameter
+                            || !handler_operation_clause_parameter_shadows_name(
+                                &tokens,
+                                &symbol.name,
+                                token.range.start,
+                                symbol.scope_start,
+                                symbol.scope_end,
+                            ))
                 })
                 .map(|(_, token)| file.source.span(token.range)),
         );
@@ -987,6 +1003,7 @@ fn handler_operation_clause_symbol(
             scope_file: file.source.path().as_str().to_string(),
             scope_start: binding.start,
             scope_end: binding.end,
+            kind: binding.kind,
         })
 }
 
@@ -1015,6 +1032,7 @@ fn handler_operation_clause_bindings(file: &LspFile, tokens: &[Token]) -> Vec<Cl
         else {
             continue;
         };
+        let context_parameters = handler_context_parameters(file, tokens, arrow_index);
         for token in &tokens[lparen_index + 1..rparen_index] {
             if token.kind == TokenKind::Ident && is_identifier(&token.text) {
                 bindings.push(ClauseBinding {
@@ -1022,11 +1040,64 @@ fn handler_operation_clause_bindings(file: &LspFile, tokens: &[Token]) -> Vec<Cl
                     declaration: file.source.span(token.range),
                     start: arrow.range.end,
                     end: body_end,
+                    kind: LocalSymbolKind::HandlerOperationClauseParameter,
                 });
             }
         }
+        bindings.extend(
+            context_parameters
+                .into_iter()
+                .map(|parameter| ClauseBinding {
+                    name: parameter.name,
+                    declaration: parameter.declaration,
+                    start: arrow.range.end,
+                    end: body_end,
+                    kind: LocalSymbolKind::HandlerContextParameter,
+                }),
+        );
     }
     bindings
+}
+
+fn handler_context_parameters(
+    file: &LspFile,
+    tokens: &[Token],
+    arrow_index: usize,
+) -> Vec<HandlerContextParameter> {
+    let Some(handler_index) =
+        enclosing_top_level_block_index(tokens, arrow_index, TokenKind::Handler)
+    else {
+        return Vec::new();
+    };
+    let Some(lparen_index) = tokens[handler_index..arrow_index]
+        .iter()
+        .position(|token| token.kind == TokenKind::LParen)
+        .map(|index| handler_index + index)
+    else {
+        return Vec::new();
+    };
+    let Some(rparen_index) = matching_rparen_index(tokens, lparen_index, arrow_index) else {
+        return Vec::new();
+    };
+    tokens[lparen_index + 1..rparen_index]
+        .iter()
+        .enumerate()
+        .filter(|(_, token)| token.kind == TokenKind::Ident && is_identifier(&token.text))
+        .filter(|(relative_index, _)| {
+            let index = lparen_index + 1 + relative_index;
+            next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::Colon)
+        })
+        .map(|(_, token)| HandlerContextParameter {
+            name: token.text.clone(),
+            declaration: file.source.span(token.range),
+        })
+        .collect()
+}
+
+#[derive(Debug)]
+struct HandlerContextParameter {
+    name: String,
+    declaration: SourceSpan,
 }
 
 fn handler_operation_clause_body_end(
@@ -1057,6 +1128,24 @@ fn line_start_index(tokens: &[Token], index: usize) -> usize {
         .iter()
         .rposition(|token| token.kind == TokenKind::Newline)
         .map_or(0, |index| index + 1)
+}
+
+fn matching_rparen_index(tokens: &[Token], lparen_index: usize, end_index: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    for (relative_index, token) in tokens[lparen_index..end_index].iter().enumerate() {
+        let index = lparen_index + relative_index;
+        match token.kind {
+            TokenKind::LParen => depth += 1,
+            TokenKind::RParen => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    return Some(index);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
 }
 
 fn call_references(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
@@ -1271,6 +1360,49 @@ fn local_binding_shadows_name(
     local_bindings(tokens, scope_start, scope_end)
         .iter()
         .any(|binding| binding.name == name && offset >= binding.start && offset < binding.end)
+}
+
+fn handler_operation_clause_parameter_shadows_name(
+    tokens: &[Token],
+    name: &str,
+    offset: usize,
+    scope_start: usize,
+    scope_end: usize,
+) -> bool {
+    let Some(arrow_index) = tokens
+        .iter()
+        .position(|token| token.kind == TokenKind::FatArrow && token.range.end == scope_start)
+    else {
+        return false;
+    };
+    if offset < scope_start || offset >= scope_end {
+        return false;
+    }
+    handler_operation_clause_parameter_names(tokens, arrow_index).contains(name)
+}
+
+fn handler_operation_clause_parameter_names(
+    tokens: &[Token],
+    arrow_index: usize,
+) -> BTreeSet<String> {
+    let Some(lparen_index) = tokens[..arrow_index]
+        .iter()
+        .rposition(|token| token.kind == TokenKind::LParen)
+    else {
+        return BTreeSet::new();
+    };
+    let Some(rparen_index) = tokens[lparen_index + 1..arrow_index]
+        .iter()
+        .position(|token| token.kind == TokenKind::RParen)
+        .map(|index| lparen_index + 1 + index)
+    else {
+        return BTreeSet::new();
+    };
+    tokens[lparen_index + 1..rparen_index]
+        .iter()
+        .filter(|token| token.kind == TokenKind::Ident && is_identifier(&token.text))
+        .map(|token| token.text.clone())
+        .collect()
 }
 
 fn let_pattern_binding_names(tokens: &[Token], let_index: usize) -> Vec<(String, usize)> {
@@ -1606,11 +1738,19 @@ fn inside_codec_declaration(tokens: &[Token], index: usize) -> bool {
 }
 
 fn inside_top_level_block(tokens: &[Token], index: usize, start_kind: TokenKind) -> bool {
+    enclosing_top_level_block_index(tokens, index, start_kind).is_some()
+}
+
+fn enclosing_top_level_block_index(
+    tokens: &[Token],
+    index: usize,
+    start_kind: TokenKind,
+) -> Option<usize> {
     let mut nested_blocks = 0usize;
-    for token in tokens[..index].iter().rev() {
+    for (candidate_index, token) in tokens[..index].iter().enumerate().rev() {
         match token.kind {
             TokenKind::End => nested_blocks += 1,
-            kind if kind == start_kind && nested_blocks == 0 => return true,
+            kind if kind == start_kind && nested_blocks == 0 => return Some(candidate_index),
             TokenKind::Fn
             | TokenKind::Test
             | TokenKind::If
@@ -1620,7 +1760,7 @@ fn inside_top_level_block(tokens: &[Token], index: usize, start_kind: TokenKind)
             _ => {}
         }
     }
-    false
+    None
 }
 
 fn identifier_token_at(tokens: &[Token], offset: usize) -> Option<(usize, &Token)> {
@@ -3398,6 +3538,91 @@ mod tests {
     }
 
     #[test]
+    fn handler_context_callable_binding_shadows_top_level_function_in_clause_body() {
+        let mut server = Server::default();
+        let project = TempProject::new("handler-context-callable-binding");
+        project.write(
+            "main.veln",
+            concat!(
+                "fn callback(value: Int) -> Int\n",
+                "  value\n",
+                "end\n",
+                "\n",
+                "effect Adjust\n",
+                "  amount(value: Int) -> Int\n",
+                "  echo(value: Int) -> Int\n",
+                "end\n",
+                "\n",
+                "handler adjust(callback: fn(Int) -> Int) handles Adjust\n",
+                "  amount(value) => callback(value)\n",
+                "  echo(callback) => callback\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let definition = server.handle_message(&definition_request(&main_uri, 10, 21));
+        let references = server.handle_message(&references_request(&main_uri, 9, 17));
+        let context_rename = server.handle_message(&rename_request(&main_uri, 9, 17, "project"));
+        let clause_rename = server.handle_message(&rename_request(&main_uri, 11, 8, "value"));
+
+        assert_eq!(definition.len(), 1);
+        assert!(
+            definition[0].contains(
+                r#""range":{"start":{"line":9,"character":15},"end":{"line":9,"character":23}}"#
+            ),
+            "{}",
+            definition[0]
+        );
+        assert_eq!(references.len(), 1);
+        assert!(
+            references[0].contains(
+                r#""range":{"start":{"line":10,"character":19},"end":{"line":10,"character":27}}"#
+            ),
+            "{}",
+            references[0]
+        );
+        assert!(
+            !references[0].contains(r#""line":0,"character":3"#),
+            "{}",
+            references[0]
+        );
+        assert!(
+            !references[0].contains(r#""line":11,"character":7"#),
+            "{}",
+            references[0]
+        );
+        assert_eq!(context_rename.len(), 1);
+        assert_eq!(
+            context_rename[0].matches(r#""newText":"project""#).count(),
+            2
+        );
+        assert!(
+            !context_rename[0].contains(r#""line":11,"character":7"#),
+            "{}",
+            context_rename[0]
+        );
+        assert_eq!(clause_rename.len(), 1);
+        assert_eq!(clause_rename[0].matches(r#""newText":"value""#).count(), 2);
+        assert!(
+            clause_rename[0].contains(
+                r#""range":{"start":{"line":11,"character":7},"end":{"line":11,"character":15}}"#
+            ),
+            "{}",
+            clause_rename[0]
+        );
+        assert!(
+            clause_rename[0].contains(
+                r#""range":{"start":{"line":11,"character":20},"end":{"line":11,"character":28}}"#
+            ),
+            "{}",
+            clause_rename[0]
+        );
+    }
+
+    #[test]
     fn companion_private_function_rename_includes_target_function_alias_target() {
         let mut server = Server::default();
         let project = TempProject::new("rename-function-alias-target");
@@ -3802,6 +4027,12 @@ mod tests {
     fn definition_request(uri: &str, line: usize, character: usize) -> String {
         format!(
             r#"{{"jsonrpc":"2.0","id":2,"method":"textDocument/definition","params":{{"textDocument":{{"uri":"{uri}"}},"position":{{"line":{line},"character":{character}}}}}}}"#
+        )
+    }
+
+    fn references_request(uri: &str, line: usize, character: usize) -> String {
+        format!(
+            r#"{{"jsonrpc":"2.0","id":2,"method":"textDocument/references","params":{{"textDocument":{{"uri":"{uri}"}},"position":{{"line":{line},"character":{character}}},"context":{{"includeDeclaration":true}}}}}}"#
         )
     }
 
