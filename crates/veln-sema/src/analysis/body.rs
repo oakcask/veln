@@ -56,6 +56,32 @@ struct OmittedLocalBinding {
     deferred_initializer_diagnostic: Option<usize>,
 }
 
+struct EffectBoundary {
+    kind: &'static str,
+    diagnostic_id: &'static str,
+    subject: &'static str,
+}
+
+impl EffectBoundary {
+    fn for_function(function: &Function) -> Option<Self> {
+        if function.kind == FunctionKind::Test {
+            return Some(Self {
+                kind: "test_declaration",
+                diagnostic_id: "effect.missing_test",
+                subject: "test declaration",
+            });
+        }
+        if function.visibility == Visibility::Public {
+            return Some(Self {
+                kind: "public_function",
+                diagnostic_id: "effect.missing_public",
+                subject: "public function",
+            });
+        }
+        None
+    }
+}
+
 #[derive(Clone, Copy)]
 enum MatchDomain {
     Bool,
@@ -834,22 +860,7 @@ impl<'a> FunctionChecker<'a> {
     }
 
     pub(super) fn check_effect_boundaries(&mut self) {
-        let boundary = if self.function.kind == FunctionKind::Test {
-            Some((
-                "test_declaration",
-                "effect.missing_test",
-                "test declaration",
-            ))
-        } else if self.function.visibility == Visibility::Public {
-            Some((
-                "public_function",
-                "effect.missing_public",
-                "public function",
-            ))
-        } else {
-            None
-        };
-        let Some((boundary, diagnostic_id, subject)) = boundary else {
+        let Some(boundary) = EffectBoundary::for_function(self.function) else {
             return;
         };
         if self
@@ -860,13 +871,27 @@ impl<'a> FunctionChecker<'a> {
         {
             return;
         }
-        let empty_declared_effects = Vec::new();
-        let raw_declared_effects = self
-            .function
+        let declared_effects = self.declared_boundary_effects();
+        let inferred_effects = self.inferred_boundary_effects();
+
+        for effect in &inferred_effects {
+            if !declared_effects.contains(effect) {
+                let diagnostic = self.missing_effect_diagnostic(
+                    &boundary,
+                    effect,
+                    &declared_effects,
+                    &inferred_effects,
+                );
+                self.diagnostics.push(diagnostic);
+            }
+        }
+    }
+
+    fn declared_boundary_effects(&self) -> Vec<String> {
+        self.function
             .effects
-            .as_ref()
-            .unwrap_or(&empty_declared_effects);
-        let declared_effects = raw_declared_effects
+            .as_deref()
+            .unwrap_or_default()
             .iter()
             .map(|effect| {
                 if effect.starts_with("...") {
@@ -878,68 +903,74 @@ impl<'a> FunctionChecker<'a> {
                     .map(|effect| effect.qualified_name.clone())
                     .unwrap_or_else(|| effect.clone())
             })
-            .collect::<Vec<_>>();
+            .collect()
+    }
 
+    fn inferred_boundary_effects(&self) -> Vec<String> {
         let mut inferred_effects = Vec::<String>::new();
         for effect_use in &self.inferred_effects {
             if !inferred_effects.contains(&effect_use.effect) {
                 inferred_effects.push(effect_use.effect.clone());
             }
         }
+        inferred_effects
+    }
 
-        for effect in &inferred_effects {
-            if declared_effects.iter().any(|declared| declared == effect) {
-                continue;
-            }
-            let provenance = self
-                .inferred_effects
-                .iter()
-                .filter(|effect_use| &effect_use.effect == effect)
-                .take(3)
-                .cloned()
-                .collect::<Vec<_>>();
-            let matching_path_count = self
-                .inferred_effects
-                .iter()
-                .filter(|effect_use| &effect_use.effect == effect)
-                .count();
-            let omitted_path_count = matching_path_count.saturating_sub(provenance.len());
-            let mut diagnostic = Diagnostic::new(
-                diagnostic_id,
-                Severity::Error,
-                DiagnosticKind::Effect,
-                format!("{subject} uses undeclared effect `{effect}`"),
-                Some(self.function.span.clone()),
-                effect_missing_public_details(
-                    self.function
-                        .node_id
-                        .display(self.function.kind.node_prefix()),
-                    self.function.name.as_deref().unwrap_or("<missing>"),
-                    &self.function.span,
-                    effect,
-                    boundary,
-                    &declared_effects,
-                    &inferred_effects,
-                    &provenance,
-                    matching_path_count > provenance.len(),
-                    omitted_path_count,
+    fn missing_effect_diagnostic(
+        &self,
+        boundary: &EffectBoundary,
+        effect: &str,
+        declared_effects: &[String],
+        inferred_effects: &[String],
+    ) -> Diagnostic {
+        let provenance = self
+            .inferred_effects
+            .iter()
+            .filter(|effect_use| effect_use.effect == effect)
+            .take(3)
+            .cloned()
+            .collect::<Vec<_>>();
+        let matching_path_count = self
+            .inferred_effects
+            .iter()
+            .filter(|effect_use| effect_use.effect == effect)
+            .count();
+        let omitted_path_count = matching_path_count.saturating_sub(provenance.len());
+        let mut diagnostic = Diagnostic::new(
+            boundary.diagnostic_id,
+            Severity::Error,
+            DiagnosticKind::Effect,
+            format!("{} uses undeclared effect `{effect}`", boundary.subject),
+            Some(self.function.span.clone()),
+            effect_missing_public_details(
+                self.function
+                    .node_id
+                    .display(self.function.kind.node_prefix()),
+                self.function.name.as_deref().unwrap_or("<missing>"),
+                &self.function.span,
+                effect,
+                boundary.kind,
+                declared_effects,
+                inferred_effects,
+                &provenance,
+                matching_path_count > provenance.len(),
+                omitted_path_count,
+            ),
+        );
+        for effect_use in provenance {
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("effect_provenance")),
+                (
+                    "message",
+                    JsonValue::string(format!(
+                        "Call to `{}` requires this effect.",
+                        effect_use.symbol
+                    )),
                 ),
-            );
-            for effect_use in provenance {
-                diagnostic.related.push(JsonValue::object([
-                    ("kind", JsonValue::string("effect_provenance")),
-                    (
-                        "message",
-                        JsonValue::string(format!(
-                            "Call to `{}` requires this effect.",
-                            effect_use.symbol
-                        )),
-                    ),
-                    ("span", span_json(&effect_use.span)),
-                ]));
-            }
-            self.diagnostics.push(diagnostic);
+                ("span", span_json(&effect_use.span)),
+            ]));
         }
+        diagnostic
     }
 
     pub(super) fn validate_contract_predicate(
