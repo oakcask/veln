@@ -23,8 +23,9 @@ also states it.
 - [Bounded Toolchain Analysis](bounded-toolchain-analysis.md): make the HTTP/2
   core and connection workloads meet their remaining wall-time thresholds after
   completed candidate-indexing, demand-driven standard-library initialization,
-  and measurement slices. Each slice compares against the implementation state
-  immediately before that slice.
+  embedded lowered standard-library modules, and measurement slices. Each
+  slice compares against the implementation state immediately before that
+  slice.
 
 ## Selection Rule
 

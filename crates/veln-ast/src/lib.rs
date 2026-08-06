@@ -3,6 +3,7 @@
 mod lower;
 mod model;
 mod satisfy;
+mod wire;
 
 pub use lower::{lower_surface_ast, lower_surface_ast_with_module_identity};
 pub use model::{
@@ -15,6 +16,7 @@ pub use model::{
     SchemaValidationClause, SurfaceModule, TypeDecl, TypeVariantDecl, TypeVariantField, UseDecl,
     UseOrigin, Visibility,
 };
+pub use wire::{decode_surface_module, encode_surface_module};
 
 #[cfg(test)]
 mod tests;

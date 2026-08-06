@@ -9,10 +9,17 @@ pub struct StdlibFile {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct StdlibLoweredFile {
+    pub path: &'static str,
+    pub module: &'static [u8],
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct StdlibPackage {
     pub manifest: &'static str,
     pub exports: &'static [&'static str],
     pub files: &'static [StdlibFile],
+    pub lowered_files: &'static [StdlibLoweredFile],
 }
 
 include!(concat!(env!("OUT_DIR"), "/stdlib_bundle.rs"));
@@ -22,6 +29,7 @@ pub const fn package_bundle() -> StdlibPackage {
         manifest: MANIFEST,
         exports: EXPORTS,
         files: FILES,
+        lowered_files: LOWERED_FILES,
     }
 }
 
@@ -74,6 +82,14 @@ mod tests {
         assert_eq!(
             paths.iter().copied().collect::<BTreeSet<_>>().len(),
             paths.len()
+        );
+        assert_eq!(
+            package
+                .lowered_files
+                .iter()
+                .map(|file| file.path)
+                .collect::<Vec<_>>(),
+            paths
         );
     }
 

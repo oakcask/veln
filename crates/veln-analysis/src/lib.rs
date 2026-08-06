@@ -270,6 +270,35 @@ mod tests {
     }
 
     #[test]
+    fn first_application_analysis_uses_embedded_lowered_standard_modules() {
+        crate::surface::embedded_standard_counters::reset();
+        let cache = crate::analysis::TestStandardEnvironmentCache::new();
+        let project = project(
+            "src/main.veln",
+            concat!("pub fn main() -> Int\n", "  1\n", "end\n"),
+        );
+
+        let analysis = crate::analysis::analyze_project_with_test_standard_cache(
+            project,
+            DoctestMode::Exclude,
+            &cache,
+        );
+
+        assert!(analysis.checked_diagnostics().is_empty());
+        assert_eq!(
+            crate::surface::embedded_standard_counters::runtime_standard_parse_lowers(),
+            0,
+            "embedded standard modules must not use the runtime parser or surface lowerer"
+        );
+        assert_eq!(cache.standard_prepares(), 1);
+        assert!(
+            analysis.selected_standard_module_names_for_test().len()
+                < veln_stdlib::package_bundle().files.len(),
+            "the prelude-only closure should leave unrelated standard modules unmaterialized"
+        );
+    }
+
+    #[test]
     fn rediscovered_project_analysis_uses_changed_source_text_and_manifest_data() {
         let cache = crate::analysis::TestStandardEnvironmentCache::new();
         let temp = TempProject::new("analysis-rediscovery-isolation");

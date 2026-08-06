@@ -2,6 +2,12 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use veln_ast::{
+    decode_surface_module, encode_surface_module, lower_surface_ast_with_module_identity,
+};
+use veln_source::{SourceFile, TextRange};
+use veln_syntax::parse;
+
 fn main() {
     let source_root = Path::new("veln");
     println!("cargo:rerun-if-changed={}", source_root.display());
@@ -20,11 +26,28 @@ fn main() {
         generated.push_str(&format!("    {export:?},\n"));
     }
     generated.push_str("];\nstatic FILES: &[StdlibFile] = &[\n");
-    for relative in paths {
+    for relative in &paths {
         let text = fs::read_to_string(source_root.join(&relative))
             .expect("standard library source should be readable");
         generated.push_str(&format!(
             "    StdlibFile {{ path: {relative:?}, text: {text:?} }},\n"
+        ));
+    }
+    generated.push_str("];\nstatic LOWERED_FILES: &[StdlibLoweredFile] = &[\n");
+    for relative in &paths {
+        let text = fs::read_to_string(source_root.join(relative))
+            .expect("standard library source should be readable");
+        let lowered = lowered_standard_module(relative, &text);
+        let encoded = encode_surface_module(&lowered);
+        let decoded = decode_surface_module(&encoded)
+            .expect("generated standard library lowered module should decode");
+        assert_eq!(
+            format!("{lowered:?}"),
+            format!("{decoded:?}"),
+            "generated standard library lowered module should round-trip for {relative}"
+        );
+        generated.push_str(&format!(
+            "    StdlibLoweredFile {{ path: {relative:?}, module: &{encoded:?} }},\n"
         ));
     }
     generated.push_str("];\n");
@@ -32,6 +55,32 @@ fn main() {
     let output = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR should be set"));
     fs::write(output.join("stdlib_bundle.rs"), generated)
         .expect("standard library bundle should be writable");
+}
+
+fn lowered_standard_module(path: &str, text: &str) -> veln_ast::SurfaceModule {
+    let source = SourceFile::new(path, text);
+    let parsed = parse(&source);
+    assert!(
+        parsed.diagnostics.is_empty(),
+        "standard library source should parse cleanly: {path}: {:?}",
+        parsed.diagnostics
+    );
+    let module_name = format!(
+        "std::{}",
+        path.strip_suffix(".veln")
+            .expect("standard library source should use .veln suffix")
+            .replace('/', "::")
+    );
+    let mut lowered = lower_surface_ast_with_module_identity(
+        &parsed.tree,
+        module_name,
+        source.span(TextRange::new(0, 0)),
+    );
+    for use_decl in &mut lowered.uses {
+        let imported = use_decl.name.clone();
+        use_decl.name = format!("std::{imported}");
+    }
+    lowered
 }
 
 pub(crate) fn collect_veln_sources(root: &Path, directory: &Path, paths: &mut Vec<String>) {

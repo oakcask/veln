@@ -34,6 +34,9 @@ proposal scope:
 - Separate application and selected standard-library analysis inputs are
   implemented. Their controlled comparison is recorded in
   [../reviews/toolchain-analysis-separated-standard-inputs.json](../reviews/toolchain-analysis-separated-standard-inputs.json).
+- Embedded lowered standard-library modules are implemented. Their controlled
+  comparison is recorded in
+  [../reviews/toolchain-analysis-embedded-lowered-standard.json](../reviews/toolchain-analysis-embedded-lowered-standard.json).
 - The existing toolchain suite remains authoritative for command behavior.
 
 The remaining proposal scope starts after those slices. It is limited to
@@ -77,6 +80,15 @@ seconds to 0.309804194 seconds. Functional output matched for every measured
 workload, wall-time noise stayed within the accepted boundary, and both
 representative median wall times also fell. The broader one-third HTTP/2
 wall-time thresholds still did not pass, so the proposal remains open.
+
+Embedding per-module lowered standard-library data reduced HTTP/2 core median
+`surface_parse_lower` time from 0.046901416 seconds to 0.012558671 seconds and
+HTTP/2 connection median `surface_parse_lower` time from 0.051520114 seconds
+to 0.013833202 seconds. Functional output matched for every measured workload
+and wall-time noise stayed within the accepted boundary. The representative
+HTTP/2 wall-time ratios were 0.8111573339 for core and 0.8471466622 for
+connection, so the broader one-third wall-time thresholds still did not pass
+and the proposal remains open.
 
 ## Proposed Outcome
 
@@ -198,6 +210,9 @@ dedicated benchmark runner exists.
   during first analysis.
 - Keep the completed boundary that standard-library and application
   declarations remain separate analysis inputs after source loading.
+- Keep the completed boundary that selected embedded standard modules are
+  decoded from generated lowered representations instead of being parsed and
+  surface-lowered during application analysis.
 - Replace the current controlled comparison only when every functional
   comparison passes, wall-time noise remains within the accepted boundary,
   and both representative HTTP/2 wall-time thresholds pass.

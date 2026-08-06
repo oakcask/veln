@@ -1,10 +1,10 @@
 ---
+role: implementation-record
+authority: supporting
 review-when: The bounded toolchain analysis proposal status, completion evidence, or routed review record changes.
 ---
 
 # Bounded Toolchain Analysis Slices
-
-Status: implemented
 
 This page records completed slices from the bounded toolchain analysis
 proposal. Use
@@ -18,7 +18,9 @@ for the reachable-lookup comparison. Use
 for the demand-driven standard-library initialization comparison. Use
 [../../reviews/toolchain-analysis-separated-standard-inputs.json](../../reviews/toolchain-analysis-separated-standard-inputs.json)
 for the separate application and selected standard-library analysis input
-comparison.
+comparison. Use
+[../../reviews/toolchain-analysis-embedded-lowered-standard.json](../../reviews/toolchain-analysis-embedded-lowered-standard.json)
+for the embedded lowered standard-library module comparison.
 
 ## Completed Scope
 
@@ -68,6 +70,12 @@ Completed implementation scope:
   immutable standard facts keyed by the selected closure. Reachable-entry
   lowering reuses the selected standard surface input so standard bodies remain
   available without making the application module own standard declarations.
+- The standard-library build validates generated per-module lowered
+  representations against standard-library sources and embeds those
+  representations in the toolchain. Application and dependency sources still
+  use the runtime parser and surface lowerer, while selected embedded standard
+  modules are decoded from the generated lowered representation during
+  closure-driven standard input preparation.
 
 ## Evidence
 
@@ -134,6 +142,20 @@ workload, the same stage sum fell from 0.60004038 seconds to 0.309804194
 seconds, a 48.3694424032 percent reduction. Median wall time fell from
 0.95136904 seconds to 0.929512232 seconds.
 
+The embedded lowered standard-library module comparison used prebuilt release
+binaries, one warm-up run, and five measured runs. Functional output matched
+for every workload and wall-time noise remained within the accepted boundary.
+The proposal-level one-third HTTP/2 wall-time thresholds still did not pass,
+and the toolchain-case command was unavailable, so the benchmark command
+exited with the expected failing status for the broader proposal threshold.
+
+For the HTTP/2 core workload, median `surface_parse_lower` time fell from
+0.046901416 seconds to 0.012558671 seconds. Median wall time fell from
+0.173498832 seconds to 0.14073485 seconds, a ratio of 0.8111573339. For the
+HTTP/2 connection workload, median `surface_parse_lower` time fell from
+0.051520114 seconds to 0.013833202 seconds. Median wall time fell from
+0.269037841 seconds to 0.227914509 seconds, a ratio of 0.8471466622.
+
 ## Read When
 
 - Checking why completed bounded-analysis slices are no longer described as
@@ -146,5 +168,7 @@ seconds, a 48.3694424032 percent reduction. Median wall time fell from
 - Reviewing why separated application and selected standard-library analysis
   inputs are implemented while the HTTP/2 wall-time acceptance thresholds
   remain proposal work.
+- Reviewing why embedded lowered standard-library modules are implemented
+  while the HTTP/2 wall-time acceptance thresholds remain proposal work.
 - Preserving the boundary that application analysis caching remains outside
   the measurement slice.
