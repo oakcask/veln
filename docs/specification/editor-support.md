@@ -183,6 +183,22 @@ not binding references. The routed executable evidence is
 server tests also cover handler operation clause function-call references and
 record field isolation for binding rename.
 
+For a handler context parameter, `textDocument/definition` returns the binding
+location from the handler parameter list when an ordinary clause-body
+expression selects that parameter. `textDocument/references` returns the
+binding and ordinary expression references inside operation clause bodies.
+`textDocument/prepareRename` returns the binding range, and
+`textDocument/rename` edits the handler parameter binding and matching
+clause-body references. A same-named top-level function is not selected by a
+clause-body reference that resolves to the handler context parameter. A
+same-named operation clause parameter shadows the handler context parameter
+inside that operation clause and is renamed as a separate local binding. The
+routed executable evidence is
+`../../examples/specification/lsp/handler-context-callable-binding/`. The
+`veln-lsp` server tests also cover callable handler context parameter
+definition, references, rename, top-level function isolation, and operation
+clause parameter shadowing.
+
 ## VSCode Integration
 
 The VSCode extension contributes the `veln` language, the TextMate grammar,
@@ -228,6 +244,8 @@ Implemented:
   references.
 - Stdio definition, references, prepare-rename, and rename responses for
   handler operation clause bindings.
+- Stdio definition, references, prepare-rename, and rename responses for
+  handler context parameters selected from operation clause bodies.
 - Stdio diagnostic publication for discovered workspace Veln files across
   resolved workspace roots, including unopened files, with unsaved open
   document overlays.
