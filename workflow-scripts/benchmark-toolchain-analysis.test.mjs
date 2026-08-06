@@ -255,7 +255,7 @@ test("parses and validates stage timing records", () => {
   const records = parseTimingRecords(
     [
       '{"workload":"http2_core","run":"new-1","stage":"source_loading","boundary":"source_loading","duration_seconds":0.25}',
-      '{"workload":"http2_core","run":"new-1","stage":"semantic_environment_check","boundary":"semantic_environment_check","duration_seconds":1.5}',
+      '{"workload":"http2_core","run":"new-1","stage":"semantic_environment_check","boundary":"semantic_environment_check","duration_seconds":1.5,"start_seconds":0.25,"end_seconds":1.75}',
       "",
     ].join("\n"),
   );
@@ -274,6 +274,8 @@ test("parses and validates stage timing records", () => {
       stage: "semantic_environment_check",
       boundary: "semantic_environment_check",
       duration_seconds: 1.5,
+      start_seconds: 0.25,
+      end_seconds: 1.75,
     },
   ]);
   assert.throws(
@@ -321,6 +323,20 @@ test("parses and validates stage timing records", () => {
         { workload: "http2_core" },
       ),
     /unexpected workload/,
+  );
+  assert.throws(
+    () =>
+      parseTimingRecords(
+        '{"workload":"http2_core","run":"new-1","stage":"source_loading","boundary":"source_loading","duration_seconds":1,"start_seconds":0.2,"end_seconds":0.1}\n',
+      ),
+    /invalid interval/,
+  );
+  assert.throws(
+    () =>
+      parseTimingRecords(
+        '{"workload":"http2_core","run":"new-1","stage":"source_loading","boundary":"source_loading","duration_seconds":1,"start_seconds":0.2,"end_seconds":0.7}\n',
+      ),
+    /inconsistent interval duration/,
   );
 });
 
@@ -435,6 +451,37 @@ test("rejects stage totals that exceed the measured wall time", () => {
   );
 });
 
+test("requires non-overlapping timing intervals for instrumented runs", () => {
+  const stages = [
+    timing("http2_core", "new-1", "source_loading", 0.1, 0),
+    timing("http2_core", "new-1", "surface_parse_lower", 0.2, 0.1),
+    timing("http2_core", "new-1", "semantic_environment_check", 0.3, 0.2),
+    timing("http2_core", "new-1", "reachable_entry_lowering", 0.4, 0.6),
+    timing("http2_core", "new-1", "backend_class_cache_prepare", 0.5, 1),
+    timing("http2_core", "new-1", "backend_classfile_generation", 0.1, 1.5),
+    timing("http2_core", "new-1", "backend_java_subprocess", 0.2, 1.6),
+    timing("http2_core", "new-1", "backend_result_cleanup", 0.1, 1.8),
+  ];
+
+  assert.throws(
+    () => summarizeStageRecords(stages, ["new-1"], { instrumentationRequired: true }),
+    /overlapping timing stages/,
+  );
+  assert.throws(
+    () =>
+      summarizeStageRecords(
+        stages.map((record) =>
+          record.stage === "semantic_environment_check"
+            ? { ...record, start_seconds: undefined, end_seconds: undefined }
+            : record,
+        ),
+        ["new-1"],
+        { instrumentationRequired: true },
+      ),
+    /missing timing interval/,
+  );
+});
+
 test("validates checked benchmark result structure", () => {
   const stageTiming = summarizeStageRecords(
     [
@@ -508,12 +555,17 @@ function workload(id, baselineWall, newWall, newUser, functionalOutputsEqual, op
   };
 }
 
-function timing(workloadId, run, stage, durationSeconds) {
-  return {
+function timing(workloadId, run, stage, durationSeconds, startSeconds = null) {
+  const record = {
     workload: workloadId,
     run,
     stage,
     boundary: stage,
     duration_seconds: durationSeconds,
   };
+  if (startSeconds !== null) {
+    record.start_seconds = startSeconds;
+    record.end_seconds = startSeconds + durationSeconds;
+  }
+  return record;
 }

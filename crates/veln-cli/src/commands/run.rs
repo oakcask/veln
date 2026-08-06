@@ -130,14 +130,15 @@ fn analyze_run_project(
     };
     let project = Project::discover(root, &analysis_inputs).map_err(|error| error.to_string())?;
     if let (Some(timings), Some(start)) = (timings, source_start) {
-        timings.push("source_loading", start.elapsed());
+        timings.push_elapsed("source_loading", start);
         let doctest_mode = if harness_source_diagnostic_artifact_requested() {
             DoctestMode::Include
         } else {
             DoctestMode::Exclude
         };
+        let analysis_start = Instant::now();
         let (analysis, analysis_timings) = analyze_project_with_timings(project, doctest_mode);
-        timings.extend(analysis_timings);
+        timings.extend_analysis_from(analysis_start, analysis_timings);
         return Ok(analysis);
     }
     let doctest_mode = if harness_source_diagnostic_artifact_requested() {
@@ -295,9 +296,10 @@ fn lower_run_entry(
     timings: Option<&mut RunAnalysisTimings>,
 ) -> Result<Option<veln_ir::TypedProgram>, String> {
     let reachable = if let Some(timings) = timings {
+        let reachable_start = Instant::now();
         let (reachable, timing) =
             analysis.lower_reachable_entry_with_timing(entry, FunctionKind::Function);
-        timings.push_analysis(timing);
+        timings.push_analysis_from(reachable_start, timing);
         reachable
     } else {
         analysis.lower_reachable_entry(entry, FunctionKind::Function)
@@ -328,6 +330,7 @@ struct RunAnalysisTimings {
     file: PathBuf,
     workload: String,
     run: String,
+    origin: Instant,
     records: Vec<AnalysisTiming>,
 }
 
@@ -339,20 +342,34 @@ impl RunAnalysisTimings {
             workload: env::var("VELN_ANALYSIS_TIMING_WORKLOAD")
                 .unwrap_or_else(|_| "unknown".to_string()),
             run: env::var("VELN_ANALYSIS_TIMING_RUN").unwrap_or_else(|_| "unknown".to_string()),
+            origin: Instant::now(),
             records: Vec::new(),
         })
     }
 
-    fn push(&mut self, stage: &'static str, duration: Duration) {
-        self.records.push(AnalysisTiming { stage, duration });
+    fn push_elapsed(&mut self, stage: &'static str, start: Instant) {
+        self.records.push(AnalysisTiming {
+            stage,
+            start_offset: start.duration_since(self.origin),
+            duration: start.elapsed(),
+        });
     }
 
-    fn push_analysis(&mut self, timing: AnalysisTiming) {
-        self.records.push(timing);
+    fn push_analysis_from(&mut self, base: Instant, timing: AnalysisTiming) {
+        self.records.push(AnalysisTiming {
+            stage: timing.stage,
+            start_offset: base.duration_since(self.origin) + timing.start_offset,
+            duration: timing.duration,
+        });
     }
 
-    fn extend(&mut self, timings: Vec<AnalysisTiming>) {
-        self.records.extend(timings);
+    fn extend_analysis_from(&mut self, base: Instant, timings: Vec<AnalysisTiming>) {
+        self.records
+            .extend(timings.into_iter().map(|timing| AnalysisTiming {
+                stage: timing.stage,
+                start_offset: base.duration_since(self.origin) + timing.start_offset,
+                duration: timing.duration,
+            }));
     }
 
     fn write(&self) -> Result<(), String> {
@@ -365,14 +382,17 @@ impl RunAnalysisTimings {
             .open(&self.file)
             .map_err(|error| error.to_string())?;
         for record in &self.records {
+            let end_offset = record.start_offset + record.duration;
             writeln!(
                 file,
-                "{{\"workload\":{},\"run\":{},\"stage\":{},\"boundary\":{},\"duration_seconds\":{}}}",
+                "{{\"workload\":{},\"run\":{},\"stage\":{},\"boundary\":{},\"duration_seconds\":{},\"start_seconds\":{},\"end_seconds\":{}}}",
                 json_literal_string(&self.workload),
                 json_literal_string(&self.run),
                 json_literal_string(record.stage),
                 json_literal_string(record.stage),
                 duration_seconds(record.duration),
+                duration_seconds(record.start_offset),
+                duration_seconds(end_offset),
             )
             .map_err(|error| error.to_string())?;
         }
@@ -393,7 +413,7 @@ fn record_timing_elapsed(
     start: Option<Instant>,
 ) {
     if let (Some(timings), Some(start)) = (timings.as_mut(), start) {
-        timings.push(stage, start.elapsed());
+        timings.push_elapsed(stage, start);
     }
 }
 
@@ -3389,22 +3409,25 @@ mod tests {
             file: timing_file.clone(),
             workload: "http2_core".to_string(),
             run: "new-1".to_string(),
+            origin: Instant::now(),
             records: Vec::new(),
         };
 
-        timings.push(
-            "backend_classfile_generation",
-            Duration::from_nanos(250_000_000),
-        );
-        timings.push(
-            "backend_class_cache_prepare",
-            Duration::from_nanos(125_000_000),
-        );
+        timings.records.push(AnalysisTiming {
+            stage: "backend_classfile_generation",
+            start_offset: Duration::from_nanos(100_000_000),
+            duration: Duration::from_nanos(250_000_000),
+        });
+        timings.records.push(AnalysisTiming {
+            stage: "backend_class_cache_prepare",
+            start_offset: Duration::from_nanos(400_000_000),
+            duration: Duration::from_nanos(125_000_000),
+        });
         timings.write().expect("timing records should be written");
 
         assert_eq!(
             fs::read_to_string(&timing_file).expect("timing file should be readable"),
-            "{\"workload\":\"http2_core\",\"run\":\"new-1\",\"stage\":\"backend_classfile_generation\",\"boundary\":\"backend_classfile_generation\",\"duration_seconds\":0.250000000}\n{\"workload\":\"http2_core\",\"run\":\"new-1\",\"stage\":\"backend_class_cache_prepare\",\"boundary\":\"backend_class_cache_prepare\",\"duration_seconds\":0.125000000}\n"
+            "{\"workload\":\"http2_core\",\"run\":\"new-1\",\"stage\":\"backend_classfile_generation\",\"boundary\":\"backend_classfile_generation\",\"duration_seconds\":0.250000000,\"start_seconds\":0.100000000,\"end_seconds\":0.350000000}\n{\"workload\":\"http2_core\",\"run\":\"new-1\",\"stage\":\"backend_class_cache_prepare\",\"boundary\":\"backend_class_cache_prepare\",\"duration_seconds\":0.125000000,\"start_seconds\":0.400000000,\"end_seconds\":0.525000000}\n"
         );
 
         fs::remove_dir_all(root).expect("test project should be removed");
@@ -3422,6 +3445,7 @@ mod tests {
             file: timing_file.clone(),
             workload: "http2_core".to_string(),
             run: "new-1".to_string(),
+            origin: Instant::now(),
             records: Vec::new(),
         });
 

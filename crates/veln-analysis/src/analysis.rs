@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 #[cfg(test)]
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use veln_ast::{FunctionKind, SurfaceModule};
 use veln_diagnostics::Diagnostic;
@@ -113,6 +113,7 @@ pub struct ReachableEntryAnalysis {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AnalysisTiming {
     pub stage: &'static str,
+    pub start_offset: Duration,
     pub duration: Duration,
 }
 
@@ -152,7 +153,8 @@ fn analyze_project_with_standard_provider(
     mut timings: Option<&mut Vec<AnalysisTiming>>,
     standard_for_module: impl FnOnce(&BTreeSet<String>) -> ReusableStandardInput,
 ) -> ProjectAnalysis {
-    let surface_start = std::time::Instant::now();
+    let timing_origin = Instant::now();
+    let surface_start = timing_origin;
     let doctests = match doctest_mode {
         DoctestMode::Include => Some(doctest_sources(&project.files)),
         DoctestMode::Exclude => None,
@@ -170,10 +172,15 @@ fn analyze_project_with_standard_provider(
 
     let (loaded, parse_diagnostics) = load_surface_modules(&project);
     source_diagnostics.extend(parse_diagnostics);
-    record_timing(&mut timings, "surface_parse_lower", surface_start.elapsed());
+    record_timing(
+        &mut timings,
+        "surface_parse_lower",
+        timing_origin,
+        surface_start,
+    );
 
     let standard = standard_for_module(&loaded.selected_standard_module_names);
-    let semantic_start = std::time::Instant::now();
+    let semantic_start = Instant::now();
     let (semantic_diagnostics, checked) =
         check_project_surface_module_with_standard_modules_environment(
             &loaded.application,
@@ -183,7 +190,8 @@ fn analyze_project_with_standard_provider(
     record_timing(
         &mut timings,
         "semantic_environment_check",
-        semantic_start.elapsed(),
+        timing_origin,
+        semantic_start,
     );
 
     ProjectAnalysis {
@@ -203,10 +211,15 @@ fn analyze_project_with_standard_provider(
 fn record_timing(
     timings: &mut Option<&mut Vec<AnalysisTiming>>,
     stage: &'static str,
-    duration: Duration,
+    origin: Instant,
+    start: Instant,
 ) {
     if let Some(timings) = timings.as_deref_mut() {
-        timings.push(AnalysisTiming { stage, duration });
+        timings.push(AnalysisTiming {
+            stage,
+            start_offset: start.duration_since(origin),
+            duration: start.elapsed(),
+        });
     }
 }
 
@@ -275,7 +288,7 @@ impl ProjectAnalysis {
         entry: &str,
         entry_kind: FunctionKind,
     ) -> (ReachableEntryAnalysis, AnalysisTiming) {
-        let start = std::time::Instant::now();
+        let start = Instant::now();
         let module = reachable_entry_module_with_standard_cache(
             &self.selected_standard,
             &self.module,
@@ -293,6 +306,7 @@ impl ProjectAnalysis {
             ReachableEntryAnalysis { module, lowered },
             AnalysisTiming {
                 stage: "reachable_entry_lowering",
+                start_offset: Duration::ZERO,
                 duration: start.elapsed(),
             },
         )

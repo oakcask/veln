@@ -56,7 +56,8 @@ Completed implementation scope:
   reachable-entry lowering, and backend/runtime remainder stages.
 - `scripts/benchmark-toolchain-analysis` aggregates timing records, reports
   unavailable baseline instrumentation, preserves functional-output
-  comparison, validates timing records, and writes deterministic JSON.
+  comparison, validates timing records, rejects overlapping instrumented
+  intervals, and writes deterministic JSON.
 - Reachable-function selection indexes functions by name and qualified name,
   and indexes callable targets by name, qualified name, and function shape.
 - Semantic function and ADT resolution indexes candidates by function name,
@@ -96,7 +97,9 @@ Completed implementation scope:
   preparation, Java subprocess execution, and result processing plus cleanup.
   The benchmark harness requires all four substages from the new binary for
   every measured `veln run` workload, while still accepting baseline binaries
-  that only report the former `backend_runtime_remainder` timing.
+  that only report the former `backend_runtime_remainder` timing. Instrumented
+  timing records include stage start and end offsets, and the harness rejects
+  missing or overlapping intervals for the new binary.
 
 ## Evidence
 

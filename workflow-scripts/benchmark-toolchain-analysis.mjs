@@ -176,7 +176,15 @@ export function parseTimingRecords(text, options = {}) {
       } catch (error) {
         throw new Error(`invalid timing JSON record at line ${index + 1}`);
       }
-      const { workload, run, stage, boundary, duration_seconds: durationSeconds } = record;
+      const {
+        workload,
+        run,
+        stage,
+        boundary,
+        duration_seconds: durationSeconds,
+        start_seconds: startSeconds,
+        end_seconds: endSeconds,
+      } = record;
       if (
         typeof workload !== "string" ||
         workload === "" ||
@@ -201,6 +209,22 @@ export function parseTimingRecords(text, options = {}) {
       if (typeof durationSeconds !== "number" || !Number.isFinite(durationSeconds) || durationSeconds < 0) {
         throw new Error(`timing record at line ${index + 1} has invalid duration`);
       }
+      if (startSeconds !== undefined || endSeconds !== undefined) {
+        if (
+          typeof startSeconds !== "number" ||
+          !Number.isFinite(startSeconds) ||
+          startSeconds < 0 ||
+          typeof endSeconds !== "number" ||
+          !Number.isFinite(endSeconds) ||
+          endSeconds < startSeconds
+        ) {
+          throw new Error(`timing record at line ${index + 1} has invalid interval`);
+        }
+        const durationDelta = Math.abs(endSeconds - startSeconds - durationSeconds);
+        if (durationDelta > 0.000001) {
+          throw new Error(`timing record at line ${index + 1} has inconsistent interval duration`);
+        }
+      }
       const key = `${workload}\0${run}\0${stage}`;
       if (seen.has(key)) {
         throw new Error(`duplicate timing record for workload ${workload}, run ${run}, stage ${stage}`);
@@ -212,6 +236,12 @@ export function parseTimingRecords(text, options = {}) {
         stage,
         boundary,
         duration_seconds: durationSeconds,
+        ...(startSeconds === undefined
+          ? {}
+          : {
+              start_seconds: startSeconds,
+              end_seconds: endSeconds,
+            }),
       };
     });
 }
@@ -248,6 +278,7 @@ export function summarizeStageRecords(records, expectedRuns, options = {}) {
     if (unexpectedStages.length > 0) {
       throw new Error(`unexpected timing stage(s) for run ${run}: ${unexpectedStages.join(", ")}`);
     }
+    validateStageIntervals(recordsByRun.get(run), run, options);
   }
 
   const stageDurations = new Map();
@@ -274,8 +305,45 @@ export function summarizeStageRecords(records, expectedRuns, options = {}) {
           .map((record) => [record.stage, record.duration_seconds])
           .sort(([left], [right]) => left.localeCompare(right)),
       ),
+      intervals_seconds: Object.fromEntries(
+        recordsByRun
+          .get(run)
+          .filter((record) => record.start_seconds !== undefined)
+          .map((record) => [
+            record.stage,
+            {
+              start: record.start_seconds,
+              end: record.end_seconds,
+            },
+          ])
+          .sort(([left], [right]) => left.localeCompare(right)),
+      ),
     })),
   };
+}
+
+function validateStageIntervals(records, run, options) {
+  const recordsWithoutIntervals = records.filter((record) => record.start_seconds === undefined);
+  if (options.instrumentationRequired && recordsWithoutIntervals.length > 0) {
+    throw new Error(
+      `missing timing interval(s) for run ${run}: ${recordsWithoutIntervals
+        .map((record) => record.stage)
+        .sort((left, right) => left.localeCompare(right))
+        .join(", ")}`,
+    );
+  }
+  const intervalRecords = records
+    .filter((record) => record.start_seconds !== undefined)
+    .sort((left, right) => left.start_seconds - right.start_seconds || left.stage.localeCompare(right.stage));
+  for (let index = 1; index < intervalRecords.length; index += 1) {
+    const previous = intervalRecords[index - 1];
+    const current = intervalRecords[index];
+    if (current.start_seconds < previous.end_seconds) {
+      throw new Error(
+        `overlapping timing stages for run ${run}: ${previous.stage} overlaps ${current.stage}`,
+      );
+    }
+  }
 }
 
 function selectRequiredStageTimings(recordsByRun, expectedRuns, options) {
