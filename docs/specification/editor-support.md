@@ -191,11 +191,14 @@ binding and ordinary expression references inside operation clause bodies.
 `textDocument/rename` edits the handler parameter binding and matching
 clause-body references. A same-named top-level function is not selected by a
 clause-body reference that resolves to the handler context parameter. A
-same-named operation clause parameter shadows the handler context parameter
-inside that operation clause and is renamed as a separate local binding. The
-routed executable evidence is
-`../../examples/specification/lsp/handler-context-callable-binding/`. The
-`veln-lsp` server tests also cover callable handler context parameter
+same-named operation clause heading is not a handler context parameter
+reference and receives no context-parameter definition, references, or rename
+edits. A same-named operation clause parameter shadows the handler context
+parameter inside that operation clause and is renamed as a separate local
+binding. The routed executable evidence is
+`../../examples/specification/lsp/handler-context-callable-binding/` and
+`../../examples/specification/lsp/handler-context-operation-heading-isolation/`.
+The `veln-lsp` server tests also cover callable handler context parameter
 definition, references, rename, top-level function isolation, and operation
 clause parameter shadowing.
 

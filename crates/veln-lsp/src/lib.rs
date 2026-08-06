@@ -737,6 +737,10 @@ impl LspSymbolIndex {
             return Some(LspSymbol::Local(symbol));
         }
 
+        if is_handler_operation_clause_operation_name(tokens, token_index) {
+            return None;
+        }
+
         if let Some(symbol) = self.functions.iter().find(|symbol| {
             symbol.name == name
                 && symbol.declaration.file == selection.file
@@ -888,6 +892,8 @@ impl LspSymbolIndex {
                         && token.range.start < symbol.scope_end
                         && !is_field_name(&tokens, *index)
                         && !is_local_binding_name(&tokens, *index)
+                        && (symbol.kind != LocalSymbolKind::HandlerContextParameter
+                            || inside_handler_operation_clause_body(&tokens, token.range.start))
                         && !local_binding_shadows_name(
                             &tokens,
                             &symbol.name,
@@ -984,15 +990,18 @@ fn handler_operation_clause_symbol(
     handler_operation_clause_bindings(file, tokens)
         .into_iter()
         .find(|binding| {
+            let token_offset = tokens[token_index].range.start;
             binding.name == name
                 && ((selection.start.offset >= binding.declaration.start.offset
                     && selection.start.offset < binding.declaration.end.offset)
-                    || (tokens[token_index].range.start >= binding.start
-                        && tokens[token_index].range.start < binding.end
+                    || (token_offset >= binding.start
+                        && token_offset < binding.end
+                        && (binding.kind != LocalSymbolKind::HandlerContextParameter
+                            || inside_handler_operation_clause_body(tokens, token_offset))
                         && !local_binding_shadows_name(
                             tokens,
                             &binding.name,
-                            tokens[token_index].range.start,
+                            token_offset,
                             binding.start,
                             binding.end,
                         )))
@@ -1163,6 +1172,7 @@ fn call_references(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
                 && !is_function_declaration_name(&tokens, *index)
                 && !is_parameter_name(&tokens, *index)
                 && !is_local_binding_name(&tokens, *index)
+                && !is_handler_operation_clause_operation_name(&tokens, *index)
                 && (token_scope(&scopes, token.range.start)
                     .is_some_and(|scope| !scope.shadows(name, &tokens, *index))
                     || is_handler_operation_clause_call_target(&tokens, *index)
@@ -1711,6 +1721,29 @@ fn is_handler_operation_clause_call_target(tokens: &[Token], index: usize) -> bo
         && inside_handler_operation_clause_body(tokens, tokens[index].range.start)
 }
 
+fn is_handler_operation_clause_operation_name(tokens: &[Token], index: usize) -> bool {
+    tokens
+        .get(index)
+        .is_some_and(|token| token.kind == TokenKind::Ident && is_identifier(&token.text))
+        && tokens[index + 1..]
+            .iter()
+            .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
+            .position(|token| token.kind == TokenKind::FatArrow)
+            .map(|relative_index| index + 1 + relative_index)
+            .is_some_and(|arrow_index| {
+                is_handler_operation_clause_arrow(tokens, arrow_index)
+                    && line_tokens_before(tokens, arrow_index)
+                        .iter()
+                        .position(|token| {
+                            !matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline)
+                        })
+                        .is_some_and(|first_index| {
+                            let line_start = line_start_index(tokens, arrow_index);
+                            line_start + first_index == index
+                        })
+            })
+}
+
 fn inside_handler_operation_clause_body(tokens: &[Token], offset: usize) -> bool {
     let file_end = tokens.last().map_or(offset, |token| token.range.end);
     tokens.iter().enumerate().any(|(arrow_index, arrow)| {
@@ -1725,8 +1758,7 @@ fn is_handler_operation_clause_arrow(tokens: &[Token], arrow_index: usize) -> bo
     if !inside_top_level_block(tokens, arrow_index, TokenKind::Handler) {
         return false;
     }
-    let line_start_index = line_start_index(tokens, arrow_index);
-    let line_tokens = &tokens[line_start_index..arrow_index];
+    let line_tokens = line_tokens_before(tokens, arrow_index);
     line_tokens
         .iter()
         .find(|token| !matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline))
@@ -1737,6 +1769,10 @@ fn is_handler_operation_clause_arrow(tokens: &[Token], arrow_index: usize) -> bo
         && line_tokens
             .iter()
             .any(|token| token.kind == TokenKind::RParen)
+}
+
+fn line_tokens_before(tokens: &[Token], index: usize) -> &[Token] {
+    &tokens[line_start_index(tokens, index)..index]
 }
 
 fn next_non_whitespace_token(tokens: &[Token], index: usize) -> Option<&Token> {
@@ -3662,6 +3698,61 @@ mod tests {
             ),
             "{}",
             clause_rename[0]
+        );
+    }
+
+    #[test]
+    fn handler_context_parameter_does_not_bind_same_named_operation_heading() {
+        let mut server = Server::default();
+        let project = TempProject::new("handler-context-operation-heading-isolation");
+        project.write(
+            "main.veln",
+            concat!(
+                "fn callback(value: Int) -> Int\n",
+                "  value\n",
+                "end\n",
+                "\n",
+                "effect Adjust\n",
+                "  callback(value: Int) -> Int\n",
+                "  amount(value: Int) -> Int\n",
+                "end\n",
+                "\n",
+                "handler adjust(callback: fn(Int) -> Int) handles Adjust\n",
+                "  callback(value) => callback(value)\n",
+                "  amount(value) => callback(value)\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let definition = server.handle_message(&definition_request(&main_uri, 10, 4));
+        let references = server.handle_message(&references_request(&main_uri, 10, 4));
+        let rename = server.handle_message(&rename_request(&main_uri, 10, 4, "project"));
+        let body_definition = server.handle_message(&definition_request(&main_uri, 10, 22));
+
+        assert_eq!(definition.len(), 1);
+        assert!(
+            definition[0].contains(r#""result":null"#),
+            "{}",
+            definition[0]
+        );
+        assert_eq!(references.len(), 1);
+        assert!(
+            references[0].contains(r#""result":[]"#),
+            "{}",
+            references[0]
+        );
+        assert_eq!(rename.len(), 1);
+        assert!(rename[0].contains(r#""changes":{}"#), "{}", rename[0]);
+        assert_eq!(body_definition.len(), 1);
+        assert!(
+            body_definition[0].contains(
+                r#""range":{"start":{"line":9,"character":15},"end":{"line":9,"character":23}}"#
+            ),
+            "{}",
+            body_definition[0]
         );
     }
 
