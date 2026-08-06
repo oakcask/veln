@@ -77,6 +77,37 @@ fn duplicate_concrete_effect_is_reported_once_after_row_substitution() {
 }
 
 #[test]
+fn effect_boundary_policy_distinguishes_public_test_and_private_functions() {
+    let module = module(concat!(
+        "pub fn public_boundary() -> ()\n",
+        "\tstdio::println(\"public\")\n",
+        "end\n",
+        "\n",
+        "test test_boundary() -> ()\n",
+        "\tstdio::println(\"test\")\n",
+        "end\n",
+        "\n",
+        "fn private_helper() -> ()\n",
+        "\tstdio::println(\"private\")\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `stdio`"
+    );
+    assert_eq!(diagnostics[1].id, "effect.missing_test");
+    assert_eq!(
+        diagnostics[1].message,
+        "test declaration uses undeclared effect `stdio`"
+    );
+}
+
+#[test]
 fn function_type_compatibility_accepts_pure_and_effectful_callbacks() {
     let module = module(concat!(
         "fn pure_callback() -> Int\n",
