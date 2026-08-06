@@ -5,9 +5,11 @@ end
 effect Adjust
   amount(value: Int) -> Int
   echo(value: Int) -> Int
+  reset(value: Int) -> Int
 end
 
 handler adjust(callback: fn(Int) -> Int) handles Adjust
   amount(value) => callback(value)
-  echo(callback) => callback
+  echo(value) => callback(value) + callback(1)
+  reset(callback) => callback
 end

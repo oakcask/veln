@@ -1008,7 +1008,7 @@ fn handler_operation_clause_symbol(
 }
 
 fn handler_operation_clause_bindings(file: &LspFile, tokens: &[Token]) -> Vec<ClauseBinding> {
-    let mut bindings = Vec::new();
+    let mut clause_bindings = Vec::new();
     for (arrow_index, arrow) in tokens.iter().enumerate() {
         if arrow.kind != TokenKind::FatArrow
             || !inside_top_level_block(tokens, arrow_index, TokenKind::Handler)
@@ -1032,10 +1032,9 @@ fn handler_operation_clause_bindings(file: &LspFile, tokens: &[Token]) -> Vec<Cl
         else {
             continue;
         };
-        let context_parameters = handler_context_parameters(file, tokens, arrow_index);
         for token in &tokens[lparen_index + 1..rparen_index] {
             if token.kind == TokenKind::Ident && is_identifier(&token.text) {
-                bindings.push(ClauseBinding {
+                clause_bindings.push(ClauseBinding {
                     name: token.text.clone(),
                     declaration: file.source.span(token.range),
                     start: arrow.range.end,
@@ -1044,39 +1043,43 @@ fn handler_operation_clause_bindings(file: &LspFile, tokens: &[Token]) -> Vec<Cl
                 });
             }
         }
-        bindings.extend(
-            context_parameters
-                .into_iter()
-                .map(|parameter| ClauseBinding {
-                    name: parameter.name,
-                    declaration: parameter.declaration,
-                    start: arrow.range.end,
-                    end: body_end,
-                    kind: LocalSymbolKind::HandlerContextParameter,
-                }),
-        );
     }
-    bindings
+    clause_bindings.extend(handler_context_parameter_bindings(file, tokens));
+    clause_bindings
 }
 
-fn handler_context_parameters(
+fn handler_context_parameter_bindings(file: &LspFile, tokens: &[Token]) -> Vec<ClauseBinding> {
+    tokens
+        .iter()
+        .enumerate()
+        .filter(|(_, token)| token.kind == TokenKind::Handler)
+        .flat_map(|(handler_index, _)| {
+            handler_context_parameter_bindings_for_handler(file, tokens, handler_index)
+        })
+        .collect()
+}
+
+fn handler_context_parameter_bindings_for_handler(
     file: &LspFile,
     tokens: &[Token],
-    arrow_index: usize,
-) -> Vec<HandlerContextParameter> {
-    let Some(handler_index) =
-        enclosing_top_level_block_index(tokens, arrow_index, TokenKind::Handler)
+    handler_index: usize,
+) -> Vec<ClauseBinding> {
+    let Some(body_start) = tokens[handler_index..]
+        .iter()
+        .find(|token| token.kind == TokenKind::Newline)
+        .map(|token| token.range.end)
     else {
         return Vec::new();
     };
-    let Some(lparen_index) = tokens[handler_index..arrow_index]
+    let handler_end = function_scope_end(tokens, handler_index + 1).unwrap_or(body_start);
+    let Some(lparen_index) = tokens[handler_index..]
         .iter()
         .position(|token| token.kind == TokenKind::LParen)
         .map(|index| handler_index + index)
     else {
         return Vec::new();
     };
-    let Some(rparen_index) = matching_rparen_index(tokens, lparen_index, arrow_index) else {
+    let Some(rparen_index) = matching_rparen_index(tokens, lparen_index, tokens.len()) else {
         return Vec::new();
     };
     tokens[lparen_index + 1..rparen_index]
@@ -1087,17 +1090,14 @@ fn handler_context_parameters(
             let index = lparen_index + 1 + relative_index;
             next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::Colon)
         })
-        .map(|(_, token)| HandlerContextParameter {
+        .map(|(_, token)| ClauseBinding {
             name: token.text.clone(),
             declaration: file.source.span(token.range),
+            start: body_start,
+            end: handler_end,
+            kind: LocalSymbolKind::HandlerContextParameter,
         })
         .collect()
-}
-
-#[derive(Debug)]
-struct HandlerContextParameter {
-    name: String,
-    declaration: SourceSpan,
 }
 
 fn handler_operation_clause_body_end(
@@ -1369,35 +1369,54 @@ fn handler_operation_clause_parameter_shadows_name(
     scope_start: usize,
     scope_end: usize,
 ) -> bool {
-    let Some(arrow_index) = tokens
-        .iter()
-        .position(|token| token.kind == TokenKind::FatArrow && token.range.end == scope_start)
-    else {
-        return false;
-    };
     if offset < scope_start || offset >= scope_end {
         return false;
     }
-    handler_operation_clause_parameter_names(tokens, arrow_index).contains(name)
+    let file_end = tokens.last().map_or(scope_end, |token| token.range.end);
+    tokens.iter().enumerate().any(|(arrow_index, arrow)| {
+        if arrow.kind != TokenKind::FatArrow
+            || !is_handler_operation_clause_arrow(tokens, arrow_index)
+        {
+            return false;
+        }
+        let Some((lparen_index, rparen_index)) =
+            handler_operation_clause_parameter_range(tokens, arrow_index)
+        else {
+            return false;
+        };
+        let body_end = handler_operation_clause_body_end(tokens, arrow_index, file_end);
+        offset >= tokens[lparen_index].range.start
+            && offset < body_end
+            && handler_operation_clause_parameter_names_in_range(tokens, lparen_index, rparen_index)
+                .contains(name)
+    })
 }
 
-fn handler_operation_clause_parameter_names(
+fn handler_operation_clause_parameter_range(
     tokens: &[Token],
     arrow_index: usize,
-) -> BTreeSet<String> {
+) -> Option<(usize, usize)> {
     let Some(lparen_index) = tokens[..arrow_index]
         .iter()
         .rposition(|token| token.kind == TokenKind::LParen)
     else {
-        return BTreeSet::new();
+        return None;
     };
     let Some(rparen_index) = tokens[lparen_index + 1..arrow_index]
         .iter()
         .position(|token| token.kind == TokenKind::RParen)
         .map(|index| lparen_index + 1 + index)
     else {
-        return BTreeSet::new();
+        return None;
     };
+    Some((lparen_index, rparen_index))
+}
+
+fn handler_operation_clause_parameter_names_in_range(
+    tokens: &[Token],
+    lparen_index: usize,
+    rparen_index: usize,
+) -> BTreeSet<String> {
     tokens[lparen_index + 1..rparen_index]
         .iter()
         .filter(|token| token.kind == TokenKind::Ident && is_identifier(&token.text))
@@ -3551,11 +3570,13 @@ mod tests {
                 "effect Adjust\n",
                 "  amount(value: Int) -> Int\n",
                 "  echo(value: Int) -> Int\n",
+                "  reset(value: Int) -> Int\n",
                 "end\n",
                 "\n",
                 "handler adjust(callback: fn(Int) -> Int) handles Adjust\n",
                 "  amount(value) => callback(value)\n",
-                "  echo(callback) => callback\n",
+                "  echo(value) => callback(value) + callback(1)\n",
+                "  reset(callback) => callback\n",
                 "end\n",
             ),
         );
@@ -3563,15 +3584,15 @@ mod tests {
         let main_uri = path_to_uri(&project.root.join("main.veln"));
         server.handle_message(&initialize_request(&root_uri));
 
-        let definition = server.handle_message(&definition_request(&main_uri, 10, 21));
-        let references = server.handle_message(&references_request(&main_uri, 9, 17));
-        let context_rename = server.handle_message(&rename_request(&main_uri, 9, 17, "project"));
-        let clause_rename = server.handle_message(&rename_request(&main_uri, 11, 8, "value"));
+        let definition = server.handle_message(&definition_request(&main_uri, 11, 21));
+        let references = server.handle_message(&references_request(&main_uri, 10, 17));
+        let context_rename = server.handle_message(&rename_request(&main_uri, 10, 17, "project"));
+        let clause_rename = server.handle_message(&rename_request(&main_uri, 13, 8, "value"));
 
         assert_eq!(definition.len(), 1);
         assert!(
             definition[0].contains(
-                r#""range":{"start":{"line":9,"character":15},"end":{"line":9,"character":23}}"#
+                r#""range":{"start":{"line":10,"character":15},"end":{"line":10,"character":23}}"#
             ),
             "{}",
             definition[0]
@@ -3579,7 +3600,21 @@ mod tests {
         assert_eq!(references.len(), 1);
         assert!(
             references[0].contains(
-                r#""range":{"start":{"line":10,"character":19},"end":{"line":10,"character":27}}"#
+                r#""range":{"start":{"line":11,"character":19},"end":{"line":11,"character":27}}"#
+            ),
+            "{}",
+            references[0]
+        );
+        assert!(
+            references[0].contains(
+                r#""range":{"start":{"line":12,"character":17},"end":{"line":12,"character":25}}"#
+            ),
+            "{}",
+            references[0]
+        );
+        assert!(
+            references[0].contains(
+                r#""range":{"start":{"line":12,"character":35},"end":{"line":12,"character":43}}"#
             ),
             "{}",
             references[0]
@@ -3590,17 +3625,31 @@ mod tests {
             references[0]
         );
         assert!(
-            !references[0].contains(r#""line":11,"character":7"#),
+            !references[0].contains(r#""line":13,"character":7"#),
             "{}",
             references[0]
         );
         assert_eq!(context_rename.len(), 1);
         assert_eq!(
             context_rename[0].matches(r#""newText":"project""#).count(),
-            2
+            4
         );
         assert!(
-            !context_rename[0].contains(r#""line":11,"character":7"#),
+            context_rename[0].contains(
+                r#""range":{"start":{"line":12,"character":17},"end":{"line":12,"character":25}}"#
+            ),
+            "{}",
+            context_rename[0]
+        );
+        assert!(
+            context_rename[0].contains(
+                r#""range":{"start":{"line":12,"character":35},"end":{"line":12,"character":43}}"#
+            ),
+            "{}",
+            context_rename[0]
+        );
+        assert!(
+            !context_rename[0].contains(r#""line":13,"character":7"#),
             "{}",
             context_rename[0]
         );
@@ -3608,14 +3657,14 @@ mod tests {
         assert_eq!(clause_rename[0].matches(r#""newText":"value""#).count(), 2);
         assert!(
             clause_rename[0].contains(
-                r#""range":{"start":{"line":11,"character":7},"end":{"line":11,"character":15}}"#
+                r#""range":{"start":{"line":13,"character":8},"end":{"line":13,"character":16}}"#
             ),
             "{}",
             clause_rename[0]
         );
         assert!(
             clause_rename[0].contains(
-                r#""range":{"start":{"line":11,"character":20},"end":{"line":11,"character":28}}"#
+                r#""range":{"start":{"line":13,"character":21},"end":{"line":13,"character":29}}"#
             ),
             "{}",
             clause_rename[0]
