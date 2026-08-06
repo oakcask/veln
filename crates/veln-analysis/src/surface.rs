@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::cell::{OnceCell, RefCell};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Component, Path};
@@ -27,6 +28,7 @@ pub(crate) mod embedded_standard_counters {
     pub(crate) struct Snapshot {
         pub(crate) runtime_standard_parse_lowers: usize,
         pub(crate) materialized_modules: BTreeSet<String>,
+        pub(crate) materialized_lowered_bytes: usize,
     }
 
     thread_local! {
@@ -48,12 +50,12 @@ pub(crate) mod embedded_standard_counters {
         });
     }
 
-    pub(super) fn record_materialization(path: &str) {
+    pub(super) fn record_materialization(path: &str, lowered_bytes: usize) {
         OBSERVATION.with(|observation| {
-            observation
-                .borrow_mut()
-                .materialized_modules
-                .insert(path.to_string());
+            let mut observation = observation.borrow_mut();
+            if observation.materialized_modules.insert(path.to_string()) {
+                observation.materialized_lowered_bytes += lowered_bytes;
+            }
         });
     }
 }
@@ -174,7 +176,7 @@ struct EmbeddedStandardPackage {
 
 struct EmbeddedStandardModuleEntry {
     path: String,
-    lowered: Vec<u8>,
+    lowered: Cow<'static, [u8]>,
     module: OnceLock<EmbeddedStandardModule>,
 }
 
@@ -186,9 +188,9 @@ struct EmbeddedStandardModule {
 impl EmbeddedStandardModuleEntry {
     fn module(&self) -> &EmbeddedStandardModule {
         #[cfg(test)]
-        embedded_standard_counters::record_materialization(&self.path);
+        embedded_standard_counters::record_materialization(&self.path, self.lowered.len());
         self.module.get_or_init(|| {
-            let module = decode_surface_module(&self.lowered).unwrap_or_else(|message| {
+            let module = decode_surface_module(self.lowered.as_ref()).unwrap_or_else(|message| {
                 panic!(
                     "embedded standard library lowered module `{}` should decode: {message}",
                     self.path
@@ -494,7 +496,7 @@ fn embedded_standard_package() -> &'static EmbeddedStandardPackage {
                         module_name,
                         EmbeddedStandardModuleEntry {
                             path: file.path.to_string(),
-                            lowered: file.module.to_vec(),
+                            lowered: Cow::Borrowed(file.module),
                             module: OnceLock::new(),
                         },
                     )
@@ -2865,8 +2867,8 @@ mod tests {
 
     use super::{
         EmbeddedStandardModuleEntry, EmbeddedStandardPackage, SurfaceParts,
-        load_embedded_standard_package_from, load_project_sources, load_surface_module,
-        reachability_counters, reachable_entry_module,
+        embedded_standard_counters, load_embedded_standard_package_from, load_project_sources,
+        load_surface_module, reachability_counters, reachable_entry_module,
     };
 
     fn lower(text: &str) -> SurfaceModule {
@@ -2969,6 +2971,7 @@ mod tests {
         struct StandardInitializationWork {
             loaded_modules: Vec<String>,
             materialized_modules: usize,
+            materialized_lowered_bytes: usize,
             prepared_declarations: usize,
         }
 
@@ -3007,7 +3010,9 @@ mod tests {
                 modules.insert(
                     module_name,
                     EmbeddedStandardModuleEntry {
-                        lowered: lowered_standard_module_bytes(&path, &text),
+                        lowered: std::borrow::Cow::Owned(lowered_standard_module_bytes(
+                            &path, &text,
+                        )),
                         path,
                         module: std::sync::OnceLock::new(),
                     },
@@ -3025,7 +3030,9 @@ mod tests {
             let mut diagnostics = Vec::new();
             let mut parts = SurfaceParts::new();
             load_project_sources(&project, &mut diagnostics, &mut parts, None);
-            load_embedded_standard_package_from(&standard, &mut diagnostics, &mut parts, true);
+            let ((), standard_work) = embedded_standard_counters::observe(|| {
+                load_embedded_standard_package_from(&standard, &mut diagnostics, &mut parts, true);
+            });
             assert!(diagnostics.is_empty(), "{diagnostics:#?}");
             let loaded_modules = loaded_standard_modules(&parts.module);
             let materialized_modules = standard
@@ -3049,6 +3056,7 @@ mod tests {
             StandardInitializationWork {
                 loaded_modules,
                 materialized_modules,
+                materialized_lowered_bytes: standard_work.materialized_lowered_bytes,
                 prepared_declarations,
             }
         }

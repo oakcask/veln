@@ -76,6 +76,11 @@ Completed implementation scope:
   use the runtime parser and surface lowerer, while selected embedded standard
   modules are decoded from the generated lowered representation during
   closure-driven standard input preparation.
+- Embedded standard-library package initialization keeps generated lowered
+  bytes borrowed from the toolchain bundle. The first application analysis
+  decodes only the selected standard-module closure, so increasing generated
+  lowered data for an unrelated standard module does not add materialized
+  module count, materialized lowered byte count, or semantic declarations.
 
 ## Evidence
 
@@ -84,6 +89,7 @@ private-reference indexing, call-site contributor discovery, repeated
 inference body traversal, private handler retained effects, stable effect
 ordering, unrelated fully annotated module growth, initial standard-package
 parse/lower and semantic-prepare work for the selected closure,
+selected-lowered byte materialization for the selected closure,
 standard-environment selection, fallback when prepared standard facts are not
 current, and repeated and concurrent application analysis.
 The first-analysis embedded standard-library parse/lower counter is scoped to
@@ -158,6 +164,32 @@ For the HTTP/2 core workload, median `surface_parse_lower` time fell from
 HTTP/2 connection workload, median `surface_parse_lower` time fell from
 0.051520114 seconds to 0.013833202 seconds. Median wall time fell from
 0.269037841 seconds to 0.227914509 seconds, a ratio of 0.8471466622.
+
+The borrowed embedded-lowered-bytes comparison used the pre-slice binary from
+the previous repository state and the working-tree binary, one warm-up run,
+and five measured runs. Functional output matched for every workload and
+wall-time noise remained within the accepted boundary. The proposal-level
+one-third HTTP/2 wall-time thresholds still did not pass, and the
+toolchain-case command was unavailable, so the benchmark command exited with
+the expected failing status for the broader proposal threshold.
+
+For the HTTP/2 core workload, median `surface_parse_lower` time fell from
+0.012303326 seconds to 0.010098169 seconds. Median wall time fell from
+0.131958091 seconds to 0.129570625 seconds, a ratio of 0.9819073921. The
+median stage timings for the new binary were 0.000025196 seconds for
+`source_loading`, 0.010098169 seconds for `surface_parse_lower`,
+0.004965034 seconds for `semantic_environment_check`, 0.015450818 seconds for
+`reachable_entry_lowering`, and 0.040518952 seconds for
+`backend_runtime_remainder`.
+
+For the HTTP/2 connection workload, median `surface_parse_lower` time fell
+from 0.013185709 seconds to 0.010825624 seconds. Median wall time fell from
+0.213495777 seconds to 0.205690386 seconds, a ratio of 0.9634400684. The
+median stage timings for the new binary were 0.000024024 seconds for
+`source_loading`, 0.010825624 seconds for `surface_parse_lower`,
+0.005295228 seconds for `semantic_environment_check`, 0.038821383 seconds for
+`reachable_entry_lowering`, and 0.079137424 seconds for
+`backend_runtime_remainder`.
 
 ## Read When
 

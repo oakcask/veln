@@ -39,7 +39,15 @@ proposal scope:
   [../reviews/toolchain-analysis-embedded-lowered-standard.json](../reviews/toolchain-analysis-embedded-lowered-standard.json).
   The structural first-analysis coverage now observes only the target analysis
   thread, so parallel standard-library analysis in unrelated tests cannot
-  contaminate the parse/lower counter.
+  contaminate the parse/lower counter. Embedded package initialization keeps
+  generated lowered bytes borrowed from the toolchain bundle, and structural
+  coverage checks that closure-external generated lowered data does not
+  increase selected module materialization, selected lowered bytes decoded, or
+  selected standard declarations. Its local controlled comparison is recorded
+  in
+  [../reference/implemented-proposals/bounded-toolchain-analysis-slices.md](../reference/implemented-proposals/bounded-toolchain-analysis-slices.md);
+  functional output and wall-time noise passed, but both representative
+  HTTP/2 wall-time ratios stayed above the one-third threshold.
 - The existing toolchain suite remains authoritative for command behavior.
 
 The remaining proposal scope starts after those slices. It is limited to
