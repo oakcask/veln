@@ -420,14 +420,14 @@ fn reachable_core_function_names(module: &SurfaceModule) -> BTreeSet<String> {
         .filter_map(surface_function_core_name)
         .collect::<BTreeSet<_>>();
     names.extend(module.handlers.iter().flat_map(|handler| {
-        handler.operation_clauses.iter().filter_map(|clause| {
-            Some(core_function_name_for_module(
+        handler.operation_clauses.iter().map(|clause| {
+            core_function_name_for_module(
                 handler.module_name.as_deref(),
                 &synthetic_handler_clause_function_name(
                     handler.name.as_deref().unwrap_or("missing"),
                     clause.operation.as_deref().unwrap_or("missing"),
                 ),
-            ))
+            )
         })
     }));
     names
