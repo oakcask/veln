@@ -9,6 +9,8 @@ mod effects;
 mod lowering;
 mod pipeline;
 mod prelude;
+#[cfg(any(test, debug_assertions))]
+pub mod reachable_lowering_counters;
 mod repair_candidates;
 mod schema;
 mod semantic_model;
@@ -21,8 +23,6 @@ mod type_relations;
 mod type_syntax;
 mod types;
 
-#[cfg(any(test, debug_assertions))]
-pub use pipeline::reachable_lowering_counters;
 pub use pipeline::{
     LoweredSurfaceModule, analyze_surface_module, check_project_surface_module,
     check_project_surface_module_with_standard_environment,

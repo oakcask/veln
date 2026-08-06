@@ -30,50 +30,6 @@ pub struct LoweredSurfaceModule {
     pub ir: Option<TypedProgram>,
 }
 
-#[cfg(any(test, debug_assertions))]
-pub mod reachable_lowering_counters {
-    use std::cell::Cell;
-
-    use veln_ast::Function;
-
-    thread_local! {
-        static APPLICATION_BODY_CHECKS: Cell<usize> = const { Cell::new(0) };
-        static APPLICATION_CORE_LOWERS: Cell<usize> = const { Cell::new(0) };
-    }
-
-    pub fn reset() {
-        APPLICATION_BODY_CHECKS.set(0);
-        APPLICATION_CORE_LOWERS.set(0);
-    }
-
-    pub fn application_body_checks() -> usize {
-        APPLICATION_BODY_CHECKS.get()
-    }
-
-    pub fn application_core_lowers() -> usize {
-        APPLICATION_CORE_LOWERS.get()
-    }
-
-    pub(crate) fn record_application_body_check(function: &Function) {
-        if is_application_function(function) {
-            APPLICATION_BODY_CHECKS.set(APPLICATION_BODY_CHECKS.get() + 1);
-        }
-    }
-
-    pub(crate) fn record_application_core_lower(function: &Function) {
-        if is_application_function(function) {
-            APPLICATION_CORE_LOWERS.set(APPLICATION_CORE_LOWERS.get() + 1);
-        }
-    }
-
-    fn is_application_function(function: &Function) -> bool {
-        !function
-            .module_name
-            .as_deref()
-            .is_some_and(|module| module.starts_with("std::"))
-    }
-}
-
 pub fn analyze_surface_module(module: &SurfaceModule) -> Vec<Diagnostic> {
     let environment = TypeEnvironment::from_module(module);
     analyze_surface_module_with_environment(module, &environment, true)
@@ -198,7 +154,7 @@ fn analyze_surface_module_with_environment(
             diagnostics.extend(check_test_declaration_boundary(function));
         }
         #[cfg(any(test, debug_assertions))]
-        reachable_lowering_counters::record_application_body_check(function);
+        crate::reachable_lowering_counters::record_application_body_check(function);
         diagnostics.extend(check_function_body(function, environment));
     }
 

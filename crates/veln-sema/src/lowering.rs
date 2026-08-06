@@ -90,7 +90,7 @@ fn lower_surface_module_to_core_if(
         .filter(|function| include(function))
         .map(|function| {
             #[cfg(any(test, debug_assertions))]
-            crate::pipeline::reachable_lowering_counters::record_application_core_lower(function);
+            crate::reachable_lowering_counters::record_application_core_lower(function);
             let mut lowerer = CoreLowerer::new(function, environment);
             let lowered = lowerer.lower_function();
             blockers.extend(lowerer.blockers);
@@ -101,7 +101,7 @@ fn lower_surface_module_to_core_if(
     for handler in &module.handlers {
         for function in lower_handler_clause_functions(handler, environment) {
             #[cfg(any(test, debug_assertions))]
-            crate::pipeline::reachable_lowering_counters::record_application_core_lower(&function);
+            crate::reachable_lowering_counters::record_application_core_lower(&function);
             let mut lowerer = CoreLowerer::new(&function, environment);
             let lowered = lowerer.lower_function();
             blockers.extend(lowerer.blockers);
