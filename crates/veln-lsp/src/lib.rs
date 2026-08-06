@@ -1396,19 +1396,13 @@ fn handler_operation_clause_parameter_range(
     tokens: &[Token],
     arrow_index: usize,
 ) -> Option<(usize, usize)> {
-    let Some(lparen_index) = tokens[..arrow_index]
+    let lparen_index = tokens[..arrow_index]
         .iter()
-        .rposition(|token| token.kind == TokenKind::LParen)
-    else {
-        return None;
-    };
-    let Some(rparen_index) = tokens[lparen_index + 1..arrow_index]
+        .rposition(|token| token.kind == TokenKind::LParen)?;
+    let rparen_index = tokens[lparen_index + 1..arrow_index]
         .iter()
         .position(|token| token.kind == TokenKind::RParen)
-        .map(|index| lparen_index + 1 + index)
-    else {
-        return None;
-    };
+        .map(|index| lparen_index + 1 + index)?;
     Some((lparen_index, rparen_index))
 }
 
