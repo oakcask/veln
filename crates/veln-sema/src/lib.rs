@@ -31,7 +31,8 @@ pub use pipeline::{
     lower_checked_surface_module, lower_project_reachable_surface_module,
     lower_project_reachable_surface_module_with_standard_environment,
     lower_project_reachable_surface_modules_with_standard_environment,
-    lower_reachable_checked_application_with_standard_environment,
+    lower_reachable_checked_application_with_checked_standard,
+    lower_reusable_standard_surface_module_core,
     prepare_current_reusable_standard_surface_module_environment,
     prepare_reusable_standard_surface_module_environment,
 };

@@ -31,14 +31,14 @@
       "description": "HTTP/2 core direct analysis new wall-time median is at most one third of baseline",
       "id": "http2_core_improvement",
       "max_ratio": 0.3333333333333333,
-      "ratio": 0.9773233733377998,
+      "ratio": 1.1949102942377021,
       "status": "failed"
     },
     {
       "description": "HTTP/2 connection direct analysis new wall-time median is at most one third of baseline",
       "id": "http2_connection_improvement",
       "max_ratio": 0.3333333333333333,
-      "ratio": 1.0359226301133715,
+      "ratio": 1.1748869184179913,
       "status": "failed"
     },
     {
@@ -83,48 +83,48 @@
         "runs": [
           {
             "exit_status": 0,
+            "user_cpu_seconds": 0.01,
+            "wall_time_seconds": 0.045230887
+          },
+          {
+            "exit_status": 0,
             "user_cpu_seconds": 0.02,
-            "wall_time_seconds": 0.04328726
+            "wall_time_seconds": 0.04441382
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.01,
-            "wall_time_seconds": 0.047642018
+            "user_cpu_seconds": 0.02,
+            "wall_time_seconds": 0.04452301
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.01,
-            "wall_time_seconds": 0.045631117
+            "user_cpu_seconds": 0.02,
+            "wall_time_seconds": 0.046228656
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.03,
-            "wall_time_seconds": 0.045060358
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.02,
-            "wall_time_seconds": 0.04667564
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.02,
-            "wall_time_seconds": 0.043352141
+            "wall_time_seconds": 0.04480189
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.01,
-            "wall_time_seconds": 0.043427107
+            "wall_time_seconds": 0.043870169
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.02,
-            "wall_time_seconds": 0.042437304
+            "wall_time_seconds": 0.044037336
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.02,
-            "wall_time_seconds": 0.043529273
+            "wall_time_seconds": 0.044335278
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.02,
+            "wall_time_seconds": 0.045624432
           }
         ],
         "stage_timing": {
@@ -133,107 +133,107 @@
             {
               "run": "baseline-1",
               "stages": {
-                "backend_runtime_remainder": 0.034219299,
-                "reachable_entry_lowering": 0.001544459,
-                "semantic_environment_check": 0.000988658,
-                "source_loading": 0.000048341,
-                "surface_parse_lower": 0.000891479
+                "backend_runtime_remainder": 0.036075063,
+                "reachable_entry_lowering": 0.001568703,
+                "semantic_environment_check": 0.00099171,
+                "source_loading": 0.000052002,
+                "surface_parse_lower": 0.000954831
               }
             },
             {
               "run": "baseline-2",
               "stages": {
-                "backend_runtime_remainder": 0.035427934,
-                "reachable_entry_lowering": 0.001578695,
-                "semantic_environment_check": 0.000988542,
-                "source_loading": 0.000044974,
-                "surface_parse_lower": 0.000935203
+                "backend_runtime_remainder": 0.035467411,
+                "reachable_entry_lowering": 0.001524391,
+                "semantic_environment_check": 0.000958185,
+                "source_loading": 0.000046358,
+                "surface_parse_lower": 0.000908792
               }
             },
             {
               "run": "baseline-3",
               "stages": {
-                "backend_runtime_remainder": 0.036955037,
-                "reachable_entry_lowering": 0.001547149,
-                "semantic_environment_check": 0.000957854,
-                "source_loading": 0.000041289,
-                "surface_parse_lower": 0.000895016
+                "backend_runtime_remainder": 0.035759303,
+                "reachable_entry_lowering": 0.001542804,
+                "semantic_environment_check": 0.000964543,
+                "source_loading": 0.000043652,
+                "surface_parse_lower": 0.000898846
               }
             },
             {
               "run": "baseline-4",
               "stages": {
-                "backend_runtime_remainder": 0.036015525,
-                "reachable_entry_lowering": 0.001605487,
-                "semantic_environment_check": 0.001026092,
-                "source_loading": 0.000043766,
-                "surface_parse_lower": 0.00094756
+                "backend_runtime_remainder": 0.037306505,
+                "reachable_entry_lowering": 0.00159848,
+                "semantic_environment_check": 0.000958643,
+                "source_loading": 0.000065996,
+                "surface_parse_lower": 0.000946566
               }
             },
             {
               "run": "baseline-5",
               "stages": {
-                "backend_runtime_remainder": 0.037536815,
-                "reachable_entry_lowering": 0.001561678,
-                "semantic_environment_check": 0.001057362,
-                "source_loading": 0.000069838,
-                "surface_parse_lower": 0.000983851
+                "backend_runtime_remainder": 0.035933499,
+                "reachable_entry_lowering": 0.00155684,
+                "semantic_environment_check": 0.000990325,
+                "source_loading": 0.000044462,
+                "surface_parse_lower": 0.000900858
               }
             },
             {
               "run": "baseline-6",
               "stages": {
-                "backend_runtime_remainder": 0.034585982,
-                "reachable_entry_lowering": 0.001530142,
-                "semantic_environment_check": 0.000997109,
-                "source_loading": 0.000047791,
-                "surface_parse_lower": 0.00090407
+                "backend_runtime_remainder": 0.035114248,
+                "reachable_entry_lowering": 0.001552463,
+                "semantic_environment_check": 0.000954489,
+                "source_loading": 0.000044995,
+                "surface_parse_lower": 0.000896684
               }
             },
             {
               "run": "baseline-7",
               "stages": {
-                "backend_runtime_remainder": 0.034632015,
-                "reachable_entry_lowering": 0.00168511,
-                "semantic_environment_check": 0.000934588,
-                "source_loading": 0.000038853,
-                "surface_parse_lower": 0.00099262
+                "backend_runtime_remainder": 0.034988977,
+                "reachable_entry_lowering": 0.001550078,
+                "semantic_environment_check": 0.000950773,
+                "source_loading": 0.000042684,
+                "surface_parse_lower": 0.000866556
               }
             },
             {
               "run": "baseline-8",
               "stages": {
-                "backend_runtime_remainder": 0.033889192,
-                "reachable_entry_lowering": 0.001541537,
-                "semantic_environment_check": 0.001001906,
-                "source_loading": 0.000047325,
-                "surface_parse_lower": 0.000871856
+                "backend_runtime_remainder": 0.035379763,
+                "reachable_entry_lowering": 0.001576893,
+                "semantic_environment_check": 0.001056715,
+                "source_loading": 0.000042045,
+                "surface_parse_lower": 0.000923744
               }
             },
             {
               "run": "baseline-9",
               "stages": {
-                "backend_runtime_remainder": 0.034970097,
-                "reachable_entry_lowering": 0.001556077,
-                "semantic_environment_check": 0.000928129,
-                "source_loading": 0.00004562,
-                "surface_parse_lower": 0.000891097
+                "backend_runtime_remainder": 0.036705997,
+                "reachable_entry_lowering": 0.001584817,
+                "semantic_environment_check": 0.000995426,
+                "source_loading": 0.000043184,
+                "surface_parse_lower": 0.000906481
               }
             }
           ],
           "stage_medians_seconds": {
-            "backend_runtime_remainder": 0.034970097,
-            "reachable_entry_lowering": 0.001556077,
-            "semantic_environment_check": 0.000988658,
-            "source_loading": 0.00004562,
-            "surface_parse_lower": 0.00090407
+            "backend_runtime_remainder": 0.035759303,
+            "reachable_entry_lowering": 0.00155684,
+            "semantic_environment_check": 0.000964543,
+            "source_loading": 0.000044462,
+            "surface_parse_lower": 0.000906481
           },
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.0010919689999999982,
+          "median_absolute_deviation_wall_time_seconds": 0.00048567399999999844,
           "median_user_cpu_seconds": 0.02,
-          "median_wall_time_seconds": 0.043529273,
+          "median_wall_time_seconds": 0.04452301,
           "wall_time_noisy": false
         }
       },
@@ -282,47 +282,47 @@
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.02,
-            "wall_time_seconds": 0.043506897
+            "wall_time_seconds": 0.048770368
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.02,
-            "wall_time_seconds": 0.043741889
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.02,
-            "wall_time_seconds": 0.045499988
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.02,
-            "wall_time_seconds": 0.044983997
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.02,
-            "wall_time_seconds": 0.042612317
+            "wall_time_seconds": 0.047801779
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.03,
-            "wall_time_seconds": 0.043070016
+            "wall_time_seconds": 0.048197901
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.01,
+            "wall_time_seconds": 0.048484374
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.03,
+            "wall_time_seconds": 0.047643781
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.01,
+            "wall_time_seconds": 0.047534592
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.02,
-            "wall_time_seconds": 0.043769305
+            "wall_time_seconds": 0.047652216
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.03,
+            "wall_time_seconds": 0.046987928
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.02,
-            "wall_time_seconds": 0.045523332
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.02,
-            "wall_time_seconds": 0.042326271
+            "wall_time_seconds": 0.047795059
           }
         ],
         "stage_timing": {
@@ -331,107 +331,107 @@
             {
               "run": "new-1",
               "stages": {
-                "backend_runtime_remainder": 0.035196597,
-                "reachable_entry_lowering": 0.000811474,
-                "semantic_environment_check": 0.000965605,
-                "source_loading": 0.00004382,
-                "surface_parse_lower": 0.000991433
+                "backend_runtime_remainder": 0.036666297,
+                "reachable_entry_lowering": 0.000276474,
+                "semantic_environment_check": 0.000950251,
+                "source_loading": 0.000044962,
+                "surface_parse_lower": 0.00094334
               }
             },
             {
               "run": "new-2",
               "stages": {
-                "backend_runtime_remainder": 0.035673294,
-                "reachable_entry_lowering": 0.000778806,
-                "semantic_environment_check": 0.000954856,
-                "source_loading": 0.000041225,
-                "surface_parse_lower": 0.000899198
+                "backend_runtime_remainder": 0.035661935,
+                "reachable_entry_lowering": 0.000282896,
+                "semantic_environment_check": 0.000970858,
+                "source_loading": 0.000042886,
+                "surface_parse_lower": 0.000922988
               }
             },
             {
               "run": "new-3",
               "stages": {
-                "backend_runtime_remainder": 0.03727841,
-                "reachable_entry_lowering": 0.000791853,
-                "semantic_environment_check": 0.001000974,
-                "source_loading": 0.000040399,
-                "surface_parse_lower": 0.000955248
+                "backend_runtime_remainder": 0.03604633,
+                "reachable_entry_lowering": 0.000277368,
+                "semantic_environment_check": 0.000938227,
+                "source_loading": 0.000041107,
+                "surface_parse_lower": 0.000985906
               }
             },
             {
               "run": "new-4",
               "stages": {
-                "backend_runtime_remainder": 0.03661089,
-                "reachable_entry_lowering": 0.000814831,
-                "semantic_environment_check": 0.000988775,
-                "source_loading": 0.000046054,
-                "surface_parse_lower": 0.000911482
+                "backend_runtime_remainder": 0.036350025,
+                "reachable_entry_lowering": 0.000272502,
+                "semantic_environment_check": 0.000930879,
+                "source_loading": 0.000041778,
+                "surface_parse_lower": 0.001002615
               }
             },
             {
               "run": "new-5",
               "stages": {
-                "backend_runtime_remainder": 0.034596073,
-                "reachable_entry_lowering": 0.00077907,
-                "semantic_environment_check": 0.000955228,
-                "source_loading": 0.00004455,
-                "surface_parse_lower": 0.000921118
+                "backend_runtime_remainder": 0.035407995,
+                "reachable_entry_lowering": 0.000273641,
+                "semantic_environment_check": 0.000949421,
+                "source_loading": 0.000045495,
+                "surface_parse_lower": 0.000946012
               }
             },
             {
               "run": "new-6",
               "stages": {
-                "backend_runtime_remainder": 0.034948535,
-                "reachable_entry_lowering": 0.000776858,
-                "semantic_environment_check": 0.000953257,
-                "source_loading": 0.000040801,
-                "surface_parse_lower": 0.000918682
+                "backend_runtime_remainder": 0.035489006,
+                "reachable_entry_lowering": 0.000274429,
+                "semantic_environment_check": 0.000943211,
+                "source_loading": 0.000042237,
+                "surface_parse_lower": 0.000898047
               }
             },
             {
               "run": "new-7",
               "stages": {
-                "backend_runtime_remainder": 0.035648376,
-                "reachable_entry_lowering": 0.000820253,
-                "semantic_environment_check": 0.000940349,
-                "source_loading": 0.000039086,
-                "surface_parse_lower": 0.000986286
+                "backend_runtime_remainder": 0.035739804,
+                "reachable_entry_lowering": 0.000274674,
+                "semantic_environment_check": 0.000947994,
+                "source_loading": 0.00004739,
+                "surface_parse_lower": 0.000930549
               }
             },
             {
               "run": "new-8",
               "stages": {
-                "backend_runtime_remainder": 0.035597991,
-                "reachable_entry_lowering": 0.000787818,
-                "semantic_environment_check": 0.000934524,
-                "source_loading": 0.000052789,
-                "surface_parse_lower": 0.000921976
+                "backend_runtime_remainder": 0.035067295,
+                "reachable_entry_lowering": 0.000281554,
+                "semantic_environment_check": 0.000970613,
+                "source_loading": 0.000044398,
+                "surface_parse_lower": 0.000912371
               }
             },
             {
               "run": "new-9",
               "stages": {
-                "backend_runtime_remainder": 0.03441258,
-                "reachable_entry_lowering": 0.000806889,
-                "semantic_environment_check": 0.000943897,
-                "source_loading": 0.000040251,
-                "surface_parse_lower": 0.000930988
+                "backend_runtime_remainder": 0.035299838,
+                "reachable_entry_lowering": 0.000284855,
+                "semantic_environment_check": 0.000984585,
+                "source_loading": 0.000048658,
+                "surface_parse_lower": 0.000945257
               }
             }
           ],
           "stage_medians_seconds": {
-            "backend_runtime_remainder": 0.035597991,
-            "reachable_entry_lowering": 0.000791853,
-            "semantic_environment_check": 0.000954856,
-            "source_loading": 0.000041225,
-            "surface_parse_lower": 0.000921976
+            "backend_runtime_remainder": 0.035661935,
+            "reachable_entry_lowering": 0.000276474,
+            "semantic_environment_check": 0.000949421,
+            "source_loading": 0.000044398,
+            "surface_parse_lower": 0.00094334
           },
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.0011295720000000023,
+          "median_absolute_deviation_wall_time_seconds": 0.00026046700000000034,
           "median_user_cpu_seconds": 0.02,
-          "median_wall_time_seconds": 0.043741889,
+          "median_wall_time_seconds": 0.047795059,
           "wall_time_noisy": false
         }
       }
@@ -443,48 +443,48 @@
         "runs": [
           {
             "exit_status": 1,
+            "user_cpu_seconds": 0.08,
+            "wall_time_seconds": 0.122747354
+          },
+          {
+            "exit_status": 1,
             "user_cpu_seconds": 0.07,
-            "wall_time_seconds": 0.121232501
+            "wall_time_seconds": 0.12267168
           },
           {
             "exit_status": 1,
             "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.123140447
+            "wall_time_seconds": 0.122998705
           },
           {
             "exit_status": 1,
-            "user_cpu_seconds": 0.06,
-            "wall_time_seconds": 0.122057138
+            "user_cpu_seconds": 0.08,
+            "wall_time_seconds": 0.122851901
           },
           {
             "exit_status": 1,
-            "user_cpu_seconds": 0.1,
-            "wall_time_seconds": 0.122604149
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.07,
-            "wall_time_seconds": 0.120994788
+            "user_cpu_seconds": 0.08,
+            "wall_time_seconds": 0.121155488
           },
           {
             "exit_status": 1,
             "user_cpu_seconds": 0.09,
-            "wall_time_seconds": 0.122655425
+            "wall_time_seconds": 0.122192395
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.07,
+            "wall_time_seconds": 0.124214495
           },
           {
             "exit_status": 1,
             "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.123795484
+            "wall_time_seconds": 0.128493686
           },
           {
             "exit_status": 1,
-            "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.121333232
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.12587461
+            "user_cpu_seconds": 0.09,
+            "wall_time_seconds": 0.124677974
           }
         ],
         "stage_timing": {
@@ -493,107 +493,107 @@
             {
               "run": "baseline-1",
               "stages": {
-                "backend_runtime_remainder": 0.041467303,
-                "reachable_entry_lowering": 0.007641881,
-                "semantic_environment_check": 0.005194602,
-                "source_loading": 0.000029068,
-                "surface_parse_lower": 0.010373276
+                "backend_runtime_remainder": 0.041896014,
+                "reachable_entry_lowering": 0.007673456,
+                "semantic_environment_check": 0.005247355,
+                "source_loading": 0.000027454,
+                "surface_parse_lower": 0.010590955
               }
             },
             {
               "run": "baseline-2",
               "stages": {
-                "backend_runtime_remainder": 0.043391461,
-                "reachable_entry_lowering": 0.007550801,
-                "semantic_environment_check": 0.005305559,
-                "source_loading": 0.000029863,
-                "surface_parse_lower": 0.010335199
+                "backend_runtime_remainder": 0.042439059,
+                "reachable_entry_lowering": 0.007596853,
+                "semantic_environment_check": 0.005309771,
+                "source_loading": 0.000026986,
+                "surface_parse_lower": 0.01066179
               }
             },
             {
               "run": "baseline-3",
               "stages": {
-                "backend_runtime_remainder": 0.042348838,
-                "reachable_entry_lowering": 0.007476283,
-                "semantic_environment_check": 0.00529821,
-                "source_loading": 0.000066131,
-                "surface_parse_lower": 0.010211321
+                "backend_runtime_remainder": 0.042671676,
+                "reachable_entry_lowering": 0.007631325,
+                "semantic_environment_check": 0.005283925,
+                "source_loading": 0.000023472,
+                "surface_parse_lower": 0.010271144
               }
             },
             {
               "run": "baseline-4",
               "stages": {
-                "backend_runtime_remainder": 0.042749134,
-                "reachable_entry_lowering": 0.007682714,
-                "semantic_environment_check": 0.005254252,
-                "source_loading": 0.000026103,
-                "surface_parse_lower": 0.010182857
+                "backend_runtime_remainder": 0.042082958,
+                "reachable_entry_lowering": 0.007776895,
+                "semantic_environment_check": 0.005320868,
+                "source_loading": 0.000031586,
+                "surface_parse_lower": 0.010332803
               }
             },
             {
               "run": "baseline-5",
               "stages": {
-                "backend_runtime_remainder": 0.04143544,
-                "reachable_entry_lowering": 0.007579594,
-                "semantic_environment_check": 0.00524757,
-                "source_loading": 0.000022588,
-                "surface_parse_lower": 0.010387659
+                "backend_runtime_remainder": 0.042046855,
+                "reachable_entry_lowering": 0.007648418,
+                "semantic_environment_check": 0.005343574,
+                "source_loading": 0.000021161,
+                "surface_parse_lower": 0.01026241
               }
             },
             {
               "run": "baseline-6",
               "stages": {
-                "backend_runtime_remainder": 0.042318625,
-                "reachable_entry_lowering": 0.007610817,
-                "semantic_environment_check": 0.005232307,
-                "source_loading": 0.000023752,
-                "surface_parse_lower": 0.010476387
+                "backend_runtime_remainder": 0.042299154,
+                "reachable_entry_lowering": 0.007564159,
+                "semantic_environment_check": 0.005245182,
+                "source_loading": 0.00002772,
+                "surface_parse_lower": 0.010634889
               }
             },
             {
               "run": "baseline-7",
               "stages": {
-                "backend_runtime_remainder": 0.042348279,
-                "reachable_entry_lowering": 0.00772497,
-                "semantic_environment_check": 0.005372919,
-                "source_loading": 0.000023595,
-                "surface_parse_lower": 0.01039517
+                "backend_runtime_remainder": 0.042620793,
+                "reachable_entry_lowering": 0.007744446,
+                "semantic_environment_check": 0.005279196,
+                "source_loading": 0.000026251,
+                "surface_parse_lower": 0.010376979
               }
             },
             {
               "run": "baseline-8",
               "stages": {
-                "backend_runtime_remainder": 0.042204495,
-                "reachable_entry_lowering": 0.007842136,
-                "semantic_environment_check": 0.005234229,
-                "source_loading": 0.000027883,
-                "surface_parse_lower": 0.010438368
+                "backend_runtime_remainder": 0.042287056,
+                "reachable_entry_lowering": 0.007835883,
+                "semantic_environment_check": 0.00540891,
+                "source_loading": 0.000025559,
+                "surface_parse_lower": 0.010546764
               }
             },
             {
               "run": "baseline-9",
               "stages": {
-                "backend_runtime_remainder": 0.047008723,
-                "reachable_entry_lowering": 0.007611783,
-                "semantic_environment_check": 0.005372251,
-                "source_loading": 0.000023265,
-                "surface_parse_lower": 0.010373124
+                "backend_runtime_remainder": 0.042144757,
+                "reachable_entry_lowering": 0.007843125,
+                "semantic_environment_check": 0.005346151,
+                "source_loading": 0.00002607,
+                "surface_parse_lower": 0.010550224
               }
             }
           ],
           "stage_medians_seconds": {
-            "backend_runtime_remainder": 0.042348279,
-            "reachable_entry_lowering": 0.007611783,
-            "semantic_environment_check": 0.005254252,
-            "source_loading": 0.000026103,
-            "surface_parse_lower": 0.010373276
+            "backend_runtime_remainder": 0.042287056,
+            "reachable_entry_lowering": 0.007673456,
+            "semantic_environment_check": 0.005309771,
+            "source_loading": 0.000026251,
+            "surface_parse_lower": 0.010546764
           },
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.0011913350000000017,
+          "median_absolute_deviation_wall_time_seconds": 0.0006595060000000041,
           "median_user_cpu_seconds": 0.08,
-          "median_wall_time_seconds": 0.122604149,
+          "median_wall_time_seconds": 0.122851901,
           "wall_time_noisy": false
         }
       },
@@ -636,47 +636,47 @@
           {
             "exit_status": 1,
             "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.116653108
+            "wall_time_seconds": 0.147641014
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.11,
+            "wall_time_seconds": 0.144337516
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.1,
+            "wall_time_seconds": 0.146622467
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.1,
+            "wall_time_seconds": 0.147976551
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.09,
+            "wall_time_seconds": 0.150188627
           },
           {
             "exit_status": 1,
             "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.117335442
+            "wall_time_seconds": 0.147357586
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.1,
+            "wall_time_seconds": 0.147576606
           },
           {
             "exit_status": 1,
             "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.118902077
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.07,
-            "wall_time_seconds": 0.118189827
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.07,
-            "wall_time_seconds": 0.118689842
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.07,
-            "wall_time_seconds": 0.122163543
+            "wall_time_seconds": 0.145056777
           },
           {
             "exit_status": 1,
             "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.121259487
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.07,
-            "wall_time_seconds": 0.120033585
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.07,
-            "wall_time_seconds": 0.12095925
+            "wall_time_seconds": 0.149389409
           }
         ],
         "stage_timing": {
@@ -685,107 +685,107 @@
             {
               "run": "new-1",
               "stages": {
-                "backend_runtime_remainder": 0.041185169,
-                "reachable_entry_lowering": 0.00449598,
-                "semantic_environment_check": 0.005148951,
-                "source_loading": 0.00002263,
-                "surface_parse_lower": 0.010533159
+                "backend_runtime_remainder": 0.042010476,
+                "reachable_entry_lowering": 0.002124366,
+                "semantic_environment_check": 0.006791267,
+                "source_loading": 0.000021789,
+                "surface_parse_lower": 0.010511599
               }
             },
             {
               "run": "new-2",
               "stages": {
-                "backend_runtime_remainder": 0.042097316,
-                "reachable_entry_lowering": 0.004592842,
-                "semantic_environment_check": 0.005212297,
-                "source_loading": 0.000025161,
-                "surface_parse_lower": 0.010490641
+                "backend_runtime_remainder": 0.042421113,
+                "reachable_entry_lowering": 0.002099522,
+                "semantic_environment_check": 0.006553259,
+                "source_loading": 0.00002525,
+                "surface_parse_lower": 0.010541991
               }
             },
             {
               "run": "new-3",
               "stages": {
-                "backend_runtime_remainder": 0.041490908,
-                "reachable_entry_lowering": 0.004676182,
-                "semantic_environment_check": 0.005159413,
-                "source_loading": 0.00002551,
-                "surface_parse_lower": 0.010538855
+                "backend_runtime_remainder": 0.041856526,
+                "reachable_entry_lowering": 0.002141278,
+                "semantic_environment_check": 0.006588636,
+                "source_loading": 0.000030628,
+                "surface_parse_lower": 0.010716028
               }
             },
             {
               "run": "new-4",
               "stages": {
-                "backend_runtime_remainder": 0.041703397,
-                "reachable_entry_lowering": 0.004541091,
-                "semantic_environment_check": 0.005330043,
-                "source_loading": 0.000025669,
-                "surface_parse_lower": 0.01044517
+                "backend_runtime_remainder": 0.042220306,
+                "reachable_entry_lowering": 0.002165697,
+                "semantic_environment_check": 0.006719999,
+                "source_loading": 0.000025911,
+                "surface_parse_lower": 0.010553687
               }
             },
             {
               "run": "new-5",
               "stages": {
-                "backend_runtime_remainder": 0.041580665,
-                "reachable_entry_lowering": 0.004675949,
-                "semantic_environment_check": 0.005217454,
-                "source_loading": 0.000028761,
-                "surface_parse_lower": 0.010340322
+                "backend_runtime_remainder": 0.041813395,
+                "reachable_entry_lowering": 0.002208243,
+                "semantic_environment_check": 0.007033215,
+                "source_loading": 0.000029574,
+                "surface_parse_lower": 0.010559139
               }
             },
             {
               "run": "new-6",
               "stages": {
-                "backend_runtime_remainder": 0.041590005,
-                "reachable_entry_lowering": 0.004926148,
-                "semantic_environment_check": 0.005337613,
-                "source_loading": 0.000023128,
-                "surface_parse_lower": 0.010698906
+                "backend_runtime_remainder": 0.042482934,
+                "reachable_entry_lowering": 0.002137455,
+                "semantic_environment_check": 0.006751555,
+                "source_loading": 0.000023567,
+                "surface_parse_lower": 0.010607019
               }
             },
             {
               "run": "new-7",
               "stages": {
-                "backend_runtime_remainder": 0.043242805,
-                "reachable_entry_lowering": 0.004673786,
-                "semantic_environment_check": 0.005267885,
-                "source_loading": 0.000025685,
-                "surface_parse_lower": 0.010605418
+                "backend_runtime_remainder": 0.041746718,
+                "reachable_entry_lowering": 0.002114409,
+                "semantic_environment_check": 0.006878465,
+                "source_loading": 0.000026592,
+                "surface_parse_lower": 0.010565869
               }
             },
             {
               "run": "new-8",
               "stages": {
-                "backend_runtime_remainder": 0.042068499,
-                "reachable_entry_lowering": 0.004682893,
-                "semantic_environment_check": 0.005200149,
-                "source_loading": 0.000023382,
-                "surface_parse_lower": 0.010962977
+                "backend_runtime_remainder": 0.042666544,
+                "reachable_entry_lowering": 0.002147955,
+                "semantic_environment_check": 0.006694025,
+                "source_loading": 0.000021352,
+                "surface_parse_lower": 0.010370865
               }
             },
             {
               "run": "new-9",
               "stages": {
-                "backend_runtime_remainder": 0.042098864,
-                "reachable_entry_lowering": 0.004660784,
-                "semantic_environment_check": 0.005320668,
-                "source_loading": 0.000029283,
-                "surface_parse_lower": 0.010453098
+                "backend_runtime_remainder": 0.042180008,
+                "reachable_entry_lowering": 0.002227039,
+                "semantic_environment_check": 0.006744589,
+                "source_loading": 0.000024504,
+                "surface_parse_lower": 0.010569661
               }
             }
           ],
           "stage_medians_seconds": {
-            "backend_runtime_remainder": 0.041703397,
-            "reachable_entry_lowering": 0.004673786,
-            "semantic_environment_check": 0.005217454,
-            "source_loading": 0.00002551,
-            "surface_parse_lower": 0.010533159
+            "backend_runtime_remainder": 0.042180008,
+            "reachable_entry_lowering": 0.002141278,
+            "semantic_environment_check": 0.006744589,
+            "source_loading": 0.00002525,
+            "surface_parse_lower": 0.010559139
           },
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.0015666349999999968,
-          "median_user_cpu_seconds": 0.07,
-          "median_wall_time_seconds": 0.118902077,
+          "median_absolute_deviation_wall_time_seconds": 0.0009541389999999927,
+          "median_user_cpu_seconds": 0.09,
+          "median_wall_time_seconds": 0.147576606,
           "wall_time_noisy": false
         }
       }
@@ -797,48 +797,48 @@
         "runs": [
           {
             "exit_status": 1,
-            "user_cpu_seconds": 0.09,
-            "wall_time_seconds": 0.125107577
+            "user_cpu_seconds": 0.08,
+            "wall_time_seconds": 0.12227149
           },
           {
             "exit_status": 1,
             "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.124258958
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.07,
-            "wall_time_seconds": 0.123008106
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.09,
-            "wall_time_seconds": 0.128965317
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.09,
-            "wall_time_seconds": 0.123485782
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.07,
-            "wall_time_seconds": 0.124927642
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.1,
-            "wall_time_seconds": 0.1243743
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.05,
-            "wall_time_seconds": 0.123328453
+            "wall_time_seconds": 0.124526347
           },
           {
             "exit_status": 1,
             "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.123054795
+            "wall_time_seconds": 0.12474973
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.08,
+            "wall_time_seconds": 0.127503477
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.08,
+            "wall_time_seconds": 0.126223759
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.08,
+            "wall_time_seconds": 0.125346853
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.08,
+            "wall_time_seconds": 0.123868819
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.07,
+            "wall_time_seconds": 0.128519479
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.09,
+            "wall_time_seconds": 0.126081534
           }
         ],
         "stage_timing": {
@@ -847,107 +847,107 @@
             {
               "run": "baseline-1",
               "stages": {
-                "backend_runtime_remainder": 0.043203852,
-                "reachable_entry_lowering": 0.008136765,
-                "semantic_environment_check": 0.005505572,
-                "source_loading": 0.000026864,
-                "surface_parse_lower": 0.010706982
+                "backend_runtime_remainder": 0.04338653,
+                "reachable_entry_lowering": 0.007877267,
+                "semantic_environment_check": 0.005277695,
+                "source_loading": 0.000026155,
+                "surface_parse_lower": 0.010419096
               }
             },
             {
               "run": "baseline-2",
               "stages": {
-                "backend_runtime_remainder": 0.042163229,
-                "reachable_entry_lowering": 0.008051653,
-                "semantic_environment_check": 0.005507121,
-                "source_loading": 0.000028817,
-                "surface_parse_lower": 0.010410538
+                "backend_runtime_remainder": 0.043705304,
+                "reachable_entry_lowering": 0.00798913,
+                "semantic_environment_check": 0.005302104,
+                "source_loading": 0.000032598,
+                "surface_parse_lower": 0.01080458
               }
             },
             {
               "run": "baseline-3",
               "stages": {
-                "backend_runtime_remainder": 0.042902236,
-                "reachable_entry_lowering": 0.007901053,
-                "semantic_environment_check": 0.005338977,
-                "source_loading": 0.000024549,
-                "surface_parse_lower": 0.01032673
+                "backend_runtime_remainder": 0.043165732,
+                "reachable_entry_lowering": 0.008007501,
+                "semantic_environment_check": 0.005284437,
+                "source_loading": 0.00002345,
+                "surface_parse_lower": 0.01058654
               }
             },
             {
               "run": "baseline-4",
               "stages": {
-                "backend_runtime_remainder": 0.044081201,
-                "reachable_entry_lowering": 0.008272081,
-                "semantic_environment_check": 0.005444637,
-                "source_loading": 0.000022639,
-                "surface_parse_lower": 0.01068913
+                "backend_runtime_remainder": 0.045444624,
+                "reachable_entry_lowering": 0.007880078,
+                "semantic_environment_check": 0.005345799,
+                "source_loading": 0.000028371,
+                "surface_parse_lower": 0.01066196
               }
             },
             {
               "run": "baseline-5",
               "stages": {
-                "backend_runtime_remainder": 0.043012865,
-                "reachable_entry_lowering": 0.00795807,
-                "semantic_environment_check": 0.005325923,
-                "source_loading": 0.000024263,
-                "surface_parse_lower": 0.010523267
+                "backend_runtime_remainder": 0.043147073,
+                "reachable_entry_lowering": 0.008139012,
+                "semantic_environment_check": 0.005386502,
+                "source_loading": 0.000026166,
+                "surface_parse_lower": 0.010403761
               }
             },
             {
               "run": "baseline-6",
               "stages": {
-                "backend_runtime_remainder": 0.043316602,
-                "reachable_entry_lowering": 0.007919149,
-                "semantic_environment_check": 0.005314077,
-                "source_loading": 0.000025887,
-                "surface_parse_lower": 0.010316796
+                "backend_runtime_remainder": 0.043168639,
+                "reachable_entry_lowering": 0.008067532,
+                "semantic_environment_check": 0.005315426,
+                "source_loading": 0.000027796,
+                "surface_parse_lower": 0.010599384
               }
             },
             {
               "run": "baseline-7",
               "stages": {
-                "backend_runtime_remainder": 0.043391005,
-                "reachable_entry_lowering": 0.008001747,
-                "semantic_environment_check": 0.005360788,
-                "source_loading": 0.000023085,
-                "surface_parse_lower": 0.010424039
+                "backend_runtime_remainder": 0.042772666,
+                "reachable_entry_lowering": 0.008164369,
+                "semantic_environment_check": 0.005292562,
+                "source_loading": 0.000025452,
+                "surface_parse_lower": 0.01043358
               }
             },
             {
               "run": "baseline-8",
               "stages": {
-                "backend_runtime_remainder": 0.043061297,
-                "reachable_entry_lowering": 0.007875176,
-                "semantic_environment_check": 0.005311275,
-                "source_loading": 0.000032871,
-                "surface_parse_lower": 0.010241968
+                "backend_runtime_remainder": 0.043222293,
+                "reachable_entry_lowering": 0.008192718,
+                "semantic_environment_check": 0.005390048,
+                "source_loading": 0.000030393,
+                "surface_parse_lower": 0.010550152
               }
             },
             {
               "run": "baseline-9",
               "stages": {
-                "backend_runtime_remainder": 0.042248254,
-                "reachable_entry_lowering": 0.008050878,
-                "semantic_environment_check": 0.005375563,
-                "source_loading": 0.000023882,
-                "surface_parse_lower": 0.01062827
+                "backend_runtime_remainder": 0.043069565,
+                "reachable_entry_lowering": 0.008043305,
+                "semantic_environment_check": 0.005279633,
+                "source_loading": 0.000024473,
+                "surface_parse_lower": 0.010753196
               }
             }
           ],
           "stage_medians_seconds": {
-            "backend_runtime_remainder": 0.043061297,
-            "reachable_entry_lowering": 0.008001747,
-            "semantic_environment_check": 0.005360788,
-            "source_loading": 0.000024549,
-            "surface_parse_lower": 0.010424039
+            "backend_runtime_remainder": 0.043168639,
+            "reachable_entry_lowering": 0.008043305,
+            "semantic_environment_check": 0.005302104,
+            "source_loading": 0.000026166,
+            "surface_parse_lower": 0.01058654
           },
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.0008486189999999949,
+          "median_absolute_deviation_wall_time_seconds": 0.0008769059999999829,
           "median_user_cpu_seconds": 0.08,
-          "median_wall_time_seconds": 0.124258958,
+          "median_wall_time_seconds": 0.125346853,
           "wall_time_noisy": false
         }
       },
@@ -991,48 +991,48 @@
         "runs": [
           {
             "exit_status": 1,
-            "user_cpu_seconds": 0.07,
-            "wall_time_seconds": 0.121900265
+            "user_cpu_seconds": 0.09,
+            "wall_time_seconds": 0.14940698
           },
           {
             "exit_status": 1,
             "user_cpu_seconds": 0.09,
-            "wall_time_seconds": 0.129252317
+            "wall_time_seconds": 0.149024553
           },
           {
             "exit_status": 1,
-            "user_cpu_seconds": 0.07,
-            "wall_time_seconds": 0.120160952
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.120955294
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.121441184
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.06,
-            "wall_time_seconds": 0.123415995
+            "user_cpu_seconds": 0.11,
+            "wall_time_seconds": 0.149778245
           },
           {
             "exit_status": 1,
             "user_cpu_seconds": 0.09,
-            "wall_time_seconds": 0.122010766
+            "wall_time_seconds": 0.152100716
           },
           {
             "exit_status": 1,
-            "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.117922195
+            "user_cpu_seconds": 0.1,
+            "wall_time_seconds": 0.149606969
           },
           {
             "exit_status": 1,
-            "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.118693133
+            "user_cpu_seconds": 0.09,
+            "wall_time_seconds": 0.15724758
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.09,
+            "wall_time_seconds": 0.152035603
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.1,
+            "wall_time_seconds": 0.148563002
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.1,
+            "wall_time_seconds": 0.150571766
           }
         ],
         "stage_timing": {
@@ -1041,107 +1041,107 @@
             {
               "run": "new-1",
               "stages": {
-                "backend_runtime_remainder": 0.042256596,
-                "reachable_entry_lowering": 0.005004683,
-                "semantic_environment_check": 0.005344305,
-                "source_loading": 0.000025781,
-                "surface_parse_lower": 0.010568026
+                "backend_runtime_remainder": 0.04219415,
+                "reachable_entry_lowering": 0.002414461,
+                "semantic_environment_check": 0.006832448,
+                "source_loading": 0.000029179,
+                "surface_parse_lower": 0.010453389
               }
             },
             {
               "run": "new-2",
               "stages": {
-                "backend_runtime_remainder": 0.041861465,
-                "reachable_entry_lowering": 0.004871076,
-                "semantic_environment_check": 0.005326474,
-                "source_loading": 0.000023775,
-                "surface_parse_lower": 0.010610779
+                "backend_runtime_remainder": 0.042574351,
+                "reachable_entry_lowering": 0.002315622,
+                "semantic_environment_check": 0.006902948,
+                "source_loading": 0.000026283,
+                "surface_parse_lower": 0.01028289
               }
             },
             {
               "run": "new-3",
               "stages": {
-                "backend_runtime_remainder": 0.042349478,
-                "reachable_entry_lowering": 0.004981099,
-                "semantic_environment_check": 0.005286406,
-                "source_loading": 0.000026354,
-                "surface_parse_lower": 0.010489972
+                "backend_runtime_remainder": 0.043539659,
+                "reachable_entry_lowering": 0.002362863,
+                "semantic_environment_check": 0.006897113,
+                "source_loading": 0.000024462,
+                "surface_parse_lower": 0.010441291
               }
             },
             {
               "run": "new-4",
               "stages": {
-                "backend_runtime_remainder": 0.043841201,
-                "reachable_entry_lowering": 0.004979857,
-                "semantic_environment_check": 0.005395931,
-                "source_loading": 0.000027076,
-                "surface_parse_lower": 0.010282959
+                "backend_runtime_remainder": 0.042720441,
+                "reachable_entry_lowering": 0.002491532,
+                "semantic_environment_check": 0.006890212,
+                "source_loading": 0.000023866,
+                "surface_parse_lower": 0.01073162
               }
             },
             {
               "run": "new-5",
               "stages": {
-                "backend_runtime_remainder": 0.041805923,
-                "reachable_entry_lowering": 0.005009852,
-                "semantic_environment_check": 0.005386876,
-                "source_loading": 0.000029411,
-                "surface_parse_lower": 0.011067746
+                "backend_runtime_remainder": 0.042778333,
+                "reachable_entry_lowering": 0.002295751,
+                "semantic_environment_check": 0.00687231,
+                "source_loading": 0.00002606,
+                "surface_parse_lower": 0.010524858
               }
             },
             {
               "run": "new-6",
               "stages": {
-                "backend_runtime_remainder": 0.042386394,
-                "reachable_entry_lowering": 0.005066817,
-                "semantic_environment_check": 0.005357827,
-                "source_loading": 0.000020071,
-                "surface_parse_lower": 0.010565966
+                "backend_runtime_remainder": 0.043842736,
+                "reachable_entry_lowering": 0.002499381,
+                "semantic_environment_check": 0.006975344,
+                "source_loading": 0.000023812,
+                "surface_parse_lower": 0.010559607
               }
             },
             {
               "run": "new-7",
               "stages": {
-                "backend_runtime_remainder": 0.041928226,
-                "reachable_entry_lowering": 0.005009332,
-                "semantic_environment_check": 0.007563872,
-                "source_loading": 0.000025802,
-                "surface_parse_lower": 0.010751847
+                "backend_runtime_remainder": 0.042303147,
+                "reachable_entry_lowering": 0.002403652,
+                "semantic_environment_check": 0.006761331,
+                "source_loading": 0.000028839,
+                "surface_parse_lower": 0.010617658
               }
             },
             {
               "run": "new-8",
               "stages": {
-                "backend_runtime_remainder": 0.041738482,
-                "reachable_entry_lowering": 0.004899065,
-                "semantic_environment_check": 0.005273935,
-                "source_loading": 0.000025622,
-                "surface_parse_lower": 0.010433284
+                "backend_runtime_remainder": 0.042078326,
+                "reachable_entry_lowering": 0.002369712,
+                "semantic_environment_check": 0.006834386,
+                "source_loading": 0.000026284,
+                "surface_parse_lower": 0.010379236
               }
             },
             {
               "run": "new-9",
               "stages": {
-                "backend_runtime_remainder": 0.042070951,
-                "reachable_entry_lowering": 0.004942095,
-                "semantic_environment_check": 0.005356702,
-                "source_loading": 0.00003406,
-                "surface_parse_lower": 0.01046365
+                "backend_runtime_remainder": 0.043917464,
+                "reachable_entry_lowering": 0.002421096,
+                "semantic_environment_check": 0.006865706,
+                "source_loading": 0.000033397,
+                "surface_parse_lower": 0.010724975
               }
             }
           ],
           "stage_medians_seconds": {
-            "backend_runtime_remainder": 0.042070951,
-            "reachable_entry_lowering": 0.004981099,
-            "semantic_environment_check": 0.005356702,
-            "source_loading": 0.000025802,
-            "surface_parse_lower": 0.010565966
+            "backend_runtime_remainder": 0.042720441,
+            "reachable_entry_lowering": 0.002403652,
+            "semantic_environment_check": 0.00687231,
+            "source_loading": 0.000026283,
+            "surface_parse_lower": 0.010524858
           },
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.0012802319999999923,
-          "median_user_cpu_seconds": 0.08,
-          "median_wall_time_seconds": 0.121441184,
+          "median_absolute_deviation_wall_time_seconds": 0.0007935209999999915,
+          "median_user_cpu_seconds": 0.09,
+          "median_wall_time_seconds": 0.149778245,
           "wall_time_noisy": false
         }
       }
@@ -1154,47 +1154,47 @@
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.14,
-            "wall_time_seconds": 0.209575356
+            "wall_time_seconds": 0.199572613
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.15,
-            "wall_time_seconds": 0.198675445
+            "user_cpu_seconds": 0.12,
+            "wall_time_seconds": 0.196558092
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.13,
+            "wall_time_seconds": 0.192387153
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.14,
-            "wall_time_seconds": 0.201318569
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.14,
-            "wall_time_seconds": 0.196597149
+            "wall_time_seconds": 0.200194064
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.13,
-            "wall_time_seconds": 0.200979382
+            "wall_time_seconds": 0.193778191
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.11,
+            "wall_time_seconds": 0.192124707
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.13,
-            "wall_time_seconds": 0.199528086
+            "wall_time_seconds": 0.19986473
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.12,
+            "wall_time_seconds": 0.19469751
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.15,
-            "wall_time_seconds": 0.203022252
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.13,
-            "wall_time_seconds": 0.196388394
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.13,
-            "wall_time_seconds": 0.202966718
+            "wall_time_seconds": 0.200649666
           }
         ],
         "stage_timing": {
@@ -1203,107 +1203,107 @@
             {
               "run": "baseline-1",
               "stages": {
-                "backend_runtime_remainder": 0.082533234,
-                "reachable_entry_lowering": 0.03112988,
-                "semantic_environment_check": 0.005904557,
-                "source_loading": 0.000026641,
-                "surface_parse_lower": 0.011322448
+                "backend_runtime_remainder": 0.077469739,
+                "reachable_entry_lowering": 0.03055575,
+                "semantic_environment_check": 0.005718641,
+                "source_loading": 0.000028382,
+                "surface_parse_lower": 0.011458963
               }
             },
             {
               "run": "baseline-2",
               "stages": {
-                "backend_runtime_remainder": 0.082559908,
-                "reachable_entry_lowering": 0.029949747,
-                "semantic_environment_check": 0.005742844,
-                "source_loading": 0.000029697,
-                "surface_parse_lower": 0.011408175
+                "backend_runtime_remainder": 0.07613605,
+                "reachable_entry_lowering": 0.029464275,
+                "semantic_environment_check": 0.005734711,
+                "source_loading": 0.000027774,
+                "surface_parse_lower": 0.011585427
               }
             },
             {
               "run": "baseline-3",
               "stages": {
-                "backend_runtime_remainder": 0.079655605,
-                "reachable_entry_lowering": 0.030772575,
-                "semantic_environment_check": 0.005742515,
-                "source_loading": 0.000024306,
-                "surface_parse_lower": 0.012716034
+                "backend_runtime_remainder": 0.08085873,
+                "reachable_entry_lowering": 0.027961355,
+                "semantic_environment_check": 0.005559035,
+                "source_loading": 0.000024739,
+                "surface_parse_lower": 0.011046367
               }
             },
             {
               "run": "baseline-4",
               "stages": {
-                "backend_runtime_remainder": 0.080396604,
-                "reachable_entry_lowering": 0.028891939,
-                "semantic_environment_check": 0.00570852,
-                "source_loading": 0.000031842,
-                "surface_parse_lower": 0.011467857
+                "backend_runtime_remainder": 0.076611034,
+                "reachable_entry_lowering": 0.030295929,
+                "semantic_environment_check": 0.005780393,
+                "source_loading": 0.000029719,
+                "surface_parse_lower": 0.011868964
               }
             },
             {
               "run": "baseline-5",
               "stages": {
-                "backend_runtime_remainder": 0.08497444,
-                "reachable_entry_lowering": 0.029184011,
-                "semantic_environment_check": 0.005682271,
-                "source_loading": 0.000024284,
-                "surface_parse_lower": 0.011176943
+                "backend_runtime_remainder": 0.077748809,
+                "reachable_entry_lowering": 0.028944281,
+                "semantic_environment_check": 0.005745154,
+                "source_loading": 0.000026272,
+                "surface_parse_lower": 0.011764182
               }
             },
             {
               "run": "baseline-6",
               "stages": {
-                "backend_runtime_remainder": 0.08084491,
-                "reachable_entry_lowering": 0.030247742,
-                "semantic_environment_check": 0.005806941,
-                "source_loading": 0.000029984,
-                "surface_parse_lower": 0.011248384
+                "backend_runtime_remainder": 0.077179734,
+                "reachable_entry_lowering": 0.028576741,
+                "semantic_environment_check": 0.005737751,
+                "source_loading": 0.000027464,
+                "surface_parse_lower": 0.011029813
               }
             },
             {
               "run": "baseline-7",
               "stages": {
-                "backend_runtime_remainder": 0.083155003,
-                "reachable_entry_lowering": 0.030539516,
-                "semantic_environment_check": 0.005722178,
-                "source_loading": 0.000023765,
-                "surface_parse_lower": 0.011530575
+                "backend_runtime_remainder": 0.076295666,
+                "reachable_entry_lowering": 0.030601392,
+                "semantic_environment_check": 0.005837417,
+                "source_loading": 0.000026751,
+                "surface_parse_lower": 0.012640644
               }
             },
             {
               "run": "baseline-8",
               "stages": {
-                "backend_runtime_remainder": 0.080341179,
-                "reachable_entry_lowering": 0.029871343,
-                "semantic_environment_check": 0.005701026,
-                "source_loading": 0.000026206,
-                "surface_parse_lower": 0.011798881
+                "backend_runtime_remainder": 0.077223462,
+                "reachable_entry_lowering": 0.029540042,
+                "semantic_environment_check": 0.005694491,
+                "source_loading": 0.000028974,
+                "surface_parse_lower": 0.011459101
               }
             },
             {
               "run": "baseline-9",
               "stages": {
-                "backend_runtime_remainder": 0.083299703,
-                "reachable_entry_lowering": 0.03013793,
-                "semantic_environment_check": 0.005683544,
-                "source_loading": 0.000024751,
-                "surface_parse_lower": 0.011083126
+                "backend_runtime_remainder": 0.079021074,
+                "reachable_entry_lowering": 0.034575357,
+                "semantic_environment_check": 0.005711564,
+                "source_loading": 0.000024762,
+                "surface_parse_lower": 0.011229837
               }
             }
           ],
           "stage_medians_seconds": {
-            "backend_runtime_remainder": 0.082533234,
-            "reachable_entry_lowering": 0.03013793,
-            "semantic_environment_check": 0.005722178,
-            "source_loading": 0.000026206,
-            "surface_parse_lower": 0.011408175
+            "backend_runtime_remainder": 0.077223462,
+            "reachable_entry_lowering": 0.029540042,
+            "semantic_environment_check": 0.005734711,
+            "source_loading": 0.000027464,
+            "surface_parse_lower": 0.011459101
           },
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.0020428699999999744,
-          "median_user_cpu_seconds": 0.14,
-          "median_wall_time_seconds": 0.200979382,
+          "median_absolute_deviation_wall_time_seconds": 0.0033066380000000006,
+          "median_user_cpu_seconds": 0.13,
+          "median_wall_time_seconds": 0.196558092,
           "wall_time_noisy": false
         }
       },
@@ -1350,48 +1350,48 @@
         "runs": [
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.13,
-            "wall_time_seconds": 0.207367718
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.12,
-            "wall_time_seconds": 0.210818087
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.15,
-            "wall_time_seconds": 0.210062519
+            "user_cpu_seconds": 0.16,
+            "wall_time_seconds": 0.231922008
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.14,
-            "wall_time_seconds": 0.211549084
+            "wall_time_seconds": 0.229758078
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.11,
-            "wall_time_seconds": 0.205654611
+            "user_cpu_seconds": 0.13,
+            "wall_time_seconds": 0.231271329
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.16,
-            "wall_time_seconds": 0.208493901
+            "wall_time_seconds": 0.232165538
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.16,
+            "wall_time_seconds": 0.229062302
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.15,
-            "wall_time_seconds": 0.206213239
+            "wall_time_seconds": 0.228538861
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.13,
-            "wall_time_seconds": 0.20819909
+            "user_cpu_seconds": 0.16,
+            "wall_time_seconds": 0.231021953
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.14,
-            "wall_time_seconds": 0.206036571
+            "wall_time_seconds": 0.227392799
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.14,
+            "wall_time_seconds": 0.230933531
           }
         ],
         "stage_timing": {
@@ -1400,107 +1400,107 @@
             {
               "run": "new-1",
               "stages": {
-                "backend_runtime_remainder": 0.081660735,
-                "reachable_entry_lowering": 0.03226502,
-                "semantic_environment_check": 0.005823722,
-                "source_loading": 0.000025781,
-                "surface_parse_lower": 0.011312321
+                "backend_runtime_remainder": 0.078515187,
+                "reachable_entry_lowering": 0.025027461,
+                "semantic_environment_check": 0.007389272,
+                "source_loading": 0.000025335,
+                "surface_parse_lower": 0.012023382
               }
             },
             {
               "run": "new-2",
               "stages": {
-                "backend_runtime_remainder": 0.086346481,
-                "reachable_entry_lowering": 0.033249337,
-                "semantic_environment_check": 0.005755241,
-                "source_loading": 0.000023797,
-                "surface_parse_lower": 0.01122254
+                "backend_runtime_remainder": 0.07939516,
+                "reachable_entry_lowering": 0.024820752,
+                "semantic_environment_check": 0.007127026,
+                "source_loading": 0.00002655,
+                "surface_parse_lower": 0.012448671
               }
             },
             {
               "run": "new-3",
               "stages": {
-                "backend_runtime_remainder": 0.08824982,
-                "reachable_entry_lowering": 0.030849738,
-                "semantic_environment_check": 0.005639741,
-                "source_loading": 0.00002817,
-                "surface_parse_lower": 0.011756978
+                "backend_runtime_remainder": 0.077874934,
+                "reachable_entry_lowering": 0.025988276,
+                "semantic_environment_check": 0.007629941,
+                "source_loading": 0.00002804,
+                "surface_parse_lower": 0.011124685
               }
             },
             {
               "run": "new-4",
               "stages": {
-                "backend_runtime_remainder": 0.084612954,
-                "reachable_entry_lowering": 0.033628104,
-                "semantic_environment_check": 0.005656511,
-                "source_loading": 0.000024921,
-                "surface_parse_lower": 0.011520661
+                "backend_runtime_remainder": 0.081509499,
+                "reachable_entry_lowering": 0.025790897,
+                "semantic_environment_check": 0.00735351,
+                "source_loading": 0.00002345,
+                "surface_parse_lower": 0.011406793
               }
             },
             {
               "run": "new-5",
               "stages": {
-                "backend_runtime_remainder": 0.083599851,
-                "reachable_entry_lowering": 0.032128461,
-                "semantic_environment_check": 0.005649166,
-                "source_loading": 0.000028413,
-                "surface_parse_lower": 0.011146078
+                "backend_runtime_remainder": 0.077057478,
+                "reachable_entry_lowering": 0.025465551,
+                "semantic_environment_check": 0.007633136,
+                "source_loading": 0.000028612,
+                "surface_parse_lower": 0.011244718
               }
             },
             {
               "run": "new-6",
               "stages": {
-                "backend_runtime_remainder": 0.081732015,
-                "reachable_entry_lowering": 0.034350121,
-                "semantic_environment_check": 0.005665161,
-                "source_loading": 0.00002784,
-                "surface_parse_lower": 0.011205049
+                "backend_runtime_remainder": 0.079270601,
+                "reachable_entry_lowering": 0.025115444,
+                "semantic_environment_check": 0.007096609,
+                "source_loading": 0.000021816,
+                "surface_parse_lower": 0.011371762
               }
             },
             {
               "run": "new-7",
               "stages": {
-                "backend_runtime_remainder": 0.084883522,
-                "reachable_entry_lowering": 0.031466678,
-                "semantic_environment_check": 0.00562831,
-                "source_loading": 0.000030218,
-                "surface_parse_lower": 0.011198265
+                "backend_runtime_remainder": 0.081812525,
+                "reachable_entry_lowering": 0.025216439,
+                "semantic_environment_check": 0.007484339,
+                "source_loading": 0.00002723,
+                "surface_parse_lower": 0.011329843
               }
             },
             {
               "run": "new-8",
               "stages": {
-                "backend_runtime_remainder": 0.084720155,
-                "reachable_entry_lowering": 0.032093107,
-                "semantic_environment_check": 0.005706364,
-                "source_loading": 0.00002455,
-                "surface_parse_lower": 0.011599203
+                "backend_runtime_remainder": 0.077095843,
+                "reachable_entry_lowering": 0.024627603,
+                "semantic_environment_check": 0.007237142,
+                "source_loading": 0.000024198,
+                "surface_parse_lower": 0.011367625
               }
             },
             {
               "run": "new-9",
               "stages": {
-                "backend_runtime_remainder": 0.080863432,
-                "reachable_entry_lowering": 0.033637634,
-                "semantic_environment_check": 0.005648848,
-                "source_loading": 0.000022056,
-                "surface_parse_lower": 0.011151394
+                "backend_runtime_remainder": 0.07899093,
+                "reachable_entry_lowering": 0.025159501,
+                "semantic_environment_check": 0.007302568,
+                "source_loading": 0.000025538,
+                "surface_parse_lower": 0.011413586
               }
             }
           ],
           "stage_medians_seconds": {
-            "backend_runtime_remainder": 0.084612954,
-            "reachable_entry_lowering": 0.03226502,
-            "semantic_environment_check": 0.005656511,
-            "source_loading": 0.000025781,
-            "surface_parse_lower": 0.01122254
+            "backend_runtime_remainder": 0.07899093,
+            "reachable_entry_lowering": 0.025159501,
+            "semantic_environment_check": 0.00735351,
+            "source_loading": 0.000025538,
+            "surface_parse_lower": 0.011371762
           },
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.0019858510000000107,
-          "median_user_cpu_seconds": 0.14,
-          "median_wall_time_seconds": 0.20819909,
+          "median_absolute_deviation_wall_time_seconds": 0.001175452999999993,
+          "median_user_cpu_seconds": 0.15,
+          "median_wall_time_seconds": 0.230933531,
           "wall_time_noisy": false
         }
       }
@@ -1513,56 +1513,56 @@
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006451595
+            "wall_time_seconds": 0.006880366
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.00654852
+            "wall_time_seconds": 0.006833479
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006469011
+            "wall_time_seconds": 0.006475034
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.00654056
+            "wall_time_seconds": 0.006543278
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006423563
+            "wall_time_seconds": 0.006471768
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006560142
+            "wall_time_seconds": 0.006862688
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006437637
+            "wall_time_seconds": 0.006512284
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006633218
+            "wall_time_seconds": 0.006666025
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006286646
+            "wall_time_seconds": 0.006399108
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.00007154899999999974,
+          "median_absolute_deviation_wall_time_seconds": 0.0001227470000000003,
           "median_user_cpu_seconds": 0,
-          "median_wall_time_seconds": 0.006469011,
+          "median_wall_time_seconds": 0.006543278,
           "wall_time_noisy": false
         }
       },
@@ -1610,56 +1610,56 @@
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006551609
+            "wall_time_seconds": 0.011156348
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006516201
+            "wall_time_seconds": 0.011107089
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006891943
+            "wall_time_seconds": 0.010962036
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006454704
+            "wall_time_seconds": 0.010936116
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006618635
+            "wall_time_seconds": 0.01085432
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006522719
+            "wall_time_seconds": 0.01063129
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006671534
+            "wall_time_seconds": 0.011611386
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006570767
+            "wall_time_seconds": 0.010930308
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006684631
+            "wall_time_seconds": 0.010768609
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.000054565999999999816,
+          "median_absolute_deviation_wall_time_seconds": 0.00016750699999999903,
           "median_user_cpu_seconds": 0,
-          "median_wall_time_seconds": 0.006570767,
+          "median_wall_time_seconds": 0.010936116,
           "wall_time_noisy": false
         }
       }
@@ -1672,56 +1672,56 @@
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.007566898
+            "wall_time_seconds": 0.007693136
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.007814911
+            "wall_time_seconds": 0.007899212
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.007528891
+            "wall_time_seconds": 0.007570794
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.007752958
+            "wall_time_seconds": 0.007606171
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.007809487
+            "wall_time_seconds": 0.007472649
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.007841902
+            "wall_time_seconds": 0.007633062
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.007605638
+            "wall_time_seconds": 0.007523428
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.007995102
+            "wall_time_seconds": 0.007786134
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.00764216
+            "wall_time_seconds": 0.007511834
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.00011079799999999963,
+          "median_absolute_deviation_wall_time_seconds": 0.00008696499999999961,
           "median_user_cpu_seconds": 0,
-          "median_wall_time_seconds": 0.007752958,
+          "median_wall_time_seconds": 0.007606171,
           "wall_time_noisy": false
         }
       },
@@ -1769,56 +1769,56 @@
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.00780694
+            "wall_time_seconds": 0.011728741
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.007635293
+            "wall_time_seconds": 0.011846829
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.007844481
+            "wall_time_seconds": 0.012444068
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.007699963
+            "wall_time_seconds": 0.011937368
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.008337686
+            "wall_time_seconds": 0.011924222
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.008237597
+            "wall_time_seconds": 0.011453643
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.008260639
+            "wall_time_seconds": 0.011796337
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.007749806
+            "wall_time_seconds": 0.012016495
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.008052089
+            "wall_time_seconds": 0.01180878
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.00020760799999999975,
+          "median_absolute_deviation_wall_time_seconds": 0.00009053900000000059,
           "median_user_cpu_seconds": 0,
-          "median_wall_time_seconds": 0.007844481,
+          "median_wall_time_seconds": 0.011846829,
           "wall_time_noisy": false
         }
       }
@@ -1831,56 +1831,56 @@
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.010690489
+            "wall_time_seconds": 0.010546983
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.010775538
+            "wall_time_seconds": 0.010736965
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.010730778
+            "wall_time_seconds": 0.010111475
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.010307084
+            "wall_time_seconds": 0.010492023
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.010527704
+            "wall_time_seconds": 0.010526698
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.010618112
+            "wall_time_seconds": 0.010586923
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.010276708
+            "wall_time_seconds": 0.010468718
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.010567463
+            "wall_time_seconds": 0.010239529
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.01030735
+            "wall_time_seconds": 0.01008902
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.00016331500000000068,
+          "median_absolute_deviation_wall_time_seconds": 0.00009490000000000019,
           "median_user_cpu_seconds": 0,
-          "median_wall_time_seconds": 0.010567463,
+          "median_wall_time_seconds": 0.010492023,
           "wall_time_noisy": false
         }
       },
@@ -1928,56 +1928,56 @@
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.010911426
+            "wall_time_seconds": 0.014408911
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.010913145
+            "wall_time_seconds": 0.014494089
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.011446088
+            "wall_time_seconds": 0.014424333
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.010492764
+            "wall_time_seconds": 0.014402954
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.010765837
+            "wall_time_seconds": 0.014875489
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.010740639
+            "wall_time_seconds": 0.014271048
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.010832703
+            "wall_time_seconds": 0.015452274
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.01,
+            "wall_time_seconds": 0.014505439
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.010484324
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.010754701
+            "wall_time_seconds": 0.01414446
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.0001455889999999998,
+          "median_absolute_deviation_wall_time_seconds": 0.00008110600000000093,
           "median_user_cpu_seconds": 0,
-          "median_wall_time_seconds": 0.010765837,
+          "median_wall_time_seconds": 0.014424333,
           "wall_time_noisy": false
         }
       }

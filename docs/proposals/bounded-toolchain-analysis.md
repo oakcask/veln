@@ -60,9 +60,8 @@ proposal scope:
   project analysis instead of checking and Core-lowering reachable application
   functions again. The controlled comparison is recorded in
   [../reviews/toolchain-analysis-reachable-core-reuse.json](../reviews/toolchain-analysis-reachable-core-reuse.json).
-  Functional output and wall-time noise passed. HTTP/2 core
-  `reachable_entry_lowering` median fell, but HTTP/2 connection
-  `reachable_entry_lowering` median did not fall in the accepted comparison.
+  Functional output and wall-time noise passed, and HTTP/2
+  `reachable_entry_lowering` medians fell for both representative workloads.
   The representative HTTP/2 wall-time ratios still stayed above the one-third
   threshold.
 - The existing toolchain suite remains authoritative for command behavior.
@@ -129,12 +128,12 @@ broader one-third wall-time thresholds still did not pass and the proposal
 remains open.
 
 Reusing checked application Core during reachable-entry lowering reduced
-HTTP/2 core median `reachable_entry_lowering` time from 0.008001747 seconds to
-0.004981099 seconds. HTTP/2 connection median `reachable_entry_lowering` time
-increased from 0.03013793 seconds to 0.03226502 seconds. Functional output
+HTTP/2 core median `reachable_entry_lowering` time from 0.008043305 seconds to
+0.002403652 seconds. HTTP/2 connection median `reachable_entry_lowering` time
+fell from 0.029540042 seconds to 0.025159501 seconds. Functional output
 matched for every measured workload and wall-time noise stayed within the
 accepted boundary. The representative HTTP/2 wall-time ratios were
-0.9773233733 for core and 1.0359226301 for connection, so the broader
+1.1949102942 for core and 1.1748869184 for connection, so the broader
 one-third HTTP/2 wall-time thresholds still did not pass and the proposal
 remains open.
 

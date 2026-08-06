@@ -132,6 +132,19 @@ pub fn prepare_current_reusable_standard_surface_module_environment(
     prepare_current_reusable_standard_environment(module)
 }
 
+pub fn lower_reusable_standard_surface_module_core(
+    module: &SurfaceModule,
+    standard: &ReusableStandardEnvironment,
+) -> LoweredSurfaceModule {
+    let environment = TypeEnvironment::from_module_with_standard(module, standard);
+    let lowered_core = lower_surface_module_to_core(module, &environment);
+    LoweredSurfaceModule {
+        diagnostics: lowered_core.diagnostics,
+        core: Some(lowered_core.program),
+        ir: None,
+    }
+}
+
 fn check_project_surface_module_with_environment(
     module: &SurfaceModule,
     environment: TypeEnvironment,
@@ -222,37 +235,36 @@ pub fn lower_project_reachable_surface_modules_with_standard_environment(
     lower_project_reachable_surface_module_with_environment(reachable_module, environment)
 }
 
-pub fn lower_reachable_checked_application_with_standard_environment(
+pub fn lower_reachable_checked_application_with_checked_standard(
     reachable_module: &SurfaceModule,
-    reachable_standard_module: &SurfaceModule,
-    checked_application: &LoweredSurfaceModule,
-    standard: &ReusableStandardEnvironment,
+    checked_standard: LoweredSurfaceModule,
+    checked_application: LoweredSurfaceModule,
 ) -> LoweredSurfaceModule {
-    let Some(application_core) = &checked_application.core else {
+    let (Some(standard_core), Some(application_core)) =
+        (checked_standard.core, checked_application.core)
+    else {
         return LoweredSurfaceModule {
-            diagnostics: checked_application.diagnostics.clone(),
+            diagnostics: checked_application.diagnostics,
             core: None,
             ir: None,
         };
     };
 
-    let standard_environment =
-        TypeEnvironment::from_module_with_standard(reachable_standard_module, standard);
-    let standard_core =
-        lower_surface_module_to_core(reachable_standard_module, &standard_environment);
-    let diagnostics = standard_core.diagnostics;
-
-    let application_functions = application_core.functions.clone();
+    let mut diagnostics = checked_application.diagnostics;
+    diagnostics.extend(checked_standard.diagnostics);
+    let standard_functions = standard_core.functions;
+    let standard_readiness = selected_readiness(&standard_core.readiness, &standard_functions);
+    let application_functions = application_core.functions;
     let application_readiness =
         selected_readiness(&application_core.readiness, &application_functions);
-    let mut functions = standard_core.program.functions;
+    let mut functions = standard_functions;
     functions.extend(application_functions);
-    let mut effects = standard_core.program.effects;
-    effects.extend(application_core.effects.clone());
+    let mut effects = standard_core.effects;
+    effects.extend(application_core.effects);
     let program = CheckedProgram {
         functions,
         effects,
-        readiness: merged_readiness(standard_core.program.readiness, application_readiness),
+        readiness: merged_readiness(standard_readiness, application_readiness),
     };
     let ir = if diagnostics
         .iter()

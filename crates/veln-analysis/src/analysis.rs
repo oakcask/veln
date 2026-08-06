@@ -12,7 +12,8 @@ use veln_project::Project;
 use veln_sema::{
     LoweredSurfaceModule, ReusableStandardEnvironment,
     check_project_surface_module_with_standard_modules_environment,
-    lower_reachable_checked_application_with_standard_environment,
+    lower_reachable_checked_application_with_checked_standard,
+    lower_reusable_standard_surface_module_core,
     prepare_current_reusable_standard_surface_module_environment,
 };
 use veln_source::SourceSpan;
@@ -47,9 +48,14 @@ impl StandardEnvironmentCache {
                 let standard_module = load_embedded_standard_surface_module_for_names(module_names);
                 let environment =
                     prepare_current_reusable_standard_surface_module_environment(&standard_module);
+                let checked =
+                    lower_reusable_standard_surface_module_core(&standard_module, &environment);
+                let checked_core_functions_by_name = checked_core_functions_by_name(&checked);
                 ReusableStandardInput {
                     module: Arc::new(standard_module),
                     environment,
+                    checked,
+                    checked_core_functions_by_name,
                 }
             })
             .clone()
@@ -60,6 +66,8 @@ impl StandardEnvironmentCache {
 struct ReusableStandardInput {
     module: Arc<SurfaceModule>,
     environment: ReusableStandardEnvironment,
+    checked: LoweredSurfaceModule,
+    checked_core_functions_by_name: BTreeMap<String, usize>,
 }
 
 #[cfg(test)]
@@ -97,6 +105,9 @@ pub struct ProjectAnalysis {
     pub project: Project,
     pub module: SurfaceModule,
     selected_standard: Arc<SurfaceModule>,
+    selected_standard_checked: LoweredSurfaceModule,
+    selected_standard_core_functions_by_name: BTreeMap<String, usize>,
+    #[cfg(test)]
     selected_standard_module_names: BTreeSet<String>,
     pub doctest_expectations: BTreeMap<String, DoctestExpectation>,
     source_diagnostics: Vec<Diagnostic>,
@@ -192,6 +203,9 @@ fn analyze_project_with_standard_provider(
         project,
         module: loaded.application,
         selected_standard: standard.module,
+        selected_standard_checked: standard.checked,
+        selected_standard_core_functions_by_name: standard.checked_core_functions_by_name,
+        #[cfg(test)]
         selected_standard_module_names: loaded.selected_standard_module_names,
         doctest_expectations,
         source_diagnostics,
@@ -286,13 +300,12 @@ impl ProjectAnalysis {
             entry_kind,
             &self.reachability_cache,
         );
-        let standard = standard_environment_for_modules(&self.selected_standard_module_names);
         let checked_application = self.checked_reachable_application(&selection.application);
-        let lowered = lower_reachable_checked_application_with_standard_environment(
+        let checked_standard = self.checked_reachable_standard(&selection.standard);
+        let lowered = lower_reachable_checked_application_with_checked_standard(
             &selection.module,
-            &selection.standard,
-            &checked_application,
-            &standard.environment,
+            checked_standard,
+            checked_application,
         );
         (
             ReachableEntryAnalysis {
@@ -311,12 +324,29 @@ impl ProjectAnalysis {
     }
 
     fn checked_reachable_application(&self, module: &SurfaceModule) -> LoweredSurfaceModule {
-        let Some(core) = &self.checked.core else {
-            return self.checked.clone();
+        self.checked_reachable_module(module, &self.checked, &self.checked_core_functions_by_name)
+    }
+
+    fn checked_reachable_standard(&self, module: &SurfaceModule) -> LoweredSurfaceModule {
+        self.checked_reachable_module(
+            module,
+            &self.selected_standard_checked,
+            &self.selected_standard_core_functions_by_name,
+        )
+    }
+
+    fn checked_reachable_module(
+        &self,
+        module: &SurfaceModule,
+        checked: &LoweredSurfaceModule,
+        core_functions_by_name: &BTreeMap<String, usize>,
+    ) -> LoweredSurfaceModule {
+        let Some(core) = &checked.core else {
+            return checked.clone();
         };
-        let mut function_indexes = reachable_application_core_function_names(module)
+        let mut function_indexes = reachable_core_function_names(module)
             .into_iter()
-            .filter_map(|name| self.checked_core_functions_by_name.get(&name))
+            .filter_map(|name| core_functions_by_name.get(&name))
             .copied()
             .collect::<Vec<_>>();
         function_indexes.sort_unstable();
@@ -325,7 +355,7 @@ impl ProjectAnalysis {
             .map(|index| core.functions[index].clone())
             .collect();
         LoweredSurfaceModule {
-            diagnostics: self.checked.diagnostics.clone(),
+            diagnostics: reachable_diagnostics(module, &checked.diagnostics),
             core: Some(CheckedProgram {
                 functions,
                 effects: core.effects.clone(),
@@ -334,6 +364,39 @@ impl ProjectAnalysis {
             ir: None,
         }
     }
+}
+
+fn reachable_diagnostics(module: &SurfaceModule, diagnostics: &[Diagnostic]) -> Vec<Diagnostic> {
+    let spans = reachable_declaration_spans(module);
+    diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic
+                .span
+                .as_ref()
+                .is_none_or(|span| spans.iter().any(|decl| span_within(span, decl)))
+        })
+        .cloned()
+        .collect()
+}
+
+fn reachable_declaration_spans(module: &SurfaceModule) -> Vec<&SourceSpan> {
+    let mut spans = Vec::new();
+    spans.extend(module.uses.iter().map(|decl| &decl.span));
+    spans.extend(module.aliases.iter().map(|decl| &decl.span));
+    spans.extend(module.effects.iter().map(|decl| &decl.span));
+    spans.extend(module.handlers.iter().map(|decl| &decl.span));
+    spans.extend(module.types.iter().map(|decl| &decl.span));
+    spans.extend(module.schemas.iter().map(|decl| &decl.span));
+    spans.extend(module.codecs.iter().map(|decl| &decl.span));
+    spans.extend(module.functions.iter().map(|decl| &decl.span));
+    spans
+}
+
+fn span_within(span: &SourceSpan, container: &SourceSpan) -> bool {
+    span.file == container.file
+        && span.start.offset >= container.start.offset
+        && span.end.offset <= container.end.offset
 }
 
 fn checked_core_functions_by_name(checked: &LoweredSurfaceModule) -> BTreeMap<String, usize> {
@@ -350,7 +413,7 @@ fn checked_core_functions_by_name(checked: &LoweredSurfaceModule) -> BTreeMap<St
         .unwrap_or_default()
 }
 
-fn reachable_application_core_function_names(module: &SurfaceModule) -> BTreeSet<String> {
+fn reachable_core_function_names(module: &SurfaceModule) -> BTreeSet<String> {
     let mut names = module
         .functions
         .iter()
@@ -358,9 +421,12 @@ fn reachable_application_core_function_names(module: &SurfaceModule) -> BTreeSet
         .collect::<BTreeSet<_>>();
     names.extend(module.handlers.iter().flat_map(|handler| {
         handler.operation_clauses.iter().filter_map(|clause| {
-            Some(synthetic_handler_clause_function_name(
-                handler.name.as_deref().unwrap_or("missing"),
-                clause.operation.as_deref().unwrap_or("missing"),
+            Some(core_function_name_for_module(
+                handler.module_name.as_deref(),
+                &synthetic_handler_clause_function_name(
+                    handler.name.as_deref().unwrap_or("missing"),
+                    clause.operation.as_deref().unwrap_or("missing"),
+                ),
             ))
         })
     }));
@@ -368,13 +434,20 @@ fn reachable_application_core_function_names(module: &SurfaceModule) -> BTreeSet
 }
 
 fn surface_function_core_name(function: &veln_ast::Function) -> Option<String> {
-    function.name.as_ref().map(|name| {
-        if function.kind == FunctionKind::Test {
-            name.clone()
-        } else {
-            name.to_string()
-        }
-    })
+    function
+        .name
+        .as_ref()
+        .map(|name| core_function_name_for_module(function.module_name.as_deref(), name))
+}
+
+fn core_function_name_for_module(module_name: Option<&str>, name: &str) -> String {
+    let Some(module_name) = module_name else {
+        return name.to_string();
+    };
+    let Some(standard_module) = module_name.strip_prefix("std::") else {
+        return name.to_string();
+    };
+    format!("__veln_std${}${name}", standard_module.replace("::", "$"))
 }
 
 fn synthetic_handler_clause_function_name(handler: &str, operation: &str) -> String {
@@ -406,9 +479,13 @@ fn standard_environment_with_test_cache(
             cache.standard_prepares.fetch_add(1, Ordering::SeqCst);
             let module = load_embedded_standard_surface_module_for_names(module_names);
             let environment = prepare_current_reusable_standard_surface_module_environment(&module);
+            let checked = lower_reusable_standard_surface_module_core(&module, &environment);
+            let checked_core_functions_by_name = checked_core_functions_by_name(&checked);
             ReusableStandardInput {
                 module: Arc::new(module),
                 environment,
+                checked,
+                checked_core_functions_by_name,
             }
         })
         .clone()

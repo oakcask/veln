@@ -22,7 +22,9 @@ comparison. Use
 [../../reviews/toolchain-analysis-embedded-lowered-standard.json](../../reviews/toolchain-analysis-embedded-lowered-standard.json)
 for the embedded lowered standard-library module comparison. Use
 [../../reviews/toolchain-analysis-separated-reachable-inputs.json](../../reviews/toolchain-analysis-separated-reachable-inputs.json)
-for the separated reachable-entry lowering input comparison.
+for the separated reachable-entry lowering input comparison. Use
+[../../reviews/toolchain-analysis-reachable-core-reuse.json](../../reviews/toolchain-analysis-reachable-core-reuse.json)
+for the reachable checked Core reuse comparison.
 
 ## Completed Scope
 
@@ -89,6 +91,11 @@ Completed implementation scope:
   one owned module first. The lowering module materializes only reachable
   application and standard-library functions plus the declarations needed by
   lowering.
+- Reachable-entry lowering reuses the checked application Core and checked
+  selected standard-library Core prepared by the initial project analysis.
+  Reachable selection exposes stable Core function names, including
+  standard-library link names and synthetic handler clause names, so lowering
+  can assemble only the reachable checked functions before typed IR lowering.
 
 ## Evidence
 
@@ -219,6 +226,32 @@ median stage timings for the new binary were 0.00002436 seconds for
 `reachable_entry_lowering`, and 0.078817419 seconds for
 `backend_runtime_remainder`.
 
+The reachable checked Core reuse comparison used the `3c089230` pre-slice
+release binary from `main` and the current working-tree release binary, one
+warm-up run, and nine measured runs. Functional output matched for every
+workload and wall-time noise remained within the accepted boundary. The
+proposal-level one-third HTTP/2 wall-time thresholds still did not pass, and
+the toolchain-case command was unavailable, so the benchmark command exited
+with the expected failing status for the broader proposal threshold.
+
+For the HTTP/2 core workload, median `reachable_entry_lowering` time fell from
+0.008043305 seconds to 0.002403652 seconds. Median wall time increased from
+0.125346853 seconds to 0.149778245 seconds, a ratio of 1.1949102942. The
+median stage timings for the new binary were 0.000026283 seconds for
+`source_loading`, 0.010524858 seconds for `surface_parse_lower`, 0.00687231
+seconds for `semantic_environment_check`, 0.002403652 seconds for
+`reachable_entry_lowering`, and 0.042720441 seconds for
+`backend_runtime_remainder`.
+
+For the HTTP/2 connection workload, median `reachable_entry_lowering` time
+fell from 0.029540042 seconds to 0.025159501 seconds. Median wall time
+increased from 0.196558092 seconds to 0.230933531 seconds, a ratio of
+1.1748869184. The median stage timings for the new binary were 0.000025538
+seconds for `source_loading`, 0.011371762 seconds for `surface_parse_lower`,
+0.00735351 seconds for `semantic_environment_check`, 0.025159501 seconds for
+`reachable_entry_lowering`, and 0.07899093 seconds for
+`backend_runtime_remainder`.
+
 ## Read When
 
 - Checking why completed bounded-analysis slices are no longer described as
@@ -235,5 +268,7 @@ median stage timings for the new binary were 0.00002436 seconds for
   while the HTTP/2 wall-time acceptance thresholds remain proposal work.
 - Reviewing why separated reachable-entry lowering inputs are implemented
   while the HTTP/2 wall-time acceptance thresholds remain proposal work.
+- Reviewing why reachable checked Core reuse is implemented while the HTTP/2
+  wall-time acceptance thresholds remain proposal work.
 - Preserving the boundary that application analysis caching remains outside
   the measurement slice.
