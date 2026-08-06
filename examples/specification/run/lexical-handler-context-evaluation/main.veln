@@ -1,25 +1,34 @@
 effect Ask
 	value() -> Int
+	total(extra: Int) -> Int
 end
 
-fn provide(ctx: Int) -> Int
-	ctx
+fn provide(left: Int, right: Int) -> Int
+	left * 10 + right
 end
 
-handler ask(ctx: Int) handles Ask
-	value = provide
+handler ask(left: Int, right: Int) handles Ask
+	value() => provide(left, right)
+	total(extra) => left + right + extra
 end
 
-fn context() -> Int effects [stdio]
-	stdio::println("context")
-	7
+fn first_context() -> Int effects [stdio]
+	stdio::println("first")
+	2
+end
+
+fn second_context() -> Int effects [stdio]
+	stdio::println("second")
+	5
 end
 
 fn body() -> Int effects [Ask, stdio]
 	stdio::println("body")
-	perform Ask::value()
+	let first = perform Ask::value()
+	let second = perform Ask::total(first)
+	first + second
 end
 
 pub fn main() -> () effects [stdio]
-	stdio::println(int_to_string(handle body() with ask(context())))
+	stdio::println(int_to_string(handle body() with ask(first_context(), second_context())))
 end

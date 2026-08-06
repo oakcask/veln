@@ -1,0 +1,21 @@
+effect Choose
+	zero() -> Int
+	one(value: Int) -> Int
+	two(left: Int, right: Int) -> Int
+end
+
+fn unresolved(value: Int) -> Int
+	missing_call(value)
+end
+
+handler bad() handles Choose
+	zero(extra) => extra
+	one(value, extra) => value
+	two(same, same) => same
+end
+
+handler bad_result() handles Choose
+	zero() => "wrong"
+	one(value) => unresolved(value)
+	two(left, right) => left + right
+end

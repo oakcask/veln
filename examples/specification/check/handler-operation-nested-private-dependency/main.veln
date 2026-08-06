@@ -1,0 +1,28 @@
+effect Inner
+	value() -> Int
+end
+
+effect Outer
+	value() -> Int
+end
+
+fn traced(offset: Int) -> Int effects [stdio]
+	stdio::println("nested")
+	offset + 1
+end
+
+handler outer(offset: Int) handles Outer
+	value() => handle perform Inner::value() with inner(offset)
+end
+
+handler inner(offset: Int) handles Inner
+	value() => traced(offset)
+end
+
+fn compute() -> Int effects [Outer]
+	perform Outer::value()
+end
+
+pub fn missing_retained_effect() -> Int
+	handle compute() with outer(41)
+end

@@ -150,7 +150,7 @@ fn parses_and_formats_lexical_handler_declarations_and_expressions() {
             "end\n",
             "\n",
             "handler ask(ctx:Int) handles Ask effects [stdio]\n",
-            "  value=provide\n",
+            "  value() => provide(ctx)\n",
             "end\n",
             "\n",
             "fn main() -> Int effects [stdio]\n",
@@ -167,7 +167,10 @@ fn parses_and_formats_lexical_handler_declarations_and_expressions() {
     };
     assert_eq!(handler.name.as_deref(), Some("ask"));
     assert_eq!(handler.effect, vec!["Ask".to_string()]);
-    assert_eq!(handler.providers[0].operation.as_deref(), Some("value"));
+    assert_eq!(
+        handler.operation_clauses[0].operation.as_deref(),
+        Some("value")
+    );
     let SyntaxItem::Function(function) = &output.tree.items[3] else {
         panic!("expected main function");
     };
@@ -193,7 +196,7 @@ fn parses_and_formats_lexical_handler_declarations_and_expressions() {
             "end\n",
             "\n",
             "handler ask(ctx: Int) handles Ask effects [stdio]\n",
-            "\tvalue = provide\n",
+            "\tvalue() => provide(ctx)\n",
             "end\n",
             "\n",
             "fn main() -> Int effects [stdio]\n",
@@ -201,6 +204,74 @@ fn parses_and_formats_lexical_handler_declarations_and_expressions() {
             "end\n",
         )
     );
+}
+
+#[test]
+fn rejects_trailing_comma_in_handler_operation_parameters() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Pick\n",
+            "  next(step: Int) -> Int\n",
+            "end\n",
+            "\n",
+            "handler pick() handles Pick\n",
+            "  next(step,) => step\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(
+        output.diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "parse.handler_operation_parameter"
+                && diagnostic.message == "handler operation parameter list cannot end with a comma"
+                && diagnostic.parser_context == "handler_operation_clause"
+        }),
+        "{:#?}",
+        output.diagnostics
+    );
+}
+
+#[test]
+fn rejects_old_handler_operation_syntax_with_one_migration_diagnostic() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Ask\n",
+            "  value() -> Int\n",
+            "end\n",
+            "\n",
+            "fn provide() -> Int\n",
+            "  1\n",
+            "end\n",
+            "\n",
+            "handler ask() handles Ask\n",
+            "  value = provide\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert_eq!(output.diagnostics.len(), 1, "{:#?}", output.diagnostics);
+    let diagnostic = &output.diagnostics[0];
+    assert_eq!(diagnostic.id, "parse.handler_operation_old_syntax");
+    assert_eq!(
+        diagnostic.message,
+        "handler operation clause must bind operation parameters with `(` and evaluate an expression with `=>`"
+    );
+    assert_eq!(diagnostic.parser_context, "handler_operation_clause");
+    assert_eq!(diagnostic.unexpected.text, "=");
+    assert_eq!(diagnostic.expected, vec!["("]);
+    assert_eq!(
+        diagnostic.recovery.strategy,
+        RecoveryStrategy::SynchronizeToAnchor
+    );
+    assert_eq!(diagnostic.recovery.anchor.as_deref(), Some("newline"));
+    assert_eq!(diagnostic.span.as_ref().unwrap().start.line, 10);
+    assert_eq!(diagnostic.span.as_ref().unwrap().start.column, 9);
 }
 
 #[test]
@@ -516,8 +587,8 @@ fn dispatches_mixed_public_and_private_top_level_declarations_in_source_order() 
             "schema PrivateSchema\n  format binary\n  value: UInt8\nend\n",
             "pub effect PublicEffect\n  call() -> ()\nend\n",
             "effect PrivateEffect\n  call() -> ()\nend\n",
-            "pub handler public_handler() handles PublicEffect\n  call=public_fn\nend\n",
-            "handler private_handler() handles PrivateEffect\n  call=private_fn\nend\n",
+            "pub handler public_handler() handles PublicEffect\n  call() => public_fn()\nend\n",
+            "handler private_handler() handles PrivateEffect\n  call() => private_fn()\nend\n",
             "pub fn alias = implementation::function\n",
         ),
     );

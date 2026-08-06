@@ -2314,7 +2314,7 @@ fn collect_function_callees(
             }
         }
         ExprKind::Handle { body, args, .. } => {
-            collect_handler_provider_callees(
+            collect_handler_operation_clause_callees(
                 expr,
                 current_module,
                 uses,
@@ -2599,7 +2599,7 @@ fn collect_function_name_reference(
     }
 }
 
-fn collect_handler_provider_callees(
+fn collect_handler_operation_clause_callees(
     expr: &Expr,
     current_module: Option<&str>,
     uses: &[UseDecl],
@@ -2629,16 +2629,29 @@ fn collect_handler_provider_callees(
         }
     });
     for handler in matching_handlers {
-        for provider in &handler.providers {
-            for callee in resolve_function_reference(
-                &provider.provider,
-                current_module,
-                uses,
-                function_targets,
-                companion_access_targets,
-            ) {
-                push_reachable(callees, callee);
-            }
+        let context = FunctionCalleeContext {
+            current_module,
+            uses,
+            function_targets,
+            companion_access_targets,
+            handlers,
+        };
+        let mut local_bindings = handler
+            .params
+            .iter()
+            .map(|param| LocalBinding {
+                name: param.name.clone(),
+                function_shape: param.ty.as_deref().and_then(function_type_shape),
+            })
+            .collect::<Vec<_>>();
+        for clause in &handler.operation_clauses {
+            let binding_count = local_bindings.len();
+            local_bindings.extend(clause.params.iter().map(|param| LocalBinding {
+                name: param.name.clone(),
+                function_shape: None,
+            }));
+            collect_function_callees(&clause.body, &context, &local_bindings, callees);
+            local_bindings.truncate(binding_count);
         }
     }
 }
@@ -4075,7 +4088,7 @@ mod tests {
                     "  ()\n",
                     "end\n",
                     "pub handler visible() handles Ask\n",
-                    "  call=provide\n",
+                    "  call() => provide()\n",
                     "end\n",
                 ),
             ),

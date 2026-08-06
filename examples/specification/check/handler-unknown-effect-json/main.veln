@@ -7,5 +7,5 @@ fn value(ctx: Int) -> Int
 end
 
 handler missing(ctx: Int) handles Missing
-	value = value
+	value() => value(ctx)
 end

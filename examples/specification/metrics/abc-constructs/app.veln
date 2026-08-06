@@ -13,7 +13,7 @@ fn provide(context: Int) -> Int
 end
 
 handler ask(context: Int) handles Ask
-	value = provide
+	value() => provide(context)
 end
 
 fn compute() -> Int effects [Ask]

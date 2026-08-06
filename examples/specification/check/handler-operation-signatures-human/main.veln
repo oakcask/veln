@@ -21,12 +21,12 @@ fn recursive(ctx: Int) -> Int effects [Ask]
 end
 
 handler bad(ctx: Int) handles Ask
-	value = wrong
-	other = recursive
+	value() => wrong(ctx, 1)
+	other() => recursive(ctx)
 end
 
 handler duplicate_and_unknown(ctx: Int) handles Single
-	op = right
-	op = right
-	extra = right
+	op() => right(ctx)
+	op() => right(ctx)
+	extra() => right(ctx)
 end

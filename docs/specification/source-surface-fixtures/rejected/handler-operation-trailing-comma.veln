@@ -1,0 +1,7 @@
+effect Pick
+	next(step: Int) -> Int
+end
+
+handler pick() handles Pick
+	next(step,) => step
+end

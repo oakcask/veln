@@ -1,0 +1,7 @@
+effect Ask
+	value(input: Int) -> Int
+end
+
+handler ask() handles Ask
+	value(input,) => input
+end

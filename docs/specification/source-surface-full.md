@@ -1,6 +1,10 @@
-# Source Surface Details
+---
+role: specification
+authority: normative
+review-when: The source grammar or executable source-surface fixtures change.
+---
 
-Status: routing
+# Source Surface Details
 
 Use [source-surface.md](source-surface.md) first. The executable grammar in
 [source-surface-executable.pl](source-surface-executable.pl) and checked cases
@@ -70,8 +74,9 @@ TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant+ "end" NL?
 EffectDecl    ::= "pub"? "effect" Name NL EffectOperation+ "end" NL?
 EffectOperation ::= Name "(" EffectParamList? ")" "->" TypeText NL
 EffectParamList ::= Name ":" TypeText ("," Name ":" TypeText)*
-HandlerDecl   ::= "pub"? "handler" Name "(" ParamList? ")" "handles" MemberPath Effects? NL HandlerProvider+ "end" NL?
-HandlerProvider ::= Name "=" MemberPath NL
+HandlerDecl   ::= "pub"? "handler" Name "(" ParamList? ")" "handles" MemberPath Effects? NL HandlerOperationClause+ "end" NL?
+HandlerOperationClause ::= Name "(" HandlerOperationParams? ")" "=>" Expr NL
+HandlerOperationParams ::= Name ("," Name)*
 SchemaDecl    ::= "pub"? "schema" Name NL SchemaFormat? SchemaField+ SchemaValidation? "end" NL?
 SchemaFormat  ::= "format" "binary" NL
 SchemaField   ::= Name ":" SchemaFieldType SchemaFieldWhere? NL

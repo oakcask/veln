@@ -1,0 +1,11 @@
+effect Ask
+	value() -> Int
+end
+
+fn provide() -> Int
+	1
+end
+
+handler ask() handles Ask
+	value = provide
+end

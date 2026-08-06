@@ -10,6 +10,6 @@ pub fn write_stream_chunks(stream: NetStream, chunks: List<ByteChunk>) -> () eff
 end
 
 pub handler net_stream(stream: NetStream) handles transport::DuplexStream effects [net]
-	read_chunk = read_stream_chunk
-	write_chunks = write_stream_chunks
+	read_chunk() => read_stream_chunk(stream)
+	write_chunks(chunks) => write_stream_chunks(stream, chunks)
 end

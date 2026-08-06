@@ -514,7 +514,8 @@ fn reachable_project_lowering_with_reusable_standard_environment_keeps_standard_
                                 &expr.kind,
                                 CoreExprKind::Handle { providers, .. }
                                     if providers.iter().any(|provider| {
-                                        provider.function == "__veln_std$prelude$provide"
+                                        provider.function
+                                            == "__veln_std$prelude$__handler_3$ask_5$value"
                                     })
                             )
                     )
@@ -628,7 +629,7 @@ fn standard_module() -> SurfaceModule {
             "end\n",
             "\n",
             "pub handler ask(offset: Int) handles Ask\n",
-            "  value = provide\n",
+            "  value() => provide(offset)\n",
             "end\n",
             "\n",
             "type PayloadShape\n",

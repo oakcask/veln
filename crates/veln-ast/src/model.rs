@@ -41,17 +41,17 @@ pub struct HandlerDecl {
     pub effect_span: SourceSpan,
     pub effects: Option<Vec<String>>,
     pub effect_spans: Option<Vec<SourceSpan>>,
-    pub providers: Vec<HandlerProviderDecl>,
+    pub operation_clauses: Vec<HandlerOperationClauseDecl>,
     pub span: SourceSpan,
 }
 
 #[derive(Clone, Debug)]
-pub struct HandlerProviderDecl {
+pub struct HandlerOperationClauseDecl {
     pub node_id: NodeId,
     pub operation: Option<String>,
     pub operation_span: SourceSpan,
-    pub provider: Vec<String>,
-    pub provider_span: SourceSpan,
+    pub params: Vec<Param>,
+    pub body: Expr,
     pub span: SourceSpan,
 }
 

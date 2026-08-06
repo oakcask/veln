@@ -1924,6 +1924,9 @@ impl<'a> FunctionChecker<'a> {
         args: &[Expr],
         expected: Option<&ExpectedType>,
     ) -> Type {
+        if let Some(ty) = self.infer_local_callable_call(expr, callee, args) {
+            return ty;
+        }
         if let Some(ty) = self.infer_constructor_call(expr, callee, args, expected) {
             return ty;
         }
@@ -1937,6 +1940,52 @@ impl<'a> FunctionChecker<'a> {
             return ty;
         }
         self.infer_unresolved_call(callee, args)
+    }
+
+    fn infer_local_callable_call(
+        &mut self,
+        expr: &Expr,
+        callee: &Expr,
+        args: &[Expr],
+    ) -> Option<Type> {
+        let ExprKind::NamePath(segments) = &callee.kind else {
+            return None;
+        };
+        let [name] = segments.as_slice() else {
+            return None;
+        };
+        let binding = self
+            .bindings
+            .iter()
+            .rev()
+            .find(|binding| binding.name == *name)?;
+        let Type::Function {
+            params,
+            variadic,
+            return_type,
+            effects,
+        } = binding.ty.clone()
+        else {
+            return None;
+        };
+        let origin = CallOrigin {
+            node_id: callee.node_id,
+            span: callee.span.clone(),
+            symbol: name.clone(),
+            effects,
+        };
+        let instantiated_effects =
+            self.check_call_arguments(args, &params, variadic.as_deref(), &origin);
+        for effect in &instantiate_effects(&origin.effects, &instantiated_effects) {
+            self.inferred_effects.push(EffectUse {
+                effect: effect.clone(),
+                node_id: expr.node_id,
+                span: expr.span.clone(),
+                kind: "direct_call",
+                symbol: origin.symbol.clone(),
+            });
+        }
+        Some(*return_type)
     }
 
     pub(super) fn infer_constructor_call(

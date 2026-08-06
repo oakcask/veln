@@ -1,0 +1,10 @@
+command = ["lsp"]
+stdin = "Content-Length: 78\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"rootUri\":\"file://.\"}}Content-Length: 151\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"textDocument/definition\",\"params\":{\"textDocument\":{\"uri\":\"file://./main.veln\"},\"position\":{\"line\":10,\"character\":4}}}Content-Length: 189\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"textDocument/references\",\"params\":{\"textDocument\":{\"uri\":\"file://./main.veln\"},\"position\":{\"line\":10,\"character\":4},\"context\":{\"includeDeclaration\":true}}}Content-Length: 167\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"textDocument/rename\",\"params\":{\"textDocument\":{\"uri\":\"file://./main.veln\"},\"position\":{\"line\":10,\"character\":4},\"newName\":\"project\"}}Content-Length: 58\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"shutdown\",\"params\":null}Content-Length: 47\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"exit\",\"params\":null}"
+exit = 0
+
+[stdout]
+contains = ["\"definitionProvider\":true", "\"referencesProvider\":true", "\"renameProvider\":{\"prepareProvider\":true}", "\"id\":2,\"result\":null", "\"id\":3,\"result\":[]", "\"id\":4,\"result\":{\"changes\":{}}", "\"id\":5,\"result\":null"]
+not_contains = ["\"range\":{\"start\":{\"line\":9,\"character\":15},\"end\":{\"line\":9,\"character\":23}}", "\"range\":{\"start\":{\"line\":10,\"character\":21},\"end\":{\"line\":10,\"character\":29}},\"newText\":\"project\"", "\"range\":{\"start\":{\"line\":11,\"character\":20},\"end\":{\"line\":11,\"character\":28}},\"newText\":\"project\""]
+
+[stderr]
+format = "empty"

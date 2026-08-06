@@ -1,0 +1,22 @@
+effect Gather
+	seed() -> Int
+	add(left: Int) -> Int
+	mix(left: Int, right: Int) -> Int
+end
+
+handler gather(base: Int) handles Gather
+	seed() => base + 1
+	add(item) => item + base
+	mix(first, second) => first * 10 + second + base
+end
+
+fn compute() -> Int effects [Gather]
+	let seed_value = perform Gather::seed()
+	let renamed = perform Gather::add(4)
+	let combined = perform Gather::mix(seed_value, renamed)
+	seed_value + renamed + combined
+end
+
+pub fn main() -> () effects [stdio]
+	stdio::println(int_to_string(handle compute() with gather(3)))
+end

@@ -7,7 +7,7 @@ fn provide() -> Int
 end
 
 handler ask() handles Ask
-	value = provide
+	value() => provide()
 end
 
 fn worker() -> Int effects [Ask]

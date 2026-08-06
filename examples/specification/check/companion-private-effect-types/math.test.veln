@@ -10,7 +10,7 @@ fn accepts_private_effect_callback(operation: fn() -> () effects [math::Ask]) ->
 end
 
 handler traced() handles math::Trace effects [math::Ask]
-	ping = trace
+	ping() => trace()
 end
 
 fn trace() -> ()

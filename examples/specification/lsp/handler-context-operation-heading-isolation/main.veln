@@ -1,0 +1,13 @@
+fn callback(value: Int) -> Int
+  value
+end
+
+effect Adjust
+  callback(value: Int) -> Int
+  amount(value: Int) -> Int
+end
+
+handler adjust(callback: fn(Int) -> Int) handles Adjust
+  callback(value) => callback(value)
+  amount(value) => callback(value)
+end

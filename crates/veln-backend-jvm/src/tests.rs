@@ -802,7 +802,7 @@ fn bytecode_backend_runs_lexical_handlers_when_java_is_available() {
            base + value\n\
          end\n\
          handler picker(base: Int) handles Pick\n\
-           next = provide\n\
+           next(step) => provide(base, step)\n\
          end\n\
          pub fn main() -> () effects [stdio]\n\
            let total = handle perform Pick::next(1) + perform Pick::next(2) with picker(40)\n\

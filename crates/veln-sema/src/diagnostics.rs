@@ -73,7 +73,6 @@ pub(crate) fn handler_details(
     handler: impl Into<String>,
     handled_effect: impl Into<String>,
     operation: Option<&str>,
-    provider: Option<&[String]>,
     reason: &'static str,
 ) -> JsonValue {
     JsonValue::object([
@@ -85,12 +84,6 @@ pub(crate) fn handler_details(
         (
             "operation",
             operation.map_or(JsonValue::Null, JsonValue::string),
-        ),
-        (
-            "provider",
-            provider.map_or(JsonValue::Null, |segments| {
-                JsonValue::string(segments.join("::"))
-            }),
         ),
         ("reason", JsonValue::string(reason)),
     ])

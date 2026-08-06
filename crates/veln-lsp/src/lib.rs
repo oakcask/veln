@@ -12,7 +12,7 @@ use veln_diagnostics::{Diagnostic, Severity};
 use veln_editor::{encode_lsp_semantic_tokens, semantic_token_legend};
 use veln_project::{Project, classify_companion_source};
 use veln_source::{SourceFile, SourceSpan};
-use veln_syntax::{Token, TokenKind, lex, parse};
+use veln_syntax::{Token, TokenKind, format_tree, lex, parse};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SemanticTokensLegend {
@@ -120,6 +120,8 @@ impl Server {
             "textDocument/didClose" => self.handle_document_close(message),
             "textDocument/semanticTokens/full" => self.handle_semantic_tokens(message, id),
             "textDocument/definition" => self.handle_definition(message, id),
+            "textDocument/references" => self.handle_references(message, id),
+            "textDocument/formatting" => self.handle_formatting(message, id),
             "textDocument/prepareRename" => self.handle_prepare_rename(message, id),
             "textDocument/rename" => self.handle_rename(message, id),
             _ => self.handle_unknown_method(id),
@@ -182,9 +184,30 @@ impl Server {
         id.map(|id| {
             let result = self
                 .symbol_at_request(message)
-                .and_then(|request| request.index.location_json(&request.symbol.declaration))
+                .and_then(|request| request.index.symbol_location_json(&request.symbol))
                 .unwrap_or_else(|| "null".to_string());
             response(&id, &result)
+        })
+        .into_iter()
+        .collect()
+    }
+
+    fn handle_references(&self, message: &str, id: Option<String>) -> Vec<String> {
+        id.map(|id| {
+            let result = self
+                .symbol_at_request(message)
+                .map(|request| request.index.symbol_references_json(&request.symbol, true))
+                .unwrap_or_else(|| "[]".to_string());
+            response(&id, &result)
+        })
+        .into_iter()
+        .collect()
+    }
+
+    fn handle_formatting(&self, message: &str, id: Option<String>) -> Vec<String> {
+        id.map(|id| {
+            let uri = extract_string_field(message, "uri").unwrap_or_default();
+            response(&id, &formatting_result(&uri, self.document_text(&uri)))
         })
         .into_iter()
         .collect()
@@ -210,7 +233,7 @@ impl Server {
                     self.symbol_at_request(message).map(|request| {
                         request
                             .index
-                            .workspace_edit_json(&request.symbol, &new_name)
+                            .symbol_workspace_edit_json(&request.symbol, &new_name)
                     })
                 })
                 .unwrap_or_else(|| "{\"changes\":{}}".to_string());
@@ -317,7 +340,7 @@ fn document_uri_and_text(message: &str) -> Option<(String, String)> {
 fn initialize_result() -> String {
     let legend = legend();
     format!(
-        "{{\"capabilities\":{{\"textDocumentSync\":1,\"definitionProvider\":true,\"renameProvider\":{{\"prepareProvider\":true}},\"semanticTokensProvider\":{{\"legend\":{{\"tokenTypes\":[{}],\"tokenModifiers\":[{}]}},\"full\":true,\"range\":false}}}}}}",
+        "{{\"capabilities\":{{\"textDocumentSync\":1,\"definitionProvider\":true,\"referencesProvider\":true,\"documentFormattingProvider\":true,\"renameProvider\":{{\"prepareProvider\":true}},\"semanticTokensProvider\":{{\"legend\":{{\"tokenTypes\":[{}],\"tokenModifiers\":[{}]}},\"full\":true,\"range\":false}}}}}}",
         json_string_list(&legend.token_types),
         json_string_list(&legend.token_modifiers),
     )
@@ -332,6 +355,23 @@ fn semantic_tokens_result(uri: &str, text: String) -> String {
         .collect::<Vec<_>>()
         .join(",");
     format!("{{\"data\":[{data}]}}")
+}
+
+fn formatting_result(uri: &str, text: String) -> String {
+    let source = SourceFile::new(display_path(uri), text.clone());
+    let parsed = parse(&source);
+    if !parsed.diagnostics.is_empty() {
+        return "[]".to_string();
+    }
+    let formatted = format_tree(&parsed.tree);
+    if formatted == text {
+        return "[]".to_string();
+    }
+    format!(
+        "[{{\"range\":{},\"newText\":\"{}\"}}]",
+        full_document_range_json(&text),
+        escape_json(&formatted)
+    )
 }
 
 fn publish_diagnostics(uri: &str, text: String) -> String {
@@ -396,6 +436,22 @@ fn position_json(line: usize, column: usize) -> String {
         "{{\"line\":{},\"character\":{}}}",
         line.saturating_sub(1),
         column.saturating_sub(1),
+    )
+}
+
+fn full_document_range_json(text: &str) -> String {
+    let mut line = 0usize;
+    let mut character = 0usize;
+    for ch in text.chars() {
+        if ch == '\n' {
+            line += 1;
+            character = 0;
+        } else {
+            character += 1;
+        }
+    }
+    format!(
+        "{{\"start\":{{\"line\":0,\"character\":0}},\"end\":{{\"line\":{line},\"character\":{character}}}}}"
     )
 }
 
@@ -553,8 +609,30 @@ struct FunctionSymbol {
 #[derive(Debug)]
 struct SymbolRequest {
     index: LspSymbolIndex,
-    symbol: FunctionSymbol,
+    symbol: LspSymbol,
     selection: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+enum LspSymbol {
+    Function(FunctionSymbol),
+    Local(LocalSymbol),
+}
+
+#[derive(Clone, Debug)]
+struct LocalSymbol {
+    name: String,
+    declaration: SourceSpan,
+    scope_file: String,
+    scope_start: usize,
+    scope_end: usize,
+    kind: LocalSymbolKind,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum LocalSymbolKind {
+    HandlerContextParameter,
+    HandlerOperationClauseParameter,
 }
 
 #[derive(Debug)]
@@ -586,6 +664,15 @@ struct LocalBinding {
     name: String,
     start: usize,
     end: usize,
+}
+
+#[derive(Debug)]
+struct ClauseBinding {
+    name: String,
+    declaration: SourceSpan,
+    start: usize,
+    end: usize,
+    kind: LocalSymbolKind,
 }
 
 impl LspSymbolIndex {
@@ -643,20 +730,37 @@ impl LspSymbolIndex {
         token_index: usize,
         name: &str,
         selection: &SourceSpan,
-    ) -> Option<FunctionSymbol> {
+    ) -> Option<LspSymbol> {
+        if let Some(symbol) =
+            handler_operation_clause_symbol(file, tokens, token_index, name, selection)
+        {
+            return Some(LspSymbol::Local(symbol));
+        }
+
+        if is_handler_operation_clause_operation_name(tokens, token_index) {
+            return None;
+        }
+
         if let Some(symbol) = self.functions.iter().find(|symbol| {
             symbol.name == name
                 && symbol.declaration.file == selection.file
                 && symbol.declaration.start.offset == selection.start.offset
                 && symbol.declaration.end.offset == selection.end.offset
         }) {
-            return Some(symbol.clone());
+            return Some(LspSymbol::Function(symbol.clone()));
         }
 
-        let qualifier = qualifier_for_token(tokens, token_index)?;
         if !is_call_target_token(tokens, token_index) {
             return None;
         }
+        let Some(qualifier) = qualifier_for_token(tokens, token_index) else {
+            return self
+                .functions
+                .iter()
+                .find(|symbol| symbol.name == name && symbol.module == file.module)
+                .cloned()
+                .map(LspSymbol::Function);
+        };
         self.functions
             .iter()
             .find(|symbol| {
@@ -669,6 +773,7 @@ impl LspSymbolIndex {
                         .is_some_and(|target| target == &symbol.module)
             })
             .cloned()
+            .map(LspSymbol::Function)
     }
 
     fn location_json(&self, span: &SourceSpan) -> Option<String> {
@@ -720,6 +825,119 @@ impl LspSymbolIndex {
         format!("{{\"changes\":{{{changes}}}}}")
     }
 
+    fn local_workspace_edit_json(&self, symbol: &LocalSymbol, new_name: &str) -> String {
+        let spans = self.local_references(symbol, true);
+        let edits = spans
+            .iter()
+            .map(|span| {
+                format!(
+                    "{{\"range\":{},\"newText\":\"{}\"}}",
+                    range_json(Some(span)),
+                    escape_json(new_name)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        let uri = uri_for_span(&self.files, &symbol.declaration);
+        format!("{{\"changes\":{{\"{}\":[{edits}]}}}}", escape_json(&uri))
+    }
+
+    fn references_json(&self, symbol: &FunctionSymbol, include_declaration: bool) -> String {
+        let mut locations = Vec::new();
+        if include_declaration && let Some(location) = self.location_json(&symbol.declaration) {
+            locations.push(location);
+        }
+        for file in &self.files {
+            for span in self.references_in_file(file, symbol) {
+                if let Some(location) = self.location_json(&span) {
+                    locations.push(location);
+                }
+            }
+        }
+        locations.sort();
+        locations.dedup();
+        format!("[{}]", locations.join(","))
+    }
+
+    fn local_references_json(&self, symbol: &LocalSymbol, include_declaration: bool) -> String {
+        let locations = self
+            .local_references(symbol, include_declaration)
+            .into_iter()
+            .filter_map(|span| self.location_json(&span))
+            .collect::<Vec<_>>();
+        format!("[{}]", locations.join(","))
+    }
+
+    fn local_references(&self, symbol: &LocalSymbol, include_declaration: bool) -> Vec<SourceSpan> {
+        let Some(file) = self
+            .files
+            .iter()
+            .find(|file| file.source.path().as_str() == symbol.scope_file)
+        else {
+            return Vec::new();
+        };
+        let tokens = lex(&file.source).tokens;
+        let mut spans = Vec::new();
+        if include_declaration {
+            spans.push(symbol.declaration.clone());
+        }
+        spans.extend(
+            tokens
+                .iter()
+                .enumerate()
+                .filter(|(index, token)| {
+                    token.text == symbol.name
+                        && token.kind == TokenKind::Ident
+                        && token.range.start >= symbol.scope_start
+                        && token.range.start < symbol.scope_end
+                        && !is_field_name(&tokens, *index)
+                        && !is_local_binding_name(&tokens, *index)
+                        && (symbol.kind != LocalSymbolKind::HandlerContextParameter
+                            || inside_handler_operation_clause_body(&tokens, token.range.start))
+                        && !local_binding_shadows_name(
+                            &tokens,
+                            &symbol.name,
+                            token.range.start,
+                            symbol.scope_start,
+                            symbol.scope_end,
+                        )
+                        && (symbol.kind != LocalSymbolKind::HandlerContextParameter
+                            || !handler_operation_clause_parameter_shadows_name(
+                                &tokens,
+                                &symbol.name,
+                                token.range.start,
+                                symbol.scope_start,
+                                symbol.scope_end,
+                            ))
+                })
+                .map(|(_, token)| file.source.span(token.range)),
+        );
+        spans.sort_by_key(|span| span.start.offset);
+        spans.dedup_by_key(|span| (span.start.offset, span.end.offset));
+        spans
+    }
+
+    fn symbol_location_json(&self, symbol: &LspSymbol) -> Option<String> {
+        match symbol {
+            LspSymbol::Function(symbol) => self.location_json(&symbol.declaration),
+            LspSymbol::Local(symbol) => self.location_json(&symbol.declaration),
+        }
+    }
+
+    fn symbol_references_json(&self, symbol: &LspSymbol, include_declaration: bool) -> String {
+        match symbol {
+            LspSymbol::Function(symbol) => self.references_json(symbol, include_declaration),
+            LspSymbol::Local(symbol) => self.local_references_json(symbol, include_declaration),
+        }
+    }
+
+    fn symbol_workspace_edit_json(&self, symbol: &LspSymbol, new_name: &str) -> String {
+        match symbol {
+            LspSymbol::Function(symbol) => self.workspace_edit_json(symbol, new_name),
+            LspSymbol::Local(symbol) => self.local_workspace_edit_json(symbol, new_name),
+        }
+    }
+
     fn references_in_file(&self, file: &LspFile, symbol: &FunctionSymbol) -> Vec<SourceSpan> {
         if file.module == symbol.module {
             return call_references(&file.source, &symbol.name);
@@ -762,6 +980,183 @@ fn function_declarations(file: &LspFile) -> Vec<FunctionSymbol> {
     functions
 }
 
+fn handler_operation_clause_symbol(
+    file: &LspFile,
+    tokens: &[Token],
+    token_index: usize,
+    name: &str,
+    selection: &SourceSpan,
+) -> Option<LocalSymbol> {
+    handler_operation_clause_bindings(file, tokens)
+        .into_iter()
+        .find(|binding| {
+            let token_offset = tokens[token_index].range.start;
+            binding.name == name
+                && ((selection.start.offset >= binding.declaration.start.offset
+                    && selection.start.offset < binding.declaration.end.offset)
+                    || (token_offset >= binding.start
+                        && token_offset < binding.end
+                        && (binding.kind != LocalSymbolKind::HandlerContextParameter
+                            || inside_handler_operation_clause_body(tokens, token_offset))
+                        && !local_binding_shadows_name(
+                            tokens,
+                            &binding.name,
+                            token_offset,
+                            binding.start,
+                            binding.end,
+                        )))
+        })
+        .map(|binding| LocalSymbol {
+            name: binding.name,
+            declaration: binding.declaration,
+            scope_file: file.source.path().as_str().to_string(),
+            scope_start: binding.start,
+            scope_end: binding.end,
+            kind: binding.kind,
+        })
+}
+
+fn handler_operation_clause_bindings(file: &LspFile, tokens: &[Token]) -> Vec<ClauseBinding> {
+    let mut clause_bindings = Vec::new();
+    for (arrow_index, arrow) in tokens.iter().enumerate() {
+        if arrow.kind != TokenKind::FatArrow
+            || !inside_top_level_block(tokens, arrow_index, TokenKind::Handler)
+        {
+            continue;
+        }
+        let line_start_index = line_start_index(tokens, arrow_index);
+        let body_end =
+            handler_operation_clause_body_end(tokens, arrow_index, file.source.text().len());
+        let Some(lparen_index) = tokens[line_start_index..arrow_index]
+            .iter()
+            .position(|token| token.kind == TokenKind::LParen)
+            .map(|index| line_start_index + index)
+        else {
+            continue;
+        };
+        let Some(rparen_index) = tokens[lparen_index + 1..arrow_index]
+            .iter()
+            .position(|token| token.kind == TokenKind::RParen)
+            .map(|index| lparen_index + 1 + index)
+        else {
+            continue;
+        };
+        for token in &tokens[lparen_index + 1..rparen_index] {
+            if token.kind == TokenKind::Ident && is_identifier(&token.text) {
+                clause_bindings.push(ClauseBinding {
+                    name: token.text.clone(),
+                    declaration: file.source.span(token.range),
+                    start: arrow.range.end,
+                    end: body_end,
+                    kind: LocalSymbolKind::HandlerOperationClauseParameter,
+                });
+            }
+        }
+    }
+    clause_bindings.extend(handler_context_parameter_bindings(file, tokens));
+    clause_bindings
+}
+
+fn handler_context_parameter_bindings(file: &LspFile, tokens: &[Token]) -> Vec<ClauseBinding> {
+    tokens
+        .iter()
+        .enumerate()
+        .filter(|(_, token)| token.kind == TokenKind::Handler)
+        .flat_map(|(handler_index, _)| {
+            handler_context_parameter_bindings_for_handler(file, tokens, handler_index)
+        })
+        .collect()
+}
+
+fn handler_context_parameter_bindings_for_handler(
+    file: &LspFile,
+    tokens: &[Token],
+    handler_index: usize,
+) -> Vec<ClauseBinding> {
+    let Some(body_start) = tokens[handler_index..]
+        .iter()
+        .find(|token| token.kind == TokenKind::Newline)
+        .map(|token| token.range.end)
+    else {
+        return Vec::new();
+    };
+    let handler_end = function_scope_end(tokens, handler_index + 1).unwrap_or(body_start);
+    let Some(lparen_index) = tokens[handler_index..]
+        .iter()
+        .position(|token| token.kind == TokenKind::LParen)
+        .map(|index| handler_index + index)
+    else {
+        return Vec::new();
+    };
+    let Some(rparen_index) = matching_rparen_index(tokens, lparen_index, tokens.len()) else {
+        return Vec::new();
+    };
+    tokens[lparen_index + 1..rparen_index]
+        .iter()
+        .enumerate()
+        .filter(|(_, token)| token.kind == TokenKind::Ident && is_identifier(&token.text))
+        .filter(|(relative_index, _)| {
+            let index = lparen_index + 1 + relative_index;
+            next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::Colon)
+        })
+        .map(|(_, token)| ClauseBinding {
+            name: token.text.clone(),
+            declaration: file.source.span(token.range),
+            start: body_start,
+            end: handler_end,
+            kind: LocalSymbolKind::HandlerContextParameter,
+        })
+        .collect()
+}
+
+fn handler_operation_clause_body_end(
+    tokens: &[Token],
+    arrow_index: usize,
+    file_end: usize,
+) -> usize {
+    let mut nested_blocks = 0usize;
+    for (relative_index, token) in tokens[arrow_index + 1..].iter().enumerate() {
+        let index = arrow_index + 1 + relative_index;
+        match token.kind {
+            TokenKind::Eof => return file_end,
+            TokenKind::If if !is_else_if(tokens, index) => nested_blocks += 1,
+            TokenKind::Match | TokenKind::Handler => nested_blocks += 1,
+            TokenKind::End if nested_blocks == 0 => return token.range.start,
+            TokenKind::End => nested_blocks = nested_blocks.saturating_sub(1),
+            TokenKind::FatArrow if nested_blocks == 0 && !is_satisfy_arrow(tokens, index) => {
+                return match_arm_pattern_start_from_arrow(tokens, token.range.start);
+            }
+            _ => {}
+        }
+    }
+    file_end
+}
+
+fn line_start_index(tokens: &[Token], index: usize) -> usize {
+    tokens[..index]
+        .iter()
+        .rposition(|token| token.kind == TokenKind::Newline)
+        .map_or(0, |index| index + 1)
+}
+
+fn matching_rparen_index(tokens: &[Token], lparen_index: usize, end_index: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    for (relative_index, token) in tokens[lparen_index..end_index].iter().enumerate() {
+        let index = lparen_index + relative_index;
+        match token.kind {
+            TokenKind::LParen => depth += 1,
+            TokenKind::RParen => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    return Some(index);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
 fn call_references(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
     let tokens = lex(source).tokens;
     let scopes = function_scopes(&tokens);
@@ -777,10 +1172,11 @@ fn call_references(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
                 && !is_function_declaration_name(&tokens, *index)
                 && !is_parameter_name(&tokens, *index)
                 && !is_local_binding_name(&tokens, *index)
+                && !is_handler_operation_clause_operation_name(&tokens, *index)
                 && (token_scope(&scopes, token.range.start)
                     .is_some_and(|scope| !scope.shadows(name, &tokens, *index))
+                    || is_handler_operation_clause_call_target(&tokens, *index)
                     || is_function_alias_target_reference(&tokens, *index, name)
-                    || is_handler_provider_function_reference(&tokens, *index, name)
                     || is_codec_implementation_function_reference(&tokens, *index, name))
         })
         .map(|(_, token)| source.span(token.range))
@@ -964,6 +1360,74 @@ fn local_binding_scope_end(tokens: &[Token], let_index: usize, function_end: usi
     function_end
 }
 
+fn local_binding_shadows_name(
+    tokens: &[Token],
+    name: &str,
+    offset: usize,
+    scope_start: usize,
+    scope_end: usize,
+) -> bool {
+    local_bindings(tokens, scope_start, scope_end)
+        .iter()
+        .any(|binding| binding.name == name && offset >= binding.start && offset < binding.end)
+}
+
+fn handler_operation_clause_parameter_shadows_name(
+    tokens: &[Token],
+    name: &str,
+    offset: usize,
+    scope_start: usize,
+    scope_end: usize,
+) -> bool {
+    if offset < scope_start || offset >= scope_end {
+        return false;
+    }
+    let file_end = tokens.last().map_or(scope_end, |token| token.range.end);
+    tokens.iter().enumerate().any(|(arrow_index, arrow)| {
+        if arrow.kind != TokenKind::FatArrow
+            || !is_handler_operation_clause_arrow(tokens, arrow_index)
+        {
+            return false;
+        }
+        let Some((lparen_index, rparen_index)) =
+            handler_operation_clause_parameter_range(tokens, arrow_index)
+        else {
+            return false;
+        };
+        let body_end = handler_operation_clause_body_end(tokens, arrow_index, file_end);
+        offset >= tokens[lparen_index].range.start
+            && offset < body_end
+            && handler_operation_clause_parameter_names_in_range(tokens, lparen_index, rparen_index)
+                .contains(name)
+    })
+}
+
+fn handler_operation_clause_parameter_range(
+    tokens: &[Token],
+    arrow_index: usize,
+) -> Option<(usize, usize)> {
+    let lparen_index = tokens[..arrow_index]
+        .iter()
+        .rposition(|token| token.kind == TokenKind::LParen)?;
+    let rparen_index = tokens[lparen_index + 1..arrow_index]
+        .iter()
+        .position(|token| token.kind == TokenKind::RParen)
+        .map(|index| lparen_index + 1 + index)?;
+    Some((lparen_index, rparen_index))
+}
+
+fn handler_operation_clause_parameter_names_in_range(
+    tokens: &[Token],
+    lparen_index: usize,
+    rparen_index: usize,
+) -> BTreeSet<String> {
+    tokens[lparen_index + 1..rparen_index]
+        .iter()
+        .filter(|token| token.kind == TokenKind::Ident && is_identifier(&token.text))
+        .map(|token| token.text.clone())
+        .collect()
+}
+
 fn let_pattern_binding_names(tokens: &[Token], let_index: usize) -> Vec<(String, usize)> {
     let mut names = Vec::new();
     let mut depth = 0usize;
@@ -1081,7 +1545,8 @@ fn inside_match(tokens: &[Token], index: usize, body_start: usize) -> bool {
 
 fn match_arm_scope_end(tokens: &[Token], start: usize, function_end: usize) -> usize {
     let mut nested_blocks = 0usize;
-    for token in &tokens[start..] {
+    for (relative_index, token) in tokens[start..].iter().enumerate() {
+        let index = start + relative_index;
         if token.range.start >= function_end {
             break;
         }
@@ -1089,7 +1554,7 @@ fn match_arm_scope_end(tokens: &[Token], start: usize, function_end: usize) -> u
             TokenKind::If | TokenKind::Match | TokenKind::Handler => nested_blocks += 1,
             TokenKind::End if nested_blocks == 0 => return token.range.start,
             TokenKind::End => nested_blocks -= 1,
-            TokenKind::FatArrow if nested_blocks == 0 => {
+            TokenKind::FatArrow if nested_blocks == 0 && !is_satisfy_arrow(tokens, index) => {
                 return match_arm_pattern_start_from_arrow(tokens, token.range.start);
             }
             _ => {}
@@ -1205,6 +1670,17 @@ fn is_satisfy_candidate_binding_name(tokens: &[Token], index: usize) -> bool {
         && next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::FatArrow)
 }
 
+fn is_satisfy_arrow(tokens: &[Token], index: usize) -> bool {
+    let Some(candidate_index) = previous_non_layout_index(tokens, index) else {
+        return false;
+    };
+    if tokens[candidate_index].kind != TokenKind::Ident {
+        return false;
+    }
+    previous_non_layout_token(tokens, candidate_index)
+        .is_some_and(|previous| previous.kind == TokenKind::Ident && previous.text == "satisfy")
+}
+
 fn is_field_name(tokens: &[Token], index: usize) -> bool {
     previous_non_layout_token(tokens, index).is_some_and(|previous| previous.kind == TokenKind::Dot)
         || next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::Colon)
@@ -1216,18 +1692,6 @@ fn is_ensure_reference(tokens: &[Token], index: usize) -> bool {
         .rev()
         .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
         .any(|token| token.kind == TokenKind::Ensure)
-}
-
-fn is_handler_provider_function_reference(tokens: &[Token], index: usize, name: &str) -> bool {
-    tokens[index].text == name
-        && previous_non_layout_token(tokens, index)
-            .is_some_and(|previous| previous.kind == TokenKind::Equal)
-        && tokens[..index]
-            .iter()
-            .rev()
-            .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
-            .any(|token| token.kind == TokenKind::Equal)
-        && inside_handler_declaration(tokens, index)
 }
 
 fn is_function_alias_target_reference(tokens: &[Token], index: usize, name: &str) -> bool {
@@ -1252,6 +1716,65 @@ fn is_call_target_token(tokens: &[Token], index: usize) -> bool {
     next_non_whitespace_token(tokens, index).is_some_and(|next| next.kind == TokenKind::LParen)
 }
 
+fn is_handler_operation_clause_call_target(tokens: &[Token], index: usize) -> bool {
+    is_call_target_token(tokens, index)
+        && inside_handler_operation_clause_body(tokens, tokens[index].range.start)
+}
+
+fn is_handler_operation_clause_operation_name(tokens: &[Token], index: usize) -> bool {
+    tokens
+        .get(index)
+        .is_some_and(|token| token.kind == TokenKind::Ident && is_identifier(&token.text))
+        && tokens[index + 1..]
+            .iter()
+            .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
+            .position(|token| token.kind == TokenKind::FatArrow)
+            .map(|relative_index| index + 1 + relative_index)
+            .is_some_and(|arrow_index| {
+                is_handler_operation_clause_arrow(tokens, arrow_index)
+                    && line_tokens_before(tokens, arrow_index)
+                        .iter()
+                        .position(|token| {
+                            !matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline)
+                        })
+                        .is_some_and(|first_index| {
+                            let line_start = line_start_index(tokens, arrow_index);
+                            line_start + first_index == index
+                        })
+            })
+}
+
+fn inside_handler_operation_clause_body(tokens: &[Token], offset: usize) -> bool {
+    let file_end = tokens.last().map_or(offset, |token| token.range.end);
+    tokens.iter().enumerate().any(|(arrow_index, arrow)| {
+        arrow.kind == TokenKind::FatArrow
+            && is_handler_operation_clause_arrow(tokens, arrow_index)
+            && offset >= arrow.range.end
+            && offset < handler_operation_clause_body_end(tokens, arrow_index, file_end)
+    })
+}
+
+fn is_handler_operation_clause_arrow(tokens: &[Token], arrow_index: usize) -> bool {
+    if !inside_top_level_block(tokens, arrow_index, TokenKind::Handler) {
+        return false;
+    }
+    let line_tokens = line_tokens_before(tokens, arrow_index);
+    line_tokens
+        .iter()
+        .find(|token| !matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline))
+        .is_some_and(|token| token.kind == TokenKind::Ident && is_identifier(&token.text))
+        && line_tokens
+            .iter()
+            .any(|token| token.kind == TokenKind::LParen)
+        && line_tokens
+            .iter()
+            .any(|token| token.kind == TokenKind::RParen)
+}
+
+fn line_tokens_before(tokens: &[Token], index: usize) -> &[Token] {
+    &tokens[line_start_index(tokens, index)..index]
+}
+
 fn next_non_whitespace_token(tokens: &[Token], index: usize) -> Option<&Token> {
     tokens[index + 1..]
         .iter()
@@ -1259,20 +1782,24 @@ fn next_non_whitespace_token(tokens: &[Token], index: usize) -> Option<&Token> {
         .find(|token| token.kind != TokenKind::Whitespace)
 }
 
-fn inside_handler_declaration(tokens: &[Token], index: usize) -> bool {
-    inside_top_level_block(tokens, index, TokenKind::Handler)
-}
-
 fn inside_codec_declaration(tokens: &[Token], index: usize) -> bool {
     inside_top_level_block(tokens, index, TokenKind::Codec)
 }
 
 fn inside_top_level_block(tokens: &[Token], index: usize, start_kind: TokenKind) -> bool {
+    enclosing_top_level_block_index(tokens, index, start_kind).is_some()
+}
+
+fn enclosing_top_level_block_index(
+    tokens: &[Token],
+    index: usize,
+    start_kind: TokenKind,
+) -> Option<usize> {
     let mut nested_blocks = 0usize;
-    for token in tokens[..index].iter().rev() {
+    for (candidate_index, token) in tokens[..index].iter().enumerate().rev() {
         match token.kind {
             TokenKind::End => nested_blocks += 1,
-            kind if kind == start_kind && nested_blocks == 0 => return true,
+            kind if kind == start_kind && nested_blocks == 0 => return Some(candidate_index),
             TokenKind::Fn
             | TokenKind::Test
             | TokenKind::If
@@ -1282,7 +1809,7 @@ fn inside_top_level_block(tokens: &[Token], index: usize, start_kind: TokenKind)
             _ => {}
         }
     }
-    false
+    None
 }
 
 fn identifier_token_at(tokens: &[Token], offset: usize) -> Option<(usize, &Token)> {
@@ -1661,6 +2188,35 @@ mod tests {
 
         assert_eq!(response.data.len() % 5, 0);
         assert!(response.data.len() >= 10);
+    }
+
+    #[test]
+    fn server_returns_semantic_tokens_for_handler_clause_satisfy_body() {
+        let mut server = Server::default();
+        let project = TempProject::new("semantic-handler-satisfy-body");
+        project.write(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  pick(value: Int) -> Int\n",
+                "  fallback() -> Int\n",
+                "end\n",
+                "\n",
+                "handler choose() handles Choose\n",
+                "  pick(value) => _choice satisfy candidate => candidate == value\n",
+                "  fallback() => 0\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&semantic_tokens_request(&main_uri));
+
+        assert_eq!(responses.len(), 1);
+        assert!(responses[0].contains(r#""id":2,"result":{"data":["#));
+        assert!(!responses[0].contains(r#""data":[]"#), "{}", responses[0]);
     }
 
     #[test]
@@ -2727,9 +3283,9 @@ mod tests {
     }
 
     #[test]
-    fn companion_private_function_rename_includes_handler_provider_references() {
+    fn companion_private_function_rename_includes_handler_operation_clause_calls() {
         let mut server = Server::default();
-        let project = TempProject::new("rename-handler-provider-reference");
+        let project = TempProject::new("rename-handler-operation-clause-call");
         project.write(
             "math.veln",
             concat!(
@@ -2742,7 +3298,7 @@ mod tests {
                 "end\n",
                 "\n",
                 "handler adjust() handles Adjust\n",
-                "  amount = increment\n",
+                "  amount(value) => increment(value)\n",
                 "end\n",
             ),
         );
@@ -2760,10 +3316,443 @@ mod tests {
         assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 3);
         assert!(
             responses[0].contains(
-                r#""range":{"start":{"line":9,"character":11},"end":{"line":9,"character":20}}"#
+                r#""range":{"start":{"line":9,"character":19},"end":{"line":9,"character":28}}"#
             ),
             "{}",
             responses[0]
+        );
+    }
+
+    #[test]
+    fn companion_private_function_rename_from_multiline_clause_call_covers_clause_body_calls() {
+        let mut server = Server::default();
+        let project = TempProject::new("rename-handler-operation-clause-multiline-call");
+        project.write(
+            "math.veln",
+            concat!(
+                "effect Adjust\n",
+                "  amount(value: Int) -> Int\n",
+                "end\n",
+                "\n",
+                "fn increment(value: Int) -> Int\n",
+                "  value + 1\n",
+                "end\n",
+                "\n",
+                "handler adjust() handles Adjust\n",
+                "  amount(value) => if value == 0\n",
+                "    increment(value)\n",
+                "  else\n",
+                "    increment(value + 1)\n",
+                "  end\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "math.test.veln",
+            "use math\n\ntest companion() -> Int\n  math::increment(1)\nend\n",
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("math.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&rename_request(&main_uri, 10, 6, "advance"));
+
+        assert_eq!(responses.len(), 1);
+        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 4);
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":10,"character":4},"end":{"line":10,"character":13}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":12,"character":4},"end":{"line":12,"character":13}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
+    fn handler_operation_clause_binding_rename_skips_record_fields() {
+        let mut server = Server::default();
+        let project = TempProject::new("rename-handler-operation-clause-field-isolation");
+        project.write(
+            "main.veln",
+            concat!(
+                "effect Adjust\n",
+                "  amount(value: Int) -> Int\n",
+                "end\n",
+                "\n",
+                "handler adjust() handles Adjust\n",
+                "  amount(value) => { value: value, other: 1 }.value + value\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&rename_request(&main_uri, 5, 10, "amount_value"));
+
+        assert_eq!(responses.len(), 1);
+        assert_eq!(
+            responses[0].matches(r#""newText":"amount_value""#).count(),
+            3
+        );
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":5,"character":9},"end":{"line":5,"character":14}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":5,"character":28},"end":{"line":5,"character":33}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":5,"character":54},"end":{"line":5,"character":59}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":5,"character":21"#),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":5,"character":46"#),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
+    fn handler_operation_clause_binding_rename_covers_multiline_body_references() {
+        let mut server = Server::default();
+        let project = TempProject::new("rename-handler-operation-clause-multiline-body");
+        project.write(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  pick(value: Bool) -> Int\n",
+                "end\n",
+                "\n",
+                "handler choose() handles Choose\n",
+                "  pick(value) => match value\n",
+                "    true => value\n",
+                "    value => value\n",
+                "    false => value\n",
+                "  end\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&rename_request(&main_uri, 5, 8, "input"));
+
+        assert_eq!(responses.len(), 1);
+        assert_eq!(responses[0].matches(r#""newText":"input""#).count(), 4);
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":6,"character":12},"end":{"line":6,"character":17}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":8,"character":13},"end":{"line":8,"character":18}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":7,"character":4"#),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":7,"character":13"#),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
+    fn handler_operation_clause_binding_rename_keeps_else_if_body_scope_bounded() {
+        let mut server = Server::default();
+        let project = TempProject::new("rename-handler-operation-clause-else-if-body");
+        project.write(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  pick(value: Int) -> Int\n",
+                "  fallback(value: Int) -> Int\n",
+                "end\n",
+                "\n",
+                "handler choose() handles Choose\n",
+                "  pick(value) => if value == 0\n",
+                "    value\n",
+                "  else if value == 1\n",
+                "    value\n",
+                "  else\n",
+                "    value\n",
+                "  end\n",
+                "  fallback(value) => value\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&rename_request(&main_uri, 6, 8, "input"));
+
+        assert_eq!(responses.len(), 1);
+        assert_eq!(responses[0].matches(r#""newText":"input""#).count(), 6);
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":8,"character":10},"end":{"line":8,"character":15}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":11,"character":4},"end":{"line":11,"character":9}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":13,"character":11"#),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":13,"character":21"#),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
+    fn handler_operation_clause_binding_definition_uses_multiline_body_scope() {
+        let mut server = Server::default();
+        let project = TempProject::new("definition-handler-operation-clause-multiline-body");
+        project.write(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  pick(value: Bool) -> Int\n",
+                "end\n",
+                "\n",
+                "handler choose() handles Choose\n",
+                "  pick(value) => match value\n",
+                "    true => value\n",
+                "    value => value\n",
+                "    false => value\n",
+                "  end\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&definition_request(&main_uri, 8, 15));
+
+        assert_eq!(responses.len(), 1);
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":5,"character":7},"end":{"line":5,"character":12}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+        let shadowed = server.handle_message(&definition_request(&main_uri, 7, 15));
+        assert_eq!(shadowed.len(), 1);
+        assert!(shadowed[0].contains(r#""result":null"#), "{}", shadowed[0]);
+    }
+
+    #[test]
+    fn handler_context_callable_binding_shadows_top_level_function_in_clause_body() {
+        let mut server = Server::default();
+        let project = TempProject::new("handler-context-callable-binding");
+        project.write(
+            "main.veln",
+            concat!(
+                "fn callback(value: Int) -> Int\n",
+                "  value\n",
+                "end\n",
+                "\n",
+                "effect Adjust\n",
+                "  amount(value: Int) -> Int\n",
+                "  echo(value: Int) -> Int\n",
+                "  reset(value: Int) -> Int\n",
+                "end\n",
+                "\n",
+                "handler adjust(callback: fn(Int) -> Int) handles Adjust\n",
+                "  amount(value) => callback(value)\n",
+                "  echo(value) => callback(value) + callback(1)\n",
+                "  reset(callback) => callback\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let definition = server.handle_message(&definition_request(&main_uri, 11, 21));
+        let references = server.handle_message(&references_request(&main_uri, 10, 17));
+        let context_rename = server.handle_message(&rename_request(&main_uri, 10, 17, "project"));
+        let clause_rename = server.handle_message(&rename_request(&main_uri, 13, 8, "value"));
+
+        assert_eq!(definition.len(), 1);
+        assert!(
+            definition[0].contains(
+                r#""range":{"start":{"line":10,"character":15},"end":{"line":10,"character":23}}"#
+            ),
+            "{}",
+            definition[0]
+        );
+        assert_eq!(references.len(), 1);
+        assert!(
+            references[0].contains(
+                r#""range":{"start":{"line":11,"character":19},"end":{"line":11,"character":27}}"#
+            ),
+            "{}",
+            references[0]
+        );
+        assert!(
+            references[0].contains(
+                r#""range":{"start":{"line":12,"character":17},"end":{"line":12,"character":25}}"#
+            ),
+            "{}",
+            references[0]
+        );
+        assert!(
+            references[0].contains(
+                r#""range":{"start":{"line":12,"character":35},"end":{"line":12,"character":43}}"#
+            ),
+            "{}",
+            references[0]
+        );
+        assert!(
+            !references[0].contains(r#""line":0,"character":3"#),
+            "{}",
+            references[0]
+        );
+        assert!(
+            !references[0].contains(r#""line":13,"character":7"#),
+            "{}",
+            references[0]
+        );
+        assert_eq!(context_rename.len(), 1);
+        assert_eq!(
+            context_rename[0].matches(r#""newText":"project""#).count(),
+            4
+        );
+        assert!(
+            context_rename[0].contains(
+                r#""range":{"start":{"line":12,"character":17},"end":{"line":12,"character":25}}"#
+            ),
+            "{}",
+            context_rename[0]
+        );
+        assert!(
+            context_rename[0].contains(
+                r#""range":{"start":{"line":12,"character":35},"end":{"line":12,"character":43}}"#
+            ),
+            "{}",
+            context_rename[0]
+        );
+        assert!(
+            !context_rename[0].contains(r#""line":13,"character":7"#),
+            "{}",
+            context_rename[0]
+        );
+        assert_eq!(clause_rename.len(), 1);
+        assert_eq!(clause_rename[0].matches(r#""newText":"value""#).count(), 2);
+        assert!(
+            clause_rename[0].contains(
+                r#""range":{"start":{"line":13,"character":8},"end":{"line":13,"character":16}}"#
+            ),
+            "{}",
+            clause_rename[0]
+        );
+        assert!(
+            clause_rename[0].contains(
+                r#""range":{"start":{"line":13,"character":21},"end":{"line":13,"character":29}}"#
+            ),
+            "{}",
+            clause_rename[0]
+        );
+    }
+
+    #[test]
+    fn handler_context_parameter_does_not_bind_same_named_operation_heading() {
+        let mut server = Server::default();
+        let project = TempProject::new("handler-context-operation-heading-isolation");
+        project.write(
+            "main.veln",
+            concat!(
+                "fn callback(value: Int) -> Int\n",
+                "  value\n",
+                "end\n",
+                "\n",
+                "effect Adjust\n",
+                "  callback(value: Int) -> Int\n",
+                "  amount(value: Int) -> Int\n",
+                "end\n",
+                "\n",
+                "handler adjust(callback: fn(Int) -> Int) handles Adjust\n",
+                "  callback(value) => callback(value)\n",
+                "  amount(value) => callback(value)\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let definition = server.handle_message(&definition_request(&main_uri, 10, 4));
+        let references = server.handle_message(&references_request(&main_uri, 10, 4));
+        let rename = server.handle_message(&rename_request(&main_uri, 10, 4, "project"));
+        let body_definition = server.handle_message(&definition_request(&main_uri, 10, 22));
+
+        assert_eq!(definition.len(), 1);
+        assert!(
+            definition[0].contains(r#""result":null"#),
+            "{}",
+            definition[0]
+        );
+        assert_eq!(references.len(), 1);
+        assert!(
+            references[0].contains(r#""result":[]"#),
+            "{}",
+            references[0]
+        );
+        assert_eq!(rename.len(), 1);
+        assert!(rename[0].contains(r#""changes":{}"#), "{}", rename[0]);
+        assert_eq!(body_definition.len(), 1);
+        assert!(
+            body_definition[0].contains(
+                r#""range":{"start":{"line":9,"character":15},"end":{"line":9,"character":23}}"#
+            ),
+            "{}",
+            body_definition[0]
         );
     }
 
@@ -3175,6 +4164,12 @@ mod tests {
         )
     }
 
+    fn references_request(uri: &str, line: usize, character: usize) -> String {
+        format!(
+            r#"{{"jsonrpc":"2.0","id":2,"method":"textDocument/references","params":{{"textDocument":{{"uri":"{uri}"}},"position":{{"line":{line},"character":{character}}},"context":{{"includeDeclaration":true}}}}}}"#
+        )
+    }
+
     fn prepare_rename_request(uri: &str, line: usize, character: usize) -> String {
         format!(
             r#"{{"jsonrpc":"2.0","id":2,"method":"textDocument/prepareRename","params":{{"textDocument":{{"uri":"{uri}"}},"position":{{"line":{line},"character":{character}}}}}}}"#
@@ -3184,6 +4179,12 @@ mod tests {
     fn rename_request(uri: &str, line: usize, character: usize, new_name: &str) -> String {
         format!(
             r#"{{"jsonrpc":"2.0","id":2,"method":"textDocument/rename","params":{{"textDocument":{{"uri":"{uri}"}},"position":{{"line":{line},"character":{character}}},"newName":"{new_name}"}}}}"#
+        )
+    }
+
+    fn semantic_tokens_request(uri: &str) -> String {
+        format!(
+            r#"{{"jsonrpc":"2.0","id":2,"method":"textDocument/semanticTokens/full","params":{{"textDocument":{{"uri":"{uri}"}}}}}}"#
         )
     }
 

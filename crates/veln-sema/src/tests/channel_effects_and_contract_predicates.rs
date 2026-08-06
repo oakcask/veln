@@ -658,7 +658,7 @@ fn bounded_effect_inference_preserves_private_propagation_paths() {
                     "end\n",
                     "\n",
                     "handler ask(offset: Int) handles Ask\n",
-                    "  value = provide\n",
+                    "  value() => provide(offset)\n",
                     "end\n",
                     "\n",
                     "fn compute() -> Int effects [Ask]\n",
@@ -722,7 +722,7 @@ fn bounded_effect_inference_preserves_private_propagation_paths() {
         assert!(counters.dependency_discovery_scans > 0, "{counters:#?}");
         assert!(counters.function_body_collections > 0, "{counters:#?}");
         assert_eq!(
-            counters.handler_provider_evaluations > 0,
+            counters.handler_operation_clause_evaluations > 0,
             case.expect_handler_work,
             "{}: {counters:#?}",
             case.name
@@ -750,7 +750,7 @@ fn effect_inference_updates_shared_function_and_handler_dependents() {
             "end\n",
             "\n",
             "handler ask() handles Ask\n",
-            "  value = terminal\n",
+            "  value() => terminal()\n",
             "end\n",
             "\n",
             "fn compute() -> Int effects [Ask]\n",
@@ -774,7 +774,10 @@ fn effect_inference_updates_shared_function_and_handler_dependents() {
         details.contains("\"inferred_effects\":[\"stdio\"]"),
         "{details}"
     );
-    assert!(counters.handler_provider_evaluations > 0, "{counters:#?}");
+    assert!(
+        counters.handler_operation_clause_evaluations > 0,
+        "{counters:#?}"
+    );
     assert!(counters.changed_reevaluations > 0, "{counters:#?}");
 }
 
@@ -849,7 +852,7 @@ fn bounded_effect_inference_work_grows_linearly_for_unrelated_annotated_modules(
                 "end\n",
                 "\n",
                 "handler ask(offset: Int) handles Ask\n",
-                "  value = provide\n",
+                "  value() => provide(offset)\n",
                 "end\n",
                 "\n",
                 "fn compute() -> Int effects [Ask]\n",
@@ -882,7 +885,7 @@ fn bounded_effect_inference_work_grows_linearly_for_unrelated_annotated_modules(
         assert_eq!(diagnostics[0].id, "effect.missing_public");
         let total = counters.dependency_discovery_scans
             + counters.function_body_collections
-            + counters.handler_provider_evaluations
+            + counters.handler_operation_clause_evaluations
             + counters.changed_reevaluations;
         (total, counters.changed_reevaluations)
     }

@@ -1,10 +1,9 @@
 ---
+role: routing
 review-when: An implemented proposal record is added, moved, reclassified, completed, or removed.
 ---
 
 # Implemented Proposal Records
-
-Status: implemented
 
 This directory keeps completed proposal records after their observable behavior
 has moved into `../../specification/` or checked examples. Use it for history,
@@ -89,6 +88,8 @@ under `../../specification/` and its executable example routes.
   [type-parameter-angle-brackets.md](type-parameter-angle-brackets.md).
 - Lexical operation handlers:
   [lexical-operation-handlers.md](lexical-operation-handlers.md).
+- Explicit handler operation clauses:
+  [explicit-handler-operation-clauses.md](explicit-handler-operation-clauses.md).
 - HTTP/2 duplex stream connection driver:
   [http2-duplex-stream-connection-driver.md](http2-duplex-stream-connection-driver.md).
 - HTTP/2 application event and action boundary:

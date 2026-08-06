@@ -7,11 +7,11 @@ use crate::tree::build_lossless_root;
 use crate::{
     AdrLiteAnchor, AdrLiteRecord, BinaryOp, BodyLine, ContractClause, ContractKind, DictEntry,
     EffectBinder, EffectDecl, EffectOperationDecl, Expr, ExprKind, FunctionDecl, FunctionKind,
-    HandlerDecl, HandlerProviderDecl, IfBranch, MatchArm, ModuleDecl, Param, Pattern, PatternField,
-    PatternKind, PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField, SatisfyClause,
-    SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause,
-    SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl, TypeVariantDecl, TypeVariantField,
-    TypeVariantFieldDelimiter, UseDecl, UsePackage, Visibility, lex,
+    HandlerDecl, HandlerOperationClauseDecl, IfBranch, MatchArm, ModuleDecl, Param, Pattern,
+    PatternField, PatternKind, PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField,
+    SatisfyClause, SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause,
+    SchemaValidationClause, SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl, TypeVariantDecl,
+    TypeVariantField, TypeVariantFieldDelimiter, UseDecl, UsePackage, Visibility, lex,
 };
 
 fn is_contextual_identifier(kind: TokenKind) -> bool {
@@ -605,7 +605,7 @@ impl<'a> Parser<'a> {
         };
         self.expect_newline("handler_declaration");
 
-        let mut providers = Vec::new();
+        let mut operation_clauses = Vec::new();
         let mut end_present = false;
         while !self.at(TokenKind::Eof) {
             self.eat_newlines();
@@ -620,7 +620,7 @@ impl<'a> Parser<'a> {
             if self.at(TokenKind::Eof) {
                 break;
             }
-            providers.push(self.parse_handler_provider_decl());
+            operation_clauses.push(self.parse_handler_operation_clause_decl());
         }
         if !end_present {
             self.error_current(
@@ -641,28 +641,90 @@ impl<'a> Parser<'a> {
             effect_span,
             effects,
             effect_spans,
-            providers,
+            operation_clauses,
             span: self.source.span(start.cover(end)),
             end_present,
         }
     }
 
-    fn parse_handler_provider_decl(&mut self) -> HandlerProviderDecl {
+    fn parse_handler_operation_clause_decl(&mut self) -> HandlerOperationClauseDecl {
         let start = self.current().range;
         let operation_span = self.source.span(start);
-        let operation = self.expect_ident("handler_provider", "operation name");
-        self.expect(TokenKind::Equal, "handler_provider", vec!["="]);
-        let provider_start = self.current().range;
-        let provider = self.parse_name_path_segments("handler_provider", "provider function");
-        let provider_end = self.previous().map_or(provider_start, |token| token.range);
-        let end = self.expect_newline("handler_provider").range;
-        HandlerProviderDecl {
+        let operation = self.expect_ident("handler_operation_clause", "operation name");
+        if self.at(TokenKind::Equal) {
+            let equal = self.current().clone();
+            self.error_at_token(
+                &equal,
+                DiagnosticRequest {
+                    id: "parse.handler_operation_old_syntax",
+                    message: "handler operation clause must bind operation parameters with `(` and evaluate an expression with `=>`".to_string(),
+                    parser_context: "handler_operation_clause",
+                    expected: vec!["("],
+                    strategy: RecoveryStrategy::SynchronizeToAnchor,
+                    anchor: Some("newline"),
+                    repair_candidates: Vec::new(),
+                },
+            );
+            self.skip_to_next_line();
+            let body = Expr {
+                kind: ExprKind::Missing,
+                span: self.source.span(equal.range),
+            };
+            return HandlerOperationClauseDecl {
+                operation,
+                operation_span,
+                params: Vec::new(),
+                body,
+                span: self.source.span(start.cover(equal.range)),
+            };
+        }
+        self.expect(TokenKind::LParen, "handler_operation_clause", vec!["("]);
+        let params = self.parse_handler_operation_params();
+        self.expect(TokenKind::RParen, "handler_operation_clause", vec![")"]);
+        self.expect(TokenKind::FatArrow, "handler_operation_clause", vec!["=>"]);
+        let (body, body_range) = self.parse_expr_for_body_line("handler_operation_clause");
+        HandlerOperationClauseDecl {
             operation,
             operation_span,
-            provider,
-            provider_span: self.source.span(provider_start.cover(provider_end)),
-            span: self.source.span(start.cover(end)),
+            params,
+            body,
+            span: self.source.span(start.cover(body_range)),
         }
+    }
+
+    fn parse_handler_operation_params(&mut self) -> Vec<Param> {
+        let mut params = Vec::new();
+        if self.at(TokenKind::RParen) || self.at(TokenKind::Eof) {
+            return params;
+        }
+        loop {
+            let start = self.current().range;
+            let name = self
+                .expect_ident("handler_operation_clause", "operation parameter")
+                .unwrap_or_default();
+            params.push(Param {
+                name,
+                ty: None,
+                ty_span: None,
+                is_variadic: false,
+                span: self.source.span(start),
+            });
+            if self.eat(TokenKind::Comma).is_none() {
+                break;
+            }
+            if self.at(TokenKind::RParen) {
+                self.error_current(
+                    "parse.handler_operation_parameter",
+                    "handler operation parameter list cannot end with a comma",
+                    "handler_operation_clause",
+                    vec!["operation parameter"],
+                    RecoveryStrategy::InsertToken,
+                    Some("parameter"),
+                );
+                break;
+            }
+        }
+        params
     }
 
     fn parse_schema_decl(&mut self) -> SchemaDecl {

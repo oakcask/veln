@@ -147,7 +147,7 @@ fn nominal_effect_missing_public_reports_perform_provenance() {
 }
 
 #[test]
-fn public_handler_requires_and_canonicalizes_declared_provider_effects() {
+fn public_handler_requires_and_canonicalizes_declared_clause_effects() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -161,11 +161,11 @@ fn public_handler_requires_and_canonicalizes_declared_provider_effects() {
             "end\n",
             "\n",
             "pub handler missing(offset: Int) handles Ask\n",
-            "  value = traced\n",
+            "  value() => traced(offset)\n",
             "end\n",
             "\n",
             "pub handler declared(offset: Int) handles Ask effects [stdio, stdio]\n",
-            "  value = traced\n",
+            "  value() => traced(offset)\n",
             "end\n",
         ),
     );
@@ -189,7 +189,59 @@ fn public_handler_requires_and_canonicalizes_declared_provider_effects() {
         missing.message,
         "public handler `missing` uses undeclared effect `stdio`"
     );
-    assert_eq!(missing.span.as_ref().unwrap().start.line, 10);
+    assert_eq!(missing.span.as_ref().unwrap().start.line, 11);
+}
+
+#[test]
+fn handler_clause_parameters_shadow_context_only_inside_clause_body() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Pick\n",
+            "  choose(ctx: Int) -> Int\n",
+            "  current() -> Int\n",
+            "end\n",
+            "\n",
+            "handler pick(ctx: Int) handles Pick\n",
+            "  choose(ctx) => ctx\n",
+            "  current() => ctx\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn handler_clause_arity_diagnostic_reports_parameter_boundary() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Pick\n",
+            "  next(left: Int, right: Int) -> Int\n",
+            "end\n",
+            "\n",
+            "handler pick() handles Pick\n",
+            "  next(left) => left\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "handler.operation_clause_arity")
+        .unwrap_or_else(|| panic!("expected operation clause arity diagnostic: {diagnostics:#?}"));
+    let span = diagnostic.span.as_ref().expect("arity diagnostic span");
+    assert_eq!(span.start.line, 6);
+    assert_eq!(span.start.column, 8);
+    assert_eq!(span.end.line, 6);
+    assert_eq!(span.end.column, 12);
 }
 
 #[test]
@@ -274,11 +326,11 @@ fn matching_companion_resolves_qualified_private_target_effects() {
             "end\n",
             "\n",
             "handler ask(offset: Int) handles math::Ask\n",
-            "  value = provide\n",
+            "  value() => provide()\n",
             "end\n",
             "\n",
             "handler traced() handles math::Trace effects [math::Ask]\n",
-            "  ping = trace\n",
+            "  ping() => trace()\n",
             "end\n",
             "\n",
             "fn trace() -> ()\n",
@@ -338,7 +390,7 @@ fn wrong_companion_handler_effect_reports_target_mismatch() {
             "use math\n",
             "\n",
             "handler local() handles other::Local effects [math::Ask]\n",
-            "  value = provide\n",
+            "  value() => provide(offset)\n",
             "end\n",
             "\n",
             "fn provide() -> Int\n",
@@ -481,7 +533,7 @@ fn matching_companion_handles_with_private_target_handler() {
             "end\n",
             "\n",
             "handler ask(offset: Int) handles Ask\n",
-            "  value = provide\n",
+            "  value() => provide(offset)\n",
             "end\n",
             "\n",
             "pub fn compute() -> Int effects [Ask]\n",
@@ -544,7 +596,7 @@ fn wrong_companion_private_target_handler_reports_target_mismatch() {
             "end\n",
             "\n",
             "handler ask(offset: Int) handles Ask\n",
-            "  value = provide\n",
+            "  value() => provide(ctx)\n",
             "end\n",
         ),
     );
@@ -2939,7 +2991,7 @@ fn lexical_handler_lowers_through_checked_core_and_typed_ir() {
             "end\n",
             "\n",
             "handler ask(ctx: Int) handles Ask\n",
-            "  value = provide\n",
+            "  value() => provide(ctx)\n",
             "end\n",
             "\n",
             "pub fn main() -> Int\n",

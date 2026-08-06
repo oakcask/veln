@@ -1,0 +1,28 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["parse.handler_operation_old_syntax", "handler operation clause must bind operation parameters with `(` and evaluate an expression with `=>`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[diagnostics]]
+id = "parse.handler_operation_old_syntax"
+severity = "error"
+kind = "parse"
+message = "handler operation clause must bind operation parameters with `(` and evaluate an expression with `=>`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 10
+column = 8

@@ -8,11 +8,11 @@ fn traced(offset: Int) -> Int effects [stdio]
 end
 
 pub handler missing(offset: Int) handles Ask
-	value = traced
+	value() => traced(offset)
 end
 
 pub handler declared(offset: Int) handles Ask effects [stdio, stdio]
-	value = traced
+	value() => traced(offset)
 end
 
 fn compute() -> Int effects [Ask]

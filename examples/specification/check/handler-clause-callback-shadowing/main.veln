@@ -1,0 +1,44 @@
+effect PureRunner
+	pure(callback: fn() -> Int) -> Int
+end
+
+effect TraceRunner
+	traced(callback: fn() -> Int effects [stdio]) -> Int
+end
+
+fn callback() -> Int effects [net]
+	0
+end
+
+fn one() -> Int
+	1
+end
+
+fn traced_callback() -> Int effects [stdio]
+	stdio::println("traced")
+	2
+end
+
+handler run_pure() handles PureRunner
+	pure(callback) => callback()
+end
+
+handler run_traced() handles TraceRunner
+	traced(callback) => callback()
+end
+
+fn compute_pure(callback: fn() -> Int) -> Int effects [PureRunner]
+	perform PureRunner::pure(callback)
+end
+
+fn compute_traced(callback: fn() -> Int effects [stdio]) -> Int effects [TraceRunner]
+	perform TraceRunner::traced(callback)
+end
+
+pub fn pure_case() -> Int
+	handle compute_pure(one) with run_pure()
+end
+
+pub fn traced_case() -> Int effects [stdio]
+	handle compute_traced(traced_callback) with run_traced()
+end

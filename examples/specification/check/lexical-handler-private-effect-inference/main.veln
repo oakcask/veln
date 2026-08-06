@@ -8,7 +8,7 @@ fn provide(offset: Int) -> Int effects [stdio]
 end
 
 handler ask(offset: Int) handles Ask
-	value = provide
+	value() => provide(offset)
 end
 
 fn compute() -> Int effects [Ask]

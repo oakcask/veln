@@ -5,7 +5,7 @@ fn provide(offset: Int) -> Int
 end
 
 handler ask(offset: Int) handles math::Ask
-	value = provide
+	value() => provide(offset)
 end
 
 test companion_performs_private_target_effect() -> ()

@@ -319,6 +319,101 @@ impl<'a> Classifier<'a> {
                 self.cursor += 1;
             }
         }
+        while self.at(TokenKind::Newline) {
+            self.cursor += 1;
+        }
+        let handler_params = self.params.clone();
+        while !self.at(TokenKind::End) && !self.at(TokenKind::Eof) {
+            self.params = handler_params.clone();
+            self.collect_handler_operation_clause(semantic_tokens);
+            while self.at(TokenKind::Newline) {
+                self.cursor += 1;
+            }
+        }
+        self.params = handler_params;
+        if self.at(TokenKind::End) {
+            let token = &self.tokens[self.cursor];
+            semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
+            self.cursor += 1;
+        }
+    }
+
+    fn collect_handler_operation_clause(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
+        self.skip_trivia();
+        if self.at(TokenKind::Ident) {
+            let token = &self.tokens[self.cursor];
+            semantic_tokens.push(self.simple(token, SemanticTokenType::Property));
+            self.cursor += 1;
+        }
+        if self.eat(TokenKind::LParen, semantic_tokens) {
+            self.collect_handler_operation_parameters(semantic_tokens);
+        }
+        let body_end = self.handler_operation_clause_body_end();
+        while self
+            .tokens
+            .get(self.cursor)
+            .is_some_and(|token| token.kind != TokenKind::Eof && token.range.start < body_end)
+        {
+            if let Some(classified) = self.classify_current_token() {
+                semantic_tokens.push(classified);
+            }
+            self.cursor += 1;
+        }
+    }
+
+    fn handler_operation_clause_body_end(&self) -> usize {
+        let Some(arrow_index) = self
+            .tokens
+            .iter()
+            .enumerate()
+            .skip(self.cursor)
+            .take_while(|(_, token)| !matches!(token.kind, TokenKind::Newline | TokenKind::Eof))
+            .find_map(|(index, token)| (token.kind == TokenKind::FatArrow).then_some(index))
+        else {
+            return self.source.text().len();
+        };
+        let mut nested_blocks = 0usize;
+        for (relative_index, token) in self.tokens[arrow_index + 1..].iter().enumerate() {
+            let index = arrow_index + 1 + relative_index;
+            match token.kind {
+                TokenKind::Eof => return self.source.text().len(),
+                TokenKind::If if !is_else_if(self.tokens, index) => nested_blocks += 1,
+                TokenKind::Match | TokenKind::Handler => nested_blocks += 1,
+                TokenKind::End if nested_blocks == 0 => return token.range.start,
+                TokenKind::End => nested_blocks = nested_blocks.saturating_sub(1),
+                TokenKind::FatArrow
+                    if nested_blocks == 0 && !is_satisfy_arrow(self.tokens, index) =>
+                {
+                    return handler_clause_pattern_start_from_arrow(self.tokens, token.range.start);
+                }
+                _ => {}
+            }
+        }
+        self.source.text().len()
+    }
+
+    fn collect_handler_operation_parameters(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
+        while !self.at(TokenKind::RParen) && !self.at(TokenKind::Eof) {
+            let token = &self.tokens[self.cursor];
+            if token.kind == TokenKind::Ident {
+                self.params.insert(token.text.clone());
+                semantic_tokens.push(self.modified(
+                    token,
+                    SemanticTokenType::Parameter,
+                    &[
+                        SemanticTokenModifier::Declaration,
+                        SemanticTokenModifier::Readonly,
+                    ],
+                ));
+                self.cursor += 1;
+            } else {
+                if let Some(classified) = self.classify_current_token() {
+                    semantic_tokens.push(classified);
+                }
+                self.cursor += 1;
+            }
+        }
+        self.eat(TokenKind::RParen, semantic_tokens);
     }
 
     fn collect_effect_path(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
@@ -782,6 +877,20 @@ fn collect_function_names(tokens: &[Token]) -> BTreeSet<String> {
     names
 }
 
+fn handler_clause_pattern_start_from_arrow(tokens: &[Token], arrow_start: usize) -> usize {
+    let Some(arrow_index) = tokens
+        .iter()
+        .position(|token| token.range.start == arrow_start)
+    else {
+        return arrow_start;
+    };
+    tokens[..arrow_index]
+        .iter()
+        .rev()
+        .find(|token| token.kind == TokenKind::Newline)
+        .map_or(arrow_start, |token| token.range.end)
+}
+
 fn token_type_index(token_type: SemanticTokenType) -> usize {
     TOKEN_TYPES
         .iter()
@@ -851,6 +960,37 @@ fn is_prelude_function(text: &str) -> bool {
             | "result_map_err"
             | "result_and_then"
     )
+}
+
+fn is_else_if(tokens: &[Token], index: usize) -> bool {
+    tokens[..index]
+        .iter()
+        .rev()
+        .find(|token| !matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline))
+        .is_some_and(|token| token.kind == TokenKind::Else)
+}
+
+fn is_satisfy_arrow(tokens: &[Token], index: usize) -> bool {
+    let Some(candidate_index) = previous_significant_index(tokens, index) else {
+        return false;
+    };
+    let candidate = &tokens[candidate_index];
+    if candidate.kind != TokenKind::Ident {
+        return false;
+    }
+    let Some(satisfy_index) = previous_significant_index(tokens, candidate_index) else {
+        return false;
+    };
+    tokens[satisfy_index].kind == TokenKind::Ident && tokens[satisfy_index].text == "satisfy"
+}
+
+fn previous_significant_index(tokens: &[Token], index: usize) -> Option<usize> {
+    tokens[..index]
+        .iter()
+        .enumerate()
+        .rev()
+        .find(|(_, token)| !matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline))
+        .map(|(index, _)| index)
 }
 
 const TOKEN_TYPES: [SemanticTokenType; 12] = [
@@ -1124,11 +1264,11 @@ mod tests {
             "main.veln",
             concat!(
                 "pub handler ask(ctx: Int) handles Ask effects [stdio]\n",
-                "  value = provide_value\n",
+                "  value(item) => provide_value(ctx, item)\n",
                 "end\n",
                 "\n",
-                "fn provide_value(ctx: Int) -> Int\n",
-                "  ctx\n",
+                "fn provide_value(ctx: Int, item: Int) -> Int\n",
+                "  ctx + item\n",
                 "end\n",
             ),
         );
@@ -1179,9 +1319,159 @@ mod tests {
             SemanticTokenType::Property,
             SemanticTokenModifiers::empty().bits()
         )));
+        assert!(
+            tokens.contains(&(
+                "item".to_string(),
+                SemanticTokenType::Parameter,
+                SemanticTokenModifiers::empty()
+                    .with(SemanticTokenModifier::Declaration)
+                    .with(SemanticTokenModifier::Readonly)
+                    .bits()
+            ))
+        );
         assert!(tokens.contains(&(
             "provide_value".to_string(),
             SemanticTokenType::Function,
+            SemanticTokenModifiers::empty().bits()
+        )));
+        assert!(
+            tokens.contains(&(
+                "item".to_string(),
+                SemanticTokenType::Parameter,
+                SemanticTokenModifiers::empty()
+                    .with(SemanticTokenModifier::Readonly)
+                    .bits()
+            ))
+        );
+    }
+
+    #[test]
+    fn collector_classifies_multiline_handler_operation_clause_bodies() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  pick(value: Bool) -> Int\n",
+                "  fallback() -> Int\n",
+                "end\n",
+                "\n",
+                "handler choose() handles Choose\n",
+                "  pick(value) => match value\n",
+                "    true => value\n",
+                "    false => match value\n",
+                "      true => value\n",
+                "      false => 0\n",
+                "    end\n",
+                "  end\n",
+                "  fallback() => 1\n",
+                "end\n",
+            ),
+        );
+
+        let tokens = collect_text(&source);
+        let readonly_parameter = SemanticTokenModifiers::empty()
+            .with(SemanticTokenModifier::Readonly)
+            .bits();
+
+        assert!(
+            tokens
+                .iter()
+                .filter(|(text, kind, modifiers)| {
+                    text == "value"
+                        && *kind == SemanticTokenType::Parameter
+                        && *modifiers == readonly_parameter
+                })
+                .count()
+                >= 4
+        );
+        assert!(tokens.contains(&(
+            "fallback".to_string(),
+            SemanticTokenType::Property,
+            SemanticTokenModifiers::empty().bits()
+        )));
+    }
+
+    #[test]
+    fn collector_bounds_handler_operation_clause_else_if_bodies() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  pick(value: Int) -> Int\n",
+                "  fallback() -> Int\n",
+                "end\n",
+                "\n",
+                "handler choose() handles Choose\n",
+                "  pick(value) => if value == 0\n",
+                "    value\n",
+                "  else if value == 1\n",
+                "    value\n",
+                "  else\n",
+                "    value\n",
+                "  end\n",
+                "  fallback() => 1\n",
+                "end\n",
+            ),
+        );
+
+        let tokens = collect_text(&source);
+        let readonly_parameter = SemanticTokenModifiers::empty()
+            .with(SemanticTokenModifier::Readonly)
+            .bits();
+
+        assert!(
+            tokens
+                .iter()
+                .filter(|(text, kind, modifiers)| {
+                    text == "value"
+                        && *kind == SemanticTokenType::Parameter
+                        && *modifiers == readonly_parameter
+                })
+                .count()
+                >= 5
+        );
+        assert!(tokens.contains(&(
+            "fallback".to_string(),
+            SemanticTokenType::Property,
+            SemanticTokenModifiers::empty().bits()
+        )));
+    }
+
+    #[test]
+    fn collector_keeps_satisfy_arrow_inside_handler_operation_clause_body() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  pick(value: Int) -> Int\n",
+                "  fallback() -> Int\n",
+                "end\n",
+                "\n",
+                "handler choose() handles Choose\n",
+                "  pick(value) => _choice satisfy candidate => candidate == value\n",
+                "  fallback() => 0\n",
+                "end\n",
+            ),
+        );
+
+        let tokens = collect_text(&source);
+        let readonly_parameter = SemanticTokenModifiers::empty()
+            .with(SemanticTokenModifier::Readonly)
+            .bits();
+
+        assert!(tokens.contains(&(
+            "candidate".to_string(),
+            SemanticTokenType::Variable,
+            SemanticTokenModifiers::empty().bits()
+        )));
+        assert!(tokens.contains(&(
+            "value".to_string(),
+            SemanticTokenType::Parameter,
+            readonly_parameter
+        )));
+        assert!(tokens.contains(&(
+            "fallback".to_string(),
+            SemanticTokenType::Property,
             SemanticTokenModifiers::empty().bits()
         )));
     }

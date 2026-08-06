@@ -97,8 +97,9 @@ grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL Ty
 grammar_line(101, "EffectDecl    ::= \"pub\"? \"effect\" Name NL EffectOperation+ \"end\" NL?").
 grammar_line(101, "EffectOperation ::= Name \"(\" EffectParamList? \")\" \"->\" TypeText NL").
 grammar_line(101, "EffectParamList ::= Name \":\" TypeText (\",\" Name \":\" TypeText)*").
-grammar_line(101, "HandlerDecl   ::= \"pub\"? \"handler\" Name \"(\" ParamList? \")\" \"handles\" MemberPath Effects? NL HandlerProvider+ \"end\" NL?").
-grammar_line(101, "HandlerProvider ::= Name \"=\" MemberPath NL").
+grammar_line(101, "HandlerDecl   ::= \"pub\"? \"handler\" Name \"(\" ParamList? \")\" \"handles\" MemberPath Effects? NL HandlerOperationClause+ \"end\" NL?").
+grammar_line(101, "HandlerOperationClause ::= Name \"(\" HandlerOperationParams? \")\" \"=>\" Expr NL").
+grammar_line(101, "HandlerOperationParams ::= Name (\",\" Name)*").
 grammar_line(102, "SchemaDecl    ::= \"pub\"? \"schema\" Name NL SchemaFormat? SchemaField+ SchemaValidation? \"end\" NL?").
 grammar_line(103, "SchemaFormat  ::= \"format\" \"binary\" NL").
 grammar_line(104, "SchemaField   ::= Name \":\" SchemaFieldType SchemaFieldWhere? NL").
@@ -398,18 +399,26 @@ handler_decl -->
     member_path,
     effects_opt,
     nl,
-    handler_providers,
+    handler_operation_clauses,
     tok(end),
     newline_opt.
 
-handler_providers --> handler_provider, !, handler_providers_tail.
-handler_providers_tail --> handler_provider, !, handler_providers_tail.
-handler_providers_tail --> [].
-handler_provider -->
+handler_operation_clauses --> handler_operation_clause, !, handler_operation_clauses_tail.
+handler_operation_clauses_tail --> handler_operation_clause, !, handler_operation_clauses_tail.
+handler_operation_clauses_tail --> [].
+handler_operation_clause -->
     ident,
-    tok(equal),
-    member_path,
+    tok(lparen),
+    handler_operation_params_opt,
+    tok(rparen),
+    tok(fat_arrow),
+    expr,
     nl.
+
+handler_operation_params_opt --> ident, handler_operation_params_tail_no_trailing, !.
+handler_operation_params_opt --> [].
+handler_operation_params_tail_no_trailing --> tok(comma), ident, !, handler_operation_params_tail_no_trailing.
+handler_operation_params_tail_no_trailing --> [].
 
 effect_params_opt --> effect_param, effect_params_tail, trailing_comma_opt, !.
 effect_params_opt --> [].

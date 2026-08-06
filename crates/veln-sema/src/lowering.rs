@@ -1,6 +1,6 @@
 use veln_ast::{
-    BinaryOp, BodyLineKind, DictEntry, Expr, ExprKind, Function, IfBranch, MatchArm, Pattern,
-    PatternKind, RecordField, SurfaceModule,
+    BinaryOp, BodyLine, BodyLineKind, DictEntry, Expr, ExprKind, Function, FunctionKind,
+    HandlerDecl, IfBranch, MatchArm, Pattern, PatternKind, RecordField, SurfaceModule, Visibility,
 };
 use veln_core::{
     CheckedProgram, ContractObligationStatus, CoreBlocker, CoreCallTarget, CoreContract,
@@ -18,11 +18,12 @@ use crate::effects::{core_concurrency_signature, is_concurrency_call};
 use crate::prelude::{
     float_arithmetic_prelude_name, float_comparison_prelude_name, float_prefix_prelude_name,
 };
+use crate::semantic_model::Type;
 use crate::type_lowering::core_type;
 use crate::type_syntax::{parse_type_annotation, parse_type_or_unknown};
 use crate::types::{
     FunctionLookup, SCHEMA_DECODE_STEP_TARGET_PREFIX, SCHEMA_ENCODE_TARGET_PREFIX,
-    SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX, TypeEnvironment,
+    SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX, TypeEnvironment, UserEffectPathResolution,
 };
 
 #[derive(Clone)]
@@ -83,7 +84,7 @@ fn lower_surface_module_to_core_if(
 ) -> CoreLoweringOutput {
     let mut blockers = Vec::new();
     let mut diagnostics = Vec::new();
-    let functions = module
+    let mut functions = module
         .functions
         .iter()
         .filter(|function| include(function))
@@ -94,7 +95,16 @@ fn lower_surface_module_to_core_if(
             diagnostics.extend(lowerer.diagnostics);
             lowered
         })
-        .collect();
+        .collect::<Vec<_>>();
+    for handler in &module.handlers {
+        for function in lower_handler_clause_functions(handler, environment) {
+            let mut lowerer = CoreLowerer::new(&function, environment);
+            let lowered = lowerer.lower_function();
+            blockers.extend(lowerer.blockers);
+            diagnostics.extend(lowerer.diagnostics);
+            functions.push(lowered);
+        }
+    }
     CoreLoweringOutput {
         program: CheckedProgram {
             functions,
@@ -139,6 +149,71 @@ fn lower_surface_module_to_core_if(
         },
         diagnostics,
     }
+}
+
+fn lower_handler_clause_functions(
+    handler: &HandlerDecl,
+    environment: &TypeEnvironment,
+) -> Vec<Function> {
+    let effect = match environment
+        .resolve_user_effect_path(&handler.effect, handler.module_name.as_deref())
+    {
+        UserEffectPathResolution::Found(effect) => effect,
+        UserEffectPathResolution::PrivateCompanionTargetMismatch { .. }
+        | UserEffectPathResolution::Missing => return Vec::new(),
+    };
+    handler
+        .operation_clauses
+        .iter()
+        .filter_map(|clause| {
+            let operation_name = clause.operation.as_deref()?;
+            let operation = effect
+                .operations
+                .iter()
+                .find(|operation| operation.name == operation_name)?;
+            let mut params = handler.params.clone();
+            params.extend(
+                clause
+                    .params
+                    .iter()
+                    .enumerate()
+                    .map(|(index, param)| veln_ast::Param {
+                        node_id: param.node_id,
+                        name: param.name.clone(),
+                        ty: operation.params.get(index).map(Type::render),
+                        ty_span: None,
+                        is_variadic: false,
+                        span: param.span.clone(),
+                    }),
+            );
+            Some(Function {
+                node_id: clause.node_id,
+                module_name: handler.module_name.clone(),
+                kind: FunctionKind::Function,
+                visibility: Visibility::Private,
+                name: Some(crate::types::synthetic_handler_clause_function_name(
+                    handler.name.as_deref().unwrap_or("missing"),
+                    operation_name,
+                )),
+                effect_binder: None,
+                params,
+                return_binding: None,
+                return_type: Some(operation.return_type.render()),
+                return_type_span: Some(operation.name_span.clone()),
+                effects: None,
+                effect_spans: None,
+                contracts: Vec::new(),
+                body: vec![BodyLine {
+                    node_id: clause.body.node_id,
+                    kind: BodyLineKind::Expr {
+                        expr: clause.body.clone(),
+                    },
+                    span: clause.body.span.clone(),
+                }],
+                span: clause.span.clone(),
+            })
+        })
+        .collect()
 }
 
 impl<'a> CoreLowerer<'a> {
@@ -1052,17 +1127,15 @@ impl<'a> CoreLowerer<'a> {
                 self.lower_expr(arg, handler.params.get(index).map(core_type).as_ref())
             })
             .collect::<Vec<_>>();
-        let providers = handler
-            .providers
+        let operation_clauses = handler
+            .operation_clauses
             .iter()
-            .filter_map(|provider| {
-                let function = self
-                    .environment
-                    .function_path(&provider.provider, self.function.module_name.as_deref())?;
-                Some(CoreHandlerProvider {
-                    operation: provider.operation.clone(),
-                    function: function.target_name.clone(),
-                })
+            .map(|clause| CoreHandlerProvider {
+                operation: clause.operation.clone(),
+                function: crate::standard_symbols::standard_function_link_name(
+                    clause.module_name.as_deref(),
+                    &clause.function,
+                ),
             })
             .collect::<Vec<_>>();
         let lowered = self.lower_expr(body, expected);
@@ -1071,7 +1144,7 @@ impl<'a> CoreLowerer<'a> {
             lowered.ty.clone(),
             CoreExprKind::Handle {
                 effect: handler.effect,
-                providers,
+                providers: operation_clauses,
                 context_args,
                 body: Box::new(lowered),
             },

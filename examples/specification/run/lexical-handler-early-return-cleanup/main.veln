@@ -7,7 +7,7 @@ fn provide(ctx: Int) -> Int
 end
 
 handler ask(ctx: Int) handles Ask
-	value = provide
+	value() => provide(ctx)
 end
 
 fn fail_inside_inner() -> Result<Int, String> effects [Ask]
