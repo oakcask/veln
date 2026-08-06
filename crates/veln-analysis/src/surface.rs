@@ -1987,6 +1987,7 @@ pub(crate) fn reachable_entry_module_with_cache(
     module_with_reachable_functions(&inputs, &reachable)
 }
 
+#[cfg(test)]
 pub(crate) fn reachable_entry_module_with_standard_cache(
     standard_module: &SurfaceModule,
     application_module: &SurfaceModule,
@@ -1994,6 +1995,29 @@ pub(crate) fn reachable_entry_module_with_standard_cache(
     entry_kind: FunctionKind,
     cache: &ReachabilityCache,
 ) -> SurfaceModule {
+    reachable_entry_selection_with_standard_cache(
+        standard_module,
+        application_module,
+        entry,
+        entry_kind,
+        cache,
+    )
+    .module
+}
+
+pub(crate) struct ReachableEntrySelection {
+    pub(crate) module: SurfaceModule,
+    pub(crate) standard: SurfaceModule,
+    pub(crate) application: SurfaceModule,
+}
+
+pub(crate) fn reachable_entry_selection_with_standard_cache(
+    standard_module: &SurfaceModule,
+    application_module: &SurfaceModule,
+    entry: &str,
+    entry_kind: FunctionKind,
+    cache: &ReachabilityCache,
+) -> ReachableEntrySelection {
     let inputs = ReachabilityInputs::separated(standard_module, application_module);
     let reachability_index = cache
         .separated_function_targets
@@ -2007,7 +2031,19 @@ pub(crate) fn reachable_entry_module_with_standard_cache(
         &companion_access_targets,
         cache,
     );
-    module_with_reachable_functions(&inputs, &reachable)
+    let standard_inputs = ReachabilityInputs {
+        standard: None,
+        application: standard_module,
+    };
+    let application_inputs = ReachabilityInputs {
+        standard: None,
+        application: application_module,
+    };
+    ReachableEntrySelection {
+        module: module_with_reachable_functions(&inputs, &reachable),
+        standard: module_with_reachable_functions(&standard_inputs, &reachable),
+        application: module_with_reachable_functions(&application_inputs, &reachable),
+    }
 }
 
 fn reachable_function_targets(inputs: &ReachabilityInputs<'_>) -> ReachabilityIndex {

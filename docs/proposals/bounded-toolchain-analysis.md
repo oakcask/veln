@@ -56,6 +56,15 @@ proposal scope:
   body materialization bounds on the separated input path.
   The representative HTTP/2 wall-time ratios still stayed above the one-third
   threshold.
+- Reachable-entry lowering reuses checked application Core from the initial
+  project analysis instead of checking and Core-lowering reachable application
+  functions again. The controlled comparison is recorded in
+  [../reviews/toolchain-analysis-reachable-core-reuse.json](../reviews/toolchain-analysis-reachable-core-reuse.json).
+  Functional output and wall-time noise passed. HTTP/2 core
+  `reachable_entry_lowering` median fell, but HTTP/2 connection
+  `reachable_entry_lowering` median did not fall in the accepted comparison.
+  The representative HTTP/2 wall-time ratios still stayed above the one-third
+  threshold.
 - The existing toolchain suite remains authoritative for command behavior.
 
 The remaining proposal scope starts after those slices. It is limited to
@@ -117,6 +126,16 @@ seconds. Functional output matched for every measured workload and wall-time
 noise stayed within the accepted boundary. The representative HTTP/2 wall-time
 ratios were 0.943778466 for core and 0.9526936514 for connection, so the
 broader one-third wall-time thresholds still did not pass and the proposal
+remains open.
+
+Reusing checked application Core during reachable-entry lowering reduced
+HTTP/2 core median `reachable_entry_lowering` time from 0.008001747 seconds to
+0.004981099 seconds. HTTP/2 connection median `reachable_entry_lowering` time
+increased from 0.03013793 seconds to 0.03226502 seconds. Functional output
+matched for every measured workload and wall-time noise stayed within the
+accepted boundary. The representative HTTP/2 wall-time ratios were
+0.9773233733 for core and 1.0359226301 for connection, so the broader
+one-third HTTP/2 wall-time thresholds still did not pass and the proposal
 remains open.
 
 ## Proposed Outcome
@@ -246,6 +265,9 @@ dedicated benchmark runner exists.
 - Keep the completed boundary that reachable-entry lowering traverses
   application and selected standard-library inputs separately and materializes
   only reachable functions for lowering.
+- Keep the completed boundary that reachable-entry lowering reuses checked
+  application Core from the initial project analysis and does not repeat
+  application function body checking or application Core lowering.
 - Replace the current controlled comparison only when every functional
   comparison passes, wall-time noise remains within the accepted boundary,
   and both representative HTTP/2 wall-time thresholds pass.

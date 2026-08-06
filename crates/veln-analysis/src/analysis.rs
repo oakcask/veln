@@ -5,13 +5,14 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
 use veln_ast::{FunctionKind, SurfaceModule};
+use veln_core::CheckedProgram;
 use veln_diagnostics::Diagnostic;
 use veln_ir::TypedProgram;
 use veln_project::Project;
 use veln_sema::{
     LoweredSurfaceModule, ReusableStandardEnvironment,
     check_project_surface_module_with_standard_modules_environment,
-    lower_project_reachable_surface_modules_with_standard_environment,
+    lower_reachable_checked_application_with_standard_environment,
     prepare_current_reusable_standard_surface_module_environment,
 };
 use veln_source::SourceSpan;
@@ -19,7 +20,7 @@ use veln_test::{DoctestExpectation, doctest_sources, reconcile_expected_doctest_
 
 use crate::surface::{
     ReachabilityCache, load_embedded_standard_surface_module_for_names, load_surface_modules,
-    reachable_entry_module_with_standard_cache,
+    reachable_entry_selection_with_standard_cache,
 };
 
 static STANDARD_ENVIRONMENTS: OnceLock<StandardEnvironmentCache> = OnceLock::new();
@@ -101,6 +102,7 @@ pub struct ProjectAnalysis {
     source_diagnostics: Vec<Diagnostic>,
     semantic_diagnostics: Vec<Diagnostic>,
     checked: LoweredSurfaceModule,
+    checked_core_functions_by_name: BTreeMap<String, usize>,
     expected_doctest_failures: BTreeMap<String, SourceSpan>,
     reachability_cache: ReachabilityCache,
 }
@@ -194,6 +196,7 @@ fn analyze_project_with_standard_provider(
         doctest_expectations,
         source_diagnostics,
         semantic_diagnostics,
+        checked_core_functions_by_name: checked_core_functions_by_name(&checked),
         checked,
         expected_doctest_failures,
         reachability_cache: ReachabilityCache::default(),
@@ -276,7 +279,7 @@ impl ProjectAnalysis {
         entry_kind: FunctionKind,
     ) -> (ReachableEntryAnalysis, AnalysisTiming) {
         let start = std::time::Instant::now();
-        let module = reachable_entry_module_with_standard_cache(
+        let selection = reachable_entry_selection_with_standard_cache(
             &self.selected_standard,
             &self.module,
             entry,
@@ -284,13 +287,18 @@ impl ProjectAnalysis {
             &self.reachability_cache,
         );
         let standard = standard_environment_for_modules(&self.selected_standard_module_names);
-        let lowered = lower_project_reachable_surface_modules_with_standard_environment(
-            &module,
-            &self.selected_standard,
+        let checked_application = self.checked_reachable_application(&selection.application);
+        let lowered = lower_reachable_checked_application_with_standard_environment(
+            &selection.module,
+            &selection.standard,
+            &checked_application,
             &standard.environment,
         );
         (
-            ReachableEntryAnalysis { module, lowered },
+            ReachableEntryAnalysis {
+                module: selection.module,
+                lowered,
+            },
             AnalysisTiming {
                 stage: "reachable_entry_lowering",
                 duration: start.elapsed(),
@@ -301,6 +309,80 @@ impl ProjectAnalysis {
     fn reconcile_doctest_failures(&self, diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
         reconcile_expected_doctest_failures(diagnostics, &self.expected_doctest_failures)
     }
+
+    fn checked_reachable_application(&self, module: &SurfaceModule) -> LoweredSurfaceModule {
+        let Some(core) = &self.checked.core else {
+            return self.checked.clone();
+        };
+        let mut function_indexes = reachable_application_core_function_names(module)
+            .into_iter()
+            .filter_map(|name| self.checked_core_functions_by_name.get(&name))
+            .copied()
+            .collect::<Vec<_>>();
+        function_indexes.sort_unstable();
+        let functions = function_indexes
+            .into_iter()
+            .map(|index| core.functions[index].clone())
+            .collect();
+        LoweredSurfaceModule {
+            diagnostics: self.checked.diagnostics.clone(),
+            core: Some(CheckedProgram {
+                functions,
+                effects: core.effects.clone(),
+                readiness: core.readiness.clone(),
+            }),
+            ir: None,
+        }
+    }
+}
+
+fn checked_core_functions_by_name(checked: &LoweredSurfaceModule) -> BTreeMap<String, usize> {
+    checked
+        .core
+        .as_ref()
+        .map(|core| {
+            core.functions
+                .iter()
+                .enumerate()
+                .map(|(index, function)| (function.name.clone(), index))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn reachable_application_core_function_names(module: &SurfaceModule) -> BTreeSet<String> {
+    let mut names = module
+        .functions
+        .iter()
+        .filter_map(surface_function_core_name)
+        .collect::<BTreeSet<_>>();
+    names.extend(module.handlers.iter().flat_map(|handler| {
+        handler.operation_clauses.iter().filter_map(|clause| {
+            Some(synthetic_handler_clause_function_name(
+                handler.name.as_deref().unwrap_or("missing"),
+                clause.operation.as_deref().unwrap_or("missing"),
+            ))
+        })
+    }));
+    names
+}
+
+fn surface_function_core_name(function: &veln_ast::Function) -> Option<String> {
+    function.name.as_ref().map(|name| {
+        if function.kind == FunctionKind::Test {
+            name.clone()
+        } else {
+            name.to_string()
+        }
+    })
+}
+
+fn synthetic_handler_clause_function_name(handler: &str, operation: &str) -> String {
+    format!(
+        "__handler_{}${handler}_{}${operation}",
+        handler.len(),
+        operation.len()
+    )
 }
 
 fn standard_environment_for_modules(module_names: &BTreeSet<String>) -> ReusableStandardInput {
@@ -336,6 +418,7 @@ fn standard_environment_with_test_cache(
 mod tests {
     use veln_diagnostics::diagnostic_to_json;
     use veln_project::Project;
+    use veln_sema::reachable_lowering_counters;
     use veln_source::SourceFile;
 
     use super::*;
@@ -400,6 +483,53 @@ mod tests {
         );
     }
 
+    #[test]
+    fn reachable_lowering_reuses_checked_application_core_for_unrelated_annotated_modules() {
+        let mut files = vec![SourceFile::new(
+            "src/main.veln",
+            concat!(
+                "fn helper() -> Int\n",
+                "  1\n",
+                "end\n",
+                "\n",
+                "pub fn main() -> Int\n",
+                "  helper()\n",
+                "end\n",
+            ),
+        )];
+        for index in 0..24 {
+            files.push(SourceFile::new(
+                format!("src/unrelated_{index}.veln"),
+                format!(
+                    "fn unrelated_{index}(value: Int) -> Int\n\
+                     \tvalue + {index}\n\
+                     end\n"
+                ),
+            ));
+        }
+        let analysis = analyze_project(
+            Project {
+                root: ".".into(),
+                files,
+                manifest: None,
+            },
+            DoctestMode::Exclude,
+        );
+        let checked_diagnostics = analysis.checked_diagnostics();
+        assert!(checked_diagnostics.is_empty(), "{checked_diagnostics:#?}");
+
+        reachable_lowering_counters::reset();
+        let reachable = analysis.lower_reachable_entry("main", FunctionKind::Function);
+
+        assert!(reachable.lowered.diagnostics.is_empty());
+        assert_eq!(reachable_lowering_counters::application_body_checks(), 0);
+        assert_eq!(reachable_lowering_counters::application_core_lowers(), 0);
+        assert_eq!(
+            lowered_core_function_names(&reachable),
+            ["helper".to_string(), "main".to_string()]
+        );
+    }
+
     fn diagnostic_json(diagnostics: &[veln_diagnostics::Diagnostic]) -> Vec<String> {
         diagnostics
             .iter()
@@ -417,6 +547,20 @@ mod tests {
             .collect::<Vec<_>>();
         functions.sort_unstable();
         functions
+    }
+
+    fn lowered_core_function_names(analysis: &ReachableEntryAnalysis) -> Vec<String> {
+        let mut names = analysis
+            .lowered
+            .core
+            .as_ref()
+            .expect("reachable core should lower")
+            .functions
+            .iter()
+            .map(|function| function.name.clone())
+            .collect::<Vec<_>>();
+        names.sort();
+        names
     }
 
     fn merge_surface_modules_for_test(
