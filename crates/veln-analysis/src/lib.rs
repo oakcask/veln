@@ -271,26 +271,31 @@ mod tests {
 
     #[test]
     fn first_application_analysis_uses_embedded_lowered_standard_modules() {
-        crate::surface::embedded_standard_counters::reset();
         let cache = crate::analysis::TestStandardEnvironmentCache::new();
         let project = project(
             "src/main.veln",
             concat!("pub fn main() -> Int\n", "  1\n", "end\n"),
         );
 
-        let analysis = crate::analysis::analyze_project_with_test_standard_cache(
-            project,
-            DoctestMode::Exclude,
-            &cache,
-        );
+        let (analysis, standard_work) = crate::surface::embedded_standard_counters::observe(|| {
+            crate::analysis::analyze_project_with_test_standard_cache(
+                project,
+                DoctestMode::Exclude,
+                &cache,
+            )
+        });
 
         assert!(analysis.checked_diagnostics().is_empty());
         assert_eq!(
-            crate::surface::embedded_standard_counters::runtime_standard_parse_lowers(),
-            0,
+            standard_work.runtime_standard_parse_lowers, 0,
             "embedded standard modules must not use the runtime parser or surface lowerer"
         );
         assert_eq!(cache.standard_prepares(), 1);
+        assert_eq!(
+            standard_work.materialized_modules.len(),
+            analysis.selected_standard_module_names_for_test().len(),
+            "embedded standard materialization should stay limited to the selected closure"
+        );
         assert!(
             analysis.selected_standard_module_names_for_test().len()
                 < veln_stdlib::package_bundle().files.len(),

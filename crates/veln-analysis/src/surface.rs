@@ -20,38 +20,41 @@ use crate::diagnostics::parse_diagnostic_to_envelope;
 
 #[cfg(test)]
 pub(crate) mod embedded_standard_counters {
+    use std::cell::RefCell;
     use std::collections::BTreeSet;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    use std::sync::{Mutex, OnceLock};
 
-    static RUNTIME_STANDARD_PARSE_LOWERS: AtomicUsize = AtomicUsize::new(0);
-    static MATERIALIZED_MODULES: OnceLock<Mutex<BTreeSet<String>>> = OnceLock::new();
-
-    pub(crate) fn reset() {
-        RUNTIME_STANDARD_PARSE_LOWERS.store(0, Ordering::SeqCst);
-        materialized_modules()
-            .lock()
-            .expect("embedded standard materialization counter should not be poisoned")
-            .clear();
+    #[derive(Debug, Default, PartialEq, Eq)]
+    pub(crate) struct Snapshot {
+        pub(crate) runtime_standard_parse_lowers: usize,
+        pub(crate) materialized_modules: BTreeSet<String>,
     }
 
-    pub(crate) fn runtime_standard_parse_lowers() -> usize {
-        RUNTIME_STANDARD_PARSE_LOWERS.load(Ordering::SeqCst)
+    thread_local! {
+        static OBSERVATION: RefCell<Snapshot> = RefCell::new(Snapshot::default());
+    }
+
+    pub(crate) fn observe<R>(action: impl FnOnce() -> R) -> (R, Snapshot) {
+        OBSERVATION.with(|observation| {
+            let previous = observation.replace(Snapshot::default());
+            let result = action();
+            let snapshot = observation.replace(previous);
+            (result, snapshot)
+        })
     }
 
     pub(super) fn record_runtime_standard_parse_lower() {
-        RUNTIME_STANDARD_PARSE_LOWERS.fetch_add(1, Ordering::SeqCst);
+        OBSERVATION.with(|observation| {
+            observation.borrow_mut().runtime_standard_parse_lowers += 1;
+        });
     }
 
     pub(super) fn record_materialization(path: &str) {
-        materialized_modules()
-            .lock()
-            .expect("embedded standard materialization counter should not be poisoned")
-            .insert(path.to_string());
-    }
-
-    fn materialized_modules() -> &'static Mutex<BTreeSet<String>> {
-        MATERIALIZED_MODULES.get_or_init(|| Mutex::new(BTreeSet::new()))
+        OBSERVATION.with(|observation| {
+            observation
+                .borrow_mut()
+                .materialized_modules
+                .insert(path.to_string());
+        });
     }
 }
 

@@ -37,6 +37,9 @@ proposal scope:
 - Embedded lowered standard-library modules are implemented. Their controlled
   comparison is recorded in
   [../reviews/toolchain-analysis-embedded-lowered-standard.json](../reviews/toolchain-analysis-embedded-lowered-standard.json).
+  The structural first-analysis coverage now observes only the target analysis
+  thread, so parallel standard-library analysis in unrelated tests cannot
+  contaminate the parse/lower counter.
 - The existing toolchain suite remains authoritative for command behavior.
 
 The remaining proposal scope starts after those slices. It is limited to

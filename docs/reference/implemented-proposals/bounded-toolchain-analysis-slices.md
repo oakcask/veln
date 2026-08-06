@@ -86,6 +86,9 @@ ordering, unrelated fully annotated module growth, initial standard-package
 parse/lower and semantic-prepare work for the selected closure,
 standard-environment selection, fallback when prepared standard facts are not
 current, and repeated and concurrent application analysis.
+The first-analysis embedded standard-library parse/lower counter is scoped to
+the target analysis thread, which keeps the structural assertion stable under
+parallel test execution while unrelated standard-library analyses run.
 
 The controlled stage-timing benchmark used prebuilt debug binaries, one
 warm-up run, and five measured runs. The baseline binary had no stage
