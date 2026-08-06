@@ -85,88 +85,79 @@ fn read_string(text: &str, start: usize, chars: &mut CharIter<'_>) -> Token {
 }
 
 fn read_number(text: &str, start: usize, first: char, chars: &mut CharIter<'_>) -> Token {
-    let mut end = start + first.len_utf8();
-    let mut is_float = false;
-
     if first == '0'
         && chars
             .peek()
             .is_some_and(|(_, next)| matches!(*next, 'b' | 'B' | 'x' | 'X'))
     {
-        chars.next();
-        end += 1;
-        while let Some((index, next)) = chars.peek().copied() {
-            if next.is_ascii_alphanumeric() || next == '_' {
-                chars.next();
-                end = index + next.len_utf8();
-            } else {
-                break;
-            }
-        }
-        if chars.peek().is_some_and(|(_, next)| *next == '.') {
-            let mut lookahead = chars.clone();
-            lookahead.next();
-            if lookahead
-                .peek()
-                .is_some_and(|(_, next)| next.is_ascii_digit())
-            {
-                chars.next();
-                end += 1;
-                while let Some((index, next)) = chars.peek().copied() {
-                    if next.is_ascii_digit() {
-                        chars.next();
-                        end = index + next.len_utf8();
-                    } else {
-                        break;
-                    }
-                }
-            }
-        }
-        let candidate = &text[start..end];
-        let kind = match parse_integer_literal(candidate) {
-            Ok(_) | Err(IntegerLiteralError::OutOfRange { .. }) => TokenKind::Int,
-            Err(_) => TokenKind::MalformedInt,
-        };
-        return token(kind, candidate, start, end);
+        return read_prefixed_integer_candidate(text, start, first, chars);
     }
 
-    while let Some((index, next)) = chars.peek().copied() {
-        if next.is_ascii_digit() {
-            chars.next();
-            end = index + next.len_utf8();
-        } else {
-            break;
-        }
+    read_decimal_number(text, start, first, chars)
+}
+
+fn read_prefixed_integer_candidate(
+    text: &str,
+    start: usize,
+    first: char,
+    chars: &mut CharIter<'_>,
+) -> Token {
+    let mut end = start + first.len_utf8();
+    consume_next(chars, &mut end);
+    consume_while(chars, &mut end, |next| {
+        next.is_ascii_alphanumeric() || next == '_'
+    });
+    consume_fraction(chars, &mut end);
+
+    let candidate = &text[start..end];
+    let kind = match parse_integer_literal(candidate) {
+        Ok(_) | Err(IntegerLiteralError::OutOfRange { .. }) => TokenKind::Int,
+        Err(_) => TokenKind::MalformedInt,
+    };
+    token(kind, candidate, start, end)
+}
+
+fn read_decimal_number(text: &str, start: usize, first: char, chars: &mut CharIter<'_>) -> Token {
+    let mut end = start + first.len_utf8();
+    consume_while(chars, &mut end, |next| next.is_ascii_digit());
+    let kind = if consume_fraction(chars, &mut end) {
+        TokenKind::Float
+    } else {
+        TokenKind::Int
+    };
+    token(kind, &text[start..end], start, end)
+}
+
+fn consume_fraction(chars: &mut CharIter<'_>, end: &mut usize) -> bool {
+    if !chars.peek().is_some_and(|(_, next)| *next == '.') {
+        return false;
     }
-    if chars.peek().is_some_and(|(_, next)| *next == '.') {
-        let mut lookahead = chars.clone();
-        lookahead.next();
-        if lookahead
-            .peek()
-            .is_some_and(|(_, next)| next.is_ascii_digit())
-        {
-            is_float = true;
-            chars.next();
-            end += 1;
-            while let Some((index, next)) = chars.peek().copied() {
-                if next.is_ascii_digit() {
-                    chars.next();
-                    end = index + next.len_utf8();
-                } else {
-                    break;
-                }
-            }
-        }
+
+    let mut lookahead = chars.clone();
+    lookahead.next();
+    if !lookahead
+        .peek()
+        .is_some_and(|(_, next)| next.is_ascii_digit())
+    {
+        return false;
     }
-    Token {
-        kind: if is_float {
-            TokenKind::Float
-        } else {
-            TokenKind::Int
-        },
-        text: text[start..end].to_string(),
-        range: TextRange::new(start, end),
+
+    consume_next(chars, end);
+    consume_while(chars, end, |next| next.is_ascii_digit());
+    true
+}
+
+fn consume_while(chars: &mut CharIter<'_>, end: &mut usize, predicate: impl Fn(char) -> bool) {
+    while chars.peek().is_some_and(|(_, next)| predicate(*next)) {
+        consume_next(chars, end);
     }
+}
+
+fn consume_next(chars: &mut CharIter<'_>, end: &mut usize) {
+    let (index, next) = chars
+        .next()
+        .expect("peeked character must remain available");
+    *end = index + next.len_utf8();
 }
 
 fn read_ident_or_keyword(text: &str, start: usize, first: char, chars: &mut CharIter<'_>) -> Token {

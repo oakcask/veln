@@ -339,6 +339,35 @@ fn lexes_binary_and_hexadecimal_integer_candidates_as_complete_tokens() {
 }
 
 #[test]
+fn number_tokens_preserve_fraction_and_member_access_boundaries() {
+    let source = SourceFile::new("numbers.veln", "42.5 42.member 0b10.1 0b10.member 0xCafe+1");
+
+    let tokens = lex(&source)
+        .tokens
+        .into_iter()
+        .filter(|token| !matches!(token.kind, TokenKind::Whitespace | TokenKind::Eof))
+        .map(|token| (token.kind, token.text))
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            (TokenKind::Float, "42.5".to_string()),
+            (TokenKind::Int, "42".to_string()),
+            (TokenKind::Dot, ".".to_string()),
+            (TokenKind::Ident, "member".to_string()),
+            (TokenKind::MalformedInt, "0b10.1".to_string()),
+            (TokenKind::Int, "0b10".to_string()),
+            (TokenKind::Dot, ".".to_string()),
+            (TokenKind::Ident, "member".to_string()),
+            (TokenKind::Int, "0xCafe".to_string()),
+            (TokenKind::Plus, "+".to_string()),
+            (TokenKind::Int, "1".to_string()),
+        ]
+    );
+}
+
+#[test]
 fn lexes_compound_operators_with_longest_matching_tokens() {
     let source = SourceFile::new(
         "operators.veln",
