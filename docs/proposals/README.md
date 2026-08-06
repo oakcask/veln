@@ -18,14 +18,7 @@ also states it.
 
 ## Catalog
 
-### Toolchain Performance
-
-- [Bounded Toolchain Analysis](bounded-toolchain-analysis.md): make the HTTP/2
-  core and connection workloads meet their remaining wall-time thresholds after
-  completed candidate-indexing, demand-driven standard-library initialization,
-  embedded lowered standard-library modules, and measurement slices. Each
-  slice compares against the implementation state immediately before that
-  slice.
+There are no active proposals.
 
 ## Selection Rule
 
