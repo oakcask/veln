@@ -52,6 +52,8 @@ proposal scope:
   [../reviews/toolchain-analysis-separated-reachable-inputs.json](../reviews/toolchain-analysis-separated-reachable-inputs.json).
   Functional output and wall-time noise passed, and HTTP/2
   `reachable_entry_lowering` medians fell for both representative workloads.
+  Structural coverage includes codec `with` target resolution and reachable
+  body materialization bounds on the separated input path.
   The representative HTTP/2 wall-time ratios still stayed above the one-third
   threshold.
 - The existing toolchain suite remains authoritative for command behavior.

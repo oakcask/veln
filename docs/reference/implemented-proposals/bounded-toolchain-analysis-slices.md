@@ -108,7 +108,9 @@ combined-input path for reachable function sets, diagnostics, checked core,
 and typed IR. It covers standard-library calls, public function aliases, effect
 handler traversal, project-local reachability cache isolation, and unchanged
 materialized reachable body counts when unrelated fully annotated functions
-are added.
+are added. Separated-input structural coverage also verifies codec `with`
+target traversal and confirms that unreachable annotated functions do not add
+materialized function bodies before lowering.
 
 The controlled stage-timing benchmark used prebuilt debug binaries, one
 warm-up run, and five measured runs. The baseline binary had no stage

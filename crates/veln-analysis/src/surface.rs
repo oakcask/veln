@@ -3044,7 +3044,10 @@ fn push_reachable(callees: &mut Vec<ReachableFunction>, callee: ReachableFunctio
 mod tests {
     use std::{env, fs};
 
-    use veln_ast::{FunctionKind, SurfaceModule, UseOrigin, lower_surface_ast};
+    use veln_ast::{
+        CodecDecl, CodecDirection, CodecImplementationClause, CodecImplementationKind,
+        FunctionKind, SurfaceModule, UseOrigin, Visibility, lower_surface_ast,
+    };
     use veln_project::{
         ManifestExport, ManifestField, ManifestLib, ManifestTool, ManifestUnsupportedSection,
         Project, ProjectManifest,
@@ -3135,6 +3138,52 @@ mod tests {
     }
 
     #[test]
+    fn separated_reachable_materialization_skips_unrelated_annotated_function_bodies() {
+        fn materialized_body_count(unrelated_count: usize) -> usize {
+            let standard = lower(concat!(
+                "mod std::prelude\n",
+                "pub fn standard_value() -> Int\n",
+                "  1\n",
+                "end\n",
+            ));
+            let mut source = String::from(concat!(
+                "mod app\n",
+                "use std::prelude\n",
+                "\n",
+                "pub fn main() -> Int\n",
+                "  helper() + standard_value()\n",
+                "end\n",
+                "\n",
+                "fn helper() -> Int\n",
+                "  1\n",
+                "end\n",
+            ));
+            for index in 0..unrelated_count {
+                source.push_str(&format!(
+                    "\nfn unrelated_{index}(value: Int) -> Int\n  value\nend\n"
+                ));
+            }
+            let application = lower(&source);
+            reachability_counters::reset();
+            let reachable = reachable_entry_module_with_standard_cache(
+                &standard,
+                &application,
+                "main",
+                FunctionKind::Function,
+                &ReachabilityCache::default(),
+            );
+            assert_eq!(reachable.functions.len(), 3);
+            reachability_counters::snapshot().2
+        }
+
+        assert_eq!(
+            materialized_body_count(128),
+            materialized_body_count(0),
+            "separated reachable inputs must not materialize unreachable annotated functions"
+        );
+    }
+
+    #[test]
     fn separated_reachable_inputs_match_combined_resolution_results() {
         let standard = lower(concat!(
             "mod std::prelude\n",
@@ -3196,6 +3245,81 @@ mod tests {
                 ("std::prelude", "standard_value"),
             ]
         );
+    }
+
+    #[test]
+    fn separated_reachable_inputs_resolve_codec_with_targets() {
+        let mut standard = lower(concat!(
+            "mod std::prelude\n",
+            "pub schema Packet\n",
+            "  value: Int\n",
+            "end\n",
+            "\n",
+            "fn decode_payload_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{value: Int}>\n",
+            "  NeedMore(NeedEnd)\n",
+            "end\n",
+        ));
+        add_payload_codec_for_test(&mut standard);
+        let application = lower(concat!(
+            "mod app\n",
+            "use std::prelude\n",
+            "\n",
+            "pub fn main(source: ByteView, base: ByteOffset) -> DecodeStep<{value: Int}>\n",
+            "  std::prelude::PayloadCodec(source, base)\n",
+            "end\n",
+        ));
+        let mut combined = standard.clone();
+        combined.uses.extend(application.uses.clone());
+        combined.aliases.extend(application.aliases.clone());
+        combined.effects.extend(application.effects.clone());
+        combined.handlers.extend(application.handlers.clone());
+        combined.types.extend(application.types.clone());
+        combined.schemas.extend(application.schemas.clone());
+        combined.codecs.extend(application.codecs.clone());
+        combined.functions.extend(application.functions.clone());
+        combined.module = application.module.clone();
+
+        let combined_reachable = reachable_entry_module(&combined, "main", FunctionKind::Function);
+        let separated_reachable = reachable_entry_module_with_standard_cache(
+            &standard,
+            &application,
+            "main",
+            FunctionKind::Function,
+            &ReachabilityCache::default(),
+        );
+
+        let combined_functions = reachable_function_names(&combined_reachable);
+        let separated_functions = reachable_function_names(&separated_reachable);
+        assert_eq!(separated_functions, combined_functions);
+        assert_eq!(
+            separated_functions,
+            vec![("app", "main"), ("std::prelude", "decode_payload_packet")]
+        );
+    }
+
+    fn add_payload_codec_for_test(module: &mut SurfaceModule) {
+        let schema = module
+            .schemas
+            .iter()
+            .find(|schema| schema.name.as_deref() == Some("Packet"))
+            .expect("test standard module should define Packet schema");
+        module.codecs.push(CodecDecl {
+            node_id: schema.node_id,
+            module_name: Some("std::prelude".to_string()),
+            visibility: Visibility::Public,
+            name: Some("PayloadCodec".to_string()),
+            schema: Some("Packet".to_string()),
+            directions: vec![CodecDirection::Decode],
+            implementations: vec![CodecImplementationClause {
+                node_id: schema.node_id,
+                direction: CodecDirection::Decode,
+                kind: CodecImplementationKind::With {
+                    function: Some("decode_payload_packet".to_string()),
+                },
+                span: schema.span.clone(),
+            }],
+            span: schema.span.clone(),
+        });
     }
 
     #[test]
