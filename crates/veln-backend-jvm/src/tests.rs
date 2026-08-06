@@ -3332,6 +3332,21 @@ fn java_method_name_helpers_map_builtin_surface_names() {
 }
 
 #[test]
+fn standard_library_method_reports_the_unknown_surface_name() {
+    let panic = std::panic::catch_unwind(|| standard_library_method("net::missing"))
+        .expect_err("unknown standard library builtins should be rejected");
+    let message = panic
+        .downcast_ref::<String>()
+        .map(String::as_str)
+        .or_else(|| panic.downcast_ref::<&str>().copied());
+
+    assert_eq!(
+        message,
+        Some("unknown standard library builtin `net::missing`")
+    );
+}
+
+#[test]
 fn veln_string_literal_value_decodes_known_escapes_and_preserves_unknown_ones() {
     assert_eq!(
         veln_string_literal_value("\"line\\nquote\\\"slash\\\\tab\\t\""),
