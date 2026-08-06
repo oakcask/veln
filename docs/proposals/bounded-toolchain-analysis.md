@@ -62,9 +62,9 @@ proposal scope:
   Functional output and wall-time noise passed. For both representative
   HTTP/2 workloads, `backend_java_subprocess` is the dominant measured
   substage inside the former backend/runtime remainder. HTTP/2 core recorded a
-  median `backend_java_subprocess` time of 0.039012821 seconds, 32.5766352933
+  median `backend_java_subprocess` time of 0.039034131 seconds, 32.0414690441
   percent of new median wall time. HTTP/2 connection recorded a median
-  `backend_java_subprocess` time of 0.057867272 seconds, 29.5981121376 percent
+  `backend_java_subprocess` time of 0.059793712 seconds, 29.901187187 percent
   of new median wall time. The next optimization slice therefore targets the
   Java subprocess boundary for both representative HTTP/2 workloads.
 - The existing toolchain suite remains authoritative for command behavior.

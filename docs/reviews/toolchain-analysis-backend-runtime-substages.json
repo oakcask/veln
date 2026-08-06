@@ -16,7 +16,7 @@
     "--baseline-identity",
     "git revision 5a34cab0 release build before backend runtime substage timing",
     "--new-identity",
-    "git revision 0937cb9c release build with backend runtime substage timing",
+    "git revision 2609ca04 release build with backend runtime substage timing",
     "--output",
     "docs/reviews/toolchain-analysis-backend-runtime-substages.json"
   ],
@@ -27,14 +27,14 @@
       "description": "HTTP/2 core direct analysis new wall-time median is at most one third of baseline",
       "id": "http2_core_improvement",
       "max_ratio": 0.3333333333333333,
-      "ratio": 0.9907840673114311,
+      "ratio": 1.0184641083947867,
       "status": "failed"
     },
     {
       "description": "HTTP/2 connection direct analysis new wall-time median is at most one third of baseline",
       "id": "http2_connection_improvement",
       "max_ratio": 0.3333333333333333,
-      "ratio": 0.9799487145663363,
+      "ratio": 1.002988677195407,
       "status": "failed"
     },
     {
@@ -80,27 +80,27 @@
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.02,
-            "wall_time_seconds": 0.044879125
+            "wall_time_seconds": 0.042983781
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.01,
-            "wall_time_seconds": 0.042629627
+            "wall_time_seconds": 0.043228571
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.02,
-            "wall_time_seconds": 0.045999794
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.02,
-            "wall_time_seconds": 0.045503593
+            "wall_time_seconds": 0.042258699
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.01,
-            "wall_time_seconds": 0.048198578
+            "wall_time_seconds": 0.042067027
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.02,
+            "wall_time_seconds": 0.046160693
           }
         ],
         "stage_timing": {
@@ -110,71 +110,71 @@
               "intervals_seconds": {},
               "run": "baseline-1",
               "stages": {
-                "backend_runtime_remainder": 0.036365255,
-                "reachable_entry_lowering": 0.001628015,
-                "semantic_environment_check": 0.000956539,
-                "source_loading": 0.000037871,
-                "surface_parse_lower": 0.000831194
+                "backend_runtime_remainder": 0.034157609,
+                "reachable_entry_lowering": 0.001519018,
+                "semantic_environment_check": 0.000939862,
+                "source_loading": 0.000043627,
+                "surface_parse_lower": 0.000882
               }
             },
             {
               "intervals_seconds": {},
               "run": "baseline-2",
               "stages": {
-                "backend_runtime_remainder": 0.034397334,
-                "reachable_entry_lowering": 0.001496798,
-                "semantic_environment_check": 0.000987962,
-                "source_loading": 0.000037136,
-                "surface_parse_lower": 0.000848996
+                "backend_runtime_remainder": 0.034312651,
+                "reachable_entry_lowering": 0.001523495,
+                "semantic_environment_check": 0.001036557,
+                "source_loading": 0.000047757,
+                "surface_parse_lower": 0.000901304
               }
             },
             {
               "intervals_seconds": {},
               "run": "baseline-3",
               "stages": {
-                "backend_runtime_remainder": 0.037769434,
-                "reachable_entry_lowering": 0.001550276,
-                "semantic_environment_check": 0.000940239,
-                "source_loading": 0.000038701,
-                "surface_parse_lower": 0.000870284
+                "backend_runtime_remainder": 0.033736341,
+                "reachable_entry_lowering": 0.001534972,
+                "semantic_environment_check": 0.000976007,
+                "source_loading": 0.000043142,
+                "surface_parse_lower": 0.000907754
               }
             },
             {
               "intervals_seconds": {},
               "run": "baseline-4",
               "stages": {
-                "backend_runtime_remainder": 0.03676598,
-                "reachable_entry_lowering": 0.001675674,
-                "semantic_environment_check": 0.000927333,
-                "source_loading": 0.000039972,
-                "surface_parse_lower": 0.000830344
+                "backend_runtime_remainder": 0.033571636,
+                "reachable_entry_lowering": 0.001529324,
+                "semantic_environment_check": 0.000943687,
+                "source_loading": 0.000073648,
+                "surface_parse_lower": 0.000870904
               }
             },
             {
               "intervals_seconds": {},
               "run": "baseline-5",
               "stages": {
-                "backend_runtime_remainder": 0.039811962,
-                "reachable_entry_lowering": 0.001549772,
-                "semantic_environment_check": 0.000969478,
-                "source_loading": 0.000039373,
-                "surface_parse_lower": 0.000903156
+                "backend_runtime_remainder": 0.037271579,
+                "reachable_entry_lowering": 0.001713185,
+                "semantic_environment_check": 0.00094257,
+                "source_loading": 0.00003958,
+                "surface_parse_lower": 0.000852441
               }
             }
           ],
           "stage_medians_seconds": {
-            "backend_runtime_remainder": 0.03676598,
-            "reachable_entry_lowering": 0.001550276,
-            "semantic_environment_check": 0.000956539,
-            "source_loading": 0.000038701,
-            "surface_parse_lower": 0.000848996
+            "backend_runtime_remainder": 0.034157609,
+            "reachable_entry_lowering": 0.001529324,
+            "semantic_environment_check": 0.000943687,
+            "source_loading": 0.000043627,
+            "surface_parse_lower": 0.000882
           },
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.000624468000000003,
+          "median_absolute_deviation_wall_time_seconds": 0.0007250820000000019,
           "median_user_cpu_seconds": 0.02,
-          "median_wall_time_seconds": 0.045503593,
+          "median_wall_time_seconds": 0.042983781,
           "wall_time_noisy": false
         }
       },
@@ -214,32 +214,32 @@
       "id": "small_schema",
       "new": {
         "binary": "target/release/veln",
-        "binary_identity": "git revision 0937cb9c release build with backend runtime substage timing",
+        "binary_identity": "git revision 2609ca04 release build with backend runtime substage timing",
         "runs": [
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.03,
-            "wall_time_seconds": 0.044518341
+            "wall_time_seconds": 0.043188856
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.03,
-            "wall_time_seconds": 0.048998223
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.02,
-            "wall_time_seconds": 0.047862673
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.02,
-            "wall_time_seconds": 0.047690077
+            "wall_time_seconds": 0.042585201
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.01,
-            "wall_time_seconds": 0.046988923
+            "wall_time_seconds": 0.043646774
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.02,
+            "wall_time_seconds": 0.04274549
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.02,
+            "wall_time_seconds": 0.049437661
           }
         ],
         "stage_timing": {
@@ -248,255 +248,255 @@
             {
               "intervals_seconds": {
                 "backend_class_cache_prepare": {
-                  "end": 0.00845719,
-                  "start": 0.00678767
+                  "end": 0.008384998,
+                  "start": 0.006778886
                 },
                 "backend_classfile_generation": {
-                  "end": 0.006340577,
-                  "start": 0.005814958
+                  "end": 0.006111656,
+                  "start": 0.005667427
                 },
                 "backend_java_subprocess": {
-                  "end": 0.041363459,
-                  "start": 0.008457242
+                  "end": 0.039897462,
+                  "start": 0.008385051
                 },
                 "backend_result_cleanup": {
-                  "end": 0.041478417,
-                  "start": 0.041363921
+                  "end": 0.040014462,
+                  "start": 0.039897714
                 },
                 "reachable_entry_lowering": {
-                  "end": 0.005764326,
-                  "start": 0.004058899
+                  "end": 0.005617109,
+                  "start": 0.004035255
                 },
                 "semantic_environment_check": {
-                  "end": 0.004044438,
-                  "start": 0.003116643
+                  "end": 0.004018879,
+                  "start": 0.003081187
                 },
                 "source_loading": {
-                  "end": 0.000043206,
-                  "start": 8.82e-7
+                  "end": 0.000044311,
+                  "start": 8.96e-7
                 },
                 "surface_parse_lower": {
-                  "end": 0.00095886,
-                  "start": 0.000049235
+                  "end": 0.000947566,
+                  "start": 0.000050708
                 }
               },
               "run": "new-1",
               "stages": {
-                "backend_class_cache_prepare": 0.00166952,
-                "backend_classfile_generation": 0.000525619,
-                "backend_java_subprocess": 0.032906217,
-                "backend_result_cleanup": 0.000114496,
-                "reachable_entry_lowering": 0.001705427,
-                "semantic_environment_check": 0.000927795,
-                "source_loading": 0.000042324,
-                "surface_parse_lower": 0.000909625
+                "backend_class_cache_prepare": 0.001606112,
+                "backend_classfile_generation": 0.000444229,
+                "backend_java_subprocess": 0.031512411,
+                "backend_result_cleanup": 0.000116748,
+                "reachable_entry_lowering": 0.001581854,
+                "semantic_environment_check": 0.000937692,
+                "source_loading": 0.000043415,
+                "surface_parse_lower": 0.000896858
               }
             },
             {
               "intervals_seconds": {
                 "backend_class_cache_prepare": {
-                  "end": 0.00879172,
-                  "start": 0.007048537
+                  "end": 0.008125779,
+                  "start": 0.006471394
                 },
                 "backend_classfile_generation": {
-                  "end": 0.006588399,
-                  "start": 0.006079174
+                  "end": 0.006025805,
+                  "start": 0.005586064
                 },
                 "backend_java_subprocess": {
-                  "end": 0.045948103,
-                  "start": 0.008791772
+                  "end": 0.039233129,
+                  "start": 0.008125832
                 },
                 "backend_result_cleanup": {
-                  "end": 0.046066663,
-                  "start": 0.045948418
+                  "end": 0.039356294,
+                  "start": 0.039233614
                 },
                 "reachable_entry_lowering": {
-                  "end": 0.006030496,
-                  "start": 0.004368328
+                  "end": 0.005538634,
+                  "start": 0.004026213
                 },
                 "semantic_environment_check": {
-                  "end": 0.004353762,
-                  "start": 0.003369591
+                  "end": 0.004011797,
+                  "start": 0.003063715
                 },
                 "source_loading": {
-                  "end": 0.000042493,
-                  "start": 8.62e-7
+                  "end": 0.000042446,
+                  "start": 9.48e-7
                 },
                 "surface_parse_lower": {
-                  "end": 0.000948306,
-                  "start": 0.000045486
+                  "end": 0.00093453,
+                  "start": 0.000045554
                 }
               },
               "run": "new-2",
               "stages": {
-                "backend_class_cache_prepare": 0.001743183,
-                "backend_classfile_generation": 0.000509225,
-                "backend_java_subprocess": 0.037156331,
-                "backend_result_cleanup": 0.000118245,
-                "reachable_entry_lowering": 0.001662168,
-                "semantic_environment_check": 0.000984171,
-                "source_loading": 0.000041631,
-                "surface_parse_lower": 0.00090282
+                "backend_class_cache_prepare": 0.001654385,
+                "backend_classfile_generation": 0.000439741,
+                "backend_java_subprocess": 0.031107297,
+                "backend_result_cleanup": 0.00012268,
+                "reachable_entry_lowering": 0.001512421,
+                "semantic_environment_check": 0.000948082,
+                "source_loading": 0.000041498,
+                "surface_parse_lower": 0.000888976
               }
             },
             {
               "intervals_seconds": {
                 "backend_class_cache_prepare": {
-                  "end": 0.008088906,
-                  "start": 0.006458613
+                  "end": 0.008658189,
+                  "start": 0.006894611
                 },
                 "backend_classfile_generation": {
-                  "end": 0.005985515,
-                  "start": 0.005551119
+                  "end": 0.006108464,
+                  "start": 0.005661536
                 },
                 "backend_java_subprocess": {
-                  "end": 0.044708127,
-                  "start": 0.00808898
+                  "end": 0.040398353,
+                  "start": 0.008658326
                 },
                 "backend_result_cleanup": {
-                  "end": 0.044828841,
-                  "start": 0.044708579
+                  "end": 0.040513741,
+                  "start": 0.040398637
                 },
                 "reachable_entry_lowering": {
-                  "end": 0.005502074,
-                  "start": 0.004004508
+                  "end": 0.005613221,
+                  "start": 0.004078418
                 },
                 "semantic_environment_check": {
-                  "end": 0.003990015,
-                  "start": 0.003060718
+                  "end": 0.00406259,
+                  "start": 0.003071988
                 },
                 "source_loading": {
-                  "end": 0.000042429,
-                  "start": 8.82e-7
+                  "end": 0.000043321,
+                  "start": 9.17e-7
                 },
                 "surface_parse_lower": {
-                  "end": 0.000925274,
-                  "start": 0.000045843
+                  "end": 0.000948346,
+                  "start": 0.000047441
                 }
               },
               "run": "new-3",
               "stages": {
-                "backend_class_cache_prepare": 0.001630293,
-                "backend_classfile_generation": 0.000434396,
-                "backend_java_subprocess": 0.036619147,
-                "backend_result_cleanup": 0.000120262,
-                "reachable_entry_lowering": 0.001497566,
-                "semantic_environment_check": 0.000929297,
-                "source_loading": 0.000041547,
-                "surface_parse_lower": 0.000879431
+                "backend_class_cache_prepare": 0.001763578,
+                "backend_classfile_generation": 0.000446928,
+                "backend_java_subprocess": 0.031740027,
+                "backend_result_cleanup": 0.000115104,
+                "reachable_entry_lowering": 0.001534803,
+                "semantic_environment_check": 0.000990602,
+                "source_loading": 0.000042404,
+                "surface_parse_lower": 0.000900905
               }
             },
             {
               "intervals_seconds": {
                 "backend_class_cache_prepare": {
-                  "end": 0.008245946,
-                  "start": 0.006605717
+                  "end": 0.008593467,
+                  "start": 0.006804229
                 },
                 "backend_classfile_generation": {
-                  "end": 0.006125877,
-                  "start": 0.005681273
+                  "end": 0.005977131,
+                  "start": 0.005559457
                 },
                 "backend_java_subprocess": {
-                  "end": 0.044504203,
-                  "start": 0.008246009
+                  "end": 0.039545185,
+                  "start": 0.008593519
                 },
                 "backend_result_cleanup": {
-                  "end": 0.044611432,
-                  "start": 0.044504455
+                  "end": 0.039658149,
+                  "start": 0.039545459
                 },
                 "reachable_entry_lowering": {
-                  "end": 0.005631523,
-                  "start": 0.00407546
+                  "end": 0.005511584,
+                  "start": 0.004016898
                 },
                 "semantic_environment_check": {
-                  "end": 0.00406104,
-                  "start": 0.003106528
+                  "end": 0.004002251,
+                  "start": 0.003065866
                 },
                 "source_loading": {
-                  "end": 0.000044519,
-                  "start": 8.82e-7
+                  "end": 0.000044733,
+                  "start": 8.64e-7
                 },
                 "surface_parse_lower": {
-                  "end": 0.000920211,
-                  "start": 0.00004769
+                  "end": 0.00092433,
+                  "start": 0.000047715
                 }
               },
               "run": "new-4",
               "stages": {
-                "backend_class_cache_prepare": 0.001640229,
-                "backend_classfile_generation": 0.000444604,
-                "backend_java_subprocess": 0.036258194,
-                "backend_result_cleanup": 0.000106977,
-                "reachable_entry_lowering": 0.001556063,
-                "semantic_environment_check": 0.000954512,
-                "source_loading": 0.000043637,
-                "surface_parse_lower": 0.000872521
+                "backend_class_cache_prepare": 0.001789238,
+                "backend_classfile_generation": 0.000417674,
+                "backend_java_subprocess": 0.030951666,
+                "backend_result_cleanup": 0.00011269,
+                "reachable_entry_lowering": 0.001494686,
+                "semantic_environment_check": 0.000936385,
+                "source_loading": 0.000043869,
+                "surface_parse_lower": 0.000876615
               }
             },
             {
               "intervals_seconds": {
                 "backend_class_cache_prepare": {
-                  "end": 0.008210154,
-                  "start": 0.006641604
+                  "end": 0.008412038,
+                  "start": 0.00677113
                 },
                 "backend_classfile_generation": {
-                  "end": 0.006158908,
-                  "start": 0.005711342
+                  "end": 0.006073109,
+                  "start": 0.005641957
                 },
                 "backend_java_subprocess": {
-                  "end": 0.043962663,
-                  "start": 0.008210217
+                  "end": 0.046309233,
+                  "start": 0.008412101
                 },
                 "backend_result_cleanup": {
-                  "end": 0.044085193,
-                  "start": 0.043962946
+                  "end": 0.046426697,
+                  "start": 0.046309528
                 },
                 "reachable_entry_lowering": {
-                  "end": 0.005658367,
-                  "start": 0.004088578
+                  "end": 0.005592988,
+                  "start": 0.004032673
                 },
                 "semantic_environment_check": {
-                  "end": 0.004072699,
-                  "start": 0.003099608
+                  "end": 0.004016402,
+                  "start": 0.003017675
                 },
                 "source_loading": {
-                  "end": 0.000046231,
-                  "start": 9.66e-7
+                  "end": 0.00004508,
+                  "start": 8.85e-7
                 },
                 "surface_parse_lower": {
-                  "end": 0.000931029,
-                  "start": 0.000049833
+                  "end": 0.000938112,
+                  "start": 0.000048705
                 }
               },
               "run": "new-5",
               "stages": {
-                "backend_class_cache_prepare": 0.00156855,
-                "backend_classfile_generation": 0.000447566,
-                "backend_java_subprocess": 0.035752446,
-                "backend_result_cleanup": 0.000122247,
-                "reachable_entry_lowering": 0.001569789,
-                "semantic_environment_check": 0.000973091,
-                "source_loading": 0.000045265,
-                "surface_parse_lower": 0.000881196
+                "backend_class_cache_prepare": 0.001640908,
+                "backend_classfile_generation": 0.000431152,
+                "backend_java_subprocess": 0.037897132,
+                "backend_result_cleanup": 0.000117169,
+                "reachable_entry_lowering": 0.001560315,
+                "semantic_environment_check": 0.000998727,
+                "source_loading": 0.000044195,
+                "surface_parse_lower": 0.000889407
               }
             }
           ],
           "stage_medians_seconds": {
-            "backend_class_cache_prepare": 0.001640229,
-            "backend_classfile_generation": 0.000447566,
-            "backend_java_subprocess": 0.036258194,
-            "backend_result_cleanup": 0.000118245,
-            "reachable_entry_lowering": 0.001569789,
-            "semantic_environment_check": 0.000954512,
-            "source_loading": 0.000042324,
-            "surface_parse_lower": 0.000881196
+            "backend_class_cache_prepare": 0.001654385,
+            "backend_classfile_generation": 0.000439741,
+            "backend_java_subprocess": 0.031512411,
+            "backend_result_cleanup": 0.000116748,
+            "reachable_entry_lowering": 0.001534803,
+            "semantic_environment_check": 0.000948082,
+            "source_loading": 0.000043415,
+            "surface_parse_lower": 0.000889407
           },
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.0007011539999999955,
+          "median_absolute_deviation_wall_time_seconds": 0.0004579180000000016,
           "median_user_cpu_seconds": 0.02,
-          "median_wall_time_seconds": 0.047690077,
+          "median_wall_time_seconds": 0.043188856,
           "wall_time_noisy": false
         }
       }
@@ -509,27 +509,27 @@
           {
             "exit_status": 1,
             "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.134683429
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.07,
-            "wall_time_seconds": 0.137619003
+            "wall_time_seconds": 0.136298644
           },
           {
             "exit_status": 1,
             "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.12144158
+            "wall_time_seconds": 0.131549593
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.09,
+            "wall_time_seconds": 0.120357011
           },
           {
             "exit_status": 1,
             "user_cpu_seconds": 0.07,
-            "wall_time_seconds": 0.11978418
+            "wall_time_seconds": 0.126489654
           },
           {
             "exit_status": 1,
             "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.116426897
+            "wall_time_seconds": 0.118912793
           }
         ],
         "stage_timing": {
@@ -539,71 +539,71 @@
               "intervals_seconds": {},
               "run": "baseline-1",
               "stages": {
-                "backend_runtime_remainder": 0.045735232,
-                "reachable_entry_lowering": 0.00743059,
-                "semantic_environment_check": 0.005134502,
-                "source_loading": 0.000021688,
-                "surface_parse_lower": 0.011749651
+                "backend_runtime_remainder": 0.04162105,
+                "reachable_entry_lowering": 0.007589755,
+                "semantic_environment_check": 0.005328448,
+                "source_loading": 0.000023899,
+                "surface_parse_lower": 0.01537957
               }
             },
             {
               "intervals_seconds": {},
               "run": "baseline-2",
               "stages": {
-                "backend_runtime_remainder": 0.046296642,
-                "reachable_entry_lowering": 0.007411014,
-                "semantic_environment_check": 0.005135816,
-                "source_loading": 0.000021624,
-                "surface_parse_lower": 0.015164875
+                "backend_runtime_remainder": 0.040894797,
+                "reachable_entry_lowering": 0.007589618,
+                "semantic_environment_check": 0.005287045,
+                "source_loading": 0.000027134,
+                "surface_parse_lower": 0.015083997
               }
             },
             {
               "intervals_seconds": {},
               "run": "baseline-3",
               "stages": {
-                "backend_runtime_remainder": 0.046286477,
-                "reachable_entry_lowering": 0.007352946,
-                "semantic_environment_check": 0.005097913,
-                "source_loading": 0.000021971,
-                "surface_parse_lower": 0.010022842
+                "backend_runtime_remainder": 0.041930299,
+                "reachable_entry_lowering": 0.007637049,
+                "semantic_environment_check": 0.005322252,
+                "source_loading": 0.000024174,
+                "surface_parse_lower": 0.010396981
               }
             },
             {
               "intervals_seconds": {},
               "run": "baseline-4",
               "stages": {
-                "backend_runtime_remainder": 0.040359608,
-                "reachable_entry_lowering": 0.007534856,
-                "semantic_environment_check": 0.005144206,
-                "source_loading": 0.000020941,
-                "surface_parse_lower": 0.010370216
+                "backend_runtime_remainder": 0.040871282,
+                "reachable_entry_lowering": 0.007739372,
+                "semantic_environment_check": 0.005360085,
+                "source_loading": 0.000022698,
+                "surface_parse_lower": 0.011335179
               }
             },
             {
               "intervals_seconds": {},
               "run": "baseline-5",
               "stages": {
-                "backend_runtime_remainder": 0.039292962,
-                "reachable_entry_lowering": 0.007643661,
-                "semantic_environment_check": 0.005155372,
-                "source_loading": 0.000020133,
-                "surface_parse_lower": 0.010141749
+                "backend_runtime_remainder": 0.041187024,
+                "reachable_entry_lowering": 0.007581047,
+                "semantic_environment_check": 0.005242636,
+                "source_loading": 0.000022858,
+                "surface_parse_lower": 0.010247703
               }
             }
           ],
           "stage_medians_seconds": {
-            "backend_runtime_remainder": 0.045735232,
-            "reachable_entry_lowering": 0.00743059,
-            "semantic_environment_check": 0.005135816,
-            "source_loading": 0.000021624,
-            "surface_parse_lower": 0.010370216
+            "backend_runtime_remainder": 0.041187024,
+            "reachable_entry_lowering": 0.007589755,
+            "semantic_environment_check": 0.005322252,
+            "source_loading": 0.000023899,
+            "surface_parse_lower": 0.011335179
           },
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.005014682999999992,
+          "median_absolute_deviation_wall_time_seconds": 0.006132643000000007,
           "median_user_cpu_seconds": 0.08,
-          "median_wall_time_seconds": 0.12144158,
+          "median_wall_time_seconds": 0.126489654,
           "wall_time_noisy": false
         }
       },
@@ -637,32 +637,32 @@
       "id": "hpack_static",
       "new": {
         "binary": "target/release/veln",
-        "binary_identity": "git revision 0937cb9c release build with backend runtime substage timing",
+        "binary_identity": "git revision 2609ca04 release build with backend runtime substage timing",
         "runs": [
           {
             "exit_status": 1,
-            "user_cpu_seconds": 0.06,
-            "wall_time_seconds": 0.116324058
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.117236604
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.05,
-            "wall_time_seconds": 0.128850575
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.126433039
-          },
-          {
-            "exit_status": 1,
             "user_cpu_seconds": 0.09,
-            "wall_time_seconds": 0.120378473
+            "wall_time_seconds": 0.123288532
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.07,
+            "wall_time_seconds": 0.131911555
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.08,
+            "wall_time_seconds": 0.118579513
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.08,
+            "wall_time_seconds": 0.121494961
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.07,
+            "wall_time_seconds": 0.122354344
           }
         ],
         "stage_timing": {
@@ -671,255 +671,255 @@
             {
               "intervals_seconds": {
                 "backend_class_cache_prepare": {
-                  "end": 0.072911642,
-                  "start": 0.071411252
+                  "end": 0.077801338,
+                  "start": 0.075880884
                 },
                 "backend_classfile_generation": {
-                  "end": 0.070931569,
-                  "start": 0.070588722
+                  "end": 0.075407265,
+                  "start": 0.07507855
                 },
                 "backend_java_subprocess": {
-                  "end": 0.110872837,
-                  "start": 0.072911695
+                  "end": 0.117559006,
+                  "start": 0.077801401
                 },
                 "backend_result_cleanup": {
-                  "end": 0.11102408,
-                  "start": 0.11087312
+                  "end": 0.117727905,
+                  "start": 0.117559501
                 },
                 "reachable_entry_lowering": {
-                  "end": 0.070505071,
-                  "start": 0.063044119
+                  "end": 0.074989369,
+                  "start": 0.067367631
                 },
                 "semantic_environment_check": {
-                  "end": 0.062975707,
-                  "start": 0.057765777
+                  "end": 0.067302465,
+                  "start": 0.061963785
                 },
                 "source_loading": {
-                  "end": 0.000024176,
-                  "start": 8.72e-7
+                  "end": 0.000028252,
+                  "start": 9.17e-7
                 },
                 "surface_parse_lower": {
-                  "end": 0.010199269,
-                  "start": 0.000027821
+                  "end": 0.010292637,
+                  "start": 0.000032087
                 }
               },
               "run": "new-1",
               "stages": {
-                "backend_class_cache_prepare": 0.00150039,
-                "backend_classfile_generation": 0.000342847,
-                "backend_java_subprocess": 0.037961142,
-                "backend_result_cleanup": 0.00015096,
-                "reachable_entry_lowering": 0.007460952,
-                "semantic_environment_check": 0.00520993,
-                "source_loading": 0.000023304,
-                "surface_parse_lower": 0.010171448
+                "backend_class_cache_prepare": 0.001920454,
+                "backend_classfile_generation": 0.000328715,
+                "backend_java_subprocess": 0.039757605,
+                "backend_result_cleanup": 0.000168404,
+                "reachable_entry_lowering": 0.007621738,
+                "semantic_environment_check": 0.00533868,
+                "source_loading": 0.000027335,
+                "surface_parse_lower": 0.01026055
               }
             },
             {
               "intervals_seconds": {
                 "backend_class_cache_prepare": {
-                  "end": 0.072298612,
-                  "start": 0.07081073
+                  "end": 0.088249563,
+                  "start": 0.086699164
                 },
                 "backend_classfile_generation": {
-                  "end": 0.070288661,
-                  "start": 0.069962344
+                  "end": 0.086196977,
+                  "start": 0.085861297
                 },
                 "backend_java_subprocess": {
-                  "end": 0.111738207,
-                  "start": 0.072298654
+                  "end": 0.126169046,
+                  "start": 0.088249616
                 },
                 "backend_result_cleanup": {
-                  "end": 0.111892917,
-                  "start": 0.111738501
+                  "end": 0.126324214,
+                  "start": 0.126169309
                 },
                 "reachable_entry_lowering": {
-                  "end": 0.0698778,
-                  "start": 0.062432549
+                  "end": 0.085766879,
+                  "start": 0.078004388
                 },
                 "semantic_environment_check": {
-                  "end": 0.062370301,
-                  "start": 0.057248412
+                  "end": 0.077940181,
+                  "start": 0.07268456
                 },
                 "source_loading": {
-                  "end": 0.000064221,
-                  "start": 8.82e-7
+                  "end": 0.000027767,
+                  "start": 9.59e-7
                 },
                 "surface_parse_lower": {
-                  "end": 0.010124177,
-                  "start": 0.000067151
+                  "end": 0.011199946,
+                  "start": 0.000030886
                 }
               },
               "run": "new-2",
               "stages": {
-                "backend_class_cache_prepare": 0.001487882,
-                "backend_classfile_generation": 0.000326317,
-                "backend_java_subprocess": 0.039439553,
-                "backend_result_cleanup": 0.000154416,
-                "reachable_entry_lowering": 0.007445251,
-                "semantic_environment_check": 0.005121889,
-                "source_loading": 0.000063339,
-                "surface_parse_lower": 0.010057026
+                "backend_class_cache_prepare": 0.001550399,
+                "backend_classfile_generation": 0.00033568,
+                "backend_java_subprocess": 0.03791943,
+                "backend_result_cleanup": 0.000154905,
+                "reachable_entry_lowering": 0.007762491,
+                "semantic_environment_check": 0.005255621,
+                "source_loading": 0.000026808,
+                "surface_parse_lower": 0.01116906
               }
             },
             {
               "intervals_seconds": {
                 "backend_class_cache_prepare": {
-                  "end": 0.085270879,
-                  "start": 0.083711077
+                  "end": 0.073887478,
+                  "start": 0.0723322
                 },
                 "backend_classfile_generation": {
-                  "end": 0.08324384,
-                  "start": 0.082925452
+                  "end": 0.070104793,
+                  "start": 0.06978886
                 },
                 "backend_java_subprocess": {
-                  "end": 0.12342955,
-                  "start": 0.085270932
+                  "end": 0.112691469,
+                  "start": 0.073887542
                 },
                 "backend_result_cleanup": {
-                  "end": 0.123588586,
-                  "start": 0.123430096
+                  "end": 0.112859535,
+                  "start": 0.112691785
                 },
                 "reachable_entry_lowering": {
-                  "end": 0.082841349,
-                  "start": 0.07558367
+                  "end": 0.069704273,
+                  "start": 0.06209399
                 },
                 "semantic_environment_check": {
-                  "end": 0.075525487,
-                  "start": 0.070516057
+                  "end": 0.062032345,
+                  "start": 0.05688659
                 },
                 "source_loading": {
-                  "end": 0.00002466,
-                  "start": 8.61e-7
+                  "end": 0.000026313,
+                  "start": 9.59e-7
                 },
                 "surface_parse_lower": {
-                  "end": 0.014038555,
-                  "start": 0.000027978
+                  "end": 0.01043085,
+                  "start": 0.000032067
                 }
               },
               "run": "new-3",
               "stages": {
-                "backend_class_cache_prepare": 0.001559802,
-                "backend_classfile_generation": 0.000318388,
-                "backend_java_subprocess": 0.038158618,
-                "backend_result_cleanup": 0.00015849,
-                "reachable_entry_lowering": 0.007257679,
-                "semantic_environment_check": 0.00500943,
-                "source_loading": 0.000023799,
-                "surface_parse_lower": 0.014010577
+                "backend_class_cache_prepare": 0.001555278,
+                "backend_classfile_generation": 0.000315933,
+                "backend_java_subprocess": 0.038803927,
+                "backend_result_cleanup": 0.00016775,
+                "reachable_entry_lowering": 0.007610283,
+                "semantic_environment_check": 0.005145755,
+                "source_loading": 0.000025354,
+                "surface_parse_lower": 0.010398783
               }
             },
             {
               "intervals_seconds": {
                 "backend_class_cache_prepare": {
-                  "end": 0.083146598,
-                  "start": 0.081662864
+                  "end": 0.076699879,
+                  "start": 0.075202906
                 },
                 "backend_classfile_generation": {
-                  "end": 0.081169897,
-                  "start": 0.08085361
+                  "end": 0.074726758,
+                  "start": 0.074391109
                 },
                 "backend_java_subprocess": {
-                  "end": 0.120564204,
-                  "start": 0.083146661
+                  "end": 0.115862669,
+                  "start": 0.076699942
                 },
                 "backend_result_cleanup": {
-                  "end": 0.120717853,
-                  "start": 0.120564572
+                  "end": 0.116023359,
+                  "start": 0.115862933
                 },
                 "reachable_entry_lowering": {
-                  "end": 0.080769896,
-                  "start": 0.073272543
+                  "end": 0.074295563,
+                  "start": 0.066443439
                 },
                 "semantic_environment_check": {
-                  "end": 0.073211524,
-                  "start": 0.068070227
+                  "end": 0.066364701,
+                  "start": 0.06094058
                 },
                 "source_loading": {
-                  "end": 0.000022937,
-                  "start": 8.19e-7
+                  "end": 0.000024817,
+                  "start": 8.43e-7
                 },
                 "surface_parse_lower": {
-                  "end": 0.010262409,
-                  "start": 0.000025741
+                  "end": 0.010317422,
+                  "start": 0.000027662
                 }
               },
               "run": "new-4",
               "stages": {
-                "backend_class_cache_prepare": 0.001483734,
-                "backend_classfile_generation": 0.000316287,
-                "backend_java_subprocess": 0.037417543,
-                "backend_result_cleanup": 0.000153281,
-                "reachable_entry_lowering": 0.007497353,
-                "semantic_environment_check": 0.005141297,
-                "source_loading": 0.000022118,
-                "surface_parse_lower": 0.010236668
+                "backend_class_cache_prepare": 0.001496973,
+                "backend_classfile_generation": 0.000335649,
+                "backend_java_subprocess": 0.039162727,
+                "backend_result_cleanup": 0.000160426,
+                "reachable_entry_lowering": 0.007852124,
+                "semantic_environment_check": 0.005424121,
+                "source_loading": 0.000023974,
+                "surface_parse_lower": 0.01028976
               }
             },
             {
               "intervals_seconds": {
                 "backend_class_cache_prepare": {
-                  "end": 0.076421577,
-                  "start": 0.074911272
+                  "end": 0.077270079,
+                  "start": 0.075755164
                 },
                 "backend_classfile_generation": {
-                  "end": 0.074427284,
-                  "start": 0.074078734
+                  "end": 0.075268648,
+                  "start": 0.074955884
                 },
                 "backend_java_subprocess": {
-                  "end": 0.114815813,
-                  "start": 0.07642164
+                  "end": 0.116071766,
+                  "start": 0.077270142
                 },
                 "backend_result_cleanup": {
-                  "end": 0.114973631,
-                  "start": 0.114816149
+                  "end": 0.116236362,
+                  "start": 0.11607205
                 },
                 "reachable_entry_lowering": {
-                  "end": 0.07399356,
-                  "start": 0.066589299
+                  "end": 0.074855305,
+                  "start": 0.067268365
                 },
                 "semantic_environment_check": {
-                  "end": 0.066527504,
-                  "start": 0.061301358
+                  "end": 0.067202284,
+                  "start": 0.061801187
                 },
                 "source_loading": {
-                  "end": 0.000025699,
-                  "start": 9.67e-7
+                  "end": 0.000025511,
+                  "start": 8.42e-7
                 },
                 "surface_parse_lower": {
-                  "end": 0.012079981,
-                  "start": 0.000028945
+                  "end": 0.010743944,
+                  "start": 0.000030004
                 }
               },
               "run": "new-5",
               "stages": {
-                "backend_class_cache_prepare": 0.001510305,
-                "backend_classfile_generation": 0.00034855,
-                "backend_java_subprocess": 0.038394173,
-                "backend_result_cleanup": 0.000157482,
-                "reachable_entry_lowering": 0.007404261,
-                "semantic_environment_check": 0.005226146,
-                "source_loading": 0.000024732,
-                "surface_parse_lower": 0.012051036
+                "backend_class_cache_prepare": 0.001514915,
+                "backend_classfile_generation": 0.000312764,
+                "backend_java_subprocess": 0.038801624,
+                "backend_result_cleanup": 0.000164312,
+                "reachable_entry_lowering": 0.00758694,
+                "semantic_environment_check": 0.005401097,
+                "source_loading": 0.000024669,
+                "surface_parse_lower": 0.01071394
               }
             }
           ],
           "stage_medians_seconds": {
-            "backend_class_cache_prepare": 0.00150039,
-            "backend_classfile_generation": 0.000326317,
-            "backend_java_subprocess": 0.038158618,
-            "backend_result_cleanup": 0.000154416,
-            "reachable_entry_lowering": 0.007445251,
-            "semantic_environment_check": 0.005141297,
-            "source_loading": 0.000023799,
-            "surface_parse_lower": 0.010236668
+            "backend_class_cache_prepare": 0.001550399,
+            "backend_classfile_generation": 0.000328715,
+            "backend_java_subprocess": 0.038803927,
+            "backend_result_cleanup": 0.000164312,
+            "reachable_entry_lowering": 0.007621738,
+            "semantic_environment_check": 0.00533868,
+            "source_loading": 0.000025354,
+            "surface_parse_lower": 0.010398783
           },
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.004054415000000006,
+          "median_absolute_deviation_wall_time_seconds": 0.0009341880000000025,
           "median_user_cpu_seconds": 0.08,
-          "median_wall_time_seconds": 0.120378473,
+          "median_wall_time_seconds": 0.122354344,
           "wall_time_noisy": false
         }
       }
@@ -931,28 +931,28 @@
         "runs": [
           {
             "exit_status": 1,
+            "user_cpu_seconds": 0.08,
+            "wall_time_seconds": 0.119615199
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.07,
+            "wall_time_seconds": 0.11939652
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.08,
+            "wall_time_seconds": 0.118692639
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.08,
+            "wall_time_seconds": 0.12763633
+          },
+          {
+            "exit_status": 1,
             "user_cpu_seconds": 0.09,
-            "wall_time_seconds": 0.129582347
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.117429782
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.11824367
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.120871
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.09,
-            "wall_time_seconds": 0.127884564
+            "wall_time_seconds": 0.128383926
           }
         ],
         "stage_timing": {
@@ -962,71 +962,71 @@
               "intervals_seconds": {},
               "run": "baseline-1",
               "stages": {
-                "backend_runtime_remainder": 0.041017597,
-                "reachable_entry_lowering": 0.007693022,
-                "semantic_environment_check": 0.005178359,
-                "source_loading": 0.00001986,
-                "surface_parse_lower": 0.010474137
+                "backend_runtime_remainder": 0.041079858,
+                "reachable_entry_lowering": 0.008037487,
+                "semantic_environment_check": 0.005249919,
+                "source_loading": 0.000025732,
+                "surface_parse_lower": 0.010187527
               }
             },
             {
               "intervals_seconds": {},
               "run": "baseline-2",
               "stages": {
-                "backend_runtime_remainder": 0.041280323,
-                "reachable_entry_lowering": 0.007860312,
-                "semantic_environment_check": 0.005240209,
-                "source_loading": 0.00002133,
-                "surface_parse_lower": 0.010185301
+                "backend_runtime_remainder": 0.041044991,
+                "reachable_entry_lowering": 0.007813472,
+                "semantic_environment_check": 0.005168063,
+                "source_loading": 0.000027594,
+                "surface_parse_lower": 0.010509847
               }
             },
             {
               "intervals_seconds": {},
               "run": "baseline-3",
               "stages": {
-                "backend_runtime_remainder": 0.041795417,
-                "reachable_entry_lowering": 0.008030776,
-                "semantic_environment_check": 0.005245333,
-                "source_loading": 0.000017875,
-                "surface_parse_lower": 0.010213416
+                "backend_runtime_remainder": 0.041447157,
+                "reachable_entry_lowering": 0.007830593,
+                "semantic_environment_check": 0.005230123,
+                "source_loading": 0.000019174,
+                "surface_parse_lower": 0.01035688
               }
             },
             {
               "intervals_seconds": {},
               "run": "baseline-4",
               "stages": {
-                "backend_runtime_remainder": 0.0409039,
-                "reachable_entry_lowering": 0.008050436,
-                "semantic_environment_check": 0.005434911,
-                "source_loading": 0.000021772,
-                "surface_parse_lower": 0.010405356
+                "backend_runtime_remainder": 0.041159882,
+                "reachable_entry_lowering": 0.008187316,
+                "semantic_environment_check": 0.005261833,
+                "source_loading": 0.000024058,
+                "surface_parse_lower": 0.010380759
               }
             },
             {
               "intervals_seconds": {},
               "run": "baseline-5",
               "stages": {
-                "backend_runtime_remainder": 0.040894154,
-                "reachable_entry_lowering": 0.00799052,
-                "semantic_environment_check": 0.005380729,
-                "source_loading": 0.000018642,
-                "surface_parse_lower": 0.010227133
+                "backend_runtime_remainder": 0.041080006,
+                "reachable_entry_lowering": 0.008009271,
+                "semantic_environment_check": 0.005265116,
+                "source_loading": 0.000021669,
+                "surface_parse_lower": 0.013146678
               }
             }
           ],
           "stage_medians_seconds": {
-            "backend_runtime_remainder": 0.041017597,
-            "reachable_entry_lowering": 0.00799052,
-            "semantic_environment_check": 0.005245333,
-            "source_loading": 0.00001986,
-            "surface_parse_lower": 0.010227133
+            "backend_runtime_remainder": 0.041080006,
+            "reachable_entry_lowering": 0.008009271,
+            "semantic_environment_check": 0.005249919,
+            "source_loading": 0.000024058,
+            "surface_parse_lower": 0.010380759
           },
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.0034412180000000098,
+          "median_absolute_deviation_wall_time_seconds": 0.0009225600000000028,
           "median_user_cpu_seconds": 0.08,
-          "median_wall_time_seconds": 0.120871,
+          "median_wall_time_seconds": 0.119615199,
           "wall_time_noisy": false
         }
       },
@@ -1062,32 +1062,32 @@
       "id": "http2_core",
       "new": {
         "binary": "target/release/veln",
-        "binary_identity": "git revision 0937cb9c release build with backend runtime substage timing",
+        "binary_identity": "git revision 2609ca04 release build with backend runtime substage timing",
         "runs": [
           {
             "exit_status": 1,
+            "user_cpu_seconds": 0.09,
+            "wall_time_seconds": 0.120111428
+          },
+          {
+            "exit_status": 1,
             "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.125377064
+            "wall_time_seconds": 0.120529253
+          },
+          {
+            "exit_status": 1,
+            "user_cpu_seconds": 0.08,
+            "wall_time_seconds": 0.121823787
           },
           {
             "exit_status": 1,
             "user_cpu_seconds": 0.07,
-            "wall_time_seconds": 0.119160815
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.07,
-            "wall_time_seconds": 0.119271615
+            "wall_time_seconds": 0.133565041
           },
           {
             "exit_status": 1,
             "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.119757061
-          },
-          {
-            "exit_status": 1,
-            "user_cpu_seconds": 0.08,
-            "wall_time_seconds": 0.122945249
+            "wall_time_seconds": 0.131853368
           }
         ],
         "stage_timing": {
@@ -1096,255 +1096,255 @@
             {
               "intervals_seconds": {
                 "backend_class_cache_prepare": {
-                  "end": 0.080309365,
-                  "start": 0.07858745
+                  "end": 0.074824152,
+                  "start": 0.073084707
                 },
                 "backend_classfile_generation": {
-                  "end": 0.078089189,
-                  "start": 0.077493162
+                  "end": 0.072613798,
+                  "start": 0.072023631
                 },
                 "backend_java_subprocess": {
-                  "end": 0.119601643,
-                  "start": 0.080309418
+                  "end": 0.113858336,
+                  "start": 0.074824205
                 },
                 "backend_result_cleanup": {
-                  "end": 0.119775688,
-                  "start": 0.119602179
+                  "end": 0.1140279,
+                  "start": 0.113858999
                 },
                 "reachable_entry_lowering": {
-                  "end": 0.077377269,
-                  "start": 0.069422069
+                  "end": 0.071915886,
+                  "start": 0.06411316
                 },
                 "semantic_environment_check": {
-                  "end": 0.069350159,
-                  "start": 0.063957048
+                  "end": 0.064046827,
+                  "start": 0.058839751
                 },
                 "source_loading": {
-                  "end": 0.000030708,
-                  "start": 0.000001218
+                  "end": 0.000027794,
+                  "start": 7.9e-7
                 },
                 "surface_parse_lower": {
-                  "end": 0.010335658,
-                  "start": 0.000035245
+                  "end": 0.010378338,
+                  "start": 0.000031299
                 }
               },
               "run": "new-1",
               "stages": {
-                "backend_class_cache_prepare": 0.001721915,
-                "backend_classfile_generation": 0.000596027,
-                "backend_java_subprocess": 0.039292225,
-                "backend_result_cleanup": 0.000173509,
-                "reachable_entry_lowering": 0.0079552,
-                "semantic_environment_check": 0.005393111,
-                "source_loading": 0.00002949,
-                "surface_parse_lower": 0.010300413
+                "backend_class_cache_prepare": 0.001739445,
+                "backend_classfile_generation": 0.000590167,
+                "backend_java_subprocess": 0.039034131,
+                "backend_result_cleanup": 0.000168901,
+                "reachable_entry_lowering": 0.007802726,
+                "semantic_environment_check": 0.005207076,
+                "source_loading": 0.000027004,
+                "surface_parse_lower": 0.010347039
               }
             },
             {
               "intervals_seconds": {
                 "backend_class_cache_prepare": {
-                  "end": 0.075336374,
-                  "start": 0.073617567
+                  "end": 0.076255432,
+                  "start": 0.074464723
                 },
                 "backend_classfile_generation": {
-                  "end": 0.073140479,
-                  "start": 0.072554461
+                  "end": 0.072201655,
+                  "start": 0.071624369
                 },
                 "backend_java_subprocess": {
-                  "end": 0.112798111,
-                  "start": 0.075336437
+                  "end": 0.114057419,
+                  "start": 0.076255484
                 },
                 "backend_result_cleanup": {
-                  "end": 0.113007611,
-                  "start": 0.112799025
+                  "end": 0.114220153,
+                  "start": 0.114057882
                 },
                 "reachable_entry_lowering": {
-                  "end": 0.072442957,
-                  "start": 0.064373303
+                  "end": 0.071518329,
+                  "start": 0.0637794
                 },
                 "semantic_environment_check": {
-                  "end": 0.064309407,
-                  "start": 0.059048656
+                  "end": 0.063710352,
+                  "start": 0.058443067
                 },
                 "source_loading": {
-                  "end": 0.000025846,
-                  "start": 8.09e-7
+                  "end": 0.00002348,
+                  "start": 7.9e-7
                 },
                 "surface_parse_lower": {
-                  "end": 0.01037323,
-                  "start": 0.000028587
+                  "end": 0.010435768,
+                  "start": 0.000026258
                 }
               },
               "run": "new-2",
               "stages": {
-                "backend_class_cache_prepare": 0.001718807,
-                "backend_classfile_generation": 0.000586018,
-                "backend_java_subprocess": 0.037461674,
-                "backend_result_cleanup": 0.000208586,
-                "reachable_entry_lowering": 0.008069654,
-                "semantic_environment_check": 0.005260751,
-                "source_loading": 0.000025037,
-                "surface_parse_lower": 0.010344643
+                "backend_class_cache_prepare": 0.001790709,
+                "backend_classfile_generation": 0.000577286,
+                "backend_java_subprocess": 0.037801935,
+                "backend_result_cleanup": 0.000162271,
+                "reachable_entry_lowering": 0.007738929,
+                "semantic_environment_check": 0.005267285,
+                "source_loading": 0.00002269,
+                "surface_parse_lower": 0.01040951
               }
             },
             {
               "intervals_seconds": {
                 "backend_class_cache_prepare": {
-                  "end": 0.075006633,
-                  "start": 0.073275895
+                  "end": 0.075136118,
+                  "start": 0.073389106
                 },
                 "backend_classfile_generation": {
-                  "end": 0.072798197,
-                  "start": 0.072187194
+                  "end": 0.072910115,
+                  "start": 0.07229068
                 },
                 "backend_java_subprocess": {
-                  "end": 0.112873065,
-                  "start": 0.075006696
+                  "end": 0.115942636,
+                  "start": 0.075136181
                 },
                 "backend_result_cleanup": {
-                  "end": 0.113036008,
-                  "start": 0.112874083
+                  "end": 0.116116282,
+                  "start": 0.115943193
                 },
                 "reachable_entry_lowering": {
-                  "end": 0.072044437,
-                  "start": 0.064238926
+                  "end": 0.072185082,
+                  "start": 0.064422725
                 },
                 "semantic_environment_check": {
-                  "end": 0.064175398,
-                  "start": 0.058946301
+                  "end": 0.064339975,
+                  "start": 0.059137993
                 },
                 "source_loading": {
-                  "end": 0.00002445,
-                  "start": 8.2e-7
+                  "end": 0.000025858,
+                  "start": 8.21e-7
                 },
                 "surface_parse_lower": {
-                  "end": 0.010433945,
-                  "start": 0.000027937
+                  "end": 0.011737752,
+                  "start": 0.000029573
                 }
               },
               "run": "new-3",
               "stages": {
-                "backend_class_cache_prepare": 0.001730738,
-                "backend_classfile_generation": 0.000611003,
-                "backend_java_subprocess": 0.037866369,
-                "backend_result_cleanup": 0.000161925,
-                "reachable_entry_lowering": 0.007805511,
-                "semantic_environment_check": 0.005229097,
-                "source_loading": 0.00002363,
-                "surface_parse_lower": 0.010406008
+                "backend_class_cache_prepare": 0.001747012,
+                "backend_classfile_generation": 0.000619435,
+                "backend_java_subprocess": 0.040806455,
+                "backend_result_cleanup": 0.000173089,
+                "reachable_entry_lowering": 0.007762357,
+                "semantic_environment_check": 0.005201982,
+                "source_loading": 0.000025037,
+                "surface_parse_lower": 0.011708179
               }
             },
             {
               "intervals_seconds": {
                 "backend_class_cache_prepare": {
-                  "end": 0.074920093,
-                  "start": 0.071363425
+                  "end": 0.088131227,
+                  "start": 0.086334026
                 },
                 "backend_classfile_generation": {
-                  "end": 0.070861562,
-                  "start": 0.070281099
+                  "end": 0.085852656,
+                  "start": 0.085273097
                 },
                 "backend_java_subprocess": {
-                  "end": 0.113932967,
-                  "start": 0.074920146
+                  "end": 0.12773773,
+                  "start": 0.088131291
                 },
                 "backend_result_cleanup": {
-                  "end": 0.114102569,
-                  "start": 0.113933975
+                  "end": 0.127913061,
+                  "start": 0.127738277
                 },
                 "reachable_entry_lowering": {
-                  "end": 0.070164188,
-                  "start": 0.062507494
+                  "end": 0.085127055,
+                  "start": 0.077133171
                 },
                 "semantic_environment_check": {
-                  "end": 0.062449627,
-                  "start": 0.05730961
+                  "end": 0.077066049,
+                  "start": 0.071851848
                 },
                 "source_loading": {
-                  "end": 0.000022916,
-                  "start": 7.77e-7
+                  "end": 0.00002592,
+                  "start": 8.1e-7
                 },
                 "surface_parse_lower": {
-                  "end": 0.010676506,
-                  "start": 0.000025794
+                  "end": 0.012168689,
+                  "start": 0.000028878
                 }
               },
               "run": "new-4",
               "stages": {
-                "backend_class_cache_prepare": 0.003556668,
-                "backend_classfile_generation": 0.000580463,
-                "backend_java_subprocess": 0.039012821,
-                "backend_result_cleanup": 0.000168594,
-                "reachable_entry_lowering": 0.007656694,
-                "semantic_environment_check": 0.005140017,
-                "source_loading": 0.000022139,
-                "surface_parse_lower": 0.010650712
+                "backend_class_cache_prepare": 0.001797201,
+                "backend_classfile_generation": 0.000579559,
+                "backend_java_subprocess": 0.039606439,
+                "backend_result_cleanup": 0.000174784,
+                "reachable_entry_lowering": 0.007993884,
+                "semantic_environment_check": 0.005214201,
+                "source_loading": 0.00002511,
+                "surface_parse_lower": 0.012139811
               }
             },
             {
               "intervals_seconds": {
                 "backend_class_cache_prepare": {
-                  "end": 0.075362314,
-                  "start": 0.073625758
+                  "end": 0.087424548,
+                  "start": 0.085692259
                 },
                 "backend_classfile_generation": {
-                  "end": 0.073153543,
-                  "start": 0.072530641
+                  "end": 0.085213352,
+                  "start": 0.084597969
                 },
                 "backend_java_subprocess": {
-                  "end": 0.117263796,
-                  "start": 0.075362377
+                  "end": 0.125628964,
+                  "start": 0.087424611
                 },
                 "backend_result_cleanup": {
-                  "end": 0.117430867,
-                  "start": 0.117264268
+                  "end": 0.125799643,
+                  "start": 0.125629416
                 },
                 "reachable_entry_lowering": {
-                  "end": 0.072424032,
-                  "start": 0.064379204
+                  "end": 0.084479047,
+                  "start": 0.076690045
                 },
                 "semantic_environment_check": {
-                  "end": 0.064319635,
-                  "start": 0.0590057
+                  "end": 0.076626027,
+                  "start": 0.071328277
                 },
                 "source_loading": {
-                  "end": 0.000027579,
-                  "start": 7.77e-7
+                  "end": 0.000024584,
+                  "start": 8.1e-7
                 },
                 "surface_parse_lower": {
-                  "end": 0.010383333,
-                  "start": 0.000030866
+                  "end": 0.012912834,
+                  "start": 0.000028341
                 }
               },
               "run": "new-5",
               "stages": {
-                "backend_class_cache_prepare": 0.001736556,
-                "backend_classfile_generation": 0.000622902,
-                "backend_java_subprocess": 0.041901419,
-                "backend_result_cleanup": 0.000166599,
-                "reachable_entry_lowering": 0.008044828,
-                "semantic_environment_check": 0.005313935,
-                "source_loading": 0.000026802,
-                "surface_parse_lower": 0.010352467
+                "backend_class_cache_prepare": 0.001732289,
+                "backend_classfile_generation": 0.000615383,
+                "backend_java_subprocess": 0.038204353,
+                "backend_result_cleanup": 0.000170227,
+                "reachable_entry_lowering": 0.007789002,
+                "semantic_environment_check": 0.00529775,
+                "source_loading": 0.000023774,
+                "surface_parse_lower": 0.012884493
               }
             }
           ],
           "stage_medians_seconds": {
-            "backend_class_cache_prepare": 0.001730738,
-            "backend_classfile_generation": 0.000596027,
-            "backend_java_subprocess": 0.039012821,
-            "backend_result_cleanup": 0.000168594,
-            "reachable_entry_lowering": 0.0079552,
-            "semantic_environment_check": 0.005260751,
+            "backend_class_cache_prepare": 0.001747012,
+            "backend_classfile_generation": 0.000590167,
+            "backend_java_subprocess": 0.039034131,
+            "backend_result_cleanup": 0.000170227,
+            "reachable_entry_lowering": 0.007789002,
+            "semantic_environment_check": 0.005214201,
             "source_loading": 0.000025037,
-            "surface_parse_lower": 0.010352467
+            "surface_parse_lower": 0.011708179
           },
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.0005962459999999947,
+          "median_absolute_deviation_wall_time_seconds": 0.0017123589999999966,
           "median_user_cpu_seconds": 0.08,
-          "median_wall_time_seconds": 0.119757061,
+          "median_wall_time_seconds": 0.121823787,
           "wall_time_noisy": false
         }
       }
@@ -1357,27 +1357,27 @@
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.14,
-            "wall_time_seconds": 0.203010091
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.12,
-            "wall_time_seconds": 0.207522227
+            "wall_time_seconds": 0.204473175
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.14,
-            "wall_time_seconds": 0.195886706
+            "wall_time_seconds": 0.197583989
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.12,
-            "wall_time_seconds": 0.19493465
+            "wall_time_seconds": 0.196394372
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.13,
-            "wall_time_seconds": 0.199510451
+            "user_cpu_seconds": 0.15,
+            "wall_time_seconds": 0.199375162
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.14,
+            "wall_time_seconds": 0.201242324
           }
         ],
         "stage_timing": {
@@ -1387,71 +1387,71 @@
               "intervals_seconds": {},
               "run": "baseline-1",
               "stages": {
-                "backend_runtime_remainder": 0.07873686,
-                "reachable_entry_lowering": 0.035380517,
-                "semantic_environment_check": 0.005658873,
-                "source_loading": 0.000021656,
-                "surface_parse_lower": 0.011074311
+                "backend_runtime_remainder": 0.089138841,
+                "reachable_entry_lowering": 0.031215039,
+                "semantic_environment_check": 0.005647013,
+                "source_loading": 0.000022248,
+                "surface_parse_lower": 0.011200624
               }
             },
             {
               "intervals_seconds": {},
               "run": "baseline-2",
               "stages": {
-                "backend_runtime_remainder": 0.081596377,
-                "reachable_entry_lowering": 0.035572592,
-                "semantic_environment_check": 0.005744708,
-                "source_loading": 0.000021068,
-                "surface_parse_lower": 0.010857995
+                "backend_runtime_remainder": 0.082113169,
+                "reachable_entry_lowering": 0.029473523,
+                "semantic_environment_check": 0.005700739,
+                "source_loading": 0.000024499,
+                "surface_parse_lower": 0.011025746
               }
             },
             {
               "intervals_seconds": {},
               "run": "baseline-3",
               "stages": {
-                "backend_runtime_remainder": 0.082568437,
-                "reachable_entry_lowering": 0.029225285,
-                "semantic_environment_check": 0.005769135,
-                "source_loading": 0.000020794,
-                "surface_parse_lower": 0.011086767
+                "backend_runtime_remainder": 0.082350244,
+                "reachable_entry_lowering": 0.028748593,
+                "semantic_environment_check": 0.005602465,
+                "source_loading": 0.000022448,
+                "surface_parse_lower": 0.011257348
               }
             },
             {
               "intervals_seconds": {},
               "run": "baseline-4",
               "stages": {
-                "backend_runtime_remainder": 0.081002471,
-                "reachable_entry_lowering": 0.029069179,
-                "semantic_environment_check": 0.005635021,
-                "source_loading": 0.000021436,
-                "surface_parse_lower": 0.011003589
+                "backend_runtime_remainder": 0.083078243,
+                "reachable_entry_lowering": 0.029253453,
+                "semantic_environment_check": 0.005786709,
+                "source_loading": 0.0000241,
+                "surface_parse_lower": 0.011269065
               }
             },
             {
               "intervals_seconds": {},
               "run": "baseline-5",
               "stages": {
-                "backend_runtime_remainder": 0.083178777,
-                "reachable_entry_lowering": 0.029903514,
-                "semantic_environment_check": 0.005666066,
-                "source_loading": 0.000022097,
-                "surface_parse_lower": 0.010991144
+                "backend_runtime_remainder": 0.083353585,
+                "reachable_entry_lowering": 0.029506871,
+                "semantic_environment_check": 0.005644981,
+                "source_loading": 0.000021364,
+                "surface_parse_lower": 0.011533173
               }
             }
           ],
           "stage_medians_seconds": {
-            "backend_runtime_remainder": 0.081596377,
-            "reachable_entry_lowering": 0.029903514,
-            "semantic_environment_check": 0.005666066,
-            "source_loading": 0.000021436,
-            "surface_parse_lower": 0.011003589
+            "backend_runtime_remainder": 0.083078243,
+            "reachable_entry_lowering": 0.029473523,
+            "semantic_environment_check": 0.005647013,
+            "source_loading": 0.000022448,
+            "surface_parse_lower": 0.011257348
           },
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.0036237450000000115,
-          "median_user_cpu_seconds": 0.13,
-          "median_wall_time_seconds": 0.199510451,
+          "median_absolute_deviation_wall_time_seconds": 0.0018671620000000055,
+          "median_user_cpu_seconds": 0.14,
+          "median_wall_time_seconds": 0.199375162,
           "wall_time_noisy": false
         }
       },
@@ -1490,32 +1490,32 @@
       "id": "http2_connection",
       "new": {
         "binary": "target/release/veln",
-        "binary_identity": "git revision 0937cb9c release build with backend runtime substage timing",
+        "binary_identity": "git revision 2609ca04 release build with backend runtime substage timing",
         "runs": [
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.14,
-            "wall_time_seconds": 0.208668702
-          },
-          {
-            "exit_status": 0,
-            "user_cpu_seconds": 0.16,
-            "wall_time_seconds": 0.207755601
+            "user_cpu_seconds": 0.13,
+            "wall_time_seconds": 0.206218302
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.15,
-            "wall_time_seconds": 0.192543906
+            "wall_time_seconds": 0.198828487
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0.14,
-            "wall_time_seconds": 0.19551001
+            "wall_time_seconds": 0.202295548
           },
           {
             "exit_status": 0,
-            "user_cpu_seconds": 0.15,
-            "wall_time_seconds": 0.193437863
+            "user_cpu_seconds": 0.14,
+            "wall_time_seconds": 0.196341917
+          },
+          {
+            "exit_status": 0,
+            "user_cpu_seconds": 0.14,
+            "wall_time_seconds": 0.19997103
           }
         ],
         "stage_timing": {
@@ -1524,255 +1524,255 @@
             {
               "intervals_seconds": {
                 "backend_class_cache_prepare": {
-                  "end": 0.13993035,
-                  "start": 0.131611485
+                  "end": 0.137813366,
+                  "start": 0.129600581
                 },
                 "backend_classfile_generation": {
-                  "end": 0.131131509,
-                  "start": 0.116894377
+                  "end": 0.129103467,
+                  "start": 0.115249731
                 },
                 "backend_java_subprocess": {
-                  "end": 0.199264194,
-                  "start": 0.139930402
+                  "end": 0.196440813,
+                  "start": 0.137813419
                 },
                 "backend_result_cleanup": {
-                  "end": 0.199399915,
-                  "start": 0.199264624
+                  "end": 0.196573332,
+                  "start": 0.196441455
                 },
                 "reachable_entry_lowering": {
-                  "end": 0.112924549,
-                  "start": 0.077047377
+                  "end": 0.111426272,
+                  "start": 0.081301313
                 },
                 "semantic_environment_check": {
-                  "end": 0.076975645,
-                  "start": 0.071237828
+                  "end": 0.081227529,
+                  "start": 0.075559931
                 },
                 "source_loading": {
-                  "end": 0.000024114,
-                  "start": 7.78e-7
+                  "end": 0.000025194,
+                  "start": 8.21e-7
                 },
                 "surface_parse_lower": {
-                  "end": 0.01151775,
-                  "start": 0.000027495
+                  "end": 0.011175642,
+                  "start": 0.000029215
                 }
               },
               "run": "new-1",
               "stages": {
-                "backend_class_cache_prepare": 0.008318865,
-                "backend_classfile_generation": 0.014237132,
-                "backend_java_subprocess": 0.059333792,
-                "backend_result_cleanup": 0.000135291,
-                "reachable_entry_lowering": 0.035877172,
-                "semantic_environment_check": 0.005737817,
-                "source_loading": 0.000023336,
-                "surface_parse_lower": 0.011490255
+                "backend_class_cache_prepare": 0.008212785,
+                "backend_classfile_generation": 0.013853736,
+                "backend_java_subprocess": 0.058627394,
+                "backend_result_cleanup": 0.000131877,
+                "reachable_entry_lowering": 0.030124959,
+                "semantic_environment_check": 0.005667598,
+                "source_loading": 0.000024373,
+                "surface_parse_lower": 0.011146427
               }
             },
             {
               "intervals_seconds": {
                 "backend_class_cache_prepare": {
-                  "end": 0.140377915,
-                  "start": 0.132026252
+                  "end": 0.128969768,
+                  "start": 0.12068282
                 },
                 "backend_classfile_generation": {
-                  "end": 0.131532234,
-                  "start": 0.117262608
+                  "end": 0.118484684,
+                  "start": 0.104656228
                 },
                 "backend_java_subprocess": {
-                  "end": 0.198245239,
-                  "start": 0.140377967
+                  "end": 0.188989495,
+                  "start": 0.128969821
                 },
                 "backend_result_cleanup": {
-                  "end": 0.198378766,
-                  "start": 0.19824651
+                  "end": 0.189126108,
+                  "start": 0.188990116
                 },
                 "reachable_entry_lowering": {
-                  "end": 0.112822412,
-                  "start": 0.076812062
+                  "end": 0.100673265,
+                  "start": 0.071476832
                 },
                 "semantic_environment_check": {
-                  "end": 0.076749416,
-                  "start": 0.071017048
+                  "end": 0.071410878,
+                  "start": 0.065857741
                 },
                 "source_loading": {
-                  "end": 0.000026886,
-                  "start": 8.51e-7
+                  "end": 0.000024205,
+                  "start": 8.1e-7
                 },
                 "surface_parse_lower": {
-                  "end": 0.011111595,
-                  "start": 0.000029616
+                  "end": 0.011257411,
+                  "start": 0.00002731
                 }
               },
               "run": "new-2",
               "stages": {
-                "backend_class_cache_prepare": 0.008351663,
-                "backend_classfile_generation": 0.014269626,
-                "backend_java_subprocess": 0.057867272,
-                "backend_result_cleanup": 0.000132256,
-                "reachable_entry_lowering": 0.03601035,
-                "semantic_environment_check": 0.005732368,
-                "source_loading": 0.000026035,
-                "surface_parse_lower": 0.011081979
+                "backend_class_cache_prepare": 0.008286948,
+                "backend_classfile_generation": 0.013828456,
+                "backend_java_subprocess": 0.060019674,
+                "backend_result_cleanup": 0.000135992,
+                "reachable_entry_lowering": 0.029196433,
+                "semantic_environment_check": 0.005553137,
+                "source_loading": 0.000023395,
+                "surface_parse_lower": 0.011230101
               }
             },
             {
               "intervals_seconds": {
                 "backend_class_cache_prepare": {
-                  "end": 0.126843734,
-                  "start": 0.118568601
+                  "end": 0.131792411,
+                  "start": 0.123500043
                 },
                 "backend_classfile_generation": {
-                  "end": 0.118070971,
-                  "start": 0.103927004
+                  "end": 0.123020494,
+                  "start": 0.108780505
                 },
                 "backend_java_subprocess": {
-                  "end": 0.18307273,
-                  "start": 0.126843797
+                  "end": 0.191586186,
+                  "start": 0.131792474
                 },
                 "backend_result_cleanup": {
-                  "end": 0.183208094,
-                  "start": 0.183073244
+                  "end": 0.191721599,
+                  "start": 0.191586734
                 },
                 "reachable_entry_lowering": {
-                  "end": 0.10007226,
-                  "start": 0.070768365
+                  "end": 0.104388495,
+                  "start": 0.074137647
                 },
                 "semantic_environment_check": {
-                  "end": 0.070700059,
-                  "start": 0.065020108
+                  "end": 0.074050802,
+                  "start": 0.06830357
                 },
                 "source_loading": {
-                  "end": 0.000025668,
-                  "start": 7.99e-7
+                  "end": 0.000027425,
+                  "start": 8.1e-7
                 },
                 "surface_parse_lower": {
-                  "end": 0.011053476,
-                  "start": 0.000028903
+                  "end": 0.011232216,
+                  "start": 0.000031151
                 }
               },
               "run": "new-3",
               "stages": {
-                "backend_class_cache_prepare": 0.008275133,
-                "backend_classfile_generation": 0.014143967,
-                "backend_java_subprocess": 0.056228933,
-                "backend_result_cleanup": 0.00013485,
-                "reachable_entry_lowering": 0.029303895,
-                "semantic_environment_check": 0.005679951,
-                "source_loading": 0.000024869,
-                "surface_parse_lower": 0.011024573
+                "backend_class_cache_prepare": 0.008292368,
+                "backend_classfile_generation": 0.014239989,
+                "backend_java_subprocess": 0.059793712,
+                "backend_result_cleanup": 0.000134865,
+                "reachable_entry_lowering": 0.030250848,
+                "semantic_environment_check": 0.005747232,
+                "source_loading": 0.000026615,
+                "surface_parse_lower": 0.011201065
               }
             },
             {
               "intervals_seconds": {
                 "backend_class_cache_prepare": {
-                  "end": 0.127317807,
-                  "start": 0.118915606
+                  "end": 0.128398828,
+                  "start": 0.12014099
                 },
                 "backend_classfile_generation": {
-                  "end": 0.118421116,
-                  "start": 0.104507203
+                  "end": 0.119655622,
+                  "start": 0.105841856
                 },
                 "backend_java_subprocess": {
-                  "end": 0.186173839,
-                  "start": 0.12731787
+                  "end": 0.185838271,
+                  "start": 0.128398923
                 },
                 "backend_result_cleanup": {
-                  "end": 0.186315515,
-                  "start": 0.186174427
+                  "end": 0.185976484,
+                  "start": 0.18583884
                 },
                 "reachable_entry_lowering": {
-                  "end": 0.100651387,
-                  "start": 0.071630004
+                  "end": 0.101752255,
+                  "start": 0.072283711
                 },
                 "semantic_environment_check": {
-                  "end": 0.071564501,
-                  "start": 0.065813051
+                  "end": 0.072215379,
+                  "start": 0.066471787
                 },
                 "source_loading": {
-                  "end": 0.000026308,
-                  "start": 8.08e-7
+                  "end": 0.000023174,
+                  "start": 7.89e-7
                 },
                 "surface_parse_lower": {
-                  "end": 0.011126759,
-                  "start": 0.000029007
+                  "end": 0.011199235,
+                  "start": 0.000026321
                 }
               },
               "run": "new-4",
               "stages": {
-                "backend_class_cache_prepare": 0.008402201,
-                "backend_classfile_generation": 0.013913913,
-                "backend_java_subprocess": 0.058855969,
-                "backend_result_cleanup": 0.000141088,
-                "reachable_entry_lowering": 0.029021383,
-                "semantic_environment_check": 0.00575145,
-                "source_loading": 0.0000255,
-                "surface_parse_lower": 0.011097752
+                "backend_class_cache_prepare": 0.008257838,
+                "backend_classfile_generation": 0.013813766,
+                "backend_java_subprocess": 0.057439348,
+                "backend_result_cleanup": 0.000137644,
+                "reachable_entry_lowering": 0.029468544,
+                "semantic_environment_check": 0.005743592,
+                "source_loading": 0.000022385,
+                "surface_parse_lower": 0.011172914
               }
             },
             {
               "intervals_seconds": {
                 "backend_class_cache_prepare": {
-                  "end": 0.126980083,
-                  "start": 0.118630994
+                  "end": 0.129281585,
+                  "start": 0.120959876
                 },
                 "backend_classfile_generation": {
-                  "end": 0.118120571,
-                  "start": 0.104147404
+                  "end": 0.120473392,
+                  "start": 0.106772402
                 },
                 "backend_java_subprocess": {
-                  "end": 0.184088732,
-                  "start": 0.126980356
+                  "end": 0.190084175,
+                  "start": 0.129281637
                 },
                 "backend_result_cleanup": {
-                  "end": 0.184221838,
-                  "start": 0.184089268
+                  "end": 0.190221471,
+                  "start": 0.190084501
                 },
                 "reachable_entry_lowering": {
-                  "end": 0.100362331,
-                  "start": 0.071364946
+                  "end": 0.102659648,
+                  "start": 0.073656193
                 },
                 "semantic_environment_check": {
-                  "end": 0.071299496,
-                  "start": 0.065511488
+                  "end": 0.073584534,
+                  "start": 0.06787201
                 },
                 "source_loading": {
-                  "end": 0.000021162,
-                  "start": 7.98e-7
+                  "end": 0.000027004,
+                  "start": 8.1e-7
                 },
                 "surface_parse_lower": {
-                  "end": 0.011485118,
-                  "start": 0.000024607
+                  "end": 0.01131743,
+                  "start": 0.000030761
                 }
               },
               "run": "new-5",
               "stages": {
-                "backend_class_cache_prepare": 0.008349089,
-                "backend_classfile_generation": 0.013973167,
-                "backend_java_subprocess": 0.057108376,
-                "backend_result_cleanup": 0.00013257,
-                "reachable_entry_lowering": 0.028997385,
-                "semantic_environment_check": 0.005788008,
-                "source_loading": 0.000020364,
-                "surface_parse_lower": 0.011460511
+                "backend_class_cache_prepare": 0.008321709,
+                "backend_classfile_generation": 0.01370099,
+                "backend_java_subprocess": 0.060802538,
+                "backend_result_cleanup": 0.00013697,
+                "reachable_entry_lowering": 0.029003455,
+                "semantic_environment_check": 0.005712524,
+                "source_loading": 0.000026194,
+                "surface_parse_lower": 0.011286669
               }
             }
           ],
           "stage_medians_seconds": {
-            "backend_class_cache_prepare": 0.008349089,
-            "backend_classfile_generation": 0.014143967,
-            "backend_java_subprocess": 0.057867272,
-            "backend_result_cleanup": 0.00013485,
-            "reachable_entry_lowering": 0.029303895,
-            "semantic_environment_check": 0.005737817,
-            "source_loading": 0.000024869,
-            "surface_parse_lower": 0.011097752
+            "backend_class_cache_prepare": 0.008286948,
+            "backend_classfile_generation": 0.013828456,
+            "backend_java_subprocess": 0.059793712,
+            "backend_result_cleanup": 0.000135992,
+            "reachable_entry_lowering": 0.029468544,
+            "semantic_environment_check": 0.005712524,
+            "source_loading": 0.000024373,
+            "surface_parse_lower": 0.011201065
           },
           "status": "available"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.002966104000000025,
-          "median_user_cpu_seconds": 0.15,
-          "median_wall_time_seconds": 0.19551001,
+          "median_absolute_deviation_wall_time_seconds": 0.0023245179999999976,
+          "median_user_cpu_seconds": 0.14,
+          "median_wall_time_seconds": 0.19997103,
           "wall_time_noisy": false
         }
       }
@@ -1785,36 +1785,36 @@
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006217932
+            "wall_time_seconds": 0.006438041
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006056426
+            "wall_time_seconds": 0.00654786
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006801691
+            "wall_time_seconds": 0.006556742
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006069439
+            "wall_time_seconds": 0.006285306
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006055439
+            "wall_time_seconds": 0.006229855
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.000014000000000000123,
+          "median_absolute_deviation_wall_time_seconds": 0.0001187009999999997,
           "median_user_cpu_seconds": 0,
-          "median_wall_time_seconds": 0.006069439,
+          "median_wall_time_seconds": 0.006438041,
           "wall_time_noisy": false
         }
       },
@@ -1853,41 +1853,41 @@
       "id": "generated_1",
       "new": {
         "binary": "target/release/veln",
-        "binary_identity": "git revision 0937cb9c release build with backend runtime substage timing",
+        "binary_identity": "git revision 2609ca04 release build with backend runtime substage timing",
         "runs": [
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006352276
+            "wall_time_seconds": 0.00662617
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006413905
+            "wall_time_seconds": 0.006758646
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006306307
+            "wall_time_seconds": 0.006543009
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006380643
+            "wall_time_seconds": 0.006280718
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.006323647
+            "wall_time_seconds": 0.006413972
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.000028628999999999634,
+          "median_absolute_deviation_wall_time_seconds": 0.00012903699999999938,
           "median_user_cpu_seconds": 0,
-          "median_wall_time_seconds": 0.006352276,
+          "median_wall_time_seconds": 0.006543009,
           "wall_time_noisy": false
         }
       }
@@ -1900,36 +1900,36 @@
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.007280565
+            "wall_time_seconds": 0.007567493
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.00730868
+            "wall_time_seconds": 0.007615682
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.007147164
+            "wall_time_seconds": 0.007623881
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.007314099
+            "wall_time_seconds": 0.007718882
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.007190202
+            "wall_time_seconds": 0.00733148
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.000033533999999999994,
+          "median_absolute_deviation_wall_time_seconds": 0.000048189000000000565,
           "median_user_cpu_seconds": 0,
-          "median_wall_time_seconds": 0.007280565,
+          "median_wall_time_seconds": 0.007615682,
           "wall_time_noisy": false
         }
       },
@@ -1968,41 +1968,41 @@
       "id": "generated_2",
       "new": {
         "binary": "target/release/veln",
-        "binary_identity": "git revision 0937cb9c release build with backend runtime substage timing",
+        "binary_identity": "git revision 2609ca04 release build with backend runtime substage timing",
         "runs": [
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.007478889
+            "wall_time_seconds": 0.007924142
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.007438582
+            "wall_time_seconds": 0.00734895
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.007797708
+            "wall_time_seconds": 0.007591171
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.00757758
+            "wall_time_seconds": 0.007782519
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.007478617
+            "wall_time_seconds": 0.00771767
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.00004030699999999984,
+          "median_absolute_deviation_wall_time_seconds": 0.0001264990000000004,
           "median_user_cpu_seconds": 0,
-          "median_wall_time_seconds": 0.007478889,
+          "median_wall_time_seconds": 0.00771767,
           "wall_time_noisy": false
         }
       }
@@ -2015,36 +2015,36 @@
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.009785772
+            "wall_time_seconds": 0.010249293
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.009975066
+            "wall_time_seconds": 0.010413708
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.009625834
+            "wall_time_seconds": 0.010139718
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.009668358
+            "wall_time_seconds": 0.010182011
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.009730111
+            "wall_time_seconds": 0.010804668
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.00006175299999999946,
+          "median_absolute_deviation_wall_time_seconds": 0.00010957499999999891,
           "median_user_cpu_seconds": 0,
-          "median_wall_time_seconds": 0.009730111,
+          "median_wall_time_seconds": 0.010249293,
           "wall_time_noisy": false
         }
       },
@@ -2083,41 +2083,41 @@
       "id": "generated_3",
       "new": {
         "binary": "target/release/veln",
-        "binary_identity": "git revision 0937cb9c release build with backend runtime substage timing",
+        "binary_identity": "git revision 2609ca04 release build with backend runtime substage timing",
         "runs": [
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.01003055
+            "wall_time_seconds": 0.010360016
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.010058497
+            "wall_time_seconds": 0.010272972
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.010048803
+            "wall_time_seconds": 0.010580578
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.010305638
+            "wall_time_seconds": 0.010146158
           },
           {
             "exit_status": 0,
             "user_cpu_seconds": 0,
-            "wall_time_seconds": 0.010205236
+            "wall_time_seconds": 0.010298091
           }
         ],
         "stage_timing": {
           "status": "unavailable"
         },
         "summary": {
-          "median_absolute_deviation_wall_time_seconds": 0.000027947000000000388,
+          "median_absolute_deviation_wall_time_seconds": 0.00006192499999999913,
           "median_user_cpu_seconds": 0,
-          "median_wall_time_seconds": 0.010058497,
+          "median_wall_time_seconds": 0.010298091,
           "wall_time_noisy": false
         }
       }
