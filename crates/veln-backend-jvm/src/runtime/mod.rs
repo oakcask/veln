@@ -1,6 +1,14 @@
 use veln_ast::BinaryOp;
 
 macro_rules! runtime_method_table {
+    ($name:ident, reject_unknown $kind:literal, {$($surface:literal => $method:literal,)+}) => {
+        pub(crate) fn $name(name: &str) -> &'static str {
+            match name {
+                $($surface => $method,)+
+                _ => panic!("unknown {} `{name}`", $kind),
+            }
+        }
+    };
     ($name:ident, $fallback:expr, {$($surface:literal => $method:literal,)+}) => {
         pub(crate) fn $name(name: &str) -> &'static str {
             match name {
@@ -194,61 +202,58 @@ runtime_method_table!(concurrency_method, "channelRecv", {
     "task::cancel" => "taskCancel",
 });
 
-pub(crate) fn standard_library_method(name: &str) -> &'static str {
-    match name {
-        "fs::read_to_string" => "fsReadToString",
-        "fs::write_string" => "fsWriteString",
-        "fs::exists" => "fsExists",
-        "fs::read_dir" => "fsReadDir",
-        "net::receive_chunk" => "netReceiveChunk",
-        "net::send_chunk" => "netSendChunk",
-        "net::listen" => "netListen",
-        "net::connect" => "netConnect",
-        "net::accept" => "netAccept",
-        "net::accept_or_end" => "netAcceptOrEnd",
-        "net::accept_until" => "netAcceptUntil",
-        "net::accept_until_cancellable" => "netAcceptUntilCancellable",
-        "net::listener_local_addr" => "netListenerLocalAddr",
-        "net::read_chunk" => "netReadChunk",
-        "net::stream_local_addr" => "netStreamLocalAddr",
-        "net::stream_peer_addr" => "netStreamPeerAddr",
-        "net::stream_can_read" => "netStreamCanRead",
-        "net::stream_can_write" => "netStreamCanWrite",
-        "net::stream_is_closed" => "netStreamIsClosed",
-        "net::read_chunk_until" => "netReadChunkUntil",
-        "net::read_chunk_until_cancellable" => "netReadChunkUntilCancellable",
-        "net::read_chunk_or_end" => "netReadChunkOrEnd",
-        "net::write_chunk" => "netWriteChunk",
-        "net::write_chunk_until" => "netWriteChunkUntil",
-        "net::write_chunk_until_cancellable" => "netWriteChunkUntilCancellable",
-        "net::write_chunks" => "netWriteChunks",
-        "net::write_chunks_until" => "netWriteChunksUntil",
-        "net::write_chunks_until_cancellable" => "netWriteChunksUntilCancellable",
-        "net::shutdown_write" => "netShutdownWrite",
-        "net::shutdown_read" => "netShutdownRead",
-        "net::close_stream" => "netCloseStream",
-        "net::close_listener" => "netCloseListener",
-        "process::args" => "processArgs",
-        "process::env" => "processEnv",
-        "process::cwd" => "processCwd",
-        "process::exit" => "processExit",
-        "time::monotonic_ms" => "timeMonotonicMs",
-        "time::timeout_ms" => "timeTimeoutMs",
-        "time::deadline_after_ms" => "timeDeadlineAfterMs",
-        "time::deadline_at_ms" => "timeDeadlineAtMs",
-        "time::wait_until" => "timeWaitUntil",
-        "time::cancel_token" => "timeCancelToken",
-        "time::cancel_owner" => "timeCancelOwner",
-        "time::cancel_token_from" => "timeCancelTokenFrom",
-        "time::cancel_owned" => "timeCancelOwned",
-        "time::cancel" => "timeCancel",
-        "time::is_cancelled" => "timeIsCancelled",
-        "time::is_cancelled_owner" => "timeIsCancelledOwner",
-        "time::wait_until_cancellable" => "timeWaitUntilCancellable",
-        "time::wait_until_cancellable_outcome" => "timeWaitUntilCancellableOutcome",
-        _ => panic!("unknown standard library builtin `{name}`"),
-    }
-}
+runtime_method_table!(standard_library_method, reject_unknown "standard library builtin", {
+    "fs::read_to_string" => "fsReadToString",
+    "fs::write_string" => "fsWriteString",
+    "fs::exists" => "fsExists",
+    "fs::read_dir" => "fsReadDir",
+    "net::receive_chunk" => "netReceiveChunk",
+    "net::send_chunk" => "netSendChunk",
+    "net::listen" => "netListen",
+    "net::connect" => "netConnect",
+    "net::accept" => "netAccept",
+    "net::accept_or_end" => "netAcceptOrEnd",
+    "net::accept_until" => "netAcceptUntil",
+    "net::accept_until_cancellable" => "netAcceptUntilCancellable",
+    "net::listener_local_addr" => "netListenerLocalAddr",
+    "net::read_chunk" => "netReadChunk",
+    "net::stream_local_addr" => "netStreamLocalAddr",
+    "net::stream_peer_addr" => "netStreamPeerAddr",
+    "net::stream_can_read" => "netStreamCanRead",
+    "net::stream_can_write" => "netStreamCanWrite",
+    "net::stream_is_closed" => "netStreamIsClosed",
+    "net::read_chunk_until" => "netReadChunkUntil",
+    "net::read_chunk_until_cancellable" => "netReadChunkUntilCancellable",
+    "net::read_chunk_or_end" => "netReadChunkOrEnd",
+    "net::write_chunk" => "netWriteChunk",
+    "net::write_chunk_until" => "netWriteChunkUntil",
+    "net::write_chunk_until_cancellable" => "netWriteChunkUntilCancellable",
+    "net::write_chunks" => "netWriteChunks",
+    "net::write_chunks_until" => "netWriteChunksUntil",
+    "net::write_chunks_until_cancellable" => "netWriteChunksUntilCancellable",
+    "net::shutdown_write" => "netShutdownWrite",
+    "net::shutdown_read" => "netShutdownRead",
+    "net::close_stream" => "netCloseStream",
+    "net::close_listener" => "netCloseListener",
+    "process::args" => "processArgs",
+    "process::env" => "processEnv",
+    "process::cwd" => "processCwd",
+    "process::exit" => "processExit",
+    "time::monotonic_ms" => "timeMonotonicMs",
+    "time::timeout_ms" => "timeTimeoutMs",
+    "time::deadline_after_ms" => "timeDeadlineAfterMs",
+    "time::deadline_at_ms" => "timeDeadlineAtMs",
+    "time::wait_until" => "timeWaitUntil",
+    "time::cancel_token" => "timeCancelToken",
+    "time::cancel_owner" => "timeCancelOwner",
+    "time::cancel_token_from" => "timeCancelTokenFrom",
+    "time::cancel_owned" => "timeCancelOwned",
+    "time::cancel" => "timeCancel",
+    "time::is_cancelled" => "timeIsCancelled",
+    "time::is_cancelled_owner" => "timeIsCancelledOwner",
+    "time::wait_until_cancellable" => "timeWaitUntilCancellable",
+    "time::wait_until_cancellable_outcome" => "timeWaitUntilCancellableOutcome",
+});
 
 pub(crate) fn binary_method(op: BinaryOp) -> &'static str {
     match op {
