@@ -386,6 +386,25 @@ test("keeps baseline stage timing unavailable and rejects partial instrumented r
     /missing timing stage/,
   );
   assert.throws(
+    () =>
+      summarizeStageRecords(
+        [
+          timing("http2_core", "new-1", "source_loading", 0.1),
+          timing("http2_core", "new-1", "surface_parse_lower", 0.2),
+          timing("http2_core", "new-1", "semantic_environment_check", 0.3),
+          timing("http2_core", "new-1", "reachable_entry_lowering", 0.4),
+          timing("http2_core", "new-1", "backend_class_cache_prepare", 0.5),
+          timing("http2_core", "new-1", "backend_classfile_generation", 0.1),
+          timing("http2_core", "new-1", "backend_java_subprocess", 0.2),
+          timing("http2_core", "new-1", "backend_result_cleanup", 0.1),
+          timing("http2_core", "new-1", "backend_runtime_remainder", 0.6),
+        ],
+        ["new-1"],
+        { instrumentationRequired: true },
+      ),
+    /unexpected timing stage/,
+  );
+  assert.throws(
     () => summarizeStageRecords([timing("http2_core", "new-1", "source_loading", 0.1)], ["new-1", "new-2"]),
     /missing timing records/,
   );

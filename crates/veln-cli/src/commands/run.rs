@@ -2,7 +2,7 @@ use std::env;
 use std::fs;
 use std::fs::OpenOptions;
 use std::io::{self, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::{Duration, Instant};
 
@@ -59,40 +59,59 @@ pub(crate) fn run_entry(
         classfile_start,
     );
 
-    let cache_start = timings.is_some().then(Instant::now);
     let build_dir = create_build_dir("veln-run").map_err(|error| error.to_string())?;
-    let prepared = prepare_jvm_classes(&jvm)?;
+    let cache_start = timings.is_some().then(Instant::now);
+    let prepared = prepare_jvm_classes(&jvm);
     record_timing_elapsed(&mut timings, "backend_class_cache_prepare", cache_start);
 
-    let java_start = timings.is_some().then(Instant::now);
-    let result = match prepared {
-        JvmPrepareResult::Ready(prepared) => {
-            if json {
+    let backend_result = match prepared {
+        Ok(JvmPrepareResult::Ready(prepared)) => {
+            let java_start = timings.is_some().then(Instant::now);
+            let result = if json {
                 run_json_java(&build_dir, &prepared, &entry_args)
             } else {
                 run_human_java(&build_dir, &prepared, &entry_args)
-            }?
+            };
+            record_timing_elapsed(&mut timings, "backend_java_subprocess", java_start);
+            result
         }
-        JvmPrepareResult::ToolError(message) => JvmRunResult::ToolError(message),
+        Ok(JvmPrepareResult::ToolError(message)) => {
+            let java_start = timings.is_some().then(Instant::now);
+            record_timing_elapsed(&mut timings, "backend_java_subprocess", java_start);
+            Ok(JvmRunResult::ToolError(message))
+        }
+        Err(error) => Err(error),
     };
-    record_timing_elapsed(&mut timings, "backend_java_subprocess", java_start);
 
+    finish_backend_run(json, &build_dir, backend_result, &mut timings)
+}
+
+fn finish_backend_run(
+    json: bool,
+    build_dir: &Path,
+    backend_result: Result<JvmRunResult, String>,
+    timings: &mut Option<RunAnalysisTimings>,
+) -> Result<ExitCode, String> {
     let result_start = timings.is_some().then(Instant::now);
-    let exit_code = if json {
-        finish_run_json(&build_dir, result)
-    } else {
-        finish_run_human(&build_dir, result)
+    let exit_code = match backend_result {
+        Ok(result) if json => finish_run_json(build_dir, result),
+        Ok(result) => finish_run_human(build_dir, result),
+        Err(error) => Err(error),
     };
-    let cleanup_result = fs::remove_dir_all(&build_dir);
+    let cleanup_result = fs::remove_dir_all(build_dir);
     if let Err(error) = cleanup_result {
         eprintln!(
             "veln: warning: failed to remove build directory `{}`: {error}",
             build_dir.display()
         );
     }
-    record_timing_elapsed(&mut timings, "backend_result_cleanup", result_start);
-    write_timings(&timings)?;
-    exit_code
+    record_timing_elapsed(timings, "backend_result_cleanup", result_start);
+    let timing_result = write_timings(timings);
+    match (exit_code, timing_result) {
+        (Err(error), _) => Err(error),
+        (Ok(_), Err(error)) => Err(error),
+        (Ok(exit_code), Ok(())) => Ok(exit_code),
+    }
 }
 
 fn analyze_run_project(
@@ -3386,6 +3405,47 @@ mod tests {
         assert_eq!(
             fs::read_to_string(&timing_file).expect("timing file should be readable"),
             "{\"workload\":\"http2_core\",\"run\":\"new-1\",\"stage\":\"backend_classfile_generation\",\"boundary\":\"backend_classfile_generation\",\"duration_seconds\":0.250000000}\n{\"workload\":\"http2_core\",\"run\":\"new-1\",\"stage\":\"backend_class_cache_prepare\",\"boundary\":\"backend_class_cache_prepare\",\"duration_seconds\":0.125000000}\n"
+        );
+
+        fs::remove_dir_all(root).expect("test project should be removed");
+    }
+
+    #[test]
+    fn backend_error_removes_build_dir_and_writes_cleanup_timing() {
+        let root = temp_dir("backend-error-cleanup");
+        let build_dir = root.join("veln-run-build");
+        fs::create_dir(&build_dir).expect("build directory should be created");
+        fs::write(build_dir.join("leftover.class"), b"class")
+            .expect("build artifact should be written");
+        let timing_file = root.join("timings.jsonl");
+        let mut timings = Some(RunAnalysisTimings {
+            file: timing_file.clone(),
+            workload: "http2_core".to_string(),
+            run: "new-1".to_string(),
+            records: Vec::new(),
+        });
+
+        let result = finish_backend_run(
+            false,
+            &build_dir,
+            Err("permission denied".to_string()),
+            &mut timings,
+        );
+
+        assert!(matches!(result, Err(error) if error == "permission denied"));
+        assert!(
+            !build_dir.exists(),
+            "backend errors should not leave the build directory behind"
+        );
+        let timing_text = fs::read_to_string(&timing_file).expect("timing file should be readable");
+        let timing_prefix = "{\"workload\":\"http2_core\",\"run\":\"new-1\",\"stage\":\"backend_result_cleanup\",\"boundary\":\"backend_result_cleanup\",\"duration_seconds\":";
+        assert!(
+            timing_text.starts_with(timing_prefix),
+            "cleanup timing should be the only record: {timing_text}"
+        );
+        assert!(
+            timing_text.ends_with("}\n"),
+            "cleanup timing should be a complete JSON line: {timing_text}"
         );
 
         fs::remove_dir_all(root).expect("test project should be removed");

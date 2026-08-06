@@ -235,11 +235,18 @@ export function summarizeStageRecords(records, expectedRuns, options = {}) {
     throw new Error(`missing timing records for run(s): ${missingRuns.join(", ")}`);
   }
   const requiredStages = selectRequiredStageTimings(recordsByRun, expectedRuns, options);
+  const requiredStageSet = new Set(requiredStages);
   for (const run of expectedRuns) {
     const stages = new Set(recordsByRun.get(run).map((record) => record.stage));
     const missingStages = requiredStages.filter((stage) => !stages.has(stage));
     if (missingStages.length > 0) {
       throw new Error(`missing timing stage(s) for run ${run}: ${missingStages.join(", ")}`);
+    }
+    const unexpectedStages = [...stages]
+      .filter((stage) => !requiredStageSet.has(stage))
+      .sort((left, right) => left.localeCompare(right));
+    if (unexpectedStages.length > 0) {
+      throw new Error(`unexpected timing stage(s) for run ${run}: ${unexpectedStages.join(", ")}`);
     }
   }
 
