@@ -1,10 +1,10 @@
 ---
+role: implementation-record
+authority: supporting
 review-when: The bounded toolchain analysis proposal status, completion evidence, or routed review record changes.
 ---
 
 # Bounded Toolchain Analysis Slices
-
-Status: implemented
 
 This page records completed slices from the bounded toolchain analysis
 proposal. Use
@@ -18,7 +18,9 @@ for the reachable-lookup comparison. Use
 for the demand-driven standard-library initialization comparison. Use
 [../../reviews/toolchain-analysis-separated-standard-inputs.json](../../reviews/toolchain-analysis-separated-standard-inputs.json)
 for the separate application and selected standard-library analysis input
-comparison.
+comparison. Use
+[../../reviews/toolchain-analysis-embedded-lowered-standard.json](../../reviews/toolchain-analysis-embedded-lowered-standard.json)
+for the embedded lowered standard-library module comparison.
 
 ## Completed Scope
 
@@ -68,6 +70,17 @@ Completed implementation scope:
   immutable standard facts keyed by the selected closure. Reachable-entry
   lowering reuses the selected standard surface input so standard bodies remain
   available without making the application module own standard declarations.
+- The standard-library build validates generated per-module lowered
+  representations against standard-library sources and embeds those
+  representations in the toolchain. Application and dependency sources still
+  use the runtime parser and surface lowerer, while selected embedded standard
+  modules are decoded from the generated lowered representation during
+  closure-driven standard input preparation.
+- Embedded standard-library package initialization keeps generated lowered
+  bytes borrowed from the toolchain bundle. The first application analysis
+  decodes only the selected standard-module closure, so increasing generated
+  lowered data for an unrelated standard module does not add materialized
+  module count, materialized lowered byte count, or semantic declarations.
 
 ## Evidence
 
@@ -76,8 +89,12 @@ private-reference indexing, call-site contributor discovery, repeated
 inference body traversal, private handler retained effects, stable effect
 ordering, unrelated fully annotated module growth, initial standard-package
 parse/lower and semantic-prepare work for the selected closure,
+selected-lowered byte materialization for the selected closure,
 standard-environment selection, fallback when prepared standard facts are not
 current, and repeated and concurrent application analysis.
+The first-analysis embedded standard-library parse/lower counter is scoped to
+the target analysis thread, which keeps the structural assertion stable under
+parallel test execution while unrelated standard-library analyses run.
 
 The controlled stage-timing benchmark used prebuilt debug binaries, one
 warm-up run, and five measured runs. The baseline binary had no stage
@@ -134,6 +151,32 @@ workload, the same stage sum fell from 0.60004038 seconds to 0.309804194
 seconds, a 48.3694424032 percent reduction. Median wall time fell from
 0.95136904 seconds to 0.929512232 seconds.
 
+The embedded lowered standard-library module comparison used the `dfdf2eb7`
+pre-slice release binary from `main` and the final `77f0a36e` release binary,
+one warm-up run, and five measured runs. Functional output matched for every
+workload and wall-time noise remained within the accepted boundary. The
+proposal-level one-third HTTP/2 wall-time thresholds still did not pass, and
+the toolchain-case command was unavailable, so the benchmark command exited
+with the expected failing status for the broader proposal threshold.
+
+For the HTTP/2 core workload, median `surface_parse_lower` time fell from
+0.045545017 seconds to 0.009942617 seconds. Median wall time fell from
+0.16136436 seconds to 0.126753994 seconds, a ratio of 0.7855141867. The
+median stage timings for the new binary were 0.000023702 seconds for
+`source_loading`, 0.009942617 seconds for `surface_parse_lower`,
+0.004846215 seconds for `semantic_environment_check`, 0.014803071 seconds for
+`reachable_entry_lowering`, and 0.039851081 seconds for
+`backend_runtime_remainder`.
+
+For the HTTP/2 connection workload, median `surface_parse_lower` time fell
+from 0.049651884 seconds to 0.010768857 seconds. Median wall time fell from
+0.243578491 seconds to 0.217778114 seconds, a ratio of 0.8940777698. The
+median stage timings for the new binary were 0.000024829 seconds for
+`source_loading`, 0.010768857 seconds for `surface_parse_lower`,
+0.005226969 seconds for `semantic_environment_check`, 0.04620323 seconds for
+`reachable_entry_lowering`, and 0.080485894 seconds for
+`backend_runtime_remainder`.
+
 ## Read When
 
 - Checking why completed bounded-analysis slices are no longer described as
@@ -146,5 +189,7 @@ seconds, a 48.3694424032 percent reduction. Median wall time fell from
 - Reviewing why separated application and selected standard-library analysis
   inputs are implemented while the HTTP/2 wall-time acceptance thresholds
   remain proposal work.
+- Reviewing why embedded lowered standard-library modules are implemented
+  while the HTTP/2 wall-time acceptance thresholds remain proposal work.
 - Preserving the boundary that application analysis caching remains outside
   the measurement slice.

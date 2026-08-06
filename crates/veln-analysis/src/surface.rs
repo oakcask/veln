@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::cell::{OnceCell, RefCell};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Component, Path};
@@ -5,7 +6,7 @@ use std::sync::OnceLock;
 
 use veln_ast::{
     CodecImplementationKind, Expr, ExprKind, Function, FunctionKind, Pattern, PatternKind,
-    PublicAliasKind, SurfaceModule, UseDecl, Visibility, lower_surface_ast,
+    PublicAliasKind, SurfaceModule, UseDecl, Visibility, decode_surface_module, lower_surface_ast,
     lower_surface_ast_with_module_identity,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
@@ -17,6 +18,47 @@ use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{TokenKind, lex, parse};
 
 use crate::diagnostics::parse_diagnostic_to_envelope;
+
+#[cfg(test)]
+pub(crate) mod embedded_standard_counters {
+    use std::cell::RefCell;
+    use std::collections::BTreeSet;
+
+    #[derive(Debug, Default, PartialEq, Eq)]
+    pub(crate) struct Snapshot {
+        pub(crate) runtime_standard_parse_lowers: usize,
+        pub(crate) materialized_modules: BTreeSet<String>,
+        pub(crate) materialized_lowered_bytes: usize,
+    }
+
+    thread_local! {
+        static OBSERVATION: RefCell<Snapshot> = RefCell::new(Snapshot::default());
+    }
+
+    pub(crate) fn observe<R>(action: impl FnOnce() -> R) -> (R, Snapshot) {
+        OBSERVATION.with(|observation| {
+            let previous = observation.replace(Snapshot::default());
+            let result = action();
+            let snapshot = observation.replace(previous);
+            (result, snapshot)
+        })
+    }
+
+    pub(super) fn record_runtime_standard_parse_lower() {
+        OBSERVATION.with(|observation| {
+            observation.borrow_mut().runtime_standard_parse_lowers += 1;
+        });
+    }
+
+    pub(super) fn record_materialization(path: &str, lowered_bytes: usize) {
+        OBSERVATION.with(|observation| {
+            let mut observation = observation.borrow_mut();
+            if observation.materialized_modules.insert(path.to_string()) {
+                observation.materialized_lowered_bytes += lowered_bytes;
+            }
+        });
+    }
+}
 
 #[derive(Clone)]
 pub(crate) struct LoadedSurfaceModules {
@@ -134,7 +176,7 @@ struct EmbeddedStandardPackage {
 
 struct EmbeddedStandardModuleEntry {
     path: String,
-    text: String,
+    lowered: Cow<'static, [u8]>,
     module: OnceLock<EmbeddedStandardModule>,
 }
 
@@ -145,21 +187,30 @@ struct EmbeddedStandardModule {
 
 impl EmbeddedStandardModuleEntry {
     fn module(&self) -> &EmbeddedStandardModule {
+        #[cfg(test)]
+        embedded_standard_counters::record_materialization(&self.path, self.lowered.len());
         self.module.get_or_init(|| {
-            let project = Project {
-                root: ".".into(),
-                files: vec![SourceFile::new(self.path.as_str(), self.text.as_str())],
-                manifest: None,
-            };
-            let mut diagnostics = Vec::new();
-            let mut parts = SurfaceParts::new();
-            load_project_sources(
-                &project,
-                &mut diagnostics,
-                &mut parts,
-                Some(veln_stdlib::PACKAGE_NAME),
-            );
-            EmbeddedStandardModule { parts, diagnostics }
+            let module = decode_surface_module(self.lowered.as_ref()).unwrap_or_else(|message| {
+                panic!(
+                    "embedded standard library lowered module `{}` should decode: {message}",
+                    self.path
+                )
+            });
+            EmbeddedStandardModule {
+                parts: SurfaceParts {
+                    module,
+                    derived_modules: vec![(
+                        embedded_standard_module_name_from_path(&self.path).unwrap_or_else(|| {
+                            panic!(
+                                "embedded standard library path `{}` should identify a module",
+                                self.path
+                            )
+                        }),
+                        SourceFile::new(self.path.as_str(), ""),
+                    )],
+                },
+                diagnostics: Vec::new(),
+            }
         })
     }
 }
@@ -194,6 +245,10 @@ fn load_project_sources(
     for source in &project.files {
         if package.is_some() && classify_companion_source(source.path().as_str()).is_some() {
             continue;
+        }
+        #[cfg(test)]
+        if package == Some(veln_stdlib::PACKAGE_NAME) {
+            embedded_standard_counters::record_runtime_standard_parse_lower();
         }
         let parsed = parse(source);
         diagnostics.extend(parsed.diagnostics.iter().map(parse_diagnostic_to_envelope));
@@ -433,7 +488,7 @@ fn embedded_standard_package() -> &'static EmbeddedStandardPackage {
     EMBEDDED_STANDARD_PACKAGE.get_or_init(|| {
         let bundle = veln_stdlib::package_bundle();
         let modules = bundle
-            .files
+            .lowered_files
             .iter()
             .filter_map(|file| {
                 embedded_standard_module_name_from_path(file.path).map(|module_name| {
@@ -441,7 +496,7 @@ fn embedded_standard_package() -> &'static EmbeddedStandardPackage {
                         module_name,
                         EmbeddedStandardModuleEntry {
                             path: file.path.to_string(),
-                            text: file.text.to_string(),
+                            lowered: Cow::Borrowed(file.module),
                             module: OnceLock::new(),
                         },
                     )
@@ -2812,8 +2867,8 @@ mod tests {
 
     use super::{
         EmbeddedStandardModuleEntry, EmbeddedStandardPackage, SurfaceParts,
-        load_embedded_standard_package_from, load_project_sources, load_surface_module,
-        reachability_counters, reachable_entry_module,
+        embedded_standard_counters, load_embedded_standard_package_from, load_project_sources,
+        load_surface_module, reachability_counters, reachable_entry_module,
     };
 
     fn lower(text: &str) -> SurfaceModule {
@@ -2915,7 +2970,8 @@ mod tests {
         #[derive(Debug, PartialEq, Eq)]
         struct StandardInitializationWork {
             loaded_modules: Vec<String>,
-            parsed_lowered_modules: usize,
+            materialized_modules: usize,
+            materialized_lowered_bytes: usize,
             prepared_declarations: usize,
         }
 
@@ -2954,8 +3010,10 @@ mod tests {
                 modules.insert(
                     module_name,
                     EmbeddedStandardModuleEntry {
+                        lowered: std::borrow::Cow::Owned(lowered_standard_module_bytes(
+                            &path, &text,
+                        )),
                         path,
-                        text,
                         module: std::sync::OnceLock::new(),
                     },
                 );
@@ -2972,10 +3030,12 @@ mod tests {
             let mut diagnostics = Vec::new();
             let mut parts = SurfaceParts::new();
             load_project_sources(&project, &mut diagnostics, &mut parts, None);
-            load_embedded_standard_package_from(&standard, &mut diagnostics, &mut parts, true);
+            let ((), standard_work) = embedded_standard_counters::observe(|| {
+                load_embedded_standard_package_from(&standard, &mut diagnostics, &mut parts, true);
+            });
             assert!(diagnostics.is_empty(), "{diagnostics:#?}");
             let loaded_modules = loaded_standard_modules(&parts.module);
-            let parsed_lowered_modules = standard
+            let materialized_modules = standard
                 .modules
                 .values()
                 .filter(|entry| entry.module.get().is_some())
@@ -2995,9 +3055,27 @@ mod tests {
 
             StandardInitializationWork {
                 loaded_modules,
-                parsed_lowered_modules,
+                materialized_modules,
+                materialized_lowered_bytes: standard_work.materialized_lowered_bytes,
                 prepared_declarations,
             }
+        }
+
+        fn lowered_standard_module_bytes(path: &str, text: &str) -> Vec<u8> {
+            let source = SourceFile::new(path, text);
+            let parsed = parse(&source);
+            assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+            let module_name = format!("std::{}", path.trim_end_matches(".veln").replace('/', "::"));
+            let mut lowered = veln_ast::lower_surface_ast_with_module_identity(
+                &parsed.tree,
+                module_name,
+                source.span(veln_source::TextRange::new(0, 0)),
+            );
+            for use_decl in &mut lowered.uses {
+                let imported = use_decl.name.clone();
+                use_decl.name = format!("std::{imported}");
+            }
+            veln_ast::encode_surface_module(&lowered)
         }
 
         fn unrelated_annotated_standard_module(function_count: usize) -> String {

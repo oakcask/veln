@@ -227,6 +227,11 @@ pub fn checked_project_diagnostics(project: Project, doctest_mode: DoctestMode) 
 }
 
 impl ProjectAnalysis {
+    #[cfg(test)]
+    pub(crate) fn selected_standard_module_names_for_test(&self) -> &BTreeSet<String> {
+        &self.selected_standard_module_names
+    }
+
     pub fn reusable_standard_ir(&self) -> Option<&TypedProgram> {
         self.module
             .functions

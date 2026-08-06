@@ -34,6 +34,19 @@ proposal scope:
 - Separate application and selected standard-library analysis inputs are
   implemented. Their controlled comparison is recorded in
   [../reviews/toolchain-analysis-separated-standard-inputs.json](../reviews/toolchain-analysis-separated-standard-inputs.json).
+- Embedded lowered standard-library modules are implemented. Their controlled
+  comparison is recorded in
+  [../reviews/toolchain-analysis-embedded-lowered-standard.json](../reviews/toolchain-analysis-embedded-lowered-standard.json).
+  The structural first-analysis coverage now observes only the target analysis
+  thread, so parallel standard-library analysis in unrelated tests cannot
+  contaminate the parse/lower counter. Embedded package initialization keeps
+  generated lowered bytes borrowed from the toolchain bundle, and structural
+  coverage checks that closure-external generated lowered data does not
+  increase selected module materialization, selected lowered bytes decoded, or
+  selected standard declarations. The recorded comparison uses the `dfdf2eb7`
+  pre-slice binary from `main` and the final `77f0a36e` binary. Functional
+  output and wall-time noise passed, but both representative HTTP/2 wall-time
+  ratios stayed above the one-third threshold.
 - The existing toolchain suite remains authoritative for command behavior.
 
 The remaining proposal scope starts after those slices. It is limited to
@@ -77,6 +90,15 @@ seconds to 0.309804194 seconds. Functional output matched for every measured
 workload, wall-time noise stayed within the accepted boundary, and both
 representative median wall times also fell. The broader one-third HTTP/2
 wall-time thresholds still did not pass, so the proposal remains open.
+
+Embedding per-module lowered standard-library data reduced HTTP/2 core median
+`surface_parse_lower` time from 0.045545017 seconds to 0.009942617 seconds and
+HTTP/2 connection median `surface_parse_lower` time from 0.049651884 seconds
+to 0.010768857 seconds. Functional output matched for every measured workload
+and wall-time noise stayed within the accepted boundary. The representative
+HTTP/2 wall-time ratios were 0.7855141867 for core and 0.8940777698 for
+connection, so the broader one-third wall-time thresholds still did not pass
+and the proposal remains open.
 
 ## Proposed Outcome
 
@@ -198,6 +220,9 @@ dedicated benchmark runner exists.
   during first analysis.
 - Keep the completed boundary that standard-library and application
   declarations remain separate analysis inputs after source loading.
+- Keep the completed boundary that selected embedded standard modules are
+  decoded from generated lowered representations instead of being parsed and
+  surface-lowered during application analysis.
 - Replace the current controlled comparison only when every functional
   comparison passes, wall-time noise remains within the accepted boundary,
   and both representative HTTP/2 wall-time thresholds pass.
