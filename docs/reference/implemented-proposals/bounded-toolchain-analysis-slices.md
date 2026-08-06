@@ -151,44 +151,30 @@ workload, the same stage sum fell from 0.60004038 seconds to 0.309804194
 seconds, a 48.3694424032 percent reduction. Median wall time fell from
 0.95136904 seconds to 0.929512232 seconds.
 
-The embedded lowered standard-library module comparison used prebuilt release
-binaries, one warm-up run, and five measured runs. Functional output matched
-for every workload and wall-time noise remained within the accepted boundary.
-The proposal-level one-third HTTP/2 wall-time thresholds still did not pass,
-and the toolchain-case command was unavailable, so the benchmark command
-exited with the expected failing status for the broader proposal threshold.
+The embedded lowered standard-library module comparison used the `dfdf2eb7`
+pre-slice release binary from `main` and the final `77f0a36e` release binary,
+one warm-up run, and five measured runs. Functional output matched for every
+workload and wall-time noise remained within the accepted boundary. The
+proposal-level one-third HTTP/2 wall-time thresholds still did not pass, and
+the toolchain-case command was unavailable, so the benchmark command exited
+with the expected failing status for the broader proposal threshold.
 
 For the HTTP/2 core workload, median `surface_parse_lower` time fell from
-0.046901416 seconds to 0.012558671 seconds. Median wall time fell from
-0.173498832 seconds to 0.14073485 seconds, a ratio of 0.8111573339. For the
-HTTP/2 connection workload, median `surface_parse_lower` time fell from
-0.051520114 seconds to 0.013833202 seconds. Median wall time fell from
-0.269037841 seconds to 0.227914509 seconds, a ratio of 0.8471466622.
-
-The borrowed embedded-lowered-bytes comparison used the pre-slice binary from
-the previous repository state and the working-tree binary, one warm-up run,
-and five measured runs. Functional output matched for every workload and
-wall-time noise remained within the accepted boundary. The proposal-level
-one-third HTTP/2 wall-time thresholds still did not pass, and the
-toolchain-case command was unavailable, so the benchmark command exited with
-the expected failing status for the broader proposal threshold.
-
-For the HTTP/2 core workload, median `surface_parse_lower` time fell from
-0.012303326 seconds to 0.010098169 seconds. Median wall time fell from
-0.131958091 seconds to 0.129570625 seconds, a ratio of 0.9819073921. The
-median stage timings for the new binary were 0.000025196 seconds for
-`source_loading`, 0.010098169 seconds for `surface_parse_lower`,
-0.004965034 seconds for `semantic_environment_check`, 0.015450818 seconds for
-`reachable_entry_lowering`, and 0.040518952 seconds for
+0.045545017 seconds to 0.009942617 seconds. Median wall time fell from
+0.16136436 seconds to 0.126753994 seconds, a ratio of 0.7855141867. The
+median stage timings for the new binary were 0.000023702 seconds for
+`source_loading`, 0.009942617 seconds for `surface_parse_lower`,
+0.004846215 seconds for `semantic_environment_check`, 0.014803071 seconds for
+`reachable_entry_lowering`, and 0.039851081 seconds for
 `backend_runtime_remainder`.
 
 For the HTTP/2 connection workload, median `surface_parse_lower` time fell
-from 0.013185709 seconds to 0.010825624 seconds. Median wall time fell from
-0.213495777 seconds to 0.205690386 seconds, a ratio of 0.9634400684. The
-median stage timings for the new binary were 0.000024024 seconds for
-`source_loading`, 0.010825624 seconds for `surface_parse_lower`,
-0.005295228 seconds for `semantic_environment_check`, 0.038821383 seconds for
-`reachable_entry_lowering`, and 0.079137424 seconds for
+from 0.049651884 seconds to 0.010768857 seconds. Median wall time fell from
+0.243578491 seconds to 0.217778114 seconds, a ratio of 0.8940777698. The
+median stage timings for the new binary were 0.000024829 seconds for
+`source_loading`, 0.010768857 seconds for `surface_parse_lower`,
+0.005226969 seconds for `semantic_environment_check`, 0.04620323 seconds for
+`reachable_entry_lowering`, and 0.080485894 seconds for
 `backend_runtime_remainder`.
 
 ## Read When

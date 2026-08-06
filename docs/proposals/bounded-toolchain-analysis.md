@@ -43,11 +43,10 @@ proposal scope:
   generated lowered bytes borrowed from the toolchain bundle, and structural
   coverage checks that closure-external generated lowered data does not
   increase selected module materialization, selected lowered bytes decoded, or
-  selected standard declarations. Its local controlled comparison is recorded
-  in
-  [../reference/implemented-proposals/bounded-toolchain-analysis-slices.md](../reference/implemented-proposals/bounded-toolchain-analysis-slices.md);
-  functional output and wall-time noise passed, but both representative
-  HTTP/2 wall-time ratios stayed above the one-third threshold.
+  selected standard declarations. The recorded comparison uses the `dfdf2eb7`
+  pre-slice binary from `main` and the final `77f0a36e` binary. Functional
+  output and wall-time noise passed, but both representative HTTP/2 wall-time
+  ratios stayed above the one-third threshold.
 - The existing toolchain suite remains authoritative for command behavior.
 
 The remaining proposal scope starts after those slices. It is limited to
@@ -93,11 +92,11 @@ representative median wall times also fell. The broader one-third HTTP/2
 wall-time thresholds still did not pass, so the proposal remains open.
 
 Embedding per-module lowered standard-library data reduced HTTP/2 core median
-`surface_parse_lower` time from 0.046901416 seconds to 0.012558671 seconds and
-HTTP/2 connection median `surface_parse_lower` time from 0.051520114 seconds
-to 0.013833202 seconds. Functional output matched for every measured workload
+`surface_parse_lower` time from 0.045545017 seconds to 0.009942617 seconds and
+HTTP/2 connection median `surface_parse_lower` time from 0.049651884 seconds
+to 0.010768857 seconds. Functional output matched for every measured workload
 and wall-time noise stayed within the accepted boundary. The representative
-HTTP/2 wall-time ratios were 0.8111573339 for core and 0.8471466622 for
+HTTP/2 wall-time ratios were 0.7855141867 for core and 0.8940777698 for
 connection, so the broader one-third wall-time thresholds still did not pass
 and the proposal remains open.
 
