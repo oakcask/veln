@@ -388,6 +388,33 @@ impl Writer {
 
     fn expr_kind(&mut self, value: &ExprKind) {
         match value {
+            ExprKind::Missing
+            | ExprKind::Hole { .. }
+            | ExprKind::NamePath(_)
+            | ExprKind::StringLiteral(_)
+            | ExprKind::IntLiteral(_)
+            | ExprKind::FloatLiteral(_)
+            | ExprKind::BoolLiteral(_)
+            | ExprKind::Unit => self.scalar_expr_kind(value),
+            ExprKind::TypeApply { .. } | ExprKind::Call { .. } => {
+                self.invocation_expr_kind(value);
+            }
+            ExprKind::Perform { .. } | ExprKind::Handle { .. } => self.effect_expr_kind(value),
+            ExprKind::SchemaDecode { .. }
+            | ExprKind::SchemaEncode { .. }
+            | ExprKind::FieldAccess { .. }
+            | ExprKind::Try(_) => self.schema_and_access_expr_kind(value),
+            ExprKind::Record(_)
+            | ExprKind::Dict(_)
+            | ExprKind::List(_)
+            | ExprKind::Match { .. }
+            | ExprKind::If { .. } => self.aggregate_expr_kind(value),
+            ExprKind::Prefix { .. } | ExprKind::Binary { .. } => self.operator_expr_kind(value),
+        }
+    }
+
+    fn scalar_expr_kind(&mut self, value: &ExprKind) {
+        match value {
             ExprKind::Missing => self.u8(0),
             ExprKind::Hole { name, satisfy } => {
                 self.u8(1);
@@ -415,6 +442,12 @@ impl Writer {
                 self.bool(*value);
             }
             ExprKind::Unit => self.u8(7),
+            _ => unreachable!("non-scalar expression passed to scalar wire encoder"),
+        }
+    }
+
+    fn invocation_expr_kind(&mut self, value: &ExprKind) {
+        match value {
             ExprKind::TypeApply { callee, type_args } => {
                 self.u8(8);
                 self.expr(callee);
@@ -425,6 +458,12 @@ impl Writer {
                 self.expr(callee);
                 self.vec(args, Self::expr);
             }
+            _ => unreachable!("non-invocation expression passed to invocation wire encoder"),
+        }
+    }
+
+    fn effect_expr_kind(&mut self, value: &ExprKind) {
+        match value {
             ExprKind::Perform {
                 effect,
                 effect_span,
@@ -451,6 +490,12 @@ impl Writer {
                 self.span(handler_span);
                 self.vec(args, Self::expr);
             }
+            _ => unreachable!("non-effect expression passed to effect wire encoder"),
+        }
+    }
+
+    fn schema_and_access_expr_kind(&mut self, value: &ExprKind) {
+        match value {
             ExprKind::SchemaDecode {
                 schema,
                 input,
@@ -480,6 +525,12 @@ impl Writer {
                 self.u8(15);
                 self.expr(expr);
             }
+            _ => unreachable!("non-schema or access expression passed to schema wire encoder"),
+        }
+    }
+
+    fn aggregate_expr_kind(&mut self, value: &ExprKind) {
+        match value {
             ExprKind::Record(fields) => {
                 self.u8(16);
                 self.vec(fields, Self::record_field);
@@ -509,6 +560,12 @@ impl Writer {
                 self.vec(else_if_branches, Self::if_branch);
                 self.expr(else_branch);
             }
+            _ => unreachable!("non-aggregate expression passed to aggregate wire encoder"),
+        }
+    }
+
+    fn operator_expr_kind(&mut self, value: &ExprKind) {
+        match value {
             ExprKind::Prefix { op, expr } => {
                 self.u8(21);
                 self.prefix_op(*op);
@@ -520,6 +577,7 @@ impl Writer {
                 self.expr(left);
                 self.expr(right);
             }
+            _ => unreachable!("non-operator expression passed to operator wire encoder"),
         }
     }
 
@@ -1090,7 +1148,20 @@ impl<'a> Reader<'a> {
     }
 
     fn expr_kind(&mut self) -> Result<ExprKind, String> {
-        match self.u8()? {
+        let tag = self.u8()?;
+        match tag {
+            0..=7 => self.scalar_expr_kind(tag),
+            8..=9 => self.invocation_expr_kind(tag),
+            10..=11 => self.effect_expr_kind(tag),
+            12..=15 => self.schema_and_access_expr_kind(tag),
+            16..=20 => self.aggregate_expr_kind(tag),
+            21..=22 => self.operator_expr_kind(tag),
+            value => Err(format!("invalid expr kind tag {value}")),
+        }
+    }
+
+    fn scalar_expr_kind(&mut self, tag: u8) -> Result<ExprKind, String> {
+        match tag {
             0 => Ok(ExprKind::Missing),
             1 => Ok(ExprKind::Hole {
                 name: self.option(Self::string)?,
@@ -1102,6 +1173,12 @@ impl<'a> Reader<'a> {
             5 => Ok(ExprKind::FloatLiteral(self.string()?)),
             6 => Ok(ExprKind::BoolLiteral(self.bool()?)),
             7 => Ok(ExprKind::Unit),
+            _ => unreachable!("non-scalar tag passed to scalar wire decoder"),
+        }
+    }
+
+    fn invocation_expr_kind(&mut self, tag: u8) -> Result<ExprKind, String> {
+        match tag {
             8 => Ok(ExprKind::TypeApply {
                 callee: Box::new(self.expr()?),
                 type_args: self.vec(Self::string)?,
@@ -1110,6 +1187,12 @@ impl<'a> Reader<'a> {
                 callee: Box::new(self.expr()?),
                 args: self.vec(Self::expr)?,
             }),
+            _ => unreachable!("non-invocation tag passed to invocation wire decoder"),
+        }
+    }
+
+    fn effect_expr_kind(&mut self, tag: u8) -> Result<ExprKind, String> {
+        match tag {
             10 => Ok(ExprKind::Perform {
                 effect: self.vec(Self::string)?,
                 effect_span: self.span()?,
@@ -1123,6 +1206,12 @@ impl<'a> Reader<'a> {
                 handler_span: self.span()?,
                 args: self.vec(Self::expr)?,
             }),
+            _ => unreachable!("non-effect tag passed to effect wire decoder"),
+        }
+    }
+
+    fn schema_and_access_expr_kind(&mut self, tag: u8) -> Result<ExprKind, String> {
+        match tag {
             12 => Ok(ExprKind::SchemaDecode {
                 schema: self.vec(Self::string)?,
                 input: Box::new(self.expr()?),
@@ -1138,6 +1227,12 @@ impl<'a> Reader<'a> {
                 field_span: self.span()?,
             }),
             15 => Ok(ExprKind::Try(Box::new(self.expr()?))),
+            _ => unreachable!("non-schema or access tag passed to schema wire decoder"),
+        }
+    }
+
+    fn aggregate_expr_kind(&mut self, tag: u8) -> Result<ExprKind, String> {
+        match tag {
             16 => Ok(ExprKind::Record(self.vec(Self::record_field)?)),
             17 => Ok(ExprKind::Dict(self.vec(Self::dict_entry)?)),
             18 => Ok(ExprKind::List(self.vec(Self::expr)?)),
@@ -1151,6 +1246,12 @@ impl<'a> Reader<'a> {
                 else_if_branches: self.vec(Self::if_branch)?,
                 else_branch: Box::new(self.expr()?),
             }),
+            _ => unreachable!("non-aggregate tag passed to aggregate wire decoder"),
+        }
+    }
+
+    fn operator_expr_kind(&mut self, tag: u8) -> Result<ExprKind, String> {
+        match tag {
             21 => Ok(ExprKind::Prefix {
                 op: self.prefix_op()?,
                 expr: Box::new(self.expr()?),
@@ -1160,7 +1261,7 @@ impl<'a> Reader<'a> {
                 left: Box::new(self.expr()?),
                 right: Box::new(self.expr()?),
             }),
-            value => Err(format!("invalid expr kind tag {value}")),
+            _ => unreachable!("non-operator tag passed to operator wire decoder"),
         }
     }
 
