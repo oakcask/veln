@@ -27,7 +27,7 @@ fn main() {
     }
     generated.push_str("];\nstatic FILES: &[StdlibFile] = &[\n");
     for relative in &paths {
-        let text = fs::read_to_string(source_root.join(&relative))
+        let text = fs::read_to_string(source_root.join(relative))
             .expect("standard library source should be readable");
         generated.push_str(&format!(
             "    StdlibFile {{ path: {relative:?}, text: {text:?} }},\n"
