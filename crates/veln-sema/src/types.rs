@@ -558,13 +558,15 @@ impl TypeEnvironment {
         if standard.identity != standard_semantic_identity() {
             return Self::from_module(application_module);
         }
+        let application_module =
+            module_without_reusable_standard_declarations(application_module, standard);
         let standard_environment = standard.environment_for_modules(standard_module_names);
-        if application_module_is_empty(application_module) {
+        if application_module_is_empty(&application_module) {
             return standard_environment.as_ref().clone();
         }
         #[cfg(test)]
         standard_reuse_counters::record_application_prepare();
-        Self::from_module_with_base(application_module, Some(standard_environment.as_ref()))
+        Self::from_module_with_base(&application_module, Some(standard_environment.as_ref()))
     }
 
     fn standard_subset(&self, module_names: &BTreeSet<String>) -> Self {

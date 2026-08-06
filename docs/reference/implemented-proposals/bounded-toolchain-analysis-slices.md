@@ -20,7 +20,9 @@ for the demand-driven standard-library initialization comparison. Use
 for the separate application and selected standard-library analysis input
 comparison. Use
 [../../reviews/toolchain-analysis-embedded-lowered-standard.json](../../reviews/toolchain-analysis-embedded-lowered-standard.json)
-for the embedded lowered standard-library module comparison.
+for the embedded lowered standard-library module comparison. Use
+[../../reviews/toolchain-analysis-separated-reachable-inputs.json](../../reviews/toolchain-analysis-separated-reachable-inputs.json)
+for the separated reachable-entry lowering input comparison.
 
 ## Completed Scope
 
@@ -81,6 +83,12 @@ Completed implementation scope:
   decodes only the selected standard-module closure, so increasing generated
   lowered data for an unrelated standard module does not add materialized
   module count, materialized lowered byte count, or semantic declarations.
+- Reachable-entry lowering keeps selected standard-library and application
+  surface inputs separate until after reachability traversal. The traversal
+  indexes and resolves targets across both inputs without cloning them into
+  one owned module first. The lowering module materializes only reachable
+  application and standard-library functions plus the declarations needed by
+  lowering.
 
 ## Evidence
 
@@ -95,6 +103,12 @@ current, and repeated and concurrent application analysis.
 The first-analysis embedded standard-library parse/lower counter is scoped to
 the target analysis thread, which keeps the structural assertion stable under
 parallel test execution while unrelated standard-library analyses run.
+Additional reachable-entry coverage compares separated inputs with the former
+combined-input path for reachable function sets, diagnostics, checked core,
+and typed IR. It covers standard-library calls, public function aliases, effect
+handler traversal, project-local reachability cache isolation, and unchanged
+materialized reachable body counts when unrelated fully annotated functions
+are added.
 
 The controlled stage-timing benchmark used prebuilt debug binaries, one
 warm-up run, and five measured runs. The baseline binary had no stage
@@ -177,6 +191,32 @@ median stage timings for the new binary were 0.000024829 seconds for
 `reachable_entry_lowering`, and 0.080485894 seconds for
 `backend_runtime_remainder`.
 
+The separated reachable-entry lowering input comparison used the `07416af1`
+pre-slice release binary from `main` and the current working-tree release
+binary, one warm-up run, and five measured runs. Functional output matched for
+every workload and wall-time noise remained within the accepted boundary. The
+proposal-level one-third HTTP/2 wall-time thresholds still did not pass, and
+the toolchain-case command was unavailable, so the benchmark command exited
+with the expected failing status for the broader proposal threshold.
+
+For the HTTP/2 core workload, median `reachable_entry_lowering` time fell from
+0.015221209 seconds to 0.007923789 seconds. Median wall time fell from
+0.129203376 seconds to 0.121939364 seconds, a ratio of 0.943778466. The
+median stage timings for the new binary were 0.000025512 seconds for
+`source_loading`, 0.010498896 seconds for `surface_parse_lower`,
+0.005258769 seconds for `semantic_environment_check`, 0.007923789 seconds for
+`reachable_entry_lowering`, and 0.041528865 seconds for
+`backend_runtime_remainder`.
+
+For the HTTP/2 connection workload, median `reachable_entry_lowering` time
+fell from 0.039002408 seconds to 0.030307844 seconds. Median wall time fell
+from 0.20997279 seconds to 0.200039744 seconds, a ratio of 0.9526936514. The
+median stage timings for the new binary were 0.00002436 seconds for
+`source_loading`, 0.011313915 seconds for `surface_parse_lower`,
+0.005651846 seconds for `semantic_environment_check`, 0.030307844 seconds for
+`reachable_entry_lowering`, and 0.078817419 seconds for
+`backend_runtime_remainder`.
+
 ## Read When
 
 - Checking why completed bounded-analysis slices are no longer described as
@@ -190,6 +230,8 @@ median stage timings for the new binary were 0.000024829 seconds for
   inputs are implemented while the HTTP/2 wall-time acceptance thresholds
   remain proposal work.
 - Reviewing why embedded lowered standard-library modules are implemented
+  while the HTTP/2 wall-time acceptance thresholds remain proposal work.
+- Reviewing why separated reachable-entry lowering inputs are implemented
   while the HTTP/2 wall-time acceptance thresholds remain proposal work.
 - Preserving the boundary that application analysis caching remains outside
   the measurement slice.
