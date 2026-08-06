@@ -231,30 +231,30 @@ median stage timings for the new binary were 0.00002436 seconds for
 `backend_runtime_remainder`.
 
 The backend/runtime substage comparison used the `5a34cab0` pre-slice release
-binary from `main` and the final `7a123da2` release binary, one warm-up run,
+binary from `main` and the final `47deaaec` release binary, one warm-up run,
 and five measured runs. Functional output matched for every workload and
 wall-time noise remained within the accepted boundary. The proposal-level
 one-third HTTP/2 wall-time thresholds still did not pass, and the
 toolchain-case command was unavailable, so the benchmark command exited with
 the expected failing status for the broader proposal threshold.
 
-For the HTTP/2 core workload, median wall time changed from 0.123008632
-seconds to 0.121431739 seconds, a ratio of 0.9871806314. The median backend
-substage timings for the new binary were 0.000602737 seconds for
-`backend_classfile_generation`, 0.001773292 seconds for
-`backend_class_cache_prepare`, 0.039539011 seconds for
-`backend_java_subprocess`, and 0.000172266 seconds for
+For the HTTP/2 core workload, median wall time changed from 0.119997422
+seconds to 0.122761583 seconds, a ratio of 1.0230351699. The median backend
+substage timings for the new binary were 0.00060047 seconds for
+`backend_classfile_generation`, 0.00177191 seconds for
+`backend_class_cache_prepare`, 0.038930313 seconds for
+`backend_java_subprocess`, and 0.000169689 seconds for
 `backend_result_cleanup`. `backend_java_subprocess` was the dominant substage
-and accounted for 32.5606890963 percent of new median wall time.
+and accounted for 31.7121301702 percent of new median wall time.
 
-For the HTTP/2 connection workload, median wall time changed from 0.19698209
-seconds to 0.195080262 seconds, a ratio of 0.990345173. The median backend
-substage timings for the new binary were 0.013949948 seconds for
-`backend_classfile_generation`, 0.008468719 seconds for
-`backend_class_cache_prepare`, 0.055806337 seconds for
-`backend_java_subprocess`, and 0.000135243 seconds for
+For the HTTP/2 connection workload, median wall time changed from 0.201513514
+seconds to 0.197809715 seconds, a ratio of 0.9816200962. The median backend
+substage timings for the new binary were 0.013896498 seconds for
+`backend_classfile_generation`, 0.008156785 seconds for
+`backend_class_cache_prepare`, 0.058945057 seconds for
+`backend_java_subprocess`, and 0.000132697 seconds for
 `backend_result_cleanup`. `backend_java_subprocess` was the dominant substage
-and accounted for 28.6068597755 percent of new median wall time.
+and accounted for 29.7988685743 percent of new median wall time.
 
 ## Read When
 
