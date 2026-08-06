@@ -19,6 +19,61 @@ fn lower_source_allowing_diagnostics(text: &str) -> SurfaceModule {
     lower_surface_ast(&parsed.tree)
 }
 
+#[test]
+fn surface_wire_round_trip_preserves_expression_families() {
+    let sources = [
+        concat!(
+            "fn build(input: Int) -> ()\n",
+            "  let data = {answer: [1, 2.5, -input?], check: _value satisfy candidate => candidate > 0}\n",
+            "  let lookup = {\"one\": 1, \"two\": 2}\n",
+            "  data.answer |> sink<String>(\"ok\", ())\n",
+            "end\n",
+        ),
+        concat!(
+            "schema Header\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "end\n",
+            "fn decode_header(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  decode Header from view at base\n",
+            "end\n",
+            "fn encode_header(packet: {length: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode Header from packet\n",
+            "end\n",
+        ),
+        concat!(
+            "effect Ask\n",
+            "  value() -> Int\n",
+            "end\n",
+            "fn handled() -> Int\n",
+            "  handle perform Ask::value() with ask(41)\n",
+            "end\n",
+        ),
+        concat!(
+            "fn choose(first: Bool, second: Bool) -> Int\n",
+            "  if first\n",
+            "    match second\n",
+            "      true => 1\n",
+            "      false => 2\n",
+            "    end\n",
+            "  else if second\n",
+            "    3\n",
+            "  else\n",
+            "    4\n",
+            "  end\n",
+            "end\n",
+        ),
+    ];
+
+    for source in sources {
+        let module = lower_source(source);
+        let encoded = encode_surface_module(&module);
+        let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
+
+        assert_eq!(encode_surface_module(&decoded), encoded);
+    }
+}
+
 fn expr_line(function: &Function, index: usize) -> &Expr {
     let BodyLineKind::Expr { expr } = &function.body[index].kind else {
         panic!("expected expression line");
