@@ -11,7 +11,7 @@ use veln_project::Project;
 use veln_sema::{
     LoweredSurfaceModule, ReusableStandardEnvironment,
     check_project_surface_module_with_standard_modules_environment,
-    lower_project_reachable_surface_module_with_standard_environment,
+    lower_project_reachable_surface_modules_with_standard_environment,
     prepare_current_reusable_standard_surface_module_environment,
 };
 use veln_source::SourceSpan;
@@ -19,7 +19,7 @@ use veln_test::{DoctestExpectation, doctest_sources, reconcile_expected_doctest_
 
 use crate::surface::{
     ReachabilityCache, load_embedded_standard_surface_module_for_names, load_surface_modules,
-    reachable_entry_module_with_cache,
+    reachable_entry_module_with_standard_cache,
 };
 
 static STANDARD_ENVIRONMENTS: OnceLock<StandardEnvironmentCache> = OnceLock::new();
@@ -276,16 +276,17 @@ impl ProjectAnalysis {
         entry_kind: FunctionKind,
     ) -> (ReachableEntryAnalysis, AnalysisTiming) {
         let start = std::time::Instant::now();
-        let combined_module = merge_surface_modules(&self.selected_standard, &self.module);
-        let module = reachable_entry_module_with_cache(
-            &combined_module,
+        let module = reachable_entry_module_with_standard_cache(
+            &self.selected_standard,
+            &self.module,
             entry,
             entry_kind,
             &self.reachability_cache,
         );
         let standard = standard_environment_for_modules(&self.selected_standard_module_names);
-        let lowered = lower_project_reachable_surface_module_with_standard_environment(
+        let lowered = lower_project_reachable_surface_modules_with_standard_environment(
             &module,
+            &self.selected_standard,
             &standard.environment,
         );
         (
@@ -331,23 +332,111 @@ fn standard_environment_with_test_cache(
         .clone()
 }
 
-fn merge_surface_modules(
-    standard_module: &SurfaceModule,
-    application_module: &SurfaceModule,
-) -> SurfaceModule {
-    let mut merged = standard_module.clone();
-    merged.uses.extend(application_module.uses.clone());
-    merged.aliases.extend(application_module.aliases.clone());
-    merged.effects.extend(application_module.effects.clone());
-    merged.handlers.extend(application_module.handlers.clone());
-    merged.types.extend(application_module.types.clone());
-    merged.schemas.extend(application_module.schemas.clone());
-    merged.codecs.extend(application_module.codecs.clone());
-    merged
-        .functions
-        .extend(application_module.functions.clone());
-    if merged.module.is_none() {
-        merged.module = application_module.module.clone();
+#[cfg(test)]
+mod tests {
+    use veln_diagnostics::diagnostic_to_json;
+    use veln_project::Project;
+    use veln_source::SourceFile;
+
+    use super::*;
+    use crate::surface::reachable_entry_module_with_cache;
+
+    #[test]
+    fn separated_reachable_lowering_matches_combined_lowering_outputs() {
+        let analysis = analyze_project(
+            Project {
+                root: ".".into(),
+                files: vec![SourceFile::new(
+                    "src/main.veln",
+                    concat!(
+                        "effect Ask\n",
+                        "  value() -> Int\n",
+                        "end\n",
+                        "\n",
+                        "fn compute() -> Int effects [Ask]\n",
+                        "  perform Ask::value()\n",
+                        "end\n",
+                        "\n",
+                        "handler ask(seed: Int) handles Ask\n",
+                        "  value() => seed\n",
+                        "end\n",
+                        "\n",
+                        "pub fn main() -> Int\n",
+                        "  let observed = handle compute() with ask(1)\n",
+                        "  observed + vec_len([1, 2, 3])\n",
+                        "end\n",
+                    ),
+                )],
+                manifest: None,
+            },
+            DoctestMode::Exclude,
+        );
+
+        let separated = analysis.lower_reachable_entry("main", FunctionKind::Function);
+        let combined_module =
+            merge_surface_modules_for_test(&analysis.selected_standard, &analysis.module);
+        let combined_reachable = reachable_entry_module_with_cache(
+            &combined_module,
+            "main",
+            FunctionKind::Function,
+            &ReachabilityCache::default(),
+        );
+        let standard = standard_environment_for_modules(&analysis.selected_standard_module_names);
+        let combined_lowered =
+            veln_sema::lower_project_reachable_surface_module_with_standard_environment(
+                &combined_reachable,
+                &standard.environment,
+            );
+
+        assert_eq!(
+            diagnostic_json(&separated.lowered.diagnostics),
+            diagnostic_json(&combined_lowered.diagnostics)
+        );
+        assert_eq!(separated.lowered.core, combined_lowered.core);
+        assert_eq!(separated.lowered.ir, combined_lowered.ir);
+        assert_eq!(
+            reachable_function_names(&separated.module),
+            reachable_function_names(&combined_reachable)
+        );
     }
-    merged
+
+    fn diagnostic_json(diagnostics: &[veln_diagnostics::Diagnostic]) -> Vec<String> {
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic_to_json(diagnostic).to_json())
+            .collect()
+    }
+
+    fn reachable_function_names(module: &SurfaceModule) -> Vec<(&str, &str)> {
+        let mut functions = module
+            .functions
+            .iter()
+            .filter_map(|function| {
+                Some((function.module_name.as_deref()?, function.name.as_deref()?))
+            })
+            .collect::<Vec<_>>();
+        functions.sort_unstable();
+        functions
+    }
+
+    fn merge_surface_modules_for_test(
+        standard_module: &SurfaceModule,
+        application_module: &SurfaceModule,
+    ) -> SurfaceModule {
+        let mut merged = standard_module.clone();
+        merged.uses.extend(application_module.uses.clone());
+        merged.aliases.extend(application_module.aliases.clone());
+        merged.effects.extend(application_module.effects.clone());
+        merged.handlers.extend(application_module.handlers.clone());
+        merged.types.extend(application_module.types.clone());
+        merged.schemas.extend(application_module.schemas.clone());
+        merged.codecs.extend(application_module.codecs.clone());
+        merged
+            .functions
+            .extend(application_module.functions.clone());
+        if merged.module.is_none() {
+            merged.module = application_module.module.clone();
+        }
+        merged
+    }
 }

@@ -47,6 +47,15 @@ proposal scope:
   pre-slice binary from `main` and the final `77f0a36e` binary. Functional
   output and wall-time noise passed, but both representative HTTP/2 wall-time
   ratios stayed above the one-third threshold.
+- Separate application and selected standard-library inputs are preserved
+  through reachable-entry lowering. The controlled comparison is recorded in
+  [../reviews/toolchain-analysis-separated-reachable-inputs.json](../reviews/toolchain-analysis-separated-reachable-inputs.json).
+  Functional output and wall-time noise passed, and HTTP/2
+  `reachable_entry_lowering` medians fell for both representative workloads.
+  Structural coverage includes codec `with` target resolution and reachable
+  body materialization bounds on the separated input path.
+  The representative HTTP/2 wall-time ratios still stayed above the one-third
+  threshold.
 - The existing toolchain suite remains authoritative for command behavior.
 
 The remaining proposal scope starts after those slices. It is limited to
@@ -100,6 +109,16 @@ HTTP/2 wall-time ratios were 0.7855141867 for core and 0.8940777698 for
 connection, so the broader one-third wall-time thresholds still did not pass
 and the proposal remains open.
 
+Preserving separated inputs through reachable-entry lowering reduced HTTP/2
+core median `reachable_entry_lowering` time from 0.015221209 seconds to
+0.007923789 seconds and HTTP/2 connection median
+`reachable_entry_lowering` time from 0.039002408 seconds to 0.030307844
+seconds. Functional output matched for every measured workload and wall-time
+noise stayed within the accepted boundary. The representative HTTP/2 wall-time
+ratios were 0.943778466 for core and 0.9526936514 for connection, so the
+broader one-third wall-time thresholds still did not pass and the proposal
+remains open.
+
 ## Proposed Outcome
 
 Analysis work must scale with the declarations and dependency relationships
@@ -120,6 +139,7 @@ time part of the Veln language semantics.
 | Bounded reachable lowering | Adding unrelated fully annotated modules does not increase reachable function-target or ADT-constructor candidate scans | Implemented structural lookup counters and generated high-cardinality analysis benchmark |
 | Bounded standard initialization | Adding unrelated standard modules outside the selected closure does not increase first-analysis standard parse/lower or semantic prepare work | Implemented closure-driven standard loading and selected standard-environment tests |
 | Separate standard and application inputs | Application analysis keeps application declarations separate from selected standard declarations and builds semantics from application facts plus the selected reusable standard environment | Implemented structural input-separation tests and controlled stage comparison |
+| Separate reachable lowering inputs | Reachable-entry lowering preserves the application and selected standard-library surface inputs until after reachability traversal, while keeping reachable function sets, diagnostics, checked core, and typed IR equivalent to the former combined-input path | Implemented separated reachability tests and controlled stage comparison |
 | Representative improvement | HTTP/2 core and connection workloads become materially faster without weakening their assertions | Controlled before-and-after benchmark described below |
 
 The existing toolchain suite remains authoritative for command behavior. New
@@ -223,6 +243,9 @@ dedicated benchmark runner exists.
 - Keep the completed boundary that selected embedded standard modules are
   decoded from generated lowered representations instead of being parsed and
   surface-lowered during application analysis.
+- Keep the completed boundary that reachable-entry lowering traverses
+  application and selected standard-library inputs separately and materializes
+  only reachable functions for lowering.
 - Replace the current controlled comparison only when every functional
   comparison passes, wall-time noise remains within the accepted boundary,
   and both representative HTTP/2 wall-time thresholds pass.

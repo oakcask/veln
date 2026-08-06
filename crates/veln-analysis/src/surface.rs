@@ -1715,34 +1715,37 @@ pub(crate) fn reachable_entry_module(
 
 #[derive(Default)]
 pub(crate) struct ReachabilityCache {
+    #[cfg(test)]
     function_targets: OnceCell<ReachabilityIndex>,
+    separated_function_targets: OnceCell<ReachabilityIndex>,
     direct_callees: RefCell<HashMap<ReachableFunction, Vec<ReachableFunction>>>,
 }
 
 struct ReachabilityIndex {
     function_targets: FunctionTargetIndex,
-    functions_by_name: HashMap<(FunctionKind, String), Vec<usize>>,
-    functions_by_qualified_name: HashMap<(FunctionKind, String, String), Vec<usize>>,
+    functions_by_name: HashMap<(FunctionKind, String), Vec<FunctionRef>>,
+    functions_by_qualified_name: HashMap<(FunctionKind, String, String), Vec<FunctionRef>>,
 }
 
 impl ReachabilityIndex {
-    fn new(module: &SurfaceModule, function_targets: Vec<FunctionTarget>) -> Self {
-        let mut functions_by_name = HashMap::<(FunctionKind, String), Vec<usize>>::new();
+    fn new(inputs: &ReachabilityInputs<'_>, function_targets: Vec<FunctionTarget>) -> Self {
+        let mut functions_by_name = HashMap::<(FunctionKind, String), Vec<FunctionRef>>::new();
         let mut functions_by_qualified_name =
-            HashMap::<(FunctionKind, String, String), Vec<usize>>::new();
-        for (index, function) in module.functions.iter().enumerate() {
+            HashMap::<(FunctionKind, String, String), Vec<FunctionRef>>::new();
+        for function_ref in inputs.function_refs() {
+            let function = inputs.function(function_ref);
             let Some(name) = &function.name else {
                 continue;
             };
             functions_by_name
                 .entry((function.kind, name.clone()))
                 .or_default()
-                .push(index);
+                .push(function_ref);
             if let Some(module_name) = &function.module_name {
                 functions_by_qualified_name
                     .entry((function.kind, module_name.clone(), name.clone()))
                     .or_default()
-                    .push(index);
+                    .push(function_ref);
             }
         }
         Self {
@@ -1752,7 +1755,7 @@ impl ReachabilityIndex {
         }
     }
 
-    fn function_indices(&self, key: &ReachableFunction) -> &[usize] {
+    fn function_refs(&self, key: &ReachableFunction) -> &[FunctionRef] {
         if let Some(module_name) = &key.module_name {
             self.functions_by_qualified_name
                 .get(&(key.kind, module_name.clone(), key.name.clone()))
@@ -1765,6 +1768,105 @@ impl ReachabilityIndex {
                 .unwrap_or_default()
         }
     }
+}
+
+#[derive(Clone, Copy)]
+struct ReachabilityInputs<'a> {
+    standard: Option<&'a SurfaceModule>,
+    application: &'a SurfaceModule,
+}
+
+impl<'a> ReachabilityInputs<'a> {
+    #[cfg(test)]
+    fn combined(module: &'a SurfaceModule) -> Self {
+        Self {
+            standard: None,
+            application: module,
+        }
+    }
+
+    fn separated(standard: &'a SurfaceModule, application: &'a SurfaceModule) -> Self {
+        Self {
+            standard: Some(standard),
+            application,
+        }
+    }
+
+    fn function_refs(&self) -> impl Iterator<Item = FunctionRef> + '_ {
+        let standard_len = self.standard.map_or(0, |module| module.functions.len());
+        (0..standard_len)
+            .map(|index| FunctionRef {
+                input: ReachabilityInput::Standard,
+                index,
+            })
+            .chain(
+                (0..self.application.functions.len()).map(|index| FunctionRef {
+                    input: ReachabilityInput::Application,
+                    index,
+                }),
+            )
+    }
+
+    fn functions(&self) -> impl Iterator<Item = &'a Function> + '_ {
+        self.standard
+            .into_iter()
+            .flat_map(|module| module.functions.iter())
+            .chain(self.application.functions.iter())
+    }
+
+    fn function(&self, function_ref: FunctionRef) -> &'a Function {
+        match function_ref.input {
+            ReachabilityInput::Standard => {
+                &self
+                    .standard
+                    .expect("standard function ref should have standard input")
+                    .functions[function_ref.index]
+            }
+            ReachabilityInput::Application => &self.application.functions[function_ref.index],
+        }
+    }
+
+    fn uses(&self) -> Vec<&'a UseDecl> {
+        self.standard
+            .into_iter()
+            .flat_map(|module| module.uses.iter())
+            .chain(self.application.uses.iter())
+            .collect()
+    }
+
+    fn aliases(&self) -> impl Iterator<Item = &'a veln_ast::PublicAlias> + '_ {
+        self.standard
+            .into_iter()
+            .flat_map(|module| module.aliases.iter())
+            .chain(self.application.aliases.iter())
+    }
+
+    fn handlers(&self) -> Vec<&'a veln_ast::HandlerDecl> {
+        self.standard
+            .into_iter()
+            .flat_map(|module| module.handlers.iter())
+            .chain(self.application.handlers.iter())
+            .collect()
+    }
+
+    fn codecs(&self) -> impl Iterator<Item = &'a veln_ast::CodecDecl> + '_ {
+        self.standard
+            .into_iter()
+            .flat_map(|module| module.codecs.iter())
+            .chain(self.application.codecs.iter())
+    }
+}
+
+#[derive(Clone, Copy)]
+struct FunctionRef {
+    input: ReachabilityInput,
+    index: usize,
+}
+
+#[derive(Clone, Copy)]
+enum ReachabilityInput {
+    Standard,
+    Application,
 }
 
 struct FunctionTargetIndex {
@@ -1832,11 +1934,13 @@ mod reachability_counters {
     thread_local! {
         static FUNCTION_LOOKUP_SCANS: Cell<usize> = const { Cell::new(0) };
         static TARGET_RESOLUTION_SCANS: Cell<usize> = const { Cell::new(0) };
+        static MATERIALIZED_FUNCTION_BODIES: Cell<usize> = const { Cell::new(0) };
     }
 
     pub(super) fn reset() {
         FUNCTION_LOOKUP_SCANS.set(0);
         TARGET_RESOLUTION_SCANS.set(0);
+        MATERIALIZED_FUNCTION_BODIES.set(0);
     }
 
     pub(super) fn record_function_lookup_scan() {
@@ -1847,43 +1951,75 @@ mod reachability_counters {
         TARGET_RESOLUTION_SCANS.set(TARGET_RESOLUTION_SCANS.get() + 1);
     }
 
-    pub(super) fn snapshot() -> (usize, usize) {
-        (FUNCTION_LOOKUP_SCANS.get(), TARGET_RESOLUTION_SCANS.get())
+    pub(super) fn record_materialized_function_body() {
+        MATERIALIZED_FUNCTION_BODIES.set(MATERIALIZED_FUNCTION_BODIES.get() + 1);
+    }
+
+    pub(super) fn snapshot() -> (usize, usize, usize) {
+        (
+            FUNCTION_LOOKUP_SCANS.get(),
+            TARGET_RESOLUTION_SCANS.get(),
+            MATERIALIZED_FUNCTION_BODIES.get(),
+        )
     }
 }
 
+#[cfg(test)]
 pub(crate) fn reachable_entry_module_with_cache(
     module: &SurfaceModule,
     entry: &str,
     entry_kind: FunctionKind,
     cache: &ReachabilityCache,
 ) -> SurfaceModule {
+    let inputs = ReachabilityInputs::combined(module);
     let reachability_index = cache
         .function_targets
-        .get_or_init(|| reachable_function_targets(module));
-    let companion_access_targets = companion_function_access_targets(module);
+        .get_or_init(|| reachable_function_targets(&inputs));
+    let companion_access_targets = companion_function_access_targets(&inputs);
     let reachable = reachable_functions(
-        module,
+        &inputs,
         entry,
         entry_kind,
         reachability_index,
         &companion_access_targets,
         cache,
     );
-    module_with_reachable_functions(module, &reachable)
+    module_with_reachable_functions(&inputs, &reachable)
 }
 
-fn reachable_function_targets(module: &SurfaceModule) -> ReachabilityIndex {
-    let mut function_targets = function_targets(module);
-    function_targets.extend(function_alias_targets(module, &function_targets));
-    function_targets.extend(codec_with_targets(module));
-    ReachabilityIndex::new(module, function_targets)
+pub(crate) fn reachable_entry_module_with_standard_cache(
+    standard_module: &SurfaceModule,
+    application_module: &SurfaceModule,
+    entry: &str,
+    entry_kind: FunctionKind,
+    cache: &ReachabilityCache,
+) -> SurfaceModule {
+    let inputs = ReachabilityInputs::separated(standard_module, application_module);
+    let reachability_index = cache
+        .separated_function_targets
+        .get_or_init(|| reachable_function_targets(&inputs));
+    let companion_access_targets = companion_function_access_targets(&inputs);
+    let reachable = reachable_functions(
+        &inputs,
+        entry,
+        entry_kind,
+        reachability_index,
+        &companion_access_targets,
+        cache,
+    );
+    module_with_reachable_functions(&inputs, &reachable)
 }
 
-fn function_targets(module: &SurfaceModule) -> Vec<FunctionTarget> {
-    module
-        .functions
-        .iter()
+fn reachable_function_targets(inputs: &ReachabilityInputs<'_>) -> ReachabilityIndex {
+    let mut function_targets = function_targets(inputs);
+    function_targets.extend(function_alias_targets(inputs, &function_targets));
+    function_targets.extend(codec_with_targets(inputs));
+    ReachabilityIndex::new(inputs, function_targets)
+}
+
+fn function_targets(inputs: &ReachabilityInputs<'_>) -> Vec<FunctionTarget> {
+    inputs
+        .functions()
         .filter(|function| function.kind == FunctionKind::Function)
         .filter_map(function_target)
         .collect()
@@ -1919,10 +2055,9 @@ fn function_shape(function: &Function) -> FunctionShape {
     }
 }
 
-fn codec_with_targets(module: &SurfaceModule) -> Vec<FunctionTarget> {
-    module
-        .codecs
-        .iter()
+fn codec_with_targets(inputs: &ReachabilityInputs<'_>) -> Vec<FunctionTarget> {
+    inputs
+        .codecs()
         .flat_map(|codec| {
             let name = codec.name.clone()?;
             Some(
@@ -1936,7 +2071,7 @@ fn codec_with_targets(module: &SurfaceModule) -> Vec<FunctionTarget> {
                         else {
                             return None;
                         };
-                        let target = module.functions.iter().find(|function| {
+                        let target = inputs.functions().find(|function| {
                             function.kind == FunctionKind::Function
                                 && function.name.as_deref() == Some(function_name.as_str())
                                 && function.module_name == codec.module_name
@@ -1959,7 +2094,7 @@ fn codec_with_targets(module: &SurfaceModule) -> Vec<FunctionTarget> {
 }
 
 fn reachable_functions(
-    module: &SurfaceModule,
+    inputs: &ReachabilityInputs<'_>,
     entry: &str,
     entry_kind: FunctionKind,
     reachability_index: &ReachabilityIndex,
@@ -1980,17 +2115,17 @@ fn reachable_functions(
         let cached_callees = cache.direct_callees.borrow().get(&key).cloned();
         let callees = cached_callees.unwrap_or_else(|| {
             let callees = reachability_index
-                .function_indices(&key)
+                .function_refs(&key)
                 .iter()
-                .map(|index| {
+                .map(|function_ref| {
                     #[cfg(test)]
                     reachability_counters::record_function_lookup_scan();
-                    &module.functions[*index]
+                    inputs.function(*function_ref)
                 })
                 .flat_map(|function| {
                     direct_function_callees(
                         function,
-                        module,
+                        inputs,
                         &reachability_index.function_targets,
                         companion_access_targets,
                     )
@@ -2012,21 +2147,66 @@ fn reachable_functions(
 }
 
 fn module_with_reachable_functions(
-    module: &SurfaceModule,
+    inputs: &ReachabilityInputs<'_>,
     reachable: &HashSet<ReachableFunction>,
 ) -> SurfaceModule {
     SurfaceModule {
-        module: module.module.clone(),
-        uses: module.uses.clone(),
-        aliases: module.aliases.clone(),
-        effects: module.effects.clone(),
-        handlers: module.handlers.clone(),
-        types: module.types.clone(),
-        schemas: module.schemas.clone(),
-        codecs: module.codecs.clone(),
-        functions: module
-            .functions
-            .iter()
+        module: inputs
+            .application
+            .module
+            .clone()
+            .or_else(|| inputs.standard.and_then(|module| module.module.clone())),
+        uses: inputs
+            .standard
+            .into_iter()
+            .flat_map(|module| module.uses.iter())
+            .chain(inputs.application.uses.iter())
+            .cloned()
+            .collect(),
+        aliases: inputs
+            .standard
+            .into_iter()
+            .flat_map(|module| module.aliases.iter())
+            .chain(inputs.application.aliases.iter())
+            .cloned()
+            .collect(),
+        effects: inputs
+            .standard
+            .into_iter()
+            .flat_map(|module| module.effects.iter())
+            .chain(inputs.application.effects.iter())
+            .cloned()
+            .collect(),
+        handlers: inputs
+            .standard
+            .into_iter()
+            .flat_map(|module| module.handlers.iter())
+            .chain(inputs.application.handlers.iter())
+            .cloned()
+            .collect(),
+        types: inputs
+            .standard
+            .into_iter()
+            .flat_map(|module| module.types.iter())
+            .chain(inputs.application.types.iter())
+            .cloned()
+            .collect(),
+        schemas: inputs
+            .standard
+            .into_iter()
+            .flat_map(|module| module.schemas.iter())
+            .chain(inputs.application.schemas.iter())
+            .cloned()
+            .collect(),
+        codecs: inputs
+            .standard
+            .into_iter()
+            .flat_map(|module| module.codecs.iter())
+            .chain(inputs.application.codecs.iter())
+            .cloned()
+            .collect(),
+        functions: inputs
+            .functions()
             .filter(|function| {
                 function.name.as_ref().is_some_and(|name| {
                     reachable.contains(&ReachableFunction {
@@ -2039,6 +2219,12 @@ fn module_with_reachable_functions(
                         module_name: function.module_name.clone(),
                     })
                 })
+            })
+            .inspect(|_function| {
+                #[cfg(test)]
+                if !_function.body.is_empty() {
+                    reachability_counters::record_materialized_function_body();
+                }
             })
             .cloned()
             .collect(),
@@ -2071,18 +2257,18 @@ struct FunctionShape {
 }
 
 fn function_alias_targets(
-    module: &SurfaceModule,
+    inputs: &ReachabilityInputs<'_>,
     function_targets: &[FunctionTarget],
 ) -> Vec<FunctionTarget> {
-    module
-        .aliases
-        .iter()
+    let uses = inputs.uses();
+    inputs
+        .aliases()
         .filter(|alias| alias.kind == PublicAliasKind::Function)
         .filter_map(|alias| {
             let name = alias.name.clone()?;
             let target = target_for_alias_path(
                 &alias.target,
-                &module.uses,
+                &uses,
                 function_targets,
                 alias.module_name.as_deref(),
             )?;
@@ -2114,7 +2300,7 @@ fn companion_alias_targets_imported_private_function(
 
 fn target_for_alias_path<'a>(
     segments: &[String],
-    uses: &[UseDecl],
+    uses: &[&UseDecl],
     function_targets: &'a [FunctionTarget],
     current_module: Option<&str>,
 ) -> Option<&'a FunctionTarget> {
@@ -2142,25 +2328,27 @@ struct LocalBinding {
 
 struct FunctionCalleeContext<'a> {
     current_module: Option<&'a str>,
-    uses: &'a [UseDecl],
+    uses: &'a [&'a UseDecl],
     function_targets: &'a FunctionTargetIndex,
     companion_access_targets: &'a HashMap<String, String>,
-    handlers: &'a [veln_ast::HandlerDecl],
+    handlers: &'a [&'a veln_ast::HandlerDecl],
 }
 
 fn direct_function_callees(
     function: &Function,
-    module: &SurfaceModule,
+    inputs: &ReachabilityInputs<'_>,
     function_targets: &FunctionTargetIndex,
     companion_access_targets: &HashMap<String, String>,
 ) -> Vec<ReachableFunction> {
     let mut callees = Vec::new();
+    let uses = inputs.uses();
+    let handlers = inputs.handlers();
     let context = FunctionCalleeContext {
         current_module: function.module_name.as_deref(),
-        uses: &module.uses,
+        uses: &uses,
         function_targets,
         companion_access_targets,
-        handlers: &module.handlers,
+        handlers: &handlers,
     };
     let mut local_bindings = function
         .params
@@ -2205,7 +2393,7 @@ fn direct_function_callees(
 fn collect_contract_callees(
     predicate: &str,
     current_module: Option<&str>,
-    uses: &[UseDecl],
+    uses: &[&UseDecl],
     function_targets: &FunctionTargetIndex,
     companion_access_targets: &HashMap<String, String>,
     callees: &mut Vec<ReachableFunction>,
@@ -2263,7 +2451,7 @@ fn collect_contract_callees(
 fn collect_contract_function_value_references(
     tokens: &[veln_syntax::Token],
     current_module: Option<&str>,
-    uses: &[UseDecl],
+    uses: &[&UseDecl],
     function_targets: &FunctionTargetIndex,
     _companion_access_targets: &HashMap<String, String>,
     callees: &mut Vec<ReachableFunction>,
@@ -2490,7 +2678,7 @@ fn collect_opaque_function_value_callees(
     shape: &FunctionShape,
     arg_count: Option<usize>,
     current_module: Option<&str>,
-    uses: &[UseDecl],
+    uses: &[&UseDecl],
     function_targets: &FunctionTargetIndex,
     _companion_access_targets: &HashMap<String, String>,
     callees: &mut Vec<ReachableFunction>,
@@ -2525,7 +2713,7 @@ fn collect_opaque_function_value_callees(
 fn target_visible_from_current_module(
     target: &FunctionTarget,
     current_module: Option<&str>,
-    uses: &[UseDecl],
+    uses: &[&UseDecl],
     companion_access_targets: &HashMap<String, String>,
 ) -> bool {
     let target_module = target.module_name.as_deref();
@@ -2657,10 +2845,10 @@ fn collect_function_name_reference(
 fn collect_handler_operation_clause_callees(
     expr: &Expr,
     current_module: Option<&str>,
-    uses: &[UseDecl],
+    uses: &[&UseDecl],
     function_targets: &FunctionTargetIndex,
     companion_access_targets: &HashMap<String, String>,
-    handlers: &[veln_ast::HandlerDecl],
+    handlers: &[&veln_ast::HandlerDecl],
     callees: &mut Vec<ReachableFunction>,
 ) {
     let ExprKind::Handle { handler, .. } = &expr.kind else {
@@ -2714,7 +2902,7 @@ fn collect_handler_operation_clause_callees(
 fn resolve_function_reference(
     segments: &[String],
     current_module: Option<&str>,
-    uses: &[UseDecl],
+    uses: &[&UseDecl],
     function_targets: &FunctionTargetIndex,
     companion_access_targets: &HashMap<String, String>,
 ) -> Vec<ReachableFunction> {
@@ -2763,12 +2951,12 @@ fn resolve_function_reference(
 }
 
 fn imported_use_for_path<'a>(
-    uses: &'a [UseDecl],
+    uses: &'a [&'a UseDecl],
     segments: &[String],
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
     let module_path = segments.join("::");
-    uses.iter().find(|use_decl| {
+    uses.iter().copied().find(|use_decl| {
         use_decl.module_name.as_deref() == current_module
             && (use_decl.name == module_path || use_decl.alias == module_path)
     })
@@ -2810,10 +2998,9 @@ fn imported_target_visible_from_module(
     })
 }
 
-fn companion_function_access_targets(module: &SurfaceModule) -> HashMap<String, String> {
-    module
-        .functions
-        .iter()
+fn companion_function_access_targets(inputs: &ReachabilityInputs<'_>) -> HashMap<String, String> {
+    inputs
+        .functions()
         .filter_map(|function| {
             let companion = classify_companion_source(function.span.file.as_str())?;
             let companion_module = function.module_name.clone()?;
@@ -2829,7 +3016,7 @@ fn companion_function_access_targets(module: &SurfaceModule) -> HashMap<String, 
 fn bare_target_visible(
     target: &FunctionTarget,
     current_module: Option<&str>,
-    uses: &[UseDecl],
+    uses: &[&UseDecl],
 ) -> bool {
     let Some(current_module) = current_module else {
         return true;
@@ -2857,7 +3044,10 @@ fn push_reachable(callees: &mut Vec<ReachableFunction>, callee: ReachableFunctio
 mod tests {
     use std::{env, fs};
 
-    use veln_ast::{FunctionKind, SurfaceModule, UseOrigin, lower_surface_ast};
+    use veln_ast::{
+        CodecDecl, CodecDirection, CodecImplementationClause, CodecImplementationKind,
+        FunctionKind, SurfaceModule, UseOrigin, Visibility, lower_surface_ast,
+    };
     use veln_project::{
         ManifestExport, ManifestField, ManifestLib, ManifestTool, ManifestUnsupportedSection,
         Project, ProjectManifest,
@@ -2866,9 +3056,10 @@ mod tests {
     use veln_syntax::parse;
 
     use super::{
-        EmbeddedStandardModuleEntry, EmbeddedStandardPackage, SurfaceParts,
+        EmbeddedStandardModuleEntry, EmbeddedStandardPackage, ReachabilityCache, SurfaceParts,
         embedded_standard_counters, load_embedded_standard_package_from, load_project_sources,
         load_surface_module, reachability_counters, reachable_entry_module,
+        reachable_entry_module_with_standard_cache,
     };
 
     fn lower(text: &str) -> SurfaceModule {
@@ -2882,9 +3073,21 @@ mod tests {
         lower_surface_ast(&parsed.tree)
     }
 
+    fn reachable_function_names(module: &SurfaceModule) -> Vec<(&str, &str)> {
+        let mut functions = module
+            .functions
+            .iter()
+            .filter_map(|function| {
+                Some((function.module_name.as_deref()?, function.name.as_deref()?))
+            })
+            .collect::<Vec<_>>();
+        functions.sort_unstable();
+        functions
+    }
+
     #[test]
     fn reachable_resolution_skips_unrelated_annotated_functions() {
-        fn resolution_scans(unrelated_count: usize) -> (usize, usize) {
+        fn resolution_scans(unrelated_count: usize) -> (usize, usize, usize) {
             let mut source = String::from(
                 "pub fn main() -> Int\n  helper()\nend\n\nfn helper() -> Int\n  1\nend\n",
             );
@@ -2907,6 +3110,216 @@ mod tests {
             expanded, base,
             "unrelated annotated functions must not add repeated resolution scans"
         );
+    }
+
+    #[test]
+    fn reachable_materialization_skips_unrelated_annotated_function_bodies() {
+        fn materialized_body_count(unrelated_count: usize) -> usize {
+            let mut source = String::from(
+                "pub fn main() -> Int\n  helper()\nend\n\nfn helper() -> Int\n  1\nend\n",
+            );
+            for index in 0..unrelated_count {
+                source.push_str(&format!(
+                    "\nfn unrelated_{index}(value: Int) -> Int\n  value\nend\n"
+                ));
+            }
+            let module = lower(&source);
+            reachability_counters::reset();
+            let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+            assert_eq!(reachable.functions.len(), 2);
+            reachability_counters::snapshot().2
+        }
+
+        assert_eq!(
+            materialized_body_count(128),
+            materialized_body_count(0),
+            "unreachable annotated functions must not be materialized for lowering"
+        );
+    }
+
+    #[test]
+    fn separated_reachable_materialization_skips_unrelated_annotated_function_bodies() {
+        fn materialized_body_count(unrelated_count: usize) -> usize {
+            let standard = lower(concat!(
+                "mod std::prelude\n",
+                "pub fn standard_value() -> Int\n",
+                "  1\n",
+                "end\n",
+            ));
+            let mut source = String::from(concat!(
+                "mod app\n",
+                "use std::prelude\n",
+                "\n",
+                "pub fn main() -> Int\n",
+                "  helper() + standard_value()\n",
+                "end\n",
+                "\n",
+                "fn helper() -> Int\n",
+                "  1\n",
+                "end\n",
+            ));
+            for index in 0..unrelated_count {
+                source.push_str(&format!(
+                    "\nfn unrelated_{index}(value: Int) -> Int\n  value\nend\n"
+                ));
+            }
+            let application = lower(&source);
+            reachability_counters::reset();
+            let reachable = reachable_entry_module_with_standard_cache(
+                &standard,
+                &application,
+                "main",
+                FunctionKind::Function,
+                &ReachabilityCache::default(),
+            );
+            assert_eq!(reachable.functions.len(), 3);
+            reachability_counters::snapshot().2
+        }
+
+        assert_eq!(
+            materialized_body_count(128),
+            materialized_body_count(0),
+            "separated reachable inputs must not materialize unreachable annotated functions"
+        );
+    }
+
+    #[test]
+    fn separated_reachable_inputs_match_combined_resolution_results() {
+        let standard = lower(concat!(
+            "mod std::prelude\n",
+            "pub fn standard_value() -> Int\n",
+            "  1\n",
+            "end\n",
+        ));
+        let application = lower(concat!(
+            "mod app\n",
+            "use std::prelude\n",
+            "\n",
+            "effect Ask\n",
+            "  value() -> Int\n",
+            "end\n",
+            "\n",
+            "fn answer() -> Int effects [Ask]\n",
+            "  perform Ask::value()\n",
+            "end\n",
+            "\n",
+            "handler ask(seed: Int) handles Ask\n",
+            "  value() => seed\n",
+            "end\n",
+            "\n",
+            "pub fn exposed = answer\n",
+            "\n",
+            "pub fn main() -> Int\n",
+            "  let handled = handle exposed() with ask(2)\n",
+            "  handled + standard_value()\n",
+            "end\n",
+        ));
+        let mut combined = standard.clone();
+        combined.uses.extend(application.uses.clone());
+        combined.aliases.extend(application.aliases.clone());
+        combined.effects.extend(application.effects.clone());
+        combined.handlers.extend(application.handlers.clone());
+        combined.types.extend(application.types.clone());
+        combined.schemas.extend(application.schemas.clone());
+        combined.codecs.extend(application.codecs.clone());
+        combined.functions.extend(application.functions.clone());
+        combined.module = application.module.clone();
+
+        let combined_reachable = reachable_entry_module(&combined, "main", FunctionKind::Function);
+        let separated_reachable = reachable_entry_module_with_standard_cache(
+            &standard,
+            &application,
+            "main",
+            FunctionKind::Function,
+            &ReachabilityCache::default(),
+        );
+
+        let combined_functions = reachable_function_names(&combined_reachable);
+        let separated_functions = reachable_function_names(&separated_reachable);
+        assert_eq!(separated_functions, combined_functions);
+        assert_eq!(
+            separated_functions,
+            vec![
+                ("app", "answer"),
+                ("app", "main"),
+                ("std::prelude", "standard_value"),
+            ]
+        );
+    }
+
+    #[test]
+    fn separated_reachable_inputs_resolve_codec_with_targets() {
+        let mut standard = lower(concat!(
+            "mod std::prelude\n",
+            "pub schema Packet\n",
+            "  value: Int\n",
+            "end\n",
+            "\n",
+            "fn decode_payload_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{value: Int}>\n",
+            "  NeedMore(NeedEnd)\n",
+            "end\n",
+        ));
+        add_payload_codec_for_test(&mut standard);
+        let application = lower(concat!(
+            "mod app\n",
+            "use std::prelude\n",
+            "\n",
+            "pub fn main(source: ByteView, base: ByteOffset) -> DecodeStep<{value: Int}>\n",
+            "  std::prelude::PayloadCodec(source, base)\n",
+            "end\n",
+        ));
+        let mut combined = standard.clone();
+        combined.uses.extend(application.uses.clone());
+        combined.aliases.extend(application.aliases.clone());
+        combined.effects.extend(application.effects.clone());
+        combined.handlers.extend(application.handlers.clone());
+        combined.types.extend(application.types.clone());
+        combined.schemas.extend(application.schemas.clone());
+        combined.codecs.extend(application.codecs.clone());
+        combined.functions.extend(application.functions.clone());
+        combined.module = application.module.clone();
+
+        let combined_reachable = reachable_entry_module(&combined, "main", FunctionKind::Function);
+        let separated_reachable = reachable_entry_module_with_standard_cache(
+            &standard,
+            &application,
+            "main",
+            FunctionKind::Function,
+            &ReachabilityCache::default(),
+        );
+
+        let combined_functions = reachable_function_names(&combined_reachable);
+        let separated_functions = reachable_function_names(&separated_reachable);
+        assert_eq!(separated_functions, combined_functions);
+        assert_eq!(
+            separated_functions,
+            vec![("app", "main"), ("std::prelude", "decode_payload_packet")]
+        );
+    }
+
+    fn add_payload_codec_for_test(module: &mut SurfaceModule) {
+        let schema = module
+            .schemas
+            .iter()
+            .find(|schema| schema.name.as_deref() == Some("Packet"))
+            .expect("test standard module should define Packet schema");
+        module.codecs.push(CodecDecl {
+            node_id: schema.node_id,
+            module_name: Some("std::prelude".to_string()),
+            visibility: Visibility::Public,
+            name: Some("PayloadCodec".to_string()),
+            schema: Some("Packet".to_string()),
+            directions: vec![CodecDirection::Decode],
+            implementations: vec![CodecImplementationClause {
+                node_id: schema.node_id,
+                direction: CodecDirection::Decode,
+                kind: CodecImplementationKind::With {
+                    function: Some("decode_payload_packet".to_string()),
+                },
+                span: schema.span.clone(),
+            }],
+            span: schema.span.clone(),
+        });
     }
 
     #[test]
