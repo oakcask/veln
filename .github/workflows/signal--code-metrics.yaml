@@ -10,6 +10,10 @@ on:
       - Cargo.toml
       - crates/**/Cargo.toml
       - crates/**/*.rs
+      - tools/**/Cargo.toml
+      - tools/**/*.rs
+      - workflow-scripts/check-repo-metrics.mjs
+      - workflow-scripts/check-repo-metrics.test.mjs
   pull_request:
     paths:
       - .github/workflows/signal--code-metrics.yaml
@@ -17,12 +21,17 @@ on:
       - Cargo.toml
       - crates/**/Cargo.toml
       - crates/**/*.rs
+      - tools/**/Cargo.toml
+      - tools/**/*.rs
+      - workflow-scripts/check-repo-metrics.mjs
+      - workflow-scripts/check-repo-metrics.test.mjs
 
 permissions:
   contents: read
 
 env:
   CARGO_TERM_COLOR: always
+  NODE_VERSION: "26"
 
 jobs:
   rust-refactor-signals:
@@ -30,5 +39,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-      - name: Check Rust refactor signals
-        run: cargo run --locked -p veln-code-metrics -- --github-annotations --dependency-summary --deny-dependency-cycles --threshold 30 --file-line-threshold 700 --max-warnings 50 --deny-numbered-split-files crates
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Check Rust repository metrics policy
+        run: |
+          cargo run --locked -p veln-repo-metrics -- \
+            --format json \
+            --dependency-graph \
+            --threshold 30 \
+            --file-line-threshold 700 \
+            crates tools \
+            | node workflow-scripts/check-repo-metrics.mjs

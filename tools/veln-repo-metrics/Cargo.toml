@@ -1,5 +1,5 @@
 [package]
-name = "veln-code-metrics"
+name = "veln-repo-metrics"
 edition.workspace = true
 version.workspace = true
 publish = false
@@ -12,5 +12,5 @@ syn = { workspace = true, features = ["full", "parsing", "visit"] }
 workspace = true
 
 [[bin]]
-name = "veln-code-metrics"
+name = "veln-repo-metrics"
 path = "src/main.rs"
