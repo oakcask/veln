@@ -8031,10 +8031,6 @@ impl ExprEffectCollector<'_, '_, '_> {
             for effect in effects {
                 push_unique_effect(self.inferred, effect);
             }
-        } else if let Some(effects) = prelude_effects(segments) {
-            for effect in effects {
-                push_unique_effect(self.inferred, effect);
-            }
         } else if let [name] = segments.as_slice()
             && let Some(effects) = lexical_effects_for_bare_callee(
                 name,
@@ -8043,6 +8039,10 @@ impl ExprEffectCollector<'_, '_, '_> {
             )
         {
             self.push_all(effects);
+        } else if let Some(effects) = prelude_effects(segments) {
+            for effect in effects {
+                push_unique_effect(self.inferred, effect);
+            }
         } else if let Some(signature) = function_signature_path(
             segments,
             self.context.uses,

@@ -1,0 +1,19 @@
+effect Ask
+	value(stream_adapter_accept_loop: fn() -> String) -> String
+end
+
+fn answer() -> String
+	"ok"
+end
+
+handler ask() handles Ask
+	value(stream_adapter_accept_loop) => stream_adapter_accept_loop()
+end
+
+fn compute() -> String effects [Ask]
+	perform Ask::value(answer)
+end
+
+pub fn run_case() -> String
+	handle compute() with ask()
+end
