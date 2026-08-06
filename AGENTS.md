@@ -1,5 +1,7 @@
 * Think in English.
 * Do not write full path in files.
+* Name repository-maintenance Cargo packages `veln-repo-*` and place them
+  under `tools/`. Reserve other `veln-*` package names for toolchain components.
 * Do not write calendar dates in documentation, source, comments, filenames,
   or metadata unless testing date-pattern behavior or preserving an externally
   defined identifier such as a URL.

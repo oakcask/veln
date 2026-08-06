@@ -10,6 +10,8 @@ on:
       - Cargo.toml
       - crates/**/Cargo.toml
       - crates/**/*.rs
+      - tools/**/Cargo.toml
+      - tools/**/*.rs
   pull_request:
     paths:
       - .github/workflows/lint--rust.yaml
@@ -17,6 +19,8 @@ on:
       - Cargo.toml
       - crates/**/Cargo.toml
       - crates/**/*.rs
+      - tools/**/Cargo.toml
+      - tools/**/*.rs
 
 permissions:
   contents: read

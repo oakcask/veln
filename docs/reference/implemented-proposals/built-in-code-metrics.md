@@ -1,10 +1,10 @@
 ---
+role: implementation-record
+authority: supporting
 review-when: The implemented metrics report, its executable evidence, or the decision to keep enforcement out of scope changes.
 ---
 
 # Built-In Code Metrics
-
-Status: implemented
 
 ## Completion Summary
 
@@ -41,7 +41,7 @@ baseline behavior, diagnostic contract, and project evidence.
 
 The public Veln metrics command operates on Veln syntax, Veln module
 identities, and project analysis artifacts. It does not generalize the
-Rust-only `veln-code-metrics` maintenance tool.
+Rust-only `veln-repo-metrics` repository-maintenance tool.
 
 ## Implemented Evidence
 
