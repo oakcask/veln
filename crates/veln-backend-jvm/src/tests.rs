@@ -15,7 +15,7 @@ use crate::java::{
 use crate::runtime::{concurrency_method, prelude_method, standard_library_method, stdio_method};
 use crate::*;
 use veln_ast::lower_surface_ast_with_module_identity;
-use veln_ir::TypedProgram;
+use veln_ir::{IrCallTarget, IrExpr, IrExprKind, IrStmtKind, TypedProgram};
 use veln_sema::lower_checked_surface_module;
 use veln_source::{SourceFile, TextRange};
 use veln_syntax::parse;
@@ -737,6 +737,84 @@ fn bytecode_backend_classfiles_run_when_java_is_available() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert_eq!(String::from_utf8_lossy(&output.stdout), "ok\n");
+}
+
+#[test]
+fn bytecode_backend_schema_encode_step_calls_match_runtime_metadata_contract() {
+    for budgeted in [false, true] {
+        let mut ir = lower_to_ir(concat!(
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  value: UInt8\n",
+            "end\n",
+            "\n",
+            "fn encode_budget() -> ByteCount\n",
+            "  match byte_count(1)\n",
+            "    Ok(value) => value\n",
+            "    Err(_) => encode_budget()\n",
+            "  end\n",
+            "end\n",
+            "\n",
+            "pub fn main() -> Result<ByteChunk, EncodeError>\n",
+            "  encode PacketWire from {value: 7}\n",
+            "end\n",
+        ));
+        let budget_type = ir
+            .functions
+            .iter()
+            .find(|function| function.name == "encode_budget")
+            .map(|function| function.return_type.clone())
+            .expect("budget helper should be lowered");
+        let function = ir
+            .functions
+            .iter_mut()
+            .find(|function| function.name == "main")
+            .expect("main should be lowered");
+        let value = function
+            .body
+            .iter_mut()
+            .find_map(|statement| match &mut statement.kind {
+                IrStmtKind::Return { value } => Some(value),
+                _ => None,
+            })
+            .expect("main should return the schema encode call");
+        let IrExprKind::Call { target, args } = &mut value.kind else {
+            panic!("main should return a call");
+        };
+        assert!(matches!(target, IrCallTarget::SchemaEncode(name) if name == "PacketWire"));
+        *target = IrCallTarget::SchemaEncodeStep("PacketWire".to_string());
+        if budgeted {
+            let node_id = value.node_id;
+            let span = value.span.clone();
+            args.push(IrExpr {
+                node_id,
+                ty: budget_type,
+                kind: IrExprKind::Call {
+                    target: IrCallTarget::Function("encode_budget".to_string()),
+                    args: Vec::new(),
+                },
+                span,
+            });
+        }
+
+        let program = generate_classfiles_with_entry(&ir, "main");
+        let case = if budgeted {
+            "schema-encode-step-budgeted"
+        } else {
+            "schema-encode-step"
+        };
+        let Some(output) = run_jvm_program_when_java_is_available(case, &program, &[]) else {
+            return;
+        };
+
+        assert!(
+            output.status.success(),
+            "{case}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(String::from_utf8_lossy(&output.stdout), "", "{case}");
+    }
 }
 
 #[test]

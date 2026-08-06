@@ -1094,28 +1094,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             panic!("schema encoder call should receive one record argument");
         };
         self.emit_expr(code, value);
-        code.ldc_string(&schema.schema_name);
-        self.emit_schema_field_names(code, schema);
-        self.emit_schema_field_widths(code, schema);
-        self.emit_schema_field_max_values(code, schema);
-        self.emit_schema_field_little_endian_values(code, schema);
-        self.emit_schema_repeat_count_fields(code, schema);
-        self.emit_schema_repeat_widths(code, schema);
-        self.emit_schema_repeat_max_values(code, schema);
-        self.emit_schema_repeat_little_endian_values(code, schema);
-        self.emit_schema_repeat_reserved_values(code, schema);
-        self.emit_schema_repeat_byte_view_length_fields(code, schema);
-        self.emit_schema_repeat_schema_specs(code, schema);
-        self.emit_schema_reserved_bit_widths(code, schema);
-        self.emit_schema_reserved_values(code, schema);
-        self.emit_schema_field_predicates(code, schema);
-        self.emit_schema_byte_view_multiples(code, schema);
-        self.emit_schema_dispatch_tag_fields(code, schema);
-        self.emit_schema_dispatch_length_fields(code, schema);
-        self.emit_schema_dispatch_case_tags(code, schema);
-        self.emit_schema_dispatch_case_widths(code, schema);
-        self.emit_schema_dispatch_case_little_endian_values(code, schema);
-        self.emit_schema_dispatch_case_schema_specs(code, schema);
+        self.emit_schema_encoding_metadata(code, schema);
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteEncodeDeclaredBinarySchema",
@@ -1174,44 +1153,35 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             .iter()
             .find(|schema| schema.schema_name == name)
             .unwrap_or_else(|| panic!("missing schema encoder spec `{name}`"));
-        let [value] = args else {
-            let [value, budget] = args else {
-                panic!(
-                    "schema encode-step call should receive one record argument or value plus budget"
-                );
-            };
-            self.emit_expr(code, value);
-            self.emit_expr(code, budget);
-            code.ldc_string(&schema.schema_name);
-            self.emit_schema_field_names(code, schema);
-            self.emit_schema_field_widths(code, schema);
-            self.emit_schema_field_max_values(code, schema);
-            self.emit_schema_field_little_endian_values(code, schema);
-            self.emit_schema_repeat_count_fields(code, schema);
-            self.emit_schema_repeat_widths(code, schema);
-            self.emit_schema_repeat_max_values(code, schema);
-            self.emit_schema_repeat_little_endian_values(code, schema);
-            self.emit_schema_repeat_reserved_values(code, schema);
-            self.emit_schema_repeat_byte_view_length_fields(code, schema);
-            self.emit_schema_repeat_schema_specs(code, schema);
-            self.emit_schema_reserved_bit_widths(code, schema);
-            self.emit_schema_reserved_values(code, schema);
-            self.emit_schema_field_predicates(code, schema);
-            self.emit_schema_byte_view_multiples(code, schema);
-            self.emit_schema_dispatch_tag_fields(code, schema);
-            self.emit_schema_dispatch_length_fields(code, schema);
-            self.emit_schema_dispatch_case_tags(code, schema);
-            self.emit_schema_dispatch_case_widths(code, schema);
-            self.emit_schema_dispatch_case_little_endian_values(code, schema);
-            self.emit_schema_dispatch_case_schema_specs(code, schema);
-            code.invokestatic(
-                &self.program.options.runtime_class,
+        let (value, budget, runtime_method, argument_count) = match args {
+            [value] => (value, None, "byteEncodeStepDeclaredBinarySchema", 23),
+            [value, budget] => (
+                value,
+                Some(budget),
                 "byteEncodeStepDeclaredBinarySchemaBudgeted",
-                &object_method_descriptor(24),
-            );
-            return;
+                24,
+            ),
+            _ => panic!(
+                "schema encode-step call should receive one record argument or value plus budget"
+            ),
         };
         self.emit_expr(code, value);
+        if let Some(budget) = budget {
+            self.emit_expr(code, budget);
+        }
+        self.emit_schema_encoding_metadata(code, schema);
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            runtime_method,
+            &object_method_descriptor(argument_count),
+        );
+    }
+
+    fn emit_schema_encoding_metadata(
+        &mut self,
+        code: &mut MethodCode,
+        schema: &IrSchemaDecodeSpec,
+    ) {
         code.ldc_string(&schema.schema_name);
         self.emit_schema_field_names(code, schema);
         self.emit_schema_field_widths(code, schema);
@@ -1234,11 +1204,6 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_schema_dispatch_case_widths(code, schema);
         self.emit_schema_dispatch_case_little_endian_values(code, schema);
         self.emit_schema_dispatch_case_schema_specs(code, schema);
-        code.invokestatic(
-            &self.program.options.runtime_class,
-            "byteEncodeStepDeclaredBinarySchema",
-            &object_method_descriptor(23),
-        );
     }
 
     fn emit_schema_validate_call(&mut self, code: &mut MethodCode, name: &str, args: &[IrExpr]) {
