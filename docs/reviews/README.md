@@ -26,6 +26,8 @@ behavior specifications.
 - [toolchain-analysis-embedded-lowered-standard.json](toolchain-analysis-embedded-lowered-standard.json)
   records the controlled comparison for embedded lowered standard-library
   modules.
+- [toolchain-analysis-backend-runtime-substages.json](toolchain-analysis-backend-runtime-substages.json)
+  records the controlled comparison for backend/runtime substage timing.
 - A proposal or reference page links to a named review record.
 - A local benchmark result or audit record is needed to check why a proposal
   slice was accepted.

@@ -331,18 +331,27 @@ test("aggregates stage medians and selects the dominant measured stage", () => {
       timing("http2_connection", "new-1", "surface_parse_lower", 0.2),
       timing("http2_connection", "new-1", "semantic_environment_check", 4),
       timing("http2_connection", "new-1", "reachable_entry_lowering", 0.4),
-      timing("http2_connection", "new-1", "backend_runtime_remainder", 0.5),
+      timing("http2_connection", "new-1", "backend_class_cache_prepare", 0.5),
+      timing("http2_connection", "new-1", "backend_classfile_generation", 0.05),
+      timing("http2_connection", "new-1", "backend_java_subprocess", 0.7),
+      timing("http2_connection", "new-1", "backend_result_cleanup", 0.1),
       timing("http2_connection", "new-2", "source_loading", 0.3),
       timing("http2_connection", "new-2", "surface_parse_lower", 0.6),
       timing("http2_connection", "new-2", "semantic_environment_check", 2),
       timing("http2_connection", "new-2", "reachable_entry_lowering", 0.6),
-      timing("http2_connection", "new-2", "backend_runtime_remainder", 0.7),
+      timing("http2_connection", "new-2", "backend_class_cache_prepare", 0.7),
+      timing("http2_connection", "new-2", "backend_classfile_generation", 0.15),
+      timing("http2_connection", "new-2", "backend_java_subprocess", 0.9),
+      timing("http2_connection", "new-2", "backend_result_cleanup", 0.2),
     ],
     ["new-1", "new-2"],
   );
 
   assert.deepEqual(summary.stage_medians_seconds, {
-    backend_runtime_remainder: 0.6,
+    backend_class_cache_prepare: 0.6,
+    backend_classfile_generation: 0.1,
+    backend_java_subprocess: 0.8,
+    backend_result_cleanup: 0.15000000000000002,
     reachable_entry_lowering: 0.5,
     semantic_environment_check: 3,
     surface_parse_lower: 0.4,
@@ -354,9 +363,27 @@ test("aggregates stage medians and selects the dominant measured stage", () => {
 
 test("keeps baseline stage timing unavailable and rejects partial instrumented runs", () => {
   assert.deepEqual(summarizeStageRecords([], ["baseline-1"]), { status: "unavailable" });
+  const legacyBaselineRecords = [
+    timing("http2_core", "baseline-1", "source_loading", 0.1),
+    timing("http2_core", "baseline-1", "surface_parse_lower", 0.2),
+    timing("http2_core", "baseline-1", "semantic_environment_check", 0.3),
+    timing("http2_core", "baseline-1", "reachable_entry_lowering", 0.4),
+    timing("http2_core", "baseline-1", "backend_runtime_remainder", 0.5),
+  ];
+  assert.deepEqual(
+    summarizeStageRecords(legacyBaselineRecords, ["baseline-1"]).stage_medians_seconds.backend_runtime_remainder,
+    0.5,
+  );
   assert.throws(
     () => summarizeStageRecords([], ["new-1"], { instrumentationRequired: true }),
     /missing timing records/,
+  );
+  assert.throws(
+    () =>
+      summarizeStageRecords(legacyBaselineRecords, ["baseline-1"], {
+        instrumentationRequired: true,
+      }),
+    /missing timing stage/,
   );
   assert.throws(
     () => summarizeStageRecords([timing("http2_core", "new-1", "source_loading", 0.1)], ["new-1", "new-2"]),
@@ -375,7 +402,10 @@ test("rejects stage totals that exceed the measured wall time", () => {
       timing("http2_connection", "new-1", "surface_parse_lower", 0.2),
       timing("http2_connection", "new-1", "semantic_environment_check", 0.3),
       timing("http2_connection", "new-1", "reachable_entry_lowering", 4),
-      timing("http2_connection", "new-1", "backend_runtime_remainder", 0.4),
+      timing("http2_connection", "new-1", "backend_class_cache_prepare", 0.4),
+      timing("http2_connection", "new-1", "backend_classfile_generation", 0.1),
+      timing("http2_connection", "new-1", "backend_java_subprocess", 0.2),
+      timing("http2_connection", "new-1", "backend_result_cleanup", 0.1),
     ],
     ["new-1"],
   );
@@ -393,7 +423,10 @@ test("validates checked benchmark result structure", () => {
       timing("http2_core", "new-1", "surface_parse_lower", 0.2),
       timing("http2_core", "new-1", "semantic_environment_check", 0.3),
       timing("http2_core", "new-1", "reachable_entry_lowering", 0.4),
-      timing("http2_core", "new-1", "backend_runtime_remainder", 0.5),
+      timing("http2_core", "new-1", "backend_class_cache_prepare", 0.5),
+      timing("http2_core", "new-1", "backend_classfile_generation", 0.1),
+      timing("http2_core", "new-1", "backend_java_subprocess", 0.2),
+      timing("http2_core", "new-1", "backend_result_cleanup", 0.1),
     ],
     ["new-1"],
   );
@@ -407,7 +440,7 @@ test("validates checked benchmark result structure", () => {
             stage_timing: { status: "unavailable" },
           },
           new: {
-            runs: [{ wall_time_seconds: 1.5, user_cpu_seconds: 1 }],
+            runs: [{ wall_time_seconds: 2, user_cpu_seconds: 1 }],
             stage_timing: stageTiming,
           },
         },

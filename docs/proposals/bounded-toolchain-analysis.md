@@ -56,6 +56,17 @@ proposal scope:
   body materialization bounds on the separated input path.
   The representative HTTP/2 wall-time ratios still stayed above the one-third
   threshold.
+- Backend/runtime remainder substage measurement is implemented. Its
+  controlled comparison is recorded in
+  [../reviews/toolchain-analysis-backend-runtime-substages.json](../reviews/toolchain-analysis-backend-runtime-substages.json).
+  Functional output and wall-time noise passed. For both representative
+  HTTP/2 workloads, `backend_java_subprocess` is the dominant measured
+  substage inside the former backend/runtime remainder. HTTP/2 core recorded a
+  median `backend_java_subprocess` time of 0.039026058 seconds, 31.8549201139
+  percent of new median wall time. HTTP/2 connection recorded a median
+  `backend_java_subprocess` time of 0.060410798 seconds, 30.2035881439 percent
+  of new median wall time. The next optimization slice therefore targets the
+  Java subprocess boundary for both representative HTTP/2 workloads.
 - The existing toolchain suite remains authoritative for command behavior.
 
 The remaining proposal scope starts after those slices. It is limited to
@@ -246,6 +257,11 @@ dedicated benchmark runner exists.
 - Keep the completed boundary that reachable-entry lowering traverses
   application and selected standard-library inputs separately and materializes
   only reachable functions for lowering.
+- Keep the completed opt-in backend/runtime substage timing that reports
+  classfile generation, class cache preparation, Java subprocess execution,
+  and result processing plus cleanup as separate measured stages.
+- Reduce the `backend_java_subprocess` boundary selected by the substage
+  comparison for both representative HTTP/2 workloads.
 - Replace the current controlled comparison only when every functional
   comparison passes, wall-time noise remains within the accepted boundary,
   and both representative HTTP/2 wall-time thresholds pass.

@@ -22,6 +22,15 @@ pub(crate) enum JvmRunResult {
     ToolError(String),
 }
 
+pub(crate) enum JvmPrepareResult {
+    Ready(PreparedJvmClasses),
+    ToolError(String),
+}
+
+pub(crate) struct PreparedJvmClasses {
+    class_dir: PathBuf,
+}
+
 pub(crate) fn prepare_and_run_jvm_capture_with_env(
     _build_dir: &Path,
     program: &veln_backend_jvm::JvmProgram,
@@ -29,14 +38,34 @@ pub(crate) fn prepare_and_run_jvm_capture_with_env(
     java_env: &[(&str, &OsStr)],
     java_args: &[String],
 ) -> Result<JvmRunResult, String> {
-    let class_dir = match ensure_cached_jvm_classes(program)? {
-        CachedJvmClasses::Ready(path) => path,
-        CachedJvmClasses::ToolError(message) => return Ok(JvmRunResult::ToolError(message)),
+    let prepared = match prepare_jvm_classes(program)? {
+        JvmPrepareResult::Ready(prepared) => prepared,
+        JvmPrepareResult::ToolError(message) => return Ok(JvmRunResult::ToolError(message)),
     };
 
+    run_prepared_jvm_capture_with_env(&prepared, command_name, java_env, java_args)
+}
+
+pub(crate) fn prepare_jvm_classes(
+    program: &veln_backend_jvm::JvmProgram,
+) -> Result<JvmPrepareResult, String> {
+    match ensure_cached_jvm_classes(program)? {
+        CachedJvmClasses::Ready(class_dir) => {
+            Ok(JvmPrepareResult::Ready(PreparedJvmClasses { class_dir }))
+        }
+        CachedJvmClasses::ToolError(message) => Ok(JvmPrepareResult::ToolError(message)),
+    }
+}
+
+pub(crate) fn run_prepared_jvm_capture_with_env(
+    prepared: &PreparedJvmClasses,
+    command_name: &str,
+    java_env: &[(&str, &OsStr)],
+    java_args: &[String],
+) -> Result<JvmRunResult, String> {
     run_jvm_class_dir(
         OsStr::new("java"),
-        &class_dir,
+        &prepared.class_dir,
         command_name,
         java_env,
         java_args,

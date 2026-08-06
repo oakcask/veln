@@ -21,8 +21,8 @@ use crate::diagnostics::{
     write_harness_source_diagnostic_artifact,
 };
 use crate::java::{
-    JvmRunResult, create_build_dir, exit_code_from_status, forward_process_output,
-    prepare_and_run_jvm_capture_with_env,
+    JvmPrepareResult, JvmRunResult, PreparedJvmClasses, create_build_dir, exit_code_from_status,
+    forward_process_output, prepare_jvm_classes, run_prepared_jvm_capture_with_env,
 };
 
 pub(crate) fn run_entry(
@@ -51,13 +51,37 @@ pub(crate) fn run_entry(
         return Ok(ExitCode::from(1));
     };
 
-    let backend_start = timings.is_some().then(Instant::now);
+    let classfile_start = timings.is_some().then(Instant::now);
     let jvm = generate_classfiles_with_entry_arg_types(&ir, &entry, &entry_arg_types);
+    record_timing_elapsed(
+        &mut timings,
+        "backend_classfile_generation",
+        classfile_start,
+    );
+
+    let cache_start = timings.is_some().then(Instant::now);
     let build_dir = create_build_dir("veln-run").map_err(|error| error.to_string())?;
-    let result = if json {
-        run_json(&build_dir, &jvm, &entry_args)
+    let prepared = prepare_jvm_classes(&jvm)?;
+    record_timing_elapsed(&mut timings, "backend_class_cache_prepare", cache_start);
+
+    let java_start = timings.is_some().then(Instant::now);
+    let result = match prepared {
+        JvmPrepareResult::Ready(prepared) => {
+            if json {
+                run_json_java(&build_dir, &prepared, &entry_args)
+            } else {
+                run_human_java(&build_dir, &prepared, &entry_args)
+            }?
+        }
+        JvmPrepareResult::ToolError(message) => JvmRunResult::ToolError(message),
+    };
+    record_timing_elapsed(&mut timings, "backend_java_subprocess", java_start);
+
+    let result_start = timings.is_some().then(Instant::now);
+    let exit_code = if json {
+        finish_run_json(&build_dir, result)
     } else {
-        run_human(&build_dir, &jvm, &entry_args)
+        finish_run_human(&build_dir, result)
     };
     let cleanup_result = fs::remove_dir_all(&build_dir);
     if let Err(error) = cleanup_result {
@@ -66,11 +90,9 @@ pub(crate) fn run_entry(
             build_dir.display()
         );
     }
-    if let (Some(timings), Some(start)) = (timings.as_mut(), backend_start) {
-        timings.push("backend_runtime_remainder", start.elapsed());
-    }
+    record_timing_elapsed(&mut timings, "backend_result_cleanup", result_start);
     write_timings(&timings)?;
-    result
+    exit_code
 }
 
 fn analyze_run_project(
@@ -346,6 +368,16 @@ fn write_timings(timings: &Option<RunAnalysisTimings>) -> Result<(), String> {
     Ok(())
 }
 
+fn record_timing_elapsed(
+    timings: &mut Option<RunAnalysisTimings>,
+    stage: &'static str,
+    start: Option<Instant>,
+) {
+    if let (Some(timings), Some(start)) = (timings.as_mut(), start) {
+        timings.push(stage, start.elapsed());
+    }
+}
+
 fn json_literal_string(value: &str) -> String {
     JsonValue::string(value).to_json()
 }
@@ -403,14 +435,24 @@ fn retained_user_effect_diagnostic(
 
 fn run_human(
     build_dir: &std::path::Path,
-    program: &veln_backend_jvm::JvmProgram,
+    prepared: &PreparedJvmClasses,
     entry_args: &[String],
-) -> Result<ExitCode, String> {
+) -> Result<JvmRunResult, String> {
     let result_error_file = build_dir.join("result-errors.tsv");
     let event_env = [("VELN_RESULT_ERRORS", result_error_file.as_os_str())];
-    let result = prepare_and_run_jvm_capture_with_env(
-        build_dir, program, "veln run", &event_env, entry_args,
-    )?;
+    run_prepared_jvm_capture_with_env(prepared, "veln run", &event_env, entry_args)
+}
+
+fn run_human_java(
+    build_dir: &std::path::Path,
+    prepared: &PreparedJvmClasses,
+    entry_args: &[String],
+) -> Result<JvmRunResult, String> {
+    run_human(build_dir, prepared, entry_args)
+}
+
+fn finish_run_human(build_dir: &std::path::Path, result: JvmRunResult) -> Result<ExitCode, String> {
+    let result_error_file = build_dir.join("result-errors.tsv");
     let output = match result {
         JvmRunResult::Ran(output) => output,
         JvmRunResult::ToolError(message) => {
@@ -2838,9 +2880,9 @@ fn json_bool(entries: &[(String, JsonValue)], key: &str) -> Option<bool> {
 
 fn run_json(
     build_dir: &std::path::Path,
-    program: &veln_backend_jvm::JvmProgram,
+    prepared: &PreparedJvmClasses,
     entry_args: &[String],
-) -> Result<ExitCode, String> {
+) -> Result<JvmRunResult, String> {
     let contract_error_file = build_dir.join("contract-errors.tsv");
     let result_error_file = build_dir.join("result-errors.tsv");
     let transport_error_file = build_dir.join("transport-errors.tsv");
@@ -2849,9 +2891,21 @@ fn run_json(
         ("VELN_RESULT_ERRORS", result_error_file.as_os_str()),
         ("VELN_TRANSPORT_ERRORS", transport_error_file.as_os_str()),
     ];
-    let result = prepare_and_run_jvm_capture_with_env(
-        build_dir, program, "veln run", &event_env, entry_args,
-    )?;
+    run_prepared_jvm_capture_with_env(prepared, "veln run", &event_env, entry_args)
+}
+
+fn run_json_java(
+    build_dir: &std::path::Path,
+    prepared: &PreparedJvmClasses,
+    entry_args: &[String],
+) -> Result<JvmRunResult, String> {
+    run_json(build_dir, prepared, entry_args)
+}
+
+fn finish_run_json(build_dir: &std::path::Path, result: JvmRunResult) -> Result<ExitCode, String> {
+    let contract_error_file = build_dir.join("contract-errors.tsv");
+    let result_error_file = build_dir.join("result-errors.tsv");
+    let transport_error_file = build_dir.join("transport-errors.tsv");
     let contract_error_trace = fs::read_to_string(&contract_error_file).unwrap_or_default();
     let result_error_trace = fs::read_to_string(&result_error_file).unwrap_or_default();
     let transport_error_trace = fs::read_to_string(&transport_error_file).unwrap_or_default();
@@ -3319,12 +3373,19 @@ mod tests {
             records: Vec::new(),
         };
 
-        timings.push("source_loading", Duration::from_nanos(250_000_000));
+        timings.push(
+            "backend_classfile_generation",
+            Duration::from_nanos(250_000_000),
+        );
+        timings.push(
+            "backend_class_cache_prepare",
+            Duration::from_nanos(125_000_000),
+        );
         timings.write().expect("timing records should be written");
 
         assert_eq!(
             fs::read_to_string(&timing_file).expect("timing file should be readable"),
-            "{\"workload\":\"http2_core\",\"run\":\"new-1\",\"stage\":\"source_loading\",\"boundary\":\"source_loading\",\"duration_seconds\":0.250000000}\n"
+            "{\"workload\":\"http2_core\",\"run\":\"new-1\",\"stage\":\"backend_classfile_generation\",\"boundary\":\"backend_classfile_generation\",\"duration_seconds\":0.250000000}\n{\"workload\":\"http2_core\",\"run\":\"new-1\",\"stage\":\"backend_class_cache_prepare\",\"boundary\":\"backend_class_cache_prepare\",\"duration_seconds\":0.125000000}\n"
         );
 
         fs::remove_dir_all(root).expect("test project should be removed");

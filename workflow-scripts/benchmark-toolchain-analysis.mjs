@@ -43,9 +43,22 @@ const REQUIRED_STAGE_TIMINGS = [
   "surface_parse_lower",
   "semantic_environment_check",
   "reachable_entry_lowering",
+  "backend_classfile_generation",
+  "backend_class_cache_prepare",
+  "backend_java_subprocess",
+  "backend_result_cleanup",
+];
+const LEGACY_STAGE_TIMINGS = [
+  "source_loading",
+  "surface_parse_lower",
+  "semantic_environment_check",
+  "reachable_entry_lowering",
   "backend_runtime_remainder",
 ];
-const REQUIRED_STAGE_TIMING_SET = new Set(REQUIRED_STAGE_TIMINGS);
+const REQUIRED_STAGE_TIMING_SET = new Set([
+  ...REQUIRED_STAGE_TIMINGS,
+  ...LEGACY_STAGE_TIMINGS,
+]);
 
 export function median(values) {
   if (values.length === 0) {
@@ -221,9 +234,10 @@ export function summarizeStageRecords(records, expectedRuns, options = {}) {
   if (missingRuns.length > 0) {
     throw new Error(`missing timing records for run(s): ${missingRuns.join(", ")}`);
   }
+  const requiredStages = selectRequiredStageTimings(recordsByRun, expectedRuns, options);
   for (const run of expectedRuns) {
     const stages = new Set(recordsByRun.get(run).map((record) => record.stage));
-    const missingStages = REQUIRED_STAGE_TIMINGS.filter((stage) => !stages.has(stage));
+    const missingStages = requiredStages.filter((stage) => !stages.has(stage));
     if (missingStages.length > 0) {
       throw new Error(`missing timing stage(s) for run ${run}: ${missingStages.join(", ")}`);
     }
@@ -255,6 +269,24 @@ export function summarizeStageRecords(records, expectedRuns, options = {}) {
       ),
     })),
   };
+}
+
+function selectRequiredStageTimings(recordsByRun, expectedRuns, options) {
+  if (options.instrumentationRequired) {
+    return REQUIRED_STAGE_TIMINGS;
+  }
+  if (expectedRuns.every((run) => hasEveryStage(recordsByRun.get(run), REQUIRED_STAGE_TIMINGS))) {
+    return REQUIRED_STAGE_TIMINGS;
+  }
+  if (expectedRuns.every((run) => hasEveryStage(recordsByRun.get(run), LEGACY_STAGE_TIMINGS))) {
+    return LEGACY_STAGE_TIMINGS;
+  }
+  return REQUIRED_STAGE_TIMINGS;
+}
+
+function hasEveryStage(records, stages) {
+  const actual = new Set((records ?? []).map((record) => record.stage));
+  return stages.every((stage) => actual.has(stage));
 }
 
 export function validateStageSummaryFitsRuns(stageTiming, runs, label) {
