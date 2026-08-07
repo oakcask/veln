@@ -1,0 +1,5 @@
+[lib]
+exports = [
+  "app.veln",
+  "nested/hidden.veln",
+]

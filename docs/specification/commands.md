@@ -1,4 +1,6 @@
 ---
+role: specification
+authority: normative
 review-when: The documented command behavior or executable command evidence changes.
 ---
 
@@ -20,7 +22,9 @@ requiring the full command reference on the first read.
   implemented command behavior. Use
   [commands-full.md#command-help](commands-full.md#command-help) when changing
   help parsing or output.
-- `check`: source discovery, source path derived local module identity,
+- `check`: source discovery, nested-manifest package boundaries for recursive
+  and explicit inputs, ordinary `target` source directories, source path
+  derived local module identity,
   `.test.veln` companion target inclusion, manifest dependency metadata
   validation, exact companion private-function and private source ADT access
   through qualified target imports, exact companion private nominal effect
@@ -32,6 +36,9 @@ requiring the full command reference on the first read.
   [source-surface.md](source-surface.md) for the companion private-function
   and source ADT access and isolation cases, then
   [commands-full.md](commands-full.md) for exact command rules.
+  Package-boundary command evidence lives in the checked cases
+  `manifest-package-boundary-discovery` and
+  `explicit-nested-package-boundary`.
 - `fmt`: whole-invocation parse gate, deterministic formatting, tab-based
   canonical indentation, schema layout, `match` arm indentation, and canonical
   binary schema primitive spelling for supported compatibility fields and

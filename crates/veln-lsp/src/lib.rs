@@ -2387,6 +2387,34 @@ mod tests {
     }
 
     #[test]
+    fn server_analysis_respects_manifest_boundaries_and_owned_target_sources() {
+        let mut server = Server::default();
+        let project = TempProject::new("manifest-boundary-analysis");
+        project.write("veln.toml", "[package]\nname = \"outer\"\n");
+        project.write("app.veln", "pub fn app() -> Int\n\t1\nend\n");
+        project.write("target/owned.veln", "pub fn owned() -> Int\n\t2\nend\n");
+        project.write("nested/veln.toml", "malformed nested manifest");
+        project.write("nested/hidden.veln", "this source must not be parsed");
+        let root_uri = path_to_uri(&project.root);
+        let app_uri = path_to_uri(&project.root.join("app.veln"));
+        let target_uri = path_to_uri(&project.root.join("target/owned.veln"));
+        let nested_uri = path_to_uri(&project.root.join("nested/hidden.veln"));
+
+        let responses = server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"workspaceFolders":[{{"uri":"{root_uri}","name":"outer"}}]}}}}"#
+        ));
+
+        assert!(publish_for_uri(&responses, &app_uri).contains(r#""diagnostics":[]"#));
+        assert!(publish_for_uri(&responses, &target_uri).contains(r#""diagnostics":[]"#));
+        assert!(
+            responses
+                .iter()
+                .all(|response| !response.contains(&nested_uri)),
+            "nested package source should not receive outer-project diagnostics"
+        );
+    }
+
+    #[test]
     fn server_clears_workspace_diagnostics_when_file_leaves_discovery() {
         let mut server = Server::default();
         let project = TempProject::new("workspace-diagnostics-left-discovery");

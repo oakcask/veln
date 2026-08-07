@@ -19,25 +19,58 @@ fn keeps_explicit_files_sorted_and_unique() {
 
     assert_eq!(
         paths,
-        vec![PathBuf::from("./a.veln"), PathBuf::from("./b.veln")]
+        vec![PathBuf::from("a.veln"), PathBuf::from("b.veln")]
     );
 }
 
 #[test]
-fn discovers_veln_files_recursively_and_skips_ignored_directories() {
+fn discovers_veln_files_recursively_and_only_skips_git_directories() {
     let temp = TempProject::new("recursive-discovery");
     temp.write("src/main.veln", "main");
     temp.write("src/nested/lib.veln", "lib");
     temp.write("src/readme.txt", "not source");
-    temp.write("target/generated.veln", "ignored");
+    temp.write("target/generated.veln", "owned");
     temp.write(".git/hooks/hook.veln", "ignored");
 
     let paths = discover_source_paths(temp.root(), &[]).unwrap();
 
     assert_eq!(
         paths,
-        vec![temp.path("src/main.veln"), temp.path("src/nested/lib.veln"),]
+        vec![
+            temp.path("src/main.veln"),
+            temp.path("src/nested/lib.veln"),
+            temp.path("target/generated.veln"),
+        ]
     );
+}
+
+#[test]
+fn nested_manifest_files_bound_recursive_discovery_without_being_parsed() {
+    let temp = TempProject::new("nested-manifest-boundaries");
+    temp.write("app.veln", "owned");
+    temp.write("vendor/deep/package/veln.toml", "not valid manifest syntax");
+    temp.write("vendor/deep/package/nested.veln", "not owned");
+    temp.write("target/owned.veln", "owned");
+    temp.write("target/package/veln.toml", "[package");
+    temp.write("target/package/nested.veln", "not owned");
+
+    let paths = discover_source_paths(temp.root(), &[]).unwrap();
+
+    assert_eq!(
+        paths,
+        vec![temp.path("app.veln"), temp.path("target/owned.veln")]
+    );
+}
+
+#[test]
+fn directory_named_veln_toml_does_not_establish_a_boundary() {
+    let temp = TempProject::new("manifest-marker-directory");
+    temp.write("branch/veln.toml/contents.txt", "not a manifest file");
+    temp.write("branch/owned.veln", "owned");
+
+    let paths = discover_source_paths(temp.root(), &[]).unwrap();
+
+    assert_eq!(paths, vec![temp.path("branch/owned.veln")]);
 }
 
 #[test]
@@ -53,15 +86,140 @@ fn discovers_veln_files_from_explicit_directories() {
 }
 
 #[test]
-fn explicit_directories_skip_ignored_subdirectories() {
+fn explicit_directories_skip_git_but_include_target_subdirectories() {
     let temp = TempProject::new("directory-input-ignored-subdirs");
     temp.write("tests/case.veln", "case");
-    temp.write("tests/target/generated.veln", "ignored");
+    temp.write("tests/target/generated.veln", "owned");
     temp.write("tests/.git/hooks/hook.veln", "ignored");
 
     let paths = discover_source_paths(temp.root(), &[PathBuf::from("tests")]).unwrap();
 
-    assert_eq!(paths, vec![temp.path("tests/case.veln")]);
+    assert_eq!(
+        paths,
+        vec![
+            temp.path("tests/case.veln"),
+            temp.path("tests/target/generated.veln"),
+        ]
+    );
+}
+
+#[test]
+fn explicit_inputs_reject_nested_package_ownership() {
+    let temp = TempProject::new("explicit-nested-package");
+    temp.write("nested/veln.toml", "");
+    temp.write("nested/source.veln", "nested");
+
+    let error = discover_source_paths(
+        temp.root(),
+        &[
+            PathBuf::from("app.veln"),
+            PathBuf::from("nested/source.veln"),
+        ],
+    )
+    .unwrap_err();
+
+    let message = error.to_string();
+    assert!(message.contains("nested/source.veln"), "{message}");
+    assert!(
+        message.contains(&temp.path("nested").display().to_string()),
+        "{message}"
+    );
+
+    let directory_error =
+        discover_source_paths(temp.root(), &[PathBuf::from("nested")]).unwrap_err();
+    let directory_message = directory_error.to_string();
+    assert!(directory_message.contains("nested`"), "{directory_message}");
+    assert!(
+        directory_message.contains(&temp.path("nested").display().to_string()),
+        "{directory_message}"
+    );
+}
+
+#[test]
+fn explicit_inputs_reject_paths_outside_the_package_root() {
+    let temp = TempProject::new("explicit-outside-package");
+    let outside = temp.root().parent().unwrap().join("outside.veln");
+
+    let absolute_error = discover_source_paths(temp.root(), &[outside.clone()]).unwrap_err();
+    assert!(
+        absolute_error
+            .to_string()
+            .contains(&outside.display().to_string())
+    );
+
+    let parent_error =
+        discover_source_paths(temp.root(), &[PathBuf::from("../outside.veln")]).unwrap_err();
+    assert!(parent_error.to_string().contains("../outside.veln"));
+}
+
+#[cfg(unix)]
+#[test]
+fn recursive_discovery_does_not_follow_source_directory_or_manifest_symlinks() {
+    use std::os::unix::fs::symlink;
+
+    let temp = TempProject::new("recursive-symlinks");
+    temp.write("owned/source.veln", "owned");
+    temp.write("linked-target/source.veln", "not reached through link");
+    symlink(temp.path("linked-target"), temp.path("directory-link")).unwrap();
+    symlink(
+        temp.path("owned/source.veln"),
+        temp.path("source-link.veln"),
+    )
+    .unwrap();
+    fs::create_dir_all(temp.path("marker-link")).unwrap();
+    symlink(
+        temp.path("missing-manifest"),
+        temp.path("marker-link/veln.toml"),
+    )
+    .unwrap();
+    temp.write("marker-link/owned.veln", "owned");
+
+    let paths = discover_source_paths(temp.root(), &[]).unwrap();
+
+    assert_eq!(
+        paths,
+        vec![
+            temp.path("linked-target/source.veln"),
+            temp.path("marker-link/owned.veln"),
+            temp.path("owned/source.veln"),
+        ]
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn explicit_inputs_reject_symlinks_below_the_package_root() {
+    use std::os::unix::fs::symlink;
+
+    let temp = TempProject::new("explicit-symlink");
+    temp.write("real/source.veln", "source");
+    symlink(temp.path("real"), temp.path("linked")).unwrap();
+
+    let error =
+        discover_source_paths(temp.root(), &[PathBuf::from("linked/source.veln")]).unwrap_err();
+
+    let message = error.to_string();
+    assert!(message.contains("linked/source.veln"), "{message}");
+    assert!(message.contains("symbolic link"), "{message}");
+}
+
+#[cfg(unix)]
+#[test]
+fn unreadable_regular_manifest_still_establishes_a_boundary() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let temp = TempProject::new("unreadable-manifest-boundary");
+    temp.write("nested/veln.toml", "");
+    temp.write("nested/source.veln", "not owned");
+    fs::set_permissions(
+        temp.path("nested/veln.toml"),
+        fs::Permissions::from_mode(0o000),
+    )
+    .unwrap();
+
+    let paths = discover_source_paths(temp.root(), &[]).unwrap();
+
+    assert!(paths.is_empty());
 }
 
 #[test]
@@ -203,6 +361,26 @@ fn project_discover_reads_explicit_files_with_project_relative_paths() {
             ("examples/b.veln".to_string(), "second".to_string()),
         ]
     );
+}
+
+#[cfg(unix)]
+#[test]
+fn project_discover_does_not_add_a_symlinked_companion_target() {
+    use std::os::unix::fs::symlink;
+
+    let temp = TempProject::new("symlinked-companion-target");
+    temp.write("real.veln", "target");
+    temp.write("linked.test.veln", "companion");
+    symlink(temp.path("real.veln"), temp.path("linked.veln")).unwrap();
+
+    let project = Project::discover(
+        temp.root().to_path_buf(),
+        &[PathBuf::from("linked.test.veln")],
+    )
+    .unwrap();
+
+    assert_eq!(project.files.len(), 1);
+    assert_eq!(project.files[0].path().as_str(), "linked.test.veln");
 }
 
 #[test]
@@ -622,11 +800,11 @@ fn lockfile_render_sorts_packages_and_normalizes_path_source_records() {
 }
 
 #[test]
-fn source_tree_checksum_tracks_source_paths_and_ignores_build_output() {
+fn source_tree_checksum_tracks_owned_source_paths_including_target() {
     let base = TempProject::new("lockfile-checksum-base");
     base.write("alpha.veln", "fn alpha() -> Int\n\t1\nend\n");
     base.write("nested/beta.veln", "fn beta() -> Int\n\t2\nend\n");
-    base.write("target/generated.veln", "ignored");
+    base.write("target/generated.veln", "owned");
 
     let same_without_build_output = TempProject::new("lockfile-checksum-same");
     same_without_build_output.write("alpha.veln", "fn alpha() -> Int\n\t1\nend\n");
@@ -641,13 +819,10 @@ fn source_tree_checksum_tracks_source_paths_and_ignores_build_output() {
     changed_path.write("renamed/beta.veln", "fn beta() -> Int\n\t2\nend\n");
 
     let base_checksum = source_tree_checksum(base.root()).expect("checksum should be computed");
-    assert_eq!(
+    assert_ne!(
         base_checksum,
-        "sha256:81e221c7a6f074a573407b55dea539c99b52f19ce3ae35ff9d550e824054e7a5"
-    );
-    assert_eq!(
-        base_checksum,
-        source_tree_checksum(same_without_build_output.root()).expect("checksum should match")
+        source_tree_checksum(same_without_build_output.root())
+            .expect("an owned target source should affect the checksum")
     );
     assert_ne!(
         base_checksum,
@@ -659,6 +834,26 @@ fn source_tree_checksum_tracks_source_paths_and_ignores_build_output() {
     );
     assert!(base_checksum.starts_with("sha256:"));
     assert_eq!(base_checksum.len(), "sha256:".len() + 64);
+}
+
+#[test]
+fn source_tree_checksum_ignores_changes_below_nested_manifest_roots() {
+    let base = TempProject::new("lockfile-checksum-boundary-base");
+    base.write("alpha.veln", "fn alpha() -> Int\n\t1\nend\n");
+    base.write("nested/veln.toml", "[package]\nname = \"nested\"\n");
+    base.write("nested/source.veln", "fn nested() -> Int\n\t1\nend\n");
+
+    let changed_nested = TempProject::new("lockfile-checksum-boundary-changed");
+    changed_nested.write("alpha.veln", "fn alpha() -> Int\n\t1\nend\n");
+    changed_nested.write("nested/veln.toml", "malformed but still a boundary");
+    changed_nested.write("nested/source.veln", "fn nested() -> Int\n\t999\nend\n");
+    changed_nested.write("nested/added.veln", "fn added() -> Int\n\t2\nend\n");
+
+    assert_eq!(
+        source_tree_checksum(base.root()).expect("checksum should be computed"),
+        source_tree_checksum(changed_nested.root())
+            .expect("nested package changes should not affect the outer checksum")
+    );
 }
 
 #[test]

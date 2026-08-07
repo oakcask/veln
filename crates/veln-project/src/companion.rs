@@ -39,7 +39,7 @@ pub fn companion_analysis_inputs(root: &Path, inputs: &[PathBuf]) -> std::io::Re
             continue;
         };
         let target = root.join(companion.target_path);
-        if target.is_file() {
+        if std::fs::symlink_metadata(&target).is_ok_and(|metadata| metadata.file_type().is_file()) {
             paths.push(target);
         }
     }
