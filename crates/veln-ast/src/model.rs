@@ -220,15 +220,6 @@ pub enum CodecDirection {
     Encode,
 }
 
-impl CodecDirection {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Decode => "decode",
-            Self::Encode => "encode",
-        }
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct CodecImplementationClause {
     pub node_id: NodeId,

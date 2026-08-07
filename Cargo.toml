@@ -4,7 +4,6 @@ members = [
     "crates/veln-analysis",
     "crates/veln-backend-jvm",
     "crates/veln-cli",
-    "crates/veln-code-metrics",
     "crates/veln-core",
     "crates/veln-diagnostics",
     "crates/veln-editor",
@@ -18,6 +17,7 @@ members = [
     "crates/veln-stdlib",
     "crates/veln-syntax",
     "crates/veln-test",
+    "tools/veln-repo-metrics",
 ]
 resolver = "3"
 

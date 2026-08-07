@@ -68,10 +68,6 @@ impl SemanticTokenModifiers {
     pub fn bits(self) -> u32 {
         self.bits
     }
-
-    pub fn contains(self, modifier: SemanticTokenModifier) -> bool {
-        self.bits & modifier.bit() != 0
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

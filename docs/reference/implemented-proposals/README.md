@@ -46,7 +46,9 @@ under `../../specification/` and its executable example routes.
   original gate details.
 - Shared project analysis:
   [project-analysis-pipeline.md](project-analysis-pipeline.md).
-- Bounded toolchain analysis completed slices:
+- Bounded toolchain analysis:
+  [bounded-toolchain-analysis.md](bounded-toolchain-analysis.md), with detailed
+  slice history in
   [bounded-toolchain-analysis-slices.md](bounded-toolchain-analysis-slices.md).
 - Built-in Veln code metrics:
   [built-in-code-metrics.md](built-in-code-metrics.md).

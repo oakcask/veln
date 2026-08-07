@@ -1,49 +1,90 @@
 use std::env;
 use std::ffi::OsStr;
 use std::fs;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use syn::visit::{self, Visit};
 
-pub(crate) struct DependencySummary {
-    pub(crate) text: String,
-    pub(crate) cycle_count: usize,
+#[derive(Debug, PartialEq)]
+pub(crate) struct DependencyReport {
+    pub(crate) file_count: usize,
+    pub(crate) edge_count: usize,
+    pub(crate) hotspots: Vec<DependencyHotspot>,
+    pub(crate) cycles: Vec<Vec<PathBuf>>,
 }
 
-pub(crate) fn collect_summary(
+#[derive(Debug, PartialEq)]
+pub(crate) struct DependencyHotspot {
+    pub(crate) path: PathBuf,
+    pub(crate) incoming: usize,
+    pub(crate) outgoing: usize,
+    pub(crate) pressure: usize,
+}
+
+pub(crate) fn collect_report(
     files: impl IntoIterator<Item = PathBuf>,
-    hotspot_limit: usize,
-    cycle_limit: usize,
-) -> Result<DependencySummary, String> {
+) -> Result<DependencyReport, String> {
     let mut sources = Vec::new();
     for path in files {
         let source = fs::read_to_string(&path)
             .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
         sources.push(SourceFile { path, source });
     }
-    let graph = DependencyGraph::from_sources(&sources)?;
-    Ok(DependencySummary {
-        text: graph.render_summary(hotspot_limit, cycle_limit),
-        cycle_count: graph.cyclic_components().len(),
-    })
+    DependencyGraph::from_sources(&sources).map(|graph| graph.report())
 }
 
-pub(crate) fn emit_summary(summary: &str) -> Result<(), String> {
-    match env::var("GITHUB_STEP_SUMMARY") {
-        Ok(path) => {
-            let mut file = fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(&path)
-                .map_err(|error| format!("failed to open GitHub step summary: {error}"))?;
-            file.write_all(summary.as_bytes())
-                .map_err(|error| format!("failed to write GitHub step summary: {error}"))
+impl DependencyReport {
+    pub(crate) fn render_human(&self, hotspot_limit: usize, cycle_limit: usize) -> String {
+        let mut output = String::new();
+        output.push_str("Dependency graph\n");
+        output.push_str(&format!(
+            "  files: {}, internal edges: {}, cycles: {}\n",
+            self.file_count,
+            self.edge_count,
+            self.cycles.len()
+        ));
+
+        output.push_str("\nHighest dependency pressure\n");
+        if self.hotspots.is_empty() {
+            output.push_str("  none\n");
+        } else {
+            for hotspot in self.hotspots.iter().take(hotspot_limit) {
+                output.push_str(&format!(
+                    "  {} in={} out={} pressure={}\n",
+                    display_path(&hotspot.path),
+                    hotspot.incoming,
+                    hotspot.outgoing,
+                    hotspot.pressure
+                ));
+            }
+            if self.hotspots.len() > hotspot_limit {
+                output.push_str(&format!(
+                    "  ... {} more hotspot(s)\n",
+                    self.hotspots.len() - hotspot_limit
+                ));
+            }
         }
-        Err(_) => {
-            println!("{summary}");
-            Ok(())
+
+        output.push_str("\nDependency cycles\n");
+        if self.cycles.is_empty() {
+            output.push_str("  none\n");
+        } else {
+            for cycle in self.cycles.iter().take(cycle_limit) {
+                let paths = cycle
+                    .iter()
+                    .map(|path| display_path(path))
+                    .collect::<Vec<_>>()
+                    .join(" -> ");
+                output.push_str(&format!("  {paths}\n"));
+            }
+            if self.cycles.len() > cycle_limit {
+                output.push_str(&format!(
+                    "  ... {} more cycle group(s)\n",
+                    self.cycles.len() - cycle_limit
+                ));
+            }
         }
+        output
     }
 }
 
@@ -149,72 +190,36 @@ impl DependencyGraph {
         self.outgoing.iter().map(Vec::len).sum()
     }
 
-    fn render_summary(&self, hotspot_limit: usize, cycle_limit: usize) -> String {
-        let mut summary = String::new();
-        summary.push_str("## Dependency Graph Refactor Signal\n\n");
-        summary.push_str("Inspect dependency hotspots before broad Rust refactors; files with both high incoming and outgoing dependencies tend to combine caller impact with callee coordination cost.\n\n");
-        summary.push_str(&format!(
-            "- Rust files analyzed: {}\n- Internal dependency edges: {}\n- Strongly connected groups: {}\n\n",
-            self.nodes.len(),
-            self.edge_count(),
-            self.cyclic_components().len()
-        ));
-
-        let hotspots = self.hotspots(hotspot_limit);
-        summary.push_str("### Highest dependency pressure\n\n");
-        if hotspots.is_empty() {
-            summary.push_str(
-                "No files have both incoming and outgoing internal dependencies in this scan.\n\n",
-            );
-        } else {
-            summary.push_str("| File | In | Out | Pressure |\n");
-            summary.push_str("| --- | ---: | ---: | ---: |\n");
-            for hotspot in hotspots {
-                summary.push_str(&format!(
-                    "| `{}` | {} | {} | {} |\n",
-                    markdown_escape(&display_path(&self.nodes[hotspot.index].file)),
-                    hotspot.incoming,
-                    hotspot.outgoing,
-                    hotspot.pressure
-                ));
-            }
-            summary.push('\n');
+    fn report(&self) -> DependencyReport {
+        let hotspots = self
+            .hotspots()
+            .into_iter()
+            .map(|hotspot| DependencyHotspot {
+                path: self.nodes[hotspot.index].file.clone(),
+                incoming: hotspot.incoming,
+                outgoing: hotspot.outgoing,
+                pressure: hotspot.pressure,
+            })
+            .collect();
+        let cycles = self
+            .cyclic_components()
+            .into_iter()
+            .map(|cycle| {
+                cycle
+                    .into_iter()
+                    .map(|node| self.nodes[node].file.clone())
+                    .collect()
+            })
+            .collect();
+        DependencyReport {
+            file_count: self.nodes.len(),
+            edge_count: self.edge_count(),
+            hotspots,
+            cycles,
         }
-
-        let cycles = self.cyclic_components();
-        summary.push_str("### Dependency cycles\n\n");
-        if cycles.is_empty() {
-            summary.push_str(
-                "No internal Rust source cycles detected by this import and path scan.\n",
-            );
-        } else {
-            summary.push_str("Inspect these cycles before moving boundaries; breaking a cycle usually needs a clearer owner or a smaller shared interface.\n\n");
-            for (index, cycle) in cycles.iter().take(cycle_limit).enumerate() {
-                let files = cycle
-                    .iter()
-                    .map(|node| {
-                        format!(
-                            "`{}`",
-                            markdown_escape(&display_path(&self.nodes[*node].file))
-                        )
-                    })
-                    .collect::<Vec<_>>()
-                    .join(" -> ");
-                summary.push_str(&format!("{}. {files}\n", index + 1));
-            }
-            if cycles.len() > cycle_limit {
-                summary.push_str(&format!(
-                    "\n{} more cycle groups omitted from the summary.\n",
-                    cycles.len() - cycle_limit
-                ));
-            }
-        }
-
-        summary.push('\n');
-        summary
     }
 
-    fn hotspots(&self, limit: usize) -> Vec<DependencyHotspot> {
+    fn hotspots(&self) -> Vec<RankedDependencyHotspot> {
         let mut hotspots = self
             .nodes
             .iter()
@@ -223,7 +228,7 @@ impl DependencyGraph {
                 let incoming = self.incoming[index].len();
                 let outgoing = self.outgoing[index].len();
                 let pressure = incoming * outgoing;
-                (pressure > 0).then_some(DependencyHotspot {
+                (pressure > 0).then_some(RankedDependencyHotspot {
                     index,
                     incoming,
                     outgoing,
@@ -243,7 +248,6 @@ impl DependencyGraph {
                         .cmp(&self.nodes[right.index].file)
                 })
         });
-        hotspots.truncate(limit);
         hotspots
     }
 
@@ -265,7 +269,7 @@ impl DependencyGraph {
 }
 
 #[derive(Debug)]
-struct DependencyHotspot {
+struct RankedDependencyHotspot {
     index: usize,
     incoming: usize,
     outgoing: usize,
@@ -484,10 +488,6 @@ fn display_path(path: &Path) -> String {
     relative.display().to_string()
 }
 
-fn markdown_escape(value: &str) -> String {
-    value.replace('|', "\\|")
-}
-
 struct Tarjan<'a> {
     graph: &'a [Vec<usize>],
     index: usize,
@@ -577,12 +577,15 @@ mod tests {
         ];
 
         let graph = DependencyGraph::from_sources(&sources).unwrap();
-        let summary = graph.render_summary(5, 5);
+        let report = graph.report();
+        let summary = report.render_human(5, 5);
 
         assert_eq!(graph.edge_count(), 2);
+        assert_eq!(report.hotspots.len(), 2);
+        assert_eq!(report.cycles.len(), 1);
         assert!(summary.contains("crates/sample/src/a.rs"));
         assert!(summary.contains("crates/sample/src/b.rs"));
-        assert!(summary.contains("Strongly connected groups: 1"));
+        assert!(summary.contains("cycles: 1"));
     }
 
     #[test]
