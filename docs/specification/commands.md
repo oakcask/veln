@@ -1,4 +1,6 @@
 ---
+role: specification
+authority: normative
 review-when: The documented command behavior or executable command evidence changes.
 ---
 
@@ -72,6 +74,9 @@ requiring the full command reference on the first read.
   rejection of explicitly supplied `.test.veln` run inputs, entry resolution,
   fixed and variadic entry argument conversion, static gates, direct JVM
   classfile execution without an ordinary Java source compiler requirement,
+  and reusable JVM class caching below the host user cache or the complete
+  absolute `VELN_CACHE_DIR` override, with cache configuration checked only
+  after analysis, entry selection, JVM generation, and Java discovery,
   human runtime diagnostics for closed-input `ByteView` read truncation,
   schema fixed-field mismatch, binary schema field truncation, reserved-bit
   mismatch, integer range failure, field-local validation failure,

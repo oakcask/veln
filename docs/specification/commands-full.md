@@ -1,4 +1,6 @@
 ---
+role: specification
+authority: normative
 review-when: The documented command behavior or executable command evidence changes.
 ---
 
@@ -297,12 +299,31 @@ declarations to the imported source module. Semantic
 diagnostics in functions unreachable from the selected entry do not block
 `run`.
 
-The command caches generated JVM classfile artifacts by backend content below
-the project-local build output area. On a cache miss it writes the emitted
-classfiles into the cache; on a cache hit it validates the manifest and cached
-classfiles before invoking `java`. Invalid or incomplete cache entries are
-replaced instead of executed. Runtime trace files for command output remain
-isolated to the individual command invocation. Human mode forwards process
+`run` and `test` cache generated JVM classfile artifacts by backend content
+below the selected Veln user cache root. On Unix other than macOS, the default
+root is the `veln` child of an absolute, non-empty `XDG_CACHE_HOME`, or the
+`veln` child of an absolute, non-empty `HOME/.cache` fallback. On macOS, it is
+the `veln` child of an absolute, non-empty `HOME/Library/Caches`. On Windows,
+it is the `veln` child of an absolute, non-empty `LOCALAPPDATA`.
+`VELN_CACHE_DIR`, when set, must be non-empty and lexically absolute and names
+the complete Veln cache root without an added `veln` component. Selection uses
+native operating-system strings and does not canonicalize or normalize the
+path.
+
+A command that needs the cache checks Java launcher availability before cache
+configuration. It checks cache configuration only after successful source
+analysis, executable selection, and JVM program generation. `test` checks the
+configuration once before any runnable test body starts. Empty or relative
+overrides do not fall back to a host base. An unavailable host base or an
+unusable selected root does not fall back to the package, working directory,
+`target`, or a temporary directory. Commands that do not reach JVM execution
+do not inspect cache configuration.
+
+On a cache miss the command writes the emitted classfiles into the cache; on a
+cache hit it validates the manifest and cached classfiles before invoking
+`java`. Invalid or incomplete cache entries are replaced instead of executed.
+Runtime trace files for command output remain isolated to the individual
+command invocation. Human mode forwards process
 stdout and stderr and returns the Java process status for ordinary runtime
 failures. When a closed-input fixed-width `ByteView` read returns
 `codec.incomplete_input`, human mode reports the missing byte at the decoded

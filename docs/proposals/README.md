@@ -27,9 +27,10 @@ also states it.
 
 ### Toolchain Storage
 
-- [Toolchain User Cache](toolchain-user-cache.md): place reusable toolchain
-  cache data in the host user cache directory, with `VELN_CACHE_DIR` as the
-  external override.
+- [Toolchain User Cache](toolchain-user-cache.md): complete the remaining
+  fault-injected failure and concurrent-writer recovery cases for reusable
+  cache entries. Cache-root selection and command validation timing are current
+  behavior in [Commands](../specification/commands.md).
 
 ## Selection Rule
 

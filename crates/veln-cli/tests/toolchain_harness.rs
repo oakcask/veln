@@ -85,6 +85,312 @@ fn run_case_with_after_invocation(
     }
 }
 
+#[cfg(unix)]
+fn write_cache_test_java(tool_dir: &Path) {
+    fs::create_dir_all(tool_dir).expect("tool directory should be created");
+    let java = tool_dir.join("java");
+    fs::write(
+        &java,
+        "#!/bin/sh\nif [ -n \"${JAVA_MARKER:-}\" ]; then printf started > \"$JAVA_MARKER\"; fi\nexit 0\n",
+    )
+    .expect("fake java should be written");
+    let mut permissions = fs::metadata(&java)
+        .expect("fake java metadata should be available")
+        .permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(java, permissions).expect("fake java should be executable");
+}
+
+#[cfg(unix)]
+fn cache_test_command(
+    project_root: &Path,
+    args: &[&str],
+    tool_dir: &Path,
+    environment: &[(&str, &Path)],
+) -> Output {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_veln"));
+    command.current_dir(project_root);
+    command.args(args);
+    command.env("PATH", tool_dir);
+    for name in [
+        "VELN_CACHE_DIR",
+        "XDG_CACHE_HOME",
+        "HOME",
+        "LOCALAPPDATA",
+        "JAVA_MARKER",
+    ] {
+        command.env_remove(name);
+    }
+    for (name, value) in environment {
+        command.env(name, value);
+    }
+    command.output().expect("veln should run")
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+#[test]
+fn run_uses_isolated_host_cache_without_local_fallback() {
+    let project = TestProject::new("run-host-cache".to_string(), &ToolSetup::default());
+    fs::write(
+        project.root.join("main.veln"),
+        "fn main() -> ()\n  ()\nend\n",
+    )
+    .expect("source should be written");
+    let tool_dir = project.root.join("tools");
+    write_cache_test_java(&tool_dir);
+    let xdg = test_temp_root("run-host-cache-xdg");
+
+    let output = cache_test_command(
+        &project.root,
+        &["run", "main", "main.veln"],
+        &tool_dir,
+        &[("XDG_CACHE_HOME", &xdg)],
+    );
+
+    assert_success("default host cache run", &output);
+    assert!(xdg.join("veln/jvm").is_dir());
+    assert!(!project.root.join("target/veln-cache").exists());
+    assert!(!project.root.join("veln/jvm").exists());
+    fs::remove_dir_all(xdg).expect("isolated XDG root should be removed");
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+#[test]
+fn equivalent_working_directories_share_the_default_cache_entry() {
+    let root = test_temp_root("working-directory-cache");
+    let first = root.join("first");
+    let second = root.join("second");
+    fs::create_dir_all(&first).expect("first working directory should be created");
+    fs::create_dir_all(&second).expect("second working directory should be created");
+    for directory in [&first, &second] {
+        fs::write(directory.join("main.veln"), "fn main() -> ()\n  ()\nend\n")
+            .expect("source should be written");
+    }
+    let tool_dir = root.join("tools");
+    write_cache_test_java(&tool_dir);
+    let xdg = root.join("host-cache");
+
+    for directory in [&first, &second] {
+        let output = cache_test_command(
+            directory,
+            &["run", "main", "main.veln"],
+            &tool_dir,
+            &[("XDG_CACHE_HOME", &xdg)],
+        );
+        assert_success("working-directory-independent run", &output);
+        assert!(!directory.join("target/veln-cache").exists());
+    }
+
+    let entries = fs::read_dir(xdg.join("veln/jvm"))
+        .expect("shared JVM cache should be readable")
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().join(".veln-cache-ok").is_file())
+        .count();
+    assert_eq!(entries, 1, "equivalent programs should share one entry");
+    fs::remove_dir_all(root).expect("working-directory fixture should be removed");
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+#[test]
+fn unavailable_unix_host_base_has_no_local_or_temporary_fallback() {
+    let project = TestProject::new("unavailable-host-cache".to_string(), &ToolSetup::default());
+    fs::write(
+        project.root.join("main.veln"),
+        "fn main() -> ()\n  ()\nend\n",
+    )
+    .expect("source should be written");
+    let tool_dir = project.root.join("tools");
+    write_cache_test_java(&tool_dir);
+    let marker = project.root.join("java-started");
+
+    let output = cache_test_command(
+        &project.root,
+        &["run", "main", "main.veln"],
+        &tool_dir,
+        &[("JAVA_MARKER", &marker)],
+    );
+
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("user cache directory is unavailable")
+    );
+    assert!(!project.root.join("target/veln-cache").exists());
+    assert!(
+        !marker.exists(),
+        "Java should not start without a cache root"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn absolute_override_is_complete_and_keeps_lexical_components_usable() {
+    let project = TestProject::new("run-cache-override".to_string(), &ToolSetup::default());
+    fs::write(
+        project.root.join("main.veln"),
+        "fn main() -> ()\n  ()\nend\n",
+    )
+    .expect("source should be written");
+    let tool_dir = project.root.join("tools");
+    write_cache_test_java(&tool_dir);
+    let parent = project.root.join("cache-parent");
+    fs::create_dir_all(&parent).expect("lexical parent should be created");
+    let cache_override = parent.join(".").join("..").join("selected-cache");
+
+    let output = cache_test_command(
+        &project.root,
+        &["run", "main", "main.veln"],
+        &tool_dir,
+        &[("VELN_CACHE_DIR", &cache_override)],
+    );
+
+    assert_success("explicit cache override run", &output);
+    assert!(cache_override.join("jvm").is_dir());
+    assert!(!cache_override.join("veln").exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn invalid_overrides_fail_before_test_bodies_without_host_fallback() {
+    let project = TestProject::new("test-invalid-cache".to_string(), &ToolSetup::default());
+    fs::write(
+        project.root.join("main_test.veln"),
+        "test alpha() -> ()\n  ()\nend\n\ntest beta() -> ()\n  ()\nend\n",
+    )
+    .expect("tests should be written");
+    let tool_dir = project.root.join("tools");
+    write_cache_test_java(&tool_dir);
+    let marker = project.root.join("java-started");
+    let host_cache = project.root.join("valid-host-cache");
+
+    for cache_override in [
+        project.root.join("empty-placeholder"),
+        PathBuf::from("relative-cache"),
+    ] {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_veln"));
+        command.current_dir(&project.root);
+        command.args(["test", "main_test.veln"]);
+        command.env("PATH", &tool_dir);
+        command.env("XDG_CACHE_HOME", &host_cache);
+        command.env("JAVA_MARKER", &marker);
+        if cache_override.is_absolute() {
+            command.env("VELN_CACHE_DIR", "");
+        } else {
+            command.env("VELN_CACHE_DIR", &cache_override);
+        }
+        let output = command.output().expect("veln test should run");
+        assert_eq!(output.status.code(), Some(2));
+        assert!(String::from_utf8_lossy(&output.stderr).contains("invalid VELN_CACHE_DIR"));
+        assert!(!marker.exists(), "no test JVM should start");
+        assert!(!host_cache.exists(), "invalid override must not fall back");
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn analysis_and_no_test_results_precede_invalid_cache_configuration() {
+    let project = TestProject::new("cache-validation-gates".to_string(), &ToolSetup::default());
+    let tool_dir = project.root.join("tools");
+    write_cache_test_java(&tool_dir);
+    fs::write(project.root.join("broken.veln"), "fn broken(\n")
+        .expect("broken source should be written");
+    fs::write(
+        project.root.join("no_tests.veln"),
+        "fn helper() -> ()\n  ()\nend\n",
+    )
+    .expect("non-test source should be written");
+    let relative = Path::new("relative-cache");
+
+    let analysis = cache_test_command(
+        &project.root,
+        &["run", "main", "broken.veln"],
+        &tool_dir,
+        &[("VELN_CACHE_DIR", relative)],
+    );
+    assert_eq!(analysis.status.code(), Some(1));
+    assert!(!String::from_utf8_lossy(&analysis.stderr).contains("VELN_CACHE_DIR"));
+    assert!(!project.root.join(relative).exists());
+
+    let no_tests = cache_test_command(
+        &project.root,
+        &["test", "no_tests.veln"],
+        &tool_dir,
+        &[("VELN_CACHE_DIR", relative)],
+    );
+    assert_eq!(no_tests.status.code(), Some(1));
+    assert!(!String::from_utf8_lossy(&no_tests.stderr).contains("VELN_CACHE_DIR"));
+    assert!(!project.root.join(relative).exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn missing_java_precedes_invalid_cache_configuration() {
+    let project = TestProject::new("missing-java-cache-gate".to_string(), &ToolSetup::default());
+    fs::write(
+        project.root.join("main.veln"),
+        "fn main() -> ()\n  ()\nend\n",
+    )
+    .expect("source should be written");
+    let empty_tools = project.root.join("empty-tools");
+    fs::create_dir_all(&empty_tools).expect("empty tool path should be created");
+    let relative = Path::new("relative-cache");
+
+    let output = cache_test_command(
+        &project.root,
+        &["run", "main", "main.veln"],
+        &empty_tools,
+        &[("VELN_CACHE_DIR", relative)],
+    );
+
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("`java` was not found"));
+    assert!(!stderr.contains("VELN_CACHE_DIR"));
+}
+
+#[test]
+fn non_executing_commands_ignore_invalid_cache_configuration() {
+    for args in [["--help"].as_slice(), ["--version"].as_slice()] {
+        let output = Command::new(env!("CARGO_BIN_EXE_veln"))
+            .args(args)
+            .env("VELN_CACHE_DIR", "relative-cache")
+            .output()
+            .expect("non-executing command should run");
+        assert_success("non-executing command", &output);
+        assert!(!String::from_utf8_lossy(&output.stderr).contains("VELN_CACHE_DIR"));
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn cache_root_file_is_preserved_and_user_code_does_not_start() {
+    let project = TestProject::new("cache-root-file".to_string(), &ToolSetup::default());
+    fs::write(
+        project.root.join("main.veln"),
+        "fn main() -> ()\n  ()\nend\n",
+    )
+    .expect("source should be written");
+    let tool_dir = project.root.join("tools");
+    write_cache_test_java(&tool_dir);
+    let cache_root = project.root.join("cache-root");
+    fs::write(&cache_root, "preserve me").expect("cache-root file should be written");
+    let marker = project.root.join("java-started");
+
+    let output = cache_test_command(
+        &project.root,
+        &["run", "main", "main.veln"],
+        &tool_dir,
+        &[("VELN_CACHE_DIR", &cache_root), ("JAVA_MARKER", &marker)],
+    );
+
+    assert_eq!(output.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("Veln cache root"));
+    assert_eq!(
+        fs::read_to_string(cache_root).expect("file should remain"),
+        "preserve me"
+    );
+    assert!(!marker.exists());
+}
+
 #[test]
 fn metrics_baseline_check_preserves_report_fields() {
     let project = TestProject::new(
@@ -351,6 +657,7 @@ impl TestProject {
         command.args(args);
         command.stdout(Stdio::piped());
         command.stderr(Stdio::piped());
+        command.env("VELN_CACHE_DIR", self.root.join(".veln-harness-cache"));
         if let Some(path) = &self.tool_path {
             command.env("PATH", path);
         }

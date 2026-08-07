@@ -3,9 +3,9 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{ExitCode, Output};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 #[cfg(test)]
-use std::sync::{Arc, MutexGuard, OnceLock};
+use std::sync::{MutexGuard, OnceLock};
 
 use veln_analysis::{DoctestMode, ProjectAnalysis, analyze_project};
 use veln_ast::{FunctionKind, SurfaceModule};
@@ -27,7 +27,11 @@ use crate::diagnostics::{
     harness_source_diagnostic_artifact_requested, has_error, print_human_stderr, tool_info,
     write_harness_source_diagnostic_artifact,
 };
-use crate::java::{JvmRunResult, create_build_dir, prepare_and_run_jvm_capture_with_env};
+use crate::java::{
+    JvmExecution, JvmExecutionPreparation, JvmRunResult, create_build_dir,
+    prepare_and_run_jvm_capture_with_env, prepare_and_run_jvm_capture_with_execution,
+    prepare_jvm_execution,
+};
 
 pub(crate) fn test(
     json: bool,
@@ -156,6 +160,7 @@ fn execute_runnable_test_cases(
         std::thread::available_parallelism().ok()
     });
     let analysis_mutex = Mutex::new(analysis);
+    let execution = Arc::new(TestJvmExecution::new());
     let cases = run_test_case_jobs(
         runnable_cases,
         active_jobs,
@@ -163,11 +168,9 @@ fn execute_runnable_test_cases(
             let analysis = analysis_mutex
                 .lock()
                 .map_err(|_| "test analysis state was poisoned".to_string())?;
-            Ok(prepare_test_case_job(
-                &analysis,
-                reusable_program.as_ref(),
-                case,
-            ))
+            let mut job = prepare_test_case_job(&analysis, reusable_program.as_ref(), case);
+            job.set_execution(Arc::clone(&execution));
+            Ok(job)
         },
         execute_test_case_job,
     )
@@ -293,8 +296,8 @@ fn selection_plan(
 mod tests {
     use super::process_discovered_test_cases;
     use super::{
-        SchedulerError, TestExecution, TestProgramHookGuard, execute_test_case_job,
-        prepare_test_case_job, resolve_test_jobs, run_test_case_jobs,
+        JvmExecution, SchedulerError, TestExecution, TestJvmExecution, TestProgramHookGuard,
+        execute_test_case_job, prepare_test_case_job, resolve_test_jobs, run_test_case_jobs,
     };
     use std::collections::BTreeSet;
     use std::fs;
@@ -522,6 +525,9 @@ mod tests {
             .reusable_standard_ir()
             .map(|ir| generate_classfiles_with_test_entries(ir, &case_names));
         let analysis_mutex = Mutex::new(analysis);
+        let execution = Arc::new(TestJvmExecution::ready(JvmExecution::for_test(
+            project.root.join("cache/jvm"),
+        )));
         let observed = Arc::new((
             Mutex::new(ProductionPathObservation::default()),
             Condvar::new(),
@@ -562,11 +568,9 @@ mod tests {
             2,
             |case| {
                 let analysis = analysis_mutex.lock().expect("analysis state should lock");
-                Ok::<_, String>(prepare_test_case_job(
-                    &analysis,
-                    reusable_program.as_ref(),
-                    case,
-                ))
+                let mut job = prepare_test_case_job(&analysis, reusable_program.as_ref(), case);
+                job.set_execution(Arc::clone(&execution));
+                Ok::<_, String>(job)
             },
             execute_test_case_job,
         )
@@ -635,6 +639,9 @@ mod tests {
         );
         let (analysis, cases) = analyzed_cases(&project.root);
         let analysis_mutex = Mutex::new(analysis);
+        let execution = Arc::new(TestJvmExecution::ready(JvmExecution::for_test(
+            project.root.join("cache/jvm"),
+        )));
         let _hook = TestProgramHookGuard::install(Arc::new(
             |case_name,
              _build_dir,
@@ -652,7 +659,9 @@ mod tests {
             3,
             |case| {
                 let analysis = analysis_mutex.lock().expect("analysis state should lock");
-                Ok::<_, String>(prepare_test_case_job(&analysis, None, case))
+                let mut job = prepare_test_case_job(&analysis, None, case);
+                job.set_execution(Arc::clone(&execution));
+                Ok::<_, String>(job)
             },
             execute_test_case_job,
         )
@@ -892,6 +901,60 @@ struct ReadyTestCaseJob {
     module: SurfaceModule,
     program: JvmProgram,
     java_args: Vec<String>,
+    execution: Option<Arc<TestJvmExecution>>,
+}
+
+impl TestCaseJob {
+    fn set_execution(&mut self, execution: Arc<TestJvmExecution>) {
+        if let Self::Ready(job) = self {
+            job.execution = Some(execution);
+        }
+    }
+}
+
+#[derive(Clone)]
+enum TestJvmExecutionResult {
+    Ready(Arc<JvmExecution>),
+    ToolError(String),
+}
+
+struct TestJvmExecution {
+    result: Mutex<Option<Result<TestJvmExecutionResult, String>>>,
+}
+
+impl TestJvmExecution {
+    fn new() -> Self {
+        Self {
+            result: Mutex::new(None),
+        }
+    }
+
+    #[cfg(test)]
+    fn ready(execution: JvmExecution) -> Self {
+        Self {
+            result: Mutex::new(Some(Ok(TestJvmExecutionResult::Ready(Arc::new(execution))))),
+        }
+    }
+
+    fn get(&self) -> Result<TestJvmExecutionResult, String> {
+        let mut result = self
+            .result
+            .lock()
+            .map_err(|_| "test JVM execution state was poisoned".to_string())?;
+        if let Some(result) = result.as_ref() {
+            return result.clone();
+        }
+        let prepared = match prepare_jvm_execution("veln test")? {
+            JvmExecutionPreparation::Ready(execution) => {
+                TestJvmExecutionResult::Ready(Arc::new(execution))
+            }
+            JvmExecutionPreparation::ToolError(message) => {
+                TestJvmExecutionResult::ToolError(message)
+            }
+        };
+        *result = Some(Ok(prepared.clone()));
+        Ok(prepared)
+    }
 }
 
 fn prepare_test_case_job(
@@ -948,6 +1011,7 @@ fn prepare_test_case_job(
         module: module.clone(),
         program,
         java_args,
+        execution: None,
     }))
 }
 
@@ -999,15 +1063,16 @@ fn retained_user_effect_diagnostic(
 }
 
 fn execute_test_case_job(job: TestCaseJob) -> Result<TestCase, String> {
-    let (mut case, module, program, java_args) = match job {
+    let (mut case, module, program, java_args, execution) = match job {
         TestCaseJob::Ready(job) => {
             let ReadyTestCaseJob {
                 case,
                 module,
                 program,
                 java_args,
+                execution,
             } = *job;
-            (case, module, program, java_args)
+            (case, module, program, java_args, execution)
         }
         TestCaseJob::Completed(case) => return Ok(*case),
     };
@@ -1017,7 +1082,7 @@ fn execute_test_case_job(job: TestCaseJob) -> Result<TestCase, String> {
         event_trace,
         contract_error_trace,
         result_error_trace,
-    } = match execute_test_program(&case.name, &program, &java_args)? {
+    } = match execute_test_program(&case.name, &program, &java_args, execution.as_deref())? {
         TestExecution::Ran(artifacts) => artifacts,
         TestExecution::ToolError(message) => {
             case.status = TestCaseStatus::Error;
@@ -1056,6 +1121,7 @@ fn execute_test_program(
     case_name: &str,
     jvm: &JvmProgram,
     java_args: &[String],
+    execution: Option<&TestJvmExecution>,
 ) -> Result<TestExecution, String> {
     #[cfg(not(test))]
     let _ = case_name;
@@ -1080,8 +1146,20 @@ fn execute_test_program(
         ("VELN_CONTRACT_ERRORS", contract_error_file.as_os_str()),
         ("VELN_RESULT_ERRORS", result_error_file.as_os_str()),
     ];
-    let result =
-        prepare_and_run_jvm_capture_with_env(&build_dir, jvm, "veln test", &event_env, java_args);
+    let result = if let Some(execution) = execution {
+        match execution.get()? {
+            TestJvmExecutionResult::Ready(execution) => prepare_and_run_jvm_capture_with_execution(
+                &execution,
+                jvm,
+                "veln test",
+                &event_env,
+                java_args,
+            ),
+            TestJvmExecutionResult::ToolError(message) => Ok(JvmRunResult::ToolError(message)),
+        }
+    } else {
+        prepare_and_run_jvm_capture_with_env(&build_dir, jvm, "veln test", &event_env, java_args)
+    };
     let event_trace = fs::read_to_string(&event_file).unwrap_or_default();
     let contract_error_trace = fs::read_to_string(&contract_error_file).unwrap_or_default();
     let result_error_trace = fs::read_to_string(&result_error_file).unwrap_or_default();
