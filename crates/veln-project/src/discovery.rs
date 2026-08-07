@@ -20,7 +20,7 @@ pub fn discover_source_paths(root: &Path, inputs: &[PathBuf]) -> io::Result<Vec<
             let relative = input_identity
                 .strip_prefix(&root_identity)
                 .map_err(|_| rejected_input_error(input, "is outside the supplied package root"))?;
-            let path = normalize_lexical_path(&root_output.join(relative));
+            let path = explicit_output_path(&root_output, input, relative);
             match classify_explicit_input(&root_identity, relative, input, &joined)? {
                 ExplicitInputKind::Directory => collect_veln_files(&path, &mut paths)?,
                 ExplicitInputKind::FileOrMissing => paths.push(path),
@@ -166,6 +166,14 @@ fn rejected_input_error(input: &Path, reason: &str) -> io::Error {
     )
 }
 
+fn explicit_output_path(root: &Path, input: &Path, relative: &Path) -> PathBuf {
+    if input.is_absolute() {
+        normalize_lexical_path(input)
+    } else {
+        normalize_lexical_path(&root.join(relative))
+    }
+}
+
 fn absolute_lexical_path(path: &Path) -> io::Result<PathBuf> {
     if path.is_absolute() {
         Ok(normalize_lexical_path(path))
@@ -174,7 +182,7 @@ fn absolute_lexical_path(path: &Path) -> io::Result<PathBuf> {
     }
 }
 
-fn normalize_lexical_path(path: &Path) -> PathBuf {
+pub(crate) fn normalize_lexical_path(path: &Path) -> PathBuf {
     let mut normalized = PathBuf::new();
     for component in path.components() {
         match component {
