@@ -221,9 +221,9 @@ workspace diagnostics for VSCode workspace folders that contain `veln.toml`, or
 for nested manifest directories when the VSCode workspace folder is a larger
 repository. Manifest roots stop nested discovery so vendored dependencies are
 not initialized as separate workspace roots. If a workspace folder has no
-package manifest and no nested manifest roots, the extension searches that
-folder in name order, ignores `.git` and `target`, and uses the parent
-directory of the first discovered `.veln` source as an anonymous package root.
+package manifest and no nested manifest roots, the extension keeps that folder
+as an anonymous package root. Nested manifest discovery ignores `.git` and
+treats `target` as an ordinary directory.
 Open Veln documents outside resolved roots still receive document-scoped
 diagnostics. The extension listens for `textDocument/publishDiagnostics`
 messages from the language server and mirrors them into VSCode diagnostics so

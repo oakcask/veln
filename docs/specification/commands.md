@@ -37,8 +37,9 @@ requiring the full command reference on the first read.
   and source ADT access and isolation cases, then
   [commands-full.md](commands-full.md) for exact command rules.
   Package-boundary command evidence lives in the checked cases
-  `manifest-package-boundary-discovery` and
-  `explicit-nested-package-boundary`.
+  `manifest-package-boundary-discovery`, `deep-manifest-package-boundary`,
+  `target-owned-source-directory`, `target-nested-package-boundary`,
+  `anonymous-outer-package-boundary`, and `explicit-nested-package-boundary`.
 - `fmt`: whole-invocation parse gate, deterministic formatting, tab-based
   canonical indentation, schema layout, `match` arm indentation, and canonical
   binary schema primitive spelling for supported compatibility fields and

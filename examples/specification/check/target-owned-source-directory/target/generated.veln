@@ -1,0 +1,3 @@
+fn generated() -> Int
+  missing_generated_value()
+end

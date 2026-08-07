@@ -1,0 +1,27 @@
+command = ["check", "--json"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved call_target `missing_generated_value`"
+
+[diagnostics.span]
+file = "target/generated.veln"
+line = 2
+column = 3
