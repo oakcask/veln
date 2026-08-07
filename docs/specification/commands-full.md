@@ -326,6 +326,14 @@ When concurrent invocations prepare the same cache entry, each invocation uses
 only a complete entry that validates against its own generated JVM program; an
 invocation that loses publication to another writer revalidates the published
 winner before using it.
+If an earlier process stops while it owns cache coordination, a later
+invocation either uses a fully validated entry or reports a cache-coordination
+error within an internal bound. The error occurs before JVM startup. Recovery
+does not execute preparation remnants or delete, replace, or invalidate a
+complete entry from another writer. The coordination representation, waiting
+strategy, and duration are not command contracts. The process-level evidence
+is `abandoned_jvm_cache_coordination_reaches_bounded_error_without_starting_java`
+in the `toolchain_harness` test target.
 Runtime trace files for command output remain isolated to the individual
 command invocation. Human mode forwards process
 stdout and stderr and returns the Java process status for ordinary runtime

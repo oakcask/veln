@@ -27,11 +27,6 @@ A writer failure must not delete, replace, or invalidate a complete entry that
 another invocation published for the same key. If no invocation can obtain a
 valid winner, each affected command must fail without starting the JVM.
 
-If a process stops while coordinating or preparing an entry, a later
-invocation must recover or report a bounded cache-coordination error. It must
-not wait without a bound. The coordination representation, waiting strategy,
-and bound are not part of the external contract.
-
 ## Acceptance Model
 
 The evidence column names planned evidence. It does not describe tests that
@@ -43,7 +38,6 @@ already pass.
 | Regeneration failure | Removal succeeds but preparation or validation fails | No partial entry is published, and a later invocation can regenerate | Fault-injected JVM cache unit test |
 | Publication failure | Preparing or publishing below the selected root fails | No partial entry becomes a hit and no fallback is used | Fault-injected JVM cache unit test |
 | Failed writer isolation | One writer fails after another publishes a valid entry | The valid winner remains byte-for-byte valid and reusable | Barrier-controlled JVM cache concurrency test |
-| Abandoned coordination | A process stops while coordinating an entry | A later invocation recovers or reaches a bounded error without executing remnants | Process-level JVM cache integration test |
 
 ## Non-Goals
 

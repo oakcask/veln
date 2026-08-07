@@ -5,6 +5,10 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
+#[cfg(all(unix, debug_assertions))]
+use std::thread;
+#[cfg(all(unix, debug_assertions))]
+use std::time::{Duration, Instant};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use veln_analysis::{
@@ -151,6 +155,8 @@ fn cache_test_command(
         "HOME",
         "LOCALAPPDATA",
         "JAVA_MARKER",
+        "VELN_INTERNAL_TEST_CACHE_LOCK_READY",
+        "VELN_INTERNAL_TEST_CACHE_LOCK_WAIT_MS",
     ] {
         command.env_remove(name);
     }
@@ -158,6 +164,121 @@ fn cache_test_command(
         command.env(name, value);
     }
     command.output().expect("veln should run")
+}
+
+#[cfg(all(unix, debug_assertions))]
+fn directory_file_snapshot(root: &Path) -> Vec<(PathBuf, Vec<u8>)> {
+    fn collect(root: &Path, directory: &Path, files: &mut Vec<(PathBuf, Vec<u8>)>) {
+        for entry in fs::read_dir(directory).expect("snapshot directory should be readable") {
+            let entry = entry.expect("snapshot entry should be readable");
+            let path = entry.path();
+            if path.is_dir() {
+                collect(root, &path, files);
+            } else {
+                let relative = path
+                    .strip_prefix(root)
+                    .expect("snapshot path should be below its root")
+                    .to_path_buf();
+                files.push((
+                    relative,
+                    fs::read(path).expect("snapshot file should be readable"),
+                ));
+            }
+        }
+    }
+
+    let mut files = Vec::new();
+    collect(root, root, &mut files);
+    files.sort_by(|left, right| left.0.cmp(&right.0));
+    files
+}
+
+#[cfg(all(unix, debug_assertions))]
+#[test]
+fn abandoned_jvm_cache_coordination_reaches_bounded_error_without_starting_java() {
+    let project = TestProject::new(
+        "abandoned-jvm-cache-coordination".to_string(),
+        &ToolSetup::default(),
+    );
+    fs::write(
+        project.root.join("main.veln"),
+        "fn main() -> ()\n  ()\nend\n",
+    )
+    .expect("source should be written");
+    let tool_dir = project.root.join("tools");
+    write_cache_test_java(&tool_dir);
+    let cache_root = project.root.join("cache-root");
+    let coordination_marker = project.root.join("cache-lock-ready");
+    let java_marker = project.root.join("java-started");
+
+    let warm = cache_test_command(
+        &project.root,
+        &["run", "main", "main.veln"],
+        &tool_dir,
+        &[
+            ("VELN_CACHE_DIR", &cache_root),
+            ("JAVA_MARKER", &java_marker),
+        ],
+    );
+    assert_success("initial cache publication", &warm);
+    fs::remove_file(&java_marker).expect("initial Java marker should be removed");
+    let jvm_cache = cache_root.join("jvm");
+    let published_entry = fs::read_dir(&jvm_cache)
+        .expect("JVM cache root should be readable")
+        .map(|entry| entry.expect("cache entry should be readable").path())
+        .find(|path| path.join(".veln-cache-ok").is_file())
+        .expect("initial command should publish a complete entry");
+    let published_snapshot = directory_file_snapshot(&published_entry);
+
+    let mut writer = Command::new(env!("CARGO_BIN_EXE_veln"));
+    writer.current_dir(&project.root);
+    writer.args(["run", "main", "main.veln"]);
+    writer.env("PATH", &tool_dir);
+    writer.env("VELN_CACHE_DIR", &cache_root);
+    writer.env("VELN_INTERNAL_TEST_CACHE_LOCK_READY", &coordination_marker);
+    writer.env("JAVA_MARKER", &java_marker);
+    let mut writer = writer.spawn().expect("cache writer should start");
+
+    let marker_deadline = Instant::now() + Duration::from_secs(5);
+    while !coordination_marker.is_file() {
+        if let Some(status) = writer.try_wait().expect("writer status should be readable") {
+            panic!("cache writer exited before reaching coordination: {status}");
+        }
+        assert!(
+            Instant::now() < marker_deadline,
+            "cache writer should reach coordination within the harness bound"
+        );
+        thread::sleep(Duration::from_millis(10));
+    }
+    writer.kill().expect("cache writer should be stopped");
+    writer
+        .wait()
+        .expect("stopped cache writer should be reaped");
+
+    let later_started = Instant::now();
+    let output = cache_test_command(
+        &project.root,
+        &["run", "main", "main.veln"],
+        &tool_dir,
+        &[
+            ("VELN_CACHE_DIR", &cache_root),
+            ("VELN_INTERNAL_TEST_CACHE_LOCK_WAIT_MS", Path::new("4000")),
+            ("JAVA_MARKER", &java_marker),
+        ],
+    );
+
+    assert!(later_started.elapsed() < Duration::from_secs(5));
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("timed out waiting for JVM cache coordination")
+    );
+    assert!(!java_marker.exists(), "Java must not start after timeout");
+    assert_eq!(
+        directory_file_snapshot(&published_entry),
+        published_snapshot,
+        "abandoned coordination must not alter a complete published entry"
+    );
 }
 
 #[cfg(all(unix, not(target_os = "macos")))]
