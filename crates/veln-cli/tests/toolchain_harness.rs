@@ -114,6 +114,26 @@ fn write_unusable_cache_test_java(tool_dir: &Path) {
 }
 
 #[cfg(unix)]
+fn write_other_execute_only_cache_test_java(tool_dir: &Path) {
+    fs::create_dir_all(tool_dir).expect("tool directory should be created");
+    let java = tool_dir.join("java");
+    fs::write(&java, "#!/bin/sh\nexit 7\n").expect("fake java should be written");
+    let mut permissions = fs::metadata(&java)
+        .expect("fake java metadata should be available")
+        .permissions();
+    permissions.set_mode(0o001);
+    fs::set_permissions(java, permissions).expect("fake java mode should be set");
+}
+
+#[cfg(unix)]
+fn process_runs_as_root() -> bool {
+    let Ok(output) = Command::new("/usr/bin/id").arg("-u").output() else {
+        return false;
+    };
+    output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "0"
+}
+
+#[cfg(unix)]
 fn cache_test_command(
     project_root: &Path,
     args: &[&str],
@@ -384,6 +404,41 @@ fn unusable_java_precedes_invalid_cache_configuration() {
         &["run", "main", "main.veln"],
         &tool_dir,
         &[("VELN_CACHE_DIR", relative)],
+    );
+
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("`java` was not found"));
+    assert!(!stderr.contains("VELN_CACHE_DIR"));
+    assert!(!project.root.join(relative).exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn inaccessible_tmpdir_does_not_make_other_execute_only_java_available() {
+    if process_runs_as_root() {
+        return;
+    }
+    let project = TestProject::new(
+        "inaccessible-tmpdir-java-cache-gate".to_string(),
+        &ToolSetup::default(),
+    );
+    fs::write(
+        project.root.join("main.veln"),
+        "fn main() -> ()\n  ()\nend\n",
+    )
+    .expect("source should be written");
+    let tool_dir = project.root.join("tools");
+    write_other_execute_only_cache_test_java(&tool_dir);
+    let blocked_tmpdir = project.root.join("blocked-tmpdir");
+    fs::write(&blocked_tmpdir, "not a directory").expect("blocked TMPDIR should be written");
+    let relative = Path::new("relative-cache");
+
+    let output = cache_test_command(
+        &project.root,
+        &["run", "main", "main.veln"],
+        &tool_dir,
+        &[("TMPDIR", &blocked_tmpdir), ("VELN_CACHE_DIR", relative)],
     );
 
     assert_eq!(output.status.code(), Some(1));

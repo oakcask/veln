@@ -208,9 +208,20 @@ fn find_java_launcher() -> Option<PathBuf> {
 }
 
 fn find_java_launcher_in_path(path: &OsStr) -> Option<PathBuf> {
+    #[cfg(unix)]
+    let process_access = UnixProcessFileAccess::current();
     env::split_paths(path)
         .flat_map(|directory| java_launcher_candidates(&directory))
-        .find(|candidate| is_executable_file(candidate))
+        .find(|candidate| {
+            #[cfg(unix)]
+            {
+                is_executable_file(candidate, process_access.as_ref())
+            }
+            #[cfg(not(unix))]
+            {
+                is_executable_file(candidate)
+            }
+        })
 }
 
 #[cfg(windows)]
@@ -227,19 +238,14 @@ fn java_launcher_candidates(directory: &Path) -> Vec<PathBuf> {
 }
 
 #[cfg(unix)]
-fn is_executable_file(path: &Path) -> bool {
-    use std::os::unix::fs::PermissionsExt;
-
+fn is_executable_file(path: &Path, process_access: Option<&UnixProcessFileAccess>) -> bool {
     let Ok(metadata) = fs::metadata(path) else {
         return false;
     };
     if !metadata.is_file() {
         return false;
     }
-    let Ok(process_access) = UnixProcessFileAccess::current() else {
-        return metadata.permissions().mode() & 0o111 != 0;
-    };
-    process_access.can_execute(&metadata)
+    process_access.is_some_and(|access| access.can_execute(&metadata))
 }
 
 #[cfg(not(unix))]
@@ -255,23 +261,12 @@ struct UnixProcessFileAccess {
 
 #[cfg(unix)]
 impl UnixProcessFileAccess {
-    fn current() -> io::Result<Self> {
-        use std::os::unix::fs::MetadataExt;
-
-        let probe = create_build_dir("veln-access-probe")?.join("owner");
-        fs::write(&probe, b"")?;
-        let metadata = fs::metadata(&probe)?;
-        let _ = fs::remove_file(&probe);
-        let _ = fs::remove_dir(probe.parent().expect("probe should have a parent"));
-        let mut gids = vec![metadata.gid()];
-        #[cfg(target_os = "linux")]
-        gids.extend(linux_supplementary_groups());
+    fn current() -> Option<Self> {
+        let uid = unix_id_output(["-u"])?;
+        let mut gids = unix_id_output_many(["-G"])?;
         gids.sort_unstable();
         gids.dedup();
-        Ok(Self {
-            uid: metadata.uid(),
-            gids,
-        })
+        Some(Self { uid, gids })
     }
 
     fn can_execute(&self, metadata: &fs::Metadata) -> bool {
@@ -291,21 +286,29 @@ impl UnixProcessFileAccess {
     }
 }
 
-#[cfg(all(unix, target_os = "linux"))]
-fn linux_supplementary_groups() -> Vec<u32> {
-    fs::read_to_string("/proc/self/status")
-        .ok()
-        .and_then(|status| {
-            status
-                .lines()
-                .find_map(|line| line.strip_prefix("Groups:"))
-                .map(|line| {
-                    line.split_whitespace()
-                        .filter_map(|group| group.parse::<u32>().ok())
-                        .collect()
-                })
-        })
-        .unwrap_or_default()
+#[cfg(unix)]
+fn unix_id_output<const N: usize>(args: [&str; N]) -> Option<u32> {
+    let output = unix_id_command(args)?;
+    let value = String::from_utf8(output.stdout).ok()?;
+    value.trim().parse().ok()
+}
+
+#[cfg(unix)]
+fn unix_id_output_many<const N: usize>(args: [&str; N]) -> Option<Vec<u32>> {
+    let output = unix_id_command(args)?;
+    let value = String::from_utf8(output.stdout).ok()?;
+    value
+        .split_whitespace()
+        .map(|group| group.parse().ok())
+        .collect()
+}
+
+#[cfg(unix)]
+fn unix_id_command<const N: usize>(args: [&str; N]) -> Option<Output> {
+    ["/usr/bin/id", "/bin/id"].into_iter().find_map(|program| {
+        let output = ProcessCommand::new(program).args(args).output().ok()?;
+        output.status.success().then_some(output)
+    })
 }
 
 fn ensure_cached_jvm_classes_in(
