@@ -173,82 +173,103 @@ fn push_imports(out: &mut String, tree: &veln_syntax::SyntaxTree) {
 }
 
 fn push_public_api(out: &mut String, source: &SourceFile, tree: &veln_syntax::SyntaxTree) {
-    let public_types = tree
-        .items
-        .iter()
-        .filter_map(|item| match item {
-            SyntaxItem::Type(type_decl) if type_decl.visibility == Visibility::Public => {
-                Some(type_decl)
-            }
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-    let public_schemas = tree
-        .items
-        .iter()
-        .filter_map(|item| match item {
-            SyntaxItem::Schema(schema) if schema.visibility == Visibility::Public => Some(schema),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-    let public_functions = tree
-        .items
-        .iter()
-        .filter_map(|item| match item {
-            SyntaxItem::Function(function)
-                if function.kind == FunctionKind::Function
-                    && function.visibility == Visibility::Public =>
-            {
-                Some(function)
-            }
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-    let public_aliases = tree
-        .items
-        .iter()
-        .filter_map(|item| match item {
-            SyntaxItem::PublicAlias(alias) => Some(alias),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
+    let public_api = PublicApi::from_tree(tree);
+    if public_api.is_empty() {
+        return;
+    }
 
-    if !public_types.is_empty()
-        || !public_schemas.is_empty()
-        || !public_functions.is_empty()
-        || !public_aliases.is_empty()
-    {
-        push_heading(out, 4, "Public API");
+    push_heading(out, 4, "Public API");
+    for type_decl in public_api.types {
+        push_public_type(out, source, type_decl);
     }
-    for type_decl in public_types {
-        push_heading(out, 5, &type_signature(type_decl));
-        push_doc_block(out, doc_block_before(source, type_decl.span.start.line));
-        let variants = type_decl
-            .variants
-            .iter()
-            .filter(|variant| variant.visibility == Visibility::Public)
-            .collect::<Vec<_>>();
-        if !variants.is_empty() {
-            out.push_str("Public constructors:\n\n");
-            for variant in variants {
-                out.push_str(&format!("- `{}`\n", variant_signature(variant)));
+    for schema in public_api.schemas {
+        push_public_schema(out, source, schema);
+    }
+    for function in public_api.functions {
+        push_public_function(out, source, function);
+    }
+    for alias in public_api.aliases {
+        push_public_alias(out, source, alias);
+    }
+}
+
+struct PublicApi<'a> {
+    types: Vec<&'a TypeDecl>,
+    schemas: Vec<&'a SchemaDecl>,
+    functions: Vec<&'a FunctionDecl>,
+    aliases: Vec<&'a PublicAliasDecl>,
+}
+
+impl<'a> PublicApi<'a> {
+    fn from_tree(tree: &'a veln_syntax::SyntaxTree) -> Self {
+        let mut public_api = Self {
+            types: Vec::new(),
+            schemas: Vec::new(),
+            functions: Vec::new(),
+            aliases: Vec::new(),
+        };
+        for item in &tree.items {
+            match item {
+                SyntaxItem::Type(type_decl) if type_decl.visibility == Visibility::Public => {
+                    public_api.types.push(type_decl);
+                }
+                SyntaxItem::Schema(schema) if schema.visibility == Visibility::Public => {
+                    public_api.schemas.push(schema);
+                }
+                SyntaxItem::Function(function)
+                    if function.kind == FunctionKind::Function
+                        && function.visibility == Visibility::Public =>
+                {
+                    public_api.functions.push(function);
+                }
+                SyntaxItem::PublicAlias(alias) => public_api.aliases.push(alias),
+                _ => {}
             }
-            out.push('\n');
         }
+        public_api
     }
-    for schema in public_schemas {
-        push_heading(out, 5, &schema_signature(schema));
-        push_doc_block(out, doc_block_before(source, schema.span.start.line));
+
+    fn is_empty(&self) -> bool {
+        self.types.is_empty()
+            && self.schemas.is_empty()
+            && self.functions.is_empty()
+            && self.aliases.is_empty()
     }
-    for function in public_functions {
-        push_heading(out, 5, &function_signature(function));
-        push_doc_block(out, doc_block_before(source, function.span.start.line));
-        push_contracts(out, &function.contracts);
+}
+
+fn push_public_type(out: &mut String, source: &SourceFile, type_decl: &TypeDecl) {
+    push_heading(out, 5, &type_signature(type_decl));
+    push_doc_block(out, doc_block_before(source, type_decl.span.start.line));
+    let public_variants = type_decl
+        .variants
+        .iter()
+        .filter(|variant| variant.visibility == Visibility::Public)
+        .collect::<Vec<_>>();
+    if public_variants.is_empty() {
+        return;
     }
-    for alias in public_aliases {
-        push_heading(out, 5, &alias_signature(alias));
-        push_doc_block(out, doc_block_before(source, alias.span.start.line));
+
+    out.push_str("Public constructors:\n\n");
+    for variant in public_variants {
+        out.push_str(&format!("- `{}`\n", variant_signature(variant)));
     }
+    out.push('\n');
+}
+
+fn push_public_schema(out: &mut String, source: &SourceFile, schema: &SchemaDecl) {
+    push_heading(out, 5, &schema_signature(schema));
+    push_doc_block(out, doc_block_before(source, schema.span.start.line));
+}
+
+fn push_public_function(out: &mut String, source: &SourceFile, function: &FunctionDecl) {
+    push_heading(out, 5, &function_signature(function));
+    push_doc_block(out, doc_block_before(source, function.span.start.line));
+    push_contracts(out, &function.contracts);
+}
+
+fn push_public_alias(out: &mut String, source: &SourceFile, alias: &PublicAliasDecl) {
+    push_heading(out, 5, &alias_signature(alias));
+    push_doc_block(out, doc_block_before(source, alias.span.start.line));
 }
 
 fn push_adr_lite_records(out: &mut String, tree: &veln_syntax::SyntaxTree) {
@@ -811,4 +832,60 @@ fn manifest_field<'a>(fields: &'a [ManifestField], key: &str) -> Option<&'a str>
         .iter()
         .find(|field| field.key == key)
         .map(|field| field.value.as_str())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn public_api_rendering_preserves_category_order_and_visibility() {
+        let source = SourceFile::new(
+            "sample.veln",
+            concat!(
+                "pub fn exported() -> Int\n",
+                "\t1\n",
+                "end\n",
+                "fn hidden() -> Int\n",
+                "\t2\n",
+                "end\n",
+                "pub schema Packet\n",
+                "\tformat binary\n",
+                "\n",
+                "\tvalue: UInt8\n",
+                "end\n",
+                "pub type Visible\n",
+                "\tpub Wrap(Int)\n",
+                "\tHidden(Int)\n",
+                "end\n",
+                "pub type Alias = Visible\n",
+            ),
+        );
+        let parsed = parse(&source);
+        assert!(
+            parsed.diagnostics.is_empty(),
+            "fixture should parse: {:#?}",
+            parsed.diagnostics
+        );
+
+        let markdown = source_docs(&source, &parsed.tree);
+        let type_position = markdown.find("##### type Visible").expect("public type");
+        let schema_position = markdown.find("##### schema Packet").expect("public schema");
+        let function_position = markdown
+            .find("##### fn exported() -> Int")
+            .expect("public function");
+        let alias_position = markdown
+            .find("##### type Alias = Visible")
+            .expect("public alias");
+
+        assert!(type_position < schema_position);
+        assert!(schema_position < function_position);
+        assert!(function_position < alias_position);
+        assert!(
+            markdown.contains("Public constructors:\n\n- `Wrap { value: Int }`"),
+            "rendered markdown:\n{markdown}"
+        );
+        assert!(!markdown.contains("Hidden { value: Int }"));
+        assert!(!markdown.contains("hidden()"));
+    }
 }
