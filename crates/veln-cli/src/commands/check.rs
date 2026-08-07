@@ -1,4 +1,3 @@
-use std::env;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -11,12 +10,16 @@ use crate::diagnostics::{
     write_harness_source_diagnostic_artifact,
 };
 
-pub(crate) fn check(json: bool, inputs: Vec<PathBuf>) -> Result<ExitCode, String> {
-    let root = env::current_dir().map_err(|error| error.to_string())?;
+pub(crate) fn check(
+    start: super::CommandAnalysisStart,
+    json: bool,
+    inputs: Vec<PathBuf>,
+) -> Result<ExitCode, String> {
+    let root = start.package_root.clone();
     let analysis_inputs = if harness_source_diagnostic_artifact_requested() {
         Vec::new()
     } else {
-        inputs
+        start.resolve_inputs(inputs)
     };
     let project = Project::discover(root, &analysis_inputs).map_err(|error| error.to_string())?;
     let diagnostics = checked_project_diagnostics(project, DoctestMode::Include);

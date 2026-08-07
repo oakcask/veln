@@ -71,6 +71,7 @@ fn run_case_with_after_invocation(
             &context,
             project.veln_with_artifact(
                 &manifest.invocation.command,
+                manifest.invocation.cwd.as_deref(),
                 &manifest.invocation.env,
                 manifest.invocation.stdin.as_deref(),
                 artifact_path.as_deref(),
@@ -709,6 +710,7 @@ fn metrics_baseline_check_preserves_report_fields() {
             "--write-baseline".to_string(),
             "metrics.baseline.json".to_string(),
         ],
+        None,
         &[],
         None,
         None,
@@ -722,6 +724,7 @@ fn metrics_baseline_check_preserves_report_fields() {
 
     let report_output = project.veln_with_artifact(
         &["metrics".to_string(), "--json".to_string()],
+        None,
         &[],
         None,
         None,
@@ -734,6 +737,7 @@ fn metrics_baseline_check_preserves_report_fields() {
             "metrics.baseline.json".to_string(),
             "--json".to_string(),
         ],
+        None,
         &[],
         None,
         None,
@@ -802,6 +806,7 @@ fn metrics_cli_output_is_stable_for_reversed_input_order() {
             "src/app.veln".to_string(),
             "src/util.veln".to_string(),
         ],
+        None,
         &[],
         None,
         None,
@@ -813,6 +818,7 @@ fn metrics_cli_output_is_stable_for_reversed_input_order() {
             "src/util.veln".to_string(),
             "src/app.veln".to_string(),
         ],
+        None,
         &[],
         None,
         None,
@@ -823,6 +829,7 @@ fn metrics_cli_output_is_stable_for_reversed_input_order() {
             "src/app.veln".to_string(),
             "src/util.veln".to_string(),
         ],
+        None,
         &[],
         None,
         None,
@@ -833,6 +840,7 @@ fn metrics_cli_output_is_stable_for_reversed_input_order() {
             "src/util.veln".to_string(),
             "src/app.veln".to_string(),
         ],
+        None,
         &[],
         None,
         None,
@@ -858,6 +866,74 @@ fn metrics_cli_output_is_stable_for_reversed_input_order() {
         !String::from_utf8_lossy(&forward_human.stdout).contains('\\'),
         "human output should use canonical separators"
     );
+}
+
+#[test]
+fn analysis_commands_select_the_manifest_package_above_the_invocation_directory() {
+    let project = TestProject::new(
+        "analysis-commands-select-package-root".to_string(),
+        &ToolSetup::default(),
+    );
+    fs::create_dir_all(project.root.join("work/deep"))
+        .expect("nested invocation directory should be created");
+    fs::write(
+        project.root.join("veln.toml"),
+        "[package]\nname = \"command-root\"\n",
+    )
+    .expect("manifest should be written");
+    fs::write(project.root.join("main.veln"), "fn broken(\n")
+        .expect("invalid root source should be written");
+
+    for args in [
+        &["check", "--json"][..],
+        &["doc"][..],
+        &["fmt"][..],
+        &["metrics", "--json"][..],
+        &["run", "--json", "main"][..],
+        &["test", "--json"][..],
+    ] {
+        let args = args
+            .iter()
+            .map(|arg| (*arg).to_string())
+            .collect::<Vec<_>>();
+        let output =
+            project.veln_with_artifact(&args, Some(Path::new("work/deep")), &[], None, None);
+        let combined = format!(
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(
+            !output.status.success(),
+            "`{}` did not analyze the invalid package source\n{combined}",
+            args.join(" ")
+        );
+        assert!(
+            combined.contains("main.veln"),
+            "`{}` did not report the package source\n{combined}",
+            args.join(" ")
+        );
+    }
+
+    let repair_output = project.veln_with_artifact(
+        &["repair".to_string(), "--json".to_string()],
+        Some(Path::new("work/deep")),
+        &[],
+        None,
+        None,
+    );
+    assert_success("repair below manifest root", &repair_output);
+
+    let lock_output = project.veln_with_artifact(
+        &["package".to_string(), "lock".to_string()],
+        Some(Path::new("work/deep")),
+        &[],
+        None,
+        None,
+    );
+    assert_success("package lock below manifest root", &lock_output);
+    assert!(project.root.join("veln.lock").is_file());
+    assert!(!project.root.join("work/deep/veln.lock").exists());
 }
 
 fn case_name(case_dir: &Path) -> String {
@@ -953,12 +1029,13 @@ impl TestProject {
     fn veln_with_artifact(
         &self,
         args: &[String],
+        cwd: Option<&Path>,
         env: &[(String, String)],
         stdin: Option<&str>,
         artifact_path: Option<&Path>,
     ) -> Output {
         let mut command = Command::new(env!("CARGO_BIN_EXE_veln"));
-        command.current_dir(&self.root);
+        command.current_dir(cwd.map_or_else(|| self.root.clone(), |cwd| self.root.join(cwd)));
         command.args(args);
         command.stdout(Stdio::piped());
         command.stderr(Stdio::piped());
@@ -1176,6 +1253,7 @@ fn install_real_tool(_tool_path: &Path, name: &str, _host_tool: &Path) {
 #[derive(Debug)]
 struct CaseInvocation {
     command: Vec<String>,
+    cwd: Option<PathBuf>,
     stdin: Option<String>,
     repeat: usize,
     env: Vec<(String, String)>,
@@ -1928,6 +2006,7 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
 struct ManifestParser<'a> {
     path: &'a Path,
     command: Option<Vec<String>>,
+    cwd: Option<PathBuf>,
     stdin: Option<String>,
     exit: Option<i32>,
     repeat: usize,
@@ -1954,6 +2033,7 @@ impl<'a> ManifestParser<'a> {
         Self {
             path,
             command: None,
+            cwd: None,
             stdin: None,
             exit: None,
             repeat: 1,
@@ -2150,6 +2230,7 @@ impl<'a> ManifestParser<'a> {
     fn parse_root_key(&mut self, line_number: usize, key: &str, value: &str) {
         match key {
             "command" => self.command = Some(parse_string_array(self.path, line_number, value)),
+            "cwd" => self.cwd = Some(PathBuf::from(parse_string(self.path, line_number, value))),
             "stdin" => self.stdin = Some(parse_string(self.path, line_number, value)),
             "exit" => self.exit = Some(parse_i32(self.path, line_number, value)),
             "repeat" => self.repeat = parse_positive_usize(self.path, line_number, value),
@@ -2424,6 +2505,7 @@ impl<'a> ManifestParser<'a> {
                 command: self
                     .command
                     .unwrap_or_else(|| manifest_error(self.path, 0, "missing `command`")),
+                cwd: self.cwd,
                 stdin: self.stdin,
                 repeat: self.repeat,
                 env: self.env,

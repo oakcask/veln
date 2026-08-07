@@ -1,4 +1,3 @@
-use std::env;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -14,13 +13,15 @@ use veln_metrics::{
 use crate::diagnostics::{has_error, print_human_stderr, tool_info};
 
 pub(crate) fn metrics(
+    start: super::CommandAnalysisStart,
     json: bool,
     check: bool,
     baseline: Option<PathBuf>,
     write_baseline: Option<PathBuf>,
     inputs: Vec<PathBuf>,
 ) -> Result<ExitCode, String> {
-    let root = env::current_dir().map_err(|error| error.to_string())?;
+    let inputs = start.resolve_inputs(inputs);
+    let root = start.package_root;
     if let Some(path) = write_baseline {
         return write_metrics_baseline(root, &inputs, &path);
     }

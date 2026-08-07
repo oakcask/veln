@@ -18,6 +18,13 @@ requiring the full command reference on the first read.
   policy. Use
   [commands-full.md#shared-command-analysis](commands-full.md#shared-command-analysis)
   only when changing the shared path itself.
+- `check`, `doc`, `fmt`, `metrics`, `repair`, `run`, `test`, and `package lock`
+  select one package root from the invocation directory before project
+  discovery or manifest loading. The checked cases
+  `package-root-from-subdirectory` and `package-root-relative-input` cover the
+  command-visible selection and relative-input rules. Use
+  [commands-full.md#shared-command-analysis](commands-full.md#shared-command-analysis)
+  for exact boundary and failure behavior.
 - Command help: top-level help, subcommand help, and help-topic errors are
   implemented command behavior. Use
   [commands-full.md#command-help](commands-full.md#command-help) when changing
@@ -40,6 +47,9 @@ requiring the full command reference on the first read.
   `manifest-package-boundary-discovery`, `deep-manifest-package-boundary`,
   `target-owned-source-directory`, `target-nested-package-boundary`,
   `anonymous-outer-package-boundary`, and `explicit-nested-package-boundary`.
+  `package-root-from-subdirectory` proves ancestor package selection, and
+  `package-root-relative-input` proves that an explicit input remains relative
+  to the invocation directory after selection.
 - `fmt`: whole-invocation parse gate, deterministic formatting, tab-based
   canonical indentation, schema layout, `match` arm indentation, and canonical
   binary schema primitive spelling for supported compatibility fields and

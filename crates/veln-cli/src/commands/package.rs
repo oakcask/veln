@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
@@ -14,8 +13,8 @@ use veln_source::{SourcePath, SourceSpan};
 
 use crate::diagnostics::{has_error, print_human_stderr, tool_info};
 
-pub(crate) fn lock() -> Result<ExitCode, String> {
-    let root = env::current_dir().map_err(|error| error.to_string())?;
+pub(crate) fn lock(start: super::CommandAnalysisStart) -> Result<ExitCode, String> {
+    let root = start.package_root;
     let Some(manifest) = read_manifest(&root).map_err(|error| error.to_string())? else {
         return report_package_diagnostics(vec![missing_manifest_diagnostic()]);
     };
