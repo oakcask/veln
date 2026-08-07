@@ -204,8 +204,11 @@ fn usable_absolute_path(value: &OsStr) -> Option<PathBuf> {
 }
 
 fn find_java_launcher() -> Option<PathBuf> {
-    let path = env::var_os("PATH")?;
-    env::split_paths(&path)
+    find_java_launcher_in_path(&env::var_os("PATH")?)
+}
+
+fn find_java_launcher_in_path(path: &OsStr) -> Option<PathBuf> {
+    env::split_paths(path)
         .flat_map(|directory| java_launcher_candidates(&directory))
         .find(|candidate| is_executable_file(candidate))
 }
@@ -227,13 +230,82 @@ fn java_launcher_candidates(directory: &Path) -> Vec<PathBuf> {
 fn is_executable_file(path: &Path) -> bool {
     use std::os::unix::fs::PermissionsExt;
 
-    fs::metadata(path)
-        .is_ok_and(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
+    let Ok(metadata) = fs::metadata(path) else {
+        return false;
+    };
+    if !metadata.is_file() {
+        return false;
+    }
+    let Ok(process_access) = UnixProcessFileAccess::current() else {
+        return metadata.permissions().mode() & 0o111 != 0;
+    };
+    process_access.can_execute(&metadata)
 }
 
 #[cfg(not(unix))]
 fn is_executable_file(path: &Path) -> bool {
     path.is_file()
+}
+
+#[cfg(unix)]
+struct UnixProcessFileAccess {
+    uid: u32,
+    gids: Vec<u32>,
+}
+
+#[cfg(unix)]
+impl UnixProcessFileAccess {
+    fn current() -> io::Result<Self> {
+        use std::os::unix::fs::MetadataExt;
+
+        let probe = create_build_dir("veln-access-probe")?.join("owner");
+        fs::write(&probe, b"")?;
+        let metadata = fs::metadata(&probe)?;
+        let _ = fs::remove_file(&probe);
+        let _ = fs::remove_dir(probe.parent().expect("probe should have a parent"));
+        let mut gids = vec![metadata.gid()];
+        #[cfg(target_os = "linux")]
+        gids.extend(linux_supplementary_groups());
+        gids.sort_unstable();
+        gids.dedup();
+        Ok(Self {
+            uid: metadata.uid(),
+            gids,
+        })
+    }
+
+    fn can_execute(&self, metadata: &fs::Metadata) -> bool {
+        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+        let mode = metadata.permissions().mode();
+        if self.uid == 0 {
+            return mode & 0o111 != 0;
+        }
+        if metadata.uid() == self.uid {
+            return mode & 0o100 != 0;
+        }
+        if self.gids.binary_search(&metadata.gid()).is_ok() {
+            return mode & 0o010 != 0;
+        }
+        mode & 0o001 != 0
+    }
+}
+
+#[cfg(all(unix, target_os = "linux"))]
+fn linux_supplementary_groups() -> Vec<u32> {
+    fs::read_to_string("/proc/self/status")
+        .ok()
+        .and_then(|status| {
+            status
+                .lines()
+                .find_map(|line| line.strip_prefix("Groups:"))
+                .map(|line| {
+                    line.split_whitespace()
+                        .filter_map(|group| group.parse::<u32>().ok())
+                        .collect()
+                })
+        })
+        .unwrap_or_default()
 }
 
 fn ensure_cached_jvm_classes_in(
@@ -951,6 +1023,7 @@ mod tests {
     fn write_fake_java(root: &Path) -> PathBuf {
         use std::os::unix::fs::PermissionsExt;
 
+        fs::create_dir_all(root).expect("fake java directory should be created");
         let tool = root.join("java");
         fs::write(&tool, "#!/bin/sh\nexit 0\n").expect("fake java should be written");
         let mut permissions = fs::metadata(&tool)
@@ -963,6 +1036,7 @@ mod tests {
 
     #[cfg(windows)]
     fn write_fake_java(root: &Path) -> PathBuf {
+        fs::create_dir_all(root).expect("fake java directory should be created");
         let tool = root.join("java.cmd");
         fs::write(&tool, "@echo off\r\nexit /b 0\r\n").expect("fake java should be written");
         tool
@@ -1052,6 +1126,69 @@ mod tests {
             JvmRunResult::ToolError(message) => panic!("unexpected tool error: {message}"),
         }
 
+        fs::remove_dir_all(root).expect("test root should be removed");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn java_launcher_discovery_skips_candidate_current_process_cannot_execute() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = temp_root("java-discovery-skip-unusable");
+        let unusable_dir = root.join("unusable");
+        let usable_dir = root.join("usable");
+        fs::create_dir_all(&unusable_dir).expect("unusable directory should be created");
+        let unusable_java = unusable_dir.join("java");
+        fs::write(&unusable_java, "#!/bin/sh\nexit 7\n").expect("unusable java should be written");
+        let unusable_mode = if UnixProcessFileAccess::current()
+            .expect("process file access should resolve")
+            .uid
+            == 0
+        {
+            0o000
+        } else {
+            0o001
+        };
+        let mut permissions = fs::metadata(&unusable_java)
+            .expect("unusable java metadata should be available")
+            .permissions();
+        permissions.set_mode(unusable_mode);
+        fs::set_permissions(&unusable_java, permissions).expect("unusable java mode should be set");
+        let usable_java = write_fake_java(&usable_dir);
+        let path = env::join_paths([unusable_dir.as_path(), usable_dir.as_path()])
+            .expect("test PATH should join");
+
+        let selected = find_java_launcher_in_path(&path).expect("usable launcher should be found");
+
+        assert_eq!(selected, usable_java);
+        fs::remove_dir_all(root).expect("test root should be removed");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn java_launcher_discovery_rejects_only_unusable_candidates() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = temp_root("java-discovery-only-unusable");
+        let unusable_java = root.join("java");
+        fs::write(&unusable_java, "#!/bin/sh\nexit 7\n").expect("unusable java should be written");
+        let unusable_mode = if UnixProcessFileAccess::current()
+            .expect("process file access should resolve")
+            .uid
+            == 0
+        {
+            0o000
+        } else {
+            0o001
+        };
+        let mut permissions = fs::metadata(&unusable_java)
+            .expect("unusable java metadata should be available")
+            .permissions();
+        permissions.set_mode(unusable_mode);
+        fs::set_permissions(&unusable_java, permissions).expect("unusable java mode should be set");
+        let path = env::join_paths([root.as_path()]).expect("test PATH should join");
+
+        assert_eq!(find_java_launcher_in_path(&path), None);
         fs::remove_dir_all(root).expect("test root should be removed");
     }
 

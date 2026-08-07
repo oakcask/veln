@@ -322,6 +322,10 @@ do not inspect cache configuration.
 On a cache miss the command writes the emitted classfiles into the cache; on a
 cache hit it validates the manifest and cached classfiles before invoking
 `java`. Invalid or incomplete cache entries are replaced instead of executed.
+When concurrent invocations prepare the same cache entry, each invocation uses
+only a complete entry that validates against its own generated JVM program; an
+invocation that loses publication to another writer revalidates the published
+winner before using it.
 Runtime trace files for command output remain isolated to the individual
 command invocation. Human mode forwards process
 stdout and stderr and returns the Java process status for ordinary runtime

@@ -102,6 +102,18 @@ fn write_cache_test_java(tool_dir: &Path) {
 }
 
 #[cfg(unix)]
+fn write_unusable_cache_test_java(tool_dir: &Path) {
+    fs::create_dir_all(tool_dir).expect("tool directory should be created");
+    let java = tool_dir.join("java");
+    fs::write(&java, "#!/bin/sh\nexit 7\n").expect("fake java should be written");
+    let mut permissions = fs::metadata(&java)
+        .expect("fake java metadata should be available")
+        .permissions();
+    permissions.set_mode(0o000);
+    fs::set_permissions(java, permissions).expect("fake java should be unusable");
+}
+
+#[cfg(unix)]
 fn cache_test_command(
     project_root: &Path,
     args: &[&str],
@@ -349,6 +361,36 @@ fn missing_java_precedes_invalid_cache_configuration() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("`java` was not found"));
     assert!(!stderr.contains("VELN_CACHE_DIR"));
+}
+
+#[cfg(unix)]
+#[test]
+fn unusable_java_precedes_invalid_cache_configuration() {
+    let project = TestProject::new(
+        "unusable-java-cache-gate".to_string(),
+        &ToolSetup::default(),
+    );
+    fs::write(
+        project.root.join("main.veln"),
+        "fn main() -> ()\n  ()\nend\n",
+    )
+    .expect("source should be written");
+    let tool_dir = project.root.join("tools");
+    write_unusable_cache_test_java(&tool_dir);
+    let relative = Path::new("relative-cache");
+
+    let output = cache_test_command(
+        &project.root,
+        &["run", "main", "main.veln"],
+        &tool_dir,
+        &[("VELN_CACHE_DIR", relative)],
+    );
+
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("`java` was not found"));
+    assert!(!stderr.contains("VELN_CACHE_DIR"));
+    assert!(!project.root.join(relative).exists());
 }
 
 #[test]

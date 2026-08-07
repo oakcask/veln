@@ -76,7 +76,8 @@ requiring the full command reference on the first read.
   classfile execution without an ordinary Java source compiler requirement,
   and reusable JVM class caching below the host user cache or the complete
   absolute `VELN_CACHE_DIR` override, with cache configuration checked only
-  after analysis, entry selection, JVM generation, and Java discovery,
+  after analysis, entry selection, JVM generation, and Java discovery, and
+  with concurrent cache publication using only a complete validated winner,
   human runtime diagnostics for closed-input `ByteView` read truncation,
   schema fixed-field mismatch, binary schema field truncation, reserved-bit
   mismatch, integer range failure, field-local validation failure,
