@@ -136,7 +136,7 @@ fn process_runs_as_root() -> bool {
         let Ok(status) = fs::read_to_string(status_path) else {
             return false;
         };
-        return status.lines().any(|line| {
+        status.lines().any(|line| {
             let Some(values) = line.strip_prefix("Uid:") else {
                 return false;
             };
@@ -144,7 +144,7 @@ fn process_runs_as_root() -> bool {
                 .split_whitespace()
                 .nth(1)
                 .is_some_and(|effective_uid| effective_uid == "0")
-        });
+        })
     }
     #[cfg(not(target_os = "linux"))]
     {
