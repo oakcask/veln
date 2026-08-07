@@ -18,7 +18,18 @@ also states it.
 
 ## Catalog
 
-There are no active proposals.
+### Packages and Source Discovery
+
+- [Manifest Package Boundaries](manifest-package-boundaries.md): make a nested
+  `veln.toml` an ownership boundary for command, editor, dependency, and
+  checksum source discovery, and stop treating `target` as a reserved source
+  directory name.
+
+### Toolchain Storage
+
+- [Toolchain User Cache](toolchain-user-cache.md): place reusable toolchain
+  cache data in the host user cache directory, with `VELN_CACHE_DIR` as the
+  external override.
 
 ## Selection Rule
 
