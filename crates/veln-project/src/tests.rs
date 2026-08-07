@@ -152,6 +152,22 @@ fn explicit_inputs_reject_paths_outside_the_package_root() {
     assert!(parent_error.to_string().contains("../outside.veln"));
 }
 
+#[test]
+fn explicit_inputs_reject_parent_component_escaping_the_package_root() {
+    let temp = TempProject::new("explicit-parent-escape");
+    temp.write("source.veln", "source");
+
+    let error =
+        discover_source_paths(temp.root(), &[PathBuf::from("src/../../source.veln")]).unwrap_err();
+
+    let message = error.to_string();
+    assert!(message.contains("src/../../source.veln"), "{message}");
+    assert!(
+        message.contains("outside the supplied package root"),
+        "{message}"
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn recursive_discovery_does_not_follow_source_directory_or_manifest_symlinks() {
@@ -200,6 +216,24 @@ fn explicit_inputs_reject_symlinks_below_the_package_root() {
 
     let message = error.to_string();
     assert!(message.contains("linked/source.veln"), "{message}");
+    assert!(message.contains("symbolic link"), "{message}");
+}
+
+#[cfg(unix)]
+#[test]
+fn explicit_inputs_reject_symlinks_before_parent_components() {
+    use std::os::unix::fs::symlink;
+
+    let temp = TempProject::new("explicit-symlink-parent");
+    temp.write("real/source.veln", "source");
+    fs::create_dir_all(temp.path("through")).unwrap();
+    symlink(temp.path("through"), temp.path("linked")).unwrap();
+
+    let error = discover_source_paths(temp.root(), &[PathBuf::from("linked/../real/source.veln")])
+        .unwrap_err();
+
+    let message = error.to_string();
+    assert!(message.contains("linked/../real/source.veln"), "{message}");
     assert!(message.contains("symbolic link"), "{message}");
 }
 
