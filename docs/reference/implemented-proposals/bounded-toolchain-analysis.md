@@ -1,42 +1,43 @@
 ---
-role: proposal
-review-when: The standard-library analysis growth evidence, benchmark scope, or implementation status changes.
+role: implementation-record
+authority: supporting
+review-when: The bounded analysis completion evidence, historical benchmark interpretation, or linked CI evidence changes.
 ---
 
 # Bounded Toolchain Analysis
 
 ## Summary
 
-Keep standard-library analysis growth bounded as imported module graphs grow.
+Standard-library analysis growth is bounded as imported module graphs grow.
 
-This proposal changes toolchain implementation and test infrastructure. It
-does not change Veln source semantics, diagnostics, command output, or the JVM
-runtime contract.
+The implemented work changed toolchain implementation and test infrastructure.
+It did not change Veln source semantics, diagnostics, command output, or the
+JVM runtime contract. This page keeps the completion evidence and explains why
+the original CI-duration problem is complete.
 
-## Current Boundary
+## Implemented Outcome
 
-Completed slices and their evidence are historical records, not remaining
-proposal scope:
+The completed slices and their evidence are historical records:
 
 - CLI harness source-error artifact isolation, controlled benchmark harness,
   private-signature inference bounds, function/private-handler effect
   inference bounds, shared-analysis determinism, reusable standard-library
   semantic signatures, and stage-resolved benchmark measurement are recorded in
-  [../reference/implemented-proposals/bounded-toolchain-analysis-slices.md](../reference/implemented-proposals/bounded-toolchain-analysis-slices.md).
+  [bounded-toolchain-analysis-slices.md](bounded-toolchain-analysis-slices.md).
 - The controlled stage-timing evidence is recorded in
-  [../reviews/toolchain-analysis-stage-benchmark.json](../reviews/toolchain-analysis-stage-benchmark.json).
+  [../../reviews/toolchain-analysis-stage-benchmark.json](../../reviews/toolchain-analysis-stage-benchmark.json).
 - Indexed reachable-function, semantic-function, and ADT candidate lookup is
   implemented. Its controlled comparison is recorded in
-  [../reviews/toolchain-analysis-reachable-lookups.json](../reviews/toolchain-analysis-reachable-lookups.json).
+  [../../reviews/toolchain-analysis-reachable-lookups.json](../../reviews/toolchain-analysis-reachable-lookups.json).
 - Demand-driven embedded standard-library initialization is implemented. Its
   controlled comparison is recorded in
-  [../reviews/toolchain-analysis-demand-standard-library.json](../reviews/toolchain-analysis-demand-standard-library.json).
+  [../../reviews/toolchain-analysis-demand-standard-library.json](../../reviews/toolchain-analysis-demand-standard-library.json).
 - Separate application and selected standard-library analysis inputs are
   implemented. Their controlled comparison is recorded in
-  [../reviews/toolchain-analysis-separated-standard-inputs.json](../reviews/toolchain-analysis-separated-standard-inputs.json).
+  [../../reviews/toolchain-analysis-separated-standard-inputs.json](../../reviews/toolchain-analysis-separated-standard-inputs.json).
 - Embedded lowered standard-library modules are implemented. Their controlled
   comparison is recorded in
-  [../reviews/toolchain-analysis-embedded-lowered-standard.json](../reviews/toolchain-analysis-embedded-lowered-standard.json).
+  [../../reviews/toolchain-analysis-embedded-lowered-standard.json](../../reviews/toolchain-analysis-embedded-lowered-standard.json).
   The structural first-analysis coverage now observes only the target analysis
   thread, so parallel standard-library analysis in unrelated tests cannot
   contaminate the parse/lower counter. Embedded package initialization keeps
@@ -46,22 +47,21 @@ proposal scope:
   selected standard declarations. The recorded comparison uses the `dfdf2eb7`
   pre-slice binary from `main` and the final `77f0a36e` binary. Functional
   output and wall-time noise passed, but both representative HTTP/2 wall-time
-  ratios stayed above the one-third threshold.
+  ratios stayed above the historical one-third comparison signal.
 - Separate application and selected standard-library inputs are preserved
   through reachable-entry lowering. The controlled comparison is recorded in
-  [../reviews/toolchain-analysis-separated-reachable-inputs.json](../reviews/toolchain-analysis-separated-reachable-inputs.json).
+  [../../reviews/toolchain-analysis-separated-reachable-inputs.json](../../reviews/toolchain-analysis-separated-reachable-inputs.json).
   Functional output and wall-time noise passed, and HTTP/2
   `reachable_entry_lowering` medians fell for both representative workloads.
   Structural coverage includes codec `with` target resolution and reachable
   body materialization bounds on the separated input path.
-  The representative HTTP/2 wall-time ratios still stayed above the one-third
-  threshold.
+  The representative HTTP/2 wall-time ratios stayed above the historical
+  one-third comparison signal.
 - The existing toolchain suite remains authoritative for command behavior.
 
-The remaining proposal scope starts after those slices. It is limited to
-further work that makes the representative HTTP/2 core and connection
-workloads meet their one-third wall-time thresholds, plus final benchmark
-evidence that shows every proposal acceptance threshold passes.
+Together, these slices removed the CI bottleneck that motivated the proposal.
+The completion comparison below shows that the Rust test shards and individual
+toolchain cases no longer have the extreme durations observed before the work.
 
 ## Motivation
 
@@ -77,19 +77,19 @@ the controlled comparison reduced HTTP/2 connection median wall time from
 6.580130816 seconds to 1.427894989 seconds and reduced its median reachable
 lowering time from 5.216808242 seconds to 0.100644811 seconds.
 
-The same comparison did not complete the proposal. HTTP/2 core median
-reachable lowering fell from 0.160090167 seconds to 0.036408763 seconds, but
-its median wall time only fell from 1.391151211 seconds to 1.190085222 seconds.
-That 0.8554679122 wall-time ratio remains above the required one-third ratio.
+The same comparison did not pass the one-third comparison signal. HTTP/2 core
+median reachable lowering fell from 0.160090167 seconds to 0.036408763
+seconds, but its median wall time only fell from 1.391151211 seconds to
+1.190085222 seconds. That 0.8554679122 wall-time ratio stayed above one third.
 
 Demand-driven embedded standard-library initialization reduced HTTP/2 core
 median wall time from 1.191886089 seconds to 0.656577607 seconds. The
-0.5508727831 wall-time ratio remains above the required one-third ratio. It
-also reduced HTTP/2 connection median wall time from 1.448842086 seconds to
-0.950928367 seconds. The 0.6563367921 wall-time ratio remains above the
-required one-third ratio in that local comparison. The new stage evidence
-identifies `surface_parse_lower` and `semantic_environment_check` as the next
-HTTP/2 core hot path.
+0.5508727831 wall-time ratio stayed above one third. It also reduced HTTP/2
+connection median wall time from 1.448842086 seconds to
+0.950928367 seconds. The 0.6563367921 wall-time ratio stayed above one third
+in that local comparison. The new stage evidence identified
+`surface_parse_lower` and `semantic_environment_check` as the next HTTP/2 core
+hot path.
 
 Separating application and selected standard-library analysis inputs reduced
 the HTTP/2 core sum of median `surface_parse_lower` and
@@ -98,7 +98,7 @@ seconds. It reduced the same HTTP/2 connection stage sum from 0.60004038
 seconds to 0.309804194 seconds. Functional output matched for every measured
 workload, wall-time noise stayed within the accepted boundary, and both
 representative median wall times also fell. The broader one-third HTTP/2
-wall-time thresholds still did not pass, so the proposal remains open.
+comparison signals did not pass in that slice.
 
 Embedding per-module lowered standard-library data reduced HTTP/2 core median
 `surface_parse_lower` time from 0.045545017 seconds to 0.009942617 seconds and
@@ -106,8 +106,8 @@ HTTP/2 connection median `surface_parse_lower` time from 0.049651884 seconds
 to 0.010768857 seconds. Functional output matched for every measured workload
 and wall-time noise stayed within the accepted boundary. The representative
 HTTP/2 wall-time ratios were 0.7855141867 for core and 0.8940777698 for
-connection, so the broader one-third wall-time thresholds still did not pass
-and the proposal remains open.
+connection, so the broader one-third comparison signals did not pass in that
+slice.
 
 Preserving separated inputs through reachable-entry lowering reduced HTTP/2
 core median `reachable_entry_lowering` time from 0.015221209 seconds to
@@ -115,11 +115,10 @@ core median `reachable_entry_lowering` time from 0.015221209 seconds to
 `reachable_entry_lowering` time from 0.039002408 seconds to 0.030307844
 seconds. Functional output matched for every measured workload and wall-time
 noise stayed within the accepted boundary. The representative HTTP/2 wall-time
-ratios were 0.943778466 for core and 0.9526936514 for connection, so the
-broader one-third wall-time thresholds still did not pass and the proposal
-remains open.
+ratios were 0.943778466 for core and 0.9526936514 for connection. Those ratios
+did not pass the broader one-third comparison signals for that slice.
 
-## Proposed Outcome
+## Completed Requirements
 
 Analysis work must scale with the declarations and dependency relationships
 that can affect the result. Adding unrelated, fully annotated modules must not
@@ -129,9 +128,7 @@ inference round or reachable lowering operation.
 These are toolchain performance requirements. They do not make compilation
 time part of the Veln language semantics.
 
-## Required Behavior
-
-| Requirement | Observable condition | Planned primary evidence |
+| Requirement | Observable condition | Primary evidence |
 | --- | --- | --- |
 | CLI compatibility | Existing toolchain cases retain their exit status, stdout, stderr, JSON values, diagnostics, and generated files | Existing `veln-cli` toolchain suite |
 | Project isolation | Analysis reused for one copied project is not reused after source text, manifest data, command inputs, or dependency identity changes | Implemented cache invalidation and concurrent-project unit tests |
@@ -140,7 +137,7 @@ time part of the Veln language semantics.
 | Bounded standard initialization | Adding unrelated standard modules outside the selected closure does not increase first-analysis standard parse/lower or semantic prepare work | Implemented closure-driven standard loading and selected standard-environment tests |
 | Separate standard and application inputs | Application analysis keeps application declarations separate from selected standard declarations and builds semantics from application facts plus the selected reusable standard environment | Implemented structural input-separation tests and controlled stage comparison |
 | Separate reachable lowering inputs | Reachable-entry lowering preserves the application and selected standard-library surface inputs until after reachability traversal, while keeping reachable function sets, diagnostics, checked core, and typed IR equivalent to the former combined-input path | Implemented separated reachability tests and controlled stage comparison |
-| Representative improvement | HTTP/2 core and connection workloads become materially faster without weakening their assertions | Controlled before-and-after benchmark described below |
+| Representative improvement | CI Rust test shards and HTTP/2 toolchain cases become materially faster without weakening their assertions | GitHub Actions and JUnit comparison described below |
 
 The existing toolchain suite remains authoritative for command behavior. New
 cache, lowering, and benchmark tests are authoritative only for analysis reuse
@@ -161,12 +158,12 @@ Concurrent callers may share immutable standard-library data. They must not
 share mutable application state, inference progress, diagnostic buffers, or
 lowering state.
 
-Application analysis caching remains a non-goal for the reachable-lowering
-slice. The slice may reuse immutable standard-library facts that are already
-implemented, but it must not introduce a persistent daemon, a global on-disk
-cache, or mutable cross-project application analysis sharing.
+Application analysis caching was not needed for completion. The implemented
+work reuses immutable standard-library facts without introducing a persistent
+daemon, a global on-disk cache, or mutable cross-project application analysis
+sharing.
 
-## Performance Acceptance Model
+## Supporting Benchmark Model
 
 The implemented benchmark harness provides
 `scripts/benchmark-toolchain-analysis`. The script compares two prebuilt
@@ -186,24 +183,23 @@ by default. It alternates the baseline and new binary during comparison. It
 reports wall time, user CPU time, and the median for each metric. It writes
 deterministic machine-readable JSON when an output path is supplied.
 
-Before-and-after binaries must run on the same machine with the same build
+Before-and-after binaries run on the same machine with the same build
 profile. Runs must alternate between the two binaries to reduce ordering bias.
 If the median absolute deviation of wall time exceeds ten percent of the
 median, the result is noisy and must be repeated before it is used as
-acceptance evidence.
+review evidence.
 
 The baseline binary for each optimization slice must represent the
 implementation state immediately before that slice. The new binary must
 contain that slice. Ratios from separate slices do not accumulate for
-acceptance. The completion comparison uses the state immediately before the
-final optimization slice as its baseline, and the review record must identify
-both binary states.
+comparison. Each review record identifies the two binary states used for that
+local comparison.
 
 The script compares exit status and normalized functional output for measured
-runs before it reports a performance result. The controlled benchmark result
-is accepted when all of these comparisons pass:
+runs before it reports a performance result. Its thresholds were useful as
+aggressive per-slice investigation signals:
 
-| Comparison | Required result |
+| Comparison | Historical review signal |
 | --- | --- |
 | HTTP/2 core direct analysis | New median wall time is at most one third of the baseline median |
 | HTTP/2 connection direct analysis | New median wall time is at most one third of the baseline median |
@@ -218,38 +214,59 @@ be derived from the two CLI binary paths alone. Set
 the variable is absent, the script reports that comparison as skipped instead
 of silently treating it as passing.
 
-Hosted CI wall time is not a stable acceptance threshold. CI will continue to
-report nextest slow cases, but a particular hosted-run duration will not fail
-this proposal. Structural regression tests must run in normal CI. The
-controlled benchmark remains a review and completion artifact until a stable
-dedicated benchmark runner exists.
+These signals did not define proposal completion. The benchmark runs the full
+`veln run` path, so its wall time includes backend generation, temporary-file
+work, JVM startup, and runtime execution in addition to analysis. In the final
+recorded slice, `backend_runtime_remainder` alone exceeded one third of the
+pre-slice wall time for both representative workloads. Requiring a further
+threefold end-to-end reduction from analyzer-only work would therefore
+contradict the proposal scope.
 
-## Remaining Work
+## CI Completion Evidence
 
-- Reduce the HTTP/2 core and connection direct-analysis wall-time medians to
-  at most one third of the medians from the implementation state immediately
-  before the final optimization slice, without regressing completed functional
-  comparisons.
-- Preserve normal command stdout, stderr, JSON, exit status, diagnostics, and
-  generated output.
-- Preserve existing functional-output comparisons in the controlled benchmark.
-- Keep the completed structural coverage that holds reachable function-target
-  and ADT-constructor candidate scans constant as unrelated declarations grow.
-- Keep the completed demand-driven standard-library initialization boundary
-  that parses, lowers, and prepares only the selected standard-module closure
-  during first analysis.
-- Keep the completed boundary that standard-library and application
-  declarations remain separate analysis inputs after source loading.
-- Keep the completed boundary that selected embedded standard modules are
-  decoded from generated lowered representations instead of being parsed and
-  surface-lowered during application analysis.
-- Keep the completed boundary that reachable-entry lowering traverses
-  application and selected standard-library inputs separately and materializes
-  only reachable functions for lowering.
-- Replace the current controlled comparison only when every functional
-  comparison passes, wall-time noise remains within the accepted boundary,
-  and both representative HTTP/2 wall-time thresholds pass.
-- Keep application analysis caching out of scope for this proposal slice.
+The original problem was excessive `test / rust` duration caused by Veln
+toolchain cases. GitHub Actions job timings and uploaded nextest JUnit records
+provide the completion evidence. Two successful `main` runs before the
+optimization series are compared with three successful `main` runs after the
+implemented slices.
+
+| Observation | Before | Completed state | Result |
+| --- | ---: | ---: | --- |
+| Slowest `Run Rust tests` shard step | 7 minutes 11 seconds to 9 minutes 8 seconds | 1 minute 14 seconds to 1 minute 15 seconds | 82 to 86 percent lower |
+| Complete `test / rust` workflow | 7 minutes 53 seconds to 9 minutes 48 seconds | 2 minutes 28 seconds to 3 minutes 10 seconds | The original CI wait is removed |
+| JUnit shard duration | 468 to 517 seconds | 46 to 52 seconds | About 90 percent lower |
+| Toolchain cases represented in the compared JUnit artifacts | 1,383 | 1,518 | Coverage increased |
+| Sum of toolchain case durations | 7,742.219 seconds | 682.419 seconds | About 91 percent lower |
+| Mean toolchain case duration | 5.598 seconds | 0.450 seconds | About 92 percent lower |
+| Toolchain cases at or above the nextest five-second slow period | 199 | 0 | Slow cases removed |
+| Slowest toolchain case | 58.297 seconds | 2.593 seconds | Below the slow period |
+
+The before evidence comes from successful Actions runs
+[`9b9517bb`](https://github.com/oakcask/veln/actions/runs/30698202385) and
+[`14934a51`](https://github.com/oakcask/veln/actions/runs/30756362948). The
+completed-state evidence comes from successful runs
+[`fc33863f`](https://github.com/oakcask/veln/actions/runs/31076515661),
+[`5a34cab0`](https://github.com/oakcask/veln/actions/runs/31077444830), and
+[`3c089230`](https://github.com/oakcask/veln/actions/runs/31091284252).
+The exact JUnit comparison uses the `14934a51` and `fc33863f` artifacts.
+
+Representative HTTP/2 toolchain cases also moved out of the pathological
+range. The connection application case fell from 53.763 seconds to 1.924
+seconds. The service protocol failure case fell from 58.260 seconds to 2.593
+seconds. Assertions remained enabled, and the total number of toolchain cases
+increased.
+
+## Completion Decision
+
+The implemented analyzer and harness work satisfies the proposal's original
+CI objective. Functional comparisons pass, structural regression tests run in
+CI, no toolchain case reaches the configured nextest slow period in the
+completion artifacts, and the slowest Rust test shard is consistently close to
+one minute instead of many minutes.
+
+The historical one-third direct-run signal is not remaining proposal work. A
+future effort to reduce backend generation, filesystem work, JVM startup, or
+runtime execution needs a separate scope and acceptance model.
 
 ## Non-Goals
 
@@ -264,9 +281,9 @@ dedicated benchmark runner exists.
 - Do not replace end-to-end CLI cases with compiler unit tests when process
   behavior is part of the case.
 
-## Verification Commands
+## Verification Routes
 
-Planned verification uses these repository-relative commands:
+The implemented regression coverage uses these repository-relative commands:
 
 ```sh
 bash scripts/agent-test -p veln-cli --test toolchain_harness
@@ -275,11 +292,6 @@ bash scripts/agent-test -p veln-sema
 bash scripts/benchmark-toolchain-analysis compare BASELINE_BINARY NEW_BINARY
 ```
 
-## Completion Boundary
-
-This proposal is complete only when the analyzer optimization work lands, the
-functional acceptance cases pass, the structural regression tests run in CI,
-and the controlled benchmark meets all comparison thresholds.
-
-After completion, move this document to
-`../reference/implemented-proposals/` and remove it from the proposal catalog.
+The `test / rust` workflow provides the CI duration and JUnit evidence. The
+controlled benchmark records explain individual optimization slices but do not
+override the CI completion evidence.

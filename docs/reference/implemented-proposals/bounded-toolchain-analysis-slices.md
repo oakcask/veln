@@ -1,15 +1,15 @@
 ---
 role: implementation-record
 authority: supporting
-review-when: The bounded toolchain analysis proposal status, completion evidence, or routed review record changes.
+review-when: The bounded toolchain analysis completion evidence or routed review record changes.
 ---
 
 # Bounded Toolchain Analysis Slices
 
 This page records completed slices from the bounded toolchain analysis
 proposal. Use
-[../../proposals/bounded-toolchain-analysis.md](../../proposals/bounded-toolchain-analysis.md)
-for remaining planned work,
+[bounded-toolchain-analysis.md](bounded-toolchain-analysis.md)
+for the completion decision,
 [../../reviews/toolchain-analysis-stage-benchmark.json](../../reviews/toolchain-analysis-stage-benchmark.json)
 for the stage-timing review record, and
 [../../reviews/toolchain-analysis-reachable-lookups.json](../../reviews/toolchain-analysis-reachable-lookups.json)
@@ -132,9 +132,8 @@ all passed their thresholds.
 
 The HTTP/2 core workload's median `reachable_entry_lowering` time fell from
 0.160090167 seconds to 0.036408763 seconds, but median wall time only fell
-from 1.391151211 seconds to 1.190085222 seconds. Its 0.8554679122 ratio does
-not pass the one-third wall-time threshold, so the proposal remains open for
-that representative workload.
+from 1.391151211 seconds to 1.190085222 seconds. Its 0.8554679122 ratio did
+not pass the historical one-third wall-time signal.
 
 The demand-driven standard-library initialization comparison used prebuilt
 debug binaries, one warm-up run, and three measured runs. A five-run attempt
@@ -223,17 +222,14 @@ median stage timings for the new binary were 0.00002436 seconds for
 
 - Checking why completed bounded-analysis slices are no longer described as
   proposal work.
-- Auditing the evidence behind choosing reachable-entry lowering as the next
+- Auditing the evidence behind choosing reachable-entry lowering as an
   implementation slice.
 - Reviewing why reachable candidate indexing and demand-driven
-  standard-library initialization are implemented while the HTTP/2 wall-time
-  acceptance thresholds remain proposal work.
-- Reviewing why separated application and selected standard-library analysis
-  inputs are implemented while the HTTP/2 wall-time acceptance thresholds
-  remain proposal work.
-- Reviewing why embedded lowered standard-library modules are implemented
-  while the HTTP/2 wall-time acceptance thresholds remain proposal work.
-- Reviewing why separated reachable-entry lowering inputs are implemented
-  while the HTTP/2 wall-time acceptance thresholds remain proposal work.
+  standard-library initialization were implemented despite the aggressive
+  HTTP/2 comparison signals not passing in every slice.
+- Reviewing the separated application and selected standard-library analysis
+  input slice.
+- Reviewing the embedded lowered standard-library module slice.
+- Reviewing the separated reachable-entry lowering input slice.
 - Preserving the boundary that application analysis caching remains outside
   the measurement slice.

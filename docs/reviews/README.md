@@ -26,6 +26,9 @@ behavior specifications.
 - [toolchain-analysis-embedded-lowered-standard.json](toolchain-analysis-embedded-lowered-standard.json)
   records the controlled comparison for embedded lowered standard-library
   modules.
+- [toolchain-analysis-separated-reachable-inputs.json](toolchain-analysis-separated-reachable-inputs.json)
+  records the controlled comparison for separated application and selected
+  standard-library reachable-entry lowering inputs.
 - A proposal or reference page links to a named review record.
 - A local benchmark result or audit record is needed to check why a proposal
   slice was accepted.
