@@ -19,6 +19,10 @@ use veln_syntax::{TokenKind, lex, parse};
 
 use crate::diagnostics::parse_diagnostic_to_envelope;
 
+mod source_module_path;
+
+pub use source_module_path::derive as derive_source_module_path;
+
 #[cfg(test)]
 pub(crate) mod embedded_standard_counters {
     use std::cell::RefCell;
@@ -817,103 +821,6 @@ fn package_name_mismatch_diagnostic(
     )
 }
 
-pub fn derive_source_module_path(source: &SourceFile) -> Result<String, Box<Diagnostic>> {
-    let path = source.path().as_str();
-    if let Some(module_name) = derive_doctest_module_path(path) {
-        return Ok(module_name);
-    }
-    if let Some(companion) = classify_companion_source(path) {
-        if companion.chained {
-            let Some(without_extension) = path.strip_suffix(".veln") else {
-                return Err(Box::new(invalid_source_module_path_diagnostic(
-                    source,
-                    path,
-                    "source module files must use the `.veln` extension",
-                )));
-            };
-            let segments = without_extension
-                .split('/')
-                .map(|segment| {
-                    let sanitized = segment
-                        .chars()
-                        .map(|ch| {
-                            if ch.is_ascii_alphanumeric() || ch == '_' {
-                                ch
-                            } else {
-                                '_'
-                            }
-                        })
-                        .collect::<String>();
-                    format!("{sanitized}__chained_companion")
-                })
-                .collect::<Vec<_>>();
-            return Ok(segments.join("::"));
-        }
-        let Some(target_stem) = companion.target_path.strip_suffix(".veln") else {
-            return Err(Box::new(invalid_source_module_path_diagnostic(
-                source,
-                path,
-                "source module files must use the `.veln` extension",
-            )));
-        };
-        let mut segments = Vec::new();
-        for segment in target_stem.split('/') {
-            if is_module_identifier(segment) {
-                segments.push(segment.to_string());
-            } else {
-                return Err(Box::new(invalid_source_module_path_diagnostic(
-                    source,
-                    segment,
-                    "source path segment cannot be used as a module identifier",
-                )));
-            }
-        }
-        let Some(last) = segments.last_mut() else {
-            return Err(Box::new(invalid_source_module_path_diagnostic(
-                source,
-                path,
-                "source path segment cannot be used as a module identifier",
-            )));
-        };
-        *last = format!("{last}__test_companion");
-        return Ok(segments.join("::"));
-    }
-    let Some(without_extension) = path.strip_suffix(".veln") else {
-        return Err(Box::new(invalid_source_module_path_diagnostic(
-            source,
-            path,
-            "source module files must use the `.veln` extension",
-        )));
-    };
-    let mut segments = Vec::new();
-    for segment in without_extension.split('/') {
-        if is_module_identifier(segment) {
-            segments.push(segment);
-        } else {
-            return Err(Box::new(invalid_source_module_path_diagnostic(
-                source,
-                segment,
-                "source path segment cannot be used as a module identifier",
-            )));
-        }
-    }
-    Ok(segments.join("::"))
-}
-
-fn derive_doctest_module_path(path: &str) -> Option<String> {
-    let (source_path, _) = path.split_once("#doctest-")?;
-    let source_stem = source_path.strip_suffix(".veln")?;
-    let mut segments = Vec::new();
-    for segment in source_stem.split('/') {
-        if is_module_identifier(segment) {
-            segments.push(segment.to_string());
-        } else {
-            return None;
-        }
-    }
-    Some(segments.join("::"))
-}
-
 fn is_doctest_source(source: &SourceFile) -> bool {
     source.path().as_str().contains("#doctest-")
 }
@@ -1172,35 +1079,6 @@ fn dotted_use_decl_diagnostic(use_decl: &veln_syntax::UseDecl) -> Diagnostic {
         JsonValue::string("Rewrite the import with `::` between module path segments."),
     )]));
     diagnostic
-}
-
-fn is_module_identifier(segment: &str) -> bool {
-    let mut chars = segment.chars();
-    let Some(first) = chars.next() else {
-        return false;
-    };
-    (first.is_ascii_alphabetic() || first == '_')
-        && chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
-}
-
-fn invalid_source_module_path_diagnostic(
-    source: &SourceFile,
-    segment: &str,
-    message: &'static str,
-) -> Diagnostic {
-    Diagnostic::new(
-        "module.invalid_source_path",
-        Severity::Error,
-        DiagnosticKind::Module,
-        format!("{message}: `{segment}`"),
-        Some(source.span(veln_source::TextRange::new(0, 0))),
-        JsonValue::object([
-            ("phase", JsonValue::string("module")),
-            ("field", JsonValue::string("module_identity")),
-            ("source_path", JsonValue::string(source.path().as_str())),
-            ("segment", JsonValue::string(segment)),
-        ]),
-    )
 }
 
 fn duplicate_derived_module_diagnostic(
