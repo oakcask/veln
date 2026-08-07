@@ -256,6 +256,22 @@ fn unreadable_regular_manifest_still_establishes_a_boundary() {
     assert!(paths.is_empty());
 }
 
+#[cfg(unix)]
+#[test]
+fn boundary_candidate_classification_error_fails_discovery() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let temp = TempProject::new("manifest-boundary-classification-error");
+    temp.write("owned.veln", "owned");
+    temp.write("restricted/veln.toml", "");
+    fs::set_permissions(temp.path("restricted"), fs::Permissions::from_mode(0o000)).unwrap();
+
+    let error = discover_source_paths(temp.root(), &[]).unwrap_err();
+
+    fs::set_permissions(temp.path("restricted"), fs::Permissions::from_mode(0o700)).unwrap();
+    assert_eq!(error.kind(), std::io::ErrorKind::PermissionDenied);
+}
+
 #[test]
 fn deduplicates_overlapping_explicit_directory_inputs() {
     let temp = TempProject::new("overlapping-directory-inputs");

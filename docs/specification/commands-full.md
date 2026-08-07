@@ -82,7 +82,9 @@ escape, or an input that traverses a symbolic link below the root. A nested
 package rejection identifies the input and nested package root. One rejected
 input fails the complete discovery operation.
 
-The checked cases `manifest-package-boundary-discovery` and
+The checked cases `manifest-package-boundary-discovery`,
+`deep-manifest-package-boundary`, `target-owned-source-directory`,
+`target-nested-package-boundary`, `anonymous-outer-package-boundary`, and
 `explicit-nested-package-boundary` are the executable command evidence for
 recursive and explicit boundary handling.
 

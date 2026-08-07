@@ -1,0 +1,27 @@
+command = ["check", "--json"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[diagnostics]]
+id = "manifest.unselected_export"
+severity = "error"
+kind = "module"
+message = "manifest export `target/package/hidden.veln` has no matching selected source file"
+
+[diagnostics.span]
+file = "veln.toml"
+line = 4
+column = 4

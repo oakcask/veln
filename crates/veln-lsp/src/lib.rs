@@ -531,7 +531,7 @@ fn collect_manifest_project_roots(dir: &Path, roots: &mut Vec<PathBuf>) {
         let path = entry.path();
         let file_name = entry.file_name();
         let file_name = file_name.to_string_lossy();
-        if file_name == ".git" || file_name == "target" || !path.is_dir() {
+        if file_name == ".git" || !path.is_dir() {
             continue;
         }
         if path.join("veln.toml").is_file() {
@@ -2314,6 +2314,33 @@ mod tests {
         let publish = publish_for_uri(&responses, &app_uri);
         assert!(publish.contains(r#""diagnostics":[]"#), "{publish}");
         assert!(!publish.contains("module.missing_identity"), "{publish}");
+    }
+
+    #[test]
+    fn server_uses_nested_manifest_roots_below_target_workspace_directories() {
+        let mut server = Server::default();
+        let workspace = TempProject::new("nested-manifest-target-workspace-folder");
+        workspace.write(
+            "target/generated-package/veln.toml",
+            "[package]\nname = \"generated\"\n",
+        );
+        workspace.write(
+            "target/generated-package/main.veln",
+            "pub fn generated() -> Int\n  1\nend\n",
+        );
+        let root_uri = path_to_uri(&workspace.root);
+        let generated_uri = path_to_uri(&workspace.root.join("target/generated-package/main.veln"));
+
+        let responses = server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"workspaceFolders":[{{"uri":"{root_uri}","name":"repo"}}]}}}}"#
+        ));
+
+        assert_eq!(
+            server.workspace_roots,
+            vec![workspace.root.join("target/generated-package")]
+        );
+        let publish = publish_for_uri(&responses, &generated_uri);
+        assert!(publish.contains(r#""diagnostics":[]"#), "{publish}");
     }
 
     #[test]

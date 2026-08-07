@@ -3,3 +3,5 @@
 *.class
 node_modules/
 target/
+!examples/specification/check/**/target/
+!examples/specification/check/**/target/**
