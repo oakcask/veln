@@ -107,9 +107,12 @@ leaves workspace roots empty and publishes document-scoped diagnostics for open
 documents only.
 
 For files inside a resolved workspace root, the server discovers project
-`.veln` files the same way `check` and `run` do, excludes doctest-generated
-sources, overlays open unsaved editor text onto the discovered source set, and
-includes open new `.veln` buffers that do not exist on disk yet. It publishes
+`.veln` files the same way `check` and `run` do. For each resolved root, a
+descendant regular `veln.toml` excludes that nested package's saved sources,
+while an ordinary `target` directory remains discoverable. The server excludes
+doctest-generated sources, overlays open unsaved editor text onto the
+discovered source set, and includes open new `.veln` buffers that do not exist
+on disk yet. It publishes
 `textDocument/publishDiagnostics` for every discovered or open workspace source
 file, including unopened files. It also publishes empty diagnostic lists for
 previously reported files that become clean or leave discovery.

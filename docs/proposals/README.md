@@ -20,10 +20,9 @@ also states it.
 
 ### Packages and Source Discovery
 
-- [Manifest Package Boundaries](manifest-package-boundaries.md): make a nested
-  `veln.toml` an ownership boundary for command, editor, dependency, and
-  checksum source discovery, and stop treating `target` as a reserved source
-  directory name.
+- [Manifest Package Boundaries](manifest-package-boundaries.md): complete
+  command, dependency, and editor package-root selection around the implemented
+  shared ownership boundary.
 
 ### Toolchain Storage
 

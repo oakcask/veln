@@ -63,9 +63,28 @@ prints the check JSON envelope. Without `--json`, it prints human diagnostics
 or `ok`.
 
 Inputs are files or directories. If no path is provided, discovery recursively
-selects `.veln` files below the current project root, skipping `.git` and
-`target`. Explicit directories are searched recursively. The final discovered
+selects owned regular `.veln` files below the supplied project root. A regular
+file named `veln.toml` in a descendant directory makes that directory a nested
+package root, so discovery excludes the directory and its descendants without
+opening or parsing that manifest. A symbolic link or non-regular object named
+`veln.toml` is not a boundary.
+
+Discovery does not follow source or directory symbolic links. It skips `.git`
+directories. A directory named `target` is an ordinary source directory and
+receives the same nested-package handling as every other directory. An error
+while classifying a boundary candidate fails discovery. The final discovered
 file list is sorted and deduplicated.
+
+Explicit directories are searched recursively, but every explicit file and
+directory must remain owned by the supplied project root. Discovery rejects an
+input outside that root, an input below a nested manifest root, a parent-path
+escape, or an input that traverses a symbolic link below the root. A nested
+package rejection identifies the input and nested package root. One rejected
+input fails the complete discovery operation.
+
+The checked cases `manifest-package-boundary-discovery` and
+`explicit-nested-package-boundary` are the executable command evidence for
+recursive and explicit boundary handling.
 
 If the current project root contains `veln.toml`, the command reads package
 and tool metadata, path dependency entries from

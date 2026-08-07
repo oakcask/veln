@@ -1,4 +1,0 @@
-// Build output discovery is skipped by the public check command.
-fn ignored() -> Int
-  add(1 2)
-end
