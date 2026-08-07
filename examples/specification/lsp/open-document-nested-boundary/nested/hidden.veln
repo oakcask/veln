@@ -1,0 +1,3 @@
+pub fn hidden() -> Int
+  2
+end
