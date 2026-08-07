@@ -182,7 +182,8 @@ fn execute_runnable_test_cases(
                     let analysis = analysis_mutex
                         .lock()
                         .map_err(|_| "test analysis state was poisoned".to_string())?;
-                    let mut job = prepare_test_case_job(&analysis, reusable_program.as_ref(), case);
+                    let mut job =
+                        prepare_test_case_job(&analysis, reusable_program.as_ref(), *case);
                     job.set_execution(Arc::clone(&execution));
                     job
                 }
@@ -915,7 +916,7 @@ enum TestCaseJob {
 }
 
 enum PlannedTestCaseJob {
-    Ready(TestCase),
+    Ready(Box<TestCase>),
     Completed(Box<TestCase>),
 }
 
@@ -987,7 +988,7 @@ fn plan_test_case_job(analysis: &ProjectAnalysis, mut case: TestCase) -> Planned
         .is_none()
         .then(|| analysis.lower_reachable_entry(&case.name, FunctionKind::Test))
     else {
-        return PlannedTestCaseJob::Ready(case);
+        return PlannedTestCaseJob::Ready(Box::new(case));
     };
 
     if !reachable.lowered.diagnostics.is_empty() {
@@ -1012,7 +1013,7 @@ fn plan_test_case_job(analysis: &ProjectAnalysis, mut case: TestCase) -> Planned
         case.diagnostics = reachable.lowered.diagnostics;
         return PlannedTestCaseJob::Completed(Box::new(case));
     };
-    PlannedTestCaseJob::Ready(case)
+    PlannedTestCaseJob::Ready(Box::new(case))
 }
 
 fn prepare_test_case_job(
