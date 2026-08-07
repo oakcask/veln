@@ -208,14 +208,12 @@ fn find_java_launcher() -> Option<PathBuf> {
 }
 
 fn find_java_launcher_in_path(path: &OsStr) -> Option<PathBuf> {
-    #[cfg(unix)]
-    let process_access = UnixProcessFileAccess::current();
     env::split_paths(path)
         .flat_map(|directory| java_launcher_candidates(&directory))
         .find(|candidate| {
             #[cfg(unix)]
             {
-                is_executable_file(candidate, process_access.as_ref())
+                is_executable_file(candidate)
             }
             #[cfg(not(unix))]
             {
@@ -238,16 +236,14 @@ fn java_launcher_candidates(directory: &Path) -> Vec<PathBuf> {
 }
 
 #[cfg(unix)]
-fn is_executable_file(path: &Path, process_access: Option<&UnixProcessFileAccess>) -> bool {
+fn is_executable_file(path: &Path) -> bool {
     let Ok(metadata) = fs::metadata(path) else {
         return false;
     };
     if !metadata.is_file() {
         return false;
     }
-    process_access
-        .map(|access| access.can_execute(&metadata))
-        .unwrap_or_else(|| has_any_execute_bit(&metadata))
+    current_process_can_execute(path)
 }
 
 #[cfg(not(unix))]
@@ -256,93 +252,14 @@ fn is_executable_file(path: &Path) -> bool {
 }
 
 #[cfg(unix)]
-struct UnixProcessFileAccess {
-    uid: u32,
-    gids: Vec<u32>,
-}
-
-#[cfg(unix)]
-impl UnixProcessFileAccess {
-    fn current() -> Option<Self> {
-        Self::from_linux_proc_status()
-    }
-
-    fn can_execute(&self, metadata: &fs::Metadata) -> bool {
-        use std::os::unix::fs::{MetadataExt, PermissionsExt};
-
-        let mode = metadata.permissions().mode();
-        if self.uid == 0 {
-            return mode & 0o111 != 0;
-        }
-        if metadata.uid() == self.uid {
-            return mode & 0o100 != 0;
-        }
-        if self.gids.binary_search(&metadata.gid()).is_ok() {
-            return mode & 0o010 != 0;
-        }
-        mode & 0o001 != 0
-    }
-
-    #[cfg(target_os = "linux")]
-    fn from_linux_proc_status() -> Option<Self> {
-        Self::from_linux_proc_status_text(&fs::read_to_string(linux_proc_self_status_path()).ok()?)
-    }
-
-    #[cfg(not(target_os = "linux"))]
-    fn from_linux_proc_status() -> Option<Self> {
-        None
-    }
-
-    #[cfg(target_os = "linux")]
-    fn from_linux_proc_status_text(status: &str) -> Option<Self> {
-        let mut uid = None;
-        let mut gids = Vec::new();
-
-        for line in status.lines() {
-            let Some((name, values)) = line.split_once(':') else {
-                continue;
-            };
-            match name {
-                "Uid" => {
-                    uid = values.split_whitespace().nth(1)?.parse().ok();
-                }
-                "Gid" => {
-                    if let Some(gid) = values.split_whitespace().nth(1) {
-                        gids.push(gid.parse().ok()?);
-                    }
-                }
-                "Groups" => {
-                    gids.extend(
-                        values
-                            .split_whitespace()
-                            .map(|group| group.parse::<u32>())
-                            .collect::<Result<Vec<_>, _>>()
-                            .ok()?,
-                    );
-                }
-                _ => {}
-            }
-        }
-
-        gids.sort_unstable();
-        gids.dedup();
-        Some(Self { uid: uid?, gids })
-    }
-}
-
-#[cfg(unix)]
-fn has_any_execute_bit(metadata: &fs::Metadata) -> bool {
-    use std::os::unix::fs::PermissionsExt;
-
-    metadata.permissions().mode() & 0o111 != 0
-}
-
-#[cfg(all(unix, target_os = "linux"))]
-fn linux_proc_self_status_path() -> PathBuf {
-    Path::new(std::path::MAIN_SEPARATOR_STR)
-        .join("proc")
-        .join("self")
-        .join("status")
+fn current_process_can_execute(path: &Path) -> bool {
+    ProcessCommand::new("/bin/sh")
+        .arg("-c")
+        .arg("test -x \"$1\"")
+        .arg("veln-java-access-check")
+        .arg(path)
+        .status()
+        .is_ok_and(|status| status.success())
 }
 
 fn ensure_cached_jvm_classes_in(
@@ -1166,30 +1083,33 @@ mod tests {
         fs::remove_dir_all(root).expect("test root should be removed");
     }
 
-    #[cfg(all(unix, target_os = "linux"))]
+    #[cfg(unix)]
+    fn current_process_is_root() -> bool {
+        ProcessCommand::new("/bin/sh")
+            .arg("-c")
+            .arg("test \"$(id -u)\" = 0")
+            .status()
+            .is_ok_and(|status| status.success())
+    }
+
+    #[cfg(unix)]
     #[test]
     fn java_launcher_discovery_skips_candidate_current_process_cannot_execute() {
         use std::os::unix::fs::PermissionsExt;
 
+        if current_process_is_root() {
+            return;
+        }
         let root = temp_root("java-discovery-skip-unusable");
         let unusable_dir = root.join("unusable");
         let usable_dir = root.join("usable");
         fs::create_dir_all(&unusable_dir).expect("unusable directory should be created");
         let unusable_java = unusable_dir.join("java");
         fs::write(&unusable_java, "#!/bin/sh\nexit 7\n").expect("unusable java should be written");
-        let unusable_mode = if UnixProcessFileAccess::current()
-            .expect("process file access should resolve")
-            .uid
-            == 0
-        {
-            0o000
-        } else {
-            0o001
-        };
         let mut permissions = fs::metadata(&unusable_java)
             .expect("unusable java metadata should be available")
             .permissions();
-        permissions.set_mode(unusable_mode);
+        permissions.set_mode(0o001);
         fs::set_permissions(&unusable_java, permissions).expect("unusable java mode should be set");
         let usable_java = write_fake_java(&usable_dir);
         let path = env::join_paths([unusable_dir.as_path(), usable_dir.as_path()])
@@ -1201,44 +1121,26 @@ mod tests {
         fs::remove_dir_all(root).expect("test root should be removed");
     }
 
-    #[cfg(all(unix, target_os = "linux"))]
+    #[cfg(unix)]
     #[test]
     fn java_launcher_discovery_rejects_only_unusable_candidates() {
         use std::os::unix::fs::PermissionsExt;
 
+        if current_process_is_root() {
+            return;
+        }
         let root = temp_root("java-discovery-only-unusable");
         let unusable_java = root.join("java");
         fs::write(&unusable_java, "#!/bin/sh\nexit 7\n").expect("unusable java should be written");
-        let unusable_mode = if UnixProcessFileAccess::current()
-            .expect("process file access should resolve")
-            .uid
-            == 0
-        {
-            0o000
-        } else {
-            0o001
-        };
         let mut permissions = fs::metadata(&unusable_java)
             .expect("unusable java metadata should be available")
             .permissions();
-        permissions.set_mode(unusable_mode);
+        permissions.set_mode(0o001);
         fs::set_permissions(&unusable_java, permissions).expect("unusable java mode should be set");
         let path = env::join_paths([root.as_path()]).expect("test PATH should join");
 
         assert_eq!(find_java_launcher_in_path(&path), None);
         fs::remove_dir_all(root).expect("test root should be removed");
-    }
-
-    #[cfg(target_os = "linux")]
-    #[test]
-    fn linux_process_file_access_reads_effective_ids_from_proc_status() {
-        let access = UnixProcessFileAccess::from_linux_proc_status_text(
-            "Name:\tveln\nUid:\t1000\t1001\t1002\t1003\nGid:\t2000\t2001\t2002\t2003\nGroups:\t10 20 2001\n",
-        )
-        .expect("process status should parse");
-
-        assert_eq!(access.uid, 1001);
-        assert_eq!(access.gids, vec![10, 20, 2001]);
     }
 
     #[test]
