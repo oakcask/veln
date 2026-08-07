@@ -2,7 +2,7 @@ use super::*;
 use crate::schema::ir::schema_decode_specs;
 use crate::schema::primitives::{SchemaRepeatPayload, repeat_schema_primitive};
 use crate::semantic_model::Type;
-use crate::types::{schema_decode_value_type, schema_encode_value_type};
+use crate::types::schema_types::{schema_decode_value_type, schema_encode_value_type};
 
 const FORMAT_NEUTRAL_HELPER_SUPPORTED: &str = "recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Vec<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module or public imported source ADTs whose constructor payloads are recursive visible shapes";
 

@@ -21,8 +21,7 @@ use crate::schema::reserved_layout::{
     schema_payload_has_generalized_reserved_byte_prefix, supported_encode_reserved_bits,
 };
 use crate::standard_names::PRELUDE_MODULE;
-use crate::types::UserEffectPathResolution;
-use crate::types::{
+use crate::types::schema_types::{
     binary_schema_anonymous_record_decode_type,
     format_neutral_schema_encode_field_is_source_adt_candidate,
     format_neutral_schema_encode_field_type_for_schema,
@@ -35,6 +34,7 @@ use crate::types::{
     schema_has_recursive_dispatch_payload, schema_recursive_dispatch_helper_payload_type,
     schema_recursive_dispatch_payload_type,
 };
+use crate::types::signatures::UserEffectPathResolution;
 use std::collections::{BTreeMap, BTreeSet};
 use veln_ast::{PublicAliasKind, SchemaDecl, SchemaField, SchemaValidationClause, UseDecl};
 use veln_literals::parse_integer_literal;

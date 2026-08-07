@@ -1,5 +1,5 @@
 use super::*;
-use crate::types::{
+use crate::types::signatures::{
     EffectOperationSignature, EffectSignature, HandlerSignature, UserEffectPathResolution,
     synthetic_handler_clause_function_name,
 };

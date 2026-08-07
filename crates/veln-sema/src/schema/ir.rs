@@ -21,7 +21,7 @@ use crate::schema::primitives::{
 use crate::schema::reserved_layout::supported_encode_reserved_bits;
 use crate::semantic_model::Type;
 use crate::type_syntax::parse_type_annotation;
-use crate::types::{
+use crate::types::schema_types::{
     format_neutral_schema_field_type_for_schema,
     recursive_dispatch_decode_only_payload_case_is_eligible,
     recursive_dispatch_payload_case_is_eligible, schema_decode_function_name,
