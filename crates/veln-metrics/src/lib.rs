@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use veln_analysis::{derive_source_module_path, load_surface_module};
 use veln_diagnostics::{Diagnostic, JsonValue, Severity, ToolInfo, parse_json_value};
-use veln_project::{Project, ProjectManifest, discover_source_paths};
+use veln_project::{ManifestField, Project, ProjectManifest, discover_source_paths};
 use veln_source::{SourceFile, SourceSpan, TextRange};
 use veln_syntax::{
     BinaryOp, BodyLine, Expr, ExprKind, FunctionDecl, FunctionKind, SyntaxItem, Token, TokenKind,
@@ -54,6 +54,32 @@ pub struct MetricsConfig {
     pub policy: MetricsPolicy,
     pub similarity_min_tokens: usize,
     pub human_output_max_findings: usize,
+}
+
+impl MetricsConfig {
+    fn apply_manifest_field(&mut self, field: &ManifestField) -> Option<Diagnostic> {
+        match field.key.as_str() {
+            "deny_cycles" => apply_metrics_field(
+                &mut self.policy.deny_cycles,
+                parse_boolean_metrics_field(field),
+                field,
+                JsonValue::array([JsonValue::string("true"), JsonValue::string("false")]),
+            ),
+            "similarity_min_tokens" => apply_metrics_field(
+                &mut self.similarity_min_tokens,
+                parse_positive_metrics_field(field, usize::MAX),
+                field,
+                JsonValue::string("positive integer string"),
+            ),
+            "max_findings" => apply_metrics_field(
+                &mut self.human_output_max_findings,
+                parse_positive_metrics_field(field, max_json_usize()),
+                field,
+                JsonValue::string("positive integer string"),
+            ),
+            _ => Some(unsupported_metrics_field_diagnostic(field)),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -306,11 +332,7 @@ fn analyze_project_metrics_from_project(
 fn read_metrics_config(
     manifest: Option<&ProjectManifest>,
 ) -> Result<MetricsConfig, Vec<Diagnostic>> {
-    let mut config = MetricsConfig {
-        policy: MetricsPolicy { deny_cycles: false },
-        similarity_min_tokens: DEFAULT_SIMILARITY_MIN_TOKENS,
-        human_output_max_findings: DEFAULT_HUMAN_OUTPUT_MAX_FINDINGS,
-    };
+    let mut config = default_metrics_config();
     let Some(tool) = manifest
         .into_iter()
         .flat_map(|manifest| &manifest.tools)
@@ -319,77 +341,81 @@ fn read_metrics_config(
         return Ok(config);
     };
 
-    let mut diagnostics = Vec::new();
-    for field in &tool.fields {
-        match field.key.as_str() {
-            "deny_cycles" => match field.value.as_str() {
-                "true" => config.policy.deny_cycles = true,
-                "false" => config.policy.deny_cycles = false,
-                value => diagnostics.push(metrics_policy_diagnostic(
-                    "metrics.policy.invalid_value",
-                    format!("invalid metrics policy value `{value}` for `deny_cycles`"),
-                    Some(field.value_span.clone()),
-                    JsonValue::object([
-                        ("field", JsonValue::string("deny_cycles")),
-                        (
-                            "allowed",
-                            JsonValue::array([
-                                JsonValue::string("true"),
-                                JsonValue::string("false"),
-                            ]),
-                        ),
-                    ]),
-                )),
-            },
-            "similarity_min_tokens" => match field.value.parse::<usize>() {
-                Ok(value) if value > 0 => config.similarity_min_tokens = value,
-                _ => diagnostics.push(metrics_policy_diagnostic(
-                    "metrics.policy.invalid_value",
-                    format!(
-                        "invalid metrics policy value `{}` for `similarity_min_tokens`",
-                        field.value
-                    ),
-                    Some(field.value_span.clone()),
-                    JsonValue::object([
-                        ("field", JsonValue::string("similarity_min_tokens")),
-                        ("allowed", JsonValue::string("positive integer string")),
-                    ]),
-                )),
-            },
-            "max_findings" => match field.value.parse::<usize>() {
-                Ok(value) if value > 0 && value <= max_json_usize() => {
-                    config.human_output_max_findings = value;
-                }
-                _ => diagnostics.push(metrics_policy_diagnostic(
-                    "metrics.policy.invalid_value",
-                    format!(
-                        "invalid metrics policy value `{}` for `max_findings`",
-                        field.value
-                    ),
-                    Some(field.value_span.clone()),
-                    JsonValue::object([
-                        ("field", JsonValue::string("max_findings")),
-                        ("allowed", JsonValue::string("positive integer string")),
-                    ]),
-                )),
-            },
-            _ => diagnostics.push(metrics_policy_diagnostic(
-                "metrics.policy.unsupported_field",
-                format!("unsupported metrics policy field `{}`", field.key),
-                Some(field.key_span.clone()),
-                JsonValue::object([
-                    ("field", JsonValue::string(field.key.clone())),
-                    ("tool", JsonValue::string("metrics")),
-                ]),
-            )),
-        }
-    }
+    let diagnostics = tool
+        .fields
+        .iter()
+        .filter_map(|field| config.apply_manifest_field(field))
+        .collect::<Vec<_>>();
 
     if diagnostics.is_empty() {
         Ok(config)
     } else {
         Err(diagnostics)
     }
+}
+
+fn default_metrics_config() -> MetricsConfig {
+    MetricsConfig {
+        policy: MetricsPolicy { deny_cycles: false },
+        similarity_min_tokens: DEFAULT_SIMILARITY_MIN_TOKENS,
+        human_output_max_findings: DEFAULT_HUMAN_OUTPUT_MAX_FINDINGS,
+    }
+}
+
+fn parse_boolean_metrics_field(field: &ManifestField) -> Option<bool> {
+    match field.value.as_str() {
+        "true" => Some(true),
+        "false" => Some(false),
+        _ => None,
+    }
+}
+
+fn parse_positive_metrics_field(field: &ManifestField, maximum: usize) -> Option<usize> {
+    field
+        .value
+        .parse::<usize>()
+        .ok()
+        .filter(|value| *value > 0 && *value <= maximum)
+}
+
+fn apply_metrics_field<Value>(
+    target: &mut Value,
+    value: Option<Value>,
+    field: &ManifestField,
+    allowed: JsonValue,
+) -> Option<Diagnostic> {
+    let Some(value) = value else {
+        return Some(invalid_metrics_field_diagnostic(field, allowed));
+    };
+    *target = value;
+    None
+}
+
+fn invalid_metrics_field_diagnostic(field: &ManifestField, allowed: JsonValue) -> Diagnostic {
+    metrics_policy_diagnostic(
+        "metrics.policy.invalid_value",
+        format!(
+            "invalid metrics policy value `{}` for `{}`",
+            field.value, field.key
+        ),
+        Some(field.value_span.clone()),
+        JsonValue::object([
+            ("field", JsonValue::string(field.key.clone())),
+            ("allowed", allowed),
+        ]),
+    )
+}
+
+fn unsupported_metrics_field_diagnostic(field: &ManifestField) -> Diagnostic {
+    metrics_policy_diagnostic(
+        "metrics.policy.unsupported_field",
+        format!("unsupported metrics policy field `{}`", field.key),
+        Some(field.key_span.clone()),
+        JsonValue::object([
+            ("field", JsonValue::string(field.key.clone())),
+            ("tool", JsonValue::string("metrics")),
+        ]),
+    )
 }
 
 #[cfg(test)]
@@ -2462,6 +2488,41 @@ mod tests {
     }
 
     #[test]
+    fn reports_all_invalid_metrics_config_fields_in_manifest_order() {
+        let manifest = metrics_manifest(&[
+            ("deny_cycles", "yes"),
+            ("similarity_min_tokens", "0"),
+            ("max_findings", "many"),
+            ("unknown", "5"),
+        ]);
+
+        let diagnostics = read_metrics_config(Some(&manifest)).expect_err("invalid fields");
+
+        assert_eq!(
+            diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.id.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "metrics.policy.invalid_value",
+                "metrics.policy.invalid_value",
+                "metrics.policy.invalid_value",
+                "metrics.policy.unsupported_field",
+            ]
+        );
+        assert!(diagnostics.iter().all(|diagnostic| {
+            diagnostic
+                .span
+                .as_ref()
+                .is_some_and(|span| span.file.as_str() == "veln.toml")
+        }));
+        assert!(diagnostics[0].message.contains("`deny_cycles`"));
+        assert!(diagnostics[1].message.contains("`similarity_min_tokens`"));
+        assert!(diagnostics[2].message.contains("`max_findings`"));
+        assert!(diagnostics[3].message.contains("`unknown`"));
+    }
+
+    #[test]
     fn render_human_truncates_stable_cross_section_prefix() {
         let mut report = report_from_edges(&[
             ("app", "util"),
@@ -3371,14 +3432,6 @@ mod tests {
             })
             .expect("function");
         abc_vector(&function)
-    }
-
-    fn default_metrics_config() -> MetricsConfig {
-        MetricsConfig {
-            policy: MetricsPolicy { deny_cycles: false },
-            similarity_min_tokens: DEFAULT_SIMILARITY_MIN_TOKENS,
-            human_output_max_findings: DEFAULT_HUMAN_OUTPUT_MAX_FINDINGS,
-        }
     }
 
     const STABLE_APP_SOURCE: &str = "use nested::util\n\nfn add(left: Int, right: Int) -> Int\n  left + right\nend\n\nfn duplicate_app() -> Int\n  let value = add(1, 2)\n  let other = add(value, 3)\n  other\nend\n\nfn variant_app() -> Int\n  let value = add(4, 5)\n  let other = add(value, 6)\n  other\nend\n";
