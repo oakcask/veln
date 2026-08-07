@@ -231,9 +231,32 @@ impl<'a> CoreLowerer<'a> {
     }
 
     fn lower_function(&mut self) -> CoreFunction {
+        let params = self.lower_params();
+        let return_type = self.lower_return_type();
+        let contracts = self.lower_contracts();
+        let body = self.lower_body(&return_type);
+
+        CoreFunction {
+            node_id: self.function.node_id,
+            name: self.lowered_function_name(),
+            visibility: self.function.visibility,
+            params,
+            return_binding: self
+                .function
+                .return_binding
+                .as_ref()
+                .map(|binding| binding.name.clone()),
+            return_type,
+            effects: self.lower_effects(),
+            contracts,
+            body,
+            span: self.function.span.clone(),
+        }
+    }
+
+    fn lower_params(&mut self) -> Vec<CoreParam> {
         let signature = self.environment.function_for(self.function);
-        let params = self
-            .function
+        self.function
             .params
             .iter()
             .enumerate()
@@ -260,16 +283,20 @@ impl<'a> CoreLowerer<'a> {
                     span: param.span.clone(),
                 }
             })
-            .collect();
-        let return_type = self
-            .environment
+            .collect()
+    }
+
+    fn lower_return_type(&self) -> CoreType {
+        self.environment
             .function_for(self.function)
             .map(|function| core_type(&function.return_type))
             .unwrap_or_else(|| {
                 core_type(&parse_type_or_unknown(self.function.return_type.as_deref()))
-            });
-        let contracts = self
-            .function
+            })
+    }
+
+    fn lower_contracts(&self) -> Vec<CoreContract> {
+        self.function
             .contracts
             .iter()
             .map(|contract| CoreContract {
@@ -283,39 +310,30 @@ impl<'a> CoreLowerer<'a> {
                 },
                 span: contract.span.clone(),
             })
-            .collect();
-        let body = self.lower_body(&return_type);
+            .collect()
+    }
 
-        CoreFunction {
-            node_id: self.function.node_id,
-            name: self.function.name.as_deref().map_or_else(
-                || "<missing>".to_string(),
-                |name| {
-                    if self.function.kind == veln_ast::FunctionKind::Test {
-                        name.to_string()
-                    } else {
-                        crate::standard_symbols::standard_function_link_name(
-                            self.function.module_name.as_deref(),
-                            name,
-                        )
-                    }
-                },
-            ),
-            visibility: self.function.visibility,
-            params,
-            return_binding: self
-                .function
-                .return_binding
-                .as_ref()
-                .map(|binding| binding.name.clone()),
-            return_type,
-            effects: signature
-                .map(|function| function.effects.clone())
-                .unwrap_or_else(|| self.function.effects.clone().unwrap_or_default()),
-            contracts,
-            body,
-            span: self.function.span.clone(),
-        }
+    fn lowered_function_name(&self) -> String {
+        self.function.name.as_deref().map_or_else(
+            || "<missing>".to_string(),
+            |name| {
+                if self.function.kind == veln_ast::FunctionKind::Test {
+                    name.to_string()
+                } else {
+                    crate::standard_symbols::standard_function_link_name(
+                        self.function.module_name.as_deref(),
+                        name,
+                    )
+                }
+            },
+        )
+    }
+
+    fn lower_effects(&self) -> Vec<String> {
+        self.environment
+            .function_for(self.function)
+            .map(|function| function.effects.clone())
+            .unwrap_or_else(|| self.function.effects.clone().unwrap_or_default())
     }
 
     fn unsupported_expression(

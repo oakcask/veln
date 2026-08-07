@@ -142,6 +142,52 @@ fn variadic_parameter_lowers_body_binding_to_list() {
 }
 
 #[test]
+fn function_header_lowering_preserves_resolved_core_metadata() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn summarize(prefix: String, values: ...Int) -> total: Int effects [stdio]\n",
+            "require prefix == prefix\n",
+            "ensure total >= 0\n",
+            "  stdio::println(prefix)\n",
+            "  0\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let summarize = core
+        .functions
+        .iter()
+        .find(|function| function.name == "summarize")
+        .expect("summarize should be lowered");
+    assert_eq!(summarize.visibility, veln_ast::Visibility::Public);
+    assert_eq!(summarize.params[0].ty, CoreType::string());
+    assert_eq!(
+        summarize.params[1].ty,
+        CoreType::named("List", vec![CoreType::int()])
+    );
+    assert_eq!(summarize.return_binding.as_deref(), Some("total"));
+    assert_eq!(summarize.return_type, CoreType::int());
+    assert_eq!(summarize.effects, ["stdio"]);
+    assert_eq!(summarize.contracts.len(), 2);
+    assert_eq!(
+        summarize.contracts[0].obligation_status,
+        ContractObligationStatus::StaticallyProven
+    );
+    assert_eq!(
+        summarize.contracts[1].obligation_status,
+        ContractObligationStatus::RuntimeRequired
+    );
+}
+
+#[test]
 fn variadic_call_lowers_tail_arguments_to_list() {
     let source = SourceFile::new(
         "main.veln",
