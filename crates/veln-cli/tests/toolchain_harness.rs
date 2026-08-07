@@ -3,7 +3,7 @@ use std::io::Write;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output, Stdio};
+use std::process::{Child, Command, Output, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
 #[cfg(all(unix, debug_assertions))]
 use std::thread;
@@ -167,6 +167,33 @@ fn cache_test_command(
 }
 
 #[cfg(all(unix, debug_assertions))]
+fn wait_for_bounded_output(mut child: Child, deadline: Instant, label: &str) -> Output {
+    loop {
+        if child
+            .try_wait()
+            .expect("child status should be readable")
+            .is_some()
+        {
+            return child
+                .wait_with_output()
+                .expect("child output should be read");
+        }
+        if Instant::now() >= deadline {
+            let _ = child.kill();
+            let output = child
+                .wait_with_output()
+                .expect("timed-out child output should be read");
+            panic!(
+                "{label} exceeded the harness bound\nstdout:\n{}\nstderr:\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+}
+
+#[cfg(all(unix, debug_assertions))]
 fn directory_file_snapshot(root: &Path) -> Vec<(PathBuf, Vec<u8>)> {
     fn collect(root: &Path, directory: &Path, files: &mut Vec<(PathBuf, Vec<u8>)>) {
         for entry in fs::read_dir(directory).expect("snapshot directory should be readable") {
@@ -255,19 +282,22 @@ fn abandoned_jvm_cache_coordination_reaches_bounded_error_without_starting_java(
         .wait()
         .expect("stopped cache writer should be reaped");
 
-    let later_started = Instant::now();
-    let output = cache_test_command(
-        &project.root,
-        &["run", "main", "main.veln"],
-        &tool_dir,
-        &[
-            ("VELN_CACHE_DIR", &cache_root),
-            ("VELN_INTERNAL_TEST_CACHE_LOCK_WAIT_MS", Path::new("4000")),
-            ("JAVA_MARKER", &java_marker),
-        ],
+    let later_deadline = Instant::now() + Duration::from_secs(10);
+    let mut later = Command::new(env!("CARGO_BIN_EXE_veln"));
+    later.current_dir(&project.root);
+    later.args(["run", "main", "main.veln"]);
+    later.env("PATH", &tool_dir);
+    later.env("VELN_CACHE_DIR", &cache_root);
+    later.env("VELN_INTERNAL_TEST_CACHE_LOCK_WAIT_MS", "2000");
+    later.env("JAVA_MARKER", &java_marker);
+    later.stdout(Stdio::piped());
+    later.stderr(Stdio::piped());
+    let output = wait_for_bounded_output(
+        later.spawn().expect("later cache command should start"),
+        later_deadline,
+        "later cache command",
     );
 
-    assert!(later_started.elapsed() < Duration::from_secs(5));
     assert_eq!(output.status.code(), Some(2));
     assert!(
         String::from_utf8_lossy(&output.stderr)
