@@ -157,45 +157,79 @@ fn execute_runnable_test_cases(
         )
     });
     let execution = Arc::new(TestJvmExecution::new());
-    let (planned_cases, has_ready_job) = prepare_runnable_test_case_jobs(
-        &analysis,
-        reusable_program.as_ref(),
-        runnable_cases,
-        Arc::clone(&execution),
-    );
+    let has_ready_job =
+        preflight_runnable_test_case_jobs(&analysis, reusable_program.as_ref(), &runnable_cases);
     if has_ready_job {
         execution.get()?;
     }
-    let active_jobs = resolve_test_jobs(jobs, planned_cases.len(), || {
+    let active_jobs = resolve_test_jobs(jobs, runnable_cases.len(), || {
         std::thread::available_parallelism().ok()
     });
+    let analysis_mutex = Mutex::new(analysis);
     let cases = run_test_case_jobs(
-        planned_cases,
+        runnable_cases,
         active_jobs,
-        |planned| Ok::<_, String>(planned),
+        |case| {
+            let analysis = analysis_mutex
+                .lock()
+                .map_err(|_| "test analysis state was poisoned".to_string())?;
+            let mut job = prepare_test_case_job(&analysis, reusable_program.as_ref(), case);
+            job.set_execution(Arc::clone(&execution));
+            Ok::<_, String>(job)
+        },
         execute_test_case_job,
     )
     .map_err(test_scheduler_error)?;
+    let analysis = analysis_mutex
+        .into_inner()
+        .map_err(|_| "test analysis state was poisoned".to_string())?;
     Ok((analysis, cases))
 }
 
-fn prepare_runnable_test_case_jobs(
+fn preflight_runnable_test_case_jobs(
     analysis: &ProjectAnalysis,
     reusable_program: Option<&JvmProgram>,
-    runnable_cases: Vec<TestCase>,
-    execution: Arc<TestJvmExecution>,
-) -> (Vec<TestCaseJob>, bool) {
-    let mut planned_cases = Vec::with_capacity(runnable_cases.len());
+    runnable_cases: &[TestCase],
+) -> bool {
     let mut has_ready_job = false;
     for case in runnable_cases {
-        let mut planned = prepare_test_case_job(analysis, reusable_program, case);
-        if matches!(planned, TestCaseJob::Ready(_)) {
+        if preflight_test_case_job(analysis, reusable_program, &case.name) {
             has_ready_job = true;
-            planned.set_execution(Arc::clone(&execution));
         }
-        planned_cases.push(planned);
     }
-    (planned_cases, has_ready_job)
+    has_ready_job
+}
+
+fn preflight_test_case_job(
+    analysis: &ProjectAnalysis,
+    reusable_program: Option<&JvmProgram>,
+    case_name: &str,
+) -> bool {
+    let Some(reachable) = analysis
+        .reusable_standard_ir()
+        .is_none()
+        .then(|| analysis.lower_reachable_entry(case_name, FunctionKind::Test))
+    else {
+        return reusable_program.is_some();
+    };
+
+    if !reachable.lowered.diagnostics.is_empty() {
+        return false;
+    }
+    if retained_user_effect_diagnostic(
+        &reachable.module,
+        reachable.lowered.core.as_ref(),
+        case_name,
+    )
+    .is_some()
+    {
+        return false;
+    }
+    let Some(ir) = &reachable.lowered.ir else {
+        return false;
+    };
+    let _program = generate_classfiles_with_entry(ir, case_name);
+    true
 }
 
 pub(crate) fn resolve_test_jobs(
@@ -315,7 +349,7 @@ mod tests {
     use super::process_discovered_test_cases;
     use super::{
         JvmExecution, SchedulerError, TestCaseJob, TestExecution, TestJvmExecution,
-        TestProgramHookGuard, execute_test_case_job, prepare_runnable_test_case_jobs,
+        TestProgramHookGuard, execute_test_case_job, preflight_runnable_test_case_jobs,
         prepare_test_case_job, resolve_test_jobs, run_test_case_jobs,
     };
     use std::collections::BTreeSet;
@@ -724,7 +758,7 @@ mod tests {
     }
 
     #[test]
-    fn non_reusable_jobs_have_jvm_programs_before_cache_validation() {
+    fn non_reusable_jobs_preflight_jvm_programs_before_cache_validation() {
         let project = TempProject::new("non-reusable-prepares-before-cache");
         project.write(
             "main_test.veln",
@@ -746,14 +780,14 @@ mod tests {
             analysis.reusable_standard_ir().is_none(),
             "fixture should force per-case JVM generation"
         );
-        let execution = Arc::new(TestJvmExecution::ready(JvmExecution::for_test(
-            project.root.join("cache/jvm"),
-        )));
 
-        let (jobs, has_ready_job) =
-            prepare_runnable_test_case_jobs(&analysis, None, cases, Arc::clone(&execution));
+        let has_ready_job = preflight_runnable_test_case_jobs(&analysis, None, &cases);
 
         assert!(has_ready_job);
+        let jobs = cases
+            .into_iter()
+            .map(|case| prepare_test_case_job(&analysis, None, case))
+            .collect::<Vec<_>>();
         assert_eq!(jobs.len(), 3);
         assert!(
             jobs.iter()
@@ -763,10 +797,6 @@ mod tests {
             .iter()
             .filter_map(|job| match job {
                 TestCaseJob::Ready(job) => {
-                    assert!(
-                        job.execution.is_some(),
-                        "ready jobs should receive the shared execution state"
-                    );
                     assert!(
                         job.java_args.is_empty(),
                         "per-case JVM programs should not need a reusable test-entry argument"
