@@ -245,7 +245,9 @@ fn is_executable_file(path: &Path, process_access: Option<&UnixProcessFileAccess
     if !metadata.is_file() {
         return false;
     }
-    process_access.is_some_and(|access| access.can_execute(&metadata))
+    process_access
+        .map(|access| access.can_execute(&metadata))
+        .unwrap_or_else(|| has_any_execute_bit(&metadata))
 }
 
 #[cfg(not(unix))]
@@ -262,11 +264,7 @@ struct UnixProcessFileAccess {
 #[cfg(unix)]
 impl UnixProcessFileAccess {
     fn current() -> Option<Self> {
-        let uid = unix_id_output(["-u"])?;
-        let mut gids = unix_id_output_many(["-G"])?;
-        gids.sort_unstable();
-        gids.dedup();
-        Some(Self { uid, gids })
+        Self::from_linux_proc_status()
     }
 
     fn can_execute(&self, metadata: &fs::Metadata) -> bool {
@@ -284,31 +282,67 @@ impl UnixProcessFileAccess {
         }
         mode & 0o001 != 0
     }
+
+    #[cfg(target_os = "linux")]
+    fn from_linux_proc_status() -> Option<Self> {
+        Self::from_linux_proc_status_text(&fs::read_to_string(linux_proc_self_status_path()).ok()?)
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    fn from_linux_proc_status() -> Option<Self> {
+        None
+    }
+
+    #[cfg(target_os = "linux")]
+    fn from_linux_proc_status_text(status: &str) -> Option<Self> {
+        let mut uid = None;
+        let mut gids = Vec::new();
+
+        for line in status.lines() {
+            let Some((name, values)) = line.split_once(':') else {
+                continue;
+            };
+            match name {
+                "Uid" => {
+                    uid = values.split_whitespace().nth(1)?.parse().ok();
+                }
+                "Gid" => {
+                    if let Some(gid) = values.split_whitespace().nth(1) {
+                        gids.push(gid.parse().ok()?);
+                    }
+                }
+                "Groups" => {
+                    gids.extend(
+                        values
+                            .split_whitespace()
+                            .map(|group| group.parse::<u32>())
+                            .collect::<Result<Vec<_>, _>>()
+                            .ok()?,
+                    );
+                }
+                _ => {}
+            }
+        }
+
+        gids.sort_unstable();
+        gids.dedup();
+        Some(Self { uid: uid?, gids })
+    }
 }
 
 #[cfg(unix)]
-fn unix_id_output<const N: usize>(args: [&str; N]) -> Option<u32> {
-    let output = unix_id_command(args)?;
-    let value = String::from_utf8(output.stdout).ok()?;
-    value.trim().parse().ok()
+fn has_any_execute_bit(metadata: &fs::Metadata) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+
+    metadata.permissions().mode() & 0o111 != 0
 }
 
-#[cfg(unix)]
-fn unix_id_output_many<const N: usize>(args: [&str; N]) -> Option<Vec<u32>> {
-    let output = unix_id_command(args)?;
-    let value = String::from_utf8(output.stdout).ok()?;
-    value
-        .split_whitespace()
-        .map(|group| group.parse().ok())
-        .collect()
-}
-
-#[cfg(unix)]
-fn unix_id_command<const N: usize>(args: [&str; N]) -> Option<Output> {
-    ["/usr/bin/id", "/bin/id"].into_iter().find_map(|program| {
-        let output = ProcessCommand::new(program).args(args).output().ok()?;
-        output.status.success().then_some(output)
-    })
+#[cfg(all(unix, target_os = "linux"))]
+fn linux_proc_self_status_path() -> PathBuf {
+    Path::new(std::path::MAIN_SEPARATOR_STR)
+        .join("proc")
+        .join("self")
+        .join("status")
 }
 
 fn ensure_cached_jvm_classes_in(
@@ -1132,7 +1166,7 @@ mod tests {
         fs::remove_dir_all(root).expect("test root should be removed");
     }
 
-    #[cfg(unix)]
+    #[cfg(all(unix, target_os = "linux"))]
     #[test]
     fn java_launcher_discovery_skips_candidate_current_process_cannot_execute() {
         use std::os::unix::fs::PermissionsExt;
@@ -1167,7 +1201,7 @@ mod tests {
         fs::remove_dir_all(root).expect("test root should be removed");
     }
 
-    #[cfg(unix)]
+    #[cfg(all(unix, target_os = "linux"))]
     #[test]
     fn java_launcher_discovery_rejects_only_unusable_candidates() {
         use std::os::unix::fs::PermissionsExt;
@@ -1193,6 +1227,18 @@ mod tests {
 
         assert_eq!(find_java_launcher_in_path(&path), None);
         fs::remove_dir_all(root).expect("test root should be removed");
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_process_file_access_reads_effective_ids_from_proc_status() {
+        let access = UnixProcessFileAccess::from_linux_proc_status_text(
+            "Name:\tveln\nUid:\t1000\t1001\t1002\t1003\nGid:\t2000\t2001\t2002\t2003\nGroups:\t10 20 2001\n",
+        )
+        .expect("process status should parse");
+
+        assert_eq!(access.uid, 1001);
+        assert_eq!(access.gids, vec![10, 20, 2001]);
     }
 
     #[test]

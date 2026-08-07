@@ -127,10 +127,29 @@ fn write_other_execute_only_cache_test_java(tool_dir: &Path) {
 
 #[cfg(unix)]
 fn process_runs_as_root() -> bool {
-    let Ok(output) = Command::new("/usr/bin/id").arg("-u").output() else {
-        return false;
-    };
-    output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "0"
+    #[cfg(target_os = "linux")]
+    {
+        let status_path = Path::new(std::path::MAIN_SEPARATOR_STR)
+            .join("proc")
+            .join("self")
+            .join("status");
+        let Ok(status) = fs::read_to_string(status_path) else {
+            return false;
+        };
+        return status.lines().any(|line| {
+            let Some(values) = line.strip_prefix("Uid:") else {
+                return false;
+            };
+            values
+                .split_whitespace()
+                .nth(1)
+                .is_some_and(|effective_uid| effective_uid == "0")
+        });
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        false
+    }
 }
 
 #[cfg(unix)]
@@ -413,7 +432,7 @@ fn unusable_java_precedes_invalid_cache_configuration() {
     assert!(!project.root.join(relative).exists());
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, target_os = "linux"))]
 #[test]
 fn inaccessible_tmpdir_does_not_make_other_execute_only_java_available() {
     if process_runs_as_root() {
