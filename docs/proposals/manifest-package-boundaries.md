@@ -7,14 +7,15 @@ review-when: The remaining package-root selection scope, acceptance evidence, or
 
 ## Summary
 
-Complete package-root selection around the implemented package-owned source
-discovery rule. Current recursive and explicit source ownership is specified in
-[commands-full.md](../specification/commands-full.md) and checked by the
-executable specification cases named there.
+Complete dependency and editor package-root selection around the implemented
+package-owned source discovery and command-root selection rules. Current
+command selection, recursive discovery, and explicit source ownership are
+specified in [commands-full.md](../specification/commands-full.md) and checked
+by the executable specification cases named there.
 
-The remaining work selects package roots for command starts, dependency paths,
-and editor workspace folders. It does not change the owned-source set once a
-consumer supplies a package root.
+The remaining work selects package roots for dependency paths and editor
+workspace folders. It does not change the owned-source set once a consumer
+supplies a package root.
 
 ## Current Boundary
 
@@ -24,6 +25,11 @@ links. It treats `target` as an ordinary directory, retains the `.git` ignore,
 validates explicit input ownership, and supplies the same source set to command
 analysis, editor analysis, dependency projects, manifest export validation, and
 source-tree checksums.
+
+Command analysis already resolves its invocation directory and selects the
+nearest ancestor with a regular manifest marker. It preserves the invocation
+directory as the base for relative arguments. Selection failures do not fall
+back to a wider or anonymous project.
 
 This implemented behavior is not proposal authority. Use
 [commands-full.md](../specification/commands-full.md),
@@ -39,21 +45,6 @@ specification cases for current behavior.
 - An **anonymous package** has no `veln.toml` at its package root.
 
 ## Remaining Proposed Behavior
-
-### Command Package-Root Selection
-
-A command resolves its analysis start to a filesystem identity. It selects the
-nearest ancestor directory whose `veln.toml`, inspected without following
-symbolic links, is a regular file. If no ancestor qualifies, the resolved
-analysis start is an anonymous package root.
-
-An explicit source input does not select another package root. A command rejects
-an explicit input that is not owned by the root selected from the analysis
-start.
-
-If candidate metadata cannot be classified, selection fails without continuing
-to a wider ancestor. A selected unreadable manifest fails when the project
-loads it, after root selection.
 
 ### Dependency Package-Root Selection
 
@@ -85,11 +76,6 @@ evidence to add; it does not claim that the evidence passes now.
 
 | Case | Input | Required result | Planned primary evidence |
 | --- | --- | --- | --- |
-| Command below manifest root | A command starts below a package manifest | The nearest qualifying ancestor is the package root | CLI harness case |
-| Anonymous command start | No qualifying ancestor manifest exists | The resolved analysis start is an anonymous package root | CLI harness case |
-| Symlinked analysis start | Direct and symbolic paths identify one directory | Both select the same package identity | Platform-conditional project-root test |
-| Classification failure | Candidate metadata cannot be classified | Selection fails without ancestor fallback | Fault-injected project-root test |
-| Unreadable selected manifest | The selected regular manifest cannot be read | Selection succeeds and project loading reports the read failure | Platform-conditional project-loading test |
 | Dependency root | A dependency directory contains `veln.toml` directly | The directory is selected without ancestor search | Dependency test and checked case |
 | Dependency descendant without manifest | An ancestor has a manifest but the selected dependency directory does not | Loading rejects the selected directory | Dependency test and CLI harness case |
 | Manifest workspace root | A workspace root has a manifest and nested packages | Only the outer root is initialized | LSP project-root case |
@@ -99,9 +85,8 @@ evidence to add; it does not claim that the evidence passes now.
 
 ## Failure Atomicity
 
-Package-root selection must not continue with a wider or partial project after
-a filesystem classification error. Dependency selection must not discover or
-analyze sources before it validates the selected dependency root.
+Dependency selection must not discover or analyze sources before it validates
+the selected dependency root.
 
 ## Non-Goals
 
@@ -129,8 +114,8 @@ bash scripts/agent-test -p veln-cli --test toolchain_harness
 
 ## Completion Boundary
 
-This proposal is complete when command, dependency, and editor package-root
-selection satisfy the remaining acceptance model and current behavior is
-promoted to executable evidence and the matching specification pages. Then move
-the record to `../reference/implemented-proposals/` and remove it from the
-proposal catalog.
+This proposal is complete when dependency and editor package-root selection
+satisfy the remaining acceptance model and current behavior is promoted to
+executable evidence and the matching specification pages. Then move the record
+to `../reference/implemented-proposals/` and remove it from the proposal
+catalog.

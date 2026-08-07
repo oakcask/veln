@@ -26,16 +26,20 @@ use crate::java::{
 };
 
 pub(crate) fn run_entry(
+    start: super::CommandAnalysisStart,
     json: bool,
     entry: String,
     inputs: Vec<PathBuf>,
     entry_args: Vec<String>,
 ) -> Result<ExitCode, String> {
-    if let Some(exit_code) = reject_explicit_companion_run_input(json, &inputs)? {
+    let inputs = start.resolve_inputs(inputs);
+    if let Some(exit_code) =
+        reject_explicit_companion_run_input(&start.package_root, json, &inputs)?
+    {
         return Ok(exit_code);
     }
     let mut timings = RunAnalysisTimings::from_env();
-    let analysis = analyze_run_project(&inputs, timings.as_mut())?;
+    let analysis = analyze_run_project(start.package_root, &inputs, timings.as_mut())?;
     write_harness_source_diagnostic_artifact(&analysis.checked_diagnostics())?;
     if report_source_errors(&analysis)? {
         write_timings(&timings)?;
@@ -74,10 +78,10 @@ pub(crate) fn run_entry(
 }
 
 fn analyze_run_project(
+    root: PathBuf,
     inputs: &[PathBuf],
     timings: Option<&mut RunAnalysisTimings>,
 ) -> Result<ProjectAnalysis, String> {
-    let root = env::current_dir().map_err(|error| error.to_string())?;
     let source_start = timings.as_ref().map(|_| Instant::now());
     let discovered_inputs;
     let analysis_inputs = if harness_source_diagnostic_artifact_requested() {
@@ -108,11 +112,11 @@ fn analyze_run_project(
 }
 
 fn reject_explicit_companion_run_input(
+    root: &std::path::Path,
     json: bool,
     inputs: &[PathBuf],
 ) -> Result<Option<ExitCode>, String> {
-    let root = env::current_dir().map_err(|error| error.to_string())?;
-    let companions = explicit_companion_inputs(&root, inputs);
+    let companions = explicit_companion_inputs(root, inputs);
     let Some(companion) = companions.first() else {
         return Ok(None);
     };

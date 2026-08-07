@@ -1,4 +1,3 @@
-use std::env;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -40,6 +39,7 @@ const REFUSAL_SAVED_CANDIDATE_NOT_CURRENT: &str = "saved candidate is not curren
 const REFUSAL_VERIFICATION_FAILED: &str = "verification failed";
 
 pub(crate) fn repair(
+    start: super::CommandAnalysisStart,
     json: bool,
     apply: bool,
     candidate_id: Option<String>,
@@ -47,7 +47,8 @@ pub(crate) fn repair(
     override_requested: bool,
     inputs: Vec<PathBuf>,
 ) -> Result<ExitCode, String> {
-    let root = env::current_dir().map_err(|error| error.to_string())?;
+    let inputs = start.resolve_inputs(inputs);
+    let root = start.package_root;
     let (source_inputs, candidate_inputs) = split_repair_inputs(&inputs);
     let project =
         Project::discover(root.clone(), &source_inputs).map_err(|error| error.to_string())?;

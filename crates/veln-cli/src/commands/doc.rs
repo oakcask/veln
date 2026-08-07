@@ -1,4 +1,3 @@
-use std::env;
 use std::io;
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -22,8 +21,12 @@ use veln_syntax::{
 
 use crate::diagnostics::{print_human_stderr, tool_info};
 
-pub(crate) fn doc(inputs: Vec<PathBuf>) -> Result<ExitCode, String> {
-    let root = env::current_dir().map_err(|error| error.to_string())?;
+pub(crate) fn doc(
+    start: super::CommandAnalysisStart,
+    inputs: Vec<PathBuf>,
+) -> Result<ExitCode, String> {
+    let inputs = start.resolve_inputs(inputs);
+    let root = start.package_root;
     let project = discover_doc_project(root, &inputs).map_err(|error| error.to_string())?;
     let generated = generate_markdown(&project);
     if !generated.diagnostics.is_empty() {
