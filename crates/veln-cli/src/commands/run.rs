@@ -21,8 +21,8 @@ use crate::diagnostics::{
     write_harness_source_diagnostic_artifact,
 };
 use crate::java::{
-    JvmRunResult, create_build_dir, exit_code_from_status, forward_process_output,
-    prepare_and_run_jvm_capture_with_env,
+    JvmExecution, JvmExecutionPreparation, JvmRunResult, create_build_dir, exit_code_from_status,
+    forward_process_output, prepare_and_run_jvm_capture_with_execution, prepare_jvm_execution,
 };
 
 pub(crate) fn run_entry(
@@ -53,11 +53,15 @@ pub(crate) fn run_entry(
 
     let backend_start = timings.is_some().then(Instant::now);
     let jvm = generate_classfiles_with_entry_arg_types(&ir, &entry, &entry_arg_types);
+    let execution = match prepare_run_jvm_execution(json, &mut timings, backend_start)? {
+        Some(execution) => execution,
+        None => return Ok(ExitCode::from(1)),
+    };
     let build_dir = create_build_dir("veln-run").map_err(|error| error.to_string())?;
     let result = if json {
-        run_json(&build_dir, &jvm, &entry_args)
+        run_json(&build_dir, &jvm, &entry_args, &execution)
     } else {
-        run_human(&build_dir, &jvm, &entry_args)
+        run_human(&build_dir, &jvm, &entry_args, &execution)
     };
     let cleanup_result = fs::remove_dir_all(&build_dir);
     if let Err(error) = cleanup_result {
@@ -71,6 +75,46 @@ pub(crate) fn run_entry(
     }
     write_timings(&timings)?;
     result
+}
+
+fn prepare_run_jvm_execution(
+    json: bool,
+    timings: &mut Option<RunAnalysisTimings>,
+    backend_start: Option<Instant>,
+) -> Result<Option<JvmExecution>, String> {
+    match prepare_jvm_execution("veln run") {
+        Ok(JvmExecutionPreparation::Ready(execution)) => Ok(Some(execution)),
+        Ok(JvmExecutionPreparation::ToolError(message)) => {
+            push_backend_runtime_timing(timings, backend_start);
+            write_timings(timings)?;
+            report_run_tool_error(json, message)?;
+            Ok(None)
+        }
+        Err(message) => {
+            push_backend_runtime_timing(timings, backend_start);
+            write_timings(timings)?;
+            Err(message)
+        }
+    }
+}
+
+fn push_backend_runtime_timing(
+    timings: &mut Option<RunAnalysisTimings>,
+    backend_start: Option<Instant>,
+) {
+    if let (Some(timings), Some(start)) = (timings.as_mut(), backend_start) {
+        timings.push("backend_runtime_remainder", start.elapsed());
+    }
+}
+
+fn report_run_tool_error(json: bool, message: String) -> Result<ExitCode, String> {
+    if json {
+        let report = RunJsonReport::tool_error(message);
+        println!("{}", report.to_json());
+        return Ok(report.exit_code());
+    }
+    eprintln!("{message}");
+    Ok(ExitCode::from(1))
 }
 
 fn analyze_run_project(
@@ -405,11 +449,12 @@ fn run_human(
     build_dir: &std::path::Path,
     program: &veln_backend_jvm::JvmProgram,
     entry_args: &[String],
+    execution: &JvmExecution,
 ) -> Result<ExitCode, String> {
     let result_error_file = build_dir.join("result-errors.tsv");
     let event_env = [("VELN_RESULT_ERRORS", result_error_file.as_os_str())];
-    let result = prepare_and_run_jvm_capture_with_env(
-        build_dir, program, "veln run", &event_env, entry_args,
+    let result = prepare_and_run_jvm_capture_with_execution(
+        execution, program, "veln run", &event_env, entry_args,
     )?;
     let output = match result {
         JvmRunResult::Ran(output) => output,
@@ -2840,6 +2885,7 @@ fn run_json(
     build_dir: &std::path::Path,
     program: &veln_backend_jvm::JvmProgram,
     entry_args: &[String],
+    execution: &JvmExecution,
 ) -> Result<ExitCode, String> {
     let contract_error_file = build_dir.join("contract-errors.tsv");
     let result_error_file = build_dir.join("result-errors.tsv");
@@ -2849,8 +2895,8 @@ fn run_json(
         ("VELN_RESULT_ERRORS", result_error_file.as_os_str()),
         ("VELN_TRANSPORT_ERRORS", transport_error_file.as_os_str()),
     ];
-    let result = prepare_and_run_jvm_capture_with_env(
-        build_dir, program, "veln run", &event_env, entry_args,
+    let result = prepare_and_run_jvm_capture_with_execution(
+        execution, program, "veln run", &event_env, entry_args,
     )?;
     let contract_error_trace = fs::read_to_string(&contract_error_file).unwrap_or_default();
     let result_error_trace = fs::read_to_string(&result_error_file).unwrap_or_default();

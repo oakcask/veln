@@ -156,28 +156,32 @@ fn execute_runnable_test_cases(
                 .collect::<Vec<_>>(),
         )
     });
-    let active_jobs = resolve_test_jobs(jobs, runnable_cases.len(), || {
+    let execution = Arc::new(TestJvmExecution::new());
+    let mut prepared_jobs = Vec::with_capacity(runnable_cases.len());
+    let mut has_ready_job = false;
+    for case in runnable_cases {
+        let job = prepare_test_case_job(&analysis, reusable_program.as_ref(), case);
+        if matches!(job, TestCaseJob::Ready(_)) {
+            has_ready_job = true;
+        }
+        prepared_jobs.push(job);
+    }
+    if has_ready_job {
+        execution.get()?;
+        for job in &mut prepared_jobs {
+            job.set_execution(Arc::clone(&execution));
+        }
+    }
+    let active_jobs = resolve_test_jobs(jobs, prepared_jobs.len(), || {
         std::thread::available_parallelism().ok()
     });
-    let analysis_mutex = Mutex::new(analysis);
-    let execution = Arc::new(TestJvmExecution::new());
     let cases = run_test_case_jobs(
-        runnable_cases,
+        prepared_jobs,
         active_jobs,
-        |case| {
-            let analysis = analysis_mutex
-                .lock()
-                .map_err(|_| "test analysis state was poisoned".to_string())?;
-            let mut job = prepare_test_case_job(&analysis, reusable_program.as_ref(), case);
-            job.set_execution(Arc::clone(&execution));
-            Ok(job)
-        },
+        Ok::<_, String>,
         execute_test_case_job,
     )
     .map_err(test_scheduler_error)?;
-    let analysis = analysis_mutex
-        .into_inner()
-        .map_err(|_| "test analysis state was poisoned".to_string())?;
     Ok((analysis, cases))
 }
 
@@ -228,16 +232,17 @@ where
     Ok(())
 }
 
-fn run_test_case_jobs<P, E, Prepare, Execute>(
-    cases: Vec<TestCase>,
+fn run_test_case_jobs<C, P, E, Prepare, Execute>(
+    cases: Vec<C>,
     active_jobs: usize,
     prepare: Prepare,
     execute: Execute,
 ) -> Result<Vec<TestCase>, SchedulerError<E>>
 where
+    C: Send,
     P: Send,
     E: Send,
-    Prepare: Fn(TestCase) -> Result<P, E> + Sync,
+    Prepare: Fn(C) -> Result<P, E> + Sync,
     Execute: Fn(P) -> Result<TestCase, E> + Sync,
 {
     run_ordered_bounded(cases, active_jobs, |case| execute(prepare(case)?))
@@ -944,16 +949,17 @@ impl TestJvmExecution {
         if let Some(result) = result.as_ref() {
             return result.clone();
         }
-        let prepared = match prepare_jvm_execution("veln test")? {
-            JvmExecutionPreparation::Ready(execution) => {
-                TestJvmExecutionResult::Ready(Arc::new(execution))
+        let prepared = match prepare_jvm_execution("veln test") {
+            Ok(JvmExecutionPreparation::Ready(execution)) => {
+                Ok(TestJvmExecutionResult::Ready(Arc::new(execution)))
             }
-            JvmExecutionPreparation::ToolError(message) => {
-                TestJvmExecutionResult::ToolError(message)
+            Ok(JvmExecutionPreparation::ToolError(message)) => {
+                Ok(TestJvmExecutionResult::ToolError(message))
             }
+            Err(message) => Err(message),
         };
-        *result = Some(Ok(prepared.clone()));
-        Ok(prepared)
+        *result = Some(prepared.clone());
+        prepared
     }
 }
 
@@ -1125,6 +1131,14 @@ fn execute_test_program(
 ) -> Result<TestExecution, String> {
     #[cfg(not(test))]
     let _ = case_name;
+    let prepared_execution = if let Some(execution) = execution {
+        Some(execution.get()?)
+    } else {
+        None
+    };
+    if let Some(TestJvmExecutionResult::ToolError(message)) = prepared_execution.as_ref() {
+        return Ok(TestExecution::ToolError(message.clone()));
+    }
     let build_dir = create_build_dir("veln-test").map_err(|error| error.to_string())?;
     let event_file = build_dir.join("stdio-events.tsv");
     let contract_error_file = build_dir.join("contract-errors.tsv");
@@ -1146,8 +1160,8 @@ fn execute_test_program(
         ("VELN_CONTRACT_ERRORS", contract_error_file.as_os_str()),
         ("VELN_RESULT_ERRORS", result_error_file.as_os_str()),
     ];
-    let result = if let Some(execution) = execution {
-        match execution.get()? {
+    let result = if let Some(prepared_execution) = prepared_execution {
+        match prepared_execution {
             TestJvmExecutionResult::Ready(execution) => prepare_and_run_jvm_capture_with_execution(
                 &execution,
                 jvm,

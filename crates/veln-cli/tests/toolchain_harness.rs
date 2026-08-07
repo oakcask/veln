@@ -261,6 +261,8 @@ fn invalid_overrides_fail_before_test_bodies_without_host_fallback() {
     write_cache_test_java(&tool_dir);
     let marker = project.root.join("java-started");
     let host_cache = project.root.join("valid-host-cache");
+    let tmp_root = project.root.join("tmp");
+    fs::create_dir_all(&tmp_root).expect("isolated tmp root should be created");
 
     for cache_override in [
         project.root.join("empty-placeholder"),
@@ -272,6 +274,7 @@ fn invalid_overrides_fail_before_test_bodies_without_host_fallback() {
         command.env("PATH", &tool_dir);
         command.env("XDG_CACHE_HOME", &host_cache);
         command.env("JAVA_MARKER", &marker);
+        command.env("TMPDIR", &tmp_root);
         if cache_override.is_absolute() {
             command.env("VELN_CACHE_DIR", "");
         } else {
@@ -282,6 +285,7 @@ fn invalid_overrides_fail_before_test_bodies_without_host_fallback() {
         assert!(String::from_utf8_lossy(&output.stderr).contains("invalid VELN_CACHE_DIR"));
         assert!(!marker.exists(), "no test JVM should start");
         assert!(!host_cache.exists(), "invalid override must not fall back");
+        assert_no_entries_with_prefix(&tmp_root, "veln-test-");
     }
 }
 
@@ -388,6 +392,43 @@ fn cache_root_file_is_preserved_and_user_code_does_not_start() {
         fs::read_to_string(cache_root).expect("file should remain"),
         "preserve me"
     );
+    assert!(!marker.exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn cache_root_creation_failure_preserves_existing_parent_and_user_code_does_not_start() {
+    let project = TestProject::new(
+        "cache-root-creation-failure".to_string(),
+        &ToolSetup::default(),
+    );
+    fs::write(
+        project.root.join("main.veln"),
+        "fn main() -> ()\n  ()\nend\n",
+    )
+    .expect("source should be written");
+    let tool_dir = project.root.join("tools");
+    write_cache_test_java(&tool_dir);
+    let blocked_parent = project.root.join("blocked-parent");
+    fs::write(&blocked_parent, "preserve parent").expect("blocking file should be written");
+    let cache_root = blocked_parent.join("selected-cache");
+    let marker = project.root.join("java-started");
+
+    let output = cache_test_command(
+        &project.root,
+        &["run", "main", "main.veln"],
+        &tool_dir,
+        &[("VELN_CACHE_DIR", &cache_root), ("JAVA_MARKER", &marker)],
+    );
+
+    assert_eq!(output.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("Veln cache root"));
+    assert_eq!(
+        fs::read_to_string(&blocked_parent).expect("blocking file should remain"),
+        "preserve parent"
+    );
+    assert!(!cache_root.exists());
+    assert!(!project.root.join("target/veln-cache").exists());
     assert!(!marker.exists());
 }
 
@@ -602,6 +643,21 @@ fn assert_no_metrics_baseline_temp_file(context: &CaseRunContext<'_>, project_ro
             !name.starts_with(".metrics.baseline.json.tmp-"),
             "{}: temporary metrics baseline file was left behind: {name}",
             context.label()
+        );
+    }
+}
+
+fn assert_no_entries_with_prefix(root: &Path, prefix: &str) {
+    for entry in fs::read_dir(root)
+        .unwrap_or_else(|error| panic!("{}: failed to inspect directory: {error}", root.display()))
+    {
+        let entry = entry.expect("directory entry should be readable");
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        assert!(
+            !name.starts_with(prefix),
+            "{} should not contain entries beginning with `{prefix}`",
+            root.display()
         );
     }
 }
