@@ -140,7 +140,8 @@ fn explicit_inputs_reject_paths_outside_the_package_root() {
     let temp = TempProject::new("explicit-outside-package");
     let outside = temp.root().parent().unwrap().join("outside.veln");
 
-    let absolute_error = discover_source_paths(temp.root(), &[outside.clone()]).unwrap_err();
+    let absolute_error =
+        discover_source_paths(temp.root(), std::slice::from_ref(&outside)).unwrap_err();
     assert!(
         absolute_error
             .to_string()
