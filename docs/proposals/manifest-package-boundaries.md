@@ -28,9 +28,9 @@ stop at a nested `veln.toml`. As a result, a command or editor session can
 interpret sources from a nested package as local modules of the outer package.
 
 The `target` exclusion also prevents a package from using that ordinary name
-for source organization. The toolchain cache location is planned separately
-in [Toolchain User Cache](toolchain-user-cache.md), so source ownership does
-not need to reserve `target` as a toolchain output directory.
+for source organization. The current command specification places reusable JVM
+class cache entries below the selected user cache root, so source ownership
+does not need to reserve `target` as a toolchain output directory.
 
 The manifest already identifies package metadata, exports, and dependencies.
 It must also establish which package owns a discovered source. Without that
@@ -321,8 +321,11 @@ intentional and verified.
 - Do not add `.velnignore`, manifest exclude patterns, or generic hidden-file
   exclusion.
 - Do not change the existing `.git` ignored-directory rule.
-- Do not define the toolchain cache location or cache lifecycle in this
-  proposal; [Toolchain User Cache](toolchain-user-cache.md) owns that work.
+- Do not define the toolchain cache location or remaining cache recovery
+  lifecycle in this proposal; [Commands](../specification/commands.md)
+  specifies the current location, and
+  [Toolchain User Cache](toolchain-user-cache.md) owns the remaining recovery
+  work.
 - Do not define dependency fetching, version selection, or lockfile conflict
   resolution.
 - Do not change package export or visibility semantics beyond requiring an

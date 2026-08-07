@@ -1,5 +1,5 @@
 use std::env;
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -22,6 +22,48 @@ pub(crate) enum JvmRunResult {
     ToolError(String),
 }
 
+#[derive(Clone)]
+pub(crate) struct JvmExecution {
+    cache_root: PathBuf,
+    java_launcher: PathBuf,
+}
+
+#[cfg(test)]
+impl JvmExecution {
+    pub(crate) fn for_test(cache_root: PathBuf) -> Self {
+        Self {
+            cache_root,
+            java_launcher: PathBuf::from("java"),
+        }
+    }
+}
+
+pub(crate) enum JvmExecutionPreparation {
+    Ready(JvmExecution),
+    ToolError(String),
+}
+
+pub(crate) fn prepare_jvm_execution(command_name: &str) -> Result<JvmExecutionPreparation, String> {
+    let Some(java_launcher) = find_java_launcher() else {
+        return Ok(JvmExecutionPreparation::ToolError(missing_java_message(
+            command_name,
+        )));
+    };
+    let cache_root = resolve_veln_cache_root()?.join("jvm");
+    fs::create_dir_all(&cache_root)
+        .map_err(|error| format!("could not prepare the Veln cache root: {error}"))?;
+    if !cache_root.is_dir() {
+        return Err(
+            "could not prepare the Veln cache root: the selected root is not a directory"
+                .to_string(),
+        );
+    }
+    Ok(JvmExecutionPreparation::Ready(JvmExecution {
+        cache_root,
+        java_launcher,
+    }))
+}
+
 pub(crate) fn prepare_and_run_jvm_capture_with_env(
     _build_dir: &Path,
     program: &veln_backend_jvm::JvmProgram,
@@ -29,13 +71,35 @@ pub(crate) fn prepare_and_run_jvm_capture_with_env(
     java_env: &[(&str, &OsStr)],
     java_args: &[String],
 ) -> Result<JvmRunResult, String> {
-    let class_dir = match ensure_cached_jvm_classes(program)? {
+    let execution = match prepare_jvm_execution(command_name)? {
+        JvmExecutionPreparation::Ready(execution) => execution,
+        JvmExecutionPreparation::ToolError(message) => {
+            return Ok(JvmRunResult::ToolError(message));
+        }
+    };
+    prepare_and_run_jvm_capture_with_execution(
+        &execution,
+        program,
+        command_name,
+        java_env,
+        java_args,
+    )
+}
+
+pub(crate) fn prepare_and_run_jvm_capture_with_execution(
+    execution: &JvmExecution,
+    program: &veln_backend_jvm::JvmProgram,
+    command_name: &str,
+    java_env: &[(&str, &OsStr)],
+    java_args: &[String],
+) -> Result<JvmRunResult, String> {
+    let class_dir = match ensure_cached_jvm_classes_in(&execution.cache_root, program)? {
         CachedJvmClasses::Ready(path) => path,
         CachedJvmClasses::ToolError(message) => return Ok(JvmRunResult::ToolError(message)),
     };
 
     run_jvm_class_dir(
-        OsStr::new("java"),
+        execution.java_launcher.as_os_str(),
         &class_dir,
         command_name,
         java_env,
@@ -72,15 +136,130 @@ enum CachedJvmClasses {
     ToolError(String),
 }
 
-fn ensure_cached_jvm_classes(
-    program: &veln_backend_jvm::JvmProgram,
-) -> Result<CachedJvmClasses, String> {
-    let cache_root = env::current_dir()
-        .map_err(|error| error.to_string())?
-        .join("target")
-        .join("veln-cache")
-        .join("jvm");
-    ensure_cached_jvm_classes_in(&cache_root, program)
+#[derive(Clone, Copy)]
+enum CacheHost {
+    Unix,
+    Macos,
+    Windows,
+    Other,
+}
+
+fn resolve_veln_cache_root() -> Result<PathBuf, String> {
+    let host = if cfg!(target_os = "macos") {
+        CacheHost::Macos
+    } else if cfg!(windows) {
+        CacheHost::Windows
+    } else if cfg!(unix) {
+        CacheHost::Unix
+    } else {
+        CacheHost::Other
+    };
+    resolve_veln_cache_root_from(
+        host,
+        env::var_os("VELN_CACHE_DIR"),
+        env::var_os("XDG_CACHE_HOME"),
+        env::var_os("HOME"),
+        env::var_os("LOCALAPPDATA"),
+    )
+}
+
+fn resolve_veln_cache_root_from(
+    host: CacheHost,
+    cache_override: Option<OsString>,
+    xdg_cache_home: Option<OsString>,
+    home: Option<OsString>,
+    local_app_data: Option<OsString>,
+) -> Result<PathBuf, String> {
+    if let Some(cache_override) = cache_override {
+        return usable_absolute_path(&cache_override).ok_or_else(|| {
+            "invalid VELN_CACHE_DIR: expected a non-empty absolute path".to_string()
+        });
+    }
+
+    let base = match host {
+        CacheHost::Unix => usable_absolute_path_option(xdg_cache_home)
+            .or_else(|| usable_absolute_path_option(home).map(|path| path.join(".cache"))),
+        CacheHost::Macos => {
+            usable_absolute_path_option(home).map(|path| path.join("Library").join("Caches"))
+        }
+        CacheHost::Windows => usable_absolute_path_option(local_app_data),
+        CacheHost::Other => None,
+    };
+    base.map(|path| path.join("veln")).ok_or_else(|| {
+        "user cache directory is unavailable; set VELN_CACHE_DIR to a non-empty absolute path"
+            .to_string()
+    })
+}
+
+fn usable_absolute_path_option(value: Option<OsString>) -> Option<PathBuf> {
+    value.and_then(|value| usable_absolute_path(&value))
+}
+
+fn usable_absolute_path(value: &OsStr) -> Option<PathBuf> {
+    if value.is_empty() {
+        return None;
+    }
+    let path = PathBuf::from(value);
+    path.is_absolute().then_some(path)
+}
+
+fn find_java_launcher() -> Option<PathBuf> {
+    find_java_launcher_in_path(&env::var_os("PATH")?)
+}
+
+fn find_java_launcher_in_path(path: &OsStr) -> Option<PathBuf> {
+    env::split_paths(path)
+        .flat_map(|directory| java_launcher_candidates(&directory))
+        .find(|candidate| {
+            #[cfg(unix)]
+            {
+                is_executable_file(candidate)
+            }
+            #[cfg(not(unix))]
+            {
+                is_executable_file(candidate)
+            }
+        })
+}
+
+#[cfg(windows)]
+fn java_launcher_candidates(directory: &Path) -> Vec<PathBuf> {
+    ["java.exe", "java.cmd", "java.bat", "java"]
+        .into_iter()
+        .map(|name| directory.join(name))
+        .collect()
+}
+
+#[cfg(not(windows))]
+fn java_launcher_candidates(directory: &Path) -> Vec<PathBuf> {
+    vec![directory.join("java")]
+}
+
+#[cfg(unix)]
+fn is_executable_file(path: &Path) -> bool {
+    let Ok(metadata) = fs::metadata(path) else {
+        return false;
+    };
+    if !metadata.is_file() {
+        return false;
+    }
+    current_process_can_execute(path)
+}
+
+#[cfg(not(unix))]
+fn is_executable_file(path: &Path) -> bool {
+    path.is_file()
+}
+
+#[cfg(unix)]
+fn current_process_can_execute(path: &Path) -> bool {
+    ProcessCommand::new("/bin/sh")
+        .arg("-c")
+        .arg("test -x \"$1\"")
+        .arg("veln-java-access-check")
+        .arg(path)
+        .status()
+        .is_ok_and(|status| status.success())
 }
 
 fn ensure_cached_jvm_classes_in(
@@ -95,7 +274,8 @@ fn ensure_cached_jvm_classes_in_with_hooks(
     program: &veln_backend_jvm::JvmProgram,
     hooks: &dyn JvmCacheHooks,
 ) -> Result<CachedJvmClasses, String> {
-    fs::create_dir_all(cache_root).map_err(|error| error.to_string())?;
+    fs::create_dir_all(cache_root)
+        .map_err(|error| format!("could not prepare the Veln cache root: {error}"))?;
     let key = jvm_class_cache_key(program);
     let cache_dir = cache_root.join(&key);
     let lock_dir = cache_lock_dir(cache_root, &key);
@@ -639,10 +819,165 @@ mod tests {
         }
     }
 
+    #[test]
+    fn explicit_cache_root_is_complete_and_preserves_lexical_components() {
+        let root = temp_root("override-root");
+        let cache_override = root.join("segment").join("..").join("selected");
+
+        let selected = resolve_veln_cache_root_from(
+            CacheHost::Other,
+            Some(cache_override.clone().into_os_string()),
+            None,
+            None,
+            None,
+        )
+        .expect("absolute override should be selected");
+
+        assert_eq!(selected, cache_override);
+        assert!(!selected.ends_with("veln"));
+    }
+
+    #[test]
+    fn invalid_cache_override_never_falls_back_to_host_base() {
+        let host_base = temp_root("override-precedence");
+        for cache_override in [OsString::new(), OsString::from("relative-cache")] {
+            let error = resolve_veln_cache_root_from(
+                CacheHost::Unix,
+                Some(cache_override),
+                Some(host_base.clone().into_os_string()),
+                Some(host_base.clone().into_os_string()),
+                None,
+            )
+            .expect_err("invalid override should fail");
+            assert!(error.contains("invalid VELN_CACHE_DIR"));
+        }
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    #[test]
+    fn unix_cache_root_uses_xdg_then_absolute_home_fallback() {
+        let root = temp_root("unix-defaults");
+        let xdg = root.join("xdg");
+        let home = root.join("home");
+
+        let selected_xdg = resolve_veln_cache_root_from(
+            CacheHost::Unix,
+            None,
+            Some(xdg.clone().into_os_string()),
+            Some(home.clone().into_os_string()),
+            None,
+        )
+        .expect("XDG cache root should resolve");
+        assert_eq!(selected_xdg, xdg.join("veln"));
+
+        for unusable_xdg in [
+            None,
+            Some(OsString::new()),
+            Some(OsString::from("relative")),
+        ] {
+            let selected_home = resolve_veln_cache_root_from(
+                CacheHost::Unix,
+                None,
+                unusable_xdg,
+                Some(home.clone().into_os_string()),
+                None,
+            )
+            .expect("HOME fallback should resolve");
+            assert_eq!(selected_home, home.join(".cache").join("veln"));
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn macos_cache_root_uses_home_library_caches() {
+        let home = temp_root("macos-default");
+        let selected = resolve_veln_cache_root_from(
+            CacheHost::Macos,
+            None,
+            None,
+            Some(home.clone().into_os_string()),
+            None,
+        )
+        .expect("macOS cache root should resolve");
+        assert_eq!(selected, home.join("Library/Caches/veln"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_cache_root_uses_local_app_data() {
+        let local_app_data = temp_root("windows-default");
+        let selected = resolve_veln_cache_root_from(
+            CacheHost::Windows,
+            None,
+            None,
+            None,
+            Some(local_app_data.clone().into_os_string()),
+        )
+        .expect("Windows cache root should resolve");
+        assert_eq!(selected, local_app_data.join("veln"));
+    }
+
+    #[test]
+    fn unavailable_host_cache_base_has_no_local_fallback() {
+        let error = resolve_veln_cache_root_from(CacheHost::Other, None, None, None, None)
+            .expect_err("unsupported host should require an override");
+        assert!(error.contains("user cache directory is unavailable"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn non_unicode_absolute_override_remains_a_native_path() {
+        use std::os::unix::ffi::OsStringExt;
+
+        let value = OsString::from_vec(b"/tmp/veln-cache-\xff".to_vec());
+        let selected =
+            resolve_veln_cache_root_from(CacheHost::Other, Some(value.clone()), None, None, None)
+                .expect("native absolute override should resolve");
+        assert_eq!(selected.into_os_string(), value);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn non_unicode_unix_base_remains_a_native_path() {
+        use std::os::unix::ffi::OsStringExt;
+
+        let value = OsString::from_vec(b"/tmp/veln-xdg-\xff".to_vec());
+        let selected =
+            resolve_veln_cache_root_from(CacheHost::Unix, None, Some(value.clone()), None, None)
+                .expect("native XDG base should resolve");
+        assert_eq!(selected, PathBuf::from(value).join("veln"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn non_unicode_windows_values_remain_native_paths() {
+        use std::os::windows::ffi::OsStringExt;
+
+        let mut units = "C:\\veln-cache-".encode_utf16().collect::<Vec<_>>();
+        units.push(0xd800);
+        let value = OsString::from_wide(&units);
+
+        let selected_override =
+            resolve_veln_cache_root_from(CacheHost::Windows, Some(value.clone()), None, None, None)
+                .expect("native Windows override should resolve");
+        assert_eq!(selected_override.clone().into_os_string(), value);
+
+        let selected_base = resolve_veln_cache_root_from(
+            CacheHost::Windows,
+            None,
+            None,
+            None,
+            Some(selected_override.clone().into_os_string()),
+        )
+        .expect("native LOCALAPPDATA should resolve");
+        assert_eq!(selected_base, selected_override.join("veln"));
+    }
+
     #[cfg(unix)]
     fn write_fake_java(root: &Path) -> PathBuf {
         use std::os::unix::fs::PermissionsExt;
 
+        fs::create_dir_all(root).expect("fake java directory should be created");
         let tool = root.join("java");
         fs::write(&tool, "#!/bin/sh\nexit 0\n").expect("fake java should be written");
         let mut permissions = fs::metadata(&tool)
@@ -655,6 +990,7 @@ mod tests {
 
     #[cfg(windows)]
     fn write_fake_java(root: &Path) -> PathBuf {
+        fs::create_dir_all(root).expect("fake java directory should be created");
         let tool = root.join("java.cmd");
         fs::write(&tool, "@echo off\r\nexit /b 0\r\n").expect("fake java should be written");
         tool
@@ -744,6 +1080,66 @@ mod tests {
             JvmRunResult::ToolError(message) => panic!("unexpected tool error: {message}"),
         }
 
+        fs::remove_dir_all(root).expect("test root should be removed");
+    }
+
+    #[cfg(unix)]
+    fn current_process_is_root() -> bool {
+        ProcessCommand::new("/bin/sh")
+            .arg("-c")
+            .arg("test \"$(id -u)\" = 0")
+            .status()
+            .is_ok_and(|status| status.success())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn java_launcher_discovery_skips_candidate_current_process_cannot_execute() {
+        use std::os::unix::fs::PermissionsExt;
+
+        if current_process_is_root() {
+            return;
+        }
+        let root = temp_root("java-discovery-skip-unusable");
+        let unusable_dir = root.join("unusable");
+        let usable_dir = root.join("usable");
+        fs::create_dir_all(&unusable_dir).expect("unusable directory should be created");
+        let unusable_java = unusable_dir.join("java");
+        fs::write(&unusable_java, "#!/bin/sh\nexit 7\n").expect("unusable java should be written");
+        let mut permissions = fs::metadata(&unusable_java)
+            .expect("unusable java metadata should be available")
+            .permissions();
+        permissions.set_mode(0o001);
+        fs::set_permissions(&unusable_java, permissions).expect("unusable java mode should be set");
+        let usable_java = write_fake_java(&usable_dir);
+        let path = env::join_paths([unusable_dir.as_path(), usable_dir.as_path()])
+            .expect("test PATH should join");
+
+        let selected = find_java_launcher_in_path(&path).expect("usable launcher should be found");
+
+        assert_eq!(selected, usable_java);
+        fs::remove_dir_all(root).expect("test root should be removed");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn java_launcher_discovery_rejects_only_unusable_candidates() {
+        use std::os::unix::fs::PermissionsExt;
+
+        if current_process_is_root() {
+            return;
+        }
+        let root = temp_root("java-discovery-only-unusable");
+        let unusable_java = root.join("java");
+        fs::write(&unusable_java, "#!/bin/sh\nexit 7\n").expect("unusable java should be written");
+        let mut permissions = fs::metadata(&unusable_java)
+            .expect("unusable java metadata should be available")
+            .permissions();
+        permissions.set_mode(0o001);
+        fs::set_permissions(&unusable_java, permissions).expect("unusable java mode should be set");
+        let path = env::join_paths([root.as_path()]).expect("test PATH should join");
+
+        assert_eq!(find_java_launcher_in_path(&path), None);
         fs::remove_dir_all(root).expect("test root should be removed");
     }
 

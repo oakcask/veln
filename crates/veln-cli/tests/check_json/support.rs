@@ -80,6 +80,7 @@ impl TestProject {
     pub(super) fn veln_with_path(&self, subcommand: &str, args: &[&str], path: &str) -> Output {
         let mut command = Command::new(env!("CARGO_BIN_EXE_veln"));
         command.current_dir(&self.root);
+        command.env("VELN_CACHE_DIR", self.root.join(".veln-test-cache"));
         command.env("PATH", path);
         command.arg(subcommand);
         for arg in args {
@@ -95,6 +96,7 @@ impl TestProject {
     pub(super) fn veln(&self, command_args: &[&str], args: &[&str]) -> Output {
         let mut command = Command::new(env!("CARGO_BIN_EXE_veln"));
         command.current_dir(&self.root);
+        command.env("VELN_CACHE_DIR", self.root.join(".veln-test-cache"));
         for arg in command_args {
             command.arg(arg);
         }

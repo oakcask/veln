@@ -3,9 +3,9 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{ExitCode, Output};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 #[cfg(test)]
-use std::sync::{Arc, MutexGuard, OnceLock};
+use std::sync::{MutexGuard, OnceLock};
 
 use veln_analysis::{DoctestMode, ProjectAnalysis, analyze_project};
 use veln_ast::{FunctionKind, SurfaceModule};
@@ -27,7 +27,11 @@ use crate::diagnostics::{
     harness_source_diagnostic_artifact_requested, has_error, print_human_stderr, tool_info,
     write_harness_source_diagnostic_artifact,
 };
-use crate::java::{JvmRunResult, create_build_dir, prepare_and_run_jvm_capture_with_env};
+use crate::java::{
+    JvmExecution, JvmExecutionPreparation, JvmRunResult, create_build_dir,
+    prepare_and_run_jvm_capture_with_env, prepare_and_run_jvm_capture_with_execution,
+    prepare_jvm_execution,
+};
 
 pub(crate) fn test(
     json: bool,
@@ -152,6 +156,12 @@ fn execute_runnable_test_cases(
                 .collect::<Vec<_>>(),
         )
     });
+    let execution = Arc::new(TestJvmExecution::new());
+    let has_ready_job =
+        preflight_runnable_test_case_jobs(&analysis, reusable_program.as_ref(), &runnable_cases);
+    if has_ready_job {
+        execution.get()?;
+    }
     let active_jobs = resolve_test_jobs(jobs, runnable_cases.len(), || {
         std::thread::available_parallelism().ok()
     });
@@ -163,11 +173,9 @@ fn execute_runnable_test_cases(
             let analysis = analysis_mutex
                 .lock()
                 .map_err(|_| "test analysis state was poisoned".to_string())?;
-            Ok(prepare_test_case_job(
-                &analysis,
-                reusable_program.as_ref(),
-                case,
-            ))
+            let mut job = prepare_test_case_job(&analysis, reusable_program.as_ref(), case);
+            job.set_execution(Arc::clone(&execution));
+            Ok::<_, String>(job)
         },
         execute_test_case_job,
     )
@@ -176,6 +184,52 @@ fn execute_runnable_test_cases(
         .into_inner()
         .map_err(|_| "test analysis state was poisoned".to_string())?;
     Ok((analysis, cases))
+}
+
+fn preflight_runnable_test_case_jobs(
+    analysis: &ProjectAnalysis,
+    reusable_program: Option<&JvmProgram>,
+    runnable_cases: &[TestCase],
+) -> bool {
+    let mut has_ready_job = false;
+    for case in runnable_cases {
+        if preflight_test_case_job(analysis, reusable_program, &case.name) {
+            has_ready_job = true;
+        }
+    }
+    has_ready_job
+}
+
+fn preflight_test_case_job(
+    analysis: &ProjectAnalysis,
+    reusable_program: Option<&JvmProgram>,
+    case_name: &str,
+) -> bool {
+    let Some(reachable) = analysis
+        .reusable_standard_ir()
+        .is_none()
+        .then(|| analysis.lower_reachable_entry(case_name, FunctionKind::Test))
+    else {
+        return reusable_program.is_some();
+    };
+
+    if !reachable.lowered.diagnostics.is_empty() {
+        return false;
+    }
+    if retained_user_effect_diagnostic(
+        &reachable.module,
+        reachable.lowered.core.as_ref(),
+        case_name,
+    )
+    .is_some()
+    {
+        return false;
+    }
+    let Some(ir) = &reachable.lowered.ir else {
+        return false;
+    };
+    let _program = generate_classfiles_with_entry(ir, case_name);
+    true
 }
 
 pub(crate) fn resolve_test_jobs(
@@ -225,16 +279,17 @@ where
     Ok(())
 }
 
-fn run_test_case_jobs<P, E, Prepare, Execute>(
-    cases: Vec<TestCase>,
+fn run_test_case_jobs<C, P, E, Prepare, Execute>(
+    cases: Vec<C>,
     active_jobs: usize,
     prepare: Prepare,
     execute: Execute,
 ) -> Result<Vec<TestCase>, SchedulerError<E>>
 where
+    C: Send,
     P: Send,
     E: Send,
-    Prepare: Fn(TestCase) -> Result<P, E> + Sync,
+    Prepare: Fn(C) -> Result<P, E> + Sync,
     Execute: Fn(P) -> Result<TestCase, E> + Sync,
 {
     run_ordered_bounded(cases, active_jobs, |case| execute(prepare(case)?))
@@ -293,7 +348,8 @@ fn selection_plan(
 mod tests {
     use super::process_discovered_test_cases;
     use super::{
-        SchedulerError, TestExecution, TestProgramHookGuard, execute_test_case_job,
+        JvmExecution, SchedulerError, TestCaseJob, TestExecution, TestJvmExecution,
+        TestProgramHookGuard, execute_test_case_job, preflight_runnable_test_case_jobs,
         prepare_test_case_job, resolve_test_jobs, run_test_case_jobs,
     };
     use std::collections::BTreeSet;
@@ -522,6 +578,9 @@ mod tests {
             .reusable_standard_ir()
             .map(|ir| generate_classfiles_with_test_entries(ir, &case_names));
         let analysis_mutex = Mutex::new(analysis);
+        let execution = Arc::new(TestJvmExecution::ready(JvmExecution::for_test(
+            project.root.join("cache/jvm"),
+        )));
         let observed = Arc::new((
             Mutex::new(ProductionPathObservation::default()),
             Condvar::new(),
@@ -562,11 +621,9 @@ mod tests {
             2,
             |case| {
                 let analysis = analysis_mutex.lock().expect("analysis state should lock");
-                Ok::<_, String>(prepare_test_case_job(
-                    &analysis,
-                    reusable_program.as_ref(),
-                    case,
-                ))
+                let mut job = prepare_test_case_job(&analysis, reusable_program.as_ref(), case);
+                job.set_execution(Arc::clone(&execution));
+                Ok::<_, String>(job)
             },
             execute_test_case_job,
         )
@@ -635,6 +692,9 @@ mod tests {
         );
         let (analysis, cases) = analyzed_cases(&project.root);
         let analysis_mutex = Mutex::new(analysis);
+        let execution = Arc::new(TestJvmExecution::ready(JvmExecution::for_test(
+            project.root.join("cache/jvm"),
+        )));
         let _hook = TestProgramHookGuard::install(Arc::new(
             |case_name,
              _build_dir,
@@ -652,7 +712,9 @@ mod tests {
             3,
             |case| {
                 let analysis = analysis_mutex.lock().expect("analysis state should lock");
-                Ok::<_, String>(prepare_test_case_job(&analysis, None, case))
+                let mut job = prepare_test_case_job(&analysis, None, case);
+                job.set_execution(Arc::clone(&execution));
+                Ok::<_, String>(job)
             },
             execute_test_case_job,
         )
@@ -693,6 +755,58 @@ mod tests {
         assert_eq!(records[4].kind, "doctest");
         assert_eq!(records[4].status, TestCaseStatus::Passed);
         assert_stdio_event(&records[4], "stdout", "doctest out");
+    }
+
+    #[test]
+    fn non_reusable_jobs_preflight_jvm_programs_before_cache_validation() {
+        let project = TempProject::new("non-reusable-prepares-before-cache");
+        project.write(
+            "main_test.veln",
+            concat!(
+                "test pass() -> ()\n",
+                "  ()\n",
+                "end\n",
+                "test blocked() -> Result<(), String>\n",
+                "  _\n",
+                "end\n",
+                "test runner() -> () effects [stdio]\n",
+                "  stdio::println(\"runner\")\n",
+                "  ()\n",
+                "end\n",
+            ),
+        );
+        let (analysis, cases) = analyzed_cases(&project.root);
+        assert!(
+            analysis.reusable_standard_ir().is_none(),
+            "fixture should force per-case JVM generation"
+        );
+
+        let has_ready_job = preflight_runnable_test_case_jobs(&analysis, None, &cases);
+
+        assert!(has_ready_job);
+        let jobs = cases
+            .into_iter()
+            .map(|case| prepare_test_case_job(&analysis, None, case))
+            .collect::<Vec<_>>();
+        assert_eq!(jobs.len(), 3);
+        assert!(
+            jobs.iter()
+                .any(|job| matches!(job, TestCaseJob::Completed(case) if case.name == "blocked"))
+        );
+        let ready_names = jobs
+            .iter()
+            .filter_map(|job| match job {
+                TestCaseJob::Ready(job) => {
+                    assert!(
+                        job.java_args.is_empty(),
+                        "per-case JVM programs should not need a reusable test-entry argument"
+                    );
+                    Some(job.case.name.as_str())
+                }
+                TestCaseJob::Completed(_) => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(ready_names, ["pass", "runner"]);
     }
 
     #[derive(Default)]
@@ -892,6 +1006,61 @@ struct ReadyTestCaseJob {
     module: SurfaceModule,
     program: JvmProgram,
     java_args: Vec<String>,
+    execution: Option<Arc<TestJvmExecution>>,
+}
+
+impl TestCaseJob {
+    fn set_execution(&mut self, execution: Arc<TestJvmExecution>) {
+        if let Self::Ready(job) = self {
+            job.execution = Some(execution);
+        }
+    }
+}
+
+#[derive(Clone)]
+enum TestJvmExecutionResult {
+    Ready(Arc<JvmExecution>),
+    ToolError(String),
+}
+
+struct TestJvmExecution {
+    result: Mutex<Option<Result<TestJvmExecutionResult, String>>>,
+}
+
+impl TestJvmExecution {
+    fn new() -> Self {
+        Self {
+            result: Mutex::new(None),
+        }
+    }
+
+    #[cfg(test)]
+    fn ready(execution: JvmExecution) -> Self {
+        Self {
+            result: Mutex::new(Some(Ok(TestJvmExecutionResult::Ready(Arc::new(execution))))),
+        }
+    }
+
+    fn get(&self) -> Result<TestJvmExecutionResult, String> {
+        let mut result = self
+            .result
+            .lock()
+            .map_err(|_| "test JVM execution state was poisoned".to_string())?;
+        if let Some(result) = result.as_ref() {
+            return result.clone();
+        }
+        let prepared = match prepare_jvm_execution("veln test") {
+            Ok(JvmExecutionPreparation::Ready(execution)) => {
+                Ok(TestJvmExecutionResult::Ready(Arc::new(execution)))
+            }
+            Ok(JvmExecutionPreparation::ToolError(message)) => {
+                Ok(TestJvmExecutionResult::ToolError(message))
+            }
+            Err(message) => Err(message),
+        };
+        *result = Some(prepared.clone());
+        prepared
+    }
 }
 
 fn prepare_test_case_job(
@@ -948,6 +1117,7 @@ fn prepare_test_case_job(
         module: module.clone(),
         program,
         java_args,
+        execution: None,
     }))
 }
 
@@ -999,15 +1169,16 @@ fn retained_user_effect_diagnostic(
 }
 
 fn execute_test_case_job(job: TestCaseJob) -> Result<TestCase, String> {
-    let (mut case, module, program, java_args) = match job {
+    let (mut case, module, program, java_args, execution) = match job {
         TestCaseJob::Ready(job) => {
             let ReadyTestCaseJob {
                 case,
                 module,
                 program,
                 java_args,
+                execution,
             } = *job;
-            (case, module, program, java_args)
+            (case, module, program, java_args, execution)
         }
         TestCaseJob::Completed(case) => return Ok(*case),
     };
@@ -1017,7 +1188,7 @@ fn execute_test_case_job(job: TestCaseJob) -> Result<TestCase, String> {
         event_trace,
         contract_error_trace,
         result_error_trace,
-    } = match execute_test_program(&case.name, &program, &java_args)? {
+    } = match execute_test_program(&case.name, &program, &java_args, execution.as_deref())? {
         TestExecution::Ran(artifacts) => artifacts,
         TestExecution::ToolError(message) => {
             case.status = TestCaseStatus::Error;
@@ -1056,9 +1227,18 @@ fn execute_test_program(
     case_name: &str,
     jvm: &JvmProgram,
     java_args: &[String],
+    execution: Option<&TestJvmExecution>,
 ) -> Result<TestExecution, String> {
     #[cfg(not(test))]
     let _ = case_name;
+    let prepared_execution = if let Some(execution) = execution {
+        Some(execution.get()?)
+    } else {
+        None
+    };
+    if let Some(TestJvmExecutionResult::ToolError(message)) = prepared_execution.as_ref() {
+        return Ok(TestExecution::ToolError(message.clone()));
+    }
     let build_dir = create_build_dir("veln-test").map_err(|error| error.to_string())?;
     let event_file = build_dir.join("stdio-events.tsv");
     let contract_error_file = build_dir.join("contract-errors.tsv");
@@ -1080,8 +1260,20 @@ fn execute_test_program(
         ("VELN_CONTRACT_ERRORS", contract_error_file.as_os_str()),
         ("VELN_RESULT_ERRORS", result_error_file.as_os_str()),
     ];
-    let result =
-        prepare_and_run_jvm_capture_with_env(&build_dir, jvm, "veln test", &event_env, java_args);
+    let result = if let Some(prepared_execution) = prepared_execution {
+        match prepared_execution {
+            TestJvmExecutionResult::Ready(execution) => prepare_and_run_jvm_capture_with_execution(
+                &execution,
+                jvm,
+                "veln test",
+                &event_env,
+                java_args,
+            ),
+            TestJvmExecutionResult::ToolError(message) => Ok(JvmRunResult::ToolError(message)),
+        }
+    } else {
+        prepare_and_run_jvm_capture_with_env(&build_dir, jvm, "veln test", &event_env, java_args)
+    };
     let event_trace = fs::read_to_string(&event_file).unwrap_or_default();
     let contract_error_trace = fs::read_to_string(&contract_error_file).unwrap_or_default();
     let result_error_trace = fs::read_to_string(&result_error_file).unwrap_or_default();
