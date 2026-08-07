@@ -5,7 +5,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command as ProcessCommand, ExitCode, ExitStatus, Output};
 use std::thread;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use sha2::{Digest, Sha256};
 use veln_project::LowerHexBytes;
@@ -15,6 +15,8 @@ const JVM_CACHE_MANIFEST: &str = ".veln-cache-manifest";
 const JVM_CACHE_MANIFEST_HEADER: &[u8] = b"veln-jvm-class-cache-manifest/v1\n";
 const JVM_CACHE_VERSION: &[u8] = b"veln-jvm-class-cache-v3\0";
 const JVM_CACHE_PREPARE_ATTEMPTS: usize = 3;
+const JVM_CACHE_LOCK_WAIT: Duration = Duration::from_secs(60);
+const JVM_CACHE_LOCK_RETRY_DELAY: Duration = Duration::from_millis(10);
 const JVM_ENTRY_CLASS: &str = "VelnEntry.class";
 
 pub(crate) enum JvmRunResult {
@@ -474,20 +476,53 @@ struct JvmCacheLock {
 
 impl JvmCacheLock {
     fn acquire(dir: &Path) -> io::Result<Self> {
+        Self::acquire_with_timeout(dir, cache_lock_wait())
+    }
+
+    fn acquire_with_timeout(dir: &Path, timeout: Duration) -> io::Result<Self> {
+        let deadline = Instant::now() + timeout;
         loop {
             match fs::create_dir(dir) {
                 Ok(()) => {
-                    return Ok(Self {
+                    let lock = Self {
                         dir: dir.to_path_buf(),
-                    });
+                    };
+                    pause_after_cache_lock_for_test()?;
+                    return Ok(lock);
                 }
                 Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
-                    thread::yield_now();
+                    if Instant::now() >= deadline {
+                        return Err(io::Error::new(
+                            io::ErrorKind::TimedOut,
+                            "timed out waiting for JVM cache coordination",
+                        ));
+                    }
+                    thread::sleep(JVM_CACHE_LOCK_RETRY_DELAY);
                 }
                 Err(error) => return Err(error),
             }
         }
     }
+}
+
+fn cache_lock_wait() -> Duration {
+    #[cfg(debug_assertions)]
+    if let Some(wait_ms) = env::var_os("VELN_INTERNAL_TEST_CACHE_LOCK_WAIT_MS")
+        .and_then(|value| value.into_string().ok())
+        .and_then(|value| value.parse::<u64>().ok())
+    {
+        return Duration::from_millis(wait_ms);
+    }
+    JVM_CACHE_LOCK_WAIT
+}
+
+fn pause_after_cache_lock_for_test() -> io::Result<()> {
+    #[cfg(debug_assertions)]
+    if let Some(marker) = env::var_os("VELN_INTERNAL_TEST_CACHE_LOCK_READY") {
+        fs::write(marker, b"ready\n")?;
+        thread::sleep(Duration::from_secs(30));
+    }
+    Ok(())
 }
 
 impl Drop for JvmCacheLock {
@@ -1236,6 +1271,26 @@ mod tests {
         assert_eq!(first, second);
         assert_eq!(ready_cache_entries(&root), vec![first]);
 
+        fs::remove_dir_all(root).expect("test root should be removed");
+    }
+
+    #[test]
+    fn occupied_cache_lock_reaches_focused_timeout() {
+        let root = temp_root("cache-lock-timeout");
+        let lock_dir = root.join("cache-key.lock");
+        fs::create_dir(&lock_dir).expect("occupied lock should be created");
+
+        let error = match JvmCacheLock::acquire_with_timeout(&lock_dir, Duration::ZERO) {
+            Ok(_) => panic!("occupied lock should time out"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+        assert_eq!(
+            error.to_string(),
+            "timed out waiting for JVM cache coordination"
+        );
+        assert!(lock_dir.is_dir());
         fs::remove_dir_all(root).expect("test root should be removed");
     }
 

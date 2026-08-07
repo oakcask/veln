@@ -78,6 +78,8 @@ requiring the full command reference on the first read.
   absolute `VELN_CACHE_DIR` override, with cache configuration checked only
   after analysis, entry selection, JVM generation, and Java discovery, and
   with concurrent cache publication using only a complete validated winner,
+  bounded cache-coordination waiting that fails before JVM startup when an
+  abandoned writer blocks progress,
   human runtime diagnostics for closed-input `ByteView` read truncation,
   schema fixed-field mismatch, binary schema field truncation, reserved-bit
   mismatch, integer range failure, field-local validation failure,
