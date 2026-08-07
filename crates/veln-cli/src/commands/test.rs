@@ -157,31 +157,44 @@ fn execute_runnable_test_cases(
         )
     });
     let execution = Arc::new(TestJvmExecution::new());
-    let mut prepared_jobs = Vec::with_capacity(runnable_cases.len());
+    let mut planned_cases = Vec::with_capacity(runnable_cases.len());
     let mut has_ready_job = false;
     for case in runnable_cases {
-        let job = prepare_test_case_job(&analysis, reusable_program.as_ref(), case);
-        if matches!(job, TestCaseJob::Ready(_)) {
+        let planned = plan_test_case_job(&analysis, case);
+        if matches!(planned, PlannedTestCaseJob::Ready(_)) {
             has_ready_job = true;
         }
-        prepared_jobs.push(job);
+        planned_cases.push(planned);
     }
     if has_ready_job {
         execution.get()?;
-        for job in &mut prepared_jobs {
-            job.set_execution(Arc::clone(&execution));
-        }
     }
-    let active_jobs = resolve_test_jobs(jobs, prepared_jobs.len(), || {
+    let active_jobs = resolve_test_jobs(jobs, planned_cases.len(), || {
         std::thread::available_parallelism().ok()
     });
+    let analysis_mutex = Mutex::new(analysis);
     let cases = run_test_case_jobs(
-        prepared_jobs,
+        planned_cases,
         active_jobs,
-        Ok::<_, String>,
+        |planned| {
+            Ok::<_, String>(match planned {
+                PlannedTestCaseJob::Ready(case) => {
+                    let analysis = analysis_mutex
+                        .lock()
+                        .map_err(|_| "test analysis state was poisoned".to_string())?;
+                    let mut job = prepare_test_case_job(&analysis, reusable_program.as_ref(), case);
+                    job.set_execution(Arc::clone(&execution));
+                    job
+                }
+                PlannedTestCaseJob::Completed(case) => TestCaseJob::Completed(case),
+            })
+        },
         execute_test_case_job,
     )
     .map_err(test_scheduler_error)?;
+    let analysis = analysis_mutex
+        .into_inner()
+        .map_err(|_| "test analysis state was poisoned".to_string())?;
     Ok((analysis, cases))
 }
 
@@ -901,6 +914,11 @@ enum TestCaseJob {
     Completed(Box<TestCase>),
 }
 
+enum PlannedTestCaseJob {
+    Ready(TestCase),
+    Completed(Box<TestCase>),
+}
+
 struct ReadyTestCaseJob {
     case: TestCase,
     module: SurfaceModule,
@@ -961,6 +979,40 @@ impl TestJvmExecution {
         *result = Some(prepared.clone());
         prepared
     }
+}
+
+fn plan_test_case_job(analysis: &ProjectAnalysis, mut case: TestCase) -> PlannedTestCaseJob {
+    let Some(reachable) = analysis
+        .reusable_standard_ir()
+        .is_none()
+        .then(|| analysis.lower_reachable_entry(&case.name, FunctionKind::Test))
+    else {
+        return PlannedTestCaseJob::Ready(case);
+    };
+
+    if !reachable.lowered.diagnostics.is_empty() {
+        case.status = TestCaseStatus::Blocked;
+        case.reason = Some("static_gate".to_string());
+        case.diagnostics = reachable.lowered.diagnostics;
+        return PlannedTestCaseJob::Completed(Box::new(case));
+    };
+    if let Some(diagnostic) = retained_user_effect_diagnostic(
+        &reachable.module,
+        reachable.lowered.core.as_ref(),
+        &case.name,
+    ) {
+        case.status = TestCaseStatus::Blocked;
+        case.reason = Some("static_gate".to_string());
+        case.diagnostics = vec![diagnostic];
+        return PlannedTestCaseJob::Completed(Box::new(case));
+    }
+    if reachable.lowered.ir.is_none() {
+        case.status = TestCaseStatus::Blocked;
+        case.reason = Some("static_gate".to_string());
+        case.diagnostics = reachable.lowered.diagnostics;
+        return PlannedTestCaseJob::Completed(Box::new(case));
+    };
+    PlannedTestCaseJob::Ready(case)
 }
 
 fn prepare_test_case_job(
