@@ -643,9 +643,11 @@ checksum = "sha256:..."
 ```
 
 Serialized source paths use `/` separators. The checksum is computed from the
-sorted `.veln` source files discovered under the dependency package root after
-the same ignored-directory rule as source discovery, so `.git` and `target`
-contents do not affect the lockfile.
+sorted owned `.veln` source files discovered under the dependency package root
+after the same package-boundary and ignored-directory rules as source
+discovery. Descendant package roots and `.git` contents do not affect the
+lockfile. A directory named `target` is an ordinary source directory, so owned
+`.veln` files below `target` do affect the lockfile.
 
 For each vendor dependency, the dependency table key is the package identity
 and `vendor` names an already available vendored package directory. The

@@ -21,7 +21,7 @@ pub fn discover_source_paths(root: &Path, inputs: &[PathBuf]) -> io::Result<Vec<
                 .strip_prefix(&root_identity)
                 .map_err(|_| rejected_input_error(input, "is outside the supplied package root"))?;
             let path = normalize_lexical_path(&root_output.join(relative));
-            match classify_explicit_input(&root_identity, relative, input)? {
+            match classify_explicit_input(&root_identity, relative, input, &joined)? {
                 ExplicitInputKind::Directory => collect_veln_files(&path, &mut paths)?,
                 ExplicitInputKind::FileOrMissing => paths.push(path),
             }
@@ -41,6 +41,7 @@ fn classify_explicit_input(
     root: &Path,
     relative: &Path,
     input: &Path,
+    joined: &Path,
 ) -> io::Result<ExplicitInputKind> {
     if relative.as_os_str().is_empty() {
         return Ok(if fs::metadata(root)?.is_dir() {
@@ -49,6 +50,7 @@ fn classify_explicit_input(
             ExplicitInputKind::FileOrMissing
         });
     }
+    validate_explicit_components(root, input, joined)?;
     let mut current = root.to_path_buf();
     let components = relative.components().collect::<Vec<_>>();
     for (index, component) in components.iter().enumerate() {
@@ -85,6 +87,45 @@ fn classify_explicit_input(
     }
 
     Ok(ExplicitInputKind::FileOrMissing)
+}
+
+fn validate_explicit_components(root: &Path, input: &Path, joined: &Path) -> io::Result<()> {
+    let relative = if input.is_absolute() {
+        joined.strip_prefix(root).unwrap_or(input)
+    } else {
+        input
+    };
+    let mut current = root.to_path_buf();
+    for component in relative.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if current == root {
+                    return Err(rejected_input_error(
+                        input,
+                        "escapes the supplied package root through `..`",
+                    ));
+                }
+                current.pop();
+            }
+            Component::Normal(part) => {
+                current.push(part);
+                let file_type = match fs::symlink_metadata(&current) {
+                    Ok(metadata) => metadata.file_type(),
+                    Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+                    Err(error) => return Err(error),
+                };
+                if file_type.is_symlink() {
+                    return Err(rejected_input_error(
+                        input,
+                        &format!("traverses the symbolic link `{}`", current.display()),
+                    ));
+                }
+            }
+            Component::RootDir | Component::Prefix(_) => {}
+        }
+    }
+    Ok(())
 }
 
 fn collect_veln_files(dir: &Path, paths: &mut Vec<PathBuf>) -> io::Result<()> {
