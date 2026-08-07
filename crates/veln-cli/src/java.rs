@@ -133,6 +133,7 @@ fn run_jvm_class_dir(
     Ok(JvmRunResult::Ran(java_output))
 }
 
+#[derive(Debug)]
 enum CachedJvmClasses {
     Ready(PathBuf),
     ToolError(String),
@@ -289,11 +290,11 @@ fn ensure_cached_jvm_classes_in_with_hooks(
             if validated_cache_exists(&cache_dir, program)? {
                 return Ok(CachedJvmClasses::Ready(cache_dir));
             }
-            remove_invalid_cache(&cache_dir)?;
+            remove_invalid_cache(&cache_dir, hooks)?;
         }
 
         hooks.before_prepare();
-        let compile_dir = match prepare_jvm_cache_compile_dir(cache_root, &key, program)? {
+        let compile_dir = match prepare_jvm_cache_compile_dir(cache_root, &key, program, hooks)? {
             CacheCompilePreparation::Ready(path) => path,
             CacheCompilePreparation::ToolError(message) => {
                 return Ok(CachedJvmClasses::ToolError(message));
@@ -302,7 +303,7 @@ fn ensure_cached_jvm_classes_in_with_hooks(
 
         hooks.before_publish_lock();
         let _lock = JvmCacheLock::acquire(&lock_dir).map_err(|error| error.to_string())?;
-        match publish_prepared_jvm_cache(&compile_dir, &cache_dir, program)? {
+        match publish_prepared_jvm_cache(&compile_dir, &cache_dir, program, hooks)? {
             CachePublish::Published | CachePublish::ReusedValidated => {
                 return Ok(CachedJvmClasses::Ready(cache_dir));
             }
@@ -317,6 +318,15 @@ trait JvmCacheHooks {
     fn after_initial_lock(&self) {}
     fn before_prepare(&self) {}
     fn before_publish_lock(&self) {}
+    fn before_remove_invalid(&self, _cache_dir: &Path) -> io::Result<()> {
+        Ok(())
+    }
+    fn before_preparation_validation(&self, _compile_dir: &Path) -> io::Result<()> {
+        Ok(())
+    }
+    fn before_publish(&self, _compile_dir: &Path, _cache_dir: &Path) -> io::Result<()> {
+        Ok(())
+    }
 }
 
 struct NoJvmCacheHooks;
@@ -335,9 +345,12 @@ fn validated_cache_exists(
     validate_cached_jvm_classes(cache_dir, program).map_err(|error| error.to_string())
 }
 
-fn remove_invalid_cache(cache_dir: &Path) -> Result<(), String> {
+fn remove_invalid_cache(cache_dir: &Path, hooks: &dyn JvmCacheHooks) -> Result<(), String> {
     if cache_dir.exists() {
-        fs::remove_dir_all(cache_dir).map_err(|error| error.to_string())?;
+        hooks
+            .before_remove_invalid(cache_dir)
+            .and_then(|()| fs::remove_dir_all(cache_dir))
+            .map_err(|error| format!("could not remove invalid JVM cache entry: {error}"))?;
     }
     Ok(())
 }
@@ -346,12 +359,17 @@ fn prepare_jvm_cache_compile_dir(
     cache_root: &Path,
     key: &str,
     program: &veln_backend_jvm::JvmProgram,
+    hooks: &dyn JvmCacheHooks,
 ) -> Result<CacheCompilePreparation, String> {
     let compile_dir =
         create_cache_compile_dir(cache_root, key).map_err(|error| error.to_string())?;
     if let Err(error) = write_cached_jvm_classes(&compile_dir, program) {
         let _ = fs::remove_dir_all(&compile_dir);
-        return Err(error.to_string());
+        return Err(format!("could not prepare JVM cache entry: {error}"));
+    }
+    if let Err(error) = hooks.before_preparation_validation(&compile_dir) {
+        let _ = fs::remove_dir_all(&compile_dir);
+        return Err(format!("could not prepare JVM cache entry: {error}"));
     }
     if !compile_dir.join(JVM_ENTRY_CLASS).is_file() {
         let _ = fs::remove_dir_all(&compile_dir);
@@ -359,7 +377,10 @@ fn prepare_jvm_cache_compile_dir(
             "veln: JVM class preparation did not produce an entry class".to_string(),
         ));
     }
-    write_jvm_cache_metadata(&compile_dir, program)?;
+    if let Err(error) = write_jvm_cache_metadata(&compile_dir, program) {
+        let _ = fs::remove_dir_all(&compile_dir);
+        return Err(format!("could not prepare JVM cache entry: {error}"));
+    }
     Ok(CacheCompilePreparation::Ready(compile_dir))
 }
 
@@ -379,8 +400,15 @@ fn publish_prepared_jvm_cache(
     compile_dir: &Path,
     cache_dir: &Path,
     program: &veln_backend_jvm::JvmProgram,
+    hooks: &dyn JvmCacheHooks,
 ) -> Result<CachePublish, String> {
-    publish_cached_jvm_classes(compile_dir, cache_dir, program).map_err(|error| error.to_string())
+    let result = hooks
+        .before_publish(compile_dir, cache_dir)
+        .and_then(|()| publish_cached_jvm_classes(compile_dir, cache_dir, program));
+    result.map_err(|error| {
+        let _ = fs::remove_dir_all(compile_dir);
+        format!("could not publish JVM cache entry: {error}")
+    })
 }
 
 fn write_cached_jvm_classes(
@@ -806,6 +834,7 @@ mod tests {
 
     struct PauseBeforePublishHook {
         state: Arc<(Mutex<PauseBeforePublishState>, Condvar)>,
+        fail_publish: bool,
     }
 
     struct PauseBeforePublishState {
@@ -814,7 +843,7 @@ mod tests {
     }
 
     impl PauseBeforePublishHook {
-        fn new() -> Self {
+        fn new(fail_publish: bool) -> Self {
             Self {
                 state: Arc::new((
                     Mutex::new(PauseBeforePublishState {
@@ -823,6 +852,7 @@ mod tests {
                     }),
                     Condvar::new(),
                 )),
+                fail_publish,
             }
         }
 
@@ -852,6 +882,73 @@ mod tests {
                 state = cvar.wait(state).expect("publish pause state should relock");
             }
         }
+
+        fn before_publish(&self, _compile_dir: &Path, _cache_dir: &Path) -> io::Result<()> {
+            if self.fail_publish {
+                Err(io::Error::other("injected publication failure"))
+            } else {
+                Ok(())
+            }
+        }
+    }
+
+    #[derive(Clone, Copy)]
+    enum InjectedCacheFault {
+        Removal,
+        Preparation,
+        Publication,
+    }
+
+    struct FailingHook(InjectedCacheFault);
+
+    impl JvmCacheHooks for FailingHook {
+        fn before_remove_invalid(&self, _cache_dir: &Path) -> io::Result<()> {
+            match self.0 {
+                InjectedCacheFault::Removal => Err(io::Error::other("injected removal failure")),
+                _ => Ok(()),
+            }
+        }
+
+        fn before_preparation_validation(&self, _compile_dir: &Path) -> io::Result<()> {
+            match self.0 {
+                InjectedCacheFault::Preparation => {
+                    Err(io::Error::other("injected preparation failure"))
+                }
+                _ => Ok(()),
+            }
+        }
+
+        fn before_publish(&self, _compile_dir: &Path, _cache_dir: &Path) -> io::Result<()> {
+            match self.0 {
+                InjectedCacheFault::Publication => {
+                    Err(io::Error::other("injected publication failure"))
+                }
+                _ => Ok(()),
+            }
+        }
+    }
+
+    fn cache_file_snapshot(root: &Path) -> Vec<(PathBuf, Vec<u8>)> {
+        fn collect(root: &Path, directory: &Path, files: &mut Vec<(PathBuf, Vec<u8>)>) {
+            for entry in fs::read_dir(directory).expect("cache directory should be readable") {
+                let path = entry.expect("cache entry should be readable").path();
+                if path.is_dir() {
+                    collect(root, &path, files);
+                } else {
+                    files.push((
+                        path.strip_prefix(root)
+                            .expect("cache file should be below entry")
+                            .to_path_buf(),
+                        fs::read(&path).expect("cache file should be readable"),
+                    ));
+                }
+            }
+        }
+
+        let mut files = Vec::new();
+        collect(root, root, &mut files);
+        files.sort_by(|left, right| left.0.cmp(&right.0));
+        files
     }
 
     #[test]
@@ -1275,6 +1372,125 @@ mod tests {
     }
 
     #[test]
+    fn removal_failure_retains_invalid_entry_for_later_revalidation() {
+        let root = temp_root("cache-removal-failure");
+        let program = jvm_program(&[("VelnEntry.class", b"entry")]);
+        let cache_dir = cached_path(
+            ensure_cached_jvm_classes_in(&root, &program).expect("cache should be prepared"),
+        );
+        fs::write(cache_dir.join("VelnEntry.class"), b"poisoned")
+            .expect("cache should be poisoned");
+
+        let error = ensure_cached_jvm_classes_in_with_hooks(
+            &root,
+            &program,
+            &FailingHook(InjectedCacheFault::Removal),
+        )
+        .expect_err("injected removal failure should stop preparation");
+
+        assert!(error.contains("could not remove invalid JVM cache entry"));
+        assert_eq!(
+            fs::read(cache_dir.join("VelnEntry.class")).expect("invalid entry should remain"),
+            b"poisoned"
+        );
+        assert!(
+            !validate_cached_jvm_classes(&cache_dir, &program)
+                .expect("retained entry should be revalidated")
+        );
+
+        let retried = cached_path(
+            ensure_cached_jvm_classes_in(&root, &program)
+                .expect("later invocation should repair the retained entry"),
+        );
+        assert_eq!(retried, cache_dir);
+        assert!(
+            validate_cached_jvm_classes(&cache_dir, &program)
+                .expect("repaired entry should validate")
+        );
+
+        fs::remove_dir_all(root).expect("test root should be removed");
+    }
+
+    #[test]
+    fn regeneration_failure_leaves_no_published_or_partial_entry() {
+        let root = temp_root("cache-regeneration-failure");
+        let program = jvm_program(&[("VelnEntry.class", b"entry")]);
+        let cache_dir = cached_path(
+            ensure_cached_jvm_classes_in(&root, &program).expect("cache should be prepared"),
+        );
+        fs::write(cache_dir.join("VelnEntry.class"), b"poisoned")
+            .expect("cache should be poisoned");
+
+        let error = ensure_cached_jvm_classes_in_with_hooks(
+            &root,
+            &program,
+            &FailingHook(InjectedCacheFault::Preparation),
+        )
+        .expect_err("injected regeneration failure should stop preparation");
+
+        assert!(error.contains("could not prepare JVM cache entry"));
+        assert!(
+            !cache_dir.exists(),
+            "invalid entry should have been removed"
+        );
+        assert_eq!(
+            fs::read_dir(&root)
+                .expect("cache root should be readable")
+                .count(),
+            0,
+            "failed regeneration must remove preparation remnants"
+        );
+
+        let retried = cached_path(
+            ensure_cached_jvm_classes_in(&root, &program)
+                .expect("later invocation should regenerate the missing entry"),
+        );
+        assert_eq!(retried, cache_dir);
+        assert!(
+            validate_cached_jvm_classes(&cache_dir, &program)
+                .expect("regenerated entry should validate")
+        );
+
+        fs::remove_dir_all(root).expect("test root should be removed");
+    }
+
+    #[test]
+    fn publication_failure_leaves_a_miss_for_later_retry() {
+        let root = temp_root("cache-publication-failure");
+        let program = jvm_program(&[("VelnEntry.class", b"entry")]);
+        let cache_dir = root.join(jvm_class_cache_key(&program));
+
+        let error = ensure_cached_jvm_classes_in_with_hooks(
+            &root,
+            &program,
+            &FailingHook(InjectedCacheFault::Publication),
+        )
+        .expect_err("injected publication failure should stop preparation");
+
+        assert!(error.contains("could not publish JVM cache entry"));
+        assert!(!cache_dir.exists(), "failed publication must remain a miss");
+        assert_eq!(
+            fs::read_dir(&root)
+                .expect("cache root should be readable")
+                .count(),
+            0,
+            "failed publication must remove preparation remnants"
+        );
+
+        let retried = cached_path(
+            ensure_cached_jvm_classes_in(&root, &program)
+                .expect("later invocation should retry publication"),
+        );
+        assert_eq!(retried, cache_dir);
+        assert!(
+            validate_cached_jvm_classes(&cache_dir, &program)
+                .expect("retried entry should validate")
+        );
+
+        fs::remove_dir_all(root).expect("test root should be removed");
+    }
+
+    #[test]
     fn occupied_cache_lock_reaches_focused_timeout() {
         let root = temp_root("cache-lock-timeout");
         let lock_dir = root.join("cache-key.lock");
@@ -1585,7 +1801,7 @@ mod tests {
     fn publish_loser_revalidates_winner_after_controlled_interleaving() {
         let root = temp_root("cache-publish-interleaving");
         let program = Arc::new(jvm_program(&[("VelnEntry.class", b"entry")]));
-        let loser_hook = Arc::new(PauseBeforePublishHook::new());
+        let loser_hook = Arc::new(PauseBeforePublishHook::new(false));
 
         let loser_handle = {
             let root = root.clone();
@@ -1608,6 +1824,50 @@ mod tests {
 
         assert_eq!(loser, winner);
         assert!(validate_cached_jvm_classes(&winner, &program).expect("cache should validate"));
+        assert_eq!(ready_cache_entries(&root), vec![winner]);
+
+        fs::remove_dir_all(root).expect("test root should be removed");
+    }
+
+    #[test]
+    fn failed_writer_preserves_complete_entry_published_by_another_writer() {
+        let root = temp_root("cache-failed-writer-isolation");
+        let program = Arc::new(jvm_program(&[("VelnEntry.class", b"entry")]));
+        let failed_writer_hook = Arc::new(PauseBeforePublishHook::new(true));
+
+        let failed_writer = {
+            let root = root.clone();
+            let program = Arc::clone(&program);
+            let hook = Arc::clone(&failed_writer_hook);
+            thread::spawn(move || ensure_cached_jvm_classes_in_with_hooks(&root, &program, &*hook))
+        };
+        failed_writer_hook.wait_until_reached_publish();
+
+        let winner = cached_path(
+            ensure_cached_jvm_classes_in(&root, &program).expect("winner should publish cache"),
+        );
+        let winner_snapshot = cache_file_snapshot(&winner);
+        failed_writer_hook.release_publish();
+
+        let error = failed_writer
+            .join()
+            .expect("failed writer should finish")
+            .expect_err("publication fault should fail the paused writer");
+        assert!(error.contains("could not publish JVM cache entry"));
+        assert_eq!(
+            cache_file_snapshot(&winner),
+            winner_snapshot,
+            "failed writer must not alter the complete winner"
+        );
+        assert!(
+            validate_cached_jvm_classes(&winner, &program).expect("winner should remain valid")
+        );
+
+        let reused = cached_path(
+            ensure_cached_jvm_classes_in(&root, &program)
+                .expect("later invocation should reuse the winner"),
+        );
+        assert_eq!(reused, winner);
         assert_eq!(ready_cache_entries(&root), vec![winner]);
 
         fs::remove_dir_all(root).expect("test root should be removed");

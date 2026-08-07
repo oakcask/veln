@@ -321,11 +321,9 @@ intentional and verified.
 - Do not add `.velnignore`, manifest exclude patterns, or generic hidden-file
   exclusion.
 - Do not change the existing `.git` ignored-directory rule.
-- Do not define the toolchain cache location or remaining cache recovery
-  lifecycle in this proposal; [Commands](../specification/commands.md)
-  specifies the current location, and
-  [Toolchain User Cache](toolchain-user-cache.md) owns the remaining recovery
-  work.
+- Do not define the toolchain cache location or recovery lifecycle in this
+  proposal; [Commands](../specification/commands.md) specifies the current
+  behavior.
 - Do not define dependency fetching, version selection, or lockfile conflict
   resolution.
 - Do not change package export or visibility semantics beyond requiring an

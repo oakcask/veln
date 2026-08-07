@@ -326,6 +326,21 @@ When concurrent invocations prepare the same cache entry, each invocation uses
 only a complete entry that validates against its own generated JVM program; an
 invocation that loses publication to another writer revalidates the published
 winner before using it.
+If an invalid entry cannot be removed, the command reports a cache error before
+JVM startup. The invalid entry remains subject to full validation by a later
+invocation. A failure while regenerating, validating, or publishing a
+replacement does not publish a partial entry. A later invocation observes the
+retained invalid entry or missing entry and retries the applicable recovery.
+These failures do not select another cache location.
+
+A failed writer does not delete, replace, or invalidate a complete entry that
+another invocation published for the same key. The fault-injected evidence is
+`removal_failure_retains_invalid_entry_for_later_revalidation`,
+`regeneration_failure_leaves_no_published_or_partial_entry`, and
+`publication_failure_leaves_a_miss_for_later_retry`. The barrier-controlled
+writer evidence is
+`failed_writer_preserves_complete_entry_published_by_another_writer` in the
+`veln-cli` unit test target.
 If an earlier process stops while it owns cache coordination, a later
 invocation either uses a fully validated entry or reports a cache-coordination
 error within an internal bound. The error occurs before JVM startup. Recovery

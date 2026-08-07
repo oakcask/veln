@@ -44,6 +44,8 @@ under `../../specification/` and its executable example routes.
   [jvm-bytecode-backend.md](jvm-bytecode-backend.md), then
   [jvm-bytecode-backend-full.md](jvm-bytecode-backend-full.md) only for
   original gate details.
+- Toolchain user cache recovery:
+  [toolchain-user-cache.md](toolchain-user-cache.md).
 - Shared project analysis:
   [project-analysis-pipeline.md](project-analysis-pipeline.md).
 - Bounded toolchain analysis:
