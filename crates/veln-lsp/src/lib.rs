@@ -10,7 +10,7 @@ use veln_analysis::{DoctestMode, checked_project_diagnostics, parse_diagnostic_t
 use veln_ast::{SurfaceModule, lower_surface_ast};
 use veln_diagnostics::{Diagnostic, Severity};
 use veln_editor::{encode_lsp_semantic_tokens, semantic_token_legend};
-use veln_project::{Project, classify_companion_source};
+use veln_project::{Project, classify_companion_source, discover_source_paths};
 use veln_source::{SourceFile, SourceSpan};
 use veln_syntax::{Token, TokenKind, format_tree, lex, parse};
 
@@ -294,7 +294,7 @@ impl Server {
 
     fn overlay_open_workspace_documents(&self, root: &Path, project: &mut Project) {
         for (uri, text) in &self.documents {
-            let Some(source) = workspace_source_file(root, uri, text) else {
+            let Some(source) = owned_workspace_source_file(root, uri, text) else {
                 continue;
             };
             let source_path = source.path().as_str().to_string();
@@ -315,7 +315,7 @@ impl Server {
 
     fn workspace_source_path(&self, uri: &str) -> Option<String> {
         let root = workspace_root_for_uri(&self.workspace_roots, uri)?;
-        workspace_relative_source_path(root, uri)
+        owned_workspace_relative_source_path(root, uri)
     }
 
     fn symbol_at_request(&self, message: &str) -> Option<SymbolRequest> {
@@ -572,8 +572,16 @@ fn workspace_root_for_uri<'a>(roots: &'a [PathBuf], uri: &str) -> Option<&'a Pat
         .map(PathBuf::as_path)
 }
 
-fn workspace_source_file(root: &Path, uri: &str, text: &str) -> Option<SourceFile> {
-    workspace_relative_source_path(root, uri).map(|path| SourceFile::new(path, text.to_string()))
+fn owned_workspace_source_file(root: &Path, uri: &str, text: &str) -> Option<SourceFile> {
+    owned_workspace_relative_source_path(root, uri)
+        .map(|path| SourceFile::new(path, text.to_string()))
+}
+
+fn owned_workspace_relative_source_path(root: &Path, uri: &str) -> Option<String> {
+    let relative = workspace_relative_source_path(root, uri)?;
+    let input = PathBuf::from(&relative);
+    discover_source_paths(root, std::slice::from_ref(&input)).ok()?;
+    Some(relative)
 }
 
 fn workspace_relative_source_path(root: &Path, uri: &str) -> Option<String> {
@@ -2390,6 +2398,39 @@ mod tests {
         let publish = publish_for_uri(&responses, &main_uri);
         assert!(publish.contains(r#""diagnostics":[]"#), "{publish}");
         assert!(!publish.contains("name.unresolved"), "{publish}");
+    }
+
+    #[test]
+    fn server_does_not_overlay_open_documents_owned_by_nested_manifest() {
+        let mut server = Server::default();
+        let project = TempProject::new("nested-open-document-overlay-boundary");
+        project.write(
+            "veln.toml",
+            "[package]\nname = \"outer\"\n\n[lib]\nexports = [\"app.veln\", \"nested/hidden.veln\"]\n",
+        );
+        project.write("app.veln", "pub fn app() -> Int\n  1\nend\n");
+        project.write("nested/veln.toml", "[package]\nname = \"nested\"\n");
+        project.write("nested/hidden.veln", "pub fn hidden() -> Int\n  2\nend\n");
+        let root_uri = path_to_uri(&project.root);
+        let manifest_uri = path_to_uri(&project.root.join("veln.toml"));
+        let app_uri = path_to_uri(&project.root.join("app.veln"));
+        let nested_uri = path_to_uri(&project.root.join("nested/hidden.veln"));
+        server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"workspaceFolders":[{{"uri":"{root_uri}","name":"outer"}}]}}}}"#
+        ));
+        server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{nested_uri}","text":"pub fn hidden() -> Int\n  2\nend\n"}}}}}}"#
+        ));
+
+        let responses = server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","method":"textDocument/didChange","params":{{"textDocument":{{"uri":"{app_uri}","version":2}},"contentChanges":[{{"text":"pub fn app() -> Int\n  1\nend\n"}}]}}}}"#
+        ));
+
+        let publish = publish_for_uri(&responses, &manifest_uri);
+        assert!(
+            publish.contains(r#""code":"manifest.unselected_export""#),
+            "{publish}"
+        );
     }
 
     #[test]
