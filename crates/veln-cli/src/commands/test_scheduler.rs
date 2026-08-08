@@ -9,6 +9,50 @@ pub(crate) enum SchedulerError<E> {
     WorkerPanicked,
 }
 
+type JobQueue<J> = Arc<Mutex<VecDeque<(usize, J)>>>;
+type JobResult<R, E> = (usize, Result<R, E>);
+
+struct SchedulerOutcome<R, E> {
+    records: Vec<Option<R>>,
+    first_error: Option<E>,
+    worker_panicked: bool,
+}
+
+impl<R, E> SchedulerOutcome<R, E> {
+    fn new(job_count: usize) -> Self {
+        let mut records = Vec::with_capacity(job_count);
+        records.resize_with(job_count, || None);
+        Self {
+            records,
+            first_error: None,
+            worker_panicked: false,
+        }
+    }
+
+    fn record(&mut self, index: usize, result: Result<R, E>) {
+        match result {
+            Ok(record) => self.records[index] = Some(record),
+            Err(error) if self.first_error.is_none() => self.first_error = Some(error),
+            Err(_) => {}
+        }
+    }
+
+    fn finish(self) -> Result<Vec<R>, SchedulerError<E>> {
+        if let Some(error) = self.first_error {
+            return Err(SchedulerError::Job(error));
+        }
+        if self.worker_panicked {
+            return Err(SchedulerError::WorkerPanicked);
+        }
+
+        Ok(self
+            .records
+            .into_iter()
+            .map(|record| record.expect("finished scheduler job should have a record"))
+            .collect())
+    }
+}
+
 pub(crate) fn run_ordered_bounded<J, R, E, F>(
     jobs: Vec<J>,
     bound: usize,
@@ -27,15 +71,22 @@ where
         return Ok(Vec::new());
     }
 
+    let worker_count = bound.min(jobs.len());
+    run_workers(jobs, worker_count, &execute).finish()
+}
+
+fn run_workers<J, R, E, F>(jobs: Vec<J>, worker_count: usize, execute: &F) -> SchedulerOutcome<R, E>
+where
+    J: Send,
+    R: Send,
+    E: Send,
+    F: Fn(J) -> Result<R, E> + Sync,
+{
     let job_count = jobs.len();
-    let worker_count = bound.min(job_count);
     let queue = Arc::new(Mutex::new(
         jobs.into_iter().enumerate().collect::<VecDeque<_>>(),
     ));
-    let mut records = Vec::with_capacity(job_count);
-    records.resize_with(job_count, || None);
-    let mut first_error = None;
-    let mut worker_panicked = false;
+    let mut outcome = SchedulerOutcome::new(job_count);
 
     thread::scope(|scope| {
         let (tx, rx) = mpsc::channel();
@@ -44,53 +95,41 @@ where
         for _ in 0..worker_count {
             let queue = Arc::clone(&queue);
             let tx = tx.clone();
-            let execute = &execute;
-            handles.push(scope.spawn(move || {
-                loop {
-                    let Some((index, job)) = queue
-                        .lock()
-                        .expect("test scheduler queue poisoned")
-                        .pop_front()
-                    else {
-                        break;
-                    };
-                    if tx.send((index, execute(job))).is_err() {
-                        break;
-                    }
-                }
-            }));
+            handles.push(scope.spawn(move || run_worker(queue, tx, execute)));
         }
         drop(tx);
 
         for (index, result) in rx {
-            match result {
-                Ok(record) => records[index] = Some(record),
-                Err(error) => {
-                    if first_error.is_none() {
-                        first_error = Some(error);
-                    }
-                }
-            }
+            outcome.record(index, result);
         }
 
         for handle in handles {
-            if handle.join().is_err() {
-                worker_panicked = true;
-            }
+            outcome.worker_panicked |= handle.join().is_err();
         }
     });
 
-    if let Some(error) = first_error {
-        return Err(SchedulerError::Job(error));
-    }
-    if worker_panicked {
-        return Err(SchedulerError::WorkerPanicked);
-    }
+    outcome
+}
 
-    Ok(records
-        .into_iter()
-        .map(|record| record.expect("finished scheduler job should have a record"))
-        .collect())
+fn run_worker<J, R, E, F>(queue: JobQueue<J>, tx: mpsc::Sender<JobResult<R, E>>, execute: &F)
+where
+    J: Send,
+    R: Send,
+    E: Send,
+    F: Fn(J) -> Result<R, E> + Sync,
+{
+    loop {
+        let Some((index, job)) = queue
+            .lock()
+            .expect("test scheduler queue poisoned")
+            .pop_front()
+        else {
+            return;
+        };
+        if tx.send((index, execute(job))).is_err() {
+            return;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -288,6 +327,45 @@ mod tests {
 
         assert!(matches!(result, Err(SchedulerError::Job("injected"))));
         assert_eq!(completed.load(Ordering::SeqCst), 4);
+    }
+
+    #[test]
+    fn reports_worker_panic() {
+        let result = run_ordered_bounded(vec![0], 1, |_job| -> Result<(), ()> {
+            panic!("injected worker panic");
+        });
+
+        assert!(matches!(result, Err(SchedulerError::WorkerPanicked)));
+    }
+
+    #[test]
+    fn prefers_job_error_when_another_worker_panics() {
+        let gate = Arc::new((Mutex::new(0), Condvar::new()));
+        let result = run_ordered_bounded(vec![0, 1], 2, {
+            let gate = Arc::clone(&gate);
+            move |job| {
+                let (lock, cvar) = &*gate;
+                let mut started = lock.lock().expect("started count should lock");
+                *started += 1;
+                if *started == 2 {
+                    cvar.notify_all();
+                }
+                while *started < 2 {
+                    started = cvar.wait(started).expect("started count should lock");
+                }
+                drop(started);
+
+                if job == 0 {
+                    panic!("injected worker panic");
+                }
+                Err::<(), _>("injected job error")
+            }
+        });
+
+        assert!(matches!(
+            result,
+            Err(SchedulerError::Job("injected job error"))
+        ));
     }
 
     struct ReverseGate {
