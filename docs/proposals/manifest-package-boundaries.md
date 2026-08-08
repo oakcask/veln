@@ -10,7 +10,7 @@ review-when: The remaining editor package-root selection scope, acceptance evide
 Complete editor package-root selection around the implemented package-owned
 source discovery, command-root selection, and dependency-root selection rules.
 Current command selection, recursive discovery, explicit source ownership, and
-dependency selection are specified in
+dependency root validation are specified in
 [commands-full.md](../specification/commands-full.md) and checked by the
 executable specification cases named there.
 
@@ -30,6 +30,9 @@ Command analysis already resolves its invocation directory and selects the
 nearest ancestor with a regular manifest marker. It preserves the invocation
 directory as the base for relative arguments. Selection failures do not fall
 back to a wider or anonymous project.
+
+Source-analysis path dependencies already validate the dependency root's direct
+regular manifest before loading its sources.
 
 This implemented behavior is not proposal authority. Use
 [commands-full.md](../specification/commands-full.md),

@@ -136,13 +136,18 @@ rejected.
 
 When a parse-clean source contains `use path from "package"`, the command
 looks for a matching path dependency table in the current project manifest,
-loads that dependency's discovered `.veln` sources, checks that the dependency
-manifest's `[package].name` matches the requested package identity, and
+requires the dependency root to have a direct regular `veln.toml`, loads that
+dependency's discovered `.veln` sources, checks that the dependency manifest's
+`[package].name` matches the requested package identity, and
 requires the imported module path to be listed by the dependency package's
 `[lib].exports`. A dependency manifest export that names a `.test.veln`
 companion is rejected before that path can contribute an exported module. The
 external import contributes only public declarations and public aliases from
 the exported dependency module to the importing source.
+
+The checked cases `external-package-direct-manifest` and
+`external-package-missing-direct-manifest` are the executable command evidence
+for direct dependency package roots during source analysis.
 
 Semantic diagnostics are suppressed for a file that has parse diagnostics.
 Other parse-clean files in the same invocation may still produce semantic

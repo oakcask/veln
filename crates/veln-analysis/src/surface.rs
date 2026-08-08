@@ -12,7 +12,7 @@ use veln_ast::{
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_project::{
     ManifestDependencySelectorKind, ManifestField, Project, ProjectManifest,
-    classify_companion_source,
+    classify_companion_source, read_manifest,
 };
 use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{TokenKind, lex, parse};
@@ -678,6 +678,22 @@ fn load_external_dependency_project<'a>(
     };
 
     let dependency_root = project.root.join(&path_field.value);
+    let has_direct_manifest = match read_manifest(&dependency_root) {
+        Ok(manifest) => manifest.is_some(),
+        Err(_) => {
+            diagnostics.push(unavailable_external_package_diagnostic(use_decl));
+            return None;
+        }
+    };
+    if !has_direct_manifest {
+        diagnostics.push(package_name_mismatch_diagnostic(
+            package,
+            None,
+            &dependency.package_span,
+        ));
+        return None;
+    }
+
     let dependency_project = match Project::discover(dependency_root, &[]) {
         Ok(project) => project,
         Err(_) => {
@@ -2920,6 +2936,8 @@ fn push_reachable(callees: &mut Vec<ReachableFunction>, callee: ReachableFunctio
 
 #[cfg(test)]
 mod tests {
+    use std::path::{Path, PathBuf};
+    use std::time::{SystemTime, UNIX_EPOCH};
     use std::{env, fs};
 
     use veln_ast::{
@@ -2961,6 +2979,125 @@ mod tests {
             .collect::<Vec<_>>();
         functions.sort_unstable();
         functions
+    }
+
+    struct TempProject {
+        root: PathBuf,
+    }
+
+    impl TempProject {
+        fn new(name: &str) -> Self {
+            let unique = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system time should be after Unix epoch")
+                .as_nanos();
+            let root = env::temp_dir().join(format!(
+                "veln-analysis-surface-{name}-{}-{unique}",
+                std::process::id()
+            ));
+            let _ = fs::remove_dir_all(&root);
+            fs::create_dir_all(&root).expect("temporary project root should be created");
+            Self { root }
+        }
+
+        fn root(&self) -> &Path {
+            &self.root
+        }
+
+        fn path(&self, relative: &str) -> PathBuf {
+            self.root.join(relative)
+        }
+
+        fn write(&self, relative: &str, contents: &str) {
+            let path = self.path(relative);
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent).expect("temporary project parent should be created");
+            }
+            fs::write(path, contents).expect("temporary project file should be written");
+        }
+    }
+
+    impl Drop for TempProject {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.root);
+        }
+    }
+
+    #[test]
+    fn external_path_dependency_loads_direct_manifest_package_root() {
+        let temp = TempProject::new("external-path-dependency-root");
+        temp.write(
+            "veln.toml",
+            "[dependencies.\"github.com/oakcask/foo\"]\npath = \"vendor/foo\"\n",
+        );
+        temp.write(
+            "main.veln",
+            "use foo from \"github.com/oakcask/foo\"\n\npub fn main() -> Int\n  add_one(1)\nend\n",
+        );
+        temp.write(
+            "vendor/foo/veln.toml",
+            "[package]\nname = \"github.com/oakcask/foo\"\n\n[lib]\nexports = [\"foo.veln\"]\n",
+        );
+        temp.write(
+            "vendor/foo/foo.veln",
+            "pub fn add_one(value: Int) -> Int\n  value + 1\nend\n",
+        );
+
+        let project =
+            Project::discover(temp.root().to_path_buf(), &[PathBuf::from("main.veln")]).unwrap();
+        let (_, diagnostics) = load_surface_module(&project);
+
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn external_path_dependency_without_direct_manifest_does_not_read_sources() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp = TempProject::new("external-path-dependency-missing-manifest");
+        temp.write(
+            "veln.toml",
+            "[dependencies.\"github.com/oakcask/foo\"]\npath = \"vendor/foo\"\n",
+        );
+        temp.write(
+            "main.veln",
+            "use foo from \"github.com/oakcask/foo\"\n\npub fn main() -> Int\n  0\nend\n",
+        );
+        temp.write("vendor/foo/foo.veln", "unreadable source");
+        let source = temp.path("vendor/foo/foo.veln");
+        let original = fs::metadata(&source).unwrap().permissions();
+        fs::set_permissions(&source, fs::Permissions::from_mode(0o000)).unwrap();
+
+        let project =
+            Project::discover(temp.root().to_path_buf(), &[PathBuf::from("main.veln")]).unwrap();
+        let (_, diagnostics) = load_surface_module(&project);
+
+        fs::set_permissions(&source, original).unwrap();
+        if !nix_like_effective_root() {
+            assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+            assert_eq!(diagnostics[0].id, "manifest.package_name_mismatch");
+            assert!(
+                diagnostics[0]
+                    .message
+                    .contains("dependency package name `<missing>`"),
+                "{diagnostics:#?}"
+            );
+        }
+    }
+
+    #[cfg(unix)]
+    fn nix_like_effective_root() -> bool {
+        fs::read_to_string("/proc/self/status")
+            .ok()
+            .and_then(|status| {
+                status
+                    .lines()
+                    .find(|line| line.starts_with("Uid:"))
+                    .and_then(|line| line.split_whitespace().nth(2))
+                    .and_then(|uid| uid.parse::<u32>().ok())
+            })
+            == Some(0)
     }
 
     #[test]

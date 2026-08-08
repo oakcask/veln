@@ -1,0 +1,25 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["manifest.package_name_mismatch", "dependency package name `<missing>` does not match `github.com/oakcask/foo`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "manifest.package_name_mismatch"
+
+[[json_assert]]
+path = "diagnostics.0.details.actual_package"
+equals = "<missing>"

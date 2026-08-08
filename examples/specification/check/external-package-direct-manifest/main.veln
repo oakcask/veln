@@ -1,0 +1,5 @@
+use foo from "github.com/oakcask/foo"
+
+pub fn main() -> Int
+  add_one(1)
+end
