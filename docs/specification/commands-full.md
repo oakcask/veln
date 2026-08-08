@@ -374,6 +374,13 @@ do not inspect cache configuration.
 On a cache miss the command writes the emitted classfiles into the cache; on a
 cache hit it validates the manifest and cached classfiles before invoking
 `java`. Invalid or incomplete cache entries are replaced instead of executed.
+If an invalid entry cannot be removed, the command reports a focused cache
+error before JVM startup and preserves the invalid entry. A later invocation
+revalidates that entry and can replace it after the removal failure clears.
+If removal succeeds but replacement preparation or prepared-entry validation
+fails, the command reports an error before JVM startup. It publishes no
+replacement, and no preparation artifact can validate as a cache hit. A later
+invocation can regenerate and reuse a valid entry.
 When concurrent invocations prepare the same cache entry, each invocation uses
 only a complete entry that validates against its own generated JVM program; an
 invocation that loses publication to another writer revalidates the published
@@ -386,6 +393,14 @@ complete entry from another writer. The coordination representation, waiting
 strategy, and duration are not command contracts. The process-level evidence
 is `abandoned_jvm_cache_coordination_reaches_bounded_error_without_starting_java`
 in the `toolchain_harness` test target.
+The focused unit tests
+`invalid_cache_removal_failure_preserves_entry_for_successful_retry` and
+`prepared_entry_validation_failure_leaves_miss_for_successful_retry` are the
+primary executable evidence for invalid-entry recovery failures. A checked
+case under `examples/specification/` is not practical because these failures
+require deterministic injection at internal filesystem boundaries, which the
+command-case format cannot express without a production fault-injection
+surface.
 Runtime trace files for command output remain isolated to the individual
 command invocation. Human mode forwards process
 stdout and stderr and returns the Java process status for ordinary runtime

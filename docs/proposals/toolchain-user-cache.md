@@ -7,21 +7,17 @@ review-when: The JVM cache failure-recovery contract, acceptance evidence, or im
 
 ## Summary
 
-Complete the remaining failure-recovery and concurrent-preparation guarantees
-for reusable JVM class cache entries. Cache-root selection, `VELN_CACHE_DIR`,
-command validation timing, entry integrity checks, ordinary corruption repair,
-and successful concurrent publication are current behavior specified in
+Complete the remaining publication-failure and failed-writer-isolation
+guarantees for reusable JVM class cache entries. Cache-root selection,
+`VELN_CACHE_DIR`, command validation timing, entry integrity checks, ordinary
+corruption repair, invalid-entry removal failure, regeneration failure, and
+successful concurrent publication are current behavior specified in
 [Commands](../specification/commands.md).
 
 ## Remaining Behavior
 
-An invocation must not execute an invalid published entry. If it cannot remove
-an invalid entry, it must report a focused cache error and leave the entry
-subject to full revalidation by later invocations.
-
-If invalid-entry removal succeeds but regeneration, validation, or publication
-fails, the invocation must publish no partial replacement. A later invocation
-must observe a miss and be able to retry generation.
+If publication below the selected cache root fails, an invocation must not use
+a partial entry or fall back to another root.
 
 A writer failure must not delete, replace, or invalidate a complete entry that
 another invocation published for the same key. If no invocation can obtain a
@@ -34,8 +30,6 @@ already pass.
 
 | Case | Injected condition | Required result | Planned primary evidence |
 | --- | --- | --- | --- |
-| Removal failure | A corrupt published entry cannot be removed | The command reports a cache error, does not start the JVM, and later invocations revalidate the entry | Fault-injected JVM cache unit test |
-| Regeneration failure | Removal succeeds but preparation or validation fails | No partial entry is published, and a later invocation can regenerate | Fault-injected JVM cache unit test |
 | Publication failure | Preparing or publishing below the selected root fails | No partial entry becomes a hit and no fallback is used | Fault-injected JVM cache unit test |
 | Failed writer isolation | One writer fails after another publishes a valid entry | The valid winner remains byte-for-byte valid and reusable | Barrier-controlled JVM cache concurrency test |
 

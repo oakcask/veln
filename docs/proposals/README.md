@@ -27,8 +27,8 @@ also states it.
 ### Toolchain Storage
 
 - [Toolchain User Cache](toolchain-user-cache.md): complete the remaining
-  fault-injected removal, regeneration, publication, and failed-writer
-  isolation cases for reusable cache entries. Current cache behavior is in
+  publication-failure and failed-writer-isolation cases for reusable cache
+  entries. Current cache behavior is in
   [Commands](../specification/commands.md).
 
 ## Selection Rule

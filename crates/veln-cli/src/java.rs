@@ -289,11 +289,11 @@ fn ensure_cached_jvm_classes_in_with_hooks(
             if validated_cache_exists(&cache_dir, program)? {
                 return Ok(CachedJvmClasses::Ready(cache_dir));
             }
-            remove_invalid_cache(&cache_dir)?;
+            remove_invalid_cache(&cache_dir, hooks)?;
         }
 
         hooks.before_prepare();
-        let compile_dir = match prepare_jvm_cache_compile_dir(cache_root, &key, program)? {
+        let compile_dir = match prepare_jvm_cache_compile_dir(cache_root, &key, program, hooks)? {
             CacheCompilePreparation::Ready(path) => path,
             CacheCompilePreparation::ToolError(message) => {
                 return Ok(CachedJvmClasses::ToolError(message));
@@ -317,6 +317,12 @@ trait JvmCacheHooks {
     fn after_initial_lock(&self) {}
     fn before_prepare(&self) {}
     fn before_publish_lock(&self) {}
+    fn remove_invalid_cache(&self, cache_dir: &Path) -> io::Result<()> {
+        remove_invalid_cache_io(cache_dir)
+    }
+    fn after_prepare(&self, _compile_dir: &Path) -> io::Result<()> {
+        Ok(())
+    }
 }
 
 struct NoJvmCacheHooks;
@@ -335,32 +341,56 @@ fn validated_cache_exists(
     validate_cached_jvm_classes(cache_dir, program).map_err(|error| error.to_string())
 }
 
-fn remove_invalid_cache(cache_dir: &Path) -> Result<(), String> {
-    if cache_dir.exists() {
-        fs::remove_dir_all(cache_dir).map_err(|error| error.to_string())?;
-    }
-    Ok(())
+fn remove_invalid_cache(cache_dir: &Path, hooks: &dyn JvmCacheHooks) -> Result<(), String> {
+    hooks
+        .remove_invalid_cache(cache_dir)
+        .map_err(|error| format!("could not remove invalid JVM class cache entry: {error}"))
 }
 
 fn prepare_jvm_cache_compile_dir(
     cache_root: &Path,
     key: &str,
     program: &veln_backend_jvm::JvmProgram,
+    hooks: &dyn JvmCacheHooks,
 ) -> Result<CacheCompilePreparation, String> {
     let compile_dir =
         create_cache_compile_dir(cache_root, key).map_err(|error| error.to_string())?;
-    if let Err(error) = write_cached_jvm_classes(&compile_dir, program) {
-        let _ = fs::remove_dir_all(&compile_dir);
-        return Err(error.to_string());
+    let preparation = prepare_jvm_cache_compile_dir_contents(&compile_dir, program, hooks);
+    match preparation {
+        Ok(CacheCompilePreparation::Ready(_)) => Ok(CacheCompilePreparation::Ready(compile_dir)),
+        Ok(CacheCompilePreparation::ToolError(message)) => {
+            let _ = fs::remove_dir_all(&compile_dir);
+            Ok(CacheCompilePreparation::ToolError(message))
+        }
+        Err(error) => {
+            let _ = fs::remove_dir_all(&compile_dir);
+            Err(error)
+        }
     }
+}
+
+fn prepare_jvm_cache_compile_dir_contents(
+    compile_dir: &Path,
+    program: &veln_backend_jvm::JvmProgram,
+    hooks: &dyn JvmCacheHooks,
+) -> Result<CacheCompilePreparation, String> {
+    write_cached_jvm_classes(compile_dir, program).map_err(|error| error.to_string())?;
     if !compile_dir.join(JVM_ENTRY_CLASS).is_file() {
-        let _ = fs::remove_dir_all(&compile_dir);
         return Ok(CacheCompilePreparation::ToolError(
             "veln: JVM class preparation did not produce an entry class".to_string(),
         ));
     }
-    write_jvm_cache_metadata(&compile_dir, program)?;
-    Ok(CacheCompilePreparation::Ready(compile_dir))
+    write_jvm_cache_metadata(compile_dir, program)?;
+    hooks
+        .after_prepare(compile_dir)
+        .map_err(|error| format!("could not prepare replacement JVM class cache entry: {error}"))?;
+    if !validate_cached_jvm_classes(compile_dir, program).map_err(|error| error.to_string())? {
+        return Err(
+            "could not prepare replacement JVM class cache entry: prepared entry failed validation"
+                .to_string(),
+        );
+    }
+    Ok(CacheCompilePreparation::Ready(compile_dir.to_path_buf()))
 }
 
 fn write_jvm_cache_metadata(
@@ -775,6 +805,60 @@ mod tests {
             .collect::<Vec<_>>();
         entries.sort();
         entries
+    }
+
+    fn cache_root_entries(root: &Path) -> Vec<PathBuf> {
+        let mut entries = fs::read_dir(root)
+            .expect("cache root should be readable")
+            .map(|entry| entry.expect("cache entry should be readable").path())
+            .collect::<Vec<_>>();
+        entries.sort();
+        entries
+    }
+
+    fn directory_file_snapshot(root: &Path) -> Vec<(PathBuf, Vec<u8>)> {
+        fn collect(root: &Path, directory: &Path, files: &mut Vec<(PathBuf, Vec<u8>)>) {
+            for entry in fs::read_dir(directory).expect("snapshot directory should be readable") {
+                let entry = entry.expect("snapshot entry should be readable");
+                let path = entry.path();
+                if path.is_dir() {
+                    collect(root, &path, files);
+                } else {
+                    let relative = path
+                        .strip_prefix(root)
+                        .expect("snapshot path should be below its root")
+                        .to_path_buf();
+                    files.push((
+                        relative,
+                        fs::read(path).expect("snapshot file should be readable"),
+                    ));
+                }
+            }
+        }
+
+        let mut files = Vec::new();
+        collect(root, root, &mut files);
+        files.sort_by(|left, right| left.0.cmp(&right.0));
+        files
+    }
+
+    struct RemovalFailureHook;
+
+    impl JvmCacheHooks for RemovalFailureHook {
+        fn remove_invalid_cache(&self, _cache_dir: &Path) -> io::Result<()> {
+            Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "injected invalid-entry removal failure",
+            ))
+        }
+    }
+
+    struct PreparedValidationFailureHook;
+
+    impl JvmCacheHooks for PreparedValidationFailureHook {
+        fn after_prepare(&self, compile_dir: &Path) -> io::Result<()> {
+            fs::remove_file(compile_dir.join(JVM_ENTRY_CLASS))
+        }
     }
 
     struct CountingHook {
@@ -1471,6 +1555,87 @@ mod tests {
             render_jvm_cache_manifest(&program)
         );
         assert_eq!(ready_cache_entries(&root), vec![cache_dir]);
+
+        fs::remove_dir_all(root).expect("test root should be removed");
+    }
+
+    #[test]
+    fn invalid_cache_removal_failure_preserves_entry_for_successful_retry() {
+        let root = temp_root("cache-removal-failure");
+        let program = jvm_program(&[("VelnEntry.class", b"entry")]);
+        let cache_dir = cached_path(
+            ensure_cached_jvm_classes_in(&root, &program).expect("cache should be prepared"),
+        );
+        fs::write(cache_dir.join(JVM_ENTRY_CLASS), b"poisoned")
+            .expect("entry class should be poisoned");
+        let invalid_snapshot = directory_file_snapshot(&cache_dir);
+
+        let error =
+            match ensure_cached_jvm_classes_in_with_hooks(&root, &program, &RemovalFailureHook) {
+                Ok(_) => panic!("injected removal failure should stop cache preparation"),
+                Err(error) => error,
+            };
+
+        assert_eq!(
+            error,
+            "could not remove invalid JVM class cache entry: injected invalid-entry removal failure"
+        );
+        assert_eq!(directory_file_snapshot(&cache_dir), invalid_snapshot);
+        assert!(
+            !validate_cached_jvm_classes(&cache_dir, &program).expect("cache should be checked")
+        );
+
+        let repaired = cached_path(
+            ensure_cached_jvm_classes_in(&root, &program).expect("retry should repair cache"),
+        );
+        let reused = cached_path(
+            ensure_cached_jvm_classes_in(&root, &program).expect("repaired cache should be reused"),
+        );
+        assert_eq!(repaired, cache_dir);
+        assert_eq!(reused, cache_dir);
+        assert!(validate_cached_jvm_classes(&cache_dir, &program).expect("cache should validate"));
+        assert_eq!(cache_root_entries(&root), vec![cache_dir]);
+
+        fs::remove_dir_all(root).expect("test root should be removed");
+    }
+
+    #[test]
+    fn prepared_entry_validation_failure_leaves_miss_for_successful_retry() {
+        let root = temp_root("cache-regeneration-failure");
+        let program = jvm_program(&[("VelnEntry.class", b"entry")]);
+        let cache_dir = cached_path(
+            ensure_cached_jvm_classes_in(&root, &program).expect("cache should be prepared"),
+        );
+        fs::write(cache_dir.join(JVM_ENTRY_CLASS), b"poisoned")
+            .expect("entry class should be poisoned");
+
+        let error = match ensure_cached_jvm_classes_in_with_hooks(
+            &root,
+            &program,
+            &PreparedValidationFailureHook,
+        ) {
+            Ok(_) => panic!("injected validation failure should stop cache preparation"),
+            Err(error) => error,
+        };
+
+        assert_eq!(
+            error,
+            "could not prepare replacement JVM class cache entry: prepared entry failed validation"
+        );
+        assert!(!cache_dir.exists());
+        assert!(cache_root_entries(&root).is_empty());
+
+        let repaired = cached_path(
+            ensure_cached_jvm_classes_in(&root, &program).expect("retry should regenerate cache"),
+        );
+        let reused = cached_path(
+            ensure_cached_jvm_classes_in(&root, &program)
+                .expect("regenerated cache should be reused"),
+        );
+        assert_eq!(repaired, cache_dir);
+        assert_eq!(reused, cache_dir);
+        assert!(validate_cached_jvm_classes(&cache_dir, &program).expect("cache should validate"));
+        assert_eq!(cache_root_entries(&root), vec![cache_dir]);
 
         fs::remove_dir_all(root).expect("test root should be removed");
     }
