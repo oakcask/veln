@@ -374,16 +374,23 @@ do not inspect cache configuration.
 On a cache miss the command writes the emitted classfiles into the cache; on a
 cache hit it validates the manifest and cached classfiles before invoking
 `java`. Invalid or incomplete cache entries are replaced instead of executed.
+If an invalid entry cannot be removed, the command reports a cache error before
+JVM startup and leaves the entry subject to full validation by later
+invocations. If removal succeeds but preparation, prepared-entry validation,
+or publication fails, the command leaves no published or partial replacement.
+A later invocation observes a miss and can retry preparation and publication
+below the same selected root; the failure does not select a fallback root.
 When concurrent invocations prepare the same cache entry, each invocation uses
 only a complete entry that validates against its own generated JVM program; an
 invocation that loses publication to another writer revalidates the published
-winner before using it.
+winner before using it. A writer that fails after another invocation publishes
+a valid winner does not delete, replace, or invalidate that winner.
 If an earlier process stops while it owns cache coordination, a later
 invocation either uses a fully validated entry or reports a cache-coordination
 error within an internal bound. The error occurs before JVM startup. Recovery
-does not execute preparation remnants or delete, replace, or invalidate a
-complete entry from another writer. The coordination representation, waiting
-strategy, and duration are not command contracts. The process-level evidence
+does not execute preparation remnants. The coordination representation,
+waiting strategy, and duration are not command contracts. The fault-injected
+cache evidence is in the `java::tests` unit tests. The process-level evidence
 is `abandoned_jvm_cache_coordination_reaches_bounded_error_without_starting_java`
 in the `toolchain_harness` test target.
 Runtime trace files for command output remain isolated to the individual
