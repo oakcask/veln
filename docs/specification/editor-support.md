@@ -98,13 +98,30 @@ stream remains valid for LSP clients.
 
 ## LSP Diagnostics
 
-The stdio server resolves workspace roots from `initialize.workspaceFolders`.
-When a resolved folder has no `veln.toml`, nested manifest directories become
-workspace roots; if no nested manifests are found, the original folder remains
-the workspace root. When no workspace folders are present, it falls back to
-`initialize.rootUri`. When the client sends no workspace identity, the server
-leaves workspace roots empty and publishes document-scoped diagnostics for open
-documents only.
+The stdio server resolves each folder in `initialize.workspaceFolders` to its
+filesystem identity before it selects package roots. A folder with a regular
+`veln.toml` becomes one workspace project, and selection does not continue
+below it. Otherwise, the first manifest package on each directory branch
+becomes a workspace project. If no branch contains a manifest, the resolved
+folder becomes one anonymous workspace project. The selected filesystem
+identities are sorted and deduplicated.
+
+Nested manifest discovery does not follow directory symbolic links. It skips
+`.git` and treats `target` as an ordinary directory. Explicit outer and nested
+workspace folders remain separate workspace projects. Analysis can load a
+source dependency without adding that dependency as a workspace project; the
+client must supply the dependency as a workspace folder to initialize it as a
+workspace project. Package-root selection finishes before source discovery or
+analysis starts.
+
+When no workspace folders are present, the server applies the same selection
+rules to `initialize.rootUri`. When the client sends no workspace identity, the
+server leaves workspace roots empty and publishes document-scoped diagnostics
+for open documents only. The executable LSP example is
+`../../examples/specification/lsp/workspace-package-root-selection/`. Direct
+`veln-lsp` tests cover manifest roots, branch selection, explicit nested roots,
+dependency isolation, filesystem-identity deduplication, directory symbolic
+links, `.git`, `target`, and anonymous fallback.
 
 For files inside a resolved workspace root, the server discovers project
 `.veln` files the same way `check` and `run` do. For each resolved root, a

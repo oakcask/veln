@@ -481,7 +481,7 @@ fn resolve_workspace_roots(message: &str) -> Vec<PathBuf> {
     let client_roots = extract_workspace_folder_uris(message)
         .into_iter()
         .filter_map(|uri| uri_to_path(&uri))
-        .filter_map(absolute_workspace_root)
+        .filter_map(filesystem_workspace_root)
         .collect::<Vec<_>>();
     let mut roots = Vec::new();
     for root in client_roots {
@@ -491,7 +491,7 @@ fn resolve_workspace_roots(message: &str) -> Vec<PathBuf> {
         && let Some(root) =
             extract_string_field(message, "rootUri").and_then(|uri| uri_to_path(&uri))
     {
-        let Some(root) = absolute_workspace_root(root) else {
+        let Some(root) = filesystem_workspace_root(root) else {
             return roots;
         };
         roots.extend(resolve_workspace_project_roots(&root));
@@ -501,16 +501,12 @@ fn resolve_workspace_roots(message: &str) -> Vec<PathBuf> {
     roots
 }
 
-fn absolute_workspace_root(root: PathBuf) -> Option<PathBuf> {
-    if root.is_absolute() {
-        Some(root)
-    } else {
-        env::current_dir().ok().map(|current| current.join(root))
-    }
+fn filesystem_workspace_root(root: PathBuf) -> Option<PathBuf> {
+    fs::canonicalize(root).ok()
 }
 
 fn resolve_workspace_project_roots(root: &Path) -> Vec<PathBuf> {
-    if root.join("veln.toml").is_file() {
+    if has_regular_manifest(root) {
         return vec![root.to_path_buf()];
     }
     let mut roots = Vec::new();
@@ -531,15 +527,23 @@ fn collect_manifest_project_roots(dir: &Path, roots: &mut Vec<PathBuf>) {
         let path = entry.path();
         let file_name = entry.file_name();
         let file_name = file_name.to_string_lossy();
-        if file_name == ".git" || !path.is_dir() {
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        if file_name == ".git" || !file_type.is_dir() {
             continue;
         }
-        if path.join("veln.toml").is_file() {
+        if has_regular_manifest(&path) {
             roots.push(path);
         } else {
             collect_manifest_project_roots(&path, roots);
         }
     }
+}
+
+fn has_regular_manifest(root: &Path) -> bool {
+    fs::symlink_metadata(root.join("veln.toml"))
+        .is_ok_and(|metadata| metadata.file_type().is_file())
 }
 
 fn extract_workspace_folder_uris(message: &str) -> Vec<String> {
@@ -2248,7 +2252,7 @@ mod tests {
     }
 
     #[test]
-    fn server_initializes_workspace_root_from_workspace_folders() {
+    fn server_uses_anonymous_workspace_root_when_no_manifest_exists() {
         let mut server = Server::default();
         let project = TempProject::new("initialize-workspace-folder");
         let root_uri = path_to_uri(&project.root);
@@ -2278,6 +2282,170 @@ mod tests {
         let mut expected = vec![alpha.root.clone(), beta.root.clone()];
         expected.sort();
         assert_eq!(server.workspace_roots, expected);
+    }
+
+    #[test]
+    fn server_stops_workspace_root_selection_at_manifest_root() {
+        let mut server = Server::default();
+        let workspace = TempProject::new("manifest-workspace-root");
+        workspace.write("veln.toml", "[package]\nname = \"outer\"\n");
+        workspace.write("nested/veln.toml", "[package]\nname = \"nested\"\n");
+        workspace.write("nested/main.veln", "pub fn nested() -> Int\n  1\nend\n");
+        let root_uri = path_to_uri(&workspace.root);
+
+        server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"workspaceFolders":[{{"uri":"{root_uri}","name":"outer"}}]}}}}"#
+        ));
+
+        assert_eq!(server.workspace_roots, vec![workspace.root.clone()]);
+    }
+
+    #[test]
+    fn server_selects_first_manifest_root_on_each_workspace_branch() {
+        let mut server = Server::default();
+        let workspace = TempProject::new("manifest-roots-on-branches");
+        workspace.write("alpha/package/veln.toml", "[package]\nname = \"alpha\"\n");
+        workspace.write(
+            "alpha/package/nested/veln.toml",
+            "[package]\nname = \"alpha-nested\"\n",
+        );
+        workspace.write(
+            "beta/deep/package/veln.toml",
+            "[package]\nname = \"beta\"\n",
+        );
+        let root_uri = path_to_uri(&workspace.root);
+
+        server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"workspaceFolders":[{{"uri":"{root_uri}","name":"repo"}}]}}}}"#
+        ));
+
+        assert_eq!(
+            server.workspace_roots,
+            vec![
+                workspace.root.join("alpha/package"),
+                workspace.root.join("beta/deep/package"),
+            ]
+        );
+    }
+
+    #[test]
+    fn server_keeps_explicit_outer_and_nested_workspace_projects() {
+        let mut server = Server::default();
+        let workspace = TempProject::new("explicit-outer-and-nested-roots");
+        workspace.write("veln.toml", "[package]\nname = \"outer\"\n");
+        workspace.write("nested/veln.toml", "[package]\nname = \"nested\"\n");
+        let outer_uri = path_to_uri(&workspace.root);
+        let nested_uri = path_to_uri(&workspace.root.join("nested"));
+
+        server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"workspaceFolders":[{{"uri":"{outer_uri}","name":"outer"}},{{"uri":"{nested_uri}","name":"nested"}},{{"uri":"{nested_uri}","name":"nested-again"}}]}}}}"#
+        ));
+
+        assert_eq!(
+            server.workspace_roots,
+            vec![workspace.root.clone(), workspace.root.join("nested")]
+        );
+    }
+
+    #[test]
+    fn server_does_not_initialize_loaded_dependency_as_workspace_project() {
+        let mut server = Server::default();
+        let workspace = TempProject::new("dependency-workspace-isolation");
+        workspace.write(
+            "veln.toml",
+            "[package]\nname = \"app\"\n\n[dependencies.\"example.com/lib\"]\npath = \"vendor/lib\"\n",
+        );
+        workspace.write(
+            "app.veln",
+            "use lib from \"example.com/lib\"\n\nfn main() -> Int\n  add_one(1)\nend\n",
+        );
+        workspace.write(
+            "vendor/lib/veln.toml",
+            "[package]\nname = \"example.com/lib\"\n\n[lib]\nexports = [\"lib.veln\"]\n",
+        );
+        workspace.write(
+            "vendor/lib/lib.veln",
+            "pub fn add_one(value: Int) -> Int\n  value + 1\nend\n",
+        );
+        let root_uri = path_to_uri(&workspace.root);
+        let app_uri = path_to_uri(&workspace.root.join("app.veln"));
+        let dependency_uri = path_to_uri(&workspace.root.join("vendor/lib/lib.veln"));
+
+        let responses = server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"workspaceFolders":[{{"uri":"{root_uri}","name":"app"}}]}}}}"#
+        ));
+
+        assert_eq!(server.workspace_roots, vec![workspace.root.clone()]);
+        let publish = publish_for_uri(&responses, &app_uri);
+        assert!(publish.contains(r#""diagnostics":[]"#), "{publish}");
+        assert!(!publish.contains("module.missing_identity"), "{publish}");
+        assert!(
+            responses
+                .iter()
+                .all(|response| !response.contains(&dependency_uri)),
+            "dependency sources must not be published as a workspace project"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn server_deduplicates_workspace_folders_by_filesystem_identity() {
+        use std::os::unix::fs::symlink;
+
+        let mut server = Server::default();
+        let workspace = TempProject::new("workspace-filesystem-identity");
+        workspace.write("package/veln.toml", "[package]\nname = \"package\"\n");
+        symlink(workspace.root.join("package"), workspace.root.join("alias"))
+            .expect("workspace alias should be created");
+        let package_uri = path_to_uri(&workspace.root.join("package"));
+        let alias_uri = path_to_uri(&workspace.root.join("alias"));
+
+        server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"workspaceFolders":[{{"uri":"{alias_uri}","name":"alias"}},{{"uri":"{package_uri}","name":"package"}}]}}}}"#
+        ));
+
+        assert_eq!(server.workspace_roots, vec![workspace.root.join("package")]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn server_does_not_follow_directory_symlinks_during_manifest_discovery() {
+        use std::os::unix::fs::symlink;
+
+        let mut server = Server::default();
+        let workspace = TempProject::new("workspace-directory-symlink");
+        workspace.write("folder/readme.txt", "workspace without a manifest\n");
+        workspace.write("linked-package/veln.toml", "[package]\nname = \"linked\"\n");
+        symlink(
+            workspace.root.join("linked-package"),
+            workspace.root.join("folder/package-link"),
+        )
+        .expect("directory symlink should be created");
+        let folder = workspace.root.join("folder");
+        let folder_uri = path_to_uri(&folder);
+
+        server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"workspaceFolders":[{{"uri":"{folder_uri}","name":"folder"}}]}}}}"#
+        ));
+
+        assert_eq!(server.workspace_roots, vec![folder]);
+    }
+
+    #[test]
+    fn server_excludes_git_directories_from_manifest_discovery() {
+        let mut server = Server::default();
+        let workspace = TempProject::new("workspace-git-exclusion");
+        workspace.write(
+            ".git/generated/veln.toml",
+            "[package]\nname = \"generated\"\n",
+        );
+        let root_uri = path_to_uri(&workspace.root);
+
+        server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"workspaceFolders":[{{"uri":"{root_uri}","name":"repo"}}]}}}}"#
+        ));
+
+        assert_eq!(server.workspace_roots, vec![workspace.root.clone()]);
     }
 
     #[test]

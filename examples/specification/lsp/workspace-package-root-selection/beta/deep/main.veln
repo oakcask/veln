@@ -1,0 +1,3 @@
+fn beta() -> Int
+  "also not an integer"
+end

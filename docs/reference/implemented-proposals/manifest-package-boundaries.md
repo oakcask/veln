@@ -1,21 +1,19 @@
 ---
-role: proposal
-review-when: The remaining editor package-root selection scope, acceptance evidence, or implementation status changes.
+role: implementation-record
+authority: supporting
+review-when: The completion evidence is superseded, its links become invalid, or current documentation starts relying on this record as authority.
 ---
 
 # Manifest Package Boundaries
 
 ## Summary
 
-Complete editor package-root selection around the implemented package-owned
-source discovery, command-root selection, and dependency-root selection rules.
-Current command selection, recursive discovery, explicit source ownership, and
-dependency root validation are specified in
-[commands-full.md](../specification/commands-full.md) and checked by the
-executable specification cases named there.
-
-The remaining work selects package roots for editor workspace folders. It does
-not change the owned-source set once a consumer supplies a package root.
+This record preserves the completion boundary for editor package-root
+selection around package-owned source discovery, command-root selection, and
+dependency-root selection. Current behavior is specified in
+[commands-full.md](../../specification/commands-full.md) and
+[editor-support.md](../../specification/editor-support.md). The executable
+specification cases named there are the primary evidence.
 
 ## Current Boundary
 
@@ -34,9 +32,9 @@ back to a wider or anonymous project.
 Source-analysis path dependencies already validate the dependency root's direct
 regular manifest before loading its sources.
 
-This implemented behavior is not proposal authority. Use
-[commands-full.md](../specification/commands-full.md),
-[editor-support.md](../specification/editor-support.md), and the executable
+This record is not current-behavior authority. Use
+[commands-full.md](../../specification/commands-full.md),
+[editor-support.md](../../specification/editor-support.md), and the executable
 specification cases for current behavior.
 
 ## Terms
@@ -47,7 +45,7 @@ specification cases for current behavior.
 - A **manifest package** has a regular `veln.toml` at its package root.
 - An **anonymous package** has no `veln.toml` at its package root.
 
-## Remaining Proposed Behavior
+## Completed Editor Behavior
 
 ### Editor Workspace-Root Selection
 
@@ -62,22 +60,21 @@ treats `target` as an ordinary directory. Multiple selected filesystem
 identities are sorted and deduplicated. Explicit outer and nested workspace
 folders therefore produce separate projects without combining their sources.
 
-## Acceptance Model
+## Acceptance Evidence
 
-The following rows describe only the remaining work. The evidence column names
-evidence to add; it does not claim that the evidence passes now.
+The `veln-lsp` server tests mechanically check each acceptance row.
 
-| Case | Input | Required result | Planned primary evidence |
+| Case | Input | Required result | Primary evidence |
 | --- | --- | --- | --- |
-| Manifest workspace root | A workspace root has a manifest and nested packages | Only the outer root is initialized | LSP project-root case |
-| Manifest-free workspace | Separate branches contain manifests | The first manifest root on each branch is initialized | LSP project-root case |
-| Explicit nested workspace | The client supplies outer and nested roots | Two deduplicated projects are initialized | LSP multi-root case |
-| Dependency workspace isolation | Analysis loads a dependency without a matching workspace folder | The dependency is not initialized as a workspace project | LSP dependency case |
+| Manifest workspace root | A workspace root has a manifest and nested packages | Only the outer root is initialized | `server_stops_workspace_root_selection_at_manifest_root` |
+| Manifest-free workspace | Separate branches contain manifests | The first manifest root on each branch is initialized | `server_selects_first_manifest_root_on_each_workspace_branch` |
+| Explicit nested workspace | The client supplies outer and nested roots | Two deduplicated projects are initialized | `server_keeps_explicit_outer_and_nested_workspace_projects` |
+| Dependency workspace isolation | Analysis loads a dependency without a matching workspace folder | The dependency is not initialized as a workspace project | `server_does_not_initialize_loaded_dependency_as_workspace_project` |
 
 ## Failure Atomicity
 
-Editor workspace-root selection must not discover or analyze sources before it
-finishes selecting the workspace project roots.
+Editor workspace-root selection finishes before source discovery or analysis
+starts.
 
 ## Non-Goals
 
@@ -85,7 +82,7 @@ finishes selecting the workspace project roots.
 - Do not add ignore files, manifest exclude patterns, or generic hidden-file
   exclusion.
 - Do not define toolchain cache placement or lifecycle; [Toolchain User
-  Cache](toolchain-user-cache.md) owns that work.
+  Cache](../../proposals/toolchain-user-cache.md) owns that work.
 - Do not change dependency fetching, version selection, or lockfile conflict
   resolution.
 - Do not make a nested package an implicit dependency.
@@ -94,16 +91,17 @@ finishes selecting the workspace project roots.
 
 ## Verification
 
-Implementation must add the evidence named in the remaining acceptance model.
-The relevant guarded test routes are:
+The relevant guarded test route is:
 
 ```sh
 bash scripts/agent-test -p veln-lsp
 ```
 
+The public JSON-RPC evidence for observable branch selection is
+[`workspace-package-root-selection`](../../../examples/specification/lsp/workspace-package-root-selection/).
+
 ## Completion Boundary
 
-This proposal is complete when editor package-root selection satisfies the
-remaining acceptance model and current behavior is promoted to executable
-evidence and the matching specification pages. Then move the record to
-`../reference/implemented-proposals/` and remove it from the proposal catalog.
+The work completed when editor package-root selection satisfied the acceptance
+table, the observable behavior moved to executable evidence and the editor
+specification, and this record left the proposal catalog.
