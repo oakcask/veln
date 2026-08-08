@@ -915,7 +915,27 @@ fn analysis_commands_select_the_manifest_package_above_the_invocation_directory(
         );
     }
 
-    let repair_output = project.veln_with_artifact(
+    let repair_project = TestProject::new(
+        "repair-selects-package-root".to_string(),
+        &ToolSetup::default(),
+    );
+    fs::create_dir_all(repair_project.root.join("work/deep"))
+        .expect("nested repair invocation directory should be created");
+    fs::write(
+        repair_project.root.join("veln.toml"),
+        "[package]\nname = \"repair-command-root\"\n",
+    )
+    .expect("repair manifest should be written");
+    fs::write(
+        repair_project.root.join("main.veln"),
+        concat!(
+            "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+            "  _value satisfy candidate => candidate.ready == order.ready\n",
+            "end\n",
+        ),
+    )
+    .expect("repair source should be written");
+    let repair_output = repair_project.veln_with_artifact(
         &["repair".to_string(), "--json".to_string()],
         Some(Path::new("work/deep")),
         &[],
@@ -923,6 +943,17 @@ fn analysis_commands_select_the_manifest_package_above_the_invocation_directory(
         None,
     );
     assert_success("repair below manifest root", &repair_output);
+    let repair_stdout = String::from_utf8_lossy(&repair_output.stdout);
+    for expected in [
+        "\"repair_id\":\"repair-1\"",
+        "\"file\":\"main.veln\"",
+        "\"summary\":{\"candidate_count\":1,\"applicable_count\":1",
+    ] {
+        assert!(
+            repair_stdout.contains(expected),
+            "repair below manifest root did not report `{expected}`\n{repair_stdout}",
+        );
+    }
 
     let lock_output = project.veln_with_artifact(
         &["package".to_string(), "lock".to_string()],
