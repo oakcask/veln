@@ -1037,6 +1037,20 @@ fn source_tree_checksum_ignores_changes_below_nested_manifest_roots() {
 }
 
 #[test]
+fn source_tree_checksum_uses_normalized_root_for_relative_paths() {
+    let temp = TempProject::new("lockfile-checksum-normalized-root");
+    temp.write("dep/alpha.veln", "fn alpha() -> Int\n\t1\nend\n");
+    temp.write("dep/target/generated.veln", "owned");
+    fs::create_dir_all(temp.path("through")).unwrap();
+
+    assert_eq!(
+        source_tree_checksum(&temp.path("dep")).expect("checksum should be computed"),
+        source_tree_checksum(&temp.path("through/../dep"))
+            .expect("lexically equivalent root should compute the same checksum")
+    );
+}
+
+#[test]
 fn read_manifest_accepts_crlf_export_arrays_and_trailing_text() {
     let temp = TempProject::new("manifest-export-crlf");
     temp.write(

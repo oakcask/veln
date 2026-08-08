@@ -1,0 +1,2 @@
+[dependencies."github.com/oakcask/lib"]
+path = "through/../vendor/lib"

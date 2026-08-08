@@ -706,7 +706,12 @@ sorted owned `.veln` source files discovered under the dependency package root
 after the same package-boundary and ignored-directory rules as source
 discovery. Descendant package roots and `.git` contents do not affect the
 lockfile. A directory named `target` is an ordinary source directory, so owned
-`.veln` files below `target` do affect the lockfile.
+`.veln` files below `target` do affect the lockfile. Lexically equivalent
+dependency root spellings use the same package-relative source path names when
+computing the checksum. The checked case `lock-normalized-path-dependency`
+proves that a path dependency spelled with a `..` component writes the
+normalized source path and computes the checksum from owned sources below that
+normalized root.
 
 For each vendor dependency, the dependency table key is the package identity
 and `vendor` names an already available vendored package directory. The
