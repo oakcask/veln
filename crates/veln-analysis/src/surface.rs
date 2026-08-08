@@ -1706,6 +1706,25 @@ impl<'a> ReachabilityInputs<'a> {
         }
     }
 
+    fn module_header(&self) -> Option<veln_ast::ModuleHeader> {
+        self.application
+            .module
+            .clone()
+            .or_else(|| self.standard.and_then(|module| module.module.clone()))
+    }
+
+    fn cloned_declarations<T: Clone + 'a>(
+        &self,
+        select: impl Fn(&'a SurfaceModule) -> &'a [T],
+    ) -> Vec<T> {
+        self.standard
+            .into_iter()
+            .flat_map(|module| select(module).iter())
+            .chain(select(self.application).iter())
+            .cloned()
+            .collect()
+    }
+
     fn function_refs(&self) -> impl Iterator<Item = FunctionRef> + '_ {
         let standard_len = self.standard.map_or(0, |module| module.functions.len());
         (0..standard_len)
@@ -2065,84 +2084,45 @@ fn module_with_reachable_functions(
     reachable: &HashSet<ReachableFunction>,
 ) -> SurfaceModule {
     SurfaceModule {
-        module: inputs
-            .application
-            .module
-            .clone()
-            .or_else(|| inputs.standard.and_then(|module| module.module.clone())),
-        uses: inputs
-            .standard
-            .into_iter()
-            .flat_map(|module| module.uses.iter())
-            .chain(inputs.application.uses.iter())
-            .cloned()
-            .collect(),
-        aliases: inputs
-            .standard
-            .into_iter()
-            .flat_map(|module| module.aliases.iter())
-            .chain(inputs.application.aliases.iter())
-            .cloned()
-            .collect(),
-        effects: inputs
-            .standard
-            .into_iter()
-            .flat_map(|module| module.effects.iter())
-            .chain(inputs.application.effects.iter())
-            .cloned()
-            .collect(),
-        handlers: inputs
-            .standard
-            .into_iter()
-            .flat_map(|module| module.handlers.iter())
-            .chain(inputs.application.handlers.iter())
-            .cloned()
-            .collect(),
-        types: inputs
-            .standard
-            .into_iter()
-            .flat_map(|module| module.types.iter())
-            .chain(inputs.application.types.iter())
-            .cloned()
-            .collect(),
-        schemas: inputs
-            .standard
-            .into_iter()
-            .flat_map(|module| module.schemas.iter())
-            .chain(inputs.application.schemas.iter())
-            .cloned()
-            .collect(),
-        codecs: inputs
-            .standard
-            .into_iter()
-            .flat_map(|module| module.codecs.iter())
-            .chain(inputs.application.codecs.iter())
-            .cloned()
-            .collect(),
-        functions: inputs
-            .functions()
-            .filter(|function| {
-                function.name.as_ref().is_some_and(|name| {
-                    reachable.contains(&ReachableFunction {
-                        kind: function.kind,
-                        name: name.clone(),
-                        module_name: None,
-                    }) || reachable.contains(&ReachableFunction {
-                        kind: function.kind,
-                        name: name.clone(),
-                        module_name: function.module_name.clone(),
-                    })
+        module: inputs.module_header(),
+        uses: inputs.cloned_declarations(|module| &module.uses),
+        aliases: inputs.cloned_declarations(|module| &module.aliases),
+        effects: inputs.cloned_declarations(|module| &module.effects),
+        handlers: inputs.cloned_declarations(|module| &module.handlers),
+        types: inputs.cloned_declarations(|module| &module.types),
+        schemas: inputs.cloned_declarations(|module| &module.schemas),
+        codecs: inputs.cloned_declarations(|module| &module.codecs),
+        functions: materialize_reachable_functions(inputs, reachable),
+    }
+}
+
+fn materialize_reachable_functions(
+    inputs: &ReachabilityInputs<'_>,
+    reachable: &HashSet<ReachableFunction>,
+) -> Vec<Function> {
+    inputs
+        .functions()
+        .filter(|function| {
+            function.name.as_ref().is_some_and(|name| {
+                reachable.contains(&ReachableFunction {
+                    kind: function.kind,
+                    name: name.clone(),
+                    module_name: None,
+                }) || reachable.contains(&ReachableFunction {
+                    kind: function.kind,
+                    name: name.clone(),
+                    module_name: function.module_name.clone(),
                 })
             })
-            .inspect(|_function| {
-                #[cfg(test)]
-                if !_function.body.is_empty() {
-                    reachability_counters::record_materialized_function_body();
-                }
-            })
-            .cloned()
-            .collect(),
-    }
+        })
+        .inspect(|_function| {
+            #[cfg(test)]
+            if !_function.body.is_empty() {
+                reachability_counters::record_materialized_function_body();
+            }
+        })
+        .cloned()
+        .collect()
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -3220,13 +3200,20 @@ mod tests {
 
     #[test]
     fn separated_reachable_inputs_match_combined_resolution_results() {
-        let standard = lower(concat!(
+        let mut standard = lower(concat!(
             "mod std::prelude\n",
+            "pub type StandardValue\n",
+            "  Present\n",
+            "end\n",
+            "pub schema Packet\n",
+            "  value: Int\n",
+            "end\n",
             "pub fn standard_value() -> Int\n",
             "  1\n",
             "end\n",
         ));
-        let application = lower(concat!(
+        add_payload_codec_for_test(&mut standard);
+        let mut application = lower(concat!(
             "mod app\n",
             "use std::prelude\n",
             "\n",
@@ -3242,6 +3229,14 @@ mod tests {
             "  value() => seed\n",
             "end\n",
             "\n",
+            "type ApplicationValue\n",
+            "  Present\n",
+            "end\n",
+            "\n",
+            "schema Packet\n",
+            "  value: Int\n",
+            "end\n",
+            "\n",
             "pub fn exposed = answer\n",
             "\n",
             "pub fn main() -> Int\n",
@@ -3249,6 +3244,7 @@ mod tests {
             "  handled + standard_value()\n",
             "end\n",
         ));
+        add_payload_codec_for_test(&mut application);
         let mut combined = standard.clone();
         combined.uses.extend(application.uses.clone());
         combined.aliases.extend(application.aliases.clone());
@@ -3279,6 +3275,41 @@ mod tests {
                 ("app", "main"),
                 ("std::prelude", "standard_value"),
             ]
+        );
+        assert_eq!(
+            separated_reachable
+                .module
+                .as_ref()
+                .map(|module| module.name.as_str()),
+            Some("app")
+        );
+        assert_eq!(
+            separated_reachable.uses.len(),
+            combined_reachable.uses.len()
+        );
+        assert_eq!(
+            separated_reachable.aliases.len(),
+            combined_reachable.aliases.len()
+        );
+        assert_eq!(
+            separated_reachable.effects.len(),
+            combined_reachable.effects.len()
+        );
+        assert_eq!(
+            separated_reachable.handlers.len(),
+            combined_reachable.handlers.len()
+        );
+        assert_eq!(
+            separated_reachable.types.len(),
+            combined_reachable.types.len()
+        );
+        assert_eq!(
+            separated_reachable.schemas.len(),
+            combined_reachable.schemas.len()
+        );
+        assert_eq!(
+            separated_reachable.codecs.len(),
+            combined_reachable.codecs.len()
         );
     }
 
