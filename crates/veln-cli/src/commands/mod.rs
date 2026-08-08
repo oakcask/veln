@@ -6,6 +6,7 @@ pub(crate) mod metrics;
 pub(crate) mod package;
 pub(crate) mod repair;
 pub(crate) mod run;
+mod run_report;
 pub(crate) mod test;
 pub(crate) mod test_scheduler;
 
