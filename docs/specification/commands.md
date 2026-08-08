@@ -95,7 +95,9 @@ requiring the full command reference on the first read.
   after analysis, entry selection, JVM generation, and Java discovery, and
   with concurrent cache publication using only a complete validated winner,
   bounded cache-coordination waiting that fails before JVM startup when an
-  abandoned writer blocks progress,
+  abandoned writer blocks progress, cleanup and same-root retry after removal,
+  preparation, validation, or publication failures, and preservation of a
+  valid concurrent winner when another writer fails,
   human runtime diagnostics for closed-input `ByteView` read truncation,
   schema fixed-field mismatch, binary schema field truncation, reserved-bit
   mismatch, integer range failure, field-local validation failure,

@@ -85,8 +85,8 @@ starts.
 - Do not change the implemented owned-source discovery contract.
 - Do not add ignore files, manifest exclude patterns, or generic hidden-file
   exclusion.
-- Do not define toolchain cache placement or lifecycle; [Toolchain User
-  Cache](../../proposals/toolchain-user-cache.md) owns that work.
+- Do not define toolchain cache placement or lifecycle; current cache behavior
+  is specified in [Commands](../../specification/commands.md).
 - Do not change dependency fetching, version selection, or lockfile conflict
   resolution.
 - Do not make a nested package an implicit dependency.
