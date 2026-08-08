@@ -21,8 +21,8 @@ also states it.
 ### Packages and Source Discovery
 
 - [Manifest Package Boundaries](manifest-package-boundaries.md): complete
-  dependency and editor package-root selection around the implemented command
-  selection and shared ownership boundaries.
+  editor package-root selection around the implemented command, dependency,
+  and shared ownership boundaries.
 
 ### Toolchain Storage
 

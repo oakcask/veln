@@ -1,21 +1,21 @@
 ---
 role: proposal
-review-when: The remaining package-root selection scope, acceptance evidence, or implementation status changes.
+review-when: The remaining editor package-root selection scope, acceptance evidence, or implementation status changes.
 ---
 
 # Manifest Package Boundaries
 
 ## Summary
 
-Complete dependency and editor package-root selection around the implemented
-package-owned source discovery and command-root selection rules. Current
-command selection, recursive discovery, and explicit source ownership are
-specified in [commands-full.md](../specification/commands-full.md) and checked
-by the executable specification cases named there.
+Complete editor package-root selection around the implemented package-owned
+source discovery, command-root selection, and dependency-root selection rules.
+Current command selection, recursive discovery, explicit source ownership, and
+dependency selection are specified in
+[commands-full.md](../specification/commands-full.md) and checked by the
+executable specification cases named there.
 
-The remaining work selects package roots for dependency paths and editor
-workspace folders. It does not change the owned-source set once a consumer
-supplies a package root.
+The remaining work selects package roots for editor workspace folders. It does
+not change the owned-source set once a consumer supplies a package root.
 
 ## Current Boundary
 
@@ -46,16 +46,6 @@ specification cases for current behavior.
 
 ## Remaining Proposed Behavior
 
-### Dependency Package-Root Selection
-
-A dependency directory is its package root. The selected directory must contain
-a regular `veln.toml` directly. Dependency selection does not search ancestors.
-
-If the marker is absent or does not qualify, dependency loading reports a
-command error that identifies the declared dependency path and selected
-directory. The dependency remains a separate project and does not become an
-editor workspace root unless the client supplies it as one.
-
 ### Editor Workspace-Root Selection
 
 An editor resolves each workspace folder before selecting project roots. If the
@@ -76,8 +66,6 @@ evidence to add; it does not claim that the evidence passes now.
 
 | Case | Input | Required result | Planned primary evidence |
 | --- | --- | --- | --- |
-| Dependency root | A dependency directory contains `veln.toml` directly | The directory is selected without ancestor search | Dependency test and checked case |
-| Dependency descendant without manifest | An ancestor has a manifest but the selected dependency directory does not | Loading rejects the selected directory | Dependency test and CLI harness case |
 | Manifest workspace root | A workspace root has a manifest and nested packages | Only the outer root is initialized | LSP project-root case |
 | Manifest-free workspace | Separate branches contain manifests | The first manifest root on each branch is initialized | LSP project-root case |
 | Explicit nested workspace | The client supplies outer and nested roots | Two deduplicated projects are initialized | LSP multi-root case |
@@ -85,8 +73,8 @@ evidence to add; it does not claim that the evidence passes now.
 
 ## Failure Atomicity
 
-Dependency selection must not discover or analyze sources before it validates
-the selected dependency root.
+Editor workspace-root selection must not discover or analyze sources before it
+finishes selecting the workspace project roots.
 
 ## Non-Goals
 
@@ -107,15 +95,12 @@ Implementation must add the evidence named in the remaining acceptance model.
 The relevant guarded test routes are:
 
 ```sh
-bash scripts/agent-test -p veln-project
 bash scripts/agent-test -p veln-lsp
-bash scripts/agent-test -p veln-cli --test toolchain_harness
 ```
 
 ## Completion Boundary
 
-This proposal is complete when dependency and editor package-root selection
-satisfy the remaining acceptance model and current behavior is promoted to
-executable evidence and the matching specification pages. Then move the record
-to `../reference/implemented-proposals/` and remove it from the proposal
-catalog.
+This proposal is complete when editor package-root selection satisfies the
+remaining acceptance model and current behavior is promoted to executable
+evidence and the matching specification pages. Then move the record to
+`../reference/implemented-proposals/` and remove it from the proposal catalog.
