@@ -350,8 +350,9 @@ mod tests {
     use super::process_discovered_test_cases;
     use super::{
         JvmExecution, SchedulerError, TestCaseJob, TestExecution, TestJvmExecution,
-        TestProgramHookGuard, execute_test_case_job, preflight_runnable_test_case_jobs,
-        prepare_test_case_job, resolve_test_jobs, run_test_case_jobs,
+        TestProgramHookGuard, execute_test_case_job, execute_test_program,
+        preflight_runnable_test_case_jobs, prepare_test_case_job, resolve_test_jobs,
+        run_test_case_jobs,
     };
     use std::collections::BTreeSet;
     use std::fs;
@@ -361,7 +362,7 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::{Arc, Condvar, Mutex};
     use veln_analysis::{DoctestMode, ProjectAnalysis, analyze_project};
-    use veln_backend_jvm::generate_classfiles_with_test_entries;
+    use veln_backend_jvm::{JvmProgram, generate_classfiles_with_test_entries};
     use veln_diagnostics::JsonValue;
     use veln_project::Project;
     use veln_source::{SourceFile, TextRange};
@@ -541,6 +542,51 @@ mod tests {
             _ => panic!("expected injected orchestration failure"),
         }
         assert_eq!(completed.load(Ordering::SeqCst), 4);
+    }
+
+    #[test]
+    fn test_program_hook_tool_error_cleans_case_artifacts() {
+        let observed_build_dir = Arc::new(Mutex::new(None));
+        let _hook = TestProgramHookGuard::install({
+            let observed_build_dir = Arc::clone(&observed_build_dir);
+            Arc::new(
+                move |_case_name,
+                      build_dir,
+                      _event_file,
+                      _contract_error_file,
+                      _result_error_file,
+                      _java_args| {
+                    *observed_build_dir
+                        .lock()
+                        .expect("observed build directory should lock") =
+                        Some(build_dir.to_path_buf());
+                    Some(TestExecution::ToolError(
+                        "injected runner tool error".to_string(),
+                    ))
+                },
+            )
+        });
+
+        let execution = execute_test_program(
+            "runner",
+            &JvmProgram {
+                classes: Vec::new(),
+            },
+            &[],
+            None,
+        )
+        .expect("hooked execution should complete");
+
+        assert!(matches!(execution, TestExecution::ToolError(_)));
+        let build_dir = observed_build_dir
+            .lock()
+            .expect("observed build directory should lock")
+            .clone()
+            .expect("hook should observe the build directory");
+        assert!(
+            !build_dir.exists(),
+            "hooked tool errors should clean per-case artifacts"
+        );
     }
 
     #[test]
@@ -1219,6 +1265,46 @@ struct TestRunArtifacts {
     result_error_trace: String,
 }
 
+struct TestRunFiles {
+    build_dir: PathBuf,
+    event_file: PathBuf,
+    contract_error_file: PathBuf,
+    result_error_file: PathBuf,
+}
+
+impl TestRunFiles {
+    fn create() -> Result<Self, String> {
+        let build_dir = create_build_dir("veln-test").map_err(|error| error.to_string())?;
+        Ok(Self {
+            event_file: build_dir.join("stdio-events.tsv"),
+            contract_error_file: build_dir.join("contract-errors.tsv"),
+            result_error_file: build_dir.join("result-errors.tsv"),
+            build_dir,
+        })
+    }
+
+    fn read_traces(&self) -> (String, String, String) {
+        (
+            fs::read_to_string(&self.event_file).unwrap_or_default(),
+            fs::read_to_string(&self.contract_error_file).unwrap_or_default(),
+            fs::read_to_string(&self.result_error_file).unwrap_or_default(),
+        )
+    }
+}
+
+impl Drop for TestRunFiles {
+    fn drop(&mut self) {
+        if let Err(error) = fs::remove_dir_all(&self.build_dir)
+            && error.kind() != std::io::ErrorKind::NotFound
+        {
+            eprintln!(
+                "veln: warning: failed to remove build directory `{}`: {error}",
+                self.build_dir.display()
+            );
+        }
+    }
+}
+
 enum TestExecution {
     Ran(TestRunArtifacts),
     ToolError(String),
@@ -1240,26 +1326,25 @@ fn execute_test_program(
     if let Some(TestJvmExecutionResult::ToolError(message)) = prepared_execution.as_ref() {
         return Ok(TestExecution::ToolError(message.clone()));
     }
-    let build_dir = create_build_dir("veln-test").map_err(|error| error.to_string())?;
-    let event_file = build_dir.join("stdio-events.tsv");
-    let contract_error_file = build_dir.join("contract-errors.tsv");
-    let result_error_file = build_dir.join("result-errors.tsv");
+    let files = TestRunFiles::create()?;
     #[cfg(test)]
     if let Some(test_execution) = run_test_program_hook(
         case_name,
-        &build_dir,
-        &event_file,
-        &contract_error_file,
-        &result_error_file,
+        &files.build_dir,
+        &files.event_file,
+        &files.contract_error_file,
+        &files.result_error_file,
         java_args,
     ) {
-        let _ = fs::remove_dir_all(&build_dir);
         return Ok(test_execution);
     }
     let event_env = [
-        ("VELN_STDIO_EVENTS", event_file.as_os_str()),
-        ("VELN_CONTRACT_ERRORS", contract_error_file.as_os_str()),
-        ("VELN_RESULT_ERRORS", result_error_file.as_os_str()),
+        ("VELN_STDIO_EVENTS", files.event_file.as_os_str()),
+        (
+            "VELN_CONTRACT_ERRORS",
+            files.contract_error_file.as_os_str(),
+        ),
+        ("VELN_RESULT_ERRORS", files.result_error_file.as_os_str()),
     ];
     let result = if let Some(prepared_execution) = prepared_execution {
         match prepared_execution {
@@ -1273,18 +1358,15 @@ fn execute_test_program(
             TestJvmExecutionResult::ToolError(message) => Ok(JvmRunResult::ToolError(message)),
         }
     } else {
-        prepare_and_run_jvm_capture_with_env(&build_dir, jvm, "veln test", &event_env, java_args)
+        prepare_and_run_jvm_capture_with_env(
+            &files.build_dir,
+            jvm,
+            "veln test",
+            &event_env,
+            java_args,
+        )
     };
-    let event_trace = fs::read_to_string(&event_file).unwrap_or_default();
-    let contract_error_trace = fs::read_to_string(&contract_error_file).unwrap_or_default();
-    let result_error_trace = fs::read_to_string(&result_error_file).unwrap_or_default();
-    let cleanup_result = fs::remove_dir_all(&build_dir);
-    if let Err(error) = cleanup_result {
-        eprintln!(
-            "veln: warning: failed to remove build directory `{}`: {error}",
-            build_dir.display()
-        );
-    }
+    let (event_trace, contract_error_trace, result_error_trace) = files.read_traces();
 
     match result? {
         JvmRunResult::Ran(output) => Ok(TestExecution::Ran(TestRunArtifacts {
