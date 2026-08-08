@@ -303,18 +303,19 @@ source locations. The remaining declarations are related locations.
 Similarity output does not instruct maintainers to deduplicate code
 mechanically, and similarity never creates a policy violation under `--check`.
 
-`[tool.metrics] max_findings = "N"` limits only detailed human-output findings
-after the canonical order used by the report. The default is `50`. The value
-must be a positive integer string representable in the metrics JSON number
-domain. Zero, malformed strings, values outside the implementation's integer
-range, and values outside that JSON number domain are manifest errors at the
-value span. The limit is shared by policy violations, cycles, module rows, ABC
-subjects, and whole-body similarity instances, in that order. Summary counts,
-section headings, policy status, baseline status, related lines for a displayed
-finding, JSON arrays, policy evaluation, and baseline content use the complete
-finding set. When human output is truncated, the final summary names the exact
-omitted count and identifies `veln metrics --json` as the complete evidence
-route.
+`[tool.metrics] max_findings = "N"` limits each detailed human-output section
+to its first `N` findings in canonical order. The policy-violation, cycle,
+module-row, ABC-subject, and whole-body-similarity sections apply the limit
+independently, so findings in one section do not hide every finding in a later
+section. The default is `50`. The value must be a positive integer string
+representable in the metrics JSON number domain. Zero, malformed strings,
+values outside the implementation's integer range, and values outside that
+JSON number domain are manifest errors at the value span. A truncated section
+states its displayed, total, and omitted counts and identifies `veln metrics
+--json` as the complete evidence route. The final summary states the exact
+omitted count across all sections. Summary counts, section headings, policy
+status, baseline status, related lines for a displayed finding, JSON arrays,
+policy evaluation, and baseline content use the complete finding set.
 
 When `deny_cycles = "true"` is checked with a baseline, a current cycle is
 allowed only when its member set and cyclic edge set are subsets of one

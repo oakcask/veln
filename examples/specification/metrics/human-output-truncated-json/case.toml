@@ -9,7 +9,7 @@ format = "empty"
 
 [[json_assert]]
 path = "human_output.max_findings"
-equals = 2
+equals = 1
 
 [[json_assert]]
 path = "human_output.total_findings"
@@ -17,7 +17,7 @@ equals = 5
 
 [[json_assert]]
 path = "human_output.omitted_findings"
-equals = 3
+equals = 2
 
 [[json_assert]]
 path = "human_output.truncated"

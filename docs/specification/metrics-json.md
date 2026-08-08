@@ -1,4 +1,6 @@
 ---
+role: specification
+authority: normative
 review-when: The metrics command JSON schema or executable metrics cases change.
 ---
 
@@ -24,8 +26,9 @@ clean check report. `[tool.metrics] similarity_min_tokens = "N"` sets the
 minimum normalized token count for experimental whole-body similarity. It
 defaults to `"60"` and must be a positive integer string. `[tool.metrics]
 max_findings = "N"` sets the detailed human-output finding limit. It defaults
-to `"50"` and must be a positive integer string representable in the metrics
-JSON number domain. Any other `[tool.metrics]` field, a `deny_cycles` value
+to `"50"`, applies independently to each detailed section, and must be a
+positive integer string representable in the metrics JSON number domain. Any
+other `[tool.metrics]` field, a `deny_cycles` value
 other than `"true"` or `"false"`, an invalid `similarity_min_tokens` value, or
 an invalid `max_findings` value is a manifest command error at the field span.
 
@@ -78,13 +81,15 @@ The JSON document contains:
 - `human_output`, with `max_findings`, `total_findings`, `omitted_findings`,
   and `truncated` for the corresponding human projection.
 
-`human_output.total_findings` counts detailed human-output findings in the
-same canonical order used by JSON arrays and human prefixes: policy violations
-for checked reports, cycles, module rows, ABC subjects, and whole-body
-similarity instances. `human_output.omitted_findings` is the exact number
-omitted from the corresponding human projection. Equivalent source discovery
-orders and equivalent `/` or `\` project-relative path spellings produce the
-same ordered report. The report arrays remain complete when
+`human_output.total_findings` counts detailed human-output findings across
+policy violations for checked reports, cycles, module rows, ABC subjects, and
+whole-body similarity instances. The human projection includes the first
+`human_output.max_findings` values from each category in that category's
+canonical order. `human_output.omitted_findings` is the sum of values omitted
+after applying that limit to each category independently. Each truncated human
+section states its displayed, total, and omitted counts. Equivalent source
+discovery orders and equivalent `/` or `\` project-relative path spellings
+produce the same ordered report. The report arrays remain complete when
 `human_output.truncated` is `true`. Baseline output does not include
 `human_output`, and baseline content is independent of the human-output limit.
 
