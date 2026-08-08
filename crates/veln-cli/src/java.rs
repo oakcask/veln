@@ -330,7 +330,7 @@ fn ensure_cached_jvm_classes_in_with_hooks(
                 return Err(error.to_string());
             }
         };
-        if let Err(error) = hooks.at_fault_point(JvmCacheFaultPoint::BeforePublication) {
+        if let Err(error) = hooks.at_fault_point(JvmCacheFaultPoint::Publication) {
             let _ = fs::remove_dir_all(&compile_dir);
             return Err(format!("could not publish JVM cache entry: {error}"));
         }
@@ -356,9 +356,9 @@ trait JvmCacheHooks {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum JvmCacheFaultPoint {
-    BeforeInvalidEntryRemoval,
-    BeforePreparedEntryValidation,
-    BeforePublication,
+    InvalidEntryRemoval,
+    PreparedEntryValidation,
+    Publication,
 }
 
 struct NoJvmCacheHooks;
@@ -380,7 +380,7 @@ fn validated_cache_exists(
 fn remove_invalid_cache(cache_dir: &Path, hooks: &dyn JvmCacheHooks) -> Result<(), String> {
     if cache_dir.exists() {
         hooks
-            .at_fault_point(JvmCacheFaultPoint::BeforeInvalidEntryRemoval)
+            .at_fault_point(JvmCacheFaultPoint::InvalidEntryRemoval)
             .and_then(|()| fs::remove_dir_all(cache_dir))
             .map_err(|error| format!("could not remove invalid JVM cache entry: {error}"))?;
     }
@@ -404,7 +404,7 @@ fn prepare_jvm_cache_compile_dir(
         }
         write_jvm_cache_metadata(&compile_dir, program)?;
         hooks
-            .at_fault_point(JvmCacheFaultPoint::BeforePreparedEntryValidation)
+            .at_fault_point(JvmCacheFaultPoint::PreparedEntryValidation)
             .map_err(|error| error.to_string())?;
         if !validate_cached_jvm_classes(&compile_dir, program).map_err(|error| error.to_string())? {
             return Err("prepared JVM cache entry did not pass validation".to_string());
@@ -917,7 +917,7 @@ mod tests {
         }
 
         fn at_fault_point(&self, point: JvmCacheFaultPoint) -> io::Result<()> {
-            if point == JvmCacheFaultPoint::BeforePublication {
+            if point == JvmCacheFaultPoint::Publication {
                 return Err(io::Error::other("injected failed writer publication"));
             }
             Ok(())
@@ -1631,7 +1631,7 @@ mod tests {
             cache_root: cache_root.clone(),
             java_launcher,
         };
-        let fault = FailOnceHook::new(JvmCacheFaultPoint::BeforeInvalidEntryRemoval);
+        let fault = FailOnceHook::new(JvmCacheFaultPoint::InvalidEntryRemoval);
 
         let error = prepare_and_run_jvm_capture_with_execution_and_hooks(
             &execution,
@@ -1675,7 +1675,7 @@ mod tests {
         );
         fs::write(cache_dir.join(JVM_ENTRY_CLASS), b"poisoned")
             .expect("cache entry should be poisoned");
-        let fault = FailOnceHook::new(JvmCacheFaultPoint::BeforePreparedEntryValidation);
+        let fault = FailOnceHook::new(JvmCacheFaultPoint::PreparedEntryValidation);
 
         let error = ensure_cached_jvm_classes_in_with_hooks(&root, &program, &fault)
             .expect_err("prepared entry validation should fail");
@@ -1709,7 +1709,7 @@ mod tests {
     fn publication_failure_leaves_selected_root_as_miss_and_allows_retry() {
         let root = temp_root("cache-publication-failure");
         let program = jvm_program(&[("VelnEntry.class", b"entry")]);
-        let fault = FailOnceHook::new(JvmCacheFaultPoint::BeforePublication);
+        let fault = FailOnceHook::new(JvmCacheFaultPoint::Publication);
 
         let error = ensure_cached_jvm_classes_in_with_hooks(&root, &program, &fault)
             .expect_err("publication should fail");
