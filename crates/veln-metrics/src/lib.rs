@@ -1357,47 +1357,32 @@ impl<'a> Tarjan<'a> {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-struct HumanOutputBudget {
-    limit: usize,
-    total: usize,
-    shown: usize,
+struct HumanOutputProjection {
+    omitted: usize,
 }
 
-impl HumanOutputBudget {
+impl HumanOutputProjection {
     fn for_report(report: &MetricsReport) -> Self {
         Self {
-            limit: report.human_output_max_findings,
-            total: detailed_report_finding_count(report),
-            shown: 0,
+            omitted: omitted_report_finding_count(report),
         }
     }
 
     fn for_check(check: &MetricsCheckReport) -> Self {
         Self {
-            limit: check.report.human_output_max_findings,
-            total: detailed_check_finding_count(check),
-            shown: 0,
+            omitted: check
+                .violations
+                .len()
+                .saturating_sub(check.report.human_output_max_findings)
+                + omitted_report_finding_count(&check.report),
         }
-    }
-
-    fn allow(&mut self) -> bool {
-        if self.shown < self.limit {
-            self.shown += 1;
-            true
-        } else {
-            false
-        }
-    }
-
-    fn omitted(self) -> usize {
-        self.total.saturating_sub(self.shown)
     }
 
     fn append_summary(self, out: &mut String) {
-        let omitted = self.omitted();
-        if omitted > 0 {
+        if self.omitted > 0 {
             out.push_str(&format!(
-                "\nDetailed findings omitted: {omitted}; use veln metrics --json for complete evidence.\n"
+                "\nDetailed findings omitted: {}; use veln metrics --json for complete evidence.\n",
+                self.omitted
             ));
         }
     }
@@ -1410,14 +1395,12 @@ struct ReportHumanSelection {
     similarities: Vec<bool>,
 }
 
-fn select_report_findings(
-    report: &MetricsReport,
-    budget: &mut HumanOutputBudget,
-) -> ReportHumanSelection {
-    let cycles = report.cycles.iter().map(|_| budget.allow()).collect();
-    let modules = report.modules.iter().map(|_| budget.allow()).collect();
-    let abc_subjects = report.abc_subjects.iter().map(|_| budget.allow()).collect();
-    let similarities = report.similarities.iter().map(|_| budget.allow()).collect();
+fn select_report_findings(report: &MetricsReport) -> ReportHumanSelection {
+    let limit = report.human_output_max_findings;
+    let cycles = selected_prefix(report.cycles.len(), limit);
+    let modules = selected_prefix(report.modules.len(), limit);
+    let abc_subjects = selected_prefix(report.abc_subjects.len(), limit);
+    let similarities = selected_prefix(report.similarities.len(), limit);
     ReportHumanSelection {
         modules,
         cycles,
@@ -1433,15 +1416,38 @@ fn detailed_report_finding_count(report: &MetricsReport) -> usize {
         + report.similarities.len()
 }
 
-fn detailed_check_finding_count(check: &MetricsCheckReport) -> usize {
-    check.violations.len() + detailed_report_finding_count(&check.report)
+fn omitted_report_finding_count(report: &MetricsReport) -> usize {
+    let limit = report.human_output_max_findings;
+    [
+        report.cycles.len(),
+        report.modules.len(),
+        report.abc_subjects.len(),
+        report.similarities.len(),
+    ]
+    .into_iter()
+    .map(|count| count.saturating_sub(limit))
+    .sum()
+}
+
+fn selected_prefix(count: usize, limit: usize) -> Vec<bool> {
+    (0..count).map(|index| index < limit).collect()
+}
+
+fn append_section_truncation(out: &mut String, count: usize, limit: usize, subject: &str) {
+    let omitted = count.saturating_sub(limit);
+    if omitted > 0 {
+        out.push_str(&format!(
+            "  showing {} of {count} {subject}; {omitted} omitted; use veln metrics --json for complete evidence.\n",
+            count.min(limit)
+        ));
+    }
 }
 
 pub fn render_human(report: &MetricsReport) -> String {
-    let mut budget = HumanOutputBudget::for_report(report);
-    let selection = select_report_findings(report, &mut budget);
+    let projection = HumanOutputProjection::for_report(report);
+    let selection = select_report_findings(report);
     let mut out = render_human_with_selection(report, &selection);
-    budget.append_summary(&mut out);
+    projection.append_summary(&mut out);
     out
 }
 
@@ -1465,6 +1471,12 @@ fn render_human_with_selection(report: &MetricsReport, selection: &ReportHumanSe
     if report.cycles.is_empty() {
         out.push_str("  none\n");
     } else {
+        append_section_truncation(
+            &mut out,
+            report.cycles.len(),
+            report.human_output_max_findings,
+            "cycles",
+        );
         for (cycle, selected) in report.cycles.iter().zip(&selection.cycles) {
             if !selected {
                 continue;
@@ -1480,6 +1492,12 @@ fn render_human_with_selection(report: &MetricsReport, selection: &ReportHumanSe
     if report.modules.is_empty() {
         out.push_str("  no project modules selected\n");
     } else {
+        append_section_truncation(
+            &mut out,
+            report.modules.len(),
+            report.human_output_max_findings,
+            "module rows",
+        );
         for (module, selected) in report.modules.iter().zip(&selection.modules) {
             if !selected {
                 continue;
@@ -1499,6 +1517,12 @@ fn render_human_with_selection(report: &MetricsReport, selection: &ReportHumanSe
     if report.abc_subjects.is_empty() {
         out.push_str("  no function or test subjects selected\n");
     } else {
+        append_section_truncation(
+            &mut out,
+            report.abc_subjects.len(),
+            report.human_output_max_findings,
+            "ABC subjects",
+        );
         for (subject, selected) in report.abc_subjects.iter().zip(&selection.abc_subjects) {
             if !selected {
                 continue;
@@ -1522,6 +1546,12 @@ fn render_human_with_selection(report: &MetricsReport, selection: &ReportHumanSe
     if report.similarities.is_empty() {
         out.push_str("  none\n");
     } else {
+        append_section_truncation(
+            &mut out,
+            report.similarities.len(),
+            report.human_output_max_findings,
+            "similarity instances",
+        );
         for (instance, selected) in report.similarities.iter().zip(&selection.similarities) {
             if !selected {
                 continue;
@@ -1561,13 +1591,10 @@ fn span_label(span: &SourceSpan) -> String {
 }
 
 pub fn render_check_human(check: &MetricsCheckReport) -> String {
-    let mut budget = HumanOutputBudget::for_check(check);
-    let selected_violations = check
-        .violations
-        .iter()
-        .map(|_| budget.allow())
-        .collect::<Vec<_>>();
-    let report_selection = select_report_findings(&check.report, &mut budget);
+    let projection = HumanOutputProjection::for_check(check);
+    let limit = check.report.human_output_max_findings;
+    let selected_violations = selected_prefix(check.violations.len(), limit);
+    let report_selection = select_report_findings(&check.report);
     let mut out = String::new();
     out.push_str("Veln dependency metrics (check)\n");
     out.push_str("policy checks: deny_cycles\n");
@@ -1587,6 +1614,7 @@ pub fn render_check_human(check: &MetricsCheckReport) -> String {
     } else {
         out.push_str("policy result: fail\n\n");
         out.push_str("Policy violations\n");
+        append_section_truncation(&mut out, check.violations.len(), limit, "policy violations");
         for (violation, selected) in check.violations.iter().zip(&selected_violations) {
             if !selected {
                 continue;
@@ -1607,7 +1635,7 @@ pub fn render_check_human(check: &MetricsCheckReport) -> String {
         &check.report,
         &report_selection,
     ));
-    budget.append_summary(&mut out);
+    projection.append_summary(&mut out);
     out
 }
 
@@ -1731,7 +1759,8 @@ fn human_output_to_json(report: &MetricsReport, check: Option<&JsonValue>) -> Js
         _ => 0,
     };
     let total_findings = policy_violation_count + detailed_report_finding_count(report);
-    let omitted_findings = total_findings.saturating_sub(report.human_output_max_findings);
+    let omitted_findings = policy_violation_count.saturating_sub(report.human_output_max_findings)
+        + omitted_report_finding_count(report);
     JsonValue::object([
         (
             "max_findings",
@@ -2523,7 +2552,7 @@ mod tests {
     }
 
     #[test]
-    fn render_human_truncates_stable_cross_section_prefix() {
+    fn render_human_applies_limit_to_each_section() {
         let mut report = report_from_edges(&[
             ("app", "util"),
             ("util", "app"),
@@ -2536,12 +2565,15 @@ mod tests {
 
         assert!(human.contains("app (app.veln) fan-in=3 fan-out=1 pressure=3 external=0"));
         assert!(human.contains("util (util.veln) fan-in=1 fan-out=1 pressure=1 external=0"));
-        assert!(!human.contains("alpha (alpha.veln) fan-in=0 fan-out=1 pressure=0 external=0"));
+        assert!(human.contains("alpha (alpha.veln) fan-in=0 fan-out=1 pressure=0 external=0"));
         assert!(!human.contains("zeta (zeta.veln) fan-in=0 fan-out=1 pressure=0 external=0"));
         assert!(human.contains("app, util | path: app -> util -> app"));
+        assert!(human.contains("showing 3 of 4 module rows; 1 omitted"));
+        assert!(human.contains("showing 3 of 4 ABC subjects; 1 omitted"));
+        assert!(human.contains("app.veln::app_value"));
         assert_before(&human, "Cycles\n", "\nModules\n");
         assert!(human.contains(
-            "Detailed findings omitted: 6; use veln metrics --json for complete evidence."
+            "Detailed findings omitted: 2; use veln metrics --json for complete evidence."
         ));
     }
 
@@ -2569,7 +2601,7 @@ mod tests {
                 ..default_metrics_config()
             },
         );
-        report.human_output_max_findings = 6;
+        report.human_output_max_findings = 1;
 
         let human = render_human(&report);
 
@@ -2577,13 +2609,14 @@ mod tests {
         assert!(human.contains("related: app.veln::second"));
         assert!(!human.contains("primary=app.veln::third"));
         assert!(!human.contains("related: app.veln::fourth"));
+        assert!(human.contains("showing 1 of 2 similarity instances; 1 omitted"));
         assert!(human.contains(
-            "Detailed findings omitted: 1; use veln metrics --json for complete evidence."
+            "Detailed findings omitted: 4; use veln metrics --json for complete evidence."
         ));
     }
 
     #[test]
-    fn render_check_human_spends_budget_on_policy_violations_first() {
+    fn render_check_human_applies_limit_to_each_section() {
         let mut report = report_from_edges(&[("app", "util"), ("util", "app")]);
         report.human_output_max_findings = 1;
         let check = evaluate_metrics_check(report, MetricsPolicy { deny_cycles: true });
@@ -2592,22 +2625,25 @@ mod tests {
 
         assert!(human.contains("policy result: fail"));
         assert!(human.contains("deny_cycles: dependency cycle path: app -> util -> app"));
-        assert!(!human.contains("app (app.veln) fan-in=1 fan-out=1 pressure=1 external=0"));
+        assert!(human.contains("app (app.veln) fan-in=1 fan-out=1 pressure=1 external=0"));
+        assert!(human.contains("app.veln::app_value"));
+        assert!(human.contains("showing 1 of 2 module rows; 1 omitted"));
+        assert!(human.contains("showing 1 of 2 ABC subjects; 1 omitted"));
         assert!(human.contains(
-            "Detailed findings omitted: 5; use veln metrics --json for complete evidence."
+            "Detailed findings omitted: 2; use veln metrics --json for complete evidence."
         ));
     }
 
     #[test]
     fn report_json_exposes_human_output_projection_metadata() {
         let mut report = report_from_edges(&[("app", "util"), ("util", "app")]);
-        report.human_output_max_findings = 2;
+        report.human_output_max_findings = 1;
 
         let json = report_to_json(&report, tool_info()).to_json();
 
-        assert!(json.contains("\"human_output\":{\"max_findings\":2"));
+        assert!(json.contains("\"human_output\":{\"max_findings\":1"));
         assert!(json.contains("\"total_findings\":5"));
-        assert!(json.contains("\"omitted_findings\":3"));
+        assert!(json.contains("\"omitted_findings\":2"));
         assert!(json.contains("\"truncated\":true"));
         assert!(json.contains("\"modules\":["));
         assert!(json.contains("\"cycles\":["));
@@ -2624,7 +2660,7 @@ mod tests {
 
         assert!(json.contains("\"human_output\":{\"max_findings\":1"));
         assert!(json.contains("\"total_findings\":6"));
-        assert!(json.contains("\"omitted_findings\":5"));
+        assert!(json.contains("\"omitted_findings\":2"));
         assert!(json.contains("\"status\":\"policy_violation\""));
         assert!(json.contains("\"violations\":["));
     }

@@ -854,7 +854,7 @@ fn metrics_cli_output_is_stable_for_reversed_input_order() {
     assert_eq!(forward_human.stdout, reversed_human.stdout);
     assert!(
         String::from_utf8_lossy(&forward_human.stdout).contains(
-            "Detailed findings omitted: 5; use veln metrics --json for complete evidence."
+            "Detailed findings omitted: 1; use veln metrics --json for complete evidence."
         ),
         "reversed input comparison should exercise stable human truncation"
     );

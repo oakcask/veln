@@ -1,2 +1,2 @@
 [tool.metrics]
-max_findings = "2"
+max_findings = "1"

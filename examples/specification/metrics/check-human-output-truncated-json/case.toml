@@ -25,7 +25,7 @@ equals = 6
 
 [[json_assert]]
 path = "human_output.omitted_findings"
-equals = 5
+equals = 2
 
 [[json_assert]]
 path = "human_output.truncated"
