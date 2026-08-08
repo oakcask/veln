@@ -193,86 +193,117 @@ impl<'a> Classifier<'a> {
     fn collect(&mut self) -> Vec<SemanticToken> {
         let mut semantic_tokens = Vec::new();
         while self.cursor < self.tokens.len() {
-            let token = &self.tokens[self.cursor];
-            match token.kind {
-                TokenKind::Mod => {
-                    semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
-                    self.cursor += 1;
-                    self.collect_module_name(&mut semantic_tokens);
+            match self.tokens[self.cursor].kind {
+                TokenKind::Mod | TokenKind::Use => {
+                    self.collect_namespace_directive(&mut semantic_tokens);
                 }
-                TokenKind::Use => {
-                    semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
-                    self.cursor += 1;
-                    self.collect_use_name(&mut semantic_tokens);
+                TokenKind::Type
+                | TokenKind::Schema
+                | TokenKind::Handler
+                | TokenKind::Codec
+                | TokenKind::Fn
+                | TokenKind::Test
+                | TokenKind::Pub => self.collect_declaration(&mut semantic_tokens),
+                TokenKind::Format | TokenKind::Let | TokenKind::Effects => {
+                    self.collect_clause(&mut semantic_tokens);
                 }
-                TokenKind::Type => {
-                    semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
-                    self.cursor += 1;
-                    self.skip_trivia();
-                    if self.at(TokenKind::Ident) {
-                        let token = &self.tokens[self.cursor];
-                        semantic_tokens.push(self.modified(
-                            token,
-                            SemanticTokenType::Type,
-                            &[SemanticTokenModifier::Declaration],
-                        ));
-                        self.cursor += 1;
-                    }
-                }
-                TokenKind::Schema => {
-                    self.collect_schema_header(&mut semantic_tokens);
-                }
-                TokenKind::Handler => {
-                    self.collect_handler_header(&mut semantic_tokens);
-                }
-                TokenKind::Codec => {
-                    semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
-                    self.cursor += 1;
-                }
-                TokenKind::Fn | TokenKind::Test => {
-                    self.collect_function_header(&mut semantic_tokens);
-                }
-                TokenKind::Pub => {
-                    if self.next_significant_kind() == Some(TokenKind::Schema) {
-                        self.collect_schema_header(&mut semantic_tokens);
-                    } else if self.next_significant_kind() == Some(TokenKind::Handler) {
-                        self.collect_handler_header(&mut semantic_tokens);
-                    } else if self.next_significant_kind() == Some(TokenKind::Codec) {
-                        semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
-                        self.cursor += 1;
-                    } else {
-                        self.collect_function_header(&mut semantic_tokens);
-                    }
-                }
-                TokenKind::Format => {
-                    semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
-                    self.cursor += 1;
-                    self.skip_trivia();
-                    if self.at(TokenKind::Ident) {
-                        let token = &self.tokens[self.cursor];
-                        semantic_tokens.push(self.simple(token, SemanticTokenType::EnumMember));
-                        self.cursor += 1;
-                    }
-                }
-                TokenKind::Let => {
-                    semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
-                    self.cursor += 1;
-                    self.collect_let_pattern(&mut semantic_tokens);
-                }
-                TokenKind::Effects => {
-                    semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
-                    self.cursor += 1;
-                    self.collect_effect_list(&mut semantic_tokens);
-                }
-                _ => {
-                    if let Some(classified) = self.classify_current_token() {
-                        semantic_tokens.push(classified);
-                    }
-                    self.cursor += 1;
-                }
+                _ => self.collect_plain_token(&mut semantic_tokens),
             }
         }
         semantic_tokens
+    }
+
+    fn collect_namespace_directive(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
+        let kind = self.tokens[self.cursor].kind;
+        self.collect_keyword(semantic_tokens);
+        match kind {
+            TokenKind::Mod => self.collect_module_name(semantic_tokens),
+            TokenKind::Use => self.collect_use_name(semantic_tokens),
+            _ => unreachable!("namespace directive dispatch only accepts mod or use"),
+        }
+    }
+
+    fn collect_declaration(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
+        match self.tokens[self.cursor].kind {
+            TokenKind::Type => self.collect_type_header(semantic_tokens),
+            TokenKind::Schema => self.collect_schema_header(semantic_tokens),
+            TokenKind::Handler => self.collect_handler_header(semantic_tokens),
+            TokenKind::Codec => self.collect_codec_header(semantic_tokens),
+            TokenKind::Fn | TokenKind::Test => self.collect_function_header(semantic_tokens),
+            TokenKind::Pub => self.collect_public_declaration(semantic_tokens),
+            _ => unreachable!("declaration dispatch only accepts declaration keywords"),
+        }
+    }
+
+    fn collect_public_declaration(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
+        match self.next_significant_kind() {
+            Some(TokenKind::Type) => self.collect_type_header(semantic_tokens),
+            Some(TokenKind::Schema) => self.collect_schema_header(semantic_tokens),
+            Some(TokenKind::Handler) => self.collect_handler_header(semantic_tokens),
+            Some(TokenKind::Codec) => self.collect_codec_header(semantic_tokens),
+            _ => self.collect_function_header(semantic_tokens),
+        }
+    }
+
+    fn collect_clause(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
+        match self.tokens[self.cursor].kind {
+            TokenKind::Format => self.collect_format_clause(semantic_tokens),
+            TokenKind::Let => {
+                self.collect_keyword(semantic_tokens);
+                self.collect_let_pattern(semantic_tokens);
+            }
+            TokenKind::Effects => {
+                self.collect_keyword(semantic_tokens);
+                self.collect_effect_list(semantic_tokens);
+            }
+            _ => unreachable!("clause dispatch only accepts clause keywords"),
+        }
+    }
+
+    fn collect_type_header(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
+        while self.at(TokenKind::Pub) || self.at(TokenKind::Type) {
+            self.collect_keyword(semantic_tokens);
+            self.skip_trivia();
+        }
+        if self.at(TokenKind::Ident) {
+            let token = &self.tokens[self.cursor];
+            semantic_tokens.push(self.modified(
+                token,
+                SemanticTokenType::Type,
+                &[SemanticTokenModifier::Declaration],
+            ));
+            self.cursor += 1;
+        }
+    }
+
+    fn collect_codec_header(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
+        while self.at(TokenKind::Pub) || self.at(TokenKind::Codec) {
+            self.collect_keyword(semantic_tokens);
+            self.skip_trivia();
+        }
+    }
+
+    fn collect_format_clause(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
+        self.collect_keyword(semantic_tokens);
+        self.skip_trivia();
+        if self.at(TokenKind::Ident) {
+            let token = &self.tokens[self.cursor];
+            semantic_tokens.push(self.simple(token, SemanticTokenType::EnumMember));
+            self.cursor += 1;
+        }
+    }
+
+    fn collect_keyword(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
+        let token = &self.tokens[self.cursor];
+        semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
+        self.cursor += 1;
+    }
+
+    fn collect_plain_token(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
+        if let Some(classified) = self.classify_current_token() {
+            semantic_tokens.push(classified);
+        }
+        self.cursor += 1;
     }
 
     fn collect_handler_header(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
@@ -1246,6 +1277,26 @@ mod tests {
         assert!(
             tokens.contains(&(
                 "PublicPacket".to_string(),
+                SemanticTokenType::Type,
+                SemanticTokenModifiers::empty()
+                    .with(SemanticTokenModifier::Declaration)
+                    .bits()
+            ))
+        );
+    }
+
+    #[test]
+    fn collector_marks_public_type_names_as_declarations() {
+        let source = SourceFile::new(
+            "facade.veln",
+            "use implementation\n\npub type Document = implementation::Document\n",
+        );
+
+        let tokens = collect_text(&source);
+
+        assert!(
+            tokens.contains(&(
+                "Document".to_string(),
                 SemanticTokenType::Type,
                 SemanticTokenModifiers::empty()
                     .with(SemanticTokenModifier::Declaration)
