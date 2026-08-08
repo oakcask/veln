@@ -46,6 +46,8 @@ under `../../specification/` and its executable example routes.
   original gate details.
 - Shared project analysis:
   [project-analysis-pipeline.md](project-analysis-pipeline.md).
+- Manifest package boundaries:
+  [manifest-package-boundaries.md](manifest-package-boundaries.md).
 - Bounded toolchain analysis:
   [bounded-toolchain-analysis.md](bounded-toolchain-analysis.md), with detailed
   slice history in

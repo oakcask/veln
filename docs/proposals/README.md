@@ -18,12 +18,6 @@ also states it.
 
 ## Catalog
 
-### Packages and Source Discovery
-
-- [Manifest Package Boundaries](manifest-package-boundaries.md): complete
-  editor package-root selection around the implemented command, dependency,
-  and shared ownership boundaries.
-
 ### Toolchain Storage
 
 - [Toolchain User Cache](toolchain-user-cache.md): complete the remaining
