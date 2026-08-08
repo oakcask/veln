@@ -84,6 +84,7 @@ pub fn run_stdio() -> io::Result<()> {
 struct Server {
     documents: BTreeMap<String, String>,
     workspace_roots: Vec<PathBuf>,
+    workspace_root_aliases: BTreeMap<PathBuf, Vec<PathBuf>>,
     published_diagnostic_uris: BTreeSet<String>,
     should_exit: bool,
 }
@@ -129,7 +130,9 @@ impl Server {
     }
 
     fn handle_initialize(&mut self, message: &str, id: Option<String>) -> Vec<String> {
-        self.workspace_roots = resolve_workspace_roots(message);
+        let selection = resolve_workspace_roots(message);
+        self.workspace_roots = selection.roots;
+        self.workspace_root_aliases = selection.aliases;
         let mut responses = id
             .map(|id| response(&id, &initialize_result()))
             .into_iter()
@@ -275,7 +278,9 @@ impl Server {
             }
 
             for (source_path, diagnostics) in diagnostics_by_path {
-                let uri = path_to_uri(&root.join(&source_path));
+                let uri = path_to_uri(
+                    &visible_workspace_root(&root, &self.workspace_root_aliases).join(&source_path),
+                );
                 next_uris.insert(uri.clone());
                 responses.push(publish_diagnostics_for_uri(&uri, &diagnostics));
             }
@@ -294,7 +299,9 @@ impl Server {
 
     fn overlay_open_workspace_documents(&self, root: &Path, project: &mut Project) {
         for (uri, text) in &self.documents {
-            let Some(source) = owned_workspace_source_file(root, uri, text) else {
+            let Some(source) =
+                owned_workspace_source_file(root, &self.workspace_root_aliases, uri, text)
+            else {
                 continue;
             };
             let source_path = source.path().as_str().to_string();
@@ -314,18 +321,22 @@ impl Server {
     }
 
     fn workspace_source_path(&self, uri: &str) -> Option<String> {
-        let root = workspace_root_for_uri(&self.workspace_roots, uri)?;
-        owned_workspace_relative_source_path(root, uri)
+        let document_root =
+            workspace_root_for_uri(&self.workspace_roots, &self.workspace_root_aliases, uri)?;
+        owned_workspace_relative_source_path(document_root.root, &document_root.relative)
     }
 
     fn symbol_at_request(&self, message: &str) -> Option<SymbolRequest> {
         let uri = extract_string_field(message, "uri")?;
         let position = extract_position(message)?;
-        let root = workspace_root_for_uri(&self.workspace_roots, &uri)?;
-        let source_path = workspace_relative_source_path(root, &uri)?;
+        let document_root =
+            workspace_root_for_uri(&self.workspace_roots, &self.workspace_root_aliases, &uri)?;
+        let root = document_root.root;
+        let source_path = workspace_relative_source_path(&document_root.relative)?;
         let mut project = Project::discover(root.to_path_buf(), &[]).ok()?;
         self.overlay_open_workspace_documents(root, &mut project);
-        let index = LspSymbolIndex::new(root, project.files);
+        let visible_root = visible_workspace_root(root, &self.workspace_root_aliases);
+        let index = LspSymbolIndex::new(visible_root, project.files);
         index.symbol_at_position(&source_path, position)
     }
 }
@@ -477,32 +488,80 @@ fn diagnostics_by_path(diagnostics: Vec<Diagnostic>) -> BTreeMap<String, Vec<Dia
     by_path
 }
 
-fn resolve_workspace_roots(message: &str) -> Vec<PathBuf> {
+#[derive(Debug, Default)]
+struct WorkspaceSelection {
+    roots: Vec<PathBuf>,
+    aliases: BTreeMap<PathBuf, Vec<PathBuf>>,
+}
+
+#[derive(Debug)]
+struct WorkspaceFolderRoot {
+    identity: PathBuf,
+    visible: PathBuf,
+}
+
+#[derive(Debug)]
+struct WorkspaceDocumentRoot<'a> {
+    root: &'a Path,
+    relative: PathBuf,
+}
+
+fn resolve_workspace_roots(message: &str) -> WorkspaceSelection {
     let client_roots = extract_workspace_folder_uris(message)
         .into_iter()
         .filter_map(|uri| uri_to_path(&uri))
         .filter_map(filesystem_workspace_root)
         .collect::<Vec<_>>();
-    let mut roots = Vec::new();
+    let mut selection = WorkspaceSelection::default();
     for root in client_roots {
-        roots.extend(resolve_workspace_project_roots(&root));
+        add_workspace_project_roots(&mut selection, &root);
     }
-    if roots.is_empty()
+    if selection.roots.is_empty()
         && let Some(root) =
             extract_string_field(message, "rootUri").and_then(|uri| uri_to_path(&uri))
     {
         let Some(root) = filesystem_workspace_root(root) else {
-            return roots;
+            return selection;
         };
-        roots.extend(resolve_workspace_project_roots(&root));
+        add_workspace_project_roots(&mut selection, &root);
     }
-    roots.sort();
-    roots.dedup();
-    roots
+    selection.roots.sort();
+    selection.roots.dedup();
+    for aliases in selection.aliases.values_mut() {
+        aliases.sort();
+        aliases.dedup();
+    }
+    selection
 }
 
-fn filesystem_workspace_root(root: PathBuf) -> Option<PathBuf> {
-    fs::canonicalize(root).ok()
+fn filesystem_workspace_root(root: PathBuf) -> Option<WorkspaceFolderRoot> {
+    let visible = absolute_workspace_path(root);
+    let identity = fs::canonicalize(&visible).ok()?;
+    Some(WorkspaceFolderRoot { identity, visible })
+}
+
+fn absolute_workspace_path(root: PathBuf) -> PathBuf {
+    let absolute = if root.is_absolute() {
+        root
+    } else {
+        env::current_dir()
+            .map(|current| current.join(&root))
+            .unwrap_or(root)
+    };
+    absolute
+        .components()
+        .filter(|component| !matches!(component, std::path::Component::CurDir))
+        .collect()
+}
+
+fn add_workspace_project_roots(selection: &mut WorkspaceSelection, folder: &WorkspaceFolderRoot) {
+    for root in resolve_workspace_project_roots(&folder.identity) {
+        let visible = folder
+            .visible
+            .join(root.strip_prefix(&folder.identity).unwrap_or(Path::new("")));
+        selection.roots.push(root.clone());
+        selection.aliases.entry(root).or_default().push(visible);
+    }
 }
 
 fn resolve_workspace_project_roots(root: &Path) -> Vec<PathBuf> {
@@ -562,46 +621,83 @@ fn extract_workspace_folder_uris(message: &str) -> Vec<String> {
     uris
 }
 
-fn workspace_root_for_uri<'a>(roots: &'a [PathBuf], uri: &str) -> Option<&'a Path> {
+fn visible_workspace_root<'a>(
+    root: &'a Path,
+    aliases: &'a BTreeMap<PathBuf, Vec<PathBuf>>,
+) -> &'a Path {
+    aliases
+        .get(root)
+        .and_then(|aliases| aliases.first())
+        .map(PathBuf::as_path)
+        .unwrap_or(root)
+}
+
+fn workspace_root_for_uri<'a>(
+    roots: &'a [PathBuf],
+    aliases: &'a BTreeMap<PathBuf, Vec<PathBuf>>,
+    uri: &str,
+) -> Option<WorkspaceDocumentRoot<'a>> {
     let uri_path = uri_to_path(uri)?;
     let absolute = if uri_path.is_absolute() {
         uri_path
     } else {
         env::current_dir().ok()?.join(uri_path)
     };
-    roots
-        .iter()
-        .filter(|root| absolute.starts_with(root))
-        .max_by_key(|root| root.components().count())
-        .map(PathBuf::as_path)
+    let mut selected = None;
+    let mut selected_depth = 0;
+    for root in roots {
+        for visible in std::iter::once(root.as_path()).chain(
+            aliases
+                .get(root)
+                .into_iter()
+                .flatten()
+                .map(PathBuf::as_path),
+        ) {
+            let Ok(relative) = absolute.strip_prefix(visible) else {
+                continue;
+            };
+            let depth = visible.components().count();
+            if depth >= selected_depth {
+                selected = Some(WorkspaceDocumentRoot {
+                    root,
+                    relative: relative.to_path_buf(),
+                });
+                selected_depth = depth;
+            }
+        }
+    }
+    selected
 }
 
-fn owned_workspace_source_file(root: &Path, uri: &str, text: &str) -> Option<SourceFile> {
-    owned_workspace_relative_source_path(root, uri)
+fn owned_workspace_source_file(
+    root: &Path,
+    aliases: &BTreeMap<PathBuf, Vec<PathBuf>>,
+    uri: &str,
+    text: &str,
+) -> Option<SourceFile> {
+    let root_buf = root.to_path_buf();
+    let document_root = workspace_root_for_uri(std::slice::from_ref(&root_buf), aliases, uri)?;
+    if document_root.root != root {
+        return None;
+    }
+    owned_workspace_relative_source_path(root, &document_root.relative)
         .map(|path| SourceFile::new(path, text.to_string()))
 }
 
-fn owned_workspace_relative_source_path(root: &Path, uri: &str) -> Option<String> {
-    let relative = workspace_relative_source_path(root, uri)?;
+fn owned_workspace_relative_source_path(root: &Path, relative: &Path) -> Option<String> {
+    let relative = workspace_relative_source_path(relative)?;
     let input = PathBuf::from(&relative);
     discover_source_paths(root, std::slice::from_ref(&input)).ok()?;
     Some(relative)
 }
 
-fn workspace_relative_source_path(root: &Path, uri: &str) -> Option<String> {
-    let uri_path = uri_to_path(uri)?;
-    let absolute = if uri_path.is_absolute() {
-        uri_path
-    } else {
-        root.join(uri_path)
-    };
-    if absolute
+fn workspace_relative_source_path(relative: &Path) -> Option<String> {
+    if relative
         .extension()
         .is_none_or(|extension| extension != "veln")
     {
         return None;
     }
-    let relative = absolute.strip_prefix(root).ok()?;
     Some(relative.to_string_lossy().replace('\\', "/"))
 }
 
@@ -2405,6 +2501,72 @@ mod tests {
         ));
 
         assert_eq!(server.workspace_roots, vec![workspace.root.join("package")]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn server_keeps_symlink_workspace_alias_documents_in_project() {
+        use std::os::unix::fs::symlink;
+
+        let mut server = Server::default();
+        let workspace = TempProject::new("workspace-alias-document-identity");
+        workspace.write("package/veln.toml", "[package]\nname = \"package\"\n");
+        workspace.write(
+            "package/math.veln",
+            concat!(
+                "fn increment(value: Int) -> Int\n",
+                "  increment(value - 1)\n",
+                "end\n",
+            ),
+        );
+        workspace.write(
+            "package/math.test.veln",
+            concat!(
+                "use math\n",
+                "\n",
+                "fn increment(value: Int) -> Int\n",
+                "  value\n",
+                "end\n",
+                "\n",
+                "test increment_test() -> Int\n",
+                "  math::increment(1)\n",
+                "end\n",
+            ),
+        );
+        workspace.write("package/main.veln", "pub fn main() -> Int\n  1\nend\n");
+        symlink(workspace.root.join("package"), workspace.root.join("alias"))
+            .expect("workspace alias should be created");
+        let alias_uri = path_to_uri(&workspace.root.join("alias"));
+        let alias_main_uri = path_to_uri(&workspace.root.join("alias/main.veln"));
+        let alias_math_uri = path_to_uri(&workspace.root.join("alias/math.veln"));
+        let alias_companion_uri = path_to_uri(&workspace.root.join("alias/math.test.veln"));
+
+        let responses = server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"workspaceFolders":[{{"uri":"{alias_uri}","name":"alias"}}]}}}}"#
+        ));
+
+        assert_eq!(server.workspace_roots, vec![workspace.root.join("package")]);
+        let publish = publish_for_uri(&responses, &alias_main_uri);
+        assert!(publish.contains(r#""diagnostics":[]"#), "{publish}");
+
+        let responses = server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{alias_main_uri}","text":"pub fn main() -> Int\n  \"bad\"\nend\n"}}}}}}"#
+        ));
+        let publish = publish_for_uri(&responses, &alias_main_uri);
+        assert!(publish.contains(r#""code":"type.mismatch""#), "{publish}");
+
+        let responses = server.handle_message(&semantic_tokens_request(&alias_main_uri));
+        assert_eq!(responses.len(), 1);
+        assert!(responses[0].contains(r#""id":2,"result":{"data":["#));
+        assert!(!responses[0].contains(r#""data":[]"#), "{}", responses[0]);
+
+        let responses = server.handle_message(&definition_request(&alias_companion_uri, 7, 10));
+        assert_eq!(responses.len(), 1);
+        assert!(
+            responses[0].contains(&escape_json(&alias_math_uri)),
+            "{}",
+            responses[0]
+        );
     }
 
     #[cfg(unix)]

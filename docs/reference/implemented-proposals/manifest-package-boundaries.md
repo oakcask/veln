@@ -59,6 +59,9 @@ Workspace search does not follow directory symbolic links. It skips `.git` and
 treats `target` as an ordinary directory. Multiple selected filesystem
 identities are sorted and deduplicated. Explicit outer and nested workspace
 folders therefore produce separate projects without combining their sources.
+When the client supplies a workspace folder through a symbolic-link path, the
+deduplicated project keeps that client path valid for diagnostics, overlays,
+and navigation requests.
 
 ## Acceptance Evidence
 
@@ -70,6 +73,7 @@ The `veln-lsp` server tests mechanically check each acceptance row.
 | Manifest-free workspace | Separate branches contain manifests | The first manifest root on each branch is initialized | `server_selects_first_manifest_root_on_each_workspace_branch` |
 | Explicit nested workspace | The client supplies outer and nested roots | Two deduplicated projects are initialized | `server_keeps_explicit_outer_and_nested_workspace_projects` |
 | Dependency workspace isolation | Analysis loads a dependency without a matching workspace folder | The dependency is not initialized as a workspace project | `server_does_not_initialize_loaded_dependency_as_workspace_project` |
+| Symlink workspace identity | The client supplies a symlink workspace folder | Alias document URIs remain inside the deduplicated project | `server_keeps_symlink_workspace_alias_documents_in_project` |
 
 ## Failure Atomicity
 

@@ -105,6 +105,10 @@ below it. Otherwise, the first manifest package on each directory branch
 becomes a workspace project. If no branch contains a manifest, the resolved
 folder becomes one anonymous workspace project. The selected filesystem
 identities are sorted and deduplicated.
+When a workspace folder is supplied through a directory symbolic link, the
+deduplicated project uses the resolved filesystem identity for project
+selection while document requests and published locations remain valid for the
+client-supplied path.
 
 Nested manifest discovery does not follow directory symbolic links. It skips
 `.git` and treats `target` as an ordinary directory. Explicit outer and nested
@@ -121,7 +125,8 @@ for open documents only. The executable LSP example is
 `../../examples/specification/lsp/workspace-package-root-selection/`. Direct
 `veln-lsp` tests cover manifest roots, branch selection, explicit nested roots,
 dependency isolation, filesystem-identity deduplication, directory symbolic
-links, `.git`, `target`, and anonymous fallback.
+links, symlink workspace document requests, `.git`, `target`, and anonymous
+fallback.
 
 For files inside a resolved workspace root, the server discovers project
 `.veln` files the same way `check` and `run` do. For each resolved root, a
