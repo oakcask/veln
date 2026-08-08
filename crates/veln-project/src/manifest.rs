@@ -86,8 +86,11 @@ pub struct ManifestField {
 
 pub fn read_manifest(root: &Path) -> io::Result<Option<ProjectManifest>> {
     let path = root.join("veln.toml");
-    if !path.exists() {
-        return Ok(None);
+    match std::fs::symlink_metadata(&path) {
+        Ok(metadata) if metadata.file_type().is_file() => {}
+        Ok(_) => return Ok(None),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error),
     }
     let source = SourceFile::read(root, &path)?;
     Ok(Some(parse_manifest(&source)))

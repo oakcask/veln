@@ -28,6 +28,32 @@ behavior, gates, or output boundaries.
 
 ## Shared Command Analysis
 
+Before source discovery, `check`, `doc`, `fmt`, `metrics`, `repair`, `run`,
+`test`, and `package lock` resolve the invocation directory to its filesystem
+identity. Each command selects the nearest ancestor with a regular
+`veln.toml`. The marker is inspected without following the marker itself. A
+symbolic link, directory, or other non-regular marker does not select a root.
+If no ancestor qualifies, the resolved invocation directory is an anonymous
+package root.
+
+An error while classifying a marker fails the command. The command does not
+continue to a wider ancestor. After a root is selected, manifest loading reads
+that root's manifest. A manifest read failure fails the command and does not
+trigger fallback selection.
+
+Relative command arguments remain relative to the invocation directory. An
+explicit source or test input does not select another package root. Shared
+ownership validation rejects an input outside the selected package or inside a
+nested package.
+
+The checked cases `package-root-from-subdirectory` and
+`package-root-relative-input` are the executable command evidence for ancestor
+selection and the invocation-relative input base. The `veln-project` selector
+tests cover anonymous fallback, equivalent direct and symbolic starts,
+non-regular markers, classification failure, and unreadable selected
+manifests. The CLI harness checks the common command entry for all listed
+commands.
+
 `check`, `run`, `test`, and `repair` use one project analysis path for source
 discovery, generated doctest sources when the command includes doctests, parse
 diagnostics, parse-clean surface module loading, semantic diagnostics,
@@ -63,11 +89,32 @@ prints the check JSON envelope. Without `--json`, it prints human diagnostics
 or `ok`.
 
 Inputs are files or directories. If no path is provided, discovery recursively
-selects `.veln` files below the current project root, skipping `.git` and
-`target`. Explicit directories are searched recursively. The final discovered
+selects owned regular `.veln` files below the supplied project root. A regular
+file named `veln.toml` in a descendant directory makes that directory a nested
+package root, so discovery excludes the directory and its descendants without
+opening or parsing that manifest. A symbolic link or non-regular object named
+`veln.toml` is not a boundary.
+
+Discovery does not follow source or directory symbolic links. It skips `.git`
+directories. A directory named `target` is an ordinary source directory and
+receives the same nested-package handling as every other directory. An error
+while classifying a boundary candidate fails discovery. The final discovered
 file list is sorted and deduplicated.
 
-If the current project root contains `veln.toml`, the command reads package
+Explicit directories are searched recursively, but every explicit file and
+directory must remain owned by the supplied project root. Discovery rejects an
+input outside that root, an input below a nested manifest root, a parent-path
+escape, or an input that traverses a symbolic link below the root. A nested
+package rejection identifies the input and nested package root. One rejected
+input fails the complete discovery operation.
+
+The checked cases `manifest-package-boundary-discovery`,
+`deep-manifest-package-boundary`, `target-owned-source-directory`,
+`target-nested-package-boundary`, `anonymous-outer-package-boundary`, and
+`explicit-nested-package-boundary` are the executable command evidence for
+recursive and explicit boundary handling.
+
+If the selected project root contains `veln.toml`, the command reads package
 and tool metadata, path dependency entries from
 `[dependencies."package"]`, git, vendor, and mirror dependency metadata from
 the same dependency tables, plus the implemented `[lib].exports` manifest list
@@ -89,13 +136,18 @@ rejected.
 
 When a parse-clean source contains `use path from "package"`, the command
 looks for a matching path dependency table in the current project manifest,
-loads that dependency's discovered `.veln` sources, checks that the dependency
-manifest's `[package].name` matches the requested package identity, and
+requires the dependency root to have a direct regular `veln.toml`, loads that
+dependency's discovered `.veln` sources, checks that the dependency manifest's
+`[package].name` matches the requested package identity, and
 requires the imported module path to be listed by the dependency package's
 `[lib].exports`. A dependency manifest export that names a `.test.veln`
 companion is rejected before that path can contribute an exported module. The
 external import contributes only public declarations and public aliases from
 the exported dependency module to the importing source.
+
+The checked cases `external-package-direct-manifest` and
+`external-package-missing-direct-manifest` are the executable command evidence
+for direct dependency package roots during source analysis.
 
 Semantic diagnostics are suppressed for a file that has parse diagnostics.
 Other parse-clean files in the same invocation may still produce semantic
@@ -655,9 +707,16 @@ checksum = "sha256:..."
 ```
 
 Serialized source paths use `/` separators. The checksum is computed from the
-sorted `.veln` source files discovered under the dependency package root after
-the same ignored-directory rule as source discovery, so `.git` and `target`
-contents do not affect the lockfile.
+sorted owned `.veln` source files discovered under the dependency package root
+after the same package-boundary and ignored-directory rules as source
+discovery. Descendant package roots and `.git` contents do not affect the
+lockfile. A directory named `target` is an ordinary source directory, so owned
+`.veln` files below `target` do affect the lockfile. Lexically equivalent
+dependency root spellings use the same package-relative source path names when
+computing the checksum. The checked case `lock-normalized-path-dependency`
+proves that a path dependency spelled with a `..` component writes the
+normalized source path and computes the checksum from owned sources below that
+normalized root.
 
 For each vendor dependency, the dependency table key is the package identity
 and `vendor` names an already available vendored package directory. The

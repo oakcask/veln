@@ -107,9 +107,12 @@ leaves workspace roots empty and publishes document-scoped diagnostics for open
 documents only.
 
 For files inside a resolved workspace root, the server discovers project
-`.veln` files the same way `check` and `run` do, excludes doctest-generated
-sources, overlays open unsaved editor text onto the discovered source set, and
-includes open new `.veln` buffers that do not exist on disk yet. It publishes
+`.veln` files the same way `check` and `run` do. For each resolved root, a
+descendant regular `veln.toml` excludes that nested package's saved sources,
+while an ordinary `target` directory remains discoverable. The server excludes
+doctest-generated sources, overlays open unsaved editor text onto the
+discovered source set, and includes open new `.veln` buffers that do not exist
+on disk yet. It publishes
 `textDocument/publishDiagnostics` for every discovered or open workspace source
 file, including unopened files. It also publishes empty diagnostic lists for
 previously reported files that become clean or leave discovery.
@@ -218,9 +221,9 @@ workspace diagnostics for VSCode workspace folders that contain `veln.toml`, or
 for nested manifest directories when the VSCode workspace folder is a larger
 repository. Manifest roots stop nested discovery so vendored dependencies are
 not initialized as separate workspace roots. If a workspace folder has no
-package manifest and no nested manifest roots, the extension searches that
-folder in name order, ignores `.git` and `target`, and uses the parent
-directory of the first discovered `.veln` source as an anonymous package root.
+package manifest and no nested manifest roots, the extension keeps that folder
+as an anonymous package root. Nested manifest discovery ignores `.git` and
+treats `target` as an ordinary directory.
 Open Veln documents outside resolved roots still receive document-scoped
 diagnostics. The extension listens for `textDocument/publishDiagnostics`
 messages from the language server and mirrors them into VSCode diagnostics so

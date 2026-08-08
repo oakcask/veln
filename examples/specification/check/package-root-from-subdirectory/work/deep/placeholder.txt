@@ -1,0 +1,1 @@
+The command starts in this directory.

@@ -9,4 +9,4 @@ format = "empty"
 
 [[file_assert]]
 path = "veln.lock"
-equals = "[[package]]\nname = \"github.com/oakcask/alpha\"\nsource = { kind = \"path\", path = \"vendor/alpha\" }\nchecksum = \"sha256:e808c864d3f4f85c2ec16c784cfbc0921ac75a2126c08829b9945d69c597115f\"\n\n[[package]]\nname = \"github.com/oakcask/zeta\"\nsource = { kind = \"path\", path = \"vendor/zeta\" }\nchecksum = \"sha256:78a495fefa5b0759b5015913a0961d9d3338aad8fb73e3915505def880b7ed22\"\n"
+equals = "[[package]]\nname = \"github.com/oakcask/alpha\"\nsource = { kind = \"path\", path = \"vendor/alpha\" }\nchecksum = \"sha256:e808c864d3f4f85c2ec16c784cfbc0921ac75a2126c08829b9945d69c597115f\"\n\n[[package]]\nname = \"github.com/oakcask/zeta\"\nsource = { kind = \"path\", path = \"vendor/zeta\" }\nchecksum = \"sha256:d69d2629100736569a3e55327b5e633731f4e84b55109b271a0414fa3ca6a07d\"\n"

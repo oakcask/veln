@@ -1,4 +1,4 @@
-command = ["check", "--json", "src", "src/main.veln"]
+command = ["check", "--json"]
 exit = 1
 
 [stdout]
@@ -16,12 +16,12 @@ path = "summary.diagnostic_count"
 equals = 1
 
 [[diagnostics]]
-id = "type.mismatch"
+id = "manifest.unselected_export"
 severity = "error"
-kind = "type"
-message = "expected `Int`, but found `String`"
+kind = "module"
+message = "manifest export `vendor/deep/package/hidden.veln` has no matching selected source file"
 
 [diagnostics.span]
-file = "src/main.veln"
-line = 2
-column = 3
+file = "veln.toml"
+line = 4
+column = 4

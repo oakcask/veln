@@ -1,4 +1,3 @@
-use std::env;
 use std::fs;
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -8,8 +7,12 @@ use veln_syntax::{format_tree, parse};
 
 use crate::diagnostics::print_parse_diagnostic_human;
 
-pub(crate) fn fmt(inputs: Vec<PathBuf>) -> Result<ExitCode, String> {
-    let root = env::current_dir().map_err(|error| error.to_string())?;
+pub(crate) fn fmt(
+    start: super::CommandAnalysisStart,
+    inputs: Vec<PathBuf>,
+) -> Result<ExitCode, String> {
+    let inputs = start.resolve_inputs(inputs);
+    let root = start.package_root;
     let project = Project::discover(root, &inputs).map_err(|error| error.to_string())?;
     let mut formatted = Vec::new();
     let mut diagnostics = Vec::new();

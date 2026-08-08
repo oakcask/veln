@@ -1,0 +1,8 @@
+command = ["check", "nested/hidden.veln"]
+exit = 2
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["veln: source input `nested/hidden.veln` is owned by the nested package rooted at", "nested"]

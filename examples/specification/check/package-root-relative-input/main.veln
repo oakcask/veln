@@ -1,0 +1,3 @@
+pub fn selected_relative_to_invocation() -> Int
+  1
+end

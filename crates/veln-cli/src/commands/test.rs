@@ -1,5 +1,4 @@
 use std::collections::BTreeSet;
-use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{ExitCode, Output};
@@ -34,11 +33,13 @@ use crate::java::{
 };
 
 pub(crate) fn test(
+    start: super::CommandAnalysisStart,
     json: bool,
     jobs: Option<usize>,
     targets: Vec<PathBuf>,
 ) -> Result<ExitCode, String> {
-    let root = env::current_dir().map_err(|error| error.to_string())?;
+    let targets = start.resolve_inputs(targets);
+    let root = start.package_root;
     let suite = prepare_test_suite(root, &targets)?;
     let report = run_test_suite(suite, jobs)?;
 

@@ -6,6 +6,7 @@ use std::path::Path;
 use sha2::{Digest, Sha256};
 
 use crate::discover_source_paths;
+use crate::discovery::normalize_lexical_path;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProjectLockfile {
@@ -125,10 +126,11 @@ impl LockfileGitSelector {
 }
 
 pub fn source_tree_checksum(root: &Path) -> io::Result<String> {
-    let paths = discover_source_paths(root, &[])?;
+    let root = normalize_lexical_path(root);
+    let paths = discover_source_paths(&root, &[])?;
     let mut entries = paths
         .into_iter()
-        .map(|path| (package_relative_path(root, &path), path))
+        .map(|path| (package_relative_path(&root, &path), path))
         .collect::<Vec<_>>();
     entries.sort_by(|(left, _), (right, _)| left.cmp(right));
 

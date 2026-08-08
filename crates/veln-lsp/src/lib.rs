@@ -10,7 +10,7 @@ use veln_analysis::{DoctestMode, checked_project_diagnostics, parse_diagnostic_t
 use veln_ast::{SurfaceModule, lower_surface_ast};
 use veln_diagnostics::{Diagnostic, Severity};
 use veln_editor::{encode_lsp_semantic_tokens, semantic_token_legend};
-use veln_project::{Project, classify_companion_source};
+use veln_project::{Project, classify_companion_source, discover_source_paths};
 use veln_source::{SourceFile, SourceSpan};
 use veln_syntax::{Token, TokenKind, format_tree, lex, parse};
 
@@ -294,7 +294,7 @@ impl Server {
 
     fn overlay_open_workspace_documents(&self, root: &Path, project: &mut Project) {
         for (uri, text) in &self.documents {
-            let Some(source) = workspace_source_file(root, uri, text) else {
+            let Some(source) = owned_workspace_source_file(root, uri, text) else {
                 continue;
             };
             let source_path = source.path().as_str().to_string();
@@ -315,7 +315,7 @@ impl Server {
 
     fn workspace_source_path(&self, uri: &str) -> Option<String> {
         let root = workspace_root_for_uri(&self.workspace_roots, uri)?;
-        workspace_relative_source_path(root, uri)
+        owned_workspace_relative_source_path(root, uri)
     }
 
     fn symbol_at_request(&self, message: &str) -> Option<SymbolRequest> {
@@ -531,7 +531,7 @@ fn collect_manifest_project_roots(dir: &Path, roots: &mut Vec<PathBuf>) {
         let path = entry.path();
         let file_name = entry.file_name();
         let file_name = file_name.to_string_lossy();
-        if file_name == ".git" || file_name == "target" || !path.is_dir() {
+        if file_name == ".git" || !path.is_dir() {
             continue;
         }
         if path.join("veln.toml").is_file() {
@@ -572,8 +572,16 @@ fn workspace_root_for_uri<'a>(roots: &'a [PathBuf], uri: &str) -> Option<&'a Pat
         .map(PathBuf::as_path)
 }
 
-fn workspace_source_file(root: &Path, uri: &str, text: &str) -> Option<SourceFile> {
-    workspace_relative_source_path(root, uri).map(|path| SourceFile::new(path, text.to_string()))
+fn owned_workspace_source_file(root: &Path, uri: &str, text: &str) -> Option<SourceFile> {
+    owned_workspace_relative_source_path(root, uri)
+        .map(|path| SourceFile::new(path, text.to_string()))
+}
+
+fn owned_workspace_relative_source_path(root: &Path, uri: &str) -> Option<String> {
+    let relative = workspace_relative_source_path(root, uri)?;
+    let input = PathBuf::from(&relative);
+    discover_source_paths(root, std::slice::from_ref(&input)).ok()?;
+    Some(relative)
 }
 
 fn workspace_relative_source_path(root: &Path, uri: &str) -> Option<String> {
@@ -2317,6 +2325,33 @@ mod tests {
     }
 
     #[test]
+    fn server_uses_nested_manifest_roots_below_target_workspace_directories() {
+        let mut server = Server::default();
+        let workspace = TempProject::new("nested-manifest-target-workspace-folder");
+        workspace.write(
+            "target/generated-package/veln.toml",
+            "[package]\nname = \"generated\"\n",
+        );
+        workspace.write(
+            "target/generated-package/main.veln",
+            "pub fn generated() -> Int\n  1\nend\n",
+        );
+        let root_uri = path_to_uri(&workspace.root);
+        let generated_uri = path_to_uri(&workspace.root.join("target/generated-package/main.veln"));
+
+        let responses = server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"workspaceFolders":[{{"uri":"{root_uri}","name":"repo"}}]}}}}"#
+        ));
+
+        assert_eq!(
+            server.workspace_roots,
+            vec![workspace.root.join("target/generated-package")]
+        );
+        let publish = publish_for_uri(&responses, &generated_uri);
+        assert!(publish.contains(r#""diagnostics":[]"#), "{publish}");
+    }
+
+    #[test]
     fn server_does_not_infer_workspace_root_without_client_identity() {
         let mut server = Server::default();
 
@@ -2366,6 +2401,39 @@ mod tests {
     }
 
     #[test]
+    fn server_does_not_overlay_open_documents_owned_by_nested_manifest() {
+        let mut server = Server::default();
+        let project = TempProject::new("nested-open-document-overlay-boundary");
+        project.write(
+            "veln.toml",
+            "[package]\nname = \"outer\"\n\n[lib]\nexports = [\"app.veln\", \"nested/hidden.veln\"]\n",
+        );
+        project.write("app.veln", "pub fn app() -> Int\n  1\nend\n");
+        project.write("nested/veln.toml", "[package]\nname = \"nested\"\n");
+        project.write("nested/hidden.veln", "pub fn hidden() -> Int\n  2\nend\n");
+        let root_uri = path_to_uri(&project.root);
+        let manifest_uri = path_to_uri(&project.root.join("veln.toml"));
+        let app_uri = path_to_uri(&project.root.join("app.veln"));
+        let nested_uri = path_to_uri(&project.root.join("nested/hidden.veln"));
+        server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"workspaceFolders":[{{"uri":"{root_uri}","name":"outer"}}]}}}}"#
+        ));
+        server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{nested_uri}","text":"pub fn hidden() -> Int\n  2\nend\n"}}}}}}"#
+        ));
+
+        let responses = server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","method":"textDocument/didChange","params":{{"textDocument":{{"uri":"{app_uri}","version":2}},"contentChanges":[{{"text":"pub fn app() -> Int\n  1\nend\n"}}]}}}}"#
+        ));
+
+        let publish = publish_for_uri(&responses, &manifest_uri);
+        assert!(
+            publish.contains(r#""code":"manifest.unselected_export""#),
+            "{publish}"
+        );
+    }
+
+    #[test]
     fn server_clears_stale_workspace_diagnostics_after_change() {
         let mut server = Server::default();
         let project = TempProject::new("workspace-diagnostics-change-clear");
@@ -2384,6 +2452,34 @@ mod tests {
 
         let publish = publish_for_uri(&responses, &main_uri);
         assert!(publish.contains(r#""diagnostics":[]"#), "{publish}");
+    }
+
+    #[test]
+    fn server_analysis_respects_manifest_boundaries_and_owned_target_sources() {
+        let mut server = Server::default();
+        let project = TempProject::new("manifest-boundary-analysis");
+        project.write("veln.toml", "[package]\nname = \"outer\"\n");
+        project.write("app.veln", "pub fn app() -> Int\n\t1\nend\n");
+        project.write("target/owned.veln", "pub fn owned() -> Int\n\t2\nend\n");
+        project.write("nested/veln.toml", "malformed nested manifest");
+        project.write("nested/hidden.veln", "this source must not be parsed");
+        let root_uri = path_to_uri(&project.root);
+        let app_uri = path_to_uri(&project.root.join("app.veln"));
+        let target_uri = path_to_uri(&project.root.join("target/owned.veln"));
+        let nested_uri = path_to_uri(&project.root.join("nested/hidden.veln"));
+
+        let responses = server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"workspaceFolders":[{{"uri":"{root_uri}","name":"outer"}}]}}}}"#
+        ));
+
+        assert!(publish_for_uri(&responses, &app_uri).contains(r#""diagnostics":[]"#));
+        assert!(publish_for_uri(&responses, &target_uri).contains(r#""diagnostics":[]"#));
+        assert!(
+            responses
+                .iter()
+                .all(|response| !response.contains(&nested_uri)),
+            "nested package source should not receive outer-project diagnostics"
+        );
     }
 
     #[test]
