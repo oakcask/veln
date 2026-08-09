@@ -829,6 +829,11 @@ mod tests {
                 "NUL.veln",
                 PortableSourcePathError::ReservedDevice { segment_index: 0 },
             ),
+            (
+                "reserved-device-stem-space",
+                "NUL .veln",
+                PortableSourcePathError::ReservedDevice { segment_index: 0 },
+            ),
         ];
 
         for (label, path, reason) in cases {

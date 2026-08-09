@@ -270,7 +270,11 @@ fn is_nfc(value: &str) -> bool {
 }
 
 fn is_reserved_device(segment: &str) -> bool {
-    let stem = segment.split('.').next().unwrap_or(segment);
+    let stem = segment
+        .split('.')
+        .next()
+        .unwrap_or(segment)
+        .trim_end_matches(|character: char| character.is_ascii_whitespace());
     let upper = stem.to_ascii_uppercase();
     matches!(
         upper.as_str(),
@@ -398,11 +402,27 @@ mod tests {
                 PortableSourcePathError::ReservedDevice { segment_index: 0 },
             ),
             (
+                "NUL .veln",
+                PortableSourcePathError::ReservedDevice { segment_index: 0 },
+            ),
+            (
+                "NUL  .veln",
+                PortableSourcePathError::ReservedDevice { segment_index: 0 },
+            ),
+            (
                 "COM1.txt",
                 PortableSourcePathError::ReservedDevice { segment_index: 0 },
             ),
             (
+                "COM1 .txt",
+                PortableSourcePathError::ReservedDevice { segment_index: 0 },
+            ),
+            (
                 "lpt\u{b2}.veln",
+                PortableSourcePathError::ReservedDevice { segment_index: 0 },
+            ),
+            (
+                "CONOUT$ .veln",
                 PortableSourcePathError::ReservedDevice { segment_index: 0 },
             ),
         ];

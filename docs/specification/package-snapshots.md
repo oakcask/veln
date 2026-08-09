@@ -49,8 +49,10 @@ segment cannot be `.` or `..`, contain a Unicode control, `\`, or `:`, end in
 a space or dot, or use a case-insensitive platform-reserved device stem. The
 reserved stems are `CON`, `PRN`, `AUX`, `NUL`, `CONIN$`, `CONOUT$`, `COM1`
 through `COM9`, and `LPT1` through `LPT9`; the superscript aliases for 1, 2,
-and 3 are also reserved. A suffix after the reserved stem does not make the
-segment portable.
+and 3 are also reserved. ASCII whitespace between the reserved stem and the
+extension separator is ignored for this reserved-device check, so
+`NUL .veln` is not portable. A suffix after the reserved stem does not make
+the segment portable.
 
 Every retained source is valid UTF-8. Two retained source paths cannot have
 the same full Unicode default case fold. Unicode normalization and default
@@ -123,5 +125,6 @@ checks identity scalar boundaries, identity segments, Unicode whitespace,
 reserved `std`, NFC, portable path segments, controls, forbidden separators,
 trailing spaces and dots, device spellings and aliases, non-UTF-8 source names
 and text, full default-case-fold collisions, exact accepted spellings and
-bytes, and validation exclusion for symbolic links, test sources, descendant
-packages, and `.git` entries.
+bytes, reserved device stems followed by ASCII whitespace before an extension
+separator, and validation exclusion for symbolic links, test sources,
+descendant packages, and `.git` entries.
