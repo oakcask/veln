@@ -1773,6 +1773,41 @@ fn parses_task_spawn_with_result_and_context_type_arguments() {
 }
 
 #[test]
+fn type_argument_commas_split_only_at_the_outer_delimiter() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main() -> ()\n",
+            "  factory::make<fn(Int, String) -> Bool effects [stdio, concurrency], ",
+            "{left: Int, right: String}, Result<Int, AppError>>()\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let function = first_function(&output);
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+    let ExprKind::Call { callee, .. } = &expr.kind else {
+        panic!("expected call expression");
+    };
+    let ExprKind::TypeApply { type_args, .. } = &callee.kind else {
+        panic!("expected type-applied callee");
+    };
+    assert_eq!(
+        type_args,
+        &vec![
+            "fn(Int,String)->Booleffects[stdio,concurrency]".to_string(),
+            "{left:Int,right:String}".to_string(),
+            "Result<Int,AppError>".to_string(),
+        ]
+    );
+}
+
+#[test]
 fn parses_angle_type_argument_call_without_hiding_comparisons() {
     let source = SourceFile::new(
         "main.veln",

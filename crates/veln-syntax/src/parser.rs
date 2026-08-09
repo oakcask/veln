@@ -125,6 +125,117 @@ struct FunctionReturn {
     effect_spans: Option<Vec<SourceSpan>>,
 }
 
+#[derive(Default)]
+struct TypeArgumentNesting {
+    parentheses: usize,
+    braces: usize,
+    brackets: usize,
+    angles: usize,
+}
+
+struct AngleClosers {
+    total: usize,
+    nested: usize,
+}
+
+enum TypeArgumentTokenAction {
+    Finish { nested_angle_closers: usize },
+    Separate,
+    Append,
+}
+
+#[derive(Default)]
+struct TypeArgumentListState {
+    args: Vec<String>,
+    current: String,
+    nesting: TypeArgumentNesting,
+}
+
+impl TypeArgumentNesting {
+    fn is_outer_level(&self) -> bool {
+        self.parentheses == 0 && self.braces == 0 && self.brackets == 0 && self.angles == 0
+    }
+
+    fn consume_delimiter(&mut self, kind: TokenKind) {
+        match kind {
+            TokenKind::LParen => self.parentheses += 1,
+            TokenKind::RParen => self.parentheses = self.parentheses.saturating_sub(1),
+            TokenKind::LBrace => self.braces += 1,
+            TokenKind::RBrace => self.braces = self.braces.saturating_sub(1),
+            TokenKind::LBracket => self.brackets += 1,
+            TokenKind::RBracket => self.brackets = self.brackets.saturating_sub(1),
+            TokenKind::Less => self.angles += 1,
+            _ => {}
+        }
+    }
+
+    fn consume_angle_closers(&mut self, kind: TokenKind) -> Option<AngleClosers> {
+        let total = closing_angle_count(kind);
+        if total == 0 {
+            return None;
+        }
+        let nested = total.min(self.angles);
+        self.angles -= nested;
+        Some(AngleClosers { total, nested })
+    }
+
+    fn classify(&mut self, kind: TokenKind, close: TokenKind) -> TypeArgumentTokenAction {
+        if kind == close && self.is_outer_level() {
+            return TypeArgumentTokenAction::Finish {
+                nested_angle_closers: 0,
+            };
+        }
+        if kind == TokenKind::Comma && self.is_outer_level() {
+            return TypeArgumentTokenAction::Separate;
+        }
+        if let Some(closers) = self.consume_angle_closers(kind) {
+            return if closers.total > closers.nested {
+                TypeArgumentTokenAction::Finish {
+                    nested_angle_closers: closers.nested,
+                }
+            } else {
+                TypeArgumentTokenAction::Append
+            };
+        }
+        self.consume_delimiter(kind);
+        TypeArgumentTokenAction::Append
+    }
+}
+
+impl TypeArgumentListState {
+    fn consume(&mut self, token: &Token, close: TokenKind) -> bool {
+        match self.nesting.classify(token.kind, close) {
+            TypeArgumentTokenAction::Finish {
+                nested_angle_closers,
+            } => {
+                self.current.push_str(&">".repeat(nested_angle_closers));
+                self.flush_current(false);
+                true
+            }
+            TypeArgumentTokenAction::Separate => {
+                self.flush_current(true);
+                false
+            }
+            TypeArgumentTokenAction::Append => {
+                self.current.push_str(&token.text);
+                false
+            }
+        }
+    }
+
+    fn flush_current(&mut self, include_empty: bool) {
+        if include_empty || !self.current.is_empty() {
+            let current = std::mem::take(&mut self.current);
+            self.args.push(normalize_type_text(vec![current]));
+        }
+    }
+
+    fn finish(mut self) -> Vec<String> {
+        self.flush_current(false);
+        self.args
+    }
+}
+
 fn integer_literal_diagnostics(source: &SourceFile, tokens: &[Token]) -> Vec<ParseDiagnostic> {
     tokens
         .iter()
@@ -2518,85 +2629,17 @@ impl<'a> ExprParser<'a> {
 
     fn parse_type_argument_list(&mut self, close: TokenKind) -> (Vec<String>, TextRange) {
         let start = self.bump();
-        let mut args = Vec::new();
-        let mut current = String::new();
-        let mut paren_depth = 0usize;
-        let mut brace_depth = 0usize;
-        let mut bracket_depth = 0usize;
-        let mut angle_depth = 0usize;
+        let mut state = TypeArgumentListState::default();
         let mut end = start.range;
 
         while !self.is_at_end() {
             let token = self.bump();
             end = token.range;
-            match token.kind {
-                kind if kind == close
-                    && paren_depth == 0
-                    && brace_depth == 0
-                    && bracket_depth == 0
-                    && angle_depth == 0 =>
-                {
-                    if !current.is_empty() {
-                        args.push(normalize_type_text(vec![current]));
-                    }
-                    return (args, end);
-                }
-                TokenKind::Comma
-                    if paren_depth == 0
-                        && brace_depth == 0
-                        && bracket_depth == 0
-                        && angle_depth == 0 =>
-                {
-                    args.push(normalize_type_text(vec![current]));
-                    current = String::new();
-                }
-                TokenKind::LParen => {
-                    paren_depth += 1;
-                    current.push_str(&token.text);
-                }
-                TokenKind::RParen => {
-                    paren_depth = paren_depth.saturating_sub(1);
-                    current.push_str(&token.text);
-                }
-                TokenKind::LBrace => {
-                    brace_depth += 1;
-                    current.push_str(&token.text);
-                }
-                TokenKind::RBrace => {
-                    brace_depth = brace_depth.saturating_sub(1);
-                    current.push_str(&token.text);
-                }
-                TokenKind::LBracket => {
-                    bracket_depth += 1;
-                    current.push_str(&token.text);
-                }
-                TokenKind::RBracket => {
-                    bracket_depth = bracket_depth.saturating_sub(1);
-                    current.push_str(&token.text);
-                }
-                TokenKind::Less => {
-                    angle_depth += 1;
-                    current.push_str(&token.text);
-                }
-                kind if closing_angle_count(kind) > 0 => {
-                    let closing_count = closing_angle_count(kind);
-                    if closing_count > angle_depth {
-                        current.push_str(&">".repeat(angle_depth));
-                        if !current.is_empty() {
-                            args.push(normalize_type_text(vec![current]));
-                        }
-                        return (args, end);
-                    }
-                    angle_depth -= closing_count;
-                    current.push_str(&token.text);
-                }
-                _ => current.push_str(&token.text),
+            if state.consume(&token, close) {
+                return (state.finish(), end);
             }
         }
 
-        if !current.is_empty() {
-            args.push(normalize_type_text(vec![current]));
-        }
         self.error_current(
             "parse.type_argument_list",
             "type argument list is missing its closing delimiter",
@@ -2612,7 +2655,7 @@ impl<'a> ExprParser<'a> {
                 "]"
             }),
         );
-        (args, end)
+        (state.finish(), end)
     }
 
     fn parse_primary(&mut self) -> Expr {
