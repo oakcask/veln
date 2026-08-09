@@ -29,8 +29,9 @@ mitigation is not included when reviewers might expect it. State uncertainty pla
 ## Verification
 
 <!--
-Explain what behavior, contract, risk, or claim was verified, why the evidence is relevant, and why
-broader or alternative verification was not needed when that would otherwise be unclear.
+For each material claim, identify the concrete change that supplies evidence, state the observed
+result, and explain how that evidence supports the claim. Name the relevant scenario, assertion,
+fixture, specification case, check, or measurement; do not use a passing command alone as evidence.
 Include commands only when they help reviewers reproduce or understand the evidence. Omit generic
 hygiene checks such as `git diff --check` when they do not validate the change's behavior or risks.
 When verification was skipped, identify what remains unverified and why.

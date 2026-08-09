@@ -52,9 +52,9 @@ Before drafting:
    explain why they are not part of the change when that context aids review.
 5. Identify direct consequences for users, operators, developers, APIs, data,
    or deployment.
-6. Identify residual risks, review expectations, and the evidence that addresses
-   them. Distinguish behavior-relevant verification from incidental repository
-   hygiene checks.
+6. For each material claim, identify the concrete change that supplies evidence,
+   the observed result, and how that result supports the claim. Distinguish
+   behavior-relevant verification from incidental repository hygiene checks.
 7. Write the body or description so a future reader understands the decision without rereading the entire diff.
 
 If the intent or risk cannot be inferred, state the uncertainty briefly instead of inventing a reason.
@@ -106,14 +106,32 @@ Use the framework across the sections:
 - **Risks**: State what could still fail or surprise maintainers, why the risk is
   acceptable, and why further mitigation is not included when reviewers might
   expect it.
-- **Verification**: State what behavior, contract, risk, or claim was verified,
-  why the evidence is relevant, and why broader or alternative verification was
-  unnecessary when its omission would otherwise be unclear.
+- **Verification**: Map each material claim to the concrete change that supplies
+  evidence, state the observed result, and explain why that evidence supports
+  the claim. Explain why broader or alternative verification was unnecessary
+  when its omission would otherwise be unclear.
 
 Treat `Verification` as part of the rationale, not as an execution transcript.
 
+For each material claim, name the evidence-bearing change at a useful review
+granularity. Examples include an added regression scenario and its assertion, a
+changed fixture and expected output, a specification case, an invariant check,
+or a before-and-after measurement. Explain what that change demonstrates. An
+unchanged test can contribute evidence only when the description identifies the
+relevant scenario or assertion and explains why it exercises the changed path.
+Implementation changes can directly support structural claims, but behavioral
+claims need an observed outcome rather than an appeal to the diff alone.
+
+Do not turn this mapping into a file-by-file summary. Group related claims and
+evidence by behavior, contract, or risk. If no changed or existing evidence
+directly supports a material claim, mark the claim as indirectly verified or
+unverified and state the remaining uncertainty.
+
 Name a command only when it helps reviewers reproduce or understand the
-evidence. Do not list a command merely because it was run. In particular, omit
+evidence. A command states the inspection method, not the evidence or its
+relationship to a claim. Do not list a command merely because it was run, and
+do not claim that a suite "covers" a behavior without identifying the relevant
+scenario, assertion, fixture, or measured result. In particular, omit
 generic hygiene checks such as `git diff --check` when they provide no evidence
 about the change's intended behavior, consequences, or material risks. The same
 rule applies to formatting, linting, compilation, and broad test commands: keep
@@ -208,10 +226,11 @@ indistinguishable from genuine authorization failures.
 
 ## Verification
 
-Tests distinguish the new expired-session response from the unchanged
-unauthorized response. This directly covers the compatibility boundary at risk;
-broader authentication tests were not repeated because the middleware's other
-branches and session validation are unchanged.
+The added expired-session regression supplies a session past its expiry and
+asserts the new reauthentication response. The retained permission-failure case
+asserts the unchanged unauthorized response. Together these changes support the
+claimed classification boundary; broader authentication tests were not repeated
+because the middleware's other branches and session validation are unchanged.
 ```
 
 Weak verification:
@@ -229,10 +248,11 @@ Better verification:
 ```markdown
 ## Verification
 
-The parser tests cover empty input as a valid no-op and malformed input as an
-error, which verifies both the new behavior and the preserved failure contract.
-The full workspace suite was unnecessary because the change does not alter
-lowering or runtime behavior.
+The added empty-input regression asserts a successful no-op result, directly
+supporting the new parser behavior. The adjacent malformed-input assertion
+remains an error, supporting the claim that the failure contract is preserved.
+`cargo test -p parser` runs both cases. The full workspace suite was unnecessary
+because the change does not alter lowering or runtime behavior.
 ```
 
 Decision record example:
