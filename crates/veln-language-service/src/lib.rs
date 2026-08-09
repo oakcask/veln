@@ -1654,7 +1654,7 @@ mod tests {
                 "math.veln",
                 "pub fn increment(value: Int) -> Int\r\n  value + 1\r\nend\r\n",
             )],
-            ["math.veln"],
+            ["./math.veln"],
         );
         let result = dependency_query(dependency, "math::increment(1)").unwrap();
 
@@ -1816,7 +1816,10 @@ mod tests {
         DirectDependencySnapshot {
             identity,
             snapshot,
-            exported_sources: exports.into_iter().map(str::to_string).collect(),
+            exported_sources: exports
+                .into_iter()
+                .map(|export| SourcePath::new(export).as_str().to_string())
+                .collect(),
             virtual_sources,
         }
     }

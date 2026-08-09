@@ -183,7 +183,8 @@ path. Workspace definitions continue to use `file:` URIs. Private functions
 and functions in non-exported dependency sources have no dependency definition
 result. Dependency declarations are immutable package locations:
 `textDocument/prepareRename` returns no range for them, and
-`textDocument/rename` returns no workspace edits for them.
+`textDocument/rename` returns no workspace edits for them. `textDocument/references`
+returns no package locations for dependency declarations in this slice.
 
 `veln/virtualDocument` accepts an exact `veln-pkg:` URI retained by the server
 and returns its UTF-8 source text. The returned text preserves the captured
@@ -336,9 +337,14 @@ Implemented:
   document overlays.
 - Document-scoped diagnostic publication for Veln documents outside resolved
   workspaces or when no workspace identity is initialized.
+- Stdio definition responses for public functions in exported direct
+  path-dependency sources, and `veln/virtualDocument` reads for the returned
+  exact `veln-pkg:` URI.
 - VSCode startup for `.veln` files using the configured language-server
   command.
 - VSCode Problems pane integration for Veln diagnostics.
+- VSCode `veln-pkg` virtual-document content provider backed by
+  `veln/virtualDocument`.
 - Rust tests for collector classification, LSP relative encoding, ordering, and
   overlap handling, and server initialize/full-token/diagnostic/navigation
   responses.
@@ -347,6 +353,7 @@ Not implemented:
 
 - LSP range and delta semantic token requests.
 - Completion and hover.
+- Dependency reference search.
 - General rename and go-to-definition support outside the implemented
-  companion private-function identity and handler operation clause binding
-  cases.
+  companion private-function identity, handler binding, and direct
+  path-dependency definition cases.

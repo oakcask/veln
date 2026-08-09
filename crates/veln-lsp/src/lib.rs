@@ -241,7 +241,13 @@ impl Server {
         id.map(|id| {
             let result = self
                 .symbol_at_request(message)
-                .map(|request| references_json(&request.root, &request.result, true))
+                .map(|request| {
+                    references_json(
+                        &request.root,
+                        &request.result,
+                        extract_bool_field(message, "includeDeclaration").unwrap_or(false),
+                    )
+                })
                 .unwrap_or_else(|| "[]".to_string());
             response(&id, &result)
         })
@@ -454,7 +460,7 @@ fn retained_direct_dependencies(root: &Path) -> Vec<DirectDependencySnapshot> {
                 .lib
                 .exports
                 .into_iter()
-                .map(|export| export.path)
+                .map(|export| SourcePath::new(export.path).as_str().to_string())
                 .collect();
             let virtual_sources =
                 VirtualSourceCatalog::new([(identity.clone(), snapshot.clone())]).ok()?;
@@ -857,6 +863,9 @@ fn is_workspace_location(location: &NavigationLocation) -> bool {
 }
 
 fn references_json(root: &Path, result: &NavigationResult, include_declaration: bool) -> String {
+    if !is_workspace_location(&result.definition) {
+        return "[]".to_string();
+    }
     let mut locations = Vec::new();
     if include_declaration {
         locations.push(location_json(root, &result.definition));
@@ -1004,6 +1013,20 @@ fn extract_usize_field(message: &str, field: &str) -> Option<usize> {
         .find(|ch: char| !ch.is_ascii_digit())
         .unwrap_or(after_colon.len());
     after_colon[..end].parse().ok()
+}
+
+fn extract_bool_field(message: &str, field: &str) -> Option<bool> {
+    let key = format!("\"{field}\"");
+    let index = message.find(&key)?;
+    let after_key = &message[index + key.len()..];
+    let after_colon = after_key[after_key.find(':')? + 1..].trim_start();
+    if after_colon.starts_with("true") {
+        Some(true)
+    } else if after_colon.starts_with("false") {
+        Some(false)
+    } else {
+        None
+    }
 }
 
 fn extract_string_field(message: &str, field: &str) -> Option<String> {
@@ -3241,7 +3264,7 @@ mod tests {
             "vendor/lib/veln.toml",
             concat!(
                 "[package]\nname = \"example/pkg\"\n\n",
-                "[lib]\nexports = [\"math.veln\"]\n",
+                "[lib]\nexports = [\"./math.veln\"]\n",
             ),
         );
         let retained_text = concat!(
@@ -3309,6 +3332,20 @@ mod tests {
             "{}",
             private_definition[0]
         );
+
+        for include_declaration in [false, true] {
+            let references = server.handle_message(&references_request_with_declaration(
+                &main_uri,
+                3,
+                10,
+                include_declaration,
+            ));
+            assert!(
+                references[0].contains(r#""result":[]"#),
+                "{}",
+                references[0]
+            );
+        }
         for rejected_uri in [
             format!("{virtual_uri}/missing"),
             virtual_uri.replacen("%2F", "%2f", 1),
@@ -3576,8 +3613,17 @@ mod tests {
     }
 
     fn references_request(uri: &str, line: usize, character: usize) -> String {
+        references_request_with_declaration(uri, line, character, true)
+    }
+
+    fn references_request_with_declaration(
+        uri: &str,
+        line: usize,
+        character: usize,
+        include_declaration: bool,
+    ) -> String {
         format!(
-            r#"{{"jsonrpc":"2.0","id":2,"method":"textDocument/references","params":{{"textDocument":{{"uri":"{uri}"}},"position":{{"line":{line},"character":{character}}},"context":{{"includeDeclaration":true}}}}}}"#
+            r#"{{"jsonrpc":"2.0","id":2,"method":"textDocument/references","params":{{"textDocument":{{"uri":"{uri}"}},"position":{{"line":{line},"character":{character}}},"context":{{"includeDeclaration":{include_declaration}}}}}}}"#
         )
     }
 
