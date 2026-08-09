@@ -1,17 +1,11 @@
 [package]
-name = "veln-lsp"
+name = "veln-language-service"
 edition.workspace = true
 version.workspace = true
 publish = false
 
 [dependencies]
-veln-ast.workspace = true
-veln-analysis.workspace = true
-veln-diagnostics.workspace = true
-veln-editor.workspace = true
-veln-language-service.workspace = true
 veln-project.workspace = true
-veln-sema.workspace = true
 veln-source.workspace = true
 veln-syntax.workspace = true
 

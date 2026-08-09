@@ -312,6 +312,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "veln-language-service"
+version = "0.1.0"
+dependencies = [
+ "veln-project",
+ "veln-source",
+ "veln-syntax",
+]
+
+[[package]]
 name = "veln-literals"
 version = "0.1.0"
 
@@ -323,6 +332,7 @@ dependencies = [
  "veln-ast",
  "veln-diagnostics",
  "veln-editor",
+ "veln-language-service",
  "veln-project",
  "veln-sema",
  "veln-source",

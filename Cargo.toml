@@ -8,6 +8,7 @@ members = [
     "crates/veln-diagnostics",
     "crates/veln-editor",
     "crates/veln-ir",
+    "crates/veln-language-service",
     "crates/veln-literals",
     "crates/veln-lsp",
     "crates/veln-metrics",
@@ -37,6 +38,7 @@ veln-core = { path = "crates/veln-core" }
 veln-diagnostics = { path = "crates/veln-diagnostics" }
 veln-editor = { path = "crates/veln-editor" }
 veln-ir = { path = "crates/veln-ir" }
+veln-language-service = { path = "crates/veln-language-service" }
 veln-literals = { path = "crates/veln-literals" }
 veln-lsp = { path = "crates/veln-lsp" }
 veln-metrics = { path = "crates/veln-metrics" }

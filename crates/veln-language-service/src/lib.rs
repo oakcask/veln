@@ -1,0 +1,1527 @@
+//! Editor- and transport-neutral definition and reference services for Veln.
+
+use std::collections::BTreeSet;
+
+use veln_project::classify_companion_source;
+use veln_source::{SourceFile, SourcePath, SourceSpan};
+use veln_syntax::{Token, TokenKind, lex};
+
+#[derive(Clone, Debug)]
+pub struct EffectiveProjectSnapshot {
+    sources: Vec<SourceFile>,
+}
+
+impl EffectiveProjectSnapshot {
+    pub fn new(sources: Vec<SourceFile>) -> Self {
+        Self { sources }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SourcePosition {
+    pub source: SourcePath,
+    /// One-based source line.
+    pub line: usize,
+    /// One-based Unicode-scalar source column.
+    pub column: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SymbolKind {
+    Function,
+    HandlerContextParameter,
+    HandlerOperationClauseParameter,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SelectedSymbol {
+    pub kind: SymbolKind,
+    pub name: String,
+    pub declaration: SourceSpan,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NavigationResult {
+    pub selected_symbol: SelectedSymbol,
+    pub selection: SourceSpan,
+    pub definition: SourceSpan,
+    pub references: Vec<SourceSpan>,
+}
+
+pub fn navigate(
+    snapshot: &EffectiveProjectSnapshot,
+    position: SourcePosition,
+) -> Option<NavigationResult> {
+    let request = SymbolIndex::new(snapshot.sources.clone())
+        .symbol_at_position(position.source.as_str(), &position)?;
+    let definition = match &request.symbol {
+        Symbol::Function(symbol) => symbol.declaration.clone(),
+        Symbol::Local(symbol) => symbol.declaration.clone(),
+    };
+    let selected_symbol = match &request.symbol {
+        Symbol::Function(symbol) => SelectedSymbol {
+            kind: SymbolKind::Function,
+            name: symbol.name.clone(),
+            declaration: definition.clone(),
+        },
+        Symbol::Local(symbol) => SelectedSymbol {
+            kind: match symbol.kind {
+                LocalSymbolKind::HandlerContextParameter => SymbolKind::HandlerContextParameter,
+                LocalSymbolKind::HandlerOperationClauseParameter => {
+                    SymbolKind::HandlerOperationClauseParameter
+                }
+            },
+            name: symbol.name.clone(),
+            declaration: definition.clone(),
+        },
+    };
+    let mut references = match &request.symbol {
+        Symbol::Function(symbol) => request
+            .index
+            .files
+            .iter()
+            .flat_map(|file| request.index.references_in_file(file, symbol))
+            .collect(),
+        Symbol::Local(symbol) => request.index.local_references(symbol, false),
+    };
+    sort_locations(&mut references);
+    Some(NavigationResult {
+        selected_symbol,
+        selection: request.selection,
+        definition,
+        references,
+    })
+}
+
+fn sort_locations(locations: &mut Vec<SourceSpan>) {
+    locations.sort_by(|left, right| {
+        left.file
+            .as_str()
+            .cmp(right.file.as_str())
+            .then(left.start.offset.cmp(&right.start.offset))
+            .then(left.end.offset.cmp(&right.end.offset))
+    });
+    locations.dedup_by(|left, right| {
+        left.file == right.file
+            && left.start.offset == right.start.offset
+            && left.end.offset == right.end.offset
+    });
+}
+
+#[derive(Clone, Debug)]
+struct FunctionSymbol {
+    module: String,
+    name: String,
+    declaration: SourceSpan,
+}
+
+#[derive(Debug)]
+struct SymbolRequest {
+    index: SymbolIndex,
+    symbol: Symbol,
+    selection: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+enum Symbol {
+    Function(FunctionSymbol),
+    Local(LocalSymbol),
+}
+
+#[derive(Clone, Debug)]
+struct LocalSymbol {
+    name: String,
+    declaration: SourceSpan,
+    scope_file: String,
+    scope_start: usize,
+    scope_end: usize,
+    kind: LocalSymbolKind,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum LocalSymbolKind {
+    HandlerContextParameter,
+    HandlerOperationClauseParameter,
+}
+
+#[derive(Debug)]
+struct IndexedFile {
+    source: SourceFile,
+    module: String,
+    companion_target_module: Option<String>,
+    uses: BTreeSet<String>,
+}
+
+#[derive(Debug)]
+struct SymbolIndex {
+    files: Vec<IndexedFile>,
+    functions: Vec<FunctionSymbol>,
+}
+
+#[derive(Debug)]
+struct FunctionScope {
+    body_start: usize,
+    end: usize,
+    params: BTreeSet<String>,
+    result_binding: Option<String>,
+    local_bindings: Vec<LocalBinding>,
+}
+
+#[derive(Debug)]
+struct LocalBinding {
+    name: String,
+    start: usize,
+    end: usize,
+}
+
+#[derive(Debug)]
+struct ClauseBinding {
+    name: String,
+    declaration: SourceSpan,
+    start: usize,
+    end: usize,
+    kind: LocalSymbolKind,
+}
+
+impl SymbolIndex {
+    fn new(sources: Vec<SourceFile>) -> Self {
+        let files = sources
+            .into_iter()
+            .map(|source| {
+                let path = source.path().as_str().to_string();
+                let companion_target_module = classify_companion_source(&path)
+                    .and_then(|companion| module_name_from_path(&companion.target_path));
+                let module = explicit_module_name(source.text())
+                    .or_else(|| module_name_from_path(&path))
+                    .unwrap_or_default();
+                let uses = use_modules(source.text());
+                IndexedFile {
+                    source,
+                    module,
+                    companion_target_module,
+                    uses,
+                }
+            })
+            .collect::<Vec<_>>();
+        let functions = files.iter().flat_map(function_declarations).collect();
+        Self { files, functions }
+    }
+
+    fn symbol_at_position(
+        self,
+        source_path: &str,
+        position: &SourcePosition,
+    ) -> Option<SymbolRequest> {
+        let file = self
+            .files
+            .iter()
+            .find(|file| file.source.path().as_str() == source_path)?;
+        let offset = offset_for_position(file.source.text(), position)?;
+        let tokens = lex(&file.source).tokens;
+        let (token_index, token) = identifier_token_at(&tokens, offset)?;
+        let selection = file.source.span(token.range);
+        let name = file
+            .source
+            .text()
+            .get(selection.start.offset..selection.end.offset)?
+            .to_string();
+        let symbol = self.symbol_for_selection(file, &tokens, token_index, &name, &selection)?;
+        Some(SymbolRequest {
+            index: self,
+            symbol,
+            selection,
+        })
+    }
+
+    fn symbol_for_selection(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+        selection: &SourceSpan,
+    ) -> Option<Symbol> {
+        if let Some(symbol) =
+            handler_operation_clause_symbol(file, tokens, token_index, name, selection)
+        {
+            return Some(Symbol::Local(symbol));
+        }
+
+        if is_handler_operation_clause_operation_name(tokens, token_index) {
+            return None;
+        }
+
+        if let Some(symbol) = self.functions.iter().find(|symbol| {
+            symbol.name == name
+                && symbol.declaration.file == selection.file
+                && symbol.declaration.start.offset == selection.start.offset
+                && symbol.declaration.end.offset == selection.end.offset
+        }) {
+            return Some(Symbol::Function(symbol.clone()));
+        }
+
+        if !is_call_target_token(tokens, token_index) {
+            return None;
+        }
+        let Some(qualifier) = qualifier_for_token(tokens, token_index) else {
+            return self
+                .functions
+                .iter()
+                .find(|symbol| symbol.name == name && symbol.module == file.module)
+                .cloned()
+                .map(Symbol::Function);
+        };
+        self.functions
+            .iter()
+            .find(|symbol| {
+                symbol.name == name
+                    && symbol.module == qualifier
+                    && file.uses.contains(&symbol.module)
+                    && file
+                        .companion_target_module
+                        .as_ref()
+                        .is_some_and(|target| target == &symbol.module)
+            })
+            .cloned()
+            .map(Symbol::Function)
+    }
+
+    fn local_references(&self, symbol: &LocalSymbol, include_declaration: bool) -> Vec<SourceSpan> {
+        let Some(file) = self
+            .files
+            .iter()
+            .find(|file| file.source.path().as_str() == symbol.scope_file)
+        else {
+            return Vec::new();
+        };
+        let tokens = lex(&file.source).tokens;
+        let mut spans = Vec::new();
+        if include_declaration {
+            spans.push(symbol.declaration.clone());
+        }
+        spans.extend(
+            tokens
+                .iter()
+                .enumerate()
+                .filter(|(index, token)| {
+                    token.text == symbol.name
+                        && token.kind == TokenKind::Ident
+                        && token.range.start >= symbol.scope_start
+                        && token.range.start < symbol.scope_end
+                        && !is_field_name(&tokens, *index)
+                        && !is_local_binding_name(&tokens, *index)
+                        && (symbol.kind != LocalSymbolKind::HandlerContextParameter
+                            || inside_handler_operation_clause_body(&tokens, token.range.start))
+                        && !local_binding_shadows_name(
+                            &tokens,
+                            &symbol.name,
+                            token.range.start,
+                            symbol.scope_start,
+                            symbol.scope_end,
+                        )
+                        && (symbol.kind != LocalSymbolKind::HandlerContextParameter
+                            || !handler_operation_clause_parameter_shadows_name(
+                                &tokens,
+                                &symbol.name,
+                                token.range.start,
+                                symbol.scope_start,
+                                symbol.scope_end,
+                            ))
+                })
+                .map(|(_, token)| file.source.span(token.range)),
+        );
+        spans.sort_by_key(|span| span.start.offset);
+        spans.dedup_by_key(|span| (span.start.offset, span.end.offset));
+        spans
+    }
+
+    fn references_in_file(&self, file: &IndexedFile, symbol: &FunctionSymbol) -> Vec<SourceSpan> {
+        if file.module == symbol.module {
+            return call_references(&file.source, &symbol.name);
+        }
+        if file.uses.contains(&symbol.module)
+            && file
+                .companion_target_module
+                .as_ref()
+                .is_some_and(|target| target == &symbol.module)
+        {
+            return qualified_references(&file.source, &symbol.module, &symbol.name);
+        }
+        Vec::new()
+    }
+}
+
+fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
+    let mut functions = Vec::new();
+    let tokens = lex(&file.source).tokens;
+    for (index, token) in tokens.iter().enumerate() {
+        if token.kind == TokenKind::Fn
+            && let Some(name) = next_non_layout_token(&tokens, index)
+            && is_identifier(&name.text)
+        {
+            functions.push(FunctionSymbol {
+                module: file.module.clone(),
+                name: name.text.clone(),
+                declaration: file.source.span(name.range),
+            });
+        }
+    }
+    functions
+}
+
+fn handler_operation_clause_symbol(
+    file: &IndexedFile,
+    tokens: &[Token],
+    token_index: usize,
+    name: &str,
+    selection: &SourceSpan,
+) -> Option<LocalSymbol> {
+    handler_operation_clause_bindings(file, tokens)
+        .into_iter()
+        .find(|binding| {
+            let token_offset = tokens[token_index].range.start;
+            binding.name == name
+                && ((selection.start.offset >= binding.declaration.start.offset
+                    && selection.start.offset < binding.declaration.end.offset)
+                    || (token_offset >= binding.start
+                        && token_offset < binding.end
+                        && (binding.kind != LocalSymbolKind::HandlerContextParameter
+                            || inside_handler_operation_clause_body(tokens, token_offset))
+                        && !local_binding_shadows_name(
+                            tokens,
+                            &binding.name,
+                            token_offset,
+                            binding.start,
+                            binding.end,
+                        )))
+        })
+        .map(|binding| LocalSymbol {
+            name: binding.name,
+            declaration: binding.declaration,
+            scope_file: file.source.path().as_str().to_string(),
+            scope_start: binding.start,
+            scope_end: binding.end,
+            kind: binding.kind,
+        })
+}
+
+fn handler_operation_clause_bindings(file: &IndexedFile, tokens: &[Token]) -> Vec<ClauseBinding> {
+    let mut clause_bindings = Vec::new();
+    for (arrow_index, arrow) in tokens.iter().enumerate() {
+        if arrow.kind != TokenKind::FatArrow
+            || !inside_top_level_block(tokens, arrow_index, TokenKind::Handler)
+        {
+            continue;
+        }
+        let line_start_index = line_start_index(tokens, arrow_index);
+        let body_end =
+            handler_operation_clause_body_end(tokens, arrow_index, file.source.text().len());
+        let Some(lparen_index) = tokens[line_start_index..arrow_index]
+            .iter()
+            .position(|token| token.kind == TokenKind::LParen)
+            .map(|index| line_start_index + index)
+        else {
+            continue;
+        };
+        let Some(rparen_index) = tokens[lparen_index + 1..arrow_index]
+            .iter()
+            .position(|token| token.kind == TokenKind::RParen)
+            .map(|index| lparen_index + 1 + index)
+        else {
+            continue;
+        };
+        for token in &tokens[lparen_index + 1..rparen_index] {
+            if token.kind == TokenKind::Ident && is_identifier(&token.text) {
+                clause_bindings.push(ClauseBinding {
+                    name: token.text.clone(),
+                    declaration: file.source.span(token.range),
+                    start: arrow.range.end,
+                    end: body_end,
+                    kind: LocalSymbolKind::HandlerOperationClauseParameter,
+                });
+            }
+        }
+    }
+    clause_bindings.extend(handler_context_parameter_bindings(file, tokens));
+    clause_bindings
+}
+
+fn handler_context_parameter_bindings(file: &IndexedFile, tokens: &[Token]) -> Vec<ClauseBinding> {
+    tokens
+        .iter()
+        .enumerate()
+        .filter(|(_, token)| token.kind == TokenKind::Handler)
+        .flat_map(|(handler_index, _)| {
+            handler_context_parameter_bindings_for_handler(file, tokens, handler_index)
+        })
+        .collect()
+}
+
+fn handler_context_parameter_bindings_for_handler(
+    file: &IndexedFile,
+    tokens: &[Token],
+    handler_index: usize,
+) -> Vec<ClauseBinding> {
+    let Some(body_start) = tokens[handler_index..]
+        .iter()
+        .find(|token| token.kind == TokenKind::Newline)
+        .map(|token| token.range.end)
+    else {
+        return Vec::new();
+    };
+    let handler_end = function_scope_end(tokens, handler_index + 1).unwrap_or(body_start);
+    let Some(lparen_index) = tokens[handler_index..]
+        .iter()
+        .position(|token| token.kind == TokenKind::LParen)
+        .map(|index| handler_index + index)
+    else {
+        return Vec::new();
+    };
+    let Some(rparen_index) = matching_rparen_index(tokens, lparen_index, tokens.len()) else {
+        return Vec::new();
+    };
+    tokens[lparen_index + 1..rparen_index]
+        .iter()
+        .enumerate()
+        .filter(|(_, token)| token.kind == TokenKind::Ident && is_identifier(&token.text))
+        .filter(|(relative_index, _)| {
+            let index = lparen_index + 1 + relative_index;
+            next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::Colon)
+        })
+        .map(|(_, token)| ClauseBinding {
+            name: token.text.clone(),
+            declaration: file.source.span(token.range),
+            start: body_start,
+            end: handler_end,
+            kind: LocalSymbolKind::HandlerContextParameter,
+        })
+        .collect()
+}
+
+fn handler_operation_clause_body_end(
+    tokens: &[Token],
+    arrow_index: usize,
+    file_end: usize,
+) -> usize {
+    let mut nested_blocks = 0usize;
+    for (relative_index, token) in tokens[arrow_index + 1..].iter().enumerate() {
+        let index = arrow_index + 1 + relative_index;
+        match token.kind {
+            TokenKind::Eof => return file_end,
+            TokenKind::If if !is_else_if(tokens, index) => nested_blocks += 1,
+            TokenKind::Match | TokenKind::Handler => nested_blocks += 1,
+            TokenKind::End if nested_blocks == 0 => return token.range.start,
+            TokenKind::End => nested_blocks = nested_blocks.saturating_sub(1),
+            TokenKind::FatArrow if nested_blocks == 0 && !is_satisfy_arrow(tokens, index) => {
+                return match_arm_pattern_start_from_arrow(tokens, token.range.start);
+            }
+            _ => {}
+        }
+    }
+    file_end
+}
+
+fn line_start_index(tokens: &[Token], index: usize) -> usize {
+    tokens[..index]
+        .iter()
+        .rposition(|token| token.kind == TokenKind::Newline)
+        .map_or(0, |index| index + 1)
+}
+
+fn matching_rparen_index(tokens: &[Token], lparen_index: usize, end_index: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    for (relative_index, token) in tokens[lparen_index..end_index].iter().enumerate() {
+        let index = lparen_index + relative_index;
+        match token.kind {
+            TokenKind::LParen => depth += 1,
+            TokenKind::RParen => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    return Some(index);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn call_references(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
+    let tokens = lex(source).tokens;
+    let scopes = function_scopes(&tokens);
+    tokens
+        .iter()
+        .enumerate()
+        .filter(|(index, token)| {
+            token.text == name
+                && is_identifier(&token.text)
+                && previous_non_layout_token(&tokens, *index)
+                    .is_none_or(|previous| previous.kind != TokenKind::DoubleColon)
+                && !is_field_name(&tokens, *index)
+                && !is_function_declaration_name(&tokens, *index)
+                && !is_parameter_name(&tokens, *index)
+                && !is_local_binding_name(&tokens, *index)
+                && !is_handler_operation_clause_operation_name(&tokens, *index)
+                && (token_scope(&scopes, token.range.start)
+                    .is_some_and(|scope| !scope.shadows(name, &tokens, *index))
+                    || is_handler_operation_clause_call_target(&tokens, *index)
+                    || is_function_alias_target_reference(&tokens, *index, name)
+                    || is_codec_implementation_function_reference(&tokens, *index, name))
+        })
+        .map(|(_, token)| source.span(token.range))
+        .collect()
+}
+
+fn qualified_references(source: &SourceFile, module: &str, name: &str) -> Vec<SourceSpan> {
+    let tokens = lex(source).tokens;
+    let module_segments = module.split("::").collect::<Vec<_>>();
+    tokens
+        .iter()
+        .enumerate()
+        .filter(|(index, token)| {
+            token.text == name
+                && is_call_target_token(&tokens, *index)
+                && qualified_reference_matches(&tokens, *index, &module_segments)
+        })
+        .map(|(_, token)| source.span(token.range))
+        .collect()
+}
+
+fn function_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
+    let mut scopes = Vec::new();
+    for (index, token) in tokens.iter().enumerate() {
+        if !matches!(token.kind, TokenKind::Fn | TokenKind::Test) {
+            continue;
+        }
+        let Some(body_start) = tokens[index..]
+            .iter()
+            .find(|token| token.kind == TokenKind::Newline)
+            .map(|token| token.range.end)
+        else {
+            continue;
+        };
+        let end = function_scope_end(tokens, index + 1).unwrap_or(body_start);
+        let params = parameter_names(tokens, index, body_start);
+        let result_binding = result_binding_name(tokens, index, body_start);
+        let local_bindings = local_bindings(tokens, body_start, end);
+        scopes.push(FunctionScope {
+            body_start,
+            end,
+            params,
+            result_binding,
+            local_bindings,
+        });
+    }
+    scopes
+}
+
+impl FunctionScope {
+    fn shadows(&self, name: &str, tokens: &[Token], index: usize) -> bool {
+        let offset = tokens[index].range.start;
+        self.params.contains(name)
+            || self
+                .result_binding
+                .as_deref()
+                .is_some_and(|binding| binding == name && is_ensure_reference(tokens, index))
+            || self.local_bindings.iter().any(|binding| {
+                binding.name == name && binding.start <= offset && offset < binding.end
+            })
+    }
+}
+
+fn function_scope_end(tokens: &[Token], start: usize) -> Option<usize> {
+    let mut nested_blocks = 0usize;
+    for (relative_index, token) in tokens[start..].iter().enumerate() {
+        let index = start + relative_index;
+        match token.kind {
+            TokenKind::If if !is_else_if(tokens, index) => nested_blocks += 1,
+            TokenKind::Match | TokenKind::Handler => nested_blocks += 1,
+            TokenKind::End if nested_blocks == 0 => return Some(token.range.start),
+            TokenKind::End => nested_blocks -= 1,
+            TokenKind::Eof => return None,
+            _ => {}
+        }
+    }
+    None
+}
+
+fn parameter_names(tokens: &[Token], start: usize, body_start: usize) -> BTreeSet<String> {
+    let mut names = BTreeSet::new();
+    let mut depth = 0usize;
+    let mut expect_parameter_name = false;
+    for token in tokens[start..]
+        .iter()
+        .take_while(|token| token.range.start < body_start)
+    {
+        match token.kind {
+            TokenKind::LParen => {
+                depth += 1;
+                if depth == 1 {
+                    expect_parameter_name = true;
+                }
+            }
+            TokenKind::RParen => {
+                depth = depth.saturating_sub(1);
+                expect_parameter_name = false;
+            }
+            TokenKind::Comma if depth == 1 => expect_parameter_name = true,
+            TokenKind::Ident if depth == 1 && expect_parameter_name => {
+                names.insert(token.text.clone());
+                expect_parameter_name = false;
+            }
+            token_kind if !is_layout_token_kind(token_kind) && depth == 1 => {
+                expect_parameter_name = false;
+            }
+            _ => {}
+        }
+    }
+    names
+}
+
+fn result_binding_name(tokens: &[Token], start: usize, body_start: usize) -> Option<String> {
+    let arrow_index = tokens[start..]
+        .iter()
+        .position(|token| token.kind == TokenKind::Arrow)
+        .map(|index| start + index)?;
+    if tokens[arrow_index].range.start >= body_start {
+        return None;
+    }
+    let candidate_index = next_non_layout_index(tokens, arrow_index)?;
+    let candidate = &tokens[candidate_index];
+    if candidate.kind != TokenKind::Ident || !is_identifier(&candidate.text) {
+        return None;
+    }
+    next_non_layout_token(tokens, candidate_index)
+        .is_some_and(|next| next.kind == TokenKind::Colon)
+        .then(|| candidate.text.clone())
+}
+
+fn local_bindings(tokens: &[Token], body_start: usize, end: usize) -> Vec<LocalBinding> {
+    let mut bindings = Vec::new();
+    for (index, token) in tokens.iter().enumerate() {
+        if token.range.start < body_start
+            || token.range.start >= end
+            || token.kind != TokenKind::Let
+        {
+            continue;
+        }
+        let binding_end = local_binding_scope_end(tokens, index, end);
+        bindings.extend(
+            let_pattern_binding_names(tokens, index)
+                .into_iter()
+                .map(|(name, _)| LocalBinding {
+                    name,
+                    start: let_binding_scope_start(tokens, index),
+                    end: binding_end,
+                }),
+        );
+    }
+    bindings.extend(match_arm_pattern_binding_names(tokens, body_start, end));
+    bindings.extend(satisfy_candidate_binding_names(tokens, body_start, end));
+    bindings
+}
+
+fn let_binding_scope_start(tokens: &[Token], let_index: usize) -> usize {
+    tokens[let_index + 1..]
+        .iter()
+        .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
+        .last()
+        .map(|token| token.range.end)
+        .unwrap_or_else(|| tokens[let_index].range.end)
+}
+
+fn local_binding_scope_end(tokens: &[Token], let_index: usize, function_end: usize) -> usize {
+    let mut nested_blocks = 0usize;
+    for (relative_index, token) in tokens[let_index + 1..].iter().enumerate() {
+        let index = let_index + 1 + relative_index;
+        if token.range.start >= function_end {
+            break;
+        }
+        match token.kind {
+            TokenKind::If if !is_else_if(tokens, index) => nested_blocks += 1,
+            TokenKind::Match | TokenKind::Handler => nested_blocks += 1,
+            TokenKind::Else if nested_blocks == 0 => return token.range.start,
+            TokenKind::End if nested_blocks == 0 => return token.range.start,
+            TokenKind::End => nested_blocks -= 1,
+            _ => {}
+        }
+    }
+    function_end
+}
+
+fn local_binding_shadows_name(
+    tokens: &[Token],
+    name: &str,
+    offset: usize,
+    scope_start: usize,
+    scope_end: usize,
+) -> bool {
+    local_bindings(tokens, scope_start, scope_end)
+        .iter()
+        .any(|binding| binding.name == name && offset >= binding.start && offset < binding.end)
+}
+
+fn handler_operation_clause_parameter_shadows_name(
+    tokens: &[Token],
+    name: &str,
+    offset: usize,
+    scope_start: usize,
+    scope_end: usize,
+) -> bool {
+    if offset < scope_start || offset >= scope_end {
+        return false;
+    }
+    let file_end = tokens.last().map_or(scope_end, |token| token.range.end);
+    tokens.iter().enumerate().any(|(arrow_index, arrow)| {
+        if arrow.kind != TokenKind::FatArrow
+            || !is_handler_operation_clause_arrow(tokens, arrow_index)
+        {
+            return false;
+        }
+        let Some((lparen_index, rparen_index)) =
+            handler_operation_clause_parameter_range(tokens, arrow_index)
+        else {
+            return false;
+        };
+        let body_end = handler_operation_clause_body_end(tokens, arrow_index, file_end);
+        offset >= tokens[lparen_index].range.start
+            && offset < body_end
+            && handler_operation_clause_parameter_names_in_range(tokens, lparen_index, rparen_index)
+                .contains(name)
+    })
+}
+
+fn handler_operation_clause_parameter_range(
+    tokens: &[Token],
+    arrow_index: usize,
+) -> Option<(usize, usize)> {
+    let lparen_index = tokens[..arrow_index]
+        .iter()
+        .rposition(|token| token.kind == TokenKind::LParen)?;
+    let rparen_index = tokens[lparen_index + 1..arrow_index]
+        .iter()
+        .position(|token| token.kind == TokenKind::RParen)
+        .map(|index| lparen_index + 1 + index)?;
+    Some((lparen_index, rparen_index))
+}
+
+fn handler_operation_clause_parameter_names_in_range(
+    tokens: &[Token],
+    lparen_index: usize,
+    rparen_index: usize,
+) -> BTreeSet<String> {
+    tokens[lparen_index + 1..rparen_index]
+        .iter()
+        .filter(|token| token.kind == TokenKind::Ident && is_identifier(&token.text))
+        .map(|token| token.text.clone())
+        .collect()
+}
+
+fn let_pattern_binding_names(tokens: &[Token], let_index: usize) -> Vec<(String, usize)> {
+    let mut names = Vec::new();
+    let mut depth = 0usize;
+    let mut index = let_index + 1;
+    while index < tokens.len() {
+        let token = &tokens[index];
+        if token.kind == TokenKind::Eof || token.kind == TokenKind::Newline {
+            break;
+        }
+        if depth == 0 && matches!(token.kind, TokenKind::Colon | TokenKind::Equal) {
+            break;
+        }
+        match token.kind {
+            TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => depth += 1,
+            TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
+                depth = depth.saturating_sub(1);
+            }
+            TokenKind::Ident if is_pattern_binding_token(tokens, index) => {
+                names.push((token.text.clone(), token.range.end));
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    names
+}
+
+fn match_arm_pattern_binding_names(
+    tokens: &[Token],
+    body_start: usize,
+    function_end: usize,
+) -> Vec<LocalBinding> {
+    let mut bindings = Vec::new();
+    for (index, token) in tokens.iter().enumerate() {
+        if token.range.start < body_start
+            || token.range.start >= function_end
+            || token.kind != TokenKind::FatArrow
+            || !inside_match(tokens, index, body_start)
+        {
+            continue;
+        }
+        let scope_start = token.range.end;
+        let scope_end = match_arm_scope_end(tokens, index + 1, function_end);
+        let pattern_start = match_arm_pattern_start(tokens, index, body_start);
+        for name in pattern_binding_names_in_range(tokens, pattern_start, index) {
+            bindings.push(LocalBinding {
+                name,
+                start: scope_start,
+                end: scope_end,
+            });
+        }
+    }
+    bindings
+}
+
+fn satisfy_candidate_binding_names(
+    tokens: &[Token],
+    body_start: usize,
+    function_end: usize,
+) -> Vec<LocalBinding> {
+    let mut bindings = Vec::new();
+    for (index, token) in tokens.iter().enumerate() {
+        if token.range.start < body_start
+            || token.range.start >= function_end
+            || token.kind != TokenKind::Ident
+            || token.text != "satisfy"
+        {
+            continue;
+        }
+        let Some(candidate_index) = next_non_layout_index(tokens, index) else {
+            continue;
+        };
+        let candidate = &tokens[candidate_index];
+        if candidate.kind != TokenKind::Ident || !is_identifier(&candidate.text) {
+            continue;
+        }
+        let Some(arrow_index) = next_non_layout_index(tokens, candidate_index) else {
+            continue;
+        };
+        if tokens[arrow_index].kind != TokenKind::FatArrow {
+            continue;
+        }
+        let end = tokens[arrow_index + 1..]
+            .iter()
+            .find(|token| token.kind == TokenKind::Newline || token.range.start >= function_end)
+            .map(|token| token.range.start)
+            .unwrap_or(function_end);
+        bindings.push(LocalBinding {
+            name: candidate.text.clone(),
+            start: tokens[arrow_index].range.end,
+            end,
+        });
+    }
+    bindings
+}
+
+fn inside_match(tokens: &[Token], index: usize, body_start: usize) -> bool {
+    let mut nested_blocks = 0usize;
+    for token in tokens[..index]
+        .iter()
+        .rev()
+        .take_while(|token| token.range.start >= body_start)
+    {
+        match token.kind {
+            TokenKind::End => nested_blocks += 1,
+            TokenKind::Match if nested_blocks == 0 => return true,
+            TokenKind::If | TokenKind::Handler | TokenKind::Match => {
+                nested_blocks = nested_blocks.saturating_sub(1);
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
+fn match_arm_scope_end(tokens: &[Token], start: usize, function_end: usize) -> usize {
+    let mut nested_blocks = 0usize;
+    for (relative_index, token) in tokens[start..].iter().enumerate() {
+        let index = start + relative_index;
+        if token.range.start >= function_end {
+            break;
+        }
+        match token.kind {
+            TokenKind::If | TokenKind::Match | TokenKind::Handler => nested_blocks += 1,
+            TokenKind::End if nested_blocks == 0 => return token.range.start,
+            TokenKind::End => nested_blocks -= 1,
+            TokenKind::FatArrow if nested_blocks == 0 && !is_satisfy_arrow(tokens, index) => {
+                return match_arm_pattern_start_from_arrow(tokens, token.range.start);
+            }
+            _ => {}
+        }
+    }
+    function_end
+}
+
+fn match_arm_pattern_start(tokens: &[Token], arrow_index: usize, body_start: usize) -> usize {
+    tokens[..arrow_index]
+        .iter()
+        .rev()
+        .take_while(|token| token.range.start >= body_start)
+        .find(|token| token.kind == TokenKind::Newline || token.kind == TokenKind::Match)
+        .map_or(body_start, |token| token.range.end)
+}
+
+fn match_arm_pattern_start_from_arrow(tokens: &[Token], arrow_start: usize) -> usize {
+    tokens
+        .iter()
+        .position(|token| token.range.start == arrow_start)
+        .map_or(arrow_start, |index| {
+            match_arm_pattern_start(tokens, index, 0)
+        })
+}
+
+fn pattern_binding_names_in_range(tokens: &[Token], start: usize, end_index: usize) -> Vec<String> {
+    tokens[..end_index]
+        .iter()
+        .enumerate()
+        .filter(|(_, token)| token.range.start >= start)
+        .filter(|(index, token)| {
+            token.kind == TokenKind::Ident && is_pattern_binding_token(tokens, *index)
+        })
+        .map(|(_, token)| token.text.clone())
+        .collect()
+}
+
+fn is_pattern_binding_token(tokens: &[Token], index: usize) -> bool {
+    let token = &tokens[index];
+    token.kind == TokenKind::Ident
+        && is_identifier(&token.text)
+        && token.text != "true"
+        && token.text != "false"
+        && previous_non_layout_token(tokens, index)
+            .is_none_or(|previous| previous.kind != TokenKind::DoubleColon)
+        && next_non_layout_token(tokens, index)
+            .is_none_or(|next| !matches!(next.kind, TokenKind::DoubleColon | TokenKind::Colon))
+}
+
+fn is_else_if(tokens: &[Token], index: usize) -> bool {
+    previous_non_layout_token(tokens, index)
+        .is_some_and(|previous| previous.kind == TokenKind::Else)
+}
+
+fn token_scope(scopes: &[FunctionScope], offset: usize) -> Option<&FunctionScope> {
+    scopes
+        .iter()
+        .find(|scope| offset >= scope.body_start && offset < scope.end)
+}
+
+fn is_function_declaration_name(tokens: &[Token], index: usize) -> bool {
+    previous_non_layout_token(tokens, index)
+        .is_some_and(|previous| matches!(previous.kind, TokenKind::Fn | TokenKind::Test))
+}
+
+fn is_parameter_name(tokens: &[Token], index: usize) -> bool {
+    next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::Colon)
+}
+
+fn is_local_binding_name(tokens: &[Token], index: usize) -> bool {
+    previous_non_layout_token(tokens, index).is_some_and(|previous| previous.kind == TokenKind::Let)
+        || is_let_pattern_binding_name(tokens, index)
+        || is_match_arm_pattern_binding_name(tokens, index)
+        || is_satisfy_candidate_binding_name(tokens, index)
+}
+
+fn is_let_pattern_binding_name(tokens: &[Token], index: usize) -> bool {
+    let token = &tokens[index];
+    if token.kind != TokenKind::Ident {
+        return false;
+    }
+    let Some(let_index) = tokens[..index]
+        .iter()
+        .enumerate()
+        .rev()
+        .take_while(|(_, token)| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
+        .find_map(|(previous_index, token)| {
+            (token.kind == TokenKind::Let).then_some(previous_index)
+        })
+    else {
+        return false;
+    };
+    let_pattern_binding_names(tokens, let_index)
+        .iter()
+        .any(|(name, start)| name == &token.text && *start == token.range.end)
+}
+
+fn is_match_arm_pattern_binding_name(tokens: &[Token], index: usize) -> bool {
+    let token = &tokens[index];
+    token.kind == TokenKind::Ident
+        && tokens[index + 1..]
+            .iter()
+            .take_while(|next| next.kind != TokenKind::Newline && next.kind != TokenKind::Eof)
+            .any(|next| next.kind == TokenKind::FatArrow)
+        && is_pattern_binding_token(tokens, index)
+}
+
+fn is_satisfy_candidate_binding_name(tokens: &[Token], index: usize) -> bool {
+    tokens[index].kind == TokenKind::Ident
+        && previous_non_layout_token(tokens, index)
+            .is_some_and(|previous| previous.kind == TokenKind::Ident && previous.text == "satisfy")
+        && next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::FatArrow)
+}
+
+fn is_satisfy_arrow(tokens: &[Token], index: usize) -> bool {
+    let Some(candidate_index) = previous_non_layout_index(tokens, index) else {
+        return false;
+    };
+    if tokens[candidate_index].kind != TokenKind::Ident {
+        return false;
+    }
+    previous_non_layout_token(tokens, candidate_index)
+        .is_some_and(|previous| previous.kind == TokenKind::Ident && previous.text == "satisfy")
+}
+
+fn is_field_name(tokens: &[Token], index: usize) -> bool {
+    previous_non_layout_token(tokens, index).is_some_and(|previous| previous.kind == TokenKind::Dot)
+        || next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::Colon)
+}
+
+fn is_ensure_reference(tokens: &[Token], index: usize) -> bool {
+    tokens[..index]
+        .iter()
+        .rev()
+        .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
+        .any(|token| token.kind == TokenKind::Ensure)
+}
+
+fn is_function_alias_target_reference(tokens: &[Token], index: usize, name: &str) -> bool {
+    tokens[index].text == name
+        && previous_non_layout_token(tokens, index)
+            .is_some_and(|previous| previous.kind == TokenKind::Equal)
+        && tokens[..index]
+            .iter()
+            .rev()
+            .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
+            .any(|token| token.kind == TokenKind::Fn)
+}
+
+fn is_codec_implementation_function_reference(tokens: &[Token], index: usize, name: &str) -> bool {
+    tokens[index].text == name
+        && previous_non_layout_token(tokens, index)
+            .is_some_and(|previous| previous.kind == TokenKind::Ident && previous.text == "with")
+        && inside_codec_declaration(tokens, index)
+}
+
+fn is_call_target_token(tokens: &[Token], index: usize) -> bool {
+    next_non_whitespace_token(tokens, index).is_some_and(|next| next.kind == TokenKind::LParen)
+}
+
+fn is_handler_operation_clause_call_target(tokens: &[Token], index: usize) -> bool {
+    is_call_target_token(tokens, index)
+        && inside_handler_operation_clause_body(tokens, tokens[index].range.start)
+}
+
+fn is_handler_operation_clause_operation_name(tokens: &[Token], index: usize) -> bool {
+    tokens
+        .get(index)
+        .is_some_and(|token| token.kind == TokenKind::Ident && is_identifier(&token.text))
+        && tokens[index + 1..]
+            .iter()
+            .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
+            .position(|token| token.kind == TokenKind::FatArrow)
+            .map(|relative_index| index + 1 + relative_index)
+            .is_some_and(|arrow_index| {
+                is_handler_operation_clause_arrow(tokens, arrow_index)
+                    && line_tokens_before(tokens, arrow_index)
+                        .iter()
+                        .position(|token| {
+                            !matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline)
+                        })
+                        .is_some_and(|first_index| {
+                            let line_start = line_start_index(tokens, arrow_index);
+                            line_start + first_index == index
+                        })
+            })
+}
+
+fn inside_handler_operation_clause_body(tokens: &[Token], offset: usize) -> bool {
+    let file_end = tokens.last().map_or(offset, |token| token.range.end);
+    tokens.iter().enumerate().any(|(arrow_index, arrow)| {
+        arrow.kind == TokenKind::FatArrow
+            && is_handler_operation_clause_arrow(tokens, arrow_index)
+            && offset >= arrow.range.end
+            && offset < handler_operation_clause_body_end(tokens, arrow_index, file_end)
+    })
+}
+
+fn is_handler_operation_clause_arrow(tokens: &[Token], arrow_index: usize) -> bool {
+    if !inside_top_level_block(tokens, arrow_index, TokenKind::Handler) {
+        return false;
+    }
+    let line_tokens = line_tokens_before(tokens, arrow_index);
+    line_tokens
+        .iter()
+        .find(|token| !matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline))
+        .is_some_and(|token| token.kind == TokenKind::Ident && is_identifier(&token.text))
+        && line_tokens
+            .iter()
+            .any(|token| token.kind == TokenKind::LParen)
+        && line_tokens
+            .iter()
+            .any(|token| token.kind == TokenKind::RParen)
+}
+
+fn line_tokens_before(tokens: &[Token], index: usize) -> &[Token] {
+    &tokens[line_start_index(tokens, index)..index]
+}
+
+fn next_non_whitespace_token(tokens: &[Token], index: usize) -> Option<&Token> {
+    tokens[index + 1..]
+        .iter()
+        .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
+        .find(|token| token.kind != TokenKind::Whitespace)
+}
+
+fn inside_codec_declaration(tokens: &[Token], index: usize) -> bool {
+    inside_top_level_block(tokens, index, TokenKind::Codec)
+}
+
+fn inside_top_level_block(tokens: &[Token], index: usize, start_kind: TokenKind) -> bool {
+    enclosing_top_level_block_index(tokens, index, start_kind).is_some()
+}
+
+fn enclosing_top_level_block_index(
+    tokens: &[Token],
+    index: usize,
+    start_kind: TokenKind,
+) -> Option<usize> {
+    let mut nested_blocks = 0usize;
+    for (candidate_index, token) in tokens[..index].iter().enumerate().rev() {
+        match token.kind {
+            TokenKind::End => nested_blocks += 1,
+            kind if kind == start_kind && nested_blocks == 0 => return Some(candidate_index),
+            TokenKind::Fn
+            | TokenKind::Test
+            | TokenKind::If
+            | TokenKind::Match
+            | TokenKind::Handler
+            | TokenKind::Codec => nested_blocks = nested_blocks.saturating_sub(1),
+            _ => {}
+        }
+    }
+    None
+}
+
+fn identifier_token_at(tokens: &[Token], offset: usize) -> Option<(usize, &Token)> {
+    tokens.iter().enumerate().find(|(_, token)| {
+        token.kind == TokenKind::Ident
+            && offset >= token.range.start
+            && offset < token.range.end
+            && is_identifier(&token.text)
+    })
+}
+
+fn qualifier_for_token(tokens: &[Token], name_index: usize) -> Option<String> {
+    let separator_index = previous_non_layout_index(tokens, name_index)?;
+    if tokens[separator_index].kind != TokenKind::DoubleColon {
+        return None;
+    }
+    let segment_index = previous_non_layout_index(tokens, separator_index)?;
+    let mut segments = vec![tokens[segment_index].text.as_str()];
+    let mut cursor = segment_index;
+    while let Some(previous_separator) = previous_non_layout_index(tokens, cursor) {
+        if tokens[previous_separator].kind != TokenKind::DoubleColon {
+            break;
+        }
+        let Some(previous_segment) = previous_non_layout_index(tokens, previous_separator) else {
+            break;
+        };
+        segments.push(tokens[previous_segment].text.as_str());
+        cursor = previous_segment;
+    }
+    segments.reverse();
+    Some(segments.join("::"))
+}
+
+fn qualified_reference_matches(
+    tokens: &[Token],
+    name_index: usize,
+    module_segments: &[&str],
+) -> bool {
+    let mut expected_index = name_index;
+    for expected_segment in module_segments.iter().rev() {
+        let Some(separator_index) = previous_non_layout_index(tokens, expected_index) else {
+            return false;
+        };
+        if tokens[separator_index].kind != TokenKind::DoubleColon {
+            return false;
+        }
+        let Some(segment_index) = previous_non_layout_index(tokens, separator_index) else {
+            return false;
+        };
+        if tokens[segment_index].text != *expected_segment {
+            return false;
+        }
+        expected_index = segment_index;
+    }
+    previous_non_layout_token(tokens, expected_index)
+        .is_none_or(|previous| previous.kind != TokenKind::DoubleColon)
+}
+
+fn next_non_layout_token(tokens: &[Token], index: usize) -> Option<&Token> {
+    next_non_layout_index(tokens, index).map(|index| &tokens[index])
+}
+
+fn next_non_layout_index(tokens: &[Token], index: usize) -> Option<usize> {
+    tokens[index + 1..]
+        .iter()
+        .position(|token| !is_layout_token(token))
+        .map(|relative_index| index + 1 + relative_index)
+}
+
+fn previous_non_layout_token(tokens: &[Token], index: usize) -> Option<&Token> {
+    let previous = previous_non_layout_index(tokens, index)?;
+    Some(&tokens[previous])
+}
+
+fn previous_non_layout_index(tokens: &[Token], index: usize) -> Option<usize> {
+    tokens[..index]
+        .iter()
+        .enumerate()
+        .rev()
+        .find(|(_, token)| !is_layout_token(token))
+        .map(|(index, _)| index)
+}
+
+fn is_layout_token(token: &Token) -> bool {
+    is_layout_token_kind(token.kind)
+}
+
+fn is_layout_token_kind(kind: TokenKind) -> bool {
+    matches!(kind, TokenKind::Whitespace | TokenKind::Newline)
+}
+
+fn explicit_module_name(text: &str) -> Option<String> {
+    text.lines().find_map(|line| {
+        let rest = line.trim_start().strip_prefix("mod ")?;
+        leading_module_path(rest).map(str::to_string)
+    })
+}
+
+fn module_name_from_path(path: &str) -> Option<String> {
+    Some(path.strip_suffix(".veln")?.replace('/', "::"))
+}
+
+fn use_modules(text: &str) -> BTreeSet<String> {
+    text.lines()
+        .filter_map(|line| {
+            let rest = line.trim_start().strip_prefix("use ")?;
+            leading_module_path(rest).map(str::to_string)
+        })
+        .collect()
+}
+
+fn leading_module_path(input: &str) -> Option<&str> {
+    let end = input
+        .char_indices()
+        .take_while(|(_, ch)| is_identifier_char(*ch) || *ch == ':')
+        .map(|(index, ch)| index + ch.len_utf8())
+        .last()?;
+    Some(&input[..end])
+}
+
+fn is_identifier(value: &str) -> bool {
+    let mut chars = value.chars();
+    chars.next().is_some_and(is_identifier_start) && chars.all(is_identifier_char)
+}
+
+fn is_identifier_start(ch: char) -> bool {
+    ch == '_' || ch.is_ascii_alphabetic()
+}
+
+fn is_identifier_char(ch: char) -> bool {
+    is_identifier_start(ch) || ch.is_ascii_digit()
+}
+
+fn offset_for_position(text: &str, position: &SourcePosition) -> Option<usize> {
+    let line_start = line_start_offset(text, position.line.checked_sub(1)?)?;
+    let line = text[line_start..]
+        .split_once('\n')
+        .map_or(&text[line_start..], |(line, _)| line);
+    let offset = line
+        .char_indices()
+        .nth(position.column.checked_sub(1)?)
+        .map(|(index, _)| line_start + index)
+        .unwrap_or(line_start + line.len());
+    Some(offset)
+}
+
+fn line_start_offset(text: &str, zero_based_line: usize) -> Option<usize> {
+    if zero_based_line == 0 {
+        return Some(0);
+    }
+    let mut line = 0;
+    for (index, ch) in text.char_indices() {
+        if ch == '\n' {
+            line += 1;
+            if line == zero_based_line {
+                return Some(index + 1);
+            }
+        }
+    }
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn function_definition_and_references_are_deterministic() {
+        let result = query(
+            vec![
+                source(
+                    "math.test.veln",
+                    "use math\n\ntest companion() -> Int\n  math::increment(1)\nend\n",
+                ),
+                source(
+                    "math.veln",
+                    "fn increment(value: Int) -> Int\n  increment(value - 1)\nend\n",
+                ),
+            ],
+            "math.test.veln",
+            4,
+            11,
+        )
+        .unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+        assert_location(&result.definition, "math.veln", 1, 4);
+        assert_eq!(
+            locations(&result.references),
+            [("math.test.veln", 4, 9), ("math.veln", 2, 3)]
+        );
+    }
+
+    #[test]
+    fn exact_companion_boundary_excludes_other_test_files() {
+        let result = query(
+            vec![
+                source(
+                    "other.test.veln",
+                    "use math\n\ntest unrelated() -> Int\n  math::increment(2)\nend\n",
+                ),
+                source(
+                    "math.veln",
+                    "fn increment(value: Int) -> Int\n  value + 1\nend\n",
+                ),
+                source(
+                    "math.test.veln",
+                    "use math\n\ntest companion() -> Int\n  math::increment(1)\nend\n",
+                ),
+            ],
+            "math.test.veln",
+            4,
+            11,
+        )
+        .unwrap();
+
+        assert_eq!(locations(&result.references), [("math.test.veln", 4, 9)]);
+    }
+
+    #[test]
+    fn handler_clause_binding_excludes_shadowing_patterns_and_fields() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "effect Choose\n",
+                    "  pick(value: Bool) -> Int\n",
+                    "end\n\n",
+                    "handler choose() handles Choose\n",
+                    "  pick(value) => match value\n",
+                    "    true => value\n",
+                    "    value => value\n",
+                    "    false => record.value\n",
+                    "  end\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            7,
+            16,
+        )
+        .unwrap();
+
+        assert_eq!(
+            result.selected_symbol.kind,
+            SymbolKind::HandlerOperationClauseParameter
+        );
+        assert_location(&result.definition, "main.veln", 6, 8);
+        assert_eq!(
+            locations(&result.references),
+            [("main.veln", 6, 24), ("main.veln", 7, 13)]
+        );
+    }
+
+    #[test]
+    fn handler_context_binding_stays_in_clause_bodies() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "effect Adjust\n",
+                    "  amount(value: Int) -> Int\n",
+                    "end\n\n",
+                    "handler adjust(callback: fn(Int) -> Int) handles Adjust\n",
+                    "  amount(value) => callback(value)\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            6,
+            22,
+        )
+        .unwrap();
+
+        assert_eq!(
+            result.selected_symbol.kind,
+            SymbolKind::HandlerContextParameter
+        );
+        assert_location(&result.definition, "main.veln", 5, 16);
+        assert_eq!(locations(&result.references), [("main.veln", 6, 20)]);
+    }
+
+    #[test]
+    fn unsupported_positions_have_no_selected_symbol() {
+        let sources = vec![source(
+            "main.veln",
+            "fn increment(value: Int) -> Int\n  value.field\n  \"increment()\"\n  # increment()\nend\n",
+        )];
+
+        for (line, column) in [(2, 9), (3, 5), (4, 5), (1, 1)] {
+            assert!(query(sources.clone(), "main.veln", line, column).is_none());
+        }
+    }
+
+    fn source(path: &str, text: &str) -> SourceFile {
+        SourceFile::new(path, text)
+    }
+
+    fn query(
+        sources: Vec<SourceFile>,
+        source_path: &str,
+        line: usize,
+        column: usize,
+    ) -> Option<NavigationResult> {
+        navigate(
+            &EffectiveProjectSnapshot::new(sources),
+            SourcePosition {
+                source: SourcePath::new(source_path),
+                line,
+                column,
+            },
+        )
+    }
+
+    fn assert_location(span: &SourceSpan, path: &str, line: usize, column: usize) {
+        assert_eq!(span.file.as_str(), path);
+        assert_eq!((span.start.line, span.start.column), (line, column));
+    }
+
+    fn locations(spans: &[SourceSpan]) -> Vec<(&str, usize, usize)> {
+        spans
+            .iter()
+            .map(|span| (span.file.as_str(), span.start.line, span.start.column))
+            .collect()
+    }
+}

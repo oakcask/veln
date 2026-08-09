@@ -923,22 +923,24 @@ already implemented.
 
 ## Implementation Slices
 
-1. Extract saved-snapshot symbol indexing, definition, and references into the
-   shared language service. Generalize the symbol coverage and keep current LSP
-   behavior passing.
-2. Add package snapshot identities, virtual source locations, and virtual
+The shared saved-snapshot definition and reference foundation is implemented
+and specified in
+[Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).
+The remaining slices are:
+
+1. Add package snapshot identities, virtual source locations, and virtual
    source resolution. Add the LSP virtual-document request and VSCode content
    provider.
-3. Add exported package documentation and bind it to package snapshots.
-4. Define and validate language-reference topic descriptors. Generate the
+2. Add exported package documentation and bind it to package snapshots.
+3. Define and validate language-reference topic descriptors. Generate the
    executable grammar, selected example, and compiler-owned table projections.
-5. Add `veln mcp`, resources, documentation tools, project diagnostics,
+4. Add `veln mcp`, resources, documentation tools, project diagnostics,
    definition, and references.
-6. Add cross-adapter conformance cases, bounded search, pagination, and stale
+5. Add cross-adapter conformance cases, bounded search, pagination, and stale
    snapshot handling.
-7. Package and validate Codex and Claude Code plugins and document their
+6. Package and validate Codex and Claude Code plugins and document their
    client-native installation flows.
-8. Promote implemented behavior and evidence into the matching specification
+7. Promote implemented behavior and evidence into the matching specification
    and example routes, then move this proposal out of `../proposals/`.
 
 ## Deferred Work
