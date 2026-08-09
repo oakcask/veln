@@ -16,10 +16,11 @@ used by editor integrations.
 - Editor-neutral semantic records come from `veln-editor`.
 - LSP `textDocument/semanticTokens/full` integer data comes from `veln-lsp`.
 - LSP `textDocument/publishDiagnostics` messages come from `veln-lsp`.
+- Definition and reference identity comes from `veln-language-service`.
 - LSP `textDocument/definition`, `textDocument/references`,
-  `textDocument/formatting`, `textDocument/prepareRename`, and
-  `textDocument/rename` handle the implemented navigation, formatting, and
-  rename cases in `veln-lsp`.
+  `textDocument/prepareRename`, and `textDocument/rename` convert shared
+  navigation results to LSP responses in `veln-lsp`.
+- LSP `textDocument/formatting` is implemented in `veln-lsp`.
 - The stdio LSP server starts through `veln lsp`.
 - TextMate fallback highlighting is contributed by
   `editors/vscode/syntaxes/veln.tmLanguage.json`.
@@ -150,6 +151,19 @@ The diagnostic `code` is the Veln diagnostic id, and the diagnostic `source` is
 `veln`.
 
 ## LSP Navigation, Formatting, And Rename
+
+`veln-language-service` accepts an effective project snapshot and a one-based
+Unicode-scalar source position. It returns the selected symbol, its definition,
+and deterministic reference locations as Veln source identities and ranges.
+The result contains no URI serialization, JSON, JSON-RPC, or LSP coordinate
+representation. Its direct tests cover project functions, exact companion
+visibility, handler bindings, deterministic ordering, shadowing, field
+isolation, and positions without a supported symbol.
+
+`veln-lsp` applies open-document overlays before it constructs the effective
+snapshot. It converts shared locations to LSP URIs and zero-based ranges.
+Definition, references, prepare-rename, and rename use the same shared selected
+symbol and reference set.
 
 `textDocument/formatting` returns a single whole-document text edit containing
 the same canonical formatting produced by the formatter. Handler operation
