@@ -854,6 +854,27 @@ mod tests {
         ));
     }
 
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn package_snapshot_capture_rejects_three_character_case_fold_collisions() {
+        let package = SnapshotFixture::new("case-fold-three-collision");
+        package.write_bytes("veln.toml", b"manifest");
+        package.write_bytes("ffi.veln", b"first");
+        package.write_bytes("ﬃ.veln", b"second");
+
+        assert_eq!(
+            capture_package_snapshot(package.root())
+                .unwrap_err()
+                .to_string(),
+            "package snapshot source paths `ffi.veln` and `ﬃ.veln` collide after Unicode default case folding"
+        );
+        assert!(matches!(
+            capture_package_snapshot(package.root()),
+            Err(PackageSnapshotCaptureError::SourcePathCollision { first, second })
+                if first == "ffi.veln" && second == "ﬃ.veln"
+        ));
+    }
+
     #[test]
     fn package_snapshot_capture_preserves_valid_unicode_and_source_bytes() {
         let package = SnapshotFixture::new("portable-exact-input");

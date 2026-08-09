@@ -225,7 +225,44 @@ pub(crate) fn validate_source_path(path: &str) -> Result<(), PortableSourcePathE
 }
 
 pub(crate) fn default_case_fold(path: &str) -> String {
-    unicase::UniCase::unicode(path).to_folded_case()
+    if !path
+        .chars()
+        .any(|character| full_case_fold_three(character).is_some())
+    {
+        return unicase::UniCase::unicode(path).to_folded_case();
+    }
+
+    let mut folded = String::with_capacity(path.len());
+    for character in path.chars() {
+        if let Some(replacement) = full_case_fold_three(character) {
+            folded.push_str(replacement);
+        } else {
+            folded.push_str(&unicase::UniCase::unicode(character.to_string()).to_folded_case());
+        }
+    }
+    folded
+}
+
+fn full_case_fold_three(character: char) -> Option<&'static str> {
+    match character {
+        '\u{0390}' => Some("\u{03b9}\u{0308}\u{0301}"),
+        '\u{03b0}' => Some("\u{03c5}\u{0308}\u{0301}"),
+        '\u{1f52}' => Some("\u{03c5}\u{0313}\u{0300}"),
+        '\u{1f54}' => Some("\u{03c5}\u{0313}\u{0301}"),
+        '\u{1f56}' => Some("\u{03c5}\u{0313}\u{0342}"),
+        '\u{1fb7}' => Some("\u{03b1}\u{0342}\u{03b9}"),
+        '\u{1fc7}' => Some("\u{03b7}\u{0342}\u{03b9}"),
+        '\u{1fd2}' => Some("\u{03b9}\u{0308}\u{0300}"),
+        '\u{1fd3}' => Some("\u{03b9}\u{0308}\u{0301}"),
+        '\u{1fd7}' => Some("\u{03b9}\u{0308}\u{0342}"),
+        '\u{1fe2}' => Some("\u{03c5}\u{0308}\u{0300}"),
+        '\u{1fe3}' => Some("\u{03c5}\u{0308}\u{0301}"),
+        '\u{1fe7}' => Some("\u{03c5}\u{0308}\u{0342}"),
+        '\u{1ff7}' => Some("\u{03c9}\u{0342}\u{03b9}"),
+        '\u{fb03}' => Some("ffi"),
+        '\u{fb04}' => Some("ffl"),
+        _ => None,
+    }
 }
 
 fn is_nfc(value: &str) -> bool {
@@ -384,6 +421,63 @@ mod tests {
         assert_eq!(PORTABLE_UNICODE_VERSION, (17, 0, 0));
         assert_eq!(PORTABLE_UNICODE_VERSION_STRING, "17.0.0");
         assert_eq!(default_case_fold("Straße.veln"), "strasse.veln");
+        assert_eq!(default_case_fold("ﬃ.veln"), "ffi.veln");
+        assert_eq!(default_case_fold("ᾷ.veln"), "ᾶι.veln");
         assert_eq!(default_case_fold("στιγμας.veln"), "στιγμασ.veln");
+    }
+
+    #[test]
+    fn unicode_contract_matches_full_default_case_folding_three_expansions() {
+        let cases = [
+            ('\u{0390}', "\u{03b9}\u{0308}\u{0301}"),
+            ('\u{03b0}', "\u{03c5}\u{0308}\u{0301}"),
+            ('\u{1f52}', "\u{03c5}\u{0313}\u{0300}"),
+            ('\u{1f54}', "\u{03c5}\u{0313}\u{0301}"),
+            ('\u{1f56}', "\u{03c5}\u{0313}\u{0342}"),
+            ('\u{1fb7}', "\u{03b1}\u{0342}\u{03b9}"),
+            ('\u{1fc7}', "\u{03b7}\u{0342}\u{03b9}"),
+            ('\u{1fd2}', "\u{03b9}\u{0308}\u{0300}"),
+            ('\u{1fd3}', "\u{03b9}\u{0308}\u{0301}"),
+            ('\u{1fd7}', "\u{03b9}\u{0308}\u{0342}"),
+            ('\u{1fe2}', "\u{03c5}\u{0308}\u{0300}"),
+            ('\u{1fe3}', "\u{03c5}\u{0308}\u{0301}"),
+            ('\u{1fe7}', "\u{03c5}\u{0308}\u{0342}"),
+            ('\u{1ff7}', "\u{03c9}\u{0342}\u{03b9}"),
+            ('\u{fb03}', "ffi"),
+            ('\u{fb04}', "ffl"),
+        ];
+
+        for (character, expected) in cases {
+            assert_eq!(default_case_fold(&character.to_string()), expected);
+        }
+    }
+
+    #[test]
+    fn unicode_contract_matches_case_folding_c_and_f_mappings() {
+        for line in include_str!("../testdata/case_folding_17_c_f.txt").lines() {
+            let (code, mapping) = line
+                .split_once(';')
+                .expect("case folding fixture line should contain a separator");
+            let character = char::from_u32(
+                u32::from_str_radix(code, 16).expect("case folding code should be hexadecimal"),
+            )
+            .expect("case folding code should be a Unicode scalar");
+            let expected = mapping
+                .split_whitespace()
+                .map(|code| {
+                    char::from_u32(
+                        u32::from_str_radix(code, 16)
+                            .expect("case folding mapping should be hexadecimal"),
+                    )
+                    .expect("case folding mapping should be Unicode scalar")
+                })
+                .collect::<String>();
+
+            assert_eq!(
+                default_case_fold(&character.to_string()),
+                expected,
+                "{line}"
+            );
+        }
     }
 }
