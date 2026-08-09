@@ -1,5 +1,7 @@
 use super::*;
 
+mod facts;
+
 #[derive(Clone)]
 pub(crate) struct TypeEnvironment {
     functions: Vec<FunctionSignature>,
@@ -18,17 +20,6 @@ pub(crate) struct TypeEnvironment {
 }
 
 impl TypeEnvironment {
-    fn function_name_index(functions: &[FunctionSignature]) -> HashMap<String, Vec<usize>> {
-        let mut index = HashMap::<String, Vec<usize>>::new();
-        for (position, function) in functions.iter().enumerate() {
-            index
-                .entry(function.name.clone())
-                .or_default()
-                .push(position);
-        }
-        index
-    }
-
     fn functions_named(&self, name: &str) -> impl Iterator<Item = &FunctionSignature> {
         self.functions_by_name
             .get(name)
@@ -95,7 +86,7 @@ impl TypeEnvironment {
         let functions = selected_standard_facts(&self.functions, module_names, |signature| {
             signature.module_name.as_deref()
         });
-        let functions_by_name = Self::function_name_index(&functions);
+        let functions_by_name = facts::function_name_index(&functions);
         Self {
             functions,
             functions_by_name,
@@ -148,79 +139,7 @@ impl TypeEnvironment {
     }
 
     fn from_module_with_base(module: &SurfaceModule, base: Option<&TypeEnvironment>) -> Self {
-        let mut effects = effect_signatures(module);
-        if let Some(base) = base {
-            effects.extend(base.effects.clone());
-        }
-        let adts = AdtRegistry::from_module_with_base(module, base.map(|base| &base.adts));
-        let mut companion_effect_access_targets = companion_access_target_infos(module);
-        if let Some(base) = base {
-            companion_effect_access_targets.extend(base.companion_effect_access_targets.clone());
-        }
-        let mut handlers = handler_signatures(module, &effects, &companion_effect_access_targets);
-        if let Some(base) = base {
-            handlers.extend(base.handlers.clone());
-        }
-        let mut functions =
-            ordinary_function_signatures(module, &effects, &adts, &companion_effect_access_targets);
-        if let Some(base) = base {
-            functions.extend(base.functions.clone());
-        }
-        infer_private_function_body_return_types(module, &mut functions, &adts);
-        infer_private_function_call_site_signature_types(module, &mut functions, &adts);
-        infer_private_function_body_return_types(module, &mut functions, &adts);
-        infer_private_prelude_callback_return_types(module, &mut functions, &adts);
-        functions.extend(schema_decode_function_signatures(module));
-        functions.extend(schema_encode_function_signatures(module));
-        functions.extend(schema_validate_function_signatures(module));
-        infer_function_and_private_handler_effects(module, &mut functions, &effects, &mut handlers);
-        let mut codec_calls = codec_call_signatures(module, &functions);
-        if let Some(base) = base {
-            codec_calls.extend(base.codec_calls.clone());
-        }
-        let aliases = function_alias_signatures(module, &functions);
-        functions.extend(aliases);
-        let mut schema_symbols = SchemaSymbolTable::from_module(module);
-        if let Some(base) = base {
-            schema_symbols.extend(base.schema_symbols.clone());
-        }
-        let mut type_symbols = named_type_symbols(module);
-        if let Some(base) = base {
-            type_symbols.extend(base.type_symbols.clone());
-        }
-        let mut codec_symbols = named_codec_symbols(module);
-        if let Some(base) = base {
-            codec_symbols.extend(base.codec_symbols.clone());
-        }
-        let mut uses = module.uses.clone();
-        if let Some(base) = base {
-            uses.extend(base.uses.clone());
-        }
-        let mut companion_function_targets = companion_function_access_targets(module);
-        if let Some(base) = base {
-            companion_function_targets.extend(base.companion_function_access_targets.clone());
-        }
-        let mut companion_schema_access_targets = companion_access_targets(module);
-        if let Some(base) = base {
-            companion_schema_access_targets.extend(base.companion_schema_access_targets.clone());
-        }
-        codec_calls.shrink_to_fit();
-        let functions_by_name = Self::function_name_index(&functions);
-        Self {
-            functions,
-            functions_by_name,
-            codec_calls,
-            effects,
-            handlers,
-            schema_symbols,
-            type_symbols,
-            codec_symbols,
-            uses,
-            adts,
-            companion_function_access_targets: companion_function_targets,
-            companion_schema_access_targets,
-            companion_effect_access_targets,
-        }
+        facts::from_module_with_base(module, base)
     }
 
     pub(crate) fn function(&self, name: &str) -> Option<&FunctionSignature> {
