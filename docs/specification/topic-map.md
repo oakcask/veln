@@ -1,4 +1,5 @@
 ---
+role: routing
 review-when: A specification topic route is added, moved, renamed, or no longer points to the smallest current behavior page.
 ---
 
@@ -57,6 +58,8 @@ smallest specification page to read. Start with the short page; open the matchin
 
 ## Runtime, Examples, And Rationale
 
+- Transport-independent package snapshot digest inputs, transcript, spelling,
+  and fixed vectors: [package-snapshots.md](package-snapshots.md).
 - Explicit HTTP/2 frame, diagnostic, HPACK, and core modules:
   [http2.md](http2.md).
 - JVM execution behavior, values, calls, control flow, and host boundaries:

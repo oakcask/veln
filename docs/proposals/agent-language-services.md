@@ -446,27 +446,11 @@ answer from newer bytes.
 
 ## Package Snapshots
 
-The package snapshot digest is distinct from the existing lockfile source-tree
-checksum. SHA-256 consumes this exact transcript:
-
-```text
-ASCII "veln-package-snapshot/v1\0"
-0x01 || u64be(manifest byte length) || exact manifest bytes
-0x02 || u64be(source count)
-for each source sorted by normalized path UTF-8 bytes:
-  0x03 || u64be(path byte length) || path UTF-8 bytes
-       || u64be(source byte length) || exact source bytes
-```
-
-All lengths and the count are unsigned 64-bit big-endian integers. There is no
-terminal record. The digest spelling is exactly 64 lowercase hexadecimal
-digits. Checked fixed vectors are:
-
-| Manifest and sources | Digest |
-| --- | --- |
-| Empty manifest; no sources | `f0030b92642915b495c426a5b5185676e0306219a52c448a94fb5e8dccc494ad` |
-| Manifest `[package]\nname = "p"\n`; `a.veln` is `a\n`; `z.veln` is `z\n` | `77150b975c9bb56aab9e9b3c8899a81907abc9db535fdfbb6276d40bff9fa878` |
-| Empty manifest; `src/λ.veln` is `λ\n` | `f360e18455f6b7c90dd6c34cdec7a444082e003e44583dc8a7d99ae50cba713b` |
+The transport-independent Q11 digest transcript foundation is implemented in
+`veln-project`. Its current contract and fixed-vector evidence are specified in
+[Package Snapshot Digests](../specification/package-snapshots.md). Filesystem
+capture, distribution-set validation, portable identity validation, and
+snapshot publication remain planned below.
 
 The owned distribution set contains every captured regular file whose name
 ends in `.veln`, including private, non-exported, on-disk generated, and
@@ -809,7 +793,7 @@ backward-compatible extension entry.
 
 The resolved-decision evidence groups are:
 
-| Decision | Required planned evidence |
+| Decision | Required evidence |
 | --- | --- |
 | Q01 anonymous diagnostics | Required single source, two unrelated files, invalid combinations, and invalid source paths. |
 | Q02 descendant ownership | Outer source ownership and unselected descendant single-file analysis without outer references. |
@@ -833,6 +817,10 @@ The resolved-decision evidence groups are:
 | Q20 executable binding | Workspace paths, multi-root startup, inherited or explicit working directory, missing and shadowed executable, every incompatible contract, and matching initialization. |
 | Q21 plugin matrix | Pinned validators, generated-package freshness, every supported client and platform boundary, native install, MCP smoke, Claude LSP smoke, and unknown-file isolation. |
 | Q22 gate totality | Injected missing requirement, duplicate evidence, missing matrix cell, stale artifact, undeclared capability, malformed request class, and plugin mismatch. |
+
+Q11 is implemented by the `veln-project` fixed-vector and transcript-mutation
+tests. Every other row in this table remains planned evidence for the agent
+language service.
 
 The gate also covers resource-template listing and reads, every malformed
 request class, zero/default/maximum/above-maximum bounds, all documentation
@@ -885,8 +873,7 @@ already implemented.
 | --- | --- | --- |
 | Address equivalent path, vendor, mirror, or git snapshots. | Package identity, snapshot, and source path determine the same URI independent of storage layout. | URI canonicalization table tests. |
 | Read a returned virtual source URI. | Resource text equals the source bytes used for analysis. | MCP resource round-trip case. |
-| Change an included source or manifest byte. | The package snapshot digest and all corresponding virtual URIs change. | Snapshot digest tests. |
-| Evaluate the three package-snapshot transcript vectors. | Independent encoders produce the exact specified lowercase SHA-256 digests. | Q11 fixed-vector cases. |
+| Change an included source or manifest byte in a captured distribution. | Snapshot capture passes the changed exact bytes to the implemented digest API, and all corresponding virtual URIs change. | Q12 distribution integration and virtual-resource cases. |
 | Discover private, generated, test, descendant, and `target` sources. | The captured distribution set includes private, non-exported, generated, and ordinary `target` sources and applies every stated exclusion. | Q12 distribution-set matrix. |
 | Load nonportable names or colliding paths. | Invalid UTF-8, non-NFC, control-bearing, separator-bearing, case-colliding, or reserved identities are rejected before publication. | Q13 portable-domain matrix. |
 | Change only a physical materialization path. | Virtual URIs remain unchanged. | Snapshot relocation test. |
@@ -926,11 +913,13 @@ already implemented.
 The shared saved-snapshot definition and reference foundation is implemented
 and specified in
 [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).
+The Q11 package-snapshot digest transcript foundation is implemented and
+specified in [Package Snapshot Digests](../specification/package-snapshots.md).
 The remaining slices are:
 
-1. Add package snapshot identities, virtual source locations, and virtual
-   source resolution. Add the LSP virtual-document request and VSCode content
-   provider.
+1. Build package snapshot capture and identities on the digest foundation. Add
+   virtual source locations and resolution, the LSP virtual-document request,
+   and the VSCode content provider.
 2. Add exported package documentation and bind it to package snapshots.
 3. Define and validate language-reference topic descriptors. Generate the
    executable grammar, selected example, and compiler-owned table projections.
