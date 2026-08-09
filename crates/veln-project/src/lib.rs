@@ -5,6 +5,7 @@ mod discovery;
 mod lockfile;
 mod manifest;
 mod project;
+mod snapshot;
 
 #[cfg(test)]
 mod tests;
@@ -24,6 +25,7 @@ pub use manifest::{
     ProjectManifest, read_manifest,
 };
 pub use project::Project;
+pub use snapshot::{PackageSnapshotDigestError, PackageSnapshotSource, package_snapshot_digest};
 
 use std::fs;
 use std::io;
