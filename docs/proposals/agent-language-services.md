@@ -448,9 +448,10 @@ answer from newer bytes.
 
 The transport-independent Q11 digest transcript foundation is implemented in
 `veln-project`. Its current contract and fixed-vector evidence are specified in
-[Package Snapshot Digests](../specification/package-snapshots.md). Filesystem
-capture, distribution-set validation, portable identity validation, and
-snapshot publication remain planned below.
+[Package Snapshot Digests](../specification/package-snapshots.md). The same
+specification defines the implemented filesystem capture and Q12 distribution
+set foundation. Portable identity validation, analysis integration, virtual
+resources, and snapshot publication remain planned below.
 
 The owned distribution set contains every captured regular file whose name
 ends in `.veln`, including private, non-exported, on-disk generated, and
@@ -806,7 +807,7 @@ The resolved-decision evidence groups are:
 | Q09 cursors | Cursor-only continuation, page concatenation, tamper, cross-server, restart, reuse, eviction, unrelated changes, byte restoration, and refresh. |
 | Q10 resource lifetime | Cross-project deduplication, coexisting digests, refresh and removal survival, capacity rejection, and shutdown. |
 | Q11 package digest | All three fixed vectors, reversed discovery order, tag, byte-order, domain, and one-byte changes. |
-| Q12 distribution set | Every inclusion and exclusion, private and non-exported sources, generated and `target` sources, and digest-analysis-resource set equality. |
+| Q12 distribution set | Filesystem capture covers every inclusion and exclusion, private and non-exported sources, generated and `target` sources, exact-byte digest integration, ordering, and relocation. Digest-analysis-resource set equality remains planned. |
 | Q13 portable domains | Non-UTF-8 names and text, NFC rejection, case collisions, separators, controls, aliases, unrepresentable names, and reserved `std`. |
 | Q14 URI spelling | Canonical round trip and rejection of percent aliases, encoded separators and dots, authority, query, fragment, and malformed digest forms. |
 | Q15 disclosure | Private source access, excluded source rejection, complete metadata allowlist, and credential, path, dependency, URL, tool, and unknown-field exclusion. |
@@ -819,8 +820,10 @@ The resolved-decision evidence groups are:
 | Q22 gate totality | Injected missing requirement, duplicate evidence, missing matrix cell, stale artifact, undeclared capability, malformed request class, and plugin mismatch. |
 
 Q11 is implemented by the `veln-project` fixed-vector and transcript-mutation
-tests. Every other row in this table remains planned evidence for the agent
-language service.
+tests. The Q12 filesystem-capture foundation is implemented by the
+`veln-project` distribution matrix and digest-integration tests. Q12 analysis
+and virtual-resource equality and every other row remain planned evidence for
+the agent language service.
 
 The gate also covers resource-template listing and reads, every malformed
 request class, zero/default/maximum/above-maximum bounds, all documentation
@@ -873,10 +876,10 @@ already implemented.
 | --- | --- | --- |
 | Address equivalent path, vendor, mirror, or git snapshots. | Package identity, snapshot, and source path determine the same URI independent of storage layout. | URI canonicalization table tests. |
 | Read a returned virtual source URI. | Resource text equals the source bytes used for analysis. | MCP resource round-trip case. |
-| Change an included source or manifest byte in a captured distribution. | Snapshot capture passes the changed exact bytes to the implemented digest API, and all corresponding virtual URIs change. | Q12 distribution integration and virtual-resource cases. |
-| Discover private, generated, test, descendant, and `target` sources. | The captured distribution set includes private, non-exported, generated, and ordinary `target` sources and applies every stated exclusion. | Q12 distribution-set matrix. |
+| Change an included source or manifest byte in a captured distribution. | Snapshot capture passes the changed exact bytes to the implemented digest API. Analysis, publication, and corresponding virtual URI changes remain planned. | Implemented Q12 capture digest-integration tests; planned analysis and virtual-resource cases. |
+| Discover private, generated, test, descendant, symlink, non-regular, and `target` sources. | The captured distribution set includes private, non-exported, generated, and ordinary `target` sources, applies every stated exclusion, and errors on represented non-regular distribution sources. Analysis and resource consumers remain planned. | Implemented Q12 distribution-set and filesystem-boundary tests; planned analysis-resource equality cases. |
 | Load nonportable names or colliding paths. | Invalid UTF-8, non-NFC, control-bearing, separator-bearing, case-colliding, or reserved identities are rejected before publication. | Q13 portable-domain matrix. |
-| Change only a physical materialization path. | Virtual URIs remain unchanged. | Snapshot relocation test. |
+| Change only a physical materialization path. | The captured snapshot digest remains unchanged. Virtual URI equality remains planned. | Implemented snapshot relocation test; planned URI case. |
 | Read a noncanonical, unknown, or mismatched snapshot URI. | The server returns `resource_not_found` without normalization, fallback, or filesystem access. | Q14 virtual resolver rejection table. |
 | Read a private distribution source or inspect package metadata. | The source is readable; metadata contains only the closed public allowlist and no dependency, URL, tool, path, or credential-bearing fields. | Q15 disclosure-policy cases. |
 | Keep returned dependency URIs while projects refresh or disappear. | Every published snapshot remains readable until shutdown; capacity failure never evicts an older URI. | Q10 resource-lifetime cases. |
@@ -915,11 +918,13 @@ and specified in
 [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).
 The Q11 package-snapshot digest transcript foundation is implemented and
 specified in [Package Snapshot Digests](../specification/package-snapshots.md).
+The Q12 filesystem capture and distribution-set foundation is implemented and
+specified on the same page.
 The remaining slices are:
 
-1. Build package snapshot capture and identities on the digest foundation. Add
-   virtual source locations and resolution, the LSP virtual-document request,
-   and the VSCode content provider.
+1. Add portable package identities on the capture foundation. Connect captures
+   to analysis, virtual source locations and resolution, the LSP
+   virtual-document request, and the VSCode content provider.
 2. Add exported package documentation and bind it to package snapshots.
 3. Define and validate language-reference topic descriptors. Generate the
    executable grammar, selected example, and compiler-owned table projections.

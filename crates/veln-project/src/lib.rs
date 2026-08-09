@@ -25,7 +25,11 @@ pub use manifest::{
     ProjectManifest, read_manifest,
 };
 pub use project::Project;
-pub use snapshot::{PackageSnapshotDigestError, PackageSnapshotSource, package_snapshot_digest};
+pub use snapshot::{
+    CapturedPackageSnapshot, CapturedPackageSource, PackageSnapshotCaptureError,
+    PackageSnapshotDigestError, PackageSnapshotSource, capture_package_snapshot,
+    package_snapshot_digest,
+};
 
 use std::fs;
 use std::io;
