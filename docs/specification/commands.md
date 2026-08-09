@@ -495,9 +495,9 @@ requiring the full command reference on the first read.
   [commands-full.md](commands-full.md) when diagnostic catalog behavior is the
   task.
 - `package lock`: path, git, vendor, and mirror dependency graph lockfile
-  writes, including incompatible source rejection for repeated package
-  identities. The toolchain-owned `std` package cannot be declared as a
-  dependency and is never written to `veln.lock`. Use
+  writes, including invalid package identity rejection and incompatible source
+  rejection for repeated package identities. The toolchain-owned `std` package
+  cannot be declared as a dependency and is never written to `veln.lock`. Use
   [commands-full.md#veln-package-lock](commands-full.md#veln-package-lock)
   when changing package-manager command behavior.
 - `lsp`: stdio language-server startup for editor semantic highlighting and

@@ -687,11 +687,18 @@ string-valued `git` field plus exactly one selector: `rev`, `tag`, or `branch`.
 The command materializes non-local git URLs through git before lockfile
 generation. It does not resolve registry sources.
 
-Dependency table keys are package identities. Across the graph, a package
-identity may resolve to only one source selection. Repeated dependencies on
-the same identity are compatible when the source kind, source location,
-requested git selector, and git `subdir` match after lockfile path
-normalization. If a later dependency table selects a different source
+Dependency table keys are package identities. `package lock` rejects a
+dependency table key that is outside the portable package identity domain
+specified by [package-snapshots.md](package-snapshots.md). A rejected key
+reports `package.invalid_dependency_identity` at the dependency key and
+refuses to write `veln.lock`. The checked
+`../../examples/specification/package/package-lock-dot-segment-identity/` case
+shows this rejection for a key with a `..` segment.
+
+Across the graph, a package identity may resolve to only one source selection.
+Repeated dependencies on the same identity are compatible when the source kind,
+source location, requested git selector, and git `subdir` match after lockfile
+path normalization. If a later dependency table selects a different source
 location, source kind, git selector, or git `subdir` for an identity that was
 already selected, `package lock` reports
 `package.incompatible_dependency_source` at the later dependency key, adds a

@@ -1,0 +1,2 @@
+[dependencies."github.com/oakcask/../shared"]
+path = "vendor/shared"

@@ -15,15 +15,15 @@ paths supplied to the digest API are rejected.
 
 `PackageIdentity` retains the exact validated identity spelling. An ordinary
 identity contains 1 through 255 Unicode scalars. It is Unicode Normalization
-Form C (NFC), uses nonempty `/`-separated segments, and contains no Unicode
-whitespace. `PackageIdentity::new` rejects `std`.
+Form C (NFC), uses nonempty `/`-separated segments, rejects `.` and `..`
+segments, and contains no Unicode whitespace. `PackageIdentity::new` rejects `std`.
 `PackageIdentity::embedded_standard` is the only API that constructs the
 reserved `std` identity.
 
 `PackageIdentityError` distinguishes an empty identity, an identity above the
-scalar limit, non-NFC input, an empty segment, a whitespace-bearing segment,
-and the reserved standard identity. Validation does not normalize or rewrite
-an accepted identity.
+scalar limit, non-NFC input, an empty segment, a dot segment, a
+whitespace-bearing segment, and the reserved standard identity. Validation
+does not normalize or rewrite an accepted identity.
 
 ## Filesystem Capture
 
@@ -122,9 +122,9 @@ command behavior.
 
 The same test target is the authoritative Q13 portable-domain matrix. It
 checks identity scalar boundaries, identity segments, Unicode whitespace,
-reserved `std`, NFC, portable path segments, controls, forbidden separators,
-trailing spaces and dots, device spellings and aliases, non-UTF-8 source names
-and text, full default-case-fold collisions, exact accepted spellings and
-bytes, reserved device stems followed by ASCII whitespace before an extension
-separator, and validation exclusion for symbolic links, test sources,
-descendant packages, and `.git` entries.
+identity dot segments, reserved `std`, NFC, portable path segments, controls,
+forbidden separators, trailing spaces and dots, device spellings and aliases,
+non-UTF-8 source names and text, full default-case-fold collisions, exact
+accepted spellings and bytes, reserved device stems followed by ASCII
+whitespace before an extension separator, and validation exclusion for
+symbolic links, test sources, descendant packages, and `.git` entries.

@@ -54,6 +54,7 @@ pub enum PackageIdentityError {
     TooLong { scalar_count: usize },
     NotNfc,
     EmptySegment { segment_index: usize },
+    DotSegment { segment_index: usize },
     Whitespace { segment_index: usize },
     ReservedStandard,
 }
@@ -73,6 +74,10 @@ impl fmt::Display for PackageIdentityError {
                     "package identity segment {segment_index} is empty"
                 )
             }
+            Self::DotSegment { segment_index } => write!(
+                formatter,
+                "package identity segment {segment_index} is `.` or `..`"
+            ),
             Self::Whitespace { segment_index } => write!(
                 formatter,
                 "package identity segment {segment_index} contains whitespace"
@@ -100,6 +105,9 @@ fn validate_package_identity(identity: &str) -> Result<(), PackageIdentityError>
     for (segment_index, segment) in identity.split('/').enumerate() {
         if segment.is_empty() {
             return Err(PackageIdentityError::EmptySegment { segment_index });
+        }
+        if matches!(segment, "." | "..") {
+            return Err(PackageIdentityError::DotSegment { segment_index });
         }
         if segment.chars().any(char::is_whitespace) {
             return Err(PackageIdentityError::Whitespace { segment_index });
@@ -318,6 +326,22 @@ mod tests {
         assert_eq!(
             PackageIdentity::new("owner/"),
             Err(PackageIdentityError::EmptySegment { segment_index: 1 })
+        );
+        assert_eq!(
+            PackageIdentity::new("."),
+            Err(PackageIdentityError::DotSegment { segment_index: 0 })
+        );
+        assert_eq!(
+            PackageIdentity::new(".."),
+            Err(PackageIdentityError::DotSegment { segment_index: 0 })
+        );
+        assert_eq!(
+            PackageIdentity::new("owner/./package"),
+            Err(PackageIdentityError::DotSegment { segment_index: 1 })
+        );
+        assert_eq!(
+            PackageIdentity::new("owner/../package"),
+            Err(PackageIdentityError::DotSegment { segment_index: 1 })
         );
         assert_eq!(
             PackageIdentity::new("owner/package "),

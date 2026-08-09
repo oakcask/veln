@@ -6,8 +6,9 @@ use std::process::{Command, ExitCode};
 use veln_diagnostics::{Diagnostic, DiagnosticEnvelope, DiagnosticKind, JsonValue, Severity};
 use veln_project::{
     LockfileGitSelector, LockfilePackage, LockfileSource, ManifestDependency,
-    ManifestDependencySelector, ManifestDependencySelectorKind, ManifestField, ProjectLockfile,
-    ProjectManifest, normalize_lockfile_path, read_manifest, source_tree_checksum, write_lockfile,
+    ManifestDependencySelector, ManifestDependencySelectorKind, ManifestField, PackageIdentity,
+    ProjectLockfile, ProjectManifest, normalize_lockfile_path, read_manifest, source_tree_checksum,
+    write_lockfile,
 };
 use veln_source::{SourcePath, SourceSpan};
 
@@ -81,6 +82,11 @@ impl<'a> PackageLockResolver<'a> {
                 .push(reserved_standard_package_diagnostic(&dependency));
             return;
         }
+        if let Err(reason) = PackageIdentity::new(dependency.package.clone()) {
+            self.diagnostics
+                .push(invalid_dependency_identity_diagnostic(&dependency, &reason));
+            return;
+        }
         let selection = dependency_selection(self.lockfile_root, owner_root, &dependency);
         if let Some(selection) = &selection
             && let Some(existing) = self.locked.get(&dependency.package)
@@ -142,6 +148,36 @@ fn reserved_standard_package_diagnostic(dependency: &ManifestDependency) -> Diag
             JsonValue::string(
                 "Remove this dependency; the standard package is supplied by the toolchain and is not written to veln.lock.",
             ),
+        ),
+    ]));
+    diagnostic
+}
+
+fn invalid_dependency_identity_diagnostic(
+    dependency: &ManifestDependency,
+    reason: &dyn std::error::Error,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "package.invalid_dependency_identity",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!(
+            "dependency package identity `{}` is invalid",
+            dependency.package
+        ),
+        Some(dependency.package_span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("package_lock")),
+            ("field", JsonValue::string("dependencies")),
+            ("package", JsonValue::string(dependency.package.clone())),
+            ("reason", JsonValue::string(reason.to_string())),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("repair_hint")),
+        (
+            "message",
+            JsonValue::string(format!("Use a portable package identity: {reason}.")),
         ),
     ]));
     diagnostic
@@ -1451,6 +1487,34 @@ mod tests {
         assert_eq!(
             diagnostic.message,
             "package lock supports only one of path, git, vendor, or mirror dependencies for `github.com/oakcask/mixed`"
+        );
+    }
+
+    #[test]
+    fn package_lock_rejects_dependency_identity_dot_segments() {
+        let project = TempProject::new("lock-dot-segment-identity");
+        project.write(
+            "veln.toml",
+            concat!(
+                "[dependencies.\"github.com/oakcask/../shared\"]\n",
+                "path = \"vendor/shared\"\n",
+            ),
+        );
+
+        let manifest = read_manifest(project.root())
+            .expect("manifest read should succeed")
+            .expect("manifest should exist");
+        let mut resolver = PackageLockResolver::new(project.root());
+        resolver.lock_manifest_dependencies(project.root(), "", &manifest);
+
+        assert_eq!(resolver.diagnostics.len(), 1);
+        assert_eq!(
+            resolver.diagnostics[0].id,
+            "package.invalid_dependency_identity"
+        );
+        assert_eq!(
+            resolver.diagnostics[0].message,
+            "dependency package identity `github.com/oakcask/../shared` is invalid"
         );
     }
 
