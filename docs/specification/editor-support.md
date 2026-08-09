@@ -196,7 +196,9 @@ text returned for an already retained URI.
 The VSCode extension registers a definition provider for Veln filesystem
 documents and a `TextDocumentContentProvider` for `veln-pkg`. Following a
 dependency definition therefore requests the exact returned URI through
-`veln/virtualDocument` and opens the result as provider-backed content.
+`veln/virtualDocument` and opens the result as provider-backed content. If
+VSCode's URI object displays a different string for the same provider-backed
+document, the request still uses the canonical URI returned by the server.
 
 The `veln-language-service` tests are the executable evidence for dependency
 visibility and transport-neutral package locations. The `veln-lsp` dependency
@@ -205,9 +207,10 @@ definition-to-read path, retained CRLF text, URI identity and digest, private
 declaration rejection, prepare-rename and rename rejection, exact import-path
 visibility, and unknown or noncanonical URI rejection. The VSCode extension
 tests cover the corresponding definition request, exact-text read, location
-conversion, and content-provider registration. A static LSP example is not used
-because its second request must contain the snapshot digest returned by the
-first response; the direct server test performs that dynamic round trip.
+conversion, canonical URI lookup after VSCode URI parsing, and content-provider
+registration. A static LSP example is not used because its second request must
+contain the snapshot digest returned by the first response; the direct server
+test performs that dynamic round trip.
 
 `textDocument/formatting` returns a single whole-document text edit containing
 the same canonical formatting produced by the formatter. Handler operation

@@ -205,12 +205,12 @@ test("follows a dependency definition through the virtual document request", asy
   assert.equal(await readPromise, exactText);
 
   const location = exports._test.toLocation(definition);
-  assert.equal(location.uri.toString(), virtualUri);
+  assert.notEqual(location.uri.toString(), virtualUri);
   assert.equal(location.range.start.line, 0);
   assert.equal(location.range.start.character, 7);
 });
 
-test("registers the veln-pkg content provider", async () => {
+test("registers the veln-pkg content provider with canonical URI lookup", async () => {
   const { exports, spawnedProcesses, vscode } = loadExtension();
   const context = { subscriptions: [] };
   exports.activate(context);
@@ -223,10 +223,44 @@ test("registers the veln-pkg content provider", async () => {
   const uri = vscode.Uri.parse(
     "veln-pkg:///example%2Fpkg/snapshot/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/math.veln",
   );
+  assert.equal(
+    uri.toString(),
+    "veln-pkg:///example/pkg/snapshot/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/math.veln",
+  );
+
+  const document = fakeDocument({
+    uri: "file://project/main.veln",
+    version: 1,
+    text: "use math from \"example/pkg\"\n\npub fn main() -> Int\n  math::exposed(1)\nend\n",
+  });
+  const definitionPromise = vscode._registrations.definitions[0].provider.provideDefinition(
+    document,
+    { line: 3, character: 10 },
+  );
+  let messages = spawnedProcesses[0].stdin.messages.map(parseRpcMessage);
+  const definitionRequest = messages.at(-1);
+  assert.equal(definitionRequest.method, "textDocument/definition");
+  spawnedProcesses[0].stdout.emit(
+    "data",
+    frame({
+      jsonrpc: "2.0",
+      id: definitionRequest.id,
+      result: {
+        uri: uri.value,
+        range: {
+          start: { line: 0, character: 7 },
+          end: { line: 0, character: 14 },
+        },
+      },
+    }),
+  );
+  assert.equal((await definitionPromise).uri.toString(), uri.toString());
+
   const contentPromise = registration.provider.provideTextDocumentContent(uri);
-  const messages = spawnedProcesses[0].stdin.messages.map(parseRpcMessage);
+  messages = spawnedProcesses[0].stdin.messages.map(parseRpcMessage);
   const request = messages.at(-1);
   assert.equal(request.method, "veln/virtualDocument");
+  assert.deepEqual(request.params, { uri: uri.value });
   spawnedProcesses[0].stdout.emit(
     "data",
     frame({ jsonrpc: "2.0", id: request.id, result: "exact source\r\n" }),
@@ -598,6 +632,10 @@ function fakeVscode(options = {}) {
         return { value: uri, fsPath: value, toString: () => uri };
       },
       parse(value) {
+        if (value.startsWith("veln-pkg:///")) {
+          const displayed = value.replaceAll("%2F", "/");
+          return { value, toString: () => displayed };
+        }
         return { value, toString: () => value };
       },
     },

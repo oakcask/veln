@@ -46,6 +46,7 @@ class VelnLanguageServer {
     this.onDiagnostics = onDiagnostics;
     this.onClearDiagnostics = onClearDiagnostics;
     this.syncedDocuments = new Map();
+    this.virtualDocumentUris = new Map();
     this.traceLine(
       `starting server command=${JSON.stringify(command)} args=${JSON.stringify(args)} cwd=${JSON.stringify(cwd)}`,
     );
@@ -132,13 +133,31 @@ class VelnLanguageServer {
     return this.sendRequest("textDocument/definition", {
       textDocument: { uri: document.uri.toString() },
       position: { line: position.line, character: position.character },
+    }).then((result) => {
+      this.rememberVirtualDocumentUris(result);
+      return result;
     });
   }
 
   virtualDocument(uri) {
     return this.sendRequest("veln/virtualDocument", {
-      uri: uri.toString(),
+      uri: this.canonicalVirtualDocumentUri(uri),
     });
+  }
+
+  rememberVirtualDocumentUris(result) {
+    for (const location of Array.isArray(result) ? result : [result]) {
+      const uri = location?.uri;
+      if (typeof uri !== "string" || !uri.startsWith("veln-pkg:")) {
+        continue;
+      }
+      this.virtualDocumentUris.set(vscode.Uri.parse(uri).toString(), uri);
+    }
+  }
+
+  canonicalVirtualDocumentUri(uri) {
+    const displayed = uri.toString();
+    return this.virtualDocumentUris.get(displayed) ?? displayed;
   }
 
   sendNotification(method, params) {
