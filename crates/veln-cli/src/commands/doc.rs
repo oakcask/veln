@@ -10,7 +10,8 @@ use veln_analysis::{
 use veln_ast::{PublicAliasKind as AstPublicAliasKind, SurfaceModule, UseDecl};
 use veln_diagnostics::{Diagnostic, DiagnosticEnvelope, DiagnosticKind, JsonValue, Severity};
 use veln_project::{
-    ManifestField, Project, classify_companion_source, production_analysis_inputs, read_manifest,
+    ManifestField, Project, ProjectManifest, classify_companion_source, production_analysis_inputs,
+    read_manifest,
 };
 use veln_source::{SourceFile, TextRange};
 use veln_syntax::{
@@ -60,6 +61,25 @@ struct GeneratedDocs {
 
 fn generate_markdown(project: &Project) -> GeneratedDocs {
     let mut diagnostics = Vec::new();
+    let sources = collect_doc_sources(project, &mut diagnostics);
+    validate_doc_sources(project, &sources, &mut diagnostics);
+    if !diagnostics.is_empty() {
+        return GeneratedDocs {
+            markdown: String::new(),
+            diagnostics,
+        };
+    }
+
+    GeneratedDocs {
+        markdown: render_project_docs(project, &sources),
+        diagnostics,
+    }
+}
+
+fn collect_doc_sources<'a>(
+    project: &'a Project,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Vec<ParsedDocSource<'a>> {
     let mut sources = Vec::new();
 
     for source in &project.files {
@@ -84,20 +104,24 @@ fn generate_markdown(project: &Project) -> GeneratedDocs {
             module_name,
         });
     }
+
+    sources
+}
+
+fn validate_doc_sources(
+    project: &Project,
+    sources: &[ParsedDocSource<'_>],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
     diagnostics.extend(validate_manifest_exports(project));
     diagnostics.extend(validate_manifest_dependencies(project));
     if diagnostics.is_empty() {
         let (surface_module, _) = load_surface_module(project);
-        diagnostics.extend(doc_schema_reference_diagnostics(&surface_module, &sources));
+        diagnostics.extend(doc_schema_reference_diagnostics(&surface_module, sources));
     }
+}
 
-    if !diagnostics.is_empty() {
-        return GeneratedDocs {
-            markdown: String::new(),
-            diagnostics,
-        };
-    }
-
+fn render_project_docs(project: &Project, sources: &[ParsedDocSource<'_>]) -> String {
     let mut out = String::new();
     let title = project
         .manifest
@@ -106,20 +130,7 @@ fn generate_markdown(project: &Project) -> GeneratedDocs {
         .unwrap_or("Veln Project");
     push_heading(&mut out, 1, title);
     if let Some(manifest) = &project.manifest {
-        if let Some(description) = manifest_field(&manifest.package.fields, "description") {
-            push_paragraph(&mut out, description);
-        }
-        if !manifest.package.fields.is_empty() {
-            push_heading(&mut out, 2, "Package");
-            push_field_list(&mut out, &manifest.package.fields);
-        }
-        if !manifest.tools.is_empty() {
-            push_heading(&mut out, 2, "Tool Metadata");
-            for tool in &manifest.tools {
-                push_heading(&mut out, 3, &tool.name);
-                push_field_list(&mut out, &tool.fields);
-            }
-        }
+        push_manifest_docs(&mut out, manifest);
     }
 
     push_heading(&mut out, 2, "Modules");
@@ -131,9 +142,23 @@ fn generate_markdown(project: &Project) -> GeneratedDocs {
         }
     }
 
-    GeneratedDocs {
-        markdown: out,
-        diagnostics,
+    out
+}
+
+fn push_manifest_docs(out: &mut String, manifest: &ProjectManifest) {
+    if let Some(description) = manifest_field(&manifest.package.fields, "description") {
+        push_paragraph(out, description);
+    }
+    if !manifest.package.fields.is_empty() {
+        push_heading(out, 2, "Package");
+        push_field_list(out, &manifest.package.fields);
+    }
+    if !manifest.tools.is_empty() {
+        push_heading(out, 2, "Tool Metadata");
+        for tool in &manifest.tools {
+            push_heading(out, 3, &tool.name);
+            push_field_list(out, &tool.fields);
+        }
     }
 }
 
@@ -840,6 +865,39 @@ fn manifest_field<'a>(fields: &'a [ManifestField], key: &str) -> Option<&'a str>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn project_doc_generation_preserves_default_structure() {
+        let project = Project {
+            root: PathBuf::from("."),
+            files: vec![SourceFile::new(
+                "sample.veln",
+                concat!(
+                    "## Returns the supplied value.\n",
+                    "pub fn identity(value: Int) -> Int\n",
+                    "\tvalue\n",
+                    "end\n",
+                ),
+            )],
+            manifest: None,
+        };
+
+        let generated = generate_markdown(&project);
+
+        assert!(generated.diagnostics.is_empty());
+        assert_eq!(
+            generated.markdown,
+            concat!(
+                "# Veln Project\n\n",
+                "## Modules\n\n",
+                "### sample\n\n",
+                "Source: `sample.veln`\n\n",
+                "#### Public API\n\n",
+                "##### fn identity(value: Int) -> Int\n\n",
+                "Returns the supplied value.\n\n",
+            )
+        );
+    }
 
     #[test]
     fn public_api_rendering_preserves_category_order_and_visibility() {
