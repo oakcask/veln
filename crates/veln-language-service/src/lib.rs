@@ -5,9 +5,12 @@ mod virtual_source;
 pub use virtual_source::{VirtualSourceCatalog, VirtualSourceCatalogError, VirtualSourceEntry};
 
 use std::collections::BTreeSet;
+use std::error::Error;
+use std::fmt;
 
 use veln_project::{
-    CapturedPackageSnapshot, CapturedPackageSource, PackageIdentity, classify_companion_source,
+    CapturedPackageSnapshot, CapturedPackageSource, PackageIdentity, ProjectManifest,
+    classify_companion_source,
 };
 use veln_source::{SourceFile, SourcePath, SourceSpan};
 use veln_syntax::{Token, TokenKind, lex};
@@ -72,19 +75,35 @@ pub struct DirectDependencySnapshot {
 }
 
 impl DirectDependencySnapshot {
-    pub fn new(
-        identity: PackageIdentity,
+    pub fn from_validated_manifest(
+        expected_identity: &PackageIdentity,
         snapshot: CapturedPackageSnapshot,
-        exported_sources: impl IntoIterator<Item = SourcePath>,
-    ) -> Result<Self, VirtualSourceCatalogError> {
-        let virtual_sources = VirtualSourceCatalog::new([(identity.clone(), snapshot.clone())])?;
+        manifest: ProjectManifest,
+    ) -> Result<Self, DirectDependencySnapshotError> {
+        let actual_identity = manifest
+            .package
+            .fields
+            .iter()
+            .find(|field| field.key == "name")
+            .ok_or(DirectDependencySnapshotError::MissingPackageName)?;
+        if actual_identity.value != expected_identity.as_str() {
+            return Err(DirectDependencySnapshotError::PackageNameMismatch {
+                expected: expected_identity.as_str().to_string(),
+                actual: actual_identity.value.clone(),
+            });
+        }
+        let exported_sources = manifest
+            .lib
+            .exports
+            .into_iter()
+            .map(|export| SourcePath::new(export.path).as_str().to_string())
+            .collect();
+        let virtual_sources =
+            VirtualSourceCatalog::new([(expected_identity.clone(), snapshot.clone())])?;
         Ok(Self {
-            identity,
+            identity: expected_identity.clone(),
             snapshot,
-            exported_sources: exported_sources
-                .into_iter()
-                .map(|source| source.as_str().to_string())
-                .collect(),
+            exported_sources,
             virtual_sources,
         })
     }
@@ -107,6 +126,36 @@ impl DirectDependencySnapshot {
 
     fn resolve_virtual_source(&self, uri: &str) -> Option<&[u8]> {
         self.virtual_sources.resolve(uri)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DirectDependencySnapshotError {
+    MissingPackageName,
+    PackageNameMismatch { expected: String, actual: String },
+    VirtualSourceCatalog(VirtualSourceCatalogError),
+}
+
+impl fmt::Display for DirectDependencySnapshotError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MissingPackageName => {
+                write!(formatter, "direct dependency manifest has no package name")
+            }
+            Self::PackageNameMismatch { expected, actual } => write!(
+                formatter,
+                "direct dependency package name `{actual}` does not match requested package `{expected}`"
+            ),
+            Self::VirtualSourceCatalog(error) => error.fmt(formatter),
+        }
+    }
+}
+
+impl Error for DirectDependencySnapshotError {}
+
+impl From<VirtualSourceCatalogError> for DirectDependencySnapshotError {
+    fn from(error: VirtualSourceCatalogError) -> Self {
+        Self::VirtualSourceCatalog(error)
     }
 }
 
@@ -1574,7 +1623,7 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
 
-    use veln_project::capture_package_snapshot;
+    use veln_project::{capture_package_snapshot, parse_manifest_text};
 
     use super::*;
 
@@ -1810,6 +1859,53 @@ mod tests {
         }
     }
 
+    #[test]
+    fn direct_dependency_snapshot_derives_visibility_from_manifest() {
+        let root = TempDependency::new(
+            "example/pkg",
+            &[("math.veln", "pub fn exposed() -> Int\n  1\nend\n")],
+        );
+        let identity = PackageIdentity::new("example/pkg").unwrap();
+        let snapshot = capture_package_snapshot(&root.path).unwrap();
+        let manifest = parse_manifest_text(
+            "veln.toml",
+            "[package]\nname = \"example/pkg\"\n\n[lib]\nexports = [\"./math.veln\"]\n",
+        );
+
+        let dependency =
+            DirectDependencySnapshot::from_validated_manifest(&identity, snapshot, manifest)
+                .unwrap();
+        let result = dependency_query(dependency, "math::exposed()").unwrap();
+
+        assert_eq!(result.definition.span.file.as_str(), "math.veln");
+    }
+
+    #[test]
+    fn direct_dependency_snapshot_rejects_mismatched_manifest_identity() {
+        let root = TempDependency::new(
+            "other/pkg",
+            &[("math.veln", "pub fn exposed() -> Int\n  1\nend\n")],
+        );
+        let identity = PackageIdentity::new("example/pkg").unwrap();
+        let snapshot = capture_package_snapshot(&root.path).unwrap();
+        let manifest = parse_manifest_text(
+            "veln.toml",
+            "[package]\nname = \"other/pkg\"\n\n[lib]\nexports = [\"math.veln\"]\n",
+        );
+
+        let error =
+            DirectDependencySnapshot::from_validated_manifest(&identity, snapshot, manifest)
+                .unwrap_err();
+
+        assert_eq!(
+            error,
+            DirectDependencySnapshotError::PackageNameMismatch {
+                expected: "example/pkg".to_string(),
+                actual: "other/pkg".to_string(),
+            }
+        );
+    }
+
     fn source(path: &str, text: &str) -> SourceFile {
         SourceFile::new(path, text)
     }
@@ -1870,11 +1966,23 @@ mod tests {
         sources: &[(&str, &str)],
         exports: impl IntoIterator<Item = &'static str>,
     ) -> DirectDependencySnapshot {
-        let root = TempDependency::new(sources);
+        let root = TempDependency::new(identity, sources);
         let identity = PackageIdentity::new(identity).unwrap();
         let snapshot = capture_package_snapshot(&root.path).unwrap();
-        DirectDependencySnapshot::new(identity, snapshot, exports.into_iter().map(SourcePath::new))
-            .unwrap()
+        let exports = exports
+            .into_iter()
+            .map(|export| format!("\"{export}\""))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let manifest = parse_manifest_text(
+            "veln.toml",
+            &format!(
+                "[package]\nname = \"{}\"\n\n[lib]\nexports = [{}]\n",
+                identity.as_str(),
+                exports,
+            ),
+        );
+        DirectDependencySnapshot::from_validated_manifest(&identity, snapshot, manifest).unwrap()
     }
 
     struct TempDependency {
@@ -1882,7 +1990,7 @@ mod tests {
     }
 
     impl TempDependency {
-        fn new(sources: &[(&str, &str)]) -> Self {
+        fn new(identity: &str, sources: &[(&str, &str)]) -> Self {
             let id = NEXT_TEMP_ROOT.fetch_add(1, Ordering::Relaxed);
             let path = std::env::temp_dir().join(format!(
                 "veln-language-service-navigation-{}-{id}",
@@ -1891,7 +1999,7 @@ mod tests {
             fs::create_dir_all(&path).unwrap();
             fs::write(
                 path.join("veln.toml"),
-                "[package]\nname = \"example/pkg\"\n",
+                format!("[package]\nname = \"{identity}\"\n"),
             )
             .unwrap();
             for (relative, text) in sources {

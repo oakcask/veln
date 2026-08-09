@@ -18,8 +18,8 @@ use veln_language_service::{
     NavigationSource, SourcePosition, navigate,
 };
 use veln_project::{
-    PackageIdentity, Project, capture_package_snapshot, discover_source_paths, parse_manifest_text,
-    read_manifest,
+    PackageIdentity, Project, ProjectManifest, capture_package_snapshot, discover_source_paths,
+    parse_manifest_text,
 };
 use veln_source::{SourceFile, SourcePath, SourceSpan};
 use veln_syntax::{format_tree, parse};
@@ -419,23 +419,28 @@ impl Server {
 
 fn retained_project_snapshot(root: &Path) -> Option<EffectiveProjectSnapshot> {
     let project = Project::discover(root.to_path_buf(), &[]).ok()?;
+    let direct_dependencies = project
+        .manifest
+        .as_ref()
+        .map(|manifest| retained_direct_dependencies(root, manifest))
+        .unwrap_or_default();
     Some(EffectiveProjectSnapshot::with_direct_dependencies(
         project.files,
-        retained_direct_dependencies(root),
+        direct_dependencies,
     ))
 }
 
-fn retained_direct_dependencies(root: &Path) -> Vec<DirectDependencySnapshot> {
-    let Ok(Some(manifest)) = read_manifest(root) else {
-        return Vec::new();
-    };
+fn retained_direct_dependencies(
+    root: &Path,
+    manifest: &ProjectManifest,
+) -> Vec<DirectDependencySnapshot> {
     manifest
         .dependencies
-        .into_iter()
+        .iter()
         .filter_map(|dependency| {
-            let path = dependency.path?;
+            let path = dependency.path.as_ref()?;
             let identity = PackageIdentity::new(&dependency.package).ok()?;
-            let dependency_root = root.join(path.value);
+            let dependency_root = root.join(&path.value);
             let snapshot = capture_package_snapshot(&dependency_root).ok()?;
             let manifest_text = std::str::from_utf8(snapshot.manifest_bytes()).ok()?;
             let dependency_manifest = parse_manifest_text("veln.toml", manifest_text);
@@ -458,21 +463,12 @@ fn retained_direct_dependencies(root: &Path) -> Vec<DirectDependencySnapshot> {
                 return None;
             }
             let dependency_manifest = dependency_project.manifest?;
-            let actual_identity = dependency_manifest
-                .package
-                .fields
-                .iter()
-                .find(|field| field.key == "name")?;
-            if actual_identity.value != dependency.package {
-                return None;
-            }
-            let exported_sources = dependency_manifest
-                .lib
-                .exports
-                .into_iter()
-                .map(|export| SourcePath::new(export.path))
-                .collect::<Vec<_>>();
-            DirectDependencySnapshot::new(identity, snapshot, exported_sources).ok()
+            DirectDependencySnapshot::from_validated_manifest(
+                &identity,
+                snapshot,
+                dependency_manifest,
+            )
+            .ok()
         })
         .collect()
 }
@@ -3362,6 +3358,56 @@ mod tests {
             ));
             assert!(rejected[0].contains(r#""code":-32602"#), "{}", rejected[0]);
         }
+    }
+
+    #[test]
+    fn retained_direct_dependencies_use_the_supplied_workspace_manifest() {
+        let project = TempProject::new("retained-dependency-supplied-manifest");
+        project.write(
+            "vendor/lib/veln.toml",
+            concat!(
+                "[package]\nname = \"example/pkg\"\n\n",
+                "[lib]\nexports = [\"math.veln\"]\n",
+            ),
+        );
+        project.write(
+            "vendor/lib/math.veln",
+            "pub fn exposed(value: Int) -> Int\n  value + 1\nend\n",
+        );
+        let manifest = parse_manifest_text(
+            "veln.toml",
+            concat!(
+                "[package]\nname = \"app\"\n\n",
+                "[dependencies.\"example/pkg\"]\npath = \"vendor/lib\"\n",
+            ),
+        );
+
+        let dependencies = retained_direct_dependencies(&project.root, &manifest);
+
+        assert_eq!(dependencies.len(), 1);
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "use math from \"example/pkg\"\n\n",
+                    "pub fn main() -> Int\n",
+                    "  math::exposed(1)\n",
+                    "end\n",
+                ),
+            )],
+            dependencies,
+        );
+        assert!(
+            navigate(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 4,
+                    column: 10,
+                }
+            )
+            .is_some()
+        );
     }
 
     #[test]
