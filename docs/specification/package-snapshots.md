@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-review-when: The package snapshot capture API, distribution-set rules, digest transcript, or executable evidence changes.
+review-when: The package snapshot identity, portable-domain, capture, digest, or executable-evidence contract changes.
 ---
 
 # Package Snapshot Digests
@@ -10,6 +10,20 @@ review-when: The package snapshot capture API, distribution-set rules, digest tr
 computes a package snapshot digest from that immutable capture. Callers that
 already own exact bytes can use the digest API directly. Duplicate source
 paths supplied to the digest API are rejected.
+
+## Portable Package Identity
+
+`PackageIdentity` retains the exact validated identity spelling. An ordinary
+identity contains 1 through 255 Unicode scalars. It is Unicode Normalization
+Form C (NFC), uses nonempty `/`-separated segments, and contains no Unicode
+whitespace. `PackageIdentity::new` rejects `std`.
+`PackageIdentity::embedded_standard` is the only API that constructs the
+reserved `std` identity.
+
+`PackageIdentityError` distinguishes an empty identity, an identity above the
+scalar limit, non-NFC input, an empty segment, a whitespace-bearing segment,
+and the reserved standard identity. Validation does not normalize or rewrite
+an accepted identity.
 
 ## Filesystem Capture
 
@@ -30,11 +44,33 @@ The capture includes private, non-exported, on-disk generated, and ordinary
 - paths that end in `_test.veln`.
 
 Source paths use UTF-8 and `/` separators. They are ordered by their UTF-8
-bytes. A discovered path that has no exact UTF-8 representation causes an
-explicit capture error unless the entry is excluded before source-path
-representation is needed. A non-regular entry at a represented distribution
-source path causes an explicit capture error. The capture does not perform
-lossy path or source-byte conversion.
+bytes. Every retained path is NFC and has nonempty relative segments. A
+segment cannot be `.` or `..`, contain a Unicode control, `\`, or `:`, end in
+a space or dot, or use a case-insensitive platform-reserved device stem. The
+reserved stems are `CON`, `PRN`, `AUX`, `NUL`, `CONIN$`, `CONOUT$`, `COM1`
+through `COM9`, and `LPT1` through `LPT9`; the superscript aliases for 1, 2,
+and 3 are also reserved. A suffix after the reserved stem does not make the
+segment portable.
+
+Every retained source is valid UTF-8. Two retained source paths cannot have
+the same full Unicode default case fold. Unicode normalization and default
+case folding use pinned Unicode data version `17.0.0`, exposed as
+`PORTABLE_UNICODE_VERSION` and `PORTABLE_UNICODE_VERSION_STRING`.
+
+A discovered path that has no exact UTF-8 representation causes an explicit
+capture error unless the entry is excluded before source-path representation
+is needed. `PackageSnapshotCaptureError` separately identifies an
+unrepresentable source path, an invalid represented source path with its
+portable-path reason, invalid source text with its first invalid byte offset,
+and a path collision with both exact spellings. A non-regular entry at a
+represented distribution source path causes a separate error. Exclusion takes
+place before portable validation, so symbolic links, test sources, descendant
+packages, and `.git` entries cannot fail capture because of their path spelling
+or source bytes.
+
+The capture does not normalize or lossily convert accepted input. It retains
+the exact manifest bytes, source bytes, and source-path spellings used by the
+digest transcript.
 
 The digest is independent of filesystem enumeration order and the package's
 physical parent location. A change to the manifest bytes, an included source
@@ -81,3 +117,11 @@ changes to the domain, record tags, byte order, manifest bytes, source path
 bytes, and source content bytes. A Veln source example is not added because
 this contract is a transport-independent Rust API and has no Veln source or
 command behavior.
+
+The same test target is the authoritative Q13 portable-domain matrix. It
+checks identity scalar boundaries, identity segments, Unicode whitespace,
+reserved `std`, NFC, portable path segments, controls, forbidden separators,
+trailing spaces and dots, device spellings and aliases, non-UTF-8 source names
+and text, full default-case-fold collisions, exact accepted spellings and
+bytes, and validation exclusion for symbolic links, test sources, descendant
+packages, and `.git` entries.

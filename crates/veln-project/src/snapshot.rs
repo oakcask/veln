@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::error::Error;
 use std::ffi::OsStr;
 use std::fmt;
@@ -7,7 +8,8 @@ use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 
-use crate::LowerHexBytes;
+use crate::portable::{default_case_fold, validate_source_path};
+use crate::{LowerHexBytes, PortableSourcePathError};
 
 const PACKAGE_SNAPSHOT_DOMAIN: &[u8] = b"veln-package-snapshot/v1\0";
 
@@ -101,6 +103,15 @@ pub enum PackageSnapshotCaptureError {
     ManifestNotRegular(PathBuf),
     /// A discovered entry has no exact UTF-8 package-relative representation.
     UnrepresentablePath(PathBuf),
+    /// A represented distribution source path is outside the portable domain.
+    InvalidSourcePath {
+        path: String,
+        reason: PortableSourcePathError,
+    },
+    /// A distribution source does not contain valid UTF-8 source text.
+    InvalidSourceText { path: String, valid_up_to: usize },
+    /// Two exact source-path spellings collide under Unicode default case folding.
+    SourcePathCollision { first: String, second: String },
     /// A discovered distribution source path is not a regular file.
     SourceNotRegular(PathBuf),
     /// A filesystem operation failed for the retained path.
@@ -122,6 +133,20 @@ impl fmt::Display for PackageSnapshotCaptureError {
                 "package snapshot path is not valid UTF-8: {}",
                 path.display()
             ),
+            Self::InvalidSourcePath { path, reason } => {
+                write!(
+                    formatter,
+                    "invalid package snapshot source path `{path}`: {reason}"
+                )
+            }
+            Self::InvalidSourceText { path, valid_up_to } => write!(
+                formatter,
+                "package snapshot source `{path}` is not valid UTF-8 at byte {valid_up_to}"
+            ),
+            Self::SourcePathCollision { first, second } => write!(
+                formatter,
+                "package snapshot source paths `{first}` and `{second}` collide after Unicode default case folding"
+            ),
             Self::SourceNotRegular(path) => write!(
                 formatter,
                 "package snapshot source is not a regular file: {}",
@@ -142,6 +167,9 @@ impl Error for PackageSnapshotCaptureError {
             Self::Digest(source) => Some(source),
             Self::ManifestNotRegular(_)
             | Self::UnrepresentablePath(_)
+            | Self::InvalidSourcePath { .. }
+            | Self::InvalidSourceText { .. }
+            | Self::SourcePathCollision { .. }
             | Self::SourceNotRegular(_) => None,
         }
     }
@@ -167,6 +195,7 @@ pub fn capture_package_snapshot(
     let mut sources = Vec::new();
     collect_package_sources(root, Path::new(""), &mut sources)?;
     sources.sort_unstable_by(|left, right| left.path.as_bytes().cmp(right.path.as_bytes()));
+    validate_captured_sources(&sources)?;
 
     let digest_sources = sources
         .iter()
@@ -180,6 +209,35 @@ pub fn capture_package_snapshot(
         sources,
         digest,
     })
+}
+
+fn validate_captured_sources(
+    sources: &[CapturedPackageSource],
+) -> Result<(), PackageSnapshotCaptureError> {
+    let mut folded_paths = BTreeMap::new();
+    for source in sources {
+        validate_source_path(&source.path).map_err(|reason| {
+            PackageSnapshotCaptureError::InvalidSourcePath {
+                path: source.path.clone(),
+                reason,
+            }
+        })?;
+        if let Err(error) = std::str::from_utf8(&source.bytes) {
+            return Err(PackageSnapshotCaptureError::InvalidSourceText {
+                path: source.path.clone(),
+                valid_up_to: error.valid_up_to(),
+            });
+        }
+
+        let folded = default_case_fold(&source.path);
+        if let Some(first) = folded_paths.insert(folded, source.path.clone()) {
+            return Err(PackageSnapshotCaptureError::SourcePathCollision {
+                first,
+                second: source.path.clone(),
+            });
+        }
+    }
+    Ok(())
 }
 
 fn collect_package_sources(
@@ -466,7 +524,7 @@ mod tests {
         let package = SnapshotFixture::new("digest-integration");
         package.write_bytes("veln.toml", b"manifest\0bytes");
         package.write_bytes("src/b.veln", b"b\r\n");
-        package.write_bytes("src/a.veln", b"a\0\xff");
+        package.write_bytes("src/a.veln", "a\0λ".as_bytes());
 
         let snapshot = capture_package_snapshot(package.root()).unwrap();
         let digest_sources = snapshot
@@ -487,12 +545,12 @@ mod tests {
             original
         );
         package.write_bytes("veln.toml", b"manifest\0bytes");
-        package.write_bytes("src/a.veln", b"A\0\xff");
+        package.write_bytes("src/a.veln", "A\0λ".as_bytes());
         assert_ne!(
             capture_package_snapshot(package.root()).unwrap().digest(),
             original
         );
-        package.write_bytes("src/a.veln", b"a\0\xff");
+        package.write_bytes("src/a.veln", "a\0λ".as_bytes());
         package.write_bytes("src/new.veln", b"new");
         assert_ne!(
             capture_package_snapshot(package.root()).unwrap().digest(),
@@ -524,9 +582,11 @@ mod tests {
         let package = SnapshotFixture::new("symbolic-links");
         package.write_bytes("veln.toml", b"manifest");
         package.write_bytes("real.veln", b"real");
+        package.write_bytes("ignored.txt", b"\xff");
         package.write_bytes("outside/linked.veln", b"outside");
         fs::create_dir_all(package.path("links")).unwrap();
         symlink(package.path("real.veln"), package.path("linked.veln")).unwrap();
+        symlink(package.path("ignored.txt"), package.path("invalid.veln")).unwrap();
         symlink(package.path("outside"), package.path("links/directory")).unwrap();
 
         let snapshot = capture_package_snapshot(package.root()).unwrap();
@@ -658,6 +718,154 @@ mod tests {
             .map(CapturedPackageSource::path)
             .collect::<Vec<_>>();
         assert_eq!(paths, vec!["source.veln"]);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn package_snapshot_capture_rejects_nonportable_source_paths() {
+        let cases = [
+            (
+                "non-nfc",
+                "cafe\u{301}.veln",
+                PortableSourcePathError::NotNfc,
+            ),
+            (
+                "control",
+                "line\nfeed.veln",
+                PortableSourcePathError::Control {
+                    segment_index: 0,
+                    character: '\n',
+                },
+            ),
+            (
+                "backslash",
+                "dir\\source.veln",
+                PortableSourcePathError::ForbiddenCharacter {
+                    segment_index: 0,
+                    character: '\\',
+                },
+            ),
+            (
+                "colon",
+                "device:source.veln",
+                PortableSourcePathError::ForbiddenCharacter {
+                    segment_index: 0,
+                    character: ':',
+                },
+            ),
+            (
+                "trailing-space",
+                "dir /source.veln",
+                PortableSourcePathError::TrailingSpace { segment_index: 0 },
+            ),
+            (
+                "trailing-dot",
+                "dir./source.veln",
+                PortableSourcePathError::TrailingDot { segment_index: 0 },
+            ),
+            (
+                "reserved-device",
+                "NUL.veln",
+                PortableSourcePathError::ReservedDevice { segment_index: 0 },
+            ),
+        ];
+
+        for (label, path, reason) in cases {
+            let package = SnapshotFixture::new(label);
+            package.write_bytes("veln.toml", b"manifest");
+            package.write_bytes(path, b"source");
+            assert!(matches!(
+                capture_package_snapshot(package.root()),
+                Err(PackageSnapshotCaptureError::InvalidSourcePath {
+                    path: actual_path,
+                    reason: actual_reason,
+                }) if actual_path == path && actual_reason == reason
+            ));
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn package_snapshot_capture_reports_portable_failures_in_path_order() {
+        let package = SnapshotFixture::new("portable-error-order");
+        package.write_bytes("veln.toml", b"manifest");
+        package.write_bytes("z:bad.veln", b"source");
+        package.write_bytes("a:bad.veln", b"source");
+
+        assert!(matches!(
+            capture_package_snapshot(package.root()),
+            Err(PackageSnapshotCaptureError::InvalidSourcePath { path, .. })
+                if path == "a:bad.veln"
+        ));
+    }
+
+    #[test]
+    fn package_snapshot_capture_rejects_non_utf8_source_text() {
+        let package = SnapshotFixture::new("non-utf8-source-text");
+        package.write_bytes("veln.toml", b"manifest\xff");
+        package.write_bytes("src/main.veln", b"valid\xff");
+
+        assert!(matches!(
+            capture_package_snapshot(package.root()),
+            Err(PackageSnapshotCaptureError::InvalidSourceText {
+                path,
+                valid_up_to: 5,
+            }) if path == "src/main.veln"
+        ));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn package_snapshot_capture_rejects_default_case_fold_collisions() {
+        let package = SnapshotFixture::new("case-fold-collision");
+        package.write_bytes("veln.toml", b"manifest");
+        package.write_bytes("Straße.veln", b"first");
+        package.write_bytes("STRASSE.veln", b"second");
+
+        assert_eq!(
+            capture_package_snapshot(package.root())
+                .unwrap_err()
+                .to_string(),
+            "package snapshot source paths `STRASSE.veln` and `Straße.veln` collide after Unicode default case folding"
+        );
+        assert!(matches!(
+            capture_package_snapshot(package.root()),
+            Err(PackageSnapshotCaptureError::SourcePathCollision { first, second })
+                if first == "STRASSE.veln" && second == "Straße.veln"
+        ));
+    }
+
+    #[test]
+    fn package_snapshot_capture_preserves_valid_unicode_and_source_bytes() {
+        let package = SnapshotFixture::new("portable-exact-input");
+        package.write_bytes("veln.toml", b"manifest\r\n\xff");
+        package.write_bytes("src/café.veln", "λ\r\n".as_bytes());
+
+        let snapshot = capture_package_snapshot(package.root()).unwrap();
+        assert_eq!(snapshot.manifest_bytes(), b"manifest\r\n\xff");
+        assert_eq!(snapshot.sources()[0].path(), "src/café.veln");
+        assert_eq!(snapshot.sources()[0].bytes(), "λ\r\n".as_bytes());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn package_snapshot_capture_excludes_entries_before_portable_validation() {
+        let package = SnapshotFixture::new("excluded-portability");
+        package.write_bytes("veln.toml", b"manifest");
+        package.write_bytes("kept.veln", b"kept");
+        package.write_bytes("bad:/ignored.test.veln", b"\xff");
+        package.write_bytes("bad./ignored_test.veln", b"\xff");
+        package.write_bytes(".git/NUL.veln", b"\xff");
+        package.write_bytes("dependency:/veln.toml", b"nested manifest");
+        package.write_bytes("dependency:/NUL.veln", b"\xff");
+
+        let snapshot = capture_package_snapshot(package.root()).unwrap();
+        let paths = snapshot
+            .sources()
+            .iter()
+            .map(CapturedPackageSource::path)
+            .collect::<Vec<_>>();
+        assert_eq!(paths, vec!["kept.veln"]);
     }
 
     struct SnapshotFixture {

@@ -4,6 +4,7 @@ mod companion;
 mod discovery;
 mod lockfile;
 mod manifest;
+mod portable;
 mod project;
 mod snapshot;
 
@@ -23,6 +24,10 @@ pub use manifest::{
     ManifestDependency, ManifestDependencySelector, ManifestDependencySelectorKind, ManifestExport,
     ManifestField, ManifestLib, ManifestPackage, ManifestTool, ManifestUnsupportedSection,
     ProjectManifest, read_manifest,
+};
+pub use portable::{
+    PORTABLE_UNICODE_VERSION, PORTABLE_UNICODE_VERSION_STRING, PackageIdentity,
+    PackageIdentityError, PortableSourcePathError,
 };
 pub use project::Project;
 pub use snapshot::{
