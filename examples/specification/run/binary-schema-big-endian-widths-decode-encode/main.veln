@@ -34,8 +34,8 @@ fn emit_encoded(bytes: ByteChunk) -> () effects [stdio]
 end
 
 fn emit_decoded(bytes: ByteChunk) -> Result<(), String> effects [stdio]
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(13)?)?
-	let decoded: {short_value: Int, length_value: Int, stream_value: Int, wide_value: Int} = byte_decode_big_endian_widths_wire(view)?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(13)?)?
+	let decoded = byte_decode_big_endian_widths_wire(view)?
 	stdio::print("decoded ")
 	stdio::print(int_to_string(decoded.short_value))
 	stdio::print(" ")
@@ -60,7 +60,7 @@ fn emit_encoded_result(encoded: Result<ByteChunk, EncodeError>) -> Result<(), St
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_big_endian_widths_wire({short_value: 4660, length_value: 1193046, stream_value: 2147483647, wide_value: 3735928559})
-	let ignored: () = emit_encoded_result(encoded)?
+	let encoded = byte_encode_big_endian_widths_wire({short_value: 4660, length_value: 1193046, stream_value: 2147483647, wide_value: 3735928559})
+	let ignored = emit_encoded_result(encoded)?
 	Ok(())
 end

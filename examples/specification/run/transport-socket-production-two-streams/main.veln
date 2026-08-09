@@ -9,7 +9,7 @@ fn accept_next(listener: NetListener) -> Result<NetStream, String> effects [net]
 end
 
 fn round_trip_stream(stream: NetStream) -> Int effects [net]
-	let incoming: ByteChunk = net::read_chunk(stream)
+	let incoming = net::read_chunk(stream)
 	net::write_chunk(stream, incoming)
 	net::close_stream(stream)
 	byte_count_to_int(byte_chunk_count(incoming))
@@ -31,12 +31,12 @@ fn bool_text(value: Bool) -> String
 end
 
 pub fn main() -> Result<(), String> effects [net, stdio]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let first: NetStream = accept_next(listener)?
-	let first_count: Int = round_trip_stream(first)
-	let second: NetStream = accept_next(listener)?
-	let second_count: Int = round_trip_stream(second)
-	let clean_end: Bool = listener_ended(listener)
+	let listener = net::listen("127.0.0.1:0")
+	let first = accept_next(listener)?
+	let first_count = round_trip_stream(first)
+	let second = accept_next(listener)?
+	let second_count = round_trip_stream(second)
+	let clean_end = listener_ended(listener)
 	stdio::print("first ")
 	stdio::print(int_to_string(first_count))
 	stdio::print(" second ")

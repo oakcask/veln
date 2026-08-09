@@ -15,44 +15,44 @@ fn empty_headers() -> HeaderList
 end
 
 fn request_headers() -> Result<HeaderList, String>
-	let content_length: HeaderList = prepend(ascii_header("content-length", "5")?, empty_headers())
-	let path: HeaderList = prepend(ascii_header(":path", "/")?, content_length)
-	let scheme: HeaderList = prepend(ascii_header(":scheme", "https")?, path)
+	let content_length = prepend(ascii_header("content-length", "5")?, empty_headers())
+	let path = prepend(ascii_header(":path", "/")?, content_length)
+	let scheme = prepend(ascii_header(":scheme", "https")?, path)
 	Ok(prepend(ascii_header(":method", "GET")?, scheme))
 end
 
 fn extended_connect_headers() -> Result<HeaderList, String>
-	let authority: HeaderList = prepend(ascii_header(":authority", "example.test")?, empty_headers())
-	let path: HeaderList = prepend(ascii_header(":path", "/chat")?, authority)
-	let scheme: HeaderList = prepend(ascii_header(":scheme", "https")?, path)
-	let protocol: HeaderList = prepend(ascii_header(":protocol", "websocket")?, scheme)
+	let authority = prepend(ascii_header(":authority", "example.test")?, empty_headers())
+	let path = prepend(ascii_header(":path", "/chat")?, authority)
+	let scheme = prepend(ascii_header(":scheme", "https")?, path)
+	let protocol = prepend(ascii_header(":protocol", "websocket")?, scheme)
 	Ok(prepend(ascii_header(":method", "CONNECT")?, protocol))
 end
 
 fn response_headers(status: String) -> Result<HeaderList, String>
-	let server: HeaderList = prepend(ascii_header("server", "veln")?, empty_headers())
+	let server = prepend(ascii_header("server", "veln")?, empty_headers())
 	Ok(prepend(ascii_header(":status", status)?, server))
 end
 
 fn duplicate_request_headers() -> Result<HeaderList, String>
-	let path: HeaderList = prepend(ascii_header(":path", "/")?, empty_headers())
-	let scheme: HeaderList = prepend(ascii_header(":scheme", "https")?, path)
-	let second: HeaderList = prepend(ascii_header(":method", "POST")?, scheme)
+	let path = prepend(ascii_header(":path", "/")?, empty_headers())
+	let scheme = prepend(ascii_header(":scheme", "https")?, path)
+	let second = prepend(ascii_header(":method", "POST")?, scheme)
 	Ok(prepend(ascii_header(":method", "GET")?, second))
 end
 
 fn request_with_bad_te() -> Result<HeaderList, String>
-	let te: HeaderList = prepend(ascii_header("te", "gzip")?, empty_headers())
-	let path: HeaderList = prepend(ascii_header(":path", "/")?, te)
-	let scheme: HeaderList = prepend(ascii_header(":scheme", "https")?, path)
+	let te = prepend(ascii_header("te", "gzip")?, empty_headers())
+	let path = prepend(ascii_header(":path", "/")?, te)
+	let scheme = prepend(ascii_header(":scheme", "https")?, path)
 	Ok(prepend(ascii_header(":method", "GET")?, scheme))
 end
 
 fn request_with_mismatched_content_length() -> Result<HeaderList, String>
-	let second: HeaderList = prepend(ascii_header("content-length", "7")?, empty_headers())
-	let first: HeaderList = prepend(ascii_header("content-length", "5")?, second)
-	let path: HeaderList = prepend(ascii_header(":path", "/")?, first)
-	let scheme: HeaderList = prepend(ascii_header(":scheme", "https")?, path)
+	let second = prepend(ascii_header("content-length", "7")?, empty_headers())
+	let first = prepend(ascii_header("content-length", "5")?, second)
+	let path = prepend(ascii_header(":path", "/")?, first)
+	let scheme = prepend(ascii_header(":scheme", "https")?, path)
 	Ok(prepend(ascii_header(":method", "GET")?, scheme))
 end
 

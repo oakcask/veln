@@ -40,6 +40,6 @@ fn emit_encoded(name: String, encoded: Result<ByteChunk, EncodeError>, expected_
 end
 
 pub fn main() -> () effects [stdio]
-	let packet: {prefix: Int, header: {kind: Int, left: {code: Int, tail: Int}, right: {channel: Int, value: Int}, marker: Int}, suffix: Int} = {prefix: 10, header: {kind: 1, left: {code: 515, tail: 1284}, right: {channel: 6, value: 460809}, marker: 11}, suffix: 255}
+	let packet = {prefix: 10, header: {kind: 1, left: {code: 515, tail: 1284}, right: {channel: 6, value: 460809}, marker: 11}, suffix: 255}
 	emit_encoded("anonymous-record-encode", byte_encode_anonymous_record_write_packet(packet), "0a0102030405060708090bff")
 end

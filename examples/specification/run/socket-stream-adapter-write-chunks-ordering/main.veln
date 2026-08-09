@@ -147,14 +147,14 @@ fn print_result(label: String, result: { actions : List<ResponseAction>, next_st
 end
 
 pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let first_trailer: ByteChunk = byte_chunk_from_hex("a001")?
-	let second_trailer: ByteChunk = byte_chunk_from_hex("a002")?
-	let first_stream: NetStream = accept_next(listener)?
-	let first: { actions : List<ResponseAction>, next_state : { body_chunks : Int, trailer_chunks : Int, ended : Bool } } = ordered_stream_response(first_stream, first_trailer, { body_chunks: 0, trailer_chunks: 0, ended: false })?
-	let second_stream: NetStream = accept_next(listener)?
-	let second: { actions : List<ResponseAction>, next_state : { body_chunks : Int, trailer_chunks : Int, ended : Bool } } = ordered_stream_response(second_stream, second_trailer, { body_chunks: 0, trailer_chunks: 0, ended: false })?
-	let clean_end: Bool = listener_ended(listener)
+	let listener = net::listen("127.0.0.1:0")
+	let first_trailer = byte_chunk_from_hex("a001")?
+	let second_trailer = byte_chunk_from_hex("a002")?
+	let first_stream = accept_next(listener)?
+	let first = ordered_stream_response(first_stream, first_trailer, { body_chunks: 0, trailer_chunks: 0, ended: false })?
+	let second_stream = accept_next(listener)?
+	let second = ordered_stream_response(second_stream, second_trailer, { body_chunks: 0, trailer_chunks: 0, ended: false })?
+	let clean_end = listener_ended(listener)
 	print_result("first", first)
 	stdio::print(" ")
 	print_result("second", second)

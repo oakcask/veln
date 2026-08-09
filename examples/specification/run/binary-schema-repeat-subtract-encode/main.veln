@@ -26,8 +26,8 @@ fn emit_encoded(bytes: ByteChunk) -> () effects [stdio]
 end
 
 pub fn main() -> () effects [stdio]
-	let items: List<Int> = list_cons(1, list_cons(2, list_cons(255, list_nil())))
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_counted_values({left_count: 5, right_count: 2, items: items})
+	let items = list_cons(1, list_cons(2, list_cons(255, list_nil())))
+	let encoded = byte_encode_counted_values({left_count: 5, right_count: 2, items: items})
 	match encoded
 		Ok(bytes) => emit_encoded(bytes)
 		Err(_) => stdio::println("unexpected encode failure")

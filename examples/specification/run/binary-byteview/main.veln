@@ -23,15 +23,15 @@ fn view_result_text(result: Result<ByteView, String>) -> String
 end
 
 pub fn main() -> Result<(), String> effects [stdio, concurrency]
-	let chunk: ByteChunk = byte_chunk_from_hex("00010203ff")?
-	let one: ByteCount = byte_count(1)?
-	let two: ByteCount = byte_count(2)?
-	let three: ByteCount = byte_count(3)?
-	let four: ByteCount = byte_count(4)?
-	let zero_offset: ByteOffset = byte_offset(0)?
-	let one_offset: ByteOffset = byte_offset(1)?
-	let four_offset: ByteOffset = byte_offset(4)?
-	let slice: ByteView = byte_view(chunk, one_offset, three)?
+	let chunk = byte_chunk_from_hex("00010203ff")?
+	let one = byte_count(1)?
+	let two = byte_count(2)?
+	let three = byte_count(3)?
+	let four = byte_count(4)?
+	let zero_offset = byte_offset(0)?
+	let one_offset = byte_offset(1)?
+	let four_offset = byte_offset(4)?
+	let slice = byte_view(chunk, one_offset, three)?
 	stdio::println(int_result_text(byte_read_u8_be(slice)))
 	stdio::println(int_result_text(byte_read_u16_be(slice)))
 	stdio::println(int_result_text(byte_read_u24_be(slice)))
@@ -39,12 +39,12 @@ pub fn main() -> Result<(), String> effects [stdio, concurrency]
 	stdio::println(int_result_text(byte_read_u24_le(slice)))
 	let pair = channel::bounded<ByteView>(1)
 	let _ = channel::send(pair.tx, slice)
-	let received: ByteView = match channel::recv(pair.rx)
+	let received = match channel::recv(pair.rx)
 		Some(value) => value
 		None => slice
 	end
 	stdio::println(int_result_text(byte_read_u24_be(received)))
-	let received_chunk: ByteChunk = byte_view_to_chunk(received)
+	let received_chunk = byte_view_to_chunk(received)
 	stdio::println(int_result_text(byte_read_u24_be(byte_view(received_chunk, zero_offset, three)?)))
 	stdio::println(int_result_text(byte_read_u31_be(byte_view(byte_write_u31_be(2147483647)?, zero_offset, four)?)))
 	stdio::println(int_result_text(byte_read_u32_be(byte_view(byte_write_u32_be(4294967295)?, zero_offset, four)?)))

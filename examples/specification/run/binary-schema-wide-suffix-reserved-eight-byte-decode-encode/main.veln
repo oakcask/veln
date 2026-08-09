@@ -110,24 +110,24 @@ fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("5415555555555555")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(8)?)?
-	let decoded: {value: Int} = byte_decode_eight_byte_wide_suffix_header(view)?
+	let bytes = byte_chunk_from_hex("5415555555555555")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(8)?)?
+	let decoded = byte_decode_eight_byte_wide_suffix_header(view)?
 	stdio::println(int_to_string(decoded.value))
 
-	let direct_encoded: Result<ByteChunk, EncodeError> = byte_encode_eight_byte_wide_suffix_header({value: 42})
+	let direct_encoded = byte_encode_eight_byte_wide_suffix_header({value: 42})
 	emit_direct_encoded(direct_encoded, "5415555555555555")
 
-	let derived_decoded: DecodeStep<{value: Int}> = decode EightByteWideSuffixHeader from view at byte_offset(0)?
+	let derived_decoded = decode EightByteWideSuffixHeader from view at byte_offset(0)?
 	stdio::println(decode_step_kind(derived_decoded))
 	stdio::println(int_to_string(decoded_value(derived_decoded)))
 	stdio::println(int_to_string(consumed_count(derived_decoded)))
 
-	let derived_encoded: EncodeStep<()> = encode_result_step(encode EightByteWideSuffixHeader from {value: 42})
+	let derived_encoded = encode_result_step(encode EightByteWideSuffixHeader from {value: 42})
 	stdio::println(encode_step_kind(derived_encoded))
 	emit_derived_encoded("wide-suffix-eight-derived", derived_encoded, "5415555555555555")
 
-	let rejected: EncodeStep<()> = encode_result_step(encode EightByteWideSuffixHeader from {value: 128})
+	let rejected = encode_result_step(encode EightByteWideSuffixHeader from {value: 128})
 	stdio::println(encode_step_kind(rejected))
 	stdio::println(encode_error_id(rejected))
 	stdio::println(encode_error_path(rejected))

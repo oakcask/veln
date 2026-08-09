@@ -11,6 +11,6 @@ use main
 ## companion-import-marker
 ## {@schema main::CompanionOnly}
 test companion_doc_source_is_excluded() -> ()
-	let observed: Int = main::visible(1)
+	let observed = main::visible(1)
 	()
 end

@@ -89,11 +89,11 @@ fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
 end
 
 pub fn main() -> () effects [stdio]
-	let encoded: EncodeStep<()> = encode_result_step(encode ClosedNestedPacket from {kind: 1, payload: {version: 1, code: 7, value: 4660}})
+	let encoded = encode_result_step(encode ClosedNestedPacket from {kind: 1, payload: {version: 1, code: 7, value: 4660}})
 	stdio::println(step_kind(encoded))
 	emit_encoded("derived-closed-nested", encoded, "010100073412")
 
-	let invalid: EncodeStep<()> = encode_result_step(encode ClosedNestedPacket from {kind: 2, payload: {version: 1, code: 7, value: 4660}})
+	let invalid = encode_result_step(encode ClosedNestedPacket from {kind: 2, payload: {version: 1, code: 7, value: 4660}})
 	stdio::println(step_kind(invalid))
 	stdio::println(error_id(invalid))
 	stdio::println(error_path(invalid))

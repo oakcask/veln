@@ -111,7 +111,7 @@ fn accepted_lifecycle(stream: NetStream) -> Result<{ actions : List<ResponseActi
 end
 
 fn lifecycle_result(address: String) -> Result<{ actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }, String> effects [net, concurrency]
-	let listener: NetListener = net::listen(address)
+	let listener = net::listen(address)
 	match net::accept_or_end(listener)
 		Some(stream) => accepted_lifecycle(stream)
 		None => Ok({ actions: list_cons(Ignore, list_nil()), next_state: { chunks: 0, ended: true } })
@@ -127,7 +127,7 @@ fn bool_text(value: Bool) -> String
 end
 
 pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
-	let routed: { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } = lifecycle_result("127.0.0.1:0")?
+	let routed = lifecycle_result("127.0.0.1:0")?
 	stdio::print("actions ")
 	stdio::print(int_to_string(action_count(routed.actions)))
 	stdio::print(" chunks ")

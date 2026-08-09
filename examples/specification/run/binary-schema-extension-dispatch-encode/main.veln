@@ -39,18 +39,18 @@ fn emit_encoded(name: String, encoded: Result<ByteChunk, EncodeError>, expected_
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let known: Result<ByteChunk, EncodeError> = byte_encode_extension_dispatch_write_packet({length: 2, kind: 1, payload: Known(4660)})
+	let known = byte_encode_extension_dispatch_write_packet({length: 2, kind: 1, payload: Known(4660)})
 	emit_encoded("extension-known-u16", known, "02011234")
 
-	let known_length: Result<ByteChunk, EncodeError> = byte_encode_extension_dispatch_write_packet({length: 3, kind: 3, payload: Known(1193046)})
+	let known_length = byte_encode_extension_dispatch_write_packet({length: 3, kind: 3, payload: Known(1193046)})
 	emit_encoded("extension-known-u24le", known_length, "0303563412")
 
-	let known_wide: Result<ByteChunk, EncodeError> = byte_encode_extension_dispatch_write_packet({length: 4, kind: 4, payload: Known(3735928559)})
+	let known_wide = byte_encode_extension_dispatch_write_packet({length: 4, kind: 4, payload: Known(3735928559)})
 	emit_encoded("extension-known-u32le", known_wide, "0404efbeadde")
 
-	let raw: ByteChunk = byte_chunk_from_hex("aabbcc")?
-	let view: ByteView = byte_view(raw, byte_offset(0)?, byte_count(3)?)?
-	let unknown: Result<ByteChunk, EncodeError> = byte_encode_extension_dispatch_write_packet({length: 3, kind: 7, payload: Unknown(7, view)})
+	let raw = byte_chunk_from_hex("aabbcc")?
+	let view = byte_view(raw, byte_offset(0)?, byte_count(3)?)?
+	let unknown = byte_encode_extension_dispatch_write_packet({length: 3, kind: 7, payload: Unknown(7, view)})
 	emit_encoded("extension-unknown-raw", unknown, "0307aabbcc")
 	Ok(())
 end

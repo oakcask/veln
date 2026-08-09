@@ -34,10 +34,10 @@ fn error_reason(error: EncodeError) -> String
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let payload_bytes: ByteChunk = byte_chunk_from_hex("aabbcc")?
-	let payload: ByteView = byte_view(payload_bytes, byte_offset(0)?, byte_count(3)?)?
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_packet_wire({total_length: 8, chunk_count: 2, payload: payload})
-	let emitted: () = match encoded
+	let payload_bytes = byte_chunk_from_hex("aabbcc")?
+	let payload = byte_view(payload_bytes, byte_offset(0)?, byte_count(3)?)?
+	let encoded = byte_encode_packet_wire({total_length: 8, chunk_count: 2, payload: payload})
+	let emitted = match encoded
 		Ok(_) => stdio::println("unexpected encode success")
 		Err(error) => emit_error(error)
 	end

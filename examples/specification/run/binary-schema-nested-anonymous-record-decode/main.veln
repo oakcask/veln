@@ -26,9 +26,9 @@ fn explicit_consumed(step: DecodeStep<{prefix: Int, header: {kind: Int, detail: 
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("0a010203040506ff")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(8)?)?
-	let packet: {prefix: Int, header: {kind: Int, detail: {code: Int, tail: Int}, marker: Int}, suffix: Int} = byte_decode_nested_anonymous_record_packet(view)?
+	let bytes = byte_chunk_from_hex("0a010203040506ff")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(8)?)?
+	let packet = byte_decode_nested_anonymous_record_packet(view)?
 	stdio::print("helper ")
 	stdio::print(int_to_string(packet.prefix))
 	stdio::print(" ")
@@ -42,7 +42,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::print(" ")
 	stdio::println(int_to_string(packet.suffix))
 
-	let step: DecodeStep<{prefix: Int, header: {kind: Int, detail: {code: Int, tail: Int}, marker: Int}, suffix: Int}> = decode NestedAnonymousRecordPacket from view at byte_offset(17)?
+	let step = decode NestedAnonymousRecordPacket from view at byte_offset(17)?
 	stdio::print("explicit ")
 	stdio::print(int_to_string(explicit_tail(step)))
 	stdio::print(" ")

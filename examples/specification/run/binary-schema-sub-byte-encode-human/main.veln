@@ -33,7 +33,7 @@ fn emit_encoded(bytes: ByteChunk) -> () effects [stdio]
 end
 
 pub fn main() -> () effects [stdio]
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_sub_byte_write({one_bit: 1, three_bits: 6, seven_bits: 127})
+	let encoded = byte_encode_sub_byte_write({one_bit: 1, three_bits: 6, seven_bits: 127})
 	match encoded
 		Ok(bytes) => emit_encoded(bytes)
 		Err(_) => stdio::println("unexpected encode failure")

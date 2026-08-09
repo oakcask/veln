@@ -47,9 +47,9 @@ fn emit_packet(packet: {kind: Int, payload: {count: Int, items: List<{code: Int,
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("010207012c09000a")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(8)?)?
-	let packet: {kind: Int, payload: {count: Int, items: List<{code: Int, value: Int}>}} = byte_decode_closed_repeated_packet(view)?
+	let bytes = byte_chunk_from_hex("010207012c09000a")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(8)?)?
+	let packet = byte_decode_closed_repeated_packet(view)?
 	emit_packet(packet)
 	Ok(())
 end

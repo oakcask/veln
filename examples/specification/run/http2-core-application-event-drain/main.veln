@@ -47,7 +47,7 @@ fn bool_label(value: Bool) -> String
 end
 
 fn print_event(label: String, event: Http2ApplicationEvent) -> Result<(), String> effects [stdio]
-	let headers: HeaderList = http2::core::application_event_headers(event)
+	let headers = http2::core::application_event_headers(event)
 	stdio::print(label)
 	stdio::print(" stream ")
 	stdio::print(int_to_string(http2::core::application_event_stream_id(event)))

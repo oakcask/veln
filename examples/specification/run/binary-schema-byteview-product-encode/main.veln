@@ -45,9 +45,9 @@ fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let payload_bytes: ByteChunk = byte_chunk_from_hex("aabbccddeeff")?
-	let payload: ByteView = byte_view(payload_bytes, byte_offset(0)?, byte_count(6)?)?
-	let encoded: EncodeStep<()> = encode_result_step(encode PacketWire from {row_count: 2, column_count: 3, payload: payload})
+	let payload_bytes = byte_chunk_from_hex("aabbccddeeff")?
+	let payload = byte_view(payload_bytes, byte_offset(0)?, byte_count(6)?)?
+	let encoded = encode_result_step(encode PacketWire from {row_count: 2, column_count: 3, payload: payload})
 	emit_step(encoded)
 	Ok(())
 end

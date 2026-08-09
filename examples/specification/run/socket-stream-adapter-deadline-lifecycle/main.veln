@@ -67,11 +67,11 @@ end
 
 fn collect_stream_actions_until(stream: NetStream, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, time, concurrency]
 	let route = channel::bounded<StreamInput>(1)
-	let first_deadline: Deadline = time::deadline_after_ms(100)
+	let first_deadline = time::deadline_after_ms(100)
 	let first = handle_stream_input(route_input(route, read_stream_input_until(stream, first_deadline)), state)
-	let second_deadline: Deadline = time::deadline_after_ms(100)
+	let second_deadline = time::deadline_after_ms(100)
 	let second = handle_stream_input(route_input(route, read_stream_input_until(stream, second_deadline)), first.next_state)
-	let stop_deadline: Deadline = time::deadline_after_ms(0)
+	let stop_deadline = time::deadline_after_ms(0)
 	let stopped = handle_stream_input(route_input(route, read_stream_input_until(stream, stop_deadline)), second.next_state)
 	{ actions: append_actions(first.actions, append_actions(second.actions, stopped.actions)), next_state: stopped.next_state }
 end
@@ -99,8 +99,8 @@ fn accepted_lifecycle_until(stream: NetStream) -> Result<{ actions : List<Respon
 end
 
 fn lifecycle_result(address: String) -> Result<{ actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }, String> effects [net, time, concurrency]
-	let listener: NetListener = net::listen(address)
-	let accept_deadline: Deadline = time::deadline_after_ms(100)
+	let listener = net::listen(address)
+	let accept_deadline = time::deadline_after_ms(100)
 	match net::accept_until(listener, accept_deadline)
 		Some(stream) => accepted_lifecycle_until(stream)
 		None => Ok({ actions: list_cons(Ignore, list_nil()), next_state: { chunks: 0, ended: true } })
@@ -116,7 +116,7 @@ fn bool_text(value: Bool) -> String
 end
 
 pub fn main() -> Result<(), String> effects [net, time, concurrency, stdio]
-	let routed: { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } = lifecycle_result("127.0.0.1:0")?
+	let routed = lifecycle_result("127.0.0.1:0")?
 	stdio::print("actions ")
 	stdio::print(int_to_string(action_count(routed.actions)))
 	stdio::print(" chunks ")

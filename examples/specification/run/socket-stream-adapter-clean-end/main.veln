@@ -98,8 +98,8 @@ fn bool_text(value: Bool) -> String
 end
 
 pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let stream: NetStream = net::accept(listener)
+	let listener = net::listen("127.0.0.1:0")
+	let stream = net::accept(listener)
 	let routed = route_socket_inputs(stream, { chunks: 0, ended: false })
 	apply_response_actions(stream, routed.actions)
 	stdio::print("actions ")

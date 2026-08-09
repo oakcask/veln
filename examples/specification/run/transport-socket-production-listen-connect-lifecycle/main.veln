@@ -24,20 +24,20 @@ fn bool_text(value: Bool) -> String
 end
 
 pub fn main() -> Result<(), String> effects [net, stdio]
-	let address: String = "127.0.0.1:0"
-	let listener: NetListener = net::listen(address)
-	let client: NetStream = net::connect(address)
-	let server: NetStream = expect_stream(net::accept_or_end(listener))?
-	let outgoing: ByteChunk = byte_chunk_from_hex("7f")?
+	let address = "127.0.0.1:0"
+	let listener = net::listen(address)
+	let client = net::connect(address)
+	let server = expect_stream(net::accept_or_end(listener))?
+	let outgoing = byte_chunk_from_hex("7f")?
 	net::write_chunk(client, outgoing)
-	let server_read: ByteChunk = net::read_chunk(server)
+	let server_read = net::read_chunk(server)
 	net::write_chunk(server, server_read)
-	let client_read: ByteChunk = net::read_chunk(client)
-	let server_count: Int = byte_count_to_int(byte_chunk_count(server_read))
-	let client_count: Int = byte_count_to_int(byte_chunk_count(client_read))
+	let client_read = net::read_chunk(client)
+	let server_count = byte_count_to_int(byte_chunk_count(server_read))
+	let client_count = byte_count_to_int(byte_chunk_count(client_read))
 	net::close_stream(server)
 	net::close_stream(client)
-	let clean_end: Bool = listener_ended(listener)
+	let clean_end = listener_ended(listener)
 	net::close_listener(listener)
 	stdio::print("server ")
 	stdio::print(int_to_string(server_count))

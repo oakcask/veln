@@ -8,11 +8,11 @@ fn write_outcome_text(outcome: StreamWriteOutcome) -> String
 end
 
 pub fn main() -> Result<(), String> effects [net, time, stdio]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let stream: NetStream = net::accept(listener)
-	let outgoing: ByteChunk = byte_chunk_from_hex("0a0b")?
-	let deadline: Deadline = time::deadline_after_ms(100)
-	let token: CancelToken = time::cancel_token()
+	let listener = net::listen("127.0.0.1:0")
+	let stream = net::accept(listener)
+	let outgoing = byte_chunk_from_hex("0a0b")?
+	let deadline = time::deadline_after_ms(100)
+	let token = time::cancel_token()
 	stdio::println(write_outcome_text(net::write_chunk_until_cancellable(stream, outgoing, deadline, token)))
 	Ok(())
 end

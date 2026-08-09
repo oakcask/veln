@@ -83,9 +83,9 @@ fn optional_result_list_text(result: Option<Result<List<Int>, String>>) -> Strin
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let top_ok: {status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>, result_items: Result<List<Int>, String>, result_labels: Result<Int, Dict<String, String>>, optional_items: Option<Result<List<Int>, String>>} = byte_decode_result_packet({status: Ok(7), enabled: Ok(true), ratio: Ok(1.25), label: Ok("alpha"), result_items: Ok(list_cons(2, list_cons(3, list_cons(5, list_nil())))), result_labels: Ok(19), optional_items: Some(Ok(list_cons(11, list_cons(13, list_nil()))))})?
-	let top_err: {status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>, result_items: Result<List<Int>, String>, result_labels: Result<Int, Dict<String, String>>, optional_items: Option<Result<List<Int>, String>>} = byte_decode_result_packet({status: Err("blocked"), enabled: Err("unknown"), ratio: Err("missing-ratio"), label: Err(404), result_items: Err("missing-items"), result_labels: Err({"owner": "core"}), optional_items: None})?
-	let nested: {metadata: {status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>, result_items: Result<List<Int>, String>, result_labels: Result<Int, Dict<String, String>>}} = byte_decode_nested_result_packet({metadata: {status: Ok(11), enabled: Ok(false), ratio: Ok(0.75), label: Err(503), result_items: Ok(list_cons(17, list_cons(19, list_nil()))), result_labels: Err({"owner": "nested-core"})}})?
+	let top_ok = byte_decode_result_packet({status: Ok(7), enabled: Ok(true), ratio: Ok(1.25), label: Ok("alpha"), result_items: Ok(list_cons(2, list_cons(3, list_cons(5, list_nil())))), result_labels: Ok(19), optional_items: Some(Ok(list_cons(11, list_cons(13, list_nil()))))})?
+	let top_err = byte_decode_result_packet({status: Err("blocked"), enabled: Err("unknown"), ratio: Err("missing-ratio"), label: Err(404), result_items: Err("missing-items"), result_labels: Err({"owner": "core"}), optional_items: None})?
+	let nested = byte_decode_nested_result_packet({metadata: {status: Ok(11), enabled: Ok(false), ratio: Ok(0.75), label: Err(503), result_items: Ok(list_cons(17, list_cons(19, list_nil()))), result_labels: Err({"owner": "nested-core"})}})?
 	stdio::println(result_int_text(top_ok.status))
 	stdio::println(result_bool_text(top_ok.enabled))
 	stdio::println(result_float_text(top_ok.ratio))

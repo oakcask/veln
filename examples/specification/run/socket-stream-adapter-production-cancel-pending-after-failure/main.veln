@@ -111,8 +111,8 @@ fn drain_until_failure(pending: PendingWork) -> { drained: Int, successes: Int, 
 end
 
 pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let pending: PendingWork = accept_pending(listener, 1)
+	let listener = net::listen("127.0.0.1:0")
+	let pending = accept_pending(listener, 1)
 	net::close_listener(listener)
 	let summary = drain_until_failure(pending)
 	stdio::print("drained ")

@@ -93,14 +93,14 @@ end
 
 pub fn main() -> Result<(), String> effects [stdio, concurrency]
 	let initial = { request_count: 0 }
-	let direct_payload: ByteChunk = byte_chunk_from_hex("6869")?
+	let direct_payload = byte_chunk_from_hex("6869")?
 	let direct = handle_stream_event(Request(1, direct_payload, true), initial)
 	emit_result("direct", direct)
 
-	let routed_payload: ByteChunk = byte_chunk_from_hex("00")?
+	let routed_payload = byte_chunk_from_hex("00")?
 	let routed_channel = channel::bounded<StreamEvent>(1)
 	let _ = channel::send(routed_channel.tx, Request(3, routed_payload, false))
-	let routed_event: StreamEvent = match channel::recv(routed_channel.rx)
+	let routed_event = match channel::recv(routed_channel.rx)
 		Some(event) => event
 		None => PeerClosed(3)
 	end

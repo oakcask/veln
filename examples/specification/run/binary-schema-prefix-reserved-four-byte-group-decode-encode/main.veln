@@ -9,7 +9,7 @@ schema FourBytePrefixReservedGroupHeader
 end
 
 fn encoded_value(chunk: ByteChunk) -> Result<Int, String>
-	let view: ByteView = byte_view(chunk, byte_offset(0)?, byte_count(4)?)?
+	let view = byte_view(chunk, byte_offset(0)?, byte_count(4)?)?
 	byte_read_u32_be(view)
 end
 
@@ -31,12 +31,12 @@ fn emit_encoded(encoded: Result<ByteChunk, EncodeError>) -> Result<(), String> e
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("aaaaaad5")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(4)?)?
-	let decoded: {high: Int, low: Int} = byte_decode_four_byte_prefix_reserved_group_header(view)?
+	let bytes = byte_chunk_from_hex("aaaaaad5")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(4)?)?
+	let decoded = byte_decode_four_byte_prefix_reserved_group_header(view)?
 	stdio::println(int_to_string(decoded.high))
 	stdio::println(int_to_string(decoded.low))
 
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_four_byte_prefix_reserved_group_header({high: 10, low: 5})
+	let encoded = byte_encode_four_byte_prefix_reserved_group_header({high: 10, low: 5})
 	emit_encoded(encoded)
 end

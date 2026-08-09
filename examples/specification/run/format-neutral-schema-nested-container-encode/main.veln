@@ -53,8 +53,8 @@ end
 pub fn main() -> () effects [stdio]
 	let packet: {metadata: {items: List<Int>, names: List<String>, flags: Option<List<Bool>>}} = {metadata: {items: list_cons(3, list_cons(4, list_nil())), names: list_cons("nested", list_nil()), flags: Some(list_cons(true, list_cons(true, list_nil())))}}
 	let empty_packet: {metadata: {items: List<Int>, names: List<String>, flags: Option<List<Bool>>}} = {metadata: {items: list_nil(), names: list_nil(), flags: None}}
-	let encoded: Result<{metadata: {items: List<Int>, names: List<String>, flags: Option<List<Bool>>}}, String> = byte_encode_nested_container_packet(packet)
-	let explicit: Result<{metadata: {items: List<Int>, names: List<String>, flags: Option<List<Bool>>}}, String> = encode NestedContainerPacket from empty_packet
+	let encoded = byte_encode_nested_container_packet(packet)
+	let explicit = encode NestedContainerPacket from empty_packet
 	stdio::println(item_text(encoded))
 	stdio::println(name_text(encoded))
 	stdio::println(flag_text(encoded))

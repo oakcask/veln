@@ -38,7 +38,7 @@ fn print_decision(label: String, decision: CoreReceiveFrameDecision) -> () effec
 end
 
 fn print_state(label: String, state: CoreConnectionState, stream_id: Int) -> Result<(), String> effects [stdio]
-	let stream: CoreStreamEntry = match http2::core::stream_collection_find(http2::core::connection_state_streams(state), stream_id)
+	let stream = match http2::core::stream_collection_find(http2::core::connection_state_streams(state), stream_id)
 		Some(found) => found
 		None => Err("missing expected stream")?
 	end
@@ -59,7 +59,7 @@ fn print_state(label: String, state: CoreConnectionState, stream_id: Int) -> Res
 end
 
 fn print_body_state(label: String, state: CoreConnectionState, stream_id: Int) -> Result<(), String> effects [stdio]
-	let stream: CoreStreamEntry = match http2::core::stream_collection_find(http2::core::connection_state_streams(state), stream_id)
+	let stream = match http2::core::stream_collection_find(http2::core::connection_state_streams(state), stream_id)
 		Some(found) => found
 		None => Err("missing expected body stream")?
 	end
@@ -74,7 +74,7 @@ fn print_body_state(label: String, state: CoreConnectionState, stream_id: Int) -
 end
 
 fn print_connection_lifecycle(label: String, state: CoreConnectionState) -> () effects [stdio]
-	let lifecycle: CoreConnectionLifecycle = http2::core::connection_state_lifecycle(state)
+	let lifecycle = http2::core::connection_state_lifecycle(state)
 	stdio::print(label)
 	stdio::print(" lifecycle ")
 	stdio::print(http2::core::connection_lifecycle_label(lifecycle))
@@ -121,7 +121,7 @@ fn print_failure_reason(label: String, failure: CoreReceiveFrameFailure) -> () e
 end
 
 fn print_header_state(label: String, state: CoreConnectionState, stream_id: Int) -> Result<(), String> effects [stdio]
-	let stream: CoreStreamEntry = match http2::core::stream_collection_find(http2::core::connection_state_streams(state), stream_id)
+	let stream = match http2::core::stream_collection_find(http2::core::connection_state_streams(state), stream_id)
 		Some(found) => found
 		None => Err("missing expected header stream")?
 	end
@@ -142,7 +142,7 @@ fn print_header_state(label: String, state: CoreConnectionState, stream_id: Int)
 end
 
 fn print_pending_state(label: String, state: CoreConnectionState) -> () effects [stdio]
-	let pending: PendingHeaderBlock = http2::core::connection_state_pending_header_block(state)
+	let pending = http2::core::connection_state_pending_header_block(state)
 	stdio::print(label)
 	stdio::print(" pending ")
 	stdio::print(bool_label(http2::core::pending_header_block_is_active(pending)))
@@ -157,7 +157,7 @@ fn print_pending_state(label: String, state: CoreConnectionState) -> () effects 
 end
 
 fn print_push_state(label: String, state: CoreConnectionState, promised_stream_id: Int) -> Result<(), String> effects [stdio]
-	let stream: CoreStreamEntry = match http2::core::stream_collection_find(http2::core::connection_state_streams(state), promised_stream_id)
+	let stream = match http2::core::stream_collection_find(http2::core::connection_state_streams(state), promised_stream_id)
 		Some(found) => found
 		None => Err("missing expected promised stream")?
 	end
@@ -232,8 +232,8 @@ fn print_admission_context(label: String, failure: CoreReceiveFrameFailure) -> (
 end
 
 fn body_state() -> Result<CoreConnectionState, String>
-	let base: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(31)?, require_connection(http2::core::connection_window_credit(20))?)
-	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 14, 21, 5, 0))?
+	let base = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(31)?, require_connection(http2::core::connection_window_credit(20))?)
+	let entry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 14, 21, 5, 0))?
 	Ok(http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), entry)))
 end
 
@@ -258,94 +258,94 @@ fn print_error_line(label: String, error: String) -> () effects [stdio]
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let base: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(31)?, require_connection(http2::core::connection_window_credit(20))?)
-	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 14, 21, -1, 0))?
-	let state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), entry))
-	let data: CoreReceiveFrameDecision = http2::core::apply_receive_frame(state, byte_chunk_from_hex("00000400010000000501020304")?)?
-	let data_state: CoreConnectionState = require_state(data)?
+	let base = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(31)?, require_connection(http2::core::connection_window_credit(20))?)
+	let entry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 14, 21, -1, 0))?
+	let state = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), entry))
+	let data = http2::core::apply_receive_frame(state, byte_chunk_from_hex("00000400010000000501020304")?)?
+	let data_state = require_state(data)?
 	print_decision("data", data)
 	let _ = print_state("updated", data_state, 5)?
 	let _ = print_state("input", state, 5)?
-	let body_first: CoreReceiveFrameDecision = http2::core::apply_receive_frame(body_state()?, byte_chunk_from_hex("000003000000000005aabbcc")?)?
-	let body_first_state: CoreConnectionState = require_state(body_first)?
+	let body_first = http2::core::apply_receive_frame(body_state()?, byte_chunk_from_hex("000003000000000005aabbcc")?)?
+	let body_first_state = require_state(body_first)?
 	print_decision("content-length-first", body_first)
 	let _ = print_body_state("content-length-first", body_first_state, 5)?
-	let body_exact: CoreReceiveFrameDecision = http2::core::apply_receive_frame(body_first_state, byte_chunk_from_hex("000002000100000005ddee")?)?
-	let body_exact_state: CoreConnectionState = require_state(body_exact)?
+	let body_exact = http2::core::apply_receive_frame(body_first_state, byte_chunk_from_hex("000002000100000005ddee")?)?
+	let body_exact_state = require_state(body_exact)?
 	print_decision("content-length-exact", body_exact)
 	let _ = print_body_state("content-length-exact", body_exact_state, 5)?
-	let over_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(body_first_state, byte_chunk_from_hex("000003000000000005010203")?)?)?
-	let early_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(body_state()?, byte_chunk_from_hex("000003000100000005aabbcc")?)?)?
+	let over_failure = require_failure(http2::core::apply_receive_frame(body_first_state, byte_chunk_from_hex("000003000000000005010203")?)?)?
+	let early_failure = require_failure(http2::core::apply_receive_frame(body_state()?, byte_chunk_from_hex("000003000100000005aabbcc")?)?)?
 	print_content_length_failure("content-length-over", over_failure)
 	print_content_length_failure("content-length-early", early_failure)
 	let _ = print_body_state("content-length-over-input", body_first_state, 5)?
 	let _ = print_body_state("content-length-early-input", body_state()?, 5)?
-	let stream_window: CoreReceiveFrameDecision = http2::core::apply_receive_frame(data_state, byte_chunk_from_hex("00000408000000000500000006")?)?
-	let stream_window_state: CoreConnectionState = require_state(stream_window)?
+	let stream_window = http2::core::apply_receive_frame(data_state, byte_chunk_from_hex("00000408000000000500000006")?)?
+	let stream_window_state = require_state(stream_window)?
 	print_decision("stream-window", stream_window)
 	let _ = print_state("stream-window", stream_window_state, 5)?
-	let connection_window: CoreReceiveFrameDecision = http2::core::apply_receive_frame(stream_window_state, byte_chunk_from_hex("00000408000000000000000007")?)?
-	let connection_window_state: CoreConnectionState = require_state(connection_window)?
+	let connection_window = http2::core::apply_receive_frame(stream_window_state, byte_chunk_from_hex("00000408000000000000000007")?)?
+	let connection_window_state = require_state(connection_window)?
 	print_decision("connection-window", connection_window)
 	let _ = print_state("connection-window", connection_window_state, 5)?
-	let settings_input: CoreConnectionState = http2::core::connection_state_with_settings_ack(state, http2::core::record_local_settings_batch(http2::core::connection_state_settings_ack(state), 5, 1))
-	let settings: CoreReceiveFrameDecision = http2::core::apply_receive_frame(settings_input, byte_chunk_from_hex("00000c040000000000aaaa12345678000500008000")?)?
-	let settings_state: CoreConnectionState = require_state(settings)?
+	let settings_input = http2::core::connection_state_with_settings_ack(state, http2::core::record_local_settings_batch(http2::core::connection_state_settings_ack(state), 5, 1))
+	let settings = http2::core::apply_receive_frame(settings_input, byte_chunk_from_hex("00000c040000000000aaaa12345678000500008000")?)?
+	let settings_state = require_state(settings)?
 	print_decision("settings", settings)
 	print_settings_state("settings", settings_state)
-	let settings_ack: CoreReceiveFrameDecision = http2::core::apply_receive_frame(settings_state, byte_chunk_from_hex("000000040100000000")?)?
-	let settings_ack_state: CoreConnectionState = require_state(settings_ack)?
+	let settings_ack = http2::core::apply_receive_frame(settings_state, byte_chunk_from_hex("000000040100000000")?)?
+	let settings_ack_state = require_state(settings_ack)?
 	print_decision("settings-ack", settings_ack)
 	print_settings_state("settings-ack", settings_ack_state)
-	let goaway: CoreReceiveFrameDecision = http2::core::apply_receive_frame(state, byte_chunk_from_hex("000008070000000000000000050000000b")?)?
-	let goaway_state: CoreConnectionState = require_state(goaway)?
+	let goaway = http2::core::apply_receive_frame(state, byte_chunk_from_hex("000008070000000000000000050000000b")?)?
+	let goaway_state = require_state(goaway)?
 	print_decision("goaway", goaway)
 	print_connection_lifecycle("goaway", goaway_state)
-	let rst: CoreReceiveFrameDecision = http2::core::apply_receive_frame(state, byte_chunk_from_hex("00000403000000000500000008")?)?
+	let rst = http2::core::apply_receive_frame(state, byte_chunk_from_hex("00000403000000000500000008")?)?
 	print_decision("rst", rst)
 	let _ = print_state("rst", require_state(rst)?, 5)?
-	let headers: CoreReceiveFrameDecision = http2::core::apply_receive_frame(http2::core::server_connection_state(31)?, byte_chunk_from_hex("000003010400000001828784")?)?
-	let headers_state: CoreConnectionState = require_state(headers)?
+	let headers = http2::core::apply_receive_frame(http2::core::server_connection_state(31)?, byte_chunk_from_hex("000003010400000001828784")?)?
+	let headers_state = require_state(headers)?
 	print_decision("headers", headers)
 	let _ = print_header_state("headers", headers_state, 1)?
-	let continuation_start: CoreReceiveFrameDecision = http2::core::apply_receive_frame(http2::core::server_connection_state(31)?, byte_chunk_from_hex("00000101000000000182")?)?
-	let continuation_pending: CoreConnectionState = require_state(continuation_start)?
+	let continuation_start = http2::core::apply_receive_frame(http2::core::server_connection_state(31)?, byte_chunk_from_hex("00000101000000000182")?)?
+	let continuation_pending = require_state(continuation_start)?
 	print_decision("continuation-start", continuation_start)
-	let continuation_done: CoreReceiveFrameDecision = http2::core::apply_receive_frame(continuation_pending, byte_chunk_from_hex("0000020904000000018784")?)?
-	let continuation_state: CoreConnectionState = require_state(continuation_done)?
+	let continuation_done = http2::core::apply_receive_frame(continuation_pending, byte_chunk_from_hex("0000020904000000018784")?)?
+	let continuation_state = require_state(continuation_done)?
 	print_decision("continuation-done", continuation_done)
 	let _ = print_header_state("continuation", continuation_state, 1)?
-	let continuation_sequence_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(continuation_pending, byte_chunk_from_hex("000000000000000001")?)?)?
+	let continuation_sequence_failure = require_failure(http2::core::apply_receive_frame(continuation_pending, byte_chunk_from_hex("000000000000000001")?)?)?
 	print_failure("continuation-sequence", continuation_sequence_failure)
 	print_failure_reason("continuation-sequence", continuation_sequence_failure)
 	print_pending_state("continuation-input", continuation_pending)
-	let low_base: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(31)?, require_connection(http2::core::connection_window_credit(5))?)
-	let low_state: CoreConnectionState = http2::core::connection_state_with_streams(low_base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(low_base), entry))
-	let admission_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000001000000000000ff")?)?)?
-	let padded_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000000000800000005")?)?)?
-	let flow_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(low_state, byte_chunk_from_hex("000006000000000005010203040506")?)?)?
-	let settings_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000006040000000000000500003fff")?)?)?
-	let settings_ack_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000000040100000000")?)?)?
-	let goaway_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(goaway_state, byte_chunk_from_hex("0000080700000000000000000700000016")?)?)?
-	let push_base: CoreConnectionState = http2::core::client_connection_state(31)?
-	let push_stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_client_push_associated_lifecycle(), 14, 21, -1, 0))?
-	let push_state: CoreConnectionState = http2::core::connection_state_with_streams(push_base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(push_base), push_stream))
-	let push_payload_length_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(push_state, byte_chunk_from_hex("000003050400000001000000")?)?)?
-	let push_admission_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(http2::core::server_connection_state(31)?, byte_chunk_from_hex("00000405040000000100000002")?)?)?
-	let push_accepted: CoreReceiveFrameDecision = http2::core::apply_receive_frame(push_state, byte_chunk_from_hex("00000705040000000100000002828784")?)?
-	let push_accepted_state: CoreConnectionState = require_state(push_accepted)?
+	let low_base = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(31)?, require_connection(http2::core::connection_window_credit(5))?)
+	let low_state = http2::core::connection_state_with_streams(low_base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(low_base), entry))
+	let admission_failure = require_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000001000000000000ff")?)?)?
+	let padded_failure = require_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000000000800000005")?)?)?
+	let flow_failure = require_failure(http2::core::apply_receive_frame(low_state, byte_chunk_from_hex("000006000000000005010203040506")?)?)?
+	let settings_failure = require_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000006040000000000000500003fff")?)?)?
+	let settings_ack_failure = require_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000000040100000000")?)?)?
+	let goaway_failure = require_failure(http2::core::apply_receive_frame(goaway_state, byte_chunk_from_hex("0000080700000000000000000700000016")?)?)?
+	let push_base = http2::core::client_connection_state(31)?
+	let push_stream = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_client_push_associated_lifecycle(), 14, 21, -1, 0))?
+	let push_state = http2::core::connection_state_with_streams(push_base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(push_base), push_stream))
+	let push_payload_length_failure = require_failure(http2::core::apply_receive_frame(push_state, byte_chunk_from_hex("000003050400000001000000")?)?)?
+	let push_admission_failure = require_failure(http2::core::apply_receive_frame(http2::core::server_connection_state(31)?, byte_chunk_from_hex("00000405040000000100000002")?)?)?
+	let push_accepted = http2::core::apply_receive_frame(push_state, byte_chunk_from_hex("00000705040000000100000002828784")?)?
+	let push_accepted_state = require_state(push_accepted)?
 	print_decision("push-promise", push_accepted)
 	let _ = print_push_state("push-promise", push_accepted_state, 2)?
-	let push_continuation_start: CoreReceiveFrameDecision = http2::core::apply_receive_frame(push_state, byte_chunk_from_hex("0000050500000000010000000482")?)?
-	let push_pending_state: CoreConnectionState = require_state(push_continuation_start)?
+	let push_continuation_start = http2::core::apply_receive_frame(push_state, byte_chunk_from_hex("0000050500000000010000000482")?)?
+	let push_pending_state = require_state(push_continuation_start)?
 	print_decision("push-promise-continuation-start", push_continuation_start)
 	print_pending_state("push-promise-continuation-start", push_pending_state)
-	let push_continuation_done: CoreReceiveFrameDecision = http2::core::apply_receive_frame(push_pending_state, byte_chunk_from_hex("0000020904000000018784")?)?
-	let push_continuation_state: CoreConnectionState = require_state(push_continuation_done)?
+	let push_continuation_done = http2::core::apply_receive_frame(push_pending_state, byte_chunk_from_hex("0000020904000000018784")?)?
+	let push_continuation_state = require_state(push_continuation_done)?
 	print_decision("push-promise-continuation-done", push_continuation_done)
 	let _ = print_push_state("push-promise-continuation", push_continuation_state, 4)?
-	let push_repeated_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(push_accepted_state, byte_chunk_from_hex("00000705040000000100000002828784")?)?)?
-	let push_hpack_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(push_accepted_state, byte_chunk_from_hex("00000505040000000100000004ff")?)?)?
+	let push_repeated_failure = require_failure(http2::core::apply_receive_frame(push_accepted_state, byte_chunk_from_hex("00000705040000000100000002828784")?)?)?
+	let push_hpack_failure = require_failure(http2::core::apply_receive_frame(push_accepted_state, byte_chunk_from_hex("00000505040000000100000004ff")?)?)?
 	print_failure("admission", admission_failure)
 	print_failure("padded", padded_failure)
 	print_failure_reason("padded", padded_failure)
@@ -361,10 +361,10 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_admission_context("push-promise-repeated", push_repeated_failure)
 	print_header_failure("push-promise-hpack", push_hpack_failure)
 	let _ = print_push_state("push-promise-failure-input", push_accepted_state, 2)?
-	let hpack_input: CoreConnectionState = http2::core::server_connection_state(31)?
-	let validation_input: CoreConnectionState = http2::core::server_connection_state(31)?
-	let hpack_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(hpack_input, byte_chunk_from_hex("000001010400000001ff")?)?)?
-	let validation_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(validation_input, byte_chunk_from_hex("00000401040000000182828784")?)?)?
+	let hpack_input = http2::core::server_connection_state(31)?
+	let validation_input = http2::core::server_connection_state(31)?
+	let hpack_failure = require_failure(http2::core::apply_receive_frame(hpack_input, byte_chunk_from_hex("000001010400000001ff")?)?)?
+	let validation_failure = require_failure(http2::core::apply_receive_frame(validation_input, byte_chunk_from_hex("00000401040000000182828784")?)?)?
 	print_header_failure("hpack", hpack_failure)
 	print_pending_state("hpack-failure-input", hpack_input)
 	print_header_failure("validation", validation_failure)

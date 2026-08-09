@@ -8,9 +8,9 @@ fn ensure_monotonic(first: Int, second: Int) -> Result<(), String>
 end
 
 pub fn main() -> Result<(), String> effects [time, stdio]
-	let first: Int = time::monotonic_ms()
-	let second: Int = time::monotonic_ms()
-	let _: () = ensure_monotonic(first, second)?
+	let first = time::monotonic_ms()
+	let second = time::monotonic_ms()
+	let _ = ensure_monotonic(first, second)?
 	stdio::println("monotonic")
 	Ok(())
 end

@@ -15,11 +15,11 @@ fn emit_sample(sample: {short_value: Int, wide_value: Int}) -> () effects [stdio
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("1234deadbeef")?
-	let offset: ByteOffset = byte_offset(0)?
-	let count: ByteCount = byte_count(6)?
-	let view: ByteView = byte_view(bytes, offset, count)?
-	let sample: {short_value: Int, wide_value: Int} = byte_decode_schema_width_sample(view)?
+	let bytes = byte_chunk_from_hex("1234deadbeef")?
+	let offset = byte_offset(0)?
+	let count = byte_count(6)?
+	let view = byte_view(bytes, offset, count)?
+	let sample = byte_decode_schema_width_sample(view)?
 	emit_sample(sample)
 	Ok(())
 end

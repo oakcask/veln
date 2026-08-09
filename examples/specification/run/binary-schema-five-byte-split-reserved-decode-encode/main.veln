@@ -11,7 +11,7 @@ schema FiveByteSplitReservedHeader
 end
 
 fn encoded_value(chunk: ByteChunk) -> Result<Int, String>
-	let view: ByteView = byte_view(chunk, byte_offset(0)?, byte_count(5)?)?
+	let view = byte_view(chunk, byte_offset(0)?, byte_count(5)?)?
 	byte_read_u40_be(view)
 end
 
@@ -59,17 +59,17 @@ fn emit_encode_error(encoded: Result<ByteChunk, EncodeError>) -> () effects [std
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("b5546aaab6")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(5)?)?
-	let decoded: {lead: Int, mode: Int, tail: Int} = byte_decode_five_byte_split_reserved_header(view)?
+	let bytes = byte_chunk_from_hex("b5546aaab6")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(5)?)?
+	let decoded = byte_decode_five_byte_split_reserved_header(view)?
 	stdio::println(int_to_string(decoded.lead))
 	stdio::println(int_to_string(decoded.mode))
 	stdio::println(int_to_string(decoded.tail))
 
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_five_byte_split_reserved_header({lead: 5, mode: 17, tail: 22})
-	let ignored: () = emit_encode_result(encoded)?
+	let encoded = byte_encode_five_byte_split_reserved_header({lead: 5, mode: 17, tail: 22})
+	let ignored = emit_encode_result(encoded)?
 
-	let rejected: Result<ByteChunk, EncodeError> = byte_encode_five_byte_split_reserved_header({lead: 5, mode: 32, tail: 22})
+	let rejected = byte_encode_five_byte_split_reserved_header({lead: 5, mode: 32, tail: 22})
 	emit_encode_error(rejected)
 	Ok(())
 end

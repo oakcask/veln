@@ -9,9 +9,9 @@ fn emit_accept_outcome(outcome: AcceptOutcome) -> () effects [stdio]
 end
 
 pub fn main() -> Result<(), String> effects [net, time, stdio]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let deadline: Deadline = time::deadline_after_ms(0)
-	let token: CancelToken = time::cancel_token()
+	let listener = net::listen("127.0.0.1:0")
+	let deadline = time::deadline_after_ms(0)
+	let token = time::cancel_token()
 	emit_accept_outcome(net::accept_until_cancellable(listener, deadline, token))
 	Ok(())
 end

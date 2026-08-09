@@ -91,11 +91,11 @@ fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
 end
 
 pub fn main() -> () effects [stdio]
-	let encoded: EncodeStep<()> = encode_result_step(encode HeaderWire from {length: 5, kind: 1, flags: 4, stream_id: 1})
+	let encoded = encode_result_step(encode HeaderWire from {length: 5, kind: 1, flags: 4, stream_id: 1})
 	stdio::println(step_kind(encoded))
 	emit_encoded("derived-header", encoded, "000005010400000001")
 
-	let invalid: EncodeStep<()> = encode_result_step(encode HeaderWire from {length: 5, kind: 1, flags: 4, stream_id: 2147483648})
+	let invalid = encode_result_step(encode HeaderWire from {length: 5, kind: 1, flags: 4, stream_id: 2147483648})
 	stdio::println(step_kind(invalid))
 	stdio::println(error_id(invalid))
 	stdio::println(error_path(invalid))

@@ -1,8 +1,8 @@
 use math
 
 test companion_can_use_private_target_source_adts() -> ()
-	let secret: math::Secret = math::Secret::Hidden(3)
-	let token: math::Token = math::Token::HiddenToken(5)
+	let secret = math::Secret::Hidden(3)
+	let token = math::Token::HiddenToken(5)
 	match secret
 		math::Secret::Hidden(_) => ()
 	end

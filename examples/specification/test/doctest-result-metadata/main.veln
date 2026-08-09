@@ -8,6 +8,6 @@ pub fn parse_count(raw: String) -> Result<Int, String>
 end
 
 fn check_count(raw: String) -> Result<(), String>
-	let _: Int = parse_count(raw)?
+	let _ = parse_count(raw)?
 	Ok(())
 end

@@ -24,9 +24,9 @@ schema Envelope
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let value: {metadata: {version: Int, label: String}, local_aliased: {version: Int, label: String}, imported: {version: Int, label: String}, aliased: {version: Int, label: String}, payload: String} = {metadata: {version: 3, label: "stable"}, local_aliased: {version: 6, label: "local alias"}, imported: {version: 4, label: "public"}, aliased: {version: 5, label: "alias"}, payload: "body"}
-	let decoded: {metadata: {version: Int, label: String}, local_aliased: {version: Int, label: String}, imported: {version: Int, label: String}, aliased: {version: Int, label: String}, payload: String} = byte_decode_envelope(value)?
-	let encoded: {metadata: {version: Int, label: String}, local_aliased: {version: Int, label: String}, imported: {version: Int, label: String}, aliased: {version: Int, label: String}, payload: String} = byte_encode_envelope(decoded)?
+	let value = {metadata: {version: 3, label: "stable"}, local_aliased: {version: 6, label: "local alias"}, imported: {version: 4, label: "public"}, aliased: {version: 5, label: "alias"}, payload: "body"}
+	let decoded = byte_decode_envelope(value)?
+	let encoded = byte_encode_envelope(decoded)?
 	stdio::println(int_to_string(encoded.metadata.version))
 	stdio::println(encoded.metadata.label)
 	stdio::println(encoded.local_aliased.label)

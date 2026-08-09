@@ -11,7 +11,7 @@ end
 
 
 fn byte_value(chunk: ByteChunk, index: Int) -> Result<Int, String>
-	let view: ByteView = byte_view(chunk, byte_offset(index)?, byte_count(1)?)?
+	let view = byte_view(chunk, byte_offset(index)?, byte_count(1)?)?
 	byte_read_u8_be(view)
 end
 
@@ -144,28 +144,28 @@ fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("555e")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
-	let decoded: {high: Int, middle: Int, low: Int} = byte_decode_byte_interleaved_middle_reserved_header(view)?
+	let bytes = byte_chunk_from_hex("555e")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
+	let decoded = byte_decode_byte_interleaved_middle_reserved_header(view)?
 	stdio::println(int_to_string(decoded.high))
 	stdio::println(int_to_string(decoded.middle))
 	stdio::println(int_to_string(decoded.low))
 
-	let direct_encoded: Result<ByteChunk, EncodeError> = byte_encode_byte_interleaved_middle_reserved_header({high: 5, middle: 171, low: 6})
-	let ignored: () = emit_direct_encoded(direct_encoded)?
+	let direct_encoded = byte_encode_byte_interleaved_middle_reserved_header({high: 5, middle: 171, low: 6})
+	let ignored = emit_direct_encoded(direct_encoded)?
 
-	let derived_decoded: DecodeStep<{high: Int, middle: Int, low: Int}> = decode ByteInterleavedMiddleReservedHeader from view at byte_offset(32)?
+	let derived_decoded = decode ByteInterleavedMiddleReservedHeader from view at byte_offset(32)?
 	stdio::println(decode_step_kind(derived_decoded))
 	stdio::println(int_to_string(decoded_high(derived_decoded)))
 	stdio::println(int_to_string(decoded_middle(derived_decoded)))
 	stdio::println(int_to_string(decoded_low(derived_decoded)))
 	stdio::println(int_to_string(consumed_count(derived_decoded)))
 
-	let derived_encoded: EncodeStep<()> = encode_result_step(encode ByteInterleavedMiddleReservedHeader from {high: 5, middle: 171, low: 6})
+	let derived_encoded = encode_result_step(encode ByteInterleavedMiddleReservedHeader from {high: 5, middle: 171, low: 6})
 	stdio::println(encode_step_kind(derived_encoded))
 	emit_derived_encoded("byte-interleaved-middle-reserved", derived_encoded, "555e")
 
-	let rejected: EncodeStep<()> = encode_result_step(encode ByteInterleavedMiddleReservedHeader from {high: 5, middle: 171, low: 8})
+	let rejected = encode_result_step(encode ByteInterleavedMiddleReservedHeader from {high: 5, middle: 171, low: 8})
 	stdio::println(encode_step_kind(rejected))
 	stdio::println(encode_error_id(rejected))
 	stdio::println(encode_error_path(rejected))

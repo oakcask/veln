@@ -39,14 +39,14 @@ fn unexpected_unknown() -> Result<(), String> effects [stdio]
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let closed_bytes: ByteChunk = byte_chunk_from_hex("0103616263")?
-	let closed_view: ByteView = byte_view(closed_bytes, byte_offset(0)?, byte_count(5)?)?
-	let closed: {kind: Int, payload: {length: Int, data: ByteView}} = byte_decode_imported_closed_byte_view_payload_packet(closed_view)?
+	let closed_bytes = byte_chunk_from_hex("0103616263")?
+	let closed_view = byte_view(closed_bytes, byte_offset(0)?, byte_count(5)?)?
+	let closed = byte_decode_imported_closed_byte_view_payload_packet(closed_view)?
 	emit_payload("imported-closed", closed.payload)
 
-	let extension_bytes: ByteChunk = byte_chunk_from_hex("040103616263")?
-	let extension_view: ByteView = byte_view(extension_bytes, byte_offset(0)?, byte_count(6)?)?
-	let extension: {length: Int, kind: Int, payload: SchemaDispatchPayload<{length: Int, data: ByteView}>} = byte_decode_imported_extension_byte_view_payload_packet(extension_view)?
+	let extension_bytes = byte_chunk_from_hex("040103616263")?
+	let extension_view = byte_view(extension_bytes, byte_offset(0)?, byte_count(6)?)?
+	let extension = byte_decode_imported_extension_byte_view_payload_packet(extension_view)?
 	emit_extension_payload(extension.payload)
 	Ok(())
 end

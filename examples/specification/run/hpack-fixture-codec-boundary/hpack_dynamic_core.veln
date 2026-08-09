@@ -47,7 +47,7 @@ type HpackDynamicCoreIntegerPrefix
 end
 
 fn dynamic_core_byte_at(block: ByteChunk, index: Int) -> Result<Int, String>
-	let view: ByteView = byte_view(block, byte_offset(index)?, byte_count(1)?)?
+	let view = byte_view(block, byte_offset(index)?, byte_count(1)?)?
 	byte_read_u8_be(view)
 end
 
@@ -135,7 +135,7 @@ fn dynamic_core_decode_integer_tail(block: ByteChunk, observed_size: Int, index:
 end
 
 fn dynamic_core_decode_integer_tail_byte(current: Int, block: ByteChunk, observed_size: Int, index: Int, multiplier: Int, value: Int, prefix_width: Int, offset: Int) -> Result<HpackDynamicCoreIntegerPrefix, HpackDynamicCoreFailure>
-	let next_value: Int = value + dynamic_core_low_seven_bits(current) * multiplier
+	let next_value = value + dynamic_core_low_seven_bits(current) * multiplier
 	if current < 128
 		Ok(HpackDynamicCoreIntegerPrefix(next_value, index + 1))
 	else
@@ -358,9 +358,9 @@ fn dynamic_core_string_length_from_integer(huffman_marked: Bool, prefix: HpackDy
 end
 
 fn dynamic_core_decode_string_length_at(block: ByteChunk, observed_size: Int, index: Int, offset: Int) -> Result<HpackDynamicCoreStringLength, HpackDynamicCoreFailure>
-	let value_count: Int = dynamic_core_byte_at_or_missing(block, index)
-	let encoded_count: Int = dynamic_core_low_seven_bits(value_count)
-	let huffman_marked: Bool = value_count >= 128
+	let value_count = dynamic_core_byte_at_or_missing(block, index)
+	let encoded_count = dynamic_core_low_seven_bits(value_count)
+	let huffman_marked = value_count >= 128
 	match dynamic_core_decode_prefixed_integer(encoded_count, 127, block, observed_size, index + 1, offset)
 		Ok(prefix) => Ok(dynamic_core_string_length_from_integer(huffman_marked, prefix))
 		Err(_) => Err(DynamicCoreUnsupportedHeaderBlock(offset, observed_size, dynamic_core_byte_at_or_missing(block, 0), "source-visible raw literal-name header", "hpack_dynamic_core", block))
@@ -545,8 +545,8 @@ pub fn dynamic_core_header_entry_size(name: String, value: String) -> Int
 end
 
 pub fn decode_indexed_header_field(block: ByteChunk, state: HpackDynamicCoreState, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
-	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
-	let first_byte: Int = dynamic_core_byte_at_or_missing(block, 0)
+	let observed_size = byte_count_to_int(byte_chunk_count(block))
+	let first_byte = dynamic_core_byte_at_or_missing(block, 0)
 	if first_byte >= 190
 		match observed_size == 1
 			true => dynamic_core_decode_indexed_at(first_byte - 190, block, state, offset)
@@ -561,8 +561,8 @@ pub fn decode_indexed_header_field(block: ByteChunk, state: HpackDynamicCoreStat
 end
 
 pub fn decode_static_name_literal_with_indexing_field(block: ByteChunk, state: HpackDynamicCoreState, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
-	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
-	let first_byte: Int = dynamic_core_byte_at_or_missing(block, 0)
+	let observed_size = byte_count_to_int(byte_chunk_count(block))
+	let first_byte = dynamic_core_byte_at_or_missing(block, 0)
 	if first_byte > 64 and first_byte < 127
 		match dynamic_core_static_table_name(first_byte - 64)
 			Some(name) => match dynamic_core_static_name_literal_value(block, observed_size, offset)
@@ -577,8 +577,8 @@ pub fn decode_static_name_literal_with_indexing_field(block: ByteChunk, state: H
 end
 
 pub fn decode_raw_literal_name_header_field(block: ByteChunk, state: HpackDynamicCoreState, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
-	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
-	let first_byte: Int = dynamic_core_byte_at_or_missing(block, 0)
+	let observed_size = byte_count_to_int(byte_chunk_count(block))
+	let first_byte = dynamic_core_byte_at_or_missing(block, 0)
 	match first_byte
 		0 => dynamic_core_decode_raw_name_literal_header_block(DynamicCoreLiteralWithoutIndexing, observed_size, state, block, offset)
 		16 => dynamic_core_decode_raw_name_literal_header_block(DynamicCoreLiteralNeverIndexed, observed_size, state, block, offset)
@@ -588,8 +588,8 @@ pub fn decode_raw_literal_name_header_field(block: ByteChunk, state: HpackDynami
 end
 
 pub fn decode_dynamic_name_literal_header_field(block: ByteChunk, state: HpackDynamicCoreState, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
-	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
-	let first_byte: Int = dynamic_core_byte_at_or_missing(block, 0)
+	let observed_size = byte_count_to_int(byte_chunk_count(block))
+	let first_byte = dynamic_core_byte_at_or_missing(block, 0)
 	if first_byte >= 64 and first_byte < 128
 		dynamic_core_decode_literal_dynamic_name_with_prefix(DynamicCoreLiteralWithIndexing, first_byte - 64, 63, observed_size, state, block, offset)
 	else

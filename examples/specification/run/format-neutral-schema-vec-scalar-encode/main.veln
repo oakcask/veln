@@ -49,10 +49,10 @@ fn encoded_label_count(result: Result<{items: Vec<Int>, flags: Vec<Bool>, ratios
 end
 
 pub fn main() -> () effects [stdio]
-	let packet: {items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>} = {items: [2, 3, 5], flags: [true, false, true], ratios: [1.25, 0.5], labels: ["alpha", "beta"]}
-	let empty_packet: {items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>} = {items: [], flags: [], ratios: [], labels: []}
-	let encoded: Result<{items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>}, String> = byte_encode_vec_scalar_packet(packet)
-	let explicit: Result<{items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>}, String> = encode VecScalarPacket from empty_packet
+	let packet = {items: [2, 3, 5], flags: [true, false, true], ratios: [1.25, 0.5], labels: ["alpha", "beta"]}
+	let empty_packet = {items: [], flags: [], ratios: [], labels: []}
+	let encoded = byte_encode_vec_scalar_packet(packet)
+	let explicit = encode VecScalarPacket from empty_packet
 	stdio::println(int_to_string(encoded_item_sum(encoded)))
 	stdio::println(int_to_string(encoded_flag_count(encoded)))
 	stdio::println(int_to_string(encoded_ratio_count(encoded)))

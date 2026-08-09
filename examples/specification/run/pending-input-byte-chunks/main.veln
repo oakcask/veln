@@ -11,7 +11,7 @@ fn pending_count(state: { pending : ByteChunk, next_offset : ByteOffset, limit :
 end
 
 fn append_chunk(bytes: ByteChunk, state: { pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount }) -> Result<{ pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount }, String>
-	let combined: ByteChunk = byte_append(state.pending, bytes)
+	let combined = byte_append(state.pending, bytes)
 	if byte_count_to_int(byte_chunk_count(combined)) > byte_count_to_int(state.limit)
 		Err("pending input exceeds retained byte limit")
 	else
@@ -27,10 +27,10 @@ fn append_input(event: StreamInput, state: { pending : ByteChunk, next_offset : 
 end
 
 fn consume_pending(state: { pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount }, count: ByteCount) -> Result<{ view : ByteView, taken : ByteChunk, next_state : { pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount }, base_offset : ByteOffset }, String>
-	let taken: ByteChunk = byte_take(state.pending, count)?
-	let view: ByteView = byte_view(state.pending, byte_offset(0)?, count)?
-	let rest: ByteChunk = byte_drop(state.pending, count)?
-	let advanced: ByteOffset = byte_offset(byte_offset_to_int(state.next_offset) + byte_count_to_int(count))?
+	let taken = byte_take(state.pending, count)?
+	let view = byte_view(state.pending, byte_offset(0)?, count)?
+	let rest = byte_drop(state.pending, count)?
+	let advanced = byte_offset(byte_offset_to_int(state.next_offset) + byte_count_to_int(count))?
 	Ok({ view: view, taken: taken, next_state: { pending: rest, next_offset: advanced, limit: state.limit }, base_offset: state.next_offset })
 end
 
@@ -85,8 +85,8 @@ fn emit_pending(name: String, state: { pending : ByteChunk, next_offset : ByteOf
 end
 
 fn emit_outputs(chunks: List<ByteChunk>) -> Result<(), String> effects [stdio]
-	let first: ByteChunk = first_chunk(chunks)?
-	let second: ByteChunk = second_chunk(chunks)?
+	let first = first_chunk(chunks)?
+	let second = second_chunk(chunks)?
 	stdio::print("outgoing chunks ")
 	stdio::print(int_to_string(chunk_list_count(chunks)))
 	stdio::print(" total ")
@@ -103,19 +103,19 @@ fn emit_outputs(chunks: List<ByteChunk>) -> Result<(), String> effects [stdio]
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let empty: ByteChunk = byte_chunk_from_hex("")?
-	let initial_offset: ByteOffset = byte_offset(1024)?
-	let limit: ByteCount = byte_count(5)?
-	let initial: { pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount } = { pending: empty, next_offset: initial_offset, limit: limit }
-	let first_chunk: ByteChunk = byte_chunk_from_hex("000102")?
-	let first: { pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount } = append_input(Chunk(first_chunk), initial)?
-	let second_chunk: ByteChunk = byte_chunk_from_hex("0304")?
-	let ready: { pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount } = append_input(Chunk(second_chunk), first)?
-	let ended: { pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount } = append_input(End, ready)?
+	let empty = byte_chunk_from_hex("")?
+	let initial_offset = byte_offset(1024)?
+	let limit = byte_count(5)?
+	let initial = { pending: empty, next_offset: initial_offset, limit: limit }
+	let first_chunk = byte_chunk_from_hex("000102")?
+	let first = append_input(Chunk(first_chunk), initial)?
+	let second_chunk = byte_chunk_from_hex("0304")?
+	let ready = append_input(Chunk(second_chunk), first)?
+	let ended = append_input(End, ready)?
 	emit_pending("pending", ended)
 
-	let consumed_count: ByteCount = byte_count(2)?
-	let consumed: { view : ByteView, taken : ByteChunk, next_state : { pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount }, base_offset : ByteOffset } = consume_pending(ended, consumed_count)?
+	let consumed_count = byte_count(2)?
+	let consumed = consume_pending(ended, consumed_count)?
 	stdio::print("view count ")
 	stdio::print(int_to_string(byte_count_to_int(byte_chunk_count(byte_view_to_chunk(consumed.view)))))
 	stdio::print(" base ")
@@ -123,23 +123,23 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::print(" first16 ")
 	stdio::println(int_to_string(byte_read_u16_be(consumed.view)?))
 	emit_pending("after-drop", consumed.next_state)
-	let materialized: ByteChunk = byte_view_to_chunk(consumed.view)
-	let materialized_view: ByteView = byte_view(materialized, byte_offset(0)?, consumed_count)?
+	let materialized = byte_view_to_chunk(consumed.view)
+	let materialized_view = byte_view(materialized, byte_offset(0)?, consumed_count)?
 	stdio::print("materialized count ")
 	stdio::print(int_to_string(byte_count_to_int(byte_chunk_count(materialized))))
 	stdio::print(" first16 ")
 	stdio::println(int_to_string(byte_read_u16_be(materialized_view)?))
 
-	let overflowing_chunk: ByteChunk = byte_chunk_from_hex("050607")?
+	let overflowing_chunk = byte_chunk_from_hex("050607")?
 	let limit_result = append_input(Chunk(overflowing_chunk), consumed.next_state)
 	let _ = match limit_result
 		Ok(_) => stdio::println("limit ok")
 		Err(error) => stdio::println(error)
 	end
 
-	let first_output: ByteChunk = byte_chunk_from_hex("aabb")?
-	let second_output: ByteChunk = byte_chunk_from_hex("cc")?
-	let actions: List<ProtocolAction> = list_cons(Emit(first_output), list_cons(Ignore, list_cons(Emit(second_output), list_nil())))
+	let first_output = byte_chunk_from_hex("aabb")?
+	let second_output = byte_chunk_from_hex("cc")?
+	let actions = list_cons(Emit(first_output), list_cons(Ignore, list_cons(Emit(second_output), list_nil())))
 	let _ = emit_outputs(collect_outputs(actions))?
 	Ok(())
 end

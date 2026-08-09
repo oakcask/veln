@@ -10,7 +10,7 @@ end
 
 
 fn encoded_value(chunk: ByteChunk) -> Result<Int, String>
-	let view: ByteView = byte_view(chunk, byte_offset(0)?, byte_count(2)?)?
+	let view = byte_view(chunk, byte_offset(0)?, byte_count(2)?)?
 	byte_read_u16_be(view)
 end
 
@@ -102,7 +102,7 @@ fn emit_derived_encoded(name: String, step: EncodeStep<()>, expected_hex: String
 end
 
 fn emit_direct_encoded(encoded: Result<ByteChunk, EncodeError>) -> Result<(), String> effects [stdio]
-	let ignored: () = match encoded
+	let ignored = match encoded
 		Ok(chunk) => stdio::println(int_to_string(encoded_value(chunk)?))
 		Err(_) => stdio::println("unexpected direct encode failure")
 	end
@@ -117,26 +117,26 @@ fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("b575")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
-	let decoded: {code: Int, channel: Int} = byte_decode_suffix_reserved_group_header(view)?
+	let bytes = byte_chunk_from_hex("b575")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
+	let decoded = byte_decode_suffix_reserved_group_header(view)?
 	stdio::println(int_to_string(decoded.code))
 	stdio::println(int_to_string(decoded.channel))
 
-	let direct_encoded: Result<ByteChunk, EncodeError> = byte_encode_suffix_reserved_group_header({code: 171, channel: 5})
-	let ignored: () = emit_direct_encoded(direct_encoded)?
+	let direct_encoded = byte_encode_suffix_reserved_group_header({code: 171, channel: 5})
+	let ignored = emit_direct_encoded(direct_encoded)?
 
-	let derived_decoded: DecodeStep<{code: Int, channel: Int}> = decode SuffixReservedGroupHeader from view at byte_offset(12)?
+	let derived_decoded = decode SuffixReservedGroupHeader from view at byte_offset(12)?
 	stdio::println(decode_step_kind(derived_decoded))
 	stdio::println(int_to_string(decoded_code(derived_decoded)))
 	stdio::println(int_to_string(decoded_channel(derived_decoded)))
 	stdio::println(int_to_string(consumed_count(derived_decoded)))
 
-	let derived_encoded: EncodeStep<()> = encode_result_step(encode SuffixReservedGroupHeader from {code: 171, channel: 5})
+	let derived_encoded = encode_result_step(encode SuffixReservedGroupHeader from {code: 171, channel: 5})
 	stdio::println(encode_step_kind(derived_encoded))
 	emit_derived_encoded("suffix-reserved-group", derived_encoded, "b575")
 
-	let rejected: EncodeStep<()> = encode_result_step(encode SuffixReservedGroupHeader from {code: 171, channel: 8})
+	let rejected = encode_result_step(encode SuffixReservedGroupHeader from {code: 171, channel: 8})
 	stdio::println(encode_step_kind(rejected))
 	stdio::println(encode_error_id(rejected))
 	stdio::println(encode_error_path(rejected))

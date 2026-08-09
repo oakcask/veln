@@ -139,8 +139,8 @@ fn empty_summary() -> { streams : Int, chunks : Int, ended : Int, writes : Int, 
 end
 
 pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let summary: { streams : Int, chunks : Int, ended : Int, writes : Int, end_actions : Int, clean_end : Bool } = drain_listener(listener, empty_summary())?
+	let listener = net::listen("127.0.0.1:0")
+	let summary = drain_listener(listener, empty_summary())?
 	stdio::print("streams ")
 	stdio::print(int_to_string(summary.streams))
 	stdio::print(" chunks ")

@@ -46,7 +46,7 @@ fn optional_score(scores: Dict<String, Option<Int>>, key: String) -> Int
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let decoded: {maybe_items: List<Option<Int>>, maybe_names: Option<List<Option<String>>>, maybe_scores: Dict<String, Option<Int>>, metadata: {maybe_items: List<Option<Int>>, maybe_names: Option<List<Option<String>>>, maybe_scores: Dict<String, Option<Int>>}} = byte_decode_recursive_container_packet({maybe_items: list_cons(Some(2), list_cons(None, list_cons(Some(5), list_nil()))), maybe_names: Some(list_cons(None, list_cons(Some("alpha"), list_nil()))), maybe_scores: {"math": Some(11), "language": None}, metadata: {maybe_items: list_cons(Some(3), list_cons(Some(9), list_nil())), maybe_names: Some(list_cons(Some("nested-alpha"), list_nil())), maybe_scores: {"math": Some(17)}}})?
+	let decoded = byte_decode_recursive_container_packet({maybe_items: list_cons(Some(2), list_cons(None, list_cons(Some(5), list_nil()))), maybe_names: Some(list_cons(None, list_cons(Some("alpha"), list_nil()))), maybe_scores: {"math": Some(11), "language": None}, metadata: {maybe_items: list_cons(Some(3), list_cons(Some(9), list_nil())), maybe_names: Some(list_cons(Some("nested-alpha"), list_nil())), maybe_scores: {"math": Some(17)}}})?
 	stdio::println(int_to_string(option_int_sum(decoded.maybe_items)))
 	stdio::println(optional_first_name(decoded.maybe_names))
 	stdio::println(int_to_string(optional_score(decoded.maybe_scores, "math")))

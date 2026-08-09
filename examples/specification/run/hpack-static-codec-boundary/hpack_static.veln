@@ -6,7 +6,7 @@ pub type HpackStaticFailure
 end
 
 fn byte_at(block: ByteChunk, index: Int) -> Result<Int, String>
-	let view: ByteView = byte_view(block, byte_offset(index)?, byte_count(1)?)?
+	let view = byte_view(block, byte_offset(index)?, byte_count(1)?)?
 	byte_read_u8_be(view)
 end
 
@@ -175,7 +175,7 @@ fn not_static_string(block: ByteChunk, offset: Int) -> Result<String, HpackStati
 end
 
 fn literal_without_indexing_name_index(block: ByteChunk) -> Int
-	let first_byte: Int = byte_at_or_missing(block, 0)
+	let first_byte = byte_at_or_missing(block, 0)
 	match first_byte
 		15 => if byte_at_or_missing(block, 1) >= 0 and byte_at_or_missing(block, 1) < 128
 			15 + byte_at_or_missing(block, 1)
@@ -198,7 +198,7 @@ fn literal_without_indexing_value_index(block: ByteChunk) -> Int
 end
 
 fn literal_with_indexing_name_index(block: ByteChunk) -> Int
-	let first_byte: Int = byte_at_or_missing(block, 0)
+	let first_byte = byte_at_or_missing(block, 0)
 	if first_byte > 64 and first_byte < 127
 		first_byte - 64
 	else
@@ -207,7 +207,7 @@ fn literal_with_indexing_name_index(block: ByteChunk) -> Int
 end
 
 fn literal_never_indexed_name_index(block: ByteChunk) -> Int
-	let first_byte: Int = byte_at_or_missing(block, 0)
+	let first_byte = byte_at_or_missing(block, 0)
 	match first_byte
 		31 => if byte_at_or_missing(block, 1) >= 0 and byte_at_or_missing(block, 1) < 128
 			15 + byte_at_or_missing(block, 1)
@@ -360,7 +360,7 @@ fn decode_supported_block(block: ByteChunk, count: Int, offset: Int) -> Result<H
 end
 
 pub fn decode_header_block(block: ByteChunk, offset: Int) -> Result<HpackHeaderList, HpackStaticFailure>
-	let count: Int = observed_size(block)
+	let count = observed_size(block)
 	match count
 		0 => not_static(block, offset)
 		_ => if all_bytes_indexed(block, 0, count)

@@ -73,20 +73,20 @@ fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let payload_bytes: ByteChunk = byte_chunk_from_hex("aabbccdd")?
-	let payload_view: ByteView = byte_view(payload_bytes, byte_offset(0)?, byte_count(4)?)?
-	let payload: {total_length: Int, chunk_count: Int, payload: ByteView} = {total_length: 8, chunk_count: 2, payload: payload_view}
+	let payload_bytes = byte_chunk_from_hex("aabbccdd")?
+	let payload_view = byte_view(payload_bytes, byte_offset(0)?, byte_count(4)?)?
+	let payload = {total_length: 8, chunk_count: 2, payload: payload_view}
 
-	let closed: Result<ByteChunk, EncodeError> = byte_encode_closed_quotient_write_packet({kind: 1, payload: payload})
+	let closed = byte_encode_closed_quotient_write_packet({kind: 1, payload: payload})
 	emit_encoded_result("closed-quotient-nested", closed, "010802aabbccdd")
 
-	let extension: Result<ByteChunk, EncodeError> = byte_encode_extension_quotient_write_packet({length: 6, kind: 1, payload: Known(payload)})
+	let extension = byte_encode_extension_quotient_write_packet({length: 6, kind: 1, payload: Known(payload)})
 	emit_encoded_result("extension-quotient-nested", extension, "06010802aabbccdd")
 
-	let closed_codec: EncodeStep<()> = encode_result_step(encode ClosedQuotientWritePacket from {kind: 1, payload: payload})
+	let closed_codec = encode_result_step(encode ClosedQuotientWritePacket from {kind: 1, payload: payload})
 	emit_encoded_step("codec-closed-quotient-nested", closed_codec, "010802aabbccdd")
 
-	let extension_codec: EncodeStep<()> = encode_result_step(encode ExtensionQuotientWritePacket from {length: 6, kind: 1, payload: Known(payload)})
+	let extension_codec = encode_result_step(encode ExtensionQuotientWritePacket from {length: 6, kind: 1, payload: Known(payload)})
 	emit_encoded_step("codec-extension-quotient-nested", extension_codec, "06010802aabbccdd")
 	Ok(())
 end

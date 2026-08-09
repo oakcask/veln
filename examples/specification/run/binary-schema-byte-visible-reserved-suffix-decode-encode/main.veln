@@ -9,7 +9,7 @@ end
 
 
 fn byte_value(chunk: ByteChunk, index: Int) -> Result<Int, String>
-	let view: ByteView = byte_view(chunk, byte_offset(index)?, byte_count(1)?)?
+	let view = byte_view(chunk, byte_offset(index)?, byte_count(1)?)?
 	byte_read_u8_be(view)
 end
 
@@ -122,24 +122,24 @@ fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("ab0000")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
-	let decoded: {control: Int} = byte_decode_byte_visible_reserved_suffix_header(view)?
+	let bytes = byte_chunk_from_hex("ab0000")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
+	let decoded = byte_decode_byte_visible_reserved_suffix_header(view)?
 	stdio::println(int_to_string(decoded.control))
 
-	let direct_encoded: Result<ByteChunk, EncodeError> = byte_encode_byte_visible_reserved_suffix_header({control: 171})
-	let ignored: () = emit_direct_encoded(direct_encoded)?
+	let direct_encoded = byte_encode_byte_visible_reserved_suffix_header({control: 171})
+	let ignored = emit_direct_encoded(direct_encoded)?
 
-	let derived_decoded: DecodeStep<{control: Int}> = decode ByteVisibleReservedSuffixHeader from view at byte_offset(32)?
+	let derived_decoded = decode ByteVisibleReservedSuffixHeader from view at byte_offset(32)?
 	stdio::println(decode_step_kind(derived_decoded))
 	stdio::println(int_to_string(decoded_control(derived_decoded)))
 	stdio::println(int_to_string(consumed_count(derived_decoded)))
 
-	let derived_encoded: EncodeStep<()> = encode_result_step(encode ByteVisibleReservedSuffixHeader from {control: 171})
+	let derived_encoded = encode_result_step(encode ByteVisibleReservedSuffixHeader from {control: 171})
 	stdio::println(encode_step_kind(derived_encoded))
 	emit_derived_encoded("byte-visible-reserved-suffix", derived_encoded, "ab0000")
 
-	let rejected: EncodeStep<()> = encode_result_step(encode ByteVisibleReservedSuffixHeader from {control: 256})
+	let rejected = encode_result_step(encode ByteVisibleReservedSuffixHeader from {control: 256})
 	stdio::println(encode_step_kind(rejected))
 	stdio::println(encode_error_id(rejected))
 	stdio::println(encode_error_path(rejected))

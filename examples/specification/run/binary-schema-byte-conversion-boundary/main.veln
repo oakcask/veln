@@ -17,7 +17,7 @@ fn decoded_payload(step: DecodeStep<{length: Int, payload: ByteView}>) -> Result
 end
 
 fn emit_payload(label: String, payload: ByteView) -> Result<(), String> effects [stdio]
-	let owned: ByteChunk = byte_view_to_chunk(payload)
+	let owned = byte_view_to_chunk(payload)
 	stdio::print(label)
 	stdio::print(" view-count ")
 	stdio::print(int_to_string(byte_count_to_int(byte_view_count(payload))))
@@ -43,16 +43,16 @@ fn emit_encoded(bytes: ByteChunk) -> () effects [stdio]
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let source: ByteChunk = byte_chunk_from_hex("03aabbcc")?
-	let packet_view: ByteView = byte_view(source, byte_offset(0)?, byte_count(4)?)?
-	let decoded: ByteView = decoded_payload(decode PayloadWire from packet_view at byte_offset(17)?)?
+	let source = byte_chunk_from_hex("03aabbcc")?
+	let packet_view = byte_view(source, byte_offset(0)?, byte_count(4)?)?
+	let decoded = decoded_payload(decode PayloadWire from packet_view at byte_offset(17)?)?
 	let _ = emit_payload("decoded-payload", decoded)?
 
-	let owned_payload: ByteChunk = byte_view_to_chunk(decoded)
-	let schema_payload: ByteView = byte_view(owned_payload, byte_offset(0)?, byte_count(3)?)?
+	let owned_payload = byte_view_to_chunk(decoded)
+	let schema_payload = byte_view(owned_payload, byte_offset(0)?, byte_count(3)?)?
 	let _ = emit_payload("schema-payload", schema_payload)?
 
-	let encoded: Result<ByteChunk, EncodeError> = encode PayloadWire from {length: 3, payload: schema_payload}
+	let encoded = encode PayloadWire from {length: 3, payload: schema_payload}
 	let _ = match encoded
 		Ok(bytes) => emit_encoded(bytes)
 		Err(_) => stdio::println("unexpected encode failure")

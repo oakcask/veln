@@ -29,9 +29,9 @@ fn backup() -> Bool
 end
 
 fn all_counted(flag: Int) -> Result<Int, String>
-	let bytes: ByteChunk = byte_chunk_from_hex("01")?
-	let view_value: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(1)?)?
-	let decoded: DecodeStep<{value: Int}> = decode Packet from view_value at byte_offset(0)?
+	let bytes = byte_chunk_from_hex("01")?
+	let view_value = byte_view(bytes, byte_offset(0)?, byte_count(1)?)?
+	let decoded = decode Packet from view_value at byte_offset(0)?
 	let encoded = encode Packet from {value: flag}
 	let handled = handle compute() with ask(41)
 	if handled == 42 and flag == 1

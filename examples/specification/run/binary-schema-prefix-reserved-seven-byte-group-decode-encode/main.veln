@@ -15,8 +15,8 @@ end
 
 fn emit_encoded_round_trip(chunk: ByteChunk) -> Result<(), String> effects [stdio]
 	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
-	let view: ByteView = byte_view(chunk, byte_offset(0)?, byte_count(7)?)?
-	let decoded: {high: Int, low: Int} = byte_decode_seven_byte_prefix_reserved_group_header(view)?
+	let view = byte_view(chunk, byte_offset(0)?, byte_count(7)?)?
+	let decoded = byte_decode_seven_byte_prefix_reserved_group_header(view)?
 	emit_decoded(decoded)
 	Ok(())
 end
@@ -29,11 +29,11 @@ fn emit_encoded(encoded: Result<ByteChunk, EncodeError>) -> Result<(), String> e
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("aaaaaaaaaaaada")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(7)?)?
-	let decoded: {high: Int, low: Int} = byte_decode_seven_byte_prefix_reserved_group_header(view)?
+	let bytes = byte_chunk_from_hex("aaaaaaaaaaaada")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(7)?)?
+	let decoded = byte_decode_seven_byte_prefix_reserved_group_header(view)?
 	emit_decoded(decoded)
 
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_seven_byte_prefix_reserved_group_header({high: 5, low: 10})
+	let encoded = byte_encode_seven_byte_prefix_reserved_group_header({high: 5, low: 10})
 	emit_encoded(encoded)
 end

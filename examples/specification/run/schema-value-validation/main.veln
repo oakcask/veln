@@ -10,11 +10,11 @@ schema OrdinaryPacket
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("aabb")?
-	let offset: ByteOffset = byte_offset(0)?
-	let count: ByteCount = byte_count(2)?
-	let view: ByteView = byte_view(bytes, offset, count)?
-	let packet: {length: Int, padding_length: Int, payload: ByteView} = validate_ordinary_packet({length: 5, padding_length: 3, payload: view})?
+	let bytes = byte_chunk_from_hex("aabb")?
+	let offset = byte_offset(0)?
+	let count = byte_count(2)?
+	let view = byte_view(bytes, offset, count)?
+	let packet = validate_ordinary_packet({length: 5, padding_length: 3, payload: view})?
 	stdio::print("validated ")
 	stdio::print(int_to_string(packet.length))
 	stdio::print(" ")

@@ -43,9 +43,9 @@ fn encode_frame_header(length: Int, kind: Int, flags: Int, stream_id: Int) -> Re
 end
 
 fn handler_response() -> Result<List<ResponseAction>, String>
-	let headers: ByteChunk = byte_chunk_from_hex("828486")?
-	let body: ByteChunk = byte_chunk_from_hex("aabbccdd")?
-	let late_body: ByteChunk = byte_chunk_from_hex("ee")?
+	let headers = byte_chunk_from_hex("828486")?
+	let body = byte_chunk_from_hex("aabbccdd")?
+	let late_body = byte_chunk_from_hex("ee")?
 	Ok(list_cons(SendHeaders(headers, false), list_cons(SendData(body, true), list_cons(SendData(late_body, false), list_nil()))))
 end
 
@@ -64,7 +64,7 @@ fn send_headers(header_block: ByteChunk, end_stream: Bool, context: Http2SendCon
 end
 
 fn encode_headers_intent(stream_id: Int, header_block: ByteChunk, end_stream: Bool, max_frame_size: Int, connection_credit: Int, stream_credit: Int) -> Result<OutboundHeadersDecision, String>
-	let payload_length: Int = byte_count_to_int(byte_chunk_count(header_block))
+	let payload_length = byte_count_to_int(byte_chunk_count(header_block))
 	if payload_length > max_frame_size
 		encode_split_headers(stream_id, payload_length, header_block, end_stream, max_frame_size, connection_credit, stream_credit)
 	else
@@ -80,9 +80,9 @@ fn encode_single_headers(stream_id: Int, payload_length: Int, header_block: Byte
 end
 
 fn encode_split_headers(stream_id: Int, payload_length: Int, header_block: ByteChunk, end_stream: Bool, max_frame_size: Int, connection_credit: Int, stream_credit: Int) -> Result<OutboundHeadersDecision, String>
-	let chunk_count: ByteCount = byte_count(max_frame_size)?
-	let first_payload: ByteChunk = byte_take(header_block, chunk_count)?
-	let remaining: ByteChunk = byte_drop(header_block, chunk_count)?
+	let chunk_count = byte_count(max_frame_size)?
+	let first_payload = byte_take(header_block, chunk_count)?
+	let remaining = byte_drop(header_block, chunk_count)?
 	match encode_frame_header(max_frame_size, 1, first_headers_flags(end_stream), stream_id)
 		Ok(header) => encode_remaining_headers(stream_id, payload_length, end_stream, max_frame_size, connection_credit, stream_credit, remaining, byte_append(header, first_payload))
 		Err(_) => Ok(OutboundHeadersRejected("encode", SendContext(max_frame_size, OpenSendStream(stream_id, connection_credit, stream_credit))))
@@ -90,7 +90,7 @@ fn encode_split_headers(stream_id: Int, payload_length: Int, header_block: ByteC
 end
 
 fn encode_remaining_headers(stream_id: Int, payload_length: Int, end_stream: Bool, max_frame_size: Int, connection_credit: Int, stream_credit: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundHeadersDecision, String>
-	let remaining_length: Int = byte_count_to_int(byte_chunk_count(remaining))
+	let remaining_length = byte_count_to_int(byte_chunk_count(remaining))
 	if remaining_length > max_frame_size
 		encode_nonfinal_continuation(stream_id, payload_length, end_stream, max_frame_size, connection_credit, stream_credit, remaining, encoded)
 	else
@@ -99,9 +99,9 @@ fn encode_remaining_headers(stream_id: Int, payload_length: Int, end_stream: Boo
 end
 
 fn encode_nonfinal_continuation(stream_id: Int, payload_length: Int, end_stream: Bool, max_frame_size: Int, connection_credit: Int, stream_credit: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundHeadersDecision, String>
-	let chunk_count: ByteCount = byte_count(max_frame_size)?
-	let payload: ByteChunk = byte_take(remaining, chunk_count)?
-	let next_remaining: ByteChunk = byte_drop(remaining, chunk_count)?
+	let chunk_count = byte_count(max_frame_size)?
+	let payload = byte_take(remaining, chunk_count)?
+	let next_remaining = byte_drop(remaining, chunk_count)?
 	match encode_frame_header(max_frame_size, 9, 0, stream_id)
 		Ok(header) => encode_remaining_headers(stream_id, payload_length, end_stream, max_frame_size, connection_credit, stream_credit, next_remaining, byte_append(byte_append(encoded, header), payload))
 		Err(_) => Ok(OutboundHeadersRejected("encode", SendContext(max_frame_size, OpenSendStream(stream_id, connection_credit, stream_credit))))
@@ -147,7 +147,7 @@ fn send_data(payload: ByteChunk, end_stream: Bool, context: Http2SendContext) ->
 end
 
 fn validate_data_credit(stream_id: Int, payload: ByteChunk, end_stream: Bool, max_frame_size: Int, connection_credit: Int, stream_credit: Int) -> Result<OutboundDataDecision, String>
-	let length: Int = byte_count_to_int(byte_chunk_count(payload))
+	let length = byte_count_to_int(byte_chunk_count(payload))
 	if length > connection_credit
 		Ok(OutboundDataRejected("connection-flow-control", SendContext(max_frame_size, OpenSendStream(stream_id, connection_credit, stream_credit))))
 	else if length > stream_credit
@@ -173,9 +173,9 @@ fn encode_single_data(stream_id: Int, payload: ByteChunk, length: Int, end_strea
 end
 
 fn encode_split_data(stream_id: Int, payload: ByteChunk, length: Int, end_stream: Bool, max_frame_size: Int, connection_credit: Int, stream_credit: Int) -> Result<OutboundDataDecision, String>
-	let chunk_count: ByteCount = byte_count(max_frame_size)?
-	let first_payload: ByteChunk = byte_take(payload, chunk_count)?
-	let remaining: ByteChunk = byte_drop(payload, chunk_count)?
+	let chunk_count = byte_count(max_frame_size)?
+	let first_payload = byte_take(payload, chunk_count)?
+	let remaining = byte_drop(payload, chunk_count)?
 	match encode_frame_header(max_frame_size, 0, 0, stream_id)
 		Ok(header) => encode_remaining_data(stream_id, length, end_stream, max_frame_size, connection_credit, stream_credit, remaining, byte_append(header, first_payload))
 		Err(_) => Ok(OutboundDataRejected("encode", SendContext(max_frame_size, OpenSendStream(stream_id, connection_credit, stream_credit))))
@@ -183,7 +183,7 @@ fn encode_split_data(stream_id: Int, payload: ByteChunk, length: Int, end_stream
 end
 
 fn encode_remaining_data(stream_id: Int, length: Int, end_stream: Bool, max_frame_size: Int, connection_credit: Int, stream_credit: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundDataDecision, String>
-	let remaining_length: Int = byte_count_to_int(byte_chunk_count(remaining))
+	let remaining_length = byte_count_to_int(byte_chunk_count(remaining))
 	if remaining_length > max_frame_size
 		encode_nonfinal_data(stream_id, length, end_stream, max_frame_size, connection_credit, stream_credit, remaining, encoded)
 	else
@@ -192,9 +192,9 @@ fn encode_remaining_data(stream_id: Int, length: Int, end_stream: Bool, max_fram
 end
 
 fn encode_nonfinal_data(stream_id: Int, length: Int, end_stream: Bool, max_frame_size: Int, connection_credit: Int, stream_credit: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundDataDecision, String>
-	let chunk_count: ByteCount = byte_count(max_frame_size)?
-	let payload: ByteChunk = byte_take(remaining, chunk_count)?
-	let next_remaining: ByteChunk = byte_drop(remaining, chunk_count)?
+	let chunk_count = byte_count(max_frame_size)?
+	let payload = byte_take(remaining, chunk_count)?
+	let next_remaining = byte_drop(remaining, chunk_count)?
 	match encode_frame_header(max_frame_size, 0, 0, stream_id)
 		Ok(header) => encode_remaining_data(stream_id, length, end_stream, max_frame_size, connection_credit, stream_credit, next_remaining, byte_append(byte_append(encoded, header), payload))
 		Err(_) => Ok(OutboundDataRejected("encode", SendContext(max_frame_size, OpenSendStream(stream_id, connection_credit, stream_credit))))
@@ -271,9 +271,9 @@ fn write_projected_chunks(stream: NetStream, chunks: List<ByteChunk>) -> () effe
 end
 
 fn run_adapter(stream: NetStream, actions: List<ResponseAction>) -> Result<AdapterProjection, String> effects [net]
-	let initial_context: Http2SendContext = SendContext(2, OpenSendStream(1, 4, 4))
-	let projection: AdapterProjection = project_actions(actions, initial_context)?
-	let ignored_write: () = match projection
+	let initial_context = SendContext(2, OpenSendStream(1, 4, 4))
+	let projection = project_actions(actions, initial_context)?
+	let ignored_write = match projection
 		Projection(chunks, _, _, _) => write_projected_chunks(stream, chunks)
 	end
 	Ok(projection)
@@ -302,9 +302,9 @@ fn print_projection_fields(accepted: Int, rejected: Int, context: Http2SendConte
 end
 
 pub fn main() -> Result<(), String> effects [net, stdio]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let stream: NetStream = net::accept(listener)
-	let projection: AdapterProjection = run_adapter(stream, handler_response()?)?
+	let listener = net::listen("127.0.0.1:0")
+	let stream = net::accept(listener)
+	let projection = run_adapter(stream, handler_response()?)?
 	print_projection(projection)
 	Ok(())
 end

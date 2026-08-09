@@ -16,7 +16,7 @@ fn chunks_equal_at(left: ByteChunk, right: ByteChunk, index: Int, count: Int) ->
 end
 
 fn chunks_equal(left: ByteChunk, right: ByteChunk) -> Result<Bool, String>
-	let count: Int = byte_count_to_int(byte_chunk_count(left))
+	let count = byte_count_to_int(byte_chunk_count(left))
 	if count == byte_count_to_int(byte_chunk_count(right))
 		chunks_equal_at(left, right, 0, count)
 	else
@@ -80,7 +80,7 @@ fn print_response(label: String, decision: PingResponseDecision) -> Result<(), S
 end
 
 fn print_failure(label: String, decision: PingRequestDecision) -> Result<(), String> effects [stdio]
-	let failure: FramePayloadLengthFailure = http2::core::ping_request_failure(decision)?
+	let failure = http2::core::ping_request_failure(decision)?
 	stdio::print(label)
 	stdio::print(" failure kind ")
 	stdio::print(int_to_string(http2::core::frame_payload_length_failure_frame_kind(failure)))
@@ -98,18 +98,18 @@ fn print_failure(label: String, decision: PingRequestDecision) -> Result<(), Str
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let payload: ByteChunk = byte_chunk_from_hex("0102030405060708")?
-	let request: PingRequestDecision = http2::core::send_ping(payload)
+	let payload = byte_chunk_from_hex("0102030405060708")?
+	let request = http2::core::send_ping(payload)
 	let _ = print_request("ping-request", request)?
 
-	let short: PingRequestDecision = http2::core::send_ping(byte_chunk_from_hex("01020304050607")?)
+	let short = http2::core::send_ping(byte_chunk_from_hex("01020304050607")?)
 	let _ = print_request("ping-request-short", short)?
 	let _ = print_failure("ping-request-short", short)?
 
-	let response: PingResponseDecision = http2::core::respond_to_ping(0, payload)
+	let response = http2::core::respond_to_ping(0, payload)
 	let _ = print_response("ping-ack", response)?
 
-	let no_response: PingResponseDecision = http2::core::respond_to_ping(1, payload)
+	let no_response = http2::core::respond_to_ping(1, payload)
 	let _ = print_response("ping-ack-received", no_response)?
 	Ok(())
 end

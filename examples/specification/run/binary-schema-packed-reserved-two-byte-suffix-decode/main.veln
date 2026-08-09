@@ -19,11 +19,11 @@ fn emit_header(header: {prefix: Int, control: Int, suffix: Int}) -> () effects [
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("12a55534")?
-	let offset: ByteOffset = byte_offset(0)?
-	let count: ByteCount = byte_count(4)?
-	let view: ByteView = byte_view(bytes, offset, count)?
-	let header: {prefix: Int, control: Int, suffix: Int} = byte_decode_packed_two_byte_suffix_header(view)?
+	let bytes = byte_chunk_from_hex("12a55534")?
+	let offset = byte_offset(0)?
+	let count = byte_count(4)?
+	let view = byte_view(bytes, offset, count)?
+	let header = byte_decode_packed_two_byte_suffix_header(view)?
 	emit_header(header)
 	Ok(())
 end

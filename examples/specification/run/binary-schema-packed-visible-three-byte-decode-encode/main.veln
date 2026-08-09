@@ -119,16 +119,16 @@ fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("abcde5")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
-	let decoded: {high: Int, upper: Int, middle: Int, lower: Int, tail: Int} = byte_decode_packed_visible_three_byte_header(view)?
+	let bytes = byte_chunk_from_hex("abcde5")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
+	let decoded = byte_decode_packed_visible_three_byte_header(view)?
 	stdio::println(int_to_string(decoded.high))
 	stdio::println(int_to_string(decoded.upper))
 	stdio::println(int_to_string(decoded.middle))
 	stdio::println(int_to_string(decoded.lower))
 	stdio::println(int_to_string(decoded.tail))
 
-	let stepped: DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int}> = decode PackedVisibleThreeByteHeader from view at byte_offset(24)?
+	let stepped = decode PackedVisibleThreeByteHeader from view at byte_offset(24)?
 	stdio::println(step_kind(stepped))
 	stdio::println(int_to_string(decoded_high(stepped)))
 	stdio::println(int_to_string(decoded_upper(stepped)))
@@ -137,7 +137,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(int_to_string(decoded_tail(stepped)))
 	stdio::println(int_to_string(consumed_count(stepped)))
 
-	let codec_step: DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int}> = decode PackedVisibleThreeByteHeader from view at byte_offset(24)?
+	let codec_step = decode PackedVisibleThreeByteHeader from view at byte_offset(24)?
 	stdio::println(step_kind(codec_step))
 	stdio::println(int_to_string(decoded_high(codec_step)))
 	stdio::println(int_to_string(decoded_upper(codec_step)))
@@ -146,10 +146,10 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(int_to_string(decoded_tail(codec_step)))
 	stdio::println(int_to_string(consumed_count(codec_step)))
 
-	let direct_encoded: Result<ByteChunk, EncodeError> = byte_encode_packed_visible_three_byte_header({high: 21, upper: 60, middle: 27, lower: 3, tail: 5})
+	let direct_encoded = byte_encode_packed_visible_three_byte_header({high: 21, upper: 60, middle: 27, lower: 3, tail: 5})
 	emit_direct_encoded(direct_encoded)
 
-	let derived_encoded: EncodeStep<()> = encode_result_step(encode PackedVisibleThreeByteHeader from {high: 21, upper: 60, middle: 27, lower: 3, tail: 5})
+	let derived_encoded = encode_result_step(encode PackedVisibleThreeByteHeader from {high: 21, upper: 60, middle: 27, lower: 3, tail: 5})
 	stdio::println(encode_step_kind(derived_encoded))
 	emit_derived_encoded(derived_encoded)
 	Ok(())

@@ -13,7 +13,7 @@ fn first_octet(chunk: ByteChunk) -> Result<Int, String>
 end
 
 fn print_transition(label: String, transition: IndexedDecodeTransition) -> Result<(), String> effects [stdio]
-	let header: IndexedHeaderField = http2::hpack::indexed_decode_header(transition)
+	let header = http2::hpack::indexed_decode_header(transition)
 	stdio::print(label)
 	stdio::print(" ")
 	stdio::print(http2::hpack::indexed_header_name(header))
@@ -47,12 +47,12 @@ fn print_failure(label: String, input: ByteChunk, table: DynamicTable) -> Result
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let empty: DynamicTable = http2::hpack::empty_dynamic_table(128)?
-	let static: IndexedDecodeTransition = require_transition(byte_chunk_from_hex("82")?, empty)?
+	let empty = http2::hpack::empty_dynamic_table(128)?
+	let static = require_transition(byte_chunk_from_hex("82")?, empty)?
 	let _ = print_transition("static", static)?
-	let older: DynamicTable = http2::hpack::insert_dynamic_table_entry(empty, "older", byte_chunk_from_hex("31")?)?
-	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(older, "newest", byte_chunk_from_hex("00ff")?)?
-	let dynamic: IndexedDecodeTransition = require_transition(byte_chunk_from_hex("be")?, table)?
+	let older = http2::hpack::insert_dynamic_table_entry(empty, "older", byte_chunk_from_hex("31")?)?
+	let table = http2::hpack::insert_dynamic_table_entry(older, "newest", byte_chunk_from_hex("00ff")?)?
+	let dynamic = require_transition(byte_chunk_from_hex("be")?, table)?
 	let _ = print_transition("dynamic", dynamic)?
 	let _ = print_failure("zero", byte_chunk_from_hex("80")?, table)?
 	let _ = print_failure("incomplete", byte_chunk_from_hex("ff80")?, table)?

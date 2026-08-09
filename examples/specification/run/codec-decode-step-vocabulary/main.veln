@@ -2,7 +2,7 @@
 use stdio
 
 fn complete_decoder(view: ByteView) -> DecodeStep<Int>
-	let chunk: ByteChunk = byte_view_to_chunk(view)
+	let chunk = byte_view_to_chunk(view)
 	Decoded(byte_count_to_int(byte_chunk_count(chunk)), byte_chunk_count(chunk))
 end
 
@@ -84,15 +84,15 @@ fn error_path(step: DecodeStep<Int>) -> String
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("010203")?
-	let offset: ByteOffset = byte_offset(0)?
-	let count: ByteCount = byte_count(3)?
-	let view: ByteView = byte_view(bytes, offset, count)?
-	let decoded: DecodeStep<Int> = complete_decoder(view)
-	let needed: ByteCount = byte_count(8)?
-	let waiting: DecodeStep<Int> = waiting_decoder(needed)
-	let invalid_offset: ByteOffset = byte_offset(5)?
-	let invalid: DecodeStep<Int> = invalid_decoder(invalid_offset)
+	let bytes = byte_chunk_from_hex("010203")?
+	let offset = byte_offset(0)?
+	let count = byte_count(3)?
+	let view = byte_view(bytes, offset, count)?
+	let decoded = complete_decoder(view)
+	let needed = byte_count(8)?
+	let waiting = waiting_decoder(needed)
+	let invalid_offset = byte_offset(5)?
+	let invalid = invalid_decoder(invalid_offset)
 	stdio::println(step_kind(decoded))
 	stdio::println(int_to_string(decoded_value(decoded)))
 	stdio::println(int_to_string(decoded_consumed(decoded)))

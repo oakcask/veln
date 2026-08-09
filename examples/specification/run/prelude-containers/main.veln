@@ -42,9 +42,9 @@ end
 pub fn main() -> () effects [stdio]
 	let values: Vec<Int> = vec_concat(vec_push([1], 2), [3])
 	let kept: Vec<Int> = vec_filter(values, odd)
-	let original: Dict<String, Int> = { "a": 1 }
-	let updated: Dict<String, Int> = dict_insert(original, "b", 2)
-	let dictionary: Dict<String, Int> = dict_remove(updated, "a")
+	let original = { "a": 1 }
+	let updated = dict_insert(original, "b", 2)
+	let dictionary = dict_remove(updated, "a")
 	match string_split_once("odd:2", ":")
 		Some(parts) => stdio::println(parts.left)
 		None => stdio::println("missing")
@@ -73,45 +73,45 @@ pub fn main() -> () effects [stdio]
 		Some(value) => stdio::println(int_to_string(value))
 		None => stdio::println("removed")
 	end
-	let second: String = match option_and_then(option_map(Some(3), double), positive)
+	let second = match option_and_then(option_map(Some(3), double), positive)
 		Some(value) => int_to_string(value)
 		None => "none"
 	end
 	let mapped: Vec<Int> = vec_map([1, 2], double)
-	let third: String = match result_and_then(result_map(Ok(3), double), add_one)
+	let third = match result_and_then(result_map(Ok(3), double), add_one)
 		Ok(value) => int_to_string(value + vec_len(kept) + vec_fold(mapped, 0, add))
 		Err(error) => error
 	end
-	let fourth: String = match result_map_err(string_parse_int("bad"), label_error)
+	let fourth = match result_map_err(string_parse_int("bad"), label_error)
 		Ok(value) => int_to_string(value)
 		Err(error) => error
 	end
-	let fifth: String = if dict_contains(dictionary, "b")
+	let fifth = if dict_contains(dictionary, "b")
 		"b"
 	else
 		"missing"
 	end
-	let sixth: String = int_to_string(option_unwrap_or(None, 7))
-	let seventh: String = match vec_try_map([1, 2, 3], fallible_double)
+	let sixth = int_to_string(option_unwrap_or(None, 7))
+	let seventh = match vec_try_map([1, 2, 3], fallible_double)
 		Ok(items) => int_to_string(vec_len(items))
 		Err(error) => error
 	end
 	let empty_vec: Vec<Int> = []
-	let eighth: String = if vec_is_empty(empty_vec)
+	let eighth = if vec_is_empty(empty_vec)
 		"empty"
 	else
 		"nonempty"
 	end
 	let list: List<Int> = list_cons(1, list_cons(2, list_cons(3, list_nil())))
-	let ninth: String = int_to_string(list_fold(list, 0, add))
-	let tenth: String = int_to_string(list_fold(list_reverse(list), 0, add))
-	let eleventh: String = int_to_string(list_fold(list_filter(list, odd), 0, add))
-	let twelfth: String = int_to_string(list_fold(list_map(list, double), 0, add))
-	let thirteenth: String = match list_try_map(list, fallible_double)
+	let ninth = int_to_string(list_fold(list, 0, add))
+	let tenth = int_to_string(list_fold(list_reverse(list), 0, add))
+	let eleventh = int_to_string(list_fold(list_filter(list, odd), 0, add))
+	let twelfth = int_to_string(list_fold(list_map(list, double), 0, add))
+	let thirteenth = match list_try_map(list, fallible_double)
 		Ok(items) => int_to_string(list_fold(items, 0, add))
 		Err(error) => error
 	end
-	let fourteenth: String = if list_is_empty(list_nil())
+	let fourteenth = if list_is_empty(list_nil())
 		"list-empty"
 	else
 		"list-nonempty"

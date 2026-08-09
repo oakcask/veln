@@ -55,13 +55,13 @@ fn emit_encoded(name: String, encoded: Result<ByteChunk, EncodeError>, expected_
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let payload_bytes: ByteChunk = byte_chunk_from_hex("aabbccddee")?
-	let payload_view: ByteView = byte_view(payload_bytes, byte_offset(0)?, byte_count(5)?)?
-	let payload: {left_length: Int, right_length: Int, payload: ByteView} = {left_length: 2, right_length: 3, payload: payload_view}
-	let closed: Result<ByteChunk, EncodeError> = byte_encode_closed_additive_write_packet({kind: 1, payload: payload})
+	let payload_bytes = byte_chunk_from_hex("aabbccddee")?
+	let payload_view = byte_view(payload_bytes, byte_offset(0)?, byte_count(5)?)?
+	let payload = {left_length: 2, right_length: 3, payload: payload_view}
+	let closed = byte_encode_closed_additive_write_packet({kind: 1, payload: payload})
 	emit_encoded("closed-additive-nested", closed, "010203aabbccddee")
 
-	let extension: Result<ByteChunk, EncodeError> = byte_encode_extension_additive_write_packet({length: 7, kind: 1, payload: Known(payload)})
+	let extension = byte_encode_extension_additive_write_packet({length: 7, kind: 1, payload: Known(payload)})
 	emit_encoded("extension-additive-nested", extension, "07010203aabbccddee")
 	Ok(())
 end

@@ -16,11 +16,11 @@ schema ClosedNestedPacket
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("010700ff")?
-	let offset: ByteOffset = byte_offset(0)?
-	let count: ByteCount = byte_count(4)?
-	let view: ByteView = byte_view(bytes, offset, count)?
-	let packet: {kind: Int, payload: {code: Int, value: Int}} = byte_decode_closed_nested_packet(view)?
+	let bytes = byte_chunk_from_hex("010700ff")?
+	let offset = byte_offset(0)?
+	let count = byte_count(4)?
+	let view = byte_view(bytes, offset, count)?
+	let packet = byte_decode_closed_nested_packet(view)?
 	stdio::print(int_to_string(packet.kind))
 	stdio::print(" ")
 	stdio::print(int_to_string(packet.payload.code))

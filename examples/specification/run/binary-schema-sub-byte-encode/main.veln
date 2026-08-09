@@ -56,9 +56,9 @@ fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
 end
 
 pub fn main() -> () effects [stdio]
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_sub_byte_write({one_bit: 1, three_bits: 6, seven_bits: 127})
+	let encoded = byte_encode_sub_byte_write({one_bit: 1, three_bits: 6, seven_bits: 127})
 	emit_result(encoded)
 
-	let stepped: EncodeStep<()> = encode_result_step(encode SubByteWrite from {one_bit: 1, three_bits: 6, seven_bits: 127})
+	let stepped = encode_result_step(encode SubByteWrite from {one_bit: 1, three_bits: 6, seven_bits: 127})
 	stdio::println(step_kind(stepped))
 end

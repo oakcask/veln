@@ -31,7 +31,7 @@ fn error_reason(error: EncodeError) -> String
 end
 
 pub fn main() -> () effects [stdio]
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_stream_identifier_sample({stream_id: 2147483648})
+	let encoded = byte_encode_stream_identifier_sample({stream_id: 2147483648})
 	match encoded
 		Ok(_) => stdio::println("unexpected encode success")
 		Err(error) => emit_error(error)

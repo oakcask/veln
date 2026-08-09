@@ -40,6 +40,6 @@ fn emit_result(encoded: Result<ByteChunk, EncodeError>) -> () effects [stdio]
 end
 
 pub fn main() -> () effects [stdio]
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_little_endian_widths_wire({short_value: 4660, length_value: 1193046, stream_value: 2147483647, wide_value: 3735928559})
+	let encoded = byte_encode_little_endian_widths_wire({short_value: 4660, length_value: 1193046, stream_value: 2147483647, wide_value: 3735928559})
 	emit_result(encoded)
 end

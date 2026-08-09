@@ -32,10 +32,10 @@ fn emit_invalid_field_fixture(fixture: { name : String, bytes : ByteChunk, expec
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("ff0001")?
-	let consumed: ByteCount = byte_count(1)?
-	let diagnostic_offset: ByteOffset = byte_offset(0)?
-	let field_path: String = "[{\"kind\":\"schema\",\"name\":\"DemoPacket\"},{\"kind\":\"field\",\"name\":\"kind\"}]"
+	let bytes = byte_chunk_from_hex("ff0001")?
+	let consumed = byte_count(1)?
+	let diagnostic_offset = byte_offset(0)?
+	let field_path = "[{\"kind\":\"schema\",\"name\":\"DemoPacket\"},{\"kind\":\"field\",\"name\":\"kind\"}]"
 	let fixture = { name: "invalid-frame-kind", bytes: bytes, expected_hex: "ff0001", expected_consumed: Some(consumed), diagnostic_id: "schema.invalid_field_value", byte_offset: diagnostic_offset, field_path: field_path }
 	emit_invalid_field_fixture(fixture)
 	Ok(())

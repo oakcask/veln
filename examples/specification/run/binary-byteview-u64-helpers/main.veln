@@ -25,13 +25,13 @@ fn emit_written(name: String, chunk: ByteChunk, expected_hex: String) -> () effe
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let chunk: ByteChunk = byte_chunk_from_hex("01020304050607080807060504030201")?
-	let offset: ByteOffset = byte_offset(0)?
-	let count: ByteCount = byte_count(8)?
-	let big_view: ByteView = byte_view(chunk, offset, count)?
-	let little_view: ByteView = byte_view(chunk, byte_offset(8)?, count)?
-	let big_value: Int = byte_read_u64_be(big_view)?
-	let little_value: Int = byte_read_u64_le(little_view)?
+	let chunk = byte_chunk_from_hex("01020304050607080807060504030201")?
+	let offset = byte_offset(0)?
+	let count = byte_count(8)?
+	let big_view = byte_view(chunk, offset, count)?
+	let little_view = byte_view(chunk, byte_offset(8)?, count)?
+	let big_value = byte_read_u64_be(big_view)?
+	let little_value = byte_read_u64_le(little_view)?
 	stdio::print("u64-read ")
 	stdio::print(int_to_string(big_value))
 	stdio::print(" ")

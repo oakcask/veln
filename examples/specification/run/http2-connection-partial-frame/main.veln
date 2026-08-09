@@ -33,9 +33,9 @@ fn print_failure(failure: Http2ConnectionFailure) -> Result<(), String> effects 
 end
 
 pub fn main() -> Result<(), String> effects [net, stdio]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let stream: NetStream = accept_next(listener)?
-	let state: CoreConnectionState = http2::core::server_connection_state(0)?
+	let listener = net::listen("127.0.0.1:0")
+	let stream = accept_next(listener)?
+	let state = http2::core::server_connection_state(0)?
 	let _ = print_result(run_server(stream, state))?
 	net::close_stream(stream)
 	Ok(())

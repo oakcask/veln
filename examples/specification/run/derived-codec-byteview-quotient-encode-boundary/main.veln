@@ -75,23 +75,23 @@ fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let payload_bytes: ByteChunk = byte_chunk_from_hex("aabbccdd")?
-	let payload: ByteView = byte_view(payload_bytes, byte_offset(0)?, byte_count(4)?)?
-	let encoded: EncodeStep<()> = encode_result_step(encode PacketWire from {total_length: 8, chunk_count: 2, payload: payload})
+	let payload_bytes = byte_chunk_from_hex("aabbccdd")?
+	let payload = byte_view(payload_bytes, byte_offset(0)?, byte_count(4)?)?
+	let encoded = encode_result_step(encode PacketWire from {total_length: 8, chunk_count: 2, payload: payload})
 	stdio::println(step_kind(encoded))
 	emit_encoded(encoded, "0802aabbccdd")
 
-	let short_payload_bytes: ByteChunk = byte_chunk_from_hex("aabbcc")?
-	let short_payload: ByteView = byte_view(short_payload_bytes, byte_offset(0)?, byte_count(3)?)?
-	let length_mismatch: EncodeStep<()> = encode_result_step(encode PacketWire from {total_length: 8, chunk_count: 2, payload: short_payload})
+	let short_payload_bytes = byte_chunk_from_hex("aabbcc")?
+	let short_payload = byte_view(short_payload_bytes, byte_offset(0)?, byte_count(3)?)?
+	let length_mismatch = encode_result_step(encode PacketWire from {total_length: 8, chunk_count: 2, payload: short_payload})
 	stdio::println(step_kind(length_mismatch))
 	stdio::println(error_id(length_mismatch))
 	stdio::println(error_path(length_mismatch))
 	stdio::println(error_reason(length_mismatch))
 
-	let empty_payload_bytes: ByteChunk = byte_chunk_from_hex("")?
-	let empty_payload: ByteView = byte_view(empty_payload_bytes, byte_offset(0)?, byte_count(0)?)?
-	let division_by_zero: EncodeStep<()> = encode_result_step(encode PacketWire from {total_length: 8, chunk_count: 0, payload: empty_payload})
+	let empty_payload_bytes = byte_chunk_from_hex("")?
+	let empty_payload = byte_view(empty_payload_bytes, byte_offset(0)?, byte_count(0)?)?
+	let division_by_zero = encode_result_step(encode PacketWire from {total_length: 8, chunk_count: 0, payload: empty_payload})
 	stdio::println(step_kind(division_by_zero))
 	stdio::println(error_id(division_by_zero))
 	stdio::println(error_path(division_by_zero))

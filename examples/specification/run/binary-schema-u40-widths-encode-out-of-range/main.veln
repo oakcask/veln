@@ -38,13 +38,13 @@ fn error_reason(error: EncodeError) -> String
 end
 
 pub fn main() -> () effects [stdio]
-	let too_large: Result<ByteChunk, EncodeError> = byte_encode_uint40_big_width({value: 1099511627776})
+	let too_large = byte_encode_uint40_big_width({value: 1099511627776})
 	match too_large
 		Ok(_) => stdio::println("unexpected UInt40be encode success")
 		Err(error) => emit_error(error)
 	end
 
-	let negative: Result<ByteChunk, EncodeError> = byte_encode_uint40_little_width({value: -1})
+	let negative = byte_encode_uint40_little_width({value: -1})
 	match negative
 		Ok(_) => stdio::println("unexpected UInt40le encode success")
 		Err(error) => emit_error(error)

@@ -9,7 +9,7 @@ fn handle_input(input: StreamInput) -> List<StreamAdapterAction>
 end
 
 pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
-	let listener: NetListener = net::listen("127.0.0.1:0")
+	let listener = net::listen("127.0.0.1:0")
 	stream_adapter_accept_loop(listener, handle_input)
 	stdio::println("loop-complete")
 	Ok(())

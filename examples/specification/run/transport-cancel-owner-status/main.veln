@@ -10,7 +10,7 @@ fn status_text(cancelled: Bool) -> String
 end
 
 pub fn main() -> Result<(), String> effects [time, stdio]
-	let owner: CancelOwner = time::cancel_owner()
+	let owner = time::cancel_owner()
 	stdio::println(status_text(time::is_cancelled_owner(owner)))
 	time::cancel_owned(owner)
 	stdio::println(status_text(time::is_cancelled_owner(owner)))

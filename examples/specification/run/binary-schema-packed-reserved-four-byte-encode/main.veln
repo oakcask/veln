@@ -49,9 +49,9 @@ fn emit_encoded(name: String, encoded: Result<ByteChunk, EncodeError>, expected_
 end
 
 pub fn main() -> () effects [stdio]
-	let prefix: Result<ByteChunk, EncodeError> = byte_encode_packed_four_byte_prefix_header({prefix: 18, control: 42, suffix: 52})
+	let prefix = byte_encode_packed_four_byte_prefix_header({prefix: 18, control: 42, suffix: 52})
 	emit_encoded("packed-four-byte-prefix", prefix, "12aaaaaaaa34")
 
-	let suffix: Result<ByteChunk, EncodeError> = byte_encode_packed_four_byte_suffix_header({prefix: 18, control: 1, suffix: 52})
+	let suffix = byte_encode_packed_four_byte_suffix_header({prefix: 18, control: 1, suffix: 52})
 	emit_encoded("packed-four-byte-suffix", suffix, "12aaaaaaaa34")
 end

@@ -36,15 +36,15 @@ fn emit_encode_result(encoded: Result<ByteChunk, EncodeError>) -> Result<(), Str
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("b52a")?
-	let offset: ByteOffset = byte_offset(0)?
-	let count: ByteCount = byte_count(2)?
-	let view: ByteView = byte_view(bytes, offset, count)?
-	let packet: {high: Int, kind: Int} = byte_decode_lowercase_reserved_packet(view)?
+	let bytes = byte_chunk_from_hex("b52a")?
+	let offset = byte_offset(0)?
+	let count = byte_count(2)?
+	let view = byte_view(bytes, offset, count)?
+	let packet = byte_decode_lowercase_reserved_packet(view)?
 	stdio::println(int_to_string(packet.high))
 	stdio::println(int_to_string(packet.kind))
 
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_lowercase_reserved_packet({high: 5, kind: 42})
-	let ignored: () = emit_encode_result(encoded)?
+	let encoded = byte_encode_lowercase_reserved_packet({high: 5, kind: 42})
+	let ignored = emit_encode_result(encoded)?
 	Ok(())
 end

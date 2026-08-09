@@ -13,7 +13,7 @@ fn first_octet(chunk: ByteChunk) -> Result<Int, String>
 end
 
 fn print_transition(label: String, transition: LiteralDecodeTransition) -> Result<(), String> effects [stdio]
-	let header: LiteralHeaderField = http2::hpack::literal_decode_header(transition)
+	let header = http2::hpack::literal_decode_header(transition)
 	stdio::print(label)
 	stdio::print(" ")
 	stdio::print(http2::hpack::literal_decode_representation(transition))
@@ -49,13 +49,13 @@ fn print_failure_value(label: String, failure: LiteralDecodeFailure) -> Result<(
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let empty: DynamicTable = http2::hpack::empty_dynamic_table(256)?
-	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(empty, "older", byte_chunk_from_hex("31")?)?
-	let incremental: LiteralDecodeTransition = require_transition(byte_chunk_from_hex("4001780200ff")?, table)?
+	let empty = http2::hpack::empty_dynamic_table(256)?
+	let table = http2::hpack::insert_dynamic_table_entry(empty, "older", byte_chunk_from_hex("31")?)?
+	let incremental = require_transition(byte_chunk_from_hex("4001780200ff")?, table)?
 	let _ = print_transition("incremental", incremental)?
-	let dynamic_name: LiteralDecodeTransition = require_transition(byte_chunk_from_hex("0f2f8349509f")?, table)?
+	let dynamic_name = require_transition(byte_chunk_from_hex("0f2f8349509f")?, table)?
 	let _ = print_transition("dynamic-name", dynamic_name)?
-	let never: LiteralDecodeTransition = require_transition(byte_chunk_from_hex("1485ffc7ffffdd")?, table)?
+	let never = require_transition(byte_chunk_from_hex("1485ffc7ffffdd")?, table)?
 	let _ = print_transition("never", never)?
 	let _ = print_failure("unavailable", byte_chunk_from_hex("0f3000")?, table)?
 	let _ = print_failure("truncated", byte_chunk_from_hex("040378")?, table)?

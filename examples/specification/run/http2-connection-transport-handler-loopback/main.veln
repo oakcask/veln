@@ -2,11 +2,11 @@ use transport from "std"
 use transport::net from "std"
 
 fn observe_duplex() -> Result<{ first : Int, second : Int, clean_end : Bool }, String> effects [transport::DuplexStream]
-	let first: Option<ByteChunk> = perform transport::DuplexStream::read_chunk()
-	let second: Option<ByteChunk> = perform transport::DuplexStream::read_chunk()
-	let ended: Option<ByteChunk> = perform transport::DuplexStream::read_chunk()
-	let outgoing_a: ByteChunk = byte_chunk_from_hex("0a")?
-	let outgoing_b: ByteChunk = byte_chunk_from_hex("0b0c")?
+	let first = perform transport::DuplexStream::read_chunk()
+	let second = perform transport::DuplexStream::read_chunk()
+	let ended = perform transport::DuplexStream::read_chunk()
+	let outgoing_a = byte_chunk_from_hex("0a")?
+	let outgoing_b = byte_chunk_from_hex("0b0c")?
 	perform transport::DuplexStream::write_chunks(list_cons(outgoing_a, list_cons(outgoing_b, list_nil())))
 	Ok(summary(first, second, ended))
 end
@@ -48,8 +48,8 @@ fn emit_clean_end(clean_end: Bool) -> () effects [stdio]
 end
 
 pub fn main() -> Result<(), String> effects [net, stdio]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let stream: NetStream = accept_next(listener)?
+	let listener = net::listen("127.0.0.1:0")
+	let stream = accept_next(listener)?
 	let observed = handle observe_duplex()? with transport::net::net_stream(stream)
 	net::close_stream(stream)
 	stdio::print(int_to_string(observed.first))

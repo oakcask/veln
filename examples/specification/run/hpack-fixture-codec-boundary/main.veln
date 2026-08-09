@@ -11,7 +11,7 @@ fn display_header_value(value: String) -> String
 end
 
 fn print_decoded_transition(label: String, transition: HpackDecodeTransition) -> () effects [stdio]
-	let headers: HpackHeaderList = transition_headers(transition)
+	let headers = transition_headers(transition)
 	stdio::print(label)
 	stdio::print(" decoded ")
 	stdio::print(header_list_first_name(headers))
@@ -24,7 +24,7 @@ fn print_decoded_transition(label: String, transition: HpackDecodeTransition) ->
 end
 
 fn print_decoded_two_header_transition(label: String, transition: HpackDecodeTransition) -> () effects [stdio]
-	let headers: HpackHeaderList = transition_headers(transition)
+	let headers = transition_headers(transition)
 	stdio::print(label)
 	stdio::print(" decoded ")
 	stdio::print(header_list_first_name(headers))
@@ -67,7 +67,7 @@ fn print_decode_failure_with_id(label: String, failure: HpackFixtureFailure) -> 
 end
 
 fn encoded_byte_at(block: ByteChunk, index: Int) -> Result<Int, String>
-	let view: ByteView = byte_view(block, byte_offset(index)?, byte_count(1)?)?
+	let view = byte_view(block, byte_offset(index)?, byte_count(1)?)?
 	byte_read_u8_be(view)
 end
 
@@ -89,8 +89,8 @@ fn encoded_bytes_equal_at(left: ByteChunk, right: ByteChunk, index: Int, count: 
 end
 
 fn encoded_bytes_equal(left: ByteChunk, right: ByteChunk) -> Bool
-	let left_count: Int = byte_count_to_int(byte_chunk_count(left))
-	let right_count: Int = byte_count_to_int(byte_chunk_count(right))
+	let left_count = byte_count_to_int(byte_chunk_count(left))
+	let right_count = byte_count_to_int(byte_chunk_count(right))
 	if left_count == right_count
 		encoded_bytes_equal_at(left, right, 0, left_count)
 	else
@@ -149,8 +149,8 @@ fn print_encode_transition(label: String, result: Result<HpackEncodeTransition, 
 end
 
 fn print_encode_transition_success(label: String, transition: HpackEncodeTransition) -> Result<HpackFixtureState, String> effects [stdio]
-	let encoded: ByteChunk = encode_transition_bytes(transition)
-	let state: HpackFixtureState = encode_transition_state(transition)
+	let encoded = encode_transition_bytes(transition)
+	let state = encode_transition_state(transition)
 	stdio::print(label)
 	stdio::print(" encoded count ")
 	stdio::print(int_to_string(byte_count_to_int(byte_chunk_count(encoded))))
@@ -218,7 +218,7 @@ fn print_dynamic_core_transition(label: String, result: Result<HpackDynamicCoreD
 end
 
 fn print_dynamic_core_decoded_transition(label: String, transition: HpackDynamicCoreDecodeTransition) -> () effects [stdio]
-	let headers: HpackDynamicCoreHeaderList = hpack_dynamic_core::dynamic_core_transition_headers(transition)
+	let headers = hpack_dynamic_core::dynamic_core_transition_headers(transition)
 	stdio::print(label)
 	stdio::print(" decoded ")
 	stdio::print(hpack_dynamic_core::dynamic_core_header_list_first_name(headers))
@@ -293,7 +293,7 @@ fn next_state_or(result: Result<HpackDecodeTransition, HpackFixtureFailure>, fal
 end
 
 fn print_static_indexed_decode(label: String, block_hex: String, state: HpackFixtureState, offset: Int) -> Result<HpackFixtureState, String> effects [stdio]
-	let result: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(byte_chunk_from_hex(block_hex)?, state, offset)
+	let result = decode_header_block(byte_chunk_from_hex(block_hex)?, state, offset)
 	print_transition(label, result)
 	Ok(next_state_or(result, state))
 end
@@ -338,7 +338,7 @@ fn print_required_unsupported(label: String, result: Result<HpackDecodeTransitio
 end
 
 fn print_required_unsupported_with_id(label: String, result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> Result<(), String> effects [stdio]
-	let ignored_print: () = match result
+	let ignored_print = match result
 		Ok(transition) => print_decoded_transition(label, transition)
 		Err(failure) => print_decode_failure_with_id(label, failure)
 	end
@@ -346,7 +346,7 @@ fn print_required_unsupported_with_id(label: String, result: Result<HpackDecodeT
 end
 
 fn print_required_failure_id(label: String, result: Result<HpackDecodeTransition, HpackFixtureFailure>, expected_id: String) -> Result<(), String> effects [stdio]
-	let ignored_print: () = match result
+	let ignored_print = match result
 		Ok(transition) => print_decoded_transition(label, transition)
 		Err(failure) => print_decode_failure_with_id(label, failure)
 	end
@@ -370,18 +370,18 @@ fn require_dynamic_entry_count(state: HpackFixtureState, expected_dynamic_entrie
 end
 
 fn require_multiple_table_size_updates(state: HpackFixtureState) -> Result<(), String>
-	let updates_state: HpackFixtureState = require_decoded_header(decode_header_block(byte_chunk_from_hex("3f81013e")?, state, 81), ":fixture", "table-size-update")?
-	let ignored_updates_size: () = require_table_size(updates_state, 30)?
-	let field_state: HpackFixtureState = require_decoded_header(decode_header_block(byte_chunk_from_hex("3f81013e82")?, state, 85), ":method", "GET")?
-	let ignored_field_size: () = require_table_size(field_state, 30)?
-	let retained_state: HpackFixtureState = require_decoded_header(decode_header_block(byte_chunk_from_hex("3f81013f0dbe")?, state, 88), ":path", "/target")?
-	let ignored_retained_size: () = require_table_size(retained_state, 44)?
-	let ignored_retained_entry: () = require_dynamic_entry_count(retained_state, 1)?
-	let ignored_wire_order_eviction: () = require_failure_id(decode_header_block(byte_chunk_from_hex("3e3f8101be")?, state, 89), "hpack.fixture.dynamic_index_out_of_range")?
-	let ignored_malformed: () = require_failure_id(decode_header_block(byte_chunk_from_hex("3e3f80")?, state, 90), "hpack.fixture.table_size_update_malformed")?
-	let ignored_after_field: () = require_failure_id(decode_header_block(byte_chunk_from_hex("3e823f01")?, state, 91), "hpack.fixture.table_size_update_not_at_start")?
-	let ignored_third_update: () = require_failure_id(decode_header_block(byte_chunk_from_hex("3e3f013f02")?, state, 91), "hpack.fixture.table_size_update_not_at_start")?
-	let ignored_original_size: () = require_table_size(state, 4096)?
+	let updates_state = require_decoded_header(decode_header_block(byte_chunk_from_hex("3f81013e")?, state, 81), ":fixture", "table-size-update")?
+	let ignored_updates_size = require_table_size(updates_state, 30)?
+	let field_state = require_decoded_header(decode_header_block(byte_chunk_from_hex("3f81013e82")?, state, 85), ":method", "GET")?
+	let ignored_field_size = require_table_size(field_state, 30)?
+	let retained_state = require_decoded_header(decode_header_block(byte_chunk_from_hex("3f81013f0dbe")?, state, 88), ":path", "/target")?
+	let ignored_retained_size = require_table_size(retained_state, 44)?
+	let ignored_retained_entry = require_dynamic_entry_count(retained_state, 1)?
+	let ignored_wire_order_eviction = require_failure_id(decode_header_block(byte_chunk_from_hex("3e3f8101be")?, state, 89), "hpack.fixture.dynamic_index_out_of_range")?
+	let ignored_malformed = require_failure_id(decode_header_block(byte_chunk_from_hex("3e3f80")?, state, 90), "hpack.fixture.table_size_update_malformed")?
+	let ignored_after_field = require_failure_id(decode_header_block(byte_chunk_from_hex("3e823f01")?, state, 91), "hpack.fixture.table_size_update_not_at_start")?
+	let ignored_third_update = require_failure_id(decode_header_block(byte_chunk_from_hex("3e3f013f02")?, state, 91), "hpack.fixture.table_size_update_not_at_start")?
+	let ignored_original_size = require_table_size(state, 4096)?
 	require_dynamic_entry_count(state, 1)
 end
 
@@ -394,33 +394,33 @@ fn require_encode_state(state: HpackFixtureState, expected_table_size: Int, expe
 end
 
 fn print_general_string_literal_cases(initial: HpackFixtureState, literal_state: HpackFixtureState) -> Result<(), String> effects [stdio]
-	let ignored_literal_method_put_huffman: HpackFixtureState = print_required_header("literal-method-put-huffman", decode_header_block(byte_chunk_from_hex("0283d7c37f")?, initial, 83), ":method", "PUT")?
-	let ignored_literal_method_bad_huffman: HpackFixtureState = print_required_header("literal-method-bad-huffman", decode_header_block(byte_chunk_from_hex("02838c727f")?, initial, 106), ":method", "bad")?
-	let ignored_literal_path_test_huffman: HpackFixtureState = print_required_header("literal-path-test-huffman", decode_header_block(byte_chunk_from_hex("048349509f")?, initial, 88), ":path", "test")?
-	let ignored_literal_status_200_huffman: HpackFixtureState = print_required_header("literal-status-200-huffman", decode_header_block(byte_chunk_from_hex("08821001")?, initial, 89), ":status", "200")?
-	let ignored_literal_authority_www_example_huffman: HpackFixtureState = print_required_header("literal-authority-www-example-huffman", decode_header_block(byte_chunk_from_hex("018cf1e3c2e5f23a6ba0ab90f4ff")?, initial, 90), ":authority", "www.example.com")?
-	let ignored_literal_path_linefeed_huffman: HpackFixtureState = print_required_header("literal-path-linefeed-huffman", decode_header_block(byte_chunk_from_hex("0484fffffff3")?, initial, 116), ":path", "\n")?
-	let ignored_literal_path_nul_huffman: HpackFixtureState = print_required_header("literal-path-nul-huffman", decode_header_block(byte_chunk_from_hex("0482ffc7")?, initial, 117), ":path", "hpack-byte-00")?
-	let ignored_literal_path_ff_huffman: HpackFixtureState = print_required_header("literal-path-ff-huffman", decode_header_block(byte_chunk_from_hex("0484fffffbbf")?, initial, 119), ":path", "hpack-byte-ff")?
-	let ignored_literal_path_bytes_huffman: HpackFixtureState = print_required_header("literal-path-bytes-huffman", decode_header_block(byte_chunk_from_hex("0485ffc7ffffdd")?, initial, 120), ":path", "hpack-bytes-00-ff")?
-	let ignored_literal_path_two_nul_huffman: HpackFixtureState = print_required_header("literal-path-two-nul-huffman", decode_header_block(byte_chunk_from_hex("0484ffc7fe3f")?, initial, 118), ":path", "hpack-bytes-00-00")?
+	let ignored_literal_method_put_huffman = print_required_header("literal-method-put-huffman", decode_header_block(byte_chunk_from_hex("0283d7c37f")?, initial, 83), ":method", "PUT")?
+	let ignored_literal_method_bad_huffman = print_required_header("literal-method-bad-huffman", decode_header_block(byte_chunk_from_hex("02838c727f")?, initial, 106), ":method", "bad")?
+	let ignored_literal_path_test_huffman = print_required_header("literal-path-test-huffman", decode_header_block(byte_chunk_from_hex("048349509f")?, initial, 88), ":path", "test")?
+	let ignored_literal_status_200_huffman = print_required_header("literal-status-200-huffman", decode_header_block(byte_chunk_from_hex("08821001")?, initial, 89), ":status", "200")?
+	let ignored_literal_authority_www_example_huffman = print_required_header("literal-authority-www-example-huffman", decode_header_block(byte_chunk_from_hex("018cf1e3c2e5f23a6ba0ab90f4ff")?, initial, 90), ":authority", "www.example.com")?
+	let ignored_literal_path_linefeed_huffman = print_required_header("literal-path-linefeed-huffman", decode_header_block(byte_chunk_from_hex("0484fffffff3")?, initial, 116), ":path", "\n")?
+	let ignored_literal_path_nul_huffman = print_required_header("literal-path-nul-huffman", decode_header_block(byte_chunk_from_hex("0482ffc7")?, initial, 117), ":path", "hpack-byte-00")?
+	let ignored_literal_path_ff_huffman = print_required_header("literal-path-ff-huffman", decode_header_block(byte_chunk_from_hex("0484fffffbbf")?, initial, 119), ":path", "hpack-byte-ff")?
+	let ignored_literal_path_bytes_huffman = print_required_header("literal-path-bytes-huffman", decode_header_block(byte_chunk_from_hex("0485ffc7ffffdd")?, initial, 120), ":path", "hpack-bytes-00-ff")?
+	let ignored_literal_path_two_nul_huffman = print_required_header("literal-path-two-nul-huffman", decode_header_block(byte_chunk_from_hex("0484ffc7fe3f")?, initial, 118), ":path", "hpack-bytes-00-00")?
 	print_transition("literal-indexed-authority", decode_header_block(byte_chunk_from_hex("41086162632e74657374")?, initial, 86))
-	let ignored_literal_indexed_method_put_huffman: HpackFixtureState = print_required_header("literal-indexed-method-put-huffman", decode_header_block(byte_chunk_from_hex("4283d7c37f")?, initial, 84), ":method", "PUT")?
-	let ignored_literal_indexed_method_bad_huffman: HpackFixtureState = print_required_header("literal-indexed-method-bad-huffman", decode_header_block(byte_chunk_from_hex("42838c727f")?, initial, 107), ":method", "bad")?
-	let ignored_literal_indexed_scheme_https_huffman: HpackFixtureState = print_required_header("literal-indexed-scheme-https-huffman", decode_header_block(byte_chunk_from_hex("46849d29ad1f")?, initial, 87), ":scheme", "https")?
+	let ignored_literal_indexed_method_put_huffman = print_required_header("literal-indexed-method-put-huffman", decode_header_block(byte_chunk_from_hex("4283d7c37f")?, initial, 84), ":method", "PUT")?
+	let ignored_literal_indexed_method_bad_huffman = print_required_header("literal-indexed-method-bad-huffman", decode_header_block(byte_chunk_from_hex("42838c727f")?, initial, 107), ":method", "bad")?
+	let ignored_literal_indexed_scheme_https_huffman = print_required_header("literal-indexed-scheme-https-huffman", decode_header_block(byte_chunk_from_hex("46849d29ad1f")?, initial, 87), ":scheme", "https")?
 	print_transition("literal-indexed-status", decode_header_block(byte_chunk_from_hex("4803323031")?, initial, 85))
-	let ignored_literal_authority_raw_odd: HpackFixtureState = print_required_header("literal-authority-raw-odd", decode_header_block(byte_chunk_from_hex("01036f6464")?, initial, 113), ":authority", "odd")?
-	let ignored_literal_indexed_method_raw_raw: HpackFixtureState = print_required_header("literal-indexed-method-raw-raw", decode_header_block(byte_chunk_from_hex("4203726177")?, initial, 114), ":method", "raw")?
-	let ignored_literal_never_indexed_path_raw_bot: HpackFixtureState = print_required_header("literal-never-indexed-path-raw-bot", decode_header_block(byte_chunk_from_hex("1403626f74")?, initial, 115), ":path", "bot")?
-	let ignored_literal_raw_name: HpackFixtureState = print_required_header("literal-raw-name-x-trace", decode_header_block(byte_chunk_from_hex("0007782d7472616365026f6b")?, initial, 109), "x-trace", "ok")?
-	let literal_indexed_raw_name: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(byte_chunk_from_hex("4007782d7472616365026f6b")?, initial, 110)
+	let ignored_literal_authority_raw_odd = print_required_header("literal-authority-raw-odd", decode_header_block(byte_chunk_from_hex("01036f6464")?, initial, 113), ":authority", "odd")?
+	let ignored_literal_indexed_method_raw_raw = print_required_header("literal-indexed-method-raw-raw", decode_header_block(byte_chunk_from_hex("4203726177")?, initial, 114), ":method", "raw")?
+	let ignored_literal_never_indexed_path_raw_bot = print_required_header("literal-never-indexed-path-raw-bot", decode_header_block(byte_chunk_from_hex("1403626f74")?, initial, 115), ":path", "bot")?
+	let ignored_literal_raw_name = print_required_header("literal-raw-name-x-trace", decode_header_block(byte_chunk_from_hex("0007782d7472616365026f6b")?, initial, 109), "x-trace", "ok")?
+	let literal_indexed_raw_name = decode_header_block(byte_chunk_from_hex("4007782d7472616365026f6b")?, initial, 110)
 	print_transition("literal-indexed-raw-name-x-trace", literal_indexed_raw_name)
-	let literal_indexed_raw_name_state: HpackFixtureState = require_decoded_header(literal_indexed_raw_name, "x-trace", "ok")?
-	let ignored_dynamic_indexed_raw_name: HpackFixtureState = print_required_header("dynamic-indexed-raw-name-x-trace", decode_header_block(byte_chunk_from_hex("be")?, literal_indexed_raw_name_state, 111), "x-trace", "ok")?
+	let literal_indexed_raw_name_state = require_decoded_header(literal_indexed_raw_name, "x-trace", "ok")?
+	let ignored_dynamic_indexed_raw_name = print_required_header("dynamic-indexed-raw-name-x-trace", decode_header_block(byte_chunk_from_hex("be")?, literal_indexed_raw_name_state, 111), "x-trace", "ok")?
 	print_transition("literal-never-indexed-authority", decode_header_block(byte_chunk_from_hex("11086162632e74657374")?, initial, 95))
-	let ignored_literal_never_indexed_raw_name: HpackFixtureState = print_required_header("literal-never-indexed-raw-name-x-trace", decode_header_block(byte_chunk_from_hex("1007782d7472616365026f6b")?, initial, 112), "x-trace", "ok")?
-	let ignored_literal_never_indexed_method_bad_huffman: HpackFixtureState = print_required_header("literal-never-indexed-method-bad-huffman", decode_header_block(byte_chunk_from_hex("12838c727f")?, initial, 108), ":method", "bad")?
-	let ignored_literal_never_indexed_scheme_https_huffman: HpackFixtureState = print_required_header("literal-never-indexed-scheme-https-huffman", decode_header_block(byte_chunk_from_hex("16849d29ad1f")?, initial, 96), ":scheme", "https")?
+	let ignored_literal_never_indexed_raw_name = print_required_header("literal-never-indexed-raw-name-x-trace", decode_header_block(byte_chunk_from_hex("1007782d7472616365026f6b")?, initial, 112), "x-trace", "ok")?
+	let ignored_literal_never_indexed_method_bad_huffman = print_required_header("literal-never-indexed-method-bad-huffman", decode_header_block(byte_chunk_from_hex("12838c727f")?, initial, 108), ":method", "bad")?
+	let ignored_literal_never_indexed_scheme_https_huffman = print_required_header("literal-never-indexed-scheme-https-huffman", decode_header_block(byte_chunk_from_hex("16849d29ad1f")?, initial, 96), ":scheme", "https")?
 	print_transition("literal-authority-raw-long-length", decode_header_block(byte_chunk_from_hex("017f016161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161")?, initial, 91))
 	print_transition("literal-path-huffman-long-length", decode_header_block(byte_chunk_from_hex("04ff01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000f")?, initial, 92))
 	print_transition("literal-indexed-authority-raw-long-length", decode_header_block(byte_chunk_from_hex("417f016161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161")?, initial, 93))
@@ -437,11 +437,11 @@ fn print_general_string_literal_cases(initial: HpackFixtureState, literal_state:
 end
 
 fn print_raw_string_encode_cases() -> Result<(), String> effects [stdio]
-	let expected_short_encoding: ByteChunk = byte_chunk_from_hex("03505554")?
+	let expected_short_encoding = byte_chunk_from_hex("03505554")?
 	let _ = print_encoded_literal("encode-raw-short-put", encode_hpack_raw_string_literal("PUT", 95), expected_short_encoding)?
-	let expected_visible_encoding: ByteChunk = byte_chunk_from_hex("03626164")?
+	let expected_visible_encoding = byte_chunk_from_hex("03626164")?
 	let _ = print_encoded_literal("encode-raw-visible-bad", encode_hpack_raw_string_literal("bad", 97), expected_visible_encoding)?
-	let expected_long_encoding: ByteChunk = byte_append(byte_chunk_from_hex("7f01")?, repeat_expected_byte(128)?)
+	let expected_long_encoding = byte_append(byte_chunk_from_hex("7f01")?, repeat_expected_byte(128)?)
 	let _ = print_encoded_literal("encode-raw-long-a", encode_hpack_raw_string_literal(hpack_fixture_long_raw_string_value(), 96), expected_long_encoding)?
 	let _ = print_encode_failure("encode-raw-non-visible", encode_hpack_raw_string_literal("\n", 98))?
 	let _ = print_encoded_literal("encode-hpack-huffman-payload-test", encode_hpack_huffman_payload("test", 160), byte_chunk_from_hex("49509f")?)?
@@ -464,124 +464,124 @@ fn print_static_indexed_encode_cases() -> Result<(), String> effects [stdio]
 end
 
 fn print_selected_header_list_encode_cases() -> Result<(), String> effects [stdio]
-	let initial: HpackFixtureState = initial_encode_state()
-	let seed_state: HpackFixtureState = print_encode_transition("encode-selected-seed-static-exact-new-name", encode_selected_header_list_with_state(outbound_selected_seed_headers(), initial, 4096, 183), "824007782d7472616365026f6b")?
+	let initial = initial_encode_state()
+	let seed_state = print_encode_transition("encode-selected-seed-static-exact-new-name", encode_selected_header_list_with_state(outbound_selected_seed_headers(), initial, 4096, 183), "824007782d7472616365026f6b")?
 	print_encode_state_entries("encode-selected-seed-state", seed_state)
-	let carried_state: HpackFixtureState = print_encode_transition("encode-selected-carried-dynamic-exact-dynamic-name", encode_selected_header_list_with_state(outbound_selected_carried_headers(), seed_state, 4096, 184), "be7e05616761696e")?
+	let carried_state = print_encode_transition("encode-selected-carried-dynamic-exact-dynamic-name", encode_selected_header_list_with_state(outbound_selected_carried_headers(), seed_state, 4096, 184), "be7e05616761696e")?
 	print_encode_state_entries("encode-selected-carried-state", carried_state)
-	let static_name_state: HpackFixtureState = print_encode_transition("encode-selected-static-name-then-static-exact", encode_selected_header_list_with_state(outbound_selected_static_name_headers(), initial, 4096, 185), "76026f6b82")?
+	let static_name_state = print_encode_transition("encode-selected-static-name-then-static-exact", encode_selected_header_list_with_state(outbound_selected_static_name_headers(), initial, 4096, 185), "76026f6b82")?
 	print_encode_state_entries("encode-selected-static-name-state", static_name_state)
-	let reduced_state: HpackFixtureState = print_encode_transition("encode-selected-capacity-42", encode_table_size_update_with_state(42, 4096, initial, 186), "3f0b")?
-	let reduced_seed_state: HpackFixtureState = print_encode_transition("encode-selected-reduced-seed", encode_selected_header_list_with_state(outbound_selected_seed_headers(), reduced_state, 42, 187), "824007782d7472616365026f6b")?
+	let reduced_state = print_encode_transition("encode-selected-capacity-42", encode_table_size_update_with_state(42, 4096, initial, 186), "3f0b")?
+	let reduced_seed_state = print_encode_transition("encode-selected-reduced-seed", encode_selected_header_list_with_state(outbound_selected_seed_headers(), reduced_state, 42, 187), "824007782d7472616365026f6b")?
 	print_encode_state_entries("encode-selected-reduced-seed-state", reduced_seed_state)
-	let reduced_evicted_state: HpackFixtureState = print_encode_transition("encode-selected-reduced-eviction", encode_selected_header_list_with_state(outbound_selected_carried_headers(), reduced_seed_state, 42, 188), "be7e05616761696e")?
+	let reduced_evicted_state = print_encode_transition("encode-selected-reduced-eviction", encode_selected_header_list_with_state(outbound_selected_carried_headers(), reduced_seed_state, 42, 188), "be7e05616761696e")?
 	print_encode_state_entries("encode-selected-reduced-eviction-state", reduced_evicted_state)
 	let _ = print_encode_transition_failure("encode-selected-invalid-name", encode_selected_header_list_with_state(outbound_selected_invalid_headers(), seed_state, 4096, 189))?
 	let _ = print_encode_transition_failure("encode-selected-capacity-mismatch", encode_selected_header_list_with_state(outbound_selected_seed_headers(), seed_state, 42, 190))?
-	let retained_state: HpackFixtureState = print_encode_transition("encode-selected-after-failures-retains-entry", encode_header_list_with_state(outbound_literal_indexed_ordinary_x_trace_headers(), seed_state, 191), "be")?
+	let retained_state = print_encode_transition("encode-selected-after-failures-retains-entry", encode_header_list_with_state(outbound_literal_indexed_ordinary_x_trace_headers(), seed_state, 191), "be")?
 	print_encode_state_entries("encode-selected-after-failures-state", retained_state)
 	Ok(())
 end
 
 fn print_header_list_encode_cases() -> Result<(), String> effects [stdio]
-	let initial_encode: HpackFixtureState = initial_encode_state()
-	let ignored_static_indexed_encode_cases: () = print_static_indexed_encode_cases()?
-	let ignored_selected_header_list_encode_cases: () = print_selected_header_list_encode_cases()?
+	let initial_encode = initial_encode_state()
+	let ignored_static_indexed_encode_cases = print_static_indexed_encode_cases()?
+	let ignored_selected_header_list_encode_cases = print_selected_header_list_encode_cases()?
 	print_encode_state("encode-initial", initial_encode)
-	let literal_headers: HpackHeaderList = outbound_literal_indexed_path_target_headers()
-	let literal_state: HpackFixtureState = print_encode_transition("encode-stateful-literal-indexed-path-target", encode_header_list_with_state(literal_headers, initial_encode, 120), "44072f746172676574")?
-	let dynamic_state: HpackFixtureState = print_encode_transition("encode-stateful-dynamic-indexed-path-target", encode_header_list_with_state(literal_headers, literal_state, 121), "be")?
+	let literal_headers = outbound_literal_indexed_path_target_headers()
+	let literal_state = print_encode_transition("encode-stateful-literal-indexed-path-target", encode_header_list_with_state(literal_headers, initial_encode, 120), "44072f746172676574")?
+	let dynamic_state = print_encode_transition("encode-stateful-dynamic-indexed-path-target", encode_header_list_with_state(literal_headers, literal_state, 121), "be")?
 	print_encode_state("encode-stateful-after-dynamic", dynamic_state)
-	let never_indexed_state: HpackFixtureState = print_encode_transition("encode-stateful-literal-never-indexed-x-never", encode_header_list_with_state(outbound_literal_never_indexed_ordinary_x_never_headers(), dynamic_state, 133), "1007782d6e65766572026e6f")?
+	let never_indexed_state = print_encode_transition("encode-stateful-literal-never-indexed-x-never", encode_header_list_with_state(outbound_literal_never_indexed_ordinary_x_never_headers(), dynamic_state, 133), "1007782d6e65766572026e6f")?
 	let _ = print_encode_transition_failure("encode-stateful-never-indexed-x-never-dynamic-missing", encode_header_list_with_state(outbound_dynamic_indexed_ordinary_x_never_probe_headers(), never_indexed_state, 134))?
-	let ignored_never_indexed_retained_state: HpackFixtureState = print_encode_transition("encode-stateful-never-indexed-retains-path-target", encode_header_list_with_state(literal_headers, never_indexed_state, 135), "be")?
-	let dynamic_name_state: HpackFixtureState = print_encode_transition("encode-stateful-dynamic-name-literal-path-fresh", encode_header_list_with_state(outbound_literal_dynamic_name_path_fresh_headers(), dynamic_state, 129), "0f2f062f6672657368")?
-	let retained_dynamic_state: HpackFixtureState = print_encode_transition("encode-stateful-dynamic-name-retains-path-target", encode_header_list_with_state(literal_headers, dynamic_name_state, 130), "be")?
+	let ignored_never_indexed_retained_state = print_encode_transition("encode-stateful-never-indexed-retains-path-target", encode_header_list_with_state(literal_headers, never_indexed_state, 135), "be")?
+	let dynamic_name_state = print_encode_transition("encode-stateful-dynamic-name-literal-path-fresh", encode_header_list_with_state(outbound_literal_dynamic_name_path_fresh_headers(), dynamic_state, 129), "0f2f062f6672657368")?
+	let retained_dynamic_state = print_encode_transition("encode-stateful-dynamic-name-retains-path-target", encode_header_list_with_state(literal_headers, dynamic_name_state, 130), "be")?
 	print_encode_state("encode-stateful-after-dynamic-name", retained_dynamic_state)
-	let dynamic_name_never_indexed_state: HpackFixtureState = print_encode_transition("encode-stateful-dynamic-name-never-indexed-path-secret", encode_header_list_with_state(outbound_literal_dynamic_name_path_secret_headers(), dynamic_state, 140), "1f2f072f736563726574")?
-	let dynamic_name_never_indexed_retained_state: HpackFixtureState = print_encode_transition("encode-stateful-dynamic-name-never-indexed-retains-path-target", encode_header_list_with_state(literal_headers, dynamic_name_never_indexed_state, 141), "be")?
+	let dynamic_name_never_indexed_state = print_encode_transition("encode-stateful-dynamic-name-never-indexed-path-secret", encode_header_list_with_state(outbound_literal_dynamic_name_path_secret_headers(), dynamic_state, 140), "1f2f072f736563726574")?
+	let dynamic_name_never_indexed_retained_state = print_encode_transition("encode-stateful-dynamic-name-never-indexed-retains-path-target", encode_header_list_with_state(literal_headers, dynamic_name_never_indexed_state, 141), "be")?
 	print_encode_state("encode-stateful-after-dynamic-name-never-indexed", dynamic_name_never_indexed_retained_state)
-	let dynamic_name_indexed_state: HpackFixtureState = print_encode_transition("encode-stateful-dynamic-name-indexed-path-again", encode_header_list_with_state(outbound_literal_dynamic_name_path_again_headers(), dynamic_state, 136), "7e062f616761696e")?
-	let dynamic_name_indexed_newest_state: HpackFixtureState = print_encode_transition("encode-stateful-dynamic-name-indexed-newest-path-again", encode_header_list_with_state(outbound_dynamic_indexed_path_again_probe_headers(), dynamic_name_indexed_state, 137), "be")?
-	let dynamic_name_indexed_older_state: HpackFixtureState = print_encode_transition("encode-stateful-dynamic-name-indexed-retains-path-target", encode_header_list_with_state(literal_headers, dynamic_name_indexed_newest_state, 138), "bf")?
+	let dynamic_name_indexed_state = print_encode_transition("encode-stateful-dynamic-name-indexed-path-again", encode_header_list_with_state(outbound_literal_dynamic_name_path_again_headers(), dynamic_state, 136), "7e062f616761696e")?
+	let dynamic_name_indexed_newest_state = print_encode_transition("encode-stateful-dynamic-name-indexed-newest-path-again", encode_header_list_with_state(outbound_dynamic_indexed_path_again_probe_headers(), dynamic_name_indexed_state, 137), "be")?
+	let dynamic_name_indexed_older_state = print_encode_transition("encode-stateful-dynamic-name-indexed-retains-path-target", encode_header_list_with_state(literal_headers, dynamic_name_indexed_newest_state, 138), "bf")?
 	print_encode_state("encode-stateful-after-dynamic-name-indexed", dynamic_name_indexed_older_state)
-	let dynamic_name_huffman_without_state: HpackFixtureState = print_encode_transition("encode-stateful-dynamic-name-huffman-without-indexing-path-test", encode_header_list_with_state(outbound_literal_dynamic_name_path_test_huffman_headers(), dynamic_state, 163), "0f2f8349509f")?
-	let dynamic_name_huffman_without_retained_state: HpackFixtureState = print_encode_transition("encode-stateful-dynamic-name-huffman-without-indexing-retains-path-target", encode_header_list_with_state(literal_headers, dynamic_name_huffman_without_state, 164), "be")?
+	let dynamic_name_huffman_without_state = print_encode_transition("encode-stateful-dynamic-name-huffman-without-indexing-path-test", encode_header_list_with_state(outbound_literal_dynamic_name_path_test_huffman_headers(), dynamic_state, 163), "0f2f8349509f")?
+	let dynamic_name_huffman_without_retained_state = print_encode_transition("encode-stateful-dynamic-name-huffman-without-indexing-retains-path-target", encode_header_list_with_state(literal_headers, dynamic_name_huffman_without_state, 164), "be")?
 	print_encode_state_entries("encode-stateful-after-dynamic-name-huffman-without-indexing", dynamic_name_huffman_without_retained_state)
-	let dynamic_name_huffman_never_state: HpackFixtureState = print_encode_transition("encode-stateful-dynamic-name-huffman-never-indexed-path-test", encode_header_list_with_state(outbound_literal_dynamic_name_path_test_never_indexed_huffman_headers(), dynamic_state, 165), "1f2f8349509f")?
-	let dynamic_name_huffman_never_retained_state: HpackFixtureState = print_encode_transition("encode-stateful-dynamic-name-huffman-never-indexed-retains-path-target", encode_header_list_with_state(literal_headers, dynamic_name_huffman_never_state, 166), "be")?
+	let dynamic_name_huffman_never_state = print_encode_transition("encode-stateful-dynamic-name-huffman-never-indexed-path-test", encode_header_list_with_state(outbound_literal_dynamic_name_path_test_never_indexed_huffman_headers(), dynamic_state, 165), "1f2f8349509f")?
+	let dynamic_name_huffman_never_retained_state = print_encode_transition("encode-stateful-dynamic-name-huffman-never-indexed-retains-path-target", encode_header_list_with_state(literal_headers, dynamic_name_huffman_never_state, 166), "be")?
 	print_encode_state_entries("encode-stateful-after-dynamic-name-huffman-never-indexed", dynamic_name_huffman_never_retained_state)
-	let dynamic_name_huffman_indexed_state: HpackFixtureState = print_encode_transition("encode-stateful-dynamic-name-huffman-indexed-path-test", encode_header_list_with_state(outbound_literal_dynamic_name_path_test_indexed_huffman_headers(), dynamic_state, 167), "7e8349509f")?
-	let dynamic_name_huffman_indexed_reuse_state: HpackFixtureState = print_encode_transition("encode-stateful-dynamic-name-huffman-indexed-reuses-path-test", encode_header_list_with_state(outbound_dynamic_indexed_path_test_probe_headers(), dynamic_name_huffman_indexed_state, 168), "be")?
-	let dynamic_name_huffman_indexed_older_state: HpackFixtureState = print_encode_transition("encode-stateful-dynamic-name-huffman-indexed-retains-path-target", encode_header_list_with_state(literal_headers, dynamic_name_huffman_indexed_reuse_state, 169), "bf")?
+	let dynamic_name_huffman_indexed_state = print_encode_transition("encode-stateful-dynamic-name-huffman-indexed-path-test", encode_header_list_with_state(outbound_literal_dynamic_name_path_test_indexed_huffman_headers(), dynamic_state, 167), "7e8349509f")?
+	let dynamic_name_huffman_indexed_reuse_state = print_encode_transition("encode-stateful-dynamic-name-huffman-indexed-reuses-path-test", encode_header_list_with_state(outbound_dynamic_indexed_path_test_probe_headers(), dynamic_name_huffman_indexed_state, 168), "be")?
+	let dynamic_name_huffman_indexed_older_state = print_encode_transition("encode-stateful-dynamic-name-huffman-indexed-retains-path-target", encode_header_list_with_state(literal_headers, dynamic_name_huffman_indexed_reuse_state, 169), "bf")?
 	print_encode_state_entries("encode-stateful-after-dynamic-name-huffman-indexed", dynamic_name_huffman_indexed_older_state)
 	let _ = print_encode_transition_failure("encode-dynamic-name-huffman-missing", encode_header_list_with_state(outbound_literal_dynamic_name_path_test_huffman_headers(), initial_encode, 170))?
 	let _ = print_encode_transition_failure("encode-dynamic-name-huffman-unsupported-value", encode_header_list_with_state(outbound_literal_dynamic_name_unsupported_huffman_headers(), dynamic_state, 171))?
-	let ignored_dynamic_name_huffman_after_failures: HpackFixtureState = print_encode_transition("encode-dynamic-name-huffman-after-failures-retains-path-target", encode_header_list_with_state(literal_headers, dynamic_state, 172), "be")?
+	let ignored_dynamic_name_huffman_after_failures = print_encode_transition("encode-dynamic-name-huffman-after-failures-retains-path-target", encode_header_list_with_state(literal_headers, dynamic_state, 172), "be")?
 	let _ = print_encode_transition_failure("encode-dynamic-name-literal-missing", encode_header_list_with_state(outbound_literal_dynamic_name_path_fresh_headers(), initial_encode_state(), 131))?
 	let _ = print_encode_transition_failure("encode-dynamic-name-never-indexed-missing", encode_header_list_with_state(outbound_literal_dynamic_name_path_secret_headers(), initial_encode_state(), 142))?
 	let _ = print_encode_transition_failure("encode-dynamic-name-literal-non-visible-value", encode_header_list_with_state(outbound_literal_dynamic_name_path_linefeed_headers(), dynamic_state, 132))?
 	let _ = print_encode_transition_failure("encode-dynamic-name-indexed-non-visible-value", encode_header_list_with_state(outbound_literal_dynamic_name_path_linefeed_indexed_headers(), dynamic_state, 139))?
-	let stateless_encoded: ByteChunk = require_header_list_encoding(encode_header_list(literal_headers, 122))?
+	let stateless_encoded = require_header_list_encoding(encode_header_list(literal_headers, 122))?
 	let _ = print_encoded_literal("encode-stateless-literal-indexed-path-target", Ok(stateless_encoded), byte_chunk_from_hex("44072f746172676574")?)?
-	let ignored_visible_ascii: HpackFixtureState = print_encode_transition("encode-literal-visible-ascii-x-demo", encode_header_list_with_state(outbound_literal_visible_ascii_headers(), initial_encode, 127), "0006782d64656d6f0568656c6c6f")?
-	let ordinary_indexed_state: HpackFixtureState = print_encode_transition("encode-stateful-literal-indexed-ordinary-x-trace", encode_header_list_with_state(outbound_literal_indexed_ordinary_x_trace_headers(), initial_encode, 145), "4007782d7472616365026f6b")?
-	let ignored_ordinary_indexed_again_state: HpackFixtureState = print_encode_transition("encode-stateful-dynamic-indexed-ordinary-x-trace", encode_header_list_with_state(outbound_literal_indexed_ordinary_x_trace_headers(), ordinary_indexed_state, 146), "be")?
+	let ignored_visible_ascii = print_encode_transition("encode-literal-visible-ascii-x-demo", encode_header_list_with_state(outbound_literal_visible_ascii_headers(), initial_encode, 127), "0006782d64656d6f0568656c6c6f")?
+	let ordinary_indexed_state = print_encode_transition("encode-stateful-literal-indexed-ordinary-x-trace", encode_header_list_with_state(outbound_literal_indexed_ordinary_x_trace_headers(), initial_encode, 145), "4007782d7472616365026f6b")?
+	let ignored_ordinary_indexed_again_state = print_encode_transition("encode-stateful-dynamic-indexed-ordinary-x-trace", encode_header_list_with_state(outbound_literal_indexed_ordinary_x_trace_headers(), ordinary_indexed_state, 146), "be")?
 	let _ = print_encode_transition_failure("encode-literal-invalid-name", encode_header_list_with_state(outbound_literal_invalid_name_headers(), initial_encode, 128))?
 	let _ = print_encode_transition_failure("encode-literal-indexed-invalid-name", encode_header_list_with_state(outbound_literal_indexed_invalid_name_headers(), initial_encode, 147))?
-	let huffman_name_without_state: HpackFixtureState = print_encode_transition("encode-huffman-name-without-indexing-test-ok", encode_header_list_with_state(outbound_literal_huffman_name_test_headers(), initial_encode, 173), "008349509f026f6b")?
+	let huffman_name_without_state = print_encode_transition("encode-huffman-name-without-indexing-test-ok", encode_header_list_with_state(outbound_literal_huffman_name_test_headers(), initial_encode, 173), "008349509f026f6b")?
 	print_encode_state_entries("encode-huffman-name-without-indexing-state", huffman_name_without_state)
-	let huffman_name_never_state: HpackFixtureState = print_encode_transition("encode-huffman-name-never-indexed-test-ok", encode_header_list_with_state(outbound_literal_never_indexed_huffman_name_test_headers(), initial_encode, 174), "108349509f026f6b")?
+	let huffman_name_never_state = print_encode_transition("encode-huffman-name-never-indexed-test-ok", encode_header_list_with_state(outbound_literal_never_indexed_huffman_name_test_headers(), initial_encode, 174), "108349509f026f6b")?
 	print_encode_state_entries("encode-huffman-name-never-indexed-state", huffman_name_never_state)
-	let huffman_name_indexed_state: HpackFixtureState = print_encode_transition("encode-huffman-name-with-indexing-test-ok", encode_header_list_with_state(outbound_literal_indexed_huffman_name_test_headers(), initial_encode, 175), "408349509f026f6b")?
+	let huffman_name_indexed_state = print_encode_transition("encode-huffman-name-with-indexing-test-ok", encode_header_list_with_state(outbound_literal_indexed_huffman_name_test_headers(), initial_encode, 175), "408349509f026f6b")?
 	print_encode_state_entries("encode-huffman-name-with-indexing-state", huffman_name_indexed_state)
-	let huffman_name_indexed_reuse_state: HpackFixtureState = print_encode_transition("encode-huffman-name-with-indexing-reuses-test-ok", encode_header_list_with_state(outbound_dynamic_indexed_test_ok_probe_headers(), huffman_name_indexed_state, 176), "be")?
+	let huffman_name_indexed_reuse_state = print_encode_transition("encode-huffman-name-with-indexing-reuses-test-ok", encode_header_list_with_state(outbound_dynamic_indexed_test_ok_probe_headers(), huffman_name_indexed_state, 176), "be")?
 	print_encode_state_entries("encode-huffman-name-with-indexing-reuse-state", huffman_name_indexed_reuse_state)
-	let huffman_name_value_without_state: HpackFixtureState = print_encode_transition("encode-huffman-name-value-without-indexing-test-test", encode_header_list_with_state(outbound_literal_huffman_name_value_test_headers(), initial_encode, 177), "008349509f8349509f")?
+	let huffman_name_value_without_state = print_encode_transition("encode-huffman-name-value-without-indexing-test-test", encode_header_list_with_state(outbound_literal_huffman_name_value_test_headers(), initial_encode, 177), "008349509f8349509f")?
 	print_encode_state_entries("encode-huffman-name-value-without-indexing-state", huffman_name_value_without_state)
-	let huffman_name_value_never_state: HpackFixtureState = print_encode_transition("encode-huffman-name-value-never-indexed-test-test", encode_header_list_with_state(outbound_literal_never_indexed_huffman_name_value_test_headers(), initial_encode, 178), "108349509f8349509f")?
+	let huffman_name_value_never_state = print_encode_transition("encode-huffman-name-value-never-indexed-test-test", encode_header_list_with_state(outbound_literal_never_indexed_huffman_name_value_test_headers(), initial_encode, 178), "108349509f8349509f")?
 	print_encode_state_entries("encode-huffman-name-value-never-indexed-state", huffman_name_value_never_state)
-	let huffman_name_value_indexed_state: HpackFixtureState = print_encode_transition("encode-huffman-name-value-with-indexing-test-test", encode_header_list_with_state(outbound_literal_indexed_huffman_name_value_test_headers(), initial_encode, 179), "408349509f8349509f")?
-	let huffman_name_value_reuse_state: HpackFixtureState = print_encode_transition("encode-huffman-name-value-with-indexing-reuses-test-test", encode_header_list_with_state(outbound_dynamic_indexed_test_test_probe_headers(), huffman_name_value_indexed_state, 180), "be")?
+	let huffman_name_value_indexed_state = print_encode_transition("encode-huffman-name-value-with-indexing-test-test", encode_header_list_with_state(outbound_literal_indexed_huffman_name_value_test_headers(), initial_encode, 179), "408349509f8349509f")?
+	let huffman_name_value_reuse_state = print_encode_transition("encode-huffman-name-value-with-indexing-reuses-test-test", encode_header_list_with_state(outbound_dynamic_indexed_test_test_probe_headers(), huffman_name_value_indexed_state, 180), "be")?
 	print_encode_state_entries("encode-huffman-name-value-with-indexing-reuse-state", huffman_name_value_reuse_state)
 	let _ = print_encode_transition_failure("encode-huffman-name-unsupported", encode_header_list_with_state(outbound_literal_unsupported_huffman_name_headers(), literal_state, 181))?
-	let huffman_name_failure_retained_state: HpackFixtureState = print_encode_transition("encode-huffman-name-failure-retains-path-target", encode_header_list_with_state(literal_headers, literal_state, 182), "be")?
+	let huffman_name_failure_retained_state = print_encode_transition("encode-huffman-name-failure-retains-path-target", encode_header_list_with_state(literal_headers, literal_state, 182), "be")?
 	print_encode_state_entries("encode-huffman-name-failure-retained-state", huffman_name_failure_retained_state)
-	let zero_state: HpackFixtureState = print_encode_transition("encode-table-size-update-zero", encode_table_size_update_with_state(0, 4096, dynamic_state, 148), "20")?
-	let ignored_zero_state: () = require_encode_state(zero_state, 0, 0)?
+	let zero_state = print_encode_transition("encode-table-size-update-zero", encode_table_size_update_with_state(0, 4096, dynamic_state, 148), "20")?
+	let ignored_zero_state = require_encode_state(zero_state, 0, 0)?
 	print_encode_state_entries("encode-table-size-update-zero-state", zero_state)
-	let method_put_headers: HpackHeaderList = outbound_literal_indexed_method_put_headers()
-	let zero_method_state: HpackFixtureState = print_encode_transition("encode-after-table-size-update-zero-method-put", encode_header_list_with_state(method_put_headers, zero_state, 149), "4203505554")?
-	let ignored_zero_method_state: () = require_encode_state(zero_method_state, 0, 0)?
+	let method_put_headers = outbound_literal_indexed_method_put_headers()
+	let zero_method_state = print_encode_transition("encode-after-table-size-update-zero-method-put", encode_header_list_with_state(method_put_headers, zero_state, 149), "4203505554")?
+	let ignored_zero_method_state = require_encode_state(zero_method_state, 0, 0)?
 	print_encode_state_entries("encode-after-table-size-update-zero-method-put-state", zero_method_state)
-	let zero_method_again_state: HpackFixtureState = print_encode_transition("encode-after-table-size-update-zero-method-put-again", encode_header_list_with_state(method_put_headers, zero_method_state, 150), "4203505554")?
-	let ignored_zero_method_again_state: () = require_encode_state(zero_method_again_state, 0, 0)?
+	let zero_method_again_state = print_encode_transition("encode-after-table-size-update-zero-method-put-again", encode_header_list_with_state(method_put_headers, zero_method_state, 150), "4203505554")?
+	let ignored_zero_method_again_state = require_encode_state(zero_method_again_state, 0, 0)?
 	print_encode_state_entries("encode-after-table-size-update-zero-method-put-again-state", zero_method_again_state)
-	let reduced_state: HpackFixtureState = print_encode_transition("encode-table-size-update-30", encode_table_size_update_with_state(30, 4096, dynamic_state, 123), "3e")?
-	let ignored_reduced_literal_state: HpackFixtureState = print_encode_transition("encode-after-table-size-update-30", encode_header_list_with_state(literal_headers, reduced_state, 124), "44072f746172676574")?
-	let reduced_method_state: HpackFixtureState = print_encode_transition("encode-after-table-size-update-30-method-put", encode_header_list_with_state(method_put_headers, reduced_state, 140), "4203505554")?
-	let ignored_reduced_method_again_state: HpackFixtureState = print_encode_transition("encode-after-table-size-update-30-method-put-again", encode_header_list_with_state(method_put_headers, reduced_method_state, 141), "4203505554")?
-	let retained_update_state: HpackFixtureState = print_encode_transition("encode-table-size-update-42", encode_table_size_update_with_state(42, 4096, dynamic_state, 142), "3f0b")?
-	let retained_method_state: HpackFixtureState = print_encode_transition("encode-after-table-size-update-42-method-put", encode_header_list_with_state(method_put_headers, retained_update_state, 143), "4203505554")?
-	let ignored_retained_method_again_state: HpackFixtureState = print_encode_transition("encode-after-table-size-update-42-method-put-again", encode_header_list_with_state(method_put_headers, retained_method_state, 144), "be")?
-	let ignored_update_160_state: HpackFixtureState = print_encode_transition("encode-table-size-update-160", encode_table_size_update_with_state(160, 4096, initial_encode_state(), 125), "3f8101")?
+	let reduced_state = print_encode_transition("encode-table-size-update-30", encode_table_size_update_with_state(30, 4096, dynamic_state, 123), "3e")?
+	let ignored_reduced_literal_state = print_encode_transition("encode-after-table-size-update-30", encode_header_list_with_state(literal_headers, reduced_state, 124), "44072f746172676574")?
+	let reduced_method_state = print_encode_transition("encode-after-table-size-update-30-method-put", encode_header_list_with_state(method_put_headers, reduced_state, 140), "4203505554")?
+	let ignored_reduced_method_again_state = print_encode_transition("encode-after-table-size-update-30-method-put-again", encode_header_list_with_state(method_put_headers, reduced_method_state, 141), "4203505554")?
+	let retained_update_state = print_encode_transition("encode-table-size-update-42", encode_table_size_update_with_state(42, 4096, dynamic_state, 142), "3f0b")?
+	let retained_method_state = print_encode_transition("encode-after-table-size-update-42-method-put", encode_header_list_with_state(method_put_headers, retained_update_state, 143), "4203505554")?
+	let ignored_retained_method_again_state = print_encode_transition("encode-after-table-size-update-42-method-put-again", encode_header_list_with_state(method_put_headers, retained_method_state, 144), "be")?
+	let ignored_update_160_state = print_encode_transition("encode-table-size-update-160", encode_table_size_update_with_state(160, 4096, initial_encode_state(), 125), "3f8101")?
 	let _ = print_encode_transition_failure("encode-table-size-update-over-peer-limit", encode_table_size_update_with_state(33, 32, initial_encode_state(), 126))?
 	Ok(())
 end
 
 fn print_dynamic_name_literal_cases(dynamic_state: HpackFixtureState, dynamic_indexed_block: ByteChunk) -> Result<(), String> effects [stdio]
-	let literal_without_indexing_dynamic_name_block: ByteChunk = byte_chunk_from_hex("0f2f032f6e6f")?
-	let literal_without_indexing_dynamic_name: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_without_indexing_dynamic_name_block, dynamic_state, 100)
+	let literal_without_indexing_dynamic_name_block = byte_chunk_from_hex("0f2f032f6e6f")?
+	let literal_without_indexing_dynamic_name = decode_header_block(literal_without_indexing_dynamic_name_block, dynamic_state, 100)
 	print_transition("literal-without-indexing-dynamic-name-path-no", literal_without_indexing_dynamic_name)
-	let literal_without_indexing_dynamic_name_state: HpackFixtureState = require_decoded_header(literal_without_indexing_dynamic_name, ":path", "/no")?
-	let ignored_without_indexing_retained_path: HpackFixtureState = print_required_header("dynamic-name-without-indexing-retains-path", decode_header_block(dynamic_indexed_block, literal_without_indexing_dynamic_name_state, 101), ":path", "/target")?
-	let literal_never_indexed_dynamic_name_block: ByteChunk = byte_chunk_from_hex("1f2f072f736563726574")?
-	let literal_never_indexed_dynamic_name: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_never_indexed_dynamic_name_block, dynamic_state, 102)
+	let literal_without_indexing_dynamic_name_state = require_decoded_header(literal_without_indexing_dynamic_name, ":path", "/no")?
+	let ignored_without_indexing_retained_path = print_required_header("dynamic-name-without-indexing-retains-path", decode_header_block(dynamic_indexed_block, literal_without_indexing_dynamic_name_state, 101), ":path", "/target")?
+	let literal_never_indexed_dynamic_name_block = byte_chunk_from_hex("1f2f072f736563726574")?
+	let literal_never_indexed_dynamic_name = decode_header_block(literal_never_indexed_dynamic_name_block, dynamic_state, 102)
 	print_transition("literal-never-indexed-dynamic-name-path-secret", literal_never_indexed_dynamic_name)
-	let literal_never_indexed_dynamic_name_state: HpackFixtureState = require_decoded_header(literal_never_indexed_dynamic_name, ":path", "/secret")?
-	let ignored_never_indexed_retained_path: HpackFixtureState = print_required_header("dynamic-name-never-indexed-retains-path", decode_header_block(dynamic_indexed_block, literal_never_indexed_dynamic_name_state, 103), ":path", "/target")?
-	let ignored_dynamic_name_out_of_range: () = print_required_unsupported_with_id("literal-without-indexing-dynamic-name-out-of-range", decode_header_block(byte_chunk_from_hex("0f30032f626164")?, dynamic_state, 104))?
-	let ignored_never_indexed_dynamic_name_malformed: () = print_required_unsupported_with_id("malformed-literal-never-indexed-dynamic-name", decode_header_block(byte_chunk_from_hex("1f80")?, dynamic_state, 105))?
+	let literal_never_indexed_dynamic_name_state = require_decoded_header(literal_never_indexed_dynamic_name, ":path", "/secret")?
+	let ignored_never_indexed_retained_path = print_required_header("dynamic-name-never-indexed-retains-path", decode_header_block(dynamic_indexed_block, literal_never_indexed_dynamic_name_state, 103), ":path", "/target")?
+	let ignored_dynamic_name_out_of_range = print_required_unsupported_with_id("literal-without-indexing-dynamic-name-out-of-range", decode_header_block(byte_chunk_from_hex("0f30032f626164")?, dynamic_state, 104))?
+	let ignored_never_indexed_dynamic_name_malformed = print_required_unsupported_with_id("malformed-literal-never-indexed-dynamic-name", decode_header_block(byte_chunk_from_hex("1f80")?, dynamic_state, 105))?
 	Ok(())
 end
 
@@ -600,426 +600,426 @@ fn build_deep_dynamic_path_state(remaining: Int, state: HpackFixtureState) -> Re
 end
 
 fn print_dynamic_name_wide_continuation_cases() -> Result<(), String> effects [stdio]
-	let deep_dynamic_state: HpackFixtureState = build_deep_dynamic_path_state(66, initial_state())?
+	let deep_dynamic_state = build_deep_dynamic_path_state(66, initial_state())?
 	print_transition("dynamic-name-wide-index-retained-older-path", decode_header_block(byte_chunk_from_hex("ff")?, deep_dynamic_state, 109))
 	print_transition("dynamic-indexed-wide-continuation-retained-older-path", decode_header_block(byte_chunk_from_hex("ff00")?, deep_dynamic_state, 117))
-	let literal_indexed_deep_name: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(byte_chunk_from_hex("7f40052f64656570")?, deep_dynamic_state, 110)
+	let literal_indexed_deep_name = decode_header_block(byte_chunk_from_hex("7f40052f64656570")?, deep_dynamic_state, 110)
 	print_transition("literal-indexed-dynamic-name-wide-path-deep", literal_indexed_deep_name)
-	let literal_indexed_deep_name_state: HpackFixtureState = require_decoded_header(literal_indexed_deep_name, ":path", "/deep")?
+	let literal_indexed_deep_name_state = require_decoded_header(literal_indexed_deep_name, ":path", "/deep")?
 	print_transition("dynamic-name-wide-newest-path-deep", decode_header_block(byte_chunk_from_hex("be")?, literal_indexed_deep_name_state, 111))
-	let literal_without_indexing_deep_name: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(byte_chunk_from_hex("0f70052f736b6970")?, deep_dynamic_state, 112)
+	let literal_without_indexing_deep_name = decode_header_block(byte_chunk_from_hex("0f70052f736b6970")?, deep_dynamic_state, 112)
 	print_transition("literal-without-indexing-dynamic-name-wide-path-skip", literal_without_indexing_deep_name)
-	let literal_without_indexing_deep_name_state: HpackFixtureState = require_decoded_header(literal_without_indexing_deep_name, ":path", "/skip")?
+	let literal_without_indexing_deep_name_state = require_decoded_header(literal_without_indexing_deep_name, ":path", "/skip")?
 	print_transition("dynamic-name-wide-without-indexing-retains-older-path", decode_header_block(byte_chunk_from_hex("ff")?, literal_without_indexing_deep_name_state, 113))
-	let literal_never_indexed_deep_name: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(byte_chunk_from_hex("1f70072f736563726574")?, deep_dynamic_state, 114)
+	let literal_never_indexed_deep_name = decode_header_block(byte_chunk_from_hex("1f70072f736563726574")?, deep_dynamic_state, 114)
 	print_transition("literal-never-indexed-dynamic-name-wide-path-secret", literal_never_indexed_deep_name)
-	let literal_never_indexed_deep_name_state: HpackFixtureState = require_decoded_header(literal_never_indexed_deep_name, ":path", "/secret")?
+	let literal_never_indexed_deep_name_state = require_decoded_header(literal_never_indexed_deep_name, ":path", "/secret")?
 	print_transition("dynamic-name-wide-never-indexed-retains-older-path", decode_header_block(byte_chunk_from_hex("ff")?, literal_never_indexed_deep_name_state, 115))
-	let ignored_dynamic_name_wide_out_of_range: () = print_required_unsupported_with_id("literal-indexed-dynamic-name-wide-out-of-range", decode_header_block(byte_chunk_from_hex("7f41052f64656570")?, deep_dynamic_state, 116))?
-	let ignored_dynamic_indexed_wide_out_of_range: () = print_required_unsupported_with_id("dynamic-indexed-wide-continuation-out-of-range", decode_header_block(byte_chunk_from_hex("ff00")?, initial_state(), 118))?
+	let ignored_dynamic_name_wide_out_of_range = print_required_unsupported_with_id("literal-indexed-dynamic-name-wide-out-of-range", decode_header_block(byte_chunk_from_hex("7f41052f64656570")?, deep_dynamic_state, 116))?
+	let ignored_dynamic_indexed_wide_out_of_range = print_required_unsupported_with_id("dynamic-indexed-wide-continuation-out-of-range", decode_header_block(byte_chunk_from_hex("ff00")?, initial_state(), 118))?
 	Ok(())
 end
 
 fn print_initial_static_indexed_cases(initial: HpackFixtureState) -> Result<HpackFixtureState, String> effects [stdio]
-	let first_block: ByteChunk = byte_chunk_from_hex("102030")?
-	let first: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(first_block, initial, 9)
+	let first_block = byte_chunk_from_hex("102030")?
+	let first = decode_header_block(first_block, initial, 9)
 	print_transition("first", first)
-	let second_state: HpackFixtureState = next_state_or(first, initial)
-	let second_block: ByteChunk = byte_chunk_from_hex("1102030405060708")?
-	let second: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(second_block, second_state, 18)
+	let second_state = next_state_or(first, initial)
+	let second_block = byte_chunk_from_hex("1102030405060708")?
+	let second = decode_header_block(second_block, second_state, 18)
 	print_transition("second", second)
-	let third_state: HpackFixtureState = next_state_or(second, second_state)
-	let authority_block: ByteChunk = byte_chunk_from_hex("81")?
-	let authority: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(authority_block, third_state, 25)
+	let third_state = next_state_or(second, second_state)
+	let authority_block = byte_chunk_from_hex("81")?
+	let authority = decode_header_block(authority_block, third_state, 25)
 	print_transition("authority", authority)
-	let authority_state: HpackFixtureState = next_state_or(authority, third_state)
-	let method_post_block: ByteChunk = byte_chunk_from_hex("83")?
-	let method_post: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(method_post_block, authority_state, 26)
+	let authority_state = next_state_or(authority, third_state)
+	let method_post_block = byte_chunk_from_hex("83")?
+	let method_post = decode_header_block(method_post_block, authority_state, 26)
 	print_transition("method-post", method_post)
 	print_two_header_transition("method-path", decode_header_block(byte_chunk_from_hex("8284")?, initial, 26))
-	let path_index_state: HpackFixtureState = print_static_indexed_decode("path-index", "85", next_state_or(method_post, authority_state), 27)?
-	let scheme_http_state: HpackFixtureState = print_static_indexed_decode("scheme-http", "86", path_index_state, 28)?
-	let scheme_https_state: HpackFixtureState = print_static_indexed_decode("scheme-https", "87", scheme_http_state, 29)?
-	let status_200_state: HpackFixtureState = print_static_indexed_decode("status-200", "88", scheme_https_state, 30)?
-	let status_204_state: HpackFixtureState = print_static_indexed_decode("status-204", "89", status_200_state, 31)?
-	let status_206_state: HpackFixtureState = print_static_indexed_decode("status-206", "8a", status_204_state, 32)?
-	let status_304_state: HpackFixtureState = print_static_indexed_decode("status-304", "8b", status_206_state, 33)?
-	let status_400_state: HpackFixtureState = print_static_indexed_decode("status-400", "8c", status_304_state, 34)?
-	let status_404_state: HpackFixtureState = print_static_indexed_decode("status-404", "8d", status_400_state, 35)?
-	let status_500_state: HpackFixtureState = print_static_indexed_decode("status-500", "8e", status_404_state, 36)?
-	let accept_charset_state: HpackFixtureState = status_500_state
-	let accept_charset_block: ByteChunk = byte_chunk_from_hex("8f")?
-	let accept_charset: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(accept_charset_block, accept_charset_state, 27)
+	let path_index_state = print_static_indexed_decode("path-index", "85", next_state_or(method_post, authority_state), 27)?
+	let scheme_http_state = print_static_indexed_decode("scheme-http", "86", path_index_state, 28)?
+	let scheme_https_state = print_static_indexed_decode("scheme-https", "87", scheme_http_state, 29)?
+	let status_200_state = print_static_indexed_decode("status-200", "88", scheme_https_state, 30)?
+	let status_204_state = print_static_indexed_decode("status-204", "89", status_200_state, 31)?
+	let status_206_state = print_static_indexed_decode("status-206", "8a", status_204_state, 32)?
+	let status_304_state = print_static_indexed_decode("status-304", "8b", status_206_state, 33)?
+	let status_400_state = print_static_indexed_decode("status-400", "8c", status_304_state, 34)?
+	let status_404_state = print_static_indexed_decode("status-404", "8d", status_400_state, 35)?
+	let status_500_state = print_static_indexed_decode("status-500", "8e", status_404_state, 36)?
+	let accept_charset_state = status_500_state
+	let accept_charset_block = byte_chunk_from_hex("8f")?
+	let accept_charset = decode_header_block(accept_charset_block, accept_charset_state, 27)
 	print_transition("accept-charset", accept_charset)
-	let accept_encoding_state: HpackFixtureState = next_state_or(accept_charset, accept_charset_state)
-	let accept_encoding_block: ByteChunk = byte_chunk_from_hex("90")?
-	let accept_encoding: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(accept_encoding_block, accept_encoding_state, 28)
+	let accept_encoding_state = next_state_or(accept_charset, accept_charset_state)
+	let accept_encoding_block = byte_chunk_from_hex("90")?
+	let accept_encoding = decode_header_block(accept_encoding_block, accept_encoding_state, 28)
 	print_transition("accept-encoding", accept_encoding)
-	let accept_language_state: HpackFixtureState = next_state_or(accept_encoding, accept_encoding_state)
-	let accept_language_block: ByteChunk = byte_chunk_from_hex("91")?
-	let accept_language: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(accept_language_block, accept_language_state, 29)
+	let accept_language_state = next_state_or(accept_encoding, accept_encoding_state)
+	let accept_language_block = byte_chunk_from_hex("91")?
+	let accept_language = decode_header_block(accept_language_block, accept_language_state, 29)
 	print_transition("accept-language", accept_language)
-	let accept_ranges_state: HpackFixtureState = print_static_indexed_decode("accept-ranges", "92", next_state_or(accept_language, accept_language_state), 30)?
-	let accept_state: HpackFixtureState = print_static_indexed_decode("accept", "93", accept_ranges_state, 31)?
-	let access_control_allow_origin_state: HpackFixtureState = print_static_indexed_decode("access-control-allow-origin", "94", accept_state, 32)?
-	let age_state: HpackFixtureState = print_static_indexed_decode("age", "95", access_control_allow_origin_state, 33)?
-	let allow_state: HpackFixtureState = print_static_indexed_decode("allow", "96", age_state, 34)?
-	let authorization_state: HpackFixtureState = print_static_indexed_decode("authorization", "97", allow_state, 35)?
-	let content_disposition_state: HpackFixtureState = print_static_indexed_decode("cache-control", "98", authorization_state, 36)?
-	let content_disposition_block: ByteChunk = byte_chunk_from_hex("99")?
-	let content_disposition: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(content_disposition_block, content_disposition_state, 30)
+	let accept_ranges_state = print_static_indexed_decode("accept-ranges", "92", next_state_or(accept_language, accept_language_state), 30)?
+	let accept_state = print_static_indexed_decode("accept", "93", accept_ranges_state, 31)?
+	let access_control_allow_origin_state = print_static_indexed_decode("access-control-allow-origin", "94", accept_state, 32)?
+	let age_state = print_static_indexed_decode("age", "95", access_control_allow_origin_state, 33)?
+	let allow_state = print_static_indexed_decode("allow", "96", age_state, 34)?
+	let authorization_state = print_static_indexed_decode("authorization", "97", allow_state, 35)?
+	let content_disposition_state = print_static_indexed_decode("cache-control", "98", authorization_state, 36)?
+	let content_disposition_block = byte_chunk_from_hex("99")?
+	let content_disposition = decode_header_block(content_disposition_block, content_disposition_state, 30)
 	print_transition("content-disposition", content_disposition)
-	let content_encoding_state: HpackFixtureState = next_state_or(content_disposition, content_disposition_state)
-	let content_encoding_block: ByteChunk = byte_chunk_from_hex("9a")?
-	let content_encoding: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(content_encoding_block, content_encoding_state, 31)
+	let content_encoding_state = next_state_or(content_disposition, content_disposition_state)
+	let content_encoding_block = byte_chunk_from_hex("9a")?
+	let content_encoding = decode_header_block(content_encoding_block, content_encoding_state, 31)
 	print_transition("content-encoding", content_encoding)
-	let content_language_state: HpackFixtureState = next_state_or(content_encoding, content_encoding_state)
-	let content_language_block: ByteChunk = byte_chunk_from_hex("9b")?
-	let content_language: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(content_language_block, content_language_state, 32)
+	let content_language_state = next_state_or(content_encoding, content_encoding_state)
+	let content_language_block = byte_chunk_from_hex("9b")?
+	let content_language = decode_header_block(content_language_block, content_language_state, 32)
 	print_transition("content-language", content_language)
-	let content_length_state: HpackFixtureState = next_state_or(content_language, content_language_state)
-	let content_length_block: ByteChunk = byte_chunk_from_hex("9c")?
-	let content_length: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(content_length_block, content_length_state, 33)
+	let content_length_state = next_state_or(content_language, content_language_state)
+	let content_length_block = byte_chunk_from_hex("9c")?
+	let content_length = decode_header_block(content_length_block, content_length_state, 33)
 	print_transition("content-length", content_length)
-	let content_location_state: HpackFixtureState = next_state_or(content_length, content_length_state)
-	let content_location_block: ByteChunk = byte_chunk_from_hex("9d")?
-	let content_location: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(content_location_block, content_location_state, 34)
+	let content_location_state = next_state_or(content_length, content_length_state)
+	let content_location_block = byte_chunk_from_hex("9d")?
+	let content_location = decode_header_block(content_location_block, content_location_state, 34)
 	print_transition("content-location", content_location)
-	let content_range_state: HpackFixtureState = next_state_or(content_location, content_location_state)
-	let content_range_block: ByteChunk = byte_chunk_from_hex("9e")?
-	let content_range: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(content_range_block, content_range_state, 35)
+	let content_range_state = next_state_or(content_location, content_location_state)
+	let content_range_block = byte_chunk_from_hex("9e")?
+	let content_range = decode_header_block(content_range_block, content_range_state, 35)
 	print_transition("content-range", content_range)
-	let content_type_state: HpackFixtureState = next_state_or(content_range, content_range_state)
-	let content_type_block: ByteChunk = byte_chunk_from_hex("9f")?
-	let content_type: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(content_type_block, content_type_state, 36)
+	let content_type_state = next_state_or(content_range, content_range_state)
+	let content_type_block = byte_chunk_from_hex("9f")?
+	let content_type = decode_header_block(content_type_block, content_type_state, 36)
 	print_transition("content-type", content_type)
-	let cookie_state: HpackFixtureState = next_state_or(content_type, content_type_state)
-	let cookie_block: ByteChunk = byte_chunk_from_hex("a0")?
-	let cookie: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(cookie_block, cookie_state, 37)
+	let cookie_state = next_state_or(content_type, content_type_state)
+	let cookie_block = byte_chunk_from_hex("a0")?
+	let cookie = decode_header_block(cookie_block, cookie_state, 37)
 	print_transition("cookie", cookie)
-	let date_state: HpackFixtureState = next_state_or(cookie, cookie_state)
-	let date_block: ByteChunk = byte_chunk_from_hex("a1")?
-	let date: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(date_block, date_state, 38)
+	let date_state = next_state_or(cookie, cookie_state)
+	let date_block = byte_chunk_from_hex("a1")?
+	let date = decode_header_block(date_block, date_state, 38)
 	print_transition("date", date)
-	let etag_state: HpackFixtureState = next_state_or(date, date_state)
-	let etag_block: ByteChunk = byte_chunk_from_hex("a2")?
-	let etag: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(etag_block, etag_state, 39)
+	let etag_state = next_state_or(date, date_state)
+	let etag_block = byte_chunk_from_hex("a2")?
+	let etag = decode_header_block(etag_block, etag_state, 39)
 	print_transition("etag", etag)
-	let expect_state: HpackFixtureState = next_state_or(etag, etag_state)
-	let expect_block: ByteChunk = byte_chunk_from_hex("a3")?
-	let expect_header: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(expect_block, expect_state, 40)
+	let expect_state = next_state_or(etag, etag_state)
+	let expect_block = byte_chunk_from_hex("a3")?
+	let expect_header = decode_header_block(expect_block, expect_state, 40)
 	print_transition("expect", expect_header)
-	let expires_state: HpackFixtureState = next_state_or(expect_header, expect_state)
-	let expires_block: ByteChunk = byte_chunk_from_hex("a4")?
-	let expires: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(expires_block, expires_state, 41)
+	let expires_state = next_state_or(expect_header, expect_state)
+	let expires_block = byte_chunk_from_hex("a4")?
+	let expires = decode_header_block(expires_block, expires_state, 41)
 	print_transition("expires", expires)
-	let from_state: HpackFixtureState = print_static_indexed_decode("from", "a5", next_state_or(expires, expires_state), 42)?
-	let host_state: HpackFixtureState = print_static_indexed_decode("host", "a6", from_state, 43)?
-	let if_match_state: HpackFixtureState = print_static_indexed_decode("if-match", "a7", host_state, 44)?
-	let if_modified_since_state: HpackFixtureState = print_static_indexed_decode("if-modified-since", "a8", if_match_state, 45)?
-	let if_none_match_state: HpackFixtureState = print_static_indexed_decode("if-none-match", "a9", if_modified_since_state, 46)?
-	let if_range_state: HpackFixtureState = print_static_indexed_decode("if-range", "aa", if_none_match_state, 47)?
-	let if_unmodified_since_state: HpackFixtureState = print_static_indexed_decode("if-unmodified-since", "ab", if_range_state, 48)?
-	let last_modified_state: HpackFixtureState = print_static_indexed_decode("last-modified", "ac", if_unmodified_since_state, 49)?
-	let link_state: HpackFixtureState = print_static_indexed_decode("link", "ad", last_modified_state, 50)?
-	let location_state: HpackFixtureState = print_static_indexed_decode("location", "ae", link_state, 51)?
-	let max_forwards_state: HpackFixtureState = print_static_indexed_decode("max-forwards", "af", location_state, 52)?
-	let proxy_authenticate_state: HpackFixtureState = print_static_indexed_decode("proxy-authenticate", "b0", max_forwards_state, 53)?
-	let proxy_authorization_state: HpackFixtureState = print_static_indexed_decode("proxy-authorization", "b1", proxy_authenticate_state, 54)?
-	let range_state: HpackFixtureState = print_static_indexed_decode("range", "b2", proxy_authorization_state, 55)?
-	let referer_state: HpackFixtureState = print_static_indexed_decode("referer", "b3", range_state, 56)?
-	let refresh_state: HpackFixtureState = print_static_indexed_decode("refresh", "b4", referer_state, 57)?
-	let retry_after_state: HpackFixtureState = print_static_indexed_decode("retry-after", "b5", refresh_state, 58)?
-	let server_state: HpackFixtureState = print_static_indexed_decode("server", "b6", retry_after_state, 59)?
-	let set_cookie_state: HpackFixtureState = print_static_indexed_decode("set-cookie", "b7", server_state, 60)?
-	let strict_transport_security_state: HpackFixtureState = print_static_indexed_decode("strict-transport-security", "b8", set_cookie_state, 61)?
-	let transfer_encoding_state: HpackFixtureState = print_static_indexed_decode("transfer-encoding", "b9", strict_transport_security_state, 62)?
-	let user_agent_state: HpackFixtureState = print_static_indexed_decode("user-agent", "ba", transfer_encoding_state, 63)?
-	let vary_state: HpackFixtureState = print_static_indexed_decode("vary", "bb", user_agent_state, 64)?
-	let via_state: HpackFixtureState = print_static_indexed_decode("via", "bc", vary_state, 65)?
-	let literal_state: HpackFixtureState = print_static_indexed_decode("www-authenticate", "bd", via_state, 66)?
+	let from_state = print_static_indexed_decode("from", "a5", next_state_or(expires, expires_state), 42)?
+	let host_state = print_static_indexed_decode("host", "a6", from_state, 43)?
+	let if_match_state = print_static_indexed_decode("if-match", "a7", host_state, 44)?
+	let if_modified_since_state = print_static_indexed_decode("if-modified-since", "a8", if_match_state, 45)?
+	let if_none_match_state = print_static_indexed_decode("if-none-match", "a9", if_modified_since_state, 46)?
+	let if_range_state = print_static_indexed_decode("if-range", "aa", if_none_match_state, 47)?
+	let if_unmodified_since_state = print_static_indexed_decode("if-unmodified-since", "ab", if_range_state, 48)?
+	let last_modified_state = print_static_indexed_decode("last-modified", "ac", if_unmodified_since_state, 49)?
+	let link_state = print_static_indexed_decode("link", "ad", last_modified_state, 50)?
+	let location_state = print_static_indexed_decode("location", "ae", link_state, 51)?
+	let max_forwards_state = print_static_indexed_decode("max-forwards", "af", location_state, 52)?
+	let proxy_authenticate_state = print_static_indexed_decode("proxy-authenticate", "b0", max_forwards_state, 53)?
+	let proxy_authorization_state = print_static_indexed_decode("proxy-authorization", "b1", proxy_authenticate_state, 54)?
+	let range_state = print_static_indexed_decode("range", "b2", proxy_authorization_state, 55)?
+	let referer_state = print_static_indexed_decode("referer", "b3", range_state, 56)?
+	let refresh_state = print_static_indexed_decode("refresh", "b4", referer_state, 57)?
+	let retry_after_state = print_static_indexed_decode("retry-after", "b5", refresh_state, 58)?
+	let server_state = print_static_indexed_decode("server", "b6", retry_after_state, 59)?
+	let set_cookie_state = print_static_indexed_decode("set-cookie", "b7", server_state, 60)?
+	let strict_transport_security_state = print_static_indexed_decode("strict-transport-security", "b8", set_cookie_state, 61)?
+	let transfer_encoding_state = print_static_indexed_decode("transfer-encoding", "b9", strict_transport_security_state, 62)?
+	let user_agent_state = print_static_indexed_decode("user-agent", "ba", transfer_encoding_state, 63)?
+	let vary_state = print_static_indexed_decode("vary", "bb", user_agent_state, 64)?
+	let via_state = print_static_indexed_decode("via", "bc", vary_state, 65)?
+	let literal_state = print_static_indexed_decode("www-authenticate", "bd", via_state, 66)?
 	Ok(literal_state)
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let initial: HpackFixtureState = initial_state()
-	let literal_state: HpackFixtureState = print_initial_static_indexed_cases(initial)?
-	let literal_path_block: ByteChunk = byte_chunk_from_hex("04072f746172676574")?
-	let literal_path: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_path_block, literal_state, 66)
+	let initial = initial_state()
+	let literal_state = print_initial_static_indexed_cases(initial)?
+	let literal_path_block = byte_chunk_from_hex("04072f746172676574")?
+	let literal_path = decode_header_block(literal_path_block, literal_state, 66)
 	print_transition("literal-path", literal_path)
-	let literal_huffman_state: HpackFixtureState = next_state_or(literal_path, literal_state)
-	let literal_path_empty_huffman_block: ByteChunk = byte_chunk_from_hex("0480")?
-	let literal_path_empty_huffman: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_path_empty_huffman_block, literal_huffman_state, 67)
+	let literal_huffman_state = next_state_or(literal_path, literal_state)
+	let literal_path_empty_huffman_block = byte_chunk_from_hex("0480")?
+	let literal_path_empty_huffman = decode_header_block(literal_path_empty_huffman_block, literal_huffman_state, 67)
 	print_transition("literal-path-empty-huffman", literal_path_empty_huffman)
-	let literal_authority_state: HpackFixtureState = next_state_or(literal_path_empty_huffman, literal_huffman_state)
-	let literal_authority_block: ByteChunk = byte_chunk_from_hex("010b6578616d706c652e636f6d")?
-	let literal_authority: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_authority_block, literal_authority_state, 69)
+	let literal_authority_state = next_state_or(literal_path_empty_huffman, literal_huffman_state)
+	let literal_authority_block = byte_chunk_from_hex("010b6578616d706c652e636f6d")?
+	let literal_authority = decode_header_block(literal_authority_block, literal_authority_state, 69)
 	print_transition("literal-authority", literal_authority)
-	let literal_status_state: HpackFixtureState = next_state_or(literal_authority, literal_authority_state)
-	let literal_status_block: ByteChunk = byte_chunk_from_hex("0803323031")?
-	let literal_status: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_status_block, literal_status_state, 70)
+	let literal_status_state = next_state_or(literal_authority, literal_authority_state)
+	let literal_status_block = byte_chunk_from_hex("0803323031")?
+	let literal_status = decode_header_block(literal_status_block, literal_status_state, 70)
 	print_transition("literal-status", literal_status)
-	let ignored_raw_string_encode_cases: () = print_raw_string_encode_cases()?
-	let ignored_header_list_encode_cases: () = print_header_list_encode_cases()?
-	let ignored_general_string_literal_cases: () = print_general_string_literal_cases(initial, literal_state)?
-	let literal_never_indexed_path: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(byte_chunk_from_hex("14072f746172676574")?, initial, 99)
+	let ignored_raw_string_encode_cases = print_raw_string_encode_cases()?
+	let ignored_header_list_encode_cases = print_header_list_encode_cases()?
+	let ignored_general_string_literal_cases = print_general_string_literal_cases(initial, literal_state)?
+	let literal_never_indexed_path = decode_header_block(byte_chunk_from_hex("14072f746172676574")?, initial, 99)
 	print_transition("literal-never-indexed-path", literal_never_indexed_path)
 	print_transition("literal-never-indexed-dynamic-missing", decode_header_block(byte_chunk_from_hex("be")?, next_state_or(literal_never_indexed_path, initial), 100))
-	let literal_indexed_state: HpackFixtureState = next_state_or(literal_status, literal_status_state)
-	let literal_indexed_path_block: ByteChunk = byte_chunk_from_hex("44072f746172676574")?
-	let literal_indexed_path: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_indexed_path_block, literal_indexed_state, 68)
+	let literal_indexed_state = next_state_or(literal_status, literal_status_state)
+	let literal_indexed_path_block = byte_chunk_from_hex("44072f746172676574")?
+	let literal_indexed_path = decode_header_block(literal_indexed_path_block, literal_indexed_state, 68)
 	print_transition("literal-indexed-path", literal_indexed_path)
-	let dynamic_state: HpackFixtureState = next_state_or(literal_indexed_path, literal_indexed_state)
-	let dynamic_indexed_block: ByteChunk = byte_chunk_from_hex("be")?
-	let evicted_indexed_block: ByteChunk = byte_chunk_from_hex("bf")?
-	let third_indexed_block: ByteChunk = byte_chunk_from_hex("c0")?
-	let dynamic_indexed_path: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(dynamic_indexed_block, dynamic_state, 69)
+	let dynamic_state = next_state_or(literal_indexed_path, literal_indexed_state)
+	let dynamic_indexed_block = byte_chunk_from_hex("be")?
+	let evicted_indexed_block = byte_chunk_from_hex("bf")?
+	let third_indexed_block = byte_chunk_from_hex("c0")?
+	let dynamic_indexed_path = decode_header_block(dynamic_indexed_block, dynamic_state, 69)
 	print_transition("dynamic-indexed-path", dynamic_indexed_path)
-	let dynamic_core_state: HpackDynamicCoreState = hpack_dynamic_core::carried_single_dynamic_entry_state(4096, 1, ":path", "/target")
+	let dynamic_core_state = hpack_dynamic_core::carried_single_dynamic_entry_state(4096, 1, ":path", "/target")
 	print_dynamic_core_transition("dynamic-core-indexed-path", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_state, 69))
 	print_dynamic_core_transition("dynamic-core-indexed-missing", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, hpack_dynamic_core::initial_dynamic_core_state(), 70))
-	let dynamic_core_two_entry_state: HpackDynamicCoreState = hpack_dynamic_core::prepend_carried_dynamic_entry_state(dynamic_core_state, ":method", "PUT")
-	let dynamic_core_newest_method: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure> = hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_two_entry_state, 71)
+	let dynamic_core_two_entry_state = hpack_dynamic_core::prepend_carried_dynamic_entry_state(dynamic_core_state, ":method", "PUT")
+	let dynamic_core_newest_method = hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_two_entry_state, 71)
 	print_dynamic_core_transition("dynamic-core-indexed-newest-method", dynamic_core_newest_method)
-	let dynamic_core_after_newest: HpackDynamicCoreState = dynamic_core_next_state_or(dynamic_core_newest_method, dynamic_core_two_entry_state)
-	let dynamic_core_second_path: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure> = hpack_dynamic_core::decode_indexed_header_field(evicted_indexed_block, dynamic_core_after_newest, 72)
+	let dynamic_core_after_newest = dynamic_core_next_state_or(dynamic_core_newest_method, dynamic_core_two_entry_state)
+	let dynamic_core_second_path = hpack_dynamic_core::decode_indexed_header_field(evicted_indexed_block, dynamic_core_after_newest, 72)
 	print_dynamic_core_transition("dynamic-core-indexed-second-path", dynamic_core_second_path)
-	let dynamic_core_after_second: HpackDynamicCoreState = dynamic_core_next_state_or(dynamic_core_second_path, dynamic_core_after_newest)
-	let dynamic_core_third_missing: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure> = hpack_dynamic_core::decode_indexed_header_field(third_indexed_block, dynamic_core_after_second, 73)
+	let dynamic_core_after_second = dynamic_core_next_state_or(dynamic_core_second_path, dynamic_core_after_newest)
+	let dynamic_core_third_missing = hpack_dynamic_core::decode_indexed_header_field(third_indexed_block, dynamic_core_after_second, 73)
 	print_dynamic_core_transition("dynamic-core-indexed-third-missing", dynamic_core_third_missing)
 	print_dynamic_core_state("dynamic-core-after-third-missing", dynamic_core_next_state_or(dynamic_core_third_missing, dynamic_core_after_second))
-	let dynamic_core_wide_block: ByteChunk = byte_chunk_from_hex("ff00")?
-	let dynamic_core_deep_state: HpackDynamicCoreState = build_deep_dynamic_core_path_state(66, hpack_dynamic_core::initial_dynamic_core_state())
+	let dynamic_core_wide_block = byte_chunk_from_hex("ff00")?
+	let dynamic_core_deep_state = build_deep_dynamic_core_path_state(66, hpack_dynamic_core::initial_dynamic_core_state())
 	print_dynamic_core_transition("dynamic-core-indexed-wide-path", hpack_dynamic_core::decode_indexed_header_field(dynamic_core_wide_block, dynamic_core_deep_state, 74))
 	print_dynamic_core_transition("dynamic-core-indexed-wide-missing", hpack_dynamic_core::decode_indexed_header_field(dynamic_core_wide_block, dynamic_core_two_entry_state, 75))
-	let dynamic_core_multi_continuation_block: ByteChunk = byte_chunk_from_hex("ff8000")?
+	let dynamic_core_multi_continuation_block = byte_chunk_from_hex("ff8000")?
 	print_dynamic_core_transition("dynamic-core-indexed-multi-continuation-retained-older-path", hpack_dynamic_core::decode_indexed_header_field(dynamic_core_multi_continuation_block, dynamic_core_deep_state, 128))
-	let dynamic_core_multi_continuation_out_of_range_block: ByteChunk = byte_chunk_from_hex("ff8001")?
+	let dynamic_core_multi_continuation_out_of_range_block = byte_chunk_from_hex("ff8001")?
 	print_dynamic_core_transition("dynamic-core-indexed-multi-continuation-out-of-range", hpack_dynamic_core::decode_indexed_header_field(dynamic_core_multi_continuation_out_of_range_block, dynamic_core_deep_state, 129))
-	let dynamic_core_static_literal_content_type: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure> = hpack_dynamic_core::decode_static_name_literal_with_indexing_field(byte_chunk_from_hex("5f0474657874")?, hpack_dynamic_core::initial_dynamic_core_state(), 76)
+	let dynamic_core_static_literal_content_type = hpack_dynamic_core::decode_static_name_literal_with_indexing_field(byte_chunk_from_hex("5f0474657874")?, hpack_dynamic_core::initial_dynamic_core_state(), 76)
 	print_dynamic_core_transition("dynamic-core-static-literal-indexed-content-type", dynamic_core_static_literal_content_type)
-	let dynamic_core_static_literal_content_type_state: HpackDynamicCoreState = dynamic_core_next_state_or(dynamic_core_static_literal_content_type, hpack_dynamic_core::initial_dynamic_core_state())
+	let dynamic_core_static_literal_content_type_state = dynamic_core_next_state_or(dynamic_core_static_literal_content_type, hpack_dynamic_core::initial_dynamic_core_state())
 	print_dynamic_core_transition("dynamic-core-static-literal-indexed-content-type-reuse", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_static_literal_content_type_state, 77))
-	let dynamic_core_raw_literal_without_indexing: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure> = hpack_dynamic_core::decode_raw_literal_name_header_field(byte_chunk_from_hex("0007782d7472616365026f6b")?, hpack_dynamic_core::initial_dynamic_core_state(), 78)
+	let dynamic_core_raw_literal_without_indexing = hpack_dynamic_core::decode_raw_literal_name_header_field(byte_chunk_from_hex("0007782d7472616365026f6b")?, hpack_dynamic_core::initial_dynamic_core_state(), 78)
 	print_dynamic_core_transition("dynamic-core-raw-literal-without-indexing-x-trace", dynamic_core_raw_literal_without_indexing)
 	print_dynamic_core_accounting_state("dynamic-core-raw-literal-without-indexing-state", dynamic_core_next_state_or(dynamic_core_raw_literal_without_indexing, hpack_dynamic_core::initial_dynamic_core_state()))
-	let dynamic_core_raw_literal_indexed: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure> = hpack_dynamic_core::decode_raw_literal_name_header_field(byte_chunk_from_hex("4007782d7472616365026f6b")?, hpack_dynamic_core::initial_dynamic_core_state(), 79)
+	let dynamic_core_raw_literal_indexed = hpack_dynamic_core::decode_raw_literal_name_header_field(byte_chunk_from_hex("4007782d7472616365026f6b")?, hpack_dynamic_core::initial_dynamic_core_state(), 79)
 	print_dynamic_core_transition("dynamic-core-raw-literal-indexed-x-trace", dynamic_core_raw_literal_indexed)
-	let dynamic_core_raw_literal_indexed_state: HpackDynamicCoreState = dynamic_core_next_state_or(dynamic_core_raw_literal_indexed, hpack_dynamic_core::initial_dynamic_core_state())
+	let dynamic_core_raw_literal_indexed_state = dynamic_core_next_state_or(dynamic_core_raw_literal_indexed, hpack_dynamic_core::initial_dynamic_core_state())
 	print_dynamic_core_accounting_state("dynamic-core-raw-literal-indexed-state", dynamic_core_raw_literal_indexed_state)
 	print_dynamic_core_transition("dynamic-core-raw-literal-indexed-x-trace-reuse", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_raw_literal_indexed_state, 80))
-	let dynamic_core_raw_literal_never_indexed: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure> = hpack_dynamic_core::decode_raw_literal_name_header_field(byte_chunk_from_hex("1007782d6e65766572026e6f")?, hpack_dynamic_core::initial_dynamic_core_state(), 81)
+	let dynamic_core_raw_literal_never_indexed = hpack_dynamic_core::decode_raw_literal_name_header_field(byte_chunk_from_hex("1007782d6e65766572026e6f")?, hpack_dynamic_core::initial_dynamic_core_state(), 81)
 	print_dynamic_core_transition("dynamic-core-raw-literal-never-indexed-x-never", dynamic_core_raw_literal_never_indexed)
 	print_dynamic_core_accounting_state("dynamic-core-raw-literal-never-indexed-state", dynamic_core_next_state_or(dynamic_core_raw_literal_never_indexed, hpack_dynamic_core::initial_dynamic_core_state()))
-	let dynamic_core_raw_literal_huffman_without_indexing: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure> = hpack_dynamic_core::decode_raw_literal_name_header_field(byte_chunk_from_hex("0006782d687566668349509f")?, hpack_dynamic_core::initial_dynamic_core_state(), 130)
+	let dynamic_core_raw_literal_huffman_without_indexing = hpack_dynamic_core::decode_raw_literal_name_header_field(byte_chunk_from_hex("0006782d687566668349509f")?, hpack_dynamic_core::initial_dynamic_core_state(), 130)
 	print_dynamic_core_transition("dynamic-core-raw-literal-huffman-without-indexing-x-huff", dynamic_core_raw_literal_huffman_without_indexing)
 	print_dynamic_core_accounting_state("dynamic-core-raw-literal-huffman-without-indexing-state", dynamic_core_next_state_or(dynamic_core_raw_literal_huffman_without_indexing, hpack_dynamic_core::initial_dynamic_core_state()))
-	let dynamic_core_raw_literal_huffman_indexed: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure> = hpack_dynamic_core::decode_raw_literal_name_header_field(byte_chunk_from_hex("4006782d687566668349509f")?, hpack_dynamic_core::initial_dynamic_core_state(), 131)
+	let dynamic_core_raw_literal_huffman_indexed = hpack_dynamic_core::decode_raw_literal_name_header_field(byte_chunk_from_hex("4006782d687566668349509f")?, hpack_dynamic_core::initial_dynamic_core_state(), 131)
 	print_dynamic_core_transition("dynamic-core-raw-literal-huffman-indexed-x-huff", dynamic_core_raw_literal_huffman_indexed)
-	let dynamic_core_raw_literal_huffman_indexed_state: HpackDynamicCoreState = dynamic_core_next_state_or(dynamic_core_raw_literal_huffman_indexed, hpack_dynamic_core::initial_dynamic_core_state())
+	let dynamic_core_raw_literal_huffman_indexed_state = dynamic_core_next_state_or(dynamic_core_raw_literal_huffman_indexed, hpack_dynamic_core::initial_dynamic_core_state())
 	print_dynamic_core_accounting_state("dynamic-core-raw-literal-huffman-indexed-state", dynamic_core_raw_literal_huffman_indexed_state)
 	print_dynamic_core_transition("dynamic-core-raw-literal-huffman-indexed-x-huff-reuse", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_raw_literal_huffman_indexed_state, 132))
-	let dynamic_core_raw_literal_huffman_never_indexed: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure> = hpack_dynamic_core::decode_raw_literal_name_header_field(byte_chunk_from_hex("1006782d687566668349509f")?, hpack_dynamic_core::initial_dynamic_core_state(), 133)
+	let dynamic_core_raw_literal_huffman_never_indexed = hpack_dynamic_core::decode_raw_literal_name_header_field(byte_chunk_from_hex("1006782d687566668349509f")?, hpack_dynamic_core::initial_dynamic_core_state(), 133)
 	print_dynamic_core_transition("dynamic-core-raw-literal-huffman-never-indexed-x-huff", dynamic_core_raw_literal_huffman_never_indexed)
 	print_dynamic_core_accounting_state("dynamic-core-raw-literal-huffman-never-indexed-state", dynamic_core_next_state_or(dynamic_core_raw_literal_huffman_never_indexed, hpack_dynamic_core::initial_dynamic_core_state()))
 	print_dynamic_core_transition("dynamic-core-raw-literal-huffman-padding", hpack_dynamic_core::decode_raw_literal_name_header_field(byte_chunk_from_hex("0006782d687566668100")?, hpack_dynamic_core::initial_dynamic_core_state(), 134))
-	let dynamic_core_dynamic_name_without_indexing: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure> = hpack_dynamic_core::decode_dynamic_name_literal_header_field(byte_chunk_from_hex("0f2f032f6e6f")?, dynamic_core_state, 135)
+	let dynamic_core_dynamic_name_without_indexing = hpack_dynamic_core::decode_dynamic_name_literal_header_field(byte_chunk_from_hex("0f2f032f6e6f")?, dynamic_core_state, 135)
 	print_dynamic_core_transition("dynamic-core-dynamic-name-without-indexing-path-no", dynamic_core_dynamic_name_without_indexing)
-	let dynamic_core_dynamic_name_without_indexing_state: HpackDynamicCoreState = dynamic_core_next_state_or(dynamic_core_dynamic_name_without_indexing, dynamic_core_state)
+	let dynamic_core_dynamic_name_without_indexing_state = dynamic_core_next_state_or(dynamic_core_dynamic_name_without_indexing, dynamic_core_state)
 	print_dynamic_core_accounting_state("dynamic-core-dynamic-name-without-indexing-state", dynamic_core_dynamic_name_without_indexing_state)
 	print_dynamic_core_transition("dynamic-core-dynamic-name-without-indexing-retains-path", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_dynamic_name_without_indexing_state, 136))
-	let dynamic_core_dynamic_name_huffman_without_indexing: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure> = hpack_dynamic_core::decode_dynamic_name_literal_header_field(byte_chunk_from_hex("0f2f8349509f")?, dynamic_core_state, 155)
+	let dynamic_core_dynamic_name_huffman_without_indexing = hpack_dynamic_core::decode_dynamic_name_literal_header_field(byte_chunk_from_hex("0f2f8349509f")?, dynamic_core_state, 155)
 	print_dynamic_core_transition("dynamic-core-dynamic-name-huffman-without-indexing-path-test", dynamic_core_dynamic_name_huffman_without_indexing)
-	let dynamic_core_dynamic_name_huffman_without_indexing_state: HpackDynamicCoreState = dynamic_core_next_state_or(dynamic_core_dynamic_name_huffman_without_indexing, dynamic_core_state)
+	let dynamic_core_dynamic_name_huffman_without_indexing_state = dynamic_core_next_state_or(dynamic_core_dynamic_name_huffman_without_indexing, dynamic_core_state)
 	print_dynamic_core_accounting_state("dynamic-core-dynamic-name-huffman-without-indexing-state", dynamic_core_dynamic_name_huffman_without_indexing_state)
 	print_dynamic_core_transition("dynamic-core-dynamic-name-huffman-without-indexing-retains-path", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_dynamic_name_huffman_without_indexing_state, 156))
-	let dynamic_core_dynamic_name_indexed: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure> = hpack_dynamic_core::decode_dynamic_name_literal_header_field(byte_chunk_from_hex("7e062f616761696e")?, dynamic_core_state, 137)
+	let dynamic_core_dynamic_name_indexed = hpack_dynamic_core::decode_dynamic_name_literal_header_field(byte_chunk_from_hex("7e062f616761696e")?, dynamic_core_state, 137)
 	print_dynamic_core_transition("dynamic-core-dynamic-name-indexed-path-again", dynamic_core_dynamic_name_indexed)
-	let dynamic_core_dynamic_name_indexed_state: HpackDynamicCoreState = dynamic_core_next_state_or(dynamic_core_dynamic_name_indexed, dynamic_core_state)
+	let dynamic_core_dynamic_name_indexed_state = dynamic_core_next_state_or(dynamic_core_dynamic_name_indexed, dynamic_core_state)
 	print_dynamic_core_accounting_state("dynamic-core-dynamic-name-indexed-state", dynamic_core_dynamic_name_indexed_state)
 	print_dynamic_core_transition("dynamic-core-dynamic-name-indexed-newest-path-again", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_dynamic_name_indexed_state, 138))
 	print_dynamic_core_transition("dynamic-core-dynamic-name-indexed-retains-path", hpack_dynamic_core::decode_indexed_header_field(evicted_indexed_block, dynamic_core_dynamic_name_indexed_state, 139))
-	let dynamic_core_dynamic_name_huffman_indexed: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure> = hpack_dynamic_core::decode_dynamic_name_literal_header_field(byte_chunk_from_hex("7e8349509f")?, dynamic_core_state, 157)
+	let dynamic_core_dynamic_name_huffman_indexed = hpack_dynamic_core::decode_dynamic_name_literal_header_field(byte_chunk_from_hex("7e8349509f")?, dynamic_core_state, 157)
 	print_dynamic_core_transition("dynamic-core-dynamic-name-huffman-indexed-path-test", dynamic_core_dynamic_name_huffman_indexed)
-	let dynamic_core_dynamic_name_huffman_indexed_state: HpackDynamicCoreState = dynamic_core_next_state_or(dynamic_core_dynamic_name_huffman_indexed, dynamic_core_state)
+	let dynamic_core_dynamic_name_huffman_indexed_state = dynamic_core_next_state_or(dynamic_core_dynamic_name_huffman_indexed, dynamic_core_state)
 	print_dynamic_core_accounting_state("dynamic-core-dynamic-name-huffman-indexed-state", dynamic_core_dynamic_name_huffman_indexed_state)
 	print_dynamic_core_transition("dynamic-core-dynamic-name-huffman-indexed-newest-path-test", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_dynamic_name_huffman_indexed_state, 158))
 	print_dynamic_core_transition("dynamic-core-dynamic-name-huffman-indexed-retains-path", hpack_dynamic_core::decode_indexed_header_field(evicted_indexed_block, dynamic_core_dynamic_name_huffman_indexed_state, 159))
-	let dynamic_core_dynamic_name_never_indexed: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure> = hpack_dynamic_core::decode_dynamic_name_literal_header_field(byte_chunk_from_hex("1f2f072f736563726574")?, dynamic_core_state, 140)
+	let dynamic_core_dynamic_name_never_indexed = hpack_dynamic_core::decode_dynamic_name_literal_header_field(byte_chunk_from_hex("1f2f072f736563726574")?, dynamic_core_state, 140)
 	print_dynamic_core_transition("dynamic-core-dynamic-name-never-indexed-path-secret", dynamic_core_dynamic_name_never_indexed)
-	let dynamic_core_dynamic_name_never_indexed_state: HpackDynamicCoreState = dynamic_core_next_state_or(dynamic_core_dynamic_name_never_indexed, dynamic_core_state)
+	let dynamic_core_dynamic_name_never_indexed_state = dynamic_core_next_state_or(dynamic_core_dynamic_name_never_indexed, dynamic_core_state)
 	print_dynamic_core_accounting_state("dynamic-core-dynamic-name-never-indexed-state", dynamic_core_dynamic_name_never_indexed_state)
 	print_dynamic_core_transition("dynamic-core-dynamic-name-never-indexed-retains-path", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_dynamic_name_never_indexed_state, 141))
-	let dynamic_core_dynamic_name_huffman_never_indexed: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure> = hpack_dynamic_core::decode_dynamic_name_literal_header_field(byte_chunk_from_hex("1f2f8349509f")?, dynamic_core_state, 160)
+	let dynamic_core_dynamic_name_huffman_never_indexed = hpack_dynamic_core::decode_dynamic_name_literal_header_field(byte_chunk_from_hex("1f2f8349509f")?, dynamic_core_state, 160)
 	print_dynamic_core_transition("dynamic-core-dynamic-name-huffman-never-indexed-path-test", dynamic_core_dynamic_name_huffman_never_indexed)
-	let dynamic_core_dynamic_name_huffman_never_indexed_state: HpackDynamicCoreState = dynamic_core_next_state_or(dynamic_core_dynamic_name_huffman_never_indexed, dynamic_core_state)
+	let dynamic_core_dynamic_name_huffman_never_indexed_state = dynamic_core_next_state_or(dynamic_core_dynamic_name_huffman_never_indexed, dynamic_core_state)
 	print_dynamic_core_accounting_state("dynamic-core-dynamic-name-huffman-never-indexed-state", dynamic_core_dynamic_name_huffman_never_indexed_state)
 	print_dynamic_core_transition("dynamic-core-dynamic-name-huffman-never-indexed-retains-path", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_dynamic_name_huffman_never_indexed_state, 161))
 	print_dynamic_core_transition("dynamic-core-dynamic-name-huffman-padding", hpack_dynamic_core::decode_dynamic_name_literal_header_field(byte_chunk_from_hex("0f2f8100")?, dynamic_core_state, 162))
-	let dynamic_core_dynamic_name_wide_without_indexing: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure> = hpack_dynamic_core::decode_dynamic_name_literal_header_field(byte_chunk_from_hex("0f70052f736b6970")?, dynamic_core_deep_state, 142)
+	let dynamic_core_dynamic_name_wide_without_indexing = hpack_dynamic_core::decode_dynamic_name_literal_header_field(byte_chunk_from_hex("0f70052f736b6970")?, dynamic_core_deep_state, 142)
 	print_dynamic_core_transition("dynamic-core-dynamic-name-wide-without-indexing-path-skip", dynamic_core_dynamic_name_wide_without_indexing)
-	let dynamic_core_dynamic_name_wide_without_indexing_state: HpackDynamicCoreState = dynamic_core_next_state_or(dynamic_core_dynamic_name_wide_without_indexing, dynamic_core_deep_state)
+	let dynamic_core_dynamic_name_wide_without_indexing_state = dynamic_core_next_state_or(dynamic_core_dynamic_name_wide_without_indexing, dynamic_core_deep_state)
 	print_dynamic_core_accounting_state("dynamic-core-dynamic-name-wide-without-indexing-state", dynamic_core_dynamic_name_wide_without_indexing_state)
 	print_dynamic_core_transition("dynamic-core-dynamic-name-wide-without-indexing-retains-older-path", hpack_dynamic_core::decode_indexed_header_field(dynamic_core_wide_block, dynamic_core_dynamic_name_wide_without_indexing_state, 143))
-	let dynamic_core_dynamic_name_wide_never_indexed: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure> = hpack_dynamic_core::decode_dynamic_name_literal_header_field(byte_chunk_from_hex("1f70072f736563726574")?, dynamic_core_deep_state, 144)
+	let dynamic_core_dynamic_name_wide_never_indexed = hpack_dynamic_core::decode_dynamic_name_literal_header_field(byte_chunk_from_hex("1f70072f736563726574")?, dynamic_core_deep_state, 144)
 	print_dynamic_core_transition("dynamic-core-dynamic-name-wide-never-indexed-path-secret", dynamic_core_dynamic_name_wide_never_indexed)
-	let dynamic_core_dynamic_name_wide_never_indexed_state: HpackDynamicCoreState = dynamic_core_next_state_or(dynamic_core_dynamic_name_wide_never_indexed, dynamic_core_deep_state)
+	let dynamic_core_dynamic_name_wide_never_indexed_state = dynamic_core_next_state_or(dynamic_core_dynamic_name_wide_never_indexed, dynamic_core_deep_state)
 	print_dynamic_core_accounting_state("dynamic-core-dynamic-name-wide-never-indexed-state", dynamic_core_dynamic_name_wide_never_indexed_state)
 	print_dynamic_core_transition("dynamic-core-dynamic-name-wide-never-indexed-retains-older-path", hpack_dynamic_core::decode_indexed_header_field(dynamic_core_wide_block, dynamic_core_dynamic_name_wide_never_indexed_state, 145))
 	stdio::print("dynamic-core-entry-size-path-target ")
 	stdio::println(int_to_string(hpack_dynamic_core::dynamic_core_header_entry_size(":path", "/target")))
-	let dynamic_core_accounting_initial: HpackDynamicCoreState = hpack_dynamic_core::dynamic_core_with_table_size(hpack_dynamic_core::initial_dynamic_core_state(), 86)
-	let dynamic_core_accounting_path: HpackDynamicCoreState = hpack_dynamic_core::dynamic_core_insert_entry_state(dynamic_core_accounting_initial, ":path", "/target")
+	let dynamic_core_accounting_initial = hpack_dynamic_core::dynamic_core_with_table_size(hpack_dynamic_core::initial_dynamic_core_state(), 86)
+	let dynamic_core_accounting_path = hpack_dynamic_core::dynamic_core_insert_entry_state(dynamic_core_accounting_initial, ":path", "/target")
 	print_dynamic_core_accounting_state("dynamic-core-accounting-path", dynamic_core_accounting_path)
-	let dynamic_core_accounting_two: HpackDynamicCoreState = hpack_dynamic_core::dynamic_core_insert_entry_state(dynamic_core_accounting_path, ":method", "PUT")
+	let dynamic_core_accounting_two = hpack_dynamic_core::dynamic_core_insert_entry_state(dynamic_core_accounting_path, ":method", "PUT")
 	print_dynamic_core_accounting_state("dynamic-core-accounting-two", dynamic_core_accounting_two)
 	print_dynamic_core_transition("dynamic-core-accounting-newest-method", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_accounting_two, 120))
 	print_dynamic_core_transition("dynamic-core-accounting-older-path", hpack_dynamic_core::decode_indexed_header_field(evicted_indexed_block, dynamic_core_accounting_two, 121))
-	let dynamic_core_accounting_reduced: HpackDynamicCoreState = hpack_dynamic_core::dynamic_core_with_table_size(dynamic_core_accounting_two, 42)
+	let dynamic_core_accounting_reduced = hpack_dynamic_core::dynamic_core_with_table_size(dynamic_core_accounting_two, 42)
 	print_dynamic_core_accounting_state("dynamic-core-accounting-reduced", dynamic_core_accounting_reduced)
 	print_dynamic_core_transition("dynamic-core-accounting-reduced-newest-method", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_accounting_reduced, 122))
 	print_dynamic_core_transition("dynamic-core-accounting-reduced-older-missing", hpack_dynamic_core::decode_indexed_header_field(evicted_indexed_block, dynamic_core_accounting_reduced, 123))
-	let dynamic_core_accounting_reexpanded: HpackDynamicCoreState = hpack_dynamic_core::dynamic_core_with_table_size(dynamic_core_accounting_reduced, 86)
+	let dynamic_core_accounting_reexpanded = hpack_dynamic_core::dynamic_core_with_table_size(dynamic_core_accounting_reduced, 86)
 	print_dynamic_core_accounting_state("dynamic-core-accounting-reexpanded", dynamic_core_accounting_reexpanded)
 	print_dynamic_core_transition("dynamic-core-accounting-reexpanded-older-still-missing", hpack_dynamic_core::decode_indexed_header_field(evicted_indexed_block, dynamic_core_accounting_reexpanded, 152))
-	let dynamic_core_accounting_insert_eviction: HpackDynamicCoreState = hpack_dynamic_core::dynamic_core_insert_entry_state(dynamic_core_accounting_two, ":path", "/target")
+	let dynamic_core_accounting_insert_eviction = hpack_dynamic_core::dynamic_core_insert_entry_state(dynamic_core_accounting_two, ":path", "/target")
 	print_dynamic_core_accounting_state("dynamic-core-accounting-insert-eviction", dynamic_core_accounting_insert_eviction)
 	print_dynamic_core_transition("dynamic-core-accounting-insert-newest-path", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_accounting_insert_eviction, 124))
 	print_dynamic_core_transition("dynamic-core-accounting-insert-retained-method", hpack_dynamic_core::decode_indexed_header_field(evicted_indexed_block, dynamic_core_accounting_insert_eviction, 125))
 	print_dynamic_core_transition("dynamic-core-accounting-insert-evicted-path", hpack_dynamic_core::decode_indexed_header_field(third_indexed_block, dynamic_core_accounting_insert_eviction, 126))
-	let dynamic_core_accounting_zero: HpackDynamicCoreState = hpack_dynamic_core::dynamic_core_with_table_size(dynamic_core_accounting_two, 0)
+	let dynamic_core_accounting_zero = hpack_dynamic_core::dynamic_core_with_table_size(dynamic_core_accounting_two, 0)
 	print_dynamic_core_accounting_state("dynamic-core-accounting-zero", dynamic_core_accounting_zero)
 	print_dynamic_core_transition("dynamic-core-accounting-zero-missing", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_accounting_zero, 127))
-	let dynamic_core_accounting_zero_insert: HpackDynamicCoreState = hpack_dynamic_core::dynamic_core_insert_entry_state(dynamic_core_accounting_zero, ":method", "PUT")
+	let dynamic_core_accounting_zero_insert = hpack_dynamic_core::dynamic_core_insert_entry_state(dynamic_core_accounting_zero, ":method", "PUT")
 	print_dynamic_core_accounting_state("dynamic-core-accounting-zero-insert", dynamic_core_accounting_zero_insert)
-	let dynamic_core_accounting_zero_reexpanded: HpackDynamicCoreState = hpack_dynamic_core::dynamic_core_with_table_size(dynamic_core_accounting_zero, 86)
+	let dynamic_core_accounting_zero_reexpanded = hpack_dynamic_core::dynamic_core_with_table_size(dynamic_core_accounting_zero, 86)
 	print_dynamic_core_accounting_state("dynamic-core-accounting-zero-reexpanded", dynamic_core_accounting_zero_reexpanded)
 	print_dynamic_core_transition("dynamic-core-accounting-zero-reexpanded-missing", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_accounting_zero_reexpanded, 153))
-	let dynamic_core_accounting_zero_reexpanded_insert: HpackDynamicCoreState = hpack_dynamic_core::dynamic_core_insert_entry_state(dynamic_core_accounting_zero_reexpanded, ":method", "PUT")
+	let dynamic_core_accounting_zero_reexpanded_insert = hpack_dynamic_core::dynamic_core_insert_entry_state(dynamic_core_accounting_zero_reexpanded, ":method", "PUT")
 	print_dynamic_core_accounting_state("dynamic-core-accounting-zero-reexpanded-insert", dynamic_core_accounting_zero_reexpanded_insert)
 	print_dynamic_core_transition("dynamic-core-accounting-zero-reexpanded-reuse", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_accounting_zero_reexpanded_insert, 154))
-	let dynamic_core_accounting_over_limit: HpackDynamicCoreState = hpack_dynamic_core::dynamic_core_insert_entry_state(hpack_dynamic_core::dynamic_core_with_table_size(dynamic_core_accounting_two, 30), ":method", "PUT")
+	let dynamic_core_accounting_over_limit = hpack_dynamic_core::dynamic_core_insert_entry_state(hpack_dynamic_core::dynamic_core_with_table_size(dynamic_core_accounting_two, 30), ":method", "PUT")
 	print_dynamic_core_accounting_state("dynamic-core-accounting-over-limit", dynamic_core_accounting_over_limit)
-	let literal_indexed_dynamic_name_block: ByteChunk = byte_chunk_from_hex("7e062f616761696e")?
-	let literal_indexed_dynamic_name: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_indexed_dynamic_name_block, dynamic_state, 73)
+	let literal_indexed_dynamic_name_block = byte_chunk_from_hex("7e062f616761696e")?
+	let literal_indexed_dynamic_name = decode_header_block(literal_indexed_dynamic_name_block, dynamic_state, 73)
 	print_transition("literal-indexed-dynamic-name-path-again", literal_indexed_dynamic_name)
-	let literal_indexed_dynamic_name_state: HpackFixtureState = require_decoded_header(literal_indexed_dynamic_name, ":path", "/again")?
-	let ignored_dynamic_indexed_dynamic_name: HpackFixtureState = print_required_header("dynamic-indexed-dynamic-name-path-again", decode_header_block(dynamic_indexed_block, literal_indexed_dynamic_name_state, 74), ":path", "/again")?
-	let ignored_dynamic_name_retained_older_path: HpackFixtureState = print_required_header("dynamic-name-retained-older-path", decode_header_block(evicted_indexed_block, literal_indexed_dynamic_name_state, 75), ":path", "/target")?
-	let ignored_dynamic_name_literal_cases: () = print_dynamic_name_literal_cases(dynamic_state, dynamic_indexed_block)?
-	let ignored_indexed_dynamic_name_missing: () = print_required_unsupported("literal-indexed-dynamic-name-missing", decode_header_block(literal_indexed_dynamic_name_block, initial, 76))?
-	let ignored_indexed_dynamic_name_malformed: () = print_required_unsupported("malformed-literal-indexed-dynamic-name", decode_header_block(byte_chunk_from_hex("7e00")?, dynamic_state, 77))?
-	let replacement_state: HpackFixtureState = next_state_or(dynamic_indexed_path, dynamic_state)
-	let literal_indexed_method_block: ByteChunk = byte_chunk_from_hex("4203505554")?
-	let literal_indexed_method: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_indexed_method_block, replacement_state, 70)
+	let literal_indexed_dynamic_name_state = require_decoded_header(literal_indexed_dynamic_name, ":path", "/again")?
+	let ignored_dynamic_indexed_dynamic_name = print_required_header("dynamic-indexed-dynamic-name-path-again", decode_header_block(dynamic_indexed_block, literal_indexed_dynamic_name_state, 74), ":path", "/again")?
+	let ignored_dynamic_name_retained_older_path = print_required_header("dynamic-name-retained-older-path", decode_header_block(evicted_indexed_block, literal_indexed_dynamic_name_state, 75), ":path", "/target")?
+	let ignored_dynamic_name_literal_cases = print_dynamic_name_literal_cases(dynamic_state, dynamic_indexed_block)?
+	let ignored_indexed_dynamic_name_missing = print_required_unsupported("literal-indexed-dynamic-name-missing", decode_header_block(literal_indexed_dynamic_name_block, initial, 76))?
+	let ignored_indexed_dynamic_name_malformed = print_required_unsupported("malformed-literal-indexed-dynamic-name", decode_header_block(byte_chunk_from_hex("7e00")?, dynamic_state, 77))?
+	let replacement_state = next_state_or(dynamic_indexed_path, dynamic_state)
+	let literal_indexed_method_block = byte_chunk_from_hex("4203505554")?
+	let literal_indexed_method = decode_header_block(literal_indexed_method_block, replacement_state, 70)
 	print_transition("literal-indexed-method-put", literal_indexed_method)
-	let replaced_state: HpackFixtureState = next_state_or(literal_indexed_method, replacement_state)
-	let dynamic_indexed_method: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(dynamic_indexed_block, replaced_state, 75)
+	let replaced_state = next_state_or(literal_indexed_method, replacement_state)
+	let dynamic_indexed_method = decode_header_block(dynamic_indexed_block, replaced_state, 75)
 	print_transition("dynamic-indexed-method-put", dynamic_indexed_method)
 	print_transition("dynamic-indexed-older-path", decode_header_block(evicted_indexed_block, next_state_or(dynamic_indexed_method, replaced_state), 76))
-	let literal_indexed_scheme_block: ByteChunk = byte_chunk_from_hex("46849d29ad1f")?
-	let literal_indexed_scheme: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_indexed_scheme_block, replaced_state, 85)
+	let literal_indexed_scheme_block = byte_chunk_from_hex("46849d29ad1f")?
+	let literal_indexed_scheme = decode_header_block(literal_indexed_scheme_block, replaced_state, 85)
 	print_transition("literal-indexed-scheme-https-retained", literal_indexed_scheme)
-	let three_entry_state: HpackFixtureState = require_decoded_header(literal_indexed_scheme, ":scheme", "https")?
-	let ignored_dynamic_three_newest_scheme: HpackFixtureState = print_required_header("dynamic-three-newest-scheme", decode_header_block(dynamic_indexed_block, three_entry_state, 86), ":scheme", "https")?
-	let ignored_dynamic_three_second_method: HpackFixtureState = print_required_header("dynamic-three-second-method", decode_header_block(evicted_indexed_block, three_entry_state, 87), ":method", "PUT")?
-	let ignored_dynamic_three_third_path: HpackFixtureState = print_required_header("dynamic-three-third-path", decode_header_block(third_indexed_block, three_entry_state, 88), ":path", "/target")?
-	let literal_indexed_dynamic_name_second_block: ByteChunk = byte_chunk_from_hex("7f00055041544348")?
-	let literal_indexed_dynamic_name_second: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_indexed_dynamic_name_second_block, three_entry_state, 93)
+	let three_entry_state = require_decoded_header(literal_indexed_scheme, ":scheme", "https")?
+	let ignored_dynamic_three_newest_scheme = print_required_header("dynamic-three-newest-scheme", decode_header_block(dynamic_indexed_block, three_entry_state, 86), ":scheme", "https")?
+	let ignored_dynamic_three_second_method = print_required_header("dynamic-three-second-method", decode_header_block(evicted_indexed_block, three_entry_state, 87), ":method", "PUT")?
+	let ignored_dynamic_three_third_path = print_required_header("dynamic-three-third-path", decode_header_block(third_indexed_block, three_entry_state, 88), ":path", "/target")?
+	let literal_indexed_dynamic_name_second_block = byte_chunk_from_hex("7f00055041544348")?
+	let literal_indexed_dynamic_name_second = decode_header_block(literal_indexed_dynamic_name_second_block, three_entry_state, 93)
 	print_transition("literal-indexed-dynamic-name-second-method", literal_indexed_dynamic_name_second)
-	let literal_indexed_dynamic_name_second_state: HpackFixtureState = require_decoded_header(literal_indexed_dynamic_name_second, ":method", "PATCH")?
-	let ignored_dynamic_name_second_newest: HpackFixtureState = print_required_header("dynamic-name-continuation-newest-method", decode_header_block(dynamic_indexed_block, literal_indexed_dynamic_name_second_state, 94), ":method", "PATCH")?
-	let literal_indexed_dynamic_name_third_block: ByteChunk = byte_chunk_from_hex("7f01062f7468697264")?
-	let literal_indexed_dynamic_name_third: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_indexed_dynamic_name_third_block, three_entry_state, 95)
+	let literal_indexed_dynamic_name_second_state = require_decoded_header(literal_indexed_dynamic_name_second, ":method", "PATCH")?
+	let ignored_dynamic_name_second_newest = print_required_header("dynamic-name-continuation-newest-method", decode_header_block(dynamic_indexed_block, literal_indexed_dynamic_name_second_state, 94), ":method", "PATCH")?
+	let literal_indexed_dynamic_name_third_block = byte_chunk_from_hex("7f01062f7468697264")?
+	let literal_indexed_dynamic_name_third = decode_header_block(literal_indexed_dynamic_name_third_block, three_entry_state, 95)
 	print_transition("literal-indexed-dynamic-name-third-path", literal_indexed_dynamic_name_third)
-	let literal_indexed_dynamic_name_third_state: HpackFixtureState = require_decoded_header(literal_indexed_dynamic_name_third, ":path", "/third")?
-	let ignored_dynamic_name_third_newest: HpackFixtureState = print_required_header("dynamic-name-continuation-newest-path", decode_header_block(dynamic_indexed_block, literal_indexed_dynamic_name_third_state, 96), ":path", "/third")?
-	let ignored_dynamic_name_continuation_missing: () = print_required_unsupported_with_id("literal-indexed-dynamic-name-continuation-missing", decode_header_block(literal_indexed_dynamic_name_second_block, initial, 97))?
-	let ignored_dynamic_name_continuation_out_of_range: () = print_required_unsupported_with_id("literal-indexed-dynamic-name-continuation-out-of-range", decode_header_block(byte_chunk_from_hex("7f02055041544348")?, three_entry_state, 98))?
-	let ignored_dynamic_name_continuation_malformed: () = print_required_unsupported_with_id("malformed-literal-indexed-dynamic-name-continuation", decode_header_block(byte_chunk_from_hex("7f80")?, three_entry_state, 99))?
-	let ignored_dynamic_name_wide_continuation_cases: () = print_dynamic_name_wide_continuation_cases()?
-	let three_entry_reduction: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(byte_chunk_from_hex("3f37")?, three_entry_state, 89)
+	let literal_indexed_dynamic_name_third_state = require_decoded_header(literal_indexed_dynamic_name_third, ":path", "/third")?
+	let ignored_dynamic_name_third_newest = print_required_header("dynamic-name-continuation-newest-path", decode_header_block(dynamic_indexed_block, literal_indexed_dynamic_name_third_state, 96), ":path", "/third")?
+	let ignored_dynamic_name_continuation_missing = print_required_unsupported_with_id("literal-indexed-dynamic-name-continuation-missing", decode_header_block(literal_indexed_dynamic_name_second_block, initial, 97))?
+	let ignored_dynamic_name_continuation_out_of_range = print_required_unsupported_with_id("literal-indexed-dynamic-name-continuation-out-of-range", decode_header_block(byte_chunk_from_hex("7f02055041544348")?, three_entry_state, 98))?
+	let ignored_dynamic_name_continuation_malformed = print_required_unsupported_with_id("malformed-literal-indexed-dynamic-name-continuation", decode_header_block(byte_chunk_from_hex("7f80")?, three_entry_state, 99))?
+	let ignored_dynamic_name_wide_continuation_cases = print_dynamic_name_wide_continuation_cases()?
+	let three_entry_reduction = decode_header_block(byte_chunk_from_hex("3f37")?, three_entry_state, 89)
 	print_transition("dynamic-three-table-size-eviction", three_entry_reduction)
-	let three_entry_reduced_state: HpackFixtureState = require_decoded_header(three_entry_reduction, ":fixture", "table-size-update")?
+	let three_entry_reduced_state = require_decoded_header(three_entry_reduction, ":fixture", "table-size-update")?
 	print_state("dynamic-three-table-size-eviction", three_entry_reduced_state)
 	print_transition("dynamic-three-newest-after-eviction", decode_header_block(dynamic_indexed_block, three_entry_reduced_state, 90))
 	print_transition("dynamic-three-second-after-eviction", decode_header_block(evicted_indexed_block, three_entry_reduced_state, 91))
 	print_transition("dynamic-three-third-after-eviction", decode_header_block(third_indexed_block, three_entry_reduced_state, 92))
-	let insertion_eviction: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_indexed_path_block, three_entry_reduced_state, 117)
+	let insertion_eviction = decode_header_block(literal_indexed_path_block, three_entry_reduced_state, 117)
 	print_transition("dynamic-insertion-evicts-older-path", insertion_eviction)
-	let insertion_eviction_state: HpackFixtureState = require_decoded_header(insertion_eviction, ":path", "/target")?
+	let insertion_eviction_state = require_decoded_header(insertion_eviction, ":path", "/target")?
 	print_transition("dynamic-insertion-eviction-newest-path", decode_header_block(dynamic_indexed_block, insertion_eviction_state, 118))
-	let insertion_evicted_second: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(evicted_indexed_block, insertion_eviction_state, 119)
+	let insertion_evicted_second = decode_header_block(evicted_indexed_block, insertion_eviction_state, 119)
 	print_transition("dynamic-insertion-eviction-second-missing", insertion_evicted_second)
-	let ignored_insertion_evicted_second: () = require_unsupported(insertion_evicted_second)?
-	let reduced_table_size: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(byte_chunk_from_hex("3e")?, replaced_state, 77)
+	let ignored_insertion_evicted_second = require_unsupported(insertion_evicted_second)?
+	let reduced_table_size = decode_header_block(byte_chunk_from_hex("3e")?, replaced_state, 77)
 	print_transition("dynamic-table-size-eviction", reduced_table_size)
-	let reduced_state: HpackFixtureState = next_state_or(reduced_table_size, replaced_state)
+	let reduced_state = next_state_or(reduced_table_size, replaced_state)
 	print_state("dynamic-table-size-eviction", reduced_state)
 	print_transition("dynamic-indexed-after-size-eviction", decode_header_block(dynamic_indexed_block, reduced_state, 78))
-	let partially_reduced_table_size: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(byte_chunk_from_hex("3f0b")?, replaced_state, 79)
+	let partially_reduced_table_size = decode_header_block(byte_chunk_from_hex("3f0b")?, replaced_state, 79)
 	print_transition("dynamic-table-size-partial-eviction", partially_reduced_table_size)
-	let retained_state: HpackFixtureState = require_decoded_header(partially_reduced_table_size, ":fixture", "table-size-update")?
+	let retained_state = require_decoded_header(partially_reduced_table_size, ":fixture", "table-size-update")?
 	print_state("dynamic-table-size-partial-eviction", retained_state)
-	let retained_newest: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(dynamic_indexed_block, retained_state, 80)
+	let retained_newest = decode_header_block(dynamic_indexed_block, retained_state, 80)
 	print_transition("dynamic-indexed-after-partial-eviction", retained_newest)
-	let retained_newest_state: HpackFixtureState = require_decoded_header(retained_newest, ":method", "PUT")?
-	let evicted_older: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(evicted_indexed_block, retained_newest_state, 81)
+	let retained_newest_state = require_decoded_header(retained_newest, ":method", "PUT")?
+	let evicted_older = decode_header_block(evicted_indexed_block, retained_newest_state, 81)
 	print_transition("dynamic-older-after-partial-eviction", evicted_older)
 	print_transition("dynamic-indexed-missing", decode_header_block(dynamic_indexed_block, initial, 70))
-	let literal_indexed_authority_block: ByteChunk = byte_chunk_from_hex("41086162632e74657374")?
-	let literal_indexed_authority: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_indexed_authority_block, initial, 82)
+	let literal_indexed_authority_block = byte_chunk_from_hex("41086162632e74657374")?
+	let literal_indexed_authority = decode_header_block(literal_indexed_authority_block, initial, 82)
 	print_transition("dynamic-entry-size-authority", literal_indexed_authority)
-	let authority_entry_state: HpackFixtureState = require_decoded_header(literal_indexed_authority, ":authority", "abc.test")?
-	let authority_reduced_table_size: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(byte_chunk_from_hex("3f0b")?, authority_entry_state, 83)
+	let authority_entry_state = require_decoded_header(literal_indexed_authority, ":authority", "abc.test")?
+	let authority_reduced_table_size = decode_header_block(byte_chunk_from_hex("3f0b")?, authority_entry_state, 83)
 	print_transition("dynamic-entry-size-authority-eviction", authority_reduced_table_size)
-	let authority_reduced_state: HpackFixtureState = require_decoded_header(authority_reduced_table_size, ":fixture", "table-size-update")?
+	let authority_reduced_state = require_decoded_header(authority_reduced_table_size, ":fixture", "table-size-update")?
 	print_state("dynamic-entry-size-authority-eviction", authority_reduced_state)
-	let authority_after_eviction: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(dynamic_indexed_block, authority_reduced_state, 84)
+	let authority_after_eviction = decode_header_block(dynamic_indexed_block, authority_reduced_state, 84)
 	print_transition("dynamic-authority-after-size-eviction", authority_after_eviction)
-	let ignored_authority_after_eviction: () = require_unsupported(authority_after_eviction)?
-	let table_size_update_block: ByteChunk = byte_chunk_from_hex("3e")?
-	let table_size_update: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(table_size_update_block, dynamic_state, 72)
+	let ignored_authority_after_eviction = require_unsupported(authority_after_eviction)?
+	let table_size_update_block = byte_chunk_from_hex("3e")?
+	let table_size_update = decode_header_block(table_size_update_block, dynamic_state, 72)
 	print_transition("table-size-update", table_size_update)
 	print_state("table-size-update", next_state_or(table_size_update, dynamic_state))
-	let table_size_update_31_block: ByteChunk = byte_chunk_from_hex("3f")?
-	let table_size_update_31: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(table_size_update_31_block, dynamic_state, 73)
+	let table_size_update_31_block = byte_chunk_from_hex("3f")?
+	let table_size_update_31 = decode_header_block(table_size_update_31_block, dynamic_state, 73)
 	print_transition("table-size-update-31", table_size_update_31)
 	print_state("table-size-update-31", next_state_or(table_size_update_31, dynamic_state))
-	let table_size_update_32_block: ByteChunk = byte_chunk_from_hex("3f01")?
-	let table_size_update_32: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(table_size_update_32_block, dynamic_state, 74)
+	let table_size_update_32_block = byte_chunk_from_hex("3f01")?
+	let table_size_update_32 = decode_header_block(table_size_update_32_block, dynamic_state, 74)
 	print_transition("table-size-update-32", table_size_update_32)
 	print_state("table-size-update-32", next_state_or(table_size_update_32, dynamic_state))
-	let table_size_update_160_block: ByteChunk = byte_chunk_from_hex("3f8101")?
-	let table_size_update_160: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(table_size_update_160_block, dynamic_state, 75)
+	let table_size_update_160_block = byte_chunk_from_hex("3f8101")?
+	let table_size_update_160 = decode_header_block(table_size_update_160_block, dynamic_state, 75)
 	print_transition("table-size-update-160", table_size_update_160)
 	print_state("table-size-update-160", next_state_or(table_size_update_160, dynamic_state))
-	let table_size_update_general_block: ByteChunk = byte_chunk_from_hex("3f8001")?
-	let table_size_update_general: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(table_size_update_general_block, dynamic_state, 76)
+	let table_size_update_general_block = byte_chunk_from_hex("3f8001")?
+	let table_size_update_general = decode_header_block(table_size_update_general_block, dynamic_state, 76)
 	print_transition("table-size-update-general", table_size_update_general)
 	print_state("table-size-update-general", next_state_or(table_size_update_general, dynamic_state))
-	let table_size_update_general_wide_block: ByteChunk = byte_chunk_from_hex("3f8202")?
-	let table_size_update_general_wide: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(table_size_update_general_wide_block, dynamic_state, 79)
+	let table_size_update_general_wide_block = byte_chunk_from_hex("3f8202")?
+	let table_size_update_general_wide = decode_header_block(table_size_update_general_wide_block, dynamic_state, 79)
 	print_transition("table-size-update-general-wide", table_size_update_general_wide)
 	print_state("table-size-update-general-wide", next_state_or(table_size_update_general_wide, dynamic_state))
-	let ignored_multiple_table_size_updates: () = require_multiple_table_size_updates(dynamic_state)?
-	let malformed_table_size_update_block: ByteChunk = byte_chunk_from_hex("3f80")?
-	let ignored_malformed_table_size_update: () = print_required_unsupported_with_id("table-size-update-malformed", decode_header_block(malformed_table_size_update_block, dynamic_state, 77))?
-	let trailing_table_size_update_block: ByteChunk = byte_chunk_from_hex("3f0200")?
-	let ignored_trailing_table_size_update: () = print_required_failure_id("table-size-update-trailing-bytes", decode_header_block(trailing_table_size_update_block, dynamic_state, 80), "hpack.fixture.table_size_update_trailing_bytes")?
-	let malformed_literal_block: ByteChunk = byte_chunk_from_hex("0400")?
+	let ignored_multiple_table_size_updates = require_multiple_table_size_updates(dynamic_state)?
+	let malformed_table_size_update_block = byte_chunk_from_hex("3f80")?
+	let ignored_malformed_table_size_update = print_required_unsupported_with_id("table-size-update-malformed", decode_header_block(malformed_table_size_update_block, dynamic_state, 77))?
+	let trailing_table_size_update_block = byte_chunk_from_hex("3f0200")?
+	let ignored_trailing_table_size_update = print_required_failure_id("table-size-update-trailing-bytes", decode_header_block(trailing_table_size_update_block, dynamic_state, 80), "hpack.fixture.table_size_update_trailing_bytes")?
+	let malformed_literal_block = byte_chunk_from_hex("0400")?
 	print_transition("malformed-literal", decode_header_block(malformed_literal_block, literal_state, 71))
-	let malformed_literal_huffman_block: ByteChunk = byte_chunk_from_hex("048100")?
+	let malformed_literal_huffman_block = byte_chunk_from_hex("048100")?
 	print_transition("malformed-literal-huffman", decode_header_block(malformed_literal_huffman_block, literal_state, 72))
-	let malformed_authority_block: ByteChunk = byte_chunk_from_hex("0100")?
+	let malformed_authority_block = byte_chunk_from_hex("0100")?
 	print_transition("malformed-authority", decode_header_block(malformed_authority_block, literal_state, 74))
-	let malformed_status_block: ByteChunk = byte_chunk_from_hex("08033230")?
+	let malformed_status_block = byte_chunk_from_hex("08033230")?
 	print_transition("malformed-status", decode_header_block(malformed_status_block, literal_state, 75))
-	let bad_block: ByteChunk = byte_chunk_from_hex("7f")?
+	let bad_block = byte_chunk_from_hex("7f")?
 	print_transition("bad", decode_header_block(bad_block, initial, 27))
-	let literal_scheme_huffman_block: ByteChunk = byte_chunk_from_hex("06849d29ad1f")?
+	let literal_scheme_huffman_block = byte_chunk_from_hex("06849d29ad1f")?
 	print_transition("literal-scheme-https-huffman", decode_header_block(literal_scheme_huffman_block, initial, 81))
-	let malformed_scheme_huffman_block: ByteChunk = byte_chunk_from_hex("06819d")?
+	let malformed_scheme_huffman_block = byte_chunk_from_hex("06819d")?
 	print_transition("malformed-scheme-huffman-padding", decode_header_block(malformed_scheme_huffman_block, initial, 82))
 	Ok(())
 end

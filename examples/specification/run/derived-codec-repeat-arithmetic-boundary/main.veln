@@ -226,26 +226,26 @@ fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let add_bytes: ByteChunk = byte_chunk_from_hex("0203000100020003000400ff")?
-	let add_view: ByteView = byte_view(add_bytes, byte_offset(0)?, byte_count(12)?)?
-	let add_decoded: DecodeStep<{left_count: Int, right_count: Int, items: List<Int>}> = decode AddRepeatValues from add_view at byte_offset(11)?
+	let add_bytes = byte_chunk_from_hex("0203000100020003000400ff")?
+	let add_view = byte_view(add_bytes, byte_offset(0)?, byte_count(12)?)?
+	let add_decoded = decode AddRepeatValues from add_view at byte_offset(11)?
 	stdio::println("add")
 	stdio::println(add_decode_kind(add_decoded))
 	stdio::println(int_to_string(add_decoded_item_count(add_decoded)))
 	stdio::println(int_to_string(add_decoded_item_sum(add_decoded)))
 	stdio::println(int_to_string(add_consumed_count(add_decoded)))
 
-	let short_bytes: ByteChunk = byte_chunk_from_hex("02")?
-	let short_view: ByteView = byte_view(short_bytes, byte_offset(0)?, byte_count(1)?)?
-	let add_waiting: DecodeStep<{left_count: Int, right_count: Int, items: List<Int>}> = decode AddRepeatValues from short_view at byte_offset(17)?
+	let short_bytes = byte_chunk_from_hex("02")?
+	let short_view = byte_view(short_bytes, byte_offset(0)?, byte_count(1)?)?
+	let add_waiting = decode AddRepeatValues from short_view at byte_offset(17)?
 	stdio::println(add_decode_kind(add_waiting))
 	stdio::println(add_readiness_kind(add_waiting))
 	stdio::println(int_to_string(add_readiness_count(add_waiting)))
 	stdio::println(int_to_string(add_consumed_count(add_waiting)))
 
-	let subtract_invalid_bytes: ByteChunk = byte_chunk_from_hex("0102")?
-	let subtract_invalid_view: ByteView = byte_view(subtract_invalid_bytes, byte_offset(0)?, byte_count(2)?)?
-	let subtract_invalid: DecodeStep<{left_count: Int, right_count: Int, items: List<Int>}> = decode SubtractRepeatValues from subtract_invalid_view at byte_offset(19)?
+	let subtract_invalid_bytes = byte_chunk_from_hex("0102")?
+	let subtract_invalid_view = byte_view(subtract_invalid_bytes, byte_offset(0)?, byte_count(2)?)?
+	let subtract_invalid = decode SubtractRepeatValues from subtract_invalid_view at byte_offset(19)?
 	stdio::println("subtract")
 	stdio::println(add_decode_kind(subtract_invalid))
 	stdio::println(add_decode_error_id(subtract_invalid))
@@ -253,28 +253,28 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(add_decode_error_path(subtract_invalid))
 	stdio::println(int_to_string(add_consumed_count(subtract_invalid)))
 
-	let product_bytes: ByteChunk = byte_chunk_from_hex("02030001000200030004000500ff")?
-	let product_view: ByteView = byte_view(product_bytes, byte_offset(0)?, byte_count(14)?)?
-	let product_decoded: DecodeStep<{row_count: Int, column_count: Int, items: List<Int>}> = decode ProductRepeatValues from product_view at byte_offset(23)?
+	let product_bytes = byte_chunk_from_hex("02030001000200030004000500ff")?
+	let product_view = byte_view(product_bytes, byte_offset(0)?, byte_count(14)?)?
+	let product_decoded = decode ProductRepeatValues from product_view at byte_offset(23)?
 	stdio::println("product")
 	stdio::println(product_decode_kind(product_decoded))
 	stdio::println(int_to_string(product_decoded_item_count(product_decoded)))
 	stdio::println(int_to_string(product_decoded_item_sum(product_decoded)))
 	stdio::println(int_to_string(product_consumed_count(product_decoded)))
 
-	let add_encoded: EncodeStep<()> = encode_result_step(encode AddRepeatValues from {left_count: 2, right_count: 3, items: five_items()})
+	let add_encoded = encode_result_step(encode AddRepeatValues from {left_count: 2, right_count: 3, items: five_items()})
 	stdio::println(encode_step_kind(add_encoded))
 	emit_one_chunk("repeat-add", add_encoded, "0203000100020003000400ff")
 
-	let subtract_encoded: EncodeStep<()> = encode_result_step(encode SubtractRepeatValues from {left_count: 5, right_count: 2, items: list_cons(1, list_cons(2, list_cons(255, list_nil())))})
+	let subtract_encoded = encode_result_step(encode SubtractRepeatValues from {left_count: 5, right_count: 2, items: list_cons(1, list_cons(2, list_cons(255, list_nil())))})
 	stdio::println(encode_step_kind(subtract_encoded))
 	emit_one_chunk("repeat-subtract", subtract_encoded, "05020001000200ff")
 
-	let product_encoded: EncodeStep<()> = encode_result_step(encode ProductRepeatValues from {row_count: 2, column_count: 3, items: six_items()})
+	let product_encoded = encode_result_step(encode ProductRepeatValues from {row_count: 2, column_count: 3, items: six_items()})
 	stdio::println(encode_step_kind(product_encoded))
 	emit_one_chunk("repeat-product", product_encoded, "02030001000200030004000500ff")
 
-	let invalid_encode: EncodeStep<()> = encode_result_step(encode ProductRepeatValues from {row_count: 2, column_count: 3, items: five_items()})
+	let invalid_encode = encode_result_step(encode ProductRepeatValues from {row_count: 2, column_count: 3, items: five_items()})
 	stdio::println(encode_step_kind(invalid_encode))
 	stdio::println(encode_error_id(invalid_encode))
 	stdio::println(encode_error_path(invalid_encode))

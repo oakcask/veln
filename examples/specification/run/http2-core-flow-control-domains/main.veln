@@ -75,9 +75,9 @@ fn reject_increment(label: String, value: Int) -> Result<(), String> effects [st
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let connection: CoreConnectionWindowCredit = require_connection(10)?
-	let stream: CoreStreamWindowCredit = require_stream(0 - 5)?
-	let increment: CoreWindowUpdateIncrement = require_increment(8)?
+	let connection = require_connection(10)?
+	let stream = require_stream(0 - 5)?
+	let increment = require_increment(8)?
 	stdio::print("bounds max ")
 	stdio::print(int_to_string(http2::core::max_flow_control_value()))
 	stdio::print(" min_stream ")

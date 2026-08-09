@@ -16,7 +16,7 @@ pub fn hpack_header_list(first: HpackHeader, second: HpackHeader, wire_size: Int
 end
 
 fn hpack_fixture_byte_at(block: ByteChunk, index: Int) -> Result<Int, String>
-	let view: ByteView = byte_view(block, byte_offset(index)?, byte_count(1)?)?
+	let view = byte_view(block, byte_offset(index)?, byte_count(1)?)?
 	byte_read_u8_be(view)
 end
 
@@ -42,7 +42,7 @@ fn hpack_static_huffman_pow2(value: Int) -> Int
 end
 
 fn hpack_static_huffman_byte_bit(byte: Int, bit_index: Int) -> Int
-	let divisor: Int = hpack_static_huffman_pow2(7 - bit_index)
+	let divisor = hpack_static_huffman_pow2(7 - bit_index)
 	byte / divisor - (byte / (divisor * 2)) * 2
 end
 
@@ -679,10 +679,10 @@ fn hpack_static_huffman_done(decoded: ByteChunk, code: Int, length: Int) -> Opti
 end
 
 fn hpack_static_huffman_decode_bit(encoded: ByteChunk, bit_index: Int, total_bits: Int, decoded: ByteChunk, code: Int, length: Int) -> Option<String>
-	let source_byte: Int = hpack_fixture_byte_at_or_missing(encoded, bit_index / 8)
-	let bit: Int = hpack_static_huffman_byte_bit(source_byte, bit_index - (bit_index / 8) * 8)
-	let next_code: Int = code * 2 + bit
-	let next_length: Int = length + 1
+	let source_byte = hpack_fixture_byte_at_or_missing(encoded, bit_index / 8)
+	let bit = hpack_static_huffman_byte_bit(source_byte, bit_index - (bit_index / 8) * 8)
+	let next_code = code * 2 + bit
+	let next_length = length + 1
 	match hpack_static_huffman_symbol(next_code, next_length)
 		Some(symbol) => match hpack_static_huffman_append_symbol(decoded, symbol)
 			Some(next_decoded) => hpack_static_huffman_decode_bits(encoded, bit_index + 1, total_bits, next_decoded, 0, 0)

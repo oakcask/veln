@@ -40,12 +40,12 @@ fn emit_result(encoded: Result<ByteChunk, EncodeError>) -> () effects [stdio]
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("03abcdabcdabcd2a")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(8)?)?
-	let decoded: {count: Int, kind: Int} = byte_decode_repeat_reserve_payload(view)?
+	let bytes = byte_chunk_from_hex("03abcdabcdabcd2a")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(8)?)?
+	let decoded = byte_decode_repeat_reserve_payload(view)?
 	stdio::println(int_to_string(decoded.count))
 	stdio::println(int_to_string(decoded.kind))
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_repeat_reserve_payload({count: 3, kind: 42})
+	let encoded = byte_encode_repeat_reserve_payload({count: 3, kind: 42})
 	emit_result(encoded)
 	Ok(())
 end

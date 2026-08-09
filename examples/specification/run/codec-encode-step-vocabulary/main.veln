@@ -84,15 +84,15 @@ fn error_reason(step: EncodeStep<String>) -> String
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let first: ByteChunk = byte_chunk_from_hex("0102")?
-	let second: ByteChunk = byte_chunk_from_hex("ff")?
-	let complete_chunks: List<ByteChunk> = list_cons(first, list_cons(second, list_nil()))
-	let encoded: EncodeStep<String> = complete_encoder(complete_chunks)
-	let limited_chunk: ByteChunk = byte_chunk_from_hex("aa55")?
-	let limited_chunks: List<ByteChunk> = list_cons(limited_chunk, list_nil())
-	let produced: ByteCount = byte_count(2)?
-	let partial: EncodeStep<String> = limited_encoder(limited_chunks, produced)
-	let invalid: EncodeStep<String> = invalid_encoder()
+	let first = byte_chunk_from_hex("0102")?
+	let second = byte_chunk_from_hex("ff")?
+	let complete_chunks = list_cons(first, list_cons(second, list_nil()))
+	let encoded = complete_encoder(complete_chunks)
+	let limited_chunk = byte_chunk_from_hex("aa55")?
+	let limited_chunks = list_cons(limited_chunk, list_nil())
+	let produced = byte_count(2)?
+	let partial = limited_encoder(limited_chunks, produced)
+	let invalid = invalid_encoder()
 	stdio::println(step_kind(encoded))
 	stdio::println(int_to_string(emitted_chunks(encoded)))
 	stdio::println(int_to_string(emitted_bytes(encoded)))

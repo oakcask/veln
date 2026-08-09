@@ -16,7 +16,7 @@ fn chunks_equal_at(left: ByteChunk, right: ByteChunk, index: Int, count: Int) ->
 end
 
 fn chunks_equal(left: ByteChunk, right: ByteChunk) -> Result<Bool, String>
-	let count: Int = byte_count_to_int(byte_chunk_count(left))
+	let count = byte_count_to_int(byte_chunk_count(left))
 	if count == byte_count_to_int(byte_chunk_count(right))
 		chunks_equal_at(left, right, 0, count)
 	else
@@ -37,7 +37,7 @@ fn preview() -> Result<ByteView, String>
 end
 
 fn print_state(label: String, state: SettingsAckState) -> () effects [stdio]
-	let outstanding: OutstandingLocalSettings = http2::core::settings_ack_outstanding(state)
+	let outstanding = http2::core::settings_ack_outstanding(state)
 	stdio::print(label)
 	stdio::print(" outstanding ")
 	stdio::print(http2::core::outstanding_settings_label(outstanding))
@@ -110,30 +110,30 @@ fn require_ack_state(result: Result<SettingsAckState, SettingsAckFailure>) -> Re
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let empty: SettingsAckState = http2::core::empty_settings_ack_state()
+	let empty = http2::core::empty_settings_ack_state()
 	print_state("empty", empty)
 
-	let first: SettingsAckState = http2::core::record_local_settings_batch(empty, 5, 1)
-	let second: SettingsAckState = http2::core::record_local_settings_batch(first, 4, 2)
+	let first = http2::core::record_local_settings_batch(empty, 5, 1)
+	let second = http2::core::record_local_settings_batch(first, 4, 2)
 	print_state("fifo-before", second)
-	let acked_first: SettingsAckState = require_ack_state(http2::core::accept_settings_ack(second, 17, preview()?))?
+	let acked_first = require_ack_state(http2::core::accept_settings_ack(second, 17, preview()?))?
 	print_state("fifo-after-one", acked_first)
-	let acked_second: SettingsAckState = require_ack_state(http2::core::accept_settings_ack(acked_first, 26, preview()?))?
+	let acked_second = require_ack_state(http2::core::accept_settings_ack(acked_first, 26, preview()?))?
 	print_state("fifo-after-two", acked_second)
 
 	let _ = print_failure("unexpected", http2::core::accept_settings_ack(empty, 41, preview()?))?
 
-	let pending: SettingsAckState = http2::core::settings_ack_after_peer_frame(first, 4, 0, 6)
+	let pending = http2::core::settings_ack_after_peer_frame(first, 4, 0, 6)
 	print_state("independent-before", pending)
-	let local_ack: SettingsAckState = require_ack_state(http2::core::accept_settings_ack(pending, 50, preview()?))?
+	let local_ack = require_ack_state(http2::core::accept_settings_ack(pending, 50, preview()?))?
 	print_state("independent-after-local", local_ack)
-	let sent: PeerSettingsAckSendDecision = http2::core::send_pending_settings_ack(local_ack)
+	let sent = http2::core::send_pending_settings_ack(local_ack)
 	let _ = print_send("peer-ack-send", sent)?
 	print_state("independent-after-send", http2::core::pending_settings_ack_send_state(sent))
 
-	let no_pending: PeerSettingsAckSendDecision = http2::core::send_pending_settings_ack(empty)
+	let no_pending = http2::core::send_pending_settings_ack(empty)
 	let _ = print_send("peer-ack-none", no_pending)?
-	let coalesced: SettingsAckState = http2::core::settings_ack_after_peer_frame(http2::core::settings_ack_after_peer_frame(empty, 4, 0, 6), 4, 0, 12)
+	let coalesced = http2::core::settings_ack_after_peer_frame(http2::core::settings_ack_after_peer_frame(empty, 4, 0, 6), 4, 0, 12)
 	print_state("coalesced", coalesced)
 	Ok(())
 end

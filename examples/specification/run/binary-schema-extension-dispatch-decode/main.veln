@@ -27,31 +27,31 @@ fn emit_unknown_marker() -> Result<(), String> effects [stdio]
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("0303563412")?
-	let offset: ByteOffset = byte_offset(0)?
-	let count: ByteCount = byte_count(5)?
-	let view: ByteView = byte_view(bytes, offset, count)?
-	let packet: {length: Int, kind: Int, payload: SchemaDispatchPayload<Int>} = byte_decode_extension_dispatch_packet(view)?
+	let bytes = byte_chunk_from_hex("0303563412")?
+	let offset = byte_offset(0)?
+	let count = byte_count(5)?
+	let view = byte_view(bytes, offset, count)?
+	let packet = byte_decode_extension_dispatch_packet(view)?
 	stdio::print(int_to_string(packet.length))
 	stdio::print(" ")
 	stdio::print(int_to_string(packet.kind))
 	stdio::print(" ")
 	emit_payload(packet.payload)
 
-	let wide_bytes: ByteChunk = byte_chunk_from_hex("0404efbeadde")?
-	let wide_count: ByteCount = byte_count(6)?
-	let wide_view: ByteView = byte_view(wide_bytes, offset, wide_count)?
-	let wide_packet: {length: Int, kind: Int, payload: SchemaDispatchPayload<Int>} = byte_decode_extension_dispatch_packet(wide_view)?
+	let wide_bytes = byte_chunk_from_hex("0404efbeadde")?
+	let wide_count = byte_count(6)?
+	let wide_view = byte_view(wide_bytes, offset, wide_count)?
+	let wide_packet = byte_decode_extension_dispatch_packet(wide_view)?
 	stdio::print(int_to_string(wide_packet.length))
 	stdio::print(" ")
 	stdio::print(int_to_string(wide_packet.kind))
 	stdio::print(" ")
 	emit_payload(wide_packet.payload)
 
-	let flag_bytes: ByteChunk = byte_chunk_from_hex("02050201")?
-	let flag_count: ByteCount = byte_count(4)?
-	let flag_view: ByteView = byte_view(flag_bytes, offset, flag_count)?
-	let flag_packet: {length: Int, kind: Int, payload: SchemaDispatchPayload<Int>} = byte_decode_extension_dispatch_packet(flag_view)?
+	let flag_bytes = byte_chunk_from_hex("02050201")?
+	let flag_count = byte_count(4)?
+	let flag_view = byte_view(flag_bytes, offset, flag_count)?
+	let flag_packet = byte_decode_extension_dispatch_packet(flag_view)?
 	stdio::print(int_to_string(flag_packet.length))
 	stdio::print(" ")
 	stdio::print(int_to_string(flag_packet.kind))

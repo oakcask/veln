@@ -13,8 +13,8 @@ fn route_socket_event(context: { event: SocketEvent, state: { request_count: Int
 end
 
 pub fn main() -> Result<(), String> effects [concurrency, stdio]
-	let payload: ByteChunk = byte_chunk_from_hex("0a0b0c")?
-	let marker: ByteChunk = byte_chunk_from_hex("ff")?
+	let payload = byte_chunk_from_hex("0a0b0c")?
+	let marker = byte_chunk_from_hex("ff")?
 	let context = { event: Request(11, payload), state: { request_count: 40, marker: marker }, route: { peer: "socket-a", shard: "blue" }, trace: { request_id: "req-7", retry: 2 } }
 	let worker = task::spawn_with<{ action_kind: String, stream_id: Int, byte_count: Int, next_state: { request_count: Int, marker: ByteChunk }, route: { peer: String, shard: String }, trace: { request_id: String, retry: Int } }, { event: SocketEvent, state: { request_count: Int, marker: ByteChunk }, route: { peer: String, shard: String }, trace: { request_id: String, retry: Int } }>(route_socket_event, context)
 	let result = match task::join(worker)

@@ -30,18 +30,18 @@ fn emit_header(name: String, header: {prefix: Int, control: Int, suffix: Int}) -
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let prefix_bytes: ByteChunk = byte_chunk_from_hex("12aaaaaaaa34")?
-	let prefix_offset: ByteOffset = byte_offset(0)?
-	let prefix_count: ByteCount = byte_count(6)?
-	let prefix_view: ByteView = byte_view(prefix_bytes, prefix_offset, prefix_count)?
-	let prefix_header: {prefix: Int, control: Int, suffix: Int} = byte_decode_packed_four_byte_prefix_header(prefix_view)?
+	let prefix_bytes = byte_chunk_from_hex("12aaaaaaaa34")?
+	let prefix_offset = byte_offset(0)?
+	let prefix_count = byte_count(6)?
+	let prefix_view = byte_view(prefix_bytes, prefix_offset, prefix_count)?
+	let prefix_header = byte_decode_packed_four_byte_prefix_header(prefix_view)?
 	emit_header("prefix", prefix_header)
 
-	let suffix_bytes: ByteChunk = byte_chunk_from_hex("12aaaaaaaa34")?
-	let suffix_offset: ByteOffset = byte_offset(0)?
-	let suffix_count: ByteCount = byte_count(6)?
-	let suffix_view: ByteView = byte_view(suffix_bytes, suffix_offset, suffix_count)?
-	let suffix_header: {prefix: Int, control: Int, suffix: Int} = byte_decode_packed_four_byte_suffix_header(suffix_view)?
+	let suffix_bytes = byte_chunk_from_hex("12aaaaaaaa34")?
+	let suffix_offset = byte_offset(0)?
+	let suffix_count = byte_count(6)?
+	let suffix_view = byte_view(suffix_bytes, suffix_offset, suffix_count)?
+	let suffix_header = byte_decode_packed_four_byte_suffix_header(suffix_view)?
 	emit_header("suffix", suffix_header)
 	Ok(())
 end

@@ -59,9 +59,9 @@ fn as_result(flag: Bool) -> Result<Int, String>
 end
 
 pub fn main(flag: Bool, fallback: Bool) -> Result<{ chosen : Int, record : { value : Int }, payload : Int }, String>
-	let chosen: Int = choose(flag, fallback)
-	let record: { value : Int } = as_record(flag)
-	let payload: Result<Int, String> = as_result(fallback)
+	let chosen = choose(flag, fallback)
+	let record = as_record(flag)
+	let payload = as_result(fallback)
 	match payload
 		Result::Ok(value) => Result::Ok({ chosen: chosen + as_argument(flag) + if_inside_match(flag, payload) + match_inside_if(fallback, payload), record: record, payload: value })
 		Result::Err(error) => Result::Err(error)

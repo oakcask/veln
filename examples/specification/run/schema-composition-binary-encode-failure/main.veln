@@ -48,7 +48,7 @@ fn emit_count(encoded: Result<ByteChunk, EncodeError>) -> () effects [stdio]
 end
 
 pub fn main() -> () effects [stdio]
-	let failed: Result<ByteChunk, EncodeError> = encode Parent from {prefix: 1, child: {kind: 2, value: 70000}, suffix: 3}
+	let failed = encode Parent from {prefix: 1, child: {kind: 2, value: 70000}, suffix: 3}
 	match failed
 		Ok(_) => stdio::println("unexpected partial encode success")
 		Err(error) => emit_error(error)

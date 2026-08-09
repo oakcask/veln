@@ -23,15 +23,15 @@ fn failure_kind(input: ByteChunk, table: DynamicTable, peer_maximum: Int) -> Res
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let table: DynamicTable = http2::hpack::empty_dynamic_table(256)?
-	let transition: HeaderBlockDecodeTransition = require_transition(byte_chunk_from_hex("824001780200ffbe04012f")?, table, 256)?
-	let headers: HeaderList = http2::hpack::header_block_headers(transition)
+	let table = http2::hpack::empty_dynamic_table(256)?
+	let transition = require_transition(byte_chunk_from_hex("824001780200ffbe04012f")?, table, 256)?
+	let headers = http2::hpack::header_block_headers(transition)
 	stdio::print("decoded ")
 	stdio::print(int_to_string(http2::hpack::header_list_count(headers)))
 	stdio::print(" ")
 	stdio::println(int_to_string(http2::hpack::header_block_consumed(transition)))
-	let header: HeaderField = require_header(headers, 1)?
-	let value: ByteChunk = http2::hpack::header_field_value(header)
+	let header = require_header(headers, 1)?
+	let value = http2::hpack::header_field_value(header)
 	stdio::print(http2::hpack::header_field_name(header))
 	stdio::print("=")
 	stdio::print(int_to_string(byte_read_u8_be(byte_view(value, byte_offset(0)?, byte_count(1)?)?)?))

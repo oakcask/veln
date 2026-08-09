@@ -30,15 +30,15 @@ fn print_table(label: String, table: DynamicTable) -> () effects [stdio]
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let empty: DynamicTable = http2::hpack::empty_dynamic_table(72)?
+	let empty = http2::hpack::empty_dynamic_table(72)?
 	print_table("initial", empty)
 
-	let older: DynamicTable = http2::hpack::insert_dynamic_table_entry(empty, "a", byte_chunk_from_hex("31")?)?
-	let inserted: DynamicTable = http2::hpack::insert_dynamic_table_entry(older, "bb", byte_chunk_from_hex("00ff")?)?
+	let older = http2::hpack::insert_dynamic_table_entry(empty, "a", byte_chunk_from_hex("31")?)?
+	let inserted = http2::hpack::insert_dynamic_table_entry(older, "bb", byte_chunk_from_hex("00ff")?)?
 	print_table("inserted", inserted)
 
-	let newest: DynamicEntry = required_entry(inserted, 1)?
-	let newest_value: ByteChunk = http2::hpack::dynamic_entry_value(newest)
+	let newest = required_entry(inserted, 1)?
+	let newest_value = http2::hpack::dynamic_entry_value(newest)
 	stdio::print("newest ")
 	stdio::print(http2::hpack::dynamic_entry_name(newest))
 	stdio::print(" ")
@@ -46,17 +46,17 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::print(" ")
 	stdio::println(int_to_string(byte_at(newest_value, 1)?))
 
-	let oldest: DynamicEntry = required_entry(inserted, 2)?
+	let oldest = required_entry(inserted, 2)?
 	stdio::print("oldest ")
 	stdio::print(http2::hpack::dynamic_entry_name(oldest))
 	stdio::print(" ")
 	stdio::println(int_to_string(byte_at(http2::hpack::dynamic_entry_value(oldest), 0)?))
 
-	let shrunk: DynamicTable = http2::hpack::dynamic_table_with_capacity(inserted, 36)?
+	let shrunk = http2::hpack::dynamic_table_with_capacity(inserted, 36)?
 	print_table("shrunk", shrunk)
 	print_table("original", inserted)
 
-	let grown: DynamicTable = http2::hpack::dynamic_table_with_capacity(shrunk, 96)?
+	let grown = http2::hpack::dynamic_table_with_capacity(shrunk, 96)?
 	print_table("grown", grown)
 
 	stdio::print("negative ")

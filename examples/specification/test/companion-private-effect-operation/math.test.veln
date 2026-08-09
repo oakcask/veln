@@ -9,6 +9,6 @@ handler ask(offset: Int) handles math::Ask
 end
 
 test companion_performs_private_target_effect() -> ()
-	let observed: Int = handle perform math::Ask::value() with ask(40)
+	let observed = handle perform math::Ask::value() with ask(40)
 	()
 end

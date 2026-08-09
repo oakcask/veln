@@ -42,11 +42,11 @@ fn apply_once(callback: fn(Int) -> Int, value: Int) -> Int
 end
 
 pub fn main() -> Int
-	let items: List<Int> = Cons(1, Cons(2, Nil))
-	let direct: Int = countdown(2)
-	let nested: Int = nested_countdown(2, true)
-	let checked: Int = checked_countdown(2)
-	let non_tail: Int = length(items)
-	let indirect: Int = apply_once(countdown, 2)
+	let items = Cons(1, Cons(2, Nil))
+	let direct = countdown(2)
+	let nested = nested_countdown(2, true)
+	let checked = checked_countdown(2)
+	let non_tail = length(items)
+	let indirect = apply_once(countdown, 2)
 	direct + nested + checked + non_tail + indirect
 end

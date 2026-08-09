@@ -41,11 +41,11 @@ fn emit_error(error: EncodeError) -> () effects [stdio]
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let payload_bytes: ByteChunk = byte_chunk_from_hex("aabbcc")?
-	let payload_view: ByteView = byte_view(payload_bytes, byte_offset(0)?, byte_count(3)?)?
-	let payload: {total_length: Int, chunk_count: Int, payload: ByteView} = {total_length: 8, chunk_count: 2, payload: payload_view}
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_closed_quotient_mismatch_packet({kind: 1, payload: payload})
-	let emitted: () = match encoded
+	let payload_bytes = byte_chunk_from_hex("aabbcc")?
+	let payload_view = byte_view(payload_bytes, byte_offset(0)?, byte_count(3)?)?
+	let payload = {total_length: 8, chunk_count: 2, payload: payload_view}
+	let encoded = byte_encode_closed_quotient_mismatch_packet({kind: 1, payload: payload})
+	let emitted = match encoded
 		Ok(_) => stdio::println("unexpected encode success")
 		Err(error) => emit_error(error)
 	end

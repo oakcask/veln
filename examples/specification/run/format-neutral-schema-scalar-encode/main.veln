@@ -45,9 +45,9 @@ fn encoded_label(result: Result<{code: Int, ready: Bool, ratio: Float, label: St
 end
 
 pub fn main() -> () effects [stdio]
-	let packet: {code: Int, ready: Bool, ratio: Float, label: String} = {code: 7, ready: true, ratio: 1.5, label: "scalar"}
-	let encoded: Result<{code: Int, ready: Bool, ratio: Float, label: String}, String> = byte_encode_scalar_packet(packet)
-	let explicit: Result<{code: Int, ready: Bool, ratio: Float, label: String}, String> = encode ScalarPacket from packet
+	let packet = {code: 7, ready: true, ratio: 1.5, label: "scalar"}
+	let encoded = byte_encode_scalar_packet(packet)
+	let explicit = encode ScalarPacket from packet
 	stdio::println(int_to_string(encoded_code(encoded)))
 	stdio::println(encoded_ready(encoded))
 	stdio::println(encoded_ratio(encoded))

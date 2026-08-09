@@ -20,17 +20,17 @@ fn print_view(label: String, view: ByteView, expected: Int) -> Result<(), String
 end
 
 fn task_view() -> Result<ByteView, String>
-	let bytes: ByteChunk = byte_chunk_from_hex("00010203040506")?
+	let bytes = byte_chunk_from_hex("00010203040506")?
 	byte_view(bytes, byte_offset(4)?, byte_count(2)?)
 end
 
 pub fn main() -> Result<(), String> effects [stdio, concurrency]
-	let bytes: ByteChunk = byte_chunk_from_hex("00010203040506")?
-	let view: ByteView = byte_view(bytes, byte_offset(3)?, byte_count(2)?)?
-	let retained: ByteChunk = byte_drop(bytes, byte_count(5)?)?
+	let bytes = byte_chunk_from_hex("00010203040506")?
+	let view = byte_view(bytes, byte_offset(3)?, byte_count(2)?)?
+	let retained = byte_drop(bytes, byte_count(5)?)?
 	let pair = channel::bounded<ByteView>(1)
 	let _ = channel::send(pair.tx, view)
-	let received: ByteView = match channel::recv(pair.rx)
+	let received = match channel::recv(pair.rx)
 		Some(value) => value
 		None => view
 	end
@@ -39,10 +39,10 @@ pub fn main() -> Result<(), String> effects [stdio, concurrency]
 	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(retained))))
 
 	let task = task::spawn<Result<ByteView, String>>(task_view)
-	let task_result: Result<ByteView, String> = match task::join(task)
+	let task_result = match task::join(task)
 		Ok(value) => value
 		Err(_) => Err("task join failed")
 	end
-	let returned: ByteView = task_result?
+	let returned = task_result?
 	print_view("task", returned, 255)
 end

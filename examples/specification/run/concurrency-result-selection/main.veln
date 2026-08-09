@@ -3,7 +3,7 @@ pub fn main() -> () effects [concurrency, stdio]
 	let left = channel::bounded<String>(1)
 	let right = channel::bounded<String>(1)
 	let _ = channel::send(right.tx, "result")
-	let result: String = match channel::select_result(left.rx, right.rx)
+	let result = match channel::select_result(left.rx, right.rx)
 		Ok(Some(selected)) => selected.value
 		Ok(None) => "none"
 		Err(_) => "interrupted"
@@ -12,7 +12,7 @@ pub fn main() -> () effects [concurrency, stdio]
 	let first = channel::bounded<String>(1)
 	let second = channel::bounded<String>(1)
 	let _ = channel::send(first.tx, "priority")
-	let priority: String = match channel::select_priority_result(first.rx, second.rx)
+	let priority = match channel::select_priority_result(first.rx, second.rx)
 		Ok(Some(selected)) => selected.value
 		Ok(None) => "none"
 		Err(_) => "interrupted"

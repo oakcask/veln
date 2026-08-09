@@ -21,9 +21,9 @@ fn emit_packet(packet: {total_length: Int, chunk_count: Int, payload: ByteView})
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("0802aabbccdd")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(6)?)?
-	let packet: {total_length: Int, chunk_count: Int, payload: ByteView} = byte_decode_packet_wire(view)?
+	let bytes = byte_chunk_from_hex("0802aabbccdd")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(6)?)?
+	let packet = byte_decode_packet_wire(view)?
 	emit_packet(packet)
 	Ok(())
 end

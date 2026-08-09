@@ -37,6 +37,6 @@ fn emit_result(encoded: Result<ByteChunk, EncodeError>) -> () effects [stdio]
 end
 
 pub fn main() -> () effects [stdio]
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_little_endian_wire({value: 4660})
+	let encoded = byte_encode_little_endian_wire({value: 4660})
 	emit_result(encoded)
 end

@@ -137,9 +137,9 @@ fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("abcdef1234")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(5)?)?
-	let decoded: {high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int} = byte_decode_packed_visible_five_byte_header(view)?
+	let bytes = byte_chunk_from_hex("abcdef1234")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(5)?)?
+	let decoded = byte_decode_packed_visible_five_byte_header(view)?
 	stdio::println(int_to_string(decoded.high))
 	stdio::println(int_to_string(decoded.upper))
 	stdio::println(int_to_string(decoded.middle))
@@ -148,7 +148,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(int_to_string(decoded.flag))
 	stdio::println(int_to_string(decoded.code))
 
-	let stepped: DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int}> = decode PackedVisibleFiveByteHeader from view at byte_offset(25)?
+	let stepped = decode PackedVisibleFiveByteHeader from view at byte_offset(25)?
 	stdio::println(step_kind(stepped))
 	stdio::println(int_to_string(decoded_high(stepped)))
 	stdio::println(int_to_string(decoded_upper(stepped)))
@@ -159,7 +159,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(int_to_string(decoded_code(stepped)))
 	stdio::println(int_to_string(consumed_count(stepped)))
 
-	let codec_step: DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int}> = decode PackedVisibleFiveByteHeader from view at byte_offset(25)?
+	let codec_step = decode PackedVisibleFiveByteHeader from view at byte_offset(25)?
 	stdio::println(step_kind(codec_step))
 	stdio::println(int_to_string(decoded_high(codec_step)))
 	stdio::println(int_to_string(decoded_upper(codec_step)))
@@ -170,10 +170,10 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(int_to_string(decoded_code(codec_step)))
 	stdio::println(int_to_string(consumed_count(codec_step)))
 
-	let direct_encoded: Result<ByteChunk, EncodeError> = byte_encode_packed_visible_five_byte_header({high: 21, upper: 60, middle: 55, lower: 23, tail: 8, flag: 36, code: 52})
+	let direct_encoded = byte_encode_packed_visible_five_byte_header({high: 21, upper: 60, middle: 55, lower: 23, tail: 8, flag: 36, code: 52})
 	emit_direct_encoded(direct_encoded)
 
-	let derived_encoded: EncodeStep<()> = encode_result_step(encode PackedVisibleFiveByteHeader from {high: 21, upper: 60, middle: 55, lower: 23, tail: 8, flag: 36, code: 52})
+	let derived_encoded = encode_result_step(encode PackedVisibleFiveByteHeader from {high: 21, upper: 60, middle: 55, lower: 23, tail: 8, flag: 36, code: 52})
 	stdio::println(encode_step_kind(derived_encoded))
 	emit_derived_encoded(derived_encoded)
 	Ok(())

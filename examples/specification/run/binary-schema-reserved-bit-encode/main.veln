@@ -41,9 +41,9 @@ fn emit_encoded(name: String, encoded: Result<ByteChunk, EncodeError>, expected_
 end
 
 pub fn main() -> () effects [stdio]
-	let header: Result<ByteChunk, EncodeError> = byte_encode_reserved_stream_identifier({length: 5, kind: 1, flags: 4, stream_id: 1})
+	let header = byte_encode_reserved_stream_identifier({length: 5, kind: 1, flags: 4, stream_id: 1})
 	emit_encoded("reserved-stream-id", header, "000005010400000001")
 
-	let max_header: Result<ByteChunk, EncodeError> = byte_encode_reserved_stream_identifier({length: 5, kind: 1, flags: 4, stream_id: 2147483647})
+	let max_header = byte_encode_reserved_stream_identifier({length: 5, kind: 1, flags: 4, stream_id: 2147483647})
 	emit_encoded("reserved-stream-id-max", max_header, "00000501047fffffff")
 end

@@ -61,8 +61,8 @@ end
 pub fn main() -> () effects [stdio]
 	let packet: {items: Option<List<Int>>, flags: Option<List<Bool>>, names: Option<List<String>>} = {items: Some(list_cons(2, list_cons(5, list_nil()))), flags: Some(list_cons(true, list_cons(false, list_cons(true, list_nil())))), names: Some(list_cons("alpha", list_nil()))}
 	let empty_packet: {items: Option<List<Int>>, flags: Option<List<Bool>>, names: Option<List<String>>} = {items: None, flags: None, names: None}
-	let encoded: Result<{items: Option<List<Int>>, flags: Option<List<Bool>>, names: Option<List<String>>}, String> = byte_encode_option_list_packet(packet)
-	let explicit: Result<{items: Option<List<Int>>, flags: Option<List<Bool>>, names: Option<List<String>>}, String> = encode OptionListPacket from empty_packet
+	let encoded = byte_encode_option_list_packet(packet)
+	let explicit = encode OptionListPacket from empty_packet
 	stdio::println(item_text(encoded))
 	stdio::println(flag_text(encoded))
 	stdio::println(name_text(encoded))

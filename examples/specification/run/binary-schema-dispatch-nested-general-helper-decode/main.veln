@@ -43,14 +43,14 @@ fn emit_extension_payload(payload: SchemaDispatchPayload<{version: Int, code: In
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let closed_bytes: ByteChunk = byte_chunk_from_hex("010100073412")?
-	let closed_view: ByteView = byte_view(closed_bytes, byte_offset(0)?, byte_count(6)?)?
-	let closed: {kind: Int, payload: {version: Int, code: Int, value: Int}} = byte_decode_closed_nested_packet(closed_view)?
+	let closed_bytes = byte_chunk_from_hex("010100073412")?
+	let closed_view = byte_view(closed_bytes, byte_offset(0)?, byte_count(6)?)?
+	let closed = byte_decode_closed_nested_packet(closed_view)?
 	emit_payload("closed", closed.payload)
 
-	let extension_bytes: ByteChunk = byte_chunk_from_hex("05010100073412")?
-	let extension_view: ByteView = byte_view(extension_bytes, byte_offset(0)?, byte_count(7)?)?
-	let extension: {length: Int, kind: Int, payload: SchemaDispatchPayload<{version: Int, code: Int, value: Int}>} = byte_decode_extension_nested_packet(extension_view)?
+	let extension_bytes = byte_chunk_from_hex("05010100073412")?
+	let extension_view = byte_view(extension_bytes, byte_offset(0)?, byte_count(7)?)?
+	let extension = byte_decode_extension_nested_packet(extension_view)?
 	stdio::print(int_to_string(extension.length))
 	stdio::print(" ")
 	stdio::print(int_to_string(extension.kind))
