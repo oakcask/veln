@@ -18,7 +18,9 @@ also states it.
 
 ## Catalog
 
-There are no active proposals.
+- Agent language services through MCP, shared LSP semantics, virtual package
+  locations, and generated public reference:
+  [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule
 
