@@ -269,6 +269,9 @@ fn collect_package_sources(
             }
             collect_package_sources(root, &relative_path, sources)?;
         } else {
+            if is_excluded_test_source_path(&relative_path) {
+                continue;
+            }
             let relative_utf8 = package_relative_path(&relative_path)?;
             if is_distribution_source(&relative_utf8) {
                 if !file_type.is_file() {
@@ -301,6 +304,22 @@ fn package_relative_path(path: &Path) -> Result<String, PackageSnapshotCaptureEr
 
 fn is_distribution_source(path: &str) -> bool {
     path.ends_with(".veln") && !path.ends_with(".test.veln") && !path.ends_with("_test.veln")
+}
+
+fn is_excluded_test_source_path(path: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStrExt;
+
+        let path = path.as_os_str().as_bytes();
+        path.ends_with(b".test.veln") || path.ends_with(b"_test.veln")
+    }
+
+    #[cfg(not(unix))]
+    {
+        path.to_str()
+            .is_some_and(|path| path.ends_with(".test.veln") || path.ends_with("_test.veln"))
+    }
 }
 
 fn has_regular_manifest(directory: &Path) -> Result<bool, PackageSnapshotCaptureError> {
@@ -858,6 +877,8 @@ mod tests {
         package.write_bytes(".git/NUL.veln", b"\xff");
         package.write_bytes("dependency:/veln.toml", b"nested manifest");
         package.write_bytes("dependency:/NUL.veln", b"\xff");
+        package.write_bytes_raw_relative(b"ignored-\xff.test.veln", b"\xff");
+        package.write_bytes_raw_relative(b"ignored-\xff_test.veln", b"\xff");
 
         let snapshot = capture_package_snapshot(package.root()).unwrap();
         let paths = snapshot
@@ -896,6 +917,17 @@ mod tests {
 
         fn write_bytes(&self, relative: &str, bytes: &[u8]) {
             let path = self.path(relative);
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent).unwrap();
+            }
+            fs::write(path, bytes).unwrap();
+        }
+
+        #[cfg(unix)]
+        fn write_bytes_raw_relative(&self, relative: &[u8], bytes: &[u8]) {
+            use std::os::unix::ffi::OsStrExt;
+
+            let path = self.root.join(Path::new(OsStr::from_bytes(relative)));
             if let Some(parent) = path.parent() {
                 fs::create_dir_all(parent).unwrap();
             }
