@@ -1,0 +1,8 @@
+command = ["package", "lock"]
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["veln.toml:1:16: error[package.invalid_dependency_identity]: dependency package identity `github.com/oakcask/../shared` is invalid", "note: Use a portable package identity: package identity segment 2 is `.` or `..`."]

@@ -449,9 +449,10 @@ answer from newer bytes.
 The transport-independent Q11 digest transcript foundation is implemented in
 `veln-project`. Its current contract and fixed-vector evidence are specified in
 [Package Snapshot Digests](../specification/package-snapshots.md). The same
-specification defines the implemented filesystem capture and Q12 distribution
-set foundation. Portable identity validation, analysis integration, virtual
-resources, and snapshot publication remain planned below.
+specification defines the implemented filesystem capture, Q12 distribution
+set foundation, portable package identity and capture validation, and Q13
+evidence. Analysis integration, virtual resources, and snapshot publication
+remain planned below.
 
 The owned distribution set contains every captured regular file whose name
 ends in `.veln`, including private, non-exported, on-disk generated, and
@@ -821,9 +822,11 @@ The resolved-decision evidence groups are:
 
 Q11 is implemented by the `veln-project` fixed-vector and transcript-mutation
 tests. The Q12 filesystem-capture foundation is implemented by the
-`veln-project` distribution matrix and digest-integration tests. Q12 analysis
-and virtual-resource equality and every other row remain planned evidence for
-the agent language service.
+`veln-project` distribution matrix and digest-integration tests. Q13 is
+implemented by the package-identity, portable source-path, UTF-8 source-text,
+case-fold collision, and validation-exclusion tests. Q12 analysis and
+virtual-resource equality and Q14 through Q22 remain planned evidence for the
+agent language service.
 
 The gate also covers resource-template listing and reads, every malformed
 request class, zero/default/maximum/above-maximum bounds, all documentation
@@ -920,11 +923,13 @@ The Q11 package-snapshot digest transcript foundation is implemented and
 specified in [Package Snapshot Digests](../specification/package-snapshots.md).
 The Q12 filesystem capture and distribution-set foundation is implemented and
 specified on the same page.
+The portable package-identity and capture-validation foundation and its Q13
+matrix are also implemented and specified on the same page.
 The remaining slices are:
 
-1. Add portable package identities on the capture foundation. Connect captures
-   to analysis, virtual source locations and resolution, the LSP
-   virtual-document request, and the VSCode content provider.
+1. Connect validated captures to analysis, virtual source locations and
+   resolution, the LSP virtual-document request, and the VSCode content
+   provider.
 2. Add exported package documentation and bind it to package snapshots.
 3. Define and validate language-reference topic descriptors. Generate the
    executable grammar, selected example, and compiler-owned table projections.
