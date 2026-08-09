@@ -1,0 +1,14 @@
+use math from "example/pkg"
+use other from "example/pkg"
+
+pub fn imported() -> Int
+  math::exposed(1)
+end
+
+pub fn missing_import() -> Int
+  exposed(1)
+end
+
+pub fn wrong_module() -> Int
+  other::exposed(1)
+end

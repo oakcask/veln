@@ -181,7 +181,9 @@ canonical `veln-pkg:` URI from the retained catalog. It does not convert the
 location to a `file:` URI and does not expose the dependency materialization
 path. Workspace definitions continue to use `file:` URIs. Private functions
 and functions in non-exported dependency sources have no dependency definition
-result.
+result. Dependency declarations are immutable package locations:
+`textDocument/prepareRename` returns no range for them, and
+`textDocument/rename` returns no workspace edits for them.
 
 `veln/virtualDocument` accepts an exact `veln-pkg:` URI retained by the server
 and returns its UTF-8 source text. The returned text preserves the captured
@@ -199,11 +201,12 @@ The `veln-language-service` tests are the executable evidence for dependency
 visibility and transport-neutral package locations. The `veln-lsp` dependency
 virtual-document test is the executable JSON-RPC evidence for the complete
 definition-to-read path, retained CRLF text, URI identity and digest, private
-declaration rejection, and unknown or noncanonical URI rejection. The VSCode
-extension tests cover the corresponding definition request, exact-text read,
-location conversion, and content-provider registration. A static LSP example
-is not used because its second request must contain the snapshot digest returned
-by the first response; the direct server test performs that dynamic round trip.
+declaration rejection, prepare-rename and rename rejection, exact import-path
+visibility, and unknown or noncanonical URI rejection. The VSCode extension
+tests cover the corresponding definition request, exact-text read, location
+conversion, and content-provider registration. A static LSP example is not used
+because its second request must contain the snapshot digest returned by the
+first response; the direct server test performs that dynamic round trip.
 
 `textDocument/formatting` returns a single whole-document text edit containing
 the same canonical formatting produced by the formatter. Handler operation

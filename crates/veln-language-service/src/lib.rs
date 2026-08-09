@@ -40,6 +40,7 @@ pub struct DirectDependencySnapshot {
     pub identity: PackageIdentity,
     pub snapshot: CapturedPackageSnapshot,
     pub exported_sources: BTreeSet<String>,
+    pub virtual_sources: VirtualSourceCatalog,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -259,12 +260,12 @@ impl SymbolIndex {
             })
             .collect::<Vec<_>>();
         for dependency in dependencies {
-            let catalog = VirtualSourceCatalog::new([(
-                dependency.identity.clone(),
-                dependency.snapshot.clone(),
-            )])
-            .expect("one validated dependency snapshot has unique virtual source URIs");
-            for (source, entry) in dependency.snapshot.sources().iter().zip(catalog.entries()) {
+            for (source, entry) in dependency
+                .snapshot
+                .sources()
+                .iter()
+                .zip(dependency.virtual_sources.entries())
+            {
                 let text = std::str::from_utf8(source.bytes())
                     .expect("captured package source text is valid UTF-8");
                 let source_file = SourceFile::new(source.path(), text);
@@ -351,7 +352,9 @@ impl SymbolIndex {
             return self
                 .functions
                 .iter()
-                .find(|symbol| symbol.name == name && symbol.module == file.module)
+                .find(|symbol| {
+                    symbol.name == name && symbol.module == file.module && symbol.package.is_none()
+                })
                 .cloned()
                 .map(Symbol::Function);
         };
@@ -1692,6 +1695,59 @@ mod tests {
         }
     }
 
+    #[test]
+    fn dependency_definition_requires_exact_external_import() {
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[(
+                "math.veln",
+                "pub fn increment(value: Int) -> Int\n  value + 1\nend\n",
+            )],
+            ["math.veln"],
+        );
+        let cases = [
+            (
+                "missing import",
+                "pub fn main() -> Int\n  increment(1)\nend\n",
+                2,
+                4,
+            ),
+            (
+                "workspace unqualified same module",
+                "module math\n\npub fn main() -> Int\n  increment(1)\nend\n",
+                4,
+                4,
+            ),
+            (
+                "different package",
+                "use math from \"other/pkg\"\n\npub fn main() -> Int\n  math::increment(1)\nend\n",
+                4,
+                10,
+            ),
+            (
+                "different module",
+                "use other from \"example/pkg\"\n\npub fn main() -> Int\n  other::increment(1)\nend\n",
+                4,
+                11,
+            ),
+        ];
+
+        for (case, text, line, column) in cases {
+            let result = navigate(
+                &EffectiveProjectSnapshot::with_direct_dependencies(
+                    vec![source("main.veln", text)],
+                    vec![dependency.clone()],
+                ),
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line,
+                    column,
+                },
+            );
+            assert!(result.is_none(), "accepted {case}");
+        }
+    }
+
     fn source(path: &str, text: &str) -> SourceFile {
         SourceFile::new(path, text)
     }
@@ -1753,10 +1809,15 @@ mod tests {
         exports: impl IntoIterator<Item = &'static str>,
     ) -> DirectDependencySnapshot {
         let root = TempDependency::new(sources);
+        let identity = PackageIdentity::new(identity).unwrap();
+        let snapshot = capture_package_snapshot(&root.path).unwrap();
+        let virtual_sources =
+            VirtualSourceCatalog::new([(identity.clone(), snapshot.clone())]).unwrap();
         DirectDependencySnapshot {
-            identity: PackageIdentity::new(identity).unwrap(),
-            snapshot: capture_package_snapshot(&root.path).unwrap(),
+            identity,
+            snapshot,
             exported_sources: exports.into_iter().map(str::to_string).collect(),
+            virtual_sources,
         }
     }
 

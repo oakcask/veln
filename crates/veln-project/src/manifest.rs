@@ -96,6 +96,10 @@ pub fn read_manifest(root: &Path) -> io::Result<Option<ProjectManifest>> {
     Ok(Some(parse_manifest(&source)))
 }
 
+pub fn parse_manifest_text(path: &str, text: &str) -> ProjectManifest {
+    parse_manifest(&SourceFile::new(path, text))
+}
+
 fn parse_manifest(source: &SourceFile) -> ProjectManifest {
     let mut package = ManifestPackage::default();
     let mut lib = ManifestLib {

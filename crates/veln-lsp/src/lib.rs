@@ -18,7 +18,8 @@ use veln_language_service::{
     NavigationSource, SourcePosition, VirtualSourceCatalog, navigate,
 };
 use veln_project::{
-    PackageIdentity, Project, capture_package_snapshot, discover_source_paths, read_manifest,
+    PackageIdentity, Project, capture_package_snapshot, discover_source_paths, parse_manifest_text,
+    read_manifest,
 };
 use veln_source::{SourceFile, SourcePath, SourceSpan};
 use veln_syntax::{format_tree, parse};
@@ -96,7 +97,6 @@ struct Server {
     workspace_root_aliases: BTreeMap<PathBuf, Vec<PathBuf>>,
     published_diagnostic_uris: BTreeSet<String>,
     direct_dependencies: BTreeMap<PathBuf, Vec<DirectDependencySnapshot>>,
-    virtual_sources: Option<VirtualSourceCatalog>,
     should_exit: bool,
 }
 
@@ -220,9 +220,10 @@ impl Server {
             )];
         };
         let Some(bytes) = self
-            .virtual_sources
-            .as_ref()
-            .and_then(|catalog| catalog.resolve(&uri))
+            .direct_dependencies
+            .values()
+            .flat_map(|dependencies| dependencies.iter())
+            .find_map(|dependency| dependency.virtual_sources.resolve(&uri))
         else {
             return vec![error_response(
                 &id,
@@ -261,6 +262,7 @@ impl Server {
         id.map(|id| {
             let result = self
                 .symbol_at_request(message)
+                .filter(|request| is_workspace_location(&request.result.definition))
                 .map(|request| range_json(Some(&request.result.selection)))
                 .unwrap_or_else(|| "null".to_string());
             response(&id, &result)
@@ -274,9 +276,11 @@ impl Server {
             let result = extract_string_field(message, "newName")
                 .filter(|new_name| is_identifier(new_name))
                 .and_then(|new_name| {
-                    self.symbol_at_request(message).map(|request| {
-                        workspace_edit_json(&request.root, &request.result, &new_name)
-                    })
+                    self.symbol_at_request(message)
+                        .filter(|request| is_workspace_location(&request.result.definition))
+                        .map(|request| {
+                            workspace_edit_json(&request.root, &request.result, &new_name)
+                        })
                 })
                 .unwrap_or_else(|| "{\"changes\":{}}".to_string());
             response(&id, &result)
@@ -367,20 +371,10 @@ impl Server {
 
     fn capture_direct_dependencies(&mut self) {
         self.direct_dependencies.clear();
-        let mut catalog_packages = BTreeMap::<(String, String), _>::new();
         for root in &self.workspace_roots {
             let dependencies = retained_direct_dependencies(root);
-            for dependency in &dependencies {
-                catalog_packages
-                    .entry((
-                        dependency.identity.as_str().to_string(),
-                        dependency.snapshot.digest().to_string(),
-                    ))
-                    .or_insert_with(|| (dependency.identity.clone(), dependency.snapshot.clone()));
-            }
             self.direct_dependencies.insert(root.clone(), dependencies);
         }
-        self.virtual_sources = VirtualSourceCatalog::new(catalog_packages.into_values()).ok();
     }
 
     fn symbol_at_request(&self, message: &str) -> Option<NavigationRequest> {
@@ -426,7 +420,24 @@ fn retained_direct_dependencies(root: &Path) -> Vec<DirectDependencySnapshot> {
             let path = dependency.path?;
             let identity = PackageIdentity::new(&dependency.package).ok()?;
             let dependency_root = root.join(path.value);
-            let dependency_project = Project::discover(&dependency_root, &[]).ok()?;
+            let snapshot = capture_package_snapshot(&dependency_root).ok()?;
+            let manifest_text = std::str::from_utf8(snapshot.manifest_bytes()).ok()?;
+            let dependency_manifest = parse_manifest_text("veln.toml", manifest_text);
+            let dependency_project = Project {
+                root: dependency_root,
+                files: snapshot
+                    .sources()
+                    .iter()
+                    .map(|source| {
+                        SourceFile::new(
+                            source.path(),
+                            std::str::from_utf8(source.bytes())
+                                .expect("captured package source text is valid UTF-8"),
+                        )
+                    })
+                    .collect(),
+                manifest: Some(dependency_manifest),
+            };
             if !validate_manifest_exports(&dependency_project).is_empty() {
                 return None;
             }
@@ -445,10 +456,13 @@ fn retained_direct_dependencies(root: &Path) -> Vec<DirectDependencySnapshot> {
                 .into_iter()
                 .map(|export| export.path)
                 .collect();
+            let virtual_sources =
+                VirtualSourceCatalog::new([(identity.clone(), snapshot.clone())]).ok()?;
             Some(DirectDependencySnapshot {
                 identity,
-                snapshot: capture_package_snapshot(&dependency_root).ok()?,
+                snapshot,
                 exported_sources,
+                virtual_sources,
             })
         })
         .collect()
@@ -836,6 +850,10 @@ fn location_json(root: &Path, location: &NavigationLocation) -> String {
         escape_json(&uri),
         range_json(Some(&location.span))
     )
+}
+
+fn is_workspace_location(location: &NavigationLocation) -> bool {
+    matches!(location.source, NavigationSource::Workspace)
 }
 
 fn references_json(root: &Path, result: &NavigationResult, include_declaration: bool) -> String {
@@ -3276,6 +3294,15 @@ mod tests {
             )]
         );
 
+        let prepare_rename = server.handle_message(&prepare_rename_request(&main_uri, 3, 10));
+        assert!(
+            prepare_rename[0].contains(r#""result":null"#),
+            "{}",
+            prepare_rename[0]
+        );
+        let rename = server.handle_message(&rename_request(&main_uri, 3, 10, "renamed"));
+        assert!(rename[0].contains(r#""changes":{}"#), "{}", rename[0]);
+
         let private_definition = server.handle_message(&definition_request(&main_uri, 4, 10));
         assert!(
             private_definition[0].contains(r#""result":null"#),
@@ -3290,6 +3317,54 @@ mod tests {
                 r#"{{"jsonrpc":"2.0","id":4,"method":"veln/virtualDocument","params":{{"uri":"{rejected_uri}"}}}}"#
             ));
             assert!(rejected[0].contains(r#""code":-32602"#), "{}", rejected[0]);
+        }
+    }
+
+    #[test]
+    fn dependency_definition_requires_external_import_path() {
+        let mut server = Server::default();
+        let project = TempProject::new("dependency-import-boundary");
+        project.write(
+            "veln.toml",
+            concat!(
+                "[package]\nname = \"app\"\n\n",
+                "[dependencies.\"example/pkg\"]\npath = \"vendor/lib\"\n",
+            ),
+        );
+        project.write(
+            "main.veln",
+            concat!(
+                "use math from \"other/pkg\"\n",
+                "use other from \"example/pkg\"\n\n",
+                "pub fn missing_import() -> Int\n",
+                "  exposed(1)\n",
+                "end\n\n",
+                "pub fn wrong_package() -> Int\n",
+                "  math::exposed(1)\n",
+                "end\n\n",
+                "pub fn wrong_module() -> Int\n",
+                "  other::exposed(1)\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "vendor/lib/veln.toml",
+            concat!(
+                "[package]\nname = \"example/pkg\"\n\n",
+                "[lib]\nexports = [\"math.veln\"]\n",
+            ),
+        );
+        project.write(
+            "vendor/lib/math.veln",
+            "pub fn exposed(value: Int) -> Int\n  value + 1\nend\n",
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        for (line, character) in [(4, 4), (8, 10), (12, 11)] {
+            let response = server.handle_message(&definition_request(&main_uri, line, character));
+            assert!(response[0].contains(r#""result":null"#), "{}", response[0]);
         }
     }
 
