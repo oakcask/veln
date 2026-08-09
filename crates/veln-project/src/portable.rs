@@ -455,6 +455,9 @@ mod tests {
     #[test]
     fn unicode_contract_matches_case_folding_c_and_f_mappings() {
         for line in include_str!("../testdata/case_folding_17_c_f.txt").lines() {
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
             let (code, mapping) = line
                 .split_once(';')
                 .expect("case folding fixture line should contain a separator");

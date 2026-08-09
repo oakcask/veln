@@ -311,15 +311,57 @@ fn is_excluded_test_source_path(path: &Path) -> bool {
     {
         use std::os::unix::ffi::OsStrExt;
 
-        let path = path.as_os_str().as_bytes();
-        path.ends_with(b".test.veln") || path.ends_with(b"_test.veln")
+        is_excluded_test_source_bytes(path.as_os_str().as_bytes())
     }
 
-    #[cfg(not(unix))]
+    #[cfg(windows)]
+    {
+        use std::os::windows::ffi::OsStrExt;
+
+        let path = path.as_os_str().encode_wide().collect::<Vec<_>>();
+        is_excluded_test_source_wide(&path)
+    }
+
+    #[cfg(not(any(unix, windows)))]
     {
         path.to_str()
             .is_some_and(|path| path.ends_with(".test.veln") || path.ends_with("_test.veln"))
     }
+}
+
+#[cfg(unix)]
+fn is_excluded_test_source_bytes(path: &[u8]) -> bool {
+    path.ends_with(b".test.veln") || path.ends_with(b"_test.veln")
+}
+
+#[cfg(windows)]
+fn is_excluded_test_source_wide(path: &[u16]) -> bool {
+    const COMPANION_SUFFIX: &[u16] = &[
+        b'.' as u16,
+        b't' as u16,
+        b'e' as u16,
+        b's' as u16,
+        b't' as u16,
+        b'.' as u16,
+        b'v' as u16,
+        b'e' as u16,
+        b'l' as u16,
+        b'n' as u16,
+    ];
+    const INTEGRATION_SUFFIX: &[u16] = &[
+        b'_' as u16,
+        b't' as u16,
+        b'e' as u16,
+        b's' as u16,
+        b't' as u16,
+        b'.' as u16,
+        b'v' as u16,
+        b'e' as u16,
+        b'l' as u16,
+        b'n' as u16,
+    ];
+
+    path.ends_with(COMPANION_SUFFIX) || path.ends_with(INTEGRATION_SUFFIX)
 }
 
 fn has_regular_manifest(directory: &Path) -> Result<bool, PackageSnapshotCaptureError> {
@@ -910,6 +952,51 @@ mod tests {
         assert_eq!(paths, vec!["kept.veln"]);
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn unix_test_source_exclusion_uses_raw_path_bytes() {
+        assert!(is_excluded_test_source_bytes(b"bad-\xff.test.veln"));
+        assert!(is_excluded_test_source_bytes(b"bad-\xff_test.veln"));
+        assert!(!is_excluded_test_source_bytes(b"bad-\xff.veln"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_test_source_exclusion_uses_raw_wide_code_units() {
+        let mut companion = "bad-".encode_utf16().collect::<Vec<_>>();
+        companion.push(0xD800);
+        companion.extend(".test.veln".encode_utf16());
+        assert!(is_excluded_test_source_wide(&companion));
+
+        let mut integration = "bad-".encode_utf16().collect::<Vec<_>>();
+        integration.push(0xD800);
+        integration.extend("_test.veln".encode_utf16());
+        assert!(is_excluded_test_source_wide(&integration));
+
+        let mut retained = "bad-".encode_utf16().collect::<Vec<_>>();
+        retained.push(0xD800);
+        retained.extend(".veln".encode_utf16());
+        assert!(!is_excluded_test_source_wide(&retained));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn package_snapshot_capture_excludes_ill_formed_utf16_test_sources() {
+        let package = SnapshotFixture::new("ill-formed-utf16-excluded");
+        package.write_bytes("veln.toml", b"manifest");
+        package.write_bytes("kept.veln", b"kept");
+        package.write_bytes_raw_wide_relative(&ill_formed_wide_name(".test.veln"), b"\xff");
+        package.write_bytes_raw_wide_relative(&ill_formed_wide_name("_test.veln"), b"\xff");
+
+        let snapshot = capture_package_snapshot(package.root()).unwrap();
+        let paths = snapshot
+            .sources()
+            .iter()
+            .map(CapturedPackageSource::path)
+            .collect::<Vec<_>>();
+        assert_eq!(paths, vec!["kept.veln"]);
+    }
+
     struct SnapshotFixture {
         root: PathBuf,
     }
@@ -944,6 +1031,17 @@ mod tests {
             fs::write(path, bytes).unwrap();
         }
 
+        #[cfg(windows)]
+        fn write_bytes_raw_wide_relative(&self, relative: &[u16], bytes: &[u8]) {
+            use std::os::windows::ffi::OsStringExt;
+
+            let path = self.root.join(std::ffi::OsString::from_wide(relative));
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent).unwrap();
+            }
+            fs::write(path, bytes).unwrap();
+        }
+
         #[cfg(unix)]
         fn write_bytes_raw_relative(&self, relative: &[u8], bytes: &[u8]) {
             use std::os::unix::ffi::OsStrExt;
@@ -967,6 +1065,14 @@ mod tests {
                 .unwrap();
             assert!(status.success());
         }
+    }
+
+    #[cfg(windows)]
+    fn ill_formed_wide_name(suffix: &str) -> Vec<u16> {
+        let mut name = "ignored-".encode_utf16().collect::<Vec<_>>();
+        name.push(0xD800);
+        name.extend(suffix.encode_utf16());
+        name
     }
 
     impl Drop for SnapshotFixture {
