@@ -1,5 +1,27 @@
 use super::*;
 
+fn standard_library_builtin_calls(function: &veln_ir::IrFunction) -> Vec<(&'static str, &str)> {
+    function
+        .body
+        .iter()
+        .map(|statement| {
+            let (statement_kind, value) = match &statement.kind {
+                IrStmtKind::Let { value, .. } => ("let", value),
+                IrStmtKind::Expr { value } => ("expr", value),
+                IrStmtKind::Return { value } => ("return", value),
+            };
+            let IrExprKind::Call {
+                target: IrCallTarget::StandardLibraryBuiltin(symbol),
+                ..
+            } = &value.kind
+            else {
+                panic!("expected standard-library builtin call, found {value:#?}");
+            };
+            (statement_kind, symbol.as_str())
+        })
+        .collect()
+}
+
 #[test]
 fn compiler_adapter_helpers_report_direct_argument_diagnostics() {
     for (helper, source_text, expected_message) in [
@@ -1528,496 +1550,61 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
         .iter()
         .find(|function| function.name == "main")
         .expect("main should be in IR");
-    let IrStmtKind::Let { value, .. } = &main.body[0].kind else {
-        panic!("cwd call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "process::cwd"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[2].kind else {
-        panic!("net receive call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::receive_chunk"
-    ));
-    let IrStmtKind::Expr { value } = &main.body[3].kind else {
-        panic!("net send call should lower as an expression");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::send_chunk"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[4].kind else {
-        panic!("net listen call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::listen"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[5].kind else {
-        panic!("net accept call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::accept"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[6].kind else {
-        panic!("net optional accept call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::accept_or_end"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[7].kind else {
-        panic!("accept deadline call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "time::deadline_after_ms"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[8].kind else {
-        panic!("net deadline accept call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::accept_until"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[9].kind else {
-        panic!("accept cancel token call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "time::cancel_token"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[10].kind else {
-        panic!("cancellable net accept call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::accept_until_cancellable"
-    ));
-    let IrStmtKind::Expr { value } = &main.body[11].kind else {
-        panic!("net close listener call should lower as an expression");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::close_listener"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[12].kind else {
-        panic!("net listener local address call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::listener_local_addr"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[13].kind else {
-        panic!("net stream local address call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::stream_local_addr"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[14].kind else {
-        panic!("net stream peer address call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::stream_peer_addr"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[15].kind else {
-        panic!("net stream can read call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::stream_can_read"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[16].kind else {
-        panic!("net stream can write call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::stream_can_write"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[17].kind else {
-        panic!("net stream closed call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::stream_is_closed"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[18].kind else {
-        panic!("net read call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::read_chunk"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[19].kind else {
-        panic!("net optional read call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::read_chunk_or_end"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[20].kind else {
-        panic!("read deadline call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "time::deadline_after_ms"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[21].kind else {
-        panic!("net deadline read call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::read_chunk_until"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[22].kind else {
-        panic!("read cancel token call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "time::cancel_token"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[23].kind else {
-        panic!("cancellable net read call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::read_chunk_until_cancellable"
-    ));
-    let IrStmtKind::Expr { value } = &main.body[24].kind else {
-        panic!("net write call should lower as an expression");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::write_chunk"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[25].kind else {
-        panic!("write deadline call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "time::deadline_after_ms"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[26].kind else {
-        panic!("deadline-aware net write call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::write_chunk_until"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[27].kind else {
-        panic!("cancellable net write call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::write_chunk_until_cancellable"
-    ));
-    let IrStmtKind::Expr { value } = &main.body[28].kind else {
-        panic!("net write chunks call should lower as an expression");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::write_chunks"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[29].kind else {
-        panic!("net write chunks until call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::write_chunks_until"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[30].kind else {
-        panic!("cancellable net write chunks call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::write_chunks_until_cancellable"
-    ));
-    let IrStmtKind::Expr { value } = &main.body[31].kind else {
-        panic!("net shutdown write call should lower as an expression");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::shutdown_write"
-    ));
-    let IrStmtKind::Expr { value } = &main.body[32].kind else {
-        panic!("net shutdown read call should lower as an expression");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::shutdown_read"
-    ));
-    let IrStmtKind::Expr { value } = &main.body[33].kind else {
-        panic!("net close call should lower as an expression");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::close_stream"
-    ));
-    let IrStmtKind::Expr { value } = &main.body[34].kind else {
-        panic!("time call should lower as an expression");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "time::timeout_ms"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[35].kind else {
-        panic!("deadline call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "time::deadline_after_ms"
-    ));
-    let IrStmtKind::Expr { value } = &main.body[36].kind else {
-        panic!("wait call should lower as an expression");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "time::wait_until"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[37].kind else {
-        panic!("cancel token call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "time::cancel_token"
-    ));
-    let IrStmtKind::Expr { value } = &main.body[38].kind else {
-        panic!("cancellable wait call should lower as an expression");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "time::wait_until_cancellable"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[39].kind else {
-        panic!("cancellable wait outcome call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "time::wait_until_cancellable_outcome"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[40].kind else {
-        panic!("cancel owner call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "time::cancel_owner"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[41].kind else {
-        panic!("cancel token from owner call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "time::cancel_token_from"
-    ));
-    let IrStmtKind::Expr { value } = &main.body[42].kind else {
-        panic!("cancel owned call should lower as an expression");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "time::cancel_owned"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[43].kind else {
-        panic!("owner cancel status call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "time::is_cancelled_owner"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[44].kind else {
-        panic!("observer token cancel status call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "time::is_cancelled"
-    ));
-    let IrStmtKind::Expr { value } = &main.body[45].kind else {
-        panic!("cancel call should lower as an expression");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "time::cancel"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[46].kind else {
-        panic!("cancel status call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "time::is_cancelled"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[47].kind else {
-        panic!("monotonic clock call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "time::monotonic_ms"
-    ));
-    let IrStmtKind::Let { value, .. } = &main.body[48].kind else {
-        panic!("net connect call should lower as a let");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "net::connect"
-    ));
-    let IrStmtKind::Return { value } = &main.body[49].kind else {
-        panic!("fs call should lower as tail return");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::StandardLibraryBuiltin(symbol),
-            ..
-        } if symbol == "fs::read_to_string"
-    ));
+    assert_eq!(
+        standard_library_builtin_calls(main),
+        [
+            ("let", "process::cwd"),
+            ("let", "process::env"),
+            ("let", "net::receive_chunk"),
+            ("expr", "net::send_chunk"),
+            ("let", "net::listen"),
+            ("let", "net::accept"),
+            ("let", "net::accept_or_end"),
+            ("let", "time::deadline_after_ms"),
+            ("let", "net::accept_until"),
+            ("let", "time::cancel_token"),
+            ("let", "net::accept_until_cancellable"),
+            ("expr", "net::close_listener"),
+            ("let", "net::listener_local_addr"),
+            ("let", "net::stream_local_addr"),
+            ("let", "net::stream_peer_addr"),
+            ("let", "net::stream_can_read"),
+            ("let", "net::stream_can_write"),
+            ("let", "net::stream_is_closed"),
+            ("let", "net::read_chunk"),
+            ("let", "net::read_chunk_or_end"),
+            ("let", "time::deadline_after_ms"),
+            ("let", "net::read_chunk_until"),
+            ("let", "time::cancel_token"),
+            ("let", "net::read_chunk_until_cancellable"),
+            ("expr", "net::write_chunk"),
+            ("let", "time::deadline_after_ms"),
+            ("let", "net::write_chunk_until"),
+            ("let", "net::write_chunk_until_cancellable"),
+            ("expr", "net::write_chunks"),
+            ("let", "net::write_chunks_until"),
+            ("let", "net::write_chunks_until_cancellable"),
+            ("expr", "net::shutdown_write"),
+            ("expr", "net::shutdown_read"),
+            ("expr", "net::close_stream"),
+            ("expr", "time::timeout_ms"),
+            ("let", "time::deadline_after_ms"),
+            ("expr", "time::wait_until"),
+            ("let", "time::cancel_token"),
+            ("expr", "time::wait_until_cancellable"),
+            ("let", "time::wait_until_cancellable_outcome"),
+            ("let", "time::cancel_owner"),
+            ("let", "time::cancel_token_from"),
+            ("expr", "time::cancel_owned"),
+            ("let", "time::is_cancelled_owner"),
+            ("let", "time::is_cancelled"),
+            ("expr", "time::cancel"),
+            ("let", "time::is_cancelled"),
+            ("let", "time::monotonic_ms"),
+            ("let", "net::connect"),
+            ("return", "fs::read_to_string"),
+        ]
+    );
 }
 
 #[test]
