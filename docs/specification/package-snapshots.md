@@ -1,15 +1,44 @@
 ---
 role: specification
 authority: normative
-review-when: The package snapshot digest API, transcript version, or fixed-vector evidence changes.
+review-when: The package snapshot capture API, distribution-set rules, digest transcript, or executable evidence changes.
 ---
 
 # Package Snapshot Digests
 
-`veln-project` computes a package snapshot digest from exact manifest bytes and
-a unique set of normalized UTF-8 source paths paired with exact source bytes.
-Callers supply the bytes directly. The API does not discover or read files.
-Duplicate source paths are rejected.
+`veln-project` captures a package distribution from a filesystem root and
+computes a package snapshot digest from that immutable capture. Callers that
+already own exact bytes can use the digest API directly. Duplicate source
+paths supplied to the digest API are rejected.
+
+## Filesystem Capture
+
+`capture_package_snapshot` requires a regular `veln.toml` at the supplied
+package root. The returned capture retains the manifest's exact bytes, the
+ordered owned sources and their exact bytes, and the digest computed from that
+same retained data.
+
+An owned source is a regular file whose package-relative path ends in `.veln`.
+The capture includes private, non-exported, on-disk generated, and ordinary
+`target` sources. It excludes these entries:
+
+- each `.git` directory and its descendants;
+- each descendant directory that contains a regular `veln.toml` and all of
+  that directory's descendants;
+- every symbolic link;
+- paths that end in `.test.veln`; and
+- paths that end in `_test.veln`.
+
+Source paths use UTF-8 and `/` separators. They are ordered by their UTF-8
+bytes. A discovered path that has no exact UTF-8 representation causes an
+explicit capture error. The capture does not perform lossy path or source-byte
+conversion.
+
+The digest is independent of filesystem enumeration order and the package's
+physical parent location. A change to the manifest bytes, an included source
+path, or included source bytes changes the digest.
+
+## Digest Transcript
 
 SHA-256 consumes this exact compatibility transcript:
 
@@ -33,7 +62,10 @@ transcript.
 ## Executable Evidence
 
 The `veln-project` snapshot unit tests are the authoritative executable
-evidence. `cargo test -p veln-project` checks these fixed vectors:
+evidence. `cargo test -p veln-project` checks the capture distribution matrix,
+exact-byte digest integration, deterministic path ordering, relocation,
+descendant package boundaries, symbolic links, non-UTF-8 path rejection, and
+these fixed digest vectors:
 
 | Manifest and sources | Digest |
 | --- | --- |

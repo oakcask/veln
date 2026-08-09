@@ -1,5 +1,8 @@
 use std::error::Error;
 use std::fmt;
+use std::fs;
+use std::io;
+use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 
@@ -45,6 +48,213 @@ impl fmt::Display for PackageSnapshotDigestError {
 }
 
 impl Error for PackageSnapshotDigestError {}
+
+/// One owned distribution source retained by a captured package snapshot.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CapturedPackageSource {
+    path: String,
+    bytes: Vec<u8>,
+}
+
+impl CapturedPackageSource {
+    /// Returns the deterministic package-relative path with `/` separators.
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+
+    /// Returns the exact bytes read from the source file.
+    pub fn bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+}
+
+/// An immutable capture of one package's manifest and distribution sources.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CapturedPackageSnapshot {
+    manifest_bytes: Vec<u8>,
+    sources: Vec<CapturedPackageSource>,
+    digest: String,
+}
+
+impl CapturedPackageSnapshot {
+    /// Returns the exact bytes read from the package-root `veln.toml`.
+    pub fn manifest_bytes(&self) -> &[u8] {
+        &self.manifest_bytes
+    }
+
+    /// Returns the owned sources in package-relative UTF-8 byte order.
+    pub fn sources(&self) -> &[CapturedPackageSource] {
+        &self.sources
+    }
+
+    /// Returns the package snapshot digest computed from this capture.
+    pub fn digest(&self) -> &str {
+        &self.digest
+    }
+}
+
+/// A filesystem package cannot be captured as a package snapshot.
+#[derive(Debug)]
+pub enum PackageSnapshotCaptureError {
+    /// The package root does not contain a regular `veln.toml`.
+    ManifestNotRegular(PathBuf),
+    /// A discovered entry has no exact UTF-8 package-relative representation.
+    UnrepresentablePath(PathBuf),
+    /// A filesystem operation failed for the retained path.
+    Filesystem { path: PathBuf, source: io::Error },
+    /// The captured inputs cannot be encoded by the digest transcript.
+    Digest(PackageSnapshotDigestError),
+}
+
+impl fmt::Display for PackageSnapshotCaptureError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ManifestNotRegular(path) => write!(
+                formatter,
+                "package snapshot manifest is not a regular file: {}",
+                path.display()
+            ),
+            Self::UnrepresentablePath(path) => write!(
+                formatter,
+                "package snapshot path is not valid UTF-8: {}",
+                path.display()
+            ),
+            Self::Filesystem { path, source } => {
+                write!(formatter, "cannot capture {}: {source}", path.display())
+            }
+            Self::Digest(source) => write!(formatter, "cannot digest package snapshot: {source}"),
+        }
+    }
+}
+
+impl Error for PackageSnapshotCaptureError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Filesystem { source, .. } => Some(source),
+            Self::Digest(source) => Some(source),
+            Self::ManifestNotRegular(_) | Self::UnrepresentablePath(_) => None,
+        }
+    }
+}
+
+/// Captures a package root's regular manifest and owned distribution sources.
+///
+/// Symbolic links, `.git`, descendant package trees, and test sources are
+/// excluded. Source bytes are retained exactly and sources are ordered by
+/// their package-relative `/`-separated paths before the digest is computed.
+pub fn capture_package_snapshot(
+    root: &Path,
+) -> Result<CapturedPackageSnapshot, PackageSnapshotCaptureError> {
+    let manifest_path = root.join("veln.toml");
+    let manifest_type = symlink_file_type(&manifest_path)?;
+    if !manifest_type.is_file() {
+        return Err(PackageSnapshotCaptureError::ManifestNotRegular(
+            manifest_path,
+        ));
+    }
+    let manifest_bytes = read_capture_file(&manifest_path)?;
+
+    let mut sources = Vec::new();
+    collect_package_sources(root, Path::new(""), &mut sources)?;
+    sources.sort_unstable_by(|left, right| left.path.as_bytes().cmp(right.path.as_bytes()));
+
+    let digest_sources = sources
+        .iter()
+        .map(|source| PackageSnapshotSource::new(&source.path, &source.bytes))
+        .collect::<Vec<_>>();
+    let digest = package_snapshot_digest(&manifest_bytes, &digest_sources)
+        .map_err(PackageSnapshotCaptureError::Digest)?;
+
+    Ok(CapturedPackageSnapshot {
+        manifest_bytes,
+        sources,
+        digest,
+    })
+}
+
+fn collect_package_sources(
+    root: &Path,
+    relative_dir: &Path,
+    sources: &mut Vec<CapturedPackageSource>,
+) -> Result<(), PackageSnapshotCaptureError> {
+    let directory = root.join(relative_dir);
+    let entries =
+        fs::read_dir(&directory).map_err(|source| filesystem_error(directory.clone(), source))?;
+    for entry in entries {
+        let entry = entry.map_err(|source| filesystem_error(directory.clone(), source))?;
+        let relative_path = relative_dir.join(entry.file_name());
+        let path = root.join(&relative_path);
+        let relative_utf8 = package_relative_path(&relative_path)?;
+        if relative_utf8.rsplit('/').next() == Some(".git") {
+            continue;
+        }
+
+        let file_type = entry
+            .file_type()
+            .map_err(|source| filesystem_error(path.clone(), source))?;
+        if file_type.is_symlink() {
+            continue;
+        }
+        if file_type.is_dir() {
+            if has_regular_manifest(&path)? {
+                continue;
+            }
+            collect_package_sources(root, &relative_path, sources)?;
+        } else if file_type.is_file() && is_distribution_source(&relative_utf8) {
+            sources.push(CapturedPackageSource {
+                path: relative_utf8,
+                bytes: read_capture_file(&path)?,
+            });
+        }
+    }
+    Ok(())
+}
+
+fn package_relative_path(path: &Path) -> Result<String, PackageSnapshotCaptureError> {
+    let mut normalized = String::new();
+    for component in path.components() {
+        let component = component
+            .as_os_str()
+            .to_str()
+            .ok_or_else(|| PackageSnapshotCaptureError::UnrepresentablePath(path.to_path_buf()))?;
+        if !normalized.is_empty() {
+            normalized.push('/');
+        }
+        normalized.push_str(component);
+    }
+    Ok(normalized)
+}
+
+fn is_distribution_source(path: &str) -> bool {
+    path.ends_with(".veln") && !path.ends_with(".test.veln") && !path.ends_with("_test.veln")
+}
+
+fn has_regular_manifest(directory: &Path) -> Result<bool, PackageSnapshotCaptureError> {
+    let manifest = directory.join("veln.toml");
+    match fs::symlink_metadata(&manifest) {
+        Ok(metadata) => Ok(metadata.file_type().is_file()),
+        Err(source) if source.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(source) => Err(filesystem_error(manifest, source)),
+    }
+}
+
+fn symlink_file_type(path: &Path) -> Result<fs::FileType, PackageSnapshotCaptureError> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) => Ok(metadata.file_type()),
+        Err(source) if source.kind() == io::ErrorKind::NotFound => Err(
+            PackageSnapshotCaptureError::ManifestNotRegular(path.to_path_buf()),
+        ),
+        Err(source) => Err(filesystem_error(path.to_path_buf(), source)),
+    }
+}
+
+fn read_capture_file(path: &Path) -> Result<Vec<u8>, PackageSnapshotCaptureError> {
+    fs::read(path).map_err(|source| filesystem_error(path.to_path_buf(), source))
+}
+
+fn filesystem_error(path: PathBuf, source: io::Error) -> PackageSnapshotCaptureError {
+    PackageSnapshotCaptureError::Filesystem { path, source }
+}
 
 /// Computes the version-one package snapshot digest from exact captured bytes.
 ///
@@ -94,6 +304,7 @@ fn encoded_len(len: usize) -> Result<[u8; 8], PackageSnapshotDigestError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn package_snapshot_digest_matches_fixed_vectors() {
@@ -187,6 +398,215 @@ mod tests {
 
         for mutation in mutations {
             assert_ne!(baseline, transcript_digest(mutation), "{mutation:?}");
+        }
+    }
+
+    #[test]
+    fn package_snapshot_capture_owns_the_distribution_set_in_path_order() {
+        let package = SnapshotFixture::new("distribution-set");
+        package.write_bytes("veln.toml", b"manifest\r\n\xff");
+        let cases = [
+            ("z.veln", b"public".as_slice(), true),
+            ("src/private.veln", b"private", true),
+            ("generated/api.veln", b"generated", true),
+            ("target/code.veln", b"target", true),
+            ("src/unit.test.veln", b"companion", false),
+            ("tests/api_test.veln", b"integration", false),
+            ("notes.txt", b"other", false),
+            ("nested/.git/hidden.veln", b"git", false),
+            ("dependency/owned.veln", b"descendant", false),
+        ];
+        for (path, bytes, _) in cases {
+            package.write_bytes(path, bytes);
+        }
+        package.write_bytes("dependency/veln.toml", b"nested manifest");
+
+        let snapshot = capture_package_snapshot(package.root()).unwrap();
+        let actual = snapshot
+            .sources()
+            .iter()
+            .map(|source| (source.path(), source.bytes()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(snapshot.manifest_bytes(), b"manifest\r\n\xff");
+        assert_eq!(
+            actual,
+            vec![
+                ("generated/api.veln", b"generated".as_slice()),
+                ("src/private.veln", b"private".as_slice()),
+                ("target/code.veln", b"target".as_slice()),
+                ("z.veln", b"public".as_slice()),
+            ]
+        );
+        assert!(snapshot.sources().iter().all(|source| {
+            cases.iter().any(|(path, bytes, included)| {
+                *included && *path == source.path() && *bytes == source.bytes()
+            })
+        }));
+    }
+
+    #[test]
+    fn package_snapshot_capture_digest_uses_the_retained_exact_bytes() {
+        let package = SnapshotFixture::new("digest-integration");
+        package.write_bytes("veln.toml", b"manifest\0bytes");
+        package.write_bytes("src/b.veln", b"b\r\n");
+        package.write_bytes("src/a.veln", b"a\0\xff");
+
+        let snapshot = capture_package_snapshot(package.root()).unwrap();
+        let digest_sources = snapshot
+            .sources()
+            .iter()
+            .map(|source| PackageSnapshotSource::new(source.path(), source.bytes()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            snapshot.digest(),
+            package_snapshot_digest(snapshot.manifest_bytes(), &digest_sources).unwrap()
+        );
+
+        let original = snapshot.digest().to_string();
+        package.write_bytes("veln.toml", b"manifest\0byteS");
+        assert_ne!(
+            capture_package_snapshot(package.root()).unwrap().digest(),
+            original
+        );
+        package.write_bytes("veln.toml", b"manifest\0bytes");
+        package.write_bytes("src/a.veln", b"A\0\xff");
+        assert_ne!(
+            capture_package_snapshot(package.root()).unwrap().digest(),
+            original
+        );
+        package.write_bytes("src/a.veln", b"a\0\xff");
+        package.write_bytes("src/new.veln", b"new");
+        assert_ne!(
+            capture_package_snapshot(package.root()).unwrap().digest(),
+            original
+        );
+    }
+
+    #[test]
+    fn package_snapshot_capture_digest_is_independent_of_physical_parent() {
+        let first = SnapshotFixture::new("relocation-first");
+        let second = SnapshotFixture::new("relocation-second");
+        for package in [&first, &second] {
+            package.write_bytes("veln.toml", b"same manifest");
+            package.write_bytes("src/main.veln", b"same source");
+        }
+
+        assert_ne!(first.root(), second.root());
+        assert_eq!(
+            capture_package_snapshot(first.root()).unwrap(),
+            capture_package_snapshot(second.root()).unwrap()
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn package_snapshot_capture_excludes_all_symbolic_links() {
+        use std::os::unix::fs::symlink;
+
+        let package = SnapshotFixture::new("symbolic-links");
+        package.write_bytes("veln.toml", b"manifest");
+        package.write_bytes("real.veln", b"real");
+        package.write_bytes("outside/linked.veln", b"outside");
+        fs::create_dir_all(package.path("links")).unwrap();
+        symlink(package.path("real.veln"), package.path("linked.veln")).unwrap();
+        symlink(package.path("outside"), package.path("links/directory")).unwrap();
+
+        let snapshot = capture_package_snapshot(package.root()).unwrap();
+        let paths = snapshot
+            .sources()
+            .iter()
+            .map(CapturedPackageSource::path)
+            .collect::<Vec<_>>();
+        assert_eq!(paths, vec!["outside/linked.veln", "real.veln"]);
+    }
+
+    #[test]
+    fn package_snapshot_capture_requires_a_regular_manifest() {
+        let missing = SnapshotFixture::new("missing-manifest");
+        assert!(matches!(
+            capture_package_snapshot(missing.root()),
+            Err(PackageSnapshotCaptureError::ManifestNotRegular(_))
+        ));
+
+        let directory = SnapshotFixture::new("directory-manifest");
+        fs::create_dir_all(directory.path("veln.toml")).unwrap();
+        assert!(matches!(
+            capture_package_snapshot(directory.root()),
+            Err(PackageSnapshotCaptureError::ManifestNotRegular(_))
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn package_snapshot_capture_rejects_a_symbolic_manifest() {
+        use std::os::unix::fs::symlink;
+
+        let package = SnapshotFixture::new("symbolic-manifest");
+        package.write_bytes("manifest-target", b"manifest");
+        symlink(package.path("manifest-target"), package.path("veln.toml")).unwrap();
+
+        assert!(matches!(
+            capture_package_snapshot(package.root()),
+            Err(PackageSnapshotCaptureError::ManifestNotRegular(_))
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn package_snapshot_capture_rejects_unrepresentable_entry_paths() {
+        use std::os::unix::ffi::OsStringExt;
+
+        let package = SnapshotFixture::new("non-utf8-path");
+        package.write_bytes("veln.toml", b"manifest");
+        let invalid_name = std::ffi::OsString::from_vec(b"invalid-\xff.veln".to_vec());
+        fs::write(package.root().join(invalid_name), b"source").unwrap();
+
+        assert!(matches!(
+            capture_package_snapshot(package.root()),
+            Err(PackageSnapshotCaptureError::UnrepresentablePath(_))
+        ));
+    }
+
+    struct SnapshotFixture {
+        root: PathBuf,
+    }
+
+    impl SnapshotFixture {
+        fn new(label: &str) -> Self {
+            let nonce = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos();
+            let root = std::env::temp_dir().join(format!(
+                "veln-package-snapshot-{label}-{}-{nonce}",
+                std::process::id()
+            ));
+            fs::create_dir_all(&root).unwrap();
+            Self { root }
+        }
+
+        fn root(&self) -> &Path {
+            &self.root
+        }
+
+        fn path(&self, relative: &str) -> PathBuf {
+            self.root.join(relative)
+        }
+
+        fn write_bytes(&self, relative: &str, bytes: &[u8]) {
+            let path = self.path(relative);
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent).unwrap();
+            }
+            fs::write(path, bytes).unwrap();
+        }
+    }
+
+    impl Drop for SnapshotFixture {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.root);
         }
     }
 
