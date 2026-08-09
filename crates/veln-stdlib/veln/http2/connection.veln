@@ -264,7 +264,7 @@ fn client_dispatch_request<effect E>(endpoint: String, request: Http2ClientReque
 end
 
 fn client_connect_and_run<effect E>(endpoint: String, request: Http2ClientRequest, tail: List<Http2ClientRequest>, completed: Int, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net, concurrency, ...E]
-	let stream: NetStream = net::connect(endpoint)
+	let stream = net::connect(endpoint)
 	let state = client_service_initial_state()?
 	client_run_one(endpoint, stream, state, false, request, tail, completed, handler)
 end
@@ -336,7 +336,7 @@ fn client_request_task(context: { stream : NetStream, state : CoreConnectionStat
 end
 
 fn start_server(state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [std::transport::DuplexStream]
-	let decision: LocalSettingsSendDecision = require_local_settings_decision(http2::core::send_local_settings_batch(list_nil(), "server", http2::core::connection_state_local_settings_policy(state), http2::core::connection_state_settings_ack(state)))?
+	let decision = require_local_settings_decision(http2::core::send_local_settings_batch(list_nil(), "server", http2::core::connection_state_local_settings_policy(state), http2::core::connection_state_settings_ack(state)))?
 	match http2::core::local_settings_send_status(decision)
 		"accepted" => drive_loop(http2::core::receive_connection_state(state_after_local_settings(state, decision), byte_chunk([]), http2::core::output_buffer_append_local_settings(http2::core::empty_output_buffer(), decision)), 0)
 		"rejected" => Err(Http2ConnectionLocalSettingsFailure(require_local_settings_failure(decision)?))
@@ -345,7 +345,7 @@ fn start_server(state: CoreConnectionState) -> Result<CoreConnectionState, Http2
 end
 
 fn start_server_application<effect E>(state: CoreConnectionState, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream, ...E]
-	let decision: LocalSettingsSendDecision = application_local_settings_decision(http2::core::send_local_settings_batch(list_nil(), "server", http2::core::connection_state_local_settings_policy(state), http2::core::connection_state_settings_ack(state)))?
+	let decision = application_local_settings_decision(http2::core::send_local_settings_batch(list_nil(), "server", http2::core::connection_state_local_settings_policy(state), http2::core::connection_state_settings_ack(state)))?
 	match http2::core::local_settings_send_status(decision)
 		"accepted" => application_drive_loop(http2::core::receive_connection_state(state_after_local_settings(state, decision), byte_chunk([]), http2::core::output_buffer_append_local_settings(http2::core::empty_output_buffer(), decision)), 0, false, handler)
 		"rejected" => Err(Http2ApplicationConnectionFailure(Http2ConnectionLocalSettingsFailure(application_local_settings_failure(decision)?)))
@@ -354,7 +354,7 @@ fn start_server_application<effect E>(state: CoreConnectionState, handler: fn(Ht
 end
 
 fn start_client(state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [std::transport::DuplexStream]
-	let decision: LocalSettingsSendDecision = require_local_settings_decision(http2::core::send_local_settings_batch(list_nil(), "client", http2::core::connection_state_local_settings_policy(state), http2::core::connection_state_settings_ack(state)))?
+	let decision = require_local_settings_decision(http2::core::send_local_settings_batch(list_nil(), "client", http2::core::connection_state_local_settings_policy(state), http2::core::connection_state_settings_ack(state)))?
 	match http2::core::local_settings_send_status(decision)
 		"accepted" => drive_loop(http2::core::receive_connection_state(state_after_local_settings(state, decision), byte_chunk([]), client_initial_output(decision)?), 0)
 		"rejected" => Err(Http2ConnectionLocalSettingsFailure(require_local_settings_failure(decision)?))
@@ -497,7 +497,7 @@ fn client_write_new_output(state: CoreReceiveConnectionState, written_count: Int
 end
 
 fn client_write_output_range(state: CoreReceiveConnectionState, output: CoreOutputBuffer, written_count: Int, total: Int) -> Result<{ state : CoreReceiveConnectionState, written_count : Int }, Http2ClientServiceFailure> effects [std::transport::DuplexStream]
-	let chunks: List<ByteChunk> = output_chunks_from(output, written_count, total)
+	let chunks = output_chunks_from(output, written_count, total)
 	perform transport::DuplexStream::write_chunks(chunks)
 	Ok({ state: state, written_count: total })
 end
@@ -567,7 +567,7 @@ fn application_drive_loop<effect E>(state: CoreReceiveConnectionState, written_c
 end
 
 fn receive_and_continue(state: CoreReceiveConnectionState, chunk: ByteChunk, written_count: Int) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [std::transport::DuplexStream]
-	let decision: CoreReceiveConnectionDecision = require_receive_decision(http2::core::receive_connection_chunk(state, chunk))?
+	let decision = require_receive_decision(http2::core::receive_connection_chunk(state, chunk))?
 	match http2::core::receive_connection_status(decision)
 		"accepted" => drive_loop(require_receive_state(decision)?, written_count)
 		_ => Err(Http2ConnectionProtocolFailure(require_receive_failure(decision)?))
@@ -575,7 +575,7 @@ fn receive_and_continue(state: CoreReceiveConnectionState, chunk: ByteChunk, wri
 end
 
 fn application_receive_and_continue<effect E>(state: CoreReceiveConnectionState, chunk: ByteChunk, written_count: Int, handled_request: Bool, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream, ...E]
-	let decision: CoreReceiveConnectionDecision = application_receive_decision(http2::core::receive_connection_chunk(state, chunk))?
+	let decision = application_receive_decision(http2::core::receive_connection_chunk(state, chunk))?
 	match http2::core::receive_connection_status(decision)
 		"accepted" => application_handle_events(application_receive_state(decision)?, written_count, handled_request, handler)
 		_ => Err(Http2ApplicationConnectionFailure(Http2ConnectionProtocolFailure(application_receive_failure(decision)?)))
@@ -666,7 +666,7 @@ fn application_receive_failure(decision: CoreReceiveConnectionDecision) -> Resul
 end
 
 fn finish_eof(state: CoreReceiveConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure>
-	let decision: CoreReceiveConnectionEofDecision = require_eof_decision(http2::core::finalize_receive_connection_eof(state))?
+	let decision = require_eof_decision(http2::core::finalize_receive_connection_eof(state))?
 	match http2::core::receive_connection_eof_status(decision)
 		"accepted" => Ok(require_eof_state(decision)?)
 		_ => Err(Http2ConnectionIncompleteInput(require_eof_failure(decision)?))
@@ -674,7 +674,7 @@ fn finish_eof(state: CoreReceiveConnectionState) -> Result<CoreConnectionState, 
 end
 
 fn application_finish_eof(state: CoreReceiveConnectionState) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure>
-	let decision: CoreReceiveConnectionEofDecision = application_eof_decision(http2::core::finalize_receive_connection_eof(state))?
+	let decision = application_eof_decision(http2::core::finalize_receive_connection_eof(state))?
 	match http2::core::receive_connection_eof_status(decision)
 		"accepted" => Ok(application_eof_state(decision)?)
 		_ => Err(Http2ApplicationConnectionFailure(Http2ConnectionIncompleteInput(application_eof_failure(decision)?)))
@@ -744,13 +744,13 @@ fn write_new_application_output(state: CoreReceiveConnectionState, written_count
 end
 
 fn write_output_range(state: CoreReceiveConnectionState, output: CoreOutputBuffer, written_count: Int, total: Int) -> Result<{ state : CoreReceiveConnectionState, written_count : Int }, Http2ConnectionFailure> effects [std::transport::DuplexStream]
-	let chunks: List<ByteChunk> = output_chunks_from(output, written_count, total)
+	let chunks = output_chunks_from(output, written_count, total)
 	perform transport::DuplexStream::write_chunks(chunks)
 	Ok({ state: state, written_count: total })
 end
 
 fn write_application_output_range(state: CoreReceiveConnectionState, output: CoreOutputBuffer, written_count: Int, total: Int) -> Result<{ state : CoreReceiveConnectionState, written_count : Int }, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
-	let chunks: List<ByteChunk> = output_chunks_from(output, written_count, total)
+	let chunks = output_chunks_from(output, written_count, total)
 	perform transport::DuplexStream::write_chunks(chunks)
 	Ok({ state: state, written_count: total })
 end
