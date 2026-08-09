@@ -454,8 +454,12 @@ set foundation, portable package identity and capture validation, and Q13
 evidence. The canonical transport-independent virtual-source catalog and exact
 resolver are also implemented and specified in
 [Package Virtual Sources](../specification/package-virtual-sources.md).
-Analysis integration, LSP and VSCode adapters, MCP resources, and snapshot
-publication remain planned below.
+The direct path-dependency LSP definition, virtual-document request, and VSCode
+content-provider slice is implemented and specified in
+[Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).
+Analysis publication beyond that slice, MCP resources, standard-library
+virtual locations, documentation snapshots, and snapshot lifetime rules remain
+planned below.
 
 The owned distribution set contains every captured regular file whose name
 ends in `.veln`, including private, non-exported, on-disk generated, and
@@ -936,9 +940,10 @@ and specified in
 Direct path-dependency definition locations, the LSP virtual-document request,
 and the VSCode content provider are implemented and specified in
 [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).
-This bounded implementation retains one validated dependency capture for the
-definition-to-read path. It does not implement standard-library locations,
-other package materializations, dependency reference search, or MCP resources.
+This bounded implementation retains one validated workspace-and-dependency
+capture for the definition-to-read path. It does not implement standard-library
+locations, other package materializations, dependency reference search, or MCP
+resources.
 The remaining slices are:
 
 1. Extend published virtual-source locations beyond the implemented direct
@@ -953,8 +958,6 @@ The remaining slices are:
    snapshot handling.
 6. Package and validate Codex and Claude Code plugins and document their
    client-native installation flows.
-7. Promote implemented behavior and evidence into the matching specification
-   and example routes, then move this proposal out of `../proposals/`.
 
 ## Deferred Work
 

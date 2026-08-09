@@ -65,6 +65,17 @@ impl VirtualSourceCatalog {
         self.entries.iter()
     }
 
+    /// Returns the retained entry for one package source by capture index.
+    pub fn entry_for_source(
+        &self,
+        package_index: usize,
+        source_index: usize,
+    ) -> Option<&VirtualSourceEntry> {
+        self.entries.iter().find(|entry| {
+            entry.package_index == package_index && entry.source_index == source_index
+        })
+    }
+
     /// Resolves an exact canonical URI to the captured source bytes.
     ///
     /// This lookup does not parse, decode, normalize, or access the filesystem.

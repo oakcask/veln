@@ -15,7 +15,7 @@ use veln_diagnostics::{Diagnostic, Severity};
 use veln_editor::{encode_lsp_semantic_tokens, semantic_token_legend};
 use veln_language_service::{
     DirectDependencySnapshot, EffectiveProjectSnapshot, NavigationLocation, NavigationResult,
-    NavigationSource, SourcePosition, VirtualSourceCatalog, navigate,
+    NavigationSource, SourcePosition, navigate,
 };
 use veln_project::{
     PackageIdentity, Project, capture_package_snapshot, discover_source_paths, parse_manifest_text,
@@ -96,7 +96,7 @@ struct Server {
     workspace_roots: Vec<PathBuf>,
     workspace_root_aliases: BTreeMap<PathBuf, Vec<PathBuf>>,
     published_diagnostic_uris: BTreeSet<String>,
-    direct_dependencies: BTreeMap<PathBuf, Vec<DirectDependencySnapshot>>,
+    project_snapshots: BTreeMap<PathBuf, EffectiveProjectSnapshot>,
     should_exit: bool,
 }
 
@@ -145,7 +145,7 @@ impl Server {
         let selection = resolve_workspace_roots(message);
         self.workspace_roots = selection.roots;
         self.workspace_root_aliases = selection.aliases;
-        self.capture_direct_dependencies();
+        self.capture_project_snapshots();
         let mut responses = id
             .map(|id| response(&id, &initialize_result()))
             .into_iter()
@@ -220,10 +220,9 @@ impl Server {
             )];
         };
         let Some(bytes) = self
-            .direct_dependencies
+            .project_snapshots
             .values()
-            .flat_map(|dependencies| dependencies.iter())
-            .find_map(|dependency| dependency.virtual_sources.resolve(&uri))
+            .find_map(|snapshot| snapshot.resolve_virtual_source(&uri))
         else {
             return vec![error_response(
                 &id,
@@ -369,17 +368,27 @@ impl Server {
             .sort_by(|left, right| left.path().as_str().cmp(right.path().as_str()));
     }
 
+    fn open_workspace_sources(&self, root: &Path) -> Vec<SourceFile> {
+        self.documents
+            .iter()
+            .filter_map(|(uri, text)| {
+                owned_workspace_source_file(root, &self.workspace_root_aliases, uri, text)
+            })
+            .collect()
+    }
+
     fn workspace_source_path(&self, uri: &str) -> Option<String> {
         let document_root =
             workspace_root_for_uri(&self.workspace_roots, &self.workspace_root_aliases, uri)?;
         owned_workspace_relative_source_path(document_root.root, &document_root.relative)
     }
 
-    fn capture_direct_dependencies(&mut self) {
-        self.direct_dependencies.clear();
+    fn capture_project_snapshots(&mut self) {
+        self.project_snapshots.clear();
         for root in &self.workspace_roots {
-            let dependencies = retained_direct_dependencies(root);
-            self.direct_dependencies.insert(root.clone(), dependencies);
+            if let Some(snapshot) = retained_project_snapshot(root) {
+                self.project_snapshots.insert(root.clone(), snapshot);
+            }
         }
     }
 
@@ -390,16 +399,9 @@ impl Server {
             workspace_root_for_uri(&self.workspace_roots, &self.workspace_root_aliases, &uri)?;
         let root = document_root.root;
         let source_path = workspace_relative_source_path(&document_root.relative)?;
-        let mut project = Project::discover(root.to_path_buf(), &[]).ok()?;
-        self.overlay_open_workspace_documents(root, &mut project);
         let visible_root = visible_workspace_root(root, &self.workspace_root_aliases);
-        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
-            project.files,
-            self.direct_dependencies
-                .get(root)
-                .cloned()
-                .unwrap_or_default(),
-        );
+        let snapshot = self.project_snapshots.get(root)?;
+        let snapshot = snapshot.with_workspace_overlays(self.open_workspace_sources(root));
         let result = navigate(
             &snapshot,
             SourcePosition {
@@ -413,6 +415,14 @@ impl Server {
             result,
         })
     }
+}
+
+fn retained_project_snapshot(root: &Path) -> Option<EffectiveProjectSnapshot> {
+    let project = Project::discover(root.to_path_buf(), &[]).ok()?;
+    Some(EffectiveProjectSnapshot::with_direct_dependencies(
+        project.files,
+        retained_direct_dependencies(root),
+    ))
 }
 
 fn retained_direct_dependencies(root: &Path) -> Vec<DirectDependencySnapshot> {
@@ -460,16 +470,9 @@ fn retained_direct_dependencies(root: &Path) -> Vec<DirectDependencySnapshot> {
                 .lib
                 .exports
                 .into_iter()
-                .map(|export| SourcePath::new(export.path).as_str().to_string())
-                .collect();
-            let virtual_sources =
-                VirtualSourceCatalog::new([(identity.clone(), snapshot.clone())]).ok()?;
-            Some(DirectDependencySnapshot {
-                identity,
-                snapshot,
-                exported_sources,
-                virtual_sources,
-            })
+                .map(|export| SourcePath::new(export.path))
+                .collect::<Vec<_>>();
+            DirectDependencySnapshot::new(identity, snapshot, exported_sources).ok()
         })
         .collect()
 }
@@ -3283,6 +3286,10 @@ mod tests {
         project.write(
             "vendor/lib/math.veln",
             "pub fn changed() -> Int\n  0\nend\n",
+        );
+        project.write(
+            "main.veln",
+            "use math from \"example/pkg\"\n\npub fn main() -> Int\n  math::changed()\nend\n",
         );
         let definition = server.handle_message(&definition_request(&main_uri, 3, 10));
         assert_eq!(definition.len(), 1);

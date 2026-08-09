@@ -6,7 +6,9 @@ pub use virtual_source::{VirtualSourceCatalog, VirtualSourceCatalogError, Virtua
 
 use std::collections::BTreeSet;
 
-use veln_project::{CapturedPackageSnapshot, PackageIdentity, classify_companion_source};
+use veln_project::{
+    CapturedPackageSnapshot, CapturedPackageSource, PackageIdentity, classify_companion_source,
+};
 use veln_source::{SourceFile, SourcePath, SourceSpan};
 use veln_syntax::{Token, TokenKind, lex};
 
@@ -33,14 +35,79 @@ impl EffectiveProjectSnapshot {
             direct_dependencies,
         }
     }
+
+    pub fn with_workspace_overlays(&self, overlays: impl IntoIterator<Item = SourceFile>) -> Self {
+        let mut sources = self.sources.clone();
+        for overlay in overlays {
+            let source_path = overlay.path().as_str().to_string();
+            if let Some(existing) = sources
+                .iter_mut()
+                .find(|source| source.path().as_str() == source_path)
+            {
+                *existing = overlay;
+            } else {
+                sources.push(overlay);
+            }
+        }
+        sources.sort_by(|left, right| left.path().as_str().cmp(right.path().as_str()));
+        Self {
+            sources,
+            direct_dependencies: self.direct_dependencies.clone(),
+        }
+    }
+
+    pub fn resolve_virtual_source(&self, uri: &str) -> Option<&[u8]> {
+        self.direct_dependencies
+            .iter()
+            .find_map(|dependency| dependency.resolve_virtual_source(uri))
+    }
 }
 
 #[derive(Clone, Debug)]
 pub struct DirectDependencySnapshot {
-    pub identity: PackageIdentity,
-    pub snapshot: CapturedPackageSnapshot,
-    pub exported_sources: BTreeSet<String>,
-    pub virtual_sources: VirtualSourceCatalog,
+    identity: PackageIdentity,
+    snapshot: CapturedPackageSnapshot,
+    exported_sources: BTreeSet<String>,
+    virtual_sources: VirtualSourceCatalog,
+}
+
+impl DirectDependencySnapshot {
+    pub fn new(
+        identity: PackageIdentity,
+        snapshot: CapturedPackageSnapshot,
+        exported_sources: impl IntoIterator<Item = SourcePath>,
+    ) -> Result<Self, VirtualSourceCatalogError> {
+        let virtual_sources = VirtualSourceCatalog::new([(identity.clone(), snapshot.clone())])?;
+        Ok(Self {
+            identity,
+            snapshot,
+            exported_sources: exported_sources
+                .into_iter()
+                .map(|source| source.as_str().to_string())
+                .collect(),
+            virtual_sources,
+        })
+    }
+
+    fn indexed_sources(
+        &self,
+    ) -> impl Iterator<Item = (&CapturedPackageSource, &VirtualSourceEntry)> {
+        self.snapshot
+            .sources()
+            .iter()
+            .enumerate()
+            .map(|(source_index, source)| {
+                let entry = self
+                    .virtual_sources
+                    .entry_for_source(0, source_index)
+                    .expect("direct dependency catalog contains every captured source");
+                (source, entry)
+            })
+    }
+
+    fn resolve_virtual_source(&self, uri: &str) -> Option<&[u8]> {
+        self.virtual_sources.resolve(uri)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -260,12 +327,7 @@ impl SymbolIndex {
             })
             .collect::<Vec<_>>();
         for dependency in dependencies {
-            for (source, entry) in dependency
-                .snapshot
-                .sources()
-                .iter()
-                .zip(dependency.virtual_sources.entries())
-            {
+            for (source, entry) in dependency.indexed_sources() {
                 let text = std::str::from_utf8(source.bytes())
                     .expect("captured package source text is valid UTF-8");
                 let source_file = SourceFile::new(source.path(), text);
@@ -1811,17 +1873,8 @@ mod tests {
         let root = TempDependency::new(sources);
         let identity = PackageIdentity::new(identity).unwrap();
         let snapshot = capture_package_snapshot(&root.path).unwrap();
-        let virtual_sources =
-            VirtualSourceCatalog::new([(identity.clone(), snapshot.clone())]).unwrap();
-        DirectDependencySnapshot {
-            identity,
-            snapshot,
-            exported_sources: exports
-                .into_iter()
-                .map(|export| SourcePath::new(export).as_str().to_string())
-                .collect(),
-            virtual_sources,
-        }
+        DirectDependencySnapshot::new(identity, snapshot, exports.into_iter().map(SourcePath::new))
+            .unwrap()
     }
 
     struct TempDependency {
