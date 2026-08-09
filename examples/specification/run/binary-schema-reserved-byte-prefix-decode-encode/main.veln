@@ -9,7 +9,7 @@ end
 
 
 fn byte_value(chunk: ByteChunk, index: Int) -> Result<Int, String>
-	let view: ByteView = byte_view(chunk, byte_offset(index)?, byte_count(1)?)?
+	let view = byte_view(chunk, byte_offset(index)?, byte_count(1)?)?
 	byte_read_u8_be(view)
 end
 
@@ -126,24 +126,24 @@ fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("2ac0")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
-	let decoded: {payload: Int} = byte_decode_reserved_byte_prefix_header(view)?
+	let bytes = byte_chunk_from_hex("2ac0")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
+	let decoded = byte_decode_reserved_byte_prefix_header(view)?
 	stdio::println(int_to_string(decoded.payload))
 
-	let direct_encoded: Result<ByteChunk, EncodeError> = byte_encode_reserved_byte_prefix_header({payload: 171})
-	let ignored: () = emit_direct_encoded(direct_encoded)?
+	let direct_encoded = byte_encode_reserved_byte_prefix_header({payload: 171})
+	let ignored = emit_direct_encoded(direct_encoded)?
 
-	let derived_decoded: DecodeStep<{payload: Int}> = decode ReservedBytePrefixHeader from view at byte_offset(32)?
+	let derived_decoded = decode ReservedBytePrefixHeader from view at byte_offset(32)?
 	stdio::println(decode_step_kind(derived_decoded))
 	stdio::println(int_to_string(decoded_payload(derived_decoded)))
 	stdio::println(int_to_string(consumed_count(derived_decoded)))
 
-	let derived_encoded: EncodeStep<()> = encode_result_step(encode ReservedBytePrefixHeader from {payload: 171})
+	let derived_encoded = encode_result_step(encode ReservedBytePrefixHeader from {payload: 171})
 	stdio::println(encode_step_kind(derived_encoded))
 	emit_derived_encoded("reserved-byte-prefix", derived_encoded, "2ac0")
 
-	let rejected: EncodeStep<()> = encode_result_step(encode ReservedBytePrefixHeader from {payload: 256})
+	let rejected = encode_result_step(encode ReservedBytePrefixHeader from {payload: 256})
 	stdio::println(encode_step_kind(rejected))
 	stdio::println(encode_error_id(rejected))
 	stdio::println(encode_error_path(rejected))

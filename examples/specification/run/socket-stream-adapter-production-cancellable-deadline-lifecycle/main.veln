@@ -178,10 +178,10 @@ fn empty_summary() -> { streams : Int, chunks : Int, ended : Int, writes : Int, 
 end
 
 pub fn main() -> Result<(), String> effects [net, time, concurrency, stdio]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let deadline: Deadline = time::deadline_after_ms(100)
-	let token: CancelToken = time::cancel_token()
-	let summary: { streams : Int, chunks : Int, ended : Int, writes : Int, end_actions : Int, retries : Int, cleanup : Int, clean_end : Bool } = drain_listener(listener, empty_summary(), deadline, token)?
+	let listener = net::listen("127.0.0.1:0")
+	let deadline = time::deadline_after_ms(100)
+	let token = time::cancel_token()
+	let summary = drain_listener(listener, empty_summary(), deadline, token)?
 	stdio::print("streams ")
 	stdio::print(int_to_string(summary.streams))
 	stdio::print(" chunks ")

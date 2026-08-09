@@ -166,38 +166,38 @@ fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let complete_bytes: ByteChunk = byte_chunk_from_hex("08020001000200030004")?
-	let complete_view: ByteView = byte_view(complete_bytes, byte_offset(0)?, byte_count(10)?)?
-	let complete: DecodeStep<{total_count: Int, group_count: Int, items: List<Int>}> = decode CountedValues from complete_view at byte_offset(31)?
+	let complete_bytes = byte_chunk_from_hex("08020001000200030004")?
+	let complete_view = byte_view(complete_bytes, byte_offset(0)?, byte_count(10)?)?
+	let complete = decode CountedValues from complete_view at byte_offset(31)?
 	stdio::println(decode_step_kind(complete))
 	stdio::println(int_to_string(decoded_item_count(complete)))
 	stdio::println(int_to_string(decoded_item_sum(complete)))
 	stdio::println(int_to_string(consumed_count(complete)))
 
-	let short_bytes: ByteChunk = byte_chunk_from_hex("08")?
-	let short_view: ByteView = byte_view(short_bytes, byte_offset(0)?, byte_count(1)?)?
-	let waiting: DecodeStep<{total_count: Int, group_count: Int, items: List<Int>}> = decode CountedValues from short_view at byte_offset(37)?
+	let short_bytes = byte_chunk_from_hex("08")?
+	let short_view = byte_view(short_bytes, byte_offset(0)?, byte_count(1)?)?
+	let waiting = decode CountedValues from short_view at byte_offset(37)?
 	stdio::println(decode_step_kind(waiting))
 	stdio::println(readiness_kind(waiting))
 	stdio::println(int_to_string(readiness_count(waiting)))
 	stdio::println(int_to_string(consumed_count(waiting)))
 
-	let zero_group_bytes: ByteChunk = byte_chunk_from_hex("0800")?
-	let zero_group_view: ByteView = byte_view(zero_group_bytes, byte_offset(0)?, byte_count(2)?)?
-	let invalid_decode: DecodeStep<{total_count: Int, group_count: Int, items: List<Int>}> = decode CountedValues from zero_group_view at byte_offset(41)?
+	let zero_group_bytes = byte_chunk_from_hex("0800")?
+	let zero_group_view = byte_view(zero_group_bytes, byte_offset(0)?, byte_count(2)?)?
+	let invalid_decode = decode CountedValues from zero_group_view at byte_offset(41)?
 	stdio::println(decode_step_kind(invalid_decode))
 	stdio::println(decode_error_id(invalid_decode))
 	stdio::println(int_to_string(decode_error_offset(invalid_decode)))
 	stdio::println(decode_error_path(invalid_decode))
 	stdio::println(int_to_string(consumed_count(invalid_decode)))
 
-	let items: List<Int> = list_cons(1, list_cons(2, list_cons(3, list_cons(4, list_nil()))))
-	let encoded: EncodeStep<()> = encode_result_step(encode CountedValues from {total_count: 8, group_count: 2, items: items})
+	let items = list_cons(1, list_cons(2, list_cons(3, list_cons(4, list_nil()))))
+	let encoded = encode_result_step(encode CountedValues from {total_count: 8, group_count: 2, items: items})
 	stdio::println(encode_step_kind(encoded))
 	emit_encoded(encoded, "08020001000200030004")
 
-	let short_items: List<Int> = list_cons(1, list_cons(2, list_cons(3, list_nil())))
-	let invalid_encode: EncodeStep<()> = encode_result_step(encode CountedValues from {total_count: 8, group_count: 2, items: short_items})
+	let short_items = list_cons(1, list_cons(2, list_cons(3, list_nil())))
+	let invalid_encode = encode_result_step(encode CountedValues from {total_count: 8, group_count: 2, items: short_items})
 	stdio::println(encode_step_kind(invalid_encode))
 	stdio::println(encode_error_id(invalid_encode))
 	stdio::println(encode_error_path(invalid_encode))

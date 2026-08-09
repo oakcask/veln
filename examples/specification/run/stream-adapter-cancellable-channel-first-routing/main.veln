@@ -76,7 +76,7 @@ fn bool_text(value: Bool) -> String
 end
 
 pub fn main() -> Result<(), String> effects [time, concurrency, stdio]
-	let payload: ByteChunk = byte_chunk_from_hex("0a0b")?
+	let payload = byte_chunk_from_hex("0a0b")?
 
 	let ready_first = channel::bounded<StreamInput>(1)
 	let ready_second = channel::bounded<StreamInput>(1)
@@ -84,8 +84,8 @@ pub fn main() -> Result<(), String> effects [time, concurrency, stdio]
 	let ready_fourth = channel::bounded<StreamInput>(1)
 	let ready_fifth = channel::bounded<StreamInput>(1)
 	let _ = channel::send(ready_fourth.tx, Chunk(payload))
-	let ready_receivers: List<Receiver<StreamInput>> = list_cons(ready_first.rx, list_cons(ready_second.rx, list_cons(ready_third.rx, list_cons(ready_fourth.rx, list_cons(ready_fifth.rx, list_nil())))))
-	let ready_token: CancelToken = time::cancel_token()
+	let ready_receivers = list_cons(ready_first.rx, list_cons(ready_second.rx, list_cons(ready_third.rx, list_cons(ready_fourth.rx, list_cons(ready_fifth.rx, list_nil())))))
+	let ready_token = time::cancel_token()
 	let ready = route_with_cancellable_channel_first(ready_receivers, { chunks: 0, ended: false }, 25, ready_token)
 	stdio::println("receiver-list cancellable outcome")
 	stdio::print(ready.outcome)
@@ -99,8 +99,8 @@ pub fn main() -> Result<(), String> effects [time, concurrency, stdio]
 	let timeout_third = channel::bounded<StreamInput>(1)
 	let timeout_fourth = channel::bounded<StreamInput>(1)
 	let timeout_fifth = channel::bounded<StreamInput>(1)
-	let timeout_receivers: List<Receiver<StreamInput>> = list_cons(timeout_first.rx, list_cons(timeout_second.rx, list_cons(timeout_third.rx, list_cons(timeout_fourth.rx, list_cons(timeout_fifth.rx, list_nil())))))
-	let timeout_token: CancelToken = time::cancel_token()
+	let timeout_receivers = list_cons(timeout_first.rx, list_cons(timeout_second.rx, list_cons(timeout_third.rx, list_cons(timeout_fourth.rx, list_cons(timeout_fifth.rx, list_nil())))))
+	let timeout_token = time::cancel_token()
 	let timed_out = route_with_cancellable_channel_first(timeout_receivers, ready.next_state, 0, timeout_token)
 	stdio::print(timed_out.outcome)
 	stdio::print(" score ")
@@ -113,8 +113,8 @@ pub fn main() -> Result<(), String> effects [time, concurrency, stdio]
 	let cancel_third = channel::bounded<StreamInput>(1)
 	let cancel_fourth = channel::bounded<StreamInput>(1)
 	let cancel_fifth = channel::bounded<StreamInput>(1)
-	let cancel_receivers: List<Receiver<StreamInput>> = list_cons(cancel_first.rx, list_cons(cancel_second.rx, list_cons(cancel_third.rx, list_cons(cancel_fourth.rx, list_cons(cancel_fifth.rx, list_nil())))))
-	let cancel_token: CancelToken = time::cancel_token()
+	let cancel_receivers = list_cons(cancel_first.rx, list_cons(cancel_second.rx, list_cons(cancel_third.rx, list_cons(cancel_fourth.rx, list_cons(cancel_fifth.rx, list_nil())))))
+	let cancel_token = time::cancel_token()
 	time::cancel(cancel_token)
 	let cancelled = route_with_cancellable_channel_first(cancel_receivers, timed_out.next_state, 25, cancel_token)
 	stdio::print(cancelled.outcome)

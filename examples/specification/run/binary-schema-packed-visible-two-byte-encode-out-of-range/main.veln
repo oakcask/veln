@@ -34,7 +34,7 @@ fn emit_error(error: EncodeError) -> () effects [stdio]
 end
 
 pub fn main() -> () effects [stdio]
-	let rejected: Result<ByteChunk, EncodeError> = byte_encode_packed_visible_two_byte_header({high: 10, middle: 32, low: 4, tail: 13})
+	let rejected = byte_encode_packed_visible_two_byte_header({high: 10, middle: 32, low: 4, tail: 13})
 	match rejected
 		Ok(_) => stdio::println("unexpected encode success")
 		Err(error) => emit_error(error)

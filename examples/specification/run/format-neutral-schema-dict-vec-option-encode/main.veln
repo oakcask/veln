@@ -40,10 +40,10 @@ fn encoded_missing_count(result: Result<{scores: Dict<String, Vec<Option<Int>>>}
 end
 
 pub fn main() -> () effects [stdio]
-	let direct_packet: {scores: Dict<String, Vec<Option<Int>>>} = {scores: {"math": [Some(11), None, Some(13)]}}
-	let explicit_packet: {scores: Dict<String, Vec<Option<Int>>>} = {scores: {"science": [None, Some(5)]}}
-	let direct: Result<{scores: Dict<String, Vec<Option<Int>>>}, String> = byte_encode_dict_vec_option_packet(direct_packet)
-	let explicit: Result<{scores: Dict<String, Vec<Option<Int>>>}, String> = encode DictVecOptionPacket from explicit_packet
+	let direct_packet = {scores: {"math": [Some(11), None, Some(13)]}}
+	let explicit_packet = {scores: {"science": [None, Some(5)]}}
+	let direct = byte_encode_dict_vec_option_packet(direct_packet)
+	let explicit = encode DictVecOptionPacket from explicit_packet
 	stdio::println(int_to_string(encoded_score_sum(direct, "math")))
 	stdio::println(int_to_string(encoded_missing_count(direct, "math")))
 	stdio::println(int_to_string(encoded_score_sum(explicit, "science")))

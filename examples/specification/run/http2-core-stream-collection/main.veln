@@ -106,28 +106,28 @@ fn print_lifecycle(label: String, lifecycle: CoreStreamLifecycle) -> () effects 
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let empty: CoreStreamCollection = http2::core::empty_stream_collection()
-	let first: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 65535, 65535, 10, 0))?
-	let second: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(3, http2::core::stream_half_closed_remote_lifecycle(), 42, 7, 0 - 1, 0))?
-	let replaced_first: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_closed_lifecycle(), 0, 65535, 10, 10))?
-	let with_first: CoreStreamCollection = http2::core::stream_collection_add_or_replace(empty, first)
-	let with_two: CoreStreamCollection = http2::core::stream_collection_add_or_replace(with_first, second)
-	let replaced: CoreStreamCollection = http2::core::stream_collection_add_or_replace(with_two, replaced_first)
-	let recv_credit: CoreStreamWindowCredit = match http2::core::stream_window_credit(33)
+	let empty = http2::core::empty_stream_collection()
+	let first = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 65535, 65535, 10, 0))?
+	let second = require_stream_entry(http2::core::stream_entry(3, http2::core::stream_half_closed_remote_lifecycle(), 42, 7, 0 - 1, 0))?
+	let replaced_first = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_closed_lifecycle(), 0, 65535, 10, 10))?
+	let with_first = http2::core::stream_collection_add_or_replace(empty, first)
+	let with_two = http2::core::stream_collection_add_or_replace(with_first, second)
+	let replaced = http2::core::stream_collection_add_or_replace(with_two, replaced_first)
+	let recv_credit = match http2::core::stream_window_credit(33)
 		Ok(credit) => credit
 		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))?
 	end
-	let send_credit: CoreStreamWindowCredit = match http2::core::stream_window_credit(44)
+	let send_credit = match http2::core::stream_window_credit(44)
 		Ok(credit) => credit
 		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))?
 	end
-	let base_entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 100, 90, 12, 3))?
-	let base: CoreStreamCollection = http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), base_entry)
-	let updated: CoreStreamCollection = http2::core::stream_collection_with_content_length(http2::core::stream_collection_with_send_credit(http2::core::stream_collection_with_receive_credit(http2::core::stream_collection_with_lifecycle(base, 5, http2::core::stream_reset_lifecycle(8)), 5, recv_credit), 5, send_credit), 5, 12, 12)
-	let missing_update: CoreStreamCollection = http2::core::stream_collection_with_lifecycle(base, 7, http2::core::stream_closed_lifecycle())
-	let missing_receive_update: CoreStreamCollection = http2::core::stream_collection_with_receive_credit(base, 7, recv_credit)
-	let missing_send_update: CoreStreamCollection = http2::core::stream_collection_with_send_credit(base, 7, send_credit)
-	let missing_content_update: CoreStreamCollection = http2::core::stream_collection_with_content_length(base, 7, 99, 44)
+	let base_entry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 100, 90, 12, 3))?
+	let base = http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), base_entry)
+	let updated = http2::core::stream_collection_with_content_length(http2::core::stream_collection_with_send_credit(http2::core::stream_collection_with_receive_credit(http2::core::stream_collection_with_lifecycle(base, 5, http2::core::stream_reset_lifecycle(8)), 5, recv_credit), 5, send_credit), 5, 12, 12)
+	let missing_update = http2::core::stream_collection_with_lifecycle(base, 7, http2::core::stream_closed_lifecycle())
+	let missing_receive_update = http2::core::stream_collection_with_receive_credit(base, 7, recv_credit)
+	let missing_send_update = http2::core::stream_collection_with_send_credit(base, 7, send_credit)
+	let missing_content_update = http2::core::stream_collection_with_content_length(base, 7, 99, 44)
 	print_collection("empty", empty)
 	print_collection("with-first", with_first)
 	print_collection("with-two", with_two)

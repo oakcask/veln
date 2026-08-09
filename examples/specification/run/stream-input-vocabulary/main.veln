@@ -9,12 +9,12 @@ fn describe(input: StreamInput) -> Int
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let empty: ByteChunk = byte_chunk([])
-	let one: Byte = byte(1)?
-	let non_empty: ByteChunk = byte_chunk([one])
-	let empty_arrival: StreamInput = Chunk(empty)
-	let byte_arrival: StreamInput = prelude::StreamInput::Chunk(non_empty)
-	let ended: StreamInput = End
+	let empty = byte_chunk([])
+	let one = byte(1)?
+	let non_empty = byte_chunk([one])
+	let empty_arrival = Chunk(empty)
+	let byte_arrival = prelude::StreamInput::Chunk(non_empty)
+	let ended = End
 	stdio::println(int_to_string(describe(empty_arrival)))
 	stdio::println(int_to_string(describe(byte_arrival)))
 	stdio::println(int_to_string(describe(ended)))

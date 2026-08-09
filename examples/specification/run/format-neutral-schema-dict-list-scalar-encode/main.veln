@@ -88,9 +88,9 @@ fn encoded_name(result: Result<{scores: Dict<String, List<Int>>, states: Dict<St
 end
 
 pub fn main() -> () effects [stdio]
-	let packet: {scores: Dict<String, List<Int>>, states: Dict<String, List<Bool>>, weights: Dict<String, List<Float>>, names: Dict<String, List<String>>} = {scores: {"math": list_cons(11, list_cons(13, list_nil()))}, states: {"enabled": list_cons(true, list_cons(false, list_cons(true, list_nil())))}, weights: {"ratio": list_cons(0.75, list_cons(0.50, list_nil()))}, names: {"owner": list_cons("core", list_cons("stable", list_nil()))}}
+	let packet = {scores: {"math": list_cons(11, list_cons(13, list_nil()))}, states: {"enabled": list_cons(true, list_cons(false, list_cons(true, list_nil())))}, weights: {"ratio": list_cons(0.75, list_cons(0.50, list_nil()))}, names: {"owner": list_cons("core", list_cons("stable", list_nil()))}}
 	let empty_packet: {scores: Dict<String, List<Int>>, states: Dict<String, List<Bool>>, weights: Dict<String, List<Float>>, names: Dict<String, List<String>>} = {scores: {}, states: {}, weights: {}, names: {}}
-	let encoded: Result<{scores: Dict<String, List<Int>>, states: Dict<String, List<Bool>>, weights: Dict<String, List<Float>>, names: Dict<String, List<String>>}, String> = byte_encode_dict_list_scalar_packet(packet)
+	let encoded = byte_encode_dict_list_scalar_packet(packet)
 	let explicit: Result<{scores: Dict<String, List<Int>>, states: Dict<String, List<Bool>>, weights: Dict<String, List<Float>>, names: Dict<String, List<String>>}, String> = encode DictListScalarPacket from empty_packet
 	stdio::println(int_to_string(encoded_score(encoded)))
 	stdio::println(int_to_string(encoded_state(encoded)))

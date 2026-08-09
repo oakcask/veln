@@ -85,24 +85,24 @@ fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("d5")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(1)?)?
-	let decoded: DecodeStep<{high: Int, low: Int}> = decode SplitReservedHeader from view at byte_offset(7)?
+	let bytes = byte_chunk_from_hex("d5")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(1)?)?
+	let decoded = decode SplitReservedHeader from view at byte_offset(7)?
 	stdio::println(step_kind(decoded))
 	stdio::println(int_to_string(decoded_high(decoded)))
 	stdio::println(int_to_string(decoded_low(decoded)))
 	stdio::println(int_to_string(consumed_count(decoded)))
 
-	let invalid_bytes: ByteChunk = byte_chunk_from_hex("e5")?
-	let invalid_view: ByteView = byte_view(invalid_bytes, byte_offset(0)?, byte_count(1)?)?
-	let invalid: DecodeStep<{high: Int, low: Int}> = decode SplitReservedHeader from invalid_view at byte_offset(11)?
+	let invalid_bytes = byte_chunk_from_hex("e5")?
+	let invalid_view = byte_view(invalid_bytes, byte_offset(0)?, byte_count(1)?)?
+	let invalid = decode SplitReservedHeader from invalid_view at byte_offset(11)?
 	stdio::println(step_kind(invalid))
 	stdio::println(int_to_string(consumed_count(invalid)))
 	stdio::println(error_id(invalid))
 	stdio::println(int_to_string(error_offset(invalid)))
 	stdio::println(error_path(invalid))
 
-	let encoded: EncodeStep<()> = encode_result_step(encode SplitReservedHeader from {high: 2, low: 5})
+	let encoded = encode_result_step(encode SplitReservedHeader from {high: 2, low: 5})
 	stdio::println(encode_kind(encoded))
 	Ok(())
 end

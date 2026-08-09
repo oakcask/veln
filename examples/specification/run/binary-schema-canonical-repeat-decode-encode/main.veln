@@ -81,19 +81,19 @@ fn emit_encoded(bytes: ByteChunk) -> () effects [stdio]
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("020302020001000200030004000500ffaabbccdd0506")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(22)?)?
-	let packet: {row_count: Int, column_count: Int, count: Int, item_length: Int, values: List<Int>, views: List<ByteView>, items: List<{value: Int}>} = byte_decode_packet_wire(view)?
+	let bytes = byte_chunk_from_hex("020302020001000200030004000500ffaabbccdd0506")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(22)?)?
+	let packet = byte_decode_packet_wire(view)?
 	emit_decoded(packet)
 
-	let first_view_bytes: ByteChunk = byte_chunk_from_hex("aabb")?
-	let second_view_bytes: ByteChunk = byte_chunk_from_hex("ccdd")?
-	let first_view: ByteView = byte_view(first_view_bytes, byte_offset(0)?, byte_count(2)?)?
-	let second_view: ByteView = byte_view(second_view_bytes, byte_offset(0)?, byte_count(2)?)?
-	let values: List<Int> = list_cons(1, list_cons(2, list_cons(3, list_cons(4, list_cons(5, list_cons(255, list_nil()))))))
-	let views: List<ByteView> = list_cons(first_view, list_cons(second_view, list_nil()))
-	let items: List<{value: Int}> = list_cons({value: 5}, list_cons({value: 6}, list_nil()))
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_packet_wire({row_count: 2, column_count: 3, count: 2, item_length: 2, values: values, views: views, items: items})
+	let first_view_bytes = byte_chunk_from_hex("aabb")?
+	let second_view_bytes = byte_chunk_from_hex("ccdd")?
+	let first_view = byte_view(first_view_bytes, byte_offset(0)?, byte_count(2)?)?
+	let second_view = byte_view(second_view_bytes, byte_offset(0)?, byte_count(2)?)?
+	let values = list_cons(1, list_cons(2, list_cons(3, list_cons(4, list_cons(5, list_cons(255, list_nil()))))))
+	let views = list_cons(first_view, list_cons(second_view, list_nil()))
+	let items = list_cons({value: 5}, list_cons({value: 6}, list_nil()))
+	let encoded = byte_encode_packet_wire({row_count: 2, column_count: 3, count: 2, item_length: 2, values: values, views: views, items: items})
 	match encoded
 		Ok(chunk) => Ok(emit_encoded(chunk))
 		Err(_) => Ok(stdio::println("unexpected encode failure"))

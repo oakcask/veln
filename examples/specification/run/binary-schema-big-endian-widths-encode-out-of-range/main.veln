@@ -32,7 +32,7 @@ fn emit_error(error: EncodeError) -> () effects [stdio]
 end
 
 pub fn main() -> () effects [stdio]
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_big_endian_stream_wire({stream_value: 2147483648})
+	let encoded = byte_encode_big_endian_stream_wire({stream_value: 2147483648})
 	match encoded
 		Ok(_) => stdio::println("unexpected UInt31be encode success")
 		Err(error) => emit_error(error)

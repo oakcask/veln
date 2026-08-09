@@ -69,10 +69,10 @@ fn encoded_label_count(result: Result<{items: Vec<Option<Int>>, flags: Vec<Optio
 end
 
 pub fn main() -> () effects [stdio]
-	let packet: {items: Vec<Option<Int>>, flags: Vec<Option<Bool>>, ratios: Vec<Option<Float>>, labels: Vec<Option<String>>} = {items: [Some(2), None, Some(5)], flags: [Some(true), None, Some(false), Some(true)], ratios: [Some(1.25), None], labels: [Some("alpha"), None, Some("beta")]}
-	let empty_packet: {items: Vec<Option<Int>>, flags: Vec<Option<Bool>>, ratios: Vec<Option<Float>>, labels: Vec<Option<String>>} = {items: [], flags: [], ratios: [], labels: []}
-	let encoded: Result<{items: Vec<Option<Int>>, flags: Vec<Option<Bool>>, ratios: Vec<Option<Float>>, labels: Vec<Option<String>>}, String> = byte_encode_option_vec_packet(packet)
-	let explicit: Result<{items: Vec<Option<Int>>, flags: Vec<Option<Bool>>, ratios: Vec<Option<Float>>, labels: Vec<Option<String>>}, String> = encode OptionVecPacket from empty_packet
+	let packet = {items: [Some(2), None, Some(5)], flags: [Some(true), None, Some(false), Some(true)], ratios: [Some(1.25), None], labels: [Some("alpha"), None, Some("beta")]}
+	let empty_packet = {items: [], flags: [], ratios: [], labels: []}
+	let encoded = byte_encode_option_vec_packet(packet)
+	let explicit = encode OptionVecPacket from empty_packet
 	stdio::println(int_to_string(encoded_item_sum(encoded)))
 	stdio::println(int_to_string(encoded_flag_count(encoded)))
 	stdio::println(int_to_string(encoded_ratio_count(encoded)))

@@ -31,9 +31,9 @@ fn payload_sum(items: List<{length: Int, kind: Int, payload: Int}>) -> Int
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("020101090302010107")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(9)?)?
-	let batch: {count: Int, items: List<{length: Int, kind: Int, payload: Int}>} = byte_decode_packet_batch(view)?
+	let bytes = byte_chunk_from_hex("020101090302010107")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(9)?)?
+	let batch = byte_decode_packet_batch(view)?
 	stdio::print(int_to_string(batch.count))
 	stdio::print(" ")
 	stdio::print(int_to_string(list_count(batch.items)))

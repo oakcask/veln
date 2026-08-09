@@ -41,11 +41,11 @@ fn emit_encoded(name: String, encoded: Result<ByteChunk, EncodeError>, expected_
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let payload_bytes: ByteChunk = byte_chunk_from_hex("aabbcc")?
-	let payload_offset: ByteOffset = byte_offset(0)?
-	let payload_count: ByteCount = byte_count(3)?
-	let payload_view: ByteView = byte_view(payload_bytes, payload_offset, payload_count)?
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_imported_extension_nested_write_packet({length: 3, kind: 7, payload: Unknown(7, payload_view)})
+	let payload_bytes = byte_chunk_from_hex("aabbcc")?
+	let payload_offset = byte_offset(0)?
+	let payload_count = byte_count(3)?
+	let payload_view = byte_view(payload_bytes, payload_offset, payload_count)?
+	let encoded = byte_encode_imported_extension_nested_write_packet({length: 3, kind: 7, payload: Unknown(7, payload_view)})
 	emit_encoded("imported-extension-unknown", encoded, "0307aabbcc")
 	Ok(())
 end

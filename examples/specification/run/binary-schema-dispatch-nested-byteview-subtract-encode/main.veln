@@ -73,20 +73,20 @@ fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let payload_bytes: ByteChunk = byte_chunk_from_hex("aabbcc")?
-	let payload_view: ByteView = byte_view(payload_bytes, byte_offset(0)?, byte_count(3)?)?
-	let payload: {left_length: Int, right_length: Int, payload: ByteView} = {left_length: 5, right_length: 2, payload: payload_view}
+	let payload_bytes = byte_chunk_from_hex("aabbcc")?
+	let payload_view = byte_view(payload_bytes, byte_offset(0)?, byte_count(3)?)?
+	let payload = {left_length: 5, right_length: 2, payload: payload_view}
 
-	let closed: Result<ByteChunk, EncodeError> = byte_encode_closed_subtractive_write_packet({kind: 1, payload: payload})
+	let closed = byte_encode_closed_subtractive_write_packet({kind: 1, payload: payload})
 	emit_encoded_result("closed-subtractive-nested", closed, "010502aabbcc")
 
-	let extension: Result<ByteChunk, EncodeError> = byte_encode_extension_subtractive_write_packet({length: 5, kind: 1, payload: Known(payload)})
+	let extension = byte_encode_extension_subtractive_write_packet({length: 5, kind: 1, payload: Known(payload)})
 	emit_encoded_result("extension-subtractive-nested", extension, "05010502aabbcc")
 
-	let closed_codec: EncodeStep<()> = encode_result_step(encode ClosedSubtractiveWritePacket from {kind: 1, payload: payload})
+	let closed_codec = encode_result_step(encode ClosedSubtractiveWritePacket from {kind: 1, payload: payload})
 	emit_encoded_step("codec-closed-subtractive-nested", closed_codec, "010502aabbcc")
 
-	let extension_codec: EncodeStep<()> = encode_result_step(encode ExtensionSubtractiveWritePacket from {length: 5, kind: 1, payload: Known(payload)})
+	let extension_codec = encode_result_step(encode ExtensionSubtractiveWritePacket from {length: 5, kind: 1, payload: Known(payload)})
 	emit_encoded_step("codec-extension-subtractive-nested", extension_codec, "05010502aabbcc")
 	Ok(())
 end

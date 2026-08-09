@@ -7,9 +7,9 @@ fn emit_read_result(result: Option<ByteChunk>) -> () effects [stdio]
 end
 
 pub fn main() -> Result<(), String> effects [net, time, stdio]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let stream: NetStream = net::accept(listener)
-	let deadline: Deadline = time::deadline_after_ms(100)
+	let listener = net::listen("127.0.0.1:0")
+	let stream = net::accept(listener)
+	let deadline = time::deadline_after_ms(100)
 	emit_read_result(net::read_chunk_until(stream, deadline))
 	Ok(())
 end

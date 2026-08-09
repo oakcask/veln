@@ -27,10 +27,10 @@ fn print_failure_value(label: String, failure: TableSizeUpdateFailure) -> Result
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let older: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(100)?, "a", byte_chunk_from_hex("31")?)?
-	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(older, "bb", byte_chunk_from_hex("3232")?)?
-	let transition: TableSizeUpdateTransition = require_transition(byte_chunk_from_hex("3f05")?, table, 100)?
-	let next: DynamicTable = http2::hpack::table_size_update_table(transition)
+	let older = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(100)?, "a", byte_chunk_from_hex("31")?)?
+	let table = http2::hpack::insert_dynamic_table_entry(older, "bb", byte_chunk_from_hex("3232")?)?
+	let transition = require_transition(byte_chunk_from_hex("3f05")?, table, 100)?
+	let next = http2::hpack::table_size_update_table(transition)
 	stdio::print("shrink ")
 	stdio::print(int_to_string(http2::hpack::table_size_update_capacity(transition)))
 	stdio::print(" ")

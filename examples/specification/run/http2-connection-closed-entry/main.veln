@@ -28,10 +28,10 @@ fn print_failure(failure: Http2ConnectionFailure) -> Result<(), String> effects 
 end
 
 pub fn main() -> Result<(), String> effects [net, stdio]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let stream: NetStream = accept_next(listener)?
-	let open: CoreConnectionState = http2::core::server_connection_state(0)?
-	let closed: CoreConnectionState = http2::core::connection_state_with_lifecycle(open, http2::core::connection_lifecycle_closed(0, 0))
+	let listener = net::listen("127.0.0.1:0")
+	let stream = accept_next(listener)?
+	let open = http2::core::server_connection_state(0)?
+	let closed = http2::core::connection_state_with_lifecycle(open, http2::core::connection_lifecycle_closed(0, 0))
 	let result = handle http2::connection::drive_server(closed) with transport::net::net_stream(stream)
 	let _ = print_result(result)?
 	net::close_stream(stream)

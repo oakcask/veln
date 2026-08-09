@@ -9,10 +9,10 @@ fn read_state(stream: NetStream) -> String effects [net]
 end
 
 pub fn main() -> Result<(), String> effects [net, stdio]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let stream: NetStream = net::accept(listener)
+	let listener = net::listen("127.0.0.1:0")
+	let stream = net::accept(listener)
 	let incoming = read_state(stream)
-	let outgoing: ByteChunk = byte_chunk_from_hex("0a0b")?
+	let outgoing = byte_chunk_from_hex("0a0b")?
 	net::write_chunk(stream, outgoing)
 	net::shutdown_write(stream)
 	let after_shutdown = read_state(stream)

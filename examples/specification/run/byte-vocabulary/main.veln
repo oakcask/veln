@@ -6,15 +6,15 @@ fn chunk_count_text(chunk: ByteChunk) -> String
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let first: Byte = byte(1)?
-	let second: Byte = byte(2)?
-	let third: Byte = byte(255)?
-	let combined: ByteChunk = byte_append(byte_chunk([first, second]), byte_chunk([third]))
-	let one: ByteCount = byte_count(1)?
-	let two: ByteCount = byte_count(2)?
-	let taken: ByteChunk = byte_take(combined, two)?
-	let dropped: ByteChunk = byte_drop(combined, one)?
-	let offset: ByteOffset = byte_offset(4)?
+	let first = byte(1)?
+	let second = byte(2)?
+	let third = byte(255)?
+	let combined = byte_append(byte_chunk([first, second]), byte_chunk([third]))
+	let one = byte_count(1)?
+	let two = byte_count(2)?
+	let taken = byte_take(combined, two)?
+	let dropped = byte_drop(combined, one)?
+	let offset = byte_offset(4)?
 	stdio::println(chunk_count_text(combined))
 	stdio::println(chunk_count_text(taken))
 	stdio::println(chunk_count_text(dropped))

@@ -141,9 +141,9 @@ fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let complete_bytes: ByteChunk = byte_chunk_from_hex("0203aabbccddeeff")?
-	let complete_view: ByteView = byte_view(complete_bytes, byte_offset(0)?, byte_count(8)?)?
-	let complete: DecodeStep<{row_count: Int, column_count: Int, payload: ByteView}> = decode PacketWire from complete_view at byte_offset(11)?
+	let complete_bytes = byte_chunk_from_hex("0203aabbccddeeff")?
+	let complete_view = byte_view(complete_bytes, byte_offset(0)?, byte_count(8)?)?
+	let complete = decode PacketWire from complete_view at byte_offset(11)?
 	stdio::println(decode_step_kind(complete))
 	stdio::println(int_to_string(decoded_row_count(complete)))
 	stdio::println(int_to_string(decoded_column_count(complete)))
@@ -151,23 +151,23 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(int_to_string(decoded_payload_prefix(complete)))
 	stdio::println(int_to_string(consumed_count(complete)))
 
-	let short_bytes: ByteChunk = byte_chunk_from_hex("02")?
-	let short_view: ByteView = byte_view(short_bytes, byte_offset(0)?, byte_count(1)?)?
-	let waiting: DecodeStep<{row_count: Int, column_count: Int, payload: ByteView}> = decode PacketWire from short_view at byte_offset(19)?
+	let short_bytes = byte_chunk_from_hex("02")?
+	let short_view = byte_view(short_bytes, byte_offset(0)?, byte_count(1)?)?
+	let waiting = decode PacketWire from short_view at byte_offset(19)?
 	stdio::println(decode_step_kind(waiting))
 	stdio::println(readiness_kind(waiting))
 	stdio::println(int_to_string(readiness_count(waiting)))
 	stdio::println(int_to_string(consumed_count(waiting)))
 
-	let payload_bytes: ByteChunk = byte_chunk_from_hex("aabbccddeeff")?
-	let payload: ByteView = byte_view(payload_bytes, byte_offset(0)?, byte_count(6)?)?
-	let encoded: EncodeStep<()> = encode_result_step(encode PacketWire from {row_count: 2, column_count: 3, payload: payload})
+	let payload_bytes = byte_chunk_from_hex("aabbccddeeff")?
+	let payload = byte_view(payload_bytes, byte_offset(0)?, byte_count(6)?)?
+	let encoded = encode_result_step(encode PacketWire from {row_count: 2, column_count: 3, payload: payload})
 	stdio::println(encode_step_kind(encoded))
 	emit_encoded(encoded, "0203aabbccddeeff")
 
-	let short_payload_bytes: ByteChunk = byte_chunk_from_hex("aabbccdd")?
-	let short_payload: ByteView = byte_view(short_payload_bytes, byte_offset(0)?, byte_count(4)?)?
-	let invalid_encode: EncodeStep<()> = encode_result_step(encode PacketWire from {row_count: 2, column_count: 3, payload: short_payload})
+	let short_payload_bytes = byte_chunk_from_hex("aabbccdd")?
+	let short_payload = byte_view(short_payload_bytes, byte_offset(0)?, byte_count(4)?)?
+	let invalid_encode = encode_result_step(encode PacketWire from {row_count: 2, column_count: 3, payload: short_payload})
 	stdio::println(encode_step_kind(invalid_encode))
 	stdio::println(encode_error_id(invalid_encode))
 	stdio::println(encode_error_path(invalid_encode))

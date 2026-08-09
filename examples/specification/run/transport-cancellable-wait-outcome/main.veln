@@ -24,12 +24,12 @@ fn decision_text(decision: TransportDecision) -> String
 end
 
 pub fn main() -> Result<(), String> effects [time, stdio]
-	let ready_deadline: Deadline = time::deadline_after_ms(0)
-	let ready_token: CancelToken = time::cancel_token()
+	let ready_deadline = time::deadline_after_ms(0)
+	let ready_token = time::cancel_token()
 	stdio::println(decision_text(wait_for_transport_slot(ready_deadline, ready_token)))
 
-	let cancel_deadline: Deadline = time::deadline_after_ms(0)
-	let cancel_token: CancelToken = time::cancel_token()
+	let cancel_deadline = time::deadline_after_ms(0)
+	let cancel_token = time::cancel_token()
 	time::cancel(cancel_token)
 	stdio::println(decision_text(wait_for_transport_slot(cancel_deadline, cancel_token)))
 	Ok(())

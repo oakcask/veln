@@ -20,13 +20,13 @@ fn selected_score(selected: { index : Int, value : StreamInput }) -> Int
 end
 
 pub fn main() -> Result<(), String> effects [concurrency, stdio]
-	let first_value: ByteChunk = byte_chunk_from_hex("11")?
-	let first_next_value: ByteChunk = byte_chunk_from_hex("2233")?
-	let second_value: ByteChunk = byte_chunk_from_hex("445566")?
-	let third_value: ByteChunk = byte_chunk_from_hex("778899aa")?
-	let fourth_value: ByteChunk = byte_chunk_from_hex("bbccddee00")?
-	let fifth_value: ByteChunk = byte_chunk_from_hex("102030405060")?
-	let sixth_value: ByteChunk = byte_chunk_from_hex("708090a0b0c0d0")?
+	let first_value = byte_chunk_from_hex("11")?
+	let first_next_value = byte_chunk_from_hex("2233")?
+	let second_value = byte_chunk_from_hex("445566")?
+	let third_value = byte_chunk_from_hex("778899aa")?
+	let fourth_value = byte_chunk_from_hex("bbccddee00")?
+	let fifth_value = byte_chunk_from_hex("102030405060")?
+	let sixth_value = byte_chunk_from_hex("708090a0b0c0d0")?
 	let first = channel::bounded<StreamInput>(2)
 	let second = channel::bounded<StreamInput>(1)
 	let third = channel::bounded<StreamInput>(1)
@@ -46,7 +46,7 @@ pub fn main() -> Result<(), String> effects [concurrency, stdio]
 	channel::close(fourth.tx)
 	channel::close(fifth.tx)
 	channel::close(sixth.tx)
-	let receivers: List<Receiver<StreamInput>> = list_cons(first.rx, list_cons(second.rx, list_cons(third.rx, list_cons(fourth.rx, list_cons(fifth.rx, list_cons(sixth.rx, list_nil()))))))
+	let receivers = list_cons(first.rx, list_cons(second.rx, list_cons(third.rx, list_cons(fourth.rx, list_cons(fifth.rx, list_cons(sixth.rx, list_nil()))))))
 	let selected_first = route_ready_stream_input(receivers)
 	let selected_second = route_ready_stream_input(receivers)
 	let selected_third = route_ready_stream_input(receivers)

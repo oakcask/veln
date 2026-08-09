@@ -42,8 +42,8 @@ end
 
 fn emit_encoded_round_trip(chunk: ByteChunk) -> Result<(), String> effects [stdio]
 	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
-	let view: ByteView = byte_view(chunk, byte_offset(0)?, byte_count(8)?)?
-	let decoded: {lead: Int, mode: Int, tail: Int} = byte_decode_eight_byte_split_reserved_header(view)?
+	let view = byte_view(chunk, byte_offset(0)?, byte_count(8)?)?
+	let decoded = byte_decode_eight_byte_split_reserved_header(view)?
 	emit_decoded(decoded)
 	Ok(())
 end
@@ -63,15 +63,15 @@ fn emit_encode_error(encoded: Result<ByteChunk, EncodeError>) -> () effects [std
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("aaaaad5aaaaaaaea")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(8)?)?
-	let decoded: {lead: Int, mode: Int, tail: Int} = byte_decode_eight_byte_split_reserved_header(view)?
+	let bytes = byte_chunk_from_hex("aaaaad5aaaaaaaea")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(8)?)?
+	let decoded = byte_decode_eight_byte_split_reserved_header(view)?
 	emit_decoded(decoded)
 
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_eight_byte_split_reserved_header({lead: 42, mode: 85, tail: 106})
-	let ignored: () = emit_encode_result(encoded)?
+	let encoded = byte_encode_eight_byte_split_reserved_header({lead: 42, mode: 85, tail: 106})
+	let ignored = emit_encode_result(encoded)?
 
-	let rejected: Result<ByteChunk, EncodeError> = byte_encode_eight_byte_split_reserved_header({lead: 42, mode: 128, tail: 106})
+	let rejected = byte_encode_eight_byte_split_reserved_header({lead: 42, mode: 128, tail: 106})
 	emit_encode_error(rejected)
 	Ok(())
 end

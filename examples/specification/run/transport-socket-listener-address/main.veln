@@ -2,12 +2,12 @@
 use stdio
 
 pub fn main() -> Result<(), String> effects [net, stdio]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let local: String = net::listener_local_addr(listener)
-	let stream: NetStream = net::accept(listener)
-	let stream_local: String = net::stream_local_addr(stream)
-	let stream_peer: String = net::stream_peer_addr(stream)
-	let incoming: ByteChunk = net::read_chunk(stream)
+	let listener = net::listen("127.0.0.1:0")
+	let local = net::listener_local_addr(listener)
+	let stream = net::accept(listener)
+	let stream_local = net::stream_local_addr(stream)
+	let stream_peer = net::stream_peer_addr(stream)
+	let incoming = net::read_chunk(stream)
 	stdio::print("listener ")
 	stdio::print(local)
 	stdio::print(" stream-local ")

@@ -18,11 +18,11 @@ fn emit_sample(sample: {width: Int, item_count: Int, payload_length: Int}) -> ()
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("0305000f")?
-	let offset: ByteOffset = byte_offset(0)?
-	let count: ByteCount = byte_count(4)?
-	let view: ByteView = byte_view(bytes, offset, count)?
-	let sample: {width: Int, item_count: Int, payload_length: Int} = byte_decode_arithmetic_packet(view)?
+	let bytes = byte_chunk_from_hex("0305000f")?
+	let offset = byte_offset(0)?
+	let count = byte_count(4)?
+	let view = byte_view(bytes, offset, count)?
+	let sample = byte_decode_arithmetic_packet(view)?
 	emit_sample(sample)
 	Ok(())
 end

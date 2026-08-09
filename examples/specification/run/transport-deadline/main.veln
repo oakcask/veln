@@ -1,6 +1,6 @@
 # Relative deadline creation and waiting stay on the time effect boundary.
 pub fn main() -> Result<(), String> effects [time, stdio]
-	let deadline: Deadline = time::deadline_after_ms(0)
+	let deadline = time::deadline_after_ms(0)
 	time::wait_until(deadline)
 	stdio::println("deadline")
 	Ok(())

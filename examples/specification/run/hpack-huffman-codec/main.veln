@@ -50,10 +50,10 @@ fn decode_failure(input_hex: String) -> Result<String, String>
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let canonical: ByteChunk = http2::hpack::encode_huffman(byte_chunk_from_visible_ascii_string("www.example.com")?)?
+	let canonical = http2::hpack::encode_huffman(byte_chunk_from_visible_ascii_string("www.example.com")?)?
 	let _ = print_chunk("encoded", canonical)?
 
-	let non_visible: ByteChunk = decode_payload(byte_chunk_from_hex("ffc7ffffdd")?)?
+	let non_visible = decode_payload(byte_chunk_from_hex("ffc7ffffdd")?)?
 	let _ = print_chunk("decoded", non_visible)?
 
 	stdio::print("eos ")

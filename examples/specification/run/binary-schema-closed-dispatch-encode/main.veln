@@ -38,21 +38,21 @@ fn emit_encoded(name: String, encoded: Result<ByteChunk, EncodeError>, expected_
 end
 
 pub fn main() -> () effects [stdio]
-	let one: Result<ByteChunk, EncodeError> = byte_encode_closed_dispatch_write_packet({kind: 1, payload: 7})
+	let one = byte_encode_closed_dispatch_write_packet({kind: 1, payload: 7})
 	emit_encoded("dispatch-u8", one, "0107")
 
-	let two: Result<ByteChunk, EncodeError> = byte_encode_closed_dispatch_write_packet({kind: 2, payload: 4660})
+	let two = byte_encode_closed_dispatch_write_packet({kind: 2, payload: 4660})
 	emit_encoded("dispatch-u16", two, "021234")
 
-	let three: Result<ByteChunk, EncodeError> = byte_encode_closed_dispatch_write_packet({kind: 3, payload: 11259375})
+	let three = byte_encode_closed_dispatch_write_packet({kind: 3, payload: 11259375})
 	emit_encoded("dispatch-u24", three, "03abcdef")
 
-	let four: Result<ByteChunk, EncodeError> = byte_encode_closed_dispatch_write_packet({kind: 4, payload: 3735928559})
+	let four = byte_encode_closed_dispatch_write_packet({kind: 4, payload: 3735928559})
 	emit_encoded("dispatch-u32", four, "04deadbeef")
 
-	let five: Result<ByteChunk, EncodeError> = byte_encode_closed_dispatch_write_packet({kind: 5, payload: 1193046})
+	let five = byte_encode_closed_dispatch_write_packet({kind: 5, payload: 1193046})
 	emit_encoded("dispatch-u24le", five, "05563412")
 
-	let six: Result<ByteChunk, EncodeError> = byte_encode_closed_dispatch_write_packet({kind: 6, payload: 3735928559})
+	let six = byte_encode_closed_dispatch_write_packet({kind: 6, payload: 3735928559})
 	emit_encoded("dispatch-u32le", six, "06efbeadde")
 end

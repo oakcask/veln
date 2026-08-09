@@ -24,17 +24,17 @@ fn encoded_count(encoded: Result<ByteChunk, EncodeError>) -> Int
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("12343412")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(4)?)?
-	let controls: {big: Int, little: Int} = byte_decode_controls(view)?
-	let big_inspected: Bool = (controls.big & (1 << 2)) != 0
-	let little_inspected: Bool = (controls.little & (1 << 2)) != 0
-	let big_set: Int = controls.big | (1 << 15)
-	let little_set: Int = controls.little | (1 << 15)
-	let big_cleared: Int = controls.big & ~(1 << 4)
-	let little_cleared: Int = controls.little & ~(1 << 4)
-	let big_toggled: Int = controls.big ^ (1 << 0)
-	let little_toggled: Int = controls.little ^ (1 << 0)
+	let bytes = byte_chunk_from_hex("12343412")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(4)?)?
+	let controls = byte_decode_controls(view)?
+	let big_inspected = (controls.big & (1 << 2)) != 0
+	let little_inspected = (controls.little & (1 << 2)) != 0
+	let big_set = controls.big | (1 << 15)
+	let little_set = controls.little | (1 << 15)
+	let big_cleared = controls.big & ~(1 << 4)
+	let little_cleared = controls.little & ~(1 << 4)
+	let big_toggled = controls.big ^ (1 << 0)
+	let little_toggled = controls.little ^ (1 << 0)
 	stdio::println(bool_text(big_inspected and little_inspected))
 	stdio::println(int_to_string(big_set))
 	stdio::println(int_to_string(little_set))

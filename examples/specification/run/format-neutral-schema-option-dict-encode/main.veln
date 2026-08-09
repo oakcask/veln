@@ -96,10 +96,10 @@ fn nested_name(result: Result<{scores: Option<Dict<String, Int>>, states: Option
 end
 
 pub fn main() -> () effects [stdio]
-	let packet: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>, metadata: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>}} = {scores: Some({"math": 17, "language": 19}), states: Some({"enabled": true, "paused": false}), weights: Some({"ratio": 1.5, "bonus": 0.25}), names: Some({"owner": "core", "lane": "stable"}), metadata: {scores: Some({"science": 23}), states: Some({"enabled": true}), weights: Some({"ratio": 2.0}), names: Some({"owner": "nested-core"})}}
+	let packet = {scores: Some({"math": 17, "language": 19}), states: Some({"enabled": true, "paused": false}), weights: Some({"ratio": 1.5, "bonus": 0.25}), names: Some({"owner": "core", "lane": "stable"}), metadata: {scores: Some({"science": 23}), states: Some({"enabled": true}), weights: Some({"ratio": 2.0}), names: Some({"owner": "nested-core"})}}
 	let empty_packet: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>, metadata: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>}} = {scores: None, states: None, weights: None, names: None, metadata: {scores: None, states: None, weights: None, names: None}}
-	let encoded: Result<{scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>, metadata: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>}}, String> = byte_encode_option_dict_packet(packet)
-	let explicit: Result<{scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>, metadata: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>}}, String> = encode OptionDictPacket from empty_packet
+	let encoded = byte_encode_option_dict_packet(packet)
+	let explicit = encode OptionDictPacket from empty_packet
 	stdio::println(int_to_string(encoded_score(encoded)))
 	stdio::println(encoded_state(encoded))
 	stdio::println(encoded_weight(encoded))

@@ -38,12 +38,12 @@ fn emit_header(header: {length: Int, kind: Int, flags: Int, stream_id: Int}) -> 
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("000005010400000001")?
-	let offset: ByteOffset = byte_offset(0)?
-	let count: ByteCount = byte_count(9)?
-	let view: ByteView = byte_view(bytes, offset, count)?
-	let step: DecodeStep<{length: Int, kind: Int, flags: Int, stream_id: Int}> = decode Http2FrameHeaderWire from view at offset
-	let header: {length: Int, kind: Int, flags: Int, stream_id: Int} = decoded_header(step)?
+	let bytes = byte_chunk_from_hex("000005010400000001")?
+	let offset = byte_offset(0)?
+	let count = byte_count(9)?
+	let view = byte_view(bytes, offset, count)?
+	let step = decode Http2FrameHeaderWire from view at offset
+	let header = decoded_header(step)?
 	emit_header(header)
 	stdio::println(int_to_string(consumed_count(step)))
 	Ok(())

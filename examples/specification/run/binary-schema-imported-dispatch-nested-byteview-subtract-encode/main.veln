@@ -66,20 +66,20 @@ fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let payload_bytes: ByteChunk = byte_chunk_from_hex("616263")?
-	let payload_view: ByteView = byte_view(payload_bytes, byte_offset(0)?, byte_count(3)?)?
-	let payload: {left_length: Int, right_length: Int, payload: ByteView} = {left_length: 5, right_length: 2, payload: payload_view}
+	let payload_bytes = byte_chunk_from_hex("616263")?
+	let payload_view = byte_view(payload_bytes, byte_offset(0)?, byte_count(3)?)?
+	let payload = {left_length: 5, right_length: 2, payload: payload_view}
 
-	let closed: Result<ByteChunk, EncodeError> = byte_encode_imported_closed_subtractive_write_packet({kind: 1, payload: payload})
+	let closed = byte_encode_imported_closed_subtractive_write_packet({kind: 1, payload: payload})
 	emit_encoded_result("imported-closed-subtractive-nested", closed, "010502616263")
 
-	let extension: Result<ByteChunk, EncodeError> = byte_encode_imported_extension_subtractive_write_packet({length: 5, kind: 1, payload: Known(payload)})
+	let extension = byte_encode_imported_extension_subtractive_write_packet({length: 5, kind: 1, payload: Known(payload)})
 	emit_encoded_result("imported-extension-subtractive-nested", extension, "05010502616263")
 
-	let closed_codec: EncodeStep<()> = encode_result_step(encode ImportedClosedSubtractiveWritePacket from {kind: 1, payload: payload})
+	let closed_codec = encode_result_step(encode ImportedClosedSubtractiveWritePacket from {kind: 1, payload: payload})
 	emit_encoded_step("codec-imported-closed-subtractive-nested", closed_codec, "010502616263")
 
-	let extension_codec: EncodeStep<()> = encode_result_step(encode ImportedExtensionSubtractiveWritePacket from {length: 5, kind: 1, payload: Known(payload)})
+	let extension_codec = encode_result_step(encode ImportedExtensionSubtractiveWritePacket from {length: 5, kind: 1, payload: Known(payload)})
 	emit_encoded_step("codec-imported-extension-subtractive-nested", extension_codec, "05010502616263")
 	Ok(())
 end

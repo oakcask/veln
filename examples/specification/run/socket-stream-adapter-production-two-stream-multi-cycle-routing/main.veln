@@ -147,12 +147,12 @@ fn print_stream_summary(label: String, routed: { actions : List<ResponseAction>,
 end
 
 pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let first_stream: NetStream = accept_next(listener)?
-	let first: { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } = accepted_lifecycle(first_stream)?
-	let second_stream: NetStream = accept_next(listener)?
-	let second: { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } = accepted_lifecycle(second_stream)?
-	let clean_end: Bool = listener_ended(listener)
+	let listener = net::listen("127.0.0.1:0")
+	let first_stream = accept_next(listener)?
+	let first = accepted_lifecycle(first_stream)?
+	let second_stream = accept_next(listener)?
+	let second = accepted_lifecycle(second_stream)?
+	let clean_end = listener_ended(listener)
 	print_stream_summary("first", first)
 	print_stream_summary("second", second)
 	stdio::print("clean-end ")

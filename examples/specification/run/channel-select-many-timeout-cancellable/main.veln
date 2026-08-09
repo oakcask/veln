@@ -16,20 +16,20 @@ pub fn main() -> Result<(), String> effects [time, concurrency, stdio]
 	let _ = channel::send(second.tx, 21)
 	let _ = channel::send(third.tx, 34)
 	let ready_receivers: List<Receiver<Int>> = list_cons(first.rx, list_cons(second.rx, list_cons(third.rx, list_nil())))
-	let ready_token: CancelToken = time::cancel_token()
+	let ready_token = time::cancel_token()
 	let ready_selected = channel::select_many_timeout_cancellable(ready_receivers, 25, ready_token)
 
 	let timeout_first = channel::bounded<Int>(1)
 	let timeout_second = channel::bounded<Int>(1)
 	let timeout_receivers: List<Receiver<Int>> = list_cons(timeout_first.rx, list_cons(timeout_second.rx, list_nil()))
-	let timeout_token: CancelToken = time::cancel_token()
+	let timeout_token = time::cancel_token()
 	let timeout_selected = channel::select_many_timeout_cancellable(timeout_receivers, 0, timeout_token)
 
 	let cancelled_first = channel::bounded<Int>(1)
 	let cancelled_second = channel::bounded<Int>(1)
 	let _ = channel::send(cancelled_second.tx, 55)
 	let cancelled_receivers: List<Receiver<Int>> = list_cons(cancelled_first.rx, list_cons(cancelled_second.rx, list_nil()))
-	let cancelled_token: CancelToken = time::cancel_token()
+	let cancelled_token = time::cancel_token()
 	time::cancel(cancelled_token)
 	let cancelled_selected = channel::select_many_timeout_cancellable(cancelled_receivers, 25, cancelled_token)
 

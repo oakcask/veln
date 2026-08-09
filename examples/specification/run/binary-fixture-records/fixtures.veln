@@ -1,13 +1,13 @@
 use stdio
 
 fn valid_preface() -> Result<{ name : String, bytes : ByteChunk, expected_hex : String, expected_consumed : Option<ByteCount> }, String>
-	let bytes: ByteChunk = byte_chunk([byte(0)?, byte(1)?, byte(255)?])
-	let consumed: ByteCount = byte_count(3)?
+	let bytes = byte_chunk([byte(0)?, byte(1)?, byte(255)?])
+	let consumed = byte_count(3)?
 	Ok({ name: "valid-preface", bytes: bytes, expected_hex: "0001ff", expected_consumed: Some(consumed) })
 end
 
 fn valid_window_update() -> Result<{ name : String, bytes : ByteChunk, expected_hex : String, expected_consumed : Option<ByteCount> }, String>
-	let bytes: ByteChunk = byte_chunk_from_hex("00040000000f000001")?
+	let bytes = byte_chunk_from_hex("00040000000f000001")?
 	Ok({ name: "valid-window-update", bytes: bytes, expected_hex: "00040000000f000001", expected_consumed: None })
 end
 
@@ -35,11 +35,11 @@ fn emit_valid_fixture(fixture: { name : String, bytes : ByteChunk, expected_hex 
 end
 
 fn emit_invalid_fixture(fixture: { name : String, source : String, expected_error : String }) -> () effects [stdio]
-	let actual: String = match byte_chunk_from_hex(fixture.source)
+	let actual = match byte_chunk_from_hex(fixture.source)
 		Ok(_) => "unexpected_ok"
 		Err(error) => error
 	end
-	let checked: String = if actual == fixture.expected_error
+	let checked = if actual == fixture.expected_error
 		actual
 	else
 		"unexpected_error"
@@ -69,12 +69,12 @@ fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
 end
 
 fn emit_output_chunk_lists() -> Result<(), String> effects [stdio]
-	let first: ByteChunk = byte_chunk_from_hex("0001ff")?
-	let second: ByteChunk = byte_chunk_from_hex("00040000000f000001")?
+	let first = byte_chunk_from_hex("0001ff")?
+	let second = byte_chunk_from_hex("00040000000f000001")?
 	emit_output_chunk_list_header("protocol-output", 2)
 	emit_output_chunk("protocol-output", 0, first, "0001ff")
 	emit_output_chunk("protocol-output", 1, second, "00040000000f000001")
-	let empty: ByteChunk = byte_chunk([])
+	let empty = byte_chunk([])
 	emit_output_chunk_list_header("empty-chunk", 1)
 	emit_output_chunk("empty-chunk", 0, empty, "")
 	emit_output_chunk_list_header("no-output", 0)
@@ -85,6 +85,6 @@ pub fn emit_binary_fixtures() -> Result<(), String> effects [stdio]
 	emit_valid_fixture(valid_preface()?)
 	emit_valid_fixture(valid_window_update()?)
 	emit_invalid_fixture(bad_separator())
-	let ignored: () = emit_output_chunk_lists()?
+	let ignored = emit_output_chunk_lists()?
 	Ok(())
 end

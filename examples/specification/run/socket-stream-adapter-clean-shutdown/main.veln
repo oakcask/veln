@@ -128,9 +128,9 @@ fn clean_shutdown_lifecycle(listener: NetListener, stream: NetStream, deadline: 
 end
 
 fn lifecycle_result(address: String) -> Result<{ first_decision : String, second_decision : String, actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }, String> effects [net, time, concurrency]
-	let listener: NetListener = net::listen(address)
-	let deadline: Deadline = time::deadline_after_ms(100)
-	let token: CancelToken = time::cancel_token()
+	let listener = net::listen(address)
+	let deadline = time::deadline_after_ms(100)
+	let token = time::cancel_token()
 	match net::accept_until_cancellable(listener, deadline, token)
 		AcceptStream(stream) => clean_shutdown_lifecycle(listener, stream, deadline, token)
 		AcceptEnd => Ok({ first_decision: "accept-end", second_decision: "none", actions: list_nil(), next_state: { chunks: 0, ended: true } })
@@ -148,7 +148,7 @@ fn bool_text(value: Bool) -> String
 end
 
 pub fn main() -> Result<(), String> effects [net, time, concurrency, stdio]
-	let routed: { first_decision : String, second_decision : String, actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } = lifecycle_result("127.0.0.1:0")?
+	let routed = lifecycle_result("127.0.0.1:0")?
 	stdio::print("decisions ")
 	stdio::print(routed.first_decision)
 	stdio::print(",")

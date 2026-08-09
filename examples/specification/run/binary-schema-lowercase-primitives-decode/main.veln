@@ -22,11 +22,11 @@ fn emit_packet(packet: {length: Int, flags: Int, kind: Int}) -> () effects [stdi
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("010203341207")?
-	let offset: ByteOffset = byte_offset(0)?
-	let count: ByteCount = byte_count(6)?
-	let view: ByteView = byte_view(bytes, offset, count)?
-	let packet: {length: Int, flags: Int, kind: Int} = byte_decode_lowercase_primitive_packet(view)?
+	let bytes = byte_chunk_from_hex("010203341207")?
+	let offset = byte_offset(0)?
+	let count = byte_count(6)?
+	let view = byte_view(bytes, offset, count)?
+	let packet = byte_decode_lowercase_primitive_packet(view)?
 	emit_packet(packet)
 	Ok(())
 end

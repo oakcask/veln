@@ -5,8 +5,8 @@ end
 
 pub fn main() -> Result<(), String> effects [net, time, stdio]
 	let incoming = receive_host_chunk()
-	let outgoing: ByteChunk = byte_chunk_from_hex("0a0b")?
-	let deadline: Deadline = time::deadline_after_ms(0)
+	let outgoing = byte_chunk_from_hex("0a0b")?
+	let deadline = time::deadline_after_ms(0)
 	net::send_chunk(outgoing)
 	time::timeout_ms(0)
 	time::wait_until(deadline)

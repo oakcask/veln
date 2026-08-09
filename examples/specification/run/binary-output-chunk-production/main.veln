@@ -91,10 +91,10 @@ fn print_summary(label: String, result: {chunks: List<ByteChunk>, produced: Byte
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let first: ByteChunk = byte_chunk_from_hex("0102")?
-	let second: ByteChunk = byte_chunk_from_hex("030405")?
-	let third: ByteChunk = byte_chunk_from_hex("06")?
-	let chunks: List<ByteChunk> = byte_chunks_append(byte_chunks_one(first), byte_chunks_append(byte_chunks_one(second), byte_chunks_one(third)))
+	let first = byte_chunk_from_hex("0102")?
+	let second = byte_chunk_from_hex("030405")?
+	let third = byte_chunk_from_hex("06")?
+	let chunks = byte_chunks_append(byte_chunks_one(first), byte_chunks_append(byte_chunks_one(second), byte_chunks_one(third)))
 
 	let full = byte_chunks_produce(chunks, byte_count(6)?)
 	print_summary("full-fit", full)

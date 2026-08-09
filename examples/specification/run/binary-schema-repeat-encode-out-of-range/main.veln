@@ -33,8 +33,8 @@ fn error_reason(error: EncodeError) -> String
 end
 
 pub fn main() -> () effects [stdio]
-	let items: List<Int> = list_cons(65536, list_nil())
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_counted_values({count: 1, items: items})
+	let items = list_cons(65536, list_nil())
+	let encoded = byte_encode_counted_values({count: 1, items: items})
 	match encoded
 		Ok(_) => stdio::println("unexpected encode success")
 		Err(error) => emit_error(error)

@@ -32,7 +32,7 @@ fn accepted_response_send_credit() -> OutboundSendCredit
 end
 
 fn send_data(stream_id: Int, payload: ByteChunk, end_stream: Bool, send_credit: OutboundSendCredit) -> Result<OutboundDataDecision, String>
-	let application_length: Int = byte_count_to_int(byte_chunk_count(payload))
+	let application_length = byte_count_to_int(byte_chunk_count(payload))
 	match send_credit
 		OutboundSendCredit(connection_window, OutboundOpenStreamContentLength(open_stream_id, stream_window, expected_length, observed_length)) => if stream_id == open_stream_id
 			validate_outbound_content_length(stream_id, payload, application_length, application_length, 1, end_stream, connection_window, stream_window, expected_length, observed_length)
@@ -44,10 +44,10 @@ fn send_data(stream_id: Int, payload: ByteChunk, end_stream: Bool, send_credit: 
 end
 
 fn send_padded_data(stream_id: Int, payload: ByteChunk, padding_length: Int, max_frame_size: Int, end_stream: Bool, send_credit: OutboundSendCredit) -> Result<OutboundDataDecision, String>
-	let application_length: Int = byte_count_to_int(byte_chunk_count(payload))
-	let max_application_frame_payload: Int = max_frame_size - padding_length - 1
-	let encoded_length: Int = padded_data_encoded_length(application_length, padding_length, max_application_frame_payload)
-	let frame_count: Int = padded_data_frame_count(application_length, max_application_frame_payload)
+	let application_length = byte_count_to_int(byte_chunk_count(payload))
+	let max_application_frame_payload = max_frame_size - padding_length - 1
+	let encoded_length = padded_data_encoded_length(application_length, padding_length, max_application_frame_payload)
+	let frame_count = padded_data_frame_count(application_length, max_application_frame_payload)
 	match send_credit
 		OutboundSendCredit(connection_window, OutboundOpenStreamContentLength(open_stream_id, stream_window, expected_length, observed_length)) => if stream_id == open_stream_id
 			validate_outbound_content_length(stream_id, payload, encoded_length, application_length, frame_count, end_stream, connection_window, stream_window, expected_length, observed_length)
@@ -75,7 +75,7 @@ fn padded_data_frame_count(remaining_length: Int, max_application_frame_payload:
 end
 
 fn validate_outbound_content_length(stream_id: Int, payload: ByteChunk, encoded_length: Int, application_length: Int, output_frames: Int, end_stream: Bool, connection_window: Int, stream_window: Int, expected_length: Int, observed_length: Int) -> Result<OutboundDataDecision, String>
-	let next_observed_length: Int = observed_length + application_length
+	let next_observed_length = observed_length + application_length
 	if next_observed_length > expected_length
 		Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, ContentLengthMismatch(0, 0, stream_id, expected_length, next_observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(payload)?)))
 	else if end_stream and next_observed_length < expected_length
@@ -191,7 +191,7 @@ fn bool_to_int(value: Bool) -> Int
 end
 
 fn print_outbound_data(label: String, decision: OutboundDataDecision) -> () effects [stdio]
-	let send_credit: OutboundSendCredit = decision_send_credit(decision)
+	let send_credit = decision_send_credit(decision)
 	stdio::print(label)
 	stdio::print(" ")
 	stdio::print(decision_status(decision))
@@ -218,11 +218,11 @@ fn print_outbound_data(label: String, decision: OutboundDataDecision) -> () effe
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let exact_first: OutboundDataDecision = send_data(1, byte_chunk_from_hex("aabb")?, false, accepted_request_send_credit())?
+	let exact_first = send_data(1, byte_chunk_from_hex("aabb")?, false, accepted_request_send_credit())?
 	print_outbound_data("outbound-content-length-data-first", exact_first)
-	let exact_end: OutboundDataDecision = send_data(1, byte_chunk_from_hex("ccddee")?, true, decision_send_credit(exact_first))?
+	let exact_end = send_data(1, byte_chunk_from_hex("ccddee")?, true, decision_send_credit(exact_first))?
 	print_outbound_data("outbound-content-length-data-exact", exact_end)
-	let padded: OutboundDataDecision = send_padded_data(1, byte_chunk_from_hex("aabbccddee")?, 2, 4, true, accepted_response_send_credit())?
+	let padded = send_padded_data(1, byte_chunk_from_hex("aabbccddee")?, 2, 4, true, accepted_response_send_credit())?
 	print_outbound_data("outbound-content-length-padded", padded)
 	Ok(())
 end

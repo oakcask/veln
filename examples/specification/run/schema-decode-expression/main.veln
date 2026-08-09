@@ -35,24 +35,24 @@ fn consumed_count(step: DecodeStep<{length: Int, kind: Int}>) -> Int
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("050307020904")?
-	let local_view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
-	let local_base: ByteOffset = byte_offset(11)?
-	let local_explicit: DecodeStep<{length: Int, kind: Int}> = decode PacketWire from local_view at local_base
+	let bytes = byte_chunk_from_hex("050307020904")?
+	let local_view = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
+	let local_base = byte_offset(11)?
+	let local_explicit = decode PacketWire from local_view at local_base
 	stdio::println(int_to_string(decoded_length(local_explicit)))
 	stdio::println(int_to_string(decoded_kind(local_explicit)))
 	stdio::println(int_to_string(consumed_count(local_explicit)))
 
-	let imported_view: ByteView = byte_view(bytes, byte_offset(2)?, byte_count(2)?)?
-	let imported_base: ByteOffset = byte_offset(19)?
-	let imported_explicit: DecodeStep<{length: Int, kind: Int}> = decode wire::ImportedWire from imported_view at imported_base
+	let imported_view = byte_view(bytes, byte_offset(2)?, byte_count(2)?)?
+	let imported_base = byte_offset(19)?
+	let imported_explicit = decode wire::ImportedWire from imported_view at imported_base
 	stdio::println(int_to_string(decoded_length(imported_explicit)))
 	stdio::println(int_to_string(decoded_kind(imported_explicit)))
 	stdio::println(int_to_string(consumed_count(imported_explicit)))
 
-	let alias_view: ByteView = byte_view(bytes, byte_offset(4)?, byte_count(2)?)?
-	let alias_base: ByteOffset = byte_offset(23)?
-	let alias_explicit: DecodeStep<{length: Int, kind: Int}> = decode facade::AliasWire from alias_view at alias_base
+	let alias_view = byte_view(bytes, byte_offset(4)?, byte_count(2)?)?
+	let alias_base = byte_offset(23)?
+	let alias_explicit = decode facade::AliasWire from alias_view at alias_base
 	stdio::println(int_to_string(decoded_length(alias_explicit)))
 	stdio::println(int_to_string(decoded_kind(alias_explicit)))
 	stdio::println(int_to_string(consumed_count(alias_explicit)))

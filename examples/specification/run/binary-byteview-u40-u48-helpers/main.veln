@@ -39,18 +39,18 @@ fn emit_written(name: String, chunk: ByteChunk, expected_hex: String) -> () effe
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let chunk: ByteChunk = byte_chunk_from_hex("01020304050504030201010203040506060504030201")?
-	let zero_offset: ByteOffset = byte_offset(0)?
-	let five: ByteCount = byte_count(5)?
-	let six: ByteCount = byte_count(6)?
-	let big40_view: ByteView = byte_view(chunk, zero_offset, five)?
-	let little40_view: ByteView = byte_view(chunk, byte_offset(5)?, five)?
-	let big48_view: ByteView = byte_view(chunk, byte_offset(10)?, six)?
-	let little48_view: ByteView = byte_view(chunk, byte_offset(16)?, six)?
-	let value40: Int = byte_read_u40_be(big40_view)?
-	let little_value40: Int = byte_read_u40_le(little40_view)?
-	let value48: Int = byte_read_u48_be(big48_view)?
-	let little_value48: Int = byte_read_u48_le(little48_view)?
+	let chunk = byte_chunk_from_hex("01020304050504030201010203040506060504030201")?
+	let zero_offset = byte_offset(0)?
+	let five = byte_count(5)?
+	let six = byte_count(6)?
+	let big40_view = byte_view(chunk, zero_offset, five)?
+	let little40_view = byte_view(chunk, byte_offset(5)?, five)?
+	let big48_view = byte_view(chunk, byte_offset(10)?, six)?
+	let little48_view = byte_view(chunk, byte_offset(16)?, six)?
+	let value40 = byte_read_u40_be(big40_view)?
+	let little_value40 = byte_read_u40_le(little40_view)?
+	let value48 = byte_read_u48_be(big48_view)?
+	let little_value48 = byte_read_u48_le(little48_view)?
 	stdio::print("u40-read ")
 	stdio::print(int_to_string(value40))
 	stdio::print(" ")

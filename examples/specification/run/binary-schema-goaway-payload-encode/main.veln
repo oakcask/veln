@@ -74,12 +74,12 @@ fn emit_encode_error(label: String, encoded: Result<ByteChunk, EncodeError>) -> 
 end
 
 pub fn main() -> () effects [stdio]
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_http2_goaway_payload_wire({last_stream_id: 5, error_code: 11})
+	let encoded = byte_encode_http2_goaway_payload_wire({last_stream_id: 5, error_code: 11})
 	emit_encoded(encoded)
 
-	let bad_last_stream_id: Result<ByteChunk, EncodeError> = byte_encode_http2_goaway_payload_wire({last_stream_id: 2147483648, error_code: 11})
+	let bad_last_stream_id = byte_encode_http2_goaway_payload_wire({last_stream_id: 2147483648, error_code: 11})
 	emit_encode_error("last-stream-id", bad_last_stream_id)
 
-	let bad_error_code: Result<ByteChunk, EncodeError> = byte_encode_http2_goaway_payload_wire({last_stream_id: 5, error_code: 4294967296})
+	let bad_error_code = byte_encode_http2_goaway_payload_wire({last_stream_id: 5, error_code: 4294967296})
 	emit_encode_error("error-code", bad_error_code)
 end

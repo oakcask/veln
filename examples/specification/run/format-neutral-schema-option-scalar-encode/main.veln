@@ -57,10 +57,10 @@ fn label_text(result: Result<{code: Option<Int>, ready: Option<Bool>, ratio: Opt
 end
 
 pub fn main() -> () effects [stdio]
-	let packet: {code: Option<Int>, ready: Option<Bool>, ratio: Option<Float>, label: Option<String>} = {code: Some(7), ready: Some(true), ratio: Some(1.5), label: Some("optional")}
+	let packet = {code: Some(7), ready: Some(true), ratio: Some(1.5), label: Some("optional")}
 	let empty_packet: {code: Option<Int>, ready: Option<Bool>, ratio: Option<Float>, label: Option<String>} = {code: None, ready: None, ratio: None, label: None}
-	let encoded: Result<{code: Option<Int>, ready: Option<Bool>, ratio: Option<Float>, label: Option<String>}, String> = byte_encode_option_scalar_packet(packet)
-	let explicit: Result<{code: Option<Int>, ready: Option<Bool>, ratio: Option<Float>, label: Option<String>}, String> = encode OptionScalarPacket from empty_packet
+	let encoded = byte_encode_option_scalar_packet(packet)
+	let explicit = encode OptionScalarPacket from empty_packet
 	stdio::println(code_text(encoded))
 	stdio::println(ready_text(encoded))
 	stdio::println(ratio_text(encoded))

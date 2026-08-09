@@ -8,7 +8,7 @@ schema FiveByteReservedSuffixHeader
 end
 
 fn encoded_value(chunk: ByteChunk) -> Result<Int, String>
-	let view: ByteView = byte_view(chunk, byte_offset(0)?, byte_count(5)?)?
+	let view = byte_view(chunk, byte_offset(0)?, byte_count(5)?)?
 	byte_read_u40_be(view)
 end
 
@@ -51,15 +51,15 @@ fn emit_encode_error(encoded: Result<ByteChunk, EncodeError>) -> () effects [std
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("ab55555555")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(5)?)?
-	let decoded: {control: Int} = byte_decode_five_byte_reserved_suffix_header(view)?
+	let bytes = byte_chunk_from_hex("ab55555555")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(5)?)?
+	let decoded = byte_decode_five_byte_reserved_suffix_header(view)?
 	stdio::println(int_to_string(decoded.control))
 
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_five_byte_reserved_suffix_header({control: 85})
-	let ignored: () = emit_encoded(encoded)?
+	let encoded = byte_encode_five_byte_reserved_suffix_header({control: 85})
+	let ignored = emit_encoded(encoded)?
 
-	let rejected: Result<ByteChunk, EncodeError> = byte_encode_five_byte_reserved_suffix_header({control: 128})
+	let rejected = byte_encode_five_byte_reserved_suffix_header({control: 128})
 	emit_encode_error(rejected)
 	Ok(())
 end

@@ -164,9 +164,9 @@ fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("abcdef1234567890")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(8)?)?
-	let decoded: {marker: Int, high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int, route: Int, checksum: Int} = byte_decode_packed_visible_eight_byte_header(view)?
+	let bytes = byte_chunk_from_hex("abcdef1234567890")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(8)?)?
+	let decoded = byte_decode_packed_visible_eight_byte_header(view)?
 	stdio::println(int_to_string(decoded.marker))
 	stdio::println(int_to_string(decoded.high))
 	stdio::println(int_to_string(decoded.upper))
@@ -178,7 +178,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(int_to_string(decoded.route))
 	stdio::println(int_to_string(decoded.checksum))
 
-	let stepped: DecodeStep<{marker: Int, high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int, route: Int, checksum: Int}> = decode PackedVisibleEightByteHeader from view at byte_offset(25)?
+	let stepped = decode PackedVisibleEightByteHeader from view at byte_offset(25)?
 	stdio::println(step_kind(stepped))
 	stdio::println(int_to_string(decoded_marker(stepped)))
 	stdio::println(int_to_string(decoded_high(stepped)))
@@ -192,7 +192,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(int_to_string(decoded_checksum(stepped)))
 	stdio::println(int_to_string(consumed_count(stepped)))
 
-	let codec_step: DecodeStep<{marker: Int, high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int, route: Int, checksum: Int}> = decode PackedVisibleEightByteHeader from view at byte_offset(25)?
+	let codec_step = decode PackedVisibleEightByteHeader from view at byte_offset(25)?
 	stdio::println(step_kind(codec_step))
 	stdio::println(int_to_string(decoded_marker(codec_step)))
 	stdio::println(int_to_string(decoded_high(codec_step)))
@@ -206,10 +206,10 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(int_to_string(decoded_checksum(codec_step)))
 	stdio::println(int_to_string(consumed_count(codec_step)))
 
-	let direct_encoded: Result<ByteChunk, EncodeError> = byte_encode_packed_visible_eight_byte_header({marker: 1, high: 43, upper: 102, middle: 123, lower: 98, tail: 35, flag: 34, code: 89, route: 113, checksum: 16})
+	let direct_encoded = byte_encode_packed_visible_eight_byte_header({marker: 1, high: 43, upper: 102, middle: 123, lower: 98, tail: 35, flag: 34, code: 89, route: 113, checksum: 16})
 	emit_direct_encoded(direct_encoded)
 
-	let derived_encoded: EncodeStep<()> = encode_result_step(encode PackedVisibleEightByteHeader from {marker: 1, high: 43, upper: 102, middle: 123, lower: 98, tail: 35, flag: 34, code: 89, route: 113, checksum: 16})
+	let derived_encoded = encode_result_step(encode PackedVisibleEightByteHeader from {marker: 1, high: 43, upper: 102, middle: 123, lower: 98, tail: 35, flag: 34, code: 89, route: 113, checksum: 16})
 	stdio::println(encode_step_kind(derived_encoded))
 	emit_derived_encoded(derived_encoded)
 	Ok(())

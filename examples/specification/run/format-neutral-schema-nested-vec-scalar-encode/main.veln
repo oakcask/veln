@@ -46,10 +46,10 @@ fn encoded_label_count(result: Result<{metadata: {items: Vec<Int>, flags: Vec<Bo
 end
 
 pub fn main() -> () effects [stdio]
-	let packet: {metadata: {items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>}} = {metadata: {items: [2, 3, 5], flags: [true, false, true], ratios: [1.25, 0.5], labels: ["alpha", "beta"]}}
-	let empty_packet: {metadata: {items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>}} = {metadata: {items: [], flags: [], ratios: [], labels: []}}
-	let encoded: Result<{metadata: {items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>}}, String> = byte_encode_nested_vec_scalar_packet(packet)
-	let explicit: Result<{metadata: {items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>}}, String> = encode NestedVecScalarPacket from empty_packet
+	let packet = {metadata: {items: [2, 3, 5], flags: [true, false, true], ratios: [1.25, 0.5], labels: ["alpha", "beta"]}}
+	let empty_packet = {metadata: {items: [], flags: [], ratios: [], labels: []}}
+	let encoded = byte_encode_nested_vec_scalar_packet(packet)
+	let explicit = encode NestedVecScalarPacket from empty_packet
 	stdio::println(int_to_string(encoded_item_sum(encoded)))
 	stdio::println(int_to_string(encoded_flag_count(encoded)))
 	stdio::println(int_to_string(encoded_ratio_count(encoded)))

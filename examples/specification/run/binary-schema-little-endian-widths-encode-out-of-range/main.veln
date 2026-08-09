@@ -43,25 +43,25 @@ fn emit_error(error: EncodeError) -> () effects [stdio]
 end
 
 pub fn main() -> () effects [stdio]
-	let length_encoded: Result<ByteChunk, EncodeError> = byte_encode_little_endian_length_wire({value: 16777216})
+	let length_encoded = byte_encode_little_endian_length_wire({value: 16777216})
 	match length_encoded
 		Ok(_) => stdio::println("unexpected UInt24le encode success")
 		Err(error) => emit_error(error)
 	end
 
-	let wide_encoded: Result<ByteChunk, EncodeError> = byte_encode_little_endian_wide_wire({value: 4294967296})
+	let wide_encoded = byte_encode_little_endian_wide_wire({value: 4294967296})
 	match wide_encoded
 		Ok(_) => stdio::println("unexpected UInt32le encode success")
 		Err(error) => emit_error(error)
 	end
 
-	let stream_encoded: Result<ByteChunk, EncodeError> = byte_encode_little_endian_stream_wire({value: 2147483648})
+	let stream_encoded = byte_encode_little_endian_stream_wire({value: 2147483648})
 	match stream_encoded
 		Ok(_) => stdio::println("unexpected UInt31le encode success")
 		Err(error) => emit_error(error)
 	end
 
-	let negative_stream_encoded: Result<ByteChunk, EncodeError> = byte_encode_little_endian_stream_wire({value: -1})
+	let negative_stream_encoded = byte_encode_little_endian_stream_wire({value: -1})
 	match negative_stream_encoded
 		Ok(_) => stdio::println("unexpected negative UInt31le encode success")
 		Err(error) => emit_error(error)

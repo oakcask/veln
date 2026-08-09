@@ -57,9 +57,9 @@ fn encoded_name(result: Result<{scores: Dict<String, Int>, states: Dict<String, 
 end
 
 pub fn main() -> () effects [stdio]
-	let packet: {scores: Dict<String, Int>, states: Dict<String, Bool>, weights: Dict<String, Float>, names: Dict<String, String>} = {scores: {"math": 11, "language": 13}, states: {"enabled": true, "paused": false}, weights: {"ratio": 1.5, "bonus": 0.25}, names: {"owner": "core", "lane": "stable"}}
+	let packet = {scores: {"math": 11, "language": 13}, states: {"enabled": true, "paused": false}, weights: {"ratio": 1.5, "bonus": 0.25}, names: {"owner": "core", "lane": "stable"}}
 	let empty_packet: {scores: Dict<String, Int>, states: Dict<String, Bool>, weights: Dict<String, Float>, names: Dict<String, String>} = {scores: {}, states: {}, weights: {}, names: {}}
-	let encoded: Result<{scores: Dict<String, Int>, states: Dict<String, Bool>, weights: Dict<String, Float>, names: Dict<String, String>}, String> = byte_encode_dict_scalar_packet(packet)
+	let encoded = byte_encode_dict_scalar_packet(packet)
 	let explicit: Result<{scores: Dict<String, Int>, states: Dict<String, Bool>, weights: Dict<String, Float>, names: Dict<String, String>}, String> = encode DictScalarPacket from empty_packet
 	stdio::println(int_to_string(encoded_score(encoded)))
 	stdio::println(encoded_state(encoded))

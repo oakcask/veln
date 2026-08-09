@@ -59,8 +59,8 @@ end
 pub fn main() -> () effects [stdio]
 	let packet: {code: Result<Int, String>, ready: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>} = {code: Ok(7), ready: Ok(true), ratio: Ok(1.5), label: Ok("result")}
 	let error_packet: {code: Result<Int, String>, ready: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>} = {code: Err("bad-code"), ready: Err("bad-ready"), ratio: Err("bad-ratio"), label: Err(404)}
-	let encoded: Result<{code: Result<Int, String>, ready: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>}, String> = byte_encode_result_scalar_packet(packet)
-	let explicit: Result<{code: Result<Int, String>, ready: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>}, String> = encode ResultScalarPacket from error_packet
+	let encoded = byte_encode_result_scalar_packet(packet)
+	let explicit = encode ResultScalarPacket from error_packet
 	stdio::println(code_text(encoded))
 	stdio::println(ready_text(encoded))
 	stdio::println(ratio_text(encoded))

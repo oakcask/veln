@@ -41,12 +41,12 @@ fn emit_encoded(name: String, encoded: Result<ByteChunk, EncodeError>, expected_
 end
 
 pub fn main() -> () effects [stdio]
-	let local_explicit: Result<ByteChunk, EncodeError> = encode PacketWire from {length: 5, kind: 3}
+	let local_explicit = encode PacketWire from {length: 5, kind: 3}
 	emit_encoded("schema-encode-local", local_explicit, "0503")
 
-	let imported_explicit: Result<ByteChunk, EncodeError> = encode wire::ImportedWire from {length: 7, kind: 2}
+	let imported_explicit = encode wire::ImportedWire from {length: 7, kind: 2}
 	emit_encoded("schema-encode-imported", imported_explicit, "0702")
 
-	let alias_explicit: Result<ByteChunk, EncodeError> = encode facade::AliasWire from {length: 9, kind: 4}
+	let alias_explicit = encode facade::AliasWire from {length: 9, kind: 4}
 	emit_encoded("schema-encode-alias", alias_explicit, "0904")
 end

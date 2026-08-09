@@ -2,6 +2,6 @@
 use fixtures
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let ignored: () = fixtures::emit_binary_fixtures()?
+	let ignored = fixtures::emit_binary_fixtures()?
 	Ok(())
 end

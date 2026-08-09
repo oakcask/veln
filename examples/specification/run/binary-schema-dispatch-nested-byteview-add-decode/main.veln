@@ -45,18 +45,18 @@ fn emit_extension_payload(payload: SchemaDispatchPayload<{left_length: Int, righ
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let closed_bytes: ByteChunk = byte_chunk_from_hex("010203aabbccddee")?
-	let closed_view: ByteView = byte_view(closed_bytes, byte_offset(0)?, byte_count(8)?)?
-	let closed: {kind: Int, payload: {left_length: Int, right_length: Int, payload: ByteView}} = byte_decode_closed_additive_packet(closed_view)?
-	let _: () = emit_payload("closed", closed.payload)?
+	let closed_bytes = byte_chunk_from_hex("010203aabbccddee")?
+	let closed_view = byte_view(closed_bytes, byte_offset(0)?, byte_count(8)?)?
+	let closed = byte_decode_closed_additive_packet(closed_view)?
+	let _ = emit_payload("closed", closed.payload)?
 
-	let extension_bytes: ByteChunk = byte_chunk_from_hex("07010203aabbccddee")?
-	let extension_view: ByteView = byte_view(extension_bytes, byte_offset(0)?, byte_count(9)?)?
-	let extension: {length: Int, kind: Int, payload: SchemaDispatchPayload<{left_length: Int, right_length: Int, payload: ByteView}>} = byte_decode_extension_additive_packet(extension_view)?
+	let extension_bytes = byte_chunk_from_hex("07010203aabbccddee")?
+	let extension_view = byte_view(extension_bytes, byte_offset(0)?, byte_count(9)?)?
+	let extension = byte_decode_extension_additive_packet(extension_view)?
 	stdio::print(int_to_string(extension.length))
 	stdio::print(" ")
 	stdio::print(int_to_string(extension.kind))
 	stdio::print(" ")
-	let _: () = emit_extension_payload(extension.payload)?
+	let _ = emit_extension_payload(extension.payload)?
 	Ok(())
 end

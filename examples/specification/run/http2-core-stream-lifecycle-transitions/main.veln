@@ -17,7 +17,7 @@ fn require_failure(decision: CoreStreamLifecycleTransitionDecision) -> Result<Co
 end
 
 fn print_stream(label: String, state: CoreConnectionState, stream_id: Int) -> Result<(), String> effects [stdio]
-	let stream: CoreStreamEntry = match http2::core::stream_collection_find(http2::core::connection_state_streams(state), stream_id)
+	let stream = match http2::core::stream_collection_find(http2::core::connection_state_streams(state), stream_id)
 		Some(found) => found
 		None => Err("missing expected stream")?
 	end
@@ -63,16 +63,16 @@ fn print_error(label: String, error: String) -> () effects [stdio]
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let base: CoreConnectionState = http2::core::server_connection_state(0)?
-	let open: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 80, 60, 0, 0))?
-	let half_local: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(7, http2::core::stream_half_closed_local_lifecycle(), 70, 50, 0, 0))?
-	let streams: CoreStreamCollection = http2::core::stream_collection_add_or_replace(http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), open), half_local)
-	let state: CoreConnectionState = http2::core::connection_state_with_streams(base, streams)
-	let data_end: CoreStreamLifecycleTransitionDecision = http2::core::apply_remote_end_stream_lifecycle(state, 91, 0, 5, true, byte_chunk_from_hex("000000000100000005")?)
-	let headers_end: CoreStreamLifecycleTransitionDecision = http2::core::apply_remote_end_stream_lifecycle(state, 93, 1, 7, true, byte_chunk_from_hex("000000010500000007")?)
-	let data_open: CoreStreamLifecycleTransitionDecision = http2::core::apply_remote_end_stream_lifecycle(state, 95, 0, 5, false, byte_chunk_from_hex("000000000000000005")?)
-	let rst: CoreStreamLifecycleTransitionDecision = http2::core::apply_rst_stream_lifecycle(state, 101, 5, 8, byte_chunk_from_hex("000004030000000005")?)
-	let missing: CoreStreamLifecycleTransitionDecision = http2::core::apply_rst_stream_lifecycle(state, 103, 9, 8, byte_chunk_from_hex("000004030000000009")?)
+	let base = http2::core::server_connection_state(0)?
+	let open = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 80, 60, 0, 0))?
+	let half_local = require_stream_entry(http2::core::stream_entry(7, http2::core::stream_half_closed_local_lifecycle(), 70, 50, 0, 0))?
+	let streams = http2::core::stream_collection_add_or_replace(http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), open), half_local)
+	let state = http2::core::connection_state_with_streams(base, streams)
+	let data_end = http2::core::apply_remote_end_stream_lifecycle(state, 91, 0, 5, true, byte_chunk_from_hex("000000000100000005")?)
+	let headers_end = http2::core::apply_remote_end_stream_lifecycle(state, 93, 1, 7, true, byte_chunk_from_hex("000000010500000007")?)
+	let data_open = http2::core::apply_remote_end_stream_lifecycle(state, 95, 0, 5, false, byte_chunk_from_hex("000000000000000005")?)
+	let rst = http2::core::apply_rst_stream_lifecycle(state, 101, 5, 8, byte_chunk_from_hex("000004030000000005")?)
+	let missing = http2::core::apply_rst_stream_lifecycle(state, 103, 9, 8, byte_chunk_from_hex("000004030000000009")?)
 	stdio::print("data-end ")
 	stdio::println(http2::core::stream_lifecycle_transition_status(data_end))
 	let _ = print_stream("data-end", require_state(data_end)?, 5)?

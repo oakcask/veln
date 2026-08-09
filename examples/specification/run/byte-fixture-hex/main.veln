@@ -6,10 +6,10 @@ fn count_text(chunk: ByteChunk) -> String
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let compact: ByteChunk = byte_chunk_from_hex("0001ff")?
-	let spaced: ByteChunk = byte_chunk_from_hex("00 01\nff\t10")?
-	let first_two: ByteCount = byte_count(2)?
-	let compact_head: ByteChunk = byte_take(compact, first_two)?
+	let compact = byte_chunk_from_hex("0001ff")?
+	let spaced = byte_chunk_from_hex("00 01\nff\t10")?
+	let first_two = byte_count(2)?
+	let compact_head = byte_take(compact, first_two)?
 	stdio::println(count_text(compact))
 	stdio::println(count_text(spaced))
 	stdio::println(count_text(compact_head))

@@ -32,7 +32,7 @@ fn emit_error(error: EncodeError) -> () effects [stdio]
 end
 
 pub fn main() -> () effects [stdio]
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_closed_dispatch_write_packet({kind: 1, payload: 256})
+	let encoded = byte_encode_closed_dispatch_write_packet({kind: 1, payload: 256})
 	match encoded
 		Ok(_) => stdio::println("unexpected encode success")
 		Err(error) => emit_error(error)

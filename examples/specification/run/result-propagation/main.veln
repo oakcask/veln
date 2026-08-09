@@ -8,9 +8,9 @@ fn stringify(value: Int) -> String
 end
 
 pub fn main(raw: String) -> Result<(), { message : String }> effects [stdio]
-	let value: Int = parse(raw)?
+	let value = parse(raw)?
 	let mapped: Vec<String> = vec_map([value], stringify)
-	let message: String = match dict_get({ "first": "bad", "second": "ok" }, "second")
+	let message = match dict_get({ "first": "bad", "second": "ok" }, "second")
 		Some(found) => found
 		None => "missing"
 	end

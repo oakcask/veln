@@ -6,7 +6,7 @@ fn byte_at(chunk: ByteChunk, index: Int) -> Result<Int, String>
 end
 
 fn print_decoded(label: String, input: ByteChunk, prefix_bits: Int) -> Result<(), String> effects [stdio]
-	let decoded: { value : Int, consumed : Int } = http2::hpack::decode_integer(byte_view(input, byte_offset(0)?, byte_chunk_count(input))?, prefix_bits)?
+	let decoded = http2::hpack::decode_integer(byte_view(input, byte_offset(0)?, byte_chunk_count(input))?, prefix_bits)?
 	stdio::print(label)
 	stdio::print(" ")
 	stdio::print(int_to_string(http2::hpack::decoded_integer_value(decoded)))
@@ -16,34 +16,34 @@ fn print_decoded(label: String, input: ByteChunk, prefix_bits: Int) -> Result<()
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let canonical: ByteChunk = http2::hpack::encode_integer(1337, 5, 0)?
+	let canonical = http2::hpack::encode_integer(1337, 5, 0)?
 	stdio::print("canonical ")
 	stdio::print(int_to_string(byte_at(canonical, 0)?))
 	stdio::print(" ")
 	stdio::print(int_to_string(byte_at(canonical, 1)?))
 	stdio::print(" ")
 	stdio::println(int_to_string(byte_at(canonical, 2)?))
-	let represented: ByteChunk = http2::hpack::encode_integer(10, 5, 224)?
+	let represented = http2::hpack::encode_integer(10, 5, 224)?
 	stdio::print("represented ")
 	stdio::println(int_to_string(byte_at(represented, 0)?))
-	let decoded: { value : Int, consumed : Int } = http2::hpack::decode_integer(byte_view(canonical, byte_offset(0)?, byte_chunk_count(canonical))?, 5)?
+	let decoded = http2::hpack::decode_integer(byte_view(canonical, byte_offset(0)?, byte_chunk_count(canonical))?, 5)?
 	stdio::print("round-trip ")
 	stdio::print(int_to_string(http2::hpack::decoded_integer_value(decoded)))
 	stdio::print(" ")
 	stdio::println(int_to_string(http2::hpack::decoded_integer_consumed(decoded)))
-	let indexed: ByteChunk = http2::hpack::encode_integer(127, 7, 128)?
+	let indexed = http2::hpack::encode_integer(127, 7, 128)?
 	stdio::print("indexed-prefix ")
 	stdio::print(int_to_string(byte_at(indexed, 0)?))
 	stdio::print(" ")
 	stdio::println(int_to_string(byte_at(indexed, 1)?))
-	let table_size: ByteChunk = http2::hpack::encode_integer(160, 5, 32)?
+	let table_size = http2::hpack::encode_integer(160, 5, 32)?
 	stdio::print("table-size-prefix ")
 	stdio::print(int_to_string(byte_at(table_size, 0)?))
 	stdio::print(" ")
 	stdio::print(int_to_string(byte_at(table_size, 1)?))
 	stdio::print(" ")
 	stdio::println(int_to_string(byte_at(table_size, 2)?))
-	let literal_length: ByteChunk = http2::hpack::encode_integer(128, 7, 0)?
+	let literal_length = http2::hpack::encode_integer(128, 7, 0)?
 	stdio::print("literal-length-prefix ")
 	stdio::print(int_to_string(byte_at(literal_length, 0)?))
 	stdio::print(" ")

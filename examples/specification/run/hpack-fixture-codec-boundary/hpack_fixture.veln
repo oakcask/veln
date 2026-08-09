@@ -75,7 +75,7 @@ pub fn initial_encode_state() -> HpackFixtureState
 end
 
 fn byte_at(block: ByteChunk, index: Int) -> Result<Int, String>
-	let view: ByteView = byte_view(block, byte_offset(index)?, byte_count(1)?)?
+	let view = byte_view(block, byte_offset(index)?, byte_count(1)?)?
 	byte_read_u8_be(view)
 end
 
@@ -104,7 +104,7 @@ fn string_byte_count(value: String) -> Int
 end
 
 fn bounded_dynamic_entry(table_size: Int, name: String, value: String, dynamic_entry: HpackDynamicEntry) -> HpackDynamicEntry
-	let entry_size: Int = dynamic_entry_size(name, value)
+	let entry_size = dynamic_entry_size(name, value)
 	if entry_size > table_size
 		NoDynamicEntry
 	else
@@ -330,7 +330,7 @@ fn low_seven_bits(byte: Int) -> Int
 end
 
 fn decode_hpack_prefixed_integer_tail_byte(current: Int, block: ByteChunk, observed_size: Int, index: Int, multiplier: Int, value: Int, offset: Int) -> Result<HpackIntegerPrefix, HpackFixtureFailure>
-	let next_value: Int = value + low_seven_bits(current) * multiplier
+	let next_value = value + low_seven_bits(current) * multiplier
 	if current < 128
 		Ok(HpackIntegerPrefix(next_value, index + 1))
 	else
@@ -355,7 +355,7 @@ fn decode_hpack_prefixed_integer(prefix_value: Int, prefix_max: Int, block: Byte
 end
 
 fn table_size_update_prefix_at(block: ByteChunk, observed_size: Int, index: Int, offset: Int) -> Result<HpackIntegerPrefix, HpackFixtureFailure>
-	let first_byte: Int = byte_at_or_missing(block, index)
+	let first_byte = byte_at_or_missing(block, index)
 	match first_byte == 62
 		true => Ok(HpackIntegerPrefix(30, index + 1))
 		false => match first_byte == 63
@@ -393,7 +393,7 @@ fn decode_leading_table_size_update_sequence(block: ByteChunk, observed_size: In
 end
 
 fn decode_after_first_table_size_update(block: ByteChunk, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
-	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
+	let observed_size = byte_count_to_int(byte_chunk_count(block))
 	match byte_at_or_missing(block, 0) == 62 or byte_at_or_missing(block, 0) == 63
 		false => decode_header_block(block, state, offset)
 		true => match table_size_update_prefix_at(block, observed_size, 0, offset)
@@ -414,7 +414,7 @@ fn decode_after_first_table_size_update(block: ByteChunk, state: HpackFixtureSta
 end
 
 fn decode_after_second_table_size_update(block: ByteChunk, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
-	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
+	let observed_size = byte_count_to_int(byte_chunk_count(block))
 	match byte_at_or_missing(block, 0) == 62 or byte_at_or_missing(block, 0) == 63
 		true => match table_size_update_prefix_at(block, observed_size, 0, offset)
 			Ok(prefix) => Err(TableSizeUpdateNotAtStart(offset, observed_size, byte_at_or_missing(block, 0), integer_prefix_value(prefix), "fixture HPACK table-size update at header block start", "hpack_fixture", block))
@@ -425,7 +425,7 @@ fn decode_after_second_table_size_update(block: ByteChunk, state: HpackFixtureSt
 end
 
 fn table_size_update_value_at(block: ByteChunk, observed_size: Int, index: Int, offset: Int) -> Result<Int, HpackFixtureFailure>
-	let first_byte: Int = byte_at_or_missing(block, index)
+	let first_byte = byte_at_or_missing(block, index)
 	if first_byte == 62 and observed_size == index + 1
 		Ok(30)
 	else if first_byte == 63 and observed_size == index + 1
@@ -476,7 +476,7 @@ fn decode_dynamic_name_index(first_byte: Int, observed_size: Int, block: ByteChu
 end
 
 fn decode_four_bit_dynamic_name_index(first_byte: Int, prefix_base: Int, observed_size: Int, block: ByteChunk, offset: Int) -> Result<HpackIntegerPrefix, HpackFixtureFailure>
-	let prefix_value: Int = first_byte - prefix_base
+	let prefix_value = first_byte - prefix_base
 	if prefix_value >= 0 and prefix_value <= 15
 		decode_hpack_prefixed_integer(prefix_value, 15, block, observed_size, 1, offset)
 	else
@@ -541,7 +541,7 @@ fn huffman_non_visible_value(block: ByteChunk, offset: Int) -> Result<ByteChunk,
 end
 
 fn unsupported_raw_string_encoding(value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	let preview: ByteChunk = hpack_raw_string_unsupported_preview(value)
+	let preview = hpack_raw_string_unsupported_preview(value)
 	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(preview)), byte_at_or_missing(preview, 0), "fixture raw string encoding", "hpack_fixture", preview))
 end
 
@@ -744,7 +744,7 @@ fn hpack_huffman_code_length(code: HpackHuffmanCode) -> Int
 end
 
 fn hpack_huffman_code_bit(code: HpackHuffmanCode, bit_index: Int) -> Int
-	let divisor: Int = hpack_pow2(hpack_huffman_code_length(code) - bit_index - 1)
+	let divisor = hpack_pow2(hpack_huffman_code_length(code) - bit_index - 1)
 	hpack_huffman_code_value(code) / divisor - (hpack_huffman_code_value(code) / (divisor * 2)) * 2
 end
 
@@ -936,12 +936,12 @@ fn unsupported_header_list_preview(headers: HpackHeaderList) -> ByteChunk
 end
 
 fn unsupported_header_list_encoding(headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	let preview: ByteChunk = unsupported_header_list_preview(headers)
+	let preview = unsupported_header_list_preview(headers)
 	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(preview)), byte_at_or_missing(preview, 0), "fixture header list encoding", "hpack_fixture", preview))
 end
 
 fn outbound_dynamic_name_literal_miss(headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
-	let preview: ByteChunk = unsupported_header_list_preview(headers)
+	let preview = unsupported_header_list_preview(headers)
 	match state
 		HpackFixtureState(_, _, dynamic_entry) => match dynamic_entry_count(dynamic_entry) == 0
 			true => Err(DynamicNameContinuationMissing(offset, byte_count_to_int(byte_chunk_count(preview)), byte_at_or_missing(preview, 0), 0, 0, "fixture outbound dynamic-name indexed literal", "hpack_fixture", preview))
@@ -951,12 +951,12 @@ fn outbound_dynamic_name_literal_miss(headers: HpackHeaderList, state: HpackFixt
 end
 
 fn outbound_table_size_update_exceeded(offset: Int, table_size: Int, allowed_size: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
-	let preview: ByteChunk = byte_chunk([])
+	let preview = byte_chunk([])
 	Err(OutboundTableSizeUpdateExceeded(offset, table_size, allowed_size, "fixture outbound table-size update", "hpack_fixture", preview))
 end
 
 pub fn encode_static_indexed_header_field(name: String, value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	let headers: HpackHeaderList = HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "static-indexed"), 0)
+	let headers = HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "static-indexed"), 0)
 	encode_static_indexed_header(name, value, headers, offset)
 end
 
@@ -1071,7 +1071,7 @@ fn encode_literal_value(value: String, huffman_value: Bool, offset: Int) -> Resu
 end
 
 fn encode_static_indexed_header(name: String, value: String, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	let index: Int = hpack_static_exact_index(name, value)
+	let index = hpack_static_exact_index(name, value)
 	if index < 0
 		unsupported_header_list_encoding(headers, offset)
 	else
@@ -1121,7 +1121,7 @@ fn hpack_static_name_index_at(name: String, index: Int) -> Int
 end
 
 fn encode_literal_header_with_prefix(name: String, value: String, prefix_offset: Int, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	let index: Int = literal_static_name_index(name)
+	let index = literal_static_name_index(name)
 	if index < 0
 		match prefix_offset == 0 or prefix_offset == 16 or prefix_offset == 64
 			true => encode_new_name_literal_header_with_prefix(name, value, prefix_offset, headers, offset)
@@ -1226,7 +1226,7 @@ pub fn encode_header_list_with_state(headers: HpackHeaderList, state: HpackFixtu
 end
 
 fn encode_header_list_with_dynamic_index_lookup(headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
-	let dynamic_index: Int = matching_dynamic_index(headers, state)
+	let dynamic_index = matching_dynamic_index(headers, state)
 	if dynamic_index < 0
 		encode_non_dynamic_header_list(headers, state, offset)
 	else
@@ -1354,7 +1354,7 @@ fn encode_dynamic_name_literal_header_list(headers: HpackHeaderList, state: Hpac
 end
 
 fn encode_literal_with_dynamic_name(value: String, dynamic_name_index: Int, prefix_max: Int, prefix_base: Int, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	let hpack_name_index: Int = dynamic_name_index + 62
+	let hpack_name_index = dynamic_name_index + 62
 	match encode_hpack_integer_with_prefix(hpack_name_index, prefix_max, prefix_base, offset)
 		Ok(prefix) => match encode_hpack_raw_string_literal(value, offset)
 			Ok(encoded_value) => Ok(byte_append(prefix, encoded_value))
@@ -1365,7 +1365,7 @@ fn encode_literal_with_dynamic_name(value: String, dynamic_name_index: Int, pref
 end
 
 fn encode_huffman_literal_with_dynamic_name(value: String, dynamic_name_index: Int, prefix_max: Int, prefix_base: Int, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	let hpack_name_index: Int = dynamic_name_index + 62
+	let hpack_name_index = dynamic_name_index + 62
 	match encode_hpack_integer_with_prefix(hpack_name_index, prefix_max, prefix_base, offset)
 		Ok(prefix) => match encode_hpack_huffman_string_literal(value, offset)
 			Ok(encoded_value) => Ok(byte_append(prefix, encoded_value))
@@ -1496,7 +1496,7 @@ fn pow2(value: Int) -> Int
 end
 
 fn byte_bit(byte: Int, bit_index: Int) -> Int
-	let divisor: Int = pow2(7 - bit_index)
+	let divisor = pow2(7 - bit_index)
 	byte / divisor - (byte / (divisor * 2)) * 2
 end
 
@@ -2162,10 +2162,10 @@ fn hpack_fixture_huffman_byte_label(symbol: Int) -> Option<String>
 end
 
 fn decode_hpack_huffman_bit(block: ByteChunk, prefix_size: Int, bit_index: Int, total_bits: Int, decoded: ByteChunk, code: Int, length: Int, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
-	let source_byte: Int = byte_at_or_missing(block, prefix_size + bit_index / 8)
-	let bit: Int = byte_bit(source_byte, bit_index - (bit_index / 8) * 8)
-	let next_code: Int = code * 2 + bit
-	let next_length: Int = length + 1
+	let source_byte = byte_at_or_missing(block, prefix_size + bit_index / 8)
+	let bit = byte_bit(source_byte, bit_index - (bit_index / 8) * 8)
+	let next_code = code * 2 + bit
+	let next_length = length + 1
 	match hpack_static_huffman_symbol(next_code, next_length)
 		Some(symbol) => match append_hpack_huffman_symbol(decoded, symbol, block, offset)
 			Ok(next_decoded) => decode_hpack_huffman_bits(block, prefix_size, bit_index + 1, total_bits, next_decoded, 0, 0, offset)
@@ -2271,15 +2271,15 @@ fn decode_hpack_string_length(block: ByteChunk, observed_size: Int, offset: Int)
 end
 
 fn decode_hpack_string_length_at(block: ByteChunk, observed_size: Int, index: Int, offset: Int) -> Result<HpackStringLength, HpackFixtureFailure>
-	let value_count: Int = byte_at_or_missing(block, index)
-	let encoded_count: Int = low_seven_bits(value_count)
-	let huffman_marked: Bool = value_count >= 128
+	let value_count = byte_at_or_missing(block, index)
+	let encoded_count = low_seven_bits(value_count)
+	let huffman_marked = value_count >= 128
 	string_length_from_prefix_result(huffman_marked, decode_hpack_prefixed_integer(encoded_count, 127, block, observed_size, index + 1, offset))
 end
 
 fn decode_hpack_string_literal_value(block: ByteChunk, length: HpackStringLength, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
-	let encoded_count: Int = string_length_encoded_count(length)
-	let prefix_size: Int = string_length_prefix_size(length)
+	let encoded_count = string_length_encoded_count(length)
+	let prefix_size = string_length_prefix_size(length)
 	if string_length_huffman_marked(length)
 		decode_hpack_huffman_literal_value(block, encoded_count, prefix_size, offset)
 	else if encoded_count > 0
@@ -2371,7 +2371,7 @@ fn decode_static_name_literal_header_block(indexing: HpackLiteralIndexing, name_
 end
 
 fn decode_dynamic_name_literal_header_block(indexing: HpackLiteralIndexing, name_index: HpackIntegerPrefix, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
-	let requested_dynamic_index: Int = integer_prefix_value(name_index) - 62
+	let requested_dynamic_index = integer_prefix_value(name_index) - 62
 	match dynamic_header_name_at(requested_dynamic_index, state)
 		Some(name) => decode_literal_header_with_name(indexing, name, observed_size, state, block, offset, integer_prefix_size(name_index))
 		None => if integer_prefix_size(name_index) > 1 and requested_dynamic_index >= 0
@@ -2401,7 +2401,7 @@ fn decode_literal_without_indexing_dynamic_name_header_block(first_byte: Int, ob
 end
 
 fn decode_literal_with_indexing_header_block(first_byte: Int, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
-	let name_index: Int = first_byte - 64
+	let name_index = first_byte - 64
 	decode_static_name_literal_header_block(LiteralWithIndexing, name_index, observed_size, state, block, offset)
 end
 
@@ -2417,7 +2417,7 @@ fn decode_literal_with_dynamic_name_indexing_header_block(first_byte: Int, obser
 end
 
 fn decode_literal_never_indexed_header_block(first_byte: Int, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
-	let name_index: Int = first_byte - 16
+	let name_index = first_byte - 16
 	decode_static_name_literal_header_block(LiteralNeverIndexed, name_index, observed_size, state, block, offset)
 end
 
@@ -2590,8 +2590,8 @@ fn decode_static_indexed_header_block(first_byte: Int, observed_size: Int, state
 end
 
 pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
-	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
-	let first_byte: Int = byte_at_or_missing(block, 0)
+	let observed_size = byte_count_to_int(byte_chunk_count(block))
+	let first_byte = byte_at_or_missing(block, 0)
 	match first_byte == 62 or first_byte == 63
 		true => decode_leading_table_size_updates(block, observed_size, state, offset)
 		false => match first_byte
@@ -2853,7 +2853,7 @@ fn project_failure_fallback_payload(error: String) -> RuntimeDiagnostic
 end
 
 fn project_failure_preview(failure: HpackFixtureFailure) -> Result<ByteView, RuntimeDiagnostic>
-	let preview_chunk: ByteChunk = failure_preview(failure)
+	let preview_chunk = failure_preview(failure)
 	match byte_offset(0)
 		Ok(offset) => match byte_view(preview_chunk, offset, byte_chunk_count(preview_chunk))
 			Ok(view) => Ok(view)
@@ -2864,7 +2864,7 @@ fn project_failure_preview(failure: HpackFixtureFailure) -> Result<ByteView, Run
 end
 
 pub fn project_failure(failure: HpackFixtureFailure) -> Result<(), RuntimeDiagnostic>
-	let preview: ByteView = project_failure_preview(failure)?
+	let preview = project_failure_preview(failure)?
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, _, _) => http2::hpack::diagnostic::unsupported_header_block(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_expected_fixture(failure), failure_codec_module(failure), preview)
 		UnsupportedStaticIndex(_, _, _, _, _, _) => http2::hpack::diagnostic::unsupported_static_index(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_expected_fixture(failure), failure_codec_module(failure), preview)

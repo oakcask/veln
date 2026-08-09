@@ -33,7 +33,7 @@ fn emit_encoded_chunk(name: String, bytes: ByteChunk, expected_hex: String) -> (
 end
 
 pub fn main() -> () effects [stdio]
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_packed_suffix_header({prefix: 18, control: 5, suffix: 52})
+	let encoded = byte_encode_packed_suffix_header({prefix: 18, control: 5, suffix: 52})
 	match encoded
 		Ok(bytes) => emit_encoded_chunk("packed-suffix", bytes, "12a034")
 		Err(_) => stdio::println("unexpected encode failure")

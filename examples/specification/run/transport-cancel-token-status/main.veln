@@ -10,7 +10,7 @@ fn status_text(cancelled: Bool) -> String
 end
 
 pub fn main() -> Result<(), String> effects [time, stdio]
-	let token: CancelToken = time::cancel_token()
+	let token = time::cancel_token()
 	stdio::println(status_text(time::is_cancelled(token)))
 	time::cancel(token)
 	stdio::println(status_text(time::is_cancelled(token)))

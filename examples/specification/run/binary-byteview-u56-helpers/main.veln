@@ -39,16 +39,16 @@ fn emit_written(name: String, chunk: ByteChunk, expected_hex: String) -> () effe
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let chunk: ByteChunk = byte_chunk_from_hex("0102030405060707060504030201")?
-	let max_chunk: ByteChunk = byte_chunk_from_hex("ffffffffffffff")?
-	let zero_offset: ByteOffset = byte_offset(0)?
-	let seven: ByteCount = byte_count(7)?
-	let big_view: ByteView = byte_view(chunk, zero_offset, seven)?
-	let little_view: ByteView = byte_view(chunk, byte_offset(7)?, seven)?
-	let max_view: ByteView = byte_view(max_chunk, zero_offset, seven)?
-	let big_value: Int = byte_read_u56_be(big_view)?
-	let little_value: Int = byte_read_u56_le(little_view)?
-	let max_value: Int = byte_read_u56_be(max_view)?
+	let chunk = byte_chunk_from_hex("0102030405060707060504030201")?
+	let max_chunk = byte_chunk_from_hex("ffffffffffffff")?
+	let zero_offset = byte_offset(0)?
+	let seven = byte_count(7)?
+	let big_view = byte_view(chunk, zero_offset, seven)?
+	let little_view = byte_view(chunk, byte_offset(7)?, seven)?
+	let max_view = byte_view(max_chunk, zero_offset, seven)?
+	let big_value = byte_read_u56_be(big_view)?
+	let little_value = byte_read_u56_le(little_view)?
+	let max_value = byte_read_u56_be(max_view)?
 	stdio::print("u56-read ")
 	stdio::print(int_to_string(big_value))
 	stdio::print(" ")

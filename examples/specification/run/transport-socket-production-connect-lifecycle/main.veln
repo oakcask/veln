@@ -2,12 +2,12 @@
 use stdio
 
 pub fn main() -> Result<(), String> effects [net, stdio]
-	let stream: NetStream = net::connect("127.0.0.1:0")
-	let local: String = net::stream_local_addr(stream)
-	let peer: String = net::stream_peer_addr(stream)
-	let outgoing: ByteChunk = byte_chunk_from_hex("0a0b")?
+	let stream = net::connect("127.0.0.1:0")
+	let local = net::stream_local_addr(stream)
+	let peer = net::stream_peer_addr(stream)
+	let outgoing = byte_chunk_from_hex("0a0b")?
 	net::write_chunk(stream, outgoing)
-	let incoming: ByteChunk = net::read_chunk(stream)
+	let incoming = net::read_chunk(stream)
 	net::close_stream(stream)
 	stdio::print("local ")
 	stdio::print(local)

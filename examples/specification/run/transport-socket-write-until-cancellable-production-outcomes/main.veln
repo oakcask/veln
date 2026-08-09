@@ -16,29 +16,29 @@ fn close_and_return(listener: NetListener, stream: NetStream, decision: String) 
 end
 
 fn write_success_decision() -> Result<String, String> effects [net, time]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let stream: NetStream = net::accept(listener)
-	let outgoing: ByteChunk = byte_chunk_from_hex("0a0b")?
-	let deadline: Deadline = time::deadline_after_ms(100)
-	let token: CancelToken = time::cancel_token()
+	let listener = net::listen("127.0.0.1:0")
+	let stream = net::accept(listener)
+	let outgoing = byte_chunk_from_hex("0a0b")?
+	let deadline = time::deadline_after_ms(100)
+	let token = time::cancel_token()
 	Ok(close_and_return(listener, stream, write_outcome_text(net::write_chunk_until_cancellable(stream, outgoing, deadline, token))))
 end
 
 fn write_deadline_decision() -> Result<String, String> effects [net, time]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let stream: NetStream = net::accept(listener)
-	let outgoing: ByteChunk = byte_chunk_from_hex("0a0b")?
-	let deadline: Deadline = time::deadline_after_ms(0)
-	let token: CancelToken = time::cancel_token()
+	let listener = net::listen("127.0.0.1:0")
+	let stream = net::accept(listener)
+	let outgoing = byte_chunk_from_hex("0a0b")?
+	let deadline = time::deadline_after_ms(0)
+	let token = time::cancel_token()
 	Ok(close_and_return(listener, stream, write_outcome_text(net::write_chunk_until_cancellable(stream, outgoing, deadline, token))))
 end
 
 fn write_cancel_decision() -> Result<String, String> effects [net, time]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let stream: NetStream = net::accept(listener)
-	let outgoing: ByteChunk = byte_chunk_from_hex("0a0b")?
-	let deadline: Deadline = time::deadline_after_ms(100)
-	let token: CancelToken = time::cancel_token()
+	let listener = net::listen("127.0.0.1:0")
+	let stream = net::accept(listener)
+	let outgoing = byte_chunk_from_hex("0a0b")?
+	let deadline = time::deadline_after_ms(100)
+	let token = time::cancel_token()
 	time::cancel(token)
 	Ok(close_and_return(listener, stream, write_outcome_text(net::write_chunk_until_cancellable(stream, outgoing, deadline, token))))
 end

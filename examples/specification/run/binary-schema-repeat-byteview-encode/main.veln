@@ -33,15 +33,15 @@ fn emit_encoded(bytes: ByteChunk) -> () effects [stdio]
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let first_bytes: ByteChunk = byte_chunk_from_hex("aabb")?
-	let second_bytes: ByteChunk = byte_chunk_from_hex("ccdd")?
-	let third_bytes: ByteChunk = byte_chunk_from_hex("eeff")?
-	let first: ByteView = byte_view(first_bytes, byte_offset(0)?, byte_count(2)?)?
-	let second: ByteView = byte_view(second_bytes, byte_offset(0)?, byte_count(2)?)?
-	let third: ByteView = byte_view(third_bytes, byte_offset(0)?, byte_count(2)?)?
-	let items: List<ByteView> = list_cons(first, list_cons(second, list_cons(third, list_nil())))
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_counted_views({count: 3, item_length: 2, items: items})
-	let emitted: () = match encoded
+	let first_bytes = byte_chunk_from_hex("aabb")?
+	let second_bytes = byte_chunk_from_hex("ccdd")?
+	let third_bytes = byte_chunk_from_hex("eeff")?
+	let first = byte_view(first_bytes, byte_offset(0)?, byte_count(2)?)?
+	let second = byte_view(second_bytes, byte_offset(0)?, byte_count(2)?)?
+	let third = byte_view(third_bytes, byte_offset(0)?, byte_count(2)?)?
+	let items = list_cons(first, list_cons(second, list_cons(third, list_nil())))
+	let encoded = byte_encode_counted_views({count: 3, item_length: 2, items: items})
+	let emitted = match encoded
 		Ok(bytes) => emit_encoded(bytes)
 		Err(_) => stdio::println("unexpected encode failure")
 	end

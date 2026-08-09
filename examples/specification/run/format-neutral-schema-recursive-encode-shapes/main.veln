@@ -38,8 +38,8 @@ end
 pub fn main() -> () effects [stdio]
 	let direct_packet: {payload: Option<List<Vec<Dict<String, Result<Tree, List<Option<Int>>>>>>>} = {payload: Some(list_cons([{"tree": Ok(Branch(list_cons(Leaf(3), list_nil()))), "fallback": Err(list_cons(Some(5), list_cons(None, list_nil())))}], list_nil()))}
 	let explicit_packet: {payload: Option<List<Vec<Dict<String, Result<Tree, List<Option<Int>>>>>>>} = {payload: None}
-	let direct: Result<{payload: Option<List<Vec<Dict<String, Result<Tree, List<Option<Int>>>>>>>}, String> = byte_encode_recursive_packet(direct_packet)
-	let explicit: Result<{payload: Option<List<Vec<Dict<String, Result<Tree, List<Option<Int>>>>>>>}, String> = encode RecursivePacket from explicit_packet
+	let direct = byte_encode_recursive_packet(direct_packet)
+	let explicit = encode RecursivePacket from explicit_packet
 	let generic_packet: {payload: Growing<Int>, imported_payload: ImportedTree<Int>} = {payload: Stop(3), imported_payload: wire::ImportedLeaf(5)}
 	let generic_direct: Result<{payload: Growing<Int>, imported_payload: ImportedTree<Int>}, String> = byte_encode_generic_packet(generic_packet)
 	let generic_explicit: Result<{payload: Growing<Int>, imported_payload: ImportedTree<Int>}, String> = encode GenericPacket from generic_packet

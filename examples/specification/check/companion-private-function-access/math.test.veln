@@ -1,6 +1,6 @@
 use math
 
 test companion_can_call_private_target_function() -> ()
-	let observed: Int = math::increment(1)
+	let observed = math::increment(1)
 	()
 end

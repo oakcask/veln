@@ -77,8 +77,8 @@ fn decoded_first_name(result: Result<{items: Option<List<Int>>, flags: Option<Li
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let decoded: Result<{items: Option<List<Int>>, flags: Option<List<Bool>>, ratios: Option<List<Float>>, names: Option<List<String>>}, String> = byte_decode_option_list_packet({items: Some(list_cons(2, list_cons(3, list_cons(5, list_nil())))), flags: Some(list_cons(true, list_cons(false, list_cons(true, list_nil())))), ratios: Some(list_cons(1.25, list_nil())), names: Some(list_cons("alpha", list_nil()))})
-	let decoded_empty: Result<{items: Option<List<Int>>, flags: Option<List<Bool>>, ratios: Option<List<Float>>, names: Option<List<String>>}, String> = byte_decode_option_list_packet({items: None, flags: None, ratios: None, names: None})
+	let decoded = byte_decode_option_list_packet({items: Some(list_cons(2, list_cons(3, list_cons(5, list_nil())))), flags: Some(list_cons(true, list_cons(false, list_cons(true, list_nil())))), ratios: Some(list_cons(1.25, list_nil())), names: Some(list_cons("alpha", list_nil()))})
+	let decoded_empty = byte_decode_option_list_packet({items: None, flags: None, ratios: None, names: None})
 	stdio::println(int_to_string(decoded_item_sum(decoded)))
 	stdio::println(int_to_string(decoded_flag_count(decoded)))
 	stdio::println(decoded_ratio_status(decoded))

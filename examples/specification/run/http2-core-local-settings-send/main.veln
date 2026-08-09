@@ -16,7 +16,7 @@ fn chunks_equal_at(left: ByteChunk, right: ByteChunk, index: Int, count: Int) ->
 end
 
 fn chunks_equal(left: ByteChunk, right: ByteChunk) -> Result<Bool, String>
-	let count: Int = byte_count_to_int(byte_chunk_count(left))
+	let count = byte_count_to_int(byte_chunk_count(left))
 	if count == byte_count_to_int(byte_chunk_count(right))
 		chunks_equal_at(left, right, 0, count)
 	else
@@ -91,8 +91,8 @@ fn print_failure_detail(label: String, failure: LocalSettingsFailure) -> () effe
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let items: List<LocalSettingsItem> = Cons(http2::core::local_settings_max_frame_size(32768), Cons(http2::core::local_settings_enable_push(0), Cons(http2::core::local_settings_enable_connect_protocol(1), Nil)))
-	let accepted: LocalSettingsSendDecision = http2::core::send_local_settings_batch(items, "server", http2::core::empty_local_settings_policy(), http2::core::empty_settings_ack_state())?
+	let items = Cons(http2::core::local_settings_max_frame_size(32768), Cons(http2::core::local_settings_enable_push(0), Cons(http2::core::local_settings_enable_connect_protocol(1), Nil)))
+	let accepted = http2::core::send_local_settings_batch(items, "server", http2::core::empty_local_settings_policy(), http2::core::empty_settings_ack_state())?
 	let _ = print_decision("ordered", accepted)?
 	stdio::print("ordered policy enable_push ")
 	stdio::print(int_to_string(http2::core::local_settings_policy_enable_push_value(http2::core::local_settings_send_policy(accepted))))
@@ -103,8 +103,8 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::print(" connect_offset ")
 	stdio::println(int_to_string(http2::core::local_settings_policy_enable_connect_protocol_offset(http2::core::local_settings_send_policy(accepted))))
 
-	let rejected_items: List<LocalSettingsItem> = Cons(http2::core::local_settings_header_table_size(4096), Cons(http2::core::local_settings_enable_push(2), Nil))
-	let rejected: LocalSettingsSendDecision = http2::core::send_local_settings_batch(rejected_items, "server", http2::core::empty_local_settings_policy(), http2::core::empty_settings_ack_state())?
+	let rejected_items = Cons(http2::core::local_settings_header_table_size(4096), Cons(http2::core::local_settings_enable_push(2), Nil))
+	let rejected = http2::core::send_local_settings_batch(rejected_items, "server", http2::core::empty_local_settings_policy(), http2::core::empty_settings_ack_state())?
 	let _ = print_decision("range", rejected)?
 	let _ = print_failure("range", rejected)?
 	Ok(())

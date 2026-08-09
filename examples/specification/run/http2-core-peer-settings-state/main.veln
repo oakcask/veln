@@ -44,17 +44,17 @@ fn print_state(label: String, state: PeerSettingsState) -> () effects [stdio]
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let empty: PeerSettingsState = http2::core::empty_peer_settings_state()
+	let empty = http2::core::empty_peer_settings_state()
 	print_state("empty", empty)
-	let applied: PeerSettingsState = http2::core::apply_peer_settings_payload(empty, 9, byte_chunk_from_hex("aaaa12345678000500008000000400000003000200000000000300000002000100001000000600002000000800000001")?)?
+	let applied = http2::core::apply_peer_settings_payload(empty, 9, byte_chunk_from_hex("aaaa12345678000500008000000400000003000200000000000300000002000100001000000600002000000800000001")?)?
 	print_state("applied", applied)
-	let duplicate: PeerSettingsState = http2::core::apply_peer_settings_payload(applied, 57, byte_chunk_from_hex("000500010000")?)?
+	let duplicate = http2::core::apply_peer_settings_payload(applied, 57, byte_chunk_from_hex("000500010000")?)?
 	print_state("duplicate", duplicate)
-	let toggled: PeerSettingsState = http2::core::apply_peer_settings_payload(duplicate, 63, byte_chunk_from_hex("000800000001000200000001000800000000000200000000")?)?
+	let toggled = http2::core::apply_peer_settings_payload(duplicate, 63, byte_chunk_from_hex("000800000001000200000001000800000000000200000000")?)?
 	print_state("toggled", toggled)
-	let partial: PeerSettingsState = http2::core::apply_peer_settings_payload(toggled, 87, byte_chunk_from_hex("0006000020")?)?
+	let partial = http2::core::apply_peer_settings_payload(toggled, 87, byte_chunk_from_hex("0006000020")?)?
 	print_state("partial", partial)
-	let raised: PeerSettingsState = http2::core::peer_settings_with_highest_peer_created_stream_id(partial, 7)
+	let raised = http2::core::peer_settings_with_highest_peer_created_stream_id(partial, 7)
 	print_state("high-water", raised)
 	Ok(())
 end

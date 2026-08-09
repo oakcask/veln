@@ -32,8 +32,8 @@ fn emit_encoded(bytes: ByteChunk) -> () effects [stdio]
 end
 
 fn emit_decoded(bytes: ByteChunk) -> Result<(), String> effects [stdio]
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(16)?)?
-	let decoded: {big_value: Int, little_value: Int} = byte_decode_uint64_widths(view)?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(16)?)?
+	let decoded = byte_decode_uint64_widths(view)?
 	stdio::print("decoded ")
 	stdio::print(int_to_string(decoded.big_value))
 	stdio::print(" ")
@@ -54,7 +54,7 @@ fn emit_encoded_result(encoded: Result<ByteChunk, EncodeError>) -> Result<(), St
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_uint64_widths({big_value: 72623859790382856, little_value: 72623859790382856})
-	let ignored: () = emit_encoded_result(encoded)?
+	let encoded = byte_encode_uint64_widths({big_value: 72623859790382856, little_value: 72623859790382856})
+	let ignored = emit_encoded_result(encoded)?
 	Ok(())
 end

@@ -40,7 +40,7 @@ fn emit_error(error: EncodeError) -> () effects [stdio]
 end
 
 pub fn main() -> () effects [stdio]
-	let rejected: Result<ByteChunk, EncodeError> = byte_encode_packed_visible_eight_byte_header({marker: 1, high: 43, upper: 102, middle: 128, lower: 98, tail: 35, flag: 34, code: 89, route: 113, checksum: 16})
+	let rejected = byte_encode_packed_visible_eight_byte_header({marker: 1, high: 43, upper: 102, middle: 128, lower: 98, tail: 35, flag: 34, code: 89, route: 113, checksum: 16})
 	match rejected
 		Ok(_) => stdio::println("unexpected encode success")
 		Err(error) => emit_error(error)

@@ -98,10 +98,10 @@ fn accepted_cancellable_lifecycle(stream: NetStream, deadline: Deadline, token: 
 end
 
 fn lifecycle_result(address: String) -> Result<{ outcome : String, actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }, String> effects [net, time, concurrency]
-	let listener: NetListener = net::listen(address)
-	let stream: NetStream = net::accept(listener)
-	let deadline: Deadline = time::deadline_after_ms(100)
-	let token: CancelToken = time::cancel_token()
+	let listener = net::listen(address)
+	let stream = net::accept(listener)
+	let deadline = time::deadline_after_ms(100)
+	let token = time::cancel_token()
 	accepted_cancellable_lifecycle(stream, deadline, token)
 end
 
@@ -114,7 +114,7 @@ fn bool_text(value: Bool) -> String
 end
 
 pub fn main() -> Result<(), String> effects [net, time, concurrency, stdio]
-	let routed: { outcome : String, actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } = lifecycle_result("127.0.0.1:0")?
+	let routed = lifecycle_result("127.0.0.1:0")?
 	stdio::print(routed.outcome)
 	stdio::print(" actions ")
 	stdio::print(int_to_string(action_count(routed.actions)))

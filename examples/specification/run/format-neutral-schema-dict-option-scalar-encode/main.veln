@@ -19,9 +19,9 @@ fn encoded_score(result: Result<{scores: Dict<String, Option<Int>>}, String>, ke
 end
 
 pub fn main() -> () effects [stdio]
-	let packet: {scores: Dict<String, Option<Int>>} = {scores: {"math": Some(11), "language": None}}
+	let packet = {scores: {"math": Some(11), "language": None}}
 	let empty_packet: {scores: Dict<String, Option<Int>>} = {scores: {}}
-	let encoded: Result<{scores: Dict<String, Option<Int>>}, String> = byte_encode_dict_option_scalar_packet(packet)
+	let encoded = byte_encode_dict_option_scalar_packet(packet)
 	let explicit: Result<{scores: Dict<String, Option<Int>>}, String> = encode DictOptionScalarPacket from empty_packet
 	stdio::println(int_to_string(encoded_score(encoded, "math")))
 	stdio::println(int_to_string(encoded_score(encoded, "language")))

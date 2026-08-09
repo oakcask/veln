@@ -43,9 +43,9 @@ fn consumed_count(step: DecodeStep<{kind: Int, payload: {code: Int, value: Int}}
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("010700ff")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(4)?)?
-	let step: DecodeStep<{kind: Int, payload: {code: Int, value: Int}}> = decode ImportedClosedNestedPacket from view at byte_offset(23)?
+	let bytes = byte_chunk_from_hex("010700ff")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(4)?)?
+	let step = decode ImportedClosedNestedPacket from view at byte_offset(23)?
 	stdio::println(step_kind(step))
 	stdio::println(int_to_string(payload_code(step)))
 	stdio::println(int_to_string(payload_value(step)))

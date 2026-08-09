@@ -47,9 +47,9 @@ fn emit_sample(sample: {count: Int, left_length: Int, right_length: Int, items: 
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("020103aabbccddeeff0011")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(11)?)?
-	let sample: {count: Int, left_length: Int, right_length: Int, items: List<ByteView>} = byte_decode_counted_views(view)?
+	let bytes = byte_chunk_from_hex("020103aabbccddeeff0011")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(11)?)?
+	let sample = byte_decode_counted_views(view)?
 	emit_sample(sample)
 	Ok(())
 end

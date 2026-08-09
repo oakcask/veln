@@ -47,15 +47,15 @@ fn emit_encoded(bytes: ByteChunk) -> () effects [stdio]
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("123405")?
-	let base: ByteOffset = byte_offset(0)?
-	let view: ByteView = byte_view(bytes, base, byte_count(3)?)?
-	let wire: {wire_length: Int, wire_kind: Int} = decode_frame_header_wire(view, base)?
-	let header: {length: Int, kind: Int} = header_from_wire(wire)
+	let bytes = byte_chunk_from_hex("123405")?
+	let base = byte_offset(0)?
+	let view = byte_view(bytes, base, byte_count(3)?)?
+	let wire = decode_frame_header_wire(view, base)?
+	let header = header_from_wire(wire)
 	emit_header(header)
 
-	let encoded: Result<ByteChunk, EncodeError> = encode FrameHeaderWire from header_to_wire(header)
-	let emitted: () = match encoded
+	let encoded = encode FrameHeaderWire from header_to_wire(header)
+	let emitted = match encoded
 		Ok(encoded_bytes) => emit_encoded(encoded_bytes)
 		Err(_) => stdio::println("unexpected encode failure")
 	end

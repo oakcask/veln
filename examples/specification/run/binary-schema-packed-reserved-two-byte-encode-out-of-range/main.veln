@@ -34,7 +34,7 @@ fn error_reason(error: EncodeError) -> String
 end
 
 pub fn main() -> () effects [stdio]
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_packed_two_byte_write({prefix: 18, control: 128, suffix: 52})
+	let encoded = byte_encode_packed_two_byte_write({prefix: 18, control: 128, suffix: 52})
 	match encoded
 		Ok(_) => stdio::println("unexpected encode success")
 		Err(error) => emit_error(error)

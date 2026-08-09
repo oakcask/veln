@@ -20,12 +20,12 @@ fn print_state(label: String, stream: NetStream) -> () effects [net, stdio]
 end
 
 pub fn main() -> Result<(), String> effects [net, stdio]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let stream: NetStream = net::accept(listener)
+	let listener = net::listen("127.0.0.1:0")
+	let stream = net::accept(listener)
 	print_state("open", stream)
 	net::shutdown_read(stream)
 	print_state("read-shutdown", stream)
-	let outgoing: ByteChunk = byte_chunk_from_hex("0e0f")?
+	let outgoing = byte_chunk_from_hex("0e0f")?
 	net::write_chunk(stream, outgoing)
 	net::shutdown_write(stream)
 	print_state("write-shutdown", stream)

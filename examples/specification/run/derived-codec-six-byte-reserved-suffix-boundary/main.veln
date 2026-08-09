@@ -48,14 +48,14 @@ fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("ab5555555555")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(6)?)?
-	let decoded: DecodeStep<{control: Int}> = decode SixByteReservedSuffixHeader from view at byte_offset(3)?
+	let bytes = byte_chunk_from_hex("ab5555555555")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(6)?)?
+	let decoded = decode SixByteReservedSuffixHeader from view at byte_offset(3)?
 	stdio::println(step_kind(decoded))
 	stdio::println(int_to_string(decoded_control(decoded)))
 	stdio::println(int_to_string(consumed_count(decoded)))
 
-	let encoded: EncodeStep<()> = encode_result_step(encode SixByteReservedSuffixHeader from {control: 85})
+	let encoded = encode_result_step(encode SixByteReservedSuffixHeader from {control: 85})
 	stdio::println(encode_kind(encoded))
 	Ok(())
 end

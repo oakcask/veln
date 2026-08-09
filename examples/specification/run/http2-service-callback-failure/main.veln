@@ -31,6 +31,6 @@ fn print_failure(failure: Http2ServiceFailure) -> Result<(), String> effects [st
 end
 
 pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
-	let listener: NetListener = net::listen("127.0.0.1:0")
+	let listener = net::listen("127.0.0.1:0")
 	print_result(http2::connection::serve_tcp(listener, handler))
 end

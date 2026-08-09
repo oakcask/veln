@@ -17,7 +17,7 @@ fn require_failure(decision: CoreConnectionShutdownDecision) -> Result<CoreConne
 end
 
 fn print_state(label: String, state: CoreConnectionState) -> () effects [stdio]
-	let lifecycle: CoreConnectionLifecycle = http2::core::connection_state_lifecycle(state)
+	let lifecycle = http2::core::connection_state_lifecycle(state)
 	stdio::print(label)
 	stdio::print(" lifecycle ")
 	stdio::print(http2::core::connection_lifecycle_label(lifecycle))
@@ -72,29 +72,29 @@ fn print_error(label: String, error: String) -> () effects [stdio]
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let base: CoreConnectionState = http2::core::server_connection_state(31)?
-	let active_stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 14, 21, 0, 0))?
-	let active_state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), active_stream))
-	let first: CoreConnectionShutdownDecision = http2::core::apply_goaway_receive_shutdown(active_state, 31, byte_chunk_from_hex("000000050000000b")?, byte_chunk_from_hex("000008070000000000")?)
-	let first_state: CoreConnectionState = require_state(first)?
+	let base = http2::core::server_connection_state(31)?
+	let active_stream = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 14, 21, 0, 0))?
+	let active_state = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), active_stream))
+	let first = http2::core::apply_goaway_receive_shutdown(active_state, 31, byte_chunk_from_hex("000000050000000b")?, byte_chunk_from_hex("000008070000000000")?)
+	let first_state = require_state(first)?
 	stdio::print("first ")
 	stdio::println(http2::core::connection_shutdown_status(first))
 	print_state("first", first_state)
 	print_state("still-draining", http2::core::complete_connection_shutdown_drain(first_state))
-	let closed_stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_closed_lifecycle(), 14, 21, 0, 0))?
-	let ready_to_drain: CoreConnectionState = http2::core::connection_state_with_streams(first_state, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(first_state), closed_stream))
+	let closed_stream = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_closed_lifecycle(), 14, 21, 0, 0))?
+	let ready_to_drain = http2::core::connection_state_with_streams(first_state, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(first_state), closed_stream))
 	print_state("drained", http2::core::complete_connection_shutdown_drain(ready_to_drain))
-	let outside_stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(7, http2::core::stream_open_lifecycle(), 14, 21, 0, 0))?
-	let outside_state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), outside_stream))
-	let outside: CoreConnectionShutdownDecision = http2::core::apply_goaway_receive_shutdown(outside_state, 52, byte_chunk_from_hex("0000000500000021")?, byte_chunk_from_hex("000008070000000000")?)
+	let outside_stream = require_stream_entry(http2::core::stream_entry(7, http2::core::stream_open_lifecycle(), 14, 21, 0, 0))?
+	let outside_state = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), outside_stream))
+	let outside = http2::core::apply_goaway_receive_shutdown(outside_state, 52, byte_chunk_from_hex("0000000500000021")?, byte_chunk_from_hex("000008070000000000")?)
 	print_state("outside-boundary", require_state(outside)?)
-	let tightened: CoreConnectionShutdownDecision = http2::core::apply_goaway_receive_shutdown(first_state, 44, byte_chunk_from_hex("0000000300000016")?, byte_chunk_from_hex("000008070000000000")?)
+	let tightened = http2::core::apply_goaway_receive_shutdown(first_state, 44, byte_chunk_from_hex("0000000300000016")?, byte_chunk_from_hex("000008070000000000")?)
 	stdio::print("tightened ")
 	stdio::println(http2::core::connection_shutdown_status(tightened))
 	print_state("tightened", require_state(tightened)?)
-	let relaxed: CoreConnectionShutdownDecision = http2::core::apply_goaway_receive_shutdown(first_state, 57, byte_chunk_from_hex("0000000700000021")?, byte_chunk_from_hex("000008070000000000")?)
+	let relaxed = http2::core::apply_goaway_receive_shutdown(first_state, 57, byte_chunk_from_hex("0000000700000021")?, byte_chunk_from_hex("000008070000000000")?)
 	print_failure("relaxed", require_failure(relaxed)?)
-	let truncated: CoreConnectionShutdownDecision = http2::core::apply_goaway_receive_shutdown(first_state, 66, byte_chunk_from_hex("00000005")?, byte_chunk_from_hex("000004070000000000")?)
+	let truncated = http2::core::apply_goaway_receive_shutdown(first_state, 66, byte_chunk_from_hex("00000005")?, byte_chunk_from_hex("000004070000000000")?)
 	print_failure("truncated", require_failure(truncated)?)
 	print_state("input", active_state)
 	let _ = print_failure_accessor_error("accepted-accessor", first)?

@@ -60,7 +60,7 @@ fn bool_count(value: Bool) -> Int
 end
 
 fn read_stream_input_until(stream: NetStream) -> StreamInput effects [net, time]
-	let deadline: Deadline = time::deadline_after_ms(100)
+	let deadline = time::deadline_after_ms(100)
 	match net::read_chunk_until(stream, deadline)
 		Some(bytes) => Chunk(bytes)
 		None => End
@@ -129,7 +129,7 @@ fn finish_summary(summary: { streams : Int, chunks : Int, ended : Int, writes : 
 end
 
 fn accept_next_until(listener: NetListener) -> Option<NetStream> effects [net, time]
-	let deadline: Deadline = time::deadline_after_ms(100)
+	let deadline = time::deadline_after_ms(100)
 	net::accept_until(listener, deadline)
 end
 
@@ -145,8 +145,8 @@ fn empty_summary() -> { streams : Int, chunks : Int, ended : Int, writes : Int, 
 end
 
 pub fn main() -> Result<(), String> effects [net, time, concurrency, stdio]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let summary: { streams : Int, chunks : Int, ended : Int, writes : Int, end_actions : Int, clean_end : Bool } = drain_listener(listener, empty_summary())?
+	let listener = net::listen("127.0.0.1:0")
+	let summary = drain_listener(listener, empty_summary())?
 	stdio::print("streams ")
 	stdio::print(int_to_string(summary.streams))
 	stdio::print(" chunks ")

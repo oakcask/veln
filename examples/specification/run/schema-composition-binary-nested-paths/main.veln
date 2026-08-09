@@ -61,11 +61,11 @@ fn emit_encoded(encoded: Result<ByteChunk, EncodeError>) -> () effects [stdio]
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("0302070101080209030207010a0b0c0d0e07aabbcc")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(21)?)?
+	let bytes = byte_chunk_from_hex("0302070101080209030207010a0b0c0d0e07aabbcc")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(21)?)?
 	emit_decoded(decode Frame from view at byte_offset(0)?)
-	let payload: ByteView = byte_view(bytes, byte_offset(18)?, byte_count(3)?)?
-	let items: List<Int> = list_cons(11, list_cons(12, list_nil()))
+	let payload = byte_view(bytes, byte_offset(18)?, byte_count(3)?)?
+	let items = list_cons(11, list_cons(12, list_nil()))
 	emit_encoded(encode Frame from {header: {length: 3, count: 2, kind: 7, dispatch_length: 1}, imported: {length: 1, kind: 8}, aliased: {length: 2, kind: 9}, local_aliased: {length: 3, count: 2, kind: 7, dispatch_length: 1}, public_header: {flag: 10}, items: items, tagged: 13, extended: Known(14), checked: 7, payload: payload})
 	Ok(())
 end

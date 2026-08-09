@@ -52,7 +52,7 @@ fn bool_text(value: Bool) -> String
 end
 
 pub fn main() -> Result<(), String> effects [concurrency, stdio]
-	let first: ByteChunk = byte_chunk_from_hex("0102")?
+	let first = byte_chunk_from_hex("0102")?
 	let left = channel::bounded<StreamInput>(2)
 	let right = channel::bounded<StreamInput>(2)
 	let _ = channel::send(left.tx, Chunk(first))

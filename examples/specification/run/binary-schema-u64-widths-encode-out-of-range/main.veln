@@ -38,13 +38,13 @@ fn error_reason(error: EncodeError) -> String
 end
 
 pub fn main() -> () effects [stdio]
-	let big_encoded: Result<ByteChunk, EncodeError> = byte_encode_uint64_big_width({value: -1})
+	let big_encoded = byte_encode_uint64_big_width({value: -1})
 	match big_encoded
 		Ok(_) => stdio::println("unexpected encode success")
 		Err(error) => emit_error(error)
 	end
 
-	let little_encoded: Result<ByteChunk, EncodeError> = byte_encode_uint64_little_width({value: -1})
+	let little_encoded = byte_encode_uint64_little_width({value: -1})
 	match little_encoded
 		Ok(_) => stdio::println("unexpected UInt64le encode success")
 		Err(error) => emit_error(error)

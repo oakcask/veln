@@ -88,13 +88,13 @@ fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
 end
 
 pub fn main() -> () effects [stdio]
-	let items: List<Int> = list_cons(1, list_cons(2, list_cons(255, list_nil())))
-	let encoded: EncodeStep<()> = encode_result_step(encode CountedValues from {count: 3, items: items})
+	let items = list_cons(1, list_cons(2, list_cons(255, list_nil())))
+	let encoded = encode_result_step(encode CountedValues from {count: 3, items: items})
 	stdio::println(step_kind(encoded))
 	emit_encoded("derived-counted-values", encoded, "030001000200ff")
 
-	let invalid_items: List<Int> = list_cons(65536, list_nil())
-	let invalid: EncodeStep<()> = encode_result_step(encode CountedValues from {count: 1, items: invalid_items})
+	let invalid_items = list_cons(65536, list_nil())
+	let invalid = encode_result_step(encode CountedValues from {count: 1, items: invalid_items})
 	stdio::println(step_kind(invalid))
 	stdio::println(error_id(invalid))
 	stdio::println(error_path(invalid))

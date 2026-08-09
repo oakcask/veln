@@ -133,25 +133,25 @@ fn error_path(step: DecodeStep<{length: Int, kind: Int}>) -> String
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let complete_bytes: ByteChunk = byte_chunk_from_hex("000703")?
-	let complete_view: ByteView = byte_view(complete_bytes, byte_offset(0)?, byte_count(3)?)?
-	let complete: DecodeStep<{length: Int, kind: Int}> = decode_manual_offset_packet(complete_view, byte_offset(40)?)
+	let complete_bytes = byte_chunk_from_hex("000703")?
+	let complete_view = byte_view(complete_bytes, byte_offset(0)?, byte_count(3)?)?
+	let complete = decode_manual_offset_packet(complete_view, byte_offset(40)?)
 	stdio::println(step_kind(complete))
 	stdio::println(int_to_string(decoded_length(complete)))
 	stdio::println(int_to_string(decoded_kind(complete)))
 	stdio::println(int_to_string(consumed_count(complete)))
 
-	let short_bytes: ByteChunk = byte_chunk_from_hex("0007")?
-	let short_view: ByteView = byte_view(short_bytes, byte_offset(0)?, byte_count(2)?)?
-	let waiting: DecodeStep<{length: Int, kind: Int}> = decode_manual_offset_packet(short_view, byte_offset(50)?)
+	let short_bytes = byte_chunk_from_hex("0007")?
+	let short_view = byte_view(short_bytes, byte_offset(0)?, byte_count(2)?)?
+	let waiting = decode_manual_offset_packet(short_view, byte_offset(50)?)
 	stdio::println(step_kind(waiting))
 	stdio::println(readiness_kind(waiting))
 	stdio::println(int_to_string(readiness_count(waiting)))
 	stdio::println(int_to_string(consumed_count(waiting)))
 
-	let invalid_bytes: ByteChunk = byte_chunk_from_hex("000107")?
-	let invalid_view: ByteView = byte_view(invalid_bytes, byte_offset(0)?, byte_count(3)?)?
-	let invalid: DecodeStep<{length: Int, kind: Int}> = decode_manual_offset_packet(invalid_view, byte_offset(60)?)
+	let invalid_bytes = byte_chunk_from_hex("000107")?
+	let invalid_view = byte_view(invalid_bytes, byte_offset(0)?, byte_count(3)?)?
+	let invalid = decode_manual_offset_packet(invalid_view, byte_offset(60)?)
 	stdio::println(step_kind(invalid))
 	stdio::println(error_id(invalid))
 	stdio::println(int_to_string(error_offset(invalid)))

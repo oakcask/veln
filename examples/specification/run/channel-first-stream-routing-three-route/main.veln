@@ -70,8 +70,8 @@ fn handled_route(index: Int, input: StreamInput, state: { chunks : Int, ended : 
 end
 
 pub fn main() -> Result<(), String> effects [concurrency, stdio]
-	let middle_bytes: ByteChunk = byte_chunk_from_hex("0102")?
-	let last_bytes: ByteChunk = byte_chunk_from_hex("0a")?
+	let middle_bytes = byte_chunk_from_hex("0102")?
+	let last_bytes = byte_chunk_from_hex("0a")?
 	let first = channel::bounded<StreamInput>(2)
 	let second = channel::bounded<StreamInput>(2)
 	let third = channel::bounded<StreamInput>(2)
@@ -83,17 +83,17 @@ pub fn main() -> Result<(), String> effects [concurrency, stdio]
 	channel::close(second.tx)
 	channel::close(third.tx)
 	channel::close(closed.tx)
-	let selected_first: { index : Int, value : StreamInput } = match select_three_priority(first.rx, second.rx, third.rx, closed.rx)
+	let selected_first = match select_three_priority(first.rx, second.rx, third.rx, closed.rx)
 		Some(selected) => selected
 		None => { index: 0, value: End }
 	end
 	let handled_first = handled_route(selected_first.index, selected_first.value, { chunks: 0, ended: false })
-	let selected_second: { index : Int, value : StreamInput } = match select_three_priority(first.rx, second.rx, third.rx, closed.rx)
+	let selected_second = match select_three_priority(first.rx, second.rx, third.rx, closed.rx)
 		Some(selected) => selected
 		None => { index: 0, value: End }
 	end
 	let handled_second = handled_route(selected_second.index, selected_second.value, { chunks: 0, ended: false })
-	let selected_third: { index : Int, value : StreamInput } = match select_three_priority(first.rx, second.rx, third.rx, closed.rx)
+	let selected_third = match select_three_priority(first.rx, second.rx, third.rx, closed.rx)
 		Some(selected) => selected
 		None => { index: 0, value: End }
 	end

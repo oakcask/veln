@@ -40,12 +40,12 @@ fn print_failure(label: String, failure: CoreStreamFrameAdmissionFailure) -> Res
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let open: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 65535, 65535, 0, 0))?
-	let push: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(3, http2::core::stream_client_push_associated_lifecycle(), 65535, 65535, 0, 0))?
-	let reserved: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_reserved_by_peer_lifecycle(), 65535, 65535, 0, 0))?
-	let half_remote: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(7, http2::core::stream_half_closed_remote_lifecycle(), 65535, 65535, 0, 0))?
-	let closed: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(9, http2::core::stream_closed_lifecycle(), 0, 65535, 0, 0))?
-	let streams: CoreStreamCollection = http2::core::stream_collection_add_or_replace(http2::core::stream_collection_add_or_replace(http2::core::stream_collection_add_or_replace(http2::core::stream_collection_add_or_replace(http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), open), push), reserved), half_remote), closed)
+	let open = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 65535, 65535, 0, 0))?
+	let push = require_stream_entry(http2::core::stream_entry(3, http2::core::stream_client_push_associated_lifecycle(), 65535, 65535, 0, 0))?
+	let reserved = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_reserved_by_peer_lifecycle(), 65535, 65535, 0, 0))?
+	let half_remote = require_stream_entry(http2::core::stream_entry(7, http2::core::stream_half_closed_remote_lifecycle(), 65535, 65535, 0, 0))?
+	let closed = require_stream_entry(http2::core::stream_entry(9, http2::core::stream_closed_lifecycle(), 0, 65535, 0, 0))?
+	let streams = http2::core::stream_collection_add_or_replace(http2::core::stream_collection_add_or_replace(http2::core::stream_collection_add_or_replace(http2::core::stream_collection_add_or_replace(http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), open), push), reserved), half_remote), closed)
 	let _ = print_decision("settings-connection", http2::core::validate_inbound_frame_kind(0, 4, 0, streams, byte_chunk_from_hex("000000040000000000")?))?
 	let _ = print_decision("data-open", http2::core::validate_inbound_frame_kind(0, 0, 1, streams, byte_chunk_from_hex("000000000000000001")?))?
 	let _ = print_decision("push-associated", http2::core::validate_inbound_frame_kind(0, 5, 3, streams, byte_chunk_from_hex("000000050000000003")?))?

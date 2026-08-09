@@ -14,8 +14,8 @@ fn shadowed() -> Int
 end
 
 pub fn main() -> () effects [stdio]
-	let op: fn(Int) -> Int effects [] = math::double
-	let shadowed: Int = 1
+	let op = math::double
+	let shadowed = 1
 	stdio::println(int_to_string(apply(4, op)))
 	stdio::println(int_to_string(shadowed))
 end

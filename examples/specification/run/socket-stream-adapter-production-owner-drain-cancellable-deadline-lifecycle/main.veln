@@ -241,10 +241,10 @@ fn maybe_cancel_before_accept(owner: CancelOwner, cancel_first: Bool) -> () effe
 end
 
 fn adapter_lifecycle(address: String, cancel_first: Bool, trailer: ByteChunk) -> Result<{ streams : Int, chunks : Int, ended : Int, writes : Int, end_actions : Int, retries : Int, cleanup : Int, clean_end : Bool, accept_cancelled : Int, accept_deadline : Int }, String> effects [net, time, concurrency]
-	let listener: NetListener = net::listen(address)
-	let owner: CancelOwner = time::cancel_owner()
-	let token: CancelToken = time::cancel_token_from(owner)
-	let deadline: Deadline = time::deadline_after_ms(100)
+	let listener = net::listen(address)
+	let owner = time::cancel_owner()
+	let token = time::cancel_token_from(owner)
+	let deadline = time::deadline_after_ms(100)
 	maybe_cancel_before_accept(owner, cancel_first)
 	Ok(adapter_cleanup(listener, owner, drain_listener(listener, empty_summary(), deadline, token, trailer)?))
 end
@@ -260,10 +260,10 @@ fn close_midstream_listener(listener: NetListener, owner: CancelOwner, routed: {
 end
 
 fn adapter_cancel_after_first_read(address: String, trailer: ByteChunk) -> Result<{ read : String, actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool, trailer : ByteChunk } }, String> effects [net, time, concurrency]
-	let listener: NetListener = net::listen(address)
-	let owner: CancelOwner = time::cancel_owner()
-	let token: CancelToken = time::cancel_token_from(owner)
-	let deadline: Deadline = time::deadline_after_ms(100)
+	let listener = net::listen(address)
+	let owner = time::cancel_owner()
+	let token = time::cancel_token_from(owner)
+	let deadline = time::deadline_after_ms(100)
 	match net::accept_until_cancellable(listener, deadline, token)
 		AcceptStream(stream) => Ok(close_midstream_listener(listener, owner, accepted_cancel_after_first_read(stream, deadline, owner, token, trailer)?))
 		AcceptEnd => Ok(close_midstream_listener(listener, owner, empty_midstream("accept-end", trailer)))
@@ -333,12 +333,12 @@ fn print_midstream_summary(label: String, summary: { read : String, actions : Li
 end
 
 pub fn main() -> Result<(), String> effects [net, time, concurrency, stdio]
-	let success_trailer: ByteChunk = byte_chunk_from_hex("a0")?
-	let cancel_trailer: ByteChunk = byte_chunk_from_hex("ff")?
-	let midcancel_trailer: ByteChunk = byte_chunk_from_hex("55")?
-	let success: { streams : Int, chunks : Int, ended : Int, writes : Int, end_actions : Int, retries : Int, cleanup : Int, clean_end : Bool, accept_cancelled : Int, accept_deadline : Int } = adapter_lifecycle("127.0.0.1:0", false, success_trailer)?
-	let cancelled: { streams : Int, chunks : Int, ended : Int, writes : Int, end_actions : Int, retries : Int, cleanup : Int, clean_end : Bool, accept_cancelled : Int, accept_deadline : Int } = adapter_lifecycle("127.0.0.1:0", true, cancel_trailer)?
-	let midcancel: { read : String, actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool, trailer : ByteChunk } } = adapter_cancel_after_first_read("127.0.0.1:0", midcancel_trailer)?
+	let success_trailer = byte_chunk_from_hex("a0")?
+	let cancel_trailer = byte_chunk_from_hex("ff")?
+	let midcancel_trailer = byte_chunk_from_hex("55")?
+	let success = adapter_lifecycle("127.0.0.1:0", false, success_trailer)?
+	let cancelled = adapter_lifecycle("127.0.0.1:0", true, cancel_trailer)?
+	let midcancel = adapter_cancel_after_first_read("127.0.0.1:0", midcancel_trailer)?
 	print_summary("success", success)
 	stdio::print(" ")
 	print_summary("cancel", cancelled)

@@ -133,10 +133,10 @@ fn bool_text(value: Bool) -> String
 end
 
 pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let stream: NetStream = accept_next(listener)?
-	let summary: { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool }, routed_events : Int, total_bytes : Int, first_sequence : Int, last_sequence : Int, trace_id : String, route_stream : String, route_lane : String, failure_reason : String } = accepted_lifecycle(stream, { stream: "production-stream", lane: "ingress" })?
-	let clean_end: Bool = listener_ended(listener)
+	let listener = net::listen("127.0.0.1:0")
+	let stream = accept_next(listener)?
+	let summary = accepted_lifecycle(stream, { stream: "production-stream", lane: "ingress" })?
+	let clean_end = listener_ended(listener)
 	stdio::print("events ")
 	stdio::print(int_to_string(summary.routed_events))
 	stdio::print(" chunks ")

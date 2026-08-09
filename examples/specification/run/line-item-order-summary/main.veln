@@ -26,7 +26,7 @@ pub fn summarize_order(lines: Vec<String>, catalog: Dict<String, Int>) -> result
 end
 
 pub fn main() -> Result<(), { kind : String, input : String }> effects [stdio]
-	let summary: { item_count : Int, subtotal_cents : Int } = summarize_order(["tea,2", "cake,1"], { "tea": 250, "cake": 400 })?
+	let summary = summarize_order(["tea,2", "cake,1"], { "tea": 250, "cake": 400 })?
 	stdio::println(int_to_string(summary.item_count))
 	stdio::println(int_to_string(summary.subtotal_cents))
 	Ok(())

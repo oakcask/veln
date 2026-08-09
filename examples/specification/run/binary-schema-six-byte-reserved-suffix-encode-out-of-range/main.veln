@@ -39,6 +39,6 @@ fn emit_encode_error(encoded: Result<ByteChunk, EncodeError>) -> () effects [std
 end
 
 pub fn main() -> () effects [stdio]
-	let rejected: Result<ByteChunk, EncodeError> = byte_encode_six_byte_reserved_suffix_header({control: 128})
+	let rejected = byte_encode_six_byte_reserved_suffix_header({control: 128})
 	emit_encode_error(rejected)
 end

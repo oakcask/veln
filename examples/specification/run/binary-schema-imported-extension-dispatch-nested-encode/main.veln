@@ -41,6 +41,6 @@ fn emit_encoded(name: String, encoded: Result<ByteChunk, EncodeError>, expected_
 end
 
 pub fn main() -> () effects [stdio]
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_imported_extension_nested_write_packet({length: 3, kind: 1, payload: Known({code: 7, value: 4660})})
+	let encoded = byte_encode_imported_extension_nested_write_packet({length: 3, kind: 1, payload: Known({code: 7, value: 4660})})
 	emit_encoded("imported-extension-nested", encoded, "0301071234")
 end

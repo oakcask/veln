@@ -7,7 +7,7 @@ fn emit_accept_result(result: Option<NetStream>) -> () effects [stdio]
 end
 
 pub fn main() -> Result<(), String> effects [net, stdio]
-	let listener: NetListener = net::listen("127.0.0.1:0")
+	let listener = net::listen("127.0.0.1:0")
 	emit_accept_result(net::accept_or_end(listener))
 	Ok(())
 end

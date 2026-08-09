@@ -32,9 +32,9 @@ fn emit_packet(packet: {prefix: Int, header: {kind: Int, code: Int}, tail: Int})
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("01020304ff")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(5)?)?
-	let packet: {prefix: Int, header: {kind: Int, code: Int}, tail: Int} = byte_decode_nested_packet(view)?
+	let bytes = byte_chunk_from_hex("01020304ff")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(5)?)?
+	let packet = byte_decode_nested_packet(view)?
 	emit_packet(packet)
 	Ok(())
 end

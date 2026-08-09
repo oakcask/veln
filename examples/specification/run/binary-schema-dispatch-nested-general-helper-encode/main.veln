@@ -55,10 +55,10 @@ fn emit_encoded(name: String, encoded: Result<ByteChunk, EncodeError>, expected_
 end
 
 pub fn main() -> () effects [stdio]
-	let payload: {version: Int, code: Int, value: Int} = {version: 1, code: 7, value: 4660}
-	let closed: Result<ByteChunk, EncodeError> = byte_encode_closed_nested_write_packet({kind: 1, payload: payload})
+	let payload = {version: 1, code: 7, value: 4660}
+	let closed = byte_encode_closed_nested_write_packet({kind: 1, payload: payload})
 	emit_encoded("closed-general-nested", closed, "010100073412")
 
-	let extension: Result<ByteChunk, EncodeError> = byte_encode_extension_nested_write_packet({length: 5, kind: 1, payload: Known(payload)})
+	let extension = byte_encode_extension_nested_write_packet({length: 5, kind: 1, payload: Known(payload)})
 	emit_encoded("extension-general-nested", extension, "05010100073412")
 end

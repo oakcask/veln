@@ -40,9 +40,9 @@ fn emit_encoded(name: String, encoded: Result<ByteChunk, EncodeError>, expected_
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let recursive_bytes: ByteChunk = byte_chunk_from_hex("0302010109")?
-	let recursive_view: ByteView = byte_view(recursive_bytes, byte_offset(0)?, byte_count(5)?)?
-	let recursive: {length: Int, kind: Int, payload: Int} = byte_decode_recursive_packet(recursive_view)?
+	let recursive_bytes = byte_chunk_from_hex("0302010109")?
+	let recursive_view = byte_view(recursive_bytes, byte_offset(0)?, byte_count(5)?)?
+	let recursive = byte_decode_recursive_packet(recursive_view)?
 	stdio::print("decode ")
 	stdio::print(int_to_string(recursive.length))
 	stdio::print(" ")
@@ -50,7 +50,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::print(" ")
 	stdio::println(int_to_string(recursive.payload))
 
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_recursive_packet({length: 1, kind: 1, payload: 7})
+	let encoded = byte_encode_recursive_packet({length: 1, kind: 1, payload: 7})
 	emit_encoded("recursive-base", encoded, "010107")
 	Ok(())
 end
