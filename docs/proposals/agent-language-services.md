@@ -933,10 +933,17 @@ matrix are also implemented and specified on the same page.
 The canonical package virtual-source URI and resolver foundation is implemented
 and specified in
 [Package Virtual Sources](../specification/package-virtual-sources.md).
+Direct path-dependency definition locations, the LSP virtual-document request,
+and the VSCode content provider are implemented and specified in
+[Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).
+This bounded implementation retains one validated dependency capture for the
+definition-to-read path. It does not implement standard-library locations,
+other package materializations, dependency reference search, or MCP resources.
 The remaining slices are:
 
-1. Connect validated captures and virtual-source locations to analysis, the
-   LSP virtual-document request, and the VSCode content provider.
+1. Extend published virtual-source locations beyond the implemented direct
+   path-dependency LSP slice to the standard library and later supported
+   materialization kinds without changing URI identity.
 2. Add exported package documentation and bind it to package snapshots.
 3. Define and validate language-reference topic descriptors. Generate the
    executable grammar, selected example, and compiler-owned table projections.

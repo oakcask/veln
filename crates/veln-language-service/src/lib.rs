@@ -6,19 +6,40 @@ pub use virtual_source::{VirtualSourceCatalog, VirtualSourceCatalogError, Virtua
 
 use std::collections::BTreeSet;
 
-use veln_project::classify_companion_source;
+use veln_project::{CapturedPackageSnapshot, PackageIdentity, classify_companion_source};
 use veln_source::{SourceFile, SourcePath, SourceSpan};
 use veln_syntax::{Token, TokenKind, lex};
 
 #[derive(Clone, Debug)]
 pub struct EffectiveProjectSnapshot {
     sources: Vec<SourceFile>,
+    direct_dependencies: Vec<DirectDependencySnapshot>,
 }
 
 impl EffectiveProjectSnapshot {
     pub fn new(sources: Vec<SourceFile>) -> Self {
-        Self { sources }
+        Self {
+            sources,
+            direct_dependencies: Vec::new(),
+        }
     }
+
+    pub fn with_direct_dependencies(
+        sources: Vec<SourceFile>,
+        direct_dependencies: Vec<DirectDependencySnapshot>,
+    ) -> Self {
+        Self {
+            sources,
+            direct_dependencies,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct DirectDependencySnapshot {
+    pub identity: PackageIdentity,
+    pub snapshot: CapturedPackageSnapshot,
+    pub exported_sources: BTreeSet<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -41,14 +62,26 @@ pub enum SymbolKind {
 pub struct SelectedSymbol {
     pub kind: SymbolKind,
     pub name: String,
-    pub declaration: SourceSpan,
+    pub declaration: NavigationLocation,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum NavigationSource {
+    Workspace,
+    Package { uri: String },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NavigationLocation {
+    pub source: NavigationSource,
+    pub span: SourceSpan,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NavigationResult {
     pub selected_symbol: SelectedSymbol,
     pub selection: SourceSpan,
-    pub definition: SourceSpan,
+    pub definition: NavigationLocation,
     pub references: Vec<SourceSpan>,
 }
 
@@ -56,11 +89,14 @@ pub fn navigate(
     snapshot: &EffectiveProjectSnapshot,
     position: SourcePosition,
 ) -> Option<NavigationResult> {
-    let request = SymbolIndex::new(snapshot.sources.clone())
-        .symbol_at_position(position.source.as_str(), &position)?;
+    let request = SymbolIndex::new(
+        snapshot.sources.clone(),
+        snapshot.direct_dependencies.clone(),
+    )
+    .symbol_at_position(position.source.as_str(), &position)?;
     let definition = match &request.symbol {
         Symbol::Function(symbol) => symbol.declaration.clone(),
-        Symbol::Local(symbol) => symbol.declaration.clone(),
+        Symbol::Local(symbol) => workspace_location(symbol.declaration.clone()),
     };
     let selected_symbol = match &request.symbol {
         Symbol::Function(symbol) => SelectedSymbol {
@@ -116,7 +152,8 @@ fn sort_locations(locations: &mut Vec<SourceSpan>) {
 struct FunctionSymbol {
     module: String,
     name: String,
-    declaration: SourceSpan,
+    declaration: NavigationLocation,
+    package: Option<String>,
 }
 
 #[derive(Debug)]
@@ -154,6 +191,18 @@ struct IndexedFile {
     module: String,
     companion_target_module: Option<String>,
     uses: BTreeSet<String>,
+    external_uses: BTreeSet<(String, String)>,
+    origin: IndexedOrigin,
+}
+
+#[derive(Debug)]
+enum IndexedOrigin {
+    Workspace,
+    Package {
+        identity: String,
+        uri: String,
+        exported: bool,
+    },
 }
 
 #[derive(Debug)]
@@ -188,8 +237,8 @@ struct ClauseBinding {
 }
 
 impl SymbolIndex {
-    fn new(sources: Vec<SourceFile>) -> Self {
-        let files = sources
+    fn new(sources: Vec<SourceFile>, dependencies: Vec<DirectDependencySnapshot>) -> Self {
+        let mut files = sources
             .into_iter()
             .map(|source| {
                 let path = source.path().as_str().to_string();
@@ -198,15 +247,45 @@ impl SymbolIndex {
                 let module = explicit_module_name(source.text())
                     .or_else(|| module_name_from_path(&path))
                     .unwrap_or_default();
-                let uses = use_modules(source.text());
+                let (uses, external_uses) = use_modules(source.text());
                 IndexedFile {
                     source,
                     module,
                     companion_target_module,
                     uses,
+                    external_uses,
+                    origin: IndexedOrigin::Workspace,
                 }
             })
             .collect::<Vec<_>>();
+        for dependency in dependencies {
+            let catalog = VirtualSourceCatalog::new([(
+                dependency.identity.clone(),
+                dependency.snapshot.clone(),
+            )])
+            .expect("one validated dependency snapshot has unique virtual source URIs");
+            for (source, entry) in dependency.snapshot.sources().iter().zip(catalog.entries()) {
+                let text = std::str::from_utf8(source.bytes())
+                    .expect("captured package source text is valid UTF-8");
+                let source_file = SourceFile::new(source.path(), text);
+                let module = explicit_module_name(text)
+                    .or_else(|| module_name_from_path(source.path()))
+                    .unwrap_or_default();
+                let (uses, external_uses) = use_modules(text);
+                files.push(IndexedFile {
+                    source: source_file,
+                    module,
+                    companion_target_module: None,
+                    uses,
+                    external_uses,
+                    origin: IndexedOrigin::Package {
+                        identity: dependency.identity.as_str().to_string(),
+                        uri: entry.uri().to_string(),
+                        exported: dependency.exported_sources.contains(source.path()),
+                    },
+                });
+            }
+        }
         let functions = files.iter().flat_map(function_declarations).collect();
         Self { files, functions }
     }
@@ -257,9 +336,10 @@ impl SymbolIndex {
 
         if let Some(symbol) = self.functions.iter().find(|symbol| {
             symbol.name == name
-                && symbol.declaration.file == selection.file
-                && symbol.declaration.start.offset == selection.start.offset
-                && symbol.declaration.end.offset == selection.end.offset
+                && symbol.package.is_none()
+                && symbol.declaration.span.file == selection.file
+                && symbol.declaration.span.start.offset == selection.start.offset
+                && symbol.declaration.span.end.offset == selection.end.offset
         }) {
             return Some(Symbol::Function(symbol.clone()));
         }
@@ -277,14 +357,23 @@ impl SymbolIndex {
         };
         self.functions
             .iter()
-            .find(|symbol| {
-                symbol.name == name
-                    && symbol.module == qualifier
-                    && file.uses.contains(&symbol.module)
-                    && file
-                        .companion_target_module
-                        .as_ref()
-                        .is_some_and(|target| target == &symbol.module)
+            .find(|symbol| match &symbol.package {
+                Some(package) => {
+                    symbol.name == name
+                        && symbol.module == qualifier
+                        && file
+                            .external_uses
+                            .contains(&(symbol.module.clone(), package.clone()))
+                }
+                None => {
+                    symbol.name == name
+                        && symbol.module == qualifier
+                        && file.uses.contains(&symbol.module)
+                        && file
+                            .companion_target_module
+                            .as_ref()
+                            .is_some_and(|target| target == &symbol.module)
+                }
             })
             .cloned()
             .map(Symbol::Function)
@@ -340,6 +429,9 @@ impl SymbolIndex {
     }
 
     fn references_in_file(&self, file: &IndexedFile, symbol: &FunctionSymbol) -> Vec<SourceSpan> {
+        if symbol.package.is_some() {
+            return Vec::new();
+        }
         if file.module == symbol.module {
             return call_references(&file.source, &symbol.name);
         }
@@ -363,10 +455,34 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
             && let Some(name) = next_non_layout_token(&tokens, index)
             && is_identifier(&name.text)
         {
+            let (declaration, package) = match &file.origin {
+                IndexedOrigin::Workspace => {
+                    (workspace_location(file.source.span(name.range)), None)
+                }
+                IndexedOrigin::Package {
+                    identity,
+                    uri,
+                    exported,
+                } => {
+                    let public = previous_non_layout_token(&tokens, index)
+                        .is_some_and(|previous| previous.kind == TokenKind::Pub);
+                    if !exported || !public {
+                        continue;
+                    }
+                    (
+                        NavigationLocation {
+                            source: NavigationSource::Package { uri: uri.clone() },
+                            span: file.source.span(name.range),
+                        },
+                        Some(identity.clone()),
+                    )
+                }
+            };
             functions.push(FunctionSymbol {
                 module: file.module.clone(),
                 name: name.text.clone(),
-                declaration: file.source.span(name.range),
+                declaration,
+                package,
             });
         }
     }
@@ -1305,13 +1421,35 @@ fn module_name_from_path(path: &str) -> Option<String> {
     Some(path.strip_suffix(".veln")?.replace('/', "::"))
 }
 
-fn use_modules(text: &str) -> BTreeSet<String> {
-    text.lines()
-        .filter_map(|line| {
-            let rest = line.trim_start().strip_prefix("use ")?;
-            leading_module_path(rest).map(str::to_string)
-        })
-        .collect()
+fn use_modules(text: &str) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
+    let mut local = BTreeSet::new();
+    let mut external = BTreeSet::new();
+    for line in text.lines() {
+        let Some(rest) = line.trim_start().strip_prefix("use ") else {
+            continue;
+        };
+        let Some(module) = leading_module_path(rest) else {
+            continue;
+        };
+        let suffix = rest[module.len()..].trim();
+        if let Some(package) = suffix
+            .strip_prefix("from ")
+            .and_then(|value| value.strip_prefix('"'))
+            .and_then(|value| value.split_once('"').map(|(package, _)| package))
+        {
+            external.insert((module.to_string(), package.to_string()));
+        } else {
+            local.insert(module.to_string());
+        }
+    }
+    (local, external)
+}
+
+fn workspace_location(span: SourceSpan) -> NavigationLocation {
+    NavigationLocation {
+        source: NavigationSource::Workspace,
+        span,
+    }
 }
 
 fn leading_module_path(input: &str) -> Option<&str> {
@@ -1367,7 +1505,15 @@ fn line_start_offset(text: &str, zero_based_line: usize) -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    use veln_project::capture_package_snapshot;
+
     use super::*;
+
+    static NEXT_TEMP_ROOT: AtomicU64 = AtomicU64::new(0);
 
     #[test]
     fn function_definition_and_references_are_deterministic() {
@@ -1497,6 +1643,55 @@ mod tests {
         }
     }
 
+    #[test]
+    fn exported_direct_dependency_definition_has_virtual_location() {
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[(
+                "math.veln",
+                "pub fn increment(value: Int) -> Int\r\n  value + 1\r\nend\r\n",
+            )],
+            ["math.veln"],
+        );
+        let result = dependency_query(dependency, "math::increment(1)").unwrap();
+
+        assert_eq!(result.definition.span.file.as_str(), "math.veln");
+        assert_eq!(result.definition.span.start.line, 1);
+        assert_eq!(result.definition.span.start.column, 8);
+        let NavigationSource::Package { uri } = &result.definition.source else {
+            panic!("dependency definition did not use a package location");
+        };
+        assert!(uri.starts_with("veln-pkg:///example%2Fpkg/snapshot/"));
+        assert!(uri.ends_with("/math.veln"));
+        assert!(!uri.contains("veln-language-service-navigation"));
+        assert!(result.references.is_empty());
+    }
+
+    #[test]
+    fn dependency_definition_requires_exported_source_and_public_function() {
+        let fixtures = [
+            (
+                "private declaration",
+                "fn increment(value: Int) -> Int\n  value + 1\nend\n",
+                vec!["math.veln"],
+            ),
+            (
+                "unexported source",
+                "pub fn increment(value: Int) -> Int\n  value + 1\nend\n",
+                Vec::new(),
+            ),
+        ];
+
+        for (case, source_text, exports) in fixtures {
+            let dependency =
+                dependency_snapshot("example/pkg", &[("math.veln", source_text)], exports);
+            assert!(
+                dependency_query(dependency, "math::increment(1)").is_none(),
+                "accepted {case}"
+            );
+        }
+    }
+
     fn source(path: &str, text: &str) -> SourceFile {
         SourceFile::new(path, text)
     }
@@ -1517,9 +1712,13 @@ mod tests {
         )
     }
 
-    fn assert_location(span: &SourceSpan, path: &str, line: usize, column: usize) {
-        assert_eq!(span.file.as_str(), path);
-        assert_eq!((span.start.line, span.start.column), (line, column));
+    fn assert_location(location: &NavigationLocation, path: &str, line: usize, column: usize) {
+        assert_eq!(location.source, NavigationSource::Workspace);
+        assert_eq!(location.span.file.as_str(), path);
+        assert_eq!(
+            (location.span.start.line, location.span.start.column),
+            (line, column)
+        );
     }
 
     fn locations(spans: &[SourceSpan]) -> Vec<(&str, usize, usize)> {
@@ -1527,5 +1726,71 @@ mod tests {
             .iter()
             .map(|span| (span.file.as_str(), span.start.line, span.start.column))
             .collect()
+    }
+
+    fn dependency_query(
+        dependency: DirectDependencySnapshot,
+        expression: &str,
+    ) -> Option<NavigationResult> {
+        let text =
+            format!("use math from \"example/pkg\"\n\npub fn main() -> Int\n  {expression}\nend\n");
+        navigate(
+            &EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![source("main.veln", &text)],
+                vec![dependency],
+            ),
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 4,
+                column: 10,
+            },
+        )
+    }
+
+    fn dependency_snapshot(
+        identity: &str,
+        sources: &[(&str, &str)],
+        exports: impl IntoIterator<Item = &'static str>,
+    ) -> DirectDependencySnapshot {
+        let root = TempDependency::new(sources);
+        DirectDependencySnapshot {
+            identity: PackageIdentity::new(identity).unwrap(),
+            snapshot: capture_package_snapshot(&root.path).unwrap(),
+            exported_sources: exports.into_iter().map(str::to_string).collect(),
+        }
+    }
+
+    struct TempDependency {
+        path: PathBuf,
+    }
+
+    impl TempDependency {
+        fn new(sources: &[(&str, &str)]) -> Self {
+            let id = NEXT_TEMP_ROOT.fetch_add(1, Ordering::Relaxed);
+            let path = std::env::temp_dir().join(format!(
+                "veln-language-service-navigation-{}-{id}",
+                std::process::id()
+            ));
+            fs::create_dir_all(&path).unwrap();
+            fs::write(
+                path.join("veln.toml"),
+                "[package]\nname = \"example/pkg\"\n",
+            )
+            .unwrap();
+            for (relative, text) in sources {
+                let source_path = path.join(relative);
+                if let Some(parent) = source_path.parent() {
+                    fs::create_dir_all(parent).unwrap();
+                }
+                fs::write(source_path, text).unwrap();
+            }
+            Self { path }
+        }
+    }
+
+    impl Drop for TempDependency {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.path);
+        }
     }
 }

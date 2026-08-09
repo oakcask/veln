@@ -127,6 +127,20 @@ class VelnLanguageServer {
     });
   }
 
+  definition(document, position) {
+    this.syncDocument(document);
+    return this.sendRequest("textDocument/definition", {
+      textDocument: { uri: document.uri.toString() },
+      position: { line: position.line, character: position.character },
+    });
+  }
+
+  virtualDocument(uri) {
+    return this.sendRequest("veln/virtualDocument", {
+      uri: uri.toString(),
+    });
+  }
+
   sendNotification(method, params) {
     const message = {
       jsonrpc: "2.0",
@@ -411,6 +425,13 @@ function toRange(range) {
   );
 }
 
+function toLocation(location) {
+  if (!location) {
+    return undefined;
+  }
+  return new vscode.Location(vscode.Uri.parse(location.uri), toRange(location.range));
+}
+
 function toDiagnosticSeverity(severity) {
   switch (severity) {
     case 1:
@@ -452,6 +473,16 @@ function activate(context) {
       return new vscode.SemanticTokens(new Uint32Array(result.data));
     },
   };
+  const definitionProvider = {
+    async provideDefinition(document, position) {
+      return toLocation(await server.definition(document, position));
+    },
+  };
+  const virtualDocumentProvider = {
+    provideTextDocumentContent(uri) {
+      return server.virtualDocument(uri);
+    },
+  };
   context.subscriptions.push(server);
   for (const document of vscode.workspace.textDocuments) {
     if (document.languageId === "veln") {
@@ -481,6 +512,18 @@ function activate(context) {
     }),
   );
   context.subscriptions.push(
+    vscode.workspace.registerTextDocumentContentProvider(
+      "veln-pkg",
+      virtualDocumentProvider,
+    ),
+  );
+  context.subscriptions.push(
+    vscode.languages.registerDefinitionProvider(
+      { language: "veln", scheme: "file" },
+      definitionProvider,
+    ),
+  );
+  context.subscriptions.push(
     vscode.languages.registerDocumentSemanticTokensProvider(
       { language: "veln" },
       provider,
@@ -497,6 +540,7 @@ module.exports = {
   _test: {
     VelnLanguageServer,
     applyDiagnostics,
+    toLocation,
     summarizeMessage,
     summarizeJson,
     toDiagnosticSeverity,

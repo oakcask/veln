@@ -6,12 +6,20 @@ use std::fs;
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 
-use veln_analysis::{DoctestMode, checked_project_diagnostics, parse_diagnostic_to_envelope};
+use veln_analysis::{
+    DoctestMode, checked_project_diagnostics, parse_diagnostic_to_envelope,
+    validate_manifest_exports,
+};
 use veln_ast::{SurfaceModule, lower_surface_ast};
 use veln_diagnostics::{Diagnostic, Severity};
 use veln_editor::{encode_lsp_semantic_tokens, semantic_token_legend};
-use veln_language_service::{EffectiveProjectSnapshot, NavigationResult, SourcePosition, navigate};
-use veln_project::{Project, discover_source_paths};
+use veln_language_service::{
+    DirectDependencySnapshot, EffectiveProjectSnapshot, NavigationLocation, NavigationResult,
+    NavigationSource, SourcePosition, VirtualSourceCatalog, navigate,
+};
+use veln_project::{
+    PackageIdentity, Project, capture_package_snapshot, discover_source_paths, read_manifest,
+};
 use veln_source::{SourceFile, SourcePath, SourceSpan};
 use veln_syntax::{format_tree, parse};
 
@@ -87,6 +95,8 @@ struct Server {
     workspace_roots: Vec<PathBuf>,
     workspace_root_aliases: BTreeMap<PathBuf, Vec<PathBuf>>,
     published_diagnostic_uris: BTreeSet<String>,
+    direct_dependencies: BTreeMap<PathBuf, Vec<DirectDependencySnapshot>>,
+    virtual_sources: Option<VirtualSourceCatalog>,
     should_exit: bool,
 }
 
@@ -122,6 +132,7 @@ impl Server {
             "textDocument/didClose" => self.handle_document_close(message),
             "textDocument/semanticTokens/full" => self.handle_semantic_tokens(message, id),
             "textDocument/definition" => self.handle_definition(message, id),
+            "veln/virtualDocument" => self.handle_virtual_document(message, id),
             "textDocument/references" => self.handle_references(message, id),
             "textDocument/formatting" => self.handle_formatting(message, id),
             "textDocument/prepareRename" => self.handle_prepare_rename(message, id),
@@ -134,6 +145,7 @@ impl Server {
         let selection = resolve_workspace_roots(message);
         self.workspace_roots = selection.roots;
         self.workspace_root_aliases = selection.aliases;
+        self.capture_direct_dependencies();
         let mut responses = id
             .map(|id| response(&id, &initialize_result()))
             .into_iter()
@@ -194,6 +206,34 @@ impl Server {
         })
         .into_iter()
         .collect()
+    }
+
+    fn handle_virtual_document(&self, message: &str, id: Option<String>) -> Vec<String> {
+        let Some(id) = id else {
+            return Vec::new();
+        };
+        let Some(uri) = extract_string_field(message, "uri") else {
+            return vec![error_response(
+                &id,
+                -32602,
+                "virtual document URI is required",
+            )];
+        };
+        let Some(bytes) = self
+            .virtual_sources
+            .as_ref()
+            .and_then(|catalog| catalog.resolve(&uri))
+        else {
+            return vec![error_response(
+                &id,
+                -32602,
+                "virtual document was not found",
+            )];
+        };
+        let Ok(text) = std::str::from_utf8(bytes) else {
+            return vec![error_response(&id, -32603, "virtual document is not UTF-8")];
+        };
+        vec![response(&id, &format!("\"{}\"", escape_json(text)))]
     }
 
     fn handle_references(&self, message: &str, id: Option<String>) -> Vec<String> {
@@ -325,6 +365,24 @@ impl Server {
         owned_workspace_relative_source_path(document_root.root, &document_root.relative)
     }
 
+    fn capture_direct_dependencies(&mut self) {
+        self.direct_dependencies.clear();
+        let mut catalog_packages = BTreeMap::<(String, String), _>::new();
+        for root in &self.workspace_roots {
+            let dependencies = retained_direct_dependencies(root);
+            for dependency in &dependencies {
+                catalog_packages
+                    .entry((
+                        dependency.identity.as_str().to_string(),
+                        dependency.snapshot.digest().to_string(),
+                    ))
+                    .or_insert_with(|| (dependency.identity.clone(), dependency.snapshot.clone()));
+            }
+            self.direct_dependencies.insert(root.clone(), dependencies);
+        }
+        self.virtual_sources = VirtualSourceCatalog::new(catalog_packages.into_values()).ok();
+    }
+
     fn symbol_at_request(&self, message: &str) -> Option<NavigationRequest> {
         let uri = extract_string_field(message, "uri")?;
         let position = extract_position(message)?;
@@ -335,7 +393,13 @@ impl Server {
         let mut project = Project::discover(root.to_path_buf(), &[]).ok()?;
         self.overlay_open_workspace_documents(root, &mut project);
         let visible_root = visible_workspace_root(root, &self.workspace_root_aliases);
-        let snapshot = EffectiveProjectSnapshot::new(project.files);
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            project.files,
+            self.direct_dependencies
+                .get(root)
+                .cloned()
+                .unwrap_or_default(),
+        );
         let result = navigate(
             &snapshot,
             SourcePosition {
@@ -349,6 +413,45 @@ impl Server {
             result,
         })
     }
+}
+
+fn retained_direct_dependencies(root: &Path) -> Vec<DirectDependencySnapshot> {
+    let Ok(Some(manifest)) = read_manifest(root) else {
+        return Vec::new();
+    };
+    manifest
+        .dependencies
+        .into_iter()
+        .filter_map(|dependency| {
+            let path = dependency.path?;
+            let identity = PackageIdentity::new(&dependency.package).ok()?;
+            let dependency_root = root.join(path.value);
+            let dependency_project = Project::discover(&dependency_root, &[]).ok()?;
+            if !validate_manifest_exports(&dependency_project).is_empty() {
+                return None;
+            }
+            let dependency_manifest = dependency_project.manifest?;
+            let actual_identity = dependency_manifest
+                .package
+                .fields
+                .iter()
+                .find(|field| field.key == "name")?;
+            if actual_identity.value != dependency.package {
+                return None;
+            }
+            let exported_sources = dependency_manifest
+                .lib
+                .exports
+                .into_iter()
+                .map(|export| export.path)
+                .collect();
+            Some(DirectDependencySnapshot {
+                identity,
+                snapshot: capture_package_snapshot(&dependency_root).ok()?,
+                exported_sources,
+            })
+        })
+        .collect()
 }
 
 fn document_uri_and_text(message: &str) -> Option<(String, String)> {
@@ -723,12 +826,15 @@ struct NavigationRequest {
     result: NavigationResult,
 }
 
-fn location_json(root: &Path, span: &SourceSpan) -> String {
-    let uri = path_to_uri(&root.join(span.file.as_str()));
+fn location_json(root: &Path, location: &NavigationLocation) -> String {
+    let uri = match &location.source {
+        NavigationSource::Workspace => path_to_uri(&root.join(location.span.file.as_str())),
+        NavigationSource::Package { uri } => uri.clone(),
+    };
     format!(
         "{{\"uri\":\"{}\",\"range\":{}}}",
         escape_json(&uri),
-        range_json(Some(span))
+        range_json(Some(&location.span))
     )
 }
 
@@ -737,18 +843,24 @@ fn references_json(root: &Path, result: &NavigationResult, include_declaration: 
     if include_declaration {
         locations.push(location_json(root, &result.definition));
     }
-    locations.extend(
-        result
-            .references
-            .iter()
-            .map(|span| location_json(root, span)),
-    );
+    locations.extend(result.references.iter().map(|span| {
+        location_json(
+            root,
+            &NavigationLocation {
+                source: NavigationSource::Workspace,
+                span: span.clone(),
+            },
+        )
+    }));
     format!("[{}]", locations.join(","))
 }
 
 fn workspace_edit_json(root: &Path, result: &NavigationResult, new_name: &str) -> String {
     let mut changes = BTreeMap::<String, Vec<&SourceSpan>>::new();
-    for span in std::iter::once(&result.definition).chain(&result.references) {
+    let NavigationSource::Workspace = result.definition.source else {
+        return "{\"changes\":{}}".to_string();
+    };
+    for span in std::iter::once(&result.definition.span).chain(&result.references) {
         changes
             .entry(path_to_uri(&root.join(span.file.as_str())))
             .or_default()
@@ -3084,6 +3196,101 @@ mod tests {
             "{}",
             responses[0]
         );
+    }
+
+    #[test]
+    fn dependency_definition_round_trips_through_retained_virtual_document() {
+        let mut server = Server::default();
+        let project = TempProject::new("dependency-virtual-document");
+        project.write(
+            "veln.toml",
+            concat!(
+                "[package]\nname = \"app\"\n\n",
+                "[dependencies.\"example/pkg\"]\npath = \"vendor/lib\"\n",
+            ),
+        );
+        project.write(
+            "main.veln",
+            concat!(
+                "use math from \"example/pkg\"\n\n",
+                "pub fn main() -> Int\n",
+                "  math::exposed(1)\n",
+                "  math::secret(1)\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "vendor/lib/veln.toml",
+            concat!(
+                "[package]\nname = \"example/pkg\"\n\n",
+                "[lib]\nexports = [\"math.veln\"]\n",
+            ),
+        );
+        let retained_text = concat!(
+            "pub fn exposed(value: Int) -> Int\r\n",
+            "  value + 1\r\n",
+            "end\r\n\r\n",
+            "fn secret(value: Int) -> Int\r\n",
+            "  value\r\n",
+            "end\r\n",
+        );
+        project.write("vendor/lib/math.veln", retained_text);
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        project.write(
+            "vendor/lib/math.veln",
+            "pub fn changed() -> Int\n  0\nend\n",
+        );
+        let definition = server.handle_message(&definition_request(&main_uri, 3, 10));
+        assert_eq!(definition.len(), 1);
+        let virtual_uri = extract_string_field(&definition[0], "uri").unwrap();
+        assert!(
+            virtual_uri.starts_with("veln-pkg:///example%2Fpkg/snapshot/"),
+            "{}",
+            definition[0]
+        );
+        assert!(virtual_uri.ends_with("/math.veln"), "{}", definition[0]);
+        assert!(
+            !virtual_uri.contains("vendor") && !virtual_uri.contains("veln-lsp-"),
+            "{}",
+            definition[0]
+        );
+        assert!(
+            definition[0].contains(
+                r#""range":{"start":{"line":0,"character":7},"end":{"line":0,"character":14}}"#
+            ),
+            "{}",
+            definition[0]
+        );
+
+        let read = server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":3,"method":"veln/virtualDocument","params":{{"uri":"{virtual_uri}"}}}}"#
+        ));
+        assert_eq!(
+            read,
+            [response(
+                "3",
+                &format!(r#""{}""#, escape_json(retained_text))
+            )]
+        );
+
+        let private_definition = server.handle_message(&definition_request(&main_uri, 4, 10));
+        assert!(
+            private_definition[0].contains(r#""result":null"#),
+            "{}",
+            private_definition[0]
+        );
+        for rejected_uri in [
+            format!("{virtual_uri}/missing"),
+            virtual_uri.replacen("%2F", "%2f", 1),
+        ] {
+            let rejected = server.handle_message(&format!(
+                r#"{{"jsonrpc":"2.0","id":4,"method":"veln/virtualDocument","params":{{"uri":"{rejected_uri}"}}}}"#
+            ));
+            assert!(rejected[0].contains(r#""code":-32602"#), "{}", rejected[0]);
+        }
     }
 
     #[test]

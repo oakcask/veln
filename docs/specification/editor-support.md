@@ -20,13 +20,16 @@ used by editor integrations.
 - LSP `textDocument/definition`, `textDocument/references`,
   `textDocument/prepareRename`, and `textDocument/rename` convert shared
   navigation results to LSP responses in `veln-lsp`.
+- LSP `veln/virtualDocument` reads immutable direct path-dependency source from
+  the retained package snapshot in `veln-lsp`.
 - LSP `textDocument/formatting` is implemented in `veln-lsp`.
 - The stdio LSP server starts through `veln lsp`.
 - TextMate fallback highlighting is contributed by
   `editors/vscode/syntaxes/veln.tmLanguage.json`.
 - VSCode starts the language server when a `.veln` document opens and requests
   full-document semantic tokens. It enables workspace diagnostics for Veln
-  project folders.
+  project folders. It also registers definition and `veln-pkg` virtual-document
+  providers.
 
 ## Semantic Token Records
 
@@ -164,6 +167,43 @@ isolation, and positions without a supported symbol.
 snapshot. It converts shared locations to LSP URIs and zero-based ranges.
 Definition, references, prepare-rename, and rename use the same shared selected
 symbol and reference set.
+
+At initialization, `veln-lsp` captures each valid direct path dependency of a
+selected workspace project. The retained navigation input contains the package
+identity, captured package snapshot, manifest export paths, and canonical
+virtual-source catalog. A qualified call through `use module from "package"`
+can resolve to a function in that dependency only when the dependency identity
+matches, the function's source is listed in `[lib].exports`, and the function
+is public.
+
+`textDocument/definition` returns the dependency declaration with the exact
+canonical `veln-pkg:` URI from the retained catalog. It does not convert the
+location to a `file:` URI and does not expose the dependency materialization
+path. Workspace definitions continue to use `file:` URIs. Private functions
+and functions in non-exported dependency sources have no dependency definition
+result.
+
+`veln/virtualDocument` accepts an exact `veln-pkg:` URI retained by the server
+and returns its UTF-8 source text. The returned text preserves the captured
+source bytes, including line endings. An unknown or noncanonical URI produces
+a JSON-RPC invalid-params error. The request does not normalize the URI or read
+a filesystem fallback. A later physical dependency edit does not change the
+text returned for an already retained URI.
+
+The VSCode extension registers a definition provider for Veln filesystem
+documents and a `TextDocumentContentProvider` for `veln-pkg`. Following a
+dependency definition therefore requests the exact returned URI through
+`veln/virtualDocument` and opens the result as provider-backed content.
+
+The `veln-language-service` tests are the executable evidence for dependency
+visibility and transport-neutral package locations. The `veln-lsp` dependency
+virtual-document test is the executable JSON-RPC evidence for the complete
+definition-to-read path, retained CRLF text, URI identity and digest, private
+declaration rejection, and unknown or noncanonical URI rejection. The VSCode
+extension tests cover the corresponding definition request, exact-text read,
+location conversion, and content-provider registration. A static LSP example
+is not used because its second request must contain the snapshot digest returned
+by the first response; the direct server test performs that dynamic round trip.
 
 `textDocument/formatting` returns a single whole-document text edit containing
 the same canonical formatting produced by the formatter. Handler operation
