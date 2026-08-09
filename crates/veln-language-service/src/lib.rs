@@ -1,5 +1,9 @@
 //! Editor- and transport-neutral definition and reference services for Veln.
 
+mod virtual_source;
+
+pub use virtual_source::{VirtualSourceCatalog, VirtualSourceCatalogError, VirtualSourceEntry};
+
 use std::collections::BTreeSet;
 
 use veln_project::classify_companion_source;

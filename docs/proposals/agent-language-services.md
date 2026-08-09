@@ -374,8 +374,8 @@ veln-pkg:///<package-segment>/snapshot/<digest>/<source-path>
 For example:
 
 ```text
-veln-pkg:///github.com%2Foakcask%2Flib/snapshot/0123abcd/math.veln
-veln-pkg:///std/snapshot/4567cdef/prelude.veln
+veln-pkg:///github.com%2Foakcask%2Flib/snapshot/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/math.veln
+veln-pkg:///std/snapshot/456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123/prelude.veln
 ```
 
 `package-segment` is the UTF-8 package identity encoded as one URI path segment.
@@ -451,8 +451,11 @@ The transport-independent Q11 digest transcript foundation is implemented in
 [Package Snapshot Digests](../specification/package-snapshots.md). The same
 specification defines the implemented filesystem capture, Q12 distribution
 set foundation, portable package identity and capture validation, and Q13
-evidence. Analysis integration, virtual resources, and snapshot publication
-remain planned below.
+evidence. The canonical transport-independent virtual-source catalog and exact
+resolver are also implemented and specified in
+[Package Virtual Sources](../specification/package-virtual-sources.md).
+Analysis integration, LSP and VSCode adapters, MCP resources, and snapshot
+publication remain planned below.
 
 The owned distribution set contains every captured regular file whose name
 ends in `.veln`, including private, non-exported, on-disk generated, and
@@ -925,11 +928,13 @@ The Q12 filesystem capture and distribution-set foundation is implemented and
 specified on the same page.
 The portable package-identity and capture-validation foundation and its Q13
 matrix are also implemented and specified on the same page.
+The canonical package virtual-source URI and resolver foundation is implemented
+and specified in
+[Package Virtual Sources](../specification/package-virtual-sources.md).
 The remaining slices are:
 
-1. Connect validated captures to analysis, virtual source locations and
-   resolution, the LSP virtual-document request, and the VSCode content
-   provider.
+1. Connect validated captures and virtual-source locations to analysis, the
+   LSP virtual-document request, and the VSCode content provider.
 2. Add exported package documentation and bind it to package snapshots.
 3. Define and validate language-reference topic descriptors. Generate the
    executable grammar, selected example, and compiler-owned table projections.

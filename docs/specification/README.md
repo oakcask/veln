@@ -1,4 +1,5 @@
 ---
+role: routing
 review-when: A specification route is added, moved, reclassified, or no longer points to current behavior.
 ---
 
@@ -30,6 +31,9 @@ tracked in `../proposals/`.
   [topic-map.md#contracts-and-holes](topic-map.md#contracts-and-holes).
 - Editor highlighting and semantic token behavior:
   [editor-support.md](editor-support.md).
+- Package snapshots and canonical virtual-source resolution:
+  [package-snapshots.md](package-snapshots.md), then
+  [package-virtual-sources.md](package-virtual-sources.md).
 - CLI behavior, diagnostics, run output, or test output:
   [topic-map.md#commands-and-output](topic-map.md#commands-and-output).
 - Human diagnostic wording, related notes, spans, or stable diagnostic details:
