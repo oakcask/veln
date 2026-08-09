@@ -31,8 +31,10 @@ The capture includes private, non-exported, on-disk generated, and ordinary
 
 Source paths use UTF-8 and `/` separators. They are ordered by their UTF-8
 bytes. A discovered path that has no exact UTF-8 representation causes an
-explicit capture error. The capture does not perform lossy path or source-byte
-conversion.
+explicit capture error unless the entry is excluded before source-path
+representation is needed. A non-regular entry at a represented distribution
+source path causes an explicit capture error. The capture does not perform
+lossy path or source-byte conversion.
 
 The digest is independent of filesystem enumeration order and the package's
 physical parent location. A change to the manifest bytes, an included source
@@ -64,8 +66,9 @@ transcript.
 The `veln-project` snapshot unit tests are the authoritative executable
 evidence. `cargo test -p veln-project` checks the capture distribution matrix,
 exact-byte digest integration, deterministic path ordering, relocation,
-descendant package boundaries, symbolic links, non-UTF-8 path rejection, and
-these fixed digest vectors:
+descendant package boundaries, symbolic links, non-UTF-8 path rejection,
+non-UTF-8 excluded symlinks and descendant package roots, non-regular source
+rejection, and these fixed digest vectors:
 
 | Manifest and sources | Digest |
 | --- | --- |

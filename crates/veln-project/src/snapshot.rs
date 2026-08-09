@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::ffi::OsStr;
 use std::fmt;
 use std::fs;
 use std::io;
@@ -100,6 +101,8 @@ pub enum PackageSnapshotCaptureError {
     ManifestNotRegular(PathBuf),
     /// A discovered entry has no exact UTF-8 package-relative representation.
     UnrepresentablePath(PathBuf),
+    /// A discovered distribution source path is not a regular file.
+    SourceNotRegular(PathBuf),
     /// A filesystem operation failed for the retained path.
     Filesystem { path: PathBuf, source: io::Error },
     /// The captured inputs cannot be encoded by the digest transcript.
@@ -119,6 +122,11 @@ impl fmt::Display for PackageSnapshotCaptureError {
                 "package snapshot path is not valid UTF-8: {}",
                 path.display()
             ),
+            Self::SourceNotRegular(path) => write!(
+                formatter,
+                "package snapshot source is not a regular file: {}",
+                path.display()
+            ),
             Self::Filesystem { path, source } => {
                 write!(formatter, "cannot capture {}: {source}", path.display())
             }
@@ -132,7 +140,9 @@ impl Error for PackageSnapshotCaptureError {
         match self {
             Self::Filesystem { source, .. } => Some(source),
             Self::Digest(source) => Some(source),
-            Self::ManifestNotRegular(_) | Self::UnrepresentablePath(_) => None,
+            Self::ManifestNotRegular(_)
+            | Self::UnrepresentablePath(_)
+            | Self::SourceNotRegular(_) => None,
         }
     }
 }
@@ -182,10 +192,10 @@ fn collect_package_sources(
         fs::read_dir(&directory).map_err(|source| filesystem_error(directory.clone(), source))?;
     for entry in entries {
         let entry = entry.map_err(|source| filesystem_error(directory.clone(), source))?;
-        let relative_path = relative_dir.join(entry.file_name());
+        let file_name = entry.file_name();
+        let relative_path = relative_dir.join(&file_name);
         let path = root.join(&relative_path);
-        let relative_utf8 = package_relative_path(&relative_path)?;
-        if relative_utf8.rsplit('/').next() == Some(".git") {
+        if file_name == OsStr::new(".git") {
             continue;
         }
 
@@ -200,11 +210,17 @@ fn collect_package_sources(
                 continue;
             }
             collect_package_sources(root, &relative_path, sources)?;
-        } else if file_type.is_file() && is_distribution_source(&relative_utf8) {
-            sources.push(CapturedPackageSource {
-                path: relative_utf8,
-                bytes: read_capture_file(&path)?,
-            });
+        } else {
+            let relative_utf8 = package_relative_path(&relative_path)?;
+            if is_distribution_source(&relative_utf8) {
+                if !file_type.is_file() {
+                    return Err(PackageSnapshotCaptureError::SourceNotRegular(path));
+                }
+                sources.push(CapturedPackageSource {
+                    path: relative_utf8,
+                    bytes: read_capture_file(&path)?,
+                });
+            }
         }
     }
     Ok(())
@@ -569,6 +585,81 @@ mod tests {
         ));
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn package_snapshot_capture_excludes_unrepresentable_symbolic_links() {
+        use std::os::unix::ffi::OsStringExt;
+        use std::os::unix::fs::symlink;
+
+        let package = SnapshotFixture::new("non-utf8-symlink");
+        package.write_bytes("veln.toml", b"manifest");
+        package.write_bytes("real.veln", b"real");
+        let invalid_link = std::ffi::OsString::from_vec(b"invalid-\xff.veln".to_vec());
+        symlink(package.path("real.veln"), package.root().join(invalid_link)).unwrap();
+
+        let snapshot = capture_package_snapshot(package.root()).unwrap();
+        let paths = snapshot
+            .sources()
+            .iter()
+            .map(CapturedPackageSource::path)
+            .collect::<Vec<_>>();
+        assert_eq!(paths, vec!["real.veln"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn package_snapshot_capture_excludes_unrepresentable_descendant_packages() {
+        use std::os::unix::ffi::OsStringExt;
+
+        let package = SnapshotFixture::new("non-utf8-descendant");
+        package.write_bytes("veln.toml", b"manifest");
+        package.write_bytes("outer.veln", b"outer");
+        let invalid_dir = std::ffi::OsString::from_vec(b"dependency-\xff".to_vec());
+        let nested_root = package.root().join(invalid_dir);
+        fs::create_dir_all(&nested_root).unwrap();
+        fs::write(nested_root.join("veln.toml"), b"nested manifest").unwrap();
+        fs::write(nested_root.join("inner.veln"), b"inner").unwrap();
+
+        let snapshot = capture_package_snapshot(package.root()).unwrap();
+        let paths = snapshot
+            .sources()
+            .iter()
+            .map(CapturedPackageSource::path)
+            .collect::<Vec<_>>();
+        assert_eq!(paths, vec!["outer.veln"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn package_snapshot_capture_rejects_non_regular_distribution_sources() {
+        let package = SnapshotFixture::new("non-regular-source");
+        package.write_bytes("veln.toml", b"manifest");
+        let fifo_path = package.path("fifo.veln");
+        package.mkfifo("fifo.veln");
+
+        assert!(matches!(
+            capture_package_snapshot(package.root()),
+            Err(PackageSnapshotCaptureError::SourceNotRegular(path)) if path == fifo_path
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn package_snapshot_capture_ignores_non_regular_non_sources() {
+        let package = SnapshotFixture::new("non-regular-non-source");
+        package.write_bytes("veln.toml", b"manifest");
+        package.write_bytes("source.veln", b"source");
+        package.mkfifo("fifo.txt");
+
+        let snapshot = capture_package_snapshot(package.root()).unwrap();
+        let paths = snapshot
+            .sources()
+            .iter()
+            .map(CapturedPackageSource::path)
+            .collect::<Vec<_>>();
+        assert_eq!(paths, vec!["source.veln"]);
+    }
+
     struct SnapshotFixture {
         root: PathBuf,
     }
@@ -601,6 +692,19 @@ mod tests {
                 fs::create_dir_all(parent).unwrap();
             }
             fs::write(path, bytes).unwrap();
+        }
+
+        #[cfg(unix)]
+        fn mkfifo(&self, relative: &str) {
+            let path = self.path(relative);
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent).unwrap();
+            }
+            let status = std::process::Command::new("mkfifo")
+                .arg(&path)
+                .status()
+                .unwrap();
+            assert!(status.success());
         }
     }
 
