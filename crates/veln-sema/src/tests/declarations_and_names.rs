@@ -2154,6 +2154,31 @@ fn public_schema_aliases_reject_unresolved_private_and_wrong_kind_targets() {
 }
 
 #[test]
+fn cyclic_public_schema_aliases_remain_unresolved() {
+    let source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "mod api\n",
+            "pub schema Request = Response\n",
+            "pub schema Response = Request\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    for target in ["Response", "Request"] {
+        assert!(
+            diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "name.unresolved"
+                    && diagnostic.message == format!("unresolved schema alias target `{target}`")
+            }),
+            "{diagnostics:#?}"
+        );
+    }
+}
+
+#[test]
 fn dispatch_payload_schema_references_report_resolution_diagnostics() {
     let app_source = SourceFile::new(
         "app.veln",
