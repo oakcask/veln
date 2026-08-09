@@ -813,7 +813,7 @@ The resolved-decision evidence groups are:
 | Q11 package digest | All three fixed vectors, reversed discovery order, tag, byte-order, domain, and one-byte changes. |
 | Q12 distribution set | Filesystem capture covers every inclusion and exclusion, private and non-exported sources, generated and `target` sources, exact-byte digest integration, ordering, and relocation. Digest-analysis-resource set equality remains planned. |
 | Q13 portable domains | Non-UTF-8 names and text, NFC rejection, case collisions, separators, controls, aliases, unrepresentable names, and reserved `std`. |
-| Q14 URI spelling | Canonical round trip and rejection of percent aliases, encoded separators and dots, authority, query, fragment, and malformed digest forms. |
+| Q14 URI spelling and resolver mapping | Canonical round trip and rejection of percent aliases, encoded separators and dots, authority, query, fragment, and malformed digest forms; MCP mapping of catalog misses to `resource_not_found`. |
 | Q15 disclosure | Private source access, excluded source rejection, complete metadata allowlist, and credential, path, dependency, URL, tool, and unknown-field exclusion. |
 | Q16 document identity | Stable regeneration, semantic and schema change, renderer-only stability, ID order stability, duplicates, collisions, and exact definition links. |
 | Q17 language catalog | Canonical byte and digest vectors, Unicode and line-ending inputs, schema changes, development-doc independence, freshness, and renderer semantic equivalence. |
@@ -827,9 +827,11 @@ Q11 is implemented by the `veln-project` fixed-vector and transcript-mutation
 tests. The Q12 filesystem-capture foundation is implemented by the
 `veln-project` distribution matrix and digest-integration tests. Q13 is
 implemented by the package-identity, portable source-path, UTF-8 source-text,
-case-fold collision, and validation-exclusion tests. Q12 analysis and
-virtual-resource equality and Q14 through Q22 remain planned evidence for the
-agent language service.
+case-fold collision, and validation-exclusion tests. The Q14
+transport-independent URI spelling and resolver foundation is implemented by
+the `veln-language-service` virtual-source tests. Q12 analysis and
+virtual-resource equality, Q14 MCP resource mapping, and Q15 through Q22
+remain planned evidence for the agent language service.
 
 The gate also covers resource-template listing and reads, every malformed
 request class, zero/default/maximum/above-maximum bounds, all documentation
@@ -880,13 +882,13 @@ already implemented.
 
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |
-| Address equivalent path, vendor, mirror, or git snapshots. | Package identity, snapshot, and source path determine the same URI independent of storage layout. | URI canonicalization table tests. |
-| Read a returned virtual source URI. | Resource text equals the source bytes used for analysis. | MCP resource round-trip case. |
+| Return virtual source locations for equivalent path, vendor, mirror, or git snapshots from analysis results. | Package identity, snapshot, and source path determine the same `veln-pkg:` URI independent of storage layout. The transport-independent catalog canonicalization is already implemented and specified in [Package Virtual Sources](../specification/package-virtual-sources.md). | Analysis publication and adapter integration cases. |
+| Read a returned virtual source URI through MCP. | Resource text equals the source bytes used for analysis. The transport-independent exact-byte resolver is already implemented and specified in [Package Virtual Sources](../specification/package-virtual-sources.md). | MCP resource round-trip case using a source URI returned by analysis. |
 | Change an included source or manifest byte in a captured distribution. | Snapshot capture passes the changed exact bytes to the implemented digest API. Analysis, publication, and corresponding virtual URI changes remain planned. | Implemented Q12 capture digest-integration tests; planned analysis and virtual-resource cases. |
 | Discover private, generated, test, descendant, symlink, non-regular, and `target` sources. | The captured distribution set includes private, non-exported, generated, and ordinary `target` sources, applies every stated exclusion, and errors on represented non-regular distribution sources. Analysis and resource consumers remain planned. | Implemented Q12 distribution-set and filesystem-boundary tests; planned analysis-resource equality cases. |
 | Load nonportable names or colliding paths. | Invalid UTF-8, non-NFC, control-bearing, separator-bearing, case-colliding, or reserved identities are rejected before publication. | Q13 portable-domain matrix. |
-| Change only a physical materialization path. | The captured snapshot digest remains unchanged. Virtual URI equality remains planned. | Implemented snapshot relocation test; planned URI case. |
-| Read a noncanonical, unknown, or mismatched snapshot URI. | The server returns `resource_not_found` without normalization, fallback, or filesystem access. | Q14 virtual resolver rejection table. |
+| Change only a physical materialization path after analysis starts publishing package sources. | The returned virtual source URI remains unchanged because it is derived from package identity, digest, and source path. The transport-independent URI equality case is already implemented and specified in [Package Virtual Sources](../specification/package-virtual-sources.md). | Analysis publication integration case. |
+| Read a noncanonical, unknown, or mismatched snapshot URI through MCP. | The server returns `resource_not_found` without normalization, fallback, or filesystem access. The transport-independent resolver rejection table is already implemented and specified in [Package Virtual Sources](../specification/package-virtual-sources.md). | MCP adapter case mapping a catalog miss to `resource_not_found`. |
 | Read a private distribution source or inspect package metadata. | The source is readable; metadata contains only the closed public allowlist and no dependency, URL, tool, path, or credential-bearing fields. | Q15 disclosure-policy cases. |
 | Keep returned dependency URIs while projects refresh or disappear. | Every published snapshot remains readable until shutdown; capacity failure never evicts an older URI. | Q10 resource-lifetime cases. |
 | Generate package docs. | Only exported modules and their public API appear; attached contracts and visible doctests are preserved. | Checked package-documentation case. |
