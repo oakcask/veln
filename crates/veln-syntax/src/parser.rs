@@ -126,6 +126,14 @@ struct FunctionReturn {
 }
 
 #[derive(Default)]
+struct SchemaBody {
+    format: Option<SchemaFormatClause>,
+    fields: Vec<SchemaField>,
+    validations: Vec<SchemaValidationClause>,
+    end_present: bool,
+}
+
+#[derive(Default)]
 struct TypeArgumentNesting {
     parentheses: usize,
     braces: usize,
@@ -854,48 +862,8 @@ impl<'a> Parser<'a> {
             self.skip_to_next_line();
         }
 
-        let mut format = None;
-        let mut fields = Vec::new();
-        let mut validations = Vec::new();
-        let mut end_present = false;
-        while !self.at(TokenKind::Eof) {
-            self.eat_newlines();
-            if self.at(TokenKind::End) {
-                self.bump();
-                end_present = true;
-                if self.at(TokenKind::Newline) {
-                    self.bump();
-                }
-                break;
-            }
-            if self.at(TokenKind::Eof) {
-                break;
-            }
-            if self.at(TokenKind::Format) {
-                if format.is_none() && !fields.is_empty() {
-                    self.error_current(
-                        "parse.schema_field_before_format",
-                        "schema field appears before a format clause",
-                        "schema_field",
-                        vec!["format"],
-                        RecoveryStrategy::InsertToken,
-                        Some("format"),
-                    );
-                }
-                let clause = self.parse_schema_format_clause(format.is_some());
-                if format.is_none() {
-                    format = Some(clause);
-                }
-            } else if self.at_ident_text("validate") && !self.peek_at(TokenKind::Colon) {
-                validations.push(self.parse_schema_validation_clause(format.is_some()));
-            } else if self.at_ident_text("map") && !self.peek_at(TokenKind::Colon) {
-                self.parse_removed_schema_mapping_clause();
-            } else {
-                fields.push(self.parse_schema_field());
-            }
-        }
-
-        if !end_present {
+        let body = self.parse_schema_body();
+        if !body.end_present {
             self.error_current(
                 "parse.expected_end",
                 "expected `end` to close schema declaration",
@@ -910,11 +878,63 @@ impl<'a> Parser<'a> {
         SchemaDecl {
             visibility,
             name,
-            format,
-            fields,
-            validations,
+            format: body.format,
+            fields: body.fields,
+            validations: body.validations,
             span: self.source.span(start.cover(end)),
-            end_present,
+            end_present: body.end_present,
+        }
+    }
+
+    fn parse_schema_body(&mut self) -> SchemaBody {
+        let mut body = SchemaBody::default();
+        loop {
+            self.eat_newlines();
+            if self.eat_schema_end() {
+                body.end_present = true;
+                break;
+            }
+            if self.at(TokenKind::Eof) {
+                break;
+            }
+            self.parse_schema_body_clause(&mut body);
+        }
+        body
+    }
+
+    fn eat_schema_end(&mut self) -> bool {
+        if !self.at(TokenKind::End) {
+            return false;
+        }
+        self.bump();
+        self.eat(TokenKind::Newline);
+        true
+    }
+
+    fn parse_schema_body_clause(&mut self, body: &mut SchemaBody) {
+        if self.at(TokenKind::Format) {
+            if body.format.is_none() && !body.fields.is_empty() {
+                self.error_current(
+                    "parse.schema_field_before_format",
+                    "schema field appears before a format clause",
+                    "schema_field",
+                    vec!["format"],
+                    RecoveryStrategy::InsertToken,
+                    Some("format"),
+                );
+            }
+            let duplicate = body.format.is_some();
+            let clause = self.parse_schema_format_clause(duplicate);
+            if !duplicate {
+                body.format = Some(clause);
+            }
+        } else if self.at_ident_text("validate") && !self.peek_at(TokenKind::Colon) {
+            body.validations
+                .push(self.parse_schema_validation_clause(body.format.is_some()));
+        } else if self.at_ident_text("map") && !self.peek_at(TokenKind::Colon) {
+            self.parse_removed_schema_mapping_clause();
+        } else {
+            body.fields.push(self.parse_schema_field());
         }
     }
 
