@@ -403,8 +403,8 @@ Implemented:
 - Document-scoped diagnostic publication for Veln documents outside resolved
   workspaces or when no workspace identity is initialized.
 - Stdio definition responses for public functions in exported direct `path`,
-  `vendor`, and `mirror` dependency sources, and `veln/virtualDocument` reads
-  for the returned exact `veln-pkg:` URI.
+  `vendor`, `mirror`, and locally available direct git dependency sources, and
+  `veln/virtualDocument` reads for the returned exact `veln-pkg:` URI.
 - Stdio definition responses for implicit prelude functions and public
   functions in explicitly imported exported `std` sources, with exact
   `veln/virtualDocument` reads from the embedded standard snapshot.
@@ -424,4 +424,5 @@ Not implemented:
 - Dependency reference search.
 - General rename and go-to-definition support outside the implemented
   companion private-function identity, handler binding, direct path, vendor,
-  mirror dependency, and embedded standard-function definition cases.
+  mirror, locally available direct git dependency, and embedded
+  standard-function definition cases.
