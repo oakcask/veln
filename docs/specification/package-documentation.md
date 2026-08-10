@@ -80,7 +80,8 @@ stream as `stdout` or `stderr` and the complete lines for that stream.
 Published package metadata is limited to package identity, manifest package
 name, version, description, license, authors, keywords, and exported module
 names. Exported module names are derived from validated, normalized export
-paths, so `./main.veln` publishes module `main`.
+paths. A normalized export path for a `main.veln` source publishes module
+`main`.
 
 ## Generation Gates
 
