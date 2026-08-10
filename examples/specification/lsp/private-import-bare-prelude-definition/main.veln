@@ -1,0 +1,5 @@
+use math
+
+pub fn main() -> Result<Byte, String>
+  byte(1)
+end

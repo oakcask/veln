@@ -1,0 +1,3 @@
+fn byte(value: Int) -> Result<Byte, String>
+  Ok(Byte(value))
+end

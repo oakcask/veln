@@ -3546,6 +3546,46 @@ mod tests {
     }
 
     #[test]
+    fn private_workspace_import_does_not_hide_bare_prelude_definition() {
+        let mut server = Server::default();
+        let project = TempProject::new("private-import-bare-prelude-definition");
+        project.write(
+            "main.veln",
+            concat!(
+                "use math\n\n",
+                "pub fn main() -> Result<Byte, String>\n",
+                "  byte(1)\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "math.veln",
+            "fn byte(value: Int) -> Result<Byte, String>\n  Ok(Byte(value))\nend\n",
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let definition = server.handle_message(&definition_request(&main_uri, 3, 4));
+
+        assert_eq!(definition.len(), 1);
+        let prelude_uri = extract_string_field(&definition[0], "uri").unwrap();
+        assert!(
+            prelude_uri.starts_with("veln-pkg:///std/snapshot/")
+                && prelude_uri.ends_with("/prelude.veln"),
+            "{}",
+            definition[0]
+        );
+        assert!(
+            definition[0].contains(
+                r#""range":{"start":{"line":97,"character":7},"end":{"line":97,"character":11}}"#
+            ),
+            "{}",
+            definition[0]
+        );
+    }
+
+    #[test]
     fn retained_direct_dependencies_use_the_supplied_workspace_manifest() {
         let project = TempProject::new("retained-dependency-supplied-manifest");
         project.write(

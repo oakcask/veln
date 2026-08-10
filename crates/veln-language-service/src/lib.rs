@@ -298,6 +298,7 @@ struct FunctionSymbol {
     name: String,
     declaration: NavigationLocation,
     package: Option<String>,
+    public: bool,
     standard_prelude: bool,
 }
 
@@ -545,6 +546,9 @@ impl SymbolIndex {
             if symbol.package.is_none() && symbol.module == file.module {
                 return false;
             }
+            if symbol.package.is_none() && !symbol.public {
+                return false;
+            }
             match &symbol.package {
                 Some(package) => file
                     .external_uses
@@ -633,6 +637,8 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
             && let Some(name) = next_non_layout_token(&tokens, index)
             && is_identifier(&name.text)
         {
+            let public = previous_non_layout_token(&tokens, index)
+                .is_some_and(|previous| previous.kind == TokenKind::Pub);
             let (declaration, package, standard_prelude) = match &file.origin {
                 IndexedOrigin::Workspace => (
                     workspace_location(file.source.span(name.range)),
@@ -645,8 +651,6 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
                     exported,
                     standard_library,
                 } => {
-                    let public = previous_non_layout_token(&tokens, index)
-                        .is_some_and(|previous| previous.kind == TokenKind::Pub);
                     if !exported || !public {
                         continue;
                     }
@@ -665,6 +669,7 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
                 name: name.text.clone(),
                 declaration,
                 package,
+                public,
                 standard_prelude,
             });
         }
@@ -2064,6 +2069,46 @@ mod tests {
             )
             .is_none()
         );
+    }
+
+    #[test]
+    fn standard_library_bare_prelude_fallback_ignores_private_workspace_imports() {
+        let standard_library = standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                "pub fn byte(value: Int) -> Int\n  value\nend\n",
+            )],
+            ["prelude.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "main.veln",
+                concat!(
+                    "use math\n\n",
+                    "pub fn main() -> Int\n",
+                    "  byte(1)\n",
+                    "end\n",
+                ),
+            ),
+            source("math.veln", "fn byte(value: Int) -> Int\n  0\nend\n"),
+        ])
+        .with_standard_library(standard_library);
+
+        let result = navigate(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 4,
+                column: 4,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(result.definition.span.file.as_str(), "prelude.veln");
+        let NavigationSource::Package { uri } = result.definition.source else {
+            panic!("prelude definition did not use a package location");
+        };
+        assert!(uri.starts_with("veln-pkg:///std/snapshot/"), "{uri}");
     }
 
     #[test]
