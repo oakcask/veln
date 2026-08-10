@@ -1,5 +1,7 @@
 ---
-review-when: A command JSON schema, output field, or executable JSON evidence changes.
+role: specification
+authority: normative
+update-when: A command JSON schema, output field, or executable JSON evidence changes.
 ---
 
 # JSON Output

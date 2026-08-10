@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-review-when: The package snapshot identity, portable-domain, capture, digest, or executable-evidence contract changes.
+update-when: The package snapshot identity, portable-domain, capture, digest, or executable-evidence contract changes.
 ---
 
 # Package Snapshot Digests

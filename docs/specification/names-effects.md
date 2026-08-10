@@ -1,5 +1,7 @@
 ---
-review-when: The documented name resolution, effect behavior, or executable names/effects evidence changes.
+role: specification
+authority: normative
+update-when: The documented name resolution, effect behavior, or executable names/effects evidence changes.
 ---
 
 # Names And Effects

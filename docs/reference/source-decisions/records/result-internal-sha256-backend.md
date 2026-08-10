@@ -1,10 +1,10 @@
 ---
-review-when: The internal hash consumers, threat model, selected backend, compatibility evidence, or benchmark evidence changes.
+role: reference
+authority: supporting
+update-when: The internal hash consumers, threat model, selected backend, compatibility evidence, or benchmark evidence changes.
 ---
 
 # Internal SHA-256 Backend
-
-Status: implemented
 
 ## Decision
 

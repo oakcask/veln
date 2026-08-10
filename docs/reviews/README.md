@@ -1,6 +1,6 @@
 ---
 role: routing
-review-when: A review evidence record is added, removed, or reclassified.
+update-when: A review evidence record is added, removed, or reclassified.
 ---
 
 # Reviews

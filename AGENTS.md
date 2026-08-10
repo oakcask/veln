@@ -18,7 +18,7 @@
   `$docs-progressive-disclosure` to keep documentation routes short and role,
   authority, and lifecycle boundaries consistent.
 * Every added or changed Markdown document under `docs/` must declare its
-  `role:` and one concrete `review-when:` trigger in YAML frontmatter. Declare
+  `role:` and one concrete `update-when:` trigger in YAML frontmatter. Declare
   `authority:` and exceptional `status:` only where the role permits them. Use
   `$docs-progressive-disclosure` to classify and validate the metadata.
 * When creating or substantially revising any document that specifies

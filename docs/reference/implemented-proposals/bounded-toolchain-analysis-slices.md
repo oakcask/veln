@@ -1,7 +1,7 @@
 ---
 role: implementation-record
 authority: supporting
-review-when: The bounded toolchain analysis completion evidence or routed review record changes.
+update-when: The bounded toolchain analysis completion evidence or routed review record changes.
 ---
 
 # Bounded Toolchain Analysis Slices

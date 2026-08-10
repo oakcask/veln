@@ -1,6 +1,6 @@
 ---
 role: routing
-review-when: A proposal is added, moved, reclassified, completed, or removed.
+update-when: A proposal is added, moved, reclassified, completed, or removed.
 ---
 
 # Proposals

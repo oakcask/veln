@@ -1,7 +1,7 @@
 ---
 role: implementation-record
 authority: supporting
-review-when: The implemented metrics report, its executable evidence, or the decision to keep enforcement out of scope changes.
+update-when: The implemented metrics report, its executable evidence, or the decision to keep enforcement out of scope changes.
 ---
 
 # Built-In Code Metrics

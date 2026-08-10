@@ -1,7 +1,7 @@
 ---
 role: implementation-record
 authority: supporting
-review-when: The bounded analysis completion evidence, historical benchmark interpretation, or linked CI evidence changes.
+update-when: The bounded analysis completion evidence, historical benchmark interpretation, or linked CI evidence changes.
 ---
 
 # Bounded Toolchain Analysis

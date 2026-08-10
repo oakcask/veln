@@ -1,5 +1,6 @@
 ---
-review-when: An implementation-boundary decision record is added, moved, reclassified, or no longer answers its routed task.
+role: routing
+update-when: An implementation-boundary decision record is added, moved, reclassified, or no longer answers its routed task.
 ---
 
 # Implementation Boundary Decisions

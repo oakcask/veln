@@ -17,14 +17,14 @@ test("accepts role-specific authority and an exceptional lifecycle status", () =
       text: document([
         "role: specification",
         "authority: normative",
-        "review-when: The documented command output or its executable fixture changes.",
+        "update-when: The documented command output or its executable fixture changes.",
       ]),
     },
     {
       file: "docs/navigation.md",
       text: document([
         "role: routing",
-        "review-when: A routed document is moved or reclassified.",
+        "update-when: A routed document is moved or reclassified.",
       ]),
     },
     {
@@ -32,7 +32,7 @@ test("accepts role-specific authority and an exceptional lifecycle status", () =
       text: document([
         "role: implementation-record",
         "status: superseded",
-        "review-when: Its replacement or supporting evidence changes.",
+        "update-when: Its replacement or supporting evidence changes.",
       ]),
     },
   ]);
@@ -48,7 +48,7 @@ test("rejects missing frontmatter", () => {
   });
 
   assert.deepEqual(errors, [
-    "docs/reference/example.md: add YAML frontmatter at the start of the document with one role: field and one review-when: field",
+    "docs/reference/example.md: add YAML frontmatter at the start of the document with one role: field and one update-when: field",
   ]);
 });
 
@@ -57,7 +57,7 @@ test("rejects missing, duplicate, and unsupported roles", () => {
     {
       file: "docs/missing.md",
       text: document([
-        "review-when: Its route changes.",
+        "update-when: Its route changes.",
       ]),
     },
     {
@@ -65,14 +65,14 @@ test("rejects missing, duplicate, and unsupported roles", () => {
       text: document([
         "role: routing",
         "role: reference",
-        "review-when: Its route changes.",
+        "update-when: Its route changes.",
       ]),
     },
     {
       file: "docs/unsupported.md",
       text: document([
         "role: guide",
-        "review-when: Its guidance changes.",
+        "update-when: Its guidance changes.",
       ]),
     },
   ]);
@@ -90,7 +90,7 @@ test("enforces authority from the document role", () => {
       file: "docs/specification/missing.md",
       text: document([
         "role: specification",
-        "review-when: Its behavior changes.",
+        "update-when: Its behavior changes.",
       ]),
     },
     {
@@ -98,7 +98,7 @@ test("enforces authority from the document role", () => {
       text: document([
         "role: reference",
         "authority: archival",
-        "review-when: Its evidence changes.",
+        "update-when: Its evidence changes.",
       ]),
     },
     {
@@ -106,7 +106,7 @@ test("enforces authority from the document role", () => {
       text: document([
         "role: proposal",
         "authority: normative",
-        "review-when: Its implementation status changes.",
+        "update-when: Its implementation status changes.",
       ]),
     },
     {
@@ -114,7 +114,7 @@ test("enforces authority from the document role", () => {
       text: document([
         "role: routing",
         "authority: supporting",
-        "review-when: Its routes change.",
+        "update-when: Its routes change.",
       ]),
     },
   ]);
@@ -134,7 +134,7 @@ test("limits status to exceptional lifecycle states", () => {
       text: document([
         "role: implementation-record",
         "status: implemented",
-        "review-when: Its evidence changes.",
+        "update-when: Its evidence changes.",
       ]),
     },
     {
@@ -143,7 +143,7 @@ test("limits status to exceptional lifecycle states", () => {
         "role: implementation-record",
         "status: closed",
         "status: superseded",
-        "review-when: Its replacement changes.",
+        "update-when: Its replacement changes.",
       ]),
     },
     {
@@ -152,7 +152,7 @@ test("limits status to exceptional lifecycle states", () => {
         "role: specification",
         "authority: normative",
         "status: rejected",
-        "review-when: Its behavior changes.",
+        "update-when: Its behavior changes.",
       ]),
     },
   ]);
@@ -164,35 +164,50 @@ test("limits status to exceptional lifecycle states", () => {
   ]);
 });
 
-test("rejects empty, vague, duplicate, and body-only review triggers", () => {
+test("rejects empty, vague, duplicate, and body-only update triggers", () => {
   const result = validateDocumentationFrontmatter([
     {
       file: "docs/empty.md",
-      text: document(["role: routing", "review-when:"]),
+      text: document(["role: routing", "update-when:"]),
     },
     {
       file: "docs/vague.md",
-      text: document(["role: routing", "review-when: 'as needed'"]),
+      text: document(["role: routing", "update-when: 'as needed'"]),
     },
     {
       file: "docs/duplicate.md",
       text: document([
         "role: routing",
-        "review-when: Its route changes.",
-        "review-when: Its audience changes.",
+        "update-when: Its route changes.",
+        "update-when: Its audience changes.",
       ]),
     },
     {
       file: "docs/body.md",
-      text: document(["role: routing"], "# Example\n\nreview-when: A body example changes."),
+      text: document(["role: routing"], "# Example\n\nupdate-when: A body example changes."),
     },
   ]);
 
   assert.deepEqual(result.errors, [
-    "docs/empty.md:3: name the project-state change after review-when: so maintainers can tell when this document may be stale",
-    "docs/vague.md:3: replace vague review trigger \"as needed\" with a concrete project-state change",
-    "docs/duplicate.md:4: keep exactly one review-when: field so the document has one review contract",
-    "docs/body.md: add exactly one review-when: field naming the project-state change that requires this document to be checked again",
+    "docs/empty.md:3: name the project-state change after update-when: so maintainers can tell when to update this document",
+    "docs/vague.md:3: replace vague update trigger \"as needed\" with a concrete project-state change",
+    "docs/duplicate.md:4: keep exactly one update-when: field so the document has one update contract",
+    "docs/body.md: add exactly one update-when: field naming the project-state change that can make this document stale",
+  ]);
+});
+
+test("rejects the legacy review-when field", () => {
+  const errors = validateDocumentFrontmatter({
+    file: "docs/reference/example.md",
+    text: document([
+      "role: reference",
+      "authority: supporting",
+      "review-when: The supporting evidence changes.",
+    ]),
+  });
+
+  assert.deepEqual(errors, [
+    "docs/reference/example.md:4: replace review-when: with update-when: so the field identifies when project changes can make the document stale",
   ]);
 });
 
@@ -200,14 +215,14 @@ test("rejects unclosed frontmatter and multiline YAML values", () => {
   const result = validateDocumentationFrontmatter([
     {
       file: "docs/unclosed.md",
-      text: "---\nrole: routing\nreview-when: Its route changes.\n# Unclosed\n",
+      text: "---\nrole: routing\nupdate-when: Its route changes.\n# Unclosed\n",
     },
     {
       file: "docs/multiline.md",
       text: document([
         "role: >",
         "  routing",
-        "review-when: Its route changes.",
+        "update-when: Its route changes.",
       ]),
     },
   ]);
@@ -225,7 +240,7 @@ test("rejects legacy body status outside fenced examples", () => {
       text: document(
         [
           "role: proposal",
-          "review-when: Its implementation status changes.",
+          "update-when: Its implementation status changes.",
         ],
         "# Proposal\n\nStatus: proposed",
       ),
@@ -235,7 +250,7 @@ test("rejects legacy body status outside fenced examples", () => {
       text: document(
         [
           "role: routing",
-          "review-when: Its example changes.",
+          "update-when: Its example changes.",
         ],
         "# Example\n\n```markdown\nStatus: proposed\n```",
       ),

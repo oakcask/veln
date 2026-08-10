@@ -1,10 +1,10 @@
 ---
-review-when: Generated documentation behavior or its executable evidence changes.
+role: implementation-record
+authority: supporting
+update-when: Generated documentation behavior or its executable evidence changes.
 ---
 
 # Agent Module, Package, And Documentation Model
-
-Status: implemented
 
 This page records completion evidence for the module, package, and generated
 documentation target. Use the specification pages for current behavior.

@@ -1,5 +1,6 @@
 ---
-review-when: A source-decision category or its routing page is added, moved, reclassified, or removed.
+role: routing
+update-when: A source-decision category or its routing page is added, moved, reclassified, or removed.
 ---
 
 # Source Decision Topic Map

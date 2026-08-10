@@ -1,7 +1,7 @@
 ---
 role: implementation-record
 authority: supporting
-review-when: The handler clause syntax, migration boundary, acceptance evidence, or implementation status changes.
+update-when: The handler clause syntax, migration boundary, acceptance evidence, or implementation status changes.
 ---
 
 # Explicit Handler Operation Clauses

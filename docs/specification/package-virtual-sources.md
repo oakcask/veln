@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-review-when: The virtual-source URI, catalog, resolver, or executable-evidence contract changes.
+update-when: The virtual-source URI, catalog, resolver, or executable-evidence contract changes.
 ---
 
 # Package Virtual Sources

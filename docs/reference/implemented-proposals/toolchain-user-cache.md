@@ -1,7 +1,7 @@
 ---
 role: implementation-record
 authority: supporting
-review-when: The record is superseded, its evidence links become invalid, or current documentation relies on it as authority.
+update-when: The record is superseded, its evidence links become invalid, or current documentation relies on it as authority.
 ---
 
 # Toolchain User Cache Recovery

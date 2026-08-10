@@ -1,5 +1,7 @@
 ---
-review-when: The CLI integration harness assertion model or source-error guard evidence changes.
+role: reference
+authority: normative
+update-when: The CLI integration harness assertion model or source-error guard evidence changes.
 ---
 
 # Toolchain Test Harness

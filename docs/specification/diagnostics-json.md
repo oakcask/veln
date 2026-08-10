@@ -1,5 +1,7 @@
 ---
-review-when: The documented diagnostics JSON behavior or executable diagnostic evidence changes.
+role: specification
+authority: normative
+update-when: The documented diagnostics JSON behavior or executable diagnostic evidence changes.
 ---
 
 # Check JSON And Diagnostics
