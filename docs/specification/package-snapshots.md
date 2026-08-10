@@ -83,9 +83,12 @@ path, or included source bytes changes the digest.
 
 `capture_embedded_package_snapshot` accepts exact manifest bytes and exact
 source path and byte pairs. It does not read or materialize a filesystem tree.
-It sorts sources and applies the same portable-path, UTF-8, case-fold
-collision, and digest contracts as filesystem capture. The returned snapshot
-owns the supplied bytes.
+It applies the same distribution source exclusions as filesystem capture before
+portable-path and source text validation. Therefore `.test.veln` companions,
+`_test.veln` integration-test sources, and non-`.veln` inputs are not retained
+and cannot fail validation. It sorts retained sources and applies the same
+portable-path, UTF-8, case-fold collision, and digest contracts as filesystem
+capture. The returned snapshot owns the supplied bytes.
 
 The language server uses this API for the toolchain's embedded `std` manifest
 and distribution sources. Therefore the standard package virtual-source
@@ -130,10 +133,12 @@ rejection, and these fixed digest vectors:
 The same tests check reversed source order, duplicate paths, isolated changes
 to the domain, record tags, byte order, manifest bytes, source path bytes, and
 source content bytes. They also prove that equivalent embedded and filesystem
-inputs produce identical retained snapshots and that embedded input uses the
-portable-source validation contract. A Veln source example is not added for
-the capture API itself because it is transport-independent. The editor-facing
-standard-package use is checked by the LSP example routed from
+inputs produce identical retained snapshots, that embedded input applies the
+same distribution test-source exclusions as filesystem capture, and that
+embedded input uses the portable-source validation contract. A Veln source
+example is not added for the capture API itself because it is
+transport-independent. The editor-facing standard-package use is checked by
+the LSP example routed from
 [Editor Support](editor-support.md#lsp-navigation-formatting-and-rename).
 
 The same test target is the authoritative Q13 portable-domain matrix. It

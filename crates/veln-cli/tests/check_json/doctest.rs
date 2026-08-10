@@ -294,13 +294,35 @@ fn check_ignores_non_runnable_doctest_fences() {
 }
 
 #[test]
-fn check_accepts_negative_doctest_with_static_diagnostic() {
-    let project = TestProject::new("check-negative-doctest");
+fn check_accepts_negative_doctest_with_semantic_only_diagnostic() {
+    let project = TestProject::new("check-negative-doctest-semantic-only");
     project.write(
         "main.veln",
         concat!(
             "## ```veln fail\n",
             "## let value: Int = \"no\"\n",
+            "## ```\n",
+            "pub fn main() -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_contains_all(stdout, &["\"status\":\"ok\"", "\"diagnostics\":[]"]);
+}
+
+#[test]
+fn check_accepts_negative_doctest_with_parse_diagnostic() {
+    let project = TestProject::new("check-negative-doctest");
+    project.write(
+        "main.veln",
+        concat!(
+            "## ```veln fail\n",
+            "## @\n",
             "## ```\n",
             "pub fn main() -> ()\n",
             "  ()\n",

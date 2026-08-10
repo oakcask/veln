@@ -548,9 +548,10 @@ fn doc_schema_reference_diagnostics(
 }
 
 fn doc_schema_references(source: &SourceFile) -> Vec<DocSchemaReference> {
+    let lines = source.text().split_inclusive('\n').collect::<Vec<_>>();
     let mut references = Vec::new();
     let mut line_start = 0;
-    for line in source.text().split_inclusive('\n') {
+    for line in lines {
         let trimmed = line.trim_start();
         let indent_len = line.len() - trimmed.len();
         if let Some(content) = trimmed.strip_prefix("##") {

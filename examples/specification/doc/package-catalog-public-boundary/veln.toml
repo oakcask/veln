@@ -1,0 +1,6 @@
+[package]
+name = "package-catalog-public-boundary"
+description = "Public package documentation boundary."
+
+[lib]
+exports = ["main.veln"]

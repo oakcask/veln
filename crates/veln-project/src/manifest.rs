@@ -6,6 +6,7 @@ use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 #[derive(Clone, Debug)]
 pub struct ProjectManifest {
     pub path: SourcePath,
+    pub source_bytes: Vec<u8>,
     pub package: ManifestPackage,
     pub lib: ManifestLib,
     pub dependencies: Vec<ManifestDependency>,
@@ -274,80 +275,159 @@ pub fn parse_manifest_text(path: &str, text: &str) -> ProjectManifest {
 }
 
 fn parse_manifest(source: &SourceFile) -> ProjectManifest {
-    let mut package = ManifestPackage::default();
-    let mut lib = ManifestLib {
-        exports: Vec::new(),
-    };
-    let mut dependencies = Vec::<ManifestDependency>::new();
-    let mut unsupported_sections = Vec::new();
-    let mut tools = Vec::<ManifestTool>::new();
-    let mut section = ManifestSection::Other;
-    let mut array = ManifestArray::None;
+    let mut state = ManifestParseState::default();
     let mut offset = 0;
 
     for line in source.text().split_inclusive('\n') {
         let line_without_newline = line.trim_end_matches(['\r', '\n']);
-        if matches!(array, ManifestArray::LibExports) {
-            if parse_export_array_items(source, offset, line_without_newline, &mut lib.exports) {
-                array = ManifestArray::None;
-            }
-        } else if let Some((section_name, name_start, name_end)) =
-            section_header(line_without_newline, offset)
-        {
-            section =
-                ManifestSection::from_name(section_name, source, name_start, &mut dependencies);
-            if matches!(section, ManifestSection::Modules) {
-                unsupported_sections.push(ManifestUnsupportedSection {
-                    name: section_name.to_string(),
-                    span: source.span(TextRange::new(name_start, name_end)),
-                });
-            }
-        } else if matches!(section, ManifestSection::Lib) {
-            array = parse_lib_entry(source, offset, line_without_newline, &mut lib.exports);
-        } else if matches!(section, ManifestSection::Package)
-            && let Some(field) = parse_string_field(source, offset, line_without_newline)
-        {
-            package.fields.push(field);
-        } else if let ManifestSection::Dependency(index) = &section
-            && let Some(field) = parse_string_field(source, offset, line_without_newline)
-        {
-            record_dependency_field(&mut dependencies[*index], field);
-        } else if let ManifestSection::Tool(tool_name) = &section
-            && let Some(field) = parse_string_field(source, offset, line_without_newline)
-        {
-            let index = tools
-                .iter()
-                .position(|tool| tool.name == *tool_name)
-                .unwrap_or_else(|| {
-                    tools.push(ManifestTool {
-                        name: tool_name.clone(),
-                        fields: Vec::new(),
-                    });
-                    tools.len() - 1
-                });
-            let tool = &mut tools[index];
-            tool.fields.push(field);
-        }
+        state.parse_line(source, offset, line_without_newline);
         offset += line.len();
     }
 
-    ProjectManifest {
-        path: source.path().clone(),
-        package,
-        lib,
-        dependencies,
-        unsupported_sections,
-        tools,
+    state.finish(source)
+}
+
+struct ManifestParseState {
+    package: ManifestPackage,
+    lib: ManifestLib,
+    dependencies: Vec<ManifestDependency>,
+    unsupported_sections: Vec<ManifestUnsupportedSection>,
+    tools: Vec<ManifestTool>,
+    section: ManifestSection,
+    array: ManifestArray,
+}
+
+impl Default for ManifestParseState {
+    fn default() -> Self {
+        Self {
+            package: ManifestPackage::default(),
+            lib: ManifestLib {
+                exports: Vec::new(),
+            },
+            dependencies: Vec::new(),
+            unsupported_sections: Vec::new(),
+            tools: Vec::new(),
+            section: ManifestSection::Other,
+            array: ManifestArray::None,
+        }
     }
 }
 
-#[derive(Clone)]
+impl ManifestParseState {
+    fn parse_line(&mut self, source: &SourceFile, offset: usize, line: &str) {
+        if matches!(self.array, ManifestArray::LibExports) {
+            self.parse_export_array_line(source, offset, line);
+        } else if let Some((section_name, name_start, name_end)) = section_header(line, offset) {
+            self.start_section(source, section_name, name_start, name_end);
+        } else {
+            self.parse_section_entry(source, offset, line);
+        }
+    }
+
+    fn parse_export_array_line(&mut self, source: &SourceFile, offset: usize, line: &str) {
+        if parse_export_array_items(source, offset, line, &mut self.lib.exports) {
+            self.array = ManifestArray::None;
+        }
+    }
+
+    fn start_section(
+        &mut self,
+        source: &SourceFile,
+        section_name: &str,
+        name_start: usize,
+        name_end: usize,
+    ) {
+        self.section =
+            ManifestSection::from_name(section_name, source, name_start, &mut self.dependencies);
+        if matches!(self.section, ManifestSection::Modules) {
+            self.unsupported_sections.push(ManifestUnsupportedSection {
+                name: section_name.to_string(),
+                span: source.span(TextRange::new(name_start, name_end)),
+            });
+        }
+    }
+
+    fn parse_section_entry(&mut self, source: &SourceFile, offset: usize, line: &str) {
+        match self.section.clone() {
+            ManifestSection::Lib => {
+                self.array = parse_lib_entry(source, offset, line, &mut self.lib.exports);
+            }
+            ManifestSection::Package => self.parse_package_field(source, offset, line),
+            ManifestSection::Dependency(index) => {
+                self.parse_dependency_field(source, offset, line, index)
+            }
+            ManifestSection::Tool(tool_name) => {
+                self.parse_tool_field(source, offset, line, &tool_name)
+            }
+            ManifestSection::Modules | ManifestSection::Other => {}
+        }
+    }
+
+    fn parse_package_field(&mut self, source: &SourceFile, offset: usize, line: &str) {
+        if let Some(field) = parse_string_field(source, offset, line) {
+            self.package.fields.push(field);
+        }
+    }
+
+    fn parse_dependency_field(
+        &mut self,
+        source: &SourceFile,
+        offset: usize,
+        line: &str,
+        index: usize,
+    ) {
+        if let Some(field) = parse_string_field(source, offset, line) {
+            record_dependency_field(&mut self.dependencies[index], field);
+        }
+    }
+
+    fn parse_tool_field(
+        &mut self,
+        source: &SourceFile,
+        offset: usize,
+        line: &str,
+        tool_name: &str,
+    ) {
+        if let Some(field) = parse_string_field(source, offset, line) {
+            let index = self.tool_index(tool_name);
+            self.tools[index].fields.push(field);
+        }
+    }
+
+    fn tool_index(&mut self, tool_name: &str) -> usize {
+        self.tools
+            .iter()
+            .position(|tool| tool.name == tool_name)
+            .unwrap_or_else(|| {
+                self.tools.push(ManifestTool {
+                    name: tool_name.to_string(),
+                    fields: Vec::new(),
+                });
+                self.tools.len() - 1
+            })
+    }
+
+    fn finish(self, source: &SourceFile) -> ProjectManifest {
+        ProjectManifest {
+            path: source.path().clone(),
+            source_bytes: source.text().as_bytes().to_vec(),
+            package: self.package,
+            lib: self.lib,
+            dependencies: self.dependencies,
+            unsupported_sections: self.unsupported_sections,
+            tools: self.tools,
+        }
+    }
+}
+
+#[derive(Clone, Default)]
 enum ManifestSection {
     Package,
     Lib,
     Modules,
     Dependency(usize),
     Tool(String),
+    #[default]
     Other,
 }
 
@@ -419,9 +499,10 @@ fn dependency_section_name(name: &str, name_start: usize) -> Option<(String, usi
     ))
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 enum ManifestArray {
     LibExports,
+    #[default]
     None,
 }
 

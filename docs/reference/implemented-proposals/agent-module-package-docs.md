@@ -39,6 +39,16 @@ ordinary documentation inputs.
 Dedicated export lists were not added by this target. Later manifest work
 added the current `[lib].exports` package export surface.
 
+Later language-service work added a transport-independent package
+documentation catalog for exported package APIs. The catalog is separate from
+`veln doc` Markdown generation. It binds a validated package identity,
+captured package snapshot, and same-capture manifest. It publishes canonical
+result bytes, a documentation digest, stable `veln-doc:` resource URIs,
+status-only failure results, exported public modules and declarations,
+constructor documentation, public schema documentation references, visible
+doctests, stream-aware expected-output fences, declaration-location lookup,
+and a closed package metadata allowlist.
+
 ## Completion Evidence
 
 - Manifest package and tool fields are parsed and preserved independently from
@@ -56,6 +66,10 @@ added the current `[lib].exports` package export surface.
   comments, not from proposal text.
 - ADR-lite records remain source metadata and appear in generated docs without
   affecting parsing, checking, lowering, or execution.
+- The transport-independent package documentation catalog is specified by
+  `../../specification/package-documentation.md` and covered by
+  `cargo test -p veln-language-service` plus package catalog fixtures under
+  `../../../examples/specification/doc/`.
 
 ## Read When
 

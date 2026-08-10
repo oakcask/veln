@@ -1,0 +1,5 @@
+[package]
+name = "catalog-nested-doctest"
+
+[lib]
+exports = ["main.veln"]

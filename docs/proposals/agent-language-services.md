@@ -459,8 +459,27 @@ LSP definition and virtual-document slices, embedded standard-library LSP
 definition and virtual-document slices, plus the VSCode content provider, are
 implemented and specified in
 [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).
-MCP resources, documentation snapshots, and snapshot lifetime rules remain
-planned below.
+The transport-independent package documentation catalog, status-only failure
+result, documentation digest, canonical `veln-doc:` URI foundation, same-capture
+manifest binding, validated `PackageIdentity` API boundary, pointer-width
+independent identifier digest transcripts, path-derived module identity,
+manifest package-name and package-identity matching, normalized exported-module
+metadata, compiler-valid export module identity rejection, exported module and
+public constructor documentation projection,
+import-aware schema documentation references, public schema alias reference
+resolution, stream-aware expected-output publication, effect-row-binder
+signatures, and generated
+doctest static gate for expression, declaration, nested-expression declaration,
+public-alias declaration, and mixed declaration-statement doctests, shared
+doctest metadata diagnostics for catalog expected-output fences,
+same-snapshot declaration documentation lookup from package virtual-source
+locations, and rejection of workspace or different-snapshot locations are
+implemented and specified in
+[Package Documentation Catalogs](../specification/package-documentation.md).
+Embedded package snapshot capture applies the same test-source distribution
+exclusions as filesystem capture before package documentation generation.
+MCP resources, MCP documentation publication, and snapshot lifetime rules
+remain planned below.
 
 The owned distribution set contains every captured regular file whose name
 ends in `.veln`, including private, non-exported, on-disk generated, and
@@ -545,16 +564,28 @@ declarations and selectors, repository and homepage URLs, tool metadata,
 environment-derived values, and unknown fields.
 
 Documentation generation has a parse, manifest, export, documentation-reference,
-and doctest gate. Generation is package-atomic. On failure, the status resource
-is listable and contains diagnostics sorted by source URI, start range,
-diagnostic code, and message. Module and declaration resources are not listed,
-searched, or readable. The loaded-package index returns the exact immutable
-status URI. The source snapshot remains readable.
+and doctest gate. The manifest gate rejects unsupported manifest sections,
+invalid export paths, test source exports, duplicate exported module
+identities, invalid direct git selector cardinality, a missing package name,
+and a package name that differs from the supplied package identity. Qualified
+documentation schema references require a written package-local `use` path in
+the referencing module, and public schema aliases resolve to their public
+schema target. Generation is package-atomic. On failure, the status resource is
+listable and contains diagnostics sorted by source URI, start range, diagnostic
+code, and message. Module and declaration resources are not listed, searched,
+or readable. The loaded-package index returns the exact immutable status URI.
+The source snapshot remains readable.
 
-A passing positive doctest and an explicit negative doctest whose expected
-diagnostics match can be published. Ignored doctests and hidden setup are not
-published. Unexpected static invalidity, runtime failure, resource exhaustion,
-or expected-output mismatch fails the complete documentation generation.
+A passing positive doctest and a `veln fail` doctest whose visible source
+produces a parse diagnostic can be published when the fence attaches to an
+exported module, exported public declaration, or exported public constructor.
+Private declaration doctests, ignored doctests, and hidden setup are not
+published or checked by package documentation generation. Expected-output
+fences use the shared doctest extractor's pending-state boundary. Doctest
+metadata, including duplicate or ambiguous output stream attributes, is
+validated by the shared doctest extractor, and metadata errors fail the
+complete documentation generation. Runtime doctest execution and
+expected-output comparison remain part of the planned MCP publication slice.
 
 ## Published Language Reference
 
@@ -894,9 +925,9 @@ already implemented.
 | Read a noncanonical, unknown, or mismatched snapshot URI through MCP. | The server returns `resource_not_found` without normalization, fallback, or filesystem access. The transport-independent resolver rejection table is already implemented and specified in [Package Virtual Sources](../specification/package-virtual-sources.md). | MCP adapter case mapping a catalog miss to `resource_not_found`. |
 | Read a private distribution source or inspect package metadata. | The source is readable; metadata contains only the closed public allowlist and no dependency, URL, tool, path, or credential-bearing fields. | Q15 disclosure-policy cases. |
 | Keep returned dependency URIs while projects refresh or disappear. | Every published snapshot remains readable until shutdown; capacity failure never evicts an older URI. | Q10 resource-lifetime cases. |
-| Generate package docs. | Only exported modules and their public API appear; attached contracts and visible doctests are preserved. | Checked package-documentation case. |
-| Change catalog semantics without changing package bytes. | The package digest stays fixed and the documentation catalog digest and URIs change. | Q16 document-identity cases. |
-| Package documentation generation or doctest validation fails. | Source and the ordered status resource remain readable; module, declaration, search, and definition documentation results are absent. | Q18 atomic-generation-failure matrix. |
+| Generate package docs. | The transport-independent catalog contains only exported modules and their public API; attached contracts, visible doctests that can reference the same exported package API, stream-aware expected-output fences, import-aware resolved schema documentation references, public schema alias targets, effect-row-binder signatures, and declaration-location URI lookup are preserved. MCP publication remains planned. | Implemented package-documentation unit tests and readable `doc` examples; planned MCP resource case. |
+| Change catalog semantics without changing package bytes. | The package digest stays fixed and the documentation catalog digest and URIs change. | Implemented package-documentation document-identity tests; planned MCP resource case. |
+| Package documentation generation or doctest validation fails. | The transport-independent result contains ordered status diagnostics and no partial module or declaration catalog. Export paths that cannot derive compiler-valid source module identities fail generation. Negative doctests require parse diagnostics rather than semantic-only diagnostics. MCP status-resource publication remains planned. | Implemented atomic-generation-failure and invalid-export unit tests; planned MCP resource case. |
 
 ### Published Language Reference
 
@@ -936,6 +967,16 @@ matrix are also implemented and specified on the same page.
 The canonical package virtual-source URI and resolver foundation is implemented
 and specified in
 [Package Virtual Sources](../specification/package-virtual-sources.md).
+The transport-independent exported package documentation catalog foundation,
+same-capture manifest binding, path-derived module identity, stream-aware
+expected-output publication, effect-row-binder signatures, and generated
+doctest static gate, including same-package public API references, nested
+expression declarations, public member aliases, shared expected-output
+pending-state boundaries, hidden setup exclusion, integration-test source
+exclusion for embedded snapshots, test source export rejection,
+original-source remapping for generated doctest static diagnostics, and
+parse-only negative doctest matching, are implemented and specified in
+[Package Documentation Catalogs](../specification/package-documentation.md).
 Direct path, vendor, mirror, and locally available direct git dependency
 definition locations, embedded standard-library definition locations, the LSP
 virtual-document request, and the VSCode content provider are implemented and
@@ -950,14 +991,13 @@ and embedded standard-package captures for the definition-to-read path. It
 does not implement dependency reference search or MCP resources.
 The remaining slices are:
 
-1. Add exported package documentation and bind it to package snapshots.
-2. Define and validate language-reference topic descriptors. Generate the
+1. Define and validate language-reference topic descriptors. Generate the
    executable grammar, selected example, and compiler-owned table projections.
-3. Add `veln mcp`, resources, documentation tools, project diagnostics,
+2. Add `veln mcp`, resources, documentation tools, project diagnostics,
    definition, and references.
-4. Add cross-adapter conformance cases, bounded search, pagination, and stale
+3. Add cross-adapter conformance cases, bounded search, pagination, and stale
    snapshot handling.
-5. Package and validate Codex and Claude Code plugins and document their
+4. Package and validate Codex and Claude Code plugins and document their
    client-native installation flows.
 
 ## Deferred Work

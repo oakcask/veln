@@ -1,0 +1,6 @@
+[package]
+name = "package-catalog-doctest-output-metadata-gate"
+description = "Package documentation doctest output metadata gate."
+
+[lib]
+exports = ["main.veln"]

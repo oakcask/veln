@@ -1,0 +1,4 @@
+## Qualified schema references require an explicit import: {@schema wire::Packet}.
+pub fn visible() -> Int
+	1
+end

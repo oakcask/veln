@@ -1,0 +1,6 @@
+[package]
+name = "package-catalog-api-success"
+description = "Package catalog API success boundary."
+
+[lib]
+exports = ["main.veln", "wire.veln"]

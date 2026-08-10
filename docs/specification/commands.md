@@ -85,7 +85,9 @@ requiring the full command reference on the first read.
   contracts, doctest fences, and ADR-lite records. Exact `.test.veln`
   companions are excluded from generated documentation even when discovered
   recursively or selected explicitly. `_test.veln` integration-test modules
-  remain ordinary documentation inputs. Use
+  remain ordinary documentation inputs. Schema references in selected
+  non-companion documentation comments are validated even when the declaration
+  itself is private and omitted from generated Markdown. Use
   [commands-full.md](commands-full.md) when changing generated documentation
   output.
 - `run`: production source discovery excluding `.test.veln` companions,

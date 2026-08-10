@@ -1,0 +1,5 @@
+[package]
+name = "package-catalog-manifest-gate"
+
+[lib]
+exports = ["../escape.veln", "bad-name.veln"]

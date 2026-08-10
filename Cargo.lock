@@ -345,9 +345,13 @@ dependencies = [
 name = "veln-language-service"
 version = "0.1.0"
 dependencies = [
+ "sha2",
+ "veln-analysis",
+ "veln-diagnostics",
  "veln-project",
  "veln-source",
  "veln-syntax",
+ "veln-test",
 ]
 
 [[package]]

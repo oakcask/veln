@@ -1,0 +1,4 @@
+## Integration-test documentation must not enter the package catalog.
+pub fn leaked_test_api() -> Int
+	@
+end
