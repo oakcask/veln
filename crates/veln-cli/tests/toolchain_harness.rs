@@ -1329,6 +1329,15 @@ impl CaseManifest {
         parse_manifest(path, &text)
     }
 
+    fn validate(&self, path: &Path) {
+        self.expectations.validate(path);
+        if let Some(expectation) = &self.manifest_error
+            && !expectation.has_assertion()
+        {
+            manifest_error(path, 0, "manifest_error section has no assertion");
+        }
+    }
+
     fn skip_reason(&self) -> Option<String> {
         if self.requires_jdk() && !jdk_is_available() {
             return Some("requires a real JDK".to_string());
@@ -1583,6 +1592,32 @@ fn command_span_evidence(span: &JsonValue) -> Option<String> {
 }
 
 impl CaseExpectations {
+    fn validate(&self, path: &Path) {
+        for (index, assertion) in self.json_assertions.iter().enumerate() {
+            assertion.validate(path, index);
+        }
+        for (index, assertion) in self.result_value_assertions.iter().enumerate() {
+            assertion.validate(path, index);
+        }
+        if let Some(help) = &self.help
+            && !help.has_assertion()
+        {
+            manifest_error(path, 0, "help section has no assertion");
+        }
+        for (index, assertion) in self.file_assertions.iter().enumerate() {
+            assertion.validate(path, index);
+        }
+        for (index, diagnostic) in self.diagnostics.iter().enumerate() {
+            diagnostic.validate(path, index);
+        }
+        for (index, fixture) in self.binary_fixtures.iter().enumerate() {
+            fixture.validate(path, index);
+        }
+        for (index, chunks) in self.output_chunk_lists.iter().enumerate() {
+            chunks.validate(path, index);
+        }
+    }
+
     fn assert_matches(&self, context: &CaseRunContext<'_>, output: &CapturedOutput) {
         assert_eq!(
             output.exit,
@@ -1834,6 +1869,21 @@ struct JsonAssertion {
     missing: bool,
 }
 
+impl JsonAssertion {
+    fn validate(&self, path: &Path, index: usize) {
+        if self.path.is_empty() {
+            manifest_error(path, 0, format!("json_assert {index} is missing `path`"));
+        }
+        if self.missing == self.equals.is_some() {
+            manifest_error(
+                path,
+                0,
+                format!("json_assert {index} needs exactly one of `equals` or `missing = true`"),
+            );
+        }
+    }
+}
+
 #[derive(Debug)]
 struct ResultValueAssertion {
     value_path: String,
@@ -1842,10 +1892,46 @@ struct ResultValueAssertion {
     missing: bool,
 }
 
+impl ResultValueAssertion {
+    fn validate(&self, path: &Path, index: usize) {
+        if self.value_path.is_empty() {
+            manifest_error(
+                path,
+                0,
+                format!("result_value_assert {index} is missing `value_path`"),
+            );
+        }
+        if self.path.is_empty() {
+            manifest_error(
+                path,
+                0,
+                format!("result_value_assert {index} is missing `path`"),
+            );
+        }
+        if self.missing == self.equals.is_some() {
+            manifest_error(
+                path,
+                0,
+                format!(
+                    "result_value_assert {index} needs exactly one of `equals` or `missing = true`"
+                ),
+            );
+        }
+    }
+}
+
 #[derive(Debug)]
 struct FileAssertion {
     path: String,
     equals: String,
+}
+
+impl FileAssertion {
+    fn validate(&self, path: &Path, index: usize) {
+        if self.path.is_empty() {
+            manifest_error(path, 0, format!("file_assert {index} is missing `path`"));
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -1857,6 +1943,14 @@ struct DiagnosticExpectation {
     span: Option<SpanExpectation>,
 }
 
+impl DiagnosticExpectation {
+    fn validate(&self, path: &Path, index: usize) {
+        if self.id.is_empty() {
+            manifest_error(path, 0, format!("diagnostics {index} is missing `id`"));
+        }
+    }
+}
+
 #[derive(Debug)]
 struct BinaryFixtureExpectation {
     name: String,
@@ -1865,6 +1959,45 @@ struct BinaryFixtureExpectation {
     consumed: Option<usize>,
     error: Option<String>,
     byte_diagnostic: Option<BinaryFixtureByteDiagnostic>,
+}
+
+impl BinaryFixtureExpectation {
+    fn validate(&self, path: &Path, index: usize) {
+        if self.name.is_empty() {
+            manifest_error(path, 0, format!("binary_fixture {index} is missing `name`"));
+        }
+        match (&self.bytes, &self.error) {
+            (Some(_), None) => {}
+            (None, Some(_)) if self.consumed.is_none() => {}
+            (Some(_), Some(_)) => manifest_error(
+                path,
+                0,
+                format!("binary_fixture {index} cannot specify both `hex` and `error`"),
+            ),
+            (None, Some(_)) => manifest_error(
+                path,
+                0,
+                format!("binary_fixture {index} with `error` cannot specify `consumed`"),
+            ),
+            (None, None) => manifest_error(
+                path,
+                0,
+                format!("binary_fixture {index} needs `hex` or `error`"),
+            ),
+        }
+        if let (Some(bytes), Some(consumed)) = (&self.bytes, self.consumed)
+            && consumed > bytes.bytes.len()
+        {
+            manifest_error(
+                path,
+                0,
+                format!("binary_fixture {index} `consumed` exceeds decoded byte count"),
+            );
+        }
+        if let Some(diagnostic) = &self.byte_diagnostic {
+            diagnostic.validate(path, index, self.bytes.is_some());
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -1879,6 +2012,25 @@ struct OutputChunkListExpectation {
     chunks: Option<Vec<BinaryFixtureBytes>>,
 }
 
+impl OutputChunkListExpectation {
+    fn validate(&self, path: &Path, index: usize) {
+        if self.name.is_empty() {
+            manifest_error(
+                path,
+                0,
+                format!("output_chunk_list {index} is missing `name`"),
+            );
+        }
+        if self.chunks.is_none() {
+            manifest_error(
+                path,
+                0,
+                format!("output_chunk_list {index} is missing `chunks`"),
+            );
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 struct BinaryFixtureByteDiagnostic {
     diagnostic_id: Option<String>,
@@ -1887,6 +2039,48 @@ struct BinaryFixtureByteDiagnostic {
     available_count: Option<usize>,
     readiness: Option<String>,
     field_path: Option<JsonValue>,
+}
+
+impl BinaryFixtureByteDiagnostic {
+    fn validate(&self, path: &Path, fixture_index: usize, fixture_has_bytes: bool) {
+        if !fixture_has_bytes {
+            manifest_error(
+                path,
+                0,
+                format!("binary_fixture {fixture_index} byte diagnostic metadata needs `hex`"),
+            );
+        }
+        if self.byte_offset.is_none() || self.field_path.is_none() {
+            manifest_error(
+                path,
+                0,
+                format!("binary_fixture {fixture_index} has incomplete byte diagnostic metadata"),
+            );
+        }
+        validate_binary_fixture_field_path(path, fixture_index, self.field_path.as_ref());
+
+        let has_count_metadata = self.expected_count.is_some()
+            || self.available_count.is_some()
+            || self.readiness.is_some();
+        if has_count_metadata
+            && (self.expected_count.is_none()
+                || self.available_count.is_none()
+                || self.readiness.is_none())
+        {
+            manifest_error(
+                path,
+                0,
+                format!("binary_fixture {fixture_index} has incomplete byte count metadata"),
+            );
+        }
+        if self.diagnostic_id.is_none() && !has_count_metadata {
+            manifest_error(
+                path,
+                0,
+                format!("binary_fixture {fixture_index} needs `diagnostic_id` for field metadata"),
+            );
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -2531,6 +2725,7 @@ impl<'a> ManifestParser<'a> {
     }
 
     fn finish(self) -> CaseManifest {
+        let path = self.path;
         let manifest = CaseManifest {
             invocation: CaseInvocation {
                 command: self
@@ -2562,174 +2757,7 @@ impl<'a> ManifestParser<'a> {
             skip: self.skip,
         };
 
-        for (index, assertion) in manifest.expectations.json_assertions.iter().enumerate() {
-            if assertion.path.is_empty() {
-                manifest_error(
-                    self.path,
-                    0,
-                    format!("json_assert {index} is missing `path`"),
-                );
-            }
-            if assertion.missing == assertion.equals.is_some() {
-                manifest_error(
-                    self.path,
-                    0,
-                    format!(
-                        "json_assert {index} needs exactly one of `equals` or `missing = true`"
-                    ),
-                );
-            }
-        }
-        for (index, assertion) in manifest
-            .expectations
-            .result_value_assertions
-            .iter()
-            .enumerate()
-        {
-            if assertion.value_path.is_empty() {
-                manifest_error(
-                    self.path,
-                    0,
-                    format!("result_value_assert {index} is missing `value_path`"),
-                );
-            }
-            if assertion.path.is_empty() {
-                manifest_error(
-                    self.path,
-                    0,
-                    format!("result_value_assert {index} is missing `path`"),
-                );
-            }
-            if assertion.missing == assertion.equals.is_some() {
-                manifest_error(
-                    self.path,
-                    0,
-                    format!(
-                        "result_value_assert {index} needs exactly one of `equals` or `missing = true`"
-                    ),
-                );
-            }
-        }
-        if let Some(help) = &manifest.expectations.help
-            && !help.has_assertion()
-        {
-            manifest_error(self.path, 0, "help section has no assertion");
-        }
-        for (index, assertion) in manifest.expectations.file_assertions.iter().enumerate() {
-            if assertion.path.is_empty() {
-                manifest_error(
-                    self.path,
-                    0,
-                    format!("file_assert {index} is missing `path`"),
-                );
-            }
-        }
-        for (index, diagnostic) in manifest.expectations.diagnostics.iter().enumerate() {
-            if diagnostic.id.is_empty() {
-                manifest_error(self.path, 0, format!("diagnostics {index} is missing `id`"));
-            }
-        }
-        if let Some(manifest_error_expectation) = &manifest.manifest_error
-            && !manifest_error_expectation.has_assertion()
-        {
-            manifest_error(self.path, 0, "manifest_error section has no assertion");
-        }
-        for (index, fixture) in manifest.expectations.binary_fixtures.iter().enumerate() {
-            if fixture.name.is_empty() {
-                manifest_error(
-                    self.path,
-                    0,
-                    format!("binary_fixture {index} is missing `name`"),
-                );
-            }
-            match (&fixture.bytes, &fixture.error) {
-                (Some(_), None) => {}
-                (None, Some(_)) if fixture.consumed.is_none() => {}
-                (Some(_), Some(_)) => manifest_error(
-                    self.path,
-                    0,
-                    format!("binary_fixture {index} cannot specify both `hex` and `error`"),
-                ),
-                (None, Some(_)) => manifest_error(
-                    self.path,
-                    0,
-                    format!("binary_fixture {index} with `error` cannot specify `consumed`"),
-                ),
-                (None, None) => manifest_error(
-                    self.path,
-                    0,
-                    format!("binary_fixture {index} needs `hex` or `error`"),
-                ),
-            }
-            if let (Some(bytes), Some(consumed)) = (&fixture.bytes, fixture.consumed)
-                && consumed > bytes.bytes.len()
-            {
-                manifest_error(
-                    self.path,
-                    0,
-                    format!("binary_fixture {index} `consumed` exceeds decoded byte count"),
-                );
-            }
-            if let Some(byte_diagnostic) = &fixture.byte_diagnostic {
-                if fixture.bytes.is_none() {
-                    manifest_error(
-                        self.path,
-                        0,
-                        format!("binary_fixture {index} byte diagnostic metadata needs `hex`"),
-                    );
-                }
-                if byte_diagnostic.byte_offset.is_none() || byte_diagnostic.field_path.is_none() {
-                    manifest_error(
-                        self.path,
-                        0,
-                        format!("binary_fixture {index} has incomplete byte diagnostic metadata"),
-                    );
-                }
-                validate_binary_fixture_field_path(
-                    self.path,
-                    index,
-                    byte_diagnostic.field_path.as_ref(),
-                );
-                let has_count_metadata = byte_diagnostic.expected_count.is_some()
-                    || byte_diagnostic.available_count.is_some()
-                    || byte_diagnostic.readiness.is_some();
-                if has_count_metadata
-                    && (byte_diagnostic.expected_count.is_none()
-                        || byte_diagnostic.available_count.is_none()
-                        || byte_diagnostic.readiness.is_none())
-                {
-                    manifest_error(
-                        self.path,
-                        0,
-                        format!("binary_fixture {index} has incomplete byte count metadata"),
-                    );
-                }
-                if byte_diagnostic.diagnostic_id.is_none() && !has_count_metadata {
-                    manifest_error(
-                        self.path,
-                        0,
-                        format!("binary_fixture {index} needs `diagnostic_id` for field metadata"),
-                    );
-                }
-            }
-        }
-        for (index, chunks) in manifest.expectations.output_chunk_lists.iter().enumerate() {
-            if chunks.name.is_empty() {
-                manifest_error(
-                    self.path,
-                    0,
-                    format!("output_chunk_list {index} is missing `name`"),
-                );
-            }
-            if chunks.chunks.is_none() {
-                manifest_error(
-                    self.path,
-                    0,
-                    format!("output_chunk_list {index} is missing `chunks`"),
-                );
-            }
-        }
-
+        manifest.validate(path);
         manifest
     }
 }
@@ -4028,6 +4056,44 @@ path = "status"
 equals = "failed"
 missing = true
 "#,
+    );
+}
+
+#[test]
+fn manifest_validation_rejects_incomplete_section_expectations() {
+    assert_manifest_parse_error(
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[[binary_fixture]]
+name = "short-u24"
+hex = "0001"
+byte_offset = 2
+field_path = []
+expected_count = 3
+"#,
+        "binary_fixture 0 has incomplete byte count metadata",
+    );
+    assert_manifest_parse_error(
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[[output_chunk_list]]
+name = "protocol-output"
+"#,
+        "output_chunk_list 0 is missing `chunks`",
+    );
+}
+
+fn assert_manifest_parse_error(source: &str, expected: &str) {
+    let panic = std::panic::catch_unwind(|| parse_manifest(Path::new("case.toml"), source))
+        .expect_err("incomplete manifest section should be rejected");
+    let message = panic_message(panic);
+    assert!(
+        message.contains(expected),
+        "expected panic to contain `{expected}`, got `{message}`"
     );
 }
 
