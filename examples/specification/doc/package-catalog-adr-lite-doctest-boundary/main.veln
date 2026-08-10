@@ -1,0 +1,20 @@
+## @adr-lite
+## id: private-note
+## status: accepted
+## context: Internal package documentation notes stay private.
+## decision: ADR-lite blocks are not public package documentation.
+## consequences: Their fenced examples are not package catalog doctest inputs.
+## This schema reference is private metadata: {@schema PrivatePacket}.
+## ```veln
+## fn private_example() -> MissingType
+## 	missing_value
+## end
+## ```
+pub fn value() -> Int
+	1
+end
+
+schema PrivatePacket
+	format binary
+	value: UInt8
+end

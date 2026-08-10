@@ -1596,6 +1596,15 @@ fn append_doc_block_before(lines: &[&str], target_line: usize, output: &mut Stri
     }
 }
 
+fn doc_lines_are_adr_lite<'a>(lines: impl IntoIterator<Item = &'a str>) -> bool {
+    lines
+        .into_iter()
+        .filter_map(|line| line.trim_start().strip_prefix("##"))
+        .map(str::trim_start)
+        .find(|line| !line.trim().is_empty())
+        .is_some_and(|line| matches!(line.trim(), "@adr" | "@adr-lite"))
+}
+
 fn append_public_doctest_gate_doc_block_before(
     lines: &[&str],
     target_line: usize,
@@ -1603,6 +1612,9 @@ fn append_public_doctest_gate_doc_block_before(
 ) {
     let mut block = String::new();
     append_doc_block_before(lines, target_line, &mut block);
+    if doc_lines_are_adr_lite(block.lines()) {
+        return;
+    }
     for line in block.lines() {
         let content = line
             .trim_start()
@@ -1884,6 +1896,9 @@ fn doc_schema_references_before(
         index -= 1;
     }
     docs.reverse();
+    if doc_lines_are_adr_lite(docs.iter().map(|(_, line)| *line)) {
+        return Vec::new();
+    }
 
     let mut references = Vec::new();
     let mut line_start = 0;
@@ -3489,6 +3504,21 @@ mod tests {
     }
 
     #[test]
+    fn executable_specification_fixture_observes_adr_lite_doctest_exclusion() {
+        let result = generate_fixture("package-catalog-adr-lite-doctest-boundary");
+        let catalog = catalog_or_panic(&result);
+        let bytes = std::str::from_utf8(result.canonical_bytes()).unwrap();
+
+        assert_eq!(catalog.modules[0].declarations[0].doc, Vec::<String>::new());
+        assert!(catalog.modules[0].declarations[0].doctests.is_empty());
+        assert!(catalog.modules[0].declarations[0].references.is_empty());
+        assert!(result.status().diagnostics.is_empty());
+        assert!(!bytes.contains("@adr-lite"));
+        assert!(!bytes.contains("MissingType"));
+        assert!(!bytes.contains("PrivatePacket"));
+    }
+
+    #[test]
     fn executable_specification_fixture_observes_schema_reference_import_gate() {
         let result = generate_fixture("package-catalog-schema-reference-import-gate");
 
@@ -4124,5 +4154,40 @@ mod tests {
         assert!(!bytes.contains("@adr"));
         assert!(!bytes.contains("let setup"));
         assert!(bytes.contains("fn sample()"));
+    }
+
+    #[test]
+    fn adr_lite_doc_block_doctests_are_not_gate_inputs() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[(
+                "main.veln",
+                concat!(
+                    "## @adr-lite\n",
+                    "## id: local-note\n",
+                    "## status: accepted\n",
+                    "## context: private\n",
+                    "## decision: private\n",
+                    "## consequences: private\n",
+                    "## Invalid examples in ADR-lite blocks are private metadata.\n",
+                    "## ```veln\n",
+                    "## fn hidden() -> MissingType\n",
+                    "## \tmissing_value\n",
+                    "## end\n",
+                    "## ```\n",
+                    "pub fn value() -> Int\n",
+                    "\t1\n",
+                    "end\n",
+                ),
+            )],
+        );
+
+        let catalog = catalog_or_panic(&result);
+        let bytes = std::str::from_utf8(result.canonical_bytes()).unwrap();
+        assert!(catalog.modules[0].declarations[0].doc.is_empty());
+        assert!(catalog.modules[0].declarations[0].doctests.is_empty());
+        assert!(result.status().diagnostics.is_empty());
+        assert!(!bytes.contains("@adr-lite"));
+        assert!(!bytes.contains("MissingType"));
     }
 }

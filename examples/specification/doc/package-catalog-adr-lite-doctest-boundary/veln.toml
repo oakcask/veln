@@ -1,0 +1,6 @@
+[package]
+name = "package-catalog-adr-lite-doctest-boundary"
+description = "Package catalog ADR-lite doctest boundary."
+
+[lib]
+exports = ["main.veln"]

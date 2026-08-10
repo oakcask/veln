@@ -110,6 +110,9 @@ The implemented gates are:
   declaration URI;
 - doctest: only visible doctest fences attached to exported modules, exported
   public declarations, and exported public type constructors are gate inputs.
+  If a continuous documentation block is classified as ADR-lite by its first
+  non-empty documentation line, all fenced examples in that block are excluded
+  from package documentation doctest gates.
   Visible positive `veln` doctest fences must pass the shared generated-source
   static analysis pipeline, including the declaration and statement portions
   of visible positive doctests that contain both. Declaration doctests can
@@ -162,8 +165,9 @@ hidden setup and ADR-lite publication exclusion, effect row binder signatures,
 deterministic bytes, digest and URI stability, package byte changes,
 generator-contract changes, renderer-only stability when bytes are unchanged,
 declaration URI lookup from declaration spans and navigation name-token spans,
-private documentation-reference exclusion, private doctest exclusion, parse
-gate failure with canonical package source URI, manifest gate failure,
+private documentation-reference exclusion, private doctest exclusion, ADR-lite
+doctest and documentation-reference exclusion, parse gate failure with
+canonical package source URI, manifest gate failure,
 test source export rejection, manifest package-name mismatch failure, manifest
 missing-package-name failure, manifest snapshot-byte mismatch failure,
 normalized export metadata, export gate failure, resolved
@@ -177,7 +181,8 @@ transcripts, and virtual-source resolution after package documentation
 failure. The tests also read fixtures under `examples/specification/doc/` to
 observe the catalog success path, manifest-gate failure path, nested
 declaration doctest success path with a nested expression block and public
-member alias, declaration doctest static-gate failure path,
+member alias, ADR-lite doctest exclusion from successful catalog generation,
+declaration doctest static-gate failure path,
 integration-test source exclusion from successful catalog projection, and
 schema-reference import-gate failure path through executable specification
 inputs.
