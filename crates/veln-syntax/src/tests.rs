@@ -1320,6 +1320,39 @@ fn rejects_schema_mapping_clauses() {
 }
 
 #[test]
+fn schema_body_recovery_preserves_later_clauses_and_declarations() {
+    let source = SourceFile::new(
+        "schema.veln",
+        concat!(
+            "schema Packet\n",
+            "  format binary\n",
+            "  length: uint8\n",
+            "  map to LegacyPacket\n",
+            "    length = length\n",
+            "  payload: ByteView(length)\n",
+            "  validate length >= 0\n",
+            "end\n",
+            "fn packet_count() -> result: Int\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert_eq!(output.diagnostics.len(), 1, "{:#?}", output.diagnostics);
+    assert_eq!(output.diagnostics[0].id, "parse.schema_mapping_removed");
+    let SyntaxItem::Schema(schema) = &output.tree.items[0] else {
+        panic!("expected schema declaration");
+    };
+    assert_eq!(schema.fields.len(), 2);
+    assert_eq!(schema.fields[1].name, "payload");
+    assert_eq!(schema.validations.len(), 1);
+    assert!(schema.end_present);
+    assert!(matches!(output.tree.items[1], SyntaxItem::Function(_)));
+}
+
+#[test]
 fn rejects_codec_declarations_with_migration_diagnostic() {
     let source = SourceFile::new(
         "codec.veln",
