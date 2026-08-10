@@ -12,9 +12,7 @@ end
 
 ## Uses {@schema wire::Packet}.
 ## ```veln
-## fn sample() -> Int
-## 	1
-## end
+## visible(1)
 ## ```
 ## ```veln-output stream=stdout
 ## 1

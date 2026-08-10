@@ -836,6 +836,12 @@ impl<'a> PackageDocBuilder<'a> {
                     .sources
                     .iter()
                     .map(generated_doctest_static_gate_source)
+                    .chain(
+                        parsed_sources
+                            .iter()
+                            .filter(|source| source.exported)
+                            .map(|source| source.source.clone()),
+                    )
                     .collect(),
                 manifest: None,
             },
@@ -1431,7 +1437,7 @@ fn generated_doctest_static_gate_source(source: &SourceFile) -> SourceFile {
     for line in visible_lines {
         let trimmed = line.trim_start();
         if active_declaration_depth == 0 && starts_declaration(trimmed) {
-            active_declaration_depth = 1;
+            active_declaration_depth = usize::from(!is_endless_declaration(trimmed));
             declarations.push(line);
             continue;
         }
@@ -1485,6 +1491,17 @@ fn starts_declaration(trimmed: &str) -> bool {
         || trimmed.starts_with("pub type ")
         || trimmed.starts_with("schema ")
         || trimmed.starts_with("pub schema ")
+}
+
+fn is_endless_declaration(trimmed: &str) -> bool {
+    matches!(
+        trimmed.split_once('=').map(|(head, _)| head.trim_end()),
+        Some(head)
+            if head.starts_with("type ")
+                || head.starts_with("pub type ")
+                || head.starts_with("schema ")
+                || head.starts_with("pub schema ")
+    )
 }
 
 fn starts_nested_block(trimmed: &str) -> bool {
@@ -3501,6 +3518,76 @@ mod tests {
                     "## \tend\n",
                     "## end\n",
                     "## sample(true)\n",
+                    "## ```\n",
+                    "pub fn value() -> Int\n",
+                    "\t1\n",
+                    "end\n",
+                ),
+            )],
+        );
+
+        let catalog = catalog_or_panic(&result);
+        assert_eq!(catalog.modules[0].declarations[0].doctests.len(), 1);
+        assert!(result.status().diagnostics.is_empty());
+    }
+
+    #[test]
+    fn positive_doctest_can_reference_exported_public_api() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[(
+                "main.veln",
+                concat!(
+                    "## ```veln\n",
+                    "## value(1)\n",
+                    "## ```\n",
+                    "pub fn value(input: Int) -> Int\n",
+                    "\tinput\n",
+                    "end\n",
+                ),
+            )],
+        );
+
+        let catalog = catalog_or_panic(&result);
+        assert_eq!(catalog.modules[0].declarations[0].doctests.len(), 1);
+        assert!(result.status().diagnostics.is_empty());
+    }
+
+    #[test]
+    fn fail_doctest_rejects_semantic_only_diagnostic() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[(
+                "main.veln",
+                concat!(
+                    "## ```veln fail\n",
+                    "## missing_value\n",
+                    "## ```\n",
+                    "pub fn value() -> Int\n",
+                    "\t1\n",
+                    "end\n",
+                ),
+            )],
+        );
+
+        assert!(result.catalog().is_none());
+        assert!(result.status().diagnostics.iter().any(|diagnostic| {
+            diagnostic.gate == "doctest" && diagnostic.code == "doctest.expected_failure_missing"
+        }));
+    }
+
+    #[test]
+    fn alias_doctest_can_mix_endless_declaration_and_statement() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[(
+                "main.veln",
+                concat!(
+                    "## ```veln\n",
+                    "## pub type Raw\n",
+                    "## end\n",
+                    "## pub type Count = Raw\n",
+                    "## ()\n",
                     "## ```\n",
                     "pub fn value() -> Int\n",
                     "\t1\n",

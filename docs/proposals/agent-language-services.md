@@ -916,9 +916,9 @@ already implemented.
 | Read a noncanonical, unknown, or mismatched snapshot URI through MCP. | The server returns `resource_not_found` without normalization, fallback, or filesystem access. The transport-independent resolver rejection table is already implemented and specified in [Package Virtual Sources](../specification/package-virtual-sources.md). | MCP adapter case mapping a catalog miss to `resource_not_found`. |
 | Read a private distribution source or inspect package metadata. | The source is readable; metadata contains only the closed public allowlist and no dependency, URL, tool, path, or credential-bearing fields. | Q15 disclosure-policy cases. |
 | Keep returned dependency URIs while projects refresh or disappear. | Every published snapshot remains readable until shutdown; capacity failure never evicts an older URI. | Q10 resource-lifetime cases. |
-| Generate package docs. | The transport-independent catalog contains only exported modules and their public API; attached contracts, visible doctests, stream-aware expected-output fences, import-aware resolved schema documentation references, public schema alias targets, effect-row-binder signatures, and declaration-location URI lookup are preserved. MCP publication remains planned. | Implemented package-documentation unit tests and readable `doc` examples; planned MCP resource case. |
+| Generate package docs. | The transport-independent catalog contains only exported modules and their public API; attached contracts, visible doctests that can reference the same exported package API, stream-aware expected-output fences, import-aware resolved schema documentation references, public schema alias targets, effect-row-binder signatures, and declaration-location URI lookup are preserved. MCP publication remains planned. | Implemented package-documentation unit tests and readable `doc` examples; planned MCP resource case. |
 | Change catalog semantics without changing package bytes. | The package digest stays fixed and the documentation catalog digest and URIs change. | Implemented package-documentation document-identity tests; planned MCP resource case. |
-| Package documentation generation or doctest validation fails. | The transport-independent result contains ordered status diagnostics and no partial module or declaration catalog. MCP status-resource publication remains planned. | Implemented atomic-generation-failure unit tests; planned MCP resource case. |
+| Package documentation generation or doctest validation fails. | The transport-independent result contains ordered status diagnostics and no partial module or declaration catalog. Negative doctests require parse diagnostics rather than semantic-only diagnostics. MCP status-resource publication remains planned. | Implemented atomic-generation-failure unit tests; planned MCP resource case. |
 
 ### Published Language Reference
 
@@ -961,7 +961,8 @@ and specified in
 The transport-independent exported package documentation catalog foundation,
 same-capture manifest binding, path-derived module identity, stream-aware
 expected-output publication, effect-row-binder signatures, and generated
-doctest static gate are implemented and specified in
+doctest static gate, including same-package public API references and
+parse-only negative doctest matching, are implemented and specified in
 [Package Documentation Catalogs](../specification/package-documentation.md).
 Direct path, vendor, mirror, and locally available direct git dependency
 definition locations, embedded standard-library definition locations, the LSP

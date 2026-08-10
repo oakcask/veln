@@ -121,6 +121,7 @@ pub fn reconcile_expected_doctest_failures(
     for diagnostic in diagnostics {
         if let Some(span) = &diagnostic.span
             && diagnostic.severity == Severity::Error
+            && diagnostic.kind == DiagnosticKind::Parse
             && expected_failures.contains_key(span.file.as_str())
         {
             matched.insert(span.file.as_str().to_string());
@@ -2933,7 +2934,29 @@ mod tests {
     }
 
     #[test]
-    fn negative_doctest_failure_reconciliation_consumes_matching_diagnostics() {
+    fn negative_doctest_failure_reconciliation_consumes_matching_parse_diagnostics() {
+        let source = SourceFile::new("main.veln", "## ```veln fail\n");
+        let generated = SourceFile::new("main.veln#doctest-1_test.veln", "fn doctest_1()\nend\n");
+        let fail_span = source.span(TextRange::new(0, 16));
+        let generated_span = generated.span(TextRange::new(0, generated.len()));
+        let diagnostics = vec![Diagnostic::new(
+            "parse.expected_item",
+            Severity::Error,
+            DiagnosticKind::Parse,
+            "expected item",
+            Some(generated_span),
+            JsonValue::Null,
+        )];
+        let expected_failures =
+            BTreeMap::from([("main.veln#doctest-1_test.veln".to_string(), fail_span)]);
+
+        let reconciled = reconcile_expected_doctest_failures(diagnostics, &expected_failures);
+
+        assert!(reconciled.is_empty(), "{reconciled:#?}");
+    }
+
+    #[test]
+    fn negative_doctest_failure_reconciliation_rejects_semantic_only_diagnostics() {
         let source = SourceFile::new("main.veln", "## ```veln fail\n");
         let generated = SourceFile::new("main.veln#doctest-1_test.veln", "fn doctest_1()\nend\n");
         let fail_span = source.span(TextRange::new(0, 16));
@@ -2951,7 +2974,9 @@ mod tests {
 
         let reconciled = reconcile_expected_doctest_failures(diagnostics, &expected_failures);
 
-        assert!(reconciled.is_empty(), "{reconciled:#?}");
+        assert_eq!(reconciled.len(), 2);
+        assert_eq!(reconciled[0].id, "type.mismatch");
+        assert_eq!(reconciled[1].id, "doctest.expected_failure_missing");
     }
 
     #[test]
@@ -4903,10 +4928,10 @@ mod tests {
         let other_span = other.span(TextRange::new(0, other.len()));
         let diagnostics = vec![
             Diagnostic::new(
-                "type.mismatch",
+                "parse.expected_item",
                 Severity::Error,
-                DiagnosticKind::Type,
-                "expected `Int`, but found `String`",
+                DiagnosticKind::Parse,
+                "expected item",
                 Some(generated_span),
                 JsonValue::Null,
             ),

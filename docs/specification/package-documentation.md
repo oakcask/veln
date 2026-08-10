@@ -116,9 +116,11 @@ The implemented gates are:
   contain nested blocks such as `if` expressions; only the declaration's
   top-level `end` separates the declaration portion from later statement
   examples.
-  `veln fail` fences must produce an error diagnostic through that same
-  pipeline, `veln ignore` fences are not published or checked by the catalog,
-  hidden setup lines are not published, `veln-output stream=stdout` and
+  Positive declaration doctests can call public API from the same exported
+  package snapshot. `veln fail` fences must produce a parse diagnostic through
+  that same pipeline. A semantic-only diagnostic does not satisfy `veln fail`.
+  `veln ignore` fences are not published or checked by the catalog, hidden
+  setup lines are not published, `veln-output stream=stdout` and
   `veln-output stream=stderr` fences are accepted, duplicate output fences for
   the same stream fail generation, and doctest metadata diagnostics from the
   shared doctest extractor fail generation; and
@@ -150,14 +152,15 @@ selection, private and non-exported exclusion, contracts, constructor
 projection, constructor documentation, constructor doctests, constructor
 documentation references, and constructor-location lookup, visible doctest and
 expected-output publication, generated doctest static analysis for expression,
-declaration, and mixed declaration-statement doctests, `veln fail` doctest
-handling, ignored doctest expected-output adjacency, duplicate expected-output
-rejection, hidden setup and ADR-lite exclusion, effect row binder signatures,
-deterministic bytes, digest and URI stability, package byte changes,
-generator-contract changes, renderer-only stability when bytes are unchanged,
-declaration URI lookup from declaration spans and navigation name-token spans,
-private documentation-reference exclusion, private doctest exclusion, parse
-gate failure with canonical package source URI, manifest gate failure,
+declaration, mixed declaration-statement, and public-package-API doctests,
+parse-only `veln fail` doctest handling, ignored doctest expected-output
+adjacency, duplicate expected-output rejection, hidden setup and ADR-lite
+exclusion, effect row binder signatures, deterministic bytes, digest and URI
+stability, package byte changes, generator-contract changes, renderer-only
+stability when bytes are unchanged, declaration URI lookup from declaration
+spans and navigation name-token spans, private documentation-reference
+exclusion, private doctest exclusion, parse gate failure with canonical package
+source URI, manifest gate failure,
 manifest package-name mismatch failure, manifest missing-package-name failure,
 manifest snapshot-byte mismatch failure, normalized export metadata, export
 gate failure, resolved documentation-reference projection, qualified
