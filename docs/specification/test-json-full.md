@@ -1,3 +1,9 @@
+---
+role: specification
+authority: normative
+update-when: The `veln test --json` output schema, static gate behavior, case records, runtime failure details, expected-output details, stdio event fields, or executable test JSON evidence changes.
+---
+
 # Test JSON
 
 This file specifies the implemented JSON output for `veln test --json`.
@@ -174,7 +180,8 @@ Unknown doctest metadata and invalid doctest metadata are also reported as
 static doc diagnostics before execution. Unknown `veln` and `veln-output`
 attributes use `doctest.unknown_metadata`; empty `error=`, empty or unsupported
 runtime expectation metadata, missing runtime expectation details, missing
-`stream`, and unsupported output streams use `doctest.invalid_metadata`.
+`stream`, duplicate `stream` attributes on one output fence, and unsupported
+output streams use `doctest.invalid_metadata`.
 
 Captured stdio events use:
 
