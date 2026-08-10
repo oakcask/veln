@@ -380,9 +380,9 @@ Implemented:
   document overlays.
 - Document-scoped diagnostic publication for Veln documents outside resolved
   workspaces or when no workspace identity is initialized.
-- Stdio definition responses for public functions in exported direct
-  path-dependency sources, and `veln/virtualDocument` reads for the returned
-  exact `veln-pkg:` URI.
+- Stdio definition responses for public functions in exported direct `path`,
+  `vendor`, and `mirror` dependency sources, and `veln/virtualDocument` reads
+  for the returned exact `veln-pkg:` URI.
 - Stdio definition responses for implicit prelude functions and public
   functions in explicitly imported exported `std` sources, with exact
   `veln/virtualDocument` reads from the embedded standard snapshot.
