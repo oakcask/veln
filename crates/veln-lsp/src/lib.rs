@@ -3501,6 +3501,51 @@ mod tests {
     }
 
     #[test]
+    fn ambiguous_bare_prelude_fallback_returns_no_definition() {
+        let mut server = Server::default();
+        let project = TempProject::new("ambiguous-bare-prelude-definition");
+        project.write(
+            "veln.toml",
+            concat!(
+                "[package]\nname = \"app\"\n\n",
+                "[dependencies.\"example/pkg\"]\npath = \"vendor/lib\"\n",
+            ),
+        );
+        project.write(
+            "main.veln",
+            concat!(
+                "use math from \"example/pkg\"\n\n",
+                "pub fn main(items: Vec<Int>) -> Int\n",
+                "  vec_len(items)\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "vendor/lib/veln.toml",
+            concat!(
+                "[package]\nname = \"example/pkg\"\n\n",
+                "[lib]\nexports = [\"math.veln\"]\n",
+            ),
+        );
+        project.write(
+            "vendor/lib/math.veln",
+            "pub fn vec_len(items: Vec<Int>) -> Int\n  0\nend\n",
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let definition = server.handle_message(&definition_request(&main_uri, 3, 4));
+
+        assert_eq!(definition.len(), 1);
+        assert!(
+            definition[0].contains(r#""result":null"#),
+            "{}",
+            definition[0]
+        );
+    }
+
+    #[test]
     fn retained_direct_dependencies_use_the_supplied_workspace_manifest() {
         let project = TempProject::new("retained-dependency-supplied-manifest");
         project.write(

@@ -502,6 +502,9 @@ impl SymbolIndex {
             if local_binding_shadows_call_target(tokens, token_index, name) {
                 return None;
             }
+            if self.has_visible_non_prelude_imported_function(file, name) {
+                return None;
+            }
             return self
                 .functions
                 .iter()
@@ -532,6 +535,20 @@ impl SymbolIndex {
             })
             .cloned()
             .map(Symbol::Function)
+    }
+
+    fn has_visible_non_prelude_imported_function(&self, file: &IndexedFile, name: &str) -> bool {
+        self.functions.iter().any(|symbol| {
+            if symbol.name != name || symbol.standard_prelude || symbol.module == file.module {
+                return false;
+            }
+            match &symbol.package {
+                Some(package) => file
+                    .external_uses
+                    .contains(&(symbol.module.clone(), package.clone())),
+                None => file.uses.contains(&symbol.module),
+            }
+        })
     }
 
     fn local_references(&self, symbol: &LocalSymbol, include_declaration: bool) -> Vec<SourceSpan> {
@@ -2000,6 +2017,50 @@ mod tests {
                 "accepted shadowed {case} call"
             );
         }
+    }
+
+    #[test]
+    fn standard_library_bare_prelude_fallback_rejects_ambiguous_imports() {
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[(
+                "math.veln",
+                "pub fn vec_len(items: Vec<Int>) -> Int\n  0\nend\n",
+            )],
+            ["math.veln"],
+        );
+        let standard_library = standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                "pub fn vec_len(items: Vec<A>) -> Int\n  prelude_builtin::vec_len(items)\nend\n",
+            )],
+            ["prelude.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use math from \"example/pkg\"\n\n",
+                    "pub fn main(items: Vec<Int>) -> Int\n",
+                    "  vec_len(items)\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        )
+        .with_standard_library(standard_library);
+
+        assert!(
+            navigate(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 4,
+                    column: 4,
+                },
+            )
+            .is_none()
+        );
     }
 
     #[test]

@@ -1,0 +1,11 @@
+command = ["lsp"]
+source_errors = "expected"
+stdin = "Content-Length: 78\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"rootUri\":\"file://.\"}}Content-Length: 150\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"textDocument/definition\",\"params\":{\"textDocument\":{\"uri\":\"file://./main.veln\"},\"position\":{\"line\":3,\"character\":4}}}Content-Length: 58\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"shutdown\",\"params\":null}Content-Length: 47\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"exit\",\"params\":null}"
+exit = 0
+
+[stdout]
+contains = ["\"definitionProvider\":true", "\"id\":2,\"result\":null", "\"id\":3,\"result\":null"]
+not_contains = ["veln-pkg:///std/snapshot/", "crates/veln-stdlib", "target/debug"]
+
+[stderr]
+format = "empty"
