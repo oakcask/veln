@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-review-when: The documented command behavior or executable command evidence changes.
+update-when: The documented command behavior or executable command evidence changes.
 ---
 
 # Commands

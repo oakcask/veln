@@ -1,10 +1,10 @@
 ---
-review-when: The standard-library package record is superseded or its evidence changes.
+role: implementation-record
+authority: supporting
+update-when: The standard-library package record is superseded or its evidence changes.
 ---
 
 # Standard Library Package
-
-Status: implemented
 
 This record preserves the completed migration from function-level embedded
 source metadata to the toolchain-owned `std` package. Current behavior is

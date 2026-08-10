@@ -1,6 +1,6 @@
 ---
 role: routing
-review-when: A specification topic route is added, moved, renamed, or no longer points to the smallest current behavior page.
+update-when: A specification topic route is added, moved, renamed, or no longer points to the smallest current behavior page.
 ---
 
 # Language Topic Map

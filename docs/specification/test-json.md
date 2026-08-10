@@ -1,5 +1,7 @@
 ---
-review-when: The documented test JSON behavior or executable test JSON evidence changes.
+role: specification
+authority: normative
+update-when: The documented test JSON behavior or executable test JSON evidence changes.
 ---
 
 # Test JSON

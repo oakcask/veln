@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const vagueTriggerPattern = /^(?:always|as needed|periodically|regularly|tbd|todo|when necessary)[.!]?$/i;
+const vagueUpdateTriggerPattern = /^(?:always|as needed|periodically|regularly|tbd|todo|when necessary)[.!]?$/i;
 const roleRules = new Map([
   ["implementation-record", { authority: "optional", values: ["supporting"], statuses: ["superseded"] }],
   ["proposal", { authority: "forbidden", values: [], statuses: ["closed", "rejected", "superseded"] }],
@@ -32,7 +32,7 @@ if (isMainModule()) {
 
   if (!result.valid) {
     const message = [
-      "Update the frontmatter in each listed document before merging; document roles, authority, lifecycle, and review triggers keep current behavior separate from proposals and historical records.",
+      "Update the frontmatter in each listed document before merging; document roles, authority, lifecycle, and update triggers keep documentation aligned with project state.",
       ...result.errors.map((error) => `- ${error}`),
     ].join("\n");
     if (process.env.GITHUB_ACTIONS === "true") {
@@ -57,7 +57,7 @@ export function validateDocumentFrontmatter({ file, text }) {
   const frontmatter = markdownFrontmatter(text);
   if (frontmatter === undefined) {
     return [
-      `${file}: add YAML frontmatter at the start of the document with one role: field and one review-when: field`,
+      `${file}: add YAML frontmatter at the start of the document with one role: field and one update-when: field`,
     ];
   }
   if (!frontmatter.closed) {
@@ -70,7 +70,7 @@ export function validateDocumentFrontmatter({ file, text }) {
     ...validateRole({ file, frontmatter }),
     ...validateAuthority({ file, frontmatter }),
     ...validateStatus({ file, frontmatter }),
-    ...validateReviewTrigger({ file, frontmatter }),
+    ...validateUpdateTrigger({ file, frontmatter }),
     ...validateLegacyBodyStatus({ file, text, frontmatter }),
   ];
 }
@@ -225,14 +225,20 @@ function validateStatus({ file, frontmatter }) {
   return [];
 }
 
-function validateReviewTrigger({ file, frontmatter }) {
-  const fields = frontmatterField(frontmatter, "review-when");
+function validateUpdateTrigger({ file, frontmatter }) {
+  const fields = frontmatterField(frontmatter, "update-when");
+  const legacyFields = frontmatterField(frontmatter, "review-when");
+  if (legacyFields.length > 0) {
+    return [
+      `${file}:${legacyFields[0].line}: replace review-when: with update-when: so the field identifies when project changes can make the document stale`,
+    ];
+  }
   const structuralErrors = validateSingleLineField({
     file,
     fields,
-    name: "review-when",
-    missingAction: "add exactly one review-when: field naming the project-state change that requires this document to be checked again",
-    duplicateAction: "keep exactly one review-when: field so the document has one review contract",
+    name: "update-when",
+    missingAction: "add exactly one update-when: field naming the project-state change that can make this document stale",
+    duplicateAction: "keep exactly one update-when: field so the document has one update contract",
   });
   if (structuralErrors.length > 0) {
     return structuralErrors;
@@ -241,12 +247,12 @@ function validateReviewTrigger({ file, frontmatter }) {
   const trigger = fields[0].parsed.value;
   if (trigger === "") {
     return [
-      `${file}:${fields[0].line}: name the project-state change after review-when: so maintainers can tell when this document may be stale`,
+      `${file}:${fields[0].line}: name the project-state change after update-when: so maintainers can tell when to update this document`,
     ];
   }
-  if (vagueTriggerPattern.test(trigger)) {
+  if (vagueUpdateTriggerPattern.test(trigger)) {
     return [
-      `${file}:${fields[0].line}: replace vague review trigger "${trigger}" with a concrete project-state change`,
+      `${file}:${fields[0].line}: replace vague update trigger "${trigger}" with a concrete project-state change`,
     ];
   }
   return [];

@@ -22,7 +22,7 @@ Keep documentation discoverable without forcing agents to read long historical o
 6. When a normally important file grows long, keep the original expected path as a short index and move the full body to a clearly named sibling such as `*-full.md` or `*-plan.md`.
 7. Update relative links after moves and verify that Markdown links resolve.
 8. If planned behavior, phase scope, diagnostics gates, or quality rationale change, keep the relevant docs aligned with the code change.
-9. Add or update the `role:` and `review-when:` fields in the YAML frontmatter
+9. Add or update the `role:` and `update-when:` fields in the YAML frontmatter
    of every Markdown document that the change adds or modifies under `docs/`.
    Add `authority:` and `status:` only when the metadata rules require them.
 
@@ -56,27 +56,28 @@ current supporting record. Do not put a `Status:` label in the document body.
 ---
 role: specification
 authority: normative
-review-when: The CLI command output contract or its checked command-output fixtures change.
+update-when: The CLI command output contract or its checked command-output fixtures change.
 ---
 ```
 
 ```markdown
 ---
 role: routing
-review-when: A CLI specification page is added, moved, reclassified, or removed.
+update-when: A CLI specification page is added, moved, reclassified, or removed.
 ---
 ```
 
-## Review Triggers
+## Update Triggers
 
 Put YAML frontmatter at the start of the document. Add one single-line
-`review-when:` field. Name an observable project-state change that would make a
-maintainer recheck the document. Quote the value when YAML punctuation could
-make it ambiguous. Do not use calendar schedules or vague values such as
+`update-when:` field. Name an observable project-state change that can make the
+document stale. The change requires a maintainer to check the document and
+update it if needed. Quote the value when YAML punctuation could make it
+ambiguous. Do not use calendar schedules or vague values such as
 `periodically`, `regularly`, `as needed`, `when necessary`, `always`, or `TBD`.
 
-Write the field as a self-contained selector for documentation review. Assume
-an agent receives only the extracted `review-when:` values, without document
+Write the field as a self-contained selector for documentation update. Assume
+an agent receives only the extracted `update-when:` values, without document
 titles or bodies, and must compare them with its current task. The value must
 name the affected project subject and the concrete change that can make the
 document stale. Name relevant contracts, commands, components, schemas,
@@ -91,7 +92,7 @@ subject, behavior, route, or evidence phrase means, rewrite the trigger.
 
 ```markdown
 ---
-review-when: The `veln check --json` diagnostic schema or its checked JSON fixtures change.
+update-when: The `veln check --json` diagnostic schema or its checked JSON fixtures change.
 ---
 
 # Command Output
@@ -107,18 +108,19 @@ Choose the trigger from the document's purpose:
   authority, replacement, supporting evidence, or decision boundary that can
   change.
 - Routing page: name the routed document set and the additions, moves,
-  reclassifications, removals, or responsibility changes that require review.
-- Historical record: name the completed work and review when it is superseded,
-  its named evidence becomes invalid, or a current specification starts relying
-  on the record as authority.
+  reclassifications, removals, or responsibility changes that can make the route
+  stale.
+- Historical record: name the completed work and update it when it is
+  superseded, its named evidence becomes invalid, or a current specification
+  starts relying on the record as authority.
 
 Use the narrowest sufficient trigger. State multiple related conditions in the
-same field when any one of them requires review. Do not add a second
-`review-when:` field. Before accepting the field, extract it without the
+same field when any one of them requires an update. Do not add a second
+`update-when:` field. Before accepting the field, extract it without the
 document body and confirm that a reader can decide whether a representative
-project task might trigger review. Opening the document may confirm whether an
-already selected candidate needs an edit; it must not be required to identify
-the candidate.
+project task might require the document to be updated. Opening the document may
+confirm whether an already selected candidate needs an update; it must not be
+required to identify the candidate.
 
 ## Placement Rules
 
@@ -168,8 +170,8 @@ Do not split when:
 - Check file layout with `find docs -maxdepth 3 -type f | sort`.
 - Check line counts with `wc -l` for changed index and detail files.
 - Search for stale links with `rg`.
-- Inspect extracted review selectors with
-  `rg -n '^review-when:' docs -g '*.md'` and check that each value can be
+- Inspect extracted update selectors with
+  `rg -n '^update-when:' docs -g '*.md'` and check that each value can be
   matched to a project task without opening its document.
 - Run a Markdown link existence check when files were moved.
 - Run `node workflow-scripts/check-doc-frontmatter.mjs` with the changed

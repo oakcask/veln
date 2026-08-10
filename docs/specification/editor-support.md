@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-review-when: The documented editor-facing behavior or its LSP server evidence changes.
+update-when: The documented editor-facing behavior or its LSP server evidence changes.
 ---
 
 # Editor Support

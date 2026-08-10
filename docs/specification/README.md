@@ -1,6 +1,6 @@
 ---
 role: routing
-review-when: A specification route is added, moved, reclassified, or no longer points to current behavior.
+update-when: A specification route is added, moved, reclassified, or no longer points to current behavior.
 ---
 
 # Language Specification

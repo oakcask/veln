@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-review-when: The diagnostic JSON contract or checked diagnostic examples change.
+update-when: The diagnostic JSON contract or checked diagnostic examples change.
 ---
 
 # Diagnostics JSON Details

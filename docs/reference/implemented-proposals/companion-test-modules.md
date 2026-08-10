@@ -1,10 +1,10 @@
 ---
-review-when: The historical scope is superseded, its evidence links become invalid, or current documentation starts relying on this record as authority.
+role: implementation-record
+authority: supporting
+update-when: The historical scope is superseded, its evidence links become invalid, or current documentation starts relying on this record as authority.
 ---
 
 # Companion Test Modules
-
-Status: implemented
 
 ## Summary
 

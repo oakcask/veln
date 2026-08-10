@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-review-when: The metrics command JSON schema or executable metrics cases change.
+update-when: The metrics command JSON schema or executable metrics cases change.
 ---
 
 # Metrics JSON

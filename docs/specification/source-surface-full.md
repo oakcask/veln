@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-review-when: The source grammar or executable source-surface fixtures change.
+update-when: The source grammar or executable source-surface fixtures change.
 ---
 
 # Source Surface Details

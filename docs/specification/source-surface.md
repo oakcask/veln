@@ -1,5 +1,7 @@
 ---
-review-when: The documented source surface or executable source evidence changes.
+role: specification
+authority: normative
+update-when: The documented source surface or executable source evidence changes.
 ---
 
 # Source Surface

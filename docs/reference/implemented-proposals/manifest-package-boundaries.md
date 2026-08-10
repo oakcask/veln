@@ -1,7 +1,7 @@
 ---
 role: implementation-record
 authority: supporting
-review-when: The completion evidence is superseded, its links become invalid, or current documentation starts relying on this record as authority.
+update-when: The completion evidence is superseded, its links become invalid, or current documentation starts relying on this record as authority.
 ---
 
 # Manifest Package Boundaries
