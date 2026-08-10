@@ -121,7 +121,6 @@ pub fn reconcile_expected_doctest_failures(
     for diagnostic in diagnostics {
         if let Some(span) = &diagnostic.span
             && diagnostic.severity == Severity::Error
-            && diagnostic.kind == DiagnosticKind::Parse
             && expected_failures.contains_key(span.file.as_str())
         {
             matched.insert(span.file.as_str().to_string());
@@ -2934,7 +2933,7 @@ mod tests {
     }
 
     #[test]
-    fn negative_doctest_failure_reconciliation_consumes_matching_parse_diagnostics() {
+    fn negative_doctest_failure_reconciliation_consumes_matching_error_diagnostics() {
         let source = SourceFile::new("main.veln", "## ```veln fail\n");
         let generated = SourceFile::new("main.veln#doctest-1_test.veln", "fn doctest_1()\nend\n");
         let fail_span = source.span(TextRange::new(0, 16));
@@ -2956,7 +2955,7 @@ mod tests {
     }
 
     #[test]
-    fn negative_doctest_failure_reconciliation_rejects_semantic_only_diagnostics() {
+    fn negative_doctest_failure_reconciliation_consumes_matching_semantic_diagnostics() {
         let source = SourceFile::new("main.veln", "## ```veln fail\n");
         let generated = SourceFile::new("main.veln#doctest-1_test.veln", "fn doctest_1()\nend\n");
         let fail_span = source.span(TextRange::new(0, 16));
@@ -2974,9 +2973,7 @@ mod tests {
 
         let reconciled = reconcile_expected_doctest_failures(diagnostics, &expected_failures);
 
-        assert_eq!(reconciled.len(), 2);
-        assert_eq!(reconciled[0].id, "type.mismatch");
-        assert_eq!(reconciled[1].id, "doctest.expected_failure_missing");
+        assert!(reconciled.is_empty(), "{reconciled:#?}");
     }
 
     #[test]

@@ -294,7 +294,7 @@ fn check_ignores_non_runnable_doctest_fences() {
 }
 
 #[test]
-fn check_reports_negative_doctest_with_semantic_only_diagnostic() {
+fn check_accepts_negative_doctest_with_semantic_only_diagnostic() {
     let project = TestProject::new("check-negative-doctest-semantic-only");
     project.write(
         "main.veln",
@@ -311,16 +311,8 @@ fn check_reports_negative_doctest_with_semantic_only_diagnostic() {
     let output = project.check_json(&["main.veln"]);
     let stdout = stdout(&output);
 
-    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
-    assert_contains_all(
-        stdout,
-        &[
-            "\"status\":\"error\"",
-            "\"id\":\"doctest.expected_failure_missing\"",
-            "\"message\":\"negative doctest produced no error diagnostics\"",
-            "\"details\":{\"kind\":\"doctest_metadata\"}",
-        ],
-    );
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_contains_all(stdout, &["\"status\":\"ok\"", "\"diagnostics\":[]"]);
 }
 
 #[test]

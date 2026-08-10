@@ -4,7 +4,7 @@ use std::fmt;
 
 use sha2::{Digest, Sha256};
 use veln_analysis::{DoctestMode, analyze_project};
-use veln_diagnostics::{Diagnostic, Severity};
+use veln_diagnostics::{Diagnostic, DiagnosticKind, Severity};
 use veln_project::{
     CapturedPackageSnapshot, PackageIdentity, Project, ProjectManifest, classify_companion_source,
 };
@@ -14,7 +14,7 @@ use veln_syntax::{
     PublicAliasKind, SchemaDecl, SyntaxItem, TokenKind, TypeDecl, TypeVariantDecl, Visibility,
     canonical_type_text, lex, parse,
 };
-use veln_test::{doctest_sources, reconcile_expected_doctest_failures};
+use veln_test::doctest_sources;
 
 use crate::{NavigationLocation, NavigationSource};
 
@@ -847,7 +847,7 @@ impl<'a> PackageDocBuilder<'a> {
             },
             DoctestMode::Exclude,
         );
-        let diagnostics = reconcile_expected_doctest_failures(
+        let diagnostics = reconcile_package_expected_doctest_failures(
             analysis.checked_diagnostics(),
             &doctests.expected_failures,
         );
@@ -1410,6 +1410,47 @@ fn is_doctest_gate_diagnostic(diagnostic: &Diagnostic) -> bool {
             .is_some_and(|span| span.file.as_str().contains("#doctest-"))
 }
 
+fn reconcile_package_expected_doctest_failures(
+    diagnostics: Vec<Diagnostic>,
+    expected_failures: &BTreeMap<String, SourceSpan>,
+) -> Vec<Diagnostic> {
+    if expected_failures.is_empty() {
+        return diagnostics;
+    }
+
+    let mut matched = BTreeSet::new();
+    let mut kept = Vec::new();
+    for diagnostic in diagnostics {
+        if let Some(span) = &diagnostic.span
+            && diagnostic.severity == Severity::Error
+            && diagnostic.kind == DiagnosticKind::Parse
+            && expected_failures.contains_key(span.file.as_str())
+        {
+            matched.insert(span.file.as_str().to_string());
+            continue;
+        }
+        kept.push(diagnostic);
+    }
+
+    for (path, span) in expected_failures {
+        if matched.contains(path) {
+            continue;
+        }
+        kept.push(Diagnostic::new(
+            "doctest.expected_failure_missing",
+            Severity::Error,
+            DiagnosticKind::Doc,
+            "negative doctest produced no parse diagnostics",
+            Some(span.clone()),
+            veln_diagnostics::JsonValue::object([(
+                "kind",
+                veln_diagnostics::JsonValue::string("doctest_metadata"),
+            )]),
+        ));
+    }
+    kept
+}
+
 fn generated_doctest_static_gate_source(source: &SourceFile) -> SourceFile {
     let mut visible_lines = source
         .text()
@@ -1431,30 +1472,8 @@ fn generated_doctest_static_gate_source(source: &SourceFile) -> SourceFile {
         visible_lines.pop();
     }
 
-    let mut declarations = Vec::new();
-    let mut statements = Vec::new();
-    let mut active_declaration_depth = 0usize;
-    for line in visible_lines {
-        let trimmed = line.trim_start();
-        if active_declaration_depth == 0 && starts_declaration(trimmed) {
-            active_declaration_depth = usize::from(!is_endless_declaration(trimmed));
-            declarations.push(line);
-            continue;
-        }
-
-        if active_declaration_depth > 0 {
-            let ends_block = trimmed == "end";
-            if starts_nested_block(trimmed) {
-                active_declaration_depth += 1;
-            }
-            declarations.push(line);
-            if ends_block {
-                active_declaration_depth = active_declaration_depth.saturating_sub(1);
-            }
-        } else {
-            statements.push(line);
-        }
-    }
+    let (declarations, statements) =
+        split_generated_doctest_visible_lines(source.path().as_str(), &visible_lines);
 
     if declarations.is_empty() {
         return source.clone();
@@ -1483,30 +1502,57 @@ fn generated_doctest_body_line(line: &str) -> Option<&str> {
     line.strip_prefix("  ")
 }
 
-fn starts_declaration(trimmed: &str) -> bool {
-    trimmed.starts_with("fn ")
-        || trimmed.starts_with("test ")
-        || trimmed.starts_with("pub fn ")
-        || trimmed.starts_with("type ")
-        || trimmed.starts_with("pub type ")
-        || trimmed.starts_with("schema ")
-        || trimmed.starts_with("pub schema ")
+fn split_generated_doctest_visible_lines(
+    path: &str,
+    visible_lines: &[String],
+) -> (Vec<String>, Vec<String>) {
+    let mut text = String::new();
+    let mut line_ranges = Vec::new();
+    for line in visible_lines {
+        let start = text.len();
+        text.push_str(line);
+        let end = text.len();
+        text.push('\n');
+        line_ranges.push(TextRange::new(start, end));
+    }
+    let parsed = parse(&SourceFile::new(path, text));
+    let declaration_spans = parsed
+        .tree
+        .items
+        .iter()
+        .map(syntax_item_span)
+        .collect::<Vec<_>>();
+
+    let mut declarations = Vec::new();
+    let mut statements = Vec::new();
+    for (line, range) in visible_lines.iter().zip(line_ranges) {
+        if declaration_spans
+            .iter()
+            .any(|span| ranges_intersect(span, &range))
+        {
+            declarations.push(line.clone());
+        } else {
+            statements.push(line.clone());
+        }
+    }
+    (declarations, statements)
 }
 
-fn is_endless_declaration(trimmed: &str) -> bool {
-    matches!(
-        trimmed.split_once('=').map(|(head, _)| head.trim_end()),
-        Some(head)
-            if head.starts_with("type ")
-                || head.starts_with("pub type ")
-                || head.starts_with("schema ")
-                || head.starts_with("pub schema ")
-    )
+fn syntax_item_span(item: &SyntaxItem) -> TextRange {
+    let span = match item {
+        SyntaxItem::PublicAlias(alias) => &alias.span,
+        SyntaxItem::Effect(effect) => &effect.span,
+        SyntaxItem::Handler(handler) => &handler.span,
+        SyntaxItem::Type(type_decl) => &type_decl.span,
+        SyntaxItem::Schema(schema) => &schema.span,
+        SyntaxItem::Codec(codec) => &codec.span,
+        SyntaxItem::Function(function) => &function.span,
+    };
+    TextRange::new(span.start.offset, span.end.offset)
 }
 
-fn starts_nested_block(trimmed: &str) -> bool {
-    (trimmed.starts_with("if ") || trimmed.starts_with("match ") || trimmed.starts_with("handle "))
-        && trimmed != "end"
+fn ranges_intersect(left: &TextRange, right: &TextRange) -> bool {
+    left.start < right.end && right.start < left.end
 }
 
 fn public_doctest_source(source: &ParsedPackageSource) -> Option<SourceFile> {
@@ -1517,7 +1563,7 @@ fn public_doctest_source(source: &ParsedPackageSource) -> Option<SourceFile> {
     let original_lines = source.source.text().lines().collect::<Vec<_>>();
     let mut text = String::new();
     for target_line in target_lines {
-        append_doc_block_before(&original_lines, target_line, &mut text);
+        append_public_doctest_gate_doc_block_before(&original_lines, target_line, &mut text);
         if let Some(line) = original_lines.get(target_line.saturating_sub(1)) {
             text.push_str(line);
             text.push('\n');
@@ -1545,6 +1591,27 @@ fn append_doc_block_before(lines: &[&str], target_line: usize, output: &mut Stri
     }
     docs.reverse();
     for line in docs {
+        output.push_str(line);
+        output.push('\n');
+    }
+}
+
+fn append_public_doctest_gate_doc_block_before(
+    lines: &[&str],
+    target_line: usize,
+    output: &mut String,
+) {
+    let mut block = String::new();
+    append_doc_block_before(lines, target_line, &mut block);
+    for line in block.lines() {
+        let content = line
+            .trim_start()
+            .strip_prefix("##")
+            .map(str::trim_start)
+            .unwrap_or(line);
+        if content.starts_with("> ") {
+            continue;
+        }
         output.push_str(line);
         output.push('\n');
     }
@@ -1959,11 +2026,13 @@ fn doctest_fences(
                 continue;
             }
             let Some(parsed) = parse_doctest_fence_info(info) else {
+                last_doctest = None;
                 continue;
             };
             match parsed {
                 Ok(fence) => active = Some(fence),
                 Err(message) => {
+                    last_doctest = None;
                     result.push(Err(PackageDocDiagnostic {
                         gate: "doctest".to_string(),
                         code: "package_doc.invalid_doctest_metadata".to_string(),
@@ -1974,6 +2043,8 @@ fn doctest_fences(
             }
         } else if let Some(fence) = &mut active {
             fence.lines.push(line);
+        } else if !trimmed.is_empty() {
+            last_doctest = None;
         }
     }
     result
@@ -1998,6 +2069,8 @@ fn close_doctest_fence(
             expected_output: Vec::new(),
         }));
         *last_doctest = Some(result.len() - 1);
+    } else if fence.kind == "veln" {
+        *last_doctest = None;
     } else if fence.kind == "veln-output"
         && let Some(index) = last_doctest
     {
@@ -3532,6 +3605,40 @@ mod tests {
     }
 
     #[test]
+    fn declaration_doctest_with_nested_expression_and_alias_passes_static_gate() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[(
+                "main.veln",
+                concat!(
+                    "## ```veln\n",
+                    "## fn target() -> Int\n",
+                    "## \t1\n",
+                    "## end\n",
+                    "## pub fn alias = target\n",
+                    "## fn sample(flag: Bool) -> Int\n",
+                    "## \tlet value = if flag\n",
+                    "## \t\talias()\n",
+                    "## \telse\n",
+                    "## \t\t2\n",
+                    "## \tend\n",
+                    "## \tvalue\n",
+                    "## end\n",
+                    "## sample(true)\n",
+                    "## ```\n",
+                    "pub fn value() -> Int\n",
+                    "\t1\n",
+                    "end\n",
+                ),
+            )],
+        );
+
+        let catalog = catalog_or_panic(&result);
+        assert_eq!(catalog.modules[0].declarations[0].doctests.len(), 1);
+        assert!(result.status().diagnostics.is_empty());
+    }
+
+    #[test]
     fn positive_doctest_can_reference_exported_public_api() {
         let result = generate(
             "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
@@ -3692,6 +3799,72 @@ mod tests {
         assert_eq!(
             catalog.modules[0].declarations[0].doctests[0].expected_output,
             []
+        );
+    }
+
+    #[test]
+    fn expected_output_after_prose_or_ignored_fence_does_not_attach_to_previous_doctest() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[(
+                "main.veln",
+                concat!(
+                    "## ```veln\n",
+                    "## stdio::println(\"first\")\n",
+                    "## ```\n",
+                    "## Prose ends the pending output association.\n",
+                    "## ```veln-output stream=stdout\n",
+                    "## first\n",
+                    "## ```\n",
+                    "## ```veln ignore\n",
+                    "## missing_value\n",
+                    "## ```\n",
+                    "## ```veln-output stream=stderr\n",
+                    "## ignored\n",
+                    "## ```\n",
+                    "## ```veln\n",
+                    "## 1\n",
+                    "## ```\n",
+                    "pub fn value() -> Int\n",
+                    "\t1\n",
+                    "end\n",
+                ),
+            )],
+        );
+
+        let catalog = catalog_or_panic(&result);
+        let doctests = &catalog.modules[0].declarations[0].doctests;
+        assert_eq!(doctests.len(), 2);
+        assert!(doctests[0].expected_output.is_empty());
+        assert!(doctests[1].expected_output.is_empty());
+    }
+
+    #[test]
+    fn hidden_doctest_setup_does_not_gate_public_catalog() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[(
+                "main.veln",
+                concat!(
+                    "## ```veln\n",
+                    "## > let setup: MissingType = missing_value\n",
+                    "## 1\n",
+                    "## ```\n",
+                    "pub fn value() -> Int\n",
+                    "\t1\n",
+                    "end\n",
+                ),
+            )],
+        );
+
+        let catalog = catalog_or_panic(&result);
+        let doctest = &catalog.modules[0].declarations[0].doctests[0];
+        assert_eq!(doctest.code, "1");
+        assert!(result.status().diagnostics.is_empty());
+        assert!(
+            !std::str::from_utf8(result.canonical_bytes())
+                .unwrap()
+                .contains("MissingType")
         );
     }
 

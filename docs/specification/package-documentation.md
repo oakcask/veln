@@ -113,17 +113,19 @@ The implemented gates are:
   Visible positive `veln` doctest fences must pass the shared generated-source
   static analysis pipeline, including the declaration and statement portions
   of visible positive doctests that contain both. Declaration doctests can
-  contain nested blocks such as `if` expressions; only the declaration's
-  top-level `end` separates the declaration portion from later statement
-  examples.
+  contain nested expression blocks and public member aliases; declaration
+  spans from the parsed doctest source determine which visible lines are
+  declarations before later statement examples are checked.
   Positive declaration doctests can call public API from the same exported
   package snapshot. `veln fail` fences must produce a parse diagnostic through
   that same pipeline. A semantic-only diagnostic does not satisfy `veln fail`.
   `veln ignore` fences are not published or checked by the catalog, hidden
   setup lines are not published, `veln-output stream=stdout` and
   `veln-output stream=stderr` fences are accepted, duplicate output fences for
-  the same stream fail generation, and doctest metadata diagnostics from the
-  shared doctest extractor fail generation; and
+  the same stream fail generation, and expected-output fences attach only
+  while the same pending-state boundary used by the shared doctest extractor
+  remains open. Doctest metadata diagnostics from the shared doctest extractor
+  fail generation; and
 - identity: duplicate semantic declaration identities fail generation.
   Detected module identifier collisions and declaration identifier collisions
   fail generation.
@@ -172,7 +174,8 @@ validation at the catalog API boundary, fixed-width identifier digest
 transcripts, and virtual-source resolution after package documentation
 failure. The tests also read fixtures under `examples/specification/doc/` to
 observe the catalog success path, manifest-gate failure path, nested
-declaration doctest success path, declaration doctest static-gate failure path,
+declaration doctest success path with a nested expression block and public
+member alias, declaration doctest static-gate failure path,
 and schema-reference import-gate failure path through executable specification
 inputs.
 

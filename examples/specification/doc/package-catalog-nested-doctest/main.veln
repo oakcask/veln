@@ -1,11 +1,16 @@
-## A public declaration doctest can contain an internal block.
+## A public declaration doctest can contain nested expression blocks and aliases.
 ## ```veln
+## fn target() -> Int
+## 	1
+## end
+## pub fn alias = target
 ## fn sample(flag: Bool) -> Int
-## 	if flag
-## 		1
+## 	let value = if flag
+## 		alias()
 ## 	else
 ## 		2
 ## 	end
+## 	value
 ## end
 ## sample(true)
 ## ```

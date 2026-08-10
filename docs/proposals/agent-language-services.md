@@ -468,8 +468,9 @@ metadata, exported module and public constructor documentation projection,
 import-aware schema documentation references, public schema alias reference
 resolution, stream-aware expected-output publication, effect-row-binder
 signatures, and generated
-doctest static gate for expression, declaration, nested-block declaration, and
-mixed declaration-statement doctests are implemented and specified in
+doctest static gate for expression, declaration, nested-expression declaration,
+public-alias declaration, and mixed declaration-statement doctests are
+implemented and specified in
 [Package Documentation Catalogs](../specification/package-documentation.md).
 MCP resources, MCP documentation publication, and snapshot lifetime rules
 remain planned below.
@@ -573,9 +574,10 @@ A passing positive doctest and a `veln fail` doctest whose visible source
 produces a parse diagnostic can be published when the fence attaches to an
 exported module, exported public declaration, or exported public constructor.
 Private declaration doctests, ignored doctests, and hidden setup are not
-published or checked by package documentation generation. Doctest metadata is
-validated by the shared doctest extractor, and metadata errors fail the
-complete documentation generation. Runtime doctest execution and
+published or checked by package documentation generation. Expected-output
+fences use the shared doctest extractor's pending-state boundary. Doctest
+metadata is validated by the shared doctest extractor, and metadata errors fail
+the complete documentation generation. Runtime doctest execution and
 expected-output comparison remain part of the planned MCP publication slice.
 
 ## Published Language Reference
@@ -961,8 +963,10 @@ and specified in
 The transport-independent exported package documentation catalog foundation,
 same-capture manifest binding, path-derived module identity, stream-aware
 expected-output publication, effect-row-binder signatures, and generated
-doctest static gate, including same-package public API references and
-parse-only negative doctest matching, are implemented and specified in
+doctest static gate, including same-package public API references, nested
+expression declarations, public member aliases, shared expected-output
+pending-state boundaries, hidden setup exclusion, and parse-only negative
+doctest matching, are implemented and specified in
 [Package Documentation Catalogs](../specification/package-documentation.md).
 Direct path, vendor, mirror, and locally available direct git dependency
 definition locations, embedded standard-library definition locations, the LSP
