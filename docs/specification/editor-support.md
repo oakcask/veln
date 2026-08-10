@@ -20,9 +20,9 @@ used by editor integrations.
 - LSP `textDocument/definition`, `textDocument/references`,
   `textDocument/prepareRename`, and `textDocument/rename` convert shared
   navigation results to LSP responses in `veln-lsp`.
-- LSP `veln/virtualDocument` reads immutable direct path, vendor, mirror, and
-  embedded standard-library source from retained package snapshots in
-  `veln-lsp`.
+- LSP `veln/virtualDocument` reads immutable direct path, vendor, mirror,
+  locally available direct git, and embedded standard-library source from
+  retained package snapshots in `veln-lsp`.
 - LSP `textDocument/formatting` is implemented in `veln-lsp`.
 - The stdio LSP server starts through `veln lsp`.
 - TextMate fallback highlighting is contributed by
@@ -165,13 +165,16 @@ visibility, handler bindings, deterministic ordering, shadowing, field
 isolation, and positions without a supported symbol.
 
 `veln-lsp` captures the workspace manifest, saved workspace sources, valid
-direct path, vendor, and mirror dependency snapshots, and the embedded
-standard-package snapshot together for each selected workspace project. It
-constructs the standard snapshot directly from the embedded manifest and
-distribution sources without materializing a filesystem tree. Navigation
-starts from that retained project snapshot. The server applies open-document
-overlays to workspace sources before calling the shared language service. It
-converts shared locations to LSP URIs and zero-based ranges.
+direct path, vendor, mirror, and locally available direct git dependency
+snapshots, and the embedded standard-package snapshot together for each
+selected workspace project. A git `subdir` selects the package root below the
+available repository tree. The LSP server does not clone, fetch, or check out a
+git dependency. It constructs the standard snapshot directly from the
+embedded manifest and distribution sources without materializing a filesystem
+tree. Navigation starts from that retained project snapshot. The server
+applies open-document overlays to workspace sources before calling the shared
+language service. It converts shared locations to LSP URIs and zero-based
+ranges.
 Definition, references, prepare-rename, and rename use the same shared selected
 symbol and reference set.
 For a workspace symbol, references and rename edits include only workspace
@@ -186,10 +189,13 @@ from the same identity and snapshot. A qualified call through
 when the dependency identity matches, the function's source is listed in
 `[lib].exports`, and the function is public.
 The dependency source field can be `path`, `vendor`, or `mirror` when it names
-an already available package root. The source kind and physical root are not
-part of the retained package location. Equal package identity, dependency
-manifest bytes, and distribution source bytes produce the same dependency
-`veln-pkg:` URI across those source fields.
+an already available package root. A `git` field can name an already available
+repository tree, with an optional `subdir` naming its package root. The source
+kind and physical root are not part of the retained package location. Equal
+package identity, dependency manifest bytes, and distribution source bytes
+produce the same dependency `veln-pkg:` URI across those source fields and
+physical roots. A manifest or included-source byte change produces a different
+snapshot URI.
 
 The retained standard input has the reserved `std` identity and the same
 snapshot, export, and catalog boundaries. Bare and `prelude::` calls resolve
@@ -241,7 +247,14 @@ canonical URI lookup after VSCode URI parsing, and content-provider
 registration.
 The `veln-lsp` path, vendor, and mirror dependency virtual-URI test is the
 executable evidence that the returned URI omits physical placement and source
-kind while still reading the exact retained source text.
+kind while still reading the exact retained source text. The executable LSP
+example
+`../../examples/specification/lsp/direct-git-dependency-virtual-document/`
+checks the direct git `subdir` definition-to-read round trip against a fixed
+snapshot URI and exact source text. The focused `veln-lsp` git dependency test
+checks physical-location independence, manifest-byte and source-byte URI
+changes, retained exact bytes after a physical edit, and private declaration
+rejection.
 
 The executable LSP example
 `../../examples/specification/lsp/standard-library-virtual-document/` checks

@@ -1,5 +1,5 @@
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 
@@ -47,6 +47,18 @@ impl ManifestDependency {
             .as_ref()
             .or(self.vendor.as_ref())
             .or(self.mirror.as_ref())
+    }
+
+    pub fn direct_analysis_source_path(&self) -> Option<PathBuf> {
+        if let Some(source) = self.direct_local_source() {
+            return Some(PathBuf::from(&source.value));
+        }
+
+        let mut source = PathBuf::from(&self.git.as_ref()?.value);
+        if let Some(subdir) = &self.subdir {
+            source.push(&subdir.value);
+        }
+        Some(source)
     }
 }
 

@@ -672,12 +672,12 @@ fn load_external_dependency_project<'a>(
         diagnostics.push(unavailable_external_package_diagnostic(use_decl));
         return None;
     };
-    let Some(source_field) = dependency.direct_local_source() else {
+    let Some(source_path) = dependency.direct_analysis_source_path() else {
         diagnostics.push(unavailable_external_package_diagnostic(use_decl));
         return None;
     };
 
-    let dependency_root = project.root.join(&source_field.value);
+    let dependency_root = project.root.join(source_path);
     let has_direct_manifest = match read_manifest(&dependency_root) {
         Ok(manifest) => manifest.is_some(),
         Err(_) => {
@@ -3040,6 +3040,38 @@ mod tests {
         );
         temp.write(
             "vendor/foo/foo.veln",
+            "pub fn add_one(value: Int) -> Int\n  value + 1\nend\n",
+        );
+
+        let project =
+            Project::discover(temp.root().to_path_buf(), &[PathBuf::from("main.veln")]).unwrap();
+        let (_, diagnostics) = load_surface_module(&project);
+
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    }
+
+    #[test]
+    fn external_git_dependency_loads_materialized_subdir_package_root() {
+        let temp = TempProject::new("external-git-dependency-subdir-root");
+        temp.write(
+            "veln.toml",
+            concat!(
+                "[dependencies.\"github.com/oakcask/foo\"]\n",
+                "git = \"materialized/mono\"\n",
+                "rev = \"abc123\"\n",
+                "subdir = \"packages/foo\"\n",
+            ),
+        );
+        temp.write(
+            "main.veln",
+            "use foo from \"github.com/oakcask/foo\"\n\npub fn main() -> Int\n  add_one(1)\nend\n",
+        );
+        temp.write(
+            "materialized/mono/packages/foo/veln.toml",
+            "[package]\nname = \"github.com/oakcask/foo\"\n\n[lib]\nexports = [\"foo.veln\"]\n",
+        );
+        temp.write(
+            "materialized/mono/packages/foo/foo.veln",
             "pub fn add_one(value: Int) -> Int\n  value + 1\nend\n",
         );
 
