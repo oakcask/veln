@@ -46,7 +46,8 @@ URIs. Module and declaration identifiers are 64-character lowercase SHA-256
 digests from versioned identity domains. Declaration identity uses declaration
 kind, fully qualified semantic name, and canonical signature. It does not use
 source order or source byte offsets. A duplicate semantic identity fails the
-complete package documentation result.
+complete package documentation result. A detected module or declaration
+identifier collision also fails the complete package documentation result.
 
 ## Published Boundary
 
@@ -80,9 +81,12 @@ The implemented gates are:
 - documentation reference: `{@schema ...}` references in exported source
   documentation must resolve to a public schema in an exported module;
 - doctest: visible `veln` doctest fences must parse unless they declare an
-  expected error, expected-error doctests must produce a parse diagnostic, and
-  unknown doctest fence attributes fail generation; and
+  expected error, expected-error doctests must produce a parse diagnostic whose
+  id matches the `error=` value, and unknown doctest fence attributes fail
+  generation; and
 - identity: duplicate semantic declaration identities fail generation.
+  Detected module identifier collisions and declaration identifier collisions
+  fail generation.
 
 Failure diagnostics are sorted by source URI, start range, diagnostic code,
 and message.
@@ -105,7 +109,10 @@ ADR-lite exclusion, deterministic bytes, digest and URI stability, package
 byte changes, generator-contract changes, renderer-only stability when bytes
 are unchanged, declaration URI lookup, parse gate failure, export gate
 failure, documentation-reference gate failure, doctest gate failure, duplicate
-semantic identity failure, and status-only failure results.
+semantic identity failure, declaration identifier collision failure,
+successful negative doctest publication, expected negative-doctest diagnostic
+matching, status-only failure results, and virtual-source resolution after
+package documentation failure.
 
 The readable CLI documentation boundary remains checked by
 `examples/specification/doc/`. The transport-independent catalog itself is a

@@ -235,6 +235,8 @@ struct PackageDocBuilder<'a> {
     manifest: &'a ProjectManifest,
     generator_contract: PackageDocGeneratorContract,
     diagnostics: Vec<PackageDocDiagnostic>,
+    #[cfg(test)]
+    forced_declaration_id: Option<String>,
 }
 
 #[derive(Clone)]
@@ -259,7 +261,15 @@ impl<'a> PackageDocBuilder<'a> {
             manifest,
             generator_contract,
             diagnostics: Vec::new(),
+            #[cfg(test)]
+            forced_declaration_id: None,
         }
+    }
+
+    #[cfg(test)]
+    fn with_forced_declaration_id(mut self, id: impl Into<String>) -> Self {
+        self.forced_declaration_id = Some(id.into());
+        self
     }
 
     fn generate(mut self) -> PackageDocResult {
@@ -287,6 +297,24 @@ impl<'a> PackageDocBuilder<'a> {
             });
         }
 
+        if !self.diagnostics.is_empty() {
+            return self.failed_result();
+        }
+
+        let mut declaration_ids = BTreeSet::new();
+        for declaration in modules.iter().flat_map(|module| module.declarations.iter()) {
+            if !declaration_ids.insert(declaration.id.clone()) {
+                self.diagnostics.push(PackageDocDiagnostic {
+                    gate: "identity".to_string(),
+                    code: "package_doc.declaration_id_collision".to_string(),
+                    message: format!(
+                        "declaration documentation identifier collision `{}`",
+                        declaration.id
+                    ),
+                    span: None,
+                });
+            }
+        }
         if !self.diagnostics.is_empty() {
             return self.failed_result();
         }
@@ -530,7 +558,7 @@ impl<'a> PackageDocBuilder<'a> {
         );
         self.record_semantic_identity(&identity, &type_decl.span, semantic_identities);
         PackageDocDeclaration {
-            id: declaration_id("type", &identity),
+            id: self.declaration_id("type", &identity),
             kind: "type".to_string(),
             name,
             signature: type_signature(type_decl),
@@ -562,7 +590,7 @@ impl<'a> PackageDocBuilder<'a> {
         );
         self.record_semantic_identity(&identity, &schema.span, semantic_identities);
         PackageDocDeclaration {
-            id: declaration_id("schema", &identity),
+            id: self.declaration_id("schema", &identity),
             kind: "schema".to_string(),
             name,
             signature: schema_signature(schema),
@@ -586,7 +614,7 @@ impl<'a> PackageDocBuilder<'a> {
         let identity = format!("function:{}::{name}:{signature}", source.module_name);
         self.record_semantic_identity(&identity, &function.span, semantic_identities);
         PackageDocDeclaration {
-            id: declaration_id("function", &identity),
+            id: self.declaration_id("function", &identity),
             kind: "function".to_string(),
             name,
             signature,
@@ -611,7 +639,7 @@ impl<'a> PackageDocBuilder<'a> {
         let identity = format!("alias:{kind}:{}::{name}:{signature}", source.module_name);
         self.record_semantic_identity(&identity, &alias.span, semantic_identities);
         PackageDocDeclaration {
-            id: declaration_id("alias", &identity),
+            id: self.declaration_id("alias", &identity),
             kind: "alias".to_string(),
             name,
             signature,
@@ -669,13 +697,30 @@ impl<'a> PackageDocBuilder<'a> {
             doctest.code.clone(),
         );
         let diagnostics = parse(&doctest_source).diagnostics;
-        if doctest.expected_error.is_some() {
+        if let Some(expected_error) = &doctest.expected_error {
             if diagnostics.is_empty() {
                 self.diagnostics.push(PackageDocDiagnostic {
                     gate: "doctest".to_string(),
                     code: "package_doc.expected_failure_missing".to_string(),
                     message: "negative documentation doctest produced no parse diagnostics"
                         .to_string(),
+                    span: None,
+                });
+            } else if !diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == expected_error)
+            {
+                let observed = diagnostics
+                    .iter()
+                    .map(|diagnostic| diagnostic.id.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                self.diagnostics.push(PackageDocDiagnostic {
+                    gate: "doctest".to_string(),
+                    code: "package_doc.expected_failure_mismatch".to_string(),
+                    message: format!(
+                        "negative documentation doctest expected parse diagnostic `{expected_error}` but observed `{observed}`"
+                    ),
                     span: None,
                 });
             }
@@ -749,6 +794,15 @@ impl<'a> PackageDocBuilder<'a> {
             encoded_segment(self.identity),
             self.snapshot.digest()
         )
+    }
+
+    fn declaration_id(&self, kind: &str, identity: &str) -> String {
+        #[cfg(test)]
+        if let Some(id) = &self.forced_declaration_id {
+            return id.clone();
+        }
+
+        declaration_id(kind, identity)
     }
 }
 
@@ -1417,7 +1471,8 @@ fn manifest_list_field(fields: &[veln_project::ManifestField], key: &str) -> Vec
 #[cfg(test)]
 mod tests {
     use veln_project::{
-        PackageSnapshotSource, capture_embedded_package_snapshot, parse_manifest_text,
+        PackageIdentity, PackageSnapshotSource, capture_embedded_package_snapshot,
+        parse_manifest_text,
     };
 
     use super::*;
@@ -1437,6 +1492,29 @@ mod tests {
             &manifest,
             PackageDocGeneratorContract::new("contract-a"),
         )
+    }
+
+    fn generate_with_forced_declaration_id(
+        manifest: &str,
+        sources: &[(&str, &str)],
+        id: &str,
+    ) -> PackageDocResult {
+        let snapshot = capture_embedded_package_snapshot(
+            manifest.as_bytes(),
+            sources
+                .iter()
+                .map(|(path, text)| PackageSnapshotSource::new(path, text.as_bytes())),
+        )
+        .unwrap();
+        let manifest = parse_manifest_text("veln.toml", manifest);
+        PackageDocBuilder::new(
+            "owner/package",
+            &snapshot,
+            &manifest,
+            PackageDocGeneratorContract::new("contract-a"),
+        )
+        .with_forced_declaration_id(id)
+        .generate()
     }
 
     #[test]
@@ -1680,6 +1758,134 @@ mod tests {
                 .diagnostics
                 .iter()
                 .any(|diagnostic| { diagnostic.code == "package_doc.duplicate_semantic_identity" })
+        );
+    }
+
+    #[test]
+    fn declaration_id_collision_fails_the_package() {
+        let result = generate_with_forced_declaration_id(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[(
+                "main.veln",
+                concat!(
+                    "pub fn first() -> Int\n\t1\nend\n",
+                    "pub fn second() -> Int\n\t2\nend\n",
+                ),
+            )],
+            "forced-declaration-id",
+        );
+
+        assert!(result.catalog().is_none());
+        assert!(
+            result
+                .status()
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "package_doc.declaration_id_collision")
+        );
+        assert!(
+            !std::str::from_utf8(result.canonical_bytes())
+                .unwrap()
+                .contains("\"modules\"")
+        );
+    }
+
+    #[test]
+    fn negative_doctest_is_published_when_expected_parse_diagnostic_matches() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[(
+                "main.veln",
+                concat!(
+                    "## ```veln error=parse.expected_item\n",
+                    "## bad\n",
+                    "## ```\n",
+                    "pub fn value() -> Int\n",
+                    "\t1\n",
+                    "end\n",
+                ),
+            )],
+        );
+
+        let catalog = result.catalog().expect("successful catalog");
+        let doctest = &catalog.modules[0].declarations[0].doctests[0];
+        assert_eq!(
+            doctest.expected_error.as_deref(),
+            Some("parse.expected_item")
+        );
+        assert_eq!(doctest.code, "bad");
+        assert!(result.status().diagnostics.is_empty());
+        assert!(
+            std::str::from_utf8(result.canonical_bytes())
+                .unwrap()
+                .contains("\"expected_error\":\"parse.expected_item\"")
+        );
+    }
+
+    #[test]
+    fn negative_doctest_error_metadata_must_match_parse_diagnostic() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[(
+                "main.veln",
+                concat!(
+                    "## ```veln error=parse.invalid_token\n",
+                    "## bad\n",
+                    "## ```\n",
+                    "pub fn value() -> Int\n",
+                    "\t1\n",
+                    "end\n",
+                ),
+            )],
+        );
+
+        assert!(result.catalog().is_none());
+        assert!(
+            result
+                .status()
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "package_doc.expected_failure_mismatch")
+        );
+    }
+
+    #[test]
+    fn exported_parse_failure_keeps_virtual_source_catalog_resolvable() {
+        let manifest_text =
+            "[package]\nname = \"owner/package\"\n[lib]\nexports = [\"main.veln\"]\n";
+        let source_text = "pub fn broken() -> ()\n  @\nend\n";
+        let snapshot = capture_embedded_package_snapshot(
+            manifest_text.as_bytes(),
+            [PackageSnapshotSource::new(
+                "main.veln",
+                source_text.as_bytes(),
+            )],
+        )
+        .unwrap();
+        let manifest = parse_manifest_text("veln.toml", manifest_text);
+        let result = PackageDocResult::generate(
+            "owner/package",
+            &snapshot,
+            &manifest,
+            PackageDocGeneratorContract::new("contract-a"),
+        );
+        let virtual_sources = crate::VirtualSourceCatalog::new([(
+            PackageIdentity::new("owner/package").unwrap(),
+            snapshot,
+        )])
+        .unwrap();
+        let entry = virtual_sources.entries().next().unwrap();
+
+        assert!(result.catalog().is_none());
+        assert_eq!(result.status().diagnostics[0].gate, "parse");
+        assert!(
+            !std::str::from_utf8(result.canonical_bytes())
+                .unwrap()
+                .contains("\"modules\"")
+        );
+        assert_eq!(
+            virtual_sources.resolve(entry.uri()),
+            Some(source_text.as_bytes())
         );
     }
 
