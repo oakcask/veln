@@ -18,7 +18,8 @@ use veln_language_service::{
     NavigationSource, SourcePosition, navigate,
 };
 use veln_project::{
-    PackageIdentity, Project, ProjectManifest, capture_package_snapshot, discover_source_paths,
+    PackageIdentity, PackageSnapshotSource, Project, ProjectManifest,
+    capture_embedded_package_snapshot, capture_package_snapshot, discover_source_paths,
     parse_manifest_text,
 };
 use veln_source::{SourceFile, SourcePath, SourceSpan};
@@ -424,10 +425,43 @@ fn retained_project_snapshot(root: &Path) -> Option<EffectiveProjectSnapshot> {
         .as_ref()
         .map(|manifest| retained_direct_dependencies(root, manifest))
         .unwrap_or_default();
-    Some(EffectiveProjectSnapshot::with_direct_dependencies(
-        project.files,
-        direct_dependencies,
-    ))
+    let standard_library = retained_standard_library()?;
+    Some(
+        EffectiveProjectSnapshot::with_direct_dependencies(project.files, direct_dependencies)
+            .with_standard_library(standard_library),
+    )
+}
+
+fn retained_standard_library() -> Option<DirectDependencySnapshot> {
+    let bundle = veln_stdlib::package_bundle();
+    let snapshot = capture_embedded_package_snapshot(
+        bundle.manifest.as_bytes(),
+        bundle
+            .files
+            .iter()
+            .map(|file| PackageSnapshotSource::new(file.path, file.text.as_bytes())),
+    )
+    .ok()?;
+    let manifest = parse_manifest_text("veln.toml", bundle.manifest);
+    let project = Project {
+        root: PathBuf::new(),
+        files: snapshot
+            .sources()
+            .iter()
+            .map(|source| {
+                SourceFile::new(
+                    source.path(),
+                    std::str::from_utf8(source.bytes())
+                        .expect("embedded standard package source text is valid UTF-8"),
+                )
+            })
+            .collect(),
+        manifest: Some(manifest),
+    };
+    if !validate_manifest_exports(&project).is_empty() {
+        return None;
+    }
+    DirectDependencySnapshot::from_validated_standard_library(snapshot, project.manifest?).ok()
 }
 
 fn retained_direct_dependencies(
@@ -3357,6 +3391,284 @@ mod tests {
                 r#"{{"jsonrpc":"2.0","id":4,"method":"veln/virtualDocument","params":{{"uri":"{rejected_uri}"}}}}"#
             ));
             assert!(rejected[0].contains(r#""code":-32602"#), "{}", rejected[0]);
+        }
+    }
+
+    #[test]
+    fn standard_library_definition_round_trips_through_embedded_virtual_document() {
+        let mut server = Server::default();
+        let project = TempProject::new("standard-library-virtual-document");
+        project.write(
+            "main.veln",
+            concat!(
+                "use http2::diagnostic from \"std\"\n\n",
+                "pub fn implicit() -> Result<Byte, String>\n",
+                "  byte(1)\n",
+                "end\n\n",
+                "pub fn qualified() -> Result<Byte, String>\n",
+                "  prelude::byte(1)\n",
+                "end\n\n",
+                "pub fn parameter_shadow(byte: fn(Int) -> Result<Byte, String>) -> Result<Byte, String>\n",
+                "  byte(1)\n",
+                "end\n\n",
+                "pub fn local_shadow() -> Result<Byte, String>\n",
+                "  let byte: fn(Int) -> Result<Byte, String> = prelude::byte\n",
+                "  byte(1)\n",
+                "end\n\n",
+                "pub fn imported() -> Result<(), RuntimeDiagnostic>\n",
+                "  http2::diagnostic::protocol_invalid_frame_kind(0, 0, 0, 0, \"open\", \"rule\", byte_view(byte_chunk([]), ByteOffset(0), ByteCount(0)))\n",
+                "end\n\n",
+                "pub fn private_helper() -> Vec<Int>\n",
+                "  prelude::vec_append([], 1)\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let implicit = server.handle_message(&definition_request(&main_uri, 3, 4));
+        let qualified = server.handle_message(&definition_request(&main_uri, 7, 12));
+        let shadowed_parameter = server.handle_message(&definition_request(&main_uri, 11, 2));
+        let shadowed_local = server.handle_message(&definition_request(&main_uri, 16, 2));
+        let imported = server.handle_message(&definition_request(&main_uri, 20, 31));
+        let prelude_uri = extract_string_field(&implicit[0], "uri").unwrap();
+
+        assert_eq!(
+            extract_string_field(&qualified[0], "uri"),
+            Some(prelude_uri.clone())
+        );
+        assert!(
+            prelude_uri.starts_with("veln-pkg:///std/snapshot/")
+                && prelude_uri.ends_with("/prelude.veln"),
+            "{}",
+            implicit[0]
+        );
+        assert!(
+            implicit[0].contains(
+                r#""range":{"start":{"line":97,"character":7},"end":{"line":97,"character":11}}"#
+            ),
+            "{}",
+            implicit[0]
+        );
+        assert!(shadowed_parameter[0].contains(r#""result":null"#));
+        assert!(shadowed_local[0].contains(r#""result":null"#));
+        let diagnostic_uri = extract_string_field(&imported[0], "uri").unwrap();
+        assert!(
+            diagnostic_uri.starts_with("veln-pkg:///std/snapshot/")
+                && diagnostic_uri.ends_with("/http2/diagnostic.veln"),
+            "{}",
+            imported[0]
+        );
+
+        let read = server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":3,"method":"veln/virtualDocument","params":{{"uri":"{prelude_uri}"}}}}"#
+        ));
+        assert_eq!(
+            read,
+            [response(
+                "3",
+                &format!(
+                    r#""{}""#,
+                    escape_json(
+                        veln_stdlib::package_bundle()
+                            .files
+                            .iter()
+                            .find(|file| file.path == "prelude.veln")
+                            .unwrap()
+                            .text
+                    )
+                )
+            )]
+        );
+
+        let private_definition = server.handle_message(&definition_request(&main_uri, 24, 12));
+        assert!(private_definition[0].contains(r#""result":null"#));
+        let prepare_rename = server.handle_message(&prepare_rename_request(&main_uri, 3, 4));
+        let rename = server.handle_message(&rename_request(&main_uri, 3, 4, "renamed"));
+        assert!(prepare_rename[0].contains(r#""result":null"#));
+        assert!(rename[0].contains(r#""changes":{}"#));
+
+        for rejected_uri in [
+            format!("{prelude_uri}/missing"),
+            prelude_uri.replacen("veln-pkg", "VELN-pkg", 1),
+        ] {
+            let rejected = server.handle_message(&format!(
+                r#"{{"jsonrpc":"2.0","id":4,"method":"veln/virtualDocument","params":{{"uri":"{rejected_uri}"}}}}"#
+            ));
+            assert!(rejected[0].contains(r#""code":-32602"#), "{}", rejected[0]);
+        }
+    }
+
+    #[test]
+    fn ambiguous_bare_prelude_fallback_returns_no_definition() {
+        let mut server = Server::default();
+        let project = TempProject::new("ambiguous-bare-prelude-definition");
+        project.write(
+            "veln.toml",
+            concat!(
+                "[package]\nname = \"app\"\n\n",
+                "[dependencies.\"example/pkg\"]\npath = \"vendor/lib\"\n",
+            ),
+        );
+        project.write(
+            "math.veln",
+            concat!(
+                "use math from \"example/pkg\"\n\n",
+                "pub fn main(items: Vec<Int>) -> Int\n",
+                "  vec_len(items)\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "vendor/lib/veln.toml",
+            concat!(
+                "[package]\nname = \"example/pkg\"\n\n",
+                "[lib]\nexports = [\"math.veln\"]\n",
+            ),
+        );
+        project.write(
+            "vendor/lib/math.veln",
+            "pub fn vec_len(items: Vec<Int>) -> Int\n  0\nend\n",
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("math.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let definition = server.handle_message(&definition_request(&main_uri, 3, 4));
+
+        assert_eq!(definition.len(), 1);
+        assert!(
+            definition[0].contains(r#""result":null"#),
+            "{}",
+            definition[0]
+        );
+    }
+
+    #[test]
+    fn private_workspace_import_does_not_hide_bare_prelude_definition() {
+        let mut server = Server::default();
+        let project = TempProject::new("private-import-bare-prelude-definition");
+        project.write(
+            "main.veln",
+            concat!(
+                "use math\n\n",
+                "pub fn main() -> Result<Byte, String>\n",
+                "  byte(1)\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "math.veln",
+            "fn byte(value: Int) -> Result<Byte, String>\n  Ok(Byte(value))\nend\n",
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let definition = server.handle_message(&definition_request(&main_uri, 3, 4));
+
+        assert_eq!(definition.len(), 1);
+        let prelude_uri = extract_string_field(&definition[0], "uri").unwrap();
+        assert!(
+            prelude_uri.starts_with("veln-pkg:///std/snapshot/")
+                && prelude_uri.ends_with("/prelude.veln"),
+            "{}",
+            definition[0]
+        );
+        assert!(
+            definition[0].contains(
+                r#""range":{"start":{"line":97,"character":7},"end":{"line":97,"character":11}}"#
+            ),
+            "{}",
+            definition[0]
+        );
+    }
+
+    #[test]
+    fn imported_constructor_definition_wins_over_bare_prelude_fallback() {
+        let mut server = Server::default();
+        let project = TempProject::new("imported-constructor-bare-prelude-definition");
+        project.write(
+            "main.veln",
+            concat!(
+                "use model\n\n",
+                "pub fn main() -> Token\n",
+                "  byte(1)\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "model.veln",
+            concat!("pub type Token\n", "  pub byte(Int)\n", "end\n"),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let definition = server.handle_message(&definition_request(&main_uri, 3, 4));
+
+        assert_eq!(definition.len(), 1);
+        assert!(definition[0].contains("/model.veln"), "{}", definition[0]);
+        assert!(
+            definition[0].contains(
+                r#""range":{"start":{"line":1,"character":6},"end":{"line":1,"character":10}}"#
+            ),
+            "{}",
+            definition[0]
+        );
+        assert!(
+            !definition[0].contains("veln-pkg:///std/snapshot/"),
+            "{}",
+            definition[0]
+        );
+    }
+
+    #[test]
+    fn reexported_constructor_definition_wins_over_bare_prelude_fallback() {
+        let mut server = Server::default();
+        let project = TempProject::new("reexported-constructor-bare-prelude-definition");
+        project.write(
+            "main.veln",
+            concat!(
+                "use facade\n\n",
+                "pub fn bare() -> Token\n",
+                "  byte(1)\n",
+                "end\n\n",
+                "pub fn qualified() -> Token\n",
+                "  facade::byte(2)\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "facade.veln",
+            concat!("use model\n\n", "pub type Token = model::Token\n"),
+        );
+        project.write(
+            "model.veln",
+            concat!("pub type Token\n", "  pub byte(Int)\n", "end\n"),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        for (line, character) in [(3, 4), (7, 10)] {
+            let definition = server.handle_message(&definition_request(&main_uri, line, character));
+
+            assert_eq!(definition.len(), 1);
+            assert!(definition[0].contains("/model.veln"), "{}", definition[0]);
+            assert!(
+                definition[0].contains(
+                    r#""range":{"start":{"line":1,"character":6},"end":{"line":1,"character":10}}"#
+                ),
+                "{}",
+                definition[0]
+            );
+            assert!(
+                !definition[0].contains("veln-pkg:///std/snapshot/"),
+                "{}",
+                definition[0]
+            );
         }
     }
 

@@ -13,12 +13,13 @@ use veln_project::{
     classify_companion_source,
 };
 use veln_source::{SourceFile, SourcePath, SourceSpan};
-use veln_syntax::{Token, TokenKind, lex};
+use veln_syntax::{PublicAliasKind, SyntaxItem, Token, TokenKind, Visibility, lex, parse};
 
 #[derive(Clone, Debug)]
 pub struct EffectiveProjectSnapshot {
     sources: Vec<SourceFile>,
     direct_dependencies: Vec<DirectDependencySnapshot>,
+    standard_library: Option<DirectDependencySnapshot>,
 }
 
 impl EffectiveProjectSnapshot {
@@ -26,6 +27,7 @@ impl EffectiveProjectSnapshot {
         Self {
             sources,
             direct_dependencies: Vec::new(),
+            standard_library: None,
         }
     }
 
@@ -36,7 +38,13 @@ impl EffectiveProjectSnapshot {
         Self {
             sources,
             direct_dependencies,
+            standard_library: None,
         }
+    }
+
+    pub fn with_standard_library(mut self, standard_library: DirectDependencySnapshot) -> Self {
+        self.standard_library = Some(standard_library);
+        self
     }
 
     pub fn with_workspace_overlays(&self, overlays: impl IntoIterator<Item = SourceFile>) -> Self {
@@ -56,6 +64,7 @@ impl EffectiveProjectSnapshot {
         Self {
             sources,
             direct_dependencies: self.direct_dependencies.clone(),
+            standard_library: self.standard_library.clone(),
         }
     }
 
@@ -63,6 +72,11 @@ impl EffectiveProjectSnapshot {
         self.direct_dependencies
             .iter()
             .find_map(|dependency| dependency.resolve_virtual_source(uri))
+            .or_else(|| {
+                self.standard_library
+                    .as_ref()
+                    .and_then(|standard_library| standard_library.resolve_virtual_source(uri))
+            })
     }
 }
 
@@ -72,6 +86,7 @@ pub struct DirectDependencySnapshot {
     snapshot: CapturedPackageSnapshot,
     exported_sources: BTreeSet<String>,
     virtual_sources: VirtualSourceCatalog,
+    standard_library: bool,
 }
 
 impl DirectDependencySnapshot {
@@ -105,7 +120,18 @@ impl DirectDependencySnapshot {
             snapshot,
             exported_sources,
             virtual_sources,
+            standard_library: false,
         })
+    }
+
+    pub fn from_validated_standard_library(
+        snapshot: CapturedPackageSnapshot,
+        manifest: ProjectManifest,
+    ) -> Result<Self, DirectDependencySnapshotError> {
+        let identity = PackageIdentity::embedded_standard();
+        let mut standard_library = Self::from_validated_manifest(&identity, snapshot, manifest)?;
+        standard_library.standard_library = true;
+        Ok(standard_library)
     }
 
     fn indexed_sources(
@@ -171,6 +197,7 @@ pub struct SourcePosition {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SymbolKind {
     Function,
+    Constructor,
     HandlerContextParameter,
     HandlerOperationClauseParameter,
 }
@@ -209,15 +236,22 @@ pub fn navigate(
     let request = SymbolIndex::new(
         snapshot.sources.clone(),
         snapshot.direct_dependencies.clone(),
+        snapshot.standard_library.clone(),
     )
     .symbol_at_position(position.source.as_str(), &position)?;
     let definition = match &request.symbol {
         Symbol::Function(symbol) => symbol.declaration.clone(),
+        Symbol::Constructor(symbol) => symbol.declaration.clone(),
         Symbol::Local(symbol) => workspace_location(symbol.declaration.clone()),
     };
     let selected_symbol = match &request.symbol {
         Symbol::Function(symbol) => SelectedSymbol {
             kind: SymbolKind::Function,
+            name: symbol.name.clone(),
+            declaration: definition.clone(),
+        },
+        Symbol::Constructor(symbol) => SelectedSymbol {
+            kind: SymbolKind::Constructor,
             name: symbol.name.clone(),
             declaration: definition.clone(),
         },
@@ -239,6 +273,7 @@ pub fn navigate(
             .iter()
             .flat_map(|file| request.index.references_in_file(file, symbol))
             .collect(),
+        Symbol::Constructor(_) => Vec::new(),
         Symbol::Local(symbol) => request.index.local_references(symbol, false),
     };
     sort_locations(&mut references);
@@ -271,6 +306,29 @@ struct FunctionSymbol {
     name: String,
     declaration: NavigationLocation,
     package: Option<String>,
+    public: bool,
+    standard_prelude: bool,
+}
+
+#[derive(Clone, Debug)]
+struct ConstructorSymbol {
+    module: String,
+    type_name: String,
+    name: String,
+    declaration: NavigationLocation,
+    package: Option<String>,
+    public: bool,
+    standard_prelude: bool,
+}
+
+#[derive(Clone, Debug)]
+struct TypeAliasSymbol {
+    module: String,
+    name: String,
+    target_module: Option<String>,
+    target_name: String,
+    package: Option<String>,
+    standard_prelude: bool,
 }
 
 #[derive(Debug)]
@@ -283,6 +341,7 @@ struct SymbolRequest {
 #[derive(Clone, Debug)]
 enum Symbol {
     Function(FunctionSymbol),
+    Constructor(ConstructorSymbol),
     Local(LocalSymbol),
 }
 
@@ -319,6 +378,7 @@ enum IndexedOrigin {
         identity: String,
         uri: String,
         exported: bool,
+        standard_library: bool,
     },
 }
 
@@ -326,6 +386,8 @@ enum IndexedOrigin {
 struct SymbolIndex {
     files: Vec<IndexedFile>,
     functions: Vec<FunctionSymbol>,
+    constructors: Vec<ConstructorSymbol>,
+    type_aliases: Vec<TypeAliasSymbol>,
 }
 
 #[derive(Debug)]
@@ -354,7 +416,11 @@ struct ClauseBinding {
 }
 
 impl SymbolIndex {
-    fn new(sources: Vec<SourceFile>, dependencies: Vec<DirectDependencySnapshot>) -> Self {
+    fn new(
+        sources: Vec<SourceFile>,
+        dependencies: Vec<DirectDependencySnapshot>,
+        standard_library: Option<DirectDependencySnapshot>,
+    ) -> Self {
         let mut files = sources
             .into_iter()
             .map(|source| {
@@ -375,7 +441,7 @@ impl SymbolIndex {
                 }
             })
             .collect::<Vec<_>>();
-        for dependency in dependencies {
+        for dependency in dependencies.into_iter().chain(standard_library) {
             for (source, entry) in dependency.indexed_sources() {
                 let text = std::str::from_utf8(source.bytes())
                     .expect("captured package source text is valid UTF-8");
@@ -394,12 +460,20 @@ impl SymbolIndex {
                         identity: dependency.identity.as_str().to_string(),
                         uri: entry.uri().to_string(),
                         exported: dependency.exported_sources.contains(source.path()),
+                        standard_library: dependency.standard_library,
                     },
                 });
             }
         }
         let functions = files.iter().flat_map(function_declarations).collect();
-        Self { files, functions }
+        let constructors = files.iter().flat_map(constructor_declarations).collect();
+        let type_aliases = files.iter().flat_map(type_alias_declarations).collect();
+        Self {
+            files,
+            functions,
+            constructors,
+            type_aliases,
+        }
     }
 
     fn symbol_at_position(
@@ -460,24 +534,43 @@ impl SymbolIndex {
             return None;
         }
         let Some(qualifier) = qualifier_for_token(tokens, token_index) else {
+            if let Some(symbol) = self.constructor_for_bare_call(file, name) {
+                return Some(Symbol::Constructor(symbol));
+            }
+            if let Some(symbol) = self.functions.iter().find(|symbol| {
+                symbol.name == name && symbol.module == file.module && symbol.package.is_none()
+            }) {
+                return Some(Symbol::Function(symbol.clone()));
+            }
+            if local_binding_shadows_call_target(tokens, token_index, name) {
+                return None;
+            }
+            if self.has_visible_non_prelude_imported_function(file, name) {
+                return None;
+            }
+            if self.has_visible_non_prelude_imported_constructor(file, name) {
+                return None;
+            }
             return self
                 .functions
                 .iter()
-                .find(|symbol| {
-                    symbol.name == name && symbol.module == file.module && symbol.package.is_none()
-                })
+                .find(|symbol| symbol.name == name && symbol.standard_prelude)
                 .cloned()
                 .map(Symbol::Function);
         };
+        if let Some(symbol) = self.constructor_for_qualified_call(file, &qualifier, name) {
+            return Some(Symbol::Constructor(symbol));
+        }
         self.functions
             .iter()
             .find(|symbol| match &symbol.package {
                 Some(package) => {
                     symbol.name == name
                         && symbol.module == qualifier
-                        && file
-                            .external_uses
-                            .contains(&(symbol.module.clone(), package.clone()))
+                        && (symbol.standard_prelude
+                            || file
+                                .external_uses
+                                .contains(&(symbol.module.clone(), package.clone())))
                 }
                 None => {
                     symbol.name == name
@@ -491,6 +584,173 @@ impl SymbolIndex {
             })
             .cloned()
             .map(Symbol::Function)
+    }
+
+    fn constructor_for_bare_call(
+        &self,
+        file: &IndexedFile,
+        name: &str,
+    ) -> Option<ConstructorSymbol> {
+        self.constructors
+            .iter()
+            .find(|symbol| {
+                symbol.name == name
+                    && symbol.package.is_none()
+                    && symbol.module == file.module
+                    && visible_workspace_constructor_from(file, symbol)
+            })
+            .cloned()
+            .or_else(|| {
+                let mut candidates = self.constructors.iter().filter(|symbol| {
+                    symbol.name == name
+                        && !symbol.standard_prelude
+                        && symbol.package.is_none()
+                        && symbol.module != file.module
+                        && (file.uses.contains(&symbol.module)
+                            || self.constructor_reexport_visible_from(file, symbol, None))
+                        && visible_workspace_constructor_from(file, symbol)
+                });
+                let candidate = candidates.next()?;
+                candidates.next().is_none().then(|| candidate.clone())
+            })
+            .or_else(|| {
+                let mut candidates = self.constructors.iter().filter(|symbol| {
+                    symbol.name == name
+                        && !symbol.standard_prelude
+                        && symbol.public
+                        && symbol.package.as_ref().is_some_and(|package| {
+                            file.external_uses
+                                .contains(&(symbol.module.clone(), package.clone()))
+                                || self.constructor_reexport_visible_from(
+                                    file,
+                                    symbol,
+                                    Some(package),
+                                )
+                        })
+                });
+                let candidate = candidates.next()?;
+                candidates.next().is_none().then(|| candidate.clone())
+            })
+    }
+
+    fn constructor_for_qualified_call(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        name: &str,
+    ) -> Option<ConstructorSymbol> {
+        self.constructors
+            .iter()
+            .find(|symbol| {
+                symbol.name == name
+                    && (constructor_qualifier_matches(symbol, qualifier)
+                        || self.constructor_reexport_qualifier_matches(file, symbol, qualifier))
+                    && match &symbol.package {
+                        Some(package) => {
+                            symbol.standard_prelude
+                                || file
+                                    .external_uses
+                                    .contains(&(symbol.module.clone(), package.clone()))
+                                || self.constructor_reexport_visible_from(
+                                    file,
+                                    symbol,
+                                    Some(package),
+                                )
+                        }
+                        None => {
+                            symbol.module == file.module
+                                || ((file.uses.contains(&symbol.module)
+                                    || self.constructor_reexport_visible_from(file, symbol, None))
+                                    && visible_workspace_constructor_from(file, symbol))
+                        }
+                    }
+            })
+            .cloned()
+    }
+
+    fn constructor_reexport_qualifier_matches(
+        &self,
+        file: &IndexedFile,
+        symbol: &ConstructorSymbol,
+        qualifier: &str,
+    ) -> bool {
+        self.type_aliases.iter().any(|alias| {
+            type_alias_targets_constructor(alias, symbol)
+                && (qualifier == alias.module
+                    || qualifier == format!("{}::{}", alias.module, alias.name))
+                && match &alias.package {
+                    Some(alias_package) => file
+                        .external_uses
+                        .contains(&(alias.module.clone(), alias_package.clone())),
+                    None => file.uses.contains(&alias.module) || file.module == alias.module,
+                }
+        })
+    }
+
+    fn has_visible_non_prelude_imported_constructor(&self, file: &IndexedFile, name: &str) -> bool {
+        self.constructors.iter().any(|symbol| {
+            if symbol.name != name || symbol.standard_prelude {
+                return false;
+            }
+            if symbol.package.is_none() && symbol.module == file.module {
+                return false;
+            }
+            match &symbol.package {
+                Some(package) => {
+                    symbol.public
+                        && file
+                            .external_uses
+                            .contains(&(symbol.module.clone(), package.clone()))
+                }
+                None => {
+                    (file.uses.contains(&symbol.module)
+                        || self.constructor_reexport_visible_from(file, symbol, None))
+                        && visible_workspace_constructor_from(file, symbol)
+                }
+            }
+        })
+    }
+
+    fn constructor_reexport_visible_from(
+        &self,
+        file: &IndexedFile,
+        symbol: &ConstructorSymbol,
+        package: Option<&String>,
+    ) -> bool {
+        self.type_aliases.iter().any(|alias| {
+            if !type_alias_targets_constructor(alias, symbol) {
+                return false;
+            }
+            if alias.package.as_ref() != package {
+                return false;
+            }
+            match &alias.package {
+                Some(alias_package) => file
+                    .external_uses
+                    .contains(&(alias.module.clone(), alias_package.clone())),
+                None => file.uses.contains(&alias.module),
+            }
+        })
+    }
+
+    fn has_visible_non_prelude_imported_function(&self, file: &IndexedFile, name: &str) -> bool {
+        self.functions.iter().any(|symbol| {
+            if symbol.name != name || symbol.standard_prelude {
+                return false;
+            }
+            if symbol.package.is_none() && symbol.module == file.module {
+                return false;
+            }
+            if symbol.package.is_none() && !symbol.public {
+                return false;
+            }
+            match &symbol.package {
+                Some(package) => file
+                    .external_uses
+                    .contains(&(symbol.module.clone(), package.clone())),
+                None => file.uses.contains(&symbol.module),
+            }
+        })
     }
 
     fn local_references(&self, symbol: &LocalSymbol, include_declaration: bool) -> Vec<SourceSpan> {
@@ -564,6 +824,27 @@ impl SymbolIndex {
     }
 }
 
+fn visible_workspace_constructor_from(file: &IndexedFile, symbol: &ConstructorSymbol) -> bool {
+    symbol.public || symbol.module == file.module
+}
+
+fn constructor_qualifier_matches(symbol: &ConstructorSymbol, qualifier: &str) -> bool {
+    qualifier == symbol.module || qualifier == format!("{}::{}", symbol.module, symbol.type_name)
+}
+
+fn type_alias_targets_constructor(alias: &TypeAliasSymbol, symbol: &ConstructorSymbol) -> bool {
+    if alias.standard_prelude != symbol.standard_prelude {
+        return false;
+    }
+    if alias.target_name != symbol.type_name {
+        return false;
+    }
+    match &alias.target_module {
+        Some(module) => module == &symbol.module,
+        None => alias.module == symbol.module,
+    }
+}
+
 fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
     let mut functions = Vec::new();
     let tokens = lex(&file.source).tokens;
@@ -572,17 +853,20 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
             && let Some(name) = next_non_layout_token(&tokens, index)
             && is_identifier(&name.text)
         {
-            let (declaration, package) = match &file.origin {
-                IndexedOrigin::Workspace => {
-                    (workspace_location(file.source.span(name.range)), None)
-                }
+            let public = previous_non_layout_token(&tokens, index)
+                .is_some_and(|previous| previous.kind == TokenKind::Pub);
+            let (declaration, package, standard_prelude) = match &file.origin {
+                IndexedOrigin::Workspace => (
+                    workspace_location(file.source.span(name.range)),
+                    None,
+                    false,
+                ),
                 IndexedOrigin::Package {
                     identity,
                     uri,
                     exported,
+                    standard_library,
                 } => {
-                    let public = previous_non_layout_token(&tokens, index)
-                        .is_some_and(|previous| previous.kind == TokenKind::Pub);
                     if !exported || !public {
                         continue;
                     }
@@ -592,6 +876,7 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
                             span: file.source.span(name.range),
                         },
                         Some(identity.clone()),
+                        *standard_library && file.module == "prelude",
                     )
                 }
             };
@@ -600,10 +885,120 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
                 name: name.text.clone(),
                 declaration,
                 package,
+                public,
+                standard_prelude,
             });
         }
     }
     functions
+}
+
+fn constructor_declarations(file: &IndexedFile) -> Vec<ConstructorSymbol> {
+    let tokens = lex(&file.source).tokens;
+    let tokens = tokens.as_slice();
+    parse(&file.source)
+        .tree
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Type(type_decl) => Some(type_decl),
+            _ => None,
+        })
+        .flat_map(|type_decl| {
+            let type_public = type_decl.visibility == Visibility::Public;
+            type_decl.variants.iter().filter_map(move |variant| {
+                let name = variant.name.as_ref()?;
+                let public = type_public && variant.visibility == Visibility::Public;
+                let span = tokens
+                    .iter()
+                    .find(|token| {
+                        token.kind == TokenKind::Ident
+                            && token.text == *name
+                            && token.range.start >= variant.span.start.offset
+                            && token.range.end <= variant.span.end.offset
+                    })
+                    .map_or_else(
+                        || variant.span.clone(),
+                        |token| file.source.span(token.range),
+                    );
+                let (declaration, package, standard_prelude) = match &file.origin {
+                    IndexedOrigin::Workspace => (workspace_location(span), None, false),
+                    IndexedOrigin::Package {
+                        identity,
+                        uri,
+                        exported,
+                        standard_library,
+                    } => {
+                        if !exported || !public {
+                            return None;
+                        }
+                        (
+                            NavigationLocation {
+                                source: NavigationSource::Package { uri: uri.clone() },
+                                span,
+                            },
+                            Some(identity.clone()),
+                            *standard_library && file.module == "prelude",
+                        )
+                    }
+                };
+                Some(ConstructorSymbol {
+                    module: file.module.clone(),
+                    type_name: type_decl.name.clone().unwrap_or_default(),
+                    name: name.clone(),
+                    declaration,
+                    package,
+                    public,
+                    standard_prelude,
+                })
+            })
+        })
+        .collect()
+}
+
+fn type_alias_declarations(file: &IndexedFile) -> Vec<TypeAliasSymbol> {
+    parse(&file.source)
+        .tree
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::PublicAlias(alias) if alias.kind == PublicAliasKind::Type => {
+                let name = alias.name.clone()?;
+                let target_name = alias.target.last()?.clone();
+                let target_module = match alias.target.as_slice() {
+                    [_] => None,
+                    [segments @ .., _] => Some(segments.join("::")),
+                    [] => None,
+                };
+                let (package, standard_prelude) = match &file.origin {
+                    IndexedOrigin::Workspace => (None, false),
+                    IndexedOrigin::Package {
+                        identity,
+                        exported,
+                        standard_library,
+                        ..
+                    } => {
+                        if !exported {
+                            return None;
+                        }
+                        (
+                            Some(identity.clone()),
+                            *standard_library && file.module == "prelude",
+                        )
+                    }
+                };
+                Some(TypeAliasSymbol {
+                    module: file.module.clone(),
+                    name,
+                    target_module,
+                    target_name,
+                    package,
+                    standard_prelude,
+                })
+            }
+            _ => None,
+        })
+        .collect()
 }
 
 fn handler_operation_clause_symbol(
@@ -824,6 +1219,13 @@ fn qualified_references(source: &SourceFile, module: &str, name: &str) -> Vec<So
         .collect()
 }
 
+fn local_binding_shadows_call_target(tokens: &[Token], index: usize, name: &str) -> bool {
+    let offset = tokens[index].range.start;
+    function_scopes(tokens).iter().any(|scope| {
+        offset >= scope.body_start && offset < scope.end && scope.shadows(name, tokens, index)
+    })
+}
+
 fn function_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
     let mut scopes = Vec::new();
     for (index, token) in tokens.iter().enumerate() {
@@ -943,12 +1345,13 @@ fn local_bindings(tokens: &[Token], body_start: usize, end: usize) -> Vec<LocalB
             continue;
         }
         let binding_end = local_binding_scope_end(tokens, index, end);
+        let binding_start = let_binding_scope_start(tokens, index);
         bindings.extend(
-            let_pattern_binding_names(tokens, index)
+            let_binding_names(tokens, index)
                 .into_iter()
-                .map(|(name, _)| LocalBinding {
+                .map(|name| LocalBinding {
                     name,
-                    start: let_binding_scope_start(tokens, index),
+                    start: binding_start,
                     end: binding_end,
                 }),
         );
@@ -984,6 +1387,29 @@ fn local_binding_scope_end(tokens: &[Token], let_index: usize, function_end: usi
         }
     }
     function_end
+}
+
+fn let_binding_names(tokens: &[Token], let_index: usize) -> Vec<String> {
+    let mut names = let_pattern_binding_names(tokens, let_index)
+        .into_iter()
+        .map(|(name, _)| name)
+        .collect::<Vec<_>>();
+    if let Some(name) = simple_let_binding_name(tokens, let_index)
+        && !names.iter().any(|existing| existing == &name)
+    {
+        names.push(name);
+    }
+    names
+}
+
+fn simple_let_binding_name(tokens: &[Token], let_index: usize) -> Option<String> {
+    let token_index = next_non_layout_index(tokens, let_index)?;
+    let token = &tokens[token_index];
+    (token.kind == TokenKind::Ident
+        && is_identifier(&token.text)
+        && next_non_layout_token(tokens, token_index)
+            .is_some_and(|next| matches!(next.kind, TokenKind::Colon | TokenKind::Equal)))
+    .then(|| token.text.clone())
 }
 
 fn local_binding_shadows_name(
@@ -1785,6 +2211,364 @@ mod tests {
     }
 
     #[test]
+    fn standard_library_functions_resolve_through_implicit_and_explicit_imports() {
+        let standard_library = standard_library_snapshot(
+            &[
+                (
+                    "prelude.veln",
+                    concat!(
+                        "pub fn visible(value: Int) -> Int\n  value\nend\n\n",
+                        "fn hidden(value: Int) -> Int\n  value\nend\n",
+                    ),
+                ),
+                (
+                    "api.veln",
+                    "pub fn exported(value: Int) -> Int\n  value\nend\n",
+                ),
+                (
+                    "private.veln",
+                    "pub fn unavailable(value: Int) -> Int\n  value\nend\n",
+                ),
+            ],
+            ["prelude.veln", "api.veln"],
+        );
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "use api from \"std\"\n\n",
+                "pub fn main() -> Int\n",
+                "  visible(1)\n",
+                "  prelude::visible(1)\n",
+                "  api::exported(1)\n",
+                "end\n",
+            ),
+        )];
+        let snapshot =
+            EffectiveProjectSnapshot::new(sources).with_standard_library(standard_library);
+
+        for (line, column, path, declaration_column) in [
+            (4, 4, "prelude.veln", 8),
+            (5, 12, "prelude.veln", 8),
+            (6, 9, "api.veln", 8),
+        ] {
+            let result = navigate(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line,
+                    column,
+                },
+            )
+            .unwrap();
+            assert_eq!(result.definition.span.file.as_str(), path);
+            assert_eq!(result.definition.span.start.column, declaration_column);
+            let NavigationSource::Package { uri } = result.definition.source else {
+                panic!("standard definition did not use a package location");
+            };
+            assert!(uri.starts_with("veln-pkg:///std/snapshot/"), "{uri}");
+            assert!(uri.ends_with(path), "{uri}");
+        }
+    }
+
+    #[test]
+    fn standard_library_definition_requires_public_exported_visibility() {
+        let standard_library = standard_library_snapshot(
+            &[
+                (
+                    "prelude.veln",
+                    "fn hidden(value: Int) -> Int\n  value\nend\n",
+                ),
+                (
+                    "private.veln",
+                    "pub fn unavailable(value: Int) -> Int\n  value\nend\n",
+                ),
+            ],
+            ["prelude.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use private from \"std\"\n\n",
+                "pub fn main() -> Int\n",
+                "  prelude::hidden(1)\n",
+                "  private::unavailable(1)\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library);
+
+        for (line, column) in [(4, 12), (5, 13)] {
+            assert!(
+                navigate(
+                    &snapshot,
+                    SourcePosition {
+                        source: SourcePath::new("main.veln"),
+                        line,
+                        column,
+                    },
+                )
+                .is_none()
+            );
+        }
+    }
+
+    #[test]
+    fn standard_library_bare_prelude_fallback_respects_local_shadowing() {
+        let standard_library = standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                "pub fn byte(value: Int) -> Result<Byte, String>\n  prelude_builtin::byte(value)\nend\n",
+            )],
+            ["prelude.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "pub fn parameter_shadow(byte: fn(Int) -> Result<Byte, String>) -> Result<Byte, String>\n",
+                "  byte(1)\n",
+                "end\n\n",
+                "pub fn local_shadow() -> Result<Byte, String>\n",
+                "  let byte: fn(Int) -> Result<Byte, String> = prelude::byte\n",
+                "  byte(1)\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library);
+
+        for (case, line, column) in [("parameter", 2, 4), ("local", 7, 4)] {
+            assert!(
+                navigate(
+                    &snapshot,
+                    SourcePosition {
+                        source: SourcePath::new("main.veln"),
+                        line,
+                        column,
+                    },
+                )
+                .is_none(),
+                "accepted shadowed {case} call"
+            );
+        }
+    }
+
+    #[test]
+    fn standard_library_bare_prelude_fallback_rejects_ambiguous_imports() {
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[(
+                "math.veln",
+                "pub fn vec_len(items: Vec<Int>) -> Int\n  0\nend\n",
+            )],
+            ["math.veln"],
+        );
+        let standard_library = standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                "pub fn vec_len(items: Vec<A>) -> Int\n  prelude_builtin::vec_len(items)\nend\n",
+            )],
+            ["prelude.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use math from \"example/pkg\"\n\n",
+                    "pub fn main(items: Vec<Int>) -> Int\n",
+                    "  vec_len(items)\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        )
+        .with_standard_library(standard_library);
+
+        assert!(
+            navigate(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 4,
+                    column: 4,
+                },
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn imported_constructor_call_definition_wins_over_bare_prelude_fallback() {
+        let standard_library = standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                "pub fn byte(value: Int) -> Int\n  value\nend\n",
+            )],
+            ["prelude.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "main.veln",
+                concat!(
+                    "use model\n\n",
+                    "pub fn main() -> Token\n",
+                    "  byte(1)\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "model.veln",
+                concat!("pub type Token\n", "  pub byte(Int)\n", "end\n"),
+            ),
+        ])
+        .with_standard_library(standard_library);
+
+        let result = navigate(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 4,
+                column: 4,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+        assert_location(&result.definition, "model.veln", 2, 7);
+    }
+
+    #[test]
+    fn reexported_constructor_call_definition_wins_over_bare_prelude_fallback() {
+        let standard_library = standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                "pub fn byte(value: Int) -> Int\n  value\nend\n",
+            )],
+            ["prelude.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "main.veln",
+                concat!(
+                    "use facade\n\n",
+                    "pub fn bare() -> Token\n",
+                    "  byte(1)\n",
+                    "end\n\n",
+                    "pub fn qualified() -> Token\n",
+                    "  facade::byte(2)\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "facade.veln",
+                concat!("use model\n\n", "pub type Token = model::Token\n"),
+            ),
+            source(
+                "model.veln",
+                concat!("pub type Token\n", "  pub byte(Int)\n", "end\n"),
+            ),
+        ])
+        .with_standard_library(standard_library);
+
+        for (line, column) in [(4, 4), (8, 11)] {
+            let result = navigate(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line,
+                    column,
+                },
+            )
+            .unwrap();
+
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+            assert_location(&result.definition, "model.veln", 2, 7);
+        }
+    }
+
+    #[test]
+    fn standard_library_bare_prelude_fallback_ignores_private_workspace_imports() {
+        let standard_library = standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                "pub fn byte(value: Int) -> Int\n  value\nend\n",
+            )],
+            ["prelude.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "main.veln",
+                concat!(
+                    "use math\n\n",
+                    "pub fn main() -> Int\n",
+                    "  byte(1)\n",
+                    "end\n",
+                ),
+            ),
+            source("math.veln", "fn byte(value: Int) -> Int\n  0\nend\n"),
+        ])
+        .with_standard_library(standard_library);
+
+        let result = navigate(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 4,
+                column: 4,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(result.definition.span.file.as_str(), "prelude.veln");
+        let NavigationSource::Package { uri } = result.definition.source else {
+            panic!("prelude definition did not use a package location");
+        };
+        assert!(uri.starts_with("veln-pkg:///std/snapshot/"), "{uri}");
+    }
+
+    #[test]
+    fn standard_library_bare_prelude_fallback_rejects_same_module_package_imports() {
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[(
+                "math.veln",
+                "pub fn vec_len(items: Vec<Int>) -> Int\n  0\nend\n",
+            )],
+            ["math.veln"],
+        );
+        let standard_library = standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                "pub fn vec_len(items: Vec<A>) -> Int\n  prelude_builtin::vec_len(items)\nend\n",
+            )],
+            ["prelude.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "math.veln",
+                concat!(
+                    "use math from \"example/pkg\"\n\n",
+                    "pub fn main(items: Vec<Int>) -> Int\n",
+                    "  vec_len(items)\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        )
+        .with_standard_library(standard_library);
+
+        assert!(
+            navigate(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("math.veln"),
+                    line: 4,
+                    column: 4,
+                },
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
     fn dependency_definition_requires_exported_source_and_public_function() {
         let fixtures = [
             (
@@ -2017,6 +2801,24 @@ mod tests {
             ),
         );
         DirectDependencySnapshot::from_validated_manifest(&identity, snapshot, manifest).unwrap()
+    }
+
+    fn standard_library_snapshot(
+        sources: &[(&str, &str)],
+        exports: impl IntoIterator<Item = &'static str>,
+    ) -> DirectDependencySnapshot {
+        let root = TempDependency::new("std", sources);
+        let snapshot = capture_package_snapshot(&root.path).unwrap();
+        let exports = exports
+            .into_iter()
+            .map(|export| format!("\"{export}\""))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let manifest = parse_manifest_text(
+            "veln.toml",
+            &format!("[package]\nname = \"std\"\n\n[lib]\nexports = [{exports}]\n"),
+        );
+        DirectDependencySnapshot::from_validated_standard_library(snapshot, manifest).unwrap()
     }
 
     struct TempDependency {

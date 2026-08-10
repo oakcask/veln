@@ -20,8 +20,9 @@ used by editor integrations.
 - LSP `textDocument/definition`, `textDocument/references`,
   `textDocument/prepareRename`, and `textDocument/rename` convert shared
   navigation results to LSP responses in `veln-lsp`.
-- LSP `veln/virtualDocument` reads immutable direct path-dependency source from
-  the retained package snapshot in `veln-lsp`.
+- LSP `veln/virtualDocument` reads immutable direct path-dependency and
+  embedded standard-library source from retained package snapshots in
+  `veln-lsp`.
 - LSP `textDocument/formatting` is implemented in `veln-lsp`.
 - The stdio LSP server starts through `veln lsp`.
 - TextMate fallback highlighting is contributed by
@@ -163,11 +164,14 @@ representation. Its direct tests cover project functions, exact companion
 visibility, handler bindings, deterministic ordering, shadowing, field
 isolation, and positions without a supported symbol.
 
-`veln-lsp` captures the workspace manifest, saved workspace sources, and valid
-direct path-dependency snapshots together for each selected workspace project.
-Navigation starts from that retained project snapshot. The server applies
-open-document overlays to workspace sources before calling the shared language
-service. It converts shared locations to LSP URIs and zero-based ranges.
+`veln-lsp` captures the workspace manifest, saved workspace sources, valid
+direct path-dependency snapshots, and the embedded standard-package snapshot
+together for each selected workspace project. It constructs the standard
+snapshot directly from the embedded manifest and distribution sources without
+materializing a filesystem tree. Navigation starts from that retained project
+snapshot. The server applies open-document overlays to workspace sources
+before calling the shared language service. It converts shared locations to
+LSP URIs and zero-based ranges.
 Definition, references, prepare-rename, and rename use the same shared selected
 symbol and reference set.
 For a workspace symbol, references and rename edits include only workspace
@@ -182,12 +186,23 @@ from the same identity and snapshot. A qualified call through
 when the dependency identity matches, the function's source is listed in
 `[lib].exports`, and the function is public.
 
-`textDocument/definition` returns the dependency declaration with the exact
-canonical `veln-pkg:` URI from the retained catalog. It does not convert the
-location to a `file:` URI and does not expose the dependency materialization
-path. Workspace definitions continue to use `file:` URIs. Private functions
-and functions in non-exported dependency sources have no dependency definition
-result. Dependency declarations are immutable package locations:
+The retained standard input has the reserved `std` identity and the same
+snapshot, export, and catalog boundaries. Bare and `prelude::` calls resolve
+public functions from the exported standard prelude. A function parameter or
+local binding with the same name shadows the bare prelude fallback at call
+sites in its scope; the same standard function remains reachable through an
+explicit `prelude::` call. A qualified call through `use module from "std"`
+resolves a public function only from an exported standard source. Private
+declarations and declarations in non-exported standard sources do not produce
+definition results.
+
+`textDocument/definition` returns a dependency or standard declaration with
+the exact canonical `veln-pkg:` URI from the retained catalog. It does not
+convert the location to a `file:` URI. It exposes neither a dependency
+materialization path nor a standard-library build path. Workspace definitions
+continue to use `file:` URIs. Private functions and functions in non-exported
+package sources have no package definition result. Package declarations are
+immutable locations:
 `textDocument/prepareRename` returns no range for them, and
 `textDocument/rename` returns no workspace edits for them. `textDocument/references`
 returns no package locations for dependency declarations in this slice.
@@ -207,7 +222,8 @@ VSCode's URI object displays a different string for the same provider-backed
 document, the request still uses the canonical URI returned by the server.
 
 The `veln-language-service` tests are the executable evidence for dependency
-visibility and transport-neutral package locations. The static LSP example
+and standard visibility and transport-neutral package locations. The static
+LSP example
 `../../examples/specification/lsp/direct-dependency-virtual-document-boundary/`
 covers dependency definition boundaries without reading the dynamic digest.
 The `veln-lsp` dependency virtual-document test is the executable JSON-RPC
@@ -218,6 +234,15 @@ and unknown or noncanonical URI rejection. The VSCode extension tests cover the
 corresponding definition request, exact-text read, location conversion,
 canonical URI lookup after VSCode URI parsing, and content-provider
 registration.
+
+The executable LSP example
+`../../examples/specification/lsp/standard-library-virtual-document/` checks
+bare and qualified prelude definitions, an explicitly imported exported
+standard module, bare prelude shadowing by parameter and local bindings, a
+private prelude boundary, the exact standard snapshot URI, the complete
+embedded prelude read, and noncanonical URI rejection. The `veln-lsp`
+standard-package test additionally compares the returned virtual document with
+the exact embedded source value and checks package rename rejection.
 
 `textDocument/formatting` returns a single whole-document text edit containing
 the same canonical formatting produced by the formatter. Handler operation
@@ -350,6 +375,9 @@ Implemented:
 - Stdio definition responses for public functions in exported direct
   path-dependency sources, and `veln/virtualDocument` reads for the returned
   exact `veln-pkg:` URI.
+- Stdio definition responses for implicit prelude functions and public
+  functions in explicitly imported exported `std` sources, with exact
+  `veln/virtualDocument` reads from the embedded standard snapshot.
 - VSCode startup for `.veln` files using the configured language-server
   command.
 - VSCode Problems pane integration for Veln diagnostics.
@@ -365,5 +393,5 @@ Not implemented:
 - Completion and hover.
 - Dependency reference search.
 - General rename and go-to-definition support outside the implemented
-  companion private-function identity, handler binding, and direct
-  path-dependency definition cases.
+  companion private-function identity, handler binding, direct path-dependency,
+  and embedded standard-function definition cases.

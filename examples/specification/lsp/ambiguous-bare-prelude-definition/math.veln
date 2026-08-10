@@ -1,0 +1,5 @@
+use math from "example/pkg"
+
+pub fn main(items: Vec<Int>) -> Int
+  vec_len(items)
+end

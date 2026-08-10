@@ -1,0 +1,9 @@
+use facade
+
+pub fn bare() -> Token
+  byte(1)
+end
+
+pub fn qualified() -> Token
+  facade::byte(2)
+end

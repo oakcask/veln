@@ -366,6 +366,7 @@ dependencies = [
  "veln-project",
  "veln-sema",
  "veln-source",
+ "veln-stdlib",
  "veln-syntax",
 ]
 
