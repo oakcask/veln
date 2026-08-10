@@ -11,6 +11,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[path = "toolchain_semantic_baseline/mod.rs"]
 mod toolchain_semantic_baseline;
 
 use veln_analysis::{

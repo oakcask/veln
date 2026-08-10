@@ -14,7 +14,7 @@ const ROOTS: [(&str, &str); 2] = [
     ),
     ("examples/specification", "../../examples/specification"),
 ];
-const BASELINE: &str = include_str!("toolchain-case-semantics.baseline");
+const BASELINE: &str = include_str!("../toolchain-case-semantics.baseline");
 const LARGE_TEXT_BYTES: usize = 256;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
