@@ -18,6 +18,9 @@ also states it.
 
 ## Catalog
 
+- Readable multiline input, output, and JSON-RPC fixtures for toolchain test
+  cases:
+  [readable-toolchain-case-streams.md](readable-toolchain-case-streams.md).
 - Agent language services through MCP, package documentation, generated public
   reference, cross-adapter conformance, and client plugins:
   [agent-language-services.md](agent-language-services.md).
