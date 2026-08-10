@@ -112,10 +112,11 @@ behavior under test.
 for every parsed `case.toml` under `crates/veln-cli/tests/toolchain_cases/` and
 `examples/specification/`. It records ordered invocation and assertion fields,
 typed values, execution gates, case digests, and an aggregate digest. Large
-text and binary values record their logical field, byte length, and SHA-256
-digest. JSON object members are key-sorted because object member order is not
-part of an assertion value; arrays and all manifest assertion sequences retain
-their order.
+text values, including nested strings inside typed JSON assertions, record an
+explicit logical field, byte length, and SHA-256 digest. Binary values record
+their byte length and SHA-256 digest. JSON object members are key-sorted
+because object member order is not part of an assertion value; arrays and all
+manifest assertion sequences retain their order.
 
 The normal `toolchain_harness` target runs
 `checked_in_semantic_baseline_matches_authoritative_cases`. The test reads the

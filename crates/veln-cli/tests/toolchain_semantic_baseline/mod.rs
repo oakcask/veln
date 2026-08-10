@@ -590,9 +590,13 @@ fn assertion_operation(
         enum_value(fields, &format!("{base}.operation"), "missing");
     } else {
         enum_value(fields, &format!("{base}.operation"), "equals");
+        let path = format!("{base}.equals");
         fields.insert(
-            format!("{base}.equals"),
-            canonical_json(equals.expect("validated assertion should have equals")),
+            path.clone(),
+            canonical_json(
+                equals.expect("validated assertion should have equals"),
+                &path,
+            ),
         );
     }
 }
@@ -634,9 +638,10 @@ fn binary_fixtures(fields: &mut BTreeMap<String, String>, fixtures: &[BinaryFixt
                 diagnostic.readiness.as_deref(),
             );
             if let Some(value) = &diagnostic.field_path {
+                let path = format!("{base}.byte_diagnostic.field_path");
                 fields.insert(
-                    format!("{base}.byte_diagnostic.field_path"),
-                    canonical_json(value),
+                    path.clone(),
+                    canonical_json(value, &path),
                 );
             }
         }
@@ -661,24 +666,38 @@ fn output_chunks(fields: &mut BTreeMap<String, String>, lists: &[OutputChunkList
     }
 }
 
-fn canonical_json(value: &JsonValue) -> String {
+fn canonical_json(value: &JsonValue, logical_field: &str) -> String {
     match value {
         JsonValue::Null => "null".to_string(),
         JsonValue::Bool(value) => value.to_string(),
         JsonValue::Number(value) => value.to_string(),
-        JsonValue::String(value) => json_string(value),
+        JsonValue::String(value) => {
+            if value.len() >= LARGE_TEXT_BYTES {
+                large_text_descriptor(logical_field, value)
+            } else {
+                json_string(value)
+            }
+        }
         JsonValue::Array(values) => format!(
             "[{}]",
             values
                 .iter()
-                .map(canonical_json)
+                .enumerate()
+                .map(|(index, value)| {
+                    canonical_json(value, &format!("{logical_field}/{index}"))
+                })
                 .collect::<Vec<_>>()
                 .join(",")
         ),
         JsonValue::Object(entries) => {
             let mut entries = entries
                 .iter()
-                .map(|(key, value)| (key, canonical_json(value)))
+                .map(|(key, value)| {
+                    (
+                        key,
+                        canonical_json(value, &json_logical_child(logical_field, key)),
+                    )
+                })
                 .collect::<Vec<_>>();
             entries.sort_by(|left, right| left.0.cmp(right.0));
             format!(
@@ -693,6 +712,11 @@ fn canonical_json(value: &JsonValue) -> String {
     }
 }
 
+fn json_logical_child(parent: &str, key: &str) -> String {
+    let escaped = key.replace('~', "~0").replace('/', "~1");
+    format!("{parent}/{escaped}")
+}
+
 fn string_list(fields: &mut BTreeMap<String, String>, base: &str, values: &[String]) {
     for (index, value) in values.iter().enumerate() {
         text(fields, &format!("{base}[{index}]"), value);
@@ -701,17 +725,19 @@ fn string_list(fields: &mut BTreeMap<String, String>, base: &str, values: &[Stri
 
 fn text(fields: &mut BTreeMap<String, String>, path: &str, value: &str) {
     if value.len() >= LARGE_TEXT_BYTES {
-        fields.insert(
-            path.to_string(),
-            format!(
-                "{{\"byte_length\":{},\"sha256\":{}}}",
-                value.len(),
-                json_string(&sha256(value.as_bytes()))
-            ),
-        );
+        fields.insert(path.to_string(), large_text_descriptor(path, value));
     } else {
         fields.insert(path.to_string(), json_string(value));
     }
+}
+
+fn large_text_descriptor(logical_field: &str, value: &str) -> String {
+    format!(
+        "{{\"logical_field\":{},\"byte_length\":{},\"sha256\":{}}}",
+        json_string(logical_field),
+        value.len(),
+        json_string(&sha256(value.as_bytes()))
+    )
 }
 
 fn bytes_value(fields: &mut BTreeMap<String, String>, path: &str, value: &[u8]) {
@@ -860,8 +886,35 @@ fn semantic_export_normalizes_object_order_and_hashes_large_exact_text() {
     assert_eq!(
         left["invocation.stdin"],
         format!(
-            "{{\"byte_length\":{LARGE_TEXT_BYTES},\"sha256\":{}}}",
+            "{{\"logical_field\":\"invocation.stdin\",\"byte_length\":{LARGE_TEXT_BYTES},\"sha256\":{}}}",
             json_string(&sha256("x".repeat(LARGE_TEXT_BYTES).as_bytes()))
+        )
+    );
+}
+
+#[test]
+fn semantic_export_hashes_large_typed_json_strings_with_logical_fields() {
+    let large = "x".repeat(LARGE_TEXT_BYTES);
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        &format!(
+            "command = [\"check\"]\nexit = 0\n[[json_assert]]\npath = \"value\"\nequals = {{\"outer\": [{{\"inner/key\": {:?}}}]}}\n[[json_assert]]\npath = \"top\"\nequals = {:?}\n",
+            large,
+            large
+        ),
+    );
+    let fields = describe(&manifest);
+    let digest = json_string(&sha256(large.as_bytes()));
+    assert_eq!(
+        fields["expectations.json_assertions[0].equals"],
+        format!(
+            "{{\"outer\":[{{\"inner/key\":{{\"logical_field\":\"expectations.json_assertions[0].equals/outer/0/inner~1key\",\"byte_length\":{LARGE_TEXT_BYTES},\"sha256\":{digest}}}}}]}}"
+        )
+    );
+    assert_eq!(
+        fields["expectations.json_assertions[1].equals"],
+        format!(
+            "{{\"logical_field\":\"expectations.json_assertions[1].equals\",\"byte_length\":{LARGE_TEXT_BYTES},\"sha256\":{digest}}}"
         )
     );
 }

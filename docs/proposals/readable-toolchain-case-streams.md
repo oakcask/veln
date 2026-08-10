@@ -48,7 +48,7 @@ therefore encode every line break and place large inputs or outputs on one
 physical line. This makes source text, command output, JSON-RPC messages, and
 long fragment arrays difficult to review.
 
-The current inventory contains 1,504 manifests under the two discovery roots.
+The current inventory contains 1,508 manifests under the two discovery roots.
 Of those manifests, 611 contain an encoded newline on 741 manifest lines. The
 affected values consist mainly of exact `equals` strings, LSP `stdin`, and
 multiline `contains` fragments. One exact output occupies approximately 39 KiB
