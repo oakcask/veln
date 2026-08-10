@@ -36,7 +36,7 @@ if (isMainModule()) {
       ...result.errors.map((error) => `- ${error}`),
     ].join("\n");
     if (process.env.GITHUB_ACTIONS === "true") {
-      console.error(`::error title=Invalid documentation frontmatter::${escapeGitHubAnnotation(message)}`);
+      console.error(renderGitHubErrorAnnotation(message));
     }
     console.error(message);
     process.exit(1);
@@ -320,11 +320,13 @@ function isMainModule() {
   return process.argv[1] !== undefined && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 }
 
-function escapeGitHubAnnotation(value) {
+export function renderGitHubErrorAnnotation(message) {
+  return `::error title=Invalid documentation frontmatter::${escapeGitHubAnnotationMessage(message)}`;
+}
+
+function escapeGitHubAnnotationMessage(value) {
   return value
     .replaceAll("%", "%25")
     .replaceAll("\r", "%0D")
-    .replaceAll("\n", "%0A")
-    .replaceAll(":", "%3A")
-    .replaceAll(",", "%2C");
+    .replaceAll("\n", "%0A");
 }
