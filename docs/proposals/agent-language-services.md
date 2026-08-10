@@ -461,9 +461,11 @@ implemented and specified in
 [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).
 The transport-independent package documentation catalog, status-only failure
 result, documentation digest, canonical `veln-doc:` URI foundation, same-capture
-manifest binding, exported module and public constructor documentation
-projection, and generated doctest static gate for expression and declaration
-doctests are implemented and specified in
+manifest binding, path-derived module identity, exported module and public
+constructor documentation projection, stream-aware expected-output publication,
+effect-row-binder signatures, and generated doctest static gate for expression,
+declaration, and mixed declaration-statement doctests are implemented and
+specified in
 [Package Documentation Catalogs](../specification/package-documentation.md).
 MCP resources, MCP documentation publication, and snapshot lifetime rules
 remain planned below.
@@ -564,8 +566,8 @@ A passing positive doctest and a `veln fail` doctest whose visible source
 produces a parse diagnostic can be published. Ignored doctests and hidden setup
 are not published. Doctest metadata is validated by the shared doctest
 extractor, and metadata errors fail the complete documentation generation.
-Full semantic, runtime, and expected-output doctest execution remains part of
-the planned MCP publication slice.
+Runtime doctest execution and expected-output comparison remain part of the
+planned MCP publication slice.
 
 ## Published Language Reference
 
@@ -905,7 +907,7 @@ already implemented.
 | Read a noncanonical, unknown, or mismatched snapshot URI through MCP. | The server returns `resource_not_found` without normalization, fallback, or filesystem access. The transport-independent resolver rejection table is already implemented and specified in [Package Virtual Sources](../specification/package-virtual-sources.md). | MCP adapter case mapping a catalog miss to `resource_not_found`. |
 | Read a private distribution source or inspect package metadata. | The source is readable; metadata contains only the closed public allowlist and no dependency, URL, tool, path, or credential-bearing fields. | Q15 disclosure-policy cases. |
 | Keep returned dependency URIs while projects refresh or disappear. | Every published snapshot remains readable until shutdown; capacity failure never evicts an older URI. | Q10 resource-lifetime cases. |
-| Generate package docs. | The transport-independent catalog contains only exported modules and their public API; attached contracts, visible doctests, resolved schema documentation references, and declaration-location URI lookup are preserved. MCP publication remains planned. | Implemented package-documentation unit tests and readable `doc` examples; planned MCP resource case. |
+| Generate package docs. | The transport-independent catalog contains only exported modules and their public API; attached contracts, visible doctests, stream-aware expected-output fences, resolved schema documentation references, effect-row-binder signatures, and declaration-location URI lookup are preserved. MCP publication remains planned. | Implemented package-documentation unit tests and readable `doc` examples; planned MCP resource case. |
 | Change catalog semantics without changing package bytes. | The package digest stays fixed and the documentation catalog digest and URIs change. | Implemented package-documentation document-identity tests; planned MCP resource case. |
 | Package documentation generation or doctest validation fails. | The transport-independent result contains ordered status diagnostics and no partial module or declaration catalog. MCP status-resource publication remains planned. | Implemented atomic-generation-failure unit tests; planned MCP resource case. |
 
@@ -948,8 +950,9 @@ The canonical package virtual-source URI and resolver foundation is implemented
 and specified in
 [Package Virtual Sources](../specification/package-virtual-sources.md).
 The transport-independent exported package documentation catalog foundation,
-same-capture manifest binding, and generated doctest static gate are
-implemented and specified in
+same-capture manifest binding, path-derived module identity, stream-aware
+expected-output publication, effect-row-binder signatures, and generated
+doctest static gate are implemented and specified in
 [Package Documentation Catalogs](../specification/package-documentation.md).
 Direct path, vendor, mirror, and locally available direct git dependency
 definition locations, embedded standard-library definition locations, the LSP

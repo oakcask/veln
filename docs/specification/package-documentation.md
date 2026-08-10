@@ -44,28 +44,32 @@ veln-doc:///package/<package-segment>/snapshot/<digest>/documentation/<doc-diges
 
 The package segment uses the same segment encoding as package virtual-source
 URIs. Module and declaration identifiers are 64-character lowercase SHA-256
-digests from versioned identity domains. Declaration identity uses declaration
-kind, fully qualified semantic name, and canonical signature. It does not use
-source order or source byte offsets. A duplicate semantic identity fails the
-complete package documentation result. A detected module or declaration
-identifier collision also fails the complete package documentation result.
+digests from versioned identity domains. Module identity is derived from the
+package-relative source path. It is not derived from a `module` declaration.
+Declaration identity uses declaration kind, fully qualified semantic name, and
+canonical signature. Function declaration signatures include effect row
+binders such as `<effect E>`. Declaration identity does not use source order
+or source byte offsets. A duplicate semantic identity fails the complete
+package documentation result. A detected module or declaration identifier
+collision also fails the complete package documentation result.
 
 ## Published Boundary
 
 The successful catalog includes only modules listed by `[lib].exports`. For
-those modules it includes explicit module-declaration documentation, public
-type declarations, public type constructors, public schemas, public member
-aliases, public functions, attached documentation comments, public function
-contracts, visible doctest fences, expected-output fences, and resolved schema
-documentation references. Public type constructors carry their own attached
-documentation comments, visible doctest fences, expected-output fences, and
-resolved schema documentation references.
+those modules it includes public type declarations, public type constructors,
+public schemas, public member aliases, public functions, attached
+documentation comments, public function contracts, visible doctest fences,
+expected-output fences, and resolved schema documentation references. Public
+type constructors carry their own attached documentation comments, visible
+doctest fences, expected-output fences, and resolved schema documentation
+references.
 
 The catalog excludes non-exported modules, private declarations, exact test
 companions, integration-test sources, hidden doctest setup lines, ADR-lite
 records, raw manifests, dependency declarations, dependency selectors, local
 paths, repository and homepage URLs, tool metadata, unknown manifest fields,
-and environment-derived values.
+and environment-derived values. Published expected-output fences preserve the
+stream as `stdout` or `stderr` and the complete lines for that stream.
 
 Published package metadata is limited to package identity, manifest package
 name, version, description, license, authors, keywords, and exported module
@@ -88,18 +92,19 @@ The implemented gates are:
 - export: every exported source must exist in the captured snapshot and each
   export path can appear at most once;
 - documentation reference: `{@schema ...}` references in documentation
-  blocks that attach to exported explicit module declarations, exported public
-  declarations, or exported public type constructors must resolve to a public
-  schema in an exported module, and the successful catalog keeps the resolved
-  target declaration identifier and same-snapshot declaration URI;
+  blocks that attach to exported public declarations or exported public type
+  constructors must resolve to a public schema in an exported module, and the
+  successful catalog keeps the resolved target declaration identifier and
+  same-snapshot declaration URI;
 - doctest: visible positive `veln` doctest fences must pass the shared
-  generated-source static analysis pipeline, including visible positive
-  doctests that contain declarations. `veln fail` fences must produce an error
-  diagnostic through that same pipeline, `veln ignore` fences are not
-  published or checked by the catalog, hidden setup lines are not published,
-  `veln-output stream=stdout` and `veln-output stream=stderr` fences are
-  accepted, and doctest metadata diagnostics from the shared doctest extractor
-  fail generation; and
+  generated-source static analysis pipeline, including the declaration and
+  statement portions of visible positive doctests that contain both.
+  `veln fail` fences must produce an error diagnostic through that same
+  pipeline, `veln ignore` fences are not published or checked by the catalog,
+  hidden setup lines are not published, `veln-output stream=stdout` and
+  `veln-output stream=stderr` fences are accepted, duplicate output fences for
+  the same stream fail generation, and doctest metadata diagnostics from the
+  shared doctest extractor fail generation; and
 - identity: duplicate semantic declaration identities fail generation.
   Detected module identifier collisions and declaration identifier collisions
   fail generation.
@@ -124,12 +129,13 @@ spelling.
 The `veln-language-service` package-documentation unit tests are the
 authoritative executable evidence. `cargo test -p veln-language-service`
 checks public metadata allowlisting, exported-module and public-declaration
-selection, explicit module-declaration documentation, private and non-exported
-exclusion, contracts, constructor projection, constructor documentation,
-constructor doctests, constructor documentation references, and
-constructor-location lookup, visible doctest and expected-output publication,
-generated doctest static analysis for expression and declaration doctests,
-`veln fail` doctest handling, hidden setup and ADR-lite exclusion,
+selection, private and non-exported exclusion, contracts, constructor
+projection, constructor documentation, constructor doctests, constructor
+documentation references, and constructor-location lookup, visible doctest and
+expected-output publication, generated doctest static analysis for expression,
+declaration, and mixed declaration-statement doctests, `veln fail` doctest
+handling, ignored doctest expected-output adjacency, duplicate expected-output
+rejection, hidden setup and ADR-lite exclusion, effect row binder signatures,
 deterministic bytes, digest and URI stability, package byte changes,
 generator-contract changes, renderer-only stability when bytes are unchanged,
 declaration URI lookup from declaration spans and navigation name-token spans,

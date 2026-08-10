@@ -225,7 +225,13 @@ pub struct PackageDocDoctest {
     pub code: String,
     pub expected_error: Option<String>,
     pub should_fail: bool,
-    pub expected_output: Vec<String>,
+    pub expected_output: Vec<PackageDocExpectedOutput>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PackageDocExpectedOutput {
+    pub stream: String,
+    pub lines: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -446,8 +452,18 @@ impl<'a> PackageDocBuilder<'a> {
         catalog.status_uri = self.status_uri(&final_doc_digest);
         for module in &mut catalog.modules {
             module.uri = self.module_uri(&module.id, &final_doc_digest);
+            for reference in &mut module.references {
+                reference.target_uri =
+                    self.declaration_uri(&reference.target_declaration_id, &final_doc_digest);
+            }
             for declaration in &mut module.declarations {
                 declaration.uri = self.declaration_uri(&declaration.id, &final_doc_digest);
+                for constructor in &mut declaration.constructors {
+                    for reference in &mut constructor.references {
+                        reference.target_uri = self
+                            .declaration_uri(&reference.target_declaration_id, &final_doc_digest);
+                    }
+                }
                 for reference in &mut declaration.references {
                     reference.target_uri =
                         self.declaration_uri(&reference.target_declaration_id, &final_doc_digest);
@@ -512,9 +528,7 @@ impl<'a> PackageDocBuilder<'a> {
                     self.snapshot.digest(),
                 ));
             }
-            let module_name = explicit_module_name(text)
-                .or_else(|| module_name_from_path(source.path()))
-                .unwrap_or_default();
+            let module_name = module_name_from_path(source.path()).unwrap_or_default();
             parsed.push(ParsedPackageSource {
                 source: source_file,
                 tree: output.tree,
@@ -738,22 +752,14 @@ impl<'a> PackageDocBuilder<'a> {
                     .push(self.project_diagnostic("doctest", diagnostic.clone()));
             }
         }
-        let mut analysis_sources = Vec::new();
-        let mut declaration_analysis_sources = Vec::new();
-        for source in doctests.sources {
-            if generated_doctest_contains_declaration(source.text()) {
-                if let Some(declaration_source) = generated_doctest_declaration_source(&source) {
-                    declaration_analysis_sources.push(declaration_source);
-                }
-            } else {
-                analysis_sources.push(source);
-            }
-        }
-        analysis_sources.extend(declaration_analysis_sources);
         let analysis = analyze_project(
             Project {
                 root: ".".into(),
-                files: analysis_sources,
+                files: doctests
+                    .sources
+                    .iter()
+                    .map(generated_doctest_static_gate_source)
+                    .collect(),
                 manifest: None,
             },
             DoctestMode::Exclude,
@@ -1133,9 +1139,7 @@ impl<'a> PackageDocBuilder<'a> {
         target_line: usize,
         schema_targets: &BTreeMap<String, PublicSchemaDocTarget>,
     ) -> Vec<PackageDocReference> {
-        let current_module = explicit_module_name(source.text())
-            .or_else(|| module_name_from_path(source.path().as_str()))
-            .unwrap_or_default();
+        let current_module = module_name_from_path(source.path().as_str()).unwrap_or_default();
         doc_schema_references_before(source, target_line)
             .into_iter()
             .filter_map(|reference| {
@@ -1310,35 +1314,67 @@ fn is_doctest_gate_diagnostic(diagnostic: &Diagnostic) -> bool {
             .is_some_and(|span| span.file.as_str().contains("#doctest-"))
 }
 
-fn generated_doctest_contains_declaration(text: &str) -> bool {
-    text.lines().skip(1).any(|line| {
-        let trimmed = generated_doctest_body_line(line)
-            .unwrap_or(line)
-            .trim_start();
-        starts_declaration(trimmed)
-    })
-}
+fn generated_doctest_static_gate_source(source: &SourceFile) -> SourceFile {
+    let mut visible_lines = source
+        .text()
+        .lines()
+        .skip(1)
+        .filter_map(generated_doctest_body_line)
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    if visible_lines
+        .last()
+        .is_some_and(|line| line.trim_start() == "end")
+    {
+        visible_lines.pop();
+    }
+    if visible_lines
+        .last()
+        .is_some_and(|line| matches!(line.trim_start(), "()" | "Ok(())"))
+    {
+        visible_lines.pop();
+    }
 
-fn generated_doctest_declaration_source(source: &SourceFile) -> Option<SourceFile> {
     let mut declarations = Vec::new();
-    let mut active = false;
-    for line in source.text().lines().skip(1) {
-        let Some(body_line) = generated_doctest_body_line(line) else {
-            continue;
-        };
-        let trimmed = body_line.trim_start();
-        if !active && starts_declaration(trimmed) {
-            active = true;
+    let mut statements = Vec::new();
+    let mut active_declaration = false;
+    for line in visible_lines {
+        let trimmed = line.trim_start();
+        let ends_declaration = trimmed == "end";
+        if !active_declaration && starts_declaration(trimmed) {
+            active_declaration = true;
         }
-        if active {
-            declarations.push(body_line.to_string());
-            if trimmed == "end" {
-                active = false;
+        if active_declaration {
+            declarations.push(line);
+            if ends_declaration {
+                active_declaration = false;
             }
+        } else {
+            statements.push(line);
         }
     }
-    (!declarations.is_empty())
-        .then(|| SourceFile::new(source.path().as_str(), declarations.join("\n")))
+
+    if declarations.is_empty() {
+        return source.clone();
+    }
+
+    let mut text = String::new();
+    for line in declarations {
+        text.push_str(&line);
+        text.push('\n');
+    }
+    text.push_str("test doctest_body() -> () effects [stdio]\n");
+    for line in statements {
+        if line.is_empty() {
+            text.push('\n');
+        } else {
+            text.push_str("  ");
+            text.push_str(&line);
+            text.push('\n');
+        }
+    }
+    text.push_str("  ()\nend\n");
+    SourceFile::new(source.path().as_str(), text)
 }
 
 fn generated_doctest_body_line(line: &str) -> Option<&str> {
@@ -1358,6 +1394,11 @@ fn starts_declaration(trimmed: &str) -> bool {
 fn function_signature(function: &FunctionDecl) -> String {
     let mut signature = String::from("fn ");
     signature.push_str(function.name.as_deref().unwrap_or("<anonymous>"));
+    if let Some(binder) = &function.effect_binder {
+        signature.push_str("<effect ");
+        signature.push_str(&binder.name);
+        signature.push('>');
+    }
     signature.push('(');
     signature.push_str(
         &function
@@ -1702,6 +1743,7 @@ fn schema_reference_target<'a>(
 
 struct ActiveDocFence {
     kind: String,
+    stream: Option<String>,
     expected_error: Option<String>,
     ignored: bool,
     should_fail: bool,
@@ -1765,9 +1807,30 @@ fn close_doctest_fence(
         *last_doctest = Some(result.len() - 1);
     } else if fence.kind == "veln-output"
         && let Some(index) = last_doctest
-        && let Some(Ok(doctest)) = result.get_mut(*index)
     {
-        doctest.expected_output = fence.lines;
+        let stream = fence.stream.unwrap_or_else(|| "stdout".to_string());
+        let duplicate = result.get(*index).is_some_and(|entry| match entry {
+            Ok(doctest) => doctest
+                .expected_output
+                .iter()
+                .any(|output| output.stream == stream),
+            Err(_) => false,
+        });
+        if duplicate {
+            result.push(Err(PackageDocDiagnostic {
+                gate: "doctest".to_string(),
+                code: "package_doc.duplicate_expected_output".to_string(),
+                message: format!("duplicate expected {stream} output fence"),
+                span: None,
+            }));
+            return;
+        }
+        if let Some(Ok(doctest)) = result.get_mut(*index) {
+            doctest.expected_output.push(PackageDocExpectedOutput {
+                stream,
+                lines: fence.lines,
+            });
+        }
     }
 }
 
@@ -1780,6 +1843,7 @@ fn parse_doctest_fence_info(info: &str) -> Option<Result<ActiveDocFence, String>
 
     let mut fence = ActiveDocFence {
         kind: kind.to_string(),
+        stream: None,
         expected_error: None,
         ignored: false,
         should_fail: false,
@@ -1820,6 +1884,7 @@ fn parse_doctest_fence_attribute(
         && let Some(stream) = part.strip_prefix("stream=")
     {
         if matches!(stream, "stdout" | "stderr") {
+            fence.stream = Some(stream.to_string());
             *has_output_stream = true;
             return Ok(());
         }
@@ -2000,7 +2065,21 @@ fn doctest_array_json(out: &mut String, doctests: &[PackageDocDoctest]) {
         field(out, "code", &doctest.code, true);
         optional_field(out, "expected_error", doctest.expected_error.as_deref());
         bool_field(out, "should_fail", doctest.should_fail);
-        string_array_field(out, "expected_output", &doctest.expected_output);
+        out.push_str(",\"expected_output\":[");
+        expected_output_array_json(out, &doctest.expected_output);
+        out.push(']');
+        out.push('}');
+    }
+}
+
+fn expected_output_array_json(out: &mut String, outputs: &[PackageDocExpectedOutput]) {
+    for (index, output) in outputs.iter().enumerate() {
+        if index > 0 {
+            out.push(',');
+        }
+        out.push('{');
+        field(out, "stream", &output.stream, false);
+        string_array_field(out, "lines", &output.lines);
         out.push('}');
     }
 }
@@ -2186,13 +2265,6 @@ fn encoded_segment(segment: &str) -> String {
     output
 }
 
-fn explicit_module_name(text: &str) -> Option<String> {
-    text.lines().find_map(|line| {
-        let rest = line.trim_start().strip_prefix("mod ")?;
-        leading_module_path(rest).map(str::to_string)
-    })
-}
-
 fn module_name_from_path(path: &str) -> Option<String> {
     Some(path.strip_suffix(".veln")?.replace('/', "::"))
 }
@@ -2208,15 +2280,6 @@ fn is_package_relative_path(path: &str) -> bool {
                     | std::path::Component::Prefix(_)
             )
         })
-}
-
-fn leading_module_path(input: &str) -> Option<&str> {
-    let end = input
-        .char_indices()
-        .take_while(|(_, ch)| *ch == '_' || ch.is_ascii_alphanumeric() || *ch == ':')
-        .map(|(index, ch)| index + ch.len_utf8())
-        .last()?;
-    Some(&input[..end])
 }
 
 fn manifest_field(fields: &[veln_project::ManifestField], key: &str) -> Option<String> {
@@ -2308,6 +2371,12 @@ mod tests {
             .join(name)
     }
 
+    fn catalog_or_panic(result: &PackageDocResult) -> &PackageDocCatalog {
+        result
+            .catalog()
+            .unwrap_or_else(|| panic!("successful catalog: {:?}", result.status().diagnostics))
+    }
+
     fn generate_with_forced_declaration_id(
         manifest: &str,
         sources: &[(&str, &str)],
@@ -2354,10 +2423,6 @@ mod tests {
                 (
                     "main.veln",
                     concat!(
-                        "## Module docs.\n",
-                        "mod main\n",
-                        "\n",
-                        "\n",
                         "## Public type docs.\n",
                         "pub type ResultBox<A>\n",
                         "\t## Ready constructor docs mention {@schema Packet}.\n",
@@ -2383,6 +2448,9 @@ mod tests {
                         "## ```veln-output stream=stdout\n",
                         "## 1\n",
                         "## ```\n",
+                        "## ```veln-output stream=stderr\n",
+                        "## note\n",
+                        "## ```\n",
                         "pub fn value(input: Int) -> output: Int\n",
                         "\trequire input >= 0\n",
                         "\tensure output >= input\n",
@@ -2403,14 +2471,14 @@ mod tests {
             ],
         );
 
-        let catalog = result.catalog().expect("successful catalog");
+        let catalog = catalog_or_panic(&result);
         assert_eq!(catalog.metadata.package_name.as_deref(), Some("demo"));
         assert_eq!(catalog.metadata.version.as_deref(), Some("1.2.3"));
         assert_eq!(catalog.metadata.authors, ["Ada", "Bea"]);
         assert_eq!(catalog.metadata.keywords, ["docs", "api"]);
         assert_eq!(catalog.modules.len(), 1);
         assert_eq!(catalog.modules[0].name, "main");
-        assert_eq!(catalog.modules[0].doc, ["Module docs."]);
+        assert_eq!(catalog.modules[0].doc, Vec::<String>::new());
         assert_eq!(
             catalog.modules[0]
                 .declarations
@@ -2442,7 +2510,16 @@ mod tests {
         assert_eq!(catalog.modules[0].declarations[2].doctests.len(), 1);
         assert_eq!(
             catalog.modules[0].declarations[2].doctests[0].expected_output,
-            ["1"]
+            [
+                PackageDocExpectedOutput {
+                    stream: "stdout".to_string(),
+                    lines: vec!["1".to_string()],
+                },
+                PackageDocExpectedOutput {
+                    stream: "stderr".to_string(),
+                    lines: vec!["note".to_string()],
+                },
+            ]
         );
         let bytes = std::str::from_utf8(result.canonical_bytes()).unwrap();
         assert!(bytes.contains("\"doc\":[\"Function docs mention {@schema Packet}.\""));
@@ -2489,6 +2566,11 @@ mod tests {
                 (
                     "main.veln",
                     concat!(
+                        "pub type Choice\n",
+                        "\t## Constructor uses {@schema wire::Packet}.\n",
+                        "\tpub Ready(value: Int)\n",
+                        "end\n",
+                        "\n",
                         "## Uses {@schema wire::Packet}.\n",
                         "pub fn value() -> Int\n",
                         "\t1\n",
@@ -2507,9 +2589,14 @@ mod tests {
             ],
         );
 
-        let catalog = result.catalog().expect("successful catalog");
-        let function = &catalog.modules[0].declarations[0];
+        let catalog = catalog_or_panic(&result);
+        assert_eq!(catalog.modules[0].name, "main");
+        let constructor = &catalog.modules[0].declarations[0].constructors[0];
+        let function = &catalog.modules[0].declarations[1];
         let schema = &catalog.modules[1].declarations[0];
+        assert_eq!(constructor.references.len(), 1);
+        assert_eq!(constructor.references[0].target_declaration_id, schema.id);
+        assert_eq!(constructor.references[0].target_uri, schema.uri);
         assert_eq!(function.references.len(), 1);
         assert_eq!(function.references[0].marker, "wire::Packet");
         assert_eq!(function.references[0].target_declaration_id, schema.id);
@@ -2518,6 +2605,33 @@ mod tests {
             std::str::from_utf8(result.canonical_bytes())
                 .unwrap()
                 .contains("\"references\":[{\"kind\":\"schema\"")
+        );
+    }
+
+    #[test]
+    fn effect_row_binder_is_part_of_public_function_signature_and_identity() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[(
+                "main.veln",
+                concat!(
+                    "pub fn apply<effect E>(callback: fn(Int) -> Int effects [...E]) -> Int effects [stdio, ...E]\n",
+                    "\tcallback(1)\n",
+                    "end\n",
+                ),
+            )],
+        );
+
+        let catalog = catalog_or_panic(&result);
+        let function = &catalog.modules[0].declarations[0];
+        assert_eq!(
+            function.signature,
+            "fn apply<effect E>(callback: fn(Int) -> Int effects [...E]) -> Int effects [stdio, ...E]"
+        );
+        assert!(
+            std::str::from_utf8(result.canonical_bytes())
+                .unwrap()
+                .contains("<effect E>")
         );
     }
 
@@ -2544,7 +2658,7 @@ mod tests {
         let SyntaxItem::Function(function) = &parsed.items[1] else {
             panic!("expected function declaration");
         };
-        let catalog = result.catalog().expect("successful catalog");
+        let catalog = catalog_or_panic(&result);
         let type_uri = catalog.modules[0].declarations[0].uri.as_str();
         let function_uri = catalog.modules[0].declarations[1].uri.as_str();
         let source_uri = source_uri("owner/package", result.snapshot_digest(), "main.veln");
@@ -2601,7 +2715,7 @@ mod tests {
         let SyntaxItem::Function(function) = &parsed.items[1] else {
             panic!("expected function declaration");
         };
-        let catalog = result.catalog().expect("successful catalog");
+        let catalog = catalog_or_panic(&result);
         let type_uri = catalog.modules[0].declarations[0].uri.as_str();
         let function_uri = catalog.modules[0].declarations[1].uri.as_str();
         let snapshot = crate::EffectiveProjectSnapshot::new(vec![source.clone()]);
@@ -2672,7 +2786,7 @@ mod tests {
             )],
         );
 
-        let catalog = result.catalog().expect("successful catalog");
+        let catalog = catalog_or_panic(&result);
         assert_eq!(catalog.modules[0].declarations.len(), 1);
         assert!(result.status().diagnostics.is_empty());
         assert!(
@@ -2826,7 +2940,7 @@ mod tests {
     #[test]
     fn executable_specification_fixture_observes_successful_catalog() {
         let result = generate_fixture("package-catalog-api-success");
-        let catalog = result.catalog().expect("successful catalog");
+        let catalog = catalog_or_panic(&result);
 
         assert_eq!(catalog.modules.len(), 2);
         assert_eq!(catalog.modules[0].name, "main");
@@ -2959,6 +3073,97 @@ mod tests {
     }
 
     #[test]
+    fn declaration_doctest_statement_body_must_pass_generated_static_analysis() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[(
+                "main.veln",
+                concat!(
+                    "## ```veln\n",
+                    "## fn sample() -> Int\n",
+                    "## \t1\n",
+                    "## end\n",
+                    "## missing_value\n",
+                    "## ```\n",
+                    "pub fn value() -> Int\n",
+                    "\t1\n",
+                    "end\n",
+                ),
+            )],
+        );
+
+        assert!(result.catalog().is_none());
+        assert!(result.status().diagnostics.iter().any(|diagnostic| {
+            diagnostic.gate == "doctest"
+                && diagnostic
+                    .span
+                    .as_ref()
+                    .is_some_and(|span| span.source_uri.contains("%23doctest-"))
+        }));
+    }
+
+    #[test]
+    fn duplicate_expected_output_stream_fails_generation() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[(
+                "main.veln",
+                concat!(
+                    "## ```veln\n",
+                    "## 1\n",
+                    "## ```\n",
+                    "## ```veln-output stream=stdout\n",
+                    "## first\n",
+                    "## ```\n",
+                    "## ```veln-output stream=stdout\n",
+                    "## second\n",
+                    "## ```\n",
+                    "pub fn value() -> Int\n",
+                    "\t1\n",
+                    "end\n",
+                ),
+            )],
+        );
+
+        assert!(result.catalog().is_none());
+        assert!(result.status().diagnostics.iter().any(|diagnostic| {
+            diagnostic.gate == "doctest"
+                && diagnostic.code == "package_doc.duplicate_expected_output"
+        }));
+    }
+
+    #[test]
+    fn ignored_doctest_does_not_capture_adjacent_expected_output() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[(
+                "main.veln",
+                concat!(
+                    "## ```veln ignore\n",
+                    "## missing_value\n",
+                    "## ```\n",
+                    "## ```veln-output stream=stdout\n",
+                    "## ignored\n",
+                    "## ```\n",
+                    "## ```veln\n",
+                    "## 1\n",
+                    "## ```\n",
+                    "pub fn value() -> Int\n",
+                    "\t1\n",
+                    "end\n",
+                ),
+            )],
+        );
+
+        let catalog = catalog_or_panic(&result);
+        assert_eq!(catalog.modules[0].declarations[0].doctests.len(), 1);
+        assert_eq!(
+            catalog.modules[0].declarations[0].doctests[0].expected_output,
+            []
+        );
+    }
+
+    #[test]
     fn constructor_documentation_reference_failure_is_package_atomic() {
         let result = generate(
             "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
@@ -3054,7 +3259,7 @@ mod tests {
             )],
         );
 
-        let catalog = result.catalog().expect("successful catalog");
+        let catalog = catalog_or_panic(&result);
         let doctest = &catalog.modules[0].declarations[0].doctests[0];
         assert_eq!(doctest.expected_error.as_deref(), None);
         assert!(doctest.should_fail);
