@@ -88,12 +88,11 @@ fn load_surface_modules_with_combined(
     let mut parts = SurfaceParts::new();
     let toolchain_std = is_toolchain_standard_project(project);
 
-    load_project_sources(
-        project,
-        &mut diagnostics,
-        &mut parts,
-        toolchain_std.then_some(veln_stdlib::PACKAGE_NAME),
-    );
+    if toolchain_std {
+        load_toolchain_standard_sources(project, &mut diagnostics, &mut parts);
+    } else {
+        load_project_sources(project, &mut diagnostics, &mut parts, None);
+    }
     diagnostics.extend(validate_manifest_exports(project));
     diagnostics.extend(validate_manifest_dependencies(project));
     diagnostics.extend(validate_companion_sources(project));
@@ -261,6 +260,39 @@ fn load_project_sources(
         }
         process_parsed_source(source, &parsed.tree, diagnostics, parts, package);
     }
+}
+
+fn load_toolchain_standard_sources(
+    project: &Project,
+    diagnostics: &mut Vec<Diagnostic>,
+    parts: &mut SurfaceParts,
+) {
+    let standard = embedded_standard_package();
+    for module in standard
+        .modules
+        .values()
+        .map(EmbeddedStandardModuleEntry::module)
+    {
+        merge_surface_parts(parts, &module.parts);
+        diagnostics.extend(module.diagnostics.clone());
+    }
+
+    let test_project = Project {
+        root: project.root.clone(),
+        files: project
+            .files
+            .iter()
+            .filter(|source| source.path().as_str().ends_with("_test.veln"))
+            .cloned()
+            .collect(),
+        manifest: project.manifest.clone(),
+    };
+    load_project_sources(
+        &test_project,
+        diagnostics,
+        parts,
+        Some(veln_stdlib::PACKAGE_NAME),
+    );
 }
 
 fn process_parsed_source(
@@ -2942,6 +2974,7 @@ fn push_reachable(callees: &mut Vec<ReachableFunction>, callee: ReachableFunctio
 #[cfg(test)]
 mod tests {
     use std::path::{Path, PathBuf};
+    use std::sync::OnceLock;
     use std::time::{SystemTime, UNIX_EPOCH};
     use std::{env, fs};
 
@@ -2951,15 +2984,15 @@ mod tests {
     };
     use veln_project::{
         ManifestExport, ManifestField, ManifestLib, ManifestTool, ManifestUnsupportedSection,
-        Project, ProjectManifest,
+        Project, ProjectManifest, parse_manifest_text,
     };
     use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan};
     use veln_syntax::parse;
 
     use super::{
-        EmbeddedStandardModuleEntry, EmbeddedStandardPackage, ReachabilityCache, SurfaceParts,
-        embedded_standard_counters, load_embedded_standard_package_from, load_project_sources,
-        load_surface_module, reachability_counters, reachable_entry_module,
+        Diagnostic, EmbeddedStandardModuleEntry, EmbeddedStandardPackage, ReachabilityCache,
+        SurfaceParts, embedded_standard_counters, load_embedded_standard_package_from,
+        load_project_sources, load_surface_module, reachability_counters, reachable_entry_module,
         reachable_entry_module_with_standard_cache, validate_manifest_exports,
     };
 
@@ -3961,11 +3994,10 @@ mod tests {
 
     #[test]
     fn toolchain_standard_project_is_not_loaded_twice() {
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../veln-stdlib/veln");
-        let project = Project::discover(root, &[]).expect("standard project should load");
-
-        let (module, diagnostics) = load_surface_module(&project);
+        let (module, diagnostics, runtime_standard_parse_lowers, expected_runtime_sources) =
+            loaded_toolchain_standard_fixture();
         assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        assert_eq!(runtime_standard_parse_lowers, expected_runtime_sources);
         assert!(
             module.functions.iter().any(|function| {
                 function.module_name.as_deref() == Some("std::http2::core")
@@ -4046,9 +4078,7 @@ mod tests {
 
     #[test]
     fn standard_http2_tests_load_with_private_imports() {
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../veln-stdlib/veln");
-        let project = Project::discover(root, &[]).expect("standard project should load");
-        let (module, diagnostics) = load_surface_module(&project);
+        let (module, diagnostics, _, _) = loaded_toolchain_standard_fixture();
 
         assert!(diagnostics.is_empty(), "{diagnostics:#?}");
         for entry in [
@@ -4070,8 +4100,7 @@ mod tests {
 
     #[test]
     fn standard_project_with_manifest_additions_is_reserved_user_package() {
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../veln-stdlib/veln");
-        let mut project = Project::discover(root, &[]).expect("standard project should load");
+        let mut project = toolchain_standard_project(Vec::new());
         project
             .manifest
             .as_mut()
@@ -4082,12 +4111,56 @@ mod tests {
                 fields: Vec::new(),
             });
 
-        let (_, diagnostics) = load_surface_module(&project);
+        let toolchain_std = super::is_toolchain_standard_project(&project);
+        assert!(!toolchain_std);
+        let diagnostics = super::validate_reserved_standard_package(&project, toolchain_std);
 
         assert!(diagnostics.iter().any(|diagnostic| {
             diagnostic.id == "manifest.reserved_standard_package"
                 && diagnostic.message == "package name `std` is reserved by the Veln toolchain"
         }));
+    }
+
+    fn loaded_toolchain_standard_fixture() -> &'static (SurfaceModule, Vec<Diagnostic>, usize, usize)
+    {
+        static FIXTURE: OnceLock<(SurfaceModule, Vec<Diagnostic>, usize, usize)> = OnceLock::new();
+        FIXTURE.get_or_init(|| {
+            let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../veln-stdlib/veln");
+            let core_test = fs::read_to_string(root.join("http2/core_test.veln"))
+                .expect("standard HTTP/2 core test source should load");
+            let project = toolchain_standard_project(vec![SourceFile::new(
+                "http2/core_test.veln",
+                core_test,
+            )]);
+            let expected_runtime_sources = project
+                .files
+                .iter()
+                .filter(|source| source.path().as_str().ends_with("_test.veln"))
+                .count();
+            let ((module, diagnostics), work) =
+                embedded_standard_counters::observe(|| load_surface_module(&project));
+            (
+                module,
+                diagnostics,
+                work.runtime_standard_parse_lowers,
+                expected_runtime_sources,
+            )
+        })
+    }
+
+    fn toolchain_standard_project(additional_files: Vec<SourceFile>) -> Project {
+        let bundle = veln_stdlib::package_bundle();
+        let mut files = bundle
+            .files
+            .iter()
+            .map(|file| SourceFile::new(file.path, file.text))
+            .collect::<Vec<_>>();
+        files.extend(additional_files);
+        Project {
+            root: ".".into(),
+            files,
+            manifest: Some(parse_manifest_text("veln.toml", bundle.manifest)),
+        }
     }
 
     #[test]

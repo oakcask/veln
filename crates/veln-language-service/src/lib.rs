@@ -15,6 +15,7 @@ pub use virtual_source::{VirtualSourceCatalog, VirtualSourceCatalogError, Virtua
 use std::collections::BTreeSet;
 use std::error::Error;
 use std::fmt;
+use std::sync::{Arc, OnceLock};
 
 use veln_project::{
     CapturedPackageSnapshot, CapturedPackageSource, PackageIdentity, ProjectManifest,
@@ -28,6 +29,7 @@ pub struct EffectiveProjectSnapshot {
     sources: Vec<SourceFile>,
     direct_dependencies: Vec<DirectDependencySnapshot>,
     standard_library: Option<DirectDependencySnapshot>,
+    navigation_index: OnceLock<Arc<SymbolIndex>>,
 }
 
 impl EffectiveProjectSnapshot {
@@ -36,6 +38,7 @@ impl EffectiveProjectSnapshot {
             sources,
             direct_dependencies: Vec::new(),
             standard_library: None,
+            navigation_index: OnceLock::new(),
         }
     }
 
@@ -47,6 +50,7 @@ impl EffectiveProjectSnapshot {
             sources,
             direct_dependencies,
             standard_library: None,
+            navigation_index: OnceLock::new(),
         }
     }
 
@@ -73,7 +77,20 @@ impl EffectiveProjectSnapshot {
             sources,
             direct_dependencies: self.direct_dependencies.clone(),
             standard_library: self.standard_library.clone(),
+            navigation_index: OnceLock::new(),
         }
+    }
+
+    fn navigation_index(&self) -> Arc<SymbolIndex> {
+        self.navigation_index
+            .get_or_init(|| {
+                Arc::new(SymbolIndex::new(
+                    self.sources.clone(),
+                    self.direct_dependencies.clone(),
+                    self.standard_library.clone(),
+                ))
+            })
+            .clone()
     }
 
     pub fn resolve_virtual_source(&self, uri: &str) -> Option<&[u8]> {
@@ -241,12 +258,9 @@ pub fn navigate(
     snapshot: &EffectiveProjectSnapshot,
     position: SourcePosition,
 ) -> Option<NavigationResult> {
-    let request = SymbolIndex::new(
-        snapshot.sources.clone(),
-        snapshot.direct_dependencies.clone(),
-        snapshot.standard_library.clone(),
-    )
-    .symbol_at_position(position.source.as_str(), &position)?;
+    let request = snapshot
+        .navigation_index()
+        .symbol_at_position(position.source.as_str(), &position)?;
     let definition = match &request.symbol {
         Symbol::Function(symbol) => symbol.declaration.clone(),
         Symbol::Constructor(symbol) => symbol.declaration.clone(),
@@ -341,7 +355,7 @@ struct TypeAliasSymbol {
 
 #[derive(Debug)]
 struct SymbolRequest {
-    index: SymbolIndex,
+    index: Arc<SymbolIndex>,
     symbol: Symbol,
     selection: SourceSpan,
 }
@@ -445,7 +459,7 @@ impl SymbolIndex {
     }
 
     fn symbol_at_position(
-        self,
+        self: Arc<Self>,
         source_path: &str,
         position: &SourcePosition,
     ) -> Option<SymbolRequest> {
@@ -2090,6 +2104,38 @@ mod tests {
     use super::*;
 
     static NEXT_TEMP_ROOT: AtomicU64 = AtomicU64::new(0);
+
+    #[test]
+    fn repeated_navigation_reuses_the_prepared_symbol_index() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            "fn identity(value: Int) -> Int\n  identity(value)\nend\n",
+        )]);
+
+        let first_index = snapshot.navigation_index();
+        let first = navigate(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 2,
+                column: 4,
+            },
+        )
+        .unwrap();
+        let second_index = snapshot.navigation_index();
+        let second = navigate(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 2,
+                column: 4,
+            },
+        )
+        .unwrap();
+
+        assert!(Arc::ptr_eq(&first_index, &second_index));
+        assert_eq!(first, second);
+    }
 
     #[test]
     fn function_definition_and_references_are_deterministic() {
