@@ -341,6 +341,24 @@ impl<'a> PackageDocBuilder<'a> {
             return self.failed_result();
         }
 
+        let (modules, declaration_locations) = self.build_modules(&parsed_sources, &schema_targets);
+        self.validate_unique_declaration_ids(&modules);
+        self.validate_unique_module_ids(&modules);
+        if !self.diagnostics.is_empty() {
+            return self.failed_result();
+        }
+
+        self.complete_catalog_result(metadata, modules, declaration_locations)
+    }
+
+    fn build_modules(
+        &mut self,
+        parsed_sources: &[ParsedPackageSource],
+        schema_targets: &BTreeMap<String, PublicSchemaDocTarget>,
+    ) -> (
+        Vec<PackageDocModule>,
+        BTreeMap<PackageDocLocationKey, String>,
+    ) {
         let mut semantic_identities = BTreeMap::new();
         let mut declaration_locations = BTreeMap::new();
         let mut modules = Vec::new();
@@ -350,7 +368,7 @@ impl<'a> PackageDocBuilder<'a> {
                 source,
                 &mut semantic_identities,
                 &mut declaration_locations,
-                &schema_targets,
+                schema_targets,
             );
             modules.push(PackageDocModule {
                 uri: self.module_uri(&module_id, ""),
@@ -361,11 +379,10 @@ impl<'a> PackageDocBuilder<'a> {
                 declarations,
             });
         }
+        (modules, declaration_locations)
+    }
 
-        if !self.diagnostics.is_empty() {
-            return self.failed_result();
-        }
-
+    fn validate_unique_declaration_ids(&mut self, modules: &[PackageDocModule]) {
         let mut declaration_ids = BTreeSet::new();
         for declaration in modules.iter().flat_map(|module| module.declarations.iter()) {
             if !declaration_ids.insert(declaration.id.clone()) {
@@ -380,12 +397,11 @@ impl<'a> PackageDocBuilder<'a> {
                 });
             }
         }
-        if !self.diagnostics.is_empty() {
-            return self.failed_result();
-        }
+    }
 
+    fn validate_unique_module_ids(&mut self, modules: &[PackageDocModule]) {
         let mut module_ids = BTreeSet::new();
-        for module in &modules {
+        for module in modules {
             if !module_ids.insert(module.id.clone()) {
                 self.diagnostics.push(PackageDocDiagnostic {
                     gate: "identity".to_string(),
@@ -395,10 +411,14 @@ impl<'a> PackageDocBuilder<'a> {
                 });
             }
         }
-        if !self.diagnostics.is_empty() {
-            return self.failed_result();
-        }
+    }
 
+    fn complete_catalog_result(
+        &self,
+        metadata: PackageDocMetadata,
+        modules: Vec<PackageDocModule>,
+        mut declaration_locations: BTreeMap<PackageDocLocationKey, String>,
+    ) -> PackageDocResult {
         let mut catalog = PackageDocCatalog {
             schema_version: SCHEMA_VERSION.to_string(),
             generator_contract: self.generator_contract.version().to_string(),
@@ -511,59 +531,56 @@ impl<'a> PackageDocBuilder<'a> {
                 continue;
             };
             if !exports.insert(path.clone()) {
-                self.diagnostics.push(PackageDocDiagnostic {
-                    gate: "export".to_string(),
-                    code: "package_doc.duplicate_export".to_string(),
-                    message: format!("duplicate documentation export `{path}`"),
-                    span: Some(PackageDocDiagnosticSpan::from_span(
-                        &source_uri(
-                            self.identity,
-                            self.snapshot.digest(),
-                            self.manifest.path.as_str(),
-                        ),
-                        &export.path_span,
-                    )),
-                });
+                self.push_manifest_export_diagnostic(
+                    "export",
+                    "package_doc.duplicate_export",
+                    format!("duplicate documentation export `{path}`"),
+                    &export.path_span,
+                );
                 continue;
             }
             if let Some(first_span) =
                 exported_modules.insert(module_name.clone(), export.path_span.clone())
             {
-                self.diagnostics.push(PackageDocDiagnostic {
-                    gate: "manifest".to_string(),
-                    code: "package_doc.duplicate_exported_module".to_string(),
-                    message: format!(
-                        "manifest export `{path}` duplicates module export `{module_name}`"
-                    ),
-                    span: Some(PackageDocDiagnosticSpan::from_span(
-                        &source_uri(
-                            self.identity,
-                            self.snapshot.digest(),
-                            self.manifest.path.as_str(),
-                        ),
-                        &first_span,
-                    )),
-                });
+                self.push_manifest_export_diagnostic(
+                    "manifest",
+                    "package_doc.duplicate_exported_module",
+                    format!("manifest export `{path}` duplicates module export `{module_name}`"),
+                    &first_span,
+                );
                 continue;
             }
             if !available.contains(&path) {
-                self.diagnostics.push(PackageDocDiagnostic {
-                    gate: "export".to_string(),
-                    code: "package_doc.missing_export".to_string(),
-                    message: format!(
-                        "documentation export `{path}` is not in the package snapshot"
-                    ),
-                    span: Some(PackageDocDiagnosticSpan::from_span(
-                        &source_uri(
-                            self.identity,
-                            self.snapshot.digest(),
-                            self.manifest.path.as_str(),
-                        ),
-                        &export.path_span,
-                    )),
-                });
+                self.push_manifest_export_diagnostic(
+                    "export",
+                    "package_doc.missing_export",
+                    format!("documentation export `{path}` is not in the package snapshot"),
+                    &export.path_span,
+                );
             }
         }
+    }
+
+    fn push_manifest_export_diagnostic(
+        &mut self,
+        gate: &str,
+        code: &str,
+        message: String,
+        span: &SourceSpan,
+    ) {
+        self.diagnostics.push(PackageDocDiagnostic {
+            gate: gate.to_string(),
+            code: code.to_string(),
+            message,
+            span: Some(PackageDocDiagnosticSpan::from_span(
+                &source_uri(
+                    self.identity,
+                    self.snapshot.digest(),
+                    self.manifest.path.as_str(),
+                ),
+                span,
+            )),
+        });
     }
 
     fn validate_manifest_gate(&mut self) {
@@ -1580,115 +1597,150 @@ fn schema_reference_target<'a>(
     }
 }
 
+struct ActiveDocFence {
+    kind: String,
+    expected_error: Option<String>,
+    ignored: bool,
+    should_fail: bool,
+    lines: Vec<String>,
+}
+
 fn doctest_fences(
     source: &SourceFile,
     target_line: usize,
 ) -> Vec<Result<PackageDocDoctest, PackageDocDiagnostic>> {
-    struct ActiveFence {
-        kind: String,
-        expected_error: Option<String>,
-        ignored: bool,
-        should_fail: bool,
-        lines: Vec<String>,
-    }
-
     let mut result = Vec::new();
     let docs = doc_block_before(source, target_line);
-    let mut active: Option<ActiveFence> = None;
+    let mut active: Option<ActiveDocFence> = None;
     let mut last_doctest: Option<usize> = None;
     for line in docs {
         let trimmed = line.trim_start();
         if let Some(info) = trimmed.strip_prefix("```") {
             if let Some(fence) = active.take() {
-                if fence.kind == "veln" && !fence.ignored {
-                    result.push(Ok(PackageDocDoctest {
-                        kind: fence.kind,
-                        code: fence
-                            .lines
-                            .into_iter()
-                            .filter(|line| !line.starts_with("> "))
-                            .collect::<Vec<_>>()
-                            .join("\n"),
-                        expected_error: fence.expected_error,
-                        should_fail: fence.should_fail,
-                        expected_output: Vec::new(),
-                    }));
-                    last_doctest = Some(result.len() - 1);
-                } else if fence.kind == "veln-output"
-                    && let Some(index) = last_doctest
-                    && let Some(Ok(doctest)) = result.get_mut(index)
-                {
-                    doctest.expected_output = fence.lines;
-                }
+                close_doctest_fence(fence, &mut result, &mut last_doctest);
                 continue;
             }
-            let mut parts = info.split_whitespace();
-            let Some(kind) = parts.next() else {
+            let Some(parsed) = parse_doctest_fence_info(info) else {
                 continue;
             };
-            if !matches!(kind, "veln" | "veln-output") {
-                continue;
-            }
-            let mut expected_error = None;
-            let mut ignored = false;
-            let mut should_fail = false;
-            let mut has_output_stream = kind != "veln-output";
-            let mut failed = None;
-            for part in parts {
-                if let Some(error) = part.strip_prefix("error=") {
-                    if error.is_empty() {
-                        failed = Some("empty doctest error attribute".to_string());
-                    } else {
-                        expected_error = Some(error.to_string());
-                    }
-                } else if kind == "veln" && matches!(part, "ignore" | "fail") {
-                    ignored = part == "ignore";
-                    should_fail = part == "fail";
-                } else if kind == "veln"
-                    && (part.starts_with("runtime=")
-                        || part.starts_with("clause=")
-                        || part.starts_with("predicate=")
-                        || part.starts_with("function=")
-                        || part.starts_with("blame=")
-                        || part.starts_with("value="))
-                {
-                    continue;
-                } else if kind == "veln-output"
-                    && let Some(stream) = part.strip_prefix("stream=")
-                {
-                    if matches!(stream, "stdout" | "stderr") {
-                        has_output_stream = true;
-                    } else {
-                        failed = Some(format!("unknown doctest output stream `{stream}`"));
-                    }
-                } else {
-                    failed = Some(format!("unknown doctest attribute `{part}`"));
+            match parsed {
+                Ok(fence) => active = Some(fence),
+                Err(message) => {
+                    result.push(Err(PackageDocDiagnostic {
+                        gate: "doctest".to_string(),
+                        code: "package_doc.invalid_doctest_metadata".to_string(),
+                        message,
+                        span: None,
+                    }));
                 }
             }
-            if kind == "veln-output" && !has_output_stream {
-                failed = Some("missing doctest output stream".to_string());
-            }
-            if let Some(message) = failed {
-                result.push(Err(PackageDocDiagnostic {
-                    gate: "doctest".to_string(),
-                    code: "package_doc.invalid_doctest_metadata".to_string(),
-                    message,
-                    span: None,
-                }));
-                continue;
-            }
-            active = Some(ActiveFence {
-                kind: kind.to_string(),
-                expected_error,
-                ignored,
-                should_fail,
-                lines: Vec::new(),
-            });
         } else if let Some(fence) = &mut active {
             fence.lines.push(line);
         }
     }
     result
+}
+
+fn close_doctest_fence(
+    fence: ActiveDocFence,
+    result: &mut Vec<Result<PackageDocDoctest, PackageDocDiagnostic>>,
+    last_doctest: &mut Option<usize>,
+) {
+    if fence.kind == "veln" && !fence.ignored {
+        result.push(Ok(PackageDocDoctest {
+            kind: fence.kind,
+            code: fence
+                .lines
+                .into_iter()
+                .filter(|line| !line.starts_with("> "))
+                .collect::<Vec<_>>()
+                .join("\n"),
+            expected_error: fence.expected_error,
+            should_fail: fence.should_fail,
+            expected_output: Vec::new(),
+        }));
+        *last_doctest = Some(result.len() - 1);
+    } else if fence.kind == "veln-output"
+        && let Some(index) = last_doctest
+        && let Some(Ok(doctest)) = result.get_mut(*index)
+    {
+        doctest.expected_output = fence.lines;
+    }
+}
+
+fn parse_doctest_fence_info(info: &str) -> Option<Result<ActiveDocFence, String>> {
+    let mut parts = info.split_whitespace();
+    let kind = parts.next()?;
+    if !matches!(kind, "veln" | "veln-output") {
+        return None;
+    }
+
+    let mut fence = ActiveDocFence {
+        kind: kind.to_string(),
+        expected_error: None,
+        ignored: false,
+        should_fail: false,
+        lines: Vec::new(),
+    };
+    let mut has_output_stream = kind != "veln-output";
+    for part in parts {
+        if let Err(message) =
+            parse_doctest_fence_attribute(part, kind, &mut fence, &mut has_output_stream)
+        {
+            return Some(Err(message));
+        }
+    }
+    if kind == "veln-output" && !has_output_stream {
+        return Some(Err("missing doctest output stream".to_string()));
+    }
+    Some(Ok(fence))
+}
+
+fn parse_doctest_fence_attribute(
+    part: &str,
+    kind: &str,
+    fence: &mut ActiveDocFence,
+    has_output_stream: &mut bool,
+) -> Result<(), String> {
+    if let Some(error) = part.strip_prefix("error=") {
+        return parse_doctest_error_attribute(error, fence);
+    }
+    if kind == "veln" && matches!(part, "ignore" | "fail") {
+        fence.ignored = part == "ignore";
+        fence.should_fail = part == "fail";
+        return Ok(());
+    }
+    if kind == "veln" && is_doctest_metadata_attribute(part) {
+        return Ok(());
+    }
+    if kind == "veln-output"
+        && let Some(stream) = part.strip_prefix("stream=")
+    {
+        if matches!(stream, "stdout" | "stderr") {
+            *has_output_stream = true;
+            return Ok(());
+        }
+        return Err(format!("unknown doctest output stream `{stream}`"));
+    }
+    Err(format!("unknown doctest attribute `{part}`"))
+}
+
+fn parse_doctest_error_attribute(error: &str, fence: &mut ActiveDocFence) -> Result<(), String> {
+    if error.is_empty() {
+        Err("empty doctest error attribute".to_string())
+    } else {
+        fence.expected_error = Some(error.to_string());
+        Ok(())
+    }
+}
+
+fn is_doctest_metadata_attribute(part: &str) -> bool {
+    part.starts_with("runtime=")
+        || part.starts_with("clause=")
+        || part.starts_with("predicate=")
+        || part.starts_with("function=")
+        || part.starts_with("blame=")
+        || part.starts_with("value=")
 }
 
 fn catalog_to_json(catalog: &PackageDocCatalog) -> String {
@@ -1778,7 +1830,20 @@ fn declaration_json(out: &mut String, declaration: &PackageDocDeclaration) {
     field(out, "signature", &declaration.signature, true);
     string_array_field(out, "doc", &declaration.doc);
     out.push_str(",\"contracts\":[");
-    for (index, contract) in declaration.contracts.iter().enumerate() {
+    contract_array_json(out, &declaration.contracts);
+    out.push_str("],\"constructors\":[");
+    constructor_array_json(out, &declaration.constructors);
+    out.push_str("],\"alias\":");
+    alias_json(out, declaration.alias.as_ref());
+    out.push_str(",\"doctests\":[");
+    doctest_array_json(out, &declaration.doctests);
+    out.push_str("],\"references\":[");
+    reference_array_json(out, &declaration.references);
+    out.push_str("]}");
+}
+
+fn contract_array_json(out: &mut String, contracts: &[PackageDocFunctionContract]) {
+    for (index, contract) in contracts.iter().enumerate() {
         if index > 0 {
             out.push(',');
         }
@@ -1787,8 +1852,10 @@ fn declaration_json(out: &mut String, declaration: &PackageDocDeclaration) {
         field(out, "text", &contract.text, true);
         out.push('}');
     }
-    out.push_str("],\"constructors\":[");
-    for (index, constructor) in declaration.constructors.iter().enumerate() {
+}
+
+fn constructor_array_json(out: &mut String, constructors: &[PackageDocTypeConstructor]) {
+    for (index, constructor) in constructors.iter().enumerate() {
         if index > 0 {
             out.push(',');
         }
@@ -1797,8 +1864,10 @@ fn declaration_json(out: &mut String, declaration: &PackageDocDeclaration) {
         field(out, "signature", &constructor.signature, true);
         out.push('}');
     }
-    out.push_str("],\"alias\":");
-    if let Some(alias) = &declaration.alias {
+}
+
+fn alias_json(out: &mut String, alias: Option<&PackageDocAlias>) {
+    if let Some(alias) = alias {
         out.push('{');
         field(out, "kind", &alias.kind, false);
         string_array_field(out, "target", &alias.target);
@@ -1806,8 +1875,10 @@ fn declaration_json(out: &mut String, declaration: &PackageDocDeclaration) {
     } else {
         out.push_str("null");
     }
-    out.push_str(",\"doctests\":[");
-    for (index, doctest) in declaration.doctests.iter().enumerate() {
+}
+
+fn doctest_array_json(out: &mut String, doctests: &[PackageDocDoctest]) {
+    for (index, doctest) in doctests.iter().enumerate() {
         if index > 0 {
             out.push(',');
         }
@@ -1819,8 +1890,10 @@ fn declaration_json(out: &mut String, declaration: &PackageDocDeclaration) {
         string_array_field(out, "expected_output", &doctest.expected_output);
         out.push('}');
     }
-    out.push_str("],\"references\":[");
-    for (index, reference) in declaration.references.iter().enumerate() {
+}
+
+fn reference_array_json(out: &mut String, references: &[PackageDocReference]) {
+    for (index, reference) in references.iter().enumerate() {
         if index > 0 {
             out.push(',');
         }
@@ -1835,7 +1908,6 @@ fn declaration_json(out: &mut String, declaration: &PackageDocDeclaration) {
         );
         out.push('}');
     }
-    out.push_str("]}");
 }
 
 fn status_json(out: &mut String, status: &PackageDocGenerationStatus) {

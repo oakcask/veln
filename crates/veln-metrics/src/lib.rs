@@ -709,20 +709,53 @@ impl DependencyGraph {
         selected_paths: &BTreeSet<String>,
         config: MetricsConfig,
     ) -> MetricsReport {
-        let selected_modules = self
-            .nodes
+        let selected_modules = self.selected_modules(selected_paths);
+        let modules = self.selected_module_metrics(&selected_modules);
+        let edges = self.selected_edges(&selected_modules);
+        let cycles = self.selected_cycles(&selected_modules);
+        let abc_subjects = abc_subjects(source_project, selected_paths);
+        let abc_contract_subject_count = abc_contract_subject_count(source_project, selected_paths);
+        let (similarities, similarity_fingerprint_count) =
+            similarity_instances(source_project, selected_paths, config.similarity_min_tokens);
+        let summary = self.summary(
+            &modules,
+            &cycles,
+            &abc_subjects,
+            abc_contract_subject_count,
+            &similarities,
+            similarity_fingerprint_count,
+        );
+        MetricsReport {
+            project,
+            modules,
+            edges,
+            cycles,
+            abc_subjects,
+            similarities,
+            summary,
+            human_output_max_findings: config.human_output_max_findings,
+        }
+    }
+
+    fn selected_modules(&self, selected_paths: &BTreeSet<String>) -> BTreeSet<usize> {
+        self.nodes
             .iter()
             .enumerate()
             .filter_map(|(index, node)| selected_paths.contains(&node.path).then_some(index))
-            .collect::<BTreeSet<_>>();
+            .collect()
+    }
+
+    fn selected_module_metrics(&self, selected_modules: &BTreeSet<usize>) -> Vec<ModuleMetric> {
         let mut modules = selected_modules
             .iter()
             .map(|index| self.module_metric(*index))
             .collect::<Vec<_>>();
         modules.sort_by(compare_module_metrics);
+        modules
+    }
 
-        let edges = self
-            .edges
+    fn selected_edges(&self, selected_modules: &BTreeSet<usize>) -> Vec<DependencyEdge> {
+        self.edges
             .iter()
             .filter(|edge| {
                 selected_modules.contains(&edge.source) || selected_modules.contains(&edge.target)
@@ -732,27 +765,35 @@ impl DependencyGraph {
                 target: self.nodes[edge.target].module.clone(),
                 span: edge.span.clone(),
             })
-            .collect::<Vec<_>>();
+            .collect()
+    }
 
-        let cycles = self
-            .cycles()
+    fn selected_cycles(&self, selected_modules: &BTreeSet<usize>) -> Vec<DependencyCycle> {
+        self.cycles()
             .into_iter()
             .filter(|cycle| cycle.iter().any(|index| selected_modules.contains(index)))
             .map(|cycle| self.dependency_cycle(cycle))
-            .collect::<Vec<_>>();
+            .collect()
+    }
+
+    fn summary(
+        &self,
+        modules: &[ModuleMetric],
+        cycles: &[DependencyCycle],
+        abc_subjects: &[AbcSubjectMetric],
+        abc_contract_subject_count: usize,
+        similarities: &[SimilarityInstanceMetric],
+        similarity_fingerprint_count: usize,
+    ) -> MetricsSummary {
         let external_dependency_count = modules
             .iter()
             .map(|module| module.external_dependency_count)
             .sum();
-        let abc_subjects = abc_subjects(source_project, selected_paths);
-        let abc_contract_subject_count = abc_contract_subject_count(source_project, selected_paths);
-        let (similarities, similarity_fingerprint_count) =
-            similarity_instances(source_project, selected_paths, config.similarity_min_tokens);
         let similarity_region_count = similarities
             .iter()
             .map(|instance| instance.declarations.len())
             .sum();
-        let summary = MetricsSummary {
+        MetricsSummary {
             selected_module_count: modules.len(),
             project_module_count: self.nodes.len(),
             internal_edge_count: self.edges.len(),
@@ -763,16 +804,6 @@ impl DependencyGraph {
             similarity_fingerprint_count,
             similarity_instance_count: similarities.len(),
             similarity_region_count,
-        };
-        MetricsReport {
-            project,
-            modules,
-            edges,
-            cycles,
-            abc_subjects,
-            similarities,
-            summary,
-            human_output_max_findings: config.human_output_max_findings,
         }
     }
 

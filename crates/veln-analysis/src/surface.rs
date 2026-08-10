@@ -871,101 +871,103 @@ fn validate_companion_sources(project: &Project) -> Vec<Diagnostic> {
 
 fn validate_companion_public_declarations(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    for function in &module.functions {
-        if function.visibility == Visibility::Public
-            && let Some(companion_path) = companion_path_for_span(&function.span)
-        {
-            diagnostics.push(companion_public_declaration_diagnostic(
-                function.span.clone(),
-                companion_path,
-                "public_function",
-                "function",
-                function.name.as_deref(),
-            ));
-        }
-    }
-    for effect in &module.effects {
-        if effect.visibility == Visibility::Public
-            && let Some(companion_path) = companion_path_for_span(&effect.span)
-        {
-            diagnostics.push(companion_public_declaration_diagnostic(
-                effect.span.clone(),
-                companion_path,
-                "public_effect",
-                "effect",
-                effect.name.as_deref(),
-            ));
-        }
-    }
-    for handler in &module.handlers {
-        if handler.visibility == Visibility::Public
-            && let Some(companion_path) = companion_path_for_span(&handler.span)
-        {
-            diagnostics.push(companion_public_declaration_diagnostic(
-                handler.span.clone(),
-                companion_path,
-                "public_handler",
-                "handler",
-                handler.name.as_deref(),
-            ));
-        }
-    }
+    diagnostics.extend(module.functions.iter().filter_map(|function| {
+        public_companion_declaration(
+            &function.visibility,
+            &function.span,
+            "public_function",
+            "function",
+            function.name.as_deref(),
+        )
+    }));
+    diagnostics.extend(module.effects.iter().filter_map(|effect| {
+        public_companion_declaration(
+            &effect.visibility,
+            &effect.span,
+            "public_effect",
+            "effect",
+            effect.name.as_deref(),
+        )
+    }));
+    diagnostics.extend(module.handlers.iter().filter_map(|handler| {
+        public_companion_declaration(
+            &handler.visibility,
+            &handler.span,
+            "public_handler",
+            "handler",
+            handler.name.as_deref(),
+        )
+    }));
     for ty in &module.types {
-        if ty.visibility == Visibility::Public
-            && let Some(companion_path) = companion_path_for_span(&ty.span)
-        {
-            diagnostics.push(companion_public_declaration_diagnostic(
-                ty.span.clone(),
-                companion_path,
-                "public_type",
-                "type",
-                ty.name.as_deref(),
-            ));
-        }
-        for variant in &ty.variants {
-            if variant.visibility == Visibility::Public
-                && let Some(companion_path) = companion_path_for_span(&variant.span)
-            {
-                diagnostics.push(companion_public_declaration_diagnostic(
-                    variant.span.clone(),
-                    companion_path,
-                    "public_type_variant",
-                    "type variant",
-                    variant.name.as_deref(),
-                ));
-            }
-        }
+        diagnostics.extend(public_companion_declaration(
+            &ty.visibility,
+            &ty.span,
+            "public_type",
+            "type",
+            ty.name.as_deref(),
+        ));
+        diagnostics.extend(ty.variants.iter().filter_map(|variant| {
+            public_companion_declaration(
+                &variant.visibility,
+                &variant.span,
+                "public_type_variant",
+                "type variant",
+                variant.name.as_deref(),
+            )
+        }));
     }
-    for schema in &module.schemas {
-        if schema.visibility == Visibility::Public
-            && let Some(companion_path) = companion_path_for_span(&schema.span)
-        {
-            diagnostics.push(companion_public_declaration_diagnostic(
-                schema.span.clone(),
-                companion_path,
-                "public_schema",
-                "schema",
-                schema.name.as_deref(),
-            ));
-        }
-    }
-    for alias in &module.aliases {
-        if let Some(companion_path) = companion_path_for_span(&alias.span) {
-            let (reason, declaration_kind) = match alias.kind {
-                PublicAliasKind::Function => ("public_function_alias", "function alias"),
-                PublicAliasKind::Type => ("public_type_alias", "type alias"),
-                PublicAliasKind::Schema => ("public_schema_alias", "schema alias"),
-            };
-            diagnostics.push(companion_public_declaration_diagnostic(
+    diagnostics.extend(module.schemas.iter().filter_map(|schema| {
+        public_companion_declaration(
+            &schema.visibility,
+            &schema.span,
+            "public_schema",
+            "schema",
+            schema.name.as_deref(),
+        )
+    }));
+    diagnostics.extend(module.aliases.iter().filter_map(|alias| {
+        let (reason, declaration_kind) = alias_companion_public_reason(alias.kind);
+        companion_path_for_span(&alias.span).map(|companion_path| {
+            companion_public_declaration_diagnostic(
                 alias.span.clone(),
                 companion_path,
                 reason,
                 declaration_kind,
                 alias.name.as_deref(),
-            ));
-        }
-    }
+            )
+        })
+    }));
     diagnostics
+}
+
+fn public_companion_declaration(
+    visibility: &Visibility,
+    span: &SourceSpan,
+    reason: &'static str,
+    declaration_kind: &'static str,
+    name: Option<&str>,
+) -> Option<Diagnostic> {
+    if *visibility == Visibility::Public {
+        companion_path_for_span(span).map(|companion_path| {
+            companion_public_declaration_diagnostic(
+                span.clone(),
+                companion_path,
+                reason,
+                declaration_kind,
+                name,
+            )
+        })
+    } else {
+        None
+    }
+}
+
+fn alias_companion_public_reason(kind: PublicAliasKind) -> (&'static str, &'static str) {
+    match kind {
+        PublicAliasKind::Function => ("public_function_alias", "function alias"),
+        PublicAliasKind::Type => ("public_type_alias", "type alias"),
+        PublicAliasKind::Schema => ("public_schema_alias", "schema alias"),
+    }
 }
 
 fn companion_path_for_span(span: &SourceSpan) -> Option<&str> {
@@ -3479,198 +3481,227 @@ mod tests {
         }));
     }
 
-    #[test]
-    fn standard_package_loading_keeps_initial_analysis_work_constant_for_unrelated_modules() {
-        #[derive(Debug, PartialEq, Eq)]
-        struct StandardInitializationWork {
-            loaded_modules: Vec<String>,
-            materialized_modules: usize,
-            materialized_lowered_bytes: usize,
-            prepared_declarations: usize,
-        }
+    #[derive(Debug, PartialEq, Eq)]
+    struct StandardInitializationWork {
+        loaded_modules: Vec<String>,
+        materialized_modules: usize,
+        materialized_lowered_bytes: usize,
+        prepared_declarations: usize,
+    }
 
-        fn load_synthetic_standard(unrelated_count: usize) -> StandardInitializationWork {
-            let mut modules = std::collections::BTreeMap::new();
-            for (path, text) in [
+    fn load_synthetic_standard(unrelated_count: usize) -> StandardInitializationWork {
+        let standard = synthetic_standard_package(unrelated_count);
+        let mut diagnostics = Vec::new();
+        let mut parts = SurfaceParts::new();
+        load_project_sources(
+            &single_file_project("pub fn main() -> Int\n  1\nend\n"),
+            &mut diagnostics,
+            &mut parts,
+            None,
+        );
+        let ((), standard_work) = embedded_standard_counters::observe(|| {
+            load_embedded_standard_package_from(&standard, &mut diagnostics, &mut parts, true);
+        });
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        check_standard_surface_module(&parts.module);
+        standard_initialization_work(
+            &standard,
+            &parts.module,
+            standard_work.materialized_lowered_bytes,
+        )
+    }
+
+    fn single_file_project(text: &str) -> Project {
+        Project {
+            root: ".".into(),
+            files: vec![SourceFile::new("main.veln", text)],
+            manifest: None,
+        }
+    }
+
+    fn synthetic_standard_package(unrelated_count: usize) -> EmbeddedStandardPackage {
+        let modules = synthetic_standard_sources(unrelated_count)
+            .into_iter()
+            .map(|(path, text)| {
                 (
-                    "prelude.veln".to_string(),
-                    concat!(
-                        "pub type PreludePayload\n",
-                        "  PreludePayload(Int)\n",
-                        "end\n",
-                        "\n",
-                        "pub fn prelude_answer(value: Int) -> Int\n",
-                        "  value\n",
-                        "end\n",
-                    )
-                    .to_string(),
-                ),
-                (
-                    "extra.veln".to_string(),
-                    concat!(
-                        "pub fn extra_answer(value: Int) -> Int\n",
-                        "  value + 1\n",
-                        "end\n",
-                    )
-                    .to_string(),
-                ),
-                (
-                    "unrelated.veln".to_string(),
-                    unrelated_annotated_standard_module(unrelated_count),
-                ),
-            ] {
-                let module_name =
-                    format!("std::{}", path.trim_end_matches(".veln").replace('/', "::"));
-                modules.insert(
-                    module_name,
-                    EmbeddedStandardModuleEntry {
-                        lowered: std::borrow::Cow::Owned(lowered_standard_module_bytes(
-                            &path, &text,
-                        )),
-                        path,
-                        module: std::sync::OnceLock::new(),
-                    },
-                );
-            }
-            let standard = EmbeddedStandardPackage { modules };
-            let project = Project {
-                root: ".".into(),
-                files: vec![SourceFile::new(
-                    "main.veln",
-                    "pub fn main() -> Int\n  1\nend\n",
-                )],
-                manifest: None,
-            };
-            let mut diagnostics = Vec::new();
-            let mut parts = SurfaceParts::new();
-            load_project_sources(&project, &mut diagnostics, &mut parts, None);
-            let ((), standard_work) = embedded_standard_counters::observe(|| {
-                load_embedded_standard_package_from(&standard, &mut diagnostics, &mut parts, true);
-            });
-            assert!(diagnostics.is_empty(), "{diagnostics:#?}");
-            let loaded_modules = loaded_standard_modules(&parts.module);
-            let materialized_modules = standard
-                .modules
-                .values()
-                .filter(|entry| entry.module.get().is_some())
-                .count();
-            let prepared_declarations = standard_declaration_count(&parts.module);
-
-            let reusable = veln_sema::prepare_current_reusable_standard_surface_module_environment(
-                &parts.module,
-            );
-            let (semantic_diagnostics, checked) =
-                veln_sema::check_project_surface_module_with_standard_environment(
-                    &parts.module,
-                    &reusable,
-                );
-            assert!(semantic_diagnostics.is_empty(), "{semantic_diagnostics:#?}");
-            assert!(checked.diagnostics.is_empty(), "{:#?}", checked.diagnostics);
-
-            StandardInitializationWork {
-                loaded_modules,
-                materialized_modules,
-                materialized_lowered_bytes: standard_work.materialized_lowered_bytes,
-                prepared_declarations,
-            }
-        }
-
-        fn lowered_standard_module_bytes(path: &str, text: &str) -> Vec<u8> {
-            let source = SourceFile::new(path, text);
-            let parsed = parse(&source);
-            assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
-            let module_name = format!("std::{}", path.trim_end_matches(".veln").replace('/', "::"));
-            let mut lowered = veln_ast::lower_surface_ast_with_module_identity(
-                &parsed.tree,
-                module_name,
-                source.span(veln_source::TextRange::new(0, 0)),
-            );
-            for use_decl in &mut lowered.uses {
-                let imported = use_decl.name.clone();
-                use_decl.name = format!("std::{imported}");
-            }
-            veln_ast::encode_surface_module(&lowered)
-        }
-
-        fn unrelated_annotated_standard_module(function_count: usize) -> String {
-            let mut text = String::new();
-            for index in 0..function_count {
-                text.push_str(&format!(
-                    "pub fn unrelated_{index}(value: Int) -> Int\n  value + {index}\nend\n\n"
-                ));
-            }
-            text
-        }
-
-        fn loaded_standard_modules(module: &SurfaceModule) -> Vec<String> {
-            let mut modules = module
-                .functions
-                .iter()
-                .filter_map(|function| function.module_name.as_deref())
-                .filter(|module_name| module_name.starts_with("std::"))
-                .chain(
-                    module
-                        .types
-                        .iter()
-                        .filter_map(|decl| decl.module_name.as_deref())
-                        .filter(|module_name| module_name.starts_with("std::")),
+                    standard_module_name(&path),
+                    embedded_standard_entry(path, text),
                 )
-                .map(str::to_string)
-                .collect::<Vec<_>>();
-            modules.sort_unstable();
-            modules.dedup();
-            modules
-        }
+            })
+            .collect();
+        EmbeddedStandardPackage { modules }
+    }
 
-        fn standard_declaration_count(module: &SurfaceModule) -> usize {
-            module
-                .functions
+    fn synthetic_standard_sources(unrelated_count: usize) -> [(String, String); 3] {
+        [
+            (
+                "prelude.veln".to_string(),
+                concat!(
+                    "pub type PreludePayload\n",
+                    "  PreludePayload(Int)\n",
+                    "end\n",
+                    "\n",
+                    "pub fn prelude_answer(value: Int) -> Int\n",
+                    "  value\n",
+                    "end\n",
+                )
+                .to_string(),
+            ),
+            (
+                "extra.veln".to_string(),
+                concat!(
+                    "pub fn extra_answer(value: Int) -> Int\n",
+                    "  value + 1\n",
+                    "end\n",
+                )
+                .to_string(),
+            ),
+            (
+                "unrelated.veln".to_string(),
+                unrelated_annotated_standard_module(unrelated_count),
+            ),
+        ]
+    }
+
+    fn embedded_standard_entry(path: String, text: String) -> EmbeddedStandardModuleEntry {
+        EmbeddedStandardModuleEntry {
+            lowered: std::borrow::Cow::Owned(lowered_standard_module_bytes(&path, &text)),
+            path,
+            module: std::sync::OnceLock::new(),
+        }
+    }
+
+    fn lowered_standard_module_bytes(path: &str, text: &str) -> Vec<u8> {
+        let source = SourceFile::new(path, text);
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+        let mut lowered = veln_ast::lower_surface_ast_with_module_identity(
+            &parsed.tree,
+            standard_module_name(path),
+            source.span(veln_source::TextRange::new(0, 0)),
+        );
+        for use_decl in &mut lowered.uses {
+            let imported = use_decl.name.clone();
+            use_decl.name = format!("std::{imported}");
+        }
+        veln_ast::encode_surface_module(&lowered)
+    }
+
+    fn standard_module_name(path: &str) -> String {
+        format!("std::{}", path.trim_end_matches(".veln").replace('/', "::"))
+    }
+
+    fn unrelated_annotated_standard_module(function_count: usize) -> String {
+        let mut text = String::new();
+        for index in 0..function_count {
+            text.push_str(&format!(
+                "pub fn unrelated_{index}(value: Int) -> Int\n  value + {index}\nend\n\n"
+            ));
+        }
+        text
+    }
+
+    fn check_standard_surface_module(module: &SurfaceModule) {
+        let reusable =
+            veln_sema::prepare_current_reusable_standard_surface_module_environment(module);
+        let (semantic_diagnostics, checked) =
+            veln_sema::check_project_surface_module_with_standard_environment(module, &reusable);
+        assert!(semantic_diagnostics.is_empty(), "{semantic_diagnostics:#?}");
+        assert!(checked.diagnostics.is_empty(), "{:#?}", checked.diagnostics);
+    }
+
+    fn standard_initialization_work(
+        standard: &EmbeddedStandardPackage,
+        module: &SurfaceModule,
+        materialized_lowered_bytes: usize,
+    ) -> StandardInitializationWork {
+        StandardInitializationWork {
+            loaded_modules: loaded_standard_modules(module),
+            materialized_modules: materialized_standard_modules(standard),
+            materialized_lowered_bytes,
+            prepared_declarations: standard_declaration_count(module),
+        }
+    }
+
+    fn loaded_standard_modules(module: &SurfaceModule) -> Vec<String> {
+        let mut modules = module
+            .functions
+            .iter()
+            .filter_map(|function| function.module_name.as_deref())
+            .filter(|module_name| module_name.starts_with("std::"))
+            .chain(
+                module
+                    .types
+                    .iter()
+                    .filter_map(|decl| decl.module_name.as_deref())
+                    .filter(|module_name| module_name.starts_with("std::")),
+            )
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        modules.sort_unstable();
+        modules.dedup();
+        modules
+    }
+
+    fn materialized_standard_modules(standard: &EmbeddedStandardPackage) -> usize {
+        standard
+            .modules
+            .values()
+            .filter(|entry| entry.module.get().is_some())
+            .count()
+    }
+
+    fn standard_declaration_count(module: &SurfaceModule) -> usize {
+        module
+            .functions
+            .iter()
+            .filter(|decl| is_standard(&decl.module_name))
+            .count()
+            + module
+                .types
                 .iter()
                 .filter(|decl| is_standard(&decl.module_name))
                 .count()
-                + module
-                    .types
-                    .iter()
-                    .filter(|decl| is_standard(&decl.module_name))
-                    .count()
-                + module
-                    .uses
-                    .iter()
-                    .filter(|decl| is_standard(&decl.module_name))
-                    .count()
-                + module
-                    .aliases
-                    .iter()
-                    .filter(|decl| is_standard(&decl.module_name))
-                    .count()
-                + module
-                    .effects
-                    .iter()
-                    .filter(|decl| is_standard(&decl.module_name))
-                    .count()
-                + module
-                    .handlers
-                    .iter()
-                    .filter(|decl| is_standard(&decl.module_name))
-                    .count()
-                + module
-                    .schemas
-                    .iter()
-                    .filter(|decl| is_standard(&decl.module_name))
-                    .count()
-                + module
-                    .codecs
-                    .iter()
-                    .filter(|decl| is_standard(&decl.module_name))
-                    .count()
-        }
+            + module
+                .uses
+                .iter()
+                .filter(|decl| is_standard(&decl.module_name))
+                .count()
+            + module
+                .aliases
+                .iter()
+                .filter(|decl| is_standard(&decl.module_name))
+                .count()
+            + module
+                .effects
+                .iter()
+                .filter(|decl| is_standard(&decl.module_name))
+                .count()
+            + module
+                .handlers
+                .iter()
+                .filter(|decl| is_standard(&decl.module_name))
+                .count()
+            + module
+                .schemas
+                .iter()
+                .filter(|decl| is_standard(&decl.module_name))
+                .count()
+            + module
+                .codecs
+                .iter()
+                .filter(|decl| is_standard(&decl.module_name))
+                .count()
+    }
 
-        fn is_standard(module_name: &Option<String>) -> bool {
-            module_name
-                .as_deref()
-                .is_some_and(|module_name| module_name.starts_with("std::"))
-        }
+    fn is_standard(module_name: &Option<String>) -> bool {
+        module_name
+            .as_deref()
+            .is_some_and(|module_name| module_name.starts_with("std::"))
+    }
 
+    #[test]
+    fn standard_package_loading_keeps_initial_analysis_work_constant_for_unrelated_modules() {
         let base = load_synthetic_standard(0);
         let expanded = load_synthetic_standard(128);
 
