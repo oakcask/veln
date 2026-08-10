@@ -569,8 +569,9 @@ existing assertion kind, selector, path, operation, semantically ordered
 sequence, and typed value;
 and exact BOM, CRLF, indentation, and final-line-break bytes. Large text uses a
 logical field identifier, byte length, and SHA-256 digest rather than another
-escaped text copy. Operation and selector metadata remain visible so a review
-does not rely on an aggregate hash alone.
+escaped text copy, including nested large strings inside typed JSON assertion
+values. Operation and selector metadata remain visible so a review does not
+rely on an aggregate hash alone.
 
 The comparator requires exact case-set and descriptor equality by default.
 Equivalent inline, multiline, and file-backed spellings therefore compare
