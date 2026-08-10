@@ -463,8 +463,11 @@ The transport-independent package documentation catalog, status-only failure
 result, documentation digest, canonical `veln-doc:` URI foundation, same-capture
 manifest binding, validated `PackageIdentity` API boundary, pointer-width
 independent identifier digest transcripts, path-derived module identity,
-exported module and public constructor documentation projection, stream-aware
-expected-output publication, effect-row-binder signatures, and generated
+manifest package-name and package-identity matching, normalized exported-module
+metadata, exported module and public constructor documentation projection,
+import-aware schema documentation references, public schema alias reference
+resolution, stream-aware expected-output publication, effect-row-binder
+signatures, and generated
 doctest static gate for expression, declaration, nested-block declaration, and
 mixed declaration-statement doctests are implemented and specified in
 [Package Documentation Catalogs](../specification/package-documentation.md).
@@ -556,12 +559,15 @@ environment-derived values, and unknown fields.
 Documentation generation has a parse, manifest, export, documentation-reference,
 and doctest gate. The manifest gate rejects unsupported manifest sections,
 invalid export paths, test companion exports, duplicate exported module
-identities, and invalid direct git selector cardinality. Generation is
-package-atomic. On failure, the status resource is listable and contains
-diagnostics sorted by source URI, start range, diagnostic code, and message.
-Module and declaration resources are not listed, searched, or readable. The
-loaded-package index returns the exact immutable status URI. The source
-snapshot remains readable.
+identities, invalid direct git selector cardinality, a missing package name,
+and a package name that differs from the supplied package identity. Qualified
+documentation schema references require a written package-local `use` path in
+the referencing module, and public schema aliases resolve to their public
+schema target. Generation is package-atomic. On failure, the status resource is
+listable and contains diagnostics sorted by source URI, start range, diagnostic
+code, and message. Module and declaration resources are not listed, searched,
+or readable. The loaded-package index returns the exact immutable status URI.
+The source snapshot remains readable.
 
 A passing positive doctest and a `veln fail` doctest whose visible source
 produces a parse diagnostic can be published when the fence attaches to an
@@ -910,7 +916,7 @@ already implemented.
 | Read a noncanonical, unknown, or mismatched snapshot URI through MCP. | The server returns `resource_not_found` without normalization, fallback, or filesystem access. The transport-independent resolver rejection table is already implemented and specified in [Package Virtual Sources](../specification/package-virtual-sources.md). | MCP adapter case mapping a catalog miss to `resource_not_found`. |
 | Read a private distribution source or inspect package metadata. | The source is readable; metadata contains only the closed public allowlist and no dependency, URL, tool, path, or credential-bearing fields. | Q15 disclosure-policy cases. |
 | Keep returned dependency URIs while projects refresh or disappear. | Every published snapshot remains readable until shutdown; capacity failure never evicts an older URI. | Q10 resource-lifetime cases. |
-| Generate package docs. | The transport-independent catalog contains only exported modules and their public API; attached contracts, visible doctests, stream-aware expected-output fences, resolved schema documentation references, effect-row-binder signatures, and declaration-location URI lookup are preserved. MCP publication remains planned. | Implemented package-documentation unit tests and readable `doc` examples; planned MCP resource case. |
+| Generate package docs. | The transport-independent catalog contains only exported modules and their public API; attached contracts, visible doctests, stream-aware expected-output fences, import-aware resolved schema documentation references, public schema alias targets, effect-row-binder signatures, and declaration-location URI lookup are preserved. MCP publication remains planned. | Implemented package-documentation unit tests and readable `doc` examples; planned MCP resource case. |
 | Change catalog semantics without changing package bytes. | The package digest stays fixed and the documentation catalog digest and URIs change. | Implemented package-documentation document-identity tests; planned MCP resource case. |
 | Package documentation generation or doctest validation fails. | The transport-independent result contains ordered status diagnostics and no partial module or declaration catalog. MCP status-resource publication remains planned. | Implemented atomic-generation-failure unit tests; planned MCP resource case. |
 

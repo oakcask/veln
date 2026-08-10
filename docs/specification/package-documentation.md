@@ -10,6 +10,8 @@ update-when: The package documentation catalog API, canonical result bytes, dige
 documentation catalog for one validated `PackageIdentity`, one
 `CapturedPackageSnapshot`, and the validated manifest parsed from that same
 capture. The generator validates the manifest before it can publish a catalog.
+The manifest package name must be present and must exactly match the validated
+package identity supplied to the generator.
 The result is immutable. It contains either a complete successful catalog or a
 failure status with ordered diagnostics.
 
@@ -77,7 +79,8 @@ stream as `stdout` or `stderr` and the complete lines for that stream.
 
 Published package metadata is limited to package identity, manifest package
 name, version, description, license, authors, keywords, and exported module
-names.
+names. Exported module names are derived from validated, normalized export
+paths, so `./main.veln` publishes module `main`.
 
 ## Generation Gates
 
@@ -88,18 +91,22 @@ virtual-source catalog remain usable by their own APIs.
 The implemented gates are:
 
 - parse: all retained package sources must parse;
-- manifest: unsupported manifest sections, invalid export paths, test
-  companion exports, duplicate exported module identities, invalid direct
-  git selector cardinality, and validated manifest bytes that differ from the
-  captured snapshot manifest bytes fail generation before a catalog is
-  published;
+- manifest: a missing package name, a package name that differs from the
+  supplied package identity, unsupported manifest sections, invalid export
+  paths, test companion exports, duplicate exported module identities, invalid
+  direct git selector cardinality, and validated manifest bytes that differ
+  from the captured snapshot manifest bytes fail generation before a catalog
+  is published;
 - export: every exported source must exist in the captured snapshot and each
   export path can appear at most once;
 - documentation reference: `{@schema ...}` references in documentation
   blocks that attach to exported public declarations or exported public type
-  constructors must resolve to a public schema in an exported module, and the
-  successful catalog keeps the resolved target declaration identifier and
-  same-snapshot declaration URI;
+  constructors must resolve to a public schema in an exported module. Bare
+  references resolve in the same module. Qualified references require a
+  matching written package-local `use` path in the referencing module. Public
+  schema aliases resolve to their public schema target. The successful catalog
+  keeps the resolved target declaration identifier and same-snapshot
+  declaration URI;
 - doctest: only visible doctest fences attached to exported modules, exported
   public declarations, and exported public type constructors are gate inputs.
   Visible positive `veln` doctest fences must pass the shared generated-source
@@ -150,16 +157,20 @@ generator-contract changes, renderer-only stability when bytes are unchanged,
 declaration URI lookup from declaration spans and navigation name-token spans,
 private documentation-reference exclusion, private doctest exclusion, parse
 gate failure with canonical package source URI, manifest gate failure,
-manifest snapshot-byte mismatch failure, export gate failure, resolved
-documentation-reference projection, documentation-reference gate failure,
+manifest package-name mismatch failure, manifest missing-package-name failure,
+manifest snapshot-byte mismatch failure, normalized export metadata, export
+gate failure, resolved documentation-reference projection, qualified
+documentation-reference import failure, public schema alias
+documentation-reference resolution, documentation-reference gate failure,
 doctest gate failure, duplicate semantic identity failure, declaration
 identifier collision failure, status-only failure results, `PackageIdentity`
 validation at the catalog API boundary, fixed-width identifier digest
 transcripts, and virtual-source resolution after package documentation
 failure. The tests also read fixtures under `examples/specification/doc/` to
 observe the catalog success path, manifest-gate failure path, nested
-declaration doctest success path, and declaration doctest static-gate failure
-path through executable specification inputs.
+declaration doctest success path, declaration doctest static-gate failure path,
+and schema-reference import-gate failure path through executable specification
+inputs.
 
 The readable CLI documentation boundary remains checked by
 `examples/specification/doc/`. The transport-independent catalog itself is a

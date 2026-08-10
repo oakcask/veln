@@ -1,0 +1,5 @@
+[package]
+name = "package-catalog-schema-reference-import-gate"
+
+[lib]
+exports = ["main.veln", "wire.veln"]

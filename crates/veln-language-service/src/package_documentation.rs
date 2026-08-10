@@ -316,6 +316,12 @@ struct PublicSchemaDocTarget {
     target_uri: String,
 }
 
+struct SchemaDocResolver<'a> {
+    sources: BTreeMap<String, &'a ParsedPackageSource>,
+    schemas: BTreeMap<(String, String), PublicSchemaDocTarget>,
+    aliases: BTreeMap<(String, String), Vec<String>>,
+}
+
 impl<'a> PackageDocBuilder<'a> {
     fn new(
         identity: &'a str,
@@ -343,9 +349,9 @@ impl<'a> PackageDocBuilder<'a> {
     fn generate(mut self) -> PackageDocResult {
         self.validate_manifest_snapshot_binding();
         self.validate_manifest_gate();
-        let metadata = self.metadata();
         let parsed_sources = self.parse_sources();
         self.validate_manifest_exports(&parsed_sources);
+        let metadata = self.metadata(&parsed_sources);
         self.validate_doctests(&parsed_sources);
         let schema_targets = self.public_schema_targets(&parsed_sources);
         self.validate_doc_references(&parsed_sources, &schema_targets);
@@ -367,7 +373,7 @@ impl<'a> PackageDocBuilder<'a> {
     fn build_modules(
         &mut self,
         parsed_sources: &[ParsedPackageSource],
-        schema_targets: &BTreeMap<String, PublicSchemaDocTarget>,
+        schema_targets: &SchemaDocResolver<'_>,
     ) -> (
         Vec<PackageDocModule>,
         BTreeMap<PackageDocLocationKey, String>,
@@ -486,7 +492,7 @@ impl<'a> PackageDocBuilder<'a> {
         }
     }
 
-    fn metadata(&self) -> PackageDocMetadata {
+    fn metadata(&self, parsed_sources: &[ParsedPackageSource]) -> PackageDocMetadata {
         let mut metadata = PackageDocMetadata {
             identity: self.identity.to_string(),
             package_name: manifest_field(&self.manifest.package.fields, "name"),
@@ -498,11 +504,9 @@ impl<'a> PackageDocBuilder<'a> {
             exported_modules: Vec::new(),
         };
         metadata.exported_modules = self
-            .manifest
-            .lib
-            .exports
+            .validated_exported_modules(parsed_sources)
             .iter()
-            .map(|export| module_name_from_path(&export.path).unwrap_or_default())
+            .map(|(_, module_name)| module_name.clone())
             .collect();
         metadata
     }
@@ -607,6 +611,42 @@ impl<'a> PackageDocBuilder<'a> {
     }
 
     fn validate_manifest_gate(&mut self) {
+        match manifest_field_with_span(&self.manifest.package.fields, "name") {
+            Some(name) if name.value == self.identity => {}
+            Some(name) => self.diagnostics.push(PackageDocDiagnostic {
+                gate: "manifest".to_string(),
+                code: "package_doc.package_identity_mismatch".to_string(),
+                message: format!(
+                    "manifest package name `{}` does not match package identity `{}`",
+                    name.value, self.identity
+                ),
+                span: Some(PackageDocDiagnosticSpan::from_span(
+                    &source_uri(
+                        self.identity,
+                        self.snapshot.digest(),
+                        self.manifest.path.as_str(),
+                    ),
+                    &name.value_span,
+                )),
+            }),
+            None => self.diagnostics.push(PackageDocDiagnostic {
+                gate: "manifest".to_string(),
+                code: "package_doc.missing_package_name".to_string(),
+                message: "manifest package name is required for package documentation generation"
+                    .to_string(),
+                span: Some(PackageDocDiagnosticSpan {
+                    source_uri: source_uri(
+                        self.identity,
+                        self.snapshot.digest(),
+                        self.manifest.path.as_str(),
+                    ),
+                    line: 1,
+                    column: 1,
+                    offset: 0,
+                }),
+            }),
+        }
+
         for section in &self.manifest.unsupported_sections {
             self.diagnostics.push(PackageDocDiagnostic {
                 gate: "manifest".to_string(),
@@ -722,6 +762,41 @@ impl<'a> PackageDocBuilder<'a> {
         Some((path.as_str().to_string(), module_name))
     }
 
+    fn validated_exported_modules(
+        &self,
+        parsed_sources: &[ParsedPackageSource],
+    ) -> Vec<(String, String)> {
+        let available = parsed_sources
+            .iter()
+            .map(|source| source.source.path().as_str().to_string())
+            .collect::<BTreeSet<_>>();
+        let mut seen_paths = BTreeSet::new();
+        let mut seen_modules = BTreeSet::new();
+        let mut exports = Vec::new();
+        for export in &self.manifest.lib.exports {
+            if export.path.contains("::") {
+                continue;
+            }
+            let path = SourcePath::new(export.path.clone());
+            if !is_package_relative_path(path.as_str())
+                || !path.as_str().ends_with(".veln")
+                || classify_companion_source(path.as_str()).is_some()
+            {
+                continue;
+            }
+            let Some(module_name) = module_name_from_path(path.as_str()) else {
+                continue;
+            };
+            if available.contains(path.as_str())
+                && seen_paths.insert(path.as_str().to_string())
+                && seen_modules.insert(module_name.clone())
+            {
+                exports.push((path.as_str().to_string(), module_name));
+            }
+        }
+        exports
+    }
+
     fn invalid_manifest_export(&mut self, export: &veln_project::ManifestExport, reason: &str) {
         self.diagnostics.push(PackageDocDiagnostic {
             gate: "manifest".to_string(),
@@ -790,40 +865,56 @@ impl<'a> PackageDocBuilder<'a> {
 
     fn public_schema_targets(
         &self,
-        parsed_sources: &[ParsedPackageSource],
-    ) -> BTreeMap<String, PublicSchemaDocTarget> {
-        let mut targets = BTreeMap::new();
+        parsed_sources: &'a [ParsedPackageSource],
+    ) -> SchemaDocResolver<'a> {
+        let mut sources = BTreeMap::new();
+        let mut schemas = BTreeMap::new();
+        let mut aliases = BTreeMap::new();
         for source in parsed_sources.iter().filter(|source| source.exported) {
+            sources.insert(source.module_name.clone(), source);
             for item in &source.tree.items {
-                let SyntaxItem::Schema(schema) = item else {
-                    continue;
-                };
-                if schema.visibility != Visibility::Public {
-                    continue;
+                match item {
+                    SyntaxItem::Schema(schema) if schema.visibility == Visibility::Public => {
+                        let name = schema.name.clone().unwrap_or_default();
+                        let identity = format!(
+                            "schema:{}::{name}:{}",
+                            source.module_name,
+                            schema_signature(schema)
+                        );
+                        let declaration_id = self.declaration_id("schema", &identity);
+                        let target_uri = self.declaration_uri(&declaration_id, "");
+                        schemas.insert(
+                            (source.module_name.clone(), name),
+                            PublicSchemaDocTarget {
+                                declaration_id,
+                                target_uri,
+                            },
+                        );
+                    }
+                    SyntaxItem::PublicAlias(alias) if alias.kind == PublicAliasKind::Schema => {
+                        aliases.insert(
+                            (
+                                source.module_name.clone(),
+                                alias.name.clone().unwrap_or_default(),
+                            ),
+                            alias.target.clone(),
+                        );
+                    }
+                    _ => {}
                 }
-                let name = schema.name.clone().unwrap_or_default();
-                let identity = format!(
-                    "schema:{}::{name}:{}",
-                    source.module_name,
-                    schema_signature(schema)
-                );
-                let declaration_id = self.declaration_id("schema", &identity);
-                let target_uri = self.declaration_uri(&declaration_id, "");
-                let target = PublicSchemaDocTarget {
-                    declaration_id,
-                    target_uri,
-                };
-                targets.insert(format!("{}::{name}", source.module_name), target.clone());
-                targets.insert(name, target);
             }
         }
-        targets
+        SchemaDocResolver {
+            sources,
+            schemas,
+            aliases,
+        }
     }
 
     fn validate_doc_references(
         &mut self,
         parsed_sources: &[ParsedPackageSource],
-        schema_targets: &BTreeMap<String, PublicSchemaDocTarget>,
+        schema_targets: &SchemaDocResolver<'_>,
     ) {
         for source in parsed_sources.iter().filter(|source| source.exported) {
             for target_line in public_documentation_lines(&source.tree) {
@@ -831,12 +922,9 @@ impl<'a> PackageDocBuilder<'a> {
                     continue;
                 }
                 for reference in doc_schema_references_before(&source.source, target_line) {
-                    if schema_reference_target(
-                        &reference.target,
-                        &source.module_name,
-                        schema_targets,
-                    )
-                    .is_none()
+                    if schema_targets
+                        .resolve(&reference.target, &source.module_name)
+                        .is_none()
                     {
                         self.diagnostics.push(PackageDocDiagnostic {
                             gate: "documentation_reference".to_string(),
@@ -861,7 +949,7 @@ impl<'a> PackageDocBuilder<'a> {
         source: &ParsedPackageSource,
         semantic_identities: &mut BTreeMap<String, SourceSpan>,
         declaration_locations: &mut BTreeMap<PackageDocLocationKey, String>,
-        schema_targets: &BTreeMap<String, PublicSchemaDocTarget>,
+        schema_targets: &SchemaDocResolver<'_>,
     ) -> Vec<PackageDocDeclaration> {
         let mut declarations = Vec::new();
         for item in &source.tree.items {
@@ -917,7 +1005,7 @@ impl<'a> PackageDocBuilder<'a> {
         type_decl: &TypeDecl,
         semantic_identities: &mut BTreeMap<String, SourceSpan>,
         declaration_locations: &mut BTreeMap<PackageDocLocationKey, String>,
-        schema_targets: &BTreeMap<String, PublicSchemaDocTarget>,
+        schema_targets: &SchemaDocResolver<'_>,
     ) -> PackageDocDeclaration {
         let name = type_decl.name.clone().unwrap_or_default();
         let identity = format!(
@@ -977,7 +1065,7 @@ impl<'a> PackageDocBuilder<'a> {
         schema: &SchemaDecl,
         semantic_identities: &mut BTreeMap<String, SourceSpan>,
         declaration_locations: &mut BTreeMap<PackageDocLocationKey, String>,
-        schema_targets: &BTreeMap<String, PublicSchemaDocTarget>,
+        schema_targets: &SchemaDocResolver<'_>,
     ) -> PackageDocDeclaration {
         let name = schema.name.clone().unwrap_or_default();
         let identity = format!(
@@ -1016,7 +1104,7 @@ impl<'a> PackageDocBuilder<'a> {
         function: &FunctionDecl,
         semantic_identities: &mut BTreeMap<String, SourceSpan>,
         declaration_locations: &mut BTreeMap<PackageDocLocationKey, String>,
-        schema_targets: &BTreeMap<String, PublicSchemaDocTarget>,
+        schema_targets: &SchemaDocResolver<'_>,
     ) -> PackageDocDeclaration {
         let name = function.name.clone().unwrap_or_default();
         let signature = function_signature(function);
@@ -1056,7 +1144,7 @@ impl<'a> PackageDocBuilder<'a> {
         alias: &PublicAliasDecl,
         semantic_identities: &mut BTreeMap<String, SourceSpan>,
         declaration_locations: &mut BTreeMap<PackageDocLocationKey, String>,
-        schema_targets: &BTreeMap<String, PublicSchemaDocTarget>,
+        schema_targets: &SchemaDocResolver<'_>,
     ) -> PackageDocDeclaration {
         let name = alias.name.clone().unwrap_or_default();
         let signature = alias_signature(alias);
@@ -1139,20 +1227,20 @@ impl<'a> PackageDocBuilder<'a> {
         &self,
         source: &SourceFile,
         target_line: usize,
-        schema_targets: &BTreeMap<String, PublicSchemaDocTarget>,
+        schema_targets: &SchemaDocResolver<'_>,
     ) -> Vec<PackageDocReference> {
         let current_module = module_name_from_path(source.path().as_str()).unwrap_or_default();
         doc_schema_references_before(source, target_line)
             .into_iter()
             .filter_map(|reference| {
-                schema_reference_target(&reference.target, &current_module, schema_targets).map(
-                    |target| PackageDocReference {
+                schema_targets
+                    .resolve(&reference.target, &current_module)
+                    .map(|target| PackageDocReference {
                         kind: "schema".to_string(),
                         marker: reference.target,
-                        target_declaration_id: target.declaration_id.clone(),
-                        target_uri: target.target_uri.clone(),
-                    },
-                )
+                        target_declaration_id: target.declaration_id,
+                        target_uri: target.target_uri,
+                    })
             })
             .collect()
     }
@@ -1160,7 +1248,7 @@ impl<'a> PackageDocBuilder<'a> {
     fn module_references(
         &self,
         source: &ParsedPackageSource,
-        schema_targets: &BTreeMap<String, PublicSchemaDocTarget>,
+        schema_targets: &SchemaDocResolver<'_>,
     ) -> Vec<PackageDocReference> {
         source
             .tree
@@ -1176,7 +1264,7 @@ impl<'a> PackageDocBuilder<'a> {
         &mut self,
         source: &SourceFile,
         variant: &TypeVariantDecl,
-        schema_targets: &BTreeMap<String, PublicSchemaDocTarget>,
+        schema_targets: &SchemaDocResolver<'_>,
     ) -> PackageDocTypeConstructor {
         PackageDocTypeConstructor {
             name: variant.name.clone().unwrap_or_default(),
@@ -1777,21 +1865,55 @@ fn extract_doc_schema_references(
     references
 }
 
-fn schema_reference_target<'a>(
-    target: &str,
-    current_module: &str,
-    public_schemas: &'a BTreeMap<String, PublicSchemaDocTarget>,
-) -> Option<&'a PublicSchemaDocTarget> {
-    let segments = target.split("::").collect::<Vec<_>>();
-    match segments.as_slice() {
-        [name] => public_schemas
-            .get(&format!("{current_module}::{name}"))
-            .or_else(|| public_schemas.get(*name)),
-        [module @ .., name] => {
-            let module = module.join("::");
-            public_schemas.get(&format!("{module}::{name}"))
+impl SchemaDocResolver<'_> {
+    fn resolve(&self, target: &str, current_module: &str) -> Option<PublicSchemaDocTarget> {
+        let segments = target.split("::").map(str::to_string).collect::<Vec<_>>();
+        self.resolve_segments(&segments, current_module, &mut Vec::new())
+    }
+
+    fn resolve_segments(
+        &self,
+        segments: &[String],
+        current_module: &str,
+        visited_aliases: &mut Vec<(String, String)>,
+    ) -> Option<PublicSchemaDocTarget> {
+        match segments {
+            [name] => self.resolve_in_module(current_module, name, visited_aliases),
+            [module @ .., name] => {
+                let module_name = module.join("::");
+                let source = self.sources.get(current_module)?;
+                if !source
+                    .tree
+                    .uses
+                    .iter()
+                    .any(|use_decl| use_decl.package.is_none() && use_decl.name == module_name)
+                {
+                    return None;
+                }
+                self.resolve_in_module(&module_name, name, visited_aliases)
+            }
+            _ => None,
         }
-        _ => None,
+    }
+
+    fn resolve_in_module(
+        &self,
+        module_name: &str,
+        name: &str,
+        visited_aliases: &mut Vec<(String, String)>,
+    ) -> Option<PublicSchemaDocTarget> {
+        let key = (module_name.to_string(), name.to_string());
+        if let Some(target) = self.schemas.get(&key) {
+            return Some(target.clone());
+        }
+        let target = self.aliases.get(&key)?;
+        if visited_aliases.contains(&key) {
+            return None;
+        }
+        visited_aliases.push(key);
+        let resolved = self.resolve_segments(target, module_name, visited_aliases);
+        visited_aliases.pop();
+        resolved
     }
 }
 
@@ -2338,10 +2460,14 @@ fn is_package_relative_path(path: &str) -> bool {
 }
 
 fn manifest_field(fields: &[veln_project::ManifestField], key: &str) -> Option<String> {
-    fields
-        .iter()
-        .find(|field| field.key == key)
-        .map(|field| field.value.clone())
+    manifest_field_with_span(fields, key).map(|field| field.value.clone())
+}
+
+fn manifest_field_with_span<'a>(
+    fields: &'a [veln_project::ManifestField],
+    key: &str,
+) -> Option<&'a veln_project::ManifestField> {
+    fields.iter().find(|field| field.key == key)
 }
 
 fn manifest_list_field(fields: &[veln_project::ManifestField], key: &str) -> Vec<String> {
@@ -2378,7 +2504,9 @@ mod tests {
         )
         .unwrap();
         let manifest = parse_manifest_text("veln.toml", manifest);
-        let identity = PackageIdentity::new("owner/package").unwrap();
+        let identity =
+            PackageIdentity::new(manifest_field(&manifest.package.fields, "name").unwrap())
+                .unwrap();
         PackageDocResult::generate(
             &identity,
             &snapshot,
@@ -2412,7 +2540,9 @@ mod tests {
         )
         .unwrap();
         let manifest = parse_manifest_text("veln.toml", &manifest_text);
-        let identity = PackageIdentity::new("owner/package").unwrap();
+        let identity =
+            PackageIdentity::new(manifest_field(&manifest.package.fields, "name").unwrap())
+                .unwrap();
         PackageDocResult::generate(
             &identity,
             &snapshot,
@@ -2447,8 +2577,10 @@ mod tests {
         )
         .unwrap();
         let manifest = parse_manifest_text("veln.toml", manifest);
+        let identity =
+            manifest_field(&manifest.package.fields, "name").unwrap_or_else(|| "demo".to_string());
         PackageDocBuilder::new(
-            "owner/package",
+            &identity,
             &snapshot,
             &manifest,
             PackageDocGeneratorContract::new("contract-a"),
@@ -2602,17 +2734,25 @@ mod tests {
         assert_eq!(first.doc_digest(), doc_digest(first.canonical_bytes()));
         assert_eq!(first.status_uri(), second.status_uri());
         let catalog = first.catalog().unwrap();
-        assert!(
-            catalog
-                .index_uri
-                .starts_with("veln-doc:///package/owner%2Fpackage/")
-        );
+        assert!(catalog.index_uri.starts_with("veln-doc:///package/demo/"));
         assert_eq!(catalog.modules[0].id.len(), 64);
         assert_eq!(catalog.modules[0].declarations[0].id.len(), 64);
         assert_eq!(
             first.declaration_uri_for("main", "function", "value"),
             Some(catalog.modules[0].declarations[0].uri.as_str())
         );
+    }
+
+    #[test]
+    fn metadata_exported_modules_use_validated_normalized_exports() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"./main.veln\"]\n",
+            &[("main.veln", "pub fn value() -> Int\n\t1\nend\n")],
+        );
+
+        let catalog = catalog_or_panic(&result);
+        assert_eq!(catalog.modules[0].name, "main");
+        assert_eq!(catalog.metadata.exported_modules, ["main"]);
     }
 
     #[test]
@@ -2638,11 +2778,37 @@ mod tests {
             PackageDocGeneratorContract::new("contract-a"),
         );
 
-        assert!(
-            result
-                .status_uri()
-                .starts_with("veln-doc:///package/owner%2Fpackage/snapshot/")
+        assert!(result.catalog().is_none());
+        assert!(result.status().diagnostics.iter().any(|diagnostic| {
+            diagnostic.gate == "manifest"
+                && diagnostic.code == "package_doc.package_identity_mismatch"
+        }));
+    }
+
+    #[test]
+    fn package_documentation_requires_manifest_package_name() {
+        let identity = PackageIdentity::new("demo").unwrap();
+        let snapshot = capture_embedded_package_snapshot(
+            b"[package]\n[lib]\nexports = [\"main.veln\"]\n",
+            [PackageSnapshotSource::new(
+                "main.veln",
+                b"pub fn value() -> Int\n\t1\nend\n",
+            )],
+        )
+        .unwrap();
+        let manifest =
+            parse_manifest_text("veln.toml", "[package]\n[lib]\nexports = [\"main.veln\"]\n");
+        let result = PackageDocResult::generate(
+            &identity,
+            &snapshot,
+            &manifest,
+            PackageDocGeneratorContract::new("contract-a"),
         );
+
+        assert!(result.catalog().is_none());
+        assert!(result.status().diagnostics.iter().any(|diagnostic| {
+            diagnostic.gate == "manifest" && diagnostic.code == "package_doc.missing_package_name"
+        }));
     }
 
     #[test]
@@ -2661,6 +2827,8 @@ mod tests {
                 (
                     "main.veln",
                     concat!(
+                        "use wire\n",
+                        "\n",
                         "pub type Choice\n",
                         "\t## Constructor uses {@schema wire::Packet}.\n",
                         "\tpub Ready(value: Int)\n",
@@ -2701,6 +2869,99 @@ mod tests {
                 .unwrap()
                 .contains("\"references\":[{\"kind\":\"schema\"")
         );
+    }
+
+    #[test]
+    fn qualified_schema_reference_requires_written_import() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\", \"wire.veln\"]\n",
+            &[
+                (
+                    "main.veln",
+                    concat!(
+                        "## Missing import {@schema wire::Packet}.\n",
+                        "pub fn value() -> Int\n",
+                        "\t1\n",
+                        "end\n",
+                    ),
+                ),
+                (
+                    "wire.veln",
+                    concat!(
+                        "pub schema Packet\n",
+                        "\tformat binary\n",
+                        "\tvalue: UInt8\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+        );
+
+        assert!(result.catalog().is_none());
+        assert!(result.status().diagnostics.iter().any(|diagnostic| {
+            diagnostic.gate == "documentation_reference"
+                && diagnostic.code == "package_doc.unresolved_schema_reference"
+        }));
+    }
+
+    #[test]
+    fn public_schema_alias_reference_resolves_to_public_schema_target() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\", \"facade.veln\", \"wire.veln\"]\n",
+            &[
+                (
+                    "main.veln",
+                    concat!(
+                        "use facade\n",
+                        "\n",
+                        "## Uses alias {@schema facade::AliasPacket}.\n",
+                        "pub fn value() -> Int\n",
+                        "\t1\n",
+                        "end\n",
+                    ),
+                ),
+                (
+                    "facade.veln",
+                    concat!(
+                        "use wire\n",
+                        "\n",
+                        "pub schema AliasPacket = wire::Packet\n"
+                    ),
+                ),
+                (
+                    "wire.veln",
+                    concat!(
+                        "pub schema Packet\n",
+                        "\tformat binary\n",
+                        "\tvalue: UInt8\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+        );
+
+        let catalog = catalog_or_panic(&result);
+        let function = catalog
+            .modules
+            .iter()
+            .find(|module| module.name == "main")
+            .unwrap()
+            .declarations
+            .iter()
+            .find(|declaration| declaration.name == "value")
+            .unwrap();
+        let schema = catalog
+            .modules
+            .iter()
+            .find(|module| module.name == "wire")
+            .unwrap()
+            .declarations
+            .iter()
+            .find(|declaration| declaration.name == "Packet")
+            .unwrap();
+        assert_eq!(function.references.len(), 1);
+        assert_eq!(function.references[0].target_declaration_id, schema.id);
+        assert_eq!(function.references[0].target_uri, schema.uri);
     }
 
     #[test]
@@ -2756,7 +3017,7 @@ mod tests {
         let catalog = catalog_or_panic(&result);
         let type_uri = catalog.modules[0].declarations[0].uri.as_str();
         let function_uri = catalog.modules[0].declarations[1].uri.as_str();
-        let source_uri = source_uri("owner/package", result.snapshot_digest(), "main.veln");
+        let source_uri = source_uri("demo", result.snapshot_digest(), "main.veln");
 
         assert_eq!(
             result.declaration_uri_for_location(&NavigationLocation {
@@ -2911,7 +3172,7 @@ mod tests {
         )
         .unwrap();
         let manifest = parse_manifest_text("veln.toml", base_manifest);
-        let identity = PackageIdentity::new("owner/package").unwrap();
+        let identity = PackageIdentity::new("demo").unwrap();
         let changed_contract = PackageDocResult::generate(
             &identity,
             &snapshot,
@@ -2938,7 +3199,7 @@ mod tests {
         )
         .unwrap();
         let manifest = parse_manifest_text("veln.toml", swapped_manifest);
-        let identity = PackageIdentity::new("owner/package").unwrap();
+        let identity = PackageIdentity::new("demo").unwrap();
         let result = PackageDocResult::generate(
             &identity,
             &snapshot,
@@ -3098,6 +3359,22 @@ mod tests {
 
         assert_eq!(catalog.modules[0].declarations[0].doctests.len(), 1);
         assert!(result.status().diagnostics.is_empty());
+    }
+
+    #[test]
+    fn executable_specification_fixture_observes_schema_reference_import_gate() {
+        let result = generate_fixture("package-catalog-schema-reference-import-gate");
+
+        assert!(result.catalog().is_none());
+        assert!(result.status().diagnostics.iter().any(|diagnostic| {
+            diagnostic.gate == "documentation_reference"
+                && diagnostic.code == "package_doc.unresolved_schema_reference"
+        }));
+        assert!(
+            !std::str::from_utf8(result.canonical_bytes())
+                .unwrap()
+                .contains("\"modules\"")
+        );
     }
 
     #[test]
