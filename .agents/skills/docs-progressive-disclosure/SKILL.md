@@ -56,14 +56,14 @@ current supporting record. Do not put a `Status:` label in the document body.
 ---
 role: specification
 authority: normative
-review-when: The documented behavior or its executable evidence changes.
+review-when: The CLI command output contract or its checked command-output fixtures change.
 ---
 ```
 
 ```markdown
 ---
 role: routing
-review-when: A routed document is added, moved, or reclassified.
+review-when: A CLI specification page is added, moved, reclassified, or removed.
 ---
 ```
 
@@ -75,9 +75,23 @@ maintainer recheck the document. Quote the value when YAML punctuation could
 make it ambiguous. Do not use calendar schedules or vague values such as
 `periodically`, `regularly`, `as needed`, `when necessary`, `always`, or `TBD`.
 
+Write the field as a self-contained selector for documentation review. Assume
+an agent receives only the extracted `review-when:` values, without document
+titles or bodies, and must compare them with its current task. The value must
+name the affected project subject and the concrete change that can make the
+document stale. Name relevant contracts, commands, components, schemas,
+artifacts, evidence, or document sets precisely enough to distinguish this
+document from nearby documents.
+
+Do not make the trigger depend on context found only in the document body.
+Avoid context-dependent phrases such as `the documented behavior`, `its
+evidence`, `this record`, or `the routed task` unless the same value first names
+their concrete referent. If an agent must open the document to learn what a
+subject, behavior, route, or evidence phrase means, rewrite the trigger.
+
 ```markdown
 ---
-review-when: The documented command output or its executable evidence changes.
+review-when: The `veln check --json` diagnostic schema or its checked JSON fixtures change.
 ---
 
 # Command Output
@@ -85,21 +99,26 @@ review-when: The documented command output or its executable evidence changes.
 
 Choose the trigger from the document's purpose:
 
-- Specification: review when the documented behavior, public contract, or
-  authoritative executable evidence changes.
-- Proposal: review when its acceptance evidence, scope, dependencies, or
-  implementation status changes.
-- Reference or decision record: review when its authority, replacement,
-  supporting evidence, or the decision boundary changes.
-- Routing page: review when a routed document is added, moved, reclassified,
-  or no longer answers the routed task.
-- Historical record: review when the record is superseded, its links or
-  evidence become invalid, or current documentation starts relying on it as an
-  authority.
+- Specification: name the public contract and its authoritative executable
+  evidence that can change.
+- Proposal: name the proposed capability and the acceptance evidence, scope,
+  dependencies, or implementation boundary that can change.
+- Reference or decision record: name the decision or reference subject and the
+  authority, replacement, supporting evidence, or decision boundary that can
+  change.
+- Routing page: name the routed document set and the additions, moves,
+  reclassifications, removals, or responsibility changes that require review.
+- Historical record: name the completed work and review when it is superseded,
+  its named evidence becomes invalid, or a current specification starts relying
+  on the record as authority.
 
 Use the narrowest sufficient trigger. State multiple related conditions in the
 same field when any one of them requires review. Do not add a second
-`review-when:` field.
+`review-when:` field. Before accepting the field, extract it without the
+document body and confirm that a reader can decide whether a representative
+project task might trigger review. Opening the document may confirm whether an
+already selected candidate needs an edit; it must not be required to identify
+the candidate.
 
 ## Placement Rules
 
@@ -149,6 +168,9 @@ Do not split when:
 - Check file layout with `find docs -maxdepth 3 -type f | sort`.
 - Check line counts with `wc -l` for changed index and detail files.
 - Search for stale links with `rg`.
+- Inspect extracted review selectors with
+  `rg -n '^review-when:' docs -g '*.md'` and check that each value can be
+  matched to a project task without opening its document.
 - Run a Markdown link existence check when files were moved.
 - Run `node workflow-scripts/check-doc-frontmatter.mjs` with the changed
   Markdown paths. CI applies the same check to added, modified, and moved
