@@ -1,0 +1,7 @@
+use remote from "github.com/oakcask/git-api"
+use private from "github.com/oakcask/git-api"
+
+fn main() -> Int
+  private::value() +
+  remote::hidden()
+end

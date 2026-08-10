@@ -1,0 +1,4 @@
+[dependencies."github.com/oakcask/git-api"]
+git = "materialized/mono"
+rev = "abc123"
+subdir = "packages/git-api"
