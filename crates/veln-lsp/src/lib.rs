@@ -3420,8 +3420,11 @@ mod tests {
                 "main.veln",
                 concat!(
                     "use math from \"example/pkg\"\n\n",
+                    "use hidden from \"example/pkg\"\n\n",
                     "pub fn main() -> Int\n",
                     "  math::exposed(1)\n",
+                    "  math::secret(1)\n",
+                    "  hidden::published(1)\n",
                     "end\n",
                 ),
             );
@@ -3434,11 +3437,15 @@ mod tests {
             );
             let retained_text = "pub fn exposed(value: Int) -> Int\r\n  value + 1\r\nend\r\n";
             project.write(&format!("{source_root}/math.veln"), retained_text);
+            project.write(
+                &format!("{source_root}/hidden.veln"),
+                "pub fn published(value: Int) -> Int\n  value\nend\n",
+            );
             let root_uri = path_to_uri(&project.root);
             let main_uri = path_to_uri(&project.root.join("main.veln"));
             server.handle_message(&initialize_request(&root_uri));
 
-            let definition = server.handle_message(&definition_request(&main_uri, 3, 10));
+            let definition = server.handle_message(&definition_request(&main_uri, 5, 10));
             let virtual_uri = extract_string_field(&definition[0], "uri").unwrap();
             assert!(
                 virtual_uri.starts_with("veln-pkg:///example%2Fpkg/snapshot/")
@@ -3458,6 +3465,19 @@ mod tests {
                     &format!(r#""{}""#, escape_json(retained_text))
                 )],
                 "{source_field}"
+            );
+            let private_definition = server.handle_message(&definition_request(&main_uri, 6, 10));
+            assert!(
+                private_definition[0].contains(r#""result":null"#),
+                "{source_field}: {}",
+                private_definition[0]
+            );
+            let unexported_definition =
+                server.handle_message(&definition_request(&main_uri, 7, 12));
+            assert!(
+                unexported_definition[0].contains(r#""result":null"#),
+                "{source_field}: {}",
+                unexported_definition[0]
             );
             observed.push(virtual_uri);
         }
