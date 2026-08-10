@@ -470,7 +470,10 @@ import-aware schema documentation references, public schema alias reference
 resolution, stream-aware expected-output publication, effect-row-binder
 signatures, and generated
 doctest static gate for expression, declaration, nested-expression declaration,
-public-alias declaration, and mixed declaration-statement doctests are
+public-alias declaration, and mixed declaration-statement doctests, shared
+doctest metadata diagnostics for catalog expected-output fences,
+same-snapshot declaration documentation lookup from package virtual-source
+locations, and rejection of workspace or different-snapshot locations are
 implemented and specified in
 [Package Documentation Catalogs](../specification/package-documentation.md).
 Embedded package snapshot capture applies the same test-source distribution
@@ -579,8 +582,9 @@ exported module, exported public declaration, or exported public constructor.
 Private declaration doctests, ignored doctests, and hidden setup are not
 published or checked by package documentation generation. Expected-output
 fences use the shared doctest extractor's pending-state boundary. Doctest
-metadata is validated by the shared doctest extractor, and metadata errors fail
-the complete documentation generation. Runtime doctest execution and
+metadata, including duplicate or ambiguous output stream attributes, is
+validated by the shared doctest extractor, and metadata errors fail the
+complete documentation generation. Runtime doctest execution and
 expected-output comparison remain part of the planned MCP publication slice.
 
 ## Published Language Reference

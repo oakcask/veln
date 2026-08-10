@@ -108,6 +108,24 @@ pub fn doctest_sources(sources: &[SourceFile]) -> DoctestSources {
     }
 }
 
+pub fn visible_doctests(source: &SourceFile) -> VisibleDoctests {
+    let signatures = result_error_signatures(std::slice::from_ref(source));
+    let extracted = extract_doctests(source, &signatures);
+    VisibleDoctests {
+        doctests: extracted
+            .doctests
+            .into_iter()
+            .map(|doctest| VisibleDoctest {
+                code: doctest.visible_code.join("\n"),
+                expected_error: doctest.error_type,
+                should_fail: doctest.should_fail,
+                expected_output: doctest.expected_output,
+            })
+            .collect(),
+        diagnostics: extracted.diagnostics,
+    }
+}
+
 pub fn reconcile_expected_doctest_failures(
     diagnostics: Vec<Diagnostic>,
     expected_failures: &BTreeMap<String, SourceSpan>,
@@ -1095,6 +1113,20 @@ pub struct ExpectedOutput {
     pub stderr_span: Option<SourceSpan>,
 }
 
+#[derive(Clone, Debug)]
+pub struct VisibleDoctests {
+    pub doctests: Vec<VisibleDoctest>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Clone, Debug)]
+pub struct VisibleDoctest {
+    pub code: String,
+    pub expected_error: Option<String>,
+    pub should_fail: bool,
+    pub expected_output: Option<ExpectedOutput>,
+}
+
 pub struct OutputDifference {
     pub line: usize,
     pub expected: Option<String>,
@@ -1124,6 +1156,7 @@ impl OutputDifference {
 #[derive(Default)]
 struct ExtractedDoctest {
     code: Vec<String>,
+    visible_code: Vec<String>,
     error_type: Option<String>,
     expected_output: Option<ExpectedOutput>,
     expected_runtime_failure: Option<ExpectedRuntimeFailure>,
@@ -1134,6 +1167,7 @@ struct ExtractedDoctest {
 enum Fence {
     Veln {
         lines: Vec<String>,
+        visible_lines: Vec<String>,
         error_type: Option<String>,
         expected_runtime_failure: Option<Box<ExpectedRuntimeFailure>>,
         ignored: bool,
@@ -1225,6 +1259,7 @@ impl<'a> DoctestExtractor<'a> {
                 .extend(veln_metadata_diagnostics(info, span.clone()));
             self.fence = Some(Fence::Veln {
                 lines: Vec::new(),
+                visible_lines: Vec::new(),
                 error_type: doctest_error_type(info).map(ToString::to_string),
                 expected_runtime_failure: doctest_runtime_failure(info, span).map(Box::new),
                 ignored: doctest_ignored(info),
@@ -1252,6 +1287,7 @@ impl<'a> DoctestExtractor<'a> {
         match self.fence.take().expect("active fence should exist") {
             Fence::Veln {
                 lines,
+                visible_lines,
                 error_type,
                 expected_runtime_failure,
                 ignored,
@@ -1262,6 +1298,7 @@ impl<'a> DoctestExtractor<'a> {
                 if !ignored {
                     self.pending = Some(ExtractedDoctest {
                         code: lines,
+                        visible_code: visible_lines,
                         error_type,
                         expected_output: None,
                         expected_runtime_failure: expected_runtime_failure.map(|failure| *failure),
@@ -1281,7 +1318,16 @@ impl<'a> DoctestExtractor<'a> {
 
     fn append_fence_line(&mut self, content: &str) {
         match self.fence.as_mut().expect("active fence should exist") {
-            Fence::Veln { lines, .. } => lines.push(doctest_code_line(content)),
+            Fence::Veln {
+                lines,
+                visible_lines,
+                ..
+            } => {
+                lines.push(doctest_code_line(content));
+                if !content.starts_with("> ") {
+                    visible_lines.push(content.to_string());
+                }
+            }
             Fence::Output { lines, .. } => lines.push(content.to_string()),
             Fence::Ignored => {}
         }
@@ -1657,6 +1703,14 @@ fn output_metadata_diagnostics(info: &str, span: SourceSpan) -> Vec<Diagnostic> 
     let mut has_stream = false;
     for field in info.split_whitespace().skip(1) {
         if let Some(stream) = field.strip_prefix("stream=") {
+            if has_stream {
+                diagnostics.push(invalid_doctest_metadata_diagnostic(
+                    "duplicate doctest output stream attribute",
+                    "stream",
+                    span.clone(),
+                    vec![("stream", JsonValue::string(stream))],
+                ));
+            }
             has_stream = true;
             if !matches!(stream, "stdout" | "stderr") {
                 diagnostics.push(invalid_doctest_metadata_diagnostic(
@@ -2875,6 +2929,31 @@ mod tests {
         assert_eq!(
             doctests.diagnostics[0].details.to_json(),
             "{\"kind\":\"doctest_metadata\",\"attribute\":\"stream\"}"
+        );
+    }
+
+    #[test]
+    fn duplicate_doctest_output_stream_attribute_reports_diagnostic() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "## ```veln\n",
+                "## stdio::println(\"ready\")\n",
+                "## ```\n",
+                "## ```veln-output stream=stdout stream=stderr\n",
+                "## ready\n",
+                "## ```\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        assert_eq!(doctests.diagnostics.len(), 1);
+        assert_eq!(doctests.diagnostics[0].id, "doctest.invalid_metadata");
+        assert_eq!(
+            doctests.diagnostics[0].message,
+            "duplicate doctest output stream attribute"
         );
     }
 

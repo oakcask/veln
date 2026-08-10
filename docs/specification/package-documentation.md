@@ -129,8 +129,10 @@ The implemented gates are:
   `veln-output stream=stderr` fences are accepted, duplicate output fences for
   the same stream fail generation, and expected-output fences attach only
   while the same pending-state boundary used by the shared doctest extractor
-  remains open. Doctest metadata diagnostics from the shared doctest extractor
-  fail generation; and
+  remains open. The catalog publishes visible doctests from the same shared
+  doctest extraction result that supplies doctest gate diagnostics. Duplicate
+  or ambiguous expected-output stream metadata fails generation with the shared
+  doctest metadata diagnostic; and
 - identity: duplicate semantic declaration identities fail generation.
   Detected module identifier collisions and declaration identifier collisions
   fail generation.
@@ -143,12 +145,15 @@ and message.
 The catalog provides transport-independent lookup from module name,
 declaration kind, and declaration name to the canonical declaration
 documentation URI in the same snapshot. It also accepts a snapshot-bound
-semantic `NavigationLocation` for public declarations. Declaration-span and
-name-token locations resolve to the same declaration documentation URI.
-Constructor declaration-span and name-token locations resolve to the owning
-type declaration documentation URI. Adapters return the URI from these lookups
-instead of asking clients to construct resource identifiers or re-resolve by
-spelling.
+semantic `NavigationLocation` for public declarations only when the location
+uses `NavigationSource::Package` with a canonical `veln-pkg:` URI from the same
+package identity and snapshot digest. `NavigationSource::Workspace` locations
+and package URIs from another snapshot do not resolve to package documentation
+URIs. Declaration-span and name-token locations resolve to the same declaration
+documentation URI. Constructor declaration-span and name-token locations
+resolve to the owning type declaration documentation URI. Adapters return the
+URI from these lookups instead of asking clients to construct resource
+identifiers or re-resolve by spelling.
 
 ## Executable Evidence
 
@@ -161,12 +166,15 @@ documentation references, and constructor-location lookup, visible doctest and
 expected-output publication, generated doctest static analysis for expression,
 declaration, mixed declaration-statement, and public-package-API doctests,
 parse-only `veln fail` doctest handling, ignored doctest expected-output
-adjacency, duplicate expected-output rejection, hidden setup gate exclusion,
-hidden setup and ADR-lite publication exclusion, effect row binder signatures,
-deterministic bytes, digest and URI stability, package byte changes,
-generator-contract changes, renderer-only stability when bytes are unchanged,
-declaration URI lookup from declaration spans and navigation name-token spans,
-private documentation-reference exclusion, private doctest exclusion, ADR-lite
+adjacency, duplicate expected-output rejection, ambiguous expected-output
+stream metadata rejection through the shared doctest extractor, hidden setup
+gate exclusion, hidden setup and ADR-lite publication exclusion, effect row
+binder signatures, deterministic bytes, digest and URI stability, package byte
+changes, generator-contract changes, renderer-only stability when bytes are
+unchanged, declaration URI lookup from package declaration spans and package
+navigation name-token spans, rejection of workspace and different-snapshot
+locations, private documentation-reference exclusion, private doctest
+exclusion, ADR-lite
 doctest and documentation-reference exclusion, parse gate failure with
 canonical package source URI, manifest gate failure,
 test source export rejection, manifest package-name mismatch failure, manifest
@@ -184,6 +192,7 @@ observe the catalog success path, manifest-gate failure path, nested
 declaration doctest success path with a nested expression block and public
 member alias, ADR-lite doctest exclusion from successful catalog generation,
 declaration doctest static-gate failure path,
+doctest output metadata gate failure path,
 integration-test source exclusion from successful catalog projection, and
 schema-reference import-gate failure path through executable specification
 inputs.

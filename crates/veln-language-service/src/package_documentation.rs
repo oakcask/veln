@@ -14,7 +14,7 @@ use veln_syntax::{
     PublicAliasKind, SchemaDecl, SyntaxItem, TokenKind, TypeDecl, TypeVariantDecl, Visibility,
     canonical_type_text, lex, parse,
 };
-use veln_test::doctest_sources;
+use veln_test::{ExpectedOutput, doctest_sources, visible_doctests};
 
 use crate::{NavigationLocation, NavigationSource};
 
@@ -120,16 +120,11 @@ impl PackageDocResult {
     }
 
     pub fn declaration_uri_for_location(&self, location: &NavigationLocation) -> Option<&str> {
-        let source_uri = match &location.source {
-            NavigationSource::Package { uri } => uri.clone(),
-            NavigationSource::Workspace => source_uri(
-                self.identity(),
-                self.snapshot_digest(),
-                location.span.file.as_str(),
-            ),
+        let NavigationSource::Package { uri: source_uri } = &location.source else {
+            return None;
         };
         self.declaration_locations
-            .get(&PackageDocLocationKey::new(&source_uri, &location.span))
+            .get(&PackageDocLocationKey::new(source_uri, &location.span))
             .map(String::as_str)
     }
 }
@@ -875,11 +870,13 @@ impl<'a> PackageDocBuilder<'a> {
         }
         for source in parsed_sources.iter().filter(|source| source.exported) {
             for target_line in public_documentation_lines(&source.tree) {
-                for fence in doctest_fences(&source.source, target_line) {
-                    match fence {
-                        Ok(doctest) => self.validate_doctest(&doctest),
-                        Err(diagnostic) => self.diagnostics.push(diagnostic),
-                    }
+                let doctests = visible_doctests_for(&source.source, target_line);
+                for diagnostic in doctests.diagnostics {
+                    self.diagnostics
+                        .push(self.project_diagnostic("doctest", diagnostic));
+                }
+                for doctest in doctests.doctests {
+                    self.validate_doctest(&doctest);
                 }
             }
         }
@@ -1220,16 +1217,12 @@ impl<'a> PackageDocBuilder<'a> {
     }
 
     fn doctests_for(&mut self, source: &SourceFile, target_line: usize) -> Vec<PackageDocDoctest> {
-        let mut doctests = Vec::new();
-        for fence in doctest_fences(source, target_line) {
-            match fence {
-                Ok(doctest) => {
-                    doctests.push(doctest);
-                }
-                Err(diagnostic) => self.diagnostics.push(diagnostic),
-            }
+        let extracted = visible_doctests_for(source, target_line);
+        for diagnostic in extracted.diagnostics {
+            self.diagnostics
+                .push(self.project_diagnostic("doctest", diagnostic));
         }
-        doctests
+        extracted.doctests
     }
 
     fn module_doctests(&mut self, source: &ParsedPackageSource) -> Vec<PackageDocDoctest> {
@@ -2051,180 +2044,84 @@ impl SchemaDocResolver<'_> {
     }
 }
 
-struct ActiveDocFence {
-    kind: String,
-    stream: Option<String>,
-    expected_error: Option<String>,
-    ignored: bool,
-    should_fail: bool,
-    lines: Vec<String>,
+struct PackageDocVisibleDoctests {
+    doctests: Vec<PackageDocDoctest>,
+    diagnostics: Vec<Diagnostic>,
 }
 
-fn doctest_fences(
-    source: &SourceFile,
-    target_line: usize,
-) -> Vec<Result<PackageDocDoctest, PackageDocDiagnostic>> {
-    let mut result = Vec::new();
-    let docs = doc_block_before(source, target_line);
-    let mut active: Option<ActiveDocFence> = None;
-    let mut last_doctest: Option<usize> = None;
-    for line in docs {
-        let trimmed = line.trim_start();
-        if let Some(info) = trimmed.strip_prefix("```") {
-            if let Some(fence) = active.take() {
-                close_doctest_fence(fence, &mut result, &mut last_doctest);
-                continue;
-            }
-            let Some(parsed) = parse_doctest_fence_info(info) else {
-                last_doctest = None;
-                continue;
-            };
-            match parsed {
-                Ok(fence) => active = Some(fence),
-                Err(message) => {
-                    last_doctest = None;
-                    result.push(Err(PackageDocDiagnostic {
-                        gate: "doctest".to_string(),
-                        code: "package_doc.invalid_doctest_metadata".to_string(),
-                        message,
-                        span: None,
-                    }));
-                }
-            }
-        } else if let Some(fence) = &mut active {
-            fence.lines.push(line);
-        } else if !trimmed.is_empty() {
-            last_doctest = None;
-        }
+fn visible_doctests_for(source: &SourceFile, target_line: usize) -> PackageDocVisibleDoctests {
+    let source = SourceFile::new(
+        source.path().as_str(),
+        doctest_doc_block_before(source, target_line),
+    );
+    let extracted = visible_doctests(&source);
+    PackageDocVisibleDoctests {
+        doctests: extracted
+            .doctests
+            .into_iter()
+            .map(|doctest| PackageDocDoctest {
+                kind: "veln".to_string(),
+                code: doctest.code,
+                expected_error: doctest.expected_error,
+                should_fail: doctest.should_fail,
+                expected_output: doctest
+                    .expected_output
+                    .map(expected_outputs)
+                    .unwrap_or_default(),
+            })
+            .collect(),
+        diagnostics: extracted.diagnostics,
     }
-    result
 }
 
-fn close_doctest_fence(
-    fence: ActiveDocFence,
-    result: &mut Vec<Result<PackageDocDoctest, PackageDocDiagnostic>>,
-    last_doctest: &mut Option<usize>,
-) {
-    if fence.kind == "veln" && !fence.ignored {
-        result.push(Ok(PackageDocDoctest {
-            kind: fence.kind,
-            code: fence
-                .lines
-                .into_iter()
-                .filter(|line| !line.starts_with("> "))
-                .collect::<Vec<_>>()
-                .join("\n"),
-            expected_error: fence.expected_error,
-            should_fail: fence.should_fail,
-            expected_output: Vec::new(),
-        }));
-        *last_doctest = Some(result.len() - 1);
-    } else if fence.kind == "veln" {
-        *last_doctest = None;
-    } else if fence.kind == "veln-output"
-        && let Some(index) = last_doctest
-    {
-        let stream = fence.stream.unwrap_or_else(|| "stdout".to_string());
-        let duplicate = result.get(*index).is_some_and(|entry| match entry {
-            Ok(doctest) => doctest
-                .expected_output
-                .iter()
-                .any(|output| output.stream == stream),
-            Err(_) => false,
+fn doctest_doc_block_before(source: &SourceFile, target_line: usize) -> String {
+    if target_line <= 1 {
+        return String::new();
+    }
+    let lines = source.text().lines().collect::<Vec<_>>();
+    let mut index = target_line - 2;
+    let mut docs = Vec::new();
+    while let Some(line) = lines.get(index) {
+        if line.trim_start().strip_prefix("##").is_some() {
+            docs.push(*line);
+        } else {
+            break;
+        }
+        if index == 0 {
+            break;
+        }
+        index -= 1;
+    }
+    docs.reverse();
+    if doc_lines_are_adr_lite(docs.iter().copied()) {
+        return String::new();
+    }
+    docs.join("\n")
+}
+
+fn expected_outputs(output: ExpectedOutput) -> Vec<PackageDocExpectedOutput> {
+    let mut outputs = Vec::new();
+    if let Some(stdout) = output.stdout {
+        outputs.push(PackageDocExpectedOutput {
+            stream: "stdout".to_string(),
+            lines: output_lines(&stdout),
         });
-        if duplicate {
-            result.push(Err(PackageDocDiagnostic {
-                gate: "doctest".to_string(),
-                code: "package_doc.duplicate_expected_output".to_string(),
-                message: format!("duplicate expected {stream} output fence"),
-                span: None,
-            }));
-            return;
-        }
-        if let Some(Ok(doctest)) = result.get_mut(*index) {
-            doctest.expected_output.push(PackageDocExpectedOutput {
-                stream,
-                lines: fence.lines,
-            });
-        }
     }
+    if let Some(stderr) = output.stderr {
+        outputs.push(PackageDocExpectedOutput {
+            stream: "stderr".to_string(),
+            lines: output_lines(&stderr),
+        });
+    }
+    outputs
 }
 
-fn parse_doctest_fence_info(info: &str) -> Option<Result<ActiveDocFence, String>> {
-    let mut parts = info.split_whitespace();
-    let kind = parts.next()?;
-    if !matches!(kind, "veln" | "veln-output") {
-        return None;
-    }
-
-    let mut fence = ActiveDocFence {
-        kind: kind.to_string(),
-        stream: None,
-        expected_error: None,
-        ignored: false,
-        should_fail: false,
-        lines: Vec::new(),
-    };
-    let mut has_output_stream = kind != "veln-output";
-    for part in parts {
-        if let Err(message) =
-            parse_doctest_fence_attribute(part, kind, &mut fence, &mut has_output_stream)
-        {
-            return Some(Err(message));
-        }
-    }
-    if kind == "veln-output" && !has_output_stream {
-        return Some(Err("missing doctest output stream".to_string()));
-    }
-    Some(Ok(fence))
-}
-
-fn parse_doctest_fence_attribute(
-    part: &str,
-    kind: &str,
-    fence: &mut ActiveDocFence,
-    has_output_stream: &mut bool,
-) -> Result<(), String> {
-    if let Some(error) = part.strip_prefix("error=") {
-        return parse_doctest_error_attribute(error, fence);
-    }
-    if kind == "veln" && matches!(part, "ignore" | "fail") {
-        fence.ignored = part == "ignore";
-        fence.should_fail = part == "fail";
-        return Ok(());
-    }
-    if kind == "veln" && is_doctest_metadata_attribute(part) {
-        return Ok(());
-    }
-    if kind == "veln-output"
-        && let Some(stream) = part.strip_prefix("stream=")
-    {
-        if matches!(stream, "stdout" | "stderr") {
-            fence.stream = Some(stream.to_string());
-            *has_output_stream = true;
-            return Ok(());
-        }
-        return Err(format!("unknown doctest output stream `{stream}`"));
-    }
-    Err(format!("unknown doctest attribute `{part}`"))
-}
-
-fn parse_doctest_error_attribute(error: &str, fence: &mut ActiveDocFence) -> Result<(), String> {
-    if error.is_empty() {
-        Err("empty doctest error attribute".to_string())
+fn output_lines(output: &str) -> Vec<String> {
+    if output.is_empty() {
+        Vec::new()
     } else {
-        fence.expected_error = Some(error.to_string());
-        Ok(())
+        output.split('\n').map(ToString::to_string).collect()
     }
-}
-
-fn is_doctest_metadata_attribute(part: &str) -> bool {
-    part.starts_with("runtime=")
-        || part.starts_with("clause=")
-        || part.starts_with("predicate=")
-        || part.starts_with("function=")
-        || part.starts_with("blame=")
-        || part.starts_with("value=")
 }
 
 fn catalog_to_json(catalog: &PackageDocCatalog) -> String {
@@ -3157,12 +3054,12 @@ mod tests {
         let catalog = catalog_or_panic(&result);
         let type_uri = catalog.modules[0].declarations[0].uri.as_str();
         let function_uri = catalog.modules[0].declarations[1].uri.as_str();
-        let source_uri = source_uri("demo", result.snapshot_digest(), "main.veln");
+        let package_source_uri = source_uri("demo", result.snapshot_digest(), "main.veln");
 
         assert_eq!(
             result.declaration_uri_for_location(&NavigationLocation {
                 source: NavigationSource::Package {
-                    uri: source_uri.clone()
+                    uri: package_source_uri.clone()
                 },
                 span: type_decl.span.clone(),
             }),
@@ -3170,17 +3067,37 @@ mod tests {
         );
         assert_eq!(
             result.declaration_uri_for_location(&NavigationLocation {
-                source: NavigationSource::Package { uri: source_uri },
+                source: NavigationSource::Package {
+                    uri: package_source_uri.clone()
+                },
                 span: type_decl.variants[0].span.clone(),
             }),
             Some(type_uri)
         );
         assert_eq!(
             result.declaration_uri_for_location(&NavigationLocation {
-                source: NavigationSource::Workspace,
+                source: NavigationSource::Package {
+                    uri: package_source_uri,
+                },
                 span: function.span.clone(),
             }),
             Some(function_uri)
+        );
+        assert_eq!(
+            result.declaration_uri_for_location(&NavigationLocation {
+                source: NavigationSource::Workspace,
+                span: function.span.clone(),
+            }),
+            None
+        );
+        assert_eq!(
+            result.declaration_uri_for_location(&NavigationLocation {
+                source: NavigationSource::Package {
+                    uri: source_uri("demo", "different-snapshot", "main.veln"),
+                },
+                span: function.span.clone(),
+            }),
+            None
         );
     }
 
@@ -3246,18 +3163,30 @@ mod tests {
         ] {
             assert_eq!(
                 result.declaration_uri_for_location(&NavigationLocation {
-                    source: NavigationSource::Workspace,
+                    source: NavigationSource::Package {
+                        uri: source_uri("demo", result.snapshot_digest(), "main.veln"),
+                    },
                     span,
                 }),
                 Some(uri)
             );
         }
         assert_eq!(
-            result.declaration_uri_for_location(&constructor_navigation.definition),
+            result.declaration_uri_for_location(&NavigationLocation {
+                source: NavigationSource::Package {
+                    uri: source_uri("demo", result.snapshot_digest(), "main.veln"),
+                },
+                span: constructor_navigation.definition.span.clone(),
+            }),
             Some(type_uri)
         );
         assert_eq!(
-            result.declaration_uri_for_location(&function_navigation.definition),
+            result.declaration_uri_for_location(&NavigationLocation {
+                source: NavigationSource::Package {
+                    uri: source_uri("demo", result.snapshot_digest(), "main.veln"),
+                },
+                span: function_navigation.definition.span.clone(),
+            }),
             Some(function_uri)
         );
     }
@@ -3569,6 +3498,23 @@ mod tests {
                 .iter()
                 .any(|diagnostic| diagnostic.gate == "doctest")
         );
+        assert!(
+            !std::str::from_utf8(result.canonical_bytes())
+                .unwrap()
+                .contains("\"modules\"")
+        );
+    }
+
+    #[test]
+    fn executable_specification_fixture_observes_doctest_metadata_gate_failure() {
+        let result = generate_fixture("package-catalog-doctest-output-metadata-gate");
+
+        assert!(result.catalog().is_none());
+        assert!(result.status().diagnostics.iter().any(|diagnostic| {
+            diagnostic.gate == "doctest"
+                && diagnostic.code == "doctest.invalid_metadata"
+                && diagnostic.message == "duplicate doctest output stream attribute"
+        }));
         assert!(
             !std::str::from_utf8(result.canonical_bytes())
                 .unwrap()
@@ -3915,8 +3861,35 @@ mod tests {
 
         assert!(result.catalog().is_none());
         assert!(result.status().diagnostics.iter().any(|diagnostic| {
+            diagnostic.gate == "doctest" && diagnostic.code == "doctest.duplicate_output"
+        }));
+    }
+
+    #[test]
+    fn ambiguous_expected_output_stream_attribute_fails_generation() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[(
+                "main.veln",
+                concat!(
+                    "## ```veln\n",
+                    "## 1\n",
+                    "## ```\n",
+                    "## ```veln-output stream=stdout stream=stderr\n",
+                    "## mixed\n",
+                    "## ```\n",
+                    "pub fn value() -> Int\n",
+                    "\t1\n",
+                    "end\n",
+                ),
+            )],
+        );
+
+        assert!(result.catalog().is_none());
+        assert!(result.status().diagnostics.iter().any(|diagnostic| {
             diagnostic.gate == "doctest"
-                && diagnostic.code == "package_doc.duplicate_expected_output"
+                && diagnostic.code == "doctest.invalid_metadata"
+                && diagnostic.message == "duplicate doctest output stream attribute"
         }));
     }
 

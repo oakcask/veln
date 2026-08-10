@@ -1,0 +1,10 @@
+## The expected-output fence has ambiguous stream metadata.
+## ```veln
+## 1
+## ```
+## ```veln-output stream=stdout stream=stderr
+## one
+## ```
+pub fn value() -> Int
+	1
+end
