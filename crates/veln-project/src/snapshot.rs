@@ -209,6 +209,7 @@ pub fn capture_embedded_package_snapshot<'a>(
         manifest_bytes.to_vec(),
         sources
             .into_iter()
+            .filter(|source| is_distribution_source(source.path))
             .map(|source| CapturedPackageSource {
                 path: source.path.to_string(),
                 bytes: source.bytes.to_vec(),
@@ -625,6 +626,23 @@ mod tests {
         .unwrap();
 
         assert_eq!(embedded, filesystem);
+    }
+
+    #[test]
+    fn embedded_snapshot_applies_distribution_test_source_exclusions() {
+        let snapshot = capture_embedded_package_snapshot(
+            b"[package]\nname = \"demo\"\n",
+            [
+                PackageSnapshotSource::new("main.veln", b"pub fn main() -> Int\n\t1\nend\n"),
+                PackageSnapshotSource::new("main.test.veln", b"not parsed"),
+                PackageSnapshotSource::new("main_test.veln", b"not parsed"),
+                PackageSnapshotSource::new("notes.txt", b"not captured"),
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(snapshot.sources().len(), 1);
+        assert_eq!(snapshot.sources()[0].path(), "main.veln");
     }
 
     #[test]

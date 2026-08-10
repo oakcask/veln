@@ -94,7 +94,7 @@ The implemented gates are:
 - parse: all retained package sources must parse;
 - manifest: a missing package name, a package name that differs from the
   supplied package identity, unsupported manifest sections, invalid export
-  paths, test companion exports, duplicate exported module identities, invalid
+  paths, test source exports, duplicate exported module identities, invalid
   direct git selector cardinality, and validated manifest bytes that differ
   from the captured snapshot manifest bytes fail generation before a catalog
   is published;

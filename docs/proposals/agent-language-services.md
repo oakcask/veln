@@ -472,6 +472,8 @@ doctest static gate for expression, declaration, nested-expression declaration,
 public-alias declaration, and mixed declaration-statement doctests are
 implemented and specified in
 [Package Documentation Catalogs](../specification/package-documentation.md).
+Embedded package snapshot capture applies the same test-source distribution
+exclusions as filesystem capture before package documentation generation.
 MCP resources, MCP documentation publication, and snapshot lifetime rules
 remain planned below.
 
@@ -559,7 +561,7 @@ environment-derived values, and unknown fields.
 
 Documentation generation has a parse, manifest, export, documentation-reference,
 and doctest gate. The manifest gate rejects unsupported manifest sections,
-invalid export paths, test companion exports, duplicate exported module
+invalid export paths, test source exports, duplicate exported module
 identities, invalid direct git selector cardinality, a missing package name,
 and a package name that differs from the supplied package identity. Qualified
 documentation schema references require a written package-local `use` path in
@@ -965,8 +967,9 @@ same-capture manifest binding, path-derived module identity, stream-aware
 expected-output publication, effect-row-binder signatures, and generated
 doctest static gate, including same-package public API references, nested
 expression declarations, public member aliases, shared expected-output
-pending-state boundaries, hidden setup exclusion, and parse-only negative
-doctest matching, are implemented and specified in
+pending-state boundaries, hidden setup exclusion, integration-test source
+exclusion for embedded snapshots, test source export rejection, and parse-only
+negative doctest matching, are implemented and specified in
 [Package Documentation Catalogs](../specification/package-documentation.md).
 Direct path, vendor, mirror, and locally available direct git dependency
 definition locations, embedded standard-library definition locations, the LSP

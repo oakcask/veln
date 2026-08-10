@@ -748,8 +748,8 @@ impl<'a> PackageDocBuilder<'a> {
             self.invalid_manifest_export(export, "manifest exports must name `.veln` source files");
             return None;
         }
-        if classify_companion_source(path.as_str()).is_some() {
-            self.invalid_manifest_export(export, "export names a test companion");
+        if is_test_source_path(path.as_str()) {
+            self.invalid_manifest_export(export, "export names a test source");
             return None;
         }
         let Some(module_name) = module_name_from_path(path.as_str()) else {
@@ -780,7 +780,7 @@ impl<'a> PackageDocBuilder<'a> {
             let path = SourcePath::new(export.path.clone());
             if !is_package_relative_path(path.as_str())
                 || !path.as_str().ends_with(".veln")
-                || classify_companion_source(path.as_str()).is_some()
+                || is_test_source_path(path.as_str())
             {
                 continue;
             }
@@ -2549,6 +2549,10 @@ fn is_package_relative_path(path: &str) -> bool {
         })
 }
 
+fn is_test_source_path(path: &str) -> bool {
+    classify_companion_source(path).is_some() || path.ends_with("_test.veln")
+}
+
 fn manifest_field(fields: &[veln_project::ManifestField], key: &str) -> Option<String> {
     manifest_field_with_span(fields, key).map(|field| field.value.clone())
 }
@@ -3403,6 +3407,39 @@ mod tests {
             !std::str::from_utf8(result.canonical_bytes())
                 .unwrap()
                 .contains("hidden_helper")
+        );
+        assert!(
+            !std::str::from_utf8(result.canonical_bytes())
+                .unwrap()
+                .contains("leaked_test_api")
+        );
+    }
+
+    #[test]
+    fn integration_test_exports_fail_manifest_gate() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main_test.veln\"]\n",
+            &[
+                ("main.veln", "pub fn value() -> Int\n\t1\nend\n"),
+                (
+                    "main_test.veln",
+                    "pub fn leaked_test_api() -> Int\n\t@\nend\n",
+                ),
+            ],
+        );
+
+        assert!(result.catalog().is_none());
+        assert!(
+            result
+                .status()
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "package_doc.invalid_export")
+        );
+        assert!(
+            !std::str::from_utf8(result.canonical_bytes())
+                .unwrap()
+                .contains("leaked_test_api")
         );
     }
 
