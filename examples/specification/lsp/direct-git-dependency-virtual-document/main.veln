@@ -1,0 +1,5 @@
+use math from "example/pkg"
+
+pub fn main() -> Int
+  math::exposed(1)
+end

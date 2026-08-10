@@ -85,10 +85,12 @@ that declaring source module. User source cannot derive module identity
 reserved for the implicit standard prelude import and report `name.reserved`.
 
 External `use path from "package"` declarations resolve `path` inside an
-already available direct `path`, `vendor`, or `mirror` dependency whose
-dependency table key is `package`. The dependency manifest's `[package].name`
-must match that package identity, and external modules are importable only
-when their derived source module path is listed by the dependency package's
+already available direct `path`, `vendor`, `mirror`, or locally materialized
+`git` dependency whose dependency table key is `package`. For a `git`
+dependency, an accepted `subdir` selects the dependency package root below the
+available repository tree. The dependency manifest's `[package].name` must
+match that package identity, and external modules are importable only when
+their derived source module path is listed by the dependency package's
 `[lib].exports`. The import exposes only public declarations and public
 aliases from that exported module; private names remain private even when the
 dependency source is loaded for analysis.

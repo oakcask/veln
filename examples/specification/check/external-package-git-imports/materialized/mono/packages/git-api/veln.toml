@@ -1,0 +1,5 @@
+[package]
+name = "github.com/oakcask/git-api"
+
+[lib]
+exports = ["remote.veln"]

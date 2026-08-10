@@ -1,0 +1,5 @@
+use remote from "github.com/oakcask/git-api"
+
+fn main() -> Int
+  remote::value()
+end
