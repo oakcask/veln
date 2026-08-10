@@ -941,6 +941,10 @@ definition locations, embedded standard-library definition locations, the LSP
 virtual-document request, and the VSCode content provider are implemented and
 specified in
 [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).
+The implemented LSP direct git path includes local path, local `file:` URL,
+and already materialized remote URL source spellings, package-lock-aligned
+unique selector and `subdir` validation, snapshot-URI independence from
+physical materialization paths, and retained exact-byte reads.
 This bounded implementation retains validated workspace, direct-dependency,
 and embedded standard-package captures for the definition-to-read path. It
 does not implement dependency reference search or MCP resources.

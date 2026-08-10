@@ -472,9 +472,11 @@ fn retained_direct_dependencies(
         .dependencies
         .iter()
         .filter_map(|dependency| {
-            let source = dependency.direct_analysis_source_path()?;
             let identity = PackageIdentity::new(&dependency.package).ok()?;
-            let dependency_root = root.join(source);
+            let dependency_root = dependency
+                .direct_analysis_source_root(root)
+                .ok()
+                .flatten()?;
             let snapshot = capture_package_snapshot(&dependency_root).ok()?;
             let manifest_text = std::str::from_utf8(snapshot.manifest_bytes()).ok()?;
             let dependency_manifest = parse_manifest_text("veln.toml", manifest_text);
@@ -1162,6 +1164,7 @@ fn percent_decode(value: &str) -> String {
 mod tests {
     use super::*;
     use veln_diagnostics::{DiagnosticKind, JsonValue};
+    use veln_project::materialized_git_repository_root;
 
     #[test]
     fn legend_exposes_standard_types_and_custom_modifiers() {
@@ -3491,13 +3494,29 @@ mod tests {
         let mut observed = Vec::new();
 
         for (case, materialization, manifest_suffix, increment) in [
-            ("baseline", "materialized/first", "", 1),
+            ("remote-url", "materialized/remote", "", 1),
+            ("file-url", "materialized/first", "", 1),
             ("relocated", "materialized/second", "", 1),
             ("manifest-change", "materialized/third", "\n", 1),
             ("source-change", "materialized/fourth", "", 2),
         ] {
             let mut server = Server::default();
             let project = TempProject::new(&format!("git-dependency-virtual-document-{case}"));
+            let remote_url = "https://example.invalid/mono.git";
+            let (git_source, repository_root) = match case {
+                "remote-url" => (
+                    remote_url.to_string(),
+                    materialized_git_repository_root(&project.root, remote_url),
+                ),
+                "file-url" => {
+                    let root = project.root.join(materialization);
+                    (format!("file://{}", root.display()), root)
+                }
+                _ => (
+                    materialization.to_string(),
+                    project.root.join(materialization),
+                ),
+            };
             project.write(
                 "veln.toml",
                 &format!(
@@ -3508,7 +3527,7 @@ mod tests {
                         "rev = \"abc123\"\n",
                         "subdir = \"packages/lib\"\n",
                     ),
-                    materialization
+                    git_source
                 ),
             );
             project.write(
@@ -3521,9 +3540,9 @@ mod tests {
                     "end\n",
                 ),
             );
-            let package_root = format!("{materialization}/packages/lib");
+            let package_root = repository_root.join("packages/lib");
             project.write(
-                &format!("{package_root}/veln.toml"),
+                &package_root.join("veln.toml").display().to_string(),
                 &format!(
                     concat!(
                         "[package]\nname = \"example/pkg\"\n\n",
@@ -3544,13 +3563,16 @@ mod tests {
                 ),
                 increment
             );
-            project.write(&format!("{package_root}/math.veln"), &retained_text);
+            project.write(
+                &package_root.join("math.veln").display().to_string(),
+                &retained_text,
+            );
 
             let root_uri = path_to_uri(&project.root);
             let main_uri = path_to_uri(&project.root.join("main.veln"));
             server.handle_message(&initialize_request(&root_uri));
             project.write(
-                &format!("{package_root}/math.veln"),
+                &package_root.join("math.veln").display().to_string(),
                 "pub fn changed() -> Int\n  0\nend\n",
             );
 
@@ -3590,8 +3612,9 @@ mod tests {
         }
 
         assert_eq!(observed[0], observed[1]);
-        assert_ne!(observed[0], observed[2]);
+        assert_eq!(observed[0], observed[2]);
         assert_ne!(observed[0], observed[3]);
+        assert_ne!(observed[0], observed[4]);
     }
 
     #[test]

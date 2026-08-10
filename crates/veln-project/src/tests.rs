@@ -902,7 +902,7 @@ fn direct_local_source_tracks_path_vendor_and_mirror_dependencies() {
 }
 
 #[test]
-fn direct_analysis_source_path_includes_git_subdir() {
+fn direct_analysis_source_root_includes_git_subdir() {
     let temp = TempProject::new("manifest-direct-analysis-source");
     temp.write(
         "veln.toml",
@@ -921,12 +921,115 @@ fn direct_analysis_source_path_includes_git_subdir() {
         .expect("manifest should be loaded");
 
     assert_eq!(
-        manifest.dependencies[0].direct_analysis_source_path(),
-        Some(PathBuf::from("vendor/path-lib"))
+        manifest.dependencies[0].direct_analysis_source_root(temp.root()),
+        Ok(Some(temp.path("vendor/path-lib")))
     );
     assert_eq!(
-        manifest.dependencies[1].direct_analysis_source_path(),
-        Some(PathBuf::from("materialized/mono/packages/git-lib"))
+        manifest.dependencies[1].direct_analysis_source_root(temp.root()),
+        Ok(Some(temp.path("materialized/mono/packages/git-lib")))
+    );
+}
+
+#[test]
+fn direct_analysis_source_root_resolves_local_file_git_url() {
+    let temp = TempProject::new("manifest-direct-analysis-file-url");
+    let repository = temp.path("materialized/file repo");
+    let url = format!("file://{}", repository.display()).replace(' ', "%20");
+    temp.write(
+        "veln.toml",
+        &format!(
+            "[dependencies.\"github.com/oakcask/git-lib\"]\n\
+             git = \"{url}\"\n\
+             rev = \"abc123\"\n\
+             subdir = \"packages/git-lib\"\n"
+        ),
+    );
+
+    let manifest = read_manifest(temp.root())
+        .unwrap()
+        .expect("manifest should be loaded");
+
+    assert_eq!(
+        manifest.dependencies[0].direct_analysis_source_root(temp.root()),
+        Ok(Some(repository.join("packages/git-lib")))
+    );
+}
+
+#[test]
+fn direct_analysis_source_root_resolves_materialized_remote_git_url() {
+    let temp = TempProject::new("manifest-direct-analysis-remote-url");
+    let url = "https://example.invalid/mono.git";
+    let repository = materialized_git_repository_root(temp.root(), url);
+    fs::create_dir_all(&repository).unwrap();
+    temp.write(
+        "veln.toml",
+        concat!(
+            "[dependencies.\"github.com/oakcask/git-lib\"]\n",
+            "git = \"https://example.invalid/mono.git\"\n",
+            "rev = \"abc123\"\n",
+            "subdir = \"packages/git-lib\"\n",
+        ),
+    );
+
+    let manifest = read_manifest(temp.root())
+        .unwrap()
+        .expect("manifest should be loaded");
+
+    assert_eq!(
+        manifest.dependencies[0].direct_analysis_source_root(temp.root()),
+        Ok(Some(repository.join("packages/git-lib")))
+    );
+}
+
+#[test]
+fn direct_analysis_source_root_rejects_unselected_git_dependency() {
+    let temp = TempProject::new("manifest-direct-analysis-git-selector");
+    temp.write(
+        "veln.toml",
+        concat!(
+            "[dependencies.\"github.com/oakcask/missing\"]\n",
+            "git = \"materialized/missing\"\n",
+            "[dependencies.\"github.com/oakcask/multiple\"]\n",
+            "git = \"materialized/multiple\"\n",
+            "rev = \"abc123\"\n",
+            "branch = \"main\"\n",
+        ),
+    );
+
+    let manifest = read_manifest(temp.root())
+        .unwrap()
+        .expect("manifest should be loaded");
+
+    assert_eq!(
+        manifest.dependencies[0].direct_analysis_source_root(temp.root()),
+        Err(DirectAnalysisSourceError::MissingGitSelector)
+    );
+    assert_eq!(
+        manifest.dependencies[1].direct_analysis_source_root(temp.root()),
+        Err(DirectAnalysisSourceError::MultipleGitSelectors)
+    );
+}
+
+#[test]
+fn direct_analysis_source_root_rejects_escaping_git_subdir() {
+    let temp = TempProject::new("manifest-direct-analysis-git-subdir");
+    temp.write(
+        "veln.toml",
+        concat!(
+            "[dependencies.\"github.com/oakcask/escape\"]\n",
+            "git = \"materialized/mono\"\n",
+            "rev = \"abc123\"\n",
+            "subdir = \"../escape\"\n",
+        ),
+    );
+
+    let manifest = read_manifest(temp.root())
+        .unwrap()
+        .expect("manifest should be loaded");
+
+    assert_eq!(
+        manifest.dependencies[0].direct_analysis_source_root(temp.root()),
+        Err(DirectAnalysisSourceError::InvalidGitSubdir)
     );
 }
 

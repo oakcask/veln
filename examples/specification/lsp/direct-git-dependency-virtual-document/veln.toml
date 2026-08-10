@@ -2,6 +2,6 @@
 name = "app"
 
 [dependencies."example/pkg"]
-git = "materialized/mono"
+git = "https://example.invalid/mono.git"
 rev = "abc123"
 subdir = "packages/lib"

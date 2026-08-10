@@ -190,12 +190,18 @@ when the dependency identity matches, the function's source is listed in
 `[lib].exports`, and the function is public.
 The dependency source field can be `path`, `vendor`, or `mirror` when it names
 an already available package root. A `git` field can name an already available
-repository tree, with an optional `subdir` naming its package root. The source
-kind and physical root are not part of the retained package location. Equal
-package identity, dependency manifest bytes, and distribution source bytes
-produce the same dependency `veln-pkg:` URI across those source fields and
-physical roots. A manifest or included-source byte change produces a different
-snapshot URI.
+repository tree through the same local path and local `file:` URL spellings
+accepted by package locking. Remote git URLs are retained only when their
+selected repository tree is already materialized by another operation; the LSP
+server does not materialize them. A git dependency is retained only when it
+declares exactly one selector: `rev`, `tag`, or `branch`. When `subdir` is
+present, it must be a non-empty repository-relative path with no root or
+parent-directory component, and it selects the package root below the available
+repository tree. The source kind and physical root are not part of the
+retained package location. Equal package identity, dependency manifest bytes,
+and distribution source bytes produce the same dependency `veln-pkg:` URI
+across those source fields and physical roots. A manifest or included-source
+byte change produces a different snapshot URI.
 
 The retained standard input has the reserved `std` identity and the same
 snapshot, export, and catalog boundaries. Bare and `prelude::` calls resolve
@@ -250,11 +256,14 @@ executable evidence that the returned URI omits physical placement and source
 kind while still reading the exact retained source text. The executable LSP
 example
 `../../examples/specification/lsp/direct-git-dependency-virtual-document/`
-checks the direct git `subdir` definition-to-read round trip against a fixed
+checks a remote git source backed by an existing package-lock materialization,
+including direct git `subdir` definition-to-read round trip against a fixed
 snapshot URI and exact source text. The focused `veln-lsp` git dependency test
-checks physical-location independence, manifest-byte and source-byte URI
-changes, retained exact bytes after a physical edit, and private declaration
-rejection.
+checks physical-location independence, local `file:` URL source spelling,
+remote materialization, manifest-byte and source-byte URI changes, retained
+exact bytes after a physical edit, and private declaration rejection. The
+`veln-project` direct analysis source tests cover unique git selector
+rejection and escaping git `subdir` rejection.
 
 The executable LSP example
 `../../examples/specification/lsp/standard-library-virtual-document/` checks
