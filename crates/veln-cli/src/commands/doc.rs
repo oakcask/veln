@@ -519,102 +519,48 @@ fn doc_schema_reference_diagnostics(
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for source in sources {
-        for target_line in public_declaration_lines(&source.tree) {
-            if doc_block_before(source.source, target_line).is_empty() {
-                continue;
-            }
-            for reference in doc_schema_references_before(source.source, target_line) {
-                match resolve_doc_schema_reference(
-                    module,
+        for reference in doc_schema_references(source.source) {
+            match resolve_doc_schema_reference(
+                module,
+                &reference.target,
+                source.module_name.as_deref(),
+                &mut Vec::new(),
+            ) {
+                DocSchemaResolution::Resolved => {}
+                DocSchemaResolution::Private => diagnostics.push(private_doc_schema_diagnostic(
                     &reference.target,
-                    source.module_name.as_deref(),
-                    &mut Vec::new(),
-                ) {
-                    DocSchemaResolution::Resolved => {}
-                    DocSchemaResolution::Private => diagnostics.push(
-                        private_doc_schema_diagnostic(&reference.target, reference.span),
-                    ),
-                    DocSchemaResolution::WrongKind(actual_kind) => {
-                        diagnostics.push(doc_schema_kind_mismatch_diagnostic(
-                            &reference.target,
-                            actual_kind,
-                            reference.span,
-                        ))
-                    }
-                    DocSchemaResolution::Unresolved => diagnostics.push(
-                        unresolved_doc_schema_diagnostic(&reference.target, reference.span),
-                    ),
+                    reference.span,
+                )),
+                DocSchemaResolution::WrongKind(actual_kind) => {
+                    diagnostics.push(doc_schema_kind_mismatch_diagnostic(
+                        &reference.target,
+                        actual_kind,
+                        reference.span,
+                    ))
                 }
+                DocSchemaResolution::Unresolved => diagnostics.push(
+                    unresolved_doc_schema_diagnostic(&reference.target, reference.span),
+                ),
             }
         }
     }
     diagnostics
 }
 
-fn public_declaration_lines(tree: &veln_syntax::SyntaxTree) -> Vec<usize> {
-    let public_api = PublicApi::from_tree(tree);
-    public_api
-        .types
-        .into_iter()
-        .map(|type_decl| type_decl.span.start.line)
-        .chain(
-            public_api
-                .schemas
-                .into_iter()
-                .map(|schema| schema.span.start.line),
-        )
-        .chain(
-            public_api
-                .functions
-                .into_iter()
-                .map(|function| function.span.start.line),
-        )
-        .chain(
-            public_api
-                .aliases
-                .into_iter()
-                .map(|alias| alias.span.start.line),
-        )
-        .collect()
-}
-
-fn doc_schema_references_before(
-    source: &SourceFile,
-    target_line: usize,
-) -> Vec<DocSchemaReference> {
-    if target_line <= 1 {
-        return Vec::new();
-    }
+fn doc_schema_references(source: &SourceFile) -> Vec<DocSchemaReference> {
     let lines = source.text().split_inclusive('\n').collect::<Vec<_>>();
-    let mut index = target_line - 2;
-    let mut docs = Vec::new();
-    while let Some(line) = lines.get(index) {
-        let trimmed = line.trim_start();
-        if trimmed.strip_prefix("##").is_none() {
-            break;
-        }
-        docs.push((index, *line));
-        if index == 0 {
-            break;
-        }
-        index -= 1;
-    }
-    docs.reverse();
-
     let mut references = Vec::new();
     let mut line_start = 0;
-    for (line_index, line) in lines.iter().enumerate() {
-        if docs.iter().any(|(index, _)| *index == line_index) {
-            let trimmed = line.trim_start();
-            let indent_len = line.len() - trimmed.len();
-            if let Some(content) = trimmed.strip_prefix("##") {
-                let content_start = line_start + indent_len + "##".len();
-                references.extend(extract_doc_schema_references(
-                    source,
-                    content,
-                    content_start,
-                ));
-            }
+    for line in lines {
+        let trimmed = line.trim_start();
+        let indent_len = line.len() - trimmed.len();
+        if let Some(content) = trimmed.strip_prefix("##") {
+            let content_start = line_start + indent_len + "##".len();
+            references.extend(extract_doc_schema_references(
+                source,
+                content,
+                content_start,
+            ));
         }
         line_start += line.len();
     }

@@ -10,3 +10,8 @@ use wire
 pub fn documented() -> Int
 	1
 end
+
+## Private docs still validate {@schema wire::HiddenPacket}.
+fn private_documented() -> Int
+	0
+end
