@@ -32,8 +32,8 @@ pub use portable::{
 pub use project::Project;
 pub use snapshot::{
     CapturedPackageSnapshot, CapturedPackageSource, PackageSnapshotCaptureError,
-    PackageSnapshotDigestError, PackageSnapshotSource, capture_package_snapshot,
-    package_snapshot_digest,
+    PackageSnapshotDigestError, PackageSnapshotSource, capture_embedded_package_snapshot,
+    capture_package_snapshot, package_snapshot_digest,
 };
 
 use std::fs;

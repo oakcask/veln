@@ -18,7 +18,8 @@ use veln_language_service::{
     NavigationSource, SourcePosition, navigate,
 };
 use veln_project::{
-    PackageIdentity, Project, ProjectManifest, capture_package_snapshot, discover_source_paths,
+    PackageIdentity, PackageSnapshotSource, Project, ProjectManifest,
+    capture_embedded_package_snapshot, capture_package_snapshot, discover_source_paths,
     parse_manifest_text,
 };
 use veln_source::{SourceFile, SourcePath, SourceSpan};
@@ -424,10 +425,43 @@ fn retained_project_snapshot(root: &Path) -> Option<EffectiveProjectSnapshot> {
         .as_ref()
         .map(|manifest| retained_direct_dependencies(root, manifest))
         .unwrap_or_default();
-    Some(EffectiveProjectSnapshot::with_direct_dependencies(
-        project.files,
-        direct_dependencies,
-    ))
+    let standard_library = retained_standard_library()?;
+    Some(
+        EffectiveProjectSnapshot::with_direct_dependencies(project.files, direct_dependencies)
+            .with_standard_library(standard_library),
+    )
+}
+
+fn retained_standard_library() -> Option<DirectDependencySnapshot> {
+    let bundle = veln_stdlib::package_bundle();
+    let snapshot = capture_embedded_package_snapshot(
+        bundle.manifest.as_bytes(),
+        bundle
+            .files
+            .iter()
+            .map(|file| PackageSnapshotSource::new(file.path, file.text.as_bytes())),
+    )
+    .ok()?;
+    let manifest = parse_manifest_text("veln.toml", bundle.manifest);
+    let project = Project {
+        root: PathBuf::new(),
+        files: snapshot
+            .sources()
+            .iter()
+            .map(|source| {
+                SourceFile::new(
+                    source.path(),
+                    std::str::from_utf8(source.bytes())
+                        .expect("embedded standard package source text is valid UTF-8"),
+                )
+            })
+            .collect(),
+        manifest: Some(manifest),
+    };
+    if !validate_manifest_exports(&project).is_empty() {
+        return None;
+    }
+    DirectDependencySnapshot::from_validated_standard_library(snapshot, project.manifest?).ok()
 }
 
 fn retained_direct_dependencies(
@@ -3352,6 +3386,101 @@ mod tests {
         for rejected_uri in [
             format!("{virtual_uri}/missing"),
             virtual_uri.replacen("%2F", "%2f", 1),
+        ] {
+            let rejected = server.handle_message(&format!(
+                r#"{{"jsonrpc":"2.0","id":4,"method":"veln/virtualDocument","params":{{"uri":"{rejected_uri}"}}}}"#
+            ));
+            assert!(rejected[0].contains(r#""code":-32602"#), "{}", rejected[0]);
+        }
+    }
+
+    #[test]
+    fn standard_library_definition_round_trips_through_embedded_virtual_document() {
+        let mut server = Server::default();
+        let project = TempProject::new("standard-library-virtual-document");
+        project.write(
+            "main.veln",
+            concat!(
+                "use http2::diagnostic from \"std\"\n\n",
+                "pub fn implicit() -> Result<Byte, String>\n",
+                "  byte(1)\n",
+                "end\n\n",
+                "pub fn qualified() -> Result<Byte, String>\n",
+                "  prelude::byte(1)\n",
+                "end\n\n",
+                "pub fn imported() -> Result<(), RuntimeDiagnostic>\n",
+                "  http2::diagnostic::protocol_invalid_frame_kind(0, 0, 0, 0, \"open\", \"rule\", byte_view(byte_chunk([]), ByteOffset(0), ByteCount(0)))\n",
+                "end\n\n",
+                "pub fn private_helper() -> Vec<Int>\n",
+                "  prelude::vec_append([], 1)\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let implicit = server.handle_message(&definition_request(&main_uri, 3, 4));
+        let qualified = server.handle_message(&definition_request(&main_uri, 7, 12));
+        let imported = server.handle_message(&definition_request(&main_uri, 11, 31));
+        let prelude_uri = extract_string_field(&implicit[0], "uri").unwrap();
+
+        assert_eq!(
+            extract_string_field(&qualified[0], "uri"),
+            Some(prelude_uri.clone())
+        );
+        assert!(
+            prelude_uri.starts_with("veln-pkg:///std/snapshot/")
+                && prelude_uri.ends_with("/prelude.veln"),
+            "{}",
+            implicit[0]
+        );
+        assert!(
+            implicit[0].contains(
+                r#""range":{"start":{"line":97,"character":7},"end":{"line":97,"character":11}}"#
+            ),
+            "{}",
+            implicit[0]
+        );
+        let diagnostic_uri = extract_string_field(&imported[0], "uri").unwrap();
+        assert!(
+            diagnostic_uri.starts_with("veln-pkg:///std/snapshot/")
+                && diagnostic_uri.ends_with("/http2/diagnostic.veln"),
+            "{}",
+            imported[0]
+        );
+
+        let read = server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":3,"method":"veln/virtualDocument","params":{{"uri":"{prelude_uri}"}}}}"#
+        ));
+        assert_eq!(
+            read,
+            [response(
+                "3",
+                &format!(
+                    r#""{}""#,
+                    escape_json(
+                        veln_stdlib::package_bundle()
+                            .files
+                            .iter()
+                            .find(|file| file.path == "prelude.veln")
+                            .unwrap()
+                            .text
+                    )
+                )
+            )]
+        );
+
+        let private_definition = server.handle_message(&definition_request(&main_uri, 15, 12));
+        assert!(private_definition[0].contains(r#""result":null"#));
+        let prepare_rename = server.handle_message(&prepare_rename_request(&main_uri, 3, 4));
+        let rename = server.handle_message(&rename_request(&main_uri, 3, 4, "renamed"));
+        assert!(prepare_rename[0].contains(r#""result":null"#));
+        assert!(rename[0].contains(r#""changes":{}"#));
+
+        for rejected_uri in [
+            format!("{prelude_uri}/missing"),
+            prelude_uri.replacen("veln-pkg", "VELN-pkg", 1),
         ] {
             let rejected = server.handle_message(&format!(
                 r#"{{"jsonrpc":"2.0","id":4,"method":"veln/virtualDocument","params":{{"uri":"{rejected_uri}"}}}}"#

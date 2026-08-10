@@ -454,11 +454,12 @@ set foundation, portable package identity and capture validation, and Q13
 evidence. The canonical transport-independent virtual-source catalog and exact
 resolver are also implemented and specified in
 [Package Virtual Sources](../specification/package-virtual-sources.md).
-The direct path-dependency LSP definition, virtual-document request, and VSCode
-content-provider slice is implemented and specified in
+The direct path-dependency and embedded standard-library LSP definition and
+virtual-document slices, plus the VSCode content provider, are implemented and
+specified in
 [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).
-Analysis publication beyond that slice, MCP resources, standard-library
-virtual locations, documentation snapshots, and snapshot lifetime rules remain
+Analysis publication beyond those LSP slices, other package materializations,
+MCP resources, documentation snapshots, and snapshot lifetime rules remain
 planned below.
 
 The owned distribution set contains every captured regular file whose name
@@ -937,17 +938,18 @@ matrix are also implemented and specified on the same page.
 The canonical package virtual-source URI and resolver foundation is implemented
 and specified in
 [Package Virtual Sources](../specification/package-virtual-sources.md).
-Direct path-dependency definition locations, the LSP virtual-document request,
-and the VSCode content provider are implemented and specified in
+Direct path-dependency and embedded standard-library definition locations, the
+LSP virtual-document request, and the VSCode content provider are implemented
+and specified in
 [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).
-This bounded implementation retains one validated workspace-and-dependency
-capture for the definition-to-read path. It does not implement standard-library
-locations, other package materializations, dependency reference search, or MCP
-resources.
+This bounded implementation retains validated workspace, direct-dependency,
+and embedded standard-package captures for the definition-to-read path. It
+does not implement other package materializations, dependency reference
+search, or MCP resources.
 The remaining slices are:
 
 1. Extend published virtual-source locations beyond the implemented direct
-   path-dependency LSP slice to the standard library and later supported
+   path-dependency and embedded standard-library LSP slices to later supported
    materialization kinds without changing URI identity.
 2. Add exported package documentation and bind it to package snapshots.
 3. Define and validate language-reference topic descriptors. Generate the

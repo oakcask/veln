@@ -19,6 +19,7 @@ use veln_syntax::{Token, TokenKind, lex};
 pub struct EffectiveProjectSnapshot {
     sources: Vec<SourceFile>,
     direct_dependencies: Vec<DirectDependencySnapshot>,
+    standard_library: Option<DirectDependencySnapshot>,
 }
 
 impl EffectiveProjectSnapshot {
@@ -26,6 +27,7 @@ impl EffectiveProjectSnapshot {
         Self {
             sources,
             direct_dependencies: Vec::new(),
+            standard_library: None,
         }
     }
 
@@ -36,7 +38,13 @@ impl EffectiveProjectSnapshot {
         Self {
             sources,
             direct_dependencies,
+            standard_library: None,
         }
+    }
+
+    pub fn with_standard_library(mut self, standard_library: DirectDependencySnapshot) -> Self {
+        self.standard_library = Some(standard_library);
+        self
     }
 
     pub fn with_workspace_overlays(&self, overlays: impl IntoIterator<Item = SourceFile>) -> Self {
@@ -56,6 +64,7 @@ impl EffectiveProjectSnapshot {
         Self {
             sources,
             direct_dependencies: self.direct_dependencies.clone(),
+            standard_library: self.standard_library.clone(),
         }
     }
 
@@ -63,6 +72,11 @@ impl EffectiveProjectSnapshot {
         self.direct_dependencies
             .iter()
             .find_map(|dependency| dependency.resolve_virtual_source(uri))
+            .or_else(|| {
+                self.standard_library
+                    .as_ref()
+                    .and_then(|standard_library| standard_library.resolve_virtual_source(uri))
+            })
     }
 }
 
@@ -72,6 +86,7 @@ pub struct DirectDependencySnapshot {
     snapshot: CapturedPackageSnapshot,
     exported_sources: BTreeSet<String>,
     virtual_sources: VirtualSourceCatalog,
+    standard_library: bool,
 }
 
 impl DirectDependencySnapshot {
@@ -105,7 +120,18 @@ impl DirectDependencySnapshot {
             snapshot,
             exported_sources,
             virtual_sources,
+            standard_library: false,
         })
+    }
+
+    pub fn from_validated_standard_library(
+        snapshot: CapturedPackageSnapshot,
+        manifest: ProjectManifest,
+    ) -> Result<Self, DirectDependencySnapshotError> {
+        let identity = PackageIdentity::embedded_standard();
+        let mut standard_library = Self::from_validated_manifest(&identity, snapshot, manifest)?;
+        standard_library.standard_library = true;
+        Ok(standard_library)
     }
 
     fn indexed_sources(
@@ -209,6 +235,7 @@ pub fn navigate(
     let request = SymbolIndex::new(
         snapshot.sources.clone(),
         snapshot.direct_dependencies.clone(),
+        snapshot.standard_library.clone(),
     )
     .symbol_at_position(position.source.as_str(), &position)?;
     let definition = match &request.symbol {
@@ -271,6 +298,7 @@ struct FunctionSymbol {
     name: String,
     declaration: NavigationLocation,
     package: Option<String>,
+    standard_prelude: bool,
 }
 
 #[derive(Debug)]
@@ -319,6 +347,7 @@ enum IndexedOrigin {
         identity: String,
         uri: String,
         exported: bool,
+        standard_library: bool,
     },
 }
 
@@ -354,7 +383,11 @@ struct ClauseBinding {
 }
 
 impl SymbolIndex {
-    fn new(sources: Vec<SourceFile>, dependencies: Vec<DirectDependencySnapshot>) -> Self {
+    fn new(
+        sources: Vec<SourceFile>,
+        dependencies: Vec<DirectDependencySnapshot>,
+        standard_library: Option<DirectDependencySnapshot>,
+    ) -> Self {
         let mut files = sources
             .into_iter()
             .map(|source| {
@@ -375,7 +408,7 @@ impl SymbolIndex {
                 }
             })
             .collect::<Vec<_>>();
-        for dependency in dependencies {
+        for dependency in dependencies.into_iter().chain(standard_library) {
             for (source, entry) in dependency.indexed_sources() {
                 let text = std::str::from_utf8(source.bytes())
                     .expect("captured package source text is valid UTF-8");
@@ -394,6 +427,7 @@ impl SymbolIndex {
                         identity: dependency.identity.as_str().to_string(),
                         uri: entry.uri().to_string(),
                         exported: dependency.exported_sources.contains(source.path()),
+                        standard_library: dependency.standard_library,
                     },
                 });
             }
@@ -466,6 +500,11 @@ impl SymbolIndex {
                 .find(|symbol| {
                     symbol.name == name && symbol.module == file.module && symbol.package.is_none()
                 })
+                .or_else(|| {
+                    self.functions
+                        .iter()
+                        .find(|symbol| symbol.name == name && symbol.standard_prelude)
+                })
                 .cloned()
                 .map(Symbol::Function);
         };
@@ -475,9 +514,10 @@ impl SymbolIndex {
                 Some(package) => {
                     symbol.name == name
                         && symbol.module == qualifier
-                        && file
-                            .external_uses
-                            .contains(&(symbol.module.clone(), package.clone()))
+                        && (symbol.standard_prelude
+                            || file
+                                .external_uses
+                                .contains(&(symbol.module.clone(), package.clone())))
                 }
                 None => {
                     symbol.name == name
@@ -572,14 +612,17 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
             && let Some(name) = next_non_layout_token(&tokens, index)
             && is_identifier(&name.text)
         {
-            let (declaration, package) = match &file.origin {
-                IndexedOrigin::Workspace => {
-                    (workspace_location(file.source.span(name.range)), None)
-                }
+            let (declaration, package, standard_prelude) = match &file.origin {
+                IndexedOrigin::Workspace => (
+                    workspace_location(file.source.span(name.range)),
+                    None,
+                    false,
+                ),
                 IndexedOrigin::Package {
                     identity,
                     uri,
                     exported,
+                    standard_library,
                 } => {
                     let public = previous_non_layout_token(&tokens, index)
                         .is_some_and(|previous| previous.kind == TokenKind::Pub);
@@ -592,6 +635,7 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
                             span: file.source.span(name.range),
                         },
                         Some(identity.clone()),
+                        *standard_library && file.module == "prelude",
                     )
                 }
             };
@@ -600,6 +644,7 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
                 name: name.text.clone(),
                 declaration,
                 package,
+                standard_prelude,
             });
         }
     }
@@ -1785,6 +1830,108 @@ mod tests {
     }
 
     #[test]
+    fn standard_library_functions_resolve_through_implicit_and_explicit_imports() {
+        let standard_library = standard_library_snapshot(
+            &[
+                (
+                    "prelude.veln",
+                    concat!(
+                        "pub fn visible(value: Int) -> Int\n  value\nend\n\n",
+                        "fn hidden(value: Int) -> Int\n  value\nend\n",
+                    ),
+                ),
+                (
+                    "api.veln",
+                    "pub fn exported(value: Int) -> Int\n  value\nend\n",
+                ),
+                (
+                    "private.veln",
+                    "pub fn unavailable(value: Int) -> Int\n  value\nend\n",
+                ),
+            ],
+            ["prelude.veln", "api.veln"],
+        );
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "use api from \"std\"\n\n",
+                "pub fn main() -> Int\n",
+                "  visible(1)\n",
+                "  prelude::visible(1)\n",
+                "  api::exported(1)\n",
+                "end\n",
+            ),
+        )];
+        let snapshot =
+            EffectiveProjectSnapshot::new(sources).with_standard_library(standard_library);
+
+        for (line, column, path, declaration_column) in [
+            (4, 4, "prelude.veln", 8),
+            (5, 12, "prelude.veln", 8),
+            (6, 9, "api.veln", 8),
+        ] {
+            let result = navigate(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line,
+                    column,
+                },
+            )
+            .unwrap();
+            assert_eq!(result.definition.span.file.as_str(), path);
+            assert_eq!(result.definition.span.start.column, declaration_column);
+            let NavigationSource::Package { uri } = result.definition.source else {
+                panic!("standard definition did not use a package location");
+            };
+            assert!(uri.starts_with("veln-pkg:///std/snapshot/"), "{uri}");
+            assert!(uri.ends_with(path), "{uri}");
+        }
+    }
+
+    #[test]
+    fn standard_library_definition_requires_public_exported_visibility() {
+        let standard_library = standard_library_snapshot(
+            &[
+                (
+                    "prelude.veln",
+                    "fn hidden(value: Int) -> Int\n  value\nend\n",
+                ),
+                (
+                    "private.veln",
+                    "pub fn unavailable(value: Int) -> Int\n  value\nend\n",
+                ),
+            ],
+            ["prelude.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use private from \"std\"\n\n",
+                "pub fn main() -> Int\n",
+                "  prelude::hidden(1)\n",
+                "  private::unavailable(1)\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library);
+
+        for (line, column) in [(4, 12), (5, 13)] {
+            assert!(
+                navigate(
+                    &snapshot,
+                    SourcePosition {
+                        source: SourcePath::new("main.veln"),
+                        line,
+                        column,
+                    },
+                )
+                .is_none()
+            );
+        }
+    }
+
+    #[test]
     fn dependency_definition_requires_exported_source_and_public_function() {
         let fixtures = [
             (
@@ -2017,6 +2164,24 @@ mod tests {
             ),
         );
         DirectDependencySnapshot::from_validated_manifest(&identity, snapshot, manifest).unwrap()
+    }
+
+    fn standard_library_snapshot(
+        sources: &[(&str, &str)],
+        exports: impl IntoIterator<Item = &'static str>,
+    ) -> DirectDependencySnapshot {
+        let root = TempDependency::new("std", sources);
+        let snapshot = capture_package_snapshot(&root.path).unwrap();
+        let exports = exports
+            .into_iter()
+            .map(|export| format!("\"{export}\""))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let manifest = parse_manifest_text(
+            "veln.toml",
+            &format!("[package]\nname = \"std\"\n\n[lib]\nexports = [{exports}]\n"),
+        );
+        DirectDependencySnapshot::from_validated_standard_library(snapshot, manifest).unwrap()
     }
 
     struct TempDependency {

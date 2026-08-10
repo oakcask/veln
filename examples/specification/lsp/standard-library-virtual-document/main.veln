@@ -1,0 +1,17 @@
+use http2::diagnostic from "std"
+
+pub fn implicit() -> Result<Byte, String>
+  byte(1)
+end
+
+pub fn qualified() -> Result<Byte, String>
+  prelude::byte(1)
+end
+
+pub fn imported() -> Result<(), RuntimeDiagnostic>
+  http2::diagnostic::protocol_invalid_frame_kind(0, 0, 0, 0, "open", "rule", byte_view(byte_chunk([]), ByteOffset(0), ByteCount(0)))
+end
+
+pub fn unavailable() -> Vec<Int>
+  prelude::vec_append([], 1)
+end

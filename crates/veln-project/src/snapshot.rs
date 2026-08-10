@@ -194,6 +194,33 @@ pub fn capture_package_snapshot(
 
     let mut sources = Vec::new();
     collect_package_sources(root, Path::new(""), &mut sources)?;
+    captured_package_snapshot(manifest_bytes, sources)
+}
+
+/// Captures an immutable package snapshot from already embedded inputs.
+///
+/// This applies the same ordering, portable-path, UTF-8, collision, and digest
+/// contracts as filesystem capture without materializing the inputs.
+pub fn capture_embedded_package_snapshot<'a>(
+    manifest_bytes: &[u8],
+    sources: impl IntoIterator<Item = PackageSnapshotSource<'a>>,
+) -> Result<CapturedPackageSnapshot, PackageSnapshotCaptureError> {
+    captured_package_snapshot(
+        manifest_bytes.to_vec(),
+        sources
+            .into_iter()
+            .map(|source| CapturedPackageSource {
+                path: source.path.to_string(),
+                bytes: source.bytes.to_vec(),
+            })
+            .collect(),
+    )
+}
+
+fn captured_package_snapshot(
+    manifest_bytes: Vec<u8>,
+    mut sources: Vec<CapturedPackageSource>,
+) -> Result<CapturedPackageSnapshot, PackageSnapshotCaptureError> {
     sources.sort_unstable_by(|left, right| left.path.as_bytes().cmp(right.path.as_bytes()));
     validate_captured_sources(&sources)?;
 
@@ -578,6 +605,41 @@ mod tests {
                 *included && *path == source.path() && *bytes == source.bytes()
             })
         }));
+    }
+
+    #[test]
+    fn embedded_snapshot_matches_filesystem_snapshot_without_materialization() {
+        let package = SnapshotFixture::new("embedded-equivalence");
+        package.write_bytes("veln.toml", b"[package]\nname = \"std\"\n");
+        package.write_bytes("nested/b.veln", b"pub fn b() -> Int\n  2\nend\n");
+        package.write_bytes("a.veln", b"pub fn a() -> Int\r\n  1\r\nend\r\n");
+        let filesystem = capture_package_snapshot(package.root()).unwrap();
+        let embedded = capture_embedded_package_snapshot(
+            filesystem.manifest_bytes(),
+            filesystem
+                .sources()
+                .iter()
+                .rev()
+                .map(|source| PackageSnapshotSource::new(source.path(), source.bytes())),
+        )
+        .unwrap();
+
+        assert_eq!(embedded, filesystem);
+    }
+
+    #[test]
+    fn embedded_snapshot_reuses_portable_source_validation() {
+        let error = capture_embedded_package_snapshot(
+            b"manifest",
+            [PackageSnapshotSource::new("dir/../main.veln", b"main\n")],
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            error,
+            PackageSnapshotCaptureError::InvalidSourcePath { path, .. }
+                if path == "dir/../main.veln"
+        ));
     }
 
     #[test]

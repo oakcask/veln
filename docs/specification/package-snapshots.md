@@ -6,10 +6,11 @@ review-when: The package snapshot identity, portable-domain, capture, digest, or
 
 # Package Snapshot Digests
 
-`veln-project` captures a package distribution from a filesystem root and
-computes a package snapshot digest from that immutable capture. Callers that
-already own exact bytes can use the digest API directly. Duplicate source
-paths supplied to the digest API are rejected.
+`veln-project` captures a package distribution from a filesystem root or from
+already embedded manifest and source bytes. It computes a package snapshot
+digest from that immutable capture. Callers that only need identity can use
+the digest API directly. Duplicate source paths supplied to the digest API are
+rejected.
 
 ## Portable Package Identity
 
@@ -78,6 +79,18 @@ The digest is independent of filesystem enumeration order and the package's
 physical parent location. A change to the manifest bytes, an included source
 path, or included source bytes changes the digest.
 
+## Embedded Capture
+
+`capture_embedded_package_snapshot` accepts exact manifest bytes and exact
+source path and byte pairs. It does not read or materialize a filesystem tree.
+It sorts sources and applies the same portable-path, UTF-8, case-fold
+collision, and digest contracts as filesystem capture. The returned snapshot
+owns the supplied bytes.
+
+The language server uses this API for the toolchain's embedded `std` manifest
+and distribution sources. Therefore the standard package virtual-source
+catalog and its source reads refer to one exact retained capture.
+
 ## Digest Transcript
 
 SHA-256 consumes this exact compatibility transcript:
@@ -114,11 +127,14 @@ rejection, and these fixed digest vectors:
 | Manifest `[package]\nname = "p"\n`; `a.veln` is `a\n`; `z.veln` is `z\n` | `77150b975c9bb56aab9e9b3c8899a81907abc9db535fdfbb6276d40bff9fa878` |
 | Empty manifest; `src/λ.veln` is `λ\n` | `f360e18455f6b7c90dd6c34cdec7a444082e003e44583dc8a7d99ae50cba713b` |
 
-The same tests check reversed source order, duplicate paths, and isolated
-changes to the domain, record tags, byte order, manifest bytes, source path
-bytes, and source content bytes. A Veln source example is not added because
-this contract is a transport-independent Rust API and has no Veln source or
-command behavior.
+The same tests check reversed source order, duplicate paths, isolated changes
+to the domain, record tags, byte order, manifest bytes, source path bytes, and
+source content bytes. They also prove that equivalent embedded and filesystem
+inputs produce identical retained snapshots and that embedded input uses the
+portable-source validation contract. A Veln source example is not added for
+the capture API itself because it is transport-independent. The editor-facing
+standard-package use is checked by the LSP example routed from
+[Editor Support](editor-support.md#lsp-navigation-formatting-and-rename).
 
 The same test target is the authoritative Q13 portable-domain matrix. It
 checks identity scalar boundaries, identity segments, Unicode whitespace,
