@@ -13,7 +13,7 @@ use veln_project::{
     classify_companion_source,
 };
 use veln_source::{SourceFile, SourcePath, SourceSpan};
-use veln_syntax::{Token, TokenKind, lex};
+use veln_syntax::{SyntaxItem, Token, TokenKind, Visibility, lex, parse};
 
 #[derive(Clone, Debug)]
 pub struct EffectiveProjectSnapshot {
@@ -197,6 +197,7 @@ pub struct SourcePosition {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SymbolKind {
     Function,
+    Constructor,
     HandlerContextParameter,
     HandlerOperationClauseParameter,
 }
@@ -240,11 +241,17 @@ pub fn navigate(
     .symbol_at_position(position.source.as_str(), &position)?;
     let definition = match &request.symbol {
         Symbol::Function(symbol) => symbol.declaration.clone(),
+        Symbol::Constructor(symbol) => symbol.declaration.clone(),
         Symbol::Local(symbol) => workspace_location(symbol.declaration.clone()),
     };
     let selected_symbol = match &request.symbol {
         Symbol::Function(symbol) => SelectedSymbol {
             kind: SymbolKind::Function,
+            name: symbol.name.clone(),
+            declaration: definition.clone(),
+        },
+        Symbol::Constructor(symbol) => SelectedSymbol {
+            kind: SymbolKind::Constructor,
             name: symbol.name.clone(),
             declaration: definition.clone(),
         },
@@ -266,6 +273,7 @@ pub fn navigate(
             .iter()
             .flat_map(|file| request.index.references_in_file(file, symbol))
             .collect(),
+        Symbol::Constructor(_) => Vec::new(),
         Symbol::Local(symbol) => request.index.local_references(symbol, false),
     };
     sort_locations(&mut references);
@@ -302,6 +310,17 @@ struct FunctionSymbol {
     standard_prelude: bool,
 }
 
+#[derive(Clone, Debug)]
+struct ConstructorSymbol {
+    module: String,
+    type_name: String,
+    name: String,
+    declaration: NavigationLocation,
+    package: Option<String>,
+    public: bool,
+    standard_prelude: bool,
+}
+
 #[derive(Debug)]
 struct SymbolRequest {
     index: SymbolIndex,
@@ -312,6 +331,7 @@ struct SymbolRequest {
 #[derive(Clone, Debug)]
 enum Symbol {
     Function(FunctionSymbol),
+    Constructor(ConstructorSymbol),
     Local(LocalSymbol),
 }
 
@@ -356,6 +376,7 @@ enum IndexedOrigin {
 struct SymbolIndex {
     files: Vec<IndexedFile>,
     functions: Vec<FunctionSymbol>,
+    constructors: Vec<ConstructorSymbol>,
 }
 
 #[derive(Debug)]
@@ -434,7 +455,12 @@ impl SymbolIndex {
             }
         }
         let functions = files.iter().flat_map(function_declarations).collect();
-        Self { files, functions }
+        let constructors = files.iter().flat_map(constructor_declarations).collect();
+        Self {
+            files,
+            functions,
+            constructors,
+        }
     }
 
     fn symbol_at_position(
@@ -495,6 +521,9 @@ impl SymbolIndex {
             return None;
         }
         let Some(qualifier) = qualifier_for_token(tokens, token_index) else {
+            if let Some(symbol) = self.constructor_for_bare_call(file, name) {
+                return Some(Symbol::Constructor(symbol));
+            }
             if let Some(symbol) = self.functions.iter().find(|symbol| {
                 symbol.name == name && symbol.module == file.module && symbol.package.is_none()
             }) {
@@ -506,6 +535,9 @@ impl SymbolIndex {
             if self.has_visible_non_prelude_imported_function(file, name) {
                 return None;
             }
+            if self.has_visible_non_prelude_imported_constructor(file, name) {
+                return None;
+            }
             return self
                 .functions
                 .iter()
@@ -513,6 +545,9 @@ impl SymbolIndex {
                 .cloned()
                 .map(Symbol::Function);
         };
+        if let Some(symbol) = self.constructor_for_qualified_call(file, &qualifier, name) {
+            return Some(Symbol::Constructor(symbol));
+        }
         self.functions
             .iter()
             .find(|symbol| match &symbol.package {
@@ -536,6 +571,98 @@ impl SymbolIndex {
             })
             .cloned()
             .map(Symbol::Function)
+    }
+
+    fn constructor_for_bare_call(
+        &self,
+        file: &IndexedFile,
+        name: &str,
+    ) -> Option<ConstructorSymbol> {
+        self.constructors
+            .iter()
+            .find(|symbol| {
+                symbol.name == name
+                    && symbol.package.is_none()
+                    && symbol.module == file.module
+                    && visible_workspace_constructor_from(file, symbol)
+            })
+            .cloned()
+            .or_else(|| {
+                let mut candidates = self.constructors.iter().filter(|symbol| {
+                    symbol.name == name
+                        && !symbol.standard_prelude
+                        && symbol.package.is_none()
+                        && symbol.module != file.module
+                        && file.uses.contains(&symbol.module)
+                        && visible_workspace_constructor_from(file, symbol)
+                });
+                let candidate = candidates.next()?;
+                candidates.next().is_none().then(|| candidate.clone())
+            })
+            .or_else(|| {
+                let mut candidates = self.constructors.iter().filter(|symbol| {
+                    symbol.name == name
+                        && !symbol.standard_prelude
+                        && symbol.public
+                        && symbol.package.as_ref().is_some_and(|package| {
+                            file.external_uses
+                                .contains(&(symbol.module.clone(), package.clone()))
+                        })
+                });
+                let candidate = candidates.next()?;
+                candidates.next().is_none().then(|| candidate.clone())
+            })
+    }
+
+    fn constructor_for_qualified_call(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        name: &str,
+    ) -> Option<ConstructorSymbol> {
+        self.constructors
+            .iter()
+            .find(|symbol| {
+                symbol.name == name
+                    && constructor_qualifier_matches(symbol, qualifier)
+                    && match &symbol.package {
+                        Some(package) => {
+                            symbol.standard_prelude
+                                || file
+                                    .external_uses
+                                    .contains(&(symbol.module.clone(), package.clone()))
+                        }
+                        None => {
+                            symbol.module == file.module
+                                || (file.uses.contains(&symbol.module)
+                                    && visible_workspace_constructor_from(file, symbol))
+                        }
+                    }
+            })
+            .cloned()
+    }
+
+    fn has_visible_non_prelude_imported_constructor(&self, file: &IndexedFile, name: &str) -> bool {
+        self.constructors.iter().any(|symbol| {
+            if symbol.name != name || symbol.standard_prelude {
+                return false;
+            }
+            if symbol.package.is_none() && symbol.module == file.module {
+                return false;
+            }
+            match &symbol.package {
+                Some(package) => {
+                    symbol.public
+                        && file
+                            .external_uses
+                            .contains(&(symbol.module.clone(), package.clone()))
+                }
+                None => {
+                    file.uses.contains(&symbol.module)
+                        && visible_workspace_constructor_from(file, symbol)
+                }
+            }
+        })
     }
 
     fn has_visible_non_prelude_imported_function(&self, file: &IndexedFile, name: &str) -> bool {
@@ -629,6 +756,14 @@ impl SymbolIndex {
     }
 }
 
+fn visible_workspace_constructor_from(file: &IndexedFile, symbol: &ConstructorSymbol) -> bool {
+    symbol.public || symbol.module == file.module
+}
+
+fn constructor_qualifier_matches(symbol: &ConstructorSymbol, qualifier: &str) -> bool {
+    qualifier == symbol.module || qualifier == format!("{}::{}", symbol.module, symbol.type_name)
+}
+
 fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
     let mut functions = Vec::new();
     let tokens = lex(&file.source).tokens;
@@ -675,6 +810,69 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
         }
     }
     functions
+}
+
+fn constructor_declarations(file: &IndexedFile) -> Vec<ConstructorSymbol> {
+    let tokens = lex(&file.source).tokens;
+    let tokens = tokens.as_slice();
+    parse(&file.source)
+        .tree
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Type(type_decl) => Some(type_decl),
+            _ => None,
+        })
+        .flat_map(|type_decl| {
+            let type_public = type_decl.visibility == Visibility::Public;
+            type_decl.variants.iter().filter_map(move |variant| {
+                let name = variant.name.as_ref()?;
+                let public = type_public && variant.visibility == Visibility::Public;
+                let span = tokens
+                    .iter()
+                    .find(|token| {
+                        token.kind == TokenKind::Ident
+                            && token.text == *name
+                            && token.range.start >= variant.span.start.offset
+                            && token.range.end <= variant.span.end.offset
+                    })
+                    .map_or_else(
+                        || variant.span.clone(),
+                        |token| file.source.span(token.range),
+                    );
+                let (declaration, package, standard_prelude) = match &file.origin {
+                    IndexedOrigin::Workspace => (workspace_location(span), None, false),
+                    IndexedOrigin::Package {
+                        identity,
+                        uri,
+                        exported,
+                        standard_library,
+                    } => {
+                        if !exported || !public {
+                            return None;
+                        }
+                        (
+                            NavigationLocation {
+                                source: NavigationSource::Package { uri: uri.clone() },
+                                span,
+                            },
+                            Some(identity.clone()),
+                            *standard_library && file.module == "prelude",
+                        )
+                    }
+                };
+                Some(ConstructorSymbol {
+                    module: file.module.clone(),
+                    type_name: type_decl.name.clone().unwrap_or_default(),
+                    name: name.clone(),
+                    declaration,
+                    package,
+                    public,
+                    standard_prelude,
+                })
+            })
+        })
+        .collect()
 }
 
 fn handler_operation_clause_symbol(
@@ -2069,6 +2267,46 @@ mod tests {
             )
             .is_none()
         );
+    }
+
+    #[test]
+    fn imported_constructor_call_definition_wins_over_bare_prelude_fallback() {
+        let standard_library = standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                "pub fn byte(value: Int) -> Int\n  value\nend\n",
+            )],
+            ["prelude.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "main.veln",
+                concat!(
+                    "use model\n\n",
+                    "pub fn main() -> Token\n",
+                    "  byte(1)\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "model.veln",
+                concat!("pub type Token\n", "  pub byte(Int)\n", "end\n"),
+            ),
+        ])
+        .with_standard_library(standard_library);
+
+        let result = navigate(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 4,
+                column: 4,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+        assert_location(&result.definition, "model.veln", 2, 7);
     }
 
     #[test]
