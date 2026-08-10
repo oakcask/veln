@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The toolchain case manifest grammar, stream fixture formats, JSON-RPC harness assertions, migration inventory, or completion gate changes.
+update-when: The toolchain case semantic baseline, manifest grammar, stream fixture formats, JSON-RPC harness assertions, migration inventory, implementation status, or completion gate changes.
 ---
 
 # Readable Toolchain Case Streams
