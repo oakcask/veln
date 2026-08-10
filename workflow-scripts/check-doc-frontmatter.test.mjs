@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   documentationMarkdownPaths,
+  renderGitHubErrorAnnotation,
   validateDocumentFrontmatter,
   validateDocumentationFrontmatter,
 } from "./check-doc-frontmatter.mjs";
@@ -209,6 +210,13 @@ test("rejects the legacy review-when field", () => {
   assert.deepEqual(errors, [
     "docs/reference/example.md:4: replace review-when: with update-when: so the field identifies when project changes can make the document stale",
   ]);
+});
+
+test("keeps punctuation readable in GitHub annotation messages", () => {
+  assert.equal(
+    renderGitHubErrorAnnotation("docs/example.md:4: replace review-when: with update-when:, then retry\nnext step"),
+    "::error title=Invalid documentation frontmatter::docs/example.md:4: replace review-when: with update-when:, then retry%0Anext step",
+  );
 });
 
 test("rejects unclosed frontmatter and multiline YAML values", () => {
