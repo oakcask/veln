@@ -461,8 +461,9 @@ implemented and specified in
 [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).
 The transport-independent package documentation catalog, status-only failure
 result, documentation digest, canonical `veln-doc:` URI foundation, same-capture
-manifest binding, and generated doctest static gate are implemented and
-specified in
+manifest binding, exported module and public constructor documentation
+projection, and generated doctest static gate for expression and declaration
+doctests are implemented and specified in
 [Package Documentation Catalogs](../specification/package-documentation.md).
 MCP resources, MCP documentation publication, and snapshot lifetime rules
 remain planned below.

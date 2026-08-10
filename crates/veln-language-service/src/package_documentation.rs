@@ -170,6 +170,8 @@ pub struct PackageDocModule {
     pub source_path: String,
     pub uri: String,
     pub doc: Vec<String>,
+    pub doctests: Vec<PackageDocDoctest>,
+    pub references: Vec<PackageDocReference>,
     pub declarations: Vec<PackageDocDeclaration>,
 }
 
@@ -192,6 +194,9 @@ pub struct PackageDocDeclaration {
 pub struct PackageDocTypeConstructor {
     pub name: String,
     pub signature: String,
+    pub doc: Vec<String>,
+    pub doctests: Vec<PackageDocDoctest>,
+    pub references: Vec<PackageDocReference>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -375,7 +380,9 @@ impl<'a> PackageDocBuilder<'a> {
                 id: module_id,
                 name: source.module_name.clone(),
                 source_path: source.source.path().as_str().to_string(),
-                doc: doc_block_before(&source.source, 1),
+                doc: module_doc(&source.source, &source.tree),
+                doctests: self.module_doctests(source),
+                references: self.module_references(source, schema_targets),
                 declarations,
             });
         }
@@ -731,11 +738,18 @@ impl<'a> PackageDocBuilder<'a> {
                     .push(self.project_diagnostic("doctest", diagnostic.clone()));
             }
         }
-        let analysis_sources = doctests
-            .sources
-            .into_iter()
-            .filter(|source| !generated_doctest_contains_declaration(source.text()))
-            .collect::<Vec<_>>();
+        let mut analysis_sources = Vec::new();
+        let mut declaration_analysis_sources = Vec::new();
+        for source in doctests.sources {
+            if generated_doctest_contains_declaration(source.text()) {
+                if let Some(declaration_source) = generated_doctest_declaration_source(&source) {
+                    declaration_analysis_sources.push(declaration_source);
+                }
+            } else {
+                analysis_sources.push(source);
+            }
+        }
+        analysis_sources.extend(declaration_analysis_sources);
         let analysis = analyze_project(
             Project {
                 root: ".".into(),
@@ -755,7 +769,7 @@ impl<'a> PackageDocBuilder<'a> {
             }
         }
         for source in parsed_sources.iter().filter(|source| source.exported) {
-            for target_line in public_declaration_lines(&source.tree) {
+            for target_line in public_documentation_lines(&source.tree) {
                 for fence in doctest_fences(&source.source, target_line) {
                     match fence {
                         Ok(doctest) => self.validate_doctest(&doctest),
@@ -804,7 +818,7 @@ impl<'a> PackageDocBuilder<'a> {
         schema_targets: &BTreeMap<String, PublicSchemaDocTarget>,
     ) {
         for source in parsed_sources.iter().filter(|source| source.exported) {
-            for target_line in public_declaration_lines(&source.tree) {
+            for target_line in public_documentation_lines(&source.tree) {
                 if doc_block_before(&source.source, target_line).is_empty() {
                     continue;
                 }
@@ -937,7 +951,7 @@ impl<'a> PackageDocBuilder<'a> {
                 .variants
                 .iter()
                 .filter(|variant| variant.visibility == Visibility::Public)
-                .map(type_constructor)
+                .map(|variant| self.type_constructor(&source.source, variant, schema_targets))
                 .collect(),
             alias: None,
             doctests: self.doctests_for(&source.source, type_decl.span.start.line),
@@ -1100,6 +1114,15 @@ impl<'a> PackageDocBuilder<'a> {
         doctests
     }
 
+    fn module_doctests(&mut self, source: &ParsedPackageSource) -> Vec<PackageDocDoctest> {
+        source
+            .tree
+            .module
+            .as_ref()
+            .map(|module| self.doctests_for(&source.source, module.span.start.line))
+            .unwrap_or_default()
+    }
+
     fn validate_doctest(&mut self, _doctest: &PackageDocDoctest) {
         // The shared analysis pipeline validates visible Veln doctests above.
     }
@@ -1126,6 +1149,36 @@ impl<'a> PackageDocBuilder<'a> {
                 )
             })
             .collect()
+    }
+
+    fn module_references(
+        &self,
+        source: &ParsedPackageSource,
+        schema_targets: &BTreeMap<String, PublicSchemaDocTarget>,
+    ) -> Vec<PackageDocReference> {
+        source
+            .tree
+            .module
+            .as_ref()
+            .map(|module| {
+                self.references_for(&source.source, module.span.start.line, schema_targets)
+            })
+            .unwrap_or_default()
+    }
+
+    fn type_constructor(
+        &mut self,
+        source: &SourceFile,
+        variant: &TypeVariantDecl,
+        schema_targets: &BTreeMap<String, PublicSchemaDocTarget>,
+    ) -> PackageDocTypeConstructor {
+        PackageDocTypeConstructor {
+            name: variant.name.clone().unwrap_or_default(),
+            signature: variant_signature(variant),
+            doc: doc_block_before(source, variant.span.start.line),
+            doctests: self.doctests_for(source, variant.span.start.line),
+            references: self.references_for(source, variant.span.start.line, schema_targets),
+        }
     }
 
     fn project_diagnostic(&self, gate: &str, diagnostic: Diagnostic) -> PackageDocDiagnostic {
@@ -1259,15 +1312,47 @@ fn is_doctest_gate_diagnostic(diagnostic: &Diagnostic) -> bool {
 
 fn generated_doctest_contains_declaration(text: &str) -> bool {
     text.lines().skip(1).any(|line| {
-        let trimmed = line.trim_start();
-        trimmed.starts_with("fn ")
-            || trimmed.starts_with("test ")
-            || trimmed.starts_with("pub fn ")
-            || trimmed.starts_with("type ")
-            || trimmed.starts_with("pub type ")
-            || trimmed.starts_with("schema ")
-            || trimmed.starts_with("pub schema ")
+        let trimmed = generated_doctest_body_line(line)
+            .unwrap_or(line)
+            .trim_start();
+        starts_declaration(trimmed)
     })
+}
+
+fn generated_doctest_declaration_source(source: &SourceFile) -> Option<SourceFile> {
+    let mut declarations = Vec::new();
+    let mut active = false;
+    for line in source.text().lines().skip(1) {
+        let Some(body_line) = generated_doctest_body_line(line) else {
+            continue;
+        };
+        let trimmed = body_line.trim_start();
+        if !active && starts_declaration(trimmed) {
+            active = true;
+        }
+        if active {
+            declarations.push(body_line.to_string());
+            if trimmed == "end" {
+                active = false;
+            }
+        }
+    }
+    (!declarations.is_empty())
+        .then(|| SourceFile::new(source.path().as_str(), declarations.join("\n")))
+}
+
+fn generated_doctest_body_line(line: &str) -> Option<&str> {
+    line.strip_prefix("  ")
+}
+
+fn starts_declaration(trimmed: &str) -> bool {
+    trimmed.starts_with("fn ")
+        || trimmed.starts_with("test ")
+        || trimmed.starts_with("pub fn ")
+        || trimmed.starts_with("type ")
+        || trimmed.starts_with("pub type ")
+        || trimmed.starts_with("schema ")
+        || trimmed.starts_with("pub schema ")
 }
 
 fn function_signature(function: &FunctionDecl) -> String {
@@ -1305,26 +1390,44 @@ fn function_signature(function: &FunctionDecl) -> String {
     signature
 }
 
-fn public_declaration_lines(tree: &veln_syntax::SyntaxTree) -> Vec<usize> {
-    tree.items
-        .iter()
-        .filter_map(|item| match item {
-            SyntaxItem::Type(type_decl) if type_decl.visibility == Visibility::Public => {
-                Some(type_decl.span.start.line)
-            }
-            SyntaxItem::Schema(schema) if schema.visibility == Visibility::Public => {
-                Some(schema.span.start.line)
-            }
-            SyntaxItem::Function(function)
-                if function.kind == FunctionKind::Function
-                    && function.visibility == Visibility::Public =>
-            {
-                Some(function.span.start.line)
-            }
-            SyntaxItem::PublicAlias(alias) => Some(alias.span.start.line),
-            _ => None,
-        })
-        .collect()
+fn public_documentation_lines(tree: &veln_syntax::SyntaxTree) -> Vec<usize> {
+    let mut lines = Vec::new();
+    if let Some(module) = &tree.module {
+        lines.push(module.span.start.line);
+    }
+    lines.extend(
+        tree.items
+            .iter()
+            .flat_map(|item| match item {
+                SyntaxItem::Type(type_decl) if type_decl.visibility == Visibility::Public => {
+                    let mut lines = Vec::with_capacity(type_decl.variants.len() + 1);
+                    lines.push(type_decl.span.start.line);
+                    lines.extend(
+                        type_decl
+                            .variants
+                            .iter()
+                            .filter(|variant| variant.visibility == Visibility::Public)
+                            .map(|variant| variant.span.start.line),
+                    );
+                    lines
+                }
+                SyntaxItem::Schema(schema) if schema.visibility == Visibility::Public => {
+                    vec![schema.span.start.line]
+                }
+                SyntaxItem::Function(function)
+                    if function.kind == FunctionKind::Function
+                        && function.visibility == Visibility::Public =>
+                {
+                    vec![function.span.start.line]
+                }
+                SyntaxItem::PublicAlias(alias) => vec![alias.span.start.line],
+                _ => Vec::new(),
+            })
+            .collect::<Vec<_>>(),
+    );
+    lines.sort_unstable();
+    lines.dedup();
+    lines
 }
 
 fn record_declaration_location(
@@ -1395,13 +1498,6 @@ fn alias_kind(kind: PublicAliasKind) -> &'static str {
     }
 }
 
-fn type_constructor(variant: &TypeVariantDecl) -> PackageDocTypeConstructor {
-    PackageDocTypeConstructor {
-        name: variant.name.clone().unwrap_or_default(),
-        signature: variant_signature(variant),
-    }
-}
-
 fn variant_signature(variant: &TypeVariantDecl) -> String {
     let name = variant.name.as_deref().unwrap_or("<anonymous>");
     if variant.fields.is_empty() {
@@ -1465,6 +1561,13 @@ fn doc_block_before(source: &SourceFile, target_line: usize) -> Vec<String> {
         return Vec::new();
     }
     rendered_doc_lines(docs)
+}
+
+fn module_doc(source: &SourceFile, tree: &veln_syntax::SyntaxTree) -> Vec<String> {
+    tree.module
+        .as_ref()
+        .map(|module| doc_block_before(source, module.span.start.line))
+        .unwrap_or_default()
 }
 
 fn rendered_doc_lines(lines: Vec<String>) -> Vec<String> {
@@ -1812,7 +1915,11 @@ fn module_json(out: &mut String, module: &PackageDocModule) {
     field(out, "name", &module.name, true);
     field(out, "source_path", &module.source_path, true);
     string_array_field(out, "doc", &module.doc);
-    out.push_str(",\"declarations\":[");
+    out.push_str(",\"doctests\":[");
+    doctest_array_json(out, &module.doctests);
+    out.push_str("],\"references\":[");
+    reference_array_json(out, &module.references);
+    out.push_str("],\"declarations\":[");
     for (index, declaration) in module.declarations.iter().enumerate() {
         if index > 0 {
             out.push(',');
@@ -1862,6 +1969,12 @@ fn constructor_array_json(out: &mut String, constructors: &[PackageDocTypeConstr
         out.push('{');
         field(out, "name", &constructor.name, false);
         field(out, "signature", &constructor.signature, true);
+        string_array_field(out, "doc", &constructor.doc);
+        out.push_str(",\"doctests\":[");
+        doctest_array_json(out, &constructor.doctests);
+        out.push_str("],\"references\":[");
+        reference_array_json(out, &constructor.references);
+        out.push(']');
         out.push('}');
     }
 }
@@ -2242,9 +2355,15 @@ mod tests {
                     "main.veln",
                     concat!(
                         "## Module docs.\n",
+                        "mod main\n",
+                        "\n",
                         "\n",
                         "## Public type docs.\n",
                         "pub type ResultBox<A>\n",
+                        "\t## Ready constructor docs mention {@schema Packet}.\n",
+                        "\t## ```veln\n",
+                        "\t## 1\n",
+                        "\t## ```\n",
                         "\tpub Ready(value: A)\n",
                         "\tHidden(reason: String)\n",
                         "end\n",
@@ -2291,6 +2410,7 @@ mod tests {
         assert_eq!(catalog.metadata.keywords, ["docs", "api"]);
         assert_eq!(catalog.modules.len(), 1);
         assert_eq!(catalog.modules[0].name, "main");
+        assert_eq!(catalog.modules[0].doc, ["Module docs."]);
         assert_eq!(
             catalog.modules[0]
                 .declarations
@@ -2305,6 +2425,19 @@ mod tests {
             ]
         );
         assert_eq!(catalog.modules[0].declarations[0].constructors.len(), 1);
+        let constructor = &catalog.modules[0].declarations[0].constructors[0];
+        assert_eq!(
+            constructor.doc,
+            [
+                "Ready constructor docs mention {@schema Packet}.",
+                "```veln",
+                "1",
+                "```"
+            ]
+        );
+        assert_eq!(constructor.doctests.len(), 1);
+        assert_eq!(constructor.references.len(), 1);
+        assert_eq!(constructor.references[0].marker, "Packet");
         assert_eq!(catalog.modules[0].declarations[2].contracts.len(), 2);
         assert_eq!(catalog.modules[0].declarations[2].doctests.len(), 1);
         assert_eq!(
@@ -2794,6 +2927,62 @@ mod tests {
                     .as_ref()
                     .is_some_and(|span| span.source_uri.contains("%23doctest-"))
         }));
+    }
+
+    #[test]
+    fn declaration_positive_doctest_must_pass_generated_static_analysis() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[(
+                "main.veln",
+                concat!(
+                    "## ```veln\n",
+                    "## fn sample() -> MissingType\n",
+                    "## \tmissing_value\n",
+                    "## end\n",
+                    "## ```\n",
+                    "pub fn value() -> Int\n",
+                    "\t1\n",
+                    "end\n",
+                ),
+            )],
+        );
+
+        assert!(result.catalog().is_none());
+        assert!(result.status().diagnostics.iter().any(|diagnostic| {
+            diagnostic.gate == "doctest"
+                && diagnostic
+                    .span
+                    .as_ref()
+                    .is_some_and(|span| span.source_uri.contains("%23doctest-"))
+        }));
+    }
+
+    #[test]
+    fn constructor_documentation_reference_failure_is_package_atomic() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[(
+                "main.veln",
+                concat!(
+                    "pub type Choice\n",
+                    "\t## Missing constructor reference {@schema Missing}.\n",
+                    "\tpub Some(value: Int)\n",
+                    "end\n",
+                ),
+            )],
+        );
+
+        assert!(result.catalog().is_none());
+        assert!(result.status().diagnostics.iter().any(|diagnostic| {
+            diagnostic.gate == "documentation_reference"
+                && diagnostic.code == "package_doc.unresolved_schema_reference"
+        }));
+        assert!(
+            !std::str::from_utf8(result.canonical_bytes())
+                .unwrap()
+                .contains("\"modules\"")
+        );
     }
 
     #[test]

@@ -1,3 +1,16 @@
+## Catalog module documentation.
+mod main
+
+## Public type documentation.
+pub type Choice
+	## Public constructor documentation uses {@schema wire::Packet}.
+	## ```veln
+	## 1
+	## ```
+	pub Ready(value: Int)
+	Hidden(value: Int)
+end
+
 ## Uses {@schema wire::Packet}.
 ## ```veln
 ## fn sample() -> Int
