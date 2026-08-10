@@ -81,7 +81,8 @@ Published package metadata is limited to package identity, manifest package
 name, version, description, license, authors, keywords, and exported module
 names. Exported module names are derived from validated, normalized export
 paths. A normalized export path for a `main.veln` source publishes module
-`main`.
+`main`. An exported source path must derive a valid source module path under
+the same source-path rules used by compiler analysis.
 
 ## Generation Gates
 

@@ -3,7 +3,7 @@ use std::error::Error;
 use std::fmt;
 
 use sha2::{Digest, Sha256};
-use veln_analysis::{DoctestMode, analyze_project};
+use veln_analysis::{DoctestMode, analyze_project, derive_source_module_path};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, Severity};
 use veln_project::{
     CapturedPackageSnapshot, PackageIdentity, Project, ProjectManifest, classify_companion_source,
@@ -534,7 +534,18 @@ impl<'a> PackageDocBuilder<'a> {
                     self.snapshot.digest(),
                 ));
             }
-            let module_name = module_name_from_path(source.path()).unwrap_or_default();
+            let module_name = match derive_source_module_path(&source_file) {
+                Ok(module_name) => module_name,
+                Err(diagnostic) => {
+                    self.diagnostics.push(module_diagnostic(
+                        "manifest",
+                        *diagnostic,
+                        self.identity,
+                        self.snapshot.digest(),
+                    ));
+                    String::new()
+                }
+            };
             parsed.push(ParsedPackageSource {
                 source: source_file,
                 tree: output.tree,
@@ -752,12 +763,16 @@ impl<'a> PackageDocBuilder<'a> {
             self.invalid_manifest_export(export, "export names a test source");
             return None;
         }
-        let Some(module_name) = module_name_from_path(path.as_str()) else {
-            self.invalid_manifest_export(
-                export,
-                "manifest export path does not derive a valid module path",
-            );
-            return None;
+        let source = SourceFile::new(path.as_str(), "");
+        let module_name = match derive_source_module_path(&source) {
+            Ok(module_name) => module_name,
+            Err(_) => {
+                self.invalid_manifest_export(
+                    export,
+                    "manifest export path does not derive a valid module path",
+                );
+                return None;
+            }
         };
         Some((path.as_str().to_string(), module_name))
     }
@@ -784,7 +799,8 @@ impl<'a> PackageDocBuilder<'a> {
             {
                 continue;
             }
-            let Some(module_name) = module_name_from_path(path.as_str()) else {
+            let source = SourceFile::new(path.as_str(), "");
+            let Ok(module_name) = derive_source_module_path(&source) else {
                 continue;
             };
             if available.contains(path.as_str())
@@ -1235,7 +1251,7 @@ impl<'a> PackageDocBuilder<'a> {
         target_line: usize,
         schema_targets: &SchemaDocResolver<'_>,
     ) -> Vec<PackageDocReference> {
-        let current_module = module_name_from_path(source.path().as_str()).unwrap_or_default();
+        let current_module = derive_source_module_path(source).unwrap_or_default();
         doc_schema_references_before(source, target_line)
             .into_iter()
             .filter_map(|reference| {
@@ -1392,6 +1408,25 @@ fn parse_diagnostic(
     PackageDocDiagnostic {
         gate: gate.to_string(),
         code: diagnostic.id.to_string(),
+        message: diagnostic.message,
+        span: diagnostic.span.as_ref().map(|span| {
+            PackageDocDiagnosticSpan::from_span(
+                &source_uri(identity, snapshot_digest, span.file.as_str()),
+                span,
+            )
+        }),
+    }
+}
+
+fn module_diagnostic(
+    gate: &str,
+    diagnostic: Diagnostic,
+    identity: &str,
+    snapshot_digest: &str,
+) -> PackageDocDiagnostic {
+    PackageDocDiagnostic {
+        gate: gate.to_string(),
+        code: diagnostic.id,
         message: diagnostic.message,
         span: diagnostic.span.as_ref().map(|span| {
             PackageDocDiagnosticSpan::from_span(
@@ -2547,10 +2582,6 @@ fn encoded_segment(segment: &str) -> String {
     output
 }
 
-fn module_name_from_path(path: &str) -> Option<String> {
-    Some(path.strip_suffix(".veln")?.replace('/', "::"))
-}
-
 fn is_package_relative_path(path: &str) -> bool {
     let path = std::path::Path::new(path);
     !path.is_absolute()
@@ -3459,14 +3490,65 @@ mod tests {
     }
 
     #[test]
+    fn invalid_source_module_export_fails_manifest_gate_without_partial_catalog() {
+        let manifest_text = "[package]\nname = \"demo\"\n[lib]\nexports = [\"bad-name.veln\"]\n";
+        let source_text = "pub fn leaked() -> Int\n\t1\nend\n";
+        let snapshot = capture_embedded_package_snapshot(
+            manifest_text.as_bytes(),
+            [PackageSnapshotSource::new(
+                "bad-name.veln",
+                source_text.as_bytes(),
+            )],
+        )
+        .unwrap();
+        let manifest = parse_manifest_text("veln.toml", manifest_text);
+        let identity = PackageIdentity::new("demo").unwrap();
+        let result = PackageDocResult::generate(
+            &identity,
+            &snapshot,
+            &manifest,
+            PackageDocGeneratorContract::new("contract-a"),
+        );
+
+        assert!(result.catalog().is_none());
+        assert!(result.status().diagnostics.iter().any(|diagnostic| {
+            diagnostic.gate == "manifest" && diagnostic.code == "package_doc.invalid_export"
+        }));
+        assert!(
+            result
+                .status()
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "module.invalid_source_path")
+        );
+        assert!(
+            !std::str::from_utf8(result.canonical_bytes())
+                .unwrap()
+                .contains("\"modules\"")
+        );
+        assert!(
+            !std::str::from_utf8(result.canonical_bytes())
+                .unwrap()
+                .contains("leaked")
+        );
+        assert_eq!(snapshot.sources()[0].path(), "bad-name.veln");
+        assert_eq!(snapshot.sources()[0].bytes(), source_text.as_bytes());
+    }
+
+    #[test]
     fn executable_specification_fixture_observes_manifest_gate_failure() {
         let result = generate_fixture("package-catalog-manifest-gate");
 
         assert!(result.catalog().is_none());
-        assert_eq!(result.status().diagnostics[0].gate, "manifest");
-        assert_eq!(
-            result.status().diagnostics[0].code,
-            "package_doc.invalid_export"
+        assert!(result.status().diagnostics.iter().any(|diagnostic| {
+            diagnostic.gate == "manifest" && diagnostic.code == "package_doc.invalid_export"
+        }));
+        assert!(
+            result
+                .status()
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "module.invalid_source_path")
         );
         assert!(
             !std::str::from_utf8(result.canonical_bytes())

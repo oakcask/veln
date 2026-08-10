@@ -464,7 +464,8 @@ result, documentation digest, canonical `veln-doc:` URI foundation, same-capture
 manifest binding, validated `PackageIdentity` API boundary, pointer-width
 independent identifier digest transcripts, path-derived module identity,
 manifest package-name and package-identity matching, normalized exported-module
-metadata, exported module and public constructor documentation projection,
+metadata, compiler-valid export module identity rejection, exported module and
+public constructor documentation projection,
 import-aware schema documentation references, public schema alias reference
 resolution, stream-aware expected-output publication, effect-row-binder
 signatures, and generated
@@ -922,7 +923,7 @@ already implemented.
 | Keep returned dependency URIs while projects refresh or disappear. | Every published snapshot remains readable until shutdown; capacity failure never evicts an older URI. | Q10 resource-lifetime cases. |
 | Generate package docs. | The transport-independent catalog contains only exported modules and their public API; attached contracts, visible doctests that can reference the same exported package API, stream-aware expected-output fences, import-aware resolved schema documentation references, public schema alias targets, effect-row-binder signatures, and declaration-location URI lookup are preserved. MCP publication remains planned. | Implemented package-documentation unit tests and readable `doc` examples; planned MCP resource case. |
 | Change catalog semantics without changing package bytes. | The package digest stays fixed and the documentation catalog digest and URIs change. | Implemented package-documentation document-identity tests; planned MCP resource case. |
-| Package documentation generation or doctest validation fails. | The transport-independent result contains ordered status diagnostics and no partial module or declaration catalog. Negative doctests require parse diagnostics rather than semantic-only diagnostics. MCP status-resource publication remains planned. | Implemented atomic-generation-failure unit tests; planned MCP resource case. |
+| Package documentation generation or doctest validation fails. | The transport-independent result contains ordered status diagnostics and no partial module or declaration catalog. Export paths that cannot derive compiler-valid source module identities fail generation. Negative doctests require parse diagnostics rather than semantic-only diagnostics. MCP status-resource publication remains planned. | Implemented atomic-generation-failure and invalid-export unit tests; planned MCP resource case. |
 
 ### Published Language Reference
 
