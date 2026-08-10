@@ -37,7 +37,8 @@ requiring the full command reference on the first read.
   through qualified target imports, exact companion private nominal effect
   access through qualified target imports, companion observation of established
   private target function effects, package export rejection for `.test.veln`
-  companions, path dependency source loading for external imports,
+  companions, direct path, vendor, and mirror dependency source loading for
+  external imports,
   parse/semantic diagnostics, checked-core blockers, and check JSON output.
   Use [diagnostics-json.md](diagnostics-json.md) first for diagnostic shape,
   [source-surface.md](source-surface.md) for the companion private-function

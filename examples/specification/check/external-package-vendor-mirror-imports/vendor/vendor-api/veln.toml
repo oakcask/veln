@@ -1,0 +1,5 @@
+[package]
+name = "github.com/oakcask/vendor-api"
+
+[lib]
+exports = ["vendored.veln"]

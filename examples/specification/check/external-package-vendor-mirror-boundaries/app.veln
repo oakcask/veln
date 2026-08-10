@@ -1,0 +1,7 @@
+use vendored from "github.com/oakcask/vendor-api"
+use private from "github.com/oakcask/vendor-api"
+use mirrored from "github.com/oakcask/mirror-api"
+
+fn main() -> Int
+  vendored::value() + mirrored::secret()
+end

@@ -193,26 +193,42 @@ mod tests {
     }
 
     #[test]
-    fn uri_spelling_is_canonical_and_relocation_independent() {
-        let first = TempPackage::new(&[("src/main file.veln", b"main\n")]);
-        let second = TempPackage::new(&[("src/main file.veln", b"main\n")]);
+    fn equivalent_path_vendor_and_mirror_snapshots_share_virtual_uris() {
+        let sources = [
+            ("src/main file.veln", b"main\r\n".as_slice()),
+            ("src/nested/helper.veln", b"helper\n".as_slice()),
+        ];
+        let path = TempPackage::new(&sources);
+        let vendor = TempPackage::new(&sources);
+        let mirror = TempPackage::new(&sources);
         let identity = PackageIdentity::new("owner/package").unwrap();
-        let first_catalog = VirtualSourceCatalog::new([(
-            identity.clone(),
-            capture_package_snapshot(first.path()).unwrap(),
-        )])
-        .unwrap();
-        let second_catalog = VirtualSourceCatalog::new([(
-            identity,
-            capture_package_snapshot(second.path()).unwrap(),
-        )])
-        .unwrap();
-        let first_uri = first_catalog.entries().next().unwrap().uri();
-        let second_uri = second_catalog.entries().next().unwrap().uri();
+        let catalogs = [path, vendor, mirror].map(|package| {
+            VirtualSourceCatalog::new([(
+                identity.clone(),
+                capture_package_snapshot(package.path()).unwrap(),
+            )])
+            .unwrap()
+        });
+        let entries = catalogs.each_ref().map(|catalog| {
+            catalog
+                .entries()
+                .map(|entry| {
+                    (
+                        entry.uri().to_string(),
+                        catalog.resolve(entry.uri()).unwrap().to_vec(),
+                    )
+                })
+                .collect::<Vec<_>>()
+        });
 
-        assert_eq!(first_uri, second_uri);
-        assert!(first_uri.contains("owner%2Fpackage"));
-        assert!(first_uri.ends_with("/src/main%20file.veln"));
+        assert_eq!(entries[0], entries[1]);
+        assert_eq!(entries[0], entries[2]);
+        assert_eq!(entries[0].len(), 2);
+        assert!(entries[0][0].0.contains("owner%2Fpackage"));
+        assert!(entries[0][0].0.ends_with("/src/main%20file.veln"));
+        assert_eq!(entries[0][0].1, b"main\r\n");
+        assert!(entries[0][1].0.ends_with("/src/nested/helper.veln"));
+        assert_eq!(entries[0][1].1, b"helper\n");
     }
 
     #[test]

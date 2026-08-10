@@ -20,7 +20,7 @@ used by editor integrations.
 - LSP `textDocument/definition`, `textDocument/references`,
   `textDocument/prepareRename`, and `textDocument/rename` convert shared
   navigation results to LSP responses in `veln-lsp`.
-- LSP `veln/virtualDocument` reads immutable direct path-dependency and
+- LSP `veln/virtualDocument` reads immutable direct path, vendor, mirror, and
   embedded standard-library source from retained package snapshots in
   `veln-lsp`.
 - LSP `textDocument/formatting` is implemented in `veln-lsp`.
@@ -165,13 +165,13 @@ visibility, handler bindings, deterministic ordering, shadowing, field
 isolation, and positions without a supported symbol.
 
 `veln-lsp` captures the workspace manifest, saved workspace sources, valid
-direct path-dependency snapshots, and the embedded standard-package snapshot
-together for each selected workspace project. It constructs the standard
-snapshot directly from the embedded manifest and distribution sources without
-materializing a filesystem tree. Navigation starts from that retained project
-snapshot. The server applies open-document overlays to workspace sources
-before calling the shared language service. It converts shared locations to
-LSP URIs and zero-based ranges.
+direct path, vendor, and mirror dependency snapshots, and the embedded
+standard-package snapshot together for each selected workspace project. It
+constructs the standard snapshot directly from the embedded manifest and
+distribution sources without materializing a filesystem tree. Navigation
+starts from that retained project snapshot. The server applies open-document
+overlays to workspace sources before calling the shared language service. It
+converts shared locations to LSP URIs and zero-based ranges.
 Definition, references, prepare-rename, and rename use the same shared selected
 symbol and reference set.
 For a workspace symbol, references and rename edits include only workspace
@@ -185,6 +185,11 @@ from the same identity and snapshot. A qualified call through
 `use module from "package"` can resolve to a function in that dependency only
 when the dependency identity matches, the function's source is listed in
 `[lib].exports`, and the function is public.
+The dependency source field can be `path`, `vendor`, or `mirror` when it names
+an already available package root. The source kind and physical root are not
+part of the retained package location. Equal package identity, dependency
+manifest bytes, and distribution source bytes produce the same dependency
+`veln-pkg:` URI across those source fields.
 
 The retained standard input has the reserved `std` identity and the same
 snapshot, export, and catalog boundaries. Bare and `prelude::` calls resolve
@@ -234,6 +239,9 @@ and unknown or noncanonical URI rejection. The VSCode extension tests cover the
 corresponding definition request, exact-text read, location conversion,
 canonical URI lookup after VSCode URI parsing, and content-provider
 registration.
+The `veln-lsp` path, vendor, and mirror dependency virtual-URI test is the
+executable evidence that the returned URI omits physical placement and source
+kind while still reading the exact retained source text.
 
 The executable LSP example
 `../../examples/specification/lsp/standard-library-virtual-document/` checks
@@ -372,9 +380,9 @@ Implemented:
   document overlays.
 - Document-scoped diagnostic publication for Veln documents outside resolved
   workspaces or when no workspace identity is initialized.
-- Stdio definition responses for public functions in exported direct
-  path-dependency sources, and `veln/virtualDocument` reads for the returned
-  exact `veln-pkg:` URI.
+- Stdio definition responses for public functions in exported direct `path`,
+  `vendor`, and `mirror` dependency sources, and `veln/virtualDocument` reads
+  for the returned exact `veln-pkg:` URI.
 - Stdio definition responses for implicit prelude functions and public
   functions in explicitly imported exported `std` sources, with exact
   `veln/virtualDocument` reads from the embedded standard snapshot.
@@ -393,5 +401,5 @@ Not implemented:
 - Completion and hover.
 - Dependency reference search.
 - General rename and go-to-definition support outside the implemented
-  companion private-function identity, handler binding, direct path-dependency,
-  and embedded standard-function definition cases.
+  companion private-function identity, handler binding, direct path, vendor,
+  mirror dependency, and embedded standard-function definition cases.
