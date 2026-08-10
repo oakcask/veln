@@ -27,6 +27,7 @@ pub struct VirtualSourceCatalog {
     packages: Vec<(PackageIdentity, CapturedPackageSnapshot)>,
     entries: Vec<VirtualSourceEntry>,
     by_uri: BTreeMap<String, usize>,
+    by_source: Vec<Vec<usize>>,
 }
 
 impl VirtualSourceCatalog {
@@ -37,6 +38,10 @@ impl VirtualSourceCatalog {
         let packages = packages.into_iter().collect::<Vec<_>>();
         let mut entries = Vec::new();
         let mut by_uri = BTreeMap::new();
+        let mut by_source = packages
+            .iter()
+            .map(|(_, snapshot)| Vec::with_capacity(snapshot.sources().len()))
+            .collect::<Vec<_>>();
 
         for (package_index, (identity, snapshot)) in packages.iter().enumerate() {
             for (source_index, source) in snapshot.sources().iter().enumerate() {
@@ -50,6 +55,7 @@ impl VirtualSourceCatalog {
                     package_index,
                     source_index,
                 });
+                by_source[package_index].push(entry_index);
             }
         }
 
@@ -57,6 +63,7 @@ impl VirtualSourceCatalog {
             packages,
             entries,
             by_uri,
+            by_source,
         })
     }
 
@@ -71,9 +78,10 @@ impl VirtualSourceCatalog {
         package_index: usize,
         source_index: usize,
     ) -> Option<&VirtualSourceEntry> {
-        self.entries.iter().find(|entry| {
-            entry.package_index == package_index && entry.source_index == source_index
-        })
+        self.by_source
+            .get(package_index)?
+            .get(source_index)
+            .and_then(|entry_index| self.entries.get(*entry_index))
     }
 
     /// Resolves an exact canonical URI to the captured source bytes.
@@ -363,6 +371,35 @@ mod tests {
     }
 
     #[test]
+    fn source_entry_lookup_keeps_dense_index_for_many_sources() {
+        let source_count = 20_001;
+        let sources = (0..source_count)
+            .map(|index| {
+                (
+                    format!("src/file-{index:05}.veln"),
+                    format!("pub fn value_{index}() -> Int\n  {index}\nend\n").into_bytes(),
+                )
+            })
+            .collect::<Vec<_>>();
+        let root = TempPackage::new_owned(&sources);
+        let snapshot = capture_package_snapshot(root.path()).unwrap();
+        let catalog =
+            VirtualSourceCatalog::new([(PackageIdentity::new("owner/package").unwrap(), snapshot)])
+                .unwrap();
+
+        assert_eq!(catalog.by_source.len(), 1);
+        assert_eq!(catalog.by_source[0].len(), source_count);
+        for source_index in 0..source_count {
+            let entry = catalog.entry_for_source(0, source_index).unwrap();
+            assert_eq!(entry.source_index, source_index);
+            assert_eq!(
+                catalog.entries[catalog.by_source[0][source_index]].uri(),
+                entry.uri()
+            );
+        }
+    }
+
+    #[test]
     fn duplicate_canonical_sources_are_rejected() {
         let root = TempPackage::new(&[("main.veln", b"main\n")]);
         let snapshot = capture_package_snapshot(root.path()).unwrap();
@@ -383,12 +420,30 @@ mod tests {
 
     impl TempPackage {
         fn new(sources: &[(&str, &[u8])]) -> Self {
-            let sequence = NEXT_TEMP_ROOT.fetch_add(1, Ordering::Relaxed);
-            let root = std::env::temp_dir().join(format!(
-                "veln-language-service-{}-{sequence}",
-                std::process::id()
-            ));
-            fs::create_dir_all(&root).unwrap();
+            Self::write_sources(sources.iter().map(|(path, bytes)| (*path, *bytes)))
+        }
+
+        fn new_owned(sources: &[(String, Vec<u8>)]) -> Self {
+            Self::write_sources(
+                sources
+                    .iter()
+                    .map(|(path, bytes)| (path.as_str(), &bytes[..])),
+            )
+        }
+
+        fn write_sources<'a>(sources: impl IntoIterator<Item = (&'a str, &'a [u8])>) -> Self {
+            let root = loop {
+                let sequence = NEXT_TEMP_ROOT.fetch_add(1, Ordering::Relaxed);
+                let candidate = std::env::temp_dir().join(format!(
+                    "veln-language-service-{}-{sequence}",
+                    std::process::id()
+                ));
+                match fs::create_dir(&candidate) {
+                    Ok(()) => break candidate,
+                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                    Err(error) => panic!("failed to create temp package root: {error}"),
+                }
+            };
             fs::write(root.join("veln.toml"), b"[package]\nname = \"fixture\"\n").unwrap();
             for (path, bytes) in sources {
                 let path = root.join(path);
