@@ -21,9 +21,12 @@ pub use lockfile::{
     normalize_lockfile_path, source_tree_checksum, write_lockfile,
 };
 pub use manifest::{
-    ManifestDependency, ManifestDependencySelector, ManifestDependencySelectorKind, ManifestExport,
-    ManifestField, ManifestLib, ManifestPackage, ManifestTool, ManifestUnsupportedSection,
-    ProjectManifest, parse_manifest_text, read_manifest,
+    DirectAnalysisSourceError, ManifestDependency, ManifestDependencySelector,
+    ManifestDependencySelectorKind, ManifestExport, ManifestField, ManifestLib, ManifestPackage,
+    ManifestTool, ManifestUnsupportedSection, ProjectManifest, dependency_root, git_package_root,
+    git_source_root, is_non_local_git_source, is_relative_package_subdir, local_file_url_path,
+    materialized_git_repository_root, parse_manifest_text, read_manifest,
+    read_only_git_source_root, validate_unique_git_selector,
 };
 pub use portable::{
     PORTABLE_UNICODE_VERSION, PORTABLE_UNICODE_VERSION_STRING, PackageIdentity,

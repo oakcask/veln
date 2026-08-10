@@ -454,14 +454,13 @@ set foundation, portable package identity and capture validation, and Q13
 evidence. The canonical transport-independent virtual-source catalog and exact
 resolver are also implemented and specified in
 [Package Virtual Sources](../specification/package-virtual-sources.md).
-The direct path, vendor, and mirror dependency LSP definition and
-virtual-document slices, embedded standard-library LSP definition and
-virtual-document slices, plus the VSCode content provider, are implemented and
-specified in
+The direct path, vendor, mirror, and locally available direct git dependency
+LSP definition and virtual-document slices, embedded standard-library LSP
+definition and virtual-document slices, plus the VSCode content provider, are
+implemented and specified in
 [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).
-Analysis publication beyond those LSP slices, git package materialization, MCP
-resources, documentation snapshots, and snapshot lifetime rules remain planned
-below.
+MCP resources, documentation snapshots, and snapshot lifetime rules remain
+planned below.
 
 The owned distribution set contains every captured regular file whose name
 ends in `.veln`, including private, non-exported, on-disk generated, and
@@ -888,12 +887,10 @@ already implemented.
 
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |
-| Return virtual source locations for equivalent direct git snapshots from analysis results. | Package identity, snapshot, and source path determine the same `veln-pkg:` URI independent of storage layout. The transport-independent catalog canonicalization is already implemented and specified in [Package Virtual Sources](../specification/package-virtual-sources.md). Direct path, vendor, mirror, and embedded standard-library LSP definition locations are implemented and specified in [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename). | Direct git analysis-publication and adapter-integration cases. |
-| Read a returned virtual source URI through MCP. | Resource text equals the source bytes used for analysis. The transport-independent exact-byte resolver is already implemented and specified in [Package Virtual Sources](../specification/package-virtual-sources.md). LSP `veln/virtualDocument` reads for direct path, vendor, mirror, and embedded standard-library URIs are implemented and specified in [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename). | MCP resource round-trip case using a source URI returned by analysis. |
-| Change an included source or manifest byte in a captured distribution. | Snapshot capture passes the changed exact bytes to the implemented digest API. Direct path, vendor, and mirror LSP virtual URI changes are implemented for retained project snapshots. Direct git analysis publication and MCP virtual-resource changes remain planned. | Implemented Q12 capture digest-integration tests and LSP dependency virtual-URI tests; planned direct git and MCP virtual-resource cases. |
+| Read a returned virtual source URI through MCP. | Resource text equals the source bytes used for analysis. The transport-independent exact-byte resolver is already implemented and specified in [Package Virtual Sources](../specification/package-virtual-sources.md). LSP `veln/virtualDocument` reads for direct path, vendor, mirror, locally available git, and embedded standard-library URIs are implemented and specified in [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename). | MCP resource round-trip case using a source URI returned by analysis. |
+| Change an included source or manifest byte in a captured distribution. | Snapshot capture passes the changed exact bytes to the implemented digest API. LSP virtual URI changes are implemented for retained direct path, vendor, mirror, and locally available git project snapshots. MCP virtual-resource changes remain planned. | Implemented Q12 capture digest-integration tests and LSP dependency virtual-URI tests; planned MCP virtual-resource cases. |
 | Discover private, generated, test, descendant, symlink, non-regular, and `target` sources. | The captured distribution set includes private, non-exported, generated, and ordinary `target` sources, applies every stated exclusion, and errors on represented non-regular distribution sources. Analysis and resource consumers remain planned. | Implemented Q12 distribution-set and filesystem-boundary tests; planned analysis-resource equality cases. |
 | Load nonportable names or colliding paths. | Invalid UTF-8, non-NFC, control-bearing, separator-bearing, case-colliding, or reserved identities are rejected before publication. | Q13 portable-domain matrix. |
-| Change only a direct git physical materialization path after analysis starts publishing package sources. | The returned virtual source URI remains unchanged because it is derived from package identity, digest, and source path. The transport-independent URI equality case is already implemented and specified in [Package Virtual Sources](../specification/package-virtual-sources.md), and direct path, vendor, and mirror LSP URI equality is implemented and specified in [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename). | Direct git analysis-publication integration case. |
 | Read a noncanonical, unknown, or mismatched snapshot URI through MCP. | The server returns `resource_not_found` without normalization, fallback, or filesystem access. The transport-independent resolver rejection table is already implemented and specified in [Package Virtual Sources](../specification/package-virtual-sources.md). | MCP adapter case mapping a catalog miss to `resource_not_found`. |
 | Read a private distribution source or inspect package metadata. | The source is readable; metadata contains only the closed public allowlist and no dependency, URL, tool, path, or credential-bearing fields. | Q15 disclosure-policy cases. |
 | Keep returned dependency URIs while projects refresh or disappear. | Every published snapshot remains readable until shutdown; capacity failure never evicts an older URI. | Q10 resource-lifetime cases. |
@@ -939,26 +936,28 @@ matrix are also implemented and specified on the same page.
 The canonical package virtual-source URI and resolver foundation is implemented
 and specified in
 [Package Virtual Sources](../specification/package-virtual-sources.md).
-Direct path, vendor, and mirror dependency definition locations, embedded
-standard-library definition locations, the LSP virtual-document request, and
-the VSCode content provider are implemented and specified in
+Direct path, vendor, mirror, and locally available direct git dependency
+definition locations, embedded standard-library definition locations, the LSP
+virtual-document request, and the VSCode content provider are implemented and
+specified in
 [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).
+The implemented LSP direct git path includes local path, local `file:` URL,
+and already materialized remote URL source spellings, package-lock-aligned
+unique selector and `subdir` validation, snapshot-URI independence from
+physical materialization paths, and retained exact-byte reads.
 This bounded implementation retains validated workspace, direct-dependency,
 and embedded standard-package captures for the definition-to-read path. It
-does not implement git package materialization, dependency reference search,
-or MCP resources.
+does not implement dependency reference search or MCP resources.
 The remaining slices are:
 
-1. Extend published virtual-source locations to direct git dependency
-   materializations without changing URI identity.
-2. Add exported package documentation and bind it to package snapshots.
-3. Define and validate language-reference topic descriptors. Generate the
+1. Add exported package documentation and bind it to package snapshots.
+2. Define and validate language-reference topic descriptors. Generate the
    executable grammar, selected example, and compiler-owned table projections.
-4. Add `veln mcp`, resources, documentation tools, project diagnostics,
+3. Add `veln mcp`, resources, documentation tools, project diagnostics,
    definition, and references.
-5. Add cross-adapter conformance cases, bounded search, pagination, and stale
+4. Add cross-adapter conformance cases, bounded search, pagination, and stale
    snapshot handling.
-6. Package and validate Codex and Claude Code plugins and document their
+5. Package and validate Codex and Claude Code plugins and document their
    client-native installation flows.
 
 ## Deferred Work

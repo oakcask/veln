@@ -1,5 +1,5 @@
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 
@@ -48,6 +48,33 @@ impl ManifestDependency {
             .or(self.vendor.as_ref())
             .or(self.mirror.as_ref())
     }
+
+    pub fn direct_analysis_source_root(
+        &self,
+        owner_root: &Path,
+    ) -> Result<Option<PathBuf>, DirectAnalysisSourceError> {
+        if let Some(source) = self.direct_local_source() {
+            return Ok(Some(dependency_root(owner_root, &source.value)));
+        }
+
+        let Some(git) = &self.git else {
+            return Ok(None);
+        };
+        validate_unique_git_selector(self)?;
+        let Some(repository_root) = read_only_git_source_root(owner_root, &git.value)? else {
+            return Ok(None);
+        };
+        Ok(Some(git_package_root(&repository_root, self)?))
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DirectAnalysisSourceError {
+    InvalidFileUrl,
+    NonLocalFileUrl,
+    MissingGitSelector,
+    MultipleGitSelectors,
+    InvalidGitSubdir,
 }
 
 #[derive(Clone, Debug)]
@@ -61,6 +88,143 @@ pub enum ManifestDependencySelectorKind {
     Rev,
     Tag,
     Branch,
+}
+
+pub fn dependency_root(root: &Path, path: &str) -> PathBuf {
+    let path = PathBuf::from(path);
+    if path.is_absolute() {
+        path
+    } else {
+        root.join(path)
+    }
+}
+
+pub fn git_source_root(
+    root: &Path,
+    source: &str,
+) -> Result<Option<PathBuf>, DirectAnalysisSourceError> {
+    if let Some(path) = local_file_url_path(source)? {
+        return Ok(Some(path));
+    }
+    if is_non_local_git_source(source) {
+        return Ok(None);
+    }
+    Ok(Some(dependency_root(root, source)))
+}
+
+pub fn read_only_git_source_root(
+    root: &Path,
+    source: &str,
+) -> Result<Option<PathBuf>, DirectAnalysisSourceError> {
+    if let Some(path) = local_file_url_path(source)? {
+        return Ok(Some(path));
+    }
+    if is_non_local_git_source(source) {
+        let repository_root = materialized_git_repository_root(root, source);
+        return Ok(repository_root.is_dir().then_some(repository_root));
+    }
+    Ok(Some(dependency_root(root, source)))
+}
+
+pub fn materialized_git_repository_root(root: &Path, source: &str) -> PathBuf {
+    root.join(".veln")
+        .join("package")
+        .join("git")
+        .join(git_source_storage_key(source))
+}
+
+fn git_source_storage_key(source: &str) -> String {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in source.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{hash:016x}")
+}
+
+pub fn git_package_root(
+    repository_root: &Path,
+    dependency: &ManifestDependency,
+) -> Result<PathBuf, DirectAnalysisSourceError> {
+    let Some(subdir) = &dependency.subdir else {
+        return Ok(repository_root.to_path_buf());
+    };
+    if !is_relative_package_subdir(&subdir.value) {
+        return Err(DirectAnalysisSourceError::InvalidGitSubdir);
+    }
+    Ok(repository_root.join(&subdir.value))
+}
+
+pub fn validate_unique_git_selector(
+    dependency: &ManifestDependency,
+) -> Result<&ManifestDependencySelector, DirectAnalysisSourceError> {
+    match dependency.selectors.as_slice() {
+        [] => Err(DirectAnalysisSourceError::MissingGitSelector),
+        [selector] => Ok(selector),
+        _ => Err(DirectAnalysisSourceError::MultipleGitSelectors),
+    }
+}
+
+pub fn is_relative_package_subdir(path: &str) -> bool {
+    let path = Path::new(path);
+    !path.as_os_str().is_empty()
+        && !path.is_absolute()
+        && !path.components().any(|component| {
+            matches!(
+                component,
+                std::path::Component::ParentDir
+                    | std::path::Component::RootDir
+                    | std::path::Component::Prefix(_)
+            )
+        })
+}
+
+pub fn local_file_url_path(source: &str) -> Result<Option<PathBuf>, DirectAnalysisSourceError> {
+    let Some(rest) = source.strip_prefix("file://") else {
+        return Ok(None);
+    };
+    if let Some(path) = rest.strip_prefix("localhost/") {
+        return Ok(Some(PathBuf::from(percent_decode(&format!("/{path}"))?)));
+    }
+    if rest.starts_with('/') {
+        return Ok(Some(PathBuf::from(percent_decode(rest)?)));
+    }
+    Err(DirectAnalysisSourceError::NonLocalFileUrl)
+}
+
+pub fn is_non_local_git_source(source: &str) -> bool {
+    source.contains("://") || looks_like_scp_git_source(source)
+}
+
+fn looks_like_scp_git_source(source: &str) -> bool {
+    let Some(colon) = source.find(':') else {
+        return false;
+    };
+    let slash = source.find('/').unwrap_or(usize::MAX);
+    colon < slash && source[..colon].contains('@')
+}
+
+fn percent_decode(value: &str) -> Result<String, DirectAnalysisSourceError> {
+    let bytes = value.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%' {
+            let Some(hex) = bytes.get(index + 1..index + 3) else {
+                return Err(DirectAnalysisSourceError::InvalidFileUrl);
+            };
+            let text =
+                std::str::from_utf8(hex).map_err(|_| DirectAnalysisSourceError::InvalidFileUrl)?;
+            let byte = u8::from_str_radix(text, 16)
+                .map_err(|_| DirectAnalysisSourceError::InvalidFileUrl)?;
+            out.push(byte);
+            index += 3;
+        } else {
+            out.push(bytes[index]);
+            index += 1;
+        }
+    }
+    String::from_utf8(out).map_err(|_| DirectAnalysisSourceError::InvalidFileUrl)
 }
 
 impl ManifestDependencySelectorKind {

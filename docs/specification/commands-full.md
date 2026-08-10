@@ -124,10 +124,14 @@ package-root metadata inside the selected source. Vendor dependency metadata
 uses a string-valued `vendor` field naming an already available vendored
 package directory. Mirror dependency metadata uses a string-valued `mirror`
 field naming an already materialized source tree. Current dependency discovery
-loads already available direct path, vendor, and mirror dependency roots for
-source imports. Source imports do not fetch packages, resolve git revisions,
-update dependency checksums, or write lockfiles. Current package export
-entries do not add files to the selected set. Each export must be a
+loads already available direct path, vendor, mirror, and git dependency roots
+for source imports. A git dependency source may be a local path, a local
+`file:` URL, or a non-local URL that has already been materialized under the
+project cache by another operation. When `subdir` is present, the command loads
+the package root below that repository-relative subdirectory. Source imports
+do not clone, fetch, check out packages, resolve git revisions, update
+dependency checksums, or write lockfiles. Current package export entries do not
+add files to the selected set. Each export must be a
 package-relative `.veln` source path, must use file-path spelling instead of
 module-path spelling, must not name a `.test.veln` test companion, must derive
 a valid source module path, must match a selected source file, and must not
@@ -135,12 +139,12 @@ duplicate another export for the same derived module path. `[modules]` is
 rejected.
 
 When a parse-clean source contains `use path from "package"`, the command
-looks for a matching direct path, vendor, or mirror dependency table in the
-current project manifest, requires the dependency root to have a direct regular
-`veln.toml`, loads that dependency's discovered `.veln` sources, checks that
-the dependency manifest's `[package].name` matches the requested package
-identity, and
-requires the imported module path to be listed by the dependency package's
+looks for a matching direct path, vendor, mirror, or already available git
+dependency table in the current project manifest, requires the dependency root
+to have a direct regular `veln.toml`, loads that dependency's discovered
+`.veln` sources, checks that the dependency manifest's `[package].name` matches
+the requested package identity, and requires the imported module path to be
+listed by the dependency package's
 `[lib].exports`. A dependency manifest export that names a `.test.veln`
 companion is rejected before that path can contribute an exported module. The
 external import contributes only public declarations and public aliases from
@@ -149,10 +153,13 @@ the exported dependency module to the importing source.
 The checked cases `external-package-direct-manifest` and
 `external-package-missing-direct-manifest` are executable command evidence for
 direct dependency package roots during source analysis. The checked cases
-`external-package-vendor-mirror-imports` and
-`external-package-vendor-mirror-boundaries` are executable command evidence for
-direct vendor and mirror import success, export boundaries, and public
-visibility boundaries.
+`external-package-imports`, `external-package-vendor-mirror-imports`, and
+`external-package-git-imports` are executable command evidence for direct path,
+vendor, mirror, and git import success, including git `subdir` package-root
+selection. The checked cases `external-package-import-boundaries`,
+`external-package-vendor-mirror-boundaries`, and
+`external-package-git-boundaries` are executable command evidence for the
+matching export and public visibility boundaries.
 
 Semantic diagnostics are suppressed for a file that has parse diagnostics.
 Other parse-clean files in the same invocation may still produce semantic

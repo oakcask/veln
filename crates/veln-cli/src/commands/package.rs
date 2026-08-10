@@ -5,10 +5,12 @@ use std::process::{Command, ExitCode};
 
 use veln_diagnostics::{Diagnostic, DiagnosticEnvelope, DiagnosticKind, JsonValue, Severity};
 use veln_project::{
-    LockfileGitSelector, LockfilePackage, LockfileSource, ManifestDependency,
-    ManifestDependencySelector, ManifestDependencySelectorKind, ManifestField, PackageIdentity,
-    ProjectLockfile, ProjectManifest, normalize_lockfile_path, read_manifest, source_tree_checksum,
-    write_lockfile,
+    DirectAnalysisSourceError, LockfileGitSelector, LockfilePackage, LockfileSource,
+    ManifestDependency, ManifestDependencySelector, ManifestDependencySelectorKind, ManifestField,
+    PackageIdentity, ProjectLockfile, ProjectManifest, dependency_root, git_package_root,
+    git_source_root, is_non_local_git_source, local_file_url_path,
+    materialized_git_repository_root, normalize_lockfile_path, read_manifest, source_tree_checksum,
+    validate_unique_git_selector, write_lockfile,
 };
 use veln_source::{SourcePath, SourceSpan};
 
@@ -484,7 +486,9 @@ where
     let selector = git_selector(dependency)?;
     let repository_root = match git_source_root(owner_root, &git_field.value).map_err(|reason| {
         Box::new(unavailable_git_dependency_diagnostic(
-            dependency, git_field, reason,
+            dependency,
+            git_field,
+            direct_analysis_source_error_reason(reason),
         ))
     })? {
         Some(repository_root) => repository_root,
@@ -502,7 +506,25 @@ where
         )));
     }
 
-    let package_root = git_package_root(&repository_root, dependency)?;
+    let package_root =
+        git_package_root(&repository_root, dependency).map_err(|reason| match reason {
+            DirectAnalysisSourceError::InvalidGitSubdir => dependency
+                .subdir
+                .as_ref()
+                .map(|subdir| Box::new(invalid_git_subdir_diagnostic(dependency, subdir)))
+                .unwrap_or_else(|| {
+                    Box::new(unavailable_git_dependency_diagnostic(
+                        dependency,
+                        git_field,
+                        direct_analysis_source_error_reason(reason),
+                    ))
+                }),
+            _ => Box::new(unavailable_git_dependency_diagnostic(
+                dependency,
+                git_field,
+                direct_analysis_source_error_reason(reason),
+            )),
+        })?;
     let lockfile_url = git_lockfile_url(lockfile_root, owner_root, git_field);
     let display_path = git_dependency_display_path(&lockfile_url, dependency.subdir.as_ref());
     let manifest = read_manifest(&package_root)
@@ -553,15 +575,6 @@ where
         manifest_display_path: display_path,
         package_span: dependency.package_span.clone(),
     })
-}
-
-fn dependency_root(root: &Path, path: &str) -> PathBuf {
-    let path = PathBuf::from(path);
-    if path.is_absolute() {
-        path
-    } else {
-        root.join(path)
-    }
 }
 
 fn dependency_selection(
@@ -657,28 +670,6 @@ fn git_lockfile_url(lockfile_root: &Path, owner_root: &Path, git_field: &Manifes
     }
 }
 
-fn git_source_root(root: &Path, source: &str) -> Result<Option<PathBuf>, &'static str> {
-    if let Some(path) = local_file_url_path(source)? {
-        return Ok(Some(path));
-    }
-    if is_non_local_git_source(source) {
-        return Ok(None);
-    }
-    Ok(Some(dependency_root(root, source)))
-}
-
-fn is_non_local_git_source(source: &str) -> bool {
-    source.contains("://") || looks_like_scp_git_source(source)
-}
-
-fn looks_like_scp_git_source(source: &str) -> bool {
-    let Some(colon) = source.find(':') else {
-        return false;
-    };
-    let slash = source.find('/').unwrap_or(usize::MAX);
-    colon < slash && source[..colon].contains('@')
-}
-
 fn materialize_git_source(
     root: &Path,
     git_field: &ManifestField,
@@ -703,22 +694,6 @@ fn materialize_git_source(
     checkout_materialized_git_source(&repository_root, selector)?;
     run_git_in(&repository_root, &["clean", "-fdx"])?;
     Ok(repository_root)
-}
-
-fn materialized_git_repository_root(root: &Path, source: &str) -> PathBuf {
-    root.join(".veln")
-        .join("package")
-        .join("git")
-        .join(git_source_storage_key(source))
-}
-
-fn git_source_storage_key(source: &str) -> String {
-    let mut hash = 0xcbf29ce484222325u64;
-    for byte in source.as_bytes() {
-        hash ^= u64::from(*byte);
-        hash = hash.wrapping_mul(0x100000001b3);
-    }
-    format!("{hash:016x}")
 }
 
 fn checkout_materialized_git_source(
@@ -787,82 +762,26 @@ fn git_command_result(output: std::process::Output) -> Result<(), String> {
     }
 }
 
-fn local_file_url_path(source: &str) -> Result<Option<PathBuf>, &'static str> {
-    let Some(rest) = source.strip_prefix("file://") else {
-        return Ok(None);
-    };
-    if let Some(path) = rest.strip_prefix("localhost/") {
-        return Ok(Some(PathBuf::from(percent_decode(&format!("/{path}"))?)));
-    }
-    if rest.starts_with('/') {
-        return Ok(Some(PathBuf::from(percent_decode(rest)?)));
-    }
-    Err("non_local_file_url")
-}
-
-fn percent_decode(value: &str) -> Result<String, &'static str> {
-    let bytes = value.as_bytes();
-    let mut out = Vec::with_capacity(bytes.len());
-    let mut index = 0;
-    while index < bytes.len() {
-        if bytes[index] == b'%' {
-            let Some(hex) = bytes.get(index + 1..index + 3) else {
-                return Err("invalid_file_url");
-            };
-            let text = std::str::from_utf8(hex).map_err(|_| "invalid_file_url")?;
-            let byte = u8::from_str_radix(text, 16).map_err(|_| "invalid_file_url")?;
-            out.push(byte);
-            index += 3;
-        } else {
-            out.push(bytes[index]);
-            index += 1;
-        }
-    }
-    String::from_utf8(out).map_err(|_| "invalid_file_url")
-}
-
-fn git_package_root(
-    repository_root: &Path,
-    dependency: &ManifestDependency,
-) -> Result<PathBuf, Box<Diagnostic>> {
-    let Some(subdir) = &dependency.subdir else {
-        return Ok(repository_root.to_path_buf());
-    };
-    if !is_relative_package_subdir(&subdir.value) {
-        return Err(Box::new(invalid_git_subdir_diagnostic(dependency, subdir)));
-    }
-    Ok(repository_root.join(&subdir.value))
-}
-
-fn is_relative_package_subdir(path: &str) -> bool {
-    let path = Path::new(path);
-    !path.as_os_str().is_empty()
-        && !path.is_absolute()
-        && !path.components().any(|component| {
-            matches!(
-                component,
-                std::path::Component::ParentDir
-                    | std::path::Component::RootDir
-                    | std::path::Component::Prefix(_)
-            )
-        })
-}
-
 fn git_selector(
     dependency: &ManifestDependency,
 ) -> Result<&ManifestDependencySelector, Box<Diagnostic>> {
-    if dependency.selectors.len() != 1 {
-        return Err(Box::new(unsupported_git_selector_diagnostic(
+    validate_unique_git_selector(dependency).map_err(|reason| {
+        Box::new(unsupported_git_selector_diagnostic(
             dependency,
             dependency.selectors.first(),
-            if dependency.selectors.is_empty() {
-                "missing_selector"
-            } else {
-                "multiple_selectors"
-            },
-        )));
+            direct_analysis_source_error_reason(reason),
+        ))
+    })
+}
+
+fn direct_analysis_source_error_reason(reason: DirectAnalysisSourceError) -> &'static str {
+    match reason {
+        DirectAnalysisSourceError::InvalidFileUrl => "invalid_file_url",
+        DirectAnalysisSourceError::NonLocalFileUrl => "non_local_file_url",
+        DirectAnalysisSourceError::MissingGitSelector => "missing_selector",
+        DirectAnalysisSourceError::MultipleGitSelectors => "multiple_selectors",
+        DirectAnalysisSourceError::InvalidGitSubdir => "invalid_package_subdir",
     }
-    Ok(&dependency.selectors[0])
 }
 
 fn lockfile_git_selector(selector: &ManifestDependencySelector) -> LockfileGitSelector {
