@@ -6,6 +6,7 @@ use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 #[derive(Clone, Debug)]
 pub struct ProjectManifest {
     pub path: SourcePath,
+    pub source_bytes: Vec<u8>,
     pub package: ManifestPackage,
     pub lib: ManifestLib,
     pub dependencies: Vec<ManifestDependency>,
@@ -333,6 +334,7 @@ fn parse_manifest(source: &SourceFile) -> ProjectManifest {
 
     ProjectManifest {
         path: source.path().clone(),
+        source_bytes: source.text().as_bytes().to_vec(),
         package,
         lib,
         dependencies,

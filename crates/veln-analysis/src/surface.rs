@@ -3985,6 +3985,7 @@ mod tests {
             files,
             manifest: Some(ProjectManifest {
                 path: SourcePath::new("veln.toml"),
+                source_bytes: Vec::new(),
                 package: veln_project::ManifestPackage {
                     fields: vec![ManifestField {
                         key: "name".to_string(),
@@ -5407,6 +5408,7 @@ mod tests {
             files: vec![source],
             manifest: Some(ProjectManifest {
                 path: SourcePath::new("veln.toml"),
+                source_bytes: Vec::new(),
                 package: Default::default(),
                 lib: ManifestLib {
                     exports: Vec::new(),
@@ -5461,6 +5463,7 @@ mod tests {
             files: vec![source],
             manifest: Some(ProjectManifest {
                 path: SourcePath::new("veln.toml"),
+                source_bytes: Vec::new(),
                 package: Default::default(),
                 lib: ManifestLib {
                     exports: vec![ManifestExport {
@@ -5493,6 +5496,7 @@ mod tests {
             files: vec![source],
             manifest: Some(ProjectManifest {
                 path: SourcePath::new("veln.toml"),
+                source_bytes: Vec::new(),
                 package: Default::default(),
                 lib: ManifestLib {
                     exports: vec![ManifestExport {
@@ -5524,6 +5528,7 @@ mod tests {
             files: vec![source],
             manifest: Some(ProjectManifest {
                 path: SourcePath::new("veln.toml"),
+                source_bytes: Vec::new(),
                 package: Default::default(),
                 lib: ManifestLib {
                     exports: vec![
@@ -5587,6 +5592,7 @@ mod tests {
             files: vec![source],
             manifest: Some(ProjectManifest {
                 path: SourcePath::new("veln.toml"),
+                source_bytes: Vec::new(),
                 package: Default::default(),
                 lib: ManifestLib {
                     exports: vec![
@@ -5664,6 +5670,7 @@ mod tests {
             files: vec![source],
             manifest: Some(ProjectManifest {
                 path: SourcePath::new("veln.toml"),
+                source_bytes: Vec::new(),
                 package: Default::default(),
                 lib: ManifestLib {
                     exports: vec![ManifestExport {

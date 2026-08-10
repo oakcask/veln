@@ -3770,6 +3770,7 @@ mod tests {
 
         ProjectManifest {
             path: source.path().clone(),
+            source_bytes: text.into_bytes(),
             package: ManifestPackage::default(),
             lib: ManifestLib {
                 exports: Vec::new(),

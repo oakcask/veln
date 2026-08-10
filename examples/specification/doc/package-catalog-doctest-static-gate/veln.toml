@@ -1,0 +1,6 @@
+[package]
+name = "package-catalog-doctest-static-gate"
+description = "Package documentation doctest static gate."
+
+[lib]
+exports = ["main.veln"]

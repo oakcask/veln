@@ -3,14 +3,16 @@ use std::error::Error;
 use std::fmt;
 
 use sha2::{Digest, Sha256};
+use veln_analysis::{DoctestMode, analyze_project};
 use veln_diagnostics::{Diagnostic, Severity};
-use veln_project::{CapturedPackageSnapshot, ProjectManifest, classify_companion_source};
+use veln_project::{CapturedPackageSnapshot, Project, ProjectManifest, classify_companion_source};
 use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{
     ContractClause, ContractKind, FunctionDecl, FunctionKind, ParseDiagnostic, PublicAliasDecl,
     PublicAliasKind, SchemaDecl, SyntaxItem, TokenKind, TypeDecl, TypeVariantDecl, Visibility,
     canonical_type_text, lex, parse,
 };
+use veln_test::{doctest_sources, reconcile_expected_doctest_failures};
 
 use crate::{NavigationLocation, NavigationSource};
 
@@ -326,6 +328,7 @@ impl<'a> PackageDocBuilder<'a> {
     }
 
     fn generate(mut self) -> PackageDocResult {
+        self.validate_manifest_snapshot_binding();
         self.validate_manifest_gate();
         let metadata = self.metadata();
         let parsed_sources = self.parse_sources();
@@ -623,6 +626,28 @@ impl<'a> PackageDocBuilder<'a> {
         }
     }
 
+    fn validate_manifest_snapshot_binding(&mut self) {
+        if self.manifest.source_bytes == self.snapshot.manifest_bytes() {
+            return;
+        }
+        self.diagnostics.push(PackageDocDiagnostic {
+            gate: "manifest".to_string(),
+            code: "package_doc.manifest_snapshot_mismatch".to_string(),
+            message: "validated manifest bytes do not match the captured package snapshot manifest"
+                .to_string(),
+            span: Some(PackageDocDiagnosticSpan {
+                source_uri: source_uri(
+                    self.identity,
+                    self.snapshot.digest(),
+                    self.manifest.path.as_str(),
+                ),
+                line: 1,
+                column: 1,
+                offset: 0,
+            }),
+        });
+    }
+
     fn validated_manifest_export(
         &mut self,
         export: &veln_project::ManifestExport,
@@ -682,9 +707,32 @@ impl<'a> PackageDocBuilder<'a> {
         if exported_sources.is_empty() {
             return;
         }
-        let doctests = veln_test::doctest_sources(&exported_sources);
-        for diagnostic in doctests.diagnostics {
+        let doctests = doctest_sources(&exported_sources);
+        for diagnostic in &doctests.diagnostics {
             if diagnostic.severity == Severity::Error {
+                self.diagnostics
+                    .push(self.project_diagnostic("doctest", diagnostic.clone()));
+            }
+        }
+        let analysis_sources = doctests
+            .sources
+            .into_iter()
+            .filter(|source| !generated_doctest_contains_declaration(source.text()))
+            .collect::<Vec<_>>();
+        let analysis = analyze_project(
+            Project {
+                root: ".".into(),
+                files: analysis_sources,
+                manifest: None,
+            },
+            DoctestMode::Exclude,
+        );
+        let diagnostics = reconcile_expected_doctest_failures(
+            analysis.checked_diagnostics(),
+            &doctests.expected_failures,
+        );
+        for diagnostic in diagnostics {
+            if diagnostic.severity == Severity::Error && is_doctest_gate_diagnostic(&diagnostic) {
                 self.diagnostics
                     .push(self.project_diagnostic("doctest", diagnostic));
             }
@@ -693,7 +741,7 @@ impl<'a> PackageDocBuilder<'a> {
             for target_line in public_declaration_lines(&source.tree) {
                 for fence in doctest_fences(&source.source, target_line) {
                     match fence {
-                        Ok(doctest) => self.validate_doctest(&source.source, &doctest),
+                        Ok(doctest) => self.validate_doctest(&doctest),
                         Err(diagnostic) => self.diagnostics.push(diagnostic),
                     }
                 }
@@ -1035,32 +1083,8 @@ impl<'a> PackageDocBuilder<'a> {
         doctests
     }
 
-    fn validate_doctest(&mut self, source: &SourceFile, doctest: &PackageDocDoctest) {
-        if doctest.kind != "veln" {
-            return;
-        }
-        let doctest_source = SourceFile::new(
-            format!("{}#package-doc-doctest.veln", source.path().as_str()),
-            doctest.code.clone(),
-        );
-        let diagnostics = parse(&doctest_source).diagnostics;
-        if doctest.should_fail {
-            if diagnostics.is_empty() {
-                self.diagnostics.push(PackageDocDiagnostic {
-                    gate: "doctest".to_string(),
-                    code: "doctest.expected_failure_missing".to_string(),
-                    message: "negative doctest produced no error diagnostics".to_string(),
-                    span: None,
-                });
-            }
-        } else if let Some(diagnostic) = diagnostics.into_iter().next() {
-            self.diagnostics.push(parse_diagnostic(
-                "doctest",
-                diagnostic,
-                self.identity,
-                self.snapshot.digest(),
-            ));
-        }
+    fn validate_doctest(&mut self, _doctest: &PackageDocDoctest) {
+        // The shared analysis pipeline validates visible Veln doctests above.
     }
 
     fn references_for(
@@ -1206,6 +1230,27 @@ fn parse_diagnostic(
             )
         }),
     }
+}
+
+fn is_doctest_gate_diagnostic(diagnostic: &Diagnostic) -> bool {
+    diagnostic.id.starts_with("doctest.")
+        || diagnostic
+            .span
+            .as_ref()
+            .is_some_and(|span| span.file.as_str().contains("#doctest-"))
+}
+
+fn generated_doctest_contains_declaration(text: &str) -> bool {
+    text.lines().skip(1).any(|line| {
+        let trimmed = line.trim_start();
+        trimmed.starts_with("fn ")
+            || trimmed.starts_with("test ")
+            || trimmed.starts_with("pub fn ")
+            || trimmed.starts_with("type ")
+            || trimmed.starts_with("pub type ")
+            || trimmed.starts_with("schema ")
+            || trimmed.starts_with("pub schema ")
+    })
 }
 
 fn function_signature(function: &FunctionDecl) -> String {
@@ -2466,6 +2511,41 @@ mod tests {
     }
 
     #[test]
+    fn manifest_must_match_captured_snapshot_bytes() {
+        let snapshot_manifest = "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n";
+        let swapped_manifest = "[package]\nname = \"demo\"\n[lib]\nexports = [\"other.veln\"]\n";
+        let snapshot = capture_embedded_package_snapshot(
+            snapshot_manifest.as_bytes(),
+            [
+                PackageSnapshotSource::new("main.veln", b"pub fn value() -> Int\n\t1\nend\n"),
+                PackageSnapshotSource::new("other.veln", b"pub fn other() -> Int\n\t2\nend\n"),
+            ],
+        )
+        .unwrap();
+        let manifest = parse_manifest_text("veln.toml", swapped_manifest);
+        let result = PackageDocResult::generate(
+            "owner/package",
+            &snapshot,
+            &manifest,
+            PackageDocGeneratorContract::new("contract-a"),
+        );
+
+        assert!(result.catalog().is_none());
+        assert!(
+            result
+                .status()
+                .diagnostics
+                .iter()
+                .any(|diagnostic| { diagnostic.code == "package_doc.manifest_snapshot_mismatch" })
+        );
+        assert!(
+            !std::str::from_utf8(result.canonical_bytes())
+                .unwrap()
+                .contains("\"modules\"")
+        );
+    }
+
+    #[test]
     fn renderer_only_stability_follows_canonical_result_bytes() {
         let result = generate(
             "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
@@ -2577,6 +2657,25 @@ mod tests {
     }
 
     #[test]
+    fn executable_specification_fixture_observes_doctest_static_gate_failure() {
+        let result = generate_fixture("package-catalog-doctest-static-gate");
+
+        assert!(result.catalog().is_none());
+        assert!(
+            result
+                .status()
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.gate == "doctest")
+        );
+        assert!(
+            !std::str::from_utf8(result.canonical_bytes())
+                .unwrap()
+                .contains("\"modules\"")
+        );
+    }
+
+    #[test]
     fn parse_and_doctest_gates_are_package_atomic() {
         let result = generate(
             "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
@@ -2595,6 +2694,34 @@ mod tests {
 
         assert!(result.catalog().is_none());
         assert_eq!(result.status().diagnostics[0].gate, "doctest");
+    }
+
+    #[test]
+    fn positive_doctest_must_pass_generated_static_analysis() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[(
+                "main.veln",
+                concat!(
+                    "## ```veln\n",
+                    "## let value: MissingType = missing_value\n",
+                    "## value\n",
+                    "## ```\n",
+                    "pub fn value() -> Int\n",
+                    "\t1\n",
+                    "end\n",
+                ),
+            )],
+        );
+
+        assert!(result.catalog().is_none());
+        assert!(result.status().diagnostics.iter().any(|diagnostic| {
+            diagnostic.gate == "doctest"
+                && diagnostic
+                    .span
+                    .as_ref()
+                    .is_some_and(|span| span.source_uri.contains("%23doctest-"))
+        }));
     }
 
     #[test]

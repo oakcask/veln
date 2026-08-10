@@ -460,8 +460,9 @@ definition and virtual-document slices, plus the VSCode content provider, are
 implemented and specified in
 [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).
 The transport-independent package documentation catalog, status-only failure
-result, documentation digest, and canonical `veln-doc:` URI foundation are
-implemented and specified in
+result, documentation digest, canonical `veln-doc:` URI foundation, same-capture
+manifest binding, and generated doctest static gate are implemented and
+specified in
 [Package Documentation Catalogs](../specification/package-documentation.md).
 MCP resources, MCP documentation publication, and snapshot lifetime rules
 remain planned below.
@@ -945,7 +946,8 @@ matrix are also implemented and specified on the same page.
 The canonical package virtual-source URI and resolver foundation is implemented
 and specified in
 [Package Virtual Sources](../specification/package-virtual-sources.md).
-The transport-independent exported package documentation catalog foundation is
+The transport-independent exported package documentation catalog foundation,
+same-capture manifest binding, and generated doctest static gate are
 implemented and specified in
 [Package Documentation Catalogs](../specification/package-documentation.md).
 Direct path, vendor, mirror, and locally available direct git dependency

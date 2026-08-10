@@ -7,10 +7,10 @@ review-when: The package documentation catalog API, canonical result bytes, dige
 # Package Documentation Catalogs
 
 `veln-language-service` exposes a transport-independent package
-documentation catalog for one `CapturedPackageSnapshot` and its validated
-manifest. The generator validates the manifest before it can publish a
-catalog. The result is immutable. It contains either a complete successful
-catalog or a failure status with ordered diagnostics.
+documentation catalog for one `CapturedPackageSnapshot` and the validated
+manifest parsed from that same capture. The generator validates the manifest
+before it can publish a catalog. The result is immutable. It contains either a
+complete successful catalog or a failure status with ordered diagnostics.
 
 ## Result Identity
 
@@ -78,16 +78,19 @@ The implemented gates are:
 
 - parse: all retained package sources must parse;
 - manifest: unsupported manifest sections, invalid export paths, test
-  companion exports, duplicate exported module identities, and invalid direct
-  git selector cardinality fail generation before a catalog is published;
+  companion exports, duplicate exported module identities, invalid direct
+  git selector cardinality, and validated manifest bytes that differ from the
+  captured snapshot manifest bytes fail generation before a catalog is
+  published;
 - export: every exported source must exist in the captured snapshot and each
   export path can appear at most once;
 - documentation reference: `{@schema ...}` references in documentation
   blocks that attach to exported public declarations must resolve to a public
   schema in an exported module, and the successful catalog keeps the resolved
   target declaration identifier and same-snapshot declaration URI;
-- doctest: visible positive `veln` doctest fences must parse, `veln fail`
-  fences must produce a parse diagnostic, `veln ignore` fences are not
+- doctest: visible positive `veln` doctest fences must pass the shared
+  generated-source static analysis pipeline, `veln fail` fences must produce
+  an error diagnostic through that same pipeline, `veln ignore` fences are not
   published or checked by the catalog, hidden setup lines are not published,
   `veln-output stream=stdout` and `veln-output stream=stderr` fences are
   accepted, and doctest metadata diagnostics from the shared doctest extractor
@@ -118,18 +121,20 @@ authoritative executable evidence. `cargo test -p veln-language-service`
 checks public metadata allowlisting, exported-module and public-declaration
 selection, private and non-exported exclusion, contracts, constructor
 projection and constructor-location lookup, visible doctest and expected-output
-publication, `veln fail` doctest handling, hidden setup and ADR-lite
-exclusion, deterministic bytes, digest and URI stability, package byte changes,
-generator-contract changes, renderer-only stability when bytes are unchanged,
-declaration URI lookup from declaration spans and navigation name-token spans,
-private documentation-reference exclusion, parse gate failure with canonical
-package source URI, manifest gate failure, export gate failure, resolved
-documentation-reference projection, documentation-reference gate failure,
-doctest gate failure, duplicate semantic identity failure, declaration
-identifier collision failure, status-only failure results, and virtual-source
-resolution after package documentation failure. The tests also read fixtures
-under `examples/specification/doc/` to observe the catalog success path and
-manifest-gate failure path through executable specification inputs.
+publication, generated doctest static analysis, `veln fail` doctest handling,
+hidden setup and ADR-lite exclusion, deterministic bytes, digest and URI
+stability, package byte changes, generator-contract changes, renderer-only
+stability when bytes are unchanged, declaration URI lookup from declaration
+spans and navigation name-token spans, private documentation-reference
+exclusion, parse gate failure with canonical package source URI, manifest gate
+failure, manifest snapshot-byte mismatch failure, export gate failure,
+resolved documentation-reference projection, documentation-reference gate
+failure, doctest gate failure, duplicate semantic identity failure,
+declaration identifier collision failure, status-only failure results, and
+virtual-source resolution after package documentation failure. The tests also
+read fixtures under `examples/specification/doc/` to observe the catalog
+success path, manifest-gate failure path, and doctest static-gate failure path
+through executable specification inputs.
 
 The readable CLI documentation boundary remains checked by
 `examples/specification/doc/`. The transport-independent catalog itself is a
