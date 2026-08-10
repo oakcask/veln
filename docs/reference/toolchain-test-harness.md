@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: normative
-update-when: The CLI integration harness assertion model or source-error guard evidence changes.
+update-when: The CLI integration harness assertion model, semantic case baseline, or source-error guard evidence changes.
 ---
 
 # Toolchain Test Harness
@@ -105,6 +105,41 @@ mechanics are not Veln command behavior.
 JSON output should be parsed and checked semantically by default. Full JSON
 equality is reserved for schema smoke tests where exact envelope shape is the
 behavior under test.
+
+## Pre-Migration Semantic Baseline
+
+`toolchain-case-semantics.baseline` is the schema-versioned contract inventory
+for every parsed `case.toml` under `crates/veln-cli/tests/toolchain_cases/` and
+`examples/specification/`. It records ordered invocation and assertion fields,
+typed values, execution gates, case digests, and an aggregate digest. Large
+text and binary values record their logical field, byte length, and SHA-256
+digest. JSON object members are key-sorted because object member order is not
+part of an assertion value; arrays and all manifest assertion sequences retain
+their order.
+
+The normal `toolchain_harness` target runs
+`checked_in_semantic_baseline_matches_authoritative_cases`. The test reads the
+baseline and current manifests without writing either one. A mismatch reports
+added or removed cases before reporting case-qualified field differences.
+Run the focused non-mutating check with:
+
+```sh
+cargo test -p veln-cli --test toolchain_harness \
+  toolchain_semantic_baseline::checked_in_semantic_baseline_matches_authoritative_cases \
+  -- --exact
+```
+
+Candidate generation is an explicit ignored test. Generate a candidate only
+for deliberate contract review. Do not replace the checked-in baseline merely
+to accept an unexplained difference.
+
+```sh
+VELN_TOOLCHAIN_SOURCE_GIT_TREE="$(git rev-parse HEAD^{tree})" \
+VELN_TOOLCHAIN_BASELINE_CANDIDATE=target/toolchain-case-semantics.candidate \
+cargo test -p veln-cli --test toolchain_harness \
+  toolchain_semantic_baseline::generate_toolchain_semantic_baseline_candidate \
+  -- --ignored --exact
+```
 
 ## Source-Error Guard
 

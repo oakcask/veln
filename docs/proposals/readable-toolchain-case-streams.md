@@ -19,6 +19,17 @@ The migration is complete when every discovered toolchain `case.toml` is free
 of encoded line breaks, all migrated cases preserve their previous observable
 checks, and the harness rejects later manifest regressions.
 
+## Implementation Status
+
+The pre-migration semantic baseline slice is implemented. The checked-in
+baseline describes every case under both authoritative roots through the
+current parsed manifest model. The normal toolchain harness target compares
+that baseline with the current inventory without changing either artifact.
+
+The stream representations, manifest migrations, conversion records, and
+encoded-line-break policy remain planned. The implementation slices below
+retain their order, starting with the shared lexer and preflight work.
+
 ## Review Route
 
 - Start with [Representation Choice](#representation-choice) for the authoring
@@ -1107,22 +1118,20 @@ the tests.
 
 ## Implementation Slices
 
-1. Add the versioned semantic exporter and comparator, then capture the
-   unchanged authoritative inventory as the reviewed migration baseline.
-2. Add the shared lossless manifest lexer, multiline string and array parser,
+1. Add the shared lossless manifest lexer, multiline string and array parser,
    canonical discovery inventory, and build/runtime policy preflight without
    migrating cases.
-3. Add portable case-file operands, no-follow copy checks, eager immutable
+2. Add portable case-file operands, no-follow copy checks, eager immutable
    snapshots, repository line-ending attributes, and boundary coverage.
-4. Add the JSON interoperability profile, structured request transformation
+3. Add the JSON interoperability profile, structured request transformation
    and framing, decoded LSP transport and assertions, JSON Pointer paths, and
    dependency-aware result aggregation.
-5. Migrate representative cases from every operand and assertion shape,
+4. Migrate representative cases from every operand and assertion shape,
    recording only narrowly reviewed LSP conversions and differential replay
    evidence.
-6. Migrate both discovery roots, require zero policy findings and zero
+5. Migrate both discovery roots, require zero policy findings and zero
    unexplained semantic differences, then run the complete harness target.
-7. Promote implemented behavior to specification and executable examples,
+6. Promote implemented behavior to specification and executable examples,
    update the harness reference, remove migration-only artifacts that no longer
    have value, and complete the proposal lifecycle audit.
 

@@ -11,6 +11,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+mod toolchain_semantic_baseline;
+
 use veln_analysis::{
     DoctestMode, checked_project_diagnostics, derive_source_module_path, load_surface_module,
 };
