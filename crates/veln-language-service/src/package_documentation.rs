@@ -114,7 +114,7 @@ impl PackageDocResult {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PackageDocResultKind {
-    Catalog(PackageDocCatalog),
+    Catalog(Box<PackageDocCatalog>),
     Status(PackageDocGenerationStatus),
 }
 
@@ -364,7 +364,7 @@ impl<'a> PackageDocBuilder<'a> {
             status_uri: self.status_uri(&final_doc_digest),
             doc_digest: final_doc_digest,
             canonical_bytes,
-            kind: PackageDocResultKind::Catalog(catalog),
+            kind: PackageDocResultKind::Catalog(Box::new(catalog)),
         }
     }
 
