@@ -5,9 +5,10 @@ mod virtual_source;
 
 pub use package_documentation::{
     PackageDocAlias, PackageDocCatalog, PackageDocDeclaration, PackageDocDiagnostic,
-    PackageDocDiagnosticSpan, PackageDocDoctest, PackageDocFunctionContract, PackageDocGeneration,
-    PackageDocGenerationStatus, PackageDocGeneratorContract, PackageDocMetadata, PackageDocModule,
-    PackageDocReference, PackageDocResult, PackageDocResultKind, PackageDocTypeConstructor,
+    PackageDocDiagnosticSpan, PackageDocDoctest, PackageDocExpectedOutput,
+    PackageDocFunctionContract, PackageDocGeneration, PackageDocGenerationStatus,
+    PackageDocGeneratorContract, PackageDocMetadata, PackageDocModule, PackageDocReference,
+    PackageDocResult, PackageDocResultKind, PackageDocTypeConstructor,
 };
 pub use virtual_source::{VirtualSourceCatalog, VirtualSourceCatalogError, VirtualSourceEntry};
 

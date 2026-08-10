@@ -12,6 +12,10 @@ documentation catalog for one validated `PackageIdentity`, one
 capture. The generator validates the manifest before it can publish a catalog.
 The manifest package name must be present and must exactly match the validated
 package identity supplied to the generator.
+When the supplied manifest bytes match the captured manifest bytes, generation
+uses the manifest fields parsed from the captured bytes. Mutation of the
+supplied manifest fields cannot change exported modules, public metadata, or
+other catalog semantics for that snapshot.
 The result is immutable. It contains either a complete successful catalog or a
 failure status with ordered diagnostics.
 
@@ -179,13 +183,16 @@ doctest and documentation-reference exclusion, parse gate failure with
 canonical package source URI, manifest gate failure,
 test source export rejection, manifest package-name mismatch failure, manifest
 missing-package-name failure, manifest snapshot-byte mismatch failure,
+same-capture manifest reparse protection against mutable parsed fields,
 normalized export metadata, export gate failure, resolved
 documentation-reference projection, qualified documentation-reference import
 failure, public schema alias
 documentation-reference resolution, documentation-reference gate failure,
 doctest gate failure, duplicate semantic identity failure, declaration
 identifier collision failure, status-only failure results, `PackageIdentity`
-validation at the catalog API boundary, fixed-width identifier digest
+validation at the catalog API boundary, crate-root import coverage for public
+package documentation API types including expected-output records,
+fixed-width identifier digest
 transcripts, and virtual-source resolution after package documentation
 failure. The tests also read fixtures under `examples/specification/doc/` to
 observe the catalog success path, manifest-gate failure path, nested

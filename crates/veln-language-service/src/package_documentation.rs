@@ -7,6 +7,7 @@ use veln_analysis::{DoctestMode, analyze_project, derive_source_module_path};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, Severity};
 use veln_project::{
     CapturedPackageSnapshot, PackageIdentity, Project, ProjectManifest, classify_companion_source,
+    parse_manifest_text,
 };
 use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{
@@ -59,7 +60,15 @@ impl PackageDocResult {
         manifest: &ProjectManifest,
         generator_contract: PackageDocGeneratorContract,
     ) -> Self {
-        PackageDocBuilder::new(identity.as_str(), snapshot, manifest, generator_contract).generate()
+        let manifest = if manifest.source_bytes == snapshot.manifest_bytes() {
+            let text = std::str::from_utf8(snapshot.manifest_bytes())
+                .expect("captured package manifest text is valid UTF-8");
+            parse_manifest_text(manifest.path.as_str(), text)
+        } else {
+            manifest.clone()
+        };
+        PackageDocBuilder::new(identity.as_str(), snapshot, &manifest, generator_contract)
+            .generate()
     }
 
     pub fn identity(&self) -> &str {
@@ -871,10 +880,6 @@ impl<'a> PackageDocBuilder<'a> {
         for source in parsed_sources.iter().filter(|source| source.exported) {
             for target_line in public_documentation_lines(&source.tree) {
                 let doctests = visible_doctests_for(&source.source, target_line);
-                for diagnostic in doctests.diagnostics {
-                    self.diagnostics
-                        .push(self.project_diagnostic("doctest", diagnostic));
-                }
                 for doctest in doctests.doctests {
                     self.validate_doctest(&doctest);
                 }
@@ -1584,23 +1589,52 @@ fn ranges_intersect(left: &TextRange, right: &TextRange) -> bool {
 }
 
 fn public_doctest_source(source: &ParsedPackageSource) -> Option<SourceFile> {
-    let target_lines = public_documentation_lines(&source.tree);
-    if target_lines.is_empty() {
+    let public_doc_lines = public_doctest_gate_lines(&source.source, &source.tree);
+    if public_doc_lines.is_empty() {
         return None;
     }
-    let original_lines = source.source.text().lines().collect::<Vec<_>>();
     let mut text = String::new();
-    for target_line in target_lines {
-        append_public_doctest_gate_doc_block_before(&original_lines, target_line, &mut text);
-        if let Some(line) = original_lines.get(target_line.saturating_sub(1)) {
-            text.push_str(line);
-            text.push('\n');
+    for (line_index, raw_line) in source.source.text().split_inclusive('\n').enumerate() {
+        if public_doc_lines.contains(&(line_index + 1)) {
+            text.push_str(raw_line);
+        } else {
+            push_offset_preserving_blank(raw_line, &mut text);
         }
     }
     Some(SourceFile::new(source.source.path().as_str(), text))
 }
 
-fn append_doc_block_before(lines: &[&str], target_line: usize, output: &mut String) {
+fn public_doctest_gate_lines(
+    source: &SourceFile,
+    tree: &veln_syntax::SyntaxTree,
+) -> BTreeSet<usize> {
+    let original_lines = source.text().lines().collect::<Vec<_>>();
+    let mut included = BTreeSet::new();
+    for target_line in public_documentation_lines(tree) {
+        let mut block_lines = Vec::new();
+        collect_doc_block_before(&original_lines, target_line, &mut block_lines);
+        if doc_lines_are_adr_lite(block_lines.iter().map(|(_, line)| *line)) {
+            continue;
+        }
+        for (line_number, line) in block_lines {
+            let content = line
+                .trim_start()
+                .strip_prefix("##")
+                .map(str::trim_start)
+                .unwrap_or(line);
+            if !content.starts_with("> ") {
+                included.insert(line_number);
+            }
+        }
+    }
+    included
+}
+
+fn collect_doc_block_before<'a>(
+    lines: &[&'a str],
+    target_line: usize,
+    output: &mut Vec<(usize, &'a str)>,
+) {
     if target_line <= 1 {
         return;
     }
@@ -1608,7 +1642,7 @@ fn append_doc_block_before(lines: &[&str], target_line: usize, output: &mut Stri
     let mut docs = Vec::new();
     while let Some(line) = lines.get(index) {
         if line.trim_start().strip_prefix("##").is_some() {
-            docs.push(*line);
+            docs.push((index + 1, *line));
         } else {
             break;
         }
@@ -1618,9 +1652,16 @@ fn append_doc_block_before(lines: &[&str], target_line: usize, output: &mut Stri
         index -= 1;
     }
     docs.reverse();
-    for line in docs {
-        output.push_str(line);
-        output.push('\n');
+    output.extend(docs);
+}
+
+fn push_offset_preserving_blank(raw_line: &str, output: &mut String) {
+    for byte in raw_line.bytes() {
+        match byte {
+            b'\r' => output.push('\r'),
+            b'\n' => output.push('\n'),
+            _ => output.push(' '),
+        }
     }
 }
 
@@ -1631,30 +1672,6 @@ fn doc_lines_are_adr_lite<'a>(lines: impl IntoIterator<Item = &'a str>) -> bool 
         .map(str::trim_start)
         .find(|line| !line.trim().is_empty())
         .is_some_and(|line| matches!(line.trim(), "@adr" | "@adr-lite"))
-}
-
-fn append_public_doctest_gate_doc_block_before(
-    lines: &[&str],
-    target_line: usize,
-    output: &mut String,
-) {
-    let mut block = String::new();
-    append_doc_block_before(lines, target_line, &mut block);
-    if doc_lines_are_adr_lite(block.lines()) {
-        return;
-    }
-    for line in block.lines() {
-        let content = line
-            .trim_start()
-            .strip_prefix("##")
-            .map(str::trim_start)
-            .unwrap_or(line);
-        if content.starts_with("> ") {
-            continue;
-        }
-        output.push_str(line);
-        output.push('\n');
-    }
 }
 
 fn function_signature(function: &FunctionDecl) -> String {
@@ -3292,6 +3309,52 @@ mod tests {
     }
 
     #[test]
+    fn package_documentation_reparses_manifest_from_the_captured_snapshot() {
+        let manifest_text = "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n";
+        let snapshot = capture_embedded_package_snapshot(
+            manifest_text.as_bytes(),
+            [
+                PackageSnapshotSource::new("main.veln", b"pub fn visible() -> Int\n\t1\nend\n"),
+                PackageSnapshotSource::new("private.veln", b"pub fn secret() -> Int\n\t2\nend\n"),
+            ],
+        )
+        .unwrap();
+        let mut manifest = parse_manifest_text("veln.toml", manifest_text);
+        let private_span = manifest.lib.exports[0].path_span.clone();
+        manifest.lib.exports[0] = veln_project::ManifestExport {
+            path: "private.veln".to_string(),
+            path_span: private_span,
+        };
+        manifest.package.fields.push(veln_project::ManifestField {
+            key: "repository".to_string(),
+            key_span: manifest.package.fields[0].key_span.clone(),
+            value: "hidden".to_string(),
+            value_span: manifest.package.fields[0].value_span.clone(),
+        });
+        let identity = PackageIdentity::new("demo").unwrap();
+        let result = PackageDocResult::generate(
+            &identity,
+            &snapshot,
+            &manifest,
+            PackageDocGeneratorContract::new("contract-a"),
+        );
+
+        let catalog = catalog_or_panic(&result);
+        assert_eq!(catalog.modules.len(), 1);
+        assert_eq!(catalog.modules[0].source_path, "main.veln");
+        assert!(
+            !std::str::from_utf8(result.canonical_bytes())
+                .unwrap()
+                .contains("secret")
+        );
+        assert!(
+            !std::str::from_utf8(result.canonical_bytes())
+                .unwrap()
+                .contains("hidden")
+        );
+    }
+
+    #[test]
     fn renderer_only_stability_follows_canonical_result_bytes() {
         let result = generate(
             "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
@@ -3891,6 +3954,40 @@ mod tests {
                 && diagnostic.code == "doctest.invalid_metadata"
                 && diagnostic.message == "duplicate doctest output stream attribute"
         }));
+    }
+
+    #[test]
+    fn doctest_metadata_gate_reports_once_at_original_source_position() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[(
+                "main.veln",
+                concat!(
+                    "## Function docs.\n",
+                    "## ```veln\n",
+                    "## 1\n",
+                    "## ```\n",
+                    "## ```veln-output stream=stdout stream=stderr\n",
+                    "## one\n",
+                    "## ```\n",
+                    "pub fn value() -> Int\n",
+                    "\t1\n",
+                    "end\n",
+                ),
+            )],
+        );
+
+        let diagnostics = result
+            .status()
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code == "doctest.invalid_metadata")
+            .collect::<Vec<_>>();
+        assert_eq!(diagnostics.len(), 1);
+        let span = diagnostics[0].span.as_ref().unwrap();
+        assert_eq!(span.line, 5);
+        assert_eq!(span.column, 1);
+        assert_eq!(span.offset, 41);
     }
 
     #[test]
