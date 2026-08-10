@@ -1491,32 +1491,41 @@ fn doctest_fences(
     source: &SourceFile,
     target_line: usize,
 ) -> Vec<Result<PackageDocDoctest, PackageDocDiagnostic>> {
+    struct ActiveFence {
+        kind: String,
+        expected_error: Option<String>,
+        ignored: bool,
+        should_fail: bool,
+        lines: Vec<String>,
+    }
+
     let mut result = Vec::new();
     let docs = doc_block_before(source, target_line);
-    let mut active: Option<(String, Option<String>, bool, bool, Vec<String>)> = None;
+    let mut active: Option<ActiveFence> = None;
     let mut last_doctest: Option<usize> = None;
     for line in docs {
         let trimmed = line.trim_start();
         if let Some(info) = trimmed.strip_prefix("```") {
-            if let Some((kind, expected_error, ignored, should_fail, lines)) = active.take() {
-                if kind == "veln" && !ignored {
+            if let Some(fence) = active.take() {
+                if fence.kind == "veln" && !fence.ignored {
                     result.push(Ok(PackageDocDoctest {
-                        kind,
-                        code: lines
+                        kind: fence.kind,
+                        code: fence
+                            .lines
                             .into_iter()
                             .filter(|line| !line.starts_with("> "))
                             .collect::<Vec<_>>()
                             .join("\n"),
-                        expected_error,
-                        should_fail,
+                        expected_error: fence.expected_error,
+                        should_fail: fence.should_fail,
                         expected_output: Vec::new(),
                     }));
                     last_doctest = Some(result.len() - 1);
-                } else if kind == "veln-output"
+                } else if fence.kind == "veln-output"
                     && let Some(index) = last_doctest
                     && let Some(Ok(doctest)) = result.get_mut(index)
                 {
-                    doctest.expected_output = lines;
+                    doctest.expected_output = fence.lines;
                 }
                 continue;
             }
@@ -1575,15 +1584,15 @@ fn doctest_fences(
                 }));
                 continue;
             }
-            active = Some((
-                kind.to_string(),
+            active = Some(ActiveFence {
+                kind: kind.to_string(),
                 expected_error,
                 ignored,
                 should_fail,
-                Vec::new(),
-            ));
-        } else if let Some((_, _, _, _, lines)) = &mut active {
-            lines.push(line);
+                lines: Vec::new(),
+            });
+        } else if let Some(fence) = &mut active {
+            fence.lines.push(line);
         }
     }
     result
