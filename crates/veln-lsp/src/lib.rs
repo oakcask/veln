@@ -3459,6 +3459,66 @@ mod tests {
     }
 
     #[test]
+    fn workspace_references_and_rename_ignore_dependency_sources() {
+        let mut server = Server::default();
+        let project = TempProject::new("dependency-reference-isolation");
+        project.write(
+            "veln.toml",
+            concat!(
+                "[package]\nname = \"app\"\n\n",
+                "[dependencies.\"example/pkg\"]\npath = \"vendor/lib\"\n",
+            ),
+        );
+        project.write(
+            "math.veln",
+            "pub fn exposed(value: Int) -> Int\n  value + 1\nend\n",
+        );
+        project.write(
+            "vendor/lib/veln.toml",
+            concat!(
+                "[package]\nname = \"example/pkg\"\n\n",
+                "[lib]\nexports = [\"math.veln\"]\n",
+            ),
+        );
+        project.write(
+            "vendor/lib/math.veln",
+            "pub fn exposed(value: Int) -> Int\n  exposed(value - 1)\nend\n",
+        );
+        let root_uri = path_to_uri(&project.root);
+        let math_uri = path_to_uri(&project.root.join("math.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let references = server.handle_message(&references_request(&math_uri, 0, 7));
+        assert!(
+            references[0].contains(
+                r#""range":{"start":{"line":0,"character":7},"end":{"line":0,"character":14}}"#
+            ),
+            "{}",
+            references[0]
+        );
+        assert!(
+            !references[0].contains(r#""line":1,"character":2"#),
+            "{}",
+            references[0]
+        );
+
+        let rename = server.handle_message(&rename_request(&math_uri, 0, 7, "renamed"));
+        assert!(
+            rename[0].contains(
+                r#""range":{"start":{"line":0,"character":7},"end":{"line":0,"character":14}}"#
+            ),
+            "{}",
+            rename[0]
+        );
+        assert!(
+            !rename[0].contains(r#""line":1,"character":2"#),
+            "{}",
+            rename[0]
+        );
+        assert!(!rename[0].contains("vendor"), "{}", rename[0]);
+    }
+
+    #[test]
     fn companion_private_function_rename_uses_open_document_overlay() {
         let mut server = Server::default();
         let project = companion_private_function_project("rename-overlay");

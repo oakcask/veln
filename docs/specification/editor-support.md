@@ -170,6 +170,10 @@ open-document overlays to workspace sources before calling the shared language
 service. It converts shared locations to LSP URIs and zero-based ranges.
 Definition, references, prepare-rename, and rename use the same shared selected
 symbol and reference set.
+For a workspace symbol, references and rename edits include only workspace
+source locations. Sources loaded only as dependency package snapshots do not
+produce `file:` locations for workspace references or workspace edits, even
+when their module path and symbol spelling match a workspace declaration.
 
 The retained dependency input contains the package identity, captured package
 snapshot, manifest export paths, and canonical virtual-source catalog derived

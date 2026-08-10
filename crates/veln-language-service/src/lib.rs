@@ -546,6 +546,9 @@ impl SymbolIndex {
         if symbol.package.is_some() {
             return Vec::new();
         }
+        if !matches!(file.origin, IndexedOrigin::Workspace) {
+            return Vec::new();
+        }
         if file.module == symbol.module {
             return call_references(&file.source, &symbol.name);
         }
@@ -1857,6 +1860,37 @@ mod tests {
             );
             assert!(result.is_none(), "accepted {case}");
         }
+    }
+
+    #[test]
+    fn workspace_references_ignore_dependency_sources_with_matching_modules() {
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[(
+                "math.veln",
+                "pub fn increment(value: Int) -> Int\n  increment(value - 1)\nend\n",
+            )],
+            ["math.veln"],
+        );
+
+        let result = navigate(
+            &EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![source(
+                    "math.veln",
+                    "pub fn increment(value: Int) -> Int\n  value + 1\nend\n",
+                )],
+                vec![dependency],
+            ),
+            SourcePosition {
+                source: SourcePath::new("math.veln"),
+                line: 1,
+                column: 8,
+            },
+        )
+        .unwrap();
+
+        assert_location(&result.definition, "math.veln", 1, 8);
+        assert!(result.references.is_empty());
     }
 
     #[test]
