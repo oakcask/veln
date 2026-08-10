@@ -45,7 +45,9 @@ fn collect_cases(root: &Path, relative: &Path, cases: &mut Vec<PathBuf>) -> io::
 
 fn generated_toolchain_tests(cases: &[PathBuf]) -> String {
     let mut names = BTreeSet::new();
-    let mut out = String::from("mod generated_toolchain_cases {\n    use super::*;\n\n");
+    let mut out = String::from(
+        "mod toolchain_semantic_baseline {\n    include!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/tests/toolchain_semantic_baseline/mod.rs\"));\n}\n\nmod generated_toolchain_cases {\n    use super::*;\n\n",
+    );
     for case in cases {
         let name = unique_test_name(case, &mut names);
         let case = case.to_string_lossy().replace('\\', "/");
