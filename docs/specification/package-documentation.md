@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-review-when: The package documentation catalog API, canonical result bytes, digest, URI, gate, or executable-evidence contract changes.
+update-when: The package documentation catalog API, canonical result bytes, digest, URI, gate, or executable-evidence contract changes.
 ---
 
 # Package Documentation Catalogs
