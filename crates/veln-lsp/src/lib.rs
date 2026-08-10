@@ -3625,6 +3625,54 @@ mod tests {
     }
 
     #[test]
+    fn reexported_constructor_definition_wins_over_bare_prelude_fallback() {
+        let mut server = Server::default();
+        let project = TempProject::new("reexported-constructor-bare-prelude-definition");
+        project.write(
+            "main.veln",
+            concat!(
+                "use facade\n\n",
+                "pub fn bare() -> Token\n",
+                "  byte(1)\n",
+                "end\n\n",
+                "pub fn qualified() -> Token\n",
+                "  facade::byte(2)\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "facade.veln",
+            concat!("use model\n\n", "pub type Token = model::Token\n"),
+        );
+        project.write(
+            "model.veln",
+            concat!("pub type Token\n", "  pub byte(Int)\n", "end\n"),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        for (line, character) in [(3, 4), (7, 10)] {
+            let definition = server.handle_message(&definition_request(&main_uri, line, character));
+
+            assert_eq!(definition.len(), 1);
+            assert!(definition[0].contains("/model.veln"), "{}", definition[0]);
+            assert!(
+                definition[0].contains(
+                    r#""range":{"start":{"line":1,"character":6},"end":{"line":1,"character":10}}"#
+                ),
+                "{}",
+                definition[0]
+            );
+            assert!(
+                !definition[0].contains("veln-pkg:///std/snapshot/"),
+                "{}",
+                definition[0]
+            );
+        }
+    }
+
+    #[test]
     fn retained_direct_dependencies_use_the_supplied_workspace_manifest() {
         let project = TempProject::new("retained-dependency-supplied-manifest");
         project.write(

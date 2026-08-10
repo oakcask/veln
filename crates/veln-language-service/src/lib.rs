@@ -13,7 +13,7 @@ use veln_project::{
     classify_companion_source,
 };
 use veln_source::{SourceFile, SourcePath, SourceSpan};
-use veln_syntax::{SyntaxItem, Token, TokenKind, Visibility, lex, parse};
+use veln_syntax::{PublicAliasKind, SyntaxItem, Token, TokenKind, Visibility, lex, parse};
 
 #[derive(Clone, Debug)]
 pub struct EffectiveProjectSnapshot {
@@ -321,6 +321,16 @@ struct ConstructorSymbol {
     standard_prelude: bool,
 }
 
+#[derive(Clone, Debug)]
+struct TypeAliasSymbol {
+    module: String,
+    name: String,
+    target_module: Option<String>,
+    target_name: String,
+    package: Option<String>,
+    standard_prelude: bool,
+}
+
 #[derive(Debug)]
 struct SymbolRequest {
     index: SymbolIndex,
@@ -377,6 +387,7 @@ struct SymbolIndex {
     files: Vec<IndexedFile>,
     functions: Vec<FunctionSymbol>,
     constructors: Vec<ConstructorSymbol>,
+    type_aliases: Vec<TypeAliasSymbol>,
 }
 
 #[derive(Debug)]
@@ -456,10 +467,12 @@ impl SymbolIndex {
         }
         let functions = files.iter().flat_map(function_declarations).collect();
         let constructors = files.iter().flat_map(constructor_declarations).collect();
+        let type_aliases = files.iter().flat_map(type_alias_declarations).collect();
         Self {
             files,
             functions,
             constructors,
+            type_aliases,
         }
     }
 
@@ -593,7 +606,8 @@ impl SymbolIndex {
                         && !symbol.standard_prelude
                         && symbol.package.is_none()
                         && symbol.module != file.module
-                        && file.uses.contains(&symbol.module)
+                        && (file.uses.contains(&symbol.module)
+                            || self.constructor_reexport_visible_from(file, symbol, None))
                         && visible_workspace_constructor_from(file, symbol)
                 });
                 let candidate = candidates.next()?;
@@ -607,6 +621,11 @@ impl SymbolIndex {
                         && symbol.package.as_ref().is_some_and(|package| {
                             file.external_uses
                                 .contains(&(symbol.module.clone(), package.clone()))
+                                || self.constructor_reexport_visible_from(
+                                    file,
+                                    symbol,
+                                    Some(package),
+                                )
                         })
                 });
                 let candidate = candidates.next()?;
@@ -624,22 +643,48 @@ impl SymbolIndex {
             .iter()
             .find(|symbol| {
                 symbol.name == name
-                    && constructor_qualifier_matches(symbol, qualifier)
+                    && (constructor_qualifier_matches(symbol, qualifier)
+                        || self.constructor_reexport_qualifier_matches(file, symbol, qualifier))
                     && match &symbol.package {
                         Some(package) => {
                             symbol.standard_prelude
                                 || file
                                     .external_uses
                                     .contains(&(symbol.module.clone(), package.clone()))
+                                || self.constructor_reexport_visible_from(
+                                    file,
+                                    symbol,
+                                    Some(package),
+                                )
                         }
                         None => {
                             symbol.module == file.module
-                                || (file.uses.contains(&symbol.module)
+                                || ((file.uses.contains(&symbol.module)
+                                    || self.constructor_reexport_visible_from(file, symbol, None))
                                     && visible_workspace_constructor_from(file, symbol))
                         }
                     }
             })
             .cloned()
+    }
+
+    fn constructor_reexport_qualifier_matches(
+        &self,
+        file: &IndexedFile,
+        symbol: &ConstructorSymbol,
+        qualifier: &str,
+    ) -> bool {
+        self.type_aliases.iter().any(|alias| {
+            type_alias_targets_constructor(alias, symbol)
+                && (qualifier == alias.module
+                    || qualifier == format!("{}::{}", alias.module, alias.name))
+                && match &alias.package {
+                    Some(alias_package) => file
+                        .external_uses
+                        .contains(&(alias.module.clone(), alias_package.clone())),
+                    None => file.uses.contains(&alias.module) || file.module == alias.module,
+                }
+        })
     }
 
     fn has_visible_non_prelude_imported_constructor(&self, file: &IndexedFile, name: &str) -> bool {
@@ -658,9 +703,32 @@ impl SymbolIndex {
                             .contains(&(symbol.module.clone(), package.clone()))
                 }
                 None => {
-                    file.uses.contains(&symbol.module)
+                    (file.uses.contains(&symbol.module)
+                        || self.constructor_reexport_visible_from(file, symbol, None))
                         && visible_workspace_constructor_from(file, symbol)
                 }
+            }
+        })
+    }
+
+    fn constructor_reexport_visible_from(
+        &self,
+        file: &IndexedFile,
+        symbol: &ConstructorSymbol,
+        package: Option<&String>,
+    ) -> bool {
+        self.type_aliases.iter().any(|alias| {
+            if !type_alias_targets_constructor(alias, symbol) {
+                return false;
+            }
+            if alias.package.as_ref() != package {
+                return false;
+            }
+            match &alias.package {
+                Some(alias_package) => file
+                    .external_uses
+                    .contains(&(alias.module.clone(), alias_package.clone())),
+                None => file.uses.contains(&alias.module),
             }
         })
     }
@@ -762,6 +830,19 @@ fn visible_workspace_constructor_from(file: &IndexedFile, symbol: &ConstructorSy
 
 fn constructor_qualifier_matches(symbol: &ConstructorSymbol, qualifier: &str) -> bool {
     qualifier == symbol.module || qualifier == format!("{}::{}", symbol.module, symbol.type_name)
+}
+
+fn type_alias_targets_constructor(alias: &TypeAliasSymbol, symbol: &ConstructorSymbol) -> bool {
+    if alias.standard_prelude != symbol.standard_prelude {
+        return false;
+    }
+    if alias.target_name != symbol.type_name {
+        return false;
+    }
+    match &alias.target_module {
+        Some(module) => module == &symbol.module,
+        None => alias.module == symbol.module,
+    }
 }
 
 fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
@@ -871,6 +952,51 @@ fn constructor_declarations(file: &IndexedFile) -> Vec<ConstructorSymbol> {
                     standard_prelude,
                 })
             })
+        })
+        .collect()
+}
+
+fn type_alias_declarations(file: &IndexedFile) -> Vec<TypeAliasSymbol> {
+    parse(&file.source)
+        .tree
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::PublicAlias(alias) if alias.kind == PublicAliasKind::Type => {
+                let name = alias.name.clone()?;
+                let target_name = alias.target.last()?.clone();
+                let target_module = match alias.target.as_slice() {
+                    [_] => None,
+                    [segments @ .., _] => Some(segments.join("::")),
+                    [] => None,
+                };
+                let (package, standard_prelude) = match &file.origin {
+                    IndexedOrigin::Workspace => (None, false),
+                    IndexedOrigin::Package {
+                        identity,
+                        exported,
+                        standard_library,
+                        ..
+                    } => {
+                        if !exported {
+                            return None;
+                        }
+                        (
+                            Some(identity.clone()),
+                            *standard_library && file.module == "prelude",
+                        )
+                    }
+                };
+                Some(TypeAliasSymbol {
+                    module: file.module.clone(),
+                    name,
+                    target_module,
+                    target_name,
+                    package,
+                    standard_prelude,
+                })
+            }
+            _ => None,
         })
         .collect()
 }
@@ -2307,6 +2433,55 @@ mod tests {
 
         assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
         assert_location(&result.definition, "model.veln", 2, 7);
+    }
+
+    #[test]
+    fn reexported_constructor_call_definition_wins_over_bare_prelude_fallback() {
+        let standard_library = standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                "pub fn byte(value: Int) -> Int\n  value\nend\n",
+            )],
+            ["prelude.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "main.veln",
+                concat!(
+                    "use facade\n\n",
+                    "pub fn bare() -> Token\n",
+                    "  byte(1)\n",
+                    "end\n\n",
+                    "pub fn qualified() -> Token\n",
+                    "  facade::byte(2)\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "facade.veln",
+                concat!("use model\n\n", "pub type Token = model::Token\n"),
+            ),
+            source(
+                "model.veln",
+                concat!("pub type Token\n", "  pub byte(Int)\n", "end\n"),
+            ),
+        ])
+        .with_standard_library(standard_library);
+
+        for (line, column) in [(4, 4), (8, 11)] {
+            let result = navigate(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line,
+                    column,
+                },
+            )
+            .unwrap();
+
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+            assert_location(&result.definition, "model.veln", 2, 7);
+        }
     }
 
     #[test]
