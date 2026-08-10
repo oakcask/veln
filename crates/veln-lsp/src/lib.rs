@@ -3512,7 +3512,7 @@ mod tests {
             ),
         );
         project.write(
-            "main.veln",
+            "math.veln",
             concat!(
                 "use math from \"example/pkg\"\n\n",
                 "pub fn main(items: Vec<Int>) -> Int\n",
@@ -3532,7 +3532,7 @@ mod tests {
             "pub fn vec_len(items: Vec<Int>) -> Int\n  0\nend\n",
         );
         let root_uri = path_to_uri(&project.root);
-        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        let main_uri = path_to_uri(&project.root.join("math.veln"));
         server.handle_message(&initialize_request(&root_uri));
 
         let definition = server.handle_message(&definition_request(&main_uri, 3, 4));
