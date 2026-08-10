@@ -54,8 +54,8 @@ identifier collision also fails the complete package documentation result.
 The successful catalog includes only modules listed by `[lib].exports`. For
 those modules it includes public type declarations, public type constructors,
 public schemas, public member aliases, public functions, attached
-documentation comments, public function contracts, visible doctest fences, and
-expected-output fences.
+documentation comments, public function contracts, visible doctest fences,
+expected-output fences, and resolved schema documentation references.
 
 The catalog excludes non-exported modules, private declarations, exact test
 companions, integration-test sources, hidden doctest setup lines, ADR-lite
@@ -79,11 +79,15 @@ The implemented gates are:
 - export: every exported source must exist in the captured snapshot and each
   export path can appear at most once;
 - documentation reference: `{@schema ...}` references in exported source
-  documentation must resolve to a public schema in an exported module;
-- doctest: visible `veln` doctest fences must parse unless they declare an
-  expected error, expected-error doctests must produce a parse diagnostic whose
-  id matches the `error=` value, and unknown doctest fence attributes fail
-  generation; and
+  documentation must resolve to a public schema in an exported module, and the
+  successful catalog keeps the resolved target declaration identifier and
+  same-snapshot declaration URI;
+- doctest: visible positive `veln` doctest fences must parse, `veln fail`
+  fences must produce a parse diagnostic, `veln ignore` fences are not
+  published or checked by the catalog, hidden setup lines are not published,
+  `veln-output stream=stdout` and `veln-output stream=stderr` fences are
+  accepted, and doctest metadata diagnostics from the shared doctest extractor
+  fail generation; and
 - identity: duplicate semantic declaration identities fail generation.
   Detected module identifier collisions and declaration identifier collisions
   fail generation.
@@ -93,10 +97,13 @@ and message.
 
 ## Declaration Lookup
 
-The catalog provides a transport-independent lookup from module name,
+The catalog provides transport-independent lookup from module name,
 declaration kind, and declaration name to the canonical declaration
-documentation URI in the same snapshot. Adapters return the URI from this
-lookup instead of asking clients to construct resource identifiers.
+documentation URI in the same snapshot. It also accepts a snapshot-bound
+semantic `NavigationLocation` for public declarations. Constructor locations
+resolve to the owning type declaration documentation URI. Adapters return the
+URI from these lookups instead of asking clients to construct resource
+identifiers or re-resolve by spelling.
 
 ## Executable Evidence
 
@@ -104,15 +111,16 @@ The `veln-language-service` package-documentation unit tests are the
 authoritative executable evidence. `cargo test -p veln-language-service`
 checks public metadata allowlisting, exported-module and public-declaration
 selection, private and non-exported exclusion, contracts, constructor
-projection, visible doctest and expected-output publication, hidden setup and
-ADR-lite exclusion, deterministic bytes, digest and URI stability, package
-byte changes, generator-contract changes, renderer-only stability when bytes
-are unchanged, declaration URI lookup, parse gate failure, export gate
-failure, documentation-reference gate failure, doctest gate failure, duplicate
-semantic identity failure, declaration identifier collision failure,
-successful negative doctest publication, expected negative-doctest diagnostic
-matching, status-only failure results, and virtual-source resolution after
-package documentation failure.
+projection and constructor-location lookup, visible doctest and expected-output
+publication, `veln fail` doctest handling, hidden setup and ADR-lite
+exclusion, deterministic bytes, digest and URI stability, package byte changes,
+generator-contract changes, renderer-only stability when bytes are unchanged,
+declaration URI lookup, parse gate failure with canonical package source URI,
+export gate failure, resolved documentation-reference projection,
+documentation-reference gate failure, doctest gate failure, duplicate semantic
+identity failure, declaration identifier collision failure, status-only
+failure results, and virtual-source resolution after package documentation
+failure.
 
 The readable CLI documentation boundary remains checked by
 `examples/specification/doc/`. The transport-independent catalog itself is a

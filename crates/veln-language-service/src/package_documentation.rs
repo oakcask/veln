@@ -3,6 +3,7 @@ use std::error::Error;
 use std::fmt;
 
 use sha2::{Digest, Sha256};
+use veln_diagnostics::{Diagnostic, Severity};
 use veln_project::{CapturedPackageSnapshot, ProjectManifest};
 use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{
@@ -10,6 +11,8 @@ use veln_syntax::{
     PublicAliasKind, SchemaDecl, SyntaxItem, TypeDecl, TypeVariantDecl, Visibility,
     canonical_type_text, parse,
 };
+
+use crate::{NavigationLocation, NavigationSource};
 
 const DOC_DOMAIN: &[u8] = b"veln-package-doc-catalog/v1\0";
 const MODULE_ID_DOMAIN: &[u8] = b"veln-package-doc-module-id/v1\0";
@@ -42,6 +45,7 @@ pub struct PackageDocResult {
     canonical_bytes: Vec<u8>,
     status_uri: String,
     kind: PackageDocResultKind,
+    declaration_locations: BTreeMap<PackageDocLocationKey, String>,
 }
 
 impl PackageDocResult {
@@ -110,6 +114,20 @@ impl PackageDocResult {
             })
             .map(|declaration| declaration.uri.as_str())
     }
+
+    pub fn declaration_uri_for_location(&self, location: &NavigationLocation) -> Option<&str> {
+        let source_uri = match &location.source {
+            NavigationSource::Package { uri } => uri.clone(),
+            NavigationSource::Workspace => source_uri(
+                self.identity(),
+                self.snapshot_digest(),
+                location.span.file.as_str(),
+            ),
+        };
+        self.declaration_locations
+            .get(&PackageDocLocationKey::new(&source_uri, &location.span))
+            .map(String::as_str)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -165,12 +183,21 @@ pub struct PackageDocDeclaration {
     pub constructors: Vec<PackageDocTypeConstructor>,
     pub alias: Option<PackageDocAlias>,
     pub doctests: Vec<PackageDocDoctest>,
+    pub references: Vec<PackageDocReference>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PackageDocTypeConstructor {
     pub name: String,
     pub signature: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PackageDocReference {
+    pub kind: String,
+    pub marker: String,
+    pub target_declaration_id: String,
+    pub target_uri: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -190,6 +217,7 @@ pub struct PackageDocDoctest {
     pub kind: String,
     pub code: String,
     pub expected_error: Option<String>,
+    pub should_fail: bool,
     pub expected_output: Vec<String>,
 }
 
@@ -248,6 +276,31 @@ struct ParsedPackageSource {
     source_uri: String,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct PackageDocLocationKey {
+    source_uri: String,
+    line: usize,
+    column: usize,
+    offset: usize,
+}
+
+impl PackageDocLocationKey {
+    fn new(source_uri: &str, span: &SourceSpan) -> Self {
+        Self {
+            source_uri: source_uri.to_string(),
+            line: span.start.line,
+            column: span.start.column,
+            offset: span.start.offset,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct PublicSchemaDocTarget {
+    declaration_id: String,
+    target_uri: String,
+}
+
 impl<'a> PackageDocBuilder<'a> {
     fn new(
         identity: &'a str,
@@ -276,17 +329,25 @@ impl<'a> PackageDocBuilder<'a> {
         let metadata = self.metadata();
         let parsed_sources = self.parse_sources();
         self.validate_manifest_exports(&parsed_sources);
-        self.validate_doc_references(&parsed_sources);
+        self.validate_doctests(&parsed_sources);
+        let schema_targets = self.public_schema_targets(&parsed_sources);
+        self.validate_doc_references(&parsed_sources, &schema_targets);
 
         if !self.diagnostics.is_empty() {
             return self.failed_result();
         }
 
         let mut semantic_identities = BTreeMap::new();
+        let mut declaration_locations = BTreeMap::new();
         let mut modules = Vec::new();
         for source in parsed_sources.iter().filter(|source| source.exported) {
             let module_id = digest_hex(MODULE_ID_DOMAIN, &[source.module_name.as_bytes()]);
-            let declarations = self.declarations(source, &mut semantic_identities);
+            let declarations = self.declarations(
+                source,
+                &mut semantic_identities,
+                &mut declaration_locations,
+                &schema_targets,
+            );
             modules.push(PackageDocModule {
                 uri: self.module_uri(&module_id, ""),
                 id: module_id,
@@ -356,7 +417,14 @@ impl<'a> PackageDocBuilder<'a> {
             module.uri = self.module_uri(&module.id, &final_doc_digest);
             for declaration in &mut module.declarations {
                 declaration.uri = self.declaration_uri(&declaration.id, &final_doc_digest);
+                for reference in &mut declaration.references {
+                    reference.target_uri =
+                        self.declaration_uri(&reference.target_declaration_id, &final_doc_digest);
+                }
             }
+        }
+        for declaration_uri in declaration_locations.values_mut() {
+            *declaration_uri = self.declaration_uri(declaration_uri, &final_doc_digest);
         }
         PackageDocResult {
             identity: self.identity.to_string(),
@@ -365,6 +433,7 @@ impl<'a> PackageDocBuilder<'a> {
             doc_digest: final_doc_digest,
             canonical_bytes,
             kind: PackageDocResultKind::Catalog(Box::new(catalog)),
+            declaration_locations,
         }
     }
 
@@ -405,7 +474,12 @@ impl<'a> PackageDocBuilder<'a> {
             let source_uri = source_uri(self.identity, self.snapshot.digest(), source.path());
             let output = parse(&source_file);
             for diagnostic in output.diagnostics {
-                self.diagnostics.push(parse_diagnostic("parse", diagnostic));
+                self.diagnostics.push(parse_diagnostic(
+                    "parse",
+                    diagnostic,
+                    self.identity,
+                    self.snapshot.digest(),
+                ));
             }
             let module_name = explicit_module_name(text)
                 .or_else(|| module_name_from_path(source.path()))
@@ -463,33 +537,76 @@ impl<'a> PackageDocBuilder<'a> {
         }
     }
 
-    fn validate_doc_references(&mut self, parsed_sources: &[ParsedPackageSource]) {
-        let exported_modules = parsed_sources
+    fn validate_doctests(&mut self, parsed_sources: &[ParsedPackageSource]) {
+        let exported_sources = parsed_sources
             .iter()
             .filter(|source| source.exported)
-            .map(|source| source.module_name.clone())
-            .collect::<BTreeSet<_>>();
-        let public_schemas = parsed_sources
-            .iter()
-            .filter(|source| source.exported)
-            .flat_map(|source| {
-                source.tree.items.iter().filter_map(move |item| match item {
-                    SyntaxItem::Schema(schema) if schema.visibility == Visibility::Public => schema
-                        .name
-                        .as_ref()
-                        .map(|name| (source.module_name.clone(), name.clone())),
-                    _ => None,
-                })
-            })
-            .collect::<BTreeSet<_>>();
+            .map(|source| source.source.clone())
+            .collect::<Vec<_>>();
+        if exported_sources.is_empty() {
+            return;
+        }
+        let doctests = veln_test::doctest_sources(&exported_sources);
+        for diagnostic in doctests.diagnostics {
+            if diagnostic.severity == Severity::Error {
+                self.diagnostics
+                    .push(self.project_diagnostic("doctest", diagnostic));
+            }
+        }
+        for source in parsed_sources.iter().filter(|source| source.exported) {
+            for target_line in public_declaration_lines(&source.tree) {
+                for fence in doctest_fences(&source.source, target_line) {
+                    match fence {
+                        Ok(doctest) => self.validate_doctest(&source.source, &doctest),
+                        Err(diagnostic) => self.diagnostics.push(diagnostic),
+                    }
+                }
+            }
+        }
+    }
+
+    fn public_schema_targets(
+        &self,
+        parsed_sources: &[ParsedPackageSource],
+    ) -> BTreeMap<String, PublicSchemaDocTarget> {
+        let mut targets = BTreeMap::new();
+        for source in parsed_sources.iter().filter(|source| source.exported) {
+            for item in &source.tree.items {
+                let SyntaxItem::Schema(schema) = item else {
+                    continue;
+                };
+                if schema.visibility != Visibility::Public {
+                    continue;
+                }
+                let name = schema.name.clone().unwrap_or_default();
+                let identity = format!(
+                    "schema:{}::{name}:{}",
+                    source.module_name,
+                    schema_signature(schema)
+                );
+                let declaration_id = self.declaration_id("schema", &identity);
+                let target_uri = self.declaration_uri(&declaration_id, "");
+                let target = PublicSchemaDocTarget {
+                    declaration_id,
+                    target_uri,
+                };
+                targets.insert(format!("{}::{name}", source.module_name), target.clone());
+                targets.insert(name, target);
+            }
+        }
+        targets
+    }
+
+    fn validate_doc_references(
+        &mut self,
+        parsed_sources: &[ParsedPackageSource],
+        schema_targets: &BTreeMap<String, PublicSchemaDocTarget>,
+    ) {
         for source in parsed_sources.iter().filter(|source| source.exported) {
             for reference in doc_schema_references(&source.source) {
-                if !schema_reference_is_public(
-                    &reference.target,
-                    &source.module_name,
-                    &exported_modules,
-                    &public_schemas,
-                ) {
+                if schema_reference_target(&reference.target, &source.module_name, schema_targets)
+                    .is_none()
+                {
                     self.diagnostics.push(PackageDocDiagnostic {
                         gate: "documentation_reference".to_string(),
                         code: "package_doc.unresolved_schema_reference".to_string(),
@@ -511,6 +628,8 @@ impl<'a> PackageDocBuilder<'a> {
         &mut self,
         source: &ParsedPackageSource,
         semantic_identities: &mut BTreeMap<String, SourceSpan>,
+        declaration_locations: &mut BTreeMap<PackageDocLocationKey, String>,
+        schema_targets: &BTreeMap<String, PublicSchemaDocTarget>,
     ) -> Vec<PackageDocDeclaration> {
         let mut declarations = Vec::new();
         for item in &source.tree.items {
@@ -520,10 +639,18 @@ impl<'a> PackageDocBuilder<'a> {
                         source,
                         type_decl,
                         semantic_identities,
+                        declaration_locations,
+                        schema_targets,
                     ));
                 }
                 SyntaxItem::Schema(schema) if schema.visibility == Visibility::Public => {
-                    declarations.push(self.schema_declaration(source, schema, semantic_identities));
+                    declarations.push(self.schema_declaration(
+                        source,
+                        schema,
+                        semantic_identities,
+                        declaration_locations,
+                        schema_targets,
+                    ));
                 }
                 SyntaxItem::Function(function)
                     if function.kind == FunctionKind::Function
@@ -533,10 +660,18 @@ impl<'a> PackageDocBuilder<'a> {
                         source,
                         function,
                         semantic_identities,
+                        declaration_locations,
+                        schema_targets,
                     ));
                 }
                 SyntaxItem::PublicAlias(alias) => {
-                    declarations.push(self.alias_declaration(source, alias, semantic_identities));
+                    declarations.push(self.alias_declaration(
+                        source,
+                        alias,
+                        semantic_identities,
+                        declaration_locations,
+                        schema_targets,
+                    ));
                 }
                 _ => {}
             }
@@ -549,6 +684,8 @@ impl<'a> PackageDocBuilder<'a> {
         source: &ParsedPackageSource,
         type_decl: &TypeDecl,
         semantic_identities: &mut BTreeMap<String, SourceSpan>,
+        declaration_locations: &mut BTreeMap<PackageDocLocationKey, String>,
+        schema_targets: &BTreeMap<String, PublicSchemaDocTarget>,
     ) -> PackageDocDeclaration {
         let name = type_decl.name.clone().unwrap_or_default();
         let identity = format!(
@@ -557,8 +694,19 @@ impl<'a> PackageDocBuilder<'a> {
             type_signature(type_decl)
         );
         self.record_semantic_identity(&identity, &type_decl.span, semantic_identities);
+        let declaration_id = self.declaration_id("type", &identity);
+        declaration_locations.insert(
+            PackageDocLocationKey::new(&source.source_uri, &type_decl.span),
+            declaration_id.clone(),
+        );
+        for variant in &type_decl.variants {
+            declaration_locations.insert(
+                PackageDocLocationKey::new(&source.source_uri, &variant.span),
+                declaration_id.clone(),
+            );
+        }
         PackageDocDeclaration {
-            id: self.declaration_id("type", &identity),
+            id: declaration_id,
             kind: "type".to_string(),
             name,
             signature: type_signature(type_decl),
@@ -573,6 +721,11 @@ impl<'a> PackageDocBuilder<'a> {
                 .collect(),
             alias: None,
             doctests: self.doctests_for(&source.source, type_decl.span.start.line),
+            references: self.references_for(
+                &source.source,
+                type_decl.span.start.line,
+                schema_targets,
+            ),
         }
     }
 
@@ -581,6 +734,8 @@ impl<'a> PackageDocBuilder<'a> {
         source: &ParsedPackageSource,
         schema: &SchemaDecl,
         semantic_identities: &mut BTreeMap<String, SourceSpan>,
+        declaration_locations: &mut BTreeMap<PackageDocLocationKey, String>,
+        schema_targets: &BTreeMap<String, PublicSchemaDocTarget>,
     ) -> PackageDocDeclaration {
         let name = schema.name.clone().unwrap_or_default();
         let identity = format!(
@@ -589,8 +744,13 @@ impl<'a> PackageDocBuilder<'a> {
             schema_signature(schema)
         );
         self.record_semantic_identity(&identity, &schema.span, semantic_identities);
+        let declaration_id = self.declaration_id("schema", &identity);
+        declaration_locations.insert(
+            PackageDocLocationKey::new(&source.source_uri, &schema.span),
+            declaration_id.clone(),
+        );
         PackageDocDeclaration {
-            id: self.declaration_id("schema", &identity),
+            id: declaration_id,
             kind: "schema".to_string(),
             name,
             signature: schema_signature(schema),
@@ -600,6 +760,7 @@ impl<'a> PackageDocBuilder<'a> {
             constructors: Vec::new(),
             alias: None,
             doctests: self.doctests_for(&source.source, schema.span.start.line),
+            references: self.references_for(&source.source, schema.span.start.line, schema_targets),
         }
     }
 
@@ -608,13 +769,20 @@ impl<'a> PackageDocBuilder<'a> {
         source: &ParsedPackageSource,
         function: &FunctionDecl,
         semantic_identities: &mut BTreeMap<String, SourceSpan>,
+        declaration_locations: &mut BTreeMap<PackageDocLocationKey, String>,
+        schema_targets: &BTreeMap<String, PublicSchemaDocTarget>,
     ) -> PackageDocDeclaration {
         let name = function.name.clone().unwrap_or_default();
         let signature = function_signature(function);
         let identity = format!("function:{}::{name}:{signature}", source.module_name);
         self.record_semantic_identity(&identity, &function.span, semantic_identities);
+        let declaration_id = self.declaration_id("function", &identity);
+        declaration_locations.insert(
+            PackageDocLocationKey::new(&source.source_uri, &function.span),
+            declaration_id.clone(),
+        );
         PackageDocDeclaration {
-            id: self.declaration_id("function", &identity),
+            id: declaration_id,
             kind: "function".to_string(),
             name,
             signature,
@@ -624,6 +792,11 @@ impl<'a> PackageDocBuilder<'a> {
             constructors: Vec::new(),
             alias: None,
             doctests: self.doctests_for(&source.source, function.span.start.line),
+            references: self.references_for(
+                &source.source,
+                function.span.start.line,
+                schema_targets,
+            ),
         }
     }
 
@@ -632,14 +805,21 @@ impl<'a> PackageDocBuilder<'a> {
         source: &ParsedPackageSource,
         alias: &PublicAliasDecl,
         semantic_identities: &mut BTreeMap<String, SourceSpan>,
+        declaration_locations: &mut BTreeMap<PackageDocLocationKey, String>,
+        schema_targets: &BTreeMap<String, PublicSchemaDocTarget>,
     ) -> PackageDocDeclaration {
         let name = alias.name.clone().unwrap_or_default();
         let signature = alias_signature(alias);
         let kind = alias_kind(alias.kind).to_string();
         let identity = format!("alias:{kind}:{}::{name}:{signature}", source.module_name);
         self.record_semantic_identity(&identity, &alias.span, semantic_identities);
+        let declaration_id = self.declaration_id("alias", &identity);
+        declaration_locations.insert(
+            PackageDocLocationKey::new(&source.source_uri, &alias.span),
+            declaration_id.clone(),
+        );
         PackageDocDeclaration {
-            id: self.declaration_id("alias", &identity),
+            id: declaration_id,
             kind: "alias".to_string(),
             name,
             signature,
@@ -652,6 +832,7 @@ impl<'a> PackageDocBuilder<'a> {
                 target: alias.target.clone(),
             }),
             doctests: self.doctests_for(&source.source, alias.span.start.line),
+            references: self.references_for(&source.source, alias.span.start.line, schema_targets),
         }
     }
 
@@ -679,7 +860,6 @@ impl<'a> PackageDocBuilder<'a> {
         for fence in doctest_fences(source, target_line) {
             match fence {
                 Ok(doctest) => {
-                    self.validate_doctest(source, &doctest);
                     doctests.push(doctest);
                 }
                 Err(diagnostic) => self.diagnostics.push(diagnostic),
@@ -697,36 +877,60 @@ impl<'a> PackageDocBuilder<'a> {
             doctest.code.clone(),
         );
         let diagnostics = parse(&doctest_source).diagnostics;
-        if let Some(expected_error) = &doctest.expected_error {
+        if doctest.should_fail {
             if diagnostics.is_empty() {
                 self.diagnostics.push(PackageDocDiagnostic {
                     gate: "doctest".to_string(),
-                    code: "package_doc.expected_failure_missing".to_string(),
-                    message: "negative documentation doctest produced no parse diagnostics"
-                        .to_string(),
-                    span: None,
-                });
-            } else if !diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.id == expected_error)
-            {
-                let observed = diagnostics
-                    .iter()
-                    .map(|diagnostic| diagnostic.id.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                self.diagnostics.push(PackageDocDiagnostic {
-                    gate: "doctest".to_string(),
-                    code: "package_doc.expected_failure_mismatch".to_string(),
-                    message: format!(
-                        "negative documentation doctest expected parse diagnostic `{expected_error}` but observed `{observed}`"
-                    ),
+                    code: "doctest.expected_failure_missing".to_string(),
+                    message: "negative doctest produced no error diagnostics".to_string(),
                     span: None,
                 });
             }
         } else if let Some(diagnostic) = diagnostics.into_iter().next() {
-            self.diagnostics
-                .push(parse_diagnostic("doctest", diagnostic));
+            self.diagnostics.push(parse_diagnostic(
+                "doctest",
+                diagnostic,
+                self.identity,
+                self.snapshot.digest(),
+            ));
+        }
+    }
+
+    fn references_for(
+        &self,
+        source: &SourceFile,
+        target_line: usize,
+        schema_targets: &BTreeMap<String, PublicSchemaDocTarget>,
+    ) -> Vec<PackageDocReference> {
+        let current_module = explicit_module_name(source.text())
+            .or_else(|| module_name_from_path(source.path().as_str()))
+            .unwrap_or_default();
+        doc_schema_references_before(source, target_line)
+            .into_iter()
+            .filter_map(|reference| {
+                schema_reference_target(&reference.target, &current_module, schema_targets).map(
+                    |target| PackageDocReference {
+                        kind: "schema".to_string(),
+                        marker: reference.target,
+                        target_declaration_id: target.declaration_id.clone(),
+                        target_uri: target.target_uri.clone(),
+                    },
+                )
+            })
+            .collect()
+    }
+
+    fn project_diagnostic(&self, gate: &str, diagnostic: Diagnostic) -> PackageDocDiagnostic {
+        PackageDocDiagnostic {
+            gate: gate.to_string(),
+            code: diagnostic.id,
+            message: diagnostic.message,
+            span: diagnostic.span.as_ref().map(|span| {
+                PackageDocDiagnosticSpan::from_span(
+                    &source_uri(self.identity, self.snapshot.digest(), span.file.as_str()),
+                    span,
+                )
+            }),
         }
     }
 
@@ -752,6 +956,7 @@ impl<'a> PackageDocBuilder<'a> {
             doc_digest,
             canonical_bytes,
             kind: PackageDocResultKind::Status(status),
+            declaration_locations: BTreeMap::new(),
         }
     }
 
@@ -817,13 +1022,21 @@ impl PackageDocDiagnosticSpan {
     }
 }
 
-fn parse_diagnostic(gate: &str, diagnostic: ParseDiagnostic) -> PackageDocDiagnostic {
+fn parse_diagnostic(
+    gate: &str,
+    diagnostic: ParseDiagnostic,
+    identity: &str,
+    snapshot_digest: &str,
+) -> PackageDocDiagnostic {
     PackageDocDiagnostic {
         gate: gate.to_string(),
         code: diagnostic.id.to_string(),
         message: diagnostic.message,
         span: diagnostic.span.as_ref().map(|span| {
-            PackageDocDiagnosticSpan::from_span(&source_uri("", "", span.file.as_str()), span)
+            PackageDocDiagnosticSpan::from_span(
+                &source_uri(identity, snapshot_digest, span.file.as_str()),
+                span,
+            )
         }),
     }
 }
@@ -861,6 +1074,28 @@ fn function_signature(function: &FunctionDecl) -> String {
         signature.push(']');
     }
     signature
+}
+
+fn public_declaration_lines(tree: &veln_syntax::SyntaxTree) -> Vec<usize> {
+    tree.items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Type(type_decl) if type_decl.visibility == Visibility::Public => {
+                Some(type_decl.span.start.line)
+            }
+            SyntaxItem::Schema(schema) if schema.visibility == Visibility::Public => {
+                Some(schema.span.start.line)
+            }
+            SyntaxItem::Function(function)
+                if function.kind == FunctionKind::Function
+                    && function.visibility == Visibility::Public =>
+            {
+                Some(function.span.start.line)
+            }
+            SyntaxItem::PublicAlias(alias) => Some(alias.span.start.line),
+            _ => None,
+        })
+        .collect()
 }
 
 fn type_signature(type_decl: &TypeDecl) -> String {
@@ -1011,6 +1246,49 @@ fn doc_schema_references(source: &SourceFile) -> Vec<DocSchemaReference> {
     references
 }
 
+fn doc_schema_references_before(
+    source: &SourceFile,
+    target_line: usize,
+) -> Vec<DocSchemaReference> {
+    if target_line <= 1 {
+        return Vec::new();
+    }
+    let lines = source.text().split_inclusive('\n').collect::<Vec<_>>();
+    let mut index = target_line - 2;
+    let mut docs = Vec::new();
+    while let Some(line) = lines.get(index) {
+        let trimmed = line.trim_start();
+        if trimmed.strip_prefix("##").is_none() {
+            break;
+        }
+        docs.push((index, *line));
+        if index == 0 {
+            break;
+        }
+        index -= 1;
+    }
+    docs.reverse();
+
+    let mut references = Vec::new();
+    let mut line_start = 0;
+    for (line_index, line) in lines.iter().enumerate() {
+        if docs.iter().any(|(index, _)| *index == line_index) {
+            let trimmed = line.trim_start();
+            let indent_len = line.len() - trimmed.len();
+            if let Some(content) = trimmed.strip_prefix("##") {
+                let content_start = line_start + indent_len + "##".len();
+                references.extend(extract_doc_schema_references(
+                    source,
+                    content,
+                    content_start,
+                ));
+            }
+        }
+        line_start += line.len();
+    }
+    references
+}
+
 fn extract_doc_schema_references(
     source: &SourceFile,
     text: &str,
@@ -1055,21 +1333,21 @@ fn extract_doc_schema_references(
     references
 }
 
-fn schema_reference_is_public(
+fn schema_reference_target<'a>(
     target: &str,
     current_module: &str,
-    exported_modules: &BTreeSet<String>,
-    public_schemas: &BTreeSet<(String, String)>,
-) -> bool {
+    public_schemas: &'a BTreeMap<String, PublicSchemaDocTarget>,
+) -> Option<&'a PublicSchemaDocTarget> {
     let segments = target.split("::").collect::<Vec<_>>();
     match segments.as_slice() {
-        [name] => public_schemas.contains(&(current_module.to_string(), (*name).to_string())),
+        [name] => public_schemas
+            .get(&format!("{current_module}::{name}"))
+            .or_else(|| public_schemas.get(*name)),
         [module @ .., name] => {
             let module = module.join("::");
-            exported_modules.contains(&module)
-                && public_schemas.contains(&(module, (*name).to_string()))
+            public_schemas.get(&format!("{module}::{name}"))
         }
-        _ => false,
+        _ => None,
     }
 }
 
@@ -1079,13 +1357,13 @@ fn doctest_fences(
 ) -> Vec<Result<PackageDocDoctest, PackageDocDiagnostic>> {
     let mut result = Vec::new();
     let docs = doc_block_before(source, target_line);
-    let mut active: Option<(String, Option<String>, Vec<String>)> = None;
+    let mut active: Option<(String, Option<String>, bool, bool, Vec<String>)> = None;
     let mut last_doctest: Option<usize> = None;
     for line in docs {
         let trimmed = line.trim_start();
         if let Some(info) = trimmed.strip_prefix("```") {
-            if let Some((kind, expected_error, lines)) = active.take() {
-                if kind == "veln" {
+            if let Some((kind, expected_error, ignored, should_fail, lines)) = active.take() {
+                if kind == "veln" && !ignored {
                     result.push(Ok(PackageDocDoctest {
                         kind,
                         code: lines
@@ -1094,6 +1372,7 @@ fn doctest_fences(
                             .collect::<Vec<_>>()
                             .join("\n"),
                         expected_error,
+                        should_fail,
                         expected_output: Vec::new(),
                     }));
                     last_doctest = Some(result.len() - 1);
@@ -1113,6 +1392,9 @@ fn doctest_fences(
                 continue;
             }
             let mut expected_error = None;
+            let mut ignored = false;
+            let mut should_fail = false;
+            let mut has_output_stream = kind != "veln-output";
             let mut failed = None;
             for part in parts {
                 if let Some(error) = part.strip_prefix("error=") {
@@ -1121,9 +1403,32 @@ fn doctest_fences(
                     } else {
                         expected_error = Some(error.to_string());
                     }
+                } else if kind == "veln" && matches!(part, "ignore" | "fail") {
+                    ignored = part == "ignore";
+                    should_fail = part == "fail";
+                } else if kind == "veln"
+                    && (part.starts_with("runtime=")
+                        || part.starts_with("clause=")
+                        || part.starts_with("predicate=")
+                        || part.starts_with("function=")
+                        || part.starts_with("blame=")
+                        || part.starts_with("value="))
+                {
+                    continue;
+                } else if kind == "veln-output"
+                    && let Some(stream) = part.strip_prefix("stream=")
+                {
+                    if matches!(stream, "stdout" | "stderr") {
+                        has_output_stream = true;
+                    } else {
+                        failed = Some(format!("unknown doctest output stream `{stream}`"));
+                    }
                 } else {
                     failed = Some(format!("unknown doctest attribute `{part}`"));
                 }
+            }
+            if kind == "veln-output" && !has_output_stream {
+                failed = Some("missing doctest output stream".to_string());
             }
             if let Some(message) = failed {
                 result.push(Err(PackageDocDiagnostic {
@@ -1134,8 +1439,14 @@ fn doctest_fences(
                 }));
                 continue;
             }
-            active = Some((kind.to_string(), expected_error, Vec::new()));
-        } else if let Some((_, _, lines)) = &mut active {
+            active = Some((
+                kind.to_string(),
+                expected_error,
+                ignored,
+                should_fail,
+                Vec::new(),
+            ));
+        } else if let Some((_, _, _, _, lines)) = &mut active {
             lines.push(line);
         }
     }
@@ -1266,7 +1577,24 @@ fn declaration_json(out: &mut String, declaration: &PackageDocDeclaration) {
         field(out, "kind", &doctest.kind, false);
         field(out, "code", &doctest.code, true);
         optional_field(out, "expected_error", doctest.expected_error.as_deref());
+        bool_field(out, "should_fail", doctest.should_fail);
         string_array_field(out, "expected_output", &doctest.expected_output);
+        out.push('}');
+    }
+    out.push_str("],\"references\":[");
+    for (index, reference) in declaration.references.iter().enumerate() {
+        if index > 0 {
+            out.push(',');
+        }
+        out.push('{');
+        field(out, "kind", &reference.kind, false);
+        field(out, "marker", &reference.marker, true);
+        field(
+            out,
+            "target_declaration_id",
+            &reference.target_declaration_id,
+            true,
+        );
         out.push('}');
     }
     out.push_str("]}");
@@ -1346,6 +1674,13 @@ fn number_field(out: &mut String, key: &str, value: usize) {
     string(out, key);
     out.push(':');
     out.push_str(&value.to_string());
+}
+
+fn bool_field(out: &mut String, key: &str, value: bool) {
+    out.push(',');
+    string(out, key);
+    out.push(':');
+    out.push_str(if value { "true" } else { "false" });
 }
 
 fn string(out: &mut String, value: &str) {
@@ -1560,7 +1895,7 @@ mod tests {
                         "## \t1\n",
                         "## end\n",
                         "## ```\n",
-                        "## ```veln-output\n",
+                        "## ```veln-output stream=stdout\n",
                         "## 1\n",
                         "## ```\n",
                         "pub fn value(input: Int) -> output: Int\n",
@@ -1648,6 +1983,99 @@ mod tests {
     }
 
     #[test]
+    fn resolved_schema_references_keep_target_identity_and_uri() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\", \"wire.veln\"]\n",
+            &[
+                (
+                    "main.veln",
+                    concat!(
+                        "## Uses {@schema wire::Packet}.\n",
+                        "pub fn value() -> Int\n",
+                        "\t1\n",
+                        "end\n",
+                    ),
+                ),
+                (
+                    "wire.veln",
+                    concat!(
+                        "pub schema Packet\n",
+                        "\tformat binary\n",
+                        "\tvalue: UInt8\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+        );
+
+        let catalog = result.catalog().expect("successful catalog");
+        let function = &catalog.modules[0].declarations[0];
+        let schema = &catalog.modules[1].declarations[0];
+        assert_eq!(function.references.len(), 1);
+        assert_eq!(function.references[0].marker, "wire::Packet");
+        assert_eq!(function.references[0].target_declaration_id, schema.id);
+        assert_eq!(function.references[0].target_uri, schema.uri);
+        assert!(
+            std::str::from_utf8(result.canonical_bytes())
+                .unwrap()
+                .contains("\"references\":[{\"kind\":\"schema\"")
+        );
+    }
+
+    #[test]
+    fn declaration_uri_lookup_accepts_declaration_and_constructor_locations() {
+        let source_text = concat!(
+            "pub type Choice\n",
+            "\tpub Some(value: Int)\n",
+            "end\n",
+            "\n",
+            "pub fn value() -> Int\n",
+            "\t1\n",
+            "end\n",
+        );
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[("main.veln", source_text)],
+        );
+        let source = SourceFile::new("main.veln", source_text);
+        let parsed = parse(&source).tree;
+        let SyntaxItem::Type(type_decl) = &parsed.items[0] else {
+            panic!("expected type declaration");
+        };
+        let SyntaxItem::Function(function) = &parsed.items[1] else {
+            panic!("expected function declaration");
+        };
+        let catalog = result.catalog().expect("successful catalog");
+        let type_uri = catalog.modules[0].declarations[0].uri.as_str();
+        let function_uri = catalog.modules[0].declarations[1].uri.as_str();
+        let source_uri = source_uri("owner/package", result.snapshot_digest(), "main.veln");
+
+        assert_eq!(
+            result.declaration_uri_for_location(&NavigationLocation {
+                source: NavigationSource::Package {
+                    uri: source_uri.clone()
+                },
+                span: type_decl.span.clone(),
+            }),
+            Some(type_uri)
+        );
+        assert_eq!(
+            result.declaration_uri_for_location(&NavigationLocation {
+                source: NavigationSource::Package { uri: source_uri },
+                span: type_decl.variants[0].span.clone(),
+            }),
+            Some(type_uri)
+        );
+        assert_eq!(
+            result.declaration_uri_for_location(&NavigationLocation {
+                source: NavigationSource::Workspace,
+                span: function.span.clone(),
+            }),
+            Some(function_uri)
+        );
+    }
+
+    #[test]
     fn package_bytes_and_generator_contract_change_document_identity() {
         let base_manifest = "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n";
         let first = generate(
@@ -1725,7 +2153,7 @@ mod tests {
                 "main.veln",
                 concat!(
                     "## ```veln\n",
-                    "## bad\n",
+                    "## @\n",
                     "## ```\n",
                     "pub fn value() -> Int\n",
                     "\t1\n",
@@ -1791,14 +2219,14 @@ mod tests {
     }
 
     #[test]
-    fn negative_doctest_is_published_when_expected_parse_diagnostic_matches() {
+    fn fail_doctest_is_published_when_generated_parse_diagnostic_matches() {
         let result = generate(
             "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
             &[(
                 "main.veln",
                 concat!(
-                    "## ```veln error=parse.expected_item\n",
-                    "## bad\n",
+                    "## ```veln fail\n",
+                    "## @\n",
                     "## ```\n",
                     "pub fn value() -> Int\n",
                     "\t1\n",
@@ -1809,28 +2237,28 @@ mod tests {
 
         let catalog = result.catalog().expect("successful catalog");
         let doctest = &catalog.modules[0].declarations[0].doctests[0];
-        assert_eq!(
-            doctest.expected_error.as_deref(),
-            Some("parse.expected_item")
-        );
-        assert_eq!(doctest.code, "bad");
+        assert_eq!(doctest.expected_error.as_deref(), None);
+        assert!(doctest.should_fail);
+        assert_eq!(doctest.code, "@");
         assert!(result.status().diagnostics.is_empty());
         assert!(
             std::str::from_utf8(result.canonical_bytes())
                 .unwrap()
-                .contains("\"expected_error\":\"parse.expected_item\"")
+                .contains("\"should_fail\":true")
         );
     }
 
     #[test]
-    fn negative_doctest_error_metadata_must_match_parse_diagnostic() {
+    fn fail_doctest_must_produce_generated_parse_diagnostic() {
         let result = generate(
             "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
             &[(
                 "main.veln",
                 concat!(
-                    "## ```veln error=parse.invalid_token\n",
-                    "## bad\n",
+                    "## ```veln fail\n",
+                    "## fn sample() -> Int\n",
+                    "## \t1\n",
+                    "## end\n",
                     "## ```\n",
                     "pub fn value() -> Int\n",
                     "\t1\n",
@@ -1845,7 +2273,7 @@ mod tests {
                 .status()
                 .diagnostics
                 .iter()
-                .any(|diagnostic| diagnostic.code == "package_doc.expected_failure_mismatch")
+                .any(|diagnostic| diagnostic.code == "doctest.expected_failure_missing")
         );
     }
 
@@ -1878,6 +2306,14 @@ mod tests {
 
         assert!(result.catalog().is_none());
         assert_eq!(result.status().diagnostics[0].gate, "parse");
+        assert!(
+            result.status().diagnostics[0]
+                .span
+                .as_ref()
+                .unwrap()
+                .source_uri
+                .starts_with("veln-pkg:///owner%2Fpackage/snapshot/")
+        );
         assert!(
             !std::str::from_utf8(result.canonical_bytes())
                 .unwrap()

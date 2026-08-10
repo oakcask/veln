@@ -555,10 +555,12 @@ diagnostic code, and message. Module and declaration resources are not listed,
 searched, or readable. The loaded-package index returns the exact immutable
 status URI. The source snapshot remains readable.
 
-A passing positive doctest and an explicit negative doctest whose expected
-diagnostics match can be published. Ignored doctests and hidden setup are not
-published. Unexpected static invalidity, runtime failure, resource exhaustion,
-or expected-output mismatch fails the complete documentation generation.
+A passing positive doctest and a `veln fail` doctest whose visible source
+produces a parse diagnostic can be published. Ignored doctests and hidden setup
+are not published. Doctest metadata is validated by the shared doctest
+extractor, and metadata errors fail the complete documentation generation.
+Full semantic, runtime, and expected-output doctest execution remains part of
+the planned MCP publication slice.
 
 ## Published Language Reference
 
@@ -898,7 +900,7 @@ already implemented.
 | Read a noncanonical, unknown, or mismatched snapshot URI through MCP. | The server returns `resource_not_found` without normalization, fallback, or filesystem access. The transport-independent resolver rejection table is already implemented and specified in [Package Virtual Sources](../specification/package-virtual-sources.md). | MCP adapter case mapping a catalog miss to `resource_not_found`. |
 | Read a private distribution source or inspect package metadata. | The source is readable; metadata contains only the closed public allowlist and no dependency, URL, tool, path, or credential-bearing fields. | Q15 disclosure-policy cases. |
 | Keep returned dependency URIs while projects refresh or disappear. | Every published snapshot remains readable until shutdown; capacity failure never evicts an older URI. | Q10 resource-lifetime cases. |
-| Generate package docs. | The transport-independent catalog contains only exported modules and their public API; attached contracts and visible doctests are preserved. MCP publication remains planned. | Implemented package-documentation unit tests and readable `doc` examples; planned MCP resource case. |
+| Generate package docs. | The transport-independent catalog contains only exported modules and their public API; attached contracts, visible doctests, resolved schema documentation references, and declaration-location URI lookup are preserved. MCP publication remains planned. | Implemented package-documentation unit tests and readable `doc` examples; planned MCP resource case. |
 | Change catalog semantics without changing package bytes. | The package digest stays fixed and the documentation catalog digest and URIs change. | Implemented package-documentation document-identity tests; planned MCP resource case. |
 | Package documentation generation or doctest validation fails. | The transport-independent result contains ordered status diagnostics and no partial module or declaration catalog. MCP status-resource publication remains planned. | Implemented atomic-generation-failure unit tests; planned MCP resource case. |
 
