@@ -1,0 +1,15 @@
+## Uses {@schema wire::Packet}.
+## ```veln
+## fn sample() -> Int
+## 	1
+## end
+## ```
+pub fn visible(value: Int) -> output: Int
+	require value >= 0
+	ensure output >= value
+	value
+end
+
+fn hidden_helper() -> Int
+	0
+end

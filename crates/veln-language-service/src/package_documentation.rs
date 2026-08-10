@@ -4,7 +4,7 @@ use std::fmt;
 
 use sha2::{Digest, Sha256};
 use veln_diagnostics::{Diagnostic, Severity};
-use veln_project::{CapturedPackageSnapshot, ProjectManifest};
+use veln_project::{CapturedPackageSnapshot, ProjectManifest, classify_companion_source};
 use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{
     ContractClause, ContractKind, FunctionDecl, FunctionKind, ParseDiagnostic, PublicAliasDecl,
@@ -326,6 +326,7 @@ impl<'a> PackageDocBuilder<'a> {
     }
 
     fn generate(mut self) -> PackageDocResult {
+        self.validate_manifest_gate();
         let metadata = self.metadata();
         let parsed_sources = self.parse_sources();
         self.validate_manifest_exports(&parsed_sources);
@@ -501,8 +502,11 @@ impl<'a> PackageDocBuilder<'a> {
             .map(|source| source.source.path().as_str().to_string())
             .collect::<BTreeSet<_>>();
         let mut exports = BTreeSet::new();
-        for export in &self.manifest.lib.exports {
-            let path = SourcePath::new(export.path.clone()).as_str().to_string();
+        let mut exported_modules = BTreeMap::new();
+        for export in self.manifest.lib.exports.clone() {
+            let Some((path, module_name)) = self.validated_manifest_export(&export) else {
+                continue;
+            };
             if !exports.insert(path.clone()) {
                 self.diagnostics.push(PackageDocDiagnostic {
                     gate: "export".to_string(),
@@ -517,7 +521,29 @@ impl<'a> PackageDocBuilder<'a> {
                         &export.path_span,
                     )),
                 });
-            } else if !available.contains(&path) {
+                continue;
+            }
+            if let Some(first_span) =
+                exported_modules.insert(module_name.clone(), export.path_span.clone())
+            {
+                self.diagnostics.push(PackageDocDiagnostic {
+                    gate: "manifest".to_string(),
+                    code: "package_doc.duplicate_exported_module".to_string(),
+                    message: format!(
+                        "manifest export `{path}` duplicates module export `{module_name}`"
+                    ),
+                    span: Some(PackageDocDiagnosticSpan::from_span(
+                        &source_uri(
+                            self.identity,
+                            self.snapshot.digest(),
+                            self.manifest.path.as_str(),
+                        ),
+                        &first_span,
+                    )),
+                });
+                continue;
+            }
+            if !available.contains(&path) {
                 self.diagnostics.push(PackageDocDiagnostic {
                     gate: "export".to_string(),
                     code: "package_doc.missing_export".to_string(),
@@ -535,6 +561,116 @@ impl<'a> PackageDocBuilder<'a> {
                 });
             }
         }
+    }
+
+    fn validate_manifest_gate(&mut self) {
+        for section in &self.manifest.unsupported_sections {
+            self.diagnostics.push(PackageDocDiagnostic {
+                gate: "manifest".to_string(),
+                code: "package_doc.unsupported_manifest_section".to_string(),
+                message: format!(
+                    "manifest section `[{}]` is not supported by package documentation generation",
+                    section.name
+                ),
+                span: Some(PackageDocDiagnosticSpan::from_span(
+                    &source_uri(
+                        self.identity,
+                        self.snapshot.digest(),
+                        self.manifest.path.as_str(),
+                    ),
+                    &section.span,
+                )),
+            });
+        }
+
+        for dependency in &self.manifest.dependencies {
+            if dependency.git.is_some() && dependency.selectors.is_empty() {
+                self.diagnostics.push(PackageDocDiagnostic {
+                    gate: "manifest".to_string(),
+                    code: "package_doc.missing_git_selector".to_string(),
+                    message: format!(
+                        "git dependency `{}` must specify exactly one selector: `rev`, `tag`, or `branch`",
+                        dependency.package
+                    ),
+                    span: Some(PackageDocDiagnosticSpan::from_span(
+                        &source_uri(
+                            self.identity,
+                            self.snapshot.digest(),
+                            self.manifest.path.as_str(),
+                        ),
+                        &dependency.package_span,
+                    )),
+                });
+            }
+            for selector in dependency.selectors.iter().skip(1) {
+                self.diagnostics.push(PackageDocDiagnostic {
+                    gate: "manifest".to_string(),
+                    code: "package_doc.multiple_git_selectors".to_string(),
+                    message: format!(
+                        "git dependency `{}` specifies multiple selectors; use exactly one of `rev`, `tag`, or `branch`",
+                        dependency.package
+                    ),
+                    span: Some(PackageDocDiagnosticSpan::from_span(
+                        &source_uri(
+                            self.identity,
+                            self.snapshot.digest(),
+                            self.manifest.path.as_str(),
+                        ),
+                        &selector.field.key_span,
+                    )),
+                });
+            }
+        }
+    }
+
+    fn validated_manifest_export(
+        &mut self,
+        export: &veln_project::ManifestExport,
+    ) -> Option<(String, String)> {
+        if export.path.contains("::") {
+            self.invalid_manifest_export(
+                export,
+                "module paths are not valid manifest exports; use a package-relative source file path",
+            );
+            return None;
+        }
+        let path = SourcePath::new(export.path.clone());
+        if !is_package_relative_path(path.as_str()) {
+            self.invalid_manifest_export(export, "manifest exports must stay inside the package");
+            return None;
+        }
+        if !path.as_str().ends_with(".veln") {
+            self.invalid_manifest_export(export, "manifest exports must name `.veln` source files");
+            return None;
+        }
+        if classify_companion_source(path.as_str()).is_some() {
+            self.invalid_manifest_export(export, "export names a test companion");
+            return None;
+        }
+        let Some(module_name) = module_name_from_path(path.as_str()) else {
+            self.invalid_manifest_export(
+                export,
+                "manifest export path does not derive a valid module path",
+            );
+            return None;
+        };
+        Some((path.as_str().to_string(), module_name))
+    }
+
+    fn invalid_manifest_export(&mut self, export: &veln_project::ManifestExport, reason: &str) {
+        self.diagnostics.push(PackageDocDiagnostic {
+            gate: "manifest".to_string(),
+            code: "package_doc.invalid_export".to_string(),
+            message: format!("manifest export `{}` is invalid: {reason}", export.path),
+            span: Some(PackageDocDiagnosticSpan::from_span(
+                &source_uri(
+                    self.identity,
+                    self.snapshot.digest(),
+                    self.manifest.path.as_str(),
+                ),
+                &export.path_span,
+            )),
+        });
     }
 
     fn validate_doctests(&mut self, parsed_sources: &[ParsedPackageSource]) {
@@ -1774,6 +1910,19 @@ fn module_name_from_path(path: &str) -> Option<String> {
     Some(path.strip_suffix(".veln")?.replace('/', "::"))
 }
 
+fn is_package_relative_path(path: &str) -> bool {
+    let path = std::path::Path::new(path);
+    !path.is_absolute()
+        && !path.components().any(|component| {
+            matches!(
+                component,
+                std::path::Component::ParentDir
+                    | std::path::Component::RootDir
+                    | std::path::Component::Prefix(_)
+            )
+        })
+}
+
 fn leading_module_path(input: &str) -> Option<&str> {
     let end = input
         .char_indices()
@@ -1805,6 +1954,9 @@ fn manifest_list_field(fields: &[veln_project::ManifestField], key: &str) -> Vec
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::path::{Path, PathBuf};
+
     use veln_project::{
         PackageIdentity, PackageSnapshotSource, capture_embedded_package_snapshot,
         parse_manifest_text,
@@ -1827,6 +1979,46 @@ mod tests {
             &manifest,
             PackageDocGeneratorContract::new("contract-a"),
         )
+    }
+
+    fn generate_fixture(name: &str) -> PackageDocResult {
+        let root = example_fixture_root(name);
+        let manifest_text = fs::read_to_string(root.join("veln.toml")).unwrap();
+        let mut source_texts = Vec::new();
+        let mut source_paths = fs::read_dir(&root)
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .filter(|path| {
+                path.extension()
+                    .is_some_and(|extension| extension == "veln")
+            })
+            .collect::<Vec<_>>();
+        source_paths.sort();
+        for path in source_paths {
+            let source_name = path.file_name().unwrap().to_string_lossy().to_string();
+            source_texts.push((source_name, fs::read(path).unwrap()));
+        }
+        let snapshot = capture_embedded_package_snapshot(
+            manifest_text.as_bytes(),
+            source_texts
+                .iter()
+                .map(|(path, bytes)| PackageSnapshotSource::new(path, bytes.as_slice())),
+        )
+        .unwrap();
+        let manifest = parse_manifest_text("veln.toml", &manifest_text);
+        PackageDocResult::generate(
+            "owner/package",
+            &snapshot,
+            &manifest,
+            PackageDocGeneratorContract::new("contract-a"),
+        )
+    }
+
+    fn example_fixture_root(name: &str) -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/specification/doc")
+            .join(name)
     }
 
     fn generate_with_forced_declaration_id(
@@ -2143,6 +2335,80 @@ mod tests {
         let bytes = std::str::from_utf8(result.canonical_bytes()).unwrap();
         assert!(bytes.contains("\"state\":\"failed\""));
         assert!(!bytes.contains("\"modules\""));
+    }
+
+    #[test]
+    fn manifest_gate_rejects_unvalidated_manifest_without_partial_catalog() {
+        let result = generate(
+            concat!(
+                "[package]\n",
+                "name = \"demo\"\n",
+                "[modules]\n",
+                "\"main.veln\" = \"main\"\n",
+                "[lib]\n",
+                "exports = [\"main.test.veln\", \"../escape.veln\"]\n",
+                "[dependencies.\"example\"]\n",
+                "git = \"https://example.invalid/repo.git\"\n",
+            ),
+            &[
+                ("main.veln", "pub fn value() -> Int\n\t1\nend\n"),
+                ("main.test.veln", "pub fn helper() -> Int\n\t1\nend\n"),
+            ],
+        );
+
+        assert!(result.catalog().is_none());
+        let diagnostics = result
+            .status()
+            .diagnostics
+            .iter()
+            .map(|diagnostic| (diagnostic.gate.as_str(), diagnostic.code.as_str()))
+            .collect::<Vec<_>>();
+        assert!(diagnostics.contains(&("manifest", "package_doc.unsupported_manifest_section")));
+        assert!(diagnostics.contains(&("manifest", "package_doc.invalid_export")));
+        assert!(diagnostics.contains(&("manifest", "package_doc.missing_git_selector")));
+        assert!(
+            !std::str::from_utf8(result.canonical_bytes())
+                .unwrap()
+                .contains("\"modules\"")
+        );
+    }
+
+    #[test]
+    fn executable_specification_fixture_observes_successful_catalog() {
+        let result = generate_fixture("package-catalog-api-success");
+        let catalog = result.catalog().expect("successful catalog");
+
+        assert_eq!(catalog.modules.len(), 2);
+        assert_eq!(catalog.modules[0].name, "main");
+        assert!(result.doc_digest().len() == 64);
+        assert!(
+            catalog.modules[0]
+                .declarations
+                .iter()
+                .any(|declaration| declaration.name == "visible")
+        );
+        assert!(
+            !std::str::from_utf8(result.canonical_bytes())
+                .unwrap()
+                .contains("hidden_helper")
+        );
+    }
+
+    #[test]
+    fn executable_specification_fixture_observes_manifest_gate_failure() {
+        let result = generate_fixture("package-catalog-manifest-gate");
+
+        assert!(result.catalog().is_none());
+        assert_eq!(result.status().diagnostics[0].gate, "manifest");
+        assert_eq!(
+            result.status().diagnostics[0].code,
+            "package_doc.invalid_export"
+        );
+        assert!(
+            !std::str::from_utf8(result.canonical_bytes())
+                .unwrap()
+                .contains("\"modules\"")
+        );
     }
 
     #[test]

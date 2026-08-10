@@ -549,11 +549,14 @@ declarations and selectors, repository and homepage URLs, tool metadata,
 environment-derived values, and unknown fields.
 
 Documentation generation has a parse, manifest, export, documentation-reference,
-and doctest gate. Generation is package-atomic. On failure, the status resource
-is listable and contains diagnostics sorted by source URI, start range,
-diagnostic code, and message. Module and declaration resources are not listed,
-searched, or readable. The loaded-package index returns the exact immutable
-status URI. The source snapshot remains readable.
+and doctest gate. The manifest gate rejects unsupported manifest sections,
+invalid export paths, test companion exports, duplicate exported module
+identities, and invalid direct git selector cardinality. Generation is
+package-atomic. On failure, the status resource is listable and contains
+diagnostics sorted by source URI, start range, diagnostic code, and message.
+Module and declaration resources are not listed, searched, or readable. The
+loaded-package index returns the exact immutable status URI. The source
+snapshot remains readable.
 
 A passing positive doctest and a `veln fail` doctest whose visible source
 produces a parse diagnostic can be published. Ignored doctests and hidden setup

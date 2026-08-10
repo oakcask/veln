@@ -8,7 +8,8 @@ review-when: The package documentation catalog API, canonical result bytes, dige
 
 `veln-language-service` exposes a transport-independent package
 documentation catalog for one `CapturedPackageSnapshot` and its validated
-manifest. The result is immutable. It contains either a complete successful
+manifest. The generator validates the manifest before it can publish a
+catalog. The result is immutable. It contains either a complete successful
 catalog or a failure status with ordered diagnostics.
 
 ## Result Identity
@@ -76,6 +77,9 @@ virtual-source catalog remain usable by their own APIs.
 The implemented gates are:
 
 - parse: all retained package sources must parse;
+- manifest: unsupported manifest sections, invalid export paths, test
+  companion exports, duplicate exported module identities, and invalid direct
+  git selector cardinality fail generation before a catalog is published;
 - export: every exported source must exist in the captured snapshot and each
   export path can appear at most once;
 - documentation reference: `{@schema ...}` references in exported source
@@ -116,11 +120,13 @@ publication, `veln fail` doctest handling, hidden setup and ADR-lite
 exclusion, deterministic bytes, digest and URI stability, package byte changes,
 generator-contract changes, renderer-only stability when bytes are unchanged,
 declaration URI lookup, parse gate failure with canonical package source URI,
-export gate failure, resolved documentation-reference projection,
+manifest gate failure, export gate failure, resolved documentation-reference projection,
 documentation-reference gate failure, doctest gate failure, duplicate semantic
 identity failure, declaration identifier collision failure, status-only
 failure results, and virtual-source resolution after package documentation
-failure.
+failure. The tests also read fixtures under `examples/specification/doc/` to
+observe the catalog success path and manifest-gate failure path through
+executable specification inputs.
 
 The readable CLI documentation boundary remains checked by
 `examples/specification/doc/`. The transport-independent catalog itself is a
