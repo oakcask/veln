@@ -454,8 +454,12 @@ set foundation, portable package identity and capture validation, and Q13
 evidence. The canonical transport-independent virtual-source catalog and exact
 resolver are also implemented and specified in
 [Package Virtual Sources](../specification/package-virtual-sources.md).
-Analysis integration, LSP and VSCode adapters, MCP resources, and snapshot
-publication remain planned below.
+The direct path-dependency LSP definition, virtual-document request, and VSCode
+content-provider slice is implemented and specified in
+[Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).
+Analysis publication beyond that slice, MCP resources, standard-library
+virtual locations, documentation snapshots, and snapshot lifetime rules remain
+planned below.
 
 The owned distribution set contains every captured regular file whose name
 ends in `.veln`, including private, non-exported, on-disk generated, and
@@ -933,10 +937,18 @@ matrix are also implemented and specified on the same page.
 The canonical package virtual-source URI and resolver foundation is implemented
 and specified in
 [Package Virtual Sources](../specification/package-virtual-sources.md).
+Direct path-dependency definition locations, the LSP virtual-document request,
+and the VSCode content provider are implemented and specified in
+[Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).
+This bounded implementation retains one validated workspace-and-dependency
+capture for the definition-to-read path. It does not implement standard-library
+locations, other package materializations, dependency reference search, or MCP
+resources.
 The remaining slices are:
 
-1. Connect validated captures and virtual-source locations to analysis, the
-   LSP virtual-document request, and the VSCode content provider.
+1. Extend published virtual-source locations beyond the implemented direct
+   path-dependency LSP slice to the standard library and later supported
+   materialization kinds without changing URI identity.
 2. Add exported package documentation and bind it to package snapshots.
 3. Define and validate language-reference topic descriptors. Generate the
    executable grammar, selected example, and compiler-owned table projections.
@@ -946,8 +958,6 @@ The remaining slices are:
    snapshot handling.
 6. Package and validate Codex and Claude Code plugins and document their
    client-native installation flows.
-7. Promote implemented behavior and evidence into the matching specification
-   and example routes, then move this proposal out of `../proposals/`.
 
 ## Deferred Work
 

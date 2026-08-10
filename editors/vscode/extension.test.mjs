@@ -150,6 +150,124 @@ test("syncs open documents with didOpen and later didChange", () => {
   assert.deepEqual(messages[2].params.contentChanges, [{ text: "fn\n" }]);
 });
 
+test("follows a dependency definition through the virtual document request", async () => {
+  const { exports, spawnedProcesses } = loadExtension();
+  const server = new exports._test.VelnLanguageServer(
+    "veln",
+    ["lsp"],
+    "project",
+    new FakeOutputChannel(),
+    "off",
+    () => {},
+    () => {},
+  );
+  const document = fakeDocument({
+    uri: "file://project/main.veln",
+    version: 1,
+    text: "use math from \"example/pkg\"\n\npub fn main() -> Int\n  math::exposed(1)\nend\n",
+  });
+  const virtualUri =
+    "veln-pkg:///example%2Fpkg/snapshot/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/math.veln";
+
+  const definitionPromise = server.definition(document, { line: 3, character: 10 });
+  let messages = spawnedProcesses[0].stdin.messages.map(parseRpcMessage);
+  assert.equal(messages.at(-1).method, "textDocument/definition");
+  assert.equal(messages.at(-1).params.textDocument.uri, document.uri.toString());
+  spawnedProcesses[0].stdout.emit(
+    "data",
+    frame({
+      jsonrpc: "2.0",
+      id: messages.at(-1).id,
+      result: {
+        uri: virtualUri,
+        range: {
+          start: { line: 0, character: 7 },
+          end: { line: 0, character: 14 },
+        },
+      },
+    }),
+  );
+  const definition = await definitionPromise;
+  assert.equal(definition.uri, virtualUri);
+
+  const exactText = "pub fn exposed(value: Int) -> Int\r\n  value + 1\r\nend\r\n";
+  const readPromise = server.virtualDocument({ toString: () => definition.uri });
+  messages = spawnedProcesses[0].stdin.messages.map(parseRpcMessage);
+  assert.equal(messages.at(-1).method, "veln/virtualDocument");
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(messages.at(-1).params)),
+    { uri: virtualUri },
+  );
+  spawnedProcesses[0].stdout.emit(
+    "data",
+    frame({ jsonrpc: "2.0", id: messages.at(-1).id, result: exactText }),
+  );
+  assert.equal(await readPromise, exactText);
+
+  const location = exports._test.toLocation(definition);
+  assert.notEqual(location.uri.toString(), virtualUri);
+  assert.equal(location.range.start.line, 0);
+  assert.equal(location.range.start.character, 7);
+});
+
+test("registers the veln-pkg content provider with canonical URI lookup", async () => {
+  const { exports, spawnedProcesses, vscode } = loadExtension();
+  const context = { subscriptions: [] };
+  exports.activate(context);
+
+  assert.equal(vscode._registrations.virtualDocuments.length, 1);
+  const registration = vscode._registrations.virtualDocuments[0];
+  assert.equal(registration.scheme, "veln-pkg");
+  assert.equal(vscode._registrations.definitions.length, 1);
+
+  const uri = vscode.Uri.parse(
+    "veln-pkg:///example%2Fpkg/snapshot/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/math.veln",
+  );
+  assert.equal(
+    uri.toString(),
+    "veln-pkg:///example/pkg/snapshot/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/math.veln",
+  );
+
+  const document = fakeDocument({
+    uri: "file://project/main.veln",
+    version: 1,
+    text: "use math from \"example/pkg\"\n\npub fn main() -> Int\n  math::exposed(1)\nend\n",
+  });
+  const definitionPromise = vscode._registrations.definitions[0].provider.provideDefinition(
+    document,
+    { line: 3, character: 10 },
+  );
+  let messages = spawnedProcesses[0].stdin.messages.map(parseRpcMessage);
+  const definitionRequest = messages.at(-1);
+  assert.equal(definitionRequest.method, "textDocument/definition");
+  spawnedProcesses[0].stdout.emit(
+    "data",
+    frame({
+      jsonrpc: "2.0",
+      id: definitionRequest.id,
+      result: {
+        uri: uri.value,
+        range: {
+          start: { line: 0, character: 7 },
+          end: { line: 0, character: 14 },
+        },
+      },
+    }),
+  );
+  assert.equal((await definitionPromise).uri.toString(), uri.toString());
+
+  const contentPromise = registration.provider.provideTextDocumentContent(uri);
+  messages = spawnedProcesses[0].stdin.messages.map(parseRpcMessage);
+  const request = messages.at(-1);
+  assert.equal(request.method, "veln/virtualDocument");
+  assert.deepEqual(request.params, { uri: uri.value });
+  spawnedProcesses[0].stdout.emit(
+    "data",
+    frame({ jsonrpc: "2.0", id: request.id, result: "exact source\r\n" }),
+  );
+  assert.equal(await contentPromise, "exact source\r\n");
+});
+
 test("initializes the language server with workspace identity", () => {
   const { exports, spawnedProcesses } = loadExtension();
   new exports._test.VelnLanguageServer(
@@ -448,6 +566,10 @@ function loadExtension(options = {}) {
 }
 
 function fakeVscode(options = {}) {
+  const registrations = {
+    definitions: [],
+    virtualDocuments: [],
+  };
   class Position {
     constructor(line, character) {
       this.line = line;
@@ -470,8 +592,27 @@ function fakeVscode(options = {}) {
     }
   }
 
+  class Location {
+    constructor(uri, range) {
+      this.uri = uri;
+      this.range = range;
+    }
+  }
+
+  class SemanticTokensLegend {}
+
+  class SemanticTokens {
+    constructor(data) {
+      this.data = data;
+    }
+  }
+
+  const disposable = () => ({ dispose() {} });
+
   return {
+    _registrations: registrations,
     Diagnostic,
+    Location,
     DiagnosticSeverity: {
       Error: 0,
       Warning: 1,
@@ -480,6 +621,8 @@ function fakeVscode(options = {}) {
     },
     Position,
     Range,
+    SemanticTokens,
+    SemanticTokensLegend,
     Uri: {
       file(value) {
         const normalized = value.replaceAll("\\", "/");
@@ -489,6 +632,10 @@ function fakeVscode(options = {}) {
         return { value: uri, fsPath: value, toString: () => uri };
       },
       parse(value) {
+        if (value.startsWith("veln-pkg:///")) {
+          const displayed = value.replaceAll("%2F", "/");
+          return { value, toString: () => displayed };
+        }
         return { value, toString: () => value };
       },
     },
@@ -496,6 +643,39 @@ function fakeVscode(options = {}) {
       workspaceFolders: (options.workspaceFolders ?? []).map((folder) => ({
         uri: { fsPath: folder },
       })),
+      textDocuments: [],
+      getConfiguration() {
+        return { get(_name, fallback) { return fallback; } };
+      },
+      onDidOpenTextDocument: disposable,
+      onDidChangeTextDocument: disposable,
+      onDidCloseTextDocument: disposable,
+      registerTextDocumentContentProvider(scheme, provider) {
+        registrations.virtualDocuments.push({ scheme, provider });
+        return disposable();
+      },
+    },
+    languages: {
+      createDiagnosticCollection() {
+        return {
+          clear() {},
+          delete() {},
+          dispose() {},
+          set() {},
+        };
+      },
+      registerDefinitionProvider(selector, provider) {
+        registrations.definitions.push({ selector, provider });
+        return disposable();
+      },
+      registerDocumentSemanticTokensProvider() {
+        return disposable();
+      },
+    },
+    window: {
+      createOutputChannel() {
+        return new FakeOutputChannel();
+      },
     },
   };
 }

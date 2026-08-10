@@ -46,6 +46,7 @@ class VelnLanguageServer {
     this.onDiagnostics = onDiagnostics;
     this.onClearDiagnostics = onClearDiagnostics;
     this.syncedDocuments = new Map();
+    this.virtualDocumentUris = new Map();
     this.traceLine(
       `starting server command=${JSON.stringify(command)} args=${JSON.stringify(args)} cwd=${JSON.stringify(cwd)}`,
     );
@@ -125,6 +126,38 @@ class VelnLanguageServer {
     return this.sendRequest("textDocument/semanticTokens/full", {
       textDocument: { uri: document.uri.toString() },
     });
+  }
+
+  definition(document, position) {
+    this.syncDocument(document);
+    return this.sendRequest("textDocument/definition", {
+      textDocument: { uri: document.uri.toString() },
+      position: { line: position.line, character: position.character },
+    }).then((result) => {
+      this.rememberVirtualDocumentUris(result);
+      return result;
+    });
+  }
+
+  virtualDocument(uri) {
+    return this.sendRequest("veln/virtualDocument", {
+      uri: this.canonicalVirtualDocumentUri(uri),
+    });
+  }
+
+  rememberVirtualDocumentUris(result) {
+    for (const location of Array.isArray(result) ? result : [result]) {
+      const uri = location?.uri;
+      if (typeof uri !== "string" || !uri.startsWith("veln-pkg:")) {
+        continue;
+      }
+      this.virtualDocumentUris.set(vscode.Uri.parse(uri).toString(), uri);
+    }
+  }
+
+  canonicalVirtualDocumentUri(uri) {
+    const displayed = uri.toString();
+    return this.virtualDocumentUris.get(displayed) ?? displayed;
   }
 
   sendNotification(method, params) {
@@ -411,6 +444,13 @@ function toRange(range) {
   );
 }
 
+function toLocation(location) {
+  if (!location) {
+    return undefined;
+  }
+  return new vscode.Location(vscode.Uri.parse(location.uri), toRange(location.range));
+}
+
 function toDiagnosticSeverity(severity) {
   switch (severity) {
     case 1:
@@ -452,6 +492,16 @@ function activate(context) {
       return new vscode.SemanticTokens(new Uint32Array(result.data));
     },
   };
+  const definitionProvider = {
+    async provideDefinition(document, position) {
+      return toLocation(await server.definition(document, position));
+    },
+  };
+  const virtualDocumentProvider = {
+    provideTextDocumentContent(uri) {
+      return server.virtualDocument(uri);
+    },
+  };
   context.subscriptions.push(server);
   for (const document of vscode.workspace.textDocuments) {
     if (document.languageId === "veln") {
@@ -481,6 +531,18 @@ function activate(context) {
     }),
   );
   context.subscriptions.push(
+    vscode.workspace.registerTextDocumentContentProvider(
+      "veln-pkg",
+      virtualDocumentProvider,
+    ),
+  );
+  context.subscriptions.push(
+    vscode.languages.registerDefinitionProvider(
+      { language: "veln", scheme: "file" },
+      definitionProvider,
+    ),
+  );
+  context.subscriptions.push(
     vscode.languages.registerDocumentSemanticTokensProvider(
       { language: "veln" },
       provider,
@@ -497,6 +559,7 @@ module.exports = {
   _test: {
     VelnLanguageServer,
     applyDiagnostics,
+    toLocation,
     summarizeMessage,
     summarizeJson,
     toDiagnosticSeverity,

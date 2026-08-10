@@ -20,13 +20,16 @@ used by editor integrations.
 - LSP `textDocument/definition`, `textDocument/references`,
   `textDocument/prepareRename`, and `textDocument/rename` convert shared
   navigation results to LSP responses in `veln-lsp`.
+- LSP `veln/virtualDocument` reads immutable direct path-dependency source from
+  the retained package snapshot in `veln-lsp`.
 - LSP `textDocument/formatting` is implemented in `veln-lsp`.
 - The stdio LSP server starts through `veln lsp`.
 - TextMate fallback highlighting is contributed by
   `editors/vscode/syntaxes/veln.tmLanguage.json`.
 - VSCode starts the language server when a `.veln` document opens and requests
   full-document semantic tokens. It enables workspace diagnostics for Veln
-  project folders.
+  project folders. It also registers definition and `veln-pkg` virtual-document
+  providers.
 
 ## Semantic Token Records
 
@@ -160,10 +163,61 @@ representation. Its direct tests cover project functions, exact companion
 visibility, handler bindings, deterministic ordering, shadowing, field
 isolation, and positions without a supported symbol.
 
-`veln-lsp` applies open-document overlays before it constructs the effective
-snapshot. It converts shared locations to LSP URIs and zero-based ranges.
+`veln-lsp` captures the workspace manifest, saved workspace sources, and valid
+direct path-dependency snapshots together for each selected workspace project.
+Navigation starts from that retained project snapshot. The server applies
+open-document overlays to workspace sources before calling the shared language
+service. It converts shared locations to LSP URIs and zero-based ranges.
 Definition, references, prepare-rename, and rename use the same shared selected
 symbol and reference set.
+For a workspace symbol, references and rename edits include only workspace
+source locations. Sources loaded only as dependency package snapshots do not
+produce `file:` locations for workspace references or workspace edits, even
+when their module path and symbol spelling match a workspace declaration.
+
+The retained dependency input contains the package identity, captured package
+snapshot, manifest export paths, and canonical virtual-source catalog derived
+from the same identity and snapshot. A qualified call through
+`use module from "package"` can resolve to a function in that dependency only
+when the dependency identity matches, the function's source is listed in
+`[lib].exports`, and the function is public.
+
+`textDocument/definition` returns the dependency declaration with the exact
+canonical `veln-pkg:` URI from the retained catalog. It does not convert the
+location to a `file:` URI and does not expose the dependency materialization
+path. Workspace definitions continue to use `file:` URIs. Private functions
+and functions in non-exported dependency sources have no dependency definition
+result. Dependency declarations are immutable package locations:
+`textDocument/prepareRename` returns no range for them, and
+`textDocument/rename` returns no workspace edits for them. `textDocument/references`
+returns no package locations for dependency declarations in this slice.
+
+`veln/virtualDocument` accepts an exact `veln-pkg:` URI retained by the server
+and returns its UTF-8 source text. The returned text preserves the captured
+source bytes, including line endings. An unknown or noncanonical URI produces
+a JSON-RPC invalid-params error. The request does not normalize the URI or read
+a filesystem fallback. A later physical dependency edit does not change the
+text returned for an already retained URI.
+
+The VSCode extension registers a definition provider for Veln filesystem
+documents and a `TextDocumentContentProvider` for `veln-pkg`. Following a
+dependency definition therefore requests the exact returned URI through
+`veln/virtualDocument` and opens the result as provider-backed content. If
+VSCode's URI object displays a different string for the same provider-backed
+document, the request still uses the canonical URI returned by the server.
+
+The `veln-language-service` tests are the executable evidence for dependency
+visibility and transport-neutral package locations. The static LSP example
+`../../examples/specification/lsp/direct-dependency-virtual-document-boundary/`
+covers dependency definition boundaries without reading the dynamic digest.
+The `veln-lsp` dependency virtual-document test is the executable JSON-RPC
+evidence for the complete definition-to-read path, retained CRLF text, retained
+workspace and dependency sources, URI identity and digest, private declaration
+rejection, prepare-rename and rename rejection, exact import-path visibility,
+and unknown or noncanonical URI rejection. The VSCode extension tests cover the
+corresponding definition request, exact-text read, location conversion,
+canonical URI lookup after VSCode URI parsing, and content-provider
+registration.
 
 `textDocument/formatting` returns a single whole-document text edit containing
 the same canonical formatting produced by the formatter. Handler operation
@@ -293,9 +347,14 @@ Implemented:
   document overlays.
 - Document-scoped diagnostic publication for Veln documents outside resolved
   workspaces or when no workspace identity is initialized.
+- Stdio definition responses for public functions in exported direct
+  path-dependency sources, and `veln/virtualDocument` reads for the returned
+  exact `veln-pkg:` URI.
 - VSCode startup for `.veln` files using the configured language-server
   command.
 - VSCode Problems pane integration for Veln diagnostics.
+- VSCode `veln-pkg` virtual-document content provider backed by
+  `veln/virtualDocument`.
 - Rust tests for collector classification, LSP relative encoding, ordering, and
   overlap handling, and server initialize/full-token/diagnostic/navigation
   responses.
@@ -304,6 +363,7 @@ Not implemented:
 
 - LSP range and delta semantic token requests.
 - Completion and hover.
+- Dependency reference search.
 - General rename and go-to-definition support outside the implemented
-  companion private-function identity and handler operation clause binding
-  cases.
+  companion private-function identity, handler binding, and direct
+  path-dependency definition cases.

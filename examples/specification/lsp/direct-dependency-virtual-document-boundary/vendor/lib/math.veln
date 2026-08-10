@@ -1,0 +1,3 @@
+pub fn exposed(value: Int) -> Int
+  exposed(value - 1)
+end

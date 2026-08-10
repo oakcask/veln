@@ -23,7 +23,7 @@ pub use lockfile::{
 pub use manifest::{
     ManifestDependency, ManifestDependencySelector, ManifestDependencySelectorKind, ManifestExport,
     ManifestField, ManifestLib, ManifestPackage, ManifestTool, ManifestUnsupportedSection,
-    ProjectManifest, read_manifest,
+    ProjectManifest, parse_manifest_text, read_manifest,
 };
 pub use portable::{
     PORTABLE_UNICODE_VERSION, PORTABLE_UNICODE_VERSION_STRING, PackageIdentity,
