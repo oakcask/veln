@@ -164,10 +164,11 @@ generator-contract changes, renderer-only stability when bytes are unchanged,
 declaration URI lookup from declaration spans and navigation name-token spans,
 private documentation-reference exclusion, private doctest exclusion, parse
 gate failure with canonical package source URI, manifest gate failure,
-manifest package-name mismatch failure, manifest missing-package-name failure,
-manifest snapshot-byte mismatch failure, normalized export metadata, export
-gate failure, resolved documentation-reference projection, qualified
-documentation-reference import failure, public schema alias
+test source export rejection, manifest package-name mismatch failure, manifest
+missing-package-name failure, manifest snapshot-byte mismatch failure,
+normalized export metadata, export gate failure, resolved
+documentation-reference projection, qualified documentation-reference import
+failure, public schema alias
 documentation-reference resolution, documentation-reference gate failure,
 doctest gate failure, duplicate semantic identity failure, declaration
 identifier collision failure, status-only failure results, `PackageIdentity`
@@ -177,7 +178,8 @@ failure. The tests also read fixtures under `examples/specification/doc/` to
 observe the catalog success path, manifest-gate failure path, nested
 declaration doctest success path with a nested expression block and public
 member alias, declaration doctest static-gate failure path,
-and schema-reference import-gate failure path through executable specification
+integration-test source exclusion from successful catalog projection, and
+schema-reference import-gate failure path through executable specification
 inputs.
 
 The readable CLI documentation boundary remains checked by
