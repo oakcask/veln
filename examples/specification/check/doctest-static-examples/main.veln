@@ -3,7 +3,7 @@
 ## stdio::println("not generated")
 ## ```
 ## ```veln fail
-## let value: Int = "text"
+## @
 ## ```
 pub fn main() -> ()
 	()
