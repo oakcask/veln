@@ -1,0 +1,4 @@
+## Non-exported public declarations stay outside the package catalog.
+pub fn private_module() -> Int
+	1
+end

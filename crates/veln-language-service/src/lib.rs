@@ -1,7 +1,14 @@
 //! Editor- and transport-neutral definition and reference services for Veln.
 
+mod package_documentation;
 mod virtual_source;
 
+pub use package_documentation::{
+    PackageDocAlias, PackageDocCatalog, PackageDocDeclaration, PackageDocDiagnostic,
+    PackageDocDiagnosticSpan, PackageDocDoctest, PackageDocFunctionContract, PackageDocGeneration,
+    PackageDocGenerationStatus, PackageDocGeneratorContract, PackageDocMetadata, PackageDocModule,
+    PackageDocResult, PackageDocResultKind, PackageDocTypeConstructor,
+};
 pub use virtual_source::{VirtualSourceCatalog, VirtualSourceCatalogError, VirtualSourceEntry};
 
 use std::collections::BTreeSet;

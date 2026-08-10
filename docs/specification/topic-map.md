@@ -60,6 +60,9 @@ smallest specification page to read. Start with the short page; open the matchin
 
 - Transport-independent package snapshot digest inputs, transcript, spelling,
   and fixed vectors: [package-snapshots.md](package-snapshots.md).
+- Transport-independent package documentation catalogs, canonical result
+  bytes, documentation digest, resource URI identity, gates, and disclosure
+  boundaries: [package-documentation.md](package-documentation.md).
 - Canonical package virtual-source URIs, listing, and exact resolution:
   [package-virtual-sources.md](package-virtual-sources.md).
 - Explicit HTTP/2 frame, diagnostic, HPACK, and core modules:

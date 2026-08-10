@@ -1,0 +1,36 @@
+## Public type documentation.
+pub type PublicResult<A>
+	pub Ready(value: A)
+	Hidden(String)
+end
+
+## Public packet documentation.
+pub schema PublicPacket
+	format binary
+
+	value: UInt8
+end
+
+schema PrivatePacket
+	format binary
+
+	value: UInt8
+end
+
+## Visible function documentation.
+## ```veln
+## > let hidden_setup: Int = 1
+## let seed: Int = 1
+## visible(seed)
+## ```
+pub fn visible(value: Int) -> output: Int
+	require value >= 0
+	ensure output >= value
+	value
+end
+
+fn hidden_helper() -> Int
+	0
+end
+
+pub schema PacketAlias = PublicPacket

@@ -31,8 +31,9 @@ tracked in `../proposals/`.
   [topic-map.md#contracts-and-holes](topic-map.md#contracts-and-holes).
 - Editor highlighting and semantic token behavior:
   [editor-support.md](editor-support.md).
-- Package snapshots and canonical virtual-source resolution:
-  [package-snapshots.md](package-snapshots.md), then
+- Package snapshots, package documentation catalogs, and canonical
+  virtual-source resolution: [package-snapshots.md](package-snapshots.md),
+  [package-documentation.md](package-documentation.md), then
   [package-virtual-sources.md](package-virtual-sources.md).
 - CLI behavior, diagnostics, run output, or test output:
   [topic-map.md#commands-and-output](topic-map.md#commands-and-output).

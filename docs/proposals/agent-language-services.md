@@ -459,8 +459,12 @@ LSP definition and virtual-document slices, embedded standard-library LSP
 definition and virtual-document slices, plus the VSCode content provider, are
 implemented and specified in
 [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).
-MCP resources, documentation snapshots, and snapshot lifetime rules remain
-planned below.
+The transport-independent package documentation catalog, status-only failure
+result, documentation digest, and canonical `veln-doc:` URI foundation are
+implemented and specified in
+[Package Documentation Catalogs](../specification/package-documentation.md).
+MCP resources, MCP documentation publication, and snapshot lifetime rules
+remain planned below.
 
 The owned distribution set contains every captured regular file whose name
 ends in `.veln`, including private, non-exported, on-disk generated, and
@@ -894,9 +898,9 @@ already implemented.
 | Read a noncanonical, unknown, or mismatched snapshot URI through MCP. | The server returns `resource_not_found` without normalization, fallback, or filesystem access. The transport-independent resolver rejection table is already implemented and specified in [Package Virtual Sources](../specification/package-virtual-sources.md). | MCP adapter case mapping a catalog miss to `resource_not_found`. |
 | Read a private distribution source or inspect package metadata. | The source is readable; metadata contains only the closed public allowlist and no dependency, URL, tool, path, or credential-bearing fields. | Q15 disclosure-policy cases. |
 | Keep returned dependency URIs while projects refresh or disappear. | Every published snapshot remains readable until shutdown; capacity failure never evicts an older URI. | Q10 resource-lifetime cases. |
-| Generate package docs. | Only exported modules and their public API appear; attached contracts and visible doctests are preserved. | Checked package-documentation case. |
-| Change catalog semantics without changing package bytes. | The package digest stays fixed and the documentation catalog digest and URIs change. | Q16 document-identity cases. |
-| Package documentation generation or doctest validation fails. | Source and the ordered status resource remain readable; module, declaration, search, and definition documentation results are absent. | Q18 atomic-generation-failure matrix. |
+| Generate package docs. | The transport-independent catalog contains only exported modules and their public API; attached contracts and visible doctests are preserved. MCP publication remains planned. | Implemented package-documentation unit tests and readable `doc` examples; planned MCP resource case. |
+| Change catalog semantics without changing package bytes. | The package digest stays fixed and the documentation catalog digest and URIs change. | Implemented package-documentation document-identity tests; planned MCP resource case. |
+| Package documentation generation or doctest validation fails. | The transport-independent result contains ordered status diagnostics and no partial module or declaration catalog. MCP status-resource publication remains planned. | Implemented atomic-generation-failure unit tests; planned MCP resource case. |
 
 ### Published Language Reference
 
@@ -936,6 +940,9 @@ matrix are also implemented and specified on the same page.
 The canonical package virtual-source URI and resolver foundation is implemented
 and specified in
 [Package Virtual Sources](../specification/package-virtual-sources.md).
+The transport-independent exported package documentation catalog foundation is
+implemented and specified in
+[Package Documentation Catalogs](../specification/package-documentation.md).
 Direct path, vendor, mirror, and locally available direct git dependency
 definition locations, embedded standard-library definition locations, the LSP
 virtual-document request, and the VSCode content provider are implemented and
@@ -950,14 +957,13 @@ and embedded standard-package captures for the definition-to-read path. It
 does not implement dependency reference search or MCP resources.
 The remaining slices are:
 
-1. Add exported package documentation and bind it to package snapshots.
-2. Define and validate language-reference topic descriptors. Generate the
+1. Define and validate language-reference topic descriptors. Generate the
    executable grammar, selected example, and compiler-owned table projections.
-3. Add `veln mcp`, resources, documentation tools, project diagnostics,
+2. Add `veln mcp`, resources, documentation tools, project diagnostics,
    definition, and references.
-4. Add cross-adapter conformance cases, bounded search, pagination, and stale
+3. Add cross-adapter conformance cases, bounded search, pagination, and stale
    snapshot handling.
-5. Package and validate Codex and Claude Code plugins and document their
+4. Package and validate Codex and Claude Code plugins and document their
    client-native installation flows.
 
 ## Deferred Work
