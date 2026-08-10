@@ -973,8 +973,9 @@ expected-output publication, effect-row-binder signatures, and generated
 doctest static gate, including same-package public API references, nested
 expression declarations, public member aliases, shared expected-output
 pending-state boundaries, hidden setup exclusion, integration-test source
-exclusion for embedded snapshots, test source export rejection, and parse-only
-negative doctest matching, are implemented and specified in
+exclusion for embedded snapshots, test source export rejection,
+original-source remapping for generated doctest static diagnostics, and
+parse-only negative doctest matching, are implemented and specified in
 [Package Documentation Catalogs](../specification/package-documentation.md).
 Direct path, vendor, mirror, and locally available direct git dependency
 definition locations, embedded standard-library definition locations, the LSP

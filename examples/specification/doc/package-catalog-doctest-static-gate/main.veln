@@ -1,8 +1,9 @@
 ## The visible doctest parses but fails static analysis.
 ## ```veln
-## fn sample() -> MissingType
-## 	missing_value
+## fn sample() -> Int
+## 	1
 ## end
+## missing_value
 ## ```
 pub fn value() -> Int
 	1

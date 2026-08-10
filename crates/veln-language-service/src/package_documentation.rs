@@ -9,7 +9,7 @@ use veln_project::{
     CapturedPackageSnapshot, PackageIdentity, Project, ProjectManifest, classify_companion_source,
     parse_manifest_text,
 };
-use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
+use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{
     ContractClause, ContractKind, FunctionDecl, FunctionKind, ParseDiagnostic, PublicAliasDecl,
     PublicAliasKind, SchemaDecl, SyntaxItem, TokenKind, TypeDecl, TypeVariantDecl, Visibility,
@@ -24,6 +24,7 @@ const MODULE_ID_DOMAIN: &[u8] = b"veln-package-doc-module-id/v1\0";
 const DECLARATION_ID_DOMAIN: &[u8] = b"veln-package-doc-declaration-id/v1\0";
 const URI_PREFIX: &str = "veln-doc:///package/";
 const SCHEMA_VERSION: &str = "veln-package-doc-catalog/v1";
+const SNAPSHOT_MANIFEST_PATH: &str = "veln.toml";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PackageDocGeneratorContract {
@@ -63,7 +64,7 @@ impl PackageDocResult {
         let manifest = if manifest.source_bytes == snapshot.manifest_bytes() {
             let text = std::str::from_utf8(snapshot.manifest_bytes())
                 .expect("captured package manifest text is valid UTF-8");
-            parse_manifest_text(manifest.path.as_str(), text)
+            parse_manifest_text(SNAPSHOT_MANIFEST_PATH, text)
         } else {
             manifest.clone()
         };
@@ -386,7 +387,7 @@ impl<'a> PackageDocBuilder<'a> {
         let mut declaration_locations = BTreeMap::new();
         let mut modules = Vec::new();
         for source in parsed_sources.iter().filter(|source| source.exported) {
-            let module_id = digest_hex(MODULE_ID_DOMAIN, &[source.module_name.as_bytes()]);
+            let module_id = module_id(source.source.path().as_str());
             let declarations = self.declarations(
                 source,
                 &mut semantic_identities,
@@ -618,7 +619,7 @@ impl<'a> PackageDocBuilder<'a> {
                 &source_uri(
                     self.identity,
                     self.snapshot.digest(),
-                    self.manifest.path.as_str(),
+                    SNAPSHOT_MANIFEST_PATH,
                 ),
                 span,
             )),
@@ -639,7 +640,7 @@ impl<'a> PackageDocBuilder<'a> {
                     &source_uri(
                         self.identity,
                         self.snapshot.digest(),
-                        self.manifest.path.as_str(),
+                        SNAPSHOT_MANIFEST_PATH,
                     ),
                     &name.value_span,
                 )),
@@ -653,7 +654,7 @@ impl<'a> PackageDocBuilder<'a> {
                     source_uri: source_uri(
                         self.identity,
                         self.snapshot.digest(),
-                        self.manifest.path.as_str(),
+                        SNAPSHOT_MANIFEST_PATH,
                     ),
                     line: 1,
                     column: 1,
@@ -674,7 +675,7 @@ impl<'a> PackageDocBuilder<'a> {
                     &source_uri(
                         self.identity,
                         self.snapshot.digest(),
-                        self.manifest.path.as_str(),
+                        SNAPSHOT_MANIFEST_PATH,
                     ),
                     &section.span,
                 )),
@@ -694,7 +695,7 @@ impl<'a> PackageDocBuilder<'a> {
                         &source_uri(
                             self.identity,
                             self.snapshot.digest(),
-                            self.manifest.path.as_str(),
+                            SNAPSHOT_MANIFEST_PATH,
                         ),
                         &dependency.package_span,
                     )),
@@ -712,7 +713,7 @@ impl<'a> PackageDocBuilder<'a> {
                         &source_uri(
                             self.identity,
                             self.snapshot.digest(),
-                            self.manifest.path.as_str(),
+                            SNAPSHOT_MANIFEST_PATH,
                         ),
                         &selector.field.key_span,
                     )),
@@ -734,7 +735,7 @@ impl<'a> PackageDocBuilder<'a> {
                 source_uri: source_uri(
                     self.identity,
                     self.snapshot.digest(),
-                    self.manifest.path.as_str(),
+                    SNAPSHOT_MANIFEST_PATH,
                 ),
                 line: 1,
                 column: 1,
@@ -826,7 +827,7 @@ impl<'a> PackageDocBuilder<'a> {
                 &source_uri(
                     self.identity,
                     self.snapshot.digest(),
-                    self.manifest.path.as_str(),
+                    SNAPSHOT_MANIFEST_PATH,
                 ),
                 &export.path_span,
             )),
@@ -842,20 +843,39 @@ impl<'a> PackageDocBuilder<'a> {
         if public_sources.is_empty() {
             return;
         }
+        let doctest_source_locations = doctest_source_locations(&public_sources);
         let doctests = doctest_sources(&public_sources);
         for diagnostic in &doctests.diagnostics {
             if diagnostic.severity == Severity::Error {
+                let diagnostic = remap_doctest_diagnostic(
+                    diagnostic.clone(),
+                    &doctest_source_locations,
+                    &BTreeMap::new(),
+                );
                 self.diagnostics
-                    .push(self.project_diagnostic("doctest", diagnostic.clone()));
+                    .push(self.project_diagnostic("doctest", diagnostic));
             }
         }
+        let generated_doctests = doctests
+            .sources
+            .iter()
+            .map(generated_doctest_static_gate_source)
+            .collect::<Vec<_>>();
+        let static_gate_locations = generated_doctests
+            .iter()
+            .map(|source| {
+                (
+                    source.source.path().as_str().to_string(),
+                    source.line_origins.clone(),
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
         let analysis = analyze_project(
             Project {
                 root: ".".into(),
-                files: doctests
-                    .sources
+                files: generated_doctests
                     .iter()
-                    .map(generated_doctest_static_gate_source)
+                    .map(|source| source.source.clone())
                     .chain(
                         parsed_sources
                             .iter()
@@ -873,6 +893,11 @@ impl<'a> PackageDocBuilder<'a> {
         );
         for diagnostic in diagnostics {
             if diagnostic.severity == Severity::Error && is_doctest_gate_diagnostic(&diagnostic) {
+                let diagnostic = remap_doctest_diagnostic(
+                    diagnostic,
+                    &doctest_source_locations,
+                    &static_gate_locations,
+                );
                 self.diagnostics
                     .push(self.project_diagnostic("doctest", diagnostic));
             }
@@ -1484,23 +1509,27 @@ fn reconcile_package_expected_doctest_failures(
     kept
 }
 
-fn generated_doctest_static_gate_source(source: &SourceFile) -> SourceFile {
+fn generated_doctest_static_gate_source(source: &SourceFile) -> GeneratedDoctestSource {
     let mut visible_lines = source
         .text()
         .lines()
         .skip(1)
         .filter_map(generated_doctest_body_line)
-        .map(str::to_string)
+        .enumerate()
+        .map(|(index, text)| IndexedDoctestLine {
+            index,
+            text: text.to_string(),
+        })
         .collect::<Vec<_>>();
     if visible_lines
         .last()
-        .is_some_and(|line| line.trim_start() == "end")
+        .is_some_and(|line| line.text.trim_start() == "end")
     {
         visible_lines.pop();
     }
     if visible_lines
         .last()
-        .is_some_and(|line| matches!(line.trim_start(), "()" | "Ok(())"))
+        .is_some_and(|line| matches!(line.text.trim_start(), "()" | "Ok(())"))
     {
         visible_lines.pop();
     }
@@ -1509,41 +1538,217 @@ fn generated_doctest_static_gate_source(source: &SourceFile) -> SourceFile {
         split_generated_doctest_visible_lines(source.path().as_str(), &visible_lines);
 
     if declarations.is_empty() {
-        return source.clone();
+        let line_origins = (0..visible_lines.len())
+            .map(|index| {
+                (
+                    index + 2,
+                    DoctestSourceLineOrigin {
+                        original_span: source
+                            .span(generated_doctest_body_line_range(source, index + 2)),
+                        generated_content_column: 3,
+                    },
+                )
+            })
+            .collect();
+        return GeneratedDoctestSource {
+            source: source.clone(),
+            line_origins,
+        };
     }
 
     let mut text = String::new();
+    let mut line_origins = BTreeMap::new();
+    let mut generated_line = 1;
     for line in declarations {
-        text.push_str(&line);
+        text.push_str(&line.text);
         text.push('\n');
+        line_origins.insert(
+            generated_line,
+            DoctestSourceLineOrigin {
+                original_span: source
+                    .span(generated_doctest_body_line_range(source, line.index + 2)),
+                generated_content_column: 1,
+            },
+        );
+        generated_line += 1;
     }
     text.push_str("test doctest_body() -> () effects [stdio]\n");
+    generated_line += 1;
     for line in statements {
-        if line.is_empty() {
+        if line.text.is_empty() {
             text.push('\n');
         } else {
             text.push_str("  ");
-            text.push_str(&line);
+            text.push_str(&line.text);
             text.push('\n');
         }
+        line_origins.insert(
+            generated_line,
+            DoctestSourceLineOrigin {
+                original_span: source
+                    .span(generated_doctest_body_line_range(source, line.index + 2)),
+                generated_content_column: if line.text.is_empty() { 1 } else { 3 },
+            },
+        );
+        generated_line += 1;
     }
     text.push_str("  ()\nend\n");
-    SourceFile::new(source.path().as_str(), text)
+    GeneratedDoctestSource {
+        source: SourceFile::new(source.path().as_str(), text),
+        line_origins,
+    }
+}
+
+#[derive(Clone, Debug)]
+struct IndexedDoctestLine {
+    index: usize,
+    text: String,
 }
 
 fn generated_doctest_body_line(line: &str) -> Option<&str> {
     line.strip_prefix("  ")
 }
 
+fn generated_doctest_body_line_range(source: &SourceFile, line_number: usize) -> TextRange {
+    let mut offset = 0;
+    for (index, raw_line) in source.text().split_inclusive('\n').enumerate() {
+        let current_line = index + 1;
+        let line = raw_line.strip_suffix('\n').unwrap_or(raw_line);
+        if current_line == line_number {
+            let start = offset + line.find(|ch| ch != ' ').unwrap_or(line.len());
+            return TextRange::new(start, offset + line.len());
+        }
+        offset += raw_line.len();
+    }
+    TextRange::at(source.text().len())
+}
+
+fn doctest_source_locations(public_sources: &[SourceFile]) -> BTreeMap<String, Vec<SourceSpan>> {
+    let mut next_index = 1;
+    let mut locations = BTreeMap::new();
+    for source in public_sources {
+        for visible_lines in visible_doctest_source_line_spans(source) {
+            let path = format!("{}#doctest-{next_index}_test.veln", source.path().as_str());
+            next_index += 1;
+            locations.insert(path, visible_lines);
+        }
+    }
+    locations
+}
+
+fn visible_doctest_source_line_spans(source: &SourceFile) -> Vec<Vec<SourceSpan>> {
+    let mut doctests = Vec::new();
+    let mut active = false;
+    let mut ignored = false;
+    let mut visible_lines = Vec::new();
+    let mut offset = 0;
+    for raw_line in source.text().split_inclusive('\n') {
+        let line = raw_line
+            .strip_suffix('\n')
+            .unwrap_or(raw_line)
+            .strip_suffix('\r')
+            .unwrap_or_else(|| raw_line.strip_suffix('\n').unwrap_or(raw_line));
+        let trimmed = line.trim_start();
+        let indent = line.len() - trimmed.len();
+        let Some(after_hashes) = trimmed.strip_prefix("##") else {
+            active = false;
+            ignored = false;
+            visible_lines.clear();
+            offset += raw_line.len();
+            continue;
+        };
+        let after_hashes_offset = offset + indent + "##".len();
+        let content_offset = after_hashes_offset + usize::from(after_hashes.starts_with(' '));
+        let content = after_hashes.strip_prefix(' ').unwrap_or(after_hashes);
+        let trimmed_content = content.trim_start();
+        if active {
+            if trimmed_content.starts_with("```") {
+                active = false;
+                if !ignored {
+                    doctests.push(std::mem::take(&mut visible_lines));
+                }
+                ignored = false;
+                visible_lines.clear();
+            } else if !content.starts_with("> ") {
+                visible_lines.push(source.span(TextRange::new(
+                    content_offset,
+                    content_offset + content.len(),
+                )));
+            }
+        } else if let Some(info) = trimmed_content.strip_prefix("```")
+            && veln_doctest_fence_info(info.trim())
+        {
+            active = true;
+            ignored = doctest_fence_ignored(info.trim());
+            visible_lines.clear();
+        }
+        offset += raw_line.len();
+    }
+    doctests
+}
+
+fn veln_doctest_fence_info(info: &str) -> bool {
+    info.split_whitespace().next() == Some("veln")
+}
+
+fn doctest_fence_ignored(info: &str) -> bool {
+    info.split_whitespace()
+        .skip(1)
+        .any(|field| field == "ignore")
+}
+
+fn remap_doctest_diagnostic(
+    mut diagnostic: Diagnostic,
+    doctest_source_locations: &BTreeMap<String, Vec<SourceSpan>>,
+    static_gate_locations: &BTreeMap<String, BTreeMap<usize, DoctestSourceLineOrigin>>,
+) -> Diagnostic {
+    let Some(span) = diagnostic.span.clone() else {
+        return diagnostic;
+    };
+    let Some(visible_line_locations) = doctest_source_locations.get(span.file.as_str()) else {
+        return diagnostic;
+    };
+    let (generated_line, column_delta) = if let Some(line_origins) =
+        static_gate_locations.get(span.file.as_str())
+        && let Some(origin) = line_origins.get(&span.start.line)
+    {
+        (
+            origin.original_span.start.line,
+            span.start
+                .column
+                .saturating_sub(origin.generated_content_column),
+        )
+    } else {
+        (span.start.line, span.start.column.saturating_sub(1))
+    };
+    let Some(visible_index) = generated_line.checked_sub(2) else {
+        return diagnostic;
+    };
+    let Some(original) = visible_line_locations.get(visible_index) else {
+        return diagnostic;
+    };
+    let start = LineCol {
+        line: original.start.line,
+        column: original.start.column + column_delta,
+        offset: original.start.offset + column_delta,
+    };
+    diagnostic.span = Some(SourceSpan {
+        file: original.file.clone(),
+        start,
+        end: start,
+    });
+    diagnostic
+}
+
 fn split_generated_doctest_visible_lines(
     path: &str,
-    visible_lines: &[String],
-) -> (Vec<String>, Vec<String>) {
+    visible_lines: &[IndexedDoctestLine],
+) -> (Vec<IndexedDoctestLine>, Vec<IndexedDoctestLine>) {
     let mut text = String::new();
     let mut line_ranges = Vec::new();
     for line in visible_lines {
         let start = text.len();
-        text.push_str(line);
+        text.push_str(&line.text);
         let end = text.len();
         text.push('\n');
         line_ranges.push(TextRange::new(start, end));
@@ -2066,6 +2271,18 @@ struct PackageDocVisibleDoctests {
     diagnostics: Vec<Diagnostic>,
 }
 
+#[derive(Clone, Debug)]
+struct GeneratedDoctestSource {
+    source: SourceFile,
+    line_origins: BTreeMap<usize, DoctestSourceLineOrigin>,
+}
+
+#[derive(Clone, Debug)]
+struct DoctestSourceLineOrigin {
+    original_span: SourceSpan,
+    generated_content_column: usize,
+}
+
 fn visible_doctests_for(source: &SourceFile, target_line: usize) -> PackageDocVisibleDoctests {
     let source = SourceFile::new(
         source.path().as_str(),
@@ -2446,6 +2663,10 @@ fn declaration_id(kind: &str, identity: &str) -> String {
         DECLARATION_ID_DOMAIN,
         &[kind.as_bytes(), identity.as_bytes()],
     )
+}
+
+fn module_id(source_path: &str) -> String {
+    digest_hex(MODULE_ID_DOMAIN, &[source_path.as_bytes()])
 }
 
 fn digest_hex(domain: &[u8], parts: &[&[u8]]) -> String {
@@ -2870,6 +3091,18 @@ mod tests {
         assert_eq!(
             digest_hex(b"test-domain\0", &[b"abc", b"def"]),
             "0cb6b848276df1a8558995a0f050e7b059723b9a32d1f1420fd2fea8df425a97"
+        );
+    }
+
+    #[test]
+    fn module_id_transcript_uses_package_relative_source_path() {
+        assert_eq!(
+            module_id("main.veln"),
+            "99fdce218d5cf98b5827059d4aceb6f6e0908da36f8ae511e5a7e5c20e794d58"
+        );
+        assert_eq!(
+            module_id("nested/main.veln"),
+            "02d8fbb7d36f15f834bd95986ebcefd743c9ceadf3c49e36aaecee2a86f4288e"
         );
     }
 
@@ -3355,6 +3588,49 @@ mod tests {
     }
 
     #[test]
+    fn manifest_location_uses_snapshot_canonical_source_uri() {
+        let manifest_text =
+            "[package]\nname = \"other\"\n[lib]\nexports = [\"main.veln\", \"missing.veln\"]\n";
+        let snapshot = capture_embedded_package_snapshot(
+            manifest_text.as_bytes(),
+            [PackageSnapshotSource::new(
+                "main.veln",
+                b"pub fn visible() -> Int\n\t1\nend\n",
+            )],
+        )
+        .unwrap();
+        let first_manifest = parse_manifest_text("veln.toml", manifest_text);
+        let relocated_manifest = parse_manifest_text("relocated/veln.toml", manifest_text);
+        let identity = PackageIdentity::new("demo").unwrap();
+        let first = PackageDocResult::generate(
+            &identity,
+            &snapshot,
+            &first_manifest,
+            PackageDocGeneratorContract::new("contract-a"),
+        );
+        let relocated = PackageDocResult::generate(
+            &identity,
+            &snapshot,
+            &relocated_manifest,
+            PackageDocGeneratorContract::new("contract-a"),
+        );
+
+        assert_eq!(first.canonical_bytes(), relocated.canonical_bytes());
+        assert_eq!(first.doc_digest(), relocated.doc_digest());
+        assert_eq!(first.status_uri(), relocated.status_uri());
+        assert!(first.status().diagnostics.iter().all(|diagnostic| {
+            diagnostic.span.as_ref().is_none_or(|span| {
+                span.source_uri == source_uri("demo", first.snapshot_digest(), "veln.toml")
+            })
+        }));
+        assert!(
+            !std::str::from_utf8(first.canonical_bytes())
+                .unwrap()
+                .contains("relocated")
+        );
+    }
+
+    #[test]
     fn renderer_only_stability_follows_canonical_result_bytes() {
         let result = generate(
             "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
@@ -3667,10 +3943,10 @@ mod tests {
         assert!(result.catalog().is_none());
         assert!(result.status().diagnostics.iter().any(|diagnostic| {
             diagnostic.gate == "doctest"
-                && diagnostic
-                    .span
-                    .as_ref()
-                    .is_some_and(|span| span.source_uri.contains("%23doctest-"))
+                && diagnostic.span.as_ref().is_some_and(|span| {
+                    span.source_uri == source_uri("demo", result.snapshot_digest(), "main.veln")
+                        && span.line == 2
+                })
         }));
     }
 
@@ -3696,10 +3972,10 @@ mod tests {
         assert!(result.catalog().is_none());
         assert!(result.status().diagnostics.iter().any(|diagnostic| {
             diagnostic.gate == "doctest"
-                && diagnostic
-                    .span
-                    .as_ref()
-                    .is_some_and(|span| span.source_uri.contains("%23doctest-"))
+                && diagnostic.span.as_ref().is_some_and(|span| {
+                    span.source_uri == source_uri("demo", result.snapshot_digest(), "main.veln")
+                        && span.line == 3
+                })
         }));
     }
 
@@ -3726,10 +4002,10 @@ mod tests {
         assert!(result.catalog().is_none());
         assert!(result.status().diagnostics.iter().any(|diagnostic| {
             diagnostic.gate == "doctest"
-                && diagnostic
-                    .span
-                    .as_ref()
-                    .is_some_and(|span| span.source_uri.contains("%23doctest-"))
+                && diagnostic.span.as_ref().is_some_and(|span| {
+                    span.source_uri == source_uri("demo", result.snapshot_digest(), "main.veln")
+                        && span.line == 5
+                })
         }));
     }
 

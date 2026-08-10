@@ -19,6 +19,10 @@ When the supplied manifest bytes match the captured manifest bytes, generation
 uses the manifest fields parsed from the captured bytes. Mutation of the
 supplied manifest fields cannot change exported modules, public metadata, or
 other catalog semantics for that snapshot.
+Manifest diagnostics use the snapshot-owned canonical manifest location
+`veln.toml`. The caller-provided parsed-manifest path is not part of
+canonical result bytes, documentation digests, status URIs, or status
+diagnostic source URIs.
 The result is immutable. It contains either a complete successful catalog or a
 failure status with ordered diagnostics.
 
@@ -130,6 +134,9 @@ The implemented gates are:
   Positive declaration doctests can call public API from the same exported
   package snapshot. `veln fail` fences must produce a parse diagnostic through
   that same pipeline. A semantic-only diagnostic does not satisfy `veln fail`.
+  Static-gate diagnostics that originate in generated doctest sources report
+  the canonical `veln-pkg:` URI and line, column, and offset for the
+  originating visible doc comment line in the same captured source.
   `veln ignore` fences are not published or checked by the catalog, hidden
   setup lines are not published or checked by the catalog,
   `veln-output stream=stdout` and
@@ -187,15 +194,17 @@ canonical package source URI, manifest gate failure,
 test source export rejection, manifest package-name mismatch failure, manifest
 missing-package-name failure, manifest snapshot-byte mismatch failure,
 same-capture manifest reparse protection against mutable parsed fields,
-normalized export metadata, export gate failure, resolved
+same-capture manifest diagnostic location stability, normalized export
+metadata, export gate failure, resolved
 documentation-reference projection, qualified documentation-reference import
 failure, public schema alias
 documentation-reference resolution, documentation-reference gate failure,
-doctest gate failure, duplicate semantic identity failure, declaration
+doctest gate failure with original doc comment location remapping, duplicate
+semantic identity failure, declaration
 identifier collision failure, status-only failure results, `PackageIdentity`
 validation at the catalog API boundary, crate-root import coverage for public
 package documentation API types including expected-output records,
-fixed-width identifier digest
+fixed-width identifier digest and path-derived module identifier
 transcripts, and virtual-source resolution after package documentation
 failure. The tests also read fixtures under `examples/specification/doc/` to
 observe the catalog success path, manifest-gate failure path, nested
