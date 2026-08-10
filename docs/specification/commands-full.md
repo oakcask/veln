@@ -277,7 +277,10 @@ schemas, and module-qualified references require a matching written `use` path,
 including nested module paths such as `use app::nested`, and a public schema or
 public schema alias. The generated Markdown renders a resolved schema reference
 as code text. Missing, private, and wrong-kind schema references are name
-diagnostics reported at the referenced name span.
+diagnostics reported at the referenced name span. Schema-reference diagnostics
+are validated for all documentation comments in selected non-companion sources,
+including comments attached to private declarations that are not emitted in the
+generated Markdown.
 
 <a id="veln-metrics"></a>
 
