@@ -8,8 +8,8 @@ use veln_project::{CapturedPackageSnapshot, ProjectManifest, classify_companion_
 use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{
     ContractClause, ContractKind, FunctionDecl, FunctionKind, ParseDiagnostic, PublicAliasDecl,
-    PublicAliasKind, SchemaDecl, SyntaxItem, TypeDecl, TypeVariantDecl, Visibility,
-    canonical_type_text, parse,
+    PublicAliasKind, SchemaDecl, SyntaxItem, TokenKind, TypeDecl, TypeVariantDecl, Visibility,
+    canonical_type_text, lex, parse,
 };
 
 use crate::{NavigationLocation, NavigationSource};
@@ -739,22 +739,31 @@ impl<'a> PackageDocBuilder<'a> {
         schema_targets: &BTreeMap<String, PublicSchemaDocTarget>,
     ) {
         for source in parsed_sources.iter().filter(|source| source.exported) {
-            for reference in doc_schema_references(&source.source) {
-                if schema_reference_target(&reference.target, &source.module_name, schema_targets)
+            for target_line in public_declaration_lines(&source.tree) {
+                if doc_block_before(&source.source, target_line).is_empty() {
+                    continue;
+                }
+                for reference in doc_schema_references_before(&source.source, target_line) {
+                    if schema_reference_target(
+                        &reference.target,
+                        &source.module_name,
+                        schema_targets,
+                    )
                     .is_none()
-                {
-                    self.diagnostics.push(PackageDocDiagnostic {
-                        gate: "documentation_reference".to_string(),
-                        code: "package_doc.unresolved_schema_reference".to_string(),
-                        message: format!(
-                            "documentation schema reference `{}` is not a public exported schema",
-                            reference.target
-                        ),
-                        span: Some(PackageDocDiagnosticSpan::from_span(
-                            &source.source_uri,
-                            &reference.span,
-                        )),
-                    });
+                    {
+                        self.diagnostics.push(PackageDocDiagnostic {
+                            gate: "documentation_reference".to_string(),
+                            code: "package_doc.unresolved_schema_reference".to_string(),
+                            message: format!(
+                                "documentation schema reference `{}` is not a public exported schema",
+                                reference.target
+                            ),
+                            span: Some(PackageDocDiagnosticSpan::from_span(
+                                &source.source_uri,
+                                &reference.span,
+                            )),
+                        });
+                    }
                 }
             }
         }
@@ -831,15 +840,25 @@ impl<'a> PackageDocBuilder<'a> {
         );
         self.record_semantic_identity(&identity, &type_decl.span, semantic_identities);
         let declaration_id = self.declaration_id("type", &identity);
-        declaration_locations.insert(
-            PackageDocLocationKey::new(&source.source_uri, &type_decl.span),
-            declaration_id.clone(),
+        record_declaration_location(
+            &source.source,
+            &source.source_uri,
+            declaration_locations,
+            &declaration_id,
+            &type_decl.span,
+            type_decl.name.as_deref(),
         );
         for variant in &type_decl.variants {
-            declaration_locations.insert(
-                PackageDocLocationKey::new(&source.source_uri, &variant.span),
-                declaration_id.clone(),
-            );
+            if variant.visibility == Visibility::Public {
+                record_declaration_location(
+                    &source.source,
+                    &source.source_uri,
+                    declaration_locations,
+                    &declaration_id,
+                    &variant.span,
+                    variant.name.as_deref(),
+                );
+            }
         }
         PackageDocDeclaration {
             id: declaration_id,
@@ -881,9 +900,13 @@ impl<'a> PackageDocBuilder<'a> {
         );
         self.record_semantic_identity(&identity, &schema.span, semantic_identities);
         let declaration_id = self.declaration_id("schema", &identity);
-        declaration_locations.insert(
-            PackageDocLocationKey::new(&source.source_uri, &schema.span),
-            declaration_id.clone(),
+        record_declaration_location(
+            &source.source,
+            &source.source_uri,
+            declaration_locations,
+            &declaration_id,
+            &schema.span,
+            schema.name.as_deref(),
         );
         PackageDocDeclaration {
             id: declaration_id,
@@ -913,9 +936,13 @@ impl<'a> PackageDocBuilder<'a> {
         let identity = format!("function:{}::{name}:{signature}", source.module_name);
         self.record_semantic_identity(&identity, &function.span, semantic_identities);
         let declaration_id = self.declaration_id("function", &identity);
-        declaration_locations.insert(
-            PackageDocLocationKey::new(&source.source_uri, &function.span),
-            declaration_id.clone(),
+        record_declaration_location(
+            &source.source,
+            &source.source_uri,
+            declaration_locations,
+            &declaration_id,
+            &function.span,
+            function.name.as_deref(),
         );
         PackageDocDeclaration {
             id: declaration_id,
@@ -950,9 +977,13 @@ impl<'a> PackageDocBuilder<'a> {
         let identity = format!("alias:{kind}:{}::{name}:{signature}", source.module_name);
         self.record_semantic_identity(&identity, &alias.span, semantic_identities);
         let declaration_id = self.declaration_id("alias", &identity);
-        declaration_locations.insert(
-            PackageDocLocationKey::new(&source.source_uri, &alias.span),
-            declaration_id.clone(),
+        record_declaration_location(
+            &source.source,
+            &source.source_uri,
+            declaration_locations,
+            &declaration_id,
+            &alias.span,
+            alias.name.as_deref(),
         );
         PackageDocDeclaration {
             id: declaration_id,
@@ -1234,6 +1265,42 @@ fn public_declaration_lines(tree: &veln_syntax::SyntaxTree) -> Vec<usize> {
         .collect()
 }
 
+fn record_declaration_location(
+    source: &SourceFile,
+    source_uri: &str,
+    declaration_locations: &mut BTreeMap<PackageDocLocationKey, String>,
+    declaration_id: &str,
+    declaration_span: &SourceSpan,
+    declaration_name: Option<&str>,
+) {
+    declaration_locations.insert(
+        PackageDocLocationKey::new(source_uri, declaration_span),
+        declaration_id.to_string(),
+    );
+    if let Some(name_span) = declaration_name
+        .and_then(|name| name_span_in(source, declaration_span, name))
+        .filter(|name_span| name_span.start.offset != declaration_span.start.offset)
+    {
+        declaration_locations.insert(
+            PackageDocLocationKey::new(source_uri, &name_span),
+            declaration_id.to_string(),
+        );
+    }
+}
+
+fn name_span_in(source: &SourceFile, span: &SourceSpan, name: &str) -> Option<SourceSpan> {
+    lex(source)
+        .tokens
+        .into_iter()
+        .find(|token| {
+            token.kind == TokenKind::Ident
+                && token.text == name
+                && token.range.start >= span.start.offset
+                && token.range.end <= span.end.offset
+        })
+        .map(|token| source.span(token.range))
+}
+
 fn type_signature(type_decl: &TypeDecl) -> String {
     let mut signature = String::from("type ");
     signature.push_str(type_decl.name.as_deref().unwrap_or("<anonymous>"));
@@ -1361,25 +1428,6 @@ fn rendered_doc_lines(lines: Vec<String>) -> Vec<String> {
 struct DocSchemaReference {
     target: String,
     span: SourceSpan,
-}
-
-fn doc_schema_references(source: &SourceFile) -> Vec<DocSchemaReference> {
-    let mut references = Vec::new();
-    let mut line_start = 0;
-    for line in source.text().split_inclusive('\n') {
-        let trimmed = line.trim_start();
-        let indent_len = line.len() - trimmed.len();
-        if let Some(content) = trimmed.strip_prefix("##") {
-            let content_start = line_start + indent_len + "##".len();
-            references.extend(extract_doc_schema_references(
-                source,
-                content,
-                content_start,
-            ));
-        }
-        line_start += line.len();
-    }
-    references
 }
 
 fn doc_schema_references_before(
@@ -2273,6 +2321,114 @@ mod tests {
                 span: function.span.clone(),
             }),
             Some(function_uri)
+        );
+    }
+
+    #[test]
+    fn declaration_uri_lookup_accepts_navigation_name_locations() {
+        let source_text = concat!(
+            "pub type Choice\n",
+            "\tpub Some(value: Int)\n",
+            "end\n",
+            "\n",
+            "pub fn value() -> Int\n",
+            "\tSome(1)\n",
+            "end\n",
+            "\n",
+            "pub fn caller() -> Int\n",
+            "\tvalue()\n",
+            "end\n",
+        );
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[("main.veln", source_text)],
+        );
+        let source = SourceFile::new("main.veln", source_text);
+        let parsed = parse(&source).tree;
+        let SyntaxItem::Type(type_decl) = &parsed.items[0] else {
+            panic!("expected type declaration");
+        };
+        let SyntaxItem::Function(function) = &parsed.items[1] else {
+            panic!("expected function declaration");
+        };
+        let catalog = result.catalog().expect("successful catalog");
+        let type_uri = catalog.modules[0].declarations[0].uri.as_str();
+        let function_uri = catalog.modules[0].declarations[1].uri.as_str();
+        let snapshot = crate::EffectiveProjectSnapshot::new(vec![source.clone()]);
+        let constructor_navigation = crate::navigate(
+            &snapshot,
+            crate::SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 6,
+                column: 3,
+            },
+        )
+        .expect("constructor navigation");
+        let function_navigation = crate::navigate(
+            &snapshot,
+            crate::SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 10,
+                column: 3,
+            },
+        )
+        .expect("function navigation");
+
+        for (span, uri) in [
+            (
+                name_span_in(&source, &type_decl.span, "Choice").expect("type name span"),
+                type_uri,
+            ),
+            (
+                name_span_in(&source, &function.span, "value").expect("function name span"),
+                function_uri,
+            ),
+        ] {
+            assert_eq!(
+                result.declaration_uri_for_location(&NavigationLocation {
+                    source: NavigationSource::Workspace,
+                    span,
+                }),
+                Some(uri)
+            );
+        }
+        assert_eq!(
+            result.declaration_uri_for_location(&constructor_navigation.definition),
+            Some(type_uri)
+        );
+        assert_eq!(
+            result.declaration_uri_for_location(&function_navigation.definition),
+            Some(function_uri)
+        );
+    }
+
+    #[test]
+    fn private_documentation_references_do_not_fail_public_catalog() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[(
+                "main.veln",
+                concat!(
+                    "## Public docs.\n",
+                    "pub fn visible() -> Int\n",
+                    "\t1\n",
+                    "end\n",
+                    "\n",
+                    "## Private docs mention {@schema Missing}.\n",
+                    "fn hidden() -> Int\n",
+                    "\t0\n",
+                    "end\n",
+                ),
+            )],
+        );
+
+        let catalog = result.catalog().expect("successful catalog");
+        assert_eq!(catalog.modules[0].declarations.len(), 1);
+        assert!(result.status().diagnostics.is_empty());
+        assert!(
+            !std::str::from_utf8(result.canonical_bytes())
+                .unwrap()
+                .contains("Missing")
         );
     }
 

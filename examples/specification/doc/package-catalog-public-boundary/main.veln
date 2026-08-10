@@ -33,4 +33,10 @@ fn hidden_helper() -> Int
 	0
 end
 
+## Private documentation references are outside the public catalog.
+## This unresolved reference is ignored: {@schema MissingInternalPacket}.
+fn hidden_reference() -> Int
+	0
+end
+
 pub schema PacketAlias = PublicPacket

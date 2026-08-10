@@ -82,10 +82,10 @@ The implemented gates are:
   git selector cardinality fail generation before a catalog is published;
 - export: every exported source must exist in the captured snapshot and each
   export path can appear at most once;
-- documentation reference: `{@schema ...}` references in exported source
-  documentation must resolve to a public schema in an exported module, and the
-  successful catalog keeps the resolved target declaration identifier and
-  same-snapshot declaration URI;
+- documentation reference: `{@schema ...}` references in documentation
+  blocks that attach to exported public declarations must resolve to a public
+  schema in an exported module, and the successful catalog keeps the resolved
+  target declaration identifier and same-snapshot declaration URI;
 - doctest: visible positive `veln` doctest fences must parse, `veln fail`
   fences must produce a parse diagnostic, `veln ignore` fences are not
   published or checked by the catalog, hidden setup lines are not published,
@@ -104,10 +104,12 @@ and message.
 The catalog provides transport-independent lookup from module name,
 declaration kind, and declaration name to the canonical declaration
 documentation URI in the same snapshot. It also accepts a snapshot-bound
-semantic `NavigationLocation` for public declarations. Constructor locations
-resolve to the owning type declaration documentation URI. Adapters return the
-URI from these lookups instead of asking clients to construct resource
-identifiers or re-resolve by spelling.
+semantic `NavigationLocation` for public declarations. Declaration-span and
+name-token locations resolve to the same declaration documentation URI.
+Constructor declaration-span and name-token locations resolve to the owning
+type declaration documentation URI. Adapters return the URI from these lookups
+instead of asking clients to construct resource identifiers or re-resolve by
+spelling.
 
 ## Executable Evidence
 
@@ -119,14 +121,15 @@ projection and constructor-location lookup, visible doctest and expected-output
 publication, `veln fail` doctest handling, hidden setup and ADR-lite
 exclusion, deterministic bytes, digest and URI stability, package byte changes,
 generator-contract changes, renderer-only stability when bytes are unchanged,
-declaration URI lookup, parse gate failure with canonical package source URI,
-manifest gate failure, export gate failure, resolved documentation-reference projection,
-documentation-reference gate failure, doctest gate failure, duplicate semantic
-identity failure, declaration identifier collision failure, status-only
-failure results, and virtual-source resolution after package documentation
-failure. The tests also read fixtures under `examples/specification/doc/` to
-observe the catalog success path and manifest-gate failure path through
-executable specification inputs.
+declaration URI lookup from declaration spans and navigation name-token spans,
+private documentation-reference exclusion, parse gate failure with canonical
+package source URI, manifest gate failure, export gate failure, resolved
+documentation-reference projection, documentation-reference gate failure,
+doctest gate failure, duplicate semantic identity failure, declaration
+identifier collision failure, status-only failure results, and virtual-source
+resolution after package documentation failure. The tests also read fixtures
+under `examples/specification/doc/` to observe the catalog success path and
+manifest-gate failure path through executable specification inputs.
 
 The readable CLI documentation boundary remains checked by
 `examples/specification/doc/`. The transport-independent catalog itself is a
