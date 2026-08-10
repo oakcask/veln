@@ -1453,6 +1453,15 @@ pub fn render_human(report: &MetricsReport) -> String {
 
 fn render_human_with_selection(report: &MetricsReport, selection: &ReportHumanSelection) -> String {
     let mut out = String::new();
+    append_report_summary(&mut out, report);
+    append_cycles(&mut out, report, selection);
+    append_modules(&mut out, report, selection);
+    append_abc_subjects(&mut out, report, selection);
+    append_similarities(&mut out, report, selection);
+    out
+}
+
+fn append_report_summary(out: &mut String, report: &MetricsReport) {
     out.push_str("Veln dependency metrics (advisory)\n");
     out.push_str(&format!(
         "project modules: {}, selected modules: {}, internal edges: {}, cycles: {}, external dependencies: {}, ABC subjects: {}, ABC contract subjects: {}, similarity fingerprints: {}, similarity instances: {}, similarity regions: {}\n\n",
@@ -1467,12 +1476,15 @@ fn render_human_with_selection(report: &MetricsReport, selection: &ReportHumanSe
         report.summary.similarity_instance_count,
         report.summary.similarity_region_count
     ));
+}
+
+fn append_cycles(out: &mut String, report: &MetricsReport, selection: &ReportHumanSelection) {
     out.push_str("Cycles\n");
     if report.cycles.is_empty() {
         out.push_str("  none\n");
     } else {
         append_section_truncation(
-            &mut out,
+            out,
             report.cycles.len(),
             report.human_output_max_findings,
             "cycles",
@@ -1488,12 +1500,15 @@ fn render_human_with_selection(report: &MetricsReport, selection: &ReportHumanSe
             ));
         }
     }
+}
+
+fn append_modules(out: &mut String, report: &MetricsReport, selection: &ReportHumanSelection) {
     out.push_str("\nModules\n");
     if report.modules.is_empty() {
         out.push_str("  no project modules selected\n");
     } else {
         append_section_truncation(
-            &mut out,
+            out,
             report.modules.len(),
             report.human_output_max_findings,
             "module rows",
@@ -1513,12 +1528,15 @@ fn render_human_with_selection(report: &MetricsReport, selection: &ReportHumanSe
             ));
         }
     }
+}
+
+fn append_abc_subjects(out: &mut String, report: &MetricsReport, selection: &ReportHumanSelection) {
     out.push_str("\nABC size\n");
     if report.abc_subjects.is_empty() {
         out.push_str("  no function or test subjects selected\n");
     } else {
         append_section_truncation(
-            &mut out,
+            out,
             report.abc_subjects.len(),
             report.human_output_max_findings,
             "ABC subjects",
@@ -1540,6 +1558,9 @@ fn render_human_with_selection(report: &MetricsReport, selection: &ReportHumanSe
             ));
         }
     }
+}
+
+fn append_similarities(out: &mut String, report: &MetricsReport, selection: &ReportHumanSelection) {
     out.push_str("\nWhole-body similarity (experimental)\n");
     out.push_str("  Similarity is advisory; it never creates a metrics policy violation.\n");
     out.push_str("  Review repeated bodies manually; the report does not prescribe automatic deduplication.\n");
@@ -1547,7 +1568,7 @@ fn render_human_with_selection(report: &MetricsReport, selection: &ReportHumanSe
         out.push_str("  none\n");
     } else {
         append_section_truncation(
-            &mut out,
+            out,
             report.similarities.len(),
             report.human_output_max_findings,
             "similarity instances",
@@ -1576,7 +1597,6 @@ fn render_human_with_selection(report: &MetricsReport, selection: &ReportHumanSe
             }
         }
     }
-    out
 }
 
 fn span_label(span: &SourceSpan) -> String {
@@ -2421,6 +2441,24 @@ mod tests {
         let human = render_human(&report);
 
         assert!(human.contains("ABC subjects: 2, ABC contract subjects: 1"));
+    }
+
+    #[test]
+    fn render_human_keeps_empty_section_messages_in_report_order() {
+        let human = render_human(&report_from_edges(&[]));
+
+        assert!(human.contains("Cycles\n  none\n"));
+        assert!(human.contains("Modules\n  no project modules selected\n"));
+        assert!(human.contains("ABC size\n  no function or test subjects selected\n"));
+        assert!(human.contains("Whole-body similarity (experimental)\n"));
+        assert!(human.ends_with("  none\n"));
+        assert_before(&human, "Cycles\n", "\nModules\n");
+        assert_before(&human, "\nModules\n", "\nABC size\n");
+        assert_before(
+            &human,
+            "\nABC size\n",
+            "\nWhole-body similarity (experimental)\n",
+        );
     }
 
     #[test]
