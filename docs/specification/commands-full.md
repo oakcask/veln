@@ -569,11 +569,11 @@ cases.
 An adjacent doc comment fence whose info string is
 `veln-output stream=stdout` or `veln-output stream=stderr` records expected
 output for the immediately preceding executable doctest. Unknown output-fence
-attributes, missing `stream`, and unsupported stream values are static doc
-diagnostics. When at least one output fence is present, any stream without a
-fence is expected to be empty. Output comparison uses captured stdio events,
-reconstructs logical stdout and stderr text, and ignores the Markdown
-closing-fence newline as a raw byte assertion.
+attributes, missing `stream`, duplicate `stream` attributes, and unsupported
+stream values are static doc diagnostics. When at least one output fence is
+present, any stream without a fence is expected to be empty. Output comparison
+uses captured stdio events, reconstructs logical stdout and stderr text, and
+ignores the Markdown closing-fence newline as a raw byte assertion.
 
 When an explicit target names a non-test `.veln` source file, `test` also
 selects a same-directory `*_test.veln` file with the same base name when that
