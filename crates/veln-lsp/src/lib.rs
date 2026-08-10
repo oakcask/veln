@@ -402,9 +402,16 @@ impl Server {
         let source_path = workspace_relative_source_path(&document_root.relative)?;
         let visible_root = visible_workspace_root(root, &self.workspace_root_aliases);
         let snapshot = self.project_snapshots.get(root)?;
-        let snapshot = snapshot.with_workspace_overlays(self.open_workspace_sources(root));
+        let overlays = self.open_workspace_sources(root);
+        let overlaid_snapshot;
+        let snapshot = if overlays.is_empty() {
+            snapshot
+        } else {
+            overlaid_snapshot = snapshot.with_workspace_overlays(overlays);
+            &overlaid_snapshot
+        };
         let result = navigate(
-            &snapshot,
+            snapshot,
             SourcePosition {
                 source: SourcePath::new(source_path),
                 line: position.line.checked_add(1)?,
