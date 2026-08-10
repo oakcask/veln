@@ -41,6 +41,15 @@ pub struct ManifestDependency {
     pub subdir: Option<ManifestField>,
 }
 
+impl ManifestDependency {
+    pub fn direct_local_source(&self) -> Option<&ManifestField> {
+        self.path
+            .as_ref()
+            .or(self.vendor.as_ref())
+            .or(self.mirror.as_ref())
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ManifestDependencySelector {
     pub kind: ManifestDependencySelectorKind,

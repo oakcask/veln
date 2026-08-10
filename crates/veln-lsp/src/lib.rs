@@ -472,9 +472,9 @@ fn retained_direct_dependencies(
         .dependencies
         .iter()
         .filter_map(|dependency| {
-            let path = dependency.path.as_ref()?;
+            let source = dependency.direct_local_source()?;
             let identity = PackageIdentity::new(&dependency.package).ok()?;
-            let dependency_root = root.join(&path.value);
+            let dependency_root = root.join(&source.value);
             let snapshot = capture_package_snapshot(&dependency_root).ok()?;
             let manifest_text = std::str::from_utf8(snapshot.manifest_bytes()).ok()?;
             let dependency_manifest = parse_manifest_text("veln.toml", manifest_text);
@@ -3392,6 +3392,78 @@ mod tests {
             ));
             assert!(rejected[0].contains(r#""code":-32602"#), "{}", rejected[0]);
         }
+    }
+
+    #[test]
+    fn path_vendor_and_mirror_dependencies_share_retained_virtual_uris() {
+        let mut observed = Vec::new();
+
+        for (source_field, source_root) in [
+            ("path", "path/lib"),
+            ("vendor", "vendor/lib"),
+            ("mirror", "mirror/example/pkg"),
+        ] {
+            let mut server = Server::default();
+            let project = TempProject::new(&format!("dependency-virtual-document-{source_field}"));
+            project.write(
+                "veln.toml",
+                &format!(
+                    concat!(
+                        "[package]\nname = \"app\"\n\n",
+                        "[dependencies.\"example/pkg\"]\n",
+                        "{} = \"{}\"\n",
+                    ),
+                    source_field, source_root
+                ),
+            );
+            project.write(
+                "main.veln",
+                concat!(
+                    "use math from \"example/pkg\"\n\n",
+                    "pub fn main() -> Int\n",
+                    "  math::exposed(1)\n",
+                    "end\n",
+                ),
+            );
+            project.write(
+                &format!("{source_root}/veln.toml"),
+                concat!(
+                    "[package]\nname = \"example/pkg\"\n\n",
+                    "[lib]\nexports = [\"math.veln\"]\n",
+                ),
+            );
+            let retained_text = "pub fn exposed(value: Int) -> Int\r\n  value + 1\r\nend\r\n";
+            project.write(&format!("{source_root}/math.veln"), retained_text);
+            let root_uri = path_to_uri(&project.root);
+            let main_uri = path_to_uri(&project.root.join("main.veln"));
+            server.handle_message(&initialize_request(&root_uri));
+
+            let definition = server.handle_message(&definition_request(&main_uri, 3, 10));
+            let virtual_uri = extract_string_field(&definition[0], "uri").unwrap();
+            assert!(
+                virtual_uri.starts_with("veln-pkg:///example%2Fpkg/snapshot/")
+                    && virtual_uri.ends_with("/math.veln"),
+                "{}",
+                definition[0]
+            );
+            assert!(!virtual_uri.contains(source_root), "{}", definition[0]);
+
+            let read = server.handle_message(&format!(
+                r#"{{"jsonrpc":"2.0","id":3,"method":"veln/virtualDocument","params":{{"uri":"{virtual_uri}"}}}}"#
+            ));
+            assert_eq!(
+                read,
+                [response(
+                    "3",
+                    &format!(r#""{}""#, escape_json(retained_text))
+                )],
+                "{source_field}"
+            );
+            observed.push(virtual_uri);
+        }
+
+        assert_eq!(observed[0], observed[1]);
+        assert_eq!(observed[0], observed[2]);
     }
 
     #[test]

@@ -1,0 +1,5 @@
+[package]
+name = "github.com/oakcask/mirror-api"
+
+[lib]
+exports = ["mirrored.veln"]

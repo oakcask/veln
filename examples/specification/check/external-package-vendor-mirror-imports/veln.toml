@@ -1,0 +1,5 @@
+[dependencies."github.com/oakcask/vendor-api"]
+vendor = "vendor/vendor-api"
+
+[dependencies."github.com/oakcask/mirror-api"]
+mirror = "mirror/github.com/oakcask/mirror-api"

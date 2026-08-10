@@ -672,12 +672,12 @@ fn load_external_dependency_project<'a>(
         diagnostics.push(unavailable_external_package_diagnostic(use_decl));
         return None;
     };
-    let Some(path_field) = &dependency.path else {
+    let Some(source_field) = dependency.direct_local_source() else {
         diagnostics.push(unavailable_external_package_diagnostic(use_decl));
         return None;
     };
 
-    let dependency_root = project.root.join(&path_field.value);
+    let dependency_root = project.root.join(&source_field.value);
     let has_direct_manifest = match read_manifest(&dependency_root) {
         Ok(manifest) => manifest.is_some(),
         Err(_) => {

@@ -856,6 +856,52 @@ fn read_manifest_tracks_mirror_dependency_metadata() {
 }
 
 #[test]
+fn direct_local_source_tracks_path_vendor_and_mirror_dependencies() {
+    let temp = TempProject::new("manifest-direct-local-source");
+    temp.write(
+        "veln.toml",
+        concat!(
+            "[dependencies.\"github.com/oakcask/path-lib\"]\n",
+            "path = \"vendor/path-lib\"\n",
+            "[dependencies.\"github.com/oakcask/vendor-lib\"]\n",
+            "vendor = \"vendor/vendor-lib\"\n",
+            "[dependencies.\"github.com/oakcask/mirror-lib\"]\n",
+            "mirror = \"mirror/github.com/oakcask/mirror-lib\"\n",
+            "[dependencies.\"github.com/oakcask/git-lib\"]\n",
+            "git = \"https://example.invalid/git-lib.git\"\n",
+            "rev = \"abc123\"\n",
+        ),
+    );
+
+    let manifest = read_manifest(temp.root())
+        .unwrap()
+        .expect("manifest should be loaded");
+
+    assert_eq!(
+        manifest.dependencies[0]
+            .direct_local_source()
+            .unwrap()
+            .value,
+        "vendor/path-lib"
+    );
+    assert_eq!(
+        manifest.dependencies[1]
+            .direct_local_source()
+            .unwrap()
+            .value,
+        "vendor/vendor-lib"
+    );
+    assert_eq!(
+        manifest.dependencies[2]
+            .direct_local_source()
+            .unwrap()
+            .value,
+        "mirror/github.com/oakcask/mirror-lib"
+    );
+    assert!(manifest.dependencies[3].direct_local_source().is_none());
+}
+
+#[test]
 fn lockfile_package_records_identity_separately_from_git_source() {
     let lockfile = ProjectLockfile {
         packages: vec![LockfilePackage {

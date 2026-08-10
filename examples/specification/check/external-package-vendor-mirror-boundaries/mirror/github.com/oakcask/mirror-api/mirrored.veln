@@ -1,0 +1,7 @@
+pub fn value() -> Int
+  2
+end
+
+fn secret() -> Int
+  0
+end
