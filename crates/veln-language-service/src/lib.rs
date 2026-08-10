@@ -494,17 +494,18 @@ impl SymbolIndex {
             return None;
         }
         let Some(qualifier) = qualifier_for_token(tokens, token_index) else {
+            if let Some(symbol) = self.functions.iter().find(|symbol| {
+                symbol.name == name && symbol.module == file.module && symbol.package.is_none()
+            }) {
+                return Some(Symbol::Function(symbol.clone()));
+            }
+            if local_binding_shadows_call_target(tokens, token_index, name) {
+                return None;
+            }
             return self
                 .functions
                 .iter()
-                .find(|symbol| {
-                    symbol.name == name && symbol.module == file.module && symbol.package.is_none()
-                })
-                .or_else(|| {
-                    self.functions
-                        .iter()
-                        .find(|symbol| symbol.name == name && symbol.standard_prelude)
-                })
+                .find(|symbol| symbol.name == name && symbol.standard_prelude)
                 .cloned()
                 .map(Symbol::Function);
         };
@@ -869,6 +870,13 @@ fn qualified_references(source: &SourceFile, module: &str, name: &str) -> Vec<So
         .collect()
 }
 
+fn local_binding_shadows_call_target(tokens: &[Token], index: usize, name: &str) -> bool {
+    let offset = tokens[index].range.start;
+    function_scopes(tokens).iter().any(|scope| {
+        offset >= scope.body_start && offset < scope.end && scope.shadows(name, tokens, index)
+    })
+}
+
 fn function_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
     let mut scopes = Vec::new();
     for (index, token) in tokens.iter().enumerate() {
@@ -988,12 +996,13 @@ fn local_bindings(tokens: &[Token], body_start: usize, end: usize) -> Vec<LocalB
             continue;
         }
         let binding_end = local_binding_scope_end(tokens, index, end);
+        let binding_start = let_binding_scope_start(tokens, index);
         bindings.extend(
-            let_pattern_binding_names(tokens, index)
+            let_binding_names(tokens, index)
                 .into_iter()
-                .map(|(name, _)| LocalBinding {
+                .map(|name| LocalBinding {
                     name,
-                    start: let_binding_scope_start(tokens, index),
+                    start: binding_start,
                     end: binding_end,
                 }),
         );
@@ -1029,6 +1038,29 @@ fn local_binding_scope_end(tokens: &[Token], let_index: usize, function_end: usi
         }
     }
     function_end
+}
+
+fn let_binding_names(tokens: &[Token], let_index: usize) -> Vec<String> {
+    let mut names = let_pattern_binding_names(tokens, let_index)
+        .into_iter()
+        .map(|(name, _)| name)
+        .collect::<Vec<_>>();
+    if let Some(name) = simple_let_binding_name(tokens, let_index)
+        && !names.iter().any(|existing| existing == &name)
+    {
+        names.push(name);
+    }
+    names
+}
+
+fn simple_let_binding_name(tokens: &[Token], let_index: usize) -> Option<String> {
+    let token_index = next_non_layout_index(tokens, let_index)?;
+    let token = &tokens[token_index];
+    (token.kind == TokenKind::Ident
+        && is_identifier(&token.text)
+        && next_non_layout_token(tokens, token_index)
+            .is_some_and(|next| matches!(next.kind, TokenKind::Colon | TokenKind::Equal)))
+    .then(|| token.text.clone())
 }
 
 fn local_binding_shadows_name(
@@ -1927,6 +1959,45 @@ mod tests {
                     },
                 )
                 .is_none()
+            );
+        }
+    }
+
+    #[test]
+    fn standard_library_bare_prelude_fallback_respects_local_shadowing() {
+        let standard_library = standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                "pub fn byte(value: Int) -> Result<Byte, String>\n  prelude_builtin::byte(value)\nend\n",
+            )],
+            ["prelude.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "pub fn parameter_shadow(byte: fn(Int) -> Result<Byte, String>) -> Result<Byte, String>\n",
+                "  byte(1)\n",
+                "end\n\n",
+                "pub fn local_shadow() -> Result<Byte, String>\n",
+                "  let byte: fn(Int) -> Result<Byte, String> = prelude::byte\n",
+                "  byte(1)\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library);
+
+        for (case, line, column) in [("parameter", 2, 4), ("local", 7, 4)] {
+            assert!(
+                navigate(
+                    &snapshot,
+                    SourcePosition {
+                        source: SourcePath::new("main.veln"),
+                        line,
+                        column,
+                    },
+                )
+                .is_none(),
+                "accepted shadowed {case} call"
             );
         }
     }

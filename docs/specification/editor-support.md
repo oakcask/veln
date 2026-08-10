@@ -188,10 +188,13 @@ when the dependency identity matches, the function's source is listed in
 
 The retained standard input has the reserved `std` identity and the same
 snapshot, export, and catalog boundaries. Bare and `prelude::` calls resolve
-public functions from the exported standard prelude. A qualified call through
-`use module from "std"` resolves a public function only from an exported
-standard source. Private declarations and declarations in non-exported
-standard sources do not produce definition results.
+public functions from the exported standard prelude. A function parameter or
+local binding with the same name shadows the bare prelude fallback at call
+sites in its scope; the same standard function remains reachable through an
+explicit `prelude::` call. A qualified call through `use module from "std"`
+resolves a public function only from an exported standard source. Private
+declarations and declarations in non-exported standard sources do not produce
+definition results.
 
 `textDocument/definition` returns a dependency or standard declaration with
 the exact canonical `veln-pkg:` URI from the retained catalog. It does not
@@ -235,11 +238,11 @@ registration.
 The executable LSP example
 `../../examples/specification/lsp/standard-library-virtual-document/` checks
 bare and qualified prelude definitions, an explicitly imported exported
-standard module, a private prelude boundary, the exact standard snapshot URI,
-the complete embedded prelude read, and noncanonical URI rejection. The
-`veln-lsp` standard-package test additionally compares the returned virtual
-document with the exact embedded source value and checks package rename
-rejection.
+standard module, bare prelude shadowing by parameter and local bindings, a
+private prelude boundary, the exact standard snapshot URI, the complete
+embedded prelude read, and noncanonical URI rejection. The `veln-lsp`
+standard-package test additionally compares the returned virtual document with
+the exact embedded source value and checks package rename rejection.
 
 `textDocument/formatting` returns a single whole-document text edit containing
 the same canonical formatting produced by the formatter. Handler operation

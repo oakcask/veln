@@ -3408,6 +3408,13 @@ mod tests {
                 "pub fn qualified() -> Result<Byte, String>\n",
                 "  prelude::byte(1)\n",
                 "end\n\n",
+                "pub fn parameter_shadow(byte: fn(Int) -> Result<Byte, String>) -> Result<Byte, String>\n",
+                "  byte(1)\n",
+                "end\n\n",
+                "pub fn local_shadow() -> Result<Byte, String>\n",
+                "  let byte: fn(Int) -> Result<Byte, String> = prelude::byte\n",
+                "  byte(1)\n",
+                "end\n\n",
                 "pub fn imported() -> Result<(), RuntimeDiagnostic>\n",
                 "  http2::diagnostic::protocol_invalid_frame_kind(0, 0, 0, 0, \"open\", \"rule\", byte_view(byte_chunk([]), ByteOffset(0), ByteCount(0)))\n",
                 "end\n\n",
@@ -3422,7 +3429,9 @@ mod tests {
 
         let implicit = server.handle_message(&definition_request(&main_uri, 3, 4));
         let qualified = server.handle_message(&definition_request(&main_uri, 7, 12));
-        let imported = server.handle_message(&definition_request(&main_uri, 11, 31));
+        let shadowed_parameter = server.handle_message(&definition_request(&main_uri, 11, 2));
+        let shadowed_local = server.handle_message(&definition_request(&main_uri, 16, 2));
+        let imported = server.handle_message(&definition_request(&main_uri, 20, 31));
         let prelude_uri = extract_string_field(&implicit[0], "uri").unwrap();
 
         assert_eq!(
@@ -3442,6 +3451,8 @@ mod tests {
             "{}",
             implicit[0]
         );
+        assert!(shadowed_parameter[0].contains(r#""result":null"#));
+        assert!(shadowed_local[0].contains(r#""result":null"#));
         let diagnostic_uri = extract_string_field(&imported[0], "uri").unwrap();
         assert!(
             diagnostic_uri.starts_with("veln-pkg:///std/snapshot/")
@@ -3471,7 +3482,7 @@ mod tests {
             )]
         );
 
-        let private_definition = server.handle_message(&definition_request(&main_uri, 15, 12));
+        let private_definition = server.handle_message(&definition_request(&main_uri, 24, 12));
         assert!(private_definition[0].contains(r#""result":null"#));
         let prepare_rename = server.handle_message(&prepare_rename_request(&main_uri, 3, 4));
         let rename = server.handle_message(&rename_request(&main_uri, 3, 4, "renamed"));
