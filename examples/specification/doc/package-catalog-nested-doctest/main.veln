@@ -1,0 +1,14 @@
+## A public declaration doctest can contain an internal block.
+## ```veln
+## fn sample(flag: Bool) -> Int
+## 	if flag
+## 		1
+## 	else
+## 		2
+## 	end
+## end
+## sample(true)
+## ```
+pub fn value() -> Int
+	1
+end

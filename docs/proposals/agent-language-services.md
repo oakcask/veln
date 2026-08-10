@@ -461,11 +461,12 @@ implemented and specified in
 [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).
 The transport-independent package documentation catalog, status-only failure
 result, documentation digest, canonical `veln-doc:` URI foundation, same-capture
-manifest binding, path-derived module identity, exported module and public
-constructor documentation projection, stream-aware expected-output publication,
-effect-row-binder signatures, and generated doctest static gate for expression,
-declaration, and mixed declaration-statement doctests are implemented and
-specified in
+manifest binding, validated `PackageIdentity` API boundary, pointer-width
+independent identifier digest transcripts, path-derived module identity,
+exported module and public constructor documentation projection, stream-aware
+expected-output publication, effect-row-binder signatures, and generated
+doctest static gate for expression, declaration, nested-block declaration, and
+mixed declaration-statement doctests are implemented and specified in
 [Package Documentation Catalogs](../specification/package-documentation.md).
 MCP resources, MCP documentation publication, and snapshot lifetime rules
 remain planned below.
@@ -563,11 +564,13 @@ loaded-package index returns the exact immutable status URI. The source
 snapshot remains readable.
 
 A passing positive doctest and a `veln fail` doctest whose visible source
-produces a parse diagnostic can be published. Ignored doctests and hidden setup
-are not published. Doctest metadata is validated by the shared doctest
-extractor, and metadata errors fail the complete documentation generation.
-Runtime doctest execution and expected-output comparison remain part of the
-planned MCP publication slice.
+produces a parse diagnostic can be published when the fence attaches to an
+exported module, exported public declaration, or exported public constructor.
+Private declaration doctests, ignored doctests, and hidden setup are not
+published or checked by package documentation generation. Doctest metadata is
+validated by the shared doctest extractor, and metadata errors fail the
+complete documentation generation. Runtime doctest execution and
+expected-output comparison remain part of the planned MCP publication slice.
 
 ## Published Language Reference
 

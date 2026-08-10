@@ -5,7 +5,9 @@ use std::fmt;
 use sha2::{Digest, Sha256};
 use veln_analysis::{DoctestMode, analyze_project};
 use veln_diagnostics::{Diagnostic, Severity};
-use veln_project::{CapturedPackageSnapshot, Project, ProjectManifest, classify_companion_source};
+use veln_project::{
+    CapturedPackageSnapshot, PackageIdentity, Project, ProjectManifest, classify_companion_source,
+};
 use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{
     ContractClause, ContractKind, FunctionDecl, FunctionKind, ParseDiagnostic, PublicAliasDecl,
@@ -52,12 +54,12 @@ pub struct PackageDocResult {
 
 impl PackageDocResult {
     pub fn generate(
-        identity: &str,
+        identity: &PackageIdentity,
         snapshot: &CapturedPackageSnapshot,
         manifest: &ProjectManifest,
         generator_contract: PackageDocGeneratorContract,
     ) -> Self {
-        PackageDocBuilder::new(identity, snapshot, manifest, generator_contract).generate()
+        PackageDocBuilder::new(identity.as_str(), snapshot, manifest, generator_contract).generate()
     }
 
     pub fn identity(&self) -> &str {
@@ -737,15 +739,15 @@ impl<'a> PackageDocBuilder<'a> {
     }
 
     fn validate_doctests(&mut self, parsed_sources: &[ParsedPackageSource]) {
-        let exported_sources = parsed_sources
+        let public_sources = parsed_sources
             .iter()
             .filter(|source| source.exported)
-            .map(|source| source.source.clone())
+            .filter_map(public_doctest_source)
             .collect::<Vec<_>>();
-        if exported_sources.is_empty() {
+        if public_sources.is_empty() {
             return;
         }
-        let doctests = doctest_sources(&exported_sources);
+        let doctests = doctest_sources(&public_sources);
         for diagnostic in &doctests.diagnostics {
             if diagnostic.severity == Severity::Error {
                 self.diagnostics
@@ -1337,17 +1339,23 @@ fn generated_doctest_static_gate_source(source: &SourceFile) -> SourceFile {
 
     let mut declarations = Vec::new();
     let mut statements = Vec::new();
-    let mut active_declaration = false;
+    let mut active_declaration_depth = 0usize;
     for line in visible_lines {
         let trimmed = line.trim_start();
-        let ends_declaration = trimmed == "end";
-        if !active_declaration && starts_declaration(trimmed) {
-            active_declaration = true;
-        }
-        if active_declaration {
+        if active_declaration_depth == 0 && starts_declaration(trimmed) {
+            active_declaration_depth = 1;
             declarations.push(line);
-            if ends_declaration {
-                active_declaration = false;
+            continue;
+        }
+
+        if active_declaration_depth > 0 {
+            let ends_block = trimmed == "end";
+            if starts_nested_block(trimmed) {
+                active_declaration_depth += 1;
+            }
+            declarations.push(line);
+            if ends_block {
+                active_declaration_depth = active_declaration_depth.saturating_sub(1);
             }
         } else {
             statements.push(line);
@@ -1389,6 +1397,52 @@ fn starts_declaration(trimmed: &str) -> bool {
         || trimmed.starts_with("pub type ")
         || trimmed.starts_with("schema ")
         || trimmed.starts_with("pub schema ")
+}
+
+fn starts_nested_block(trimmed: &str) -> bool {
+    (trimmed.starts_with("if ") || trimmed.starts_with("match ") || trimmed.starts_with("handle "))
+        && trimmed != "end"
+}
+
+fn public_doctest_source(source: &ParsedPackageSource) -> Option<SourceFile> {
+    let target_lines = public_documentation_lines(&source.tree);
+    if target_lines.is_empty() {
+        return None;
+    }
+    let original_lines = source.source.text().lines().collect::<Vec<_>>();
+    let mut text = String::new();
+    for target_line in target_lines {
+        append_doc_block_before(&original_lines, target_line, &mut text);
+        if let Some(line) = original_lines.get(target_line.saturating_sub(1)) {
+            text.push_str(line);
+            text.push('\n');
+        }
+    }
+    Some(SourceFile::new(source.source.path().as_str(), text))
+}
+
+fn append_doc_block_before(lines: &[&str], target_line: usize, output: &mut String) {
+    if target_line <= 1 {
+        return;
+    }
+    let mut index = target_line - 2;
+    let mut docs = Vec::new();
+    while let Some(line) = lines.get(index) {
+        if line.trim_start().strip_prefix("##").is_some() {
+            docs.push(*line);
+        } else {
+            break;
+        }
+        if index == 0 {
+            break;
+        }
+        index -= 1;
+    }
+    docs.reverse();
+    for line in docs {
+        output.push_str(line);
+        output.push('\n');
+    }
 }
 
 fn function_signature(function: &FunctionDecl) -> String {
@@ -2222,7 +2276,8 @@ fn digest_hex(domain: &[u8], parts: &[&[u8]]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(domain);
     for part in parts {
-        hasher.update((*part).len().to_be_bytes());
+        let len = u64::try_from((*part).len()).expect("digest transcript part length fits u64");
+        hasher.update(len.to_be_bytes());
         hasher.update(part);
     }
     lower_hex(hasher.finalize().as_slice())
@@ -2323,8 +2378,9 @@ mod tests {
         )
         .unwrap();
         let manifest = parse_manifest_text("veln.toml", manifest);
+        let identity = PackageIdentity::new("owner/package").unwrap();
         PackageDocResult::generate(
-            "owner/package",
+            &identity,
             &snapshot,
             &manifest,
             PackageDocGeneratorContract::new("contract-a"),
@@ -2356,8 +2412,9 @@ mod tests {
         )
         .unwrap();
         let manifest = parse_manifest_text("veln.toml", &manifest_text);
+        let identity = PackageIdentity::new("owner/package").unwrap();
         PackageDocResult::generate(
-            "owner/package",
+            &identity,
             &snapshot,
             &manifest,
             PackageDocGeneratorContract::new("contract-a"),
@@ -2555,6 +2612,44 @@ mod tests {
         assert_eq!(
             first.declaration_uri_for("main", "function", "value"),
             Some(catalog.modules[0].declarations[0].uri.as_str())
+        );
+    }
+
+    #[test]
+    fn package_documentation_requires_validated_package_identity() {
+        assert!(PackageIdentity::new("").is_err());
+        let identity = PackageIdentity::new("owner/package").unwrap();
+        let snapshot = capture_embedded_package_snapshot(
+            b"[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            [PackageSnapshotSource::new(
+                "main.veln",
+                b"pub fn value() -> Int\n\t1\nend\n",
+            )],
+        )
+        .unwrap();
+        let manifest = parse_manifest_text(
+            "veln.toml",
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+        );
+        let result = PackageDocResult::generate(
+            &identity,
+            &snapshot,
+            &manifest,
+            PackageDocGeneratorContract::new("contract-a"),
+        );
+
+        assert!(
+            result
+                .status_uri()
+                .starts_with("veln-doc:///package/owner%2Fpackage/snapshot/")
+        );
+    }
+
+    #[test]
+    fn digest_transcript_uses_fixed_u64_part_lengths() {
+        assert_eq!(
+            digest_hex(b"test-domain\0", &[b"abc", b"def"]),
+            "0cb6b848276df1a8558995a0f050e7b059723b9a32d1f1420fd2fea8df425a97"
         );
     }
 
@@ -2816,8 +2911,9 @@ mod tests {
         )
         .unwrap();
         let manifest = parse_manifest_text("veln.toml", base_manifest);
+        let identity = PackageIdentity::new("owner/package").unwrap();
         let changed_contract = PackageDocResult::generate(
-            "owner/package",
+            &identity,
             &snapshot,
             &manifest,
             PackageDocGeneratorContract::new("contract-b"),
@@ -2842,8 +2938,9 @@ mod tests {
         )
         .unwrap();
         let manifest = parse_manifest_text("veln.toml", swapped_manifest);
+        let identity = PackageIdentity::new("owner/package").unwrap();
         let result = PackageDocResult::generate(
-            "owner/package",
+            &identity,
             &snapshot,
             &manifest,
             PackageDocGeneratorContract::new("contract-a"),
@@ -2995,6 +3092,15 @@ mod tests {
     }
 
     #[test]
+    fn executable_specification_fixture_observes_nested_doctest_success() {
+        let result = generate_fixture("package-catalog-nested-doctest");
+        let catalog = catalog_or_panic(&result);
+
+        assert_eq!(catalog.modules[0].declarations[0].doctests.len(), 1);
+        assert!(result.status().diagnostics.is_empty());
+    }
+
+    #[test]
     fn parse_and_doctest_gates_are_package_atomic() {
         let result = generate(
             "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
@@ -3100,6 +3206,68 @@ mod tests {
                     .as_ref()
                     .is_some_and(|span| span.source_uri.contains("%23doctest-"))
         }));
+    }
+
+    #[test]
+    fn declaration_doctest_with_nested_block_passes_static_gate() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[(
+                "main.veln",
+                concat!(
+                    "## ```veln\n",
+                    "## fn sample(flag: Bool) -> Int\n",
+                    "## \tif flag\n",
+                    "## \t\t1\n",
+                    "## \telse\n",
+                    "## \t\t2\n",
+                    "## \tend\n",
+                    "## end\n",
+                    "## sample(true)\n",
+                    "## ```\n",
+                    "pub fn value() -> Int\n",
+                    "\t1\n",
+                    "end\n",
+                ),
+            )],
+        );
+
+        let catalog = catalog_or_panic(&result);
+        assert_eq!(catalog.modules[0].declarations[0].doctests.len(), 1);
+        assert!(result.status().diagnostics.is_empty());
+    }
+
+    #[test]
+    fn private_declaration_doctest_does_not_gate_public_catalog() {
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[(
+                "main.veln",
+                concat!(
+                    "## Public docs.\n",
+                    "pub fn visible() -> Int\n",
+                    "\t1\n",
+                    "end\n",
+                    "\n",
+                    "## Private doctest must not be checked or published.\n",
+                    "## ```veln\n",
+                    "## missing_value\n",
+                    "## ```\n",
+                    "fn hidden() -> Int\n",
+                    "\t0\n",
+                    "end\n",
+                ),
+            )],
+        );
+
+        let catalog = catalog_or_panic(&result);
+        assert_eq!(catalog.modules[0].declarations.len(), 1);
+        assert!(catalog.modules[0].declarations[0].doctests.is_empty());
+        assert!(
+            !std::str::from_utf8(result.canonical_bytes())
+                .unwrap()
+                .contains("missing_value")
+        );
     }
 
     #[test]
@@ -3315,8 +3483,9 @@ mod tests {
         )
         .unwrap();
         let manifest = parse_manifest_text("veln.toml", manifest_text);
+        let identity = PackageIdentity::new("owner/package").unwrap();
         let result = PackageDocResult::generate(
-            "owner/package",
+            &identity,
             &snapshot,
             &manifest,
             PackageDocGeneratorContract::new("contract-a"),

@@ -7,10 +7,11 @@ update-when: The package documentation catalog API, canonical result bytes, dige
 # Package Documentation Catalogs
 
 `veln-language-service` exposes a transport-independent package
-documentation catalog for one `CapturedPackageSnapshot` and the validated
-manifest parsed from that same capture. The generator validates the manifest
-before it can publish a catalog. The result is immutable. It contains either a
-complete successful catalog or a failure status with ordered diagnostics.
+documentation catalog for one validated `PackageIdentity`, one
+`CapturedPackageSnapshot`, and the validated manifest parsed from that same
+capture. The generator validates the manifest before it can publish a catalog.
+The result is immutable. It contains either a complete successful catalog or a
+failure status with ordered diagnostics.
 
 ## Result Identity
 
@@ -44,14 +45,17 @@ veln-doc:///package/<package-segment>/snapshot/<digest>/documentation/<doc-diges
 
 The package segment uses the same segment encoding as package virtual-source
 URIs. Module and declaration identifiers are 64-character lowercase SHA-256
-digests from versioned identity domains. Module identity is derived from the
-package-relative source path. It is not derived from a `module` declaration.
-Declaration identity uses declaration kind, fully qualified semantic name, and
-canonical signature. Function declaration signatures include effect row
-binders such as `<effect E>`. Declaration identity does not use source order
-or source byte offsets. A duplicate semantic identity fails the complete
-package documentation result. A detected module or declaration identifier
-collision also fails the complete package documentation result.
+digests from versioned identity domains. Each identifier transcript encodes
+every part length as a checked unsigned 64-bit big-endian integer before the
+part bytes, so the identifier is independent of target pointer width. Module
+identity is derived from the package-relative source path. It is not derived
+from a `module` declaration. Declaration identity uses declaration kind, fully
+qualified semantic name, and canonical signature. Function declaration
+signatures include effect row binders such as `<effect E>`. Declaration
+identity does not use source order or source byte offsets. A duplicate
+semantic identity fails the complete package documentation result. A detected
+module or declaration identifier collision also fails the complete package
+documentation result.
 
 ## Published Boundary
 
@@ -96,9 +100,14 @@ The implemented gates are:
   constructors must resolve to a public schema in an exported module, and the
   successful catalog keeps the resolved target declaration identifier and
   same-snapshot declaration URI;
-- doctest: visible positive `veln` doctest fences must pass the shared
-  generated-source static analysis pipeline, including the declaration and
-  statement portions of visible positive doctests that contain both.
+- doctest: only visible doctest fences attached to exported modules, exported
+  public declarations, and exported public type constructors are gate inputs.
+  Visible positive `veln` doctest fences must pass the shared generated-source
+  static analysis pipeline, including the declaration and statement portions
+  of visible positive doctests that contain both. Declaration doctests can
+  contain nested blocks such as `if` expressions; only the declaration's
+  top-level `end` separates the declaration portion from later statement
+  examples.
   `veln fail` fences must produce an error diagnostic through that same
   pipeline, `veln ignore` fences are not published or checked by the catalog,
   hidden setup lines are not published, `veln-output stream=stdout` and
@@ -139,15 +148,18 @@ rejection, hidden setup and ADR-lite exclusion, effect row binder signatures,
 deterministic bytes, digest and URI stability, package byte changes,
 generator-contract changes, renderer-only stability when bytes are unchanged,
 declaration URI lookup from declaration spans and navigation name-token spans,
-private documentation-reference exclusion, parse gate failure with canonical
-package source URI, manifest gate failure, manifest snapshot-byte mismatch
-failure, export gate failure, resolved documentation-reference projection,
-documentation-reference gate failure, doctest gate failure, duplicate semantic
-identity failure, declaration identifier collision failure, status-only
-failure results, and virtual-source resolution after package documentation
+private documentation-reference exclusion, private doctest exclusion, parse
+gate failure with canonical package source URI, manifest gate failure,
+manifest snapshot-byte mismatch failure, export gate failure, resolved
+documentation-reference projection, documentation-reference gate failure,
+doctest gate failure, duplicate semantic identity failure, declaration
+identifier collision failure, status-only failure results, `PackageIdentity`
+validation at the catalog API boundary, fixed-width identifier digest
+transcripts, and virtual-source resolution after package documentation
 failure. The tests also read fixtures under `examples/specification/doc/` to
-observe the catalog success path, manifest-gate failure path, and declaration
-doctest static-gate failure path through executable specification inputs.
+observe the catalog success path, manifest-gate failure path, nested
+declaration doctest success path, and declaration doctest static-gate failure
+path through executable specification inputs.
 
 The readable CLI documentation boundary remains checked by
 `examples/specification/doc/`. The transport-independent catalog itself is a
