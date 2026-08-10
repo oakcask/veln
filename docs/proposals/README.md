@@ -18,6 +18,9 @@ also states it.
 
 ## Catalog
 
+- Readable multiline input, output, and JSON-RPC fixtures for toolchain test
+  cases:
+  [readable-toolchain-case-streams.md](readable-toolchain-case-streams.md).
 - Agent language services through MCP, shared LSP semantics, virtual package
   locations, and generated public reference:
   [agent-language-services.md](agent-language-services.md).
