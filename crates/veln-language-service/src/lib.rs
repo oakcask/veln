@@ -2784,6 +2784,67 @@ mod tests {
         );
     }
 
+    #[test]
+    fn direct_dependency_snapshot_rejects_manifest_without_package_name() {
+        let root = TempDependency::new(
+            "example/pkg",
+            &[("math.veln", "pub fn exposed() -> Int\n  1\nend\n")],
+        );
+        let identity = PackageIdentity::new("example/pkg").unwrap();
+        let snapshot = capture_package_snapshot(&root.path).unwrap();
+        let manifest = parse_manifest_text(
+            "veln.toml",
+            "[package]\nversion = \"0.1.0\"\n\n[lib]\nexports = [\"math.veln\"]\n",
+        );
+
+        let error =
+            DirectDependencySnapshot::from_validated_manifest(&identity, snapshot, manifest)
+                .unwrap_err();
+
+        assert_eq!(error, DirectDependencySnapshotError::MissingPackageName);
+    }
+
+    #[test]
+    fn dependency_virtual_sources_retain_nonexported_and_private_source_bytes() {
+        let root = TempDependency::new(
+            "example/pkg",
+            &[
+                ("public.veln", "pub fn exposed() -> Int\r\n  1\r\nend\r\n"),
+                ("internal.veln", "fn hidden() -> Int\r\n  2\r\nend\r\n"),
+            ],
+        );
+        let identity = PackageIdentity::new("example/pkg").unwrap();
+        let snapshot = capture_package_snapshot(&root.path).unwrap();
+        let manifest = parse_manifest_text(
+            "veln.toml",
+            "[package]\nname = \"example/pkg\"\n\n[lib]\nexports = [\"public.veln\"]\n",
+        );
+        let dependency =
+            DirectDependencySnapshot::from_validated_manifest(&identity, snapshot, manifest)
+                .unwrap();
+        let retained = dependency
+            .virtual_sources
+            .entries()
+            .map(|entry| entry.uri().to_string())
+            .collect::<Vec<_>>();
+        let project = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source("main.veln", "pub fn main() -> Int\n  0\nend\n")],
+            vec![dependency],
+        );
+
+        assert_eq!(retained.len(), 2);
+        for uri in retained {
+            let expected = if uri.ends_with("/internal.veln") {
+                b"fn hidden() -> Int\r\n  2\r\nend\r\n".as_slice()
+            } else if uri.ends_with("/public.veln") {
+                b"pub fn exposed() -> Int\r\n  1\r\nend\r\n".as_slice()
+            } else {
+                panic!("unexpected retained source URI {uri}");
+            };
+            assert_eq!(project.resolve_virtual_source(&uri), Some(expected));
+        }
+    }
+
     fn source(path: &str, text: &str) -> SourceFile {
         SourceFile::new(path, text)
     }
