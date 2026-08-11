@@ -156,9 +156,7 @@ fn is_generated_inventory_member(case_dir: &Path) -> bool {
 fn runtime_generated_inventory_barrier() {
     if let Some(error) = TEST_GENERATED_TOOLCHAIN_CASES.with(|cases| {
         let borrowed = cases.borrow();
-        let Some(generated) = borrowed.as_ref() else {
-            return None;
-        };
+        let generated = borrowed.as_ref()?;
         let generated = generated.iter().map(String::as_str).collect::<Vec<_>>();
         toolchain_case_inventory::compare_generated_inventory(
             Path::new(env!("CARGO_MANIFEST_DIR")),
