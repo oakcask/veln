@@ -420,11 +420,10 @@ fn value_tokens_are_balanced(tokens: &[&Token<'_>]) -> bool {
     for token in tokens {
         match &token.kind {
             TokenKind::Open(delimiter) => stack.push(*delimiter),
-            TokenKind::Close(delimiter) => {
-                if stack.pop() != Some(*delimiter) {
-                    return false;
-                }
+            TokenKind::Close(delimiter) if stack.pop() != Some(*delimiter) => {
+                return false;
             }
+            TokenKind::Close(_) => {}
             _ => {}
         }
     }
@@ -849,9 +848,7 @@ impl<'p, 'a> Lexer<'p, 'a> {
         let closing_quotes = loop {
             let Some(ch) = self.peek_char() else {
                 let raw = &self.text[start..self.offset];
-                if let Err(error) = decode_toml_string(raw, opening_line, form, 0) {
-                    return Err(error);
-                }
+                decode_toml_string(raw, opening_line, form, 0)?;
                 return Err(SyntaxError {
                     line: opening_line,
                     message: "unterminated manifest string".to_string(),
