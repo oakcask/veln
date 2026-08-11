@@ -7,4 +7,4 @@
 {"error":{"code":-32602,"message":"Tool input does not match its schema"},"id":5,"jsonrpc":"2.0"}
 {"error":{"code":-32602,"message":"Invalid initialize params"},"id":6,"jsonrpc":"2.0"}
 {"error":{"code":-32600,"message":"Invalid Request"},"id":null,"jsonrpc":"2.0"}
-{"error":{"code":-32600,"message":"Invalid Request"},"id":null,"jsonrpc":"2.0"}
+{"id":7.5,"jsonrpc":"2.0","result":{}}

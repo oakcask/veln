@@ -10394,9 +10394,9 @@ field	expectations.exit	0
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1083,"sha256":"2f7744dc1a93ef7e2ab7535ca7eefaeb6593ac5cb788d077f4a0f5cd3b0cb316"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1079,"sha256":"9ef00c3a7d537c9ad6afad8c6ad6967f929b38400efff7284c7df84485ebb9a7"}
 field	source_errors	"forbidden"
-case_digest	"281a932ec43eeb91bf7fef4e2ea2960a5b61f2880a8b9b2895fb2788e32e0263"
+case_digest	"5ec78e2f489ff8a12eca8f33db3706349b80a86563fbc7b3f7ccbfea4aca45e5"
 case	"examples/specification/metrics/abc-constructs"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	6
@@ -47675,4 +47675,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"aede52007dac8ee87991dda80f322028549520cf61f6ec98391472727ba97acc"
+aggregate_digest	"5a3928fdf0a3256d6959346fb8bc9874f6c72a3f6da3559d3806b0436fbbc56c"

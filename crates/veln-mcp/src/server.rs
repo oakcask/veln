@@ -152,7 +152,7 @@ impl Server {
 }
 
 fn valid_request_id(value: &Value) -> bool {
-    value.is_string() || value.as_i64().is_some() || value.as_u64().is_some()
+    value.is_string() || value.is_number()
 }
 
 fn valid_implementation(value: &Value) -> bool {
@@ -197,9 +197,9 @@ fn metadata_is_valid(value: Option<&Value>) -> bool {
     let Some(object) = value.as_object() else {
         return false;
     };
-    object.get("progressToken").is_none_or(|token| {
-        token.is_string() || token.as_i64().is_some() || token.as_u64().is_some()
-    })
+    object
+        .get("progressToken")
+        .is_none_or(|token| token.is_string() || token.is_number())
 }
 
 fn successful_tool_result(structured: Value) -> Value {
@@ -388,7 +388,7 @@ mod tests {
     }
 
     #[test]
-    fn request_ids_reject_null_and_fractional_numbers() {
+    fn request_ids_accept_strings_and_numbers_but_reject_null() {
         let workspace = TempWorkspace::new("request-ids");
         let selection = Selection::discover(&workspace.root).unwrap();
         let mut server = Server {
@@ -396,17 +396,21 @@ mod tests {
             selection,
             initialized: true,
         };
-        let requests = [
-            json!({"jsonrpc":"2.0","id":null,"method":"ping"}),
-            json!({"jsonrpc":"2.0","id":1.5,"method":"ping"}),
-        ];
-        for request in requests {
-            let response = server.handle_request(request).unwrap();
-            assert_eq!(response["id"], Value::Null);
-            assert_eq!(response["error"]["code"], -32600);
-        }
+
+        let null_response = server
+            .handle_request(json!({"jsonrpc":"2.0","id":null,"method":"ping"}))
+            .unwrap();
+        assert_eq!(null_response["id"], Value::Null);
+        assert_eq!(null_response["error"]["code"], -32600);
+
+        let fractional_response = server
+            .handle_request(json!({"jsonrpc":"2.0","id":1.5,"method":"ping"}))
+            .unwrap();
+        assert_eq!(fractional_response["id"], json!(1.5));
+        assert_eq!(fractional_response["result"], json!({}));
+
         let response = server
-            .handle_request(json!({"jsonrpc":"2.0","id":"ok","method":"ping","params":{"_meta":{"progressToken":7}}}))
+            .handle_request(json!({"jsonrpc":"2.0","id":"ok","method":"ping","params":{"_meta":{"progressToken":7.5}}}))
             .unwrap();
         assert_eq!(response["result"], json!({}));
     }
