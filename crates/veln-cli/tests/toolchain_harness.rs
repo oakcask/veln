@@ -5652,6 +5652,142 @@ fn manifest_sidecar_paths_reject_nonportable_components_before_io() {
     }
 }
 
+#[cfg(unix)]
+#[test]
+fn manifest_sidecar_paths_reject_links_without_following_targets() {
+    use std::os::unix::fs::symlink;
+
+    let root = test_temp_root("manifest-sidecar-link");
+    let case_dir = root.join("case");
+    let text_dir = case_dir.join("case-text");
+    fs::create_dir_all(&text_dir).expect("case text directory should be created");
+    fs::write(root.join("outside.txt"), "target").expect("link target should be written");
+    symlink("../../outside.txt", text_dir.join("linked.txt")).expect("file symlink should exist");
+    symlink("../../outside-dir", text_dir.join("linked-dir")).expect("dir symlink should exist");
+
+    for relative in ["case-text/linked.txt", "case-text/linked-dir/file.txt"] {
+        let source = format!("command = [\"check\"]\nstdin_file = {relative:?}\nexit = 0\n");
+        let panic = std::panic::catch_unwind(|| {
+            parse_manifest(&case_dir.join("case.toml"), &source);
+        })
+        .expect_err("sidecar link traversal should be rejected");
+        let message = panic_message(panic);
+        assert!(
+            message.contains("must not traverse a link or reparse point"),
+            "unexpected sidecar link error: {message}"
+        );
+        assert!(
+            !message.contains("outside"),
+            "sidecar diagnostics should not expose followed targets: {message}"
+        );
+    }
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
+fn manifest_sidecar_files_must_be_utf8_before_skip_evaluation() {
+    let root = test_temp_root("manifest-sidecar-utf8-skip");
+    let case_dir = root.join("case");
+    let text_dir = case_dir.join("case-text");
+    fs::create_dir_all(&text_dir).expect("case text directory should be created");
+    fs::write(text_dir.join("invalid.raw"), [0xff, b'a']).expect("invalid sidecar should exist");
+    fs::write(
+        case_dir.join("case.toml"),
+        r#"
+command = ["run-command-that-must-not-start"]
+stdin_file = "case-text/invalid.raw"
+exit = 0
+
+[skip]
+platforms = ["linux", "macos", "windows"]
+reason = "skip evaluation must not hide sidecar loading"
+"#,
+    )
+    .expect("case manifest should be written");
+
+    let panic = std::panic::catch_unwind(|| run_case(&case_dir))
+        .expect_err("invalid UTF-8 sidecar should fail before skip evaluation");
+    let message = panic_message(panic);
+    assert!(message.contains("failed to read case file `case-text/invalid.raw` as UTF-8"));
+    assert!(
+        !message.contains("skip evaluation must not hide sidecar loading"),
+        "skip evaluation should be bypassed by sidecar loading failure"
+    );
+    assert!(
+        !message.contains("run-command-that-must-not-start"),
+        "command execution should be bypassed by sidecar loading failure"
+    );
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
+fn manifest_sidecar_files_preserve_bom_crlf_and_final_line_breaks() {
+    let root = test_temp_root("manifest-sidecar-exact-text");
+    let case_dir = root.join("case");
+    let text_dir = case_dir.join("case-text");
+    fs::create_dir_all(&text_dir).expect("case text directory should be created");
+    fs::write(text_dir.join("exact.raw"), b"\xef\xbb\xbfalpha\r\nbeta\r\n")
+        .expect("exact text sidecar should be written");
+
+    let manifest = parse_manifest(
+        &case_dir.join("case.toml"),
+        r#"
+command = ["check"]
+stdin_file = "case-text/exact.raw"
+exit = 0
+"#,
+    );
+
+    assert_eq!(
+        manifest.invocation.stdin.as_deref(),
+        Some("\u{feff}alpha\r\nbeta\r\n")
+    );
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
+fn manifest_sidecar_snapshots_are_immutable_across_repeated_invocations() {
+    let root = test_temp_root("manifest-sidecar-repeat-snapshot");
+    let case_dir = root.join("examples/specification/check/manifest-sidecar-repeat-snapshot");
+    let text_dir = case_dir.join("case-text");
+    fs::create_dir_all(&text_dir).expect("case text directory should be created");
+    fs::write(text_dir.join("out.txt"), "original").expect("sidecar should be written");
+    fs::write(case_dir.join("out.txt"), "original").expect("asserted file should be written");
+    fs::write(case_dir.join("main.veln"), "fn main() -> ()\n\t()\nend\n")
+        .expect("source file should be written");
+    fs::write(
+        case_dir.join("case.toml"),
+        r#"
+command = ["check", "main.veln"]
+repeat = 2
+exit = 0
+
+[[file_assert]]
+path = "out.txt"
+equals_file = "case-text/out.txt"
+"#,
+    )
+    .expect("case manifest should be written");
+
+    let panic = std::panic::catch_unwind(|| {
+        run_case_with_after_invocation(&case_dir, |context, project_root| {
+            if context.run_number == 1 {
+                fs::write(project_root.join("out.txt"), "mutated")
+                    .expect("copied fixture should be mutable after first run");
+            }
+        });
+    })
+    .expect_err("second run should compare against the original sidecar snapshot");
+    let message = panic_message(panic);
+    assert!(message.contains("run 2"));
+    assert!(message.contains("file `out.txt` contents mismatch"));
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
 #[test]
 fn manifest_validation_rejects_incomplete_section_expectations() {
     assert_manifest_parse_error(
