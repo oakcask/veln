@@ -26,9 +26,17 @@ baseline describes every case under both authoritative roots through the
 current parsed manifest model. The normal toolchain harness target compares
 that baseline with the current inventory without changing either artifact.
 
-The stream representations, manifest migrations, conversion records, and
-encoded-line-break policy remain planned. The implementation slices below
-retain their order, starting with the shared lexer and preflight work.
+The manifest-syntax foundation is also implemented. The harness has one
+physical-line-aware lexer/parser boundary and accepts the resolved TOML string,
+string-array, multiline JSON value, physical-newline, and error-location
+contracts. The current contract and executable evidence are documented in
+[Toolchain Test Harness](../reference/toolchain-test-harness.md#manifest-value-syntax).
+
+Canonical discovery, preflight policy, sidecar operands, manifest migrations,
+conversion records, structured JSON-RPC support, and the encoded-line-break
+policy remain planned. The implementation slices below retain their dependency
+order; the implemented syntax subset does not imply that the rest of the first
+slice is complete.
 
 ## Review Route
 
@@ -43,10 +51,11 @@ retain their order, starting with the shared lexer and preflight work.
 
 ## Motivation
 
-The harness currently parses each manifest one line at a time. String values
-therefore encode every line break and place large inputs or outputs on one
-physical line. This makes source text, command output, JSON-RPC messages, and
-long fragment arrays difficult to review.
+The harness previously parsed each manifest one line at a time. Existing case
+values still encode every line break and place large inputs or outputs on one
+physical line because case migration remains planned. This makes source text,
+command output, JSON-RPC messages, and long fragment arrays difficult to
+review.
 
 The current inventory contains 1,508 manifests under the two discovery roots.
 Of those manifests, 611 contain an encoded newline on 741 manifest lines. The
@@ -103,9 +112,9 @@ manifest author makes that choice, subject to the completion gate.
 
 ## Multiline Manifest Values
 
-The manifest grammar will accept TOML-compatible multiline basic strings,
-multiline literal strings, and multiline arrays in every field that currently
-accepts the corresponding single-line value.
+The manifest grammar accepts TOML-compatible multiline basic strings,
+multiline literal strings, and multiline arrays in every field that accepts the
+corresponding single-line value.
 
 ```toml
 [[json_assert]]
@@ -897,8 +906,11 @@ complete message.
 
 ## Acceptance Model
 
-All rows describe planned evidence. They do not imply that the behavior is
-already implemented.
+Rows from TOML string parsing through physical-line diagnostic equivalence
+describe implemented behavior and checked table-driven evidence in
+`toolchain_harness.rs`. Rows beginning with portable case-file references and
+all later rows describe planned evidence; they do not imply that the remaining
+behavior is implemented.
 
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |

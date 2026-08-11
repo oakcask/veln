@@ -18,6 +18,11 @@ use veln_ast::{FunctionKind, PublicAliasKind, SurfaceModule, UseDecl, Visibility
 use veln_diagnostics::{Diagnostic, Severity};
 use veln_project::Project;
 
+#[path = "toolchain_harness/manifest_syntax.rs"]
+mod manifest_syntax;
+
+use manifest_syntax::{Statement as ManifestStatement, Value as ManifestValue};
+
 static NEXT_TEST_DIR: AtomicUsize = AtomicUsize::new(0);
 const SOURCE_DIAGNOSTIC_ARTIFACT_ENV: &str = "VELN_HARNESS_SOURCE_DIAGNOSTICS";
 
@@ -1848,8 +1853,9 @@ impl OutputStream {
         }
     }
 
-    fn parse(path: &Path, line_number: usize, value: &str) -> Self {
-        let value = parse_string(path, line_number, value);
+    fn parse(path: &Path, value: &ManifestValue<'_>) -> Self {
+        let line_number = value.line();
+        let value = parse_string(path, value);
         match value.as_str() {
             "stdout" => Self::Stdout,
             "stderr" => Self::Stderr,
@@ -2222,8 +2228,15 @@ enum Section {
 
 fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
     let mut parser = ManifestParser::new(path);
-    for (line_index, raw_line) in text.lines().enumerate() {
-        parser.parse_line(line_index + 1, raw_line);
+    for statement in manifest_syntax::parse_document(path, text) {
+        match statement {
+            ManifestStatement::Section { name, line } => {
+                parser.parse_section_header(&name, line);
+            }
+            ManifestStatement::Assignment { key, line, value } => {
+                parser.parse_section_key(line, key, &value);
+            }
+        }
     }
     parser.finish()
 }
@@ -2279,23 +2292,6 @@ impl<'a> ManifestParser<'a> {
             skip: SkipRules::default(),
             section: Section::Root,
         }
-    }
-
-    fn parse_line(&mut self, line_number: usize, raw_line: &str) {
-        let line = strip_comment(raw_line).trim();
-        if line.is_empty() {
-            return;
-        }
-
-        if line.starts_with('[') {
-            self.parse_section_header(line, line_number);
-            return;
-        }
-
-        let (key, value) = line.split_once('=').unwrap_or_else(|| {
-            manifest_error(self.path, line_number, "expected `key = value`");
-        });
-        self.parse_section_key(line_number, key.trim(), value.trim());
     }
 
     fn parse_section_header(&mut self, line: &str, line_number: usize) {
@@ -2407,7 +2403,7 @@ impl<'a> ManifestParser<'a> {
         Section::OutputChunkList(self.output_chunk_lists.len() - 1)
     }
 
-    fn parse_section_key(&mut self, line_number: usize, key: &str, value: &str) {
+    fn parse_section_key(&mut self, line_number: usize, key: &str, value: &ManifestValue<'_>) {
         match self.section {
             Section::Root => self.parse_root_key(line_number, key, value),
             Section::Stdout => {
@@ -2427,7 +2423,7 @@ impl<'a> ManifestParser<'a> {
             Section::Skip => self.parse_skip_key(line_number, key, value),
             Section::Env => self
                 .env
-                .push((key.to_string(), parse_string(self.path, line_number, value))),
+                .push((key.to_string(), parse_string(self.path, value))),
             Section::Tools => self.parse_tools_key(line_number, key, value),
             Section::JsonAssert(index) => {
                 self.parse_json_assert_key(index, line_number, key, value)
@@ -2452,23 +2448,23 @@ impl<'a> ManifestParser<'a> {
         }
     }
 
-    fn parse_root_key(&mut self, line_number: usize, key: &str, value: &str) {
+    fn parse_root_key(&mut self, line_number: usize, key: &str, value: &ManifestValue<'_>) {
         match key {
-            "command" => self.command = Some(parse_string_array(self.path, line_number, value)),
-            "cwd" => self.cwd = Some(PathBuf::from(parse_string(self.path, line_number, value))),
-            "stdin" => self.stdin = Some(parse_string(self.path, line_number, value)),
-            "exit" => self.exit = Some(parse_i32(self.path, line_number, value)),
-            "repeat" => self.repeat = parse_positive_usize(self.path, line_number, value),
+            "command" => self.command = Some(parse_string_array(self.path, value)),
+            "cwd" => self.cwd = Some(PathBuf::from(parse_string(self.path, value))),
+            "stdin" => self.stdin = Some(parse_string(self.path, value)),
+            "exit" => self.exit = Some(parse_i32(self.path, value)),
+            "repeat" => self.repeat = parse_positive_usize(self.path, value),
             "source_errors" => {
-                self.source_errors = parse_source_error_expectation(self.path, line_number, value)
+                self.source_errors = parse_source_error_expectation(self.path, value)
             }
             _ => manifest_error(self.path, line_number, format!("unknown root key `{key}`")),
         }
     }
 
-    fn parse_requires_key(&mut self, line_number: usize, key: &str, value: &str) {
+    fn parse_requires_key(&mut self, line_number: usize, key: &str, value: &ManifestValue<'_>) {
         match key {
-            "jdk" => self.requires.jdk = parse_bool(self.path, line_number, value),
+            "jdk" => self.requires.jdk = parse_bool(self.path, value),
             _ => manifest_error(
                 self.path,
                 line_number,
@@ -2477,49 +2473,47 @@ impl<'a> ManifestParser<'a> {
         }
     }
 
-    fn parse_skip_key(&mut self, line_number: usize, key: &str, value: &str) {
+    fn parse_skip_key(&mut self, line_number: usize, key: &str, value: &ManifestValue<'_>) {
         match key {
             "platforms" => {
-                self.skip.platforms = parse_string_array(self.path, line_number, value)
+                self.skip.platforms = parse_string_array(self.path, value)
                     .into_iter()
                     .map(|platform| parse_skip_platform(self.path, line_number, &platform))
                     .collect();
             }
-            "reason" => self.skip.reason = Some(parse_string(self.path, line_number, value)),
+            "reason" => self.skip.reason = Some(parse_string(self.path, value)),
             _ => manifest_error(self.path, line_number, format!("unknown skip key `{key}`")),
         }
     }
 
-    fn parse_tools_key(&mut self, line_number: usize, key: &str, value: &str) {
+    fn parse_tools_key(&mut self, line_number: usize, key: &str, value: &ManifestValue<'_>) {
         match key {
             "java" => {
-                self.tools.set(
-                    ToolName::Java,
-                    parse_tool_availability(self.path, line_number, value),
-                );
+                self.tools
+                    .set(ToolName::Java, parse_tool_availability(self.path, value));
             }
             "git" => {
-                self.tools.set(
-                    ToolName::Git,
-                    parse_tool_availability(self.path, line_number, value),
-                );
+                self.tools
+                    .set(ToolName::Git, parse_tool_availability(self.path, value));
             }
             _ => manifest_error(self.path, line_number, format!("unknown tools key `{key}`")),
         }
     }
 
-    fn parse_json_assert_key(&mut self, index: usize, line_number: usize, key: &str, value: &str) {
+    fn parse_json_assert_key(
+        &mut self,
+        index: usize,
+        line_number: usize,
+        key: &str,
+        value: &ManifestValue<'_>,
+    ) {
         match key {
-            "path" => {
-                self.json_assertions[index].path = parse_string(self.path, line_number, value)
-            }
+            "path" => self.json_assertions[index].path = parse_string(self.path, value),
             "equals" => {
                 self.json_assertions[index].equals =
-                    Some(parse_manifest_json_value(self.path, line_number, value))
+                    Some(parse_manifest_json_value(self.path, value))
             }
-            "missing" => {
-                self.json_assertions[index].missing = parse_bool(self.path, line_number, value)
-            }
+            "missing" => self.json_assertions[index].missing = parse_bool(self.path, value),
             _ => manifest_error(
                 self.path,
                 line_number,
@@ -2533,25 +2527,18 @@ impl<'a> ManifestParser<'a> {
         index: usize,
         line_number: usize,
         key: &str,
-        value: &str,
+        value: &ManifestValue<'_>,
     ) {
         match key {
             "value_path" => {
-                self.result_value_assertions[index].value_path =
-                    parse_string(self.path, line_number, value)
+                self.result_value_assertions[index].value_path = parse_string(self.path, value)
             }
-            "path" => {
-                self.result_value_assertions[index].path =
-                    parse_string(self.path, line_number, value)
-            }
+            "path" => self.result_value_assertions[index].path = parse_string(self.path, value),
             "equals" => {
                 self.result_value_assertions[index].equals =
-                    Some(parse_manifest_json_value(self.path, line_number, value))
+                    Some(parse_manifest_json_value(self.path, value))
             }
-            "missing" => {
-                self.result_value_assertions[index].missing =
-                    parse_bool(self.path, line_number, value)
-            }
+            "missing" => self.result_value_assertions[index].missing = parse_bool(self.path, value),
             _ => manifest_error(
                 self.path,
                 line_number,
@@ -2560,14 +2547,16 @@ impl<'a> ManifestParser<'a> {
         }
     }
 
-    fn parse_file_assert_key(&mut self, index: usize, line_number: usize, key: &str, value: &str) {
+    fn parse_file_assert_key(
+        &mut self,
+        index: usize,
+        line_number: usize,
+        key: &str,
+        value: &ManifestValue<'_>,
+    ) {
         match key {
-            "path" => {
-                self.file_assertions[index].path = parse_string(self.path, line_number, value)
-            }
-            "equals" => {
-                self.file_assertions[index].equals = parse_string(self.path, line_number, value)
-            }
+            "path" => self.file_assertions[index].path = parse_string(self.path, value),
+            "equals" => self.file_assertions[index].equals = parse_string(self.path, value),
             _ => manifest_error(
                 self.path,
                 line_number,
@@ -2576,18 +2565,21 @@ impl<'a> ManifestParser<'a> {
         }
     }
 
-    fn parse_diagnostic_key(&mut self, index: usize, line_number: usize, key: &str, value: &str) {
+    fn parse_diagnostic_key(
+        &mut self,
+        index: usize,
+        line_number: usize,
+        key: &str,
+        value: &ManifestValue<'_>,
+    ) {
         match key {
-            "id" => self.diagnostics[index].id = parse_string(self.path, line_number, value),
+            "id" => self.diagnostics[index].id = parse_string(self.path, value),
             "severity" => {
-                self.diagnostics[index].severity =
-                    Some(parse_string(self.path, line_number, value));
+                self.diagnostics[index].severity = Some(parse_string(self.path, value));
             }
-            "kind" => {
-                self.diagnostics[index].kind = Some(parse_string(self.path, line_number, value))
-            }
+            "kind" => self.diagnostics[index].kind = Some(parse_string(self.path, value)),
             "message" => {
-                self.diagnostics[index].message = Some(parse_string(self.path, line_number, value));
+                self.diagnostics[index].message = Some(parse_string(self.path, value));
             }
             _ => manifest_error(
                 self.path,
@@ -2602,16 +2594,16 @@ impl<'a> ManifestParser<'a> {
         index: usize,
         line_number: usize,
         key: &str,
-        value: &str,
+        value: &ManifestValue<'_>,
     ) {
         let span = self.diagnostics[index]
             .span
             .as_mut()
             .expect("diagnostic span should exist");
         match key {
-            "file" => span.file = Some(parse_string(self.path, line_number, value)),
-            "line" => span.line = Some(parse_i64(self.path, line_number, value)),
-            "column" => span.column = Some(parse_i64(self.path, line_number, value)),
+            "file" => span.file = Some(parse_string(self.path, value)),
+            "line" => span.line = Some(parse_i64(self.path, value)),
+            "column" => span.column = Some(parse_i64(self.path, value)),
             _ => manifest_error(
                 self.path,
                 line_number,
@@ -2620,14 +2612,19 @@ impl<'a> ManifestParser<'a> {
         }
     }
 
-    fn parse_manifest_error_key(&mut self, line_number: usize, key: &str, value: &str) {
+    fn parse_manifest_error_key(
+        &mut self,
+        line_number: usize,
+        key: &str,
+        value: &ManifestValue<'_>,
+    ) {
         let expectation = self
             .manifest_error
             .as_mut()
             .expect("manifest_error section should exist");
         match key {
             "contains" => {
-                expectation.contains = parse_string_array(self.path, line_number, value);
+                expectation.contains = parse_string_array(self.path, value);
             }
             _ => manifest_error(
                 self.path,
@@ -2642,54 +2639,54 @@ impl<'a> ManifestParser<'a> {
         index: usize,
         line_number: usize,
         key: &str,
-        value: &str,
+        value: &ManifestValue<'_>,
     ) {
         let fixture = &mut self.binary_fixtures[index];
         match key {
-            "name" => fixture.name = parse_string(self.path, line_number, value),
-            "schema" => fixture.schema = Some(parse_string(self.path, line_number, value)),
+            "name" => fixture.name = parse_string(self.path, value),
+            "schema" => fixture.schema = Some(parse_string(self.path, value)),
             "hex" => {
-                fixture.bytes = Some(parse_binary_fixture_hex(self.path, line_number, value));
+                fixture.bytes = Some(parse_binary_fixture_hex(self.path, value));
             }
             "consumed" => {
-                fixture.consumed = Some(parse_nonnegative_usize(self.path, line_number, value));
+                fixture.consumed = Some(parse_nonnegative_usize(self.path, value));
             }
-            "error" => fixture.error = Some(parse_string(self.path, line_number, value)),
+            "error" => fixture.error = Some(parse_string(self.path, value)),
             "diagnostic_id" => {
                 fixture
                     .byte_diagnostic
                     .get_or_insert_with(BinaryFixtureByteDiagnostic::default)
-                    .diagnostic_id = Some(parse_string(self.path, line_number, value));
+                    .diagnostic_id = Some(parse_string(self.path, value));
             }
             "byte_offset" => {
                 fixture
                     .byte_diagnostic
                     .get_or_insert_with(BinaryFixtureByteDiagnostic::default)
-                    .byte_offset = Some(parse_nonnegative_usize(self.path, line_number, value));
+                    .byte_offset = Some(parse_nonnegative_usize(self.path, value));
             }
             "expected_count" => {
                 fixture
                     .byte_diagnostic
                     .get_or_insert_with(BinaryFixtureByteDiagnostic::default)
-                    .expected_count = Some(parse_nonnegative_usize(self.path, line_number, value));
+                    .expected_count = Some(parse_nonnegative_usize(self.path, value));
             }
             "available_count" => {
                 fixture
                     .byte_diagnostic
                     .get_or_insert_with(BinaryFixtureByteDiagnostic::default)
-                    .available_count = Some(parse_nonnegative_usize(self.path, line_number, value));
+                    .available_count = Some(parse_nonnegative_usize(self.path, value));
             }
             "readiness" => {
                 fixture
                     .byte_diagnostic
                     .get_or_insert_with(BinaryFixtureByteDiagnostic::default)
-                    .readiness = Some(parse_string(self.path, line_number, value));
+                    .readiness = Some(parse_string(self.path, value));
             }
             "field_path" => {
                 fixture
                     .byte_diagnostic
                     .get_or_insert_with(BinaryFixtureByteDiagnostic::default)
-                    .field_path = Some(parse_manifest_json_value(self.path, line_number, value));
+                    .field_path = Some(parse_manifest_json_value(self.path, value));
             }
             _ => manifest_error(
                 self.path,
@@ -2704,17 +2701,13 @@ impl<'a> ManifestParser<'a> {
         index: usize,
         line_number: usize,
         key: &str,
-        value: &str,
+        value: &ManifestValue<'_>,
     ) {
         let chunks = &mut self.output_chunk_lists[index];
         match key {
-            "name" => chunks.name = parse_string(self.path, line_number, value),
+            "name" => chunks.name = parse_string(self.path, value),
             "chunks" => {
-                chunks.chunks = Some(parse_binary_fixture_hex_array(
-                    self.path,
-                    line_number,
-                    value,
-                ));
+                chunks.chunks = Some(parse_binary_fixture_hex_array(self.path, value));
             }
             _ => manifest_error(
                 self.path,
@@ -3108,16 +3101,16 @@ fn parse_help_key(
     line_number: usize,
     help: &mut HelpExpectation,
     key: &str,
-    value: &str,
+    value: &ManifestValue<'_>,
 ) {
     match key {
-        "stream" => help.stream = OutputStream::parse(path, line_number, value),
-        "summary" => help.summary = Some(parse_string(path, line_number, value)),
-        "usage" => help.usage = Some(parse_string(path, line_number, value)),
-        "commands" => help.commands = parse_string_array(path, line_number, value),
-        "arguments" => help.arguments = parse_string_array(path, line_number, value),
-        "options" => help.options = parse_string_array(path, line_number, value),
-        "contains" => help.contains = parse_string_array(path, line_number, value),
+        "stream" => help.stream = OutputStream::parse(path, value),
+        "summary" => help.summary = Some(parse_string(path, value)),
+        "usage" => help.usage = Some(parse_string(path, value)),
+        "commands" => help.commands = parse_string_array(path, value),
+        "arguments" => help.arguments = parse_string_array(path, value),
+        "options" => help.options = parse_string_array(path, value),
+        "contains" => help.contains = parse_string_array(path, value),
         _ => manifest_error(path, line_number, format!("unknown help key `{key}`")),
     }
 }
@@ -3127,12 +3120,12 @@ fn parse_stream_key(
     line_number: usize,
     stream: &mut StreamExpectation,
     key: &str,
-    value: &str,
+    value: &ManifestValue<'_>,
     allow_json: bool,
 ) {
     match key {
         "format" => {
-            let format = parse_string(path, line_number, value);
+            let format = parse_string(path, value);
             stream.format = Some(match format.as_str() {
                 "empty" => StreamFormat::Empty,
                 "text" => StreamFormat::Text,
@@ -3144,67 +3137,61 @@ fn parse_stream_key(
                 ),
             });
         }
-        "contains" => stream.contains = parse_string_array(path, line_number, value),
-        "not_contains" => stream.not_contains = parse_string_array(path, line_number, value),
+        "contains" => stream.contains = parse_string_array(path, value),
+        "not_contains" => stream.not_contains = parse_string_array(path, value),
         _ => manifest_error(path, line_number, format!("unknown stream key `{key}`")),
     }
 }
 
-fn strip_comment(line: &str) -> &str {
-    let mut in_string = false;
-    let mut escaped = false;
-    for (index, ch) in line.char_indices() {
-        if in_string {
-            if escaped {
-                escaped = false;
-            } else if ch == '\\' {
-                escaped = true;
-            } else if ch == '"' {
-                in_string = false;
-            }
-        } else if ch == '"' {
-            in_string = true;
-        } else if ch == '#' {
-            return &line[..index];
-        }
-    }
-    line
-}
-
-fn parse_manifest_json_value(path: &Path, line_number: usize, value: &str) -> JsonValue {
-    if value.starts_with('"') {
-        JsonValue::String(parse_string(path, line_number, value))
-    } else if value == "true" {
+fn parse_manifest_json_value(path: &Path, value: &ManifestValue<'_>) -> JsonValue {
+    if value.is_string() {
+        JsonValue::String(parse_string(path, value))
+    } else if value.raw() == "true" {
         JsonValue::Bool(true)
-    } else if value == "false" {
+    } else if value.raw() == "false" {
         JsonValue::Bool(false)
-    } else if value == "null" {
+    } else if value.raw() == "null" {
         JsonValue::Null
-    } else if value.starts_with('[') || value.starts_with('{') {
-        parse_json(value).unwrap_or_else(|error| {
+    } else if value.raw().starts_with('[') || value.raw().starts_with('{') {
+        parse_json(value.raw()).unwrap_or_else(|error| {
+            let offset = json_error_byte_offset(&error).unwrap_or(value.raw().len());
+            if value.is_unterminated() && offset >= value.raw().len() {
+                value.report_unterminated(path);
+            }
             manifest_error(
                 path,
-                line_number,
+                value.json_error_line(offset),
                 format!("invalid json assertion value: {error}"),
             )
         })
     } else {
-        JsonValue::Number(parse_i64(path, line_number, value))
+        JsonValue::Number(parse_i64(path, value))
     }
 }
 
-fn parse_binary_fixture_hex(path: &Path, line_number: usize, value: &str) -> BinaryFixtureBytes {
-    let hex = parse_string(path, line_number, value);
+fn json_error_byte_offset(error: &str) -> Option<usize> {
+    let marker = "byte ";
+    let start = error.rfind(marker)? + marker.len();
+    let digits = error[start..]
+        .chars()
+        .take_while(char::is_ascii_digit)
+        .collect::<String>();
+    digits.parse().ok()
+}
+
+fn parse_binary_fixture_hex(path: &Path, value: &ManifestValue<'_>) -> BinaryFixtureBytes {
+    let line_number = value.line();
+    let hex = parse_string(path, value);
     let bytes = decode_lowercase_hex(path, line_number, &hex);
     BinaryFixtureBytes { hex, bytes }
 }
 
 fn parse_binary_fixture_hex_array(
     path: &Path,
-    line_number: usize,
-    value: &str,
+    value: &ManifestValue<'_>,
 ) -> Vec<BinaryFixtureBytes> {
-    parse_string_array(path, line_number, value)
+    let line_number = value.line();
+    parse_string_array(path, value)
         .into_iter()
         .map(|hex| {
             let bytes = decode_lowercase_hex(path, line_number, &hex);
@@ -3242,20 +3229,20 @@ fn lowercase_hex_nibble(byte: u8) -> Option<u8> {
     }
 }
 
-fn parse_bool(path: &Path, line_number: usize, value: &str) -> bool {
-    match value {
+fn parse_bool(path: &Path, value: &ManifestValue<'_>) -> bool {
+    match value.raw() {
         "true" => true,
         "false" => false,
-        _ => manifest_error(path, line_number, "expected bool"),
+        _ => manifest_error(path, value.line(), "expected bool"),
     }
 }
 
 fn parse_source_error_expectation(
     path: &Path,
-    line_number: usize,
-    value: &str,
+    value: &ManifestValue<'_>,
 ) -> SourceErrorExpectation {
-    let value = parse_string(path, line_number, value);
+    let line_number = value.line();
+    let value = parse_string(path, value);
     match value.as_str() {
         "expected" => SourceErrorExpectation::Expected,
         _ => manifest_error(
@@ -3280,8 +3267,9 @@ fn parse_skip_platform(path: &Path, line_number: usize, value: &str) -> SkipPlat
     }
 }
 
-fn parse_tool_availability(path: &Path, line_number: usize, value: &str) -> ToolAvailability {
-    let value = parse_string(path, line_number, value);
+fn parse_tool_availability(path: &Path, value: &ManifestValue<'_>) -> ToolAvailability {
+    let line_number = value.line();
+    let value = parse_string(path, value);
     match value.as_str() {
         "missing" => ToolAvailability::Missing,
         "fake-success" => ToolAvailability::FakeSuccess,
@@ -3295,114 +3283,48 @@ fn parse_tool_availability(path: &Path, line_number: usize, value: &str) -> Tool
     }
 }
 
-fn parse_string_array(path: &Path, line_number: usize, value: &str) -> Vec<String> {
-    let Some(inner) = value
-        .strip_prefix('[')
-        .and_then(|value| value.strip_suffix(']'))
-    else {
-        manifest_error(path, line_number, "expected string array");
-    };
-    let inner = inner.trim();
-    if inner.is_empty() {
-        return Vec::new();
-    }
-    split_array_values(inner)
-        .into_iter()
-        .map(|item| parse_string(path, line_number, item.trim()))
-        .collect()
+fn parse_string_array(path: &Path, value: &ManifestValue<'_>) -> Vec<String> {
+    value.parse_string_array(path)
 }
 
-fn split_array_values(value: &str) -> Vec<&str> {
-    let mut values = Vec::new();
-    let mut start = 0;
-    let mut in_string = false;
-    let mut escaped = false;
-    for (index, ch) in value.char_indices() {
-        if in_string {
-            if escaped {
-                escaped = false;
-            } else if ch == '\\' {
-                escaped = true;
-            } else if ch == '"' {
-                in_string = false;
-            }
-        } else if ch == '"' {
-            in_string = true;
-        } else if ch == ',' {
-            values.push(&value[start..index]);
-            start = index + 1;
-        }
-    }
-    values.push(&value[start..]);
-    values
+fn parse_string(path: &Path, value: &ManifestValue<'_>) -> String {
+    value.parse_string(path)
 }
 
-fn parse_string(path: &Path, line_number: usize, value: &str) -> String {
-    let Some(inner) = value
-        .strip_prefix('"')
-        .and_then(|value| value.strip_suffix('"'))
-    else {
-        manifest_error(path, line_number, "expected string");
-    };
-
-    let mut parsed = String::new();
-    let mut chars = inner.chars();
-    while let Some(ch) = chars.next() {
-        if ch != '\\' {
-            parsed.push(ch);
-            continue;
-        }
-
-        let Some(escaped) = chars.next() else {
-            manifest_error(path, line_number, "unterminated string escape");
-        };
-        match escaped {
-            '"' => parsed.push('"'),
-            '\\' => parsed.push('\\'),
-            'n' => parsed.push('\n'),
-            'r' => parsed.push('\r'),
-            't' => parsed.push('\t'),
-            _ => manifest_error(
-                path,
-                line_number,
-                format!("unsupported string escape `{escaped}`"),
-            ),
-        }
-    }
-    parsed
-}
-
-fn parse_i32(path: &Path, line_number: usize, value: &str) -> i32 {
+fn parse_i32(path: &Path, value: &ManifestValue<'_>) -> i32 {
     value
+        .raw()
         .parse()
-        .unwrap_or_else(|_| manifest_error(path, line_number, "expected i32"))
+        .unwrap_or_else(|_| manifest_error(path, value.line(), "expected i32"))
 }
 
-fn parse_i64(path: &Path, line_number: usize, value: &str) -> i64 {
+fn parse_i64(path: &Path, value: &ManifestValue<'_>) -> i64 {
     value
+        .raw()
         .parse()
-        .unwrap_or_else(|_| manifest_error(path, line_number, "expected integer"))
+        .unwrap_or_else(|_| manifest_error(path, value.line(), "expected integer"))
 }
 
-fn parse_positive_usize(path: &Path, line_number: usize, value: &str) -> usize {
+fn parse_positive_usize(path: &Path, value: &ManifestValue<'_>) -> usize {
     let parsed = value
+        .raw()
         .parse()
-        .unwrap_or_else(|_| manifest_error(path, line_number, "expected positive integer"));
+        .unwrap_or_else(|_| manifest_error(path, value.line(), "expected positive integer"));
     if parsed == 0 {
-        manifest_error(path, line_number, "expected positive integer");
+        manifest_error(path, value.line(), "expected positive integer");
     }
     parsed
 }
 
-fn parse_nonnegative_usize(path: &Path, line_number: usize, value: &str) -> usize {
-    let parsed = parse_i64(path, line_number, value);
+fn parse_nonnegative_usize(path: &Path, value: &ManifestValue<'_>) -> usize {
+    let parsed = parse_i64(path, value);
     if parsed < 0 {
-        manifest_error(path, line_number, "expected non-negative integer");
+        manifest_error(path, value.line(), "expected non-negative integer");
     }
     usize::try_from(parsed).unwrap_or_else(|_| {
         manifest_error(
             path,
-            line_number,
+            value.line(),
             "expected non-negative integer within range",
         )
     })
@@ -4095,6 +4017,251 @@ fn assert_manifest_parse_error(source: &str, expected: &str) {
         message.contains(expected),
         "expected panic to contain `{expected}`, got `{message}`"
     );
+}
+
+#[test]
+fn manifest_string_forms_decode_in_scalar_and_array_fields() {
+    for (spelling, expected) in [
+        (r#""basic\nvalue""#, "basic\nvalue"),
+        (r#"'literal\nvalue'"#, r#"literal\nvalue"#),
+        ("\"\"\"\nmultiline basic\"\"\"", "multiline basic"),
+        ("'''\nmultiline literal'''", "multiline literal"),
+        ("\"\"\"\"\"\"", ""),
+        ("''''''", ""),
+    ] {
+        let manifest = parse_manifest(
+            Path::new("case.toml"),
+            &format!("command = [\"check\"]\nstdin = {spelling}\nexit = 0\n"),
+        );
+        assert_eq!(manifest.invocation.stdin.as_deref(), Some(expected));
+    }
+
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        "command = [\n  \"basic\",\n  'literal', # inter-element comment\n  \"\"\"\nmultiline basic\"\"\",\n  '''\nmultiline literal''',\n]\nexit = 0\n",
+    );
+    assert_eq!(
+        manifest.invocation.command,
+        ["basic", "literal", "multiline basic", "multiline literal"]
+    );
+}
+
+#[test]
+fn manifest_basic_string_escape_matrix_decodes_unicode_scalars() {
+    for (escape, expected) in [
+        (r#"\b"#, "\u{08}"),
+        (r#"\t"#, "\t"),
+        (r#"\n"#, "\n"),
+        (r#"\f"#, "\u{0c}"),
+        (r#"\r"#, "\r"),
+        (r#"\""#, "\""),
+        (r#"\\"#, "\\"),
+        (r#"\u03B1"#, "α"),
+        (r#"\U0001F642"#, "🙂"),
+    ] {
+        let source = format!("command = [\"check\"]\nstdin = \"{escape}\"\nexit = 0\n");
+        let manifest = parse_manifest(Path::new("case.toml"), &source);
+        assert_eq!(manifest.invocation.stdin.as_deref(), Some(expected));
+    }
+}
+
+#[test]
+fn manifest_invalid_string_token_matrix_rejects_toml_boundaries() {
+    for (spelling, fact) in [
+        (r#""\x""#, "unsupported manifest string escape"),
+        (r#""\u12""#, "incomplete Unicode escape"),
+        (r#""\u12x4""#, "invalid hexadecimal digit"),
+        (r#""\uD800""#, "not a scalar value"),
+        (r#""\U00110000""#, "not a scalar value"),
+        ("\"control \u{1}\"", "prohibited control character"),
+        ("'control \u{7f}'", "prohibited control character"),
+        (
+            "\"\"\"invalid\"\"\"\"\"\"",
+            "invalid multiline string quote run",
+        ),
+        ("'''invalid''''''", "invalid multiline string quote run"),
+    ] {
+        let source = format!("command = [\"check\"]\nstdin = {spelling}\nexit = 0\n");
+        assert_manifest_parse_error(&source, fact);
+    }
+}
+
+#[test]
+fn manifest_multiline_strings_preserve_layout_folding_and_quote_runs() {
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        "command = [\"check\"]\nstdin = \"\"\"\nalpha\\\n \t beta\\  \n\n\t gamma\"\"\"\nexit = 0\n",
+    );
+    assert_eq!(manifest.invocation.stdin.as_deref(), Some("alphabetagamma"));
+
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        "command = [\"check\"]\nstdin = \"\"\"\nalpha\\\\\nbeta\"\"\"\nexit = 0\n",
+    );
+    assert_eq!(manifest.invocation.stdin.as_deref(), Some("alpha\\\nbeta"));
+
+    for (spelling, expected) in [
+        ("\"\"\"one\"\"two\"\"\"\"", "one\"\"two\""),
+        ("'''one''two''''", "one''two'"),
+        (
+            "'''\n  [section]\n\tkey = #,\n '''",
+            "  [section]\n\tkey = #,\n ",
+        ),
+    ] {
+        let source = format!("command = [\"check\"]\nstdin = {spelling}\nexit = 0\n");
+        let manifest = parse_manifest(Path::new("case.toml"), &source);
+        assert_eq!(manifest.invocation.stdin.as_deref(), Some(expected));
+    }
+}
+
+#[test]
+fn manifest_physical_newline_matrix_normalizes_multiline_values() {
+    for delimiters in [("\"\"\"", "\"\"\""), ("'''", "'''")] {
+        let lf = format!(
+            "command = [\"check\"]\nstdin = {}\nfirst\nsecond{}\nexit = 0\n",
+            delimiters.0, delimiters.1
+        );
+        let crlf = lf.replace('\n', "\r\n");
+        let mixed = lf.replacen('\n', "\r\n", 2);
+        for source in [lf, crlf, mixed] {
+            let manifest = parse_manifest(Path::new("case.toml"), &source);
+            assert_eq!(manifest.invocation.stdin.as_deref(), Some("first\nsecond"));
+        }
+    }
+
+    for opening in ["\n", "\r\n"] {
+        let source = format!(
+            "command = [\"check\"]\nstdin = \"\"\"{opening}{opening}value\"\"\"\nexit = 0\n"
+        );
+        let manifest = parse_manifest(Path::new("case.toml"), &source);
+        assert_eq!(manifest.invocation.stdin.as_deref(), Some("\nvalue"));
+    }
+}
+
+#[test]
+fn manifest_field_directed_containers_keep_array_and_json_grammars_distinct() {
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        "command = [\n  \"check\",\n  'main.veln',\n]\nexit = 0\n\n[stdout]\ncontains = [\n  \"a,#[]{}\",\n  '''b''',\n]\n\n[[json_assert]]\npath = \"payload\"\nequals = {\n  \"array\": [1, {\"ok\": true}],\n  \"text\": \"a,#[]{}\"\n}\n",
+    );
+    assert_eq!(manifest.invocation.command, ["check", "main.veln"]);
+    assert_eq!(manifest.expectations.stdout.contains, ["a,#[]{}", "b"]);
+    assert_eq!(
+        manifest.expectations.json_assertions[0]
+            .equals
+            .as_ref()
+            .unwrap()
+            .to_compact_string(),
+        r#"{"array":[1,{"ok":true}],"text":"a,#[]{}"}"#
+    );
+
+    for invalid in [
+        "command = [\"check\", 1]\nexit = 0\n",
+        "command = [\"check\", true]\nexit = 0\n",
+        "command = [\"check\", null]\nexit = 0\n",
+        "command = [\"check\", [\"nested\"]]\nexit = 0\n",
+        "command = [\"check\", {\"nested\":\"object\"}]\nexit = 0\n",
+        "command = [\"check\"]\nexit = 0\n[[json_assert]]\npath = \"x\"\nequals = [1, # no comments\n2]\n",
+        "command = [\"check\"]\nexit = 0\n[[json_assert]]\npath = \"x\"\nequals = [1,]\n",
+        "command = [\"check\"]\nexit = 0\n[[json_assert]]\npath = \"x\"\nequals = ['literal']\n",
+        "command = [\"check\"]\nexit = 0\n[[json_assert]]\npath = \"x\"\nequals = [\"\"\"multi\"\"\"]\n",
+    ] {
+        assert_manifest_parse_error(invalid, "case.toml:");
+    }
+
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        "command = [\"check\"]\nexit = 0\n[[json_assert]]\npath = \"x\"\nequals = '''\ntext\n'''",
+    );
+    assert_eq!(
+        manifest.expectations.json_assertions[0].equals,
+        Some(JsonValue::String("text\n".to_string()))
+    );
+}
+
+#[test]
+fn manifest_container_trailing_tokens_and_local_errors_take_precedence() {
+    for (value, line) in [
+        ("\"\"\"\ntext\n\"\"\" trailing", 4),
+        ("[\n  \"check\"\n] trailing", 3),
+        ("{\n  \"ok\": true\n} trailing", 7),
+    ] {
+        let source = if value.starts_with('{') {
+            format!(
+                "command = [\"check\"]\nexit = 0\n[[json_assert]]\npath = \"x\"\nequals = {value}\n"
+            )
+        } else if value.starts_with('[') {
+            format!("command = {value}\nexit = 0\n")
+        } else {
+            format!("command = [\"check\"]\nstdin = {value}\nexit = 0\n")
+        };
+        let panic = std::panic::catch_unwind(|| parse_manifest(Path::new("case.toml"), &source))
+            .expect_err("trailing token should be rejected");
+        let message = panic_message(panic);
+        assert!(
+            message.contains("unexpected token after completed manifest value"),
+            "unexpected failure: {message}"
+        );
+        assert!(
+            message.contains(&format!("case.toml:{line}:")),
+            "unexpected error line: {message}"
+        );
+    }
+
+    let source = "command = [\"check\"]\nexit = 0\n[[json_assert]]\npath = \"x\"\nequals = {\n  \"bad\": # local JSON error\n";
+    let panic = std::panic::catch_unwind(|| parse_manifest(Path::new("case.toml"), source))
+        .expect_err("local JSON error should be rejected");
+    let message = panic_message(panic);
+    assert!(message.contains("case.toml:6: invalid json assertion value"));
+    assert!(!message.contains("unterminated container"));
+}
+
+#[test]
+fn manifest_syntax_errors_report_exact_physical_lines() {
+    for (source, line, fact) in [
+        (
+            "command = [\"check\"]\nstdin = \"\"\"\nok\nbad \\q\n\"\"\"\nexit = 0\n",
+            4,
+            "unsupported manifest string escape",
+        ),
+        (
+            "command = [\n  \"check\"\n  \"main.veln\"\n]\nexit = 0\n",
+            3,
+            "expected `,` before string array element",
+        ),
+        (
+            "command = [\"check\"]\nexit = 0\n[[json_assert]]\npath = \"x\"\nequals = [\n  1,\n  # forbidden\n  2\n]\n",
+            7,
+            "invalid json assertion value",
+        ),
+        (
+            "command = [\"check\"] trailing\nexit = 0\n",
+            1,
+            "unexpected token after completed manifest value",
+        ),
+        (
+            "command = [\"check\"]\nexit = 0\n[[json_assert]]\npath = \"x\"\nequals = {\n  \"nested\": [\n    1\n",
+            6,
+            "unterminated container; expected `]`",
+        ),
+    ] {
+        let panic = std::panic::catch_unwind(|| parse_manifest(Path::new("case.toml"), source))
+            .expect_err("invalid manifest should be rejected");
+        let message = panic_message(panic);
+        assert!(
+            message.contains(&format!("case.toml:{line}: {fact}")),
+            "expected line {line} and `{fact}`, got `{message}`"
+        );
+    }
+
+    for source in [
+        "command = [\"check\"]\rstdin = \"x\"\nexit = 0\n",
+        "command = [\"check\"] # comment\rstill comment\nexit = 0\n",
+        "command = [\"check\"]\nstdin = '''a\rb'''\nexit = 0\n",
+        "command = [\"check\"]\nstdin = \"\"\"a\\\rb\"\"\"\nexit = 0\n",
+    ] {
+        assert_manifest_parse_error(source, "lone carriage return");
+    }
 }
 
 #[test]
@@ -6033,7 +6200,7 @@ impl JsonParser<'_> {
                 "unexpected byte `{}` at byte {}",
                 byte as char, self.offset
             )),
-            None => Err("unexpected end of input".to_string()),
+            None => Err(format!("unexpected end of input at byte {}", self.offset)),
         }
     }
 
@@ -6094,12 +6261,12 @@ impl JsonParser<'_> {
                 ch => parsed.push(ch),
             }
         }
-        Err("unterminated string".to_string())
+        Err(format!("unterminated string at byte {}", self.offset))
     }
 
     fn parse_escape(&mut self) -> Result<char, String> {
         let Some(ch) = self.next_char() else {
-            return Err("unterminated escape".to_string());
+            return Err(format!("unterminated escape at byte {}", self.offset));
         };
         match ch {
             '"' | '\\' | '/' => Ok(ch),
@@ -6117,14 +6284,15 @@ impl JsonParser<'_> {
         let start = self.offset;
         let end = start + 4;
         let Some(hex) = self.text.get(start..end) else {
-            return Err("short unicode escape".to_string());
+            return Err(format!("short unicode escape at byte {start}"));
         };
         if !hex.chars().all(|ch| ch.is_ascii_hexdigit()) {
-            return Err(format!("invalid unicode escape `{hex}`"));
+            return Err(format!("invalid unicode escape `{hex}` at byte {start}"));
         }
         self.offset = end;
         let codepoint = u32::from_str_radix(hex, 16).expect("hex was validated");
-        char::from_u32(codepoint).ok_or_else(|| format!("invalid unicode codepoint `{hex}`"))
+        char::from_u32(codepoint)
+            .ok_or_else(|| format!("invalid unicode codepoint `{hex}` at byte {start}"))
     }
 
     fn parse_number(&mut self) -> Result<i64, String> {

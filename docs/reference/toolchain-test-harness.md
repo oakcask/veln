@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: normative
-update-when: The CLI integration harness assertion model, semantic case baseline, or source-error guard evidence changes.
+update-when: The CLI integration harness manifest grammar, assertion model, semantic case baseline, or source-error guard evidence changes.
 ---
 
 # Toolchain Test Harness
@@ -47,6 +47,43 @@ assertions, diagnostic selectors, and file content assertions.
   `[[output_chunk_list]]`.
 - External tool setup: `[tools] java = "missing"`, `"fake-success"`, or
   `"real"`.
+
+## Manifest Value Syntax
+
+Every scalar string field and string-array element accepts the four TOML 1.0.0
+string forms: basic, literal, multiline basic, and multiline literal. Basic
+strings decode the TOML escapes for backspace, tab, line feed, form feed,
+carriage return, quote, backslash, and four- or eight-digit Unicode scalars.
+Literal strings do not decode escapes. String tokens reject invalid Unicode
+scalars and the unescaped control characters excluded by TOML 1.0.0.
+
+The first physical newline after a multiline opener is omitted. Later physical
+newlines decode to LF. A multiline basic line-ending backslash folds the next
+physical lines and their surrounding whitespace. Multiline strings preserve
+all other spaces and tabs. Runs of one or two delimiter quotes are content. A
+closing run of three, four, or five quotes contributes zero, one, or two final
+quotes. A longer run is invalid.
+
+String-array fields accept physical newlines, comments between tokens, empty
+arrays, and a trailing comma. They reject non-string elements and nested
+containers. A JSON-valued `equals` field accepts physical multiline JSON arrays
+and objects with nested JSON containers. JSON containers retain JSON grammar:
+manifest comments, trailing commas, literal strings, and multiline TOML strings
+are invalid. A complete manifest string token used as `equals` becomes a JSON
+string value.
+
+LF and CRLF each count as one physical newline. Physical newlines inside
+multiline strings normalize to LF, including mixed-line-ending manifests. A
+lone CR is invalid. Manifest failures report a one-based physical line. Local
+token failures take precedence over missing outer delimiters. If clean end of
+input leaves only delimiters missing, the failure points to the innermost
+unmatched opener.
+
+The table-driven `manifest_*` tests in `toolchain_harness.rs` are the executable
+evidence for string forms, escapes, folding, quote runs, indentation, newline
+variants, field-directed containers, trailing tokens, and exact error lines.
+The checked semantic baseline and the complete harness target protect existing
+single-line case meaning.
 
 ## Output Cases
 

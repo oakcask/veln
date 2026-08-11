@@ -1,0 +1,855 @@
+use std::path::Path;
+
+use super::manifest_error;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum Delimiter {
+    Square,
+    Brace,
+}
+
+impl Delimiter {
+    fn closing(self) -> char {
+        match self {
+            Self::Square => ']',
+            Self::Brace => '}',
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum StringForm {
+    Basic,
+    Literal,
+    MultilineBasic,
+    MultilineLiteral,
+}
+
+impl StringForm {
+    fn quote(self) -> char {
+        match self {
+            Self::Basic | Self::MultilineBasic => '"',
+            Self::Literal | Self::MultilineLiteral => '\'',
+        }
+    }
+
+    fn is_multiline(self) -> bool {
+        matches!(self, Self::MultilineBasic | Self::MultilineLiteral)
+    }
+
+    fn is_basic(self) -> bool {
+        matches!(self, Self::Basic | Self::MultilineBasic)
+    }
+}
+
+#[derive(Clone, Debug)]
+struct DecodedChar {
+    value: char,
+    source_line: usize,
+}
+
+#[derive(Clone, Debug)]
+struct DecodedString {
+    chars: Vec<DecodedChar>,
+}
+
+impl DecodedString {
+    fn text(&self) -> String {
+        self.chars
+            .iter()
+            .map(|decoded| {
+                let _source_line = decoded.source_line;
+                decoded.value
+            })
+            .collect()
+    }
+}
+
+#[derive(Clone, Debug)]
+struct StringToken<'a> {
+    decoded: Result<DecodedString, SyntaxError>,
+    source: &'a str,
+}
+
+#[derive(Clone, Debug)]
+struct SyntaxError {
+    line: usize,
+    message: String,
+}
+
+#[derive(Clone, Debug)]
+enum TokenKind<'a> {
+    Atom(&'a str),
+    String(StringToken<'a>),
+    Open(Delimiter),
+    Close(Delimiter),
+    Equals,
+    Comma,
+    Comment,
+    Newline,
+}
+
+#[derive(Clone, Debug)]
+struct Token<'a> {
+    kind: TokenKind<'a>,
+    line: usize,
+    start: usize,
+    end: usize,
+}
+
+#[derive(Debug)]
+pub(super) enum Statement<'a> {
+    Section {
+        name: String,
+        line: usize,
+    },
+    Assignment {
+        key: &'a str,
+        line: usize,
+        value: Value<'a>,
+    },
+}
+
+#[derive(Debug)]
+pub(super) struct Value<'a> {
+    raw: &'a str,
+    line: usize,
+    tokens: Vec<Token<'a>>,
+    unterminated: Option<(Delimiter, usize)>,
+}
+
+impl Value<'_> {
+    pub(super) fn line(&self) -> usize {
+        self.line
+    }
+
+    pub(super) fn raw(&self) -> &str {
+        self.raw
+    }
+
+    pub(super) fn parse_string(&self, path: &Path) -> String {
+        if self.tokens.len() != 1 {
+            manifest_error(path, self.line, "expected string");
+        }
+        let TokenKind::String(token) = &self.tokens[0].kind else {
+            manifest_error(path, self.line, "expected string");
+        };
+        let _source_spelling = token.source;
+        token
+            .decoded
+            .as_ref()
+            .unwrap_or_else(|error| {
+                manifest_error(path, error.line, &error.message);
+            })
+            .text()
+    }
+
+    pub(super) fn is_string(&self) -> bool {
+        self.tokens.len() == 1 && matches!(self.tokens[0].kind, TokenKind::String(_))
+    }
+
+    pub(super) fn parse_string_array(&self, path: &Path) -> Vec<String> {
+        let Some(Token {
+            kind: TokenKind::Open(Delimiter::Square),
+            ..
+        }) = self.tokens.first()
+        else {
+            manifest_error(path, self.line, "expected string array");
+        };
+
+        let complete = self.unterminated.is_none();
+        let end = if complete {
+            self.tokens.len().saturating_sub(1)
+        } else {
+            self.tokens.len()
+        };
+        let mut index = 1;
+        let mut values = Vec::new();
+        let mut expect_value = true;
+        let mut trailing_comma = false;
+
+        while index < end {
+            while index < end
+                && matches!(
+                    self.tokens[index].kind,
+                    TokenKind::Newline | TokenKind::Comment
+                )
+            {
+                index += 1;
+            }
+            if index == end {
+                break;
+            }
+
+            let token = &self.tokens[index];
+            if expect_value {
+                match &token.kind {
+                    TokenKind::String(string) => {
+                        values.push(
+                            string
+                                .decoded
+                                .as_ref()
+                                .unwrap_or_else(|error| {
+                                    manifest_error(path, error.line, &error.message)
+                                })
+                                .text(),
+                        );
+                        expect_value = false;
+                        trailing_comma = false;
+                    }
+                    _ => manifest_error(path, token.line, "expected string array element"),
+                }
+            } else if matches!(token.kind, TokenKind::Comma) {
+                expect_value = true;
+                trailing_comma = true;
+            } else if matches!(token.kind, TokenKind::String(_)) {
+                manifest_error(path, token.line, "expected `,` before string array element");
+            } else {
+                manifest_error(path, token.line, "expected `,` after string array element");
+            }
+            index += 1;
+        }
+
+        if let Some((delimiter, line)) = self.unterminated {
+            manifest_error(
+                path,
+                line,
+                format!("unterminated container; expected `{}`", delimiter.closing()),
+            );
+        }
+        if expect_value && !values.is_empty() && !trailing_comma {
+            manifest_error(path, self.line, "expected string array element");
+        }
+        values
+    }
+
+    pub(super) fn json_error_line(&self, byte_offset: usize) -> usize {
+        self.line
+            + self.raw.as_bytes()[..byte_offset.min(self.raw.len())]
+                .iter()
+                .filter(|byte| **byte == b'\n')
+                .count()
+    }
+
+    pub(super) fn report_unterminated(&self, path: &Path) -> ! {
+        let (delimiter, line) = self
+            .unterminated
+            .expect("unterminated value should retain its innermost opener");
+        manifest_error(
+            path,
+            line,
+            format!("unterminated container; expected `{}`", delimiter.closing()),
+        )
+    }
+
+    pub(super) fn is_unterminated(&self) -> bool {
+        self.unterminated.is_some()
+    }
+}
+
+pub(super) fn parse_document<'a>(path: &Path, text: &'a str) -> Vec<Statement<'a>> {
+    let tokens = Lexer::new(path, text).lex();
+    DocumentParser::new(path, text, tokens).parse()
+}
+
+struct DocumentParser<'p, 'a> {
+    path: &'p Path,
+    text: &'a str,
+    tokens: Vec<Token<'a>>,
+    index: usize,
+}
+
+impl<'p, 'a> DocumentParser<'p, 'a> {
+    fn new(path: &'p Path, text: &'a str, tokens: Vec<Token<'a>>) -> Self {
+        Self {
+            path,
+            text,
+            tokens,
+            index: 0,
+        }
+    }
+
+    fn parse(mut self) -> Vec<Statement<'a>> {
+        let mut statements = Vec::new();
+        loop {
+            self.skip_statement_layout();
+            let Some(token) = self.tokens.get(self.index) else {
+                break;
+            };
+            if matches!(token.kind, TokenKind::Open(Delimiter::Square)) {
+                statements.push(self.parse_section());
+            } else {
+                statements.push(self.parse_assignment());
+            }
+        }
+        statements
+    }
+
+    fn parse_section(&mut self) -> Statement<'a> {
+        let line = self.tokens[self.index].line;
+        self.index += 1;
+        let array = self
+            .tokens
+            .get(self.index)
+            .is_some_and(|token| matches!(token.kind, TokenKind::Open(Delimiter::Square)));
+        if array {
+            self.index += 1;
+        }
+        let name = match self.tokens.get(self.index) {
+            Some(Token {
+                kind: TokenKind::Atom(name),
+                ..
+            }) => (*name).to_string(),
+            _ => manifest_error(self.path, line, "expected section name"),
+        };
+        self.index += 1;
+        self.expect_close(Delimiter::Square, line);
+        if array {
+            self.expect_close(Delimiter::Square, line);
+        }
+        self.expect_statement_end();
+        let name = if array {
+            format!("[[{name}]]")
+        } else {
+            format!("[{name}]")
+        };
+        Statement::Section { name, line }
+    }
+
+    fn parse_assignment(&mut self) -> Statement<'a> {
+        let (key, line) = match self.tokens.get(self.index) {
+            Some(Token {
+                kind: TokenKind::Atom(key),
+                line,
+                ..
+            }) => (*key, *line),
+            Some(token) => manifest_error(self.path, token.line, "expected manifest key"),
+            None => unreachable!(),
+        };
+        self.index += 1;
+        match self.tokens.get(self.index) {
+            Some(Token {
+                kind: TokenKind::Equals,
+                ..
+            }) => self.index += 1,
+            _ => manifest_error(self.path, line, "expected `key = value`"),
+        }
+
+        let first = self.tokens.get(self.index).unwrap_or_else(|| {
+            manifest_error(self.path, line, "expected manifest value");
+        });
+        if matches!(first.kind, TokenKind::Newline | TokenKind::Comment) {
+            manifest_error(self.path, line, "expected manifest value");
+        }
+        let value_line = first.line;
+        let value_start = first.start;
+        let token_start = self.index;
+        let mut unterminated = None;
+
+        if let TokenKind::Open(opening) = first.kind {
+            let mut stack = vec![(opening, first.line)];
+            self.index += 1;
+            while let Some(token) = self.tokens.get(self.index) {
+                match token.kind {
+                    TokenKind::Open(delimiter) => stack.push((delimiter, token.line)),
+                    TokenKind::Close(delimiter) => {
+                        let Some((expected, _)) = stack.last().copied() else {
+                            manifest_error(self.path, token.line, "unexpected closing delimiter");
+                        };
+                        if delimiter != expected {
+                            manifest_error(
+                                self.path,
+                                token.line,
+                                format!(
+                                    "unexpected closing delimiter; expected `{}`",
+                                    expected.closing()
+                                ),
+                            );
+                        }
+                        stack.pop();
+                        self.index += 1;
+                        if stack.is_empty() {
+                            break;
+                        }
+                        continue;
+                    }
+                    _ => {}
+                }
+                self.index += 1;
+            }
+            if let Some(open) = stack.last().copied() {
+                unterminated = Some(open);
+            }
+        } else {
+            self.index += 1;
+        }
+
+        let token_end = self.index;
+        let value_end = self.tokens[token_end.saturating_sub(1)].end;
+        let value = Value {
+            raw: &self.text[value_start..value_end],
+            line: value_line,
+            tokens: self.tokens[token_start..token_end].to_vec(),
+            unterminated,
+        };
+        if value.unterminated.is_none() {
+            self.expect_statement_end();
+        }
+        Statement::Assignment { key, line, value }
+    }
+
+    fn expect_close(&mut self, delimiter: Delimiter, opening_line: usize) {
+        match self.tokens.get(self.index) {
+            Some(Token {
+                kind: TokenKind::Close(actual),
+                ..
+            }) if *actual == delimiter => self.index += 1,
+            Some(token) => manifest_error(
+                self.path,
+                token.line,
+                format!("expected `{}`", delimiter.closing()),
+            ),
+            None => manifest_error(
+                self.path,
+                opening_line,
+                format!("expected `{}`", delimiter.closing()),
+            ),
+        }
+    }
+
+    fn expect_statement_end(&mut self) {
+        if matches!(
+            self.tokens.get(self.index).map(|token| &token.kind),
+            Some(TokenKind::Comment)
+        ) {
+            self.index += 1;
+        }
+        match self.tokens.get(self.index) {
+            Some(Token {
+                kind: TokenKind::Newline,
+                ..
+            }) => self.index += 1,
+            Some(token) => manifest_error(
+                self.path,
+                token.line,
+                "unexpected token after completed manifest value",
+            ),
+            None => {}
+        }
+    }
+
+    fn skip_statement_layout(&mut self) {
+        while matches!(
+            self.tokens.get(self.index).map(|token| &token.kind),
+            Some(TokenKind::Newline | TokenKind::Comment)
+        ) {
+            self.index += 1;
+        }
+    }
+}
+
+struct Lexer<'p, 'a> {
+    path: &'p Path,
+    text: &'a str,
+    offset: usize,
+    line: usize,
+}
+
+impl<'p, 'a> Lexer<'p, 'a> {
+    fn new(path: &'p Path, text: &'a str) -> Self {
+        Self {
+            path,
+            text,
+            offset: 0,
+            line: 1,
+        }
+    }
+
+    fn lex(mut self) -> Vec<Token<'a>> {
+        let mut tokens = Vec::new();
+        while self.offset < self.text.len() {
+            let start = self.offset;
+            let line = self.line;
+            let ch = self.peek_char().expect("offset should be in text");
+            let kind = match ch {
+                ' ' | '\t' => {
+                    self.next_char();
+                    continue;
+                }
+                '\n' => {
+                    self.next_char();
+                    TokenKind::Newline
+                }
+                '\r' => {
+                    if !self.text[self.offset..].starts_with("\r\n") {
+                        manifest_error(self.path, self.line, "lone carriage return in manifest");
+                    }
+                    self.offset += 2;
+                    self.line += 1;
+                    TokenKind::Newline
+                }
+                '#' => {
+                    while !matches!(self.peek_char(), None | Some('\n' | '\r')) {
+                        self.next_char();
+                    }
+                    TokenKind::Comment
+                }
+                '[' => {
+                    self.next_char();
+                    TokenKind::Open(Delimiter::Square)
+                }
+                ']' => {
+                    self.next_char();
+                    TokenKind::Close(Delimiter::Square)
+                }
+                '{' => {
+                    self.next_char();
+                    TokenKind::Open(Delimiter::Brace)
+                }
+                '}' => {
+                    self.next_char();
+                    TokenKind::Close(Delimiter::Brace)
+                }
+                '=' => {
+                    self.next_char();
+                    TokenKind::Equals
+                }
+                ',' => {
+                    self.next_char();
+                    TokenKind::Comma
+                }
+                '"' | '\'' => TokenKind::String(self.lex_string(ch)),
+                _ => {
+                    while let Some(ch) = self.peek_char() {
+                        if matches!(
+                            ch,
+                            ' ' | '\t'
+                                | '\n'
+                                | '\r'
+                                | '#'
+                                | '['
+                                | ']'
+                                | '{'
+                                | '}'
+                                | '='
+                                | ','
+                                | '"'
+                                | '\''
+                        ) {
+                            break;
+                        }
+                        self.next_char();
+                    }
+                    TokenKind::Atom(&self.text[start..self.offset])
+                }
+            };
+            tokens.push(Token {
+                kind,
+                line,
+                start,
+                end: self.offset,
+            });
+        }
+        tokens
+    }
+
+    fn lex_string(&mut self, quote: char) -> StringToken<'a> {
+        let start = self.offset;
+        let opening_line = self.line;
+        let multiline =
+            self.text[self.offset..].starts_with(if quote == '"' { "\"\"\"" } else { "'''" });
+        let form = match (quote, multiline) {
+            ('"', false) => StringForm::Basic,
+            ('\'', false) => StringForm::Literal,
+            ('"', true) => StringForm::MultilineBasic,
+            ('\'', true) => StringForm::MultilineLiteral,
+            _ => unreachable!(),
+        };
+        self.offset += if multiline { 3 } else { 1 };
+        let closing_quotes = loop {
+            let Some(ch) = self.peek_char() else {
+                let raw = &self.text[start..self.offset];
+                if let Err(error) = decode_toml_string(raw, opening_line, form, 0) {
+                    manifest_error(self.path, error.line, error.message);
+                }
+                manifest_error(self.path, opening_line, "unterminated manifest string");
+            };
+            if ch == '\r' {
+                if !self.text[self.offset..].starts_with("\r\n") {
+                    manifest_error(self.path, self.line, "lone carriage return in manifest");
+                }
+                if !multiline {
+                    manifest_error(self.path, opening_line, "newline in single-line string");
+                }
+                self.offset += 2;
+                self.line += 1;
+                continue;
+            }
+            if ch == '\n' {
+                if !multiline {
+                    manifest_error(self.path, opening_line, "newline in single-line string");
+                }
+                self.next_char();
+                continue;
+            }
+            if form.is_basic() && ch == '\\' {
+                self.next_char();
+                if self.peek_char() == Some('\r') && !self.text[self.offset..].starts_with("\r\n") {
+                    manifest_error(self.path, self.line, "lone carriage return in manifest");
+                }
+                if self.peek_char().is_some() {
+                    self.next_char();
+                }
+                continue;
+            }
+            if ch != quote {
+                self.next_char();
+                continue;
+            }
+
+            let run_start = self.offset;
+            while self.peek_char() == Some(quote) {
+                self.next_char();
+            }
+            let run = (self.offset - run_start) / quote.len_utf8();
+            if !multiline {
+                self.offset = run_start + quote.len_utf8();
+                break 1;
+            }
+            if run >= 3 {
+                break run;
+            }
+        };
+
+        let raw = &self.text[start..self.offset];
+        let decoded = decode_toml_string(raw, opening_line, form, closing_quotes);
+        StringToken {
+            decoded,
+            source: raw,
+        }
+    }
+
+    fn peek_char(&self) -> Option<char> {
+        self.text[self.offset..].chars().next()
+    }
+
+    fn next_char(&mut self) -> Option<char> {
+        let ch = self.peek_char()?;
+        self.offset += ch.len_utf8();
+        if ch == '\n' {
+            self.line += 1;
+        }
+        Some(ch)
+    }
+}
+
+fn decode_toml_string(
+    raw: &str,
+    opening_line: usize,
+    form: StringForm,
+    closing_quotes: usize,
+) -> Result<DecodedString, SyntaxError> {
+    if form.is_multiline() && closing_quotes > 5 {
+        return Err(SyntaxError {
+            line: opening_line + raw.bytes().filter(|byte| *byte == b'\n').count(),
+            message: "invalid multiline string quote run".to_string(),
+        });
+    }
+    let opening_len = if form.is_multiline() { 3 } else { 1 };
+    let closing_len = if closing_quotes == 0 {
+        0
+    } else if form.is_multiline() {
+        closing_quotes
+    } else {
+        1
+    };
+    let mut content = &raw[opening_len..raw.len().saturating_sub(closing_len)];
+    let mut line = opening_line;
+    if form.is_multiline() {
+        if content.starts_with("\r\n") {
+            content = &content[2..];
+            line += 1;
+        } else if content.starts_with('\n') {
+            content = &content[1..];
+            line += 1;
+        }
+    }
+
+    let mut chars = Vec::new();
+    let mut offset = 0;
+    while offset < content.len() {
+        let ch = content[offset..]
+            .chars()
+            .next()
+            .expect("content has a char");
+        if ch == '\r' {
+            if !content[offset..].starts_with("\r\n") {
+                return Err(SyntaxError {
+                    line,
+                    message: "lone carriage return in manifest string".to_string(),
+                });
+            }
+            if !form.is_multiline() {
+                return Err(SyntaxError {
+                    line,
+                    message: "newline in single-line string".to_string(),
+                });
+            }
+            chars.push(DecodedChar {
+                value: '\n',
+                source_line: line,
+            });
+            offset += 2;
+            line += 1;
+            continue;
+        }
+        if ch == '\n' {
+            if !form.is_multiline() {
+                return Err(SyntaxError {
+                    line,
+                    message: "newline in single-line string".to_string(),
+                });
+            }
+            chars.push(DecodedChar {
+                value: '\n',
+                source_line: line,
+            });
+            offset += 1;
+            line += 1;
+            continue;
+        }
+        if is_prohibited_control(ch) {
+            return Err(SyntaxError {
+                line,
+                message: "prohibited control character in manifest string".to_string(),
+            });
+        }
+        if !form.is_basic() || ch != '\\' {
+            chars.push(DecodedChar {
+                value: ch,
+                source_line: line,
+            });
+            offset += ch.len_utf8();
+            continue;
+        }
+
+        let escape_line = line;
+        offset += 1;
+        if form.is_multiline() {
+            let mut lookahead = offset;
+            while matches!(content.as_bytes().get(lookahead), Some(b' ' | b'\t')) {
+                lookahead += 1;
+            }
+            if content[lookahead..].starts_with("\r\n") || content[lookahead..].starts_with('\n') {
+                offset = lookahead;
+                consume_physical_newline(content, &mut offset, &mut line);
+                loop {
+                    match content.as_bytes().get(offset) {
+                        Some(b' ' | b'\t') => offset += 1,
+                        Some(b'\n') => {
+                            offset += 1;
+                            line += 1;
+                        }
+                        Some(b'\r') if content[offset..].starts_with("\r\n") => {
+                            offset += 2;
+                            line += 1;
+                        }
+                        _ => break,
+                    }
+                }
+                continue;
+            }
+        }
+
+        let Some(escaped) = content[offset..].chars().next() else {
+            return Err(SyntaxError {
+                line: escape_line,
+                message: "unterminated manifest string escape".to_string(),
+            });
+        };
+        offset += escaped.len_utf8();
+        let value = match escaped {
+            'b' => '\u{08}',
+            't' => '\t',
+            'n' => '\n',
+            'f' => '\u{0c}',
+            'r' => '\r',
+            '"' => '"',
+            '\\' => '\\',
+            'u' => decode_unicode_escape(content, &mut offset, &mut line, escape_line, 4)?,
+            'U' => decode_unicode_escape(content, &mut offset, &mut line, escape_line, 8)?,
+            _ => {
+                return Err(SyntaxError {
+                    line: escape_line,
+                    message: format!("unsupported manifest string escape `{escaped}`"),
+                });
+            }
+        };
+        chars.push(DecodedChar {
+            value,
+            source_line: escape_line,
+        });
+    }
+
+    if form.is_multiline() && closing_quotes >= 4 {
+        let closing_line = opening_line + raw.bytes().filter(|byte| *byte == b'\n').count();
+        for _ in 0..closing_quotes - 3 {
+            chars.push(DecodedChar {
+                value: form.quote(),
+                source_line: closing_line,
+            });
+        }
+    }
+    Ok(DecodedString { chars })
+}
+
+fn decode_unicode_escape(
+    content: &str,
+    offset: &mut usize,
+    line: &mut usize,
+    escape_line: usize,
+    width: usize,
+) -> Result<char, SyntaxError> {
+    let start = *offset;
+    let mut digits = String::with_capacity(width);
+    for _ in 0..width {
+        let Some(ch) = content[*offset..].chars().next() else {
+            return Err(SyntaxError {
+                line: escape_line,
+                message: "incomplete Unicode escape".to_string(),
+            });
+        };
+        if ch == '\n' || ch == '\r' {
+            return Err(SyntaxError {
+                line: escape_line,
+                message: "incomplete Unicode escape".to_string(),
+            });
+        }
+        if !ch.is_ascii_hexdigit() {
+            return Err(SyntaxError {
+                line: *line,
+                message: "invalid hexadecimal digit in Unicode escape".to_string(),
+            });
+        }
+        digits.push(ch);
+        *offset += ch.len_utf8();
+    }
+    let codepoint = u32::from_str_radix(&digits, 16).expect("Unicode digits were validated");
+    char::from_u32(codepoint).ok_or_else(|| SyntaxError {
+        line: escape_line,
+        message: format!("Unicode escape is not a scalar value at byte {start}"),
+    })
+}
+
+fn consume_physical_newline(content: &str, offset: &mut usize, line: &mut usize) {
+    if content[*offset..].starts_with("\r\n") {
+        *offset += 2;
+    } else {
+        *offset += 1;
+    }
+    *line += 1;
+}
+
+fn is_prohibited_control(ch: char) -> bool {
+    matches!(ch, '\u{0000}'..='\u{0008}' | '\u{000a}'..='\u{001f}' | '\u{007f}')
+}
