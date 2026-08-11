@@ -77,8 +77,8 @@ assertions, diagnostic selectors, and file content assertions.
   `[skip]`.
 - Observable command results: `exit`, `[stdout]`, `[stderr]`,
   `[help]`, `[[json_assert]]`, `[[result_value_assert]]`,
-  `[[diagnostics]]`, `[[file_assert]]`, `[[binary_fixture]]`, and
-  `[[output_chunk_list]]`.
+  `[[lsp_assert]]`, `[[diagnostics]]`, `[[file_assert]]`,
+  `[[binary_fixture]]`, and `[[output_chunk_list]]`.
 - Manifest-failure checks: `[manifest_error]`.
 - External tool setup: `[tools] java = "missing"`, `"fake-success"`, or
   `"real"` and `[tools] git = "missing"` or `"real"`.
@@ -201,6 +201,28 @@ when a parsed value supplies that context. The `manifest_jsonrpc_*` tests in
 matrix, exact framing, recursive expansion, resource boundaries, and lifecycle
 ordering. Existing `stdin`, `stdin_file`, and raw `.raw` framing cases keep
 their prior behavior.
+
+Use repeatable `[[lsp_assert]]` sections to check decoded JSON-RPC messages
+from `veln lsp` stdout. Each section selects exactly one response with `id`, or
+one notification with `method` and an optional zero-based `occurrence` that
+defaults to zero. It then selects a value with an RFC 6901 JSON Pointer in
+`path`, including the empty pointer for the complete message. Pointer syntax is
+validated while the manifest loads.
+
+Each LSP assertion declares exactly one of `equals`, `equals_file`, `contains`,
+or `missing = true`. `equals` compares JSON values. `equals_file` and
+`contains` require the selected value to be a JSON string. A missing path can
+satisfy `missing = true` only after its response or notification exists.
+
+The harness requires stdout to be a complete ordered sequence of
+`Content-Length` frames before it evaluates LSP assertions. Malformed or
+partial framing, trailing bytes, invalid JSON message bodies, and duplicate
+response identifiers fail decoded assertions for that invocation. Raw stdout
+checks still run independently. Repeated invocations decode and assert their
+own streams; failures are reported by run and manifest assertion order. The
+`decoded_lsp_*`, `raw_stdout_and_decoded_lsp_*`, and
+`repeated_run_failures_*` tests in `toolchain_harness.rs` cover the transport,
+selector, pointer, operation, independence, and aggregation boundaries.
 
 Use `[[json_assert]]`, `[[result_value_assert]]`, and `[[diagnostics]]` for
 semantic checks inside JSON stdout. JSON and result-value assertions accept
