@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The readable toolchain case stream proposal scope, structured JSON-RPC current-behavior route, decoded LSP assertion acceptance evidence, migration boundary, or completion gate changes.
+update-when: The readable toolchain case stream proposal scope, structured JSON-RPC request fixture validation route, decoded LSP assertion acceptance evidence, migration boundary, or completion gate changes.
 ---
 
 # Readable Toolchain Case Streams
@@ -32,7 +32,8 @@ Use the current harness reference for implemented behavior:
   runtime preflight;
 - semantic baseline and checked migration evidence for existing cases; and
 - structured JSON-RPC request fixtures, recursive `$case_text` expansion,
-  envelope validation, and deterministic input framing.
+  envelope validation including duplicate standard member rejection, fixture
+  diagnostics, and deterministic input framing.
 
 This proposal does not redefine those contracts. Future JSON-RPC work must keep
 those contracts intact and must add its implemented behavior to the harness

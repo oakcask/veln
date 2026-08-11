@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: normative
-update-when: The CLI integration harness discovery inventory, manifest grammar, structured JSON-RPC input profile, assertion model, semantic case baseline, manifest authoring policy, case-text repository attribute convention, or source-error guard evidence changes.
+update-when: The CLI integration harness discovery inventory, manifest grammar, structured JSON-RPC input validation or fixture diagnostics, assertion model, semantic case baseline, manifest authoring policy, case-text repository attribute convention, or source-error guard evidence changes.
 ---
 
 # Toolchain Test Harness
@@ -169,16 +169,17 @@ headers and their CRLF separators.
 
 Use `stdin_jsonrpc_file` for an ordered UTF-8 JSON array of JSON-RPC requests
 and notifications. It is mutually exclusive with `stdin` and `stdin_file`.
-Each array element must be an object whose `jsonrpc` member is `"2.0"` and
-whose `method` member is a string. An `id` may be absent, a string, a number,
-or null. A `params` member may be absent, an object, an array, or null. The
-harness rejects response-shaped input containing `result` or `error`. It does
-not reject unknown methods, extension members, duplicate identifiers, or
+Each array element must be an object. Its `jsonrpc` member must be `"2.0"`.
+Its `method` member must be a string. An `id` may be absent, a string, a
+number, or null. A `params` member may be absent, an object, an array, or null.
+The harness rejects response-shaped input containing `result` or `error`. It
+does not reject unknown methods, extension members, duplicate identifiers, or
 method-specific parameter values. The standard envelope members `jsonrpc`,
 `method`, `id`, and `params` must not appear more than once in the same
-message object. JSON string escapes in the request file decode paired UTF-16
-surrogates before framing and reject unpaired surrogate units before command
-startup.
+message object, including when one duplicate spelling has an otherwise valid
+value and another duplicate spelling has an invalid value. JSON string escapes
+in the request file decode paired UTF-16 surrogates before framing and reject
+unpaired surrogate units before command startup.
 
 Any complete object value or array element in a structured request may use a
 `{"$case_text":"relative/path"}` directive. The object must contain only that
