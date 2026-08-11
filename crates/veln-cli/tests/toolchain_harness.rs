@@ -2427,8 +2427,8 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
     let mut section = Section::Root;
     let mut seen = BTreeSet::new();
     let mut root_stdin_operands = 0;
-    let mut json_operations = Vec::<usize>::new();
-    let mut result_value_operations = Vec::<usize>::new();
+    let mut json_operations = Vec::<AssertionOperationPreflight>::new();
+    let mut result_value_operations = Vec::<AssertionOperationPreflight>::new();
     let mut file_assert_operations = Vec::<usize>::new();
 
     for statement in statements {
@@ -2443,11 +2443,11 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                     "[env]" => Section::Env,
                     "[tools]" => Section::Tools,
                     "[[json_assert]]" => {
-                        json_operations.push(0);
+                        json_operations.push(AssertionOperationPreflight::default());
                         Section::JsonAssert(json_operations.len() - 1)
                     }
                     "[[result_value_assert]]" => {
-                        result_value_operations.push(0);
+                        result_value_operations.push(AssertionOperationPreflight::default());
                         Section::ResultValueAssert(result_value_operations.len() - 1)
                     }
                     "[[file_assert]]" => {
@@ -2473,7 +2473,7 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                     let _ = line;
                 }
             }
-            ManifestStatement::Assignment { key, line, .. } => {
+            ManifestStatement::Assignment { key, line, value } => {
                 let assignment = format!("{section:?}:{key}");
                 if !is_accumulating_manifest_key(section, key) && !seen.insert(assignment) {
                     manifest_error(path, *line, format!("duplicate key `{key}`"));
@@ -2488,7 +2488,7 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                             "equals" | "equals_file" | "equals_json_file" | "missing"
                         ) =>
                     {
-                        json_operations[index] += 1;
+                        json_operations[index].record(path, key, value);
                     }
                     Section::ResultValueAssert(index)
                         if matches!(
@@ -2496,7 +2496,7 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                             "equals" | "equals_file" | "equals_json_file" | "missing"
                         ) =>
                     {
-                        result_value_operations[index] += 1;
+                        result_value_operations[index].record(path, key, value);
                     }
                     Section::FileAssert(index) if matches!(*key, "equals" | "equals_file") => {
                         file_assert_operations[index] += 1;
@@ -2514,8 +2514,15 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
             "root invocation needs at most one of `stdin` or `stdin_file`",
         );
     }
-    for (index, count) in json_operations.iter().enumerate() {
-        if *count > 1 {
+    for (index, operation) in json_operations.iter().enumerate() {
+        if operation.missing_false {
+            manifest_error(
+                path,
+                0,
+                format!("json_assert {index} `missing` must be true when present"),
+            );
+        }
+        if operation.count != 1 {
             manifest_error(
                 path,
                 0,
@@ -2525,8 +2532,15 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
             );
         }
     }
-    for (index, count) in result_value_operations.iter().enumerate() {
-        if *count > 1 {
+    for (index, operation) in result_value_operations.iter().enumerate() {
+        if operation.missing_false {
+            manifest_error(
+                path,
+                0,
+                format!("result_value_assert {index} `missing` must be true when present"),
+            );
+        }
+        if operation.count != 1 {
             manifest_error(
                 path,
                 0,
@@ -2537,12 +2551,27 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
         }
     }
     for (index, count) in file_assert_operations.iter().enumerate() {
-        if *count > 1 {
+        if *count != 1 {
             manifest_error(
                 path,
                 0,
                 format!("file_assert {index} needs exactly one of `equals` or `equals_file`"),
             );
+        }
+    }
+}
+
+#[derive(Default)]
+struct AssertionOperationPreflight {
+    count: usize,
+    missing_false: bool,
+}
+
+impl AssertionOperationPreflight {
+    fn record(&mut self, path: &Path, key: &str, value: &ManifestValue<'_>) {
+        self.count += 1;
+        if key == "missing" && !parse_bool(path, value) {
+            self.missing_false = true;
         }
     }
 }
@@ -4697,7 +4726,7 @@ contains = ["\\r"]
     .expect("unavailable-tool manifest should be written");
     fs::write(
         root.join("cases/malformed/case.toml"),
-        "command = [\"check\"]\nstdin = \"\\q\"\nexit = 0\n",
+        "command = [\"check\"]\nstdin = \"\\n\"\nlate = \"\\q\"\nexit = 0\n",
     )
     .expect("malformed manifest should be written");
 
@@ -4708,12 +4737,14 @@ contains = ["\\r"]
     )
     .expect_err("policy preflight should fail");
 
-    assert!(error.contains("toolchain case preflight found 3 problem(s)"));
+    assert!(error.contains("toolchain case preflight found 4 problem(s)"));
     assert!(error.contains("cases/skipped:"));
     assert!(error.contains("field `stdin` contains escape-produced-line-break"));
     assert!(error.contains("cases/unavailable:"));
     assert!(error.contains("field `[stdout].contains` contains decoded-line-break-spelling"));
     assert!(error.contains("cases/malformed: manifest policy scan failed"));
+    assert!(error.contains("cases/malformed:2:"));
+    assert!(error.contains("field `stdin` contains escape-produced-line-break"));
     assert!(error.contains("unsupported manifest string escape `q`"));
     let malformed_index = error
         .find("cases/malformed")
@@ -5641,6 +5672,95 @@ equals_json_file = "case-text/missing-sidecar.json"
 }
 
 #[test]
+fn manifest_assertion_missing_false_is_checked_before_file_io() {
+    assert_manifest_parse_error_without(
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[[json_assert]]
+path = "status"
+missing = false
+
+[[json_assert]]
+path = "stdout"
+equals_file = "case-text/missing-sidecar.txt"
+"#,
+        "json_assert 0 `missing` must be true when present",
+        "missing-sidecar",
+    );
+    assert_manifest_parse_error_without(
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[[result_value_assert]]
+value_path = "error.value"
+path = "value"
+missing = false
+
+[[result_value_assert]]
+value_path = "error.other"
+path = "value"
+equals_file = "case-text/missing-sidecar.txt"
+"#,
+        "result_value_assert 0 `missing` must be true when present",
+        "missing-sidecar",
+    );
+}
+
+#[test]
+fn manifest_assertion_operation_omission_is_checked_before_file_io() {
+    assert_manifest_parse_error_without(
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[[json_assert]]
+path = "status"
+
+[[json_assert]]
+path = "stdout"
+equals_file = "case-text/missing-sidecar.txt"
+"#,
+        "json_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`",
+        "missing-sidecar",
+    );
+    assert_manifest_parse_error_without(
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[[result_value_assert]]
+value_path = "error.value"
+path = "value"
+
+[[result_value_assert]]
+value_path = "error.other"
+path = "value"
+equals_file = "case-text/missing-sidecar.txt"
+"#,
+        "result_value_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`",
+        "missing-sidecar",
+    );
+    assert_manifest_parse_error_without(
+        r#"
+command = ["run", "main", "main.veln"]
+exit = 0
+
+[[file_assert]]
+path = "out.txt"
+
+[[file_assert]]
+path = "other.txt"
+equals_file = "case-text/missing-sidecar.txt"
+"#,
+        "file_assert 0 needs exactly one of `equals` or `equals_file`",
+        "missing-sidecar",
+    );
+}
+
+#[test]
 fn manifest_equals_json_file_loads_before_skip_evaluation() {
     let root = test_temp_root("equals-json-file-skip-lifecycle");
     let case_dir = root.join("case");
@@ -5991,6 +6111,20 @@ fn assert_manifest_parse_error(source: &str, expected: &str) {
     assert!(
         message.contains(expected),
         "expected panic to contain `{expected}`, got `{message}`"
+    );
+}
+
+fn assert_manifest_parse_error_without(source: &str, expected: &str, forbidden: &str) {
+    let panic = std::panic::catch_unwind(|| parse_manifest(Path::new("case.toml"), source))
+        .expect_err("manifest should be rejected");
+    let message = panic_message(panic);
+    assert!(
+        message.contains(expected),
+        "expected panic to contain `{expected}`, got `{message}`"
+    );
+    assert!(
+        !message.contains(forbidden),
+        "expected panic to avoid `{forbidden}`, got `{message}`"
     );
 }
 

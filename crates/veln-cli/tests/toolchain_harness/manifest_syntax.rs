@@ -129,6 +129,12 @@ pub(crate) struct ManifestPolicyFinding {
     pub(crate) category: &'static str,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ManifestPolicyScan {
+    pub(crate) findings: Vec<ManifestPolicyFinding>,
+    pub(crate) error: Option<String>,
+}
+
 impl Value<'_> {
     pub(super) fn line(&self) -> usize {
         self.line
@@ -257,14 +263,16 @@ impl Value<'_> {
         self.unterminated.is_some()
     }
 
-    fn collect_policy_findings(&self, field: &str, findings: &mut Vec<ManifestPolicyFinding>) {
+    fn try_collect_policy_findings(
+        &self,
+        field: &str,
+        findings: &mut Vec<ManifestPolicyFinding>,
+    ) -> Result<(), SyntaxError> {
         for token in &self.tokens {
             let TokenKind::String(string) = &token.kind else {
                 continue;
             };
-            let decoded = string.decoded.as_ref().unwrap_or_else(|error| {
-                manifest_error(Path::new("case.toml"), error.line, &error.message)
-            });
+            let decoded = string.decoded.as_ref().map_err(Clone::clone)?;
             for decoded_char in &decoded.chars {
                 if decoded_char.escaped && matches!(decoded_char.value, '\n' | '\r') {
                     findings.push(ManifestPolicyFinding {
@@ -293,6 +301,7 @@ impl Value<'_> {
                 });
             }
         }
+        Ok(())
     }
 }
 
@@ -302,6 +311,14 @@ pub(crate) fn parse_document<'a>(path: &Path, text: &'a str) -> Vec<Statement<'a
 }
 
 pub(crate) fn manifest_policy_findings(path: &Path, text: &str) -> Vec<ManifestPolicyFinding> {
+    let scan = manifest_policy_scan(path, text);
+    if let Some(error) = scan.error {
+        manifest_error(path, 0, error);
+    }
+    scan.findings
+}
+
+pub(crate) fn manifest_policy_scan(path: &Path, text: &str) -> ManifestPolicyScan {
     let mut section = String::new();
     let mut findings = Vec::new();
     for statement in parse_document(path, text) {
@@ -313,10 +330,24 @@ pub(crate) fn manifest_policy_findings(path: &Path, text: &str) -> Vec<ManifestP
                 } else {
                     format!("{section}.{key}")
                 };
-                value.collect_policy_findings(&field, &mut findings);
+                if let Err(error) = value.try_collect_policy_findings(&field, &mut findings) {
+                    sort_policy_findings(&mut findings);
+                    return ManifestPolicyScan {
+                        findings,
+                        error: Some(error.message),
+                    };
+                }
             }
         }
     }
+    sort_policy_findings(&mut findings);
+    ManifestPolicyScan {
+        findings,
+        error: None,
+    }
+}
+
+fn sort_policy_findings(findings: &mut [ManifestPolicyFinding]) {
     findings.sort_by(|left, right| {
         left.line
             .cmp(&right.line)
@@ -326,7 +357,6 @@ pub(crate) fn manifest_policy_findings(path: &Path, text: &str) -> Vec<ManifestP
             .then(left.field.cmp(&right.field))
             .then(left.spelling.cmp(&right.spelling))
     });
-    findings
 }
 
 fn forbidden_decoded_spellings(text: &str) -> Vec<String> {

@@ -419,10 +419,10 @@ fn scan_policy(manifest_dir: &Path, cases: &[CaseDescriptor]) -> Vec<String> {
                 continue;
             }
         };
-        let findings = match panic::catch_unwind(AssertUnwindSafe(|| {
-            crate::manifest_syntax::manifest_policy_findings(&manifest, &text)
+        let scan = match panic::catch_unwind(AssertUnwindSafe(|| {
+            crate::manifest_syntax::manifest_policy_scan(&manifest, &text)
         })) {
-            Ok(findings) => findings,
+            Ok(scan) => scan,
             Err(panic) => {
                 errors.push(format!(
                     "{}: manifest policy scan failed before command generation: {}",
@@ -432,7 +432,7 @@ fn scan_policy(manifest_dir: &Path, cases: &[CaseDescriptor]) -> Vec<String> {
                 continue;
             }
         };
-        for finding in findings {
+        for finding in scan.findings {
             errors.push(format!(
                 "{}:{}:{}-{} field `{}` contains {} `{}`; use physical multiline text or a sidecar so line structure remains reviewable",
                 case.id,
@@ -442,6 +442,12 @@ fn scan_policy(manifest_dir: &Path, cases: &[CaseDescriptor]) -> Vec<String> {
                 finding.field,
                 finding.category,
                 finding.spelling.escape_debug()
+            ));
+        }
+        if let Some(error) = scan.error {
+            errors.push(format!(
+                "{}: manifest policy scan failed before command generation: {error}",
+                case.id
             ));
         }
     }
