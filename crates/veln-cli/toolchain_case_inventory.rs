@@ -111,6 +111,84 @@ pub(crate) fn compare_generated_inventory_with_policy(
     Err(render_preflight_errors(errors))
 }
 
+pub(crate) fn generated_toolchain_tests_from_preflight(
+    manifest_dir: &Path,
+    roots: &[DiscoveryRoot],
+    enforce_policy: bool,
+) -> Result<String, String> {
+    let preflight = run_preflight_with_roots_and_policy(manifest_dir, roots, enforce_policy)?;
+    let cases = preflight
+        .cases
+        .iter()
+        .map(|case| case.manifest_relative.clone())
+        .collect::<Vec<_>>();
+    Ok(generated_toolchain_tests(&cases))
+}
+
+pub(crate) fn generated_toolchain_tests(cases: &[PathBuf]) -> String {
+    let mut names = BTreeSet::new();
+    let mut out = String::from(
+        "mod toolchain_semantic_baseline {\n    include!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/tests/toolchain_semantic_baseline/mod.rs\"));\n}\n\nconst GENERATED_TOOLCHAIN_CASES: &[&str] = &[\n",
+    );
+    for case in cases {
+        let case = slash_path(case);
+        out.push_str(&format!("    {case:?},\n"));
+    }
+    out.push_str("];\n\nmod generated_toolchain_cases {\n    use super::*;\n\n");
+    for case in cases {
+        let name = unique_test_name(case, &mut names);
+        let case = slash_path(case);
+        out.push_str("    #[test]\n");
+        out.push_str(&format!("    fn {name}() {{\n"));
+        out.push_str(&format!(
+            "        run_case(&toolchain_case_path({case:?}));\n"
+        ));
+        out.push_str("    }\n\n");
+    }
+    out.push_str("}\n");
+    out
+}
+
+fn unique_test_name(case: &Path, names: &mut BTreeSet<String>) -> String {
+    let raw = case.to_string_lossy();
+    let mut name = String::from("toolchain_case_");
+    for ch in raw.chars() {
+        if ch.is_ascii_alphanumeric() {
+            name.push(ch.to_ascii_lowercase());
+        } else if !name.ends_with('_') {
+            name.push('_');
+        }
+    }
+    while name.ends_with('_') {
+        name.pop();
+    }
+
+    let hash = fnv1a(raw.as_bytes());
+    let max_prefix_len = 96usize.saturating_sub(17);
+    if name.len() > max_prefix_len {
+        name.truncate(max_prefix_len);
+        while name.ends_with('_') {
+            name.pop();
+        }
+    }
+    name.push_str(&format!("_{hash:016x}"));
+
+    assert!(
+        names.insert(name.clone()),
+        "duplicate generated test `{name}`"
+    );
+    name
+}
+
+fn fnv1a(bytes: &[u8]) -> u64 {
+    let mut hash = 0xcbf29ce484222325;
+    for byte in bytes {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    hash
+}
+
 fn validate_roots(manifest_dir: &Path, roots: &[DiscoveryRoot]) -> Vec<String> {
     let mut errors = Vec::new();
     let mut canonical = Vec::new();

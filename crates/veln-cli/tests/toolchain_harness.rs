@@ -6,7 +6,6 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Output, Stdio};
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
-#[cfg(all(unix, debug_assertions))]
 use std::thread;
 #[cfg(all(unix, debug_assertions))]
 use std::time::{Duration, Instant};
@@ -43,7 +42,19 @@ fn run_case_with_after_invocation(
     case_dir: &Path,
     mut after_invocation: impl FnMut(&CaseRunContext<'_>, &Path),
 ) {
-    guard_generated_or_synthetic_case(case_dir);
+    run_case_with_guard_and_after_invocation(
+        case_dir,
+        guard_generated_or_synthetic_case,
+        &mut after_invocation,
+    );
+}
+
+fn run_case_with_guard_and_after_invocation(
+    case_dir: &Path,
+    guard_case: impl FnOnce(&Path),
+    mut after_invocation: impl FnMut(&CaseRunContext<'_>, &Path),
+) {
+    guard_case(case_dir);
     let manifest = CaseManifest::read(&case_dir.join("case.toml"));
     if let Some(reason) = manifest.skip_reason() {
         eprintln!("skipping {}: {reason}", case_dir.display());
@@ -129,16 +140,32 @@ fn guard_generated_or_synthetic_case(case_dir: &Path) {
 }
 
 fn runtime_generated_inventory_barrier() {
-    static RESULT: OnceLock<Result<(), String>> = OnceLock::new();
-    match RESULT.get_or_init(|| {
+    static BARRIER: RuntimeInventoryBarrier = RuntimeInventoryBarrier::new();
+    BARRIER.check_with(|| {
         toolchain_case_inventory::compare_generated_inventory(
             Path::new(env!("CARGO_MANIFEST_DIR")),
             GENERATED_TOOLCHAIN_CASES,
         )
         .map(|_| ())
-    }) {
-        Ok(()) => {}
-        Err(message) => panic!("{message}"),
+    });
+}
+
+struct RuntimeInventoryBarrier {
+    result: OnceLock<Result<(), String>>,
+}
+
+impl RuntimeInventoryBarrier {
+    const fn new() -> Self {
+        Self {
+            result: OnceLock::new(),
+        }
+    }
+
+    fn check_with(&self, scan: impl FnOnce() -> Result<(), String>) {
+        match self.result.get_or_init(scan) {
+            Ok(()) => {}
+            Err(message) => panic!("{message}"),
+        }
     }
 }
 
@@ -3864,6 +3891,43 @@ fn toolchain_inventory_rejects_broken_file_links_and_link_cycles() {
     fs::remove_dir_all(root).expect("inventory root should be removed");
 }
 
+#[cfg(windows)]
+#[test]
+fn toolchain_inventory_rejects_windows_reparse_point_files_and_directories() {
+    use std::os::windows::fs::{symlink_dir, symlink_file};
+
+    let root = test_temp_root("inventory-windows-reparse");
+    fs::create_dir_all(root.join("cases/ordinary")).expect("case directory should be created");
+    fs::write(
+        root.join("cases/ordinary/case.toml"),
+        "command = [\"check\"]\nexit = 0\n",
+    )
+    .expect("case manifest should be written");
+    fs::write(root.join("target-file"), "fixture").expect("target file should be written");
+    symlink_file(root.join("target-file"), root.join("cases/file-link"))
+        .expect("file reparse point should be created");
+    symlink_dir(
+        root.join("cases/ordinary"),
+        root.join("cases/directory-link"),
+    )
+    .expect("directory reparse point should be created");
+
+    let error = toolchain_case_inventory::run_preflight_with_roots(
+        &root,
+        &[test_discovery_root("cases", "cases")],
+    )
+    .expect_err("Windows reparse points should fail discovery before traversal");
+
+    assert!(error.contains("cases/directory-link: replace the link or reparse point"));
+    assert!(error.contains("cases/file-link: replace the link or reparse point"));
+    assert!(
+        !error.contains("target-file"),
+        "discovery should not resolve reparse point targets"
+    );
+
+    fs::remove_dir_all(root).expect("inventory root should be removed");
+}
+
 #[test]
 fn toolchain_inventory_parity_reports_stale_generated_cases() {
     let error = toolchain_case_inventory::compare_generated_inventory_with_policy(
@@ -3875,6 +3939,30 @@ fn toolchain_inventory_parity_reports_stale_generated_cases() {
 
     assert!(error.contains("rebuild the toolchain harness"));
     assert!(error.contains("case manifest was added after test generation"));
+}
+
+#[test]
+fn policy_preflight_failure_prevents_generated_test_module_creation() {
+    let root = test_temp_root("policy-generation-block");
+    fs::create_dir_all(root.join("cases/blocked")).expect("case directory should be created");
+    fs::write(
+        root.join("cases/blocked/case.toml"),
+        "command = [\"check\"]\nstdin = \"\\n\"\nexit = 0\n",
+    )
+    .expect("blocked manifest should be written");
+
+    let error = toolchain_case_inventory::generated_toolchain_tests_from_preflight(
+        &root,
+        &[test_discovery_root("cases", "cases")],
+        true,
+    )
+    .expect_err("policy preflight should fail before generating tests");
+
+    assert!(error.contains("toolchain case preflight found 1 problem(s)"));
+    assert!(error.contains("field `stdin` contains escape-produced-line-break"));
+    assert!(!error.contains("generated_toolchain_cases"));
+
+    fs::remove_dir_all(root).expect("inventory root should be removed");
 }
 
 #[test]
@@ -4219,6 +4307,7 @@ fn synthetic_policy_guard_runs_before_manifest_loading_skip_and_fixtures() {
         r#"
 command = ["check"]
 stdin = "\n"
+stdin_file = "case-text/missing-sidecar.txt"
 exit = 0
 
 [skip]
@@ -4240,8 +4329,107 @@ reason = "skip evaluation must not run before policy"
         !message.contains("skip evaluation must not run"),
         "skip evaluation should be bypassed by the synthetic policy guard"
     );
+    assert!(
+        !message.contains("missing-sidecar"),
+        "sidecar resource loading should be bypassed by the synthetic policy guard"
+    );
+    assert!(
+        !root.join("command-started").exists(),
+        "command execution should be bypassed by the synthetic policy guard"
+    );
 
     fs::remove_dir_all(root).expect("synthetic root should be removed");
+}
+
+#[test]
+fn runtime_inventory_barrier_failure_blocks_generated_case_lifecycle() {
+    let root = test_temp_root("runtime-barrier-block");
+    let case_dirs = [root.join("stale-a"), root.join("stale-b")];
+    for case_dir in &case_dirs {
+        fs::create_dir_all(case_dir).expect("case directory should be created");
+        fs::write(
+            case_dir.join("case.toml"),
+            r#"
+command = ["run-command-that-must-not-start"]
+stdin_file = "case-text/missing-sidecar.txt"
+exit = 0
+
+[skip]
+platforms = ["linux", "macos", "windows"]
+reason = "skip evaluation must not run after stale inventory"
+"#,
+        )
+        .expect("case manifest should be written");
+    }
+
+    for case_dir in &case_dirs {
+        let panic = std::panic::catch_unwind(|| {
+            run_case_with_guard_and_after_invocation(
+                case_dir,
+                |_| panic!("stale generated inventory blocks every generated case"),
+                |_, project_root| {
+                    fs::write(project_root.join("command-started"), "started")
+                        .expect("command marker should be writable");
+                },
+            );
+        })
+        .expect_err("stale inventory should stop generated case execution");
+        let message = panic_message(panic);
+
+        assert!(message.contains("stale generated inventory blocks every generated case"));
+        assert!(
+            !message.contains("skip evaluation must not run"),
+            "skip evaluation should be bypassed by the runtime barrier"
+        );
+        assert!(
+            !message.contains("missing-sidecar"),
+            "resource loading should be bypassed by the runtime barrier"
+        );
+    }
+
+    fs::remove_dir_all(root).expect("runtime root should be removed");
+}
+
+#[test]
+fn runtime_inventory_barrier_shares_one_concurrent_scan_result() {
+    use std::sync::{Arc, Barrier};
+
+    let barrier = Arc::new(RuntimeInventoryBarrier::new());
+    let ready = Arc::new(Barrier::new(8));
+    let scans = Arc::new(AtomicUsize::new(0));
+    let mut threads = Vec::new();
+    for _ in 0..8 {
+        let barrier = Arc::clone(&barrier);
+        let ready = Arc::clone(&ready);
+        let scans = Arc::clone(&scans);
+        threads.push(thread::spawn(move || {
+            ready.wait();
+            let panic = std::panic::catch_unwind(|| {
+                barrier.check_with(|| {
+                    scans.fetch_add(1, Ordering::SeqCst);
+                    Err("shared stale inventory result".to_string())
+                });
+            })
+            .expect_err("shared failing scan should panic in every caller");
+            panic_message(panic)
+        }));
+    }
+
+    let messages = threads
+        .into_iter()
+        .map(|thread| thread.join().expect("barrier thread should complete"))
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        scans.load(Ordering::SeqCst),
+        1,
+        "concurrent generated tests should share one runtime scan"
+    );
+    assert!(
+        messages
+            .iter()
+            .all(|message| message.contains("shared stale inventory result"))
+    );
 }
 
 #[test]
