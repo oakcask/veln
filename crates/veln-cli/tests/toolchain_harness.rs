@@ -3676,10 +3676,13 @@ fn load_jsonrpc_stdin(
 ) -> String {
     let text = case_text_cache.read_path(manifest_path, line_number, relative);
     let fixture = parse_json(&text).unwrap_or_else(|error| {
+        let message_context = jsonrpc_parse_error_message_context(&text, error.offset)
+            .map(|index| format!(" message {index}"))
+            .unwrap_or_default();
         manifest_error(
             manifest_path,
             line_number,
-            format!("invalid JSON-RPC fixture `{relative}`: {error}"),
+            format!("invalid JSON-RPC fixture `{relative}`{message_context}: {error}"),
         )
     });
     let JsonValue::Array(messages) = fixture else {
@@ -3824,6 +3827,18 @@ fn validate_jsonrpc_input_message(
             "request or notification must not contain `result` or `error`",
         );
     }
+    for name in ["jsonrpc", "method", "id", "params"] {
+        let count = entries.iter().filter(|(key, _)| key == name).count();
+        if count > 1 {
+            jsonrpc_fixture_error(
+                manifest_path,
+                line_number,
+                index,
+                &format!("$[{index}].{name}"),
+                &format!("`{name}` must not appear more than once"),
+            );
+        }
+    }
     if field("jsonrpc") != Some(&JsonValue::String("2.0".to_string())) {
         jsonrpc_fixture_error(
             manifest_path,
@@ -3870,6 +3885,148 @@ fn validate_jsonrpc_input_message(
             "`params` must be an object, array, or null",
         );
     }
+}
+
+fn jsonrpc_parse_error_message_context(text: &str, error_offset: usize) -> Option<usize> {
+    let bytes = text.as_bytes();
+    let mut offset = skip_json_ws(bytes, 0);
+    if bytes.get(offset) != Some(&b'[') {
+        return None;
+    }
+    offset += 1;
+    let mut index = 0;
+    loop {
+        offset = skip_json_ws(bytes, offset);
+        match bytes.get(offset) {
+            Some(b']') => return None,
+            Some(_) if error_offset <= offset => return Some(index),
+            Some(_) => {}
+            None => return Some(index),
+        }
+        match skip_json_value(bytes, offset, error_offset) {
+            Some(next) => offset = skip_json_ws(bytes, next),
+            None => return Some(index),
+        }
+        match bytes.get(offset) {
+            Some(b',') => {
+                offset += 1;
+                index += 1;
+            }
+            Some(b']') => return None,
+            Some(_) | None => return Some(index),
+        }
+    }
+}
+
+fn skip_json_ws(bytes: &[u8], mut offset: usize) -> usize {
+    while matches!(bytes.get(offset), Some(b' ' | b'\n' | b'\r' | b'\t')) {
+        offset += 1;
+    }
+    offset
+}
+
+fn skip_json_value(bytes: &[u8], offset: usize, stop: usize) -> Option<usize> {
+    let offset = skip_json_ws(bytes, offset);
+    match bytes.get(offset)? {
+        b'"' => skip_json_string(bytes, offset, stop),
+        b'{' => skip_json_container(bytes, offset, stop, b'{', b'}'),
+        b'[' => skip_json_container(bytes, offset, stop, b'[', b']'),
+        b'-' | b'0'..=b'9' => skip_json_number(bytes, offset),
+        b'n' if bytes.get(offset..offset + 4) == Some(b"null") => Some(offset + 4),
+        b't' if bytes.get(offset..offset + 4) == Some(b"true") => Some(offset + 4),
+        b'f' if bytes.get(offset..offset + 5) == Some(b"false") => Some(offset + 5),
+        _ => None,
+    }
+}
+
+fn skip_json_container(
+    bytes: &[u8],
+    mut offset: usize,
+    stop: usize,
+    open: u8,
+    close: u8,
+) -> Option<usize> {
+    if bytes.get(offset) != Some(&open) {
+        return None;
+    }
+    let mut depth = 0usize;
+    while offset < bytes.len() {
+        if offset >= stop {
+            return None;
+        }
+        match bytes[offset] {
+            byte if byte == open => {
+                depth += 1;
+                offset += 1;
+            }
+            byte if byte == close => {
+                depth -= 1;
+                offset += 1;
+                if depth == 0 {
+                    return Some(offset);
+                }
+            }
+            b'"' => offset = skip_json_string(bytes, offset, stop)?,
+            _ => offset += 1,
+        }
+    }
+    None
+}
+
+fn skip_json_string(bytes: &[u8], mut offset: usize, stop: usize) -> Option<usize> {
+    if bytes.get(offset) != Some(&b'"') {
+        return None;
+    }
+    offset += 1;
+    while offset < bytes.len() {
+        if offset >= stop {
+            return None;
+        }
+        match bytes[offset] {
+            b'"' => return Some(offset + 1),
+            b'\\' => offset += 2,
+            _ => offset += 1,
+        }
+    }
+    None
+}
+
+fn skip_json_number(bytes: &[u8], mut offset: usize) -> Option<usize> {
+    if bytes.get(offset) == Some(&b'-') {
+        offset += 1;
+    }
+    match bytes.get(offset)? {
+        b'0' => offset += 1,
+        b'1'..=b'9' => {
+            offset += 1;
+            while matches!(bytes.get(offset), Some(b'0'..=b'9')) {
+                offset += 1;
+            }
+        }
+        _ => return None,
+    }
+    if bytes.get(offset) == Some(&b'.') {
+        offset += 1;
+        if !matches!(bytes.get(offset), Some(b'0'..=b'9')) {
+            return None;
+        }
+        while matches!(bytes.get(offset), Some(b'0'..=b'9')) {
+            offset += 1;
+        }
+    }
+    if matches!(bytes.get(offset), Some(b'e' | b'E')) {
+        offset += 1;
+        if matches!(bytes.get(offset), Some(b'+' | b'-')) {
+            offset += 1;
+        }
+        if !matches!(bytes.get(offset), Some(b'0'..=b'9')) {
+            return None;
+        }
+        while matches!(bytes.get(offset), Some(b'0'..=b'9')) {
+            offset += 1;
+        }
+    }
+    Some(offset)
 }
 
 fn jsonrpc_fixture_error(
@@ -6351,6 +6508,38 @@ fn manifest_jsonrpc_fixture_rejects_root_message_and_envelope_failures() {
             "`jsonrpc` must be the string `2.0`",
         ),
         (
+            "[{\"jsonrpc\":\"2.0\",\"jsonrpc\":\"1.0\",\"method\":\"m\"}]",
+            "message 0 at $[0].jsonrpc: `jsonrpc` must not appear more than once",
+        ),
+        (
+            "[{\"jsonrpc\":\"1.0\",\"jsonrpc\":\"2.0\",\"method\":\"m\"}]",
+            "message 0 at $[0].jsonrpc: `jsonrpc` must not appear more than once",
+        ),
+        (
+            "[{\"jsonrpc\":\"2.0\",\"method\":\"m\",\"method\":false}]",
+            "message 0 at $[0].method: `method` must not appear more than once",
+        ),
+        (
+            "[{\"jsonrpc\":\"2.0\",\"method\":false,\"method\":\"m\"}]",
+            "message 0 at $[0].method: `method` must not appear more than once",
+        ),
+        (
+            "[{\"jsonrpc\":\"2.0\",\"method\":\"m\",\"id\":1,\"id\":true}]",
+            "message 0 at $[0].id: `id` must not appear more than once",
+        ),
+        (
+            "[{\"jsonrpc\":\"2.0\",\"method\":\"m\",\"id\":true,\"id\":1}]",
+            "message 0 at $[0].id: `id` must not appear more than once",
+        ),
+        (
+            "[{\"jsonrpc\":\"2.0\",\"method\":\"m\",\"params\":null,\"params\":\"bad\"}]",
+            "message 0 at $[0].params: `params` must not appear more than once",
+        ),
+        (
+            "[{\"jsonrpc\":\"2.0\",\"method\":\"m\",\"params\":\"bad\",\"params\":null}]",
+            "message 0 at $[0].params: `params` must not appear more than once",
+        ),
+        (
             "[{\"jsonrpc\":\"2.0\",\"method\":false}]",
             "message 0 at $[0].method: `method` must be a string",
         ),
@@ -6395,6 +6584,37 @@ fn manifest_jsonrpc_fixture_rejects_root_message_and_envelope_failures() {
             "expected `{expected}` in `{message}`"
         );
     }
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
+fn manifest_jsonrpc_fixture_reports_malformed_following_message_index() {
+    let root = test_temp_root("jsonrpc-fixture-malformed-index");
+    let case_dir = root.join("case");
+    fs::create_dir_all(&case_dir).expect("case directory should be created");
+    fs::write(
+        case_dir.join("requests.json"),
+        r#"[{"jsonrpc":"2.0","method":"first"},{"jsonrpc":"2.0","method":}]"#,
+    )
+    .expect("JSON-RPC fixture should be written");
+
+    let panic = std::panic::catch_unwind(|| {
+        parse_manifest(
+            &case_dir.join("case.toml"),
+            "command = [\"lsp\"]\nstdin_jsonrpc_file = \"requests.json\"\nexit = 0\n",
+        );
+    })
+    .expect_err("malformed following message should fail");
+    let message = panic_message(panic);
+    assert!(
+        message.contains("invalid JSON-RPC fixture `requests.json` message 1"),
+        "expected message index in `{message}`"
+    );
+    assert!(
+        message.contains("unexpected byte `}`"),
+        "expected parse position detail in `{message}`"
+    );
+
     fs::remove_dir_all(root).expect("case root should be removed");
 }
 

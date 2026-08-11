@@ -174,9 +174,11 @@ whose `method` member is a string. An `id` may be absent, a string, a number,
 or null. A `params` member may be absent, an object, an array, or null. The
 harness rejects response-shaped input containing `result` or `error`. It does
 not reject unknown methods, extension members, duplicate identifiers, or
-method-specific parameter values. JSON string escapes in the request file
-decode paired UTF-16 surrogates before framing and reject unpaired surrogate
-units before command startup.
+method-specific parameter values. The standard envelope members `jsonrpc`,
+`method`, `id`, and `params` must not appear more than once in the same
+message object. JSON string escapes in the request file decode paired UTF-16
+surrogates before framing and reject unpaired surrogate units before command
+startup.
 
 Any complete object value or array element in a structured request may use a
 `{"$case_text":"relative/path"}` directive. The object must contain only that
@@ -191,8 +193,9 @@ prefixes the body with `Content-Length: <UTF-8 byte length>\r\n\r\n` and
 concatenates frames in array order. Malformed JSON, root and element kind
 failures, envelope failures, malformed directives, and case-file failures stop
 manifest loading before skip evaluation, fixture copying, or command startup.
-Failures identify the indexed message and the JSON value position when a
-parsed value supplies that context. The `manifest_jsonrpc_*` tests in
+Failures identify the indexed message when the malformed input follows a
+complete preceding array element. Failures identify the JSON value position
+when a parsed value supplies that context. The `manifest_jsonrpc_*` tests in
 `toolchain_harness.rs` are the executable evidence for the accepted envelope
 matrix, exact framing, recursive expansion, resource boundaries, and lifecycle
 ordering. Existing `stdin`, `stdin_file`, and raw `.raw` framing cases keep
