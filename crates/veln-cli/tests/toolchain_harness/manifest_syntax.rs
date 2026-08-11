@@ -338,12 +338,12 @@ fn forbidden_decoded_spellings(text: &str) -> Vec<String> {
             index += 1;
             continue;
         }
-        if let Some(byte) = bytes.get(index + 1) {
-            if matches!(*byte, b'n' | b'r') {
-                findings.push(text[index..index + 2].to_string());
-                index += 2;
-                continue;
-            }
+        if let Some(byte) = bytes.get(index + 1)
+            && matches!(*byte, b'n' | b'r')
+        {
+            findings.push(text[index..index + 2].to_string());
+            index += 2;
+            continue;
         }
         if index + 6 <= bytes.len()
             && matches!(bytes.get(index + 1), Some(b'u'))
