@@ -1,5 +1,7 @@
 use super::*;
-use crate::types::{HandlerPathResolution, TypeEnvironment};
+use crate::types::environment::TypeEnvironment;
+use crate::types::private_inference::private_inference_counters;
+use crate::types::signatures::HandlerPathResolution;
 
 #[test]
 fn public_function_requires_explicit_type_boundary() {
@@ -682,7 +684,7 @@ fn private_function_may_omit_boundary_annotations_when_inference_is_complete() {
 
 #[test]
 fn fully_annotated_private_modules_do_not_scan_private_inference_bodies() {
-    crate::types::private_inference_counters::reset();
+    private_inference_counters::reset();
     let module = merged_modules(
         (0..8)
             .map(|module_index| {
@@ -698,7 +700,7 @@ fn fully_annotated_private_modules_do_not_scan_private_inference_bodies() {
     );
 
     let diagnostics = analyze_surface_module(&module);
-    let counters = crate::types::private_inference_counters::snapshot();
+    let counters = private_inference_counters::snapshot();
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     assert_eq!(counters.body_return_scans, 0, "{counters:#?}");
@@ -718,7 +720,7 @@ fn fully_annotated_private_modules_do_not_scan_private_inference_bodies() {
 
 #[test]
 fn omitted_private_signature_chain_skips_unrelated_annotated_modules() {
-    crate::types::private_inference_counters::reset();
+    private_inference_counters::reset();
     let mut sources = vec![SourceFile::new(
         "target.veln",
         concat!(
@@ -748,7 +750,7 @@ fn omitted_private_signature_chain_skips_unrelated_annotated_modules() {
     let module = merged_modules(sources);
 
     let diagnostics = analyze_surface_module(&module);
-    let counters = crate::types::private_inference_counters::snapshot();
+    let counters = private_inference_counters::snapshot();
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     assert!(counters.body_return_scans > 0, "{counters:#?}");
@@ -789,7 +791,7 @@ fn omitted_private_signature_chain_skips_unrelated_annotated_modules() {
 
 #[test]
 fn omitted_private_signature_chain_skips_unrelated_annotated_functions_in_same_module() {
-    crate::types::private_inference_counters::reset();
+    private_inference_counters::reset();
     let mut source = String::from(
         "mod target\n\
          fn identity(value)\n  value\nend\n\
@@ -806,7 +808,7 @@ fn omitted_private_signature_chain_skips_unrelated_annotated_functions_in_same_m
     let module = merged_modules(vec![SourceFile::new("target.veln", source)]);
 
     let diagnostics = analyze_surface_module(&module);
-    let counters = crate::types::private_inference_counters::snapshot();
+    let counters = private_inference_counters::snapshot();
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     assert_eq!(counters.body_return_scans, 2, "{counters:#?}");
@@ -843,7 +845,7 @@ fn omitted_private_signature_chain_skips_unrelated_annotated_functions_in_same_m
 
 #[test]
 fn omitted_private_signature_index_ignores_local_candidate_name_shadows() {
-    crate::types::private_inference_counters::reset();
+    private_inference_counters::reset();
     let source = SourceFile::new(
         "target.veln",
         concat!(
@@ -880,7 +882,7 @@ fn omitted_private_signature_index_ignores_local_candidate_name_shadows() {
     let module = merged_modules(vec![source]);
 
     let diagnostics = analyze_surface_module(&module);
-    let counters = crate::types::private_inference_counters::snapshot();
+    let counters = private_inference_counters::snapshot();
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     assert_eq!(counters.body_return_scans, 2, "{counters:#?}");
@@ -917,7 +919,7 @@ fn omitted_private_signature_index_ignores_local_candidate_name_shadows() {
 
 #[test]
 fn prelude_callback_return_inference_skips_unrelated_annotated_helpers() {
-    crate::types::private_inference_counters::reset();
+    private_inference_counters::reset();
     let mut source = String::from(
         "mod target\n\
          fn nested(value)\n  Some([])\nend\n\
@@ -939,7 +941,7 @@ fn prelude_callback_return_inference_skips_unrelated_annotated_helpers() {
     let module = merged_modules(vec![SourceFile::new("target.veln", source)]);
 
     let diagnostics = analyze_surface_module(&module);
-    let counters = crate::types::private_inference_counters::snapshot();
+    let counters = private_inference_counters::snapshot();
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     assert_eq!(counters.body_return_scans, 3, "{counters:#?}");
@@ -980,7 +982,7 @@ fn prelude_callback_return_inference_skips_unrelated_annotated_helpers() {
 
 #[test]
 fn prelude_callback_return_inference_has_zero_scan_when_helper_return_is_fixed() {
-    crate::types::private_inference_counters::reset();
+    private_inference_counters::reset();
     let mut source = String::from(
         "mod target\n\
          fn fixed(value)\n  \"ok\"\nend\n\
@@ -997,7 +999,7 @@ fn prelude_callback_return_inference_has_zero_scan_when_helper_return_is_fixed()
     let module = merged_modules(vec![SourceFile::new("target.veln", source)]);
 
     let diagnostics = analyze_surface_module(&module);
-    let counters = crate::types::private_inference_counters::snapshot();
+    let counters = private_inference_counters::snapshot();
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     assert_eq!(counters.body_return_scans, 1, "{counters:#?}");
@@ -1119,6 +1121,37 @@ fn private_helper_signature_infers_from_same_module_call_site() {
     let diagnostics = analyze_surface_module(&module);
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn private_helper_call_site_types_are_preserved_in_core() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn identity(value)\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "pub fn main() -> Int\n",
+            "  identity(1)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let identity = core
+        .functions
+        .iter()
+        .find(|function| function.name == "identity")
+        .expect("private helper should be lowered");
+    assert_eq!(identity.params.len(), 1);
+    assert_eq!(identity.params[0].ty, CoreType::int());
+    assert_eq!(identity.return_type, CoreType::int());
 }
 
 #[test]
