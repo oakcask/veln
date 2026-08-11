@@ -176,16 +176,18 @@ command specification.
 
 File-backed manifest operands use a case-relative portable path. The path
 cannot escape the case directory, traverse a link-like entry, or name anything
-except a regular UTF-8 file. The harness reads these files before skip
-evaluation, fixture setup, or command execution. Repeated invocations reuse
-the same discovered text snapshot. Checked-in files under `case-text/` are
-checked out as LF-normalized text unless the path ends in `.raw`,
-which reserves an exact-byte fixture convention for content that must not be
-line-ending normalized.
+except a regular UTF-8 file. Link-like operands fail at the offending entry
+without following or exposing the target. The harness reads and validates
+these files before skip evaluation, fixture setup, or command execution.
+Repeated invocations reuse the same discovered text snapshot. Checked-in
+files under `case-text/` are checked out as LF-normalized text unless the path
+ends in `.raw`, which reserves an exact-byte fixture convention for content
+that must not be line-ending normalized.
 
 The `manifest_sidecar_*` tests in `toolchain_harness.rs` are the executable
-evidence for sidecar path grammar, operand cardinality, exact text comparison,
-snapshot timing, and lifecycle ordering.
+evidence for sidecar path grammar, link rejection, operand cardinality, UTF-8
+validation before skip evaluation, exact text comparison, snapshot timing, and
+lifecycle ordering.
 
 Use `[[binary_fixture]]` and `[[output_chunk_list]]` only for test-owned binary
 fixture evidence. Binary fixture records compare named program-output lines
