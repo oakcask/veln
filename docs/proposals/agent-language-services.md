@@ -931,16 +931,16 @@ already implemented.
 
 ### Published Language Reference
 
-| Case | Expected result | Planned evidence |
+| Case | Expected result | Evidence |
 | --- | --- | --- |
-| Generate the syntax reference. | Its grammar is byte-equivalent to executable grammar output. | Grammar freshness check. |
-| Select a reference example. | The case and display files exist, and each selected file is a command source input for the specification harness case. | Reference catalog validator. |
-| Change a selected example or public table fragment. | The catalog freshness check fails until regenerated. | Generator freshness test. |
-| Change only development documentation. | The public reference digest and catalog remain unchanged. | Determinism fixture. |
-| Reorder equivalent catalog input or vary catalog-owned Unicode and line endings. | Canonical artifact bytes and the domain-separated digest follow the specified normalization. | Q17 canonical-catalog vectors. |
+| Generate the syntax reference. | Its grammar is byte-equivalent to executable grammar output. | Implemented `veln-repo-language-reference verify` freshness check with SWI-Prolog-backed grammar generation. |
+| Select a reference example. | The case and display files exist, and each selected file is a command source input for the specification harness case. | Implemented reference catalog validator. |
+| Change a selected example or public table fragment. | The catalog freshness check fails until regenerated. | Implemented generator freshness tests and CI freshness route. |
+| Change only development documentation. | The public reference digest and catalog remain unchanged. | Implemented deterministic catalog fixture. |
+| Reorder equivalent catalog input or vary catalog-owned Unicode and line endings. | Canonical artifact bytes and the domain-separated digest follow the specified normalization. | Implemented canonical-catalog vectors. |
 | Search a known language concept. | Results follow the query normalization, closed scopes, rank tiers, URI tie-break, deduplication, scalar excerpt, and truncation contract. | Q19 search matrix. |
 | Read a documentation resource through both routes. | The indivisible resource is within 262,144 UTF-8 bytes and both routes return identical complete bytes and metadata. | Q19 bounded-read route equality. |
-| Inspect the published catalog. | It contains no proposal text, maintenance route, or repository path. | Bundle content policy check. |
+| Inspect the published catalog. | It contains no proposal text, maintenance route, or repository path. | Implemented bundle content policy check. |
 | Generate MCP and offline Markdown views. | Both views reproduce the catalog's topic metadata, ordered semantic blocks, snippets, and expected-result text. | Cross-renderer semantic-model test. |
 
 ### Plugin
@@ -997,6 +997,8 @@ targets, canonicalizes set-valued descriptor fields, rejects bundle provenance
 leaks, verifies lexer-owned token projection coverage, and generates canonical
 schema-v1 bytes and a domain-separated digest from the executable grammar,
 checked examples, and lexer-owned public token tables.
+The freshness route runs SWI-Prolog explicitly and is checked by CI when the
+executable grammar, selected examples, generator, or checked artifact changes.
 The remaining slices are:
 
 1. Add `veln mcp`, resources, documentation tools, project diagnostics,

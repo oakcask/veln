@@ -180,44 +180,10 @@ fn read_ident_or_keyword(text: &str, start: usize, first: char, chars: &mut Char
 }
 
 fn keyword_kind(text: &str) -> Option<TokenKind> {
-    let kind = match text {
-        "pub" => TokenKind::Pub,
-        "fn" => TokenKind::Fn,
-        "type" => TokenKind::Type,
-        "schema" => TokenKind::Schema,
-        "codec" => TokenKind::Codec,
-        "for" => TokenKind::For,
-        "decode" => TokenKind::Decode,
-        "encode" => TokenKind::Encode,
-        "derive" => TokenKind::Derive,
-        "with" => TokenKind::With,
-        "format" => TokenKind::Format,
-        "where" => TokenKind::Where,
-        "test" => TokenKind::Test,
-        "effect" => TokenKind::Effect,
-        "effects" => TokenKind::Effects,
-        "perform" => TokenKind::Perform,
-        "handler" => TokenKind::Handler,
-        "handles" => TokenKind::Handles,
-        "handle" => TokenKind::Handle,
-        "let" => TokenKind::Let,
-        "end" => TokenKind::End,
-        "require" => TokenKind::Require,
-        "ensure" => TokenKind::Ensure,
-        "invariant" => TokenKind::Invariant,
-        "mod" => TokenKind::Mod,
-        "use" => TokenKind::Use,
-        "from" => TokenKind::From,
-        "at" => TokenKind::At,
-        "match" => TokenKind::Match,
-        "if" => TokenKind::If,
-        "else" => TokenKind::Else,
-        "or" => TokenKind::Or,
-        "and" => TokenKind::And,
-        "not" => TokenKind::Not,
-        _ => return None,
-    };
-    Some(kind)
+    TokenKind::KEYWORDS
+        .iter()
+        .copied()
+        .find(|kind| kind.label() == text)
 }
 
 fn read_underscore_or_ident(text: &str, start: usize, chars: &mut CharIter<'_>) -> Token {
@@ -244,67 +210,41 @@ fn read_underscore_or_ident(text: &str, start: usize, chars: &mut CharIter<'_>) 
 }
 
 fn read_symbol_token(start: usize, ch: char, chars: &mut CharIter<'_>) -> Token {
-    if ch == '>' && chars.peek().is_some_and(|(_, next)| *next == '>') {
-        chars.next();
-        if chars.peek().is_some_and(|(_, next)| *next == '>') {
-            chars.next();
-            return token(TokenKind::ShiftRightLogical, ">>>", start, start + 3);
-        }
-        return token(TokenKind::ShiftRight, ">>", start, start + 2);
-    }
-    if let Some((next, kind)) = two_char_symbol_kind(ch, chars.peek().map(|(_, next)| *next)) {
-        chars.next();
+    let Some((kind, spelling)) = symbol_kind(ch, chars) else {
         return token(
-            kind,
-            format!("{ch}{next}"),
+            TokenKind::Invalid,
+            ch.to_string(),
             start,
-            start + ch.len_utf8() + next.len_utf8(),
+            start + ch.len_utf8(),
         );
-    }
-
-    let kind = match ch {
-        '(' => TokenKind::LParen,
-        ')' => TokenKind::RParen,
-        '[' => TokenKind::LBracket,
-        ']' => TokenKind::RBracket,
-        '{' => TokenKind::LBrace,
-        '}' => TokenKind::RBrace,
-        ',' => TokenKind::Comma,
-        ';' => TokenKind::Semicolon,
-        '.' => TokenKind::Dot,
-        ':' => TokenKind::Colon,
-        '|' => TokenKind::Pipe,
-        '&' => TokenKind::Ampersand,
-        '^' => TokenKind::Caret,
-        '~' => TokenKind::Tilde,
-        '-' => TokenKind::Minus,
-        '=' => TokenKind::Equal,
-        '<' => TokenKind::Less,
-        '>' => TokenKind::Greater,
-        '?' => TokenKind::Question,
-        '+' => TokenKind::Plus,
-        '*' => TokenKind::Star,
-        '/' => TokenKind::Slash,
-        _ => TokenKind::Invalid,
     };
-    token(kind, ch.to_string(), start, start + ch.len_utf8())
+    for _ in ch.len_utf8()..spelling.len() {
+        chars.next();
+    }
+    token(kind, spelling, start, start + spelling.len())
 }
 
-fn two_char_symbol_kind(ch: char, next: Option<char>) -> Option<(char, TokenKind)> {
-    let next = next?;
-    let kind = match (ch, next) {
-        (':', ':') => TokenKind::DoubleColon,
-        ('-', '>') => TokenKind::Arrow,
-        ('=', '>') => TokenKind::FatArrow,
-        ('=', '=') => TokenKind::EqualEqual,
-        ('!', '=') => TokenKind::BangEqual,
-        ('<', '=') => TokenKind::LessEqual,
-        ('<', '<') => TokenKind::ShiftLeft,
-        ('>', '=') => TokenKind::GreaterEqual,
-        ('|', '>') => TokenKind::PipeGreater,
-        _ => return None,
-    };
-    Some((next, kind))
+fn symbol_kind(ch: char, chars: &mut CharIter<'_>) -> Option<(TokenKind, &'static str)> {
+    TokenKind::PUNCTUATION
+        .iter()
+        .copied()
+        .filter_map(|kind| {
+            let spelling = kind.label();
+            if !spelling.starts_with(ch) || !matches_symbol_tail(spelling, ch, chars.clone()) {
+                return None;
+            }
+            Some((kind, spelling))
+        })
+        .max_by_key(|(_, spelling)| spelling.len())
+}
+
+fn matches_symbol_tail(spelling: &str, first: char, mut chars: CharIter<'_>) -> bool {
+    for expected in spelling[first.len_utf8()..].chars() {
+        if !chars.next().is_some_and(|(_, actual)| actual == expected) {
+            return false;
+        }
+    }
+    true
 }
 
 fn token(kind: TokenKind, text: impl Into<String>, start: usize, end: usize) -> Token {
@@ -321,24 +261,12 @@ fn is_ident_continue(ch: char) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
-
     use veln_source::SourceFile;
 
-    use super::keyword_kind;
     use crate::{TokenKind, lex};
 
     #[test]
     fn public_keyword_table_matches_lexer_keyword_mapping() {
-        let lexer_keywords = keyword_spellings()
-            .iter()
-            .map(|spelling| keyword_kind(spelling).expect("spelling should be a keyword"))
-            .collect::<Vec<_>>();
-        assert_eq!(
-            kind_indices(&lexer_keywords),
-            kind_indices(TokenKind::KEYWORDS)
-        );
-
         for kind in TokenKind::KEYWORDS {
             let token = lex_single(kind.label());
             assert_eq!(
@@ -352,15 +280,6 @@ mod tests {
 
     #[test]
     fn public_punctuation_table_matches_lexer_symbol_mapping() {
-        let lexer_symbols = symbol_spellings()
-            .iter()
-            .map(|spelling| lex_single(spelling))
-            .collect::<Vec<_>>();
-        assert_eq!(
-            kind_indices(&lexer_symbols),
-            kind_indices(TokenKind::PUNCTUATION)
-        );
-
         for kind in TokenKind::PUNCTUATION {
             let token = lex_single(kind.label());
             assert_eq!(
@@ -377,56 +296,5 @@ mod tests {
         let lexed = lex(&source);
         assert_eq!(lexed.tokens.len(), 2);
         lexed.tokens[0].kind
-    }
-
-    fn kind_indices(kinds: &[TokenKind]) -> BTreeSet<usize> {
-        kinds.iter().map(|kind| *kind as usize).collect()
-    }
-
-    fn keyword_spellings() -> &'static [&'static str] {
-        &[
-            "pub",
-            "fn",
-            "type",
-            "schema",
-            "codec",
-            "for",
-            "decode",
-            "encode",
-            "derive",
-            "with",
-            "format",
-            "where",
-            "test",
-            "effect",
-            "effects",
-            "perform",
-            "handler",
-            "handles",
-            "handle",
-            "let",
-            "end",
-            "require",
-            "ensure",
-            "invariant",
-            "mod",
-            "use",
-            "from",
-            "at",
-            "match",
-            "if",
-            "else",
-            "or",
-            "and",
-            "not",
-        ]
-    }
-
-    fn symbol_spellings() -> &'static [&'static str] {
-        &[
-            "(", ")", "[", "]", "{", "}", ",", ";", ":", ".", "::", "->", "=>", "|>", "|", "&",
-            "^", "~", "<<", ">>", ">>>", "?", "_", "=", "==", "!=", "<", "<=", ">", ">=", "+", "-",
-            "*", "/",
-        ]
     }
 }

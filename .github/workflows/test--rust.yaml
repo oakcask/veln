@@ -11,8 +11,11 @@ on:
       - Cargo.toml
       - crates/**/Cargo.toml
       - crates/**/*.rs
+      - docs/specification/source-surface-executable.pl
+      - examples/specification/**
       - tools/**/Cargo.toml
       - tools/**/*.rs
+      - tools/veln-repo-language-reference/artifacts/**
   pull_request:
     paths:
       - .github/workflows/test--rust.yaml
@@ -21,8 +24,11 @@ on:
       - Cargo.toml
       - crates/**/Cargo.toml
       - crates/**/*.rs
+      - docs/specification/source-surface-executable.pl
+      - examples/specification/**
       - tools/**/Cargo.toml
       - tools/**/*.rs
+      - tools/veln-repo-language-reference/artifacts/**
 
 permissions:
   contents: read
@@ -135,3 +141,14 @@ jobs:
             rust-build-${{ runner.os }}-nextest-${{ env.NEXTEST_VERSION }}-
       - name: Run Rust doctests
         run: cargo test --locked --workspace --doc
+
+  language-reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Install SWI-Prolog for language-reference freshness
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes swi-prolog-nox
+      - name: Verify language-reference artifact matches executable inputs
+        run: cargo run --locked -p veln-repo-language-reference -- verify

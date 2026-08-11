@@ -350,11 +350,11 @@ fn validate_descriptors(
         }
         if [topic.title, topic.summary, topic.body]
             .iter()
-            .any(|value| value.trim().is_empty())
-            || topic.keywords.is_empty()
+            .any(|value| normalize_text(value).trim().is_empty())
         {
             return Err(format!("topic `{}` is missing required metadata", topic.id));
         }
+        validate_normalized_set(topic.id, "keywords", topic.keywords)?;
     }
     for topic in topics {
         let mut relations = BTreeSet::new();
@@ -382,6 +382,26 @@ fn validate_descriptors(
     Ok(())
 }
 
+fn validate_normalized_set(topic_id: &str, field: &str, values: &[&str]) -> Result<(), String> {
+    if values.is_empty() {
+        return Err(format!("topic `{topic_id}` has empty `{field}`"));
+    }
+
+    let mut normalized_values = BTreeSet::new();
+    for value in values {
+        let normalized = normalize_text(value);
+        if normalized.trim().is_empty() {
+            return Err(format!("topic `{topic_id}` has empty `{field}` value"));
+        }
+        if !normalized_values.insert(normalized) {
+            return Err(format!(
+                "topic `{topic_id}` has duplicate `{field}` value after normalization"
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn valid_topic_id(id: &str) -> bool {
     !id.is_empty()
         && !id.starts_with('-')
@@ -396,6 +416,11 @@ fn validate_example(
     topic_id: &str,
     example: &ExampleDescriptor,
 ) -> Result<(), String> {
+    if normalize_text(example.name).trim().is_empty() {
+        return Err(format!(
+            "topic `{topic_id}` selects an example with an empty display name"
+        ));
+    }
     for value in [example.case, example.file] {
         if Path::new(value).is_absolute()
             || Path::new(value)
@@ -830,6 +855,25 @@ mod tests {
             name: "missing",
         }];
         assert!(validate_descriptors(&workspace(), &bad_file, &grammar()).is_err());
+    }
+
+    #[test]
+    fn invalid_keyword_metadata_and_example_names_are_rejected() {
+        let mut empty_keyword = TOPICS.to_vec();
+        empty_keyword[0].keywords = &["grammar", " "];
+        assert!(validate_descriptors(&workspace(), &empty_keyword, &grammar()).is_err());
+
+        let mut duplicate_keyword = TOPICS.to_vec();
+        duplicate_keyword[0].keywords = &["e\u{301}", "\u{e9}"];
+        assert!(validate_descriptors(&workspace(), &duplicate_keyword, &grammar()).is_err());
+
+        let mut empty_name = TOPICS.to_vec();
+        empty_name[0].examples = &[ExampleDescriptor {
+            case: "check/source-surface",
+            file: "main.veln",
+            name: " ",
+        }];
+        assert!(validate_descriptors(&workspace(), &empty_name, &grammar()).is_err());
     }
 
     #[test]
