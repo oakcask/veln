@@ -15,10 +15,10 @@ policy, build preflight, runtime stale inventory barrier, and checked-in
 case-text migration are current harness behavior. Their normative route is
 [Toolchain Test Harness](../reference/toolchain-test-harness.md).
 
-The remaining work lets LSP assertions target decoded response messages when
-message structure is the observable behavior, then migrates representative
-cases without weakening checks. Raw stream assertions remain available for
-framing-specific cases.
+Implemented LSP assertions now target decoded responses and notifications when
+message structure is the observable behavior. The remaining work migrates
+representative cases without weakening checks. Raw stream assertions remain
+available for framing-specific cases.
 
 ## Current Behavior Route
 
@@ -125,6 +125,7 @@ following executable evidence. The harness reference is the current contract.
 | Select object keys and arrays with JSON Pointers, including escape and index boundaries. | Exact decoded keys and canonical in-range array indexes resolve; invalid traversal and absent values remain distinct. | The `decoded_lsp_*pointer*` tests. |
 | Use every operation with existing, missing, and wrong-kind values or selectors. | Only the operation's declared value and kind contract succeeds. | The `decoded_lsp_operations_*` and `decoded_lsp_equals_file_*` tests. |
 | Combine raw and semantic failures and run differing repeated streams. | Both consumers report independently, and repeat findings retain run and assertion order. | The `raw_stdout_and_decoded_lsp_*` and `repeated_run_failures_*` tests. |
+| Record migrated LSP assertions in the semantic baseline. | The baseline captures each selector, path, operation, and operand so later migrations can be compared. | `examples/specification/lsp/publish-diagnostics/case.toml` and `toolchain-case-semantics.baseline`. |
 
 ## Remaining Acceptance Model
 
