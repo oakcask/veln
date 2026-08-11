@@ -14,13 +14,15 @@ examples.
 
 The topic descriptors select grammar production names and files from existing
 specification cases. Generation fails when an identifier is invalid or
-duplicated, required metadata is empty, a relation or grammar production is
-invalid, or a selected file is not one of the manifest command's source input
-paths. A file mentioned only by diagnostics, assertions, or other expectation
-metadata is not a selected command target. The selected cases remain executable
-through the toolchain harness. The artifact includes the selected source text
-but does not include case names, repository paths, proposal text, or
-maintenance commands.
+duplicated, required metadata is empty after text normalization, a set-valued
+descriptor field is empty or duplicated after normalization, a relation or
+grammar production is invalid, a selected example display name is empty after
+normalization, or a selected file is not one of the manifest command's source
+input paths. A file mentioned only by diagnostics, assertions, or other
+expectation metadata is not a selected command target. The selected cases
+remain executable through the toolchain harness. The artifact includes the
+selected source text but does not include case names, repository paths, proposal
+text, or maintenance commands.
 
 The executable grammar supplies the complete grammar and selected production
 blocks. The lexer-owned keyword and punctuation tables supply the public token

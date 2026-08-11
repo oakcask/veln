@@ -992,11 +992,11 @@ does not implement dependency reference search or MCP resources.
 The transport-independent published language-reference generation foundation
 is implemented and specified in
 [Published Language Reference Artifact](../specification/language-reference.md).
-It validates the closed v1 topic descriptors and selected harness command
-targets, canonicalizes set-valued descriptor fields, rejects bundle provenance
-leaks, verifies lexer-owned token projection coverage, and generates canonical
-schema-v1 bytes and a domain-separated digest from the executable grammar,
-checked examples, and lexer-owned public token tables.
+It validates the closed v1 topic descriptors, normalized set-valued descriptor
+fields, example display names, and selected harness command targets, rejects
+bundle provenance leaks, verifies lexer-owned token projection coverage, and
+generates canonical schema-v1 bytes and a domain-separated digest from the
+executable grammar, checked examples, and lexer-owned public token tables.
 The freshness route runs SWI-Prolog explicitly and is checked by CI when the
 executable grammar, selected examples, generator, or checked artifact changes.
 The remaining slices are:
