@@ -4268,6 +4268,59 @@ fn toolchain_inventory_rejects_links_without_following_them() {
 
 #[cfg(unix)]
 #[test]
+fn toolchain_inventory_rejects_root_links_without_following_them() {
+    use std::os::unix::fs::symlink;
+
+    let root = test_temp_root("inventory-root-links");
+    fs::create_dir_all(root.join("external/hidden")).expect("target case directory should exist");
+    fs::write(
+        root.join("external/hidden/case.toml"),
+        "command = [\"check\"]\nexit = 0\n",
+    )
+    .expect("target case manifest should be written");
+    symlink("external", root.join("linked-root")).expect("root symlink should be created");
+
+    let error = toolchain_case_inventory::run_preflight_with_roots(
+        &root,
+        &[test_discovery_root("linked-root", "linked-root")],
+    )
+    .expect_err("root symlink should fail discovery before traversal");
+
+    assert!(error.contains("linked-root: replace the link or reparse point"));
+    assert!(
+        !error.contains("hidden"),
+        "discovery should not resolve root symlink targets"
+    );
+
+    fs::remove_dir_all(root).expect("inventory root should be removed");
+}
+
+#[cfg(unix)]
+#[test]
+fn toolchain_inventory_rejects_broken_root_links_without_resolving_them() {
+    use std::os::unix::fs::symlink;
+
+    let root = test_temp_root("inventory-broken-root-link");
+    symlink("missing-target", root.join("linked-root"))
+        .expect("broken root symlink should be created");
+
+    let error = toolchain_case_inventory::run_preflight_with_roots(
+        &root,
+        &[test_discovery_root("linked-root", "linked-root")],
+    )
+    .expect_err("broken root symlink should fail as a link-like root");
+
+    assert!(error.contains("linked-root: replace the link or reparse point"));
+    assert!(
+        !error.contains("missing-target"),
+        "discovery should not resolve broken root link targets"
+    );
+
+    fs::remove_dir_all(root).expect("inventory root should be removed");
+}
+
+#[cfg(unix)]
+#[test]
 fn toolchain_inventory_rejects_broken_file_links_and_link_cycles() {
     use std::os::unix::fs::symlink;
 
@@ -4299,6 +4352,36 @@ fn toolchain_inventory_rejects_broken_file_links_and_link_cycles() {
     assert!(
         !error.contains("missing-target"),
         "discovery should not resolve broken link targets"
+    );
+
+    fs::remove_dir_all(root).expect("inventory root should be removed");
+}
+
+#[cfg(windows)]
+#[test]
+fn toolchain_inventory_rejects_windows_reparse_point_roots() {
+    use std::os::windows::fs::symlink_dir;
+
+    let root = test_temp_root("inventory-windows-root-reparse");
+    fs::create_dir_all(root.join("external/hidden")).expect("target case directory should exist");
+    fs::write(
+        root.join("external/hidden/case.toml"),
+        "command = [\"check\"]\nexit = 0\n",
+    )
+    .expect("target case manifest should be written");
+    symlink_dir(root.join("external"), root.join("linked-root"))
+        .expect("root reparse point should be created");
+
+    let error = toolchain_case_inventory::run_preflight_with_roots(
+        &root,
+        &[test_discovery_root("linked-root", "linked-root")],
+    )
+    .expect_err("root reparse point should fail discovery before traversal");
+
+    assert!(error.contains("linked-root: replace the link or reparse point"));
+    assert!(
+        !error.contains("hidden"),
+        "discovery should not resolve root reparse point targets"
     );
 
     fs::remove_dir_all(root).expect("inventory root should be removed");

@@ -200,6 +200,24 @@ fn validate_roots<'a>(manifest_dir: &Path, roots: &'a [DiscoveryRoot]) -> RootVa
     let mut canonical = Vec::new();
     for root in roots {
         let path = manifest_dir.join(root.relative);
+        match fs::symlink_metadata(&path) {
+            Ok(metadata) => {
+                if is_link_like(&metadata) {
+                    errors.push(format!(
+                        "{}: replace the link or reparse point with a regular discovery root; discovery never follows roots that can hide or escape the configured case tree",
+                        root.id
+                    ));
+                    continue;
+                }
+            }
+            Err(error) => {
+                errors.push(format!(
+                    "{}: discovery root must be readable before toolchain case generation: {error}",
+                    root.id
+                ));
+                continue;
+            }
+        }
         match fs::canonicalize(&path) {
             Ok(path) => canonical.push((root, path)),
             Err(error) => errors.push(format!(
