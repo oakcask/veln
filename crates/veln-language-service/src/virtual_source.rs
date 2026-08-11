@@ -248,6 +248,26 @@ mod tests {
     }
 
     #[test]
+    fn changed_manifest_digest_changes_every_source_uri() {
+        let root = TempPackage::new(&[("main.veln", b"unchanged\n")]);
+        let identity = PackageIdentity::new("package").unwrap();
+        let before = capture_package_snapshot(root.path()).unwrap();
+        fs::write(
+            root.path().join("veln.toml"),
+            b"[package]\nname = \"fixture\"\n\n",
+        )
+        .unwrap();
+        let after = capture_package_snapshot(root.path()).unwrap();
+        let before_catalog = VirtualSourceCatalog::new([(identity.clone(), before)]).unwrap();
+        let after_catalog = VirtualSourceCatalog::new([(identity, after)]).unwrap();
+
+        assert_ne!(
+            before_catalog.entries().next().unwrap().uri(),
+            after_catalog.entries().next().unwrap().uri()
+        );
+    }
+
+    #[test]
     fn resolver_rejects_every_noncanonical_or_malformed_class() {
         let root = TempPackage::new(&[("dir/main.veln", b"main\n")]);
         let snapshot = capture_package_snapshot(root.path()).unwrap();
