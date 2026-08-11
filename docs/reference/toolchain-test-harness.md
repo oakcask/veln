@@ -50,6 +50,14 @@ the current inventory and compares it with the generated list. A mismatch
 fails every generated case with added or removed descriptors and directs the
 maintainer to rebuild the harness.
 
+The `runtime_inventory_barrier_*`, `toolchain_policy_preflight_*`, and
+`synthetic_policy_guard_*` tests in `toolchain_harness.rs` are the executable
+evidence for stale generated inventory, shared policy preflight, and
+before-lifecycle ordering. The stale generated inventory test exercises the
+generated-case entry path, so the production guard reaches the runtime
+inventory comparison before skip evaluation, fixture copying, resource loading,
+or command execution.
+
 Cases are grouped by command or behavior area. The harness owns command
 execution, fixture copying, exit-status checks, stream checks, JSON
 assertions, diagnostic selectors, and file content assertions.
@@ -158,6 +166,10 @@ cannot escape the case directory, traverse a link-like entry, or name anything
 except a regular UTF-8 file. The harness reads these files before skip
 evaluation, fixture setup, or command execution. Repeated invocations reuse
 the same discovered text snapshot.
+
+The `manifest_sidecar_*` tests in `toolchain_harness.rs` are the executable
+evidence for sidecar path grammar, operand cardinality, exact text comparison,
+snapshot timing, and lifecycle ordering.
 
 Use `[[binary_fixture]]` and `[[output_chunk_list]]` only for test-owned binary
 fixture evidence. Binary fixture records compare named program-output lines

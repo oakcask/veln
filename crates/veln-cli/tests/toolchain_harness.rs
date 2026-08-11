@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::Write;
@@ -28,6 +29,10 @@ use manifest_syntax::{Statement as ManifestStatement, Value as ManifestValue};
 
 static NEXT_TEST_DIR: AtomicUsize = AtomicUsize::new(0);
 const SOURCE_DIAGNOSTIC_ARTIFACT_ENV: &str = "VELN_HARNESS_SOURCE_DIAGNOSTICS";
+
+thread_local! {
+    static TEST_GENERATED_TOOLCHAIN_CASES: RefCell<Option<Vec<String>>> = const { RefCell::new(None) };
+}
 
 include!(concat!(env!("OUT_DIR"), "/toolchain_cases.rs"));
 
@@ -145,10 +150,25 @@ fn is_generated_inventory_member(case_dir: &Path) -> bool {
         return false;
     };
     let relative = relative.to_string_lossy().replace('\\', "/");
-    GENERATED_TOOLCHAIN_CASES.contains(&relative.as_str())
+    generated_toolchain_cases_contains(&relative)
 }
 
 fn runtime_generated_inventory_barrier() {
+    if let Some(error) = TEST_GENERATED_TOOLCHAIN_CASES.with(|cases| {
+        let borrowed = cases.borrow();
+        let Some(generated) = borrowed.as_ref() else {
+            return None;
+        };
+        let generated = generated.iter().map(String::as_str).collect::<Vec<_>>();
+        toolchain_case_inventory::compare_generated_inventory(
+            Path::new(env!("CARGO_MANIFEST_DIR")),
+            &generated,
+        )
+        .err()
+    }) {
+        panic!("{error}");
+    }
+
     static BARRIER: RuntimeInventoryBarrier = RuntimeInventoryBarrier::new();
     BARRIER.check_with(|| {
         toolchain_case_inventory::compare_generated_inventory(
@@ -157,6 +177,37 @@ fn runtime_generated_inventory_barrier() {
         )
         .map(|_| ())
     });
+}
+
+fn generated_toolchain_cases_contains(relative: &str) -> bool {
+    TEST_GENERATED_TOOLCHAIN_CASES.with(|cases| {
+        cases.borrow().as_ref().map_or_else(
+            || GENERATED_TOOLCHAIN_CASES.contains(&relative),
+            |generated| generated.iter().any(|case| case == relative),
+        )
+    })
+}
+
+fn with_test_generated_toolchain_cases(generated: Vec<String>, test: impl FnOnce()) {
+    struct Reset;
+
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            TEST_GENERATED_TOOLCHAIN_CASES.with(|cases| {
+                *cases.borrow_mut() = None;
+            });
+        }
+    }
+
+    TEST_GENERATED_TOOLCHAIN_CASES.with(|cases| {
+        assert!(
+            cases.borrow().is_none(),
+            "test generated inventory override should not be nested"
+        );
+        *cases.borrow_mut() = Some(generated);
+    });
+    let _reset = Reset;
+    test();
 }
 
 struct RuntimeInventoryBarrier {
@@ -4745,15 +4796,28 @@ fn fixture_copy_rejects_links_before_command_execution() {
     fs::remove_dir_all(root).expect("copy link root should be removed");
 }
 
+#[cfg(unix)]
 #[test]
 fn runtime_inventory_barrier_failure_blocks_generated_case_lifecycle() {
-    let root = test_temp_root("runtime-barrier-block");
-    let case_dirs = [root.join("stale-a"), root.join("stale-b")];
-    for case_dir in &case_dirs {
-        fs::create_dir_all(case_dir).expect("case directory should be created");
-        fs::write(
-            case_dir.join("case.toml"),
-            r#"
+    use std::os::unix::fs::symlink;
+
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let case_dir = manifest_dir.join("target/runtime-barrier-block/stale-generated");
+    let _ = fs::remove_dir_all(&case_dir);
+    fs::create_dir_all(&case_dir).expect("case directory should be created");
+    fs::write(
+        manifest_dir.join("target/runtime-barrier-target.txt"),
+        "target",
+    )
+    .expect("link target should be written");
+    symlink(
+        "../runtime-barrier-target.txt",
+        case_dir.join("fixture-link.txt"),
+    )
+    .expect("fixture sentinel link should be created");
+    fs::write(
+        case_dir.join("case.toml"),
+        r#"
 command = ["run-command-that-must-not-start"]
 stdin_file = "case-text/missing-sidecar.txt"
 exit = 0
@@ -4762,36 +4826,52 @@ exit = 0
 platforms = ["linux", "macos", "windows"]
 reason = "skip evaluation must not run after stale inventory"
 "#,
-        )
-        .expect("case manifest should be written");
-    }
+    )
+    .expect("case manifest should be written");
 
-    for case_dir in &case_dirs {
-        let panic = std::panic::catch_unwind(|| {
-            run_case_with_guard_and_after_invocation(
-                case_dir,
-                |_| panic!("stale generated inventory blocks every generated case"),
-                |_, project_root| {
-                    fs::write(project_root.join("command-started"), "started")
-                        .expect("command marker should be writable");
-                },
-            );
-        })
-        .expect_err("stale inventory should stop generated case execution");
+    let relative = case_dir
+        .strip_prefix(manifest_dir)
+        .expect("stale generated case should be under manifest dir")
+        .to_string_lossy()
+        .replace('\\', "/");
+    assert!(!GENERATED_TOOLCHAIN_CASES.contains(&relative.as_str()));
+    let mut stale_generated = GENERATED_TOOLCHAIN_CASES
+        .iter()
+        .map(|case| (*case).to_string())
+        .collect::<Vec<_>>();
+    stale_generated.push(relative.clone());
+    with_test_generated_toolchain_cases(stale_generated, || {
+        assert!(is_generated_inventory_member(&case_dir));
+        let panic = std::panic::catch_unwind(|| run_case(&case_dir))
+            .expect_err("stale inventory should stop generated case execution");
         let message = panic_message(panic);
 
-        assert!(message.contains("stale generated inventory blocks every generated case"));
+        assert!(message.contains("toolchain case preflight found"));
+        assert!(message.contains(&format!(
+            "{relative}: rebuild the toolchain harness because this generated case manifest is no longer discovered"
+        )));
         assert!(
             !message.contains("skip evaluation must not run"),
             "skip evaluation should be bypassed by the runtime barrier"
         );
         assert!(
+            !message.contains("replace the link or reparse point"),
+            "fixture copying should be bypassed by the runtime barrier"
+        );
+        assert!(
             !message.contains("missing-sidecar"),
             "resource loading should be bypassed by the runtime barrier"
         );
-    }
+        assert!(
+            !message.contains("run-command-that-must-not-start"),
+            "command execution should be bypassed by the runtime barrier"
+        );
+    });
 
-    fs::remove_dir_all(root).expect("runtime root should be removed");
+    fs::remove_dir_all(manifest_dir.join("target/runtime-barrier-block"))
+        .expect("runtime root should be removed");
+    fs::remove_file(manifest_dir.join("target/runtime-barrier-target.txt"))
+        .expect("link target should be removed");
 }
 
 #[test]
