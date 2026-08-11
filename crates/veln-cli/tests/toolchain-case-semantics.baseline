@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"173f426953069f7cb41efad21447a1275c4e0428"
+source_git_tree	"4b4e63272126b02436681b4b3dc4f0e66cce94b9"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1508
@@ -10235,21 +10235,31 @@ field	source_errors	"forbidden"
 case_digest	"fc295381aa45b09be107333faee0dcde578706e4bbed0aebe5b9f12e5a7bbfcc"
 case	"examples/specification/lsp/publish-diagnostics"
 field	expectations.exit	0
-field	expectations.lsp_assertions[0].equals	null
-field	expectations.lsp_assertions[0].id	2
+field	expectations.lsp_assertions[0].equals	true
+field	expectations.lsp_assertions[0].id	1
 field	expectations.lsp_assertions[0].operation	"equals"
-field	expectations.lsp_assertions[0].path	"/result"
+field	expectations.lsp_assertions[0].path	"/result/capabilities/semanticTokensProvider/full"
+field	expectations.lsp_assertions[1].equals	"name.unresolved"
+field	expectations.lsp_assertions[1].method	"textDocument/publishDiagnostics"
+field	expectations.lsp_assertions[1].occurrence	0
+field	expectations.lsp_assertions[1].operation	"equals"
+field	expectations.lsp_assertions[1].path	"/params/diagnostics/1/code"
+field	expectations.lsp_assertions[2].equals	[]
+field	expectations.lsp_assertions[2].method	"textDocument/publishDiagnostics"
+field	expectations.lsp_assertions[2].occurrence	1
+field	expectations.lsp_assertions[2].operation	"equals"
+field	expectations.lsp_assertions[2].path	"/params/diagnostics"
+field	expectations.lsp_assertions[3].equals	null
+field	expectations.lsp_assertions[3].id	2
+field	expectations.lsp_assertions[3].operation	"equals"
+field	expectations.lsp_assertions[3].path	"/result"
 field	expectations.stderr.format	"empty"
-field	expectations.stdout.contains[0]	"\"semanticTokensProvider\""
-field	expectations.stdout.contains[1]	"\"method\":\"textDocument/publishDiagnostics\""
-field	expectations.stdout.contains[2]	"\"code\":\"name.unresolved\""
-field	expectations.stdout.contains[3]	"\"diagnostics\":[]"
-field	expectations.stdout.contains[4]	"\"id\":2,\"result\":null"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":571,"sha256":"9a65346dfa3bd9006f05f199db8f8ef63481720dd25b4563b457afea51f2a917"}
+field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"forbidden"
-case_digest	"fd87d80dda14fb09a50630ef4f3065b6b87f953c90f277209648887986ed1509"
+case_digest	"ca69c6756b2f0e3806c292ee55e0de5878dad8e764ef73729f139c082649e366"
 case	"examples/specification/lsp/reexported-constructor-bare-prelude-definition"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -10282,29 +10292,46 @@ field	source_errors	"forbidden"
 case_digest	"f8257ea363167fad2fd3abf2ee2c54b40e5287e1c2a1216d62830ddebd8036c1"
 case	"examples/specification/lsp/semantic-tokens"
 field	expectations.exit	0
+field	expectations.lsp_assertions[0].equals	true
+field	expectations.lsp_assertions[0].id	1
+field	expectations.lsp_assertions[0].operation	"equals"
+field	expectations.lsp_assertions[0].path	"/result/capabilities/semanticTokensProvider/full"
+field	expectations.lsp_assertions[1].equals	[0,0,3,7,0,0,4,2,7,0,0,3,4,6,1,0,4,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,3,1,0,0,4,7,7,0,0,8,1,11,0,0,1,1,11,0,1,2,1,10,0,1,0,3,7,0]
+field	expectations.lsp_assertions[1].id	2
+field	expectations.lsp_assertions[1].operation	"equals"
+field	expectations.lsp_assertions[1].path	"/result/data"
+field	expectations.lsp_assertions[2].equals	null
+field	expectations.lsp_assertions[2].id	3
+field	expectations.lsp_assertions[2].operation	"equals"
+field	expectations.lsp_assertions[2].path	"/result"
 field	expectations.stderr.format	"empty"
-field	expectations.stdout.contains[0]	"\"semanticTokensProvider\""
-field	expectations.stdout.contains[1]	"\"full\":true"
-field	expectations.stdout.contains[2]	"\"id\":2,\"result\":{\"data\":[0,"
-field	expectations.stdout.contains[3]	"\"id\":3,\"result\":null"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":583,"sha256":"a3e1e77ab39663754306c105854a889b1e14f39e5c540210d7fdddc7794607e4"}
+field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"forbidden"
-case_digest	"fc5b553fc203fe762393ca37851f4378fe4853285bb7d62b25f0dfcb5a475337"
+case_digest	"0e5065293408f1fed68e41dfeee26615ba7b2df6bf61e143e57b068f0b3c8331"
 case	"examples/specification/lsp/semantic-tokens-unsaved-change"
 field	expectations.exit	0
+field	expectations.lsp_assertions[0].equals	true
+field	expectations.lsp_assertions[0].id	1
+field	expectations.lsp_assertions[0].operation	"equals"
+field	expectations.lsp_assertions[0].path	"/result/capabilities/semanticTokensProvider/full"
+field	expectations.lsp_assertions[1].equals	[0,0,3,7,0,0,4,2,7,0,0,3,7,6,1,0,7,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,3,1,0,0,4,7,7,0,0,8,1,11,0,0,1,1,11,0,1,2,1,10,0,1,0,3,7,0]
+field	expectations.lsp_assertions[1].id	2
+field	expectations.lsp_assertions[1].operation	"equals"
+field	expectations.lsp_assertions[1].path	"/result/data"
+field	expectations.lsp_assertions[2].equals	null
+field	expectations.lsp_assertions[2].id	3
+field	expectations.lsp_assertions[2].operation	"equals"
+field	expectations.lsp_assertions[2].path	"/result"
 field	expectations.stderr.format	"empty"
-field	expectations.stdout.contains[0]	"\"semanticTokensProvider\""
-field	expectations.stdout.contains[1]	"\"full\":true"
-field	expectations.stdout.contains[2]	"\"id\":2,\"result\":{\"data\":[0,"
-field	expectations.stdout.contains[3]	"0,3,7,6,1"
-field	expectations.stdout.contains[4]	"\"id\":3,\"result\":null"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":799,"sha256":"3ae0c72ae4b58b0ad71e849c200bff13b92c46820769bdb70a97a3b5f3036cc4"}
+field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"forbidden"
-case_digest	"121395c0132348e9167ca59f95e7c59039e04bc5d2aee418d887d23cd948a788"
+case_digest	"b44b972ffd8d3d5432f6725bc2d3f1e981654043b7586be116e1d2b6503154c3"
 case	"examples/specification/lsp/standard-library-virtual-document"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47640,4 +47667,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"f99b16887249996563e384517a2e5e874b5f7b278a8312bef6d8788d3c33d0eb"
+aggregate_digest	"fbf6be67bc157f0dd77d4e6359dc1d5e5c67fb86c9c06dde766db8f199505d21"

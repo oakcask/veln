@@ -1,0 +1,3 @@
+pub fn changed() -> Int effects []
+  2
+end

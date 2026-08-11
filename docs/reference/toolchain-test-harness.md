@@ -226,6 +226,13 @@ operand so migrated cases stay reviewable. The
 `repeated_run_failures_*` tests in `toolchain_harness.rs` cover the transport,
 selector, pointer, operation, independence, and aggregation boundaries.
 
+The `publish-diagnostics`, `semantic-tokens`, and
+`semantic-tokens-unsaved-change` LSP cases use structured request fixtures and
+case-text sidecars. Their decoded assertions cover initialization capability
+values, non-empty and cleared diagnostic notifications, complete semantic
+token data, and shutdown responses. Raw LSP cases remain only where protocol
+framing or an as-yet-unmigrated representation is still part of the fixture.
+
 Use `[[json_assert]]`, `[[result_value_assert]]`, and `[[diagnostics]]` for
 semantic checks inside JSON stdout. JSON and result-value assertions accept
 `equals`, `equals_file`, `equals_json_file`, or `missing = true`.
