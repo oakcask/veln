@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"de3df5c2f24252a883fc1974e054d130feab0584"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1508
+case_count	1509
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -10389,6 +10389,14 @@ field	invocation.repeat	1
 field	invocation.stdin	"Content-Length: 78\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"rootUri\":\"file://.\"}}Content-Length: 58\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"shutdown\",\"params\":null}Content-Length: 47\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"exit\",\"params\":null}"
 field	source_errors	"forbidden"
 case_digest	"eb739af3a0616c466d6ee63d3110bd5a32765e251983a18df3590e7c1380f806"
+case	"examples/specification/mcp/workspace-lifecycle"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	invocation.command[0]	"mcp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":629,"sha256":"f2e75984f93cc63eddfe0363def3b1a36d7b09c577dd05137202a56167171cee"}
+field	source_errors	"forbidden"
+case_digest	"ae08f9ce83fcd2054570dc123ff112b278ad2b14539d262c116d92e9c7f7b19f"
 case	"examples/specification/metrics/abc-constructs"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	6
@@ -47667,4 +47675,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"fbf6be67bc157f0dd77d4e6359dc1d5e5c67fb86c9c06dde766db8f199505d21"
+aggregate_digest	"7af2fdfd5cc3f510ee8f075d87d8a7d3fcc9dc3ea3e67f249ed566df33a4468f"

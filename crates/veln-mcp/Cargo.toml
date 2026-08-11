@@ -1,0 +1,11 @@
+[package]
+name = "veln-mcp"
+edition.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

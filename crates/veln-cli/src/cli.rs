@@ -45,6 +45,7 @@ pub(crate) enum Command {
     },
     PackageLock,
     Lsp,
+    Mcp,
     Help {
         text: String,
     },
@@ -86,6 +87,7 @@ fn app() -> ClapCommand {
         .subcommand(explain_command())
         .subcommand(package_command())
         .subcommand(lsp_command())
+        .subcommand(mcp_command())
 }
 
 fn check_command() -> ClapCommand {
@@ -269,6 +271,10 @@ fn lsp_command() -> ClapCommand {
     ClapCommand::new("lsp").about("Run the language server on stdio")
 }
 
+fn mcp_command() -> ClapCommand {
+    ClapCommand::new("mcp").about("Run the MCP server on stdio")
+}
+
 fn path_args(name: &'static str, help: &'static str, value_name: &'static str) -> Arg {
     Arg::new(name)
         .help(help)
@@ -327,7 +333,7 @@ fn parse_help_or_version(args: &[String]) -> Result<Option<Command>, String> {
         "package" if has_help_flag(args.iter().skip(1)) => Ok(Some(Command::Help {
             text: render_help(package_help_path(args)),
         })),
-        "check" | "doc" | "fmt" | "metrics" | "test" | "repair" | "explain" | "lsp"
+        "check" | "doc" | "fmt" | "metrics" | "test" | "repair" | "explain" | "lsp" | "mcp"
             if has_help_flag(args.iter().skip(1)) =>
         {
             Ok(Some(Command::Help {
@@ -369,6 +375,7 @@ fn validate_command_args(args: &[String]) -> Result<(), String> {
         "explain" => reject_unknown_explain_flags(args.iter().skip(1)),
         "package" => reject_unknown_package_args(args.iter().skip(1)),
         "lsp" => reject_lsp_arguments(args.iter().skip(1)),
+        "mcp" => reject_mcp_arguments(args.iter().skip(1)),
         command => Err(format!("unknown command `{command}`")),
     }
 }
@@ -417,6 +424,7 @@ fn command_from_matches(matches: &clap::ArgMatches) -> Command {
             },
         },
         Some(("lsp", _)) => Command::Lsp,
+        Some(("mcp", _)) => Command::Mcp,
         _ => Command::Help {
             text: render_help(&[]),
         },
@@ -687,6 +695,17 @@ fn reject_lsp_arguments<'a>(args: impl Iterator<Item = &'a String>) -> Result<()
     Ok(())
 }
 
+fn reject_mcp_arguments<'a>(args: impl Iterator<Item = &'a String>) -> Result<(), String> {
+    for arg in args {
+        match arg.as_str() {
+            "--help" | "-h" => {}
+            flag if flag.starts_with('-') => return Err(format!("unknown mcp flag `{flag}`")),
+            value => return Err(format!("unexpected mcp argument `{value}`")),
+        }
+    }
+    Ok(())
+}
+
 fn reject_unknown_help_topic(path: &[String]) -> Result<(), String> {
     if path.is_empty() {
         return Ok(());
@@ -702,7 +721,7 @@ fn reject_unknown_help_topic(path: &[String]) -> Result<(), String> {
 
     match path[0].as_str() {
         "check" | "doc" | "fmt" | "metrics" | "run" | "test" | "repair" | "explain" | "package"
-        | "lsp" | "help" => Ok(()),
+        | "lsp" | "mcp" | "help" => Ok(()),
         command => Err(format!("unknown command `{command}`")),
     }
 }
@@ -1021,6 +1040,10 @@ mod tests {
             parse(&["lsp", "--help"]).unwrap(),
             Command::Help { .. }
         ));
+        assert!(matches!(
+            parse(&["mcp", "--help"]).unwrap(),
+            Command::Help { .. }
+        ));
     }
 
     #[test]
@@ -1269,5 +1292,20 @@ mod tests {
         };
 
         assert_eq!(error, "unexpected lsp argument `main.veln`");
+    }
+
+    #[test]
+    fn mcp_parser_accepts_no_arguments() {
+        assert!(matches!(parse(&["mcp"]).unwrap(), Command::Mcp));
+    }
+
+    #[test]
+    fn mcp_parser_rejects_arguments() {
+        let error = match parse(&["mcp", "main.veln"]) {
+            Ok(_) => panic!("mcp arguments should fail"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error, "unexpected mcp argument `main.veln`");
     }
 }

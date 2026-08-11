@@ -11,6 +11,15 @@ Add a local MCP server to the Veln toolchain as `veln mcp`. The server gives
 coding agents version-matched language knowledge and read-only code
 intelligence without requiring them to drive the editor-oriented LSP protocol.
 
+## Implementation Status
+
+The workspace-project inventory slice is implemented and specified in
+[MCP Workspace Projects](../specification/mcp.md). `veln mcp` currently exposes
+only `workspace_projects` and `refresh_workspace`. The remaining diagnostics,
+navigation, documentation resources and search, pagination, snapshot resource
+lifetime, conformance completion, and client plugin work in this proposal is
+still planned.
+
 The first complete capability includes:
 
 - project diagnostics;
@@ -217,13 +226,13 @@ a successful result with no definition or references.
 
 ### Tools
 
-The authoritative MCP v1 input, result, resource-metadata, and domain-error
-schemas are checked JSON Schemas in the planned `mcp/v1` schema bundle. The
-server exposes that bundle as a built-in resource and derives its tool
-declarations from the same files. Schema objects reject unknown fields and
-reject `null` unless a field explicitly permits it. Schema or JSON-RPC shape
-failures map to protocol invalid-params errors. A decoded domain failure is an
-MCP tool error with `{code, message, details}`.
+The implemented workspace-project input and result schemas are checked JSON
+Schemas in the `mcp/v1` schema bundle. Their tool declarations derive from the
+same files. The remaining input, result, resource-metadata, and domain-error
+schemas are planned. Schema objects reject unknown fields and reject `null`
+unless a field explicitly permits it. Schema or JSON-RPC shape failures map to
+protocol invalid-params errors. A decoded domain failure is an MCP tool error
+with `{code, message, details}`.
 
 The stable v1 domain codes are `invalid_path`, `invalid_position`,
 `invalid_query`, `source_required`, `project_not_selected`,
@@ -878,24 +887,25 @@ behavior has been promoted to specification and executable-example routes.
 
 ## Acceptance Model
 
-All rows describe planned evidence. They do not imply that the behavior is
-already implemented.
+The workspace inventory rows implemented by the current slice point to current
+specification and executable evidence. All other rows describe planned evidence
+and do not imply that the behavior is already implemented.
 
 ### Server And Project Selection
 
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |
-| Start `veln mcp` in a one-package project. | The package is the default project and tools require no project argument. | CLI MCP framing case. |
-| Start above two package branches. | Both first manifest roots are listed; `check_project` without a project reports ambiguity. | Multi-package MCP case. |
-| Start where no manifest exists and check one of two unrelated sources. | The base is anonymous; `source` is required, only that file affects diagnostics, and project-wide references are unavailable. | Q01 anonymous isolation cases. |
+| Start `veln mcp` in a one-package project. | The package is selected as `.`. | Implemented `veln-mcp` selection table tests. |
+| Start above two package branches. | Both first manifest roots are listed. The planned `check_project` tool will report ambiguity when its project input is omitted. | Implemented MCP workspace lifecycle case for inventory; planned multi-package diagnostic case. |
+| Start where no manifest exists. | The base is selected as one anonymous project. The planned `check_project` tool will require `source`. | Implemented `veln-mcp` selection table tests; planned Q01 anonymous isolation cases. |
 | Navigate below an unselected descendant manifest. | The outer project does not own the source; navigation reports single-file scope without outer-project references. | Q02 descendant-boundary cases. |
-| Add, remove, or rename a manifest. | Selection is unchanged until `refresh_workspace`; a successful refresh replaces it atomically and stales older cursors. | Q03 refresh transition table. |
+| Add, remove, or rename a manifest. | Selection is unchanged until `refresh_workspace`; a successful refresh replaces it atomically. Cursor staleness remains planned. | Implemented `veln-mcp` refresh transition tests; planned Q03 cursor cases. |
 | Start through a symbolic base alias. | The alias is accepted once and returned `file:` URIs use the resolved identity spelling. | Q04 symbolic-base cases. |
 | Supply a path containing a directory or file symbolic link. | The path is rejected without following the link. | Q04 no-follow cases. |
 | Supply an absolute path or escaping relative path. | The tool rejects the input before reading the target. | Path-boundary MCP cases. |
 | Change a manifest, source, or file set during capture. | The complete capture retries at most three times, then returns `snapshot_changed` without partial publication. | Q05 stable-capture race cases. |
-| List projects or send malformed tool input. | Roots use `.` or relative `/` spelling; the schema distinguishes protocol errors from stable domain errors and rejects unknown fields and out-of-range values. | Q06 schema and error cases. |
-| Client roots are unavailable. | Project selection is unchanged. | MCP client without roots capability. |
+| List projects or send malformed inventory-tool input. | Roots use `.` or relative `/` spelling; checked schemas reject unknown fields and invalid shapes as protocol errors. | Implemented MCP workspace lifecycle and schema tests; broader Q06 cases remain planned. |
+| Client roots are absent, unrelated, or nested. | Project selection is unchanged. | Implemented `veln-mcp` client-root invariance tests. |
 
 ### Diagnostics And Navigation
 
