@@ -471,19 +471,25 @@ fn lock_git_dependency_with_manifest(
     )
 }
 
-fn lock_git_dependency_with_materializer_and_manifest<F, M>(
+struct PreparedGitDependency {
+    repository_root: PathBuf,
+    package_root: PathBuf,
+    manifest: ProjectManifest,
+    lockfile_url: String,
+    display_path: String,
+}
+
+fn git_dependency_repository_root<M>(
     lockfile_root: &Path,
     owner_root: &Path,
     dependency: &ManifestDependency,
-    resolve_rev: F,
-    materialize_source: M,
-) -> Result<LockedDependency, Box<Diagnostic>>
+    git_field: &ManifestField,
+    selector: &ManifestDependencySelector,
+    materialize_source: &M,
+) -> Result<PathBuf, Box<Diagnostic>>
 where
-    F: Fn(&Path, &ManifestDependencySelector) -> Result<String, String>,
     M: Fn(&Path, &ManifestField, &ManifestDependencySelector) -> Result<PathBuf, String>,
 {
-    let git_field = dependency.git.as_ref().expect("git source should exist");
-    let selector = git_selector(dependency)?;
     let repository_root = match git_source_root(owner_root, &git_field.value).map_err(|reason| {
         Box::new(unavailable_git_dependency_diagnostic(
             dependency,
@@ -505,7 +511,16 @@ where
             "source_not_directory",
         )));
     }
+    Ok(repository_root)
+}
 
+fn prepare_git_dependency(
+    lockfile_root: &Path,
+    owner_root: &Path,
+    dependency: &ManifestDependency,
+    git_field: &ManifestField,
+    repository_root: PathBuf,
+) -> Result<PreparedGitDependency, Box<Diagnostic>> {
     let package_root =
         git_package_root(&repository_root, dependency).map_err(|reason| match reason {
             DirectAnalysisSourceError::InvalidGitSubdir => dependency
@@ -535,44 +550,75 @@ where
             ))
         })?;
     validate_package_name(dependency, &manifest, &display_path)?;
+    Ok(PreparedGitDependency {
+        repository_root,
+        package_root,
+        manifest,
+        lockfile_url,
+        display_path,
+    })
+}
 
-    let resolved_rev = resolve_rev(&repository_root, selector).map_err(|reason| {
+fn lock_git_dependency_with_materializer_and_manifest<F, M>(
+    lockfile_root: &Path,
+    owner_root: &Path,
+    dependency: &ManifestDependency,
+    resolve_rev: F,
+    materialize_source: M,
+) -> Result<LockedDependency, Box<Diagnostic>>
+where
+    F: Fn(&Path, &ManifestDependencySelector) -> Result<String, String>,
+    M: Fn(&Path, &ManifestField, &ManifestDependencySelector) -> Result<PathBuf, String>,
+{
+    let git_field = dependency.git.as_ref().expect("git source should exist");
+    let selector = git_selector(dependency)?;
+    let repository_root = git_dependency_repository_root(
+        lockfile_root,
+        owner_root,
+        dependency,
+        git_field,
+        selector,
+        &materialize_source,
+    )?;
+    let prepared = prepare_git_dependency(
+        lockfile_root,
+        owner_root,
+        dependency,
+        git_field,
+        repository_root,
+    )?;
+    let resolved_rev = resolve_rev(&prepared.repository_root, selector).map_err(|reason| {
         Box::new(git_selector_resolution_diagnostic(
             dependency, selector, &reason,
         ))
     })?;
-    let checksum = source_tree_checksum(&package_root)
+    let checksum = source_tree_checksum(&prepared.package_root)
         .map_err(|error| Box::new(dependency_io_diagnostic(dependency, git_field, error)))?;
+    let subdir = dependency
+        .subdir
+        .as_ref()
+        .map(|subdir| normalize_lockfile_path(&subdir.value));
 
     let package = LockfilePackage {
         name: dependency.package.clone(),
         source: LockfileSource::Git {
-            url: lockfile_url,
+            url: prepared.lockfile_url.clone(),
             selector: lockfile_git_selector(selector),
             rev: resolved_rev,
-            subdir: dependency
-                .subdir
-                .as_ref()
-                .map(|subdir| normalize_lockfile_path(&subdir.value)),
+            subdir: subdir.clone(),
         },
         checksum,
     };
     Ok(LockedDependency {
         selection: DependencySelection::Git {
-            url: match &package.source {
-                LockfileSource::Git { url, .. } => url.clone(),
-                _ => unreachable!("git dependency should produce a git lockfile source"),
-            },
+            url: prepared.lockfile_url,
             selector: dependency_git_selector(selector),
-            subdir: dependency
-                .subdir
-                .as_ref()
-                .map(|subdir| normalize_lockfile_path(&subdir.value)),
+            subdir,
         },
         package,
-        manifest,
-        package_root,
-        manifest_display_path: display_path,
+        manifest: prepared.manifest,
+        package_root: prepared.package_root,
+        manifest_display_path: prepared.display_path,
         package_span: dependency.package_span.clone(),
     })
 }
@@ -1969,6 +2015,37 @@ mod tests {
             package.checksum,
             source_tree_checksum(&project.path(".veln/package/git/materialized/packages/bar"))
                 .expect("checksum should be computed")
+        );
+    }
+
+    #[test]
+    fn rejects_materialized_git_source_that_is_not_a_directory_before_resolving() {
+        let project = TempProject::new("lock-git-materialized-file");
+        project.write(
+            "veln.toml",
+            concat!(
+                "[dependencies.\"github.com/oakcask/bar\"]\n",
+                "git = \"https://example.invalid/mono.git\"\n",
+                "rev = \"abc123\"\n",
+            ),
+        );
+        project.write("materialized-source", "not a repository");
+
+        let manifest = read_manifest(project.root())
+            .expect("manifest read should succeed")
+            .expect("manifest should exist");
+        let diagnostic = lock_git_dependency_with_materializer(
+            project.root(),
+            &manifest.dependencies[0],
+            |_, _| panic!("an invalid materialized source must not resolve a selector"),
+            |_, _, _| Ok(project.path("materialized-source")),
+        )
+        .expect_err("a materialized file should not lock as a git dependency");
+
+        assert_eq!(diagnostic.id, "package.git_unavailable");
+        assert_eq!(
+            diagnostic.message,
+            "git dependency `github.com/oakcask/bar` is not available at `https://example.invalid/mono.git`"
         );
     }
 
