@@ -6071,24 +6071,47 @@ fn case_text_git_attributes_cover_text_and_raw_sidecars() {
         .parent()
         .and_then(Path::parent)
         .expect("manifest directory should be under the repository");
+    let migrated_lsp_raw_sidecars = [
+        "examples/specification/lsp/ambiguous-bare-prelude-definition/case-text/root-stdin-1.raw",
+        "examples/specification/lsp/companion-private-function-identity/case-text/root-stdin-1.raw",
+        "examples/specification/lsp/companion-private-function-rename-overlay/case-text/root-stdin-1.raw",
+        "examples/specification/lsp/direct-dependency-virtual-document-boundary/case-text/root-stdin-1.raw",
+        "examples/specification/lsp/direct-git-dependency-virtual-document/case-text/root-stdin-1.raw",
+        "examples/specification/lsp/handler-context-callable-binding/case-text/root-stdin-1.raw",
+        "examples/specification/lsp/handler-context-operation-heading-isolation/case-text/root-stdin-1.raw",
+        "examples/specification/lsp/handler-operation-editor/case-text/root-stdin-1.raw",
+        "examples/specification/lsp/handler-satisfy-semantic-tokens/case-text/root-stdin-1.raw",
+        "examples/specification/lsp/handler-semantic-tokens/case-text/root-stdin-1.raw",
+        "examples/specification/lsp/imported-constructor-bare-prelude-definition/case-text/root-stdin-1.raw",
+        "examples/specification/lsp/open-document-nested-boundary/case-text/root-stdin-1.raw",
+        "examples/specification/lsp/private-import-bare-prelude-definition/case-text/root-stdin-1.raw",
+        "examples/specification/lsp/publish-diagnostics/case-text/root-stdin-1.raw",
+        "examples/specification/lsp/reexported-constructor-bare-prelude-definition/case-text/root-stdin-1.raw",
+        "examples/specification/lsp/schema-semantic-tokens/case-text/root-stdin-1.raw",
+        "examples/specification/lsp/semantic-tokens-unsaved-change/case-text/root-stdin-1.raw",
+        "examples/specification/lsp/semantic-tokens/case-text/root-stdin-1.raw",
+        "examples/specification/lsp/standard-library-virtual-document/case-text/root-stdin-1.raw",
+        "examples/specification/lsp/unopened-missing-file/case-text/root-stdin-1.raw",
+        "examples/specification/lsp/workspace-diagnostics/case-text/root-stdin-1.raw",
+        "examples/specification/lsp/workspace-package-root-selection/case-text/root-stdin-1.raw",
+    ];
+    let ordinary_sidecars = [
+        "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/json-assert-equals-1.txt",
+        "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/nested/json-assert-equals-1.txt",
+    ];
+    let pattern_raw_sidecars = [
+        "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/protocol.raw",
+        "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/nested/protocol.raw",
+        "examples/specification/lsp/semantic-tokens/case-text/protocol.raw",
+        "examples/specification/lsp/semantic-tokens/case-text/nested/protocol.raw",
+    ];
+    let mut check_attr_args = vec!["check-attr", "text", "eol", "diff", "whitespace", "--"];
+    check_attr_args.extend(ordinary_sidecars);
+    check_attr_args.extend(pattern_raw_sidecars);
+    check_attr_args.extend(migrated_lsp_raw_sidecars);
     let output = Command::new("git")
         .current_dir(repo)
-        .args([
-            "check-attr",
-            "text",
-            "eol",
-            "diff",
-            "whitespace",
-            "--",
-            "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/json-assert-equals-1.txt",
-            "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/nested/json-assert-equals-1.txt",
-            "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/protocol.raw",
-            "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/nested/protocol.raw",
-            "examples/specification/lsp/semantic-tokens/case-text/root-stdin-1.txt",
-            "examples/specification/lsp/semantic-tokens/case-text/nested/root-stdin-1.txt",
-            "examples/specification/lsp/semantic-tokens/case-text/protocol.raw",
-            "examples/specification/lsp/semantic-tokens/case-text/nested/protocol.raw",
-        ])
+        .args(check_attr_args)
         .output()
         .expect("git check-attr should run");
     assert!(
@@ -6097,25 +6120,37 @@ fn case_text_git_attributes_cover_text_and_raw_sidecars() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).expect("attribute output should be utf-8");
-    for ordinary in [
-        "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/json-assert-equals-1.txt",
-        "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/nested/json-assert-equals-1.txt",
-        "examples/specification/lsp/semantic-tokens/case-text/root-stdin-1.txt",
-        "examples/specification/lsp/semantic-tokens/case-text/nested/root-stdin-1.txt",
-    ] {
+    for ordinary in ordinary_sidecars {
         assert!(stdout.contains(&format!("{ordinary}: text: set")));
         assert!(stdout.contains(&format!("{ordinary}: eol: lf")));
         assert!(stdout.contains(&format!("{ordinary}: whitespace: unset")));
     }
-    for raw in [
-        "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/protocol.raw",
-        "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/nested/protocol.raw",
-        "examples/specification/lsp/semantic-tokens/case-text/protocol.raw",
-        "examples/specification/lsp/semantic-tokens/case-text/nested/protocol.raw",
-    ] {
+    for raw in pattern_raw_sidecars
+        .into_iter()
+        .chain(migrated_lsp_raw_sidecars)
+    {
         assert!(stdout.contains(&format!("{raw}: text: unset")));
         assert!(stdout.contains(&format!("{raw}: eol: unset")));
         assert!(stdout.contains(&format!("{raw}: diff: unset")));
+    }
+    let mut ls_files_args = vec!["ls-files", "--eol", "--"];
+    ls_files_args.extend(migrated_lsp_raw_sidecars);
+    let output = Command::new("git")
+        .current_dir(repo)
+        .args(ls_files_args)
+        .output()
+        .expect("git ls-files --eol should run");
+    assert!(
+        output.status.success(),
+        "git ls-files --eol failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("eol output should be utf-8");
+    for raw in migrated_lsp_raw_sidecars {
+        assert!(
+            stdout.contains(&format!("i/crlf  w/crlf  attr/-text            \t{raw}")),
+            "{raw} should be checked out without text normalization:\n{stdout}"
+        );
     }
 }
 
