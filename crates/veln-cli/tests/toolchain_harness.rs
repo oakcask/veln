@@ -6296,7 +6296,7 @@ fn manifest_jsonrpc_fixture_frames_envelope_matrix_and_exact_case_text_bytes() {
     fs::write(
         case_dir.join("requests.json"),
         r#"[
-  {"jsonrpc":"2.0","id":"request","method":"unknown/string","params":{"nested":[{"$case_text":"case-text/exact.raw"}]},"extension":true},
+  {"jsonrpc":"2.0","id":"request","method":"unknown/string","params":{"nested":[{"$case_text":"case-text/exact.raw"}],"emoji":"\uD83D\uDE42"},"extension":true},
   {"jsonrpc":"2.0","id":1.5,"method":"unknown/number","params":[1,null]},
   {"jsonrpc":"2.0","id":null,"method":"unknown/null","params":null},
   {"jsonrpc":"2.0","method":"unknown/notification"},
@@ -6310,7 +6310,7 @@ fn manifest_jsonrpc_fixture_frames_envelope_matrix_and_exact_case_text_bytes() {
         "command = [\"lsp\"]\nstdin_jsonrpc_file = \"requests.json\"\nexit = 0\n",
     );
     let bodies = [
-        "{\"jsonrpc\":\"2.0\",\"id\":\"request\",\"method\":\"unknown/string\",\"params\":{\"nested\":[\"\u{feff}alpha\\r\\n日本語\\r\\n\"]},\"extension\":true}",
+        "{\"jsonrpc\":\"2.0\",\"id\":\"request\",\"method\":\"unknown/string\",\"params\":{\"nested\":[\"\u{feff}alpha\\r\\n日本語\\r\\n\"],\"emoji\":\"🙂\"},\"extension\":true}",
         "{\"jsonrpc\":\"2.0\",\"id\":1.5,\"method\":\"unknown/number\",\"params\":[1,null]}",
         "{\"jsonrpc\":\"2.0\",\"id\":null,\"method\":\"unknown/null\",\"params\":null}",
         "{\"jsonrpc\":\"2.0\",\"method\":\"unknown/notification\"}",
@@ -6365,6 +6365,14 @@ fn manifest_jsonrpc_fixture_rejects_root_message_and_envelope_failures() {
         (
             "[{\"jsonrpc\":\"2.0\",\"method\":\"m\",\"error\":null}]",
             "request or notification must not contain `result` or `error`",
+        ),
+        (
+            r#"[{"jsonrpc":"2.0","method":"m","params":{"emoji":"\uD83D"}}]"#,
+            "unpaired high surrogate",
+        ),
+        (
+            r#"[{"jsonrpc":"2.0","method":"m","params":{"emoji":"\uDE42"}}]"#,
+            "unpaired low surrogate",
         ),
     ];
     for (fixture, expected) in cases {
@@ -9382,13 +9390,61 @@ impl JsonParser<'_> {
             ));
         }
         self.offset = end;
-        let codepoint = u32::from_str_radix(hex, 16).expect("hex was validated");
-        char::from_u32(codepoint).ok_or_else(|| {
+        let codepoint = u16::from_str_radix(hex, 16).expect("hex was validated");
+        if (0xd800..=0xdbff).contains(&codepoint) {
+            if !self.text[self.offset..].starts_with("\\u") {
+                return Err(JsonParseError::new(
+                    start,
+                    format!("unpaired high surrogate `{hex}` at byte {start}"),
+                ));
+            }
+            self.offset += 2;
+            let (low, low_hex, low_start) = self.parse_unicode_unit()?;
+            if !(0xdc00..=0xdfff).contains(&low) {
+                return Err(JsonParseError::new(
+                    low_start,
+                    format!("invalid low surrogate `{low_hex}` at byte {low_start}"),
+                ));
+            }
+            let high_value = u32::from(codepoint - 0xd800);
+            let low_value = u32::from(low - 0xdc00);
+            let scalar = 0x10000 + ((high_value << 10) | low_value);
+            return char::from_u32(scalar).ok_or_else(|| {
+                JsonParseError::new(start, format!("invalid surrogate pair at byte {start}"))
+            });
+        }
+        if (0xdc00..=0xdfff).contains(&codepoint) {
+            return Err(JsonParseError::new(
+                start,
+                format!("unpaired low surrogate `{hex}` at byte {start}"),
+            ));
+        }
+        char::from_u32(u32::from(codepoint)).ok_or_else(|| {
             JsonParseError::new(
                 start,
                 format!("invalid unicode codepoint `{hex}` at byte {start}"),
             )
         })
+    }
+
+    fn parse_unicode_unit(&mut self) -> Result<(u16, String, usize), JsonParseError> {
+        let start = self.offset;
+        let end = start + 4;
+        let Some(hex) = self.text.get(start..end) else {
+            return Err(JsonParseError::new(
+                start,
+                format!("short unicode escape at byte {start}"),
+            ));
+        };
+        if !hex.chars().all(|ch| ch.is_ascii_hexdigit()) {
+            return Err(JsonParseError::new(
+                start,
+                format!("invalid unicode escape `{hex}` at byte {start}"),
+            ));
+        }
+        self.offset = end;
+        let codepoint = u16::from_str_radix(hex, 16).expect("hex was validated");
+        Ok((codepoint, hex.to_string(), start))
     }
 
     fn parse_number(&mut self) -> Result<JsonValue, JsonParseError> {
