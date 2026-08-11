@@ -1,0 +1,4 @@
+[[package]]
+name = "github.com/oakcask/bar"
+source = { kind = "git", url = "https://example.invalid/remote.git", selector = { rev = "abc123" }, rev = "0123456789abcdef0123456789abcdef01234567", subdir = "packages/bar" }
+checksum = "sha256:88055fc193d9e2bd51ec4ad7e6e0b111a1546811858518e69c51191098a4b984"

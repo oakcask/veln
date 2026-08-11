@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "encoded\n2\n3\npartial\n1\n2\nwaiting-for-sink\ninvalid\ncodec.out_of_range\nDemoPacket.length\nvalue exceeds UInt24be\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

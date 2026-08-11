@@ -1,0 +1,3 @@
+4660 5
+output_chunk_list schema-local-projection count 1
+output_chunk schema-local-projection index 0 hex "123405" count 3

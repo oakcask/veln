@@ -1,0 +1,1 @@
+adapter accepted 2 rejected 1 final closed

@@ -1,0 +1,4 @@
+[[package]]
+name = "github.com/oakcask/branchy"
+source = { kind = "git", url = "https://example.invalid/branchy.git", selector = { branch = "main" }, rev = "0123456789abcdef0123456789abcdef01234567" }
+checksum = "sha256:78a3b364827a89414f1275e75697f0b0efd055f2b53546318fcc759a80a45509"

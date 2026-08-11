@@ -1,0 +1,4 @@
+decoded-payload view-count 3 owned-count 3
+schema-payload view-count 3 owned-count 3
+output_chunk_list schema-byte-conversion count 1
+output_chunk schema-byte-conversion index 0 hex "03aabbcc" count 4

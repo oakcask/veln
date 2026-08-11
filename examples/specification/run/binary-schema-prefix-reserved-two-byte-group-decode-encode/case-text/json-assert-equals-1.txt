@@ -1,0 +1,9 @@
+5
+3
+43691
+schema.encode_value_unrepresentable
+TwoBytePrefixReservedGroupHeader.high
+value must be between 0 and 7
+schema.encode_value_unrepresentable
+TwoBytePrefixReservedGroupHeader.low
+value must be between 0 and 7

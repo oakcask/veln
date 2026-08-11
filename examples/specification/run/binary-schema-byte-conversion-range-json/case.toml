@@ -44,4 +44,4 @@ equals = {"encoding":"hex","data":"aabb","preview_byte_count":2,"total_byte_coun
 
 [[json_assert]]
 path = "stderr"
-equals = "Err(byte view range exceeds chunk length)\n"
+equals_file = "case-text/json-assert-equals-1.txt"

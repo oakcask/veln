@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "schema.dispatch_length_mismatch\nExtensionDispatchWritePacket.payload\nlength field `length` value 3 does not match encoded payload byte count 2\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

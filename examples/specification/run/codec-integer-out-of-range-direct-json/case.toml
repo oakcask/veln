@@ -92,4 +92,4 @@ equals = "decoded value exceeds signed integer range"
 
 [[json_assert]]
 path = "stderr"
-equals = "Err(DecodeErrorWithReason(codec.integer_out_of_range, ByteOffset(17), ManualPacketWire.stream_id, byte_width=4; min_value=0; max_value=2147483647; actual_value=2147483648; reason=decoded value exceeds signed integer range))\n"
+equals_file = "case-text/json-assert-equals-1.txt"

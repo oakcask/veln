@@ -1,0 +1,1 @@
+events 1 chunks 0 bytes 0 first-seq 1 last-seq 1 trace trace-failure route production-stream/ingress writes 0 failures 1 reason handler rejected stream chunk clean-end true

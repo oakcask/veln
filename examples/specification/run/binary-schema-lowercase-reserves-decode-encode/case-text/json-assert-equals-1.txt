@@ -1,0 +1,4 @@
+5
+42
+output_chunk_list lowercase-reserves count 1
+output_chunk lowercase-reserves index 0 hex "b52a" count 2

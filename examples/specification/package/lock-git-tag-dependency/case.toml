@@ -12,4 +12,4 @@ format = "empty"
 
 [[file_assert]]
 path = "veln.lock"
-equals = "[[package]]\nname = \"github.com/oakcask/tagged\"\nsource = { kind = \"git\", url = \"vendor/tagged\", selector = { tag = \"v1\" }, rev = \"0123456789abcdef0123456789abcdef01234567\" }\nchecksum = \"sha256:96272a954581b62d1c3bf644864558bc23878ea8097d599df6c7955697a27606\"\n"
+equals_file = "case-text/file-assert-equals-1.txt"

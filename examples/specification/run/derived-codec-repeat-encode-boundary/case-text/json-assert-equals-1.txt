@@ -1,0 +1,7 @@
+encoded
+output_chunk_list derived-counted-values count 1
+output_chunk derived-counted-values index 0 hex "030001000200ff" count 7
+invalid
+schema.encode_value_unrepresentable
+CountedValues.items
+value must be between 0 and 65535

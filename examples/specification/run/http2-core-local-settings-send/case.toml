@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "ordered local-settings accepted setting_identifier 5 value 32768 outstanding active pending_batches 1\noutput_chunk_list ordered count 1\noutput_chunk ordered index 0 hex \"000012040000000000000500008000000200000000000800000001\" count 27\nordered policy enable_push 0 push_offset 6 connect 1 connect_offset 12\nrange local-settings rejected setting_identifier 2 value 2 outstanding none pending_batches 0\noutput_chunk_list range count 0\nrange failure http2.peer_limit.settings_value_out_of_range offset 6 setting SETTINGS_ENABLE_PUSH observed 2 provenance local_settings\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

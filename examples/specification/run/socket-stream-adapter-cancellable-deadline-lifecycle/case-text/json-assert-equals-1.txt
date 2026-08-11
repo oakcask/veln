@@ -1,0 +1,2 @@
+accept accepted outcomes chunk,end,deadline,cancelled actions 4 chunks 1 ended true writes 1 end-actions 1 retries 1 cleanup 1
+accept-decisions accept-end,accept-deadline,accept-cancelled

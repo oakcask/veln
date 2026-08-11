@@ -10,4 +10,4 @@ format = "empty"
 
 [[file_assert]]
 path = "main.veln"
-equals = "fn classify(value: Int) -> Int\n\tmatch value\n\t\t0x0A => 0b001010\n\t\t_ => 0xCafe\n\tend\nend\n\nschema Header\n\tformat binary\n\n\treserved: uint8 reserves 0xFf\nend\n"
+equals_file = "case-text/file-assert-equals-1.txt"

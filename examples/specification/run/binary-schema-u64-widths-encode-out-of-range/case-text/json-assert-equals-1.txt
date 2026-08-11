@@ -1,0 +1,6 @@
+schema.encode_value_unrepresentable
+UInt64BigWidth.value
+value must be between 0 and 18446744073709551615
+schema.encode_value_unrepresentable
+UInt64LittleWidth.value
+value must be between 0 and 18446744073709551615

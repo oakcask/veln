@@ -1,0 +1,33 @@
+2
+87
+9
+94
+120
+72
+104
+86
+decoded
+2
+87
+9
+94
+120
+72
+104
+86
+6
+decoded
+2
+87
+9
+94
+120
+72
+104
+86
+6
+output_chunk_list packed-visible-six-byte-direct count 1
+output_chunk packed-visible-six-byte-direct index 0 hex "abcdef123456" count 6
+encoded
+output_chunk_list packed-visible-six-byte-derived count 1
+output_chunk packed-visible-six-byte-derived index 0 hex "abcdef123456" count 6

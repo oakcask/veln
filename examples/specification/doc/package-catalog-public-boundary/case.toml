@@ -3,7 +3,8 @@ exit = 0
 
 [stdout]
 format = "text"
-contains = ["# package-catalog-public-boundary", "### main", "Source: `main.veln`", "##### type PublicResult<A>", "Public constructors:", "- `Ready { value: A }`", "##### schema PublicPacket", "##### fn visible(value: Int) -> output: Int", "Visible function documentation.", "```veln\nlet seed: Int = 1\nvisible(seed)\n```", "Contracts:", "- `require` value >= 0", "- `ensure` output >= value", "##### schema PacketAlias = PublicPacket"]
+contains = ["# package-catalog-public-boundary", "### main", "Source: `main.veln`", "##### type PublicResult<A>", "Public constructors:", "- `Ready { value: A }`", "##### schema PublicPacket", "##### fn visible(value: Int) -> output: Int", "Visible function documentation.", "Contracts:", "- `require` value >= 0", "- `ensure` output >= value", "##### schema PacketAlias = PublicPacket"]
+contains_files = ["case-text/stdout-contains-1.txt"]
 not_contains = ["Hidden(String)", "hidden_helper", "PrivatePacket", "private_module", "let hidden_setup"]
 
 [stderr]

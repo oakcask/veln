@@ -1,0 +1,6 @@
+listen 127.0.0.1:0
+accept 127.0.0.1:0 fixture-stream
+read fixture-stream 0102
+read fixture-stream 0a0b
+read-end fixture-stream
+write-deadline fixture-stream

@@ -1,0 +1,4 @@
+connect-production 127.0.0.1:0 production-stream
+write-production production-stream ByteChunk([Byte(10), Byte(11)])
+read-production production-stream 0102ff
+close-production production-stream

@@ -1,0 +1,17 @@
+5
+9
+10
+180
+218
+decoded
+5
+9
+10
+2
+encoded
+output_chunk_list general-reserved-bitfield count 1
+output_chunk general-reserved-bitfield index 0 hex "b4da" count 2
+invalid
+schema.encode_value_unrepresentable
+GeneralReservedBitfieldHeader.mode
+value must be between 0 and 15

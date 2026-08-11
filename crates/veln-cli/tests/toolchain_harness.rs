@@ -103,7 +103,7 @@ fn guard_generated_or_synthetic_case(case_dir: &Path) {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     if case_dir.starts_with(manifest_dir) {
         runtime_generated_inventory_barrier();
-    } else if std::env::var("VELN_TOOLCHAIN_CASE_POLICY").is_ok_and(|value| value == "deny") {
+    } else {
         let manifest = case_dir.join("case.toml");
         let text = fs::read_to_string(&manifest).unwrap_or_else(|error| {
             panic!("{}: failed to read manifest: {error}", manifest.display())
@@ -1810,6 +1810,7 @@ struct StreamExpectation {
     format: Option<StreamFormat>,
     contains: Vec<String>,
     not_contains: Vec<String>,
+    equals: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -2500,6 +2501,7 @@ impl<'a> ManifestParser<'a> {
             "command" => self.command = Some(parse_string_array(self.path, value)),
             "cwd" => self.cwd = Some(PathBuf::from(parse_string(self.path, value))),
             "stdin" => self.stdin = Some(parse_string(self.path, value)),
+            "stdin_file" => self.stdin = Some(read_case_text_file(self.path, value)),
             "exit" => self.exit = Some(parse_i32(self.path, value)),
             "repeat" => self.repeat = parse_positive_usize(self.path, value),
             "source_errors" => {
@@ -2560,6 +2562,21 @@ impl<'a> ManifestParser<'a> {
                 self.json_assertions[index].equals =
                     Some(parse_manifest_json_value(self.path, value))
             }
+            "equals_file" => {
+                self.json_assertions[index].equals =
+                    Some(JsonValue::String(read_case_text_file(self.path, value)))
+            }
+            "equals_json_file" => {
+                let text = read_case_text_file(self.path, value);
+                self.json_assertions[index].equals =
+                    Some(parse_json(&text).unwrap_or_else(|error| {
+                        manifest_error(
+                            self.path,
+                            line_number,
+                            format!("invalid json_assert equals_json_file value: {error}"),
+                        )
+                    }))
+            }
             "missing" => self.json_assertions[index].missing = parse_bool(self.path, value),
             _ => manifest_error(
                 self.path,
@@ -2585,6 +2602,21 @@ impl<'a> ManifestParser<'a> {
                 self.result_value_assertions[index].equals =
                     Some(parse_manifest_json_value(self.path, value))
             }
+            "equals_file" => {
+                self.result_value_assertions[index].equals =
+                    Some(JsonValue::String(read_case_text_file(self.path, value)))
+            }
+            "equals_json_file" => {
+                let text = read_case_text_file(self.path, value);
+                self.result_value_assertions[index].equals =
+                    Some(parse_json(&text).unwrap_or_else(|error| {
+                        manifest_error(
+                            self.path,
+                            line_number,
+                            format!("invalid result_value_assert equals_json_file value: {error}"),
+                        )
+                    }))
+            }
             "missing" => self.result_value_assertions[index].missing = parse_bool(self.path, value),
             _ => manifest_error(
                 self.path,
@@ -2604,6 +2636,9 @@ impl<'a> ManifestParser<'a> {
         match key {
             "path" => self.file_assertions[index].path = parse_string(self.path, value),
             "equals" => self.file_assertions[index].equals = parse_string(self.path, value),
+            "equals_file" => {
+                self.file_assertions[index].equals = read_case_text_file(self.path, value)
+            }
             _ => manifest_error(
                 self.path,
                 line_number,
@@ -2627,6 +2662,9 @@ impl<'a> ManifestParser<'a> {
             "kind" => self.diagnostics[index].kind = Some(parse_string(self.path, value)),
             "message" => {
                 self.diagnostics[index].message = Some(parse_string(self.path, value));
+            }
+            "message_file" => {
+                self.diagnostics[index].message = Some(read_case_text_file(self.path, value));
             }
             _ => manifest_error(
                 self.path,
@@ -2672,6 +2710,16 @@ impl<'a> ManifestParser<'a> {
         match key {
             "contains" => {
                 expectation.contains = parse_string_array(self.path, value);
+            }
+            "contains_file" => {
+                expectation
+                    .contains
+                    .push(read_case_text_file(self.path, value));
+            }
+            "contains_files" => {
+                expectation
+                    .contains
+                    .extend(read_case_text_files(self.path, value));
             }
             _ => manifest_error(
                 self.path,
@@ -3158,6 +3206,8 @@ fn parse_help_key(
         "arguments" => help.arguments = parse_string_array(path, value),
         "options" => help.options = parse_string_array(path, value),
         "contains" => help.contains = parse_string_array(path, value),
+        "contains_file" => help.contains.push(read_case_text_file(path, value)),
+        "contains_files" => help.contains.extend(read_case_text_files(path, value)),
         _ => manifest_error(path, line_number, format!("unknown help key `{key}`")),
     }
 }
@@ -3184,10 +3234,97 @@ fn parse_stream_key(
                 ),
             });
         }
+        "equals_file" => stream.equals = Some(read_case_text_file(path, value)),
         "contains" => stream.contains = parse_string_array(path, value),
+        "contains_file" => stream.contains.push(read_case_text_file(path, value)),
+        "contains_files" => stream.contains.extend(read_case_text_files(path, value)),
         "not_contains" => stream.not_contains = parse_string_array(path, value),
+        "not_contains_file" => stream.not_contains.push(read_case_text_file(path, value)),
+        "not_contains_files" => stream
+            .not_contains
+            .extend(read_case_text_files(path, value)),
         _ => manifest_error(path, line_number, format!("unknown stream key `{key}`")),
     }
+}
+
+fn read_case_text_files(path: &Path, value: &ManifestValue<'_>) -> Vec<String> {
+    parse_string_array(path, value)
+        .into_iter()
+        .map(|relative| read_case_text_file_path(path, value.line(), &relative))
+        .collect()
+}
+
+fn read_case_text_file(path: &Path, value: &ManifestValue<'_>) -> String {
+    let relative = parse_string(path, value);
+    read_case_text_file_path(path, value.line(), &relative)
+}
+
+fn read_case_text_file_path(path: &Path, line_number: usize, relative: &str) -> String {
+    let relative_path = validate_case_file_reference(path, line_number, relative);
+    let base = path.parent().unwrap_or_else(|| Path::new(""));
+    let resolved = base.join(&relative_path);
+    let metadata = fs::symlink_metadata(&resolved).unwrap_or_else(|error| {
+        manifest_error(
+            path,
+            line_number,
+            format!("failed to inspect case file `{relative}`: {error}"),
+        )
+    });
+    if !metadata.is_file() || is_link_like_metadata(&metadata) {
+        manifest_error(
+            path,
+            line_number,
+            format!("case file `{relative}` must be a regular file"),
+        );
+    }
+    fs::read_to_string(&resolved).unwrap_or_else(|error| {
+        manifest_error(
+            path,
+            line_number,
+            format!("failed to read case file `{relative}` as UTF-8: {error}"),
+        )
+    })
+}
+
+fn validate_case_file_reference(path: &Path, line_number: usize, relative: &str) -> PathBuf {
+    if relative.is_empty()
+        || relative.starts_with('/')
+        || relative.starts_with('\\')
+        || relative.contains('\\')
+        || relative.split('/').any(|component| {
+            component.is_empty()
+                || component == "."
+                || component == ".."
+                || !component
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
+        })
+    {
+        manifest_error(
+            path,
+            line_number,
+            format!("case file reference `{relative}` must use portable relative components"),
+        );
+    }
+    PathBuf::from(relative)
+}
+
+#[cfg(unix)]
+fn is_link_like_metadata(metadata: &fs::Metadata) -> bool {
+    metadata.file_type().is_symlink()
+}
+
+#[cfg(windows)]
+fn is_link_like_metadata(metadata: &fs::Metadata) -> bool {
+    use std::os::windows::fs::FileTypeExt;
+
+    let file_type = metadata.file_type();
+    file_type.is_symlink() || file_type.is_symlink_dir() || file_type.is_symlink_file()
+}
+
+#[cfg(not(any(unix, windows)))]
+fn is_link_like_metadata(_metadata: &fs::Metadata) -> bool {
+    false
 }
 
 fn parse_manifest_json_value(path: &Path, value: &ManifestValue<'_>) -> JsonValue {
@@ -3394,6 +3531,14 @@ fn assert_stream(
         Some(StreamFormat::Text) | Some(StreamFormat::Json) | None => {}
     }
 
+    if let Some(expected) = &expectation.equals {
+        assert_eq!(
+            actual,
+            expected,
+            "{}: expected {name} to equal configured text",
+            context.label()
+        );
+    }
     for fragment in &expectation.contains {
         assert_contains_fragment(context, name, actual, fragment);
     }
@@ -3681,6 +3826,44 @@ fn toolchain_inventory_rejects_links_without_following_them() {
     fs::remove_dir_all(root).expect("inventory root should be removed");
 }
 
+#[cfg(unix)]
+#[test]
+fn toolchain_inventory_rejects_broken_file_links_and_link_cycles() {
+    use std::os::unix::fs::symlink;
+
+    let root = test_temp_root("inventory-link-kinds");
+    fs::create_dir_all(root.join("cases/ordinary")).expect("case directory should be created");
+    fs::write(
+        root.join("cases/ordinary/case.toml"),
+        "command = [\"check\"]\nexit = 0\n",
+    )
+    .expect("case manifest should be written");
+    symlink("missing-target", root.join("cases/broken-link"))
+        .expect("broken symlink should be created");
+    fs::write(root.join("target-file"), "fixture").expect("target file should be written");
+    symlink("../target-file", root.join("cases/file-link"))
+        .expect("file symlink should be created");
+    symlink("cycle-b", root.join("cases/cycle-a")).expect("first cycle link should be created");
+    symlink("cycle-a", root.join("cases/cycle-b")).expect("second cycle link should be created");
+
+    let error = toolchain_case_inventory::run_preflight_with_roots(
+        &root,
+        &[test_discovery_root("cases", "cases")],
+    )
+    .expect_err("link-like entries should fail discovery before following them");
+
+    assert!(error.contains("cases/broken-link: replace the link or reparse point"));
+    assert!(error.contains("cases/file-link: replace the link or reparse point"));
+    assert!(error.contains("cases/cycle-a: replace the link or reparse point"));
+    assert!(error.contains("cases/cycle-b: replace the link or reparse point"));
+    assert!(
+        !error.contains("missing-target"),
+        "discovery should not resolve broken link targets"
+    );
+
+    fs::remove_dir_all(root).expect("inventory root should be removed");
+}
+
 #[test]
 fn toolchain_inventory_parity_reports_stale_generated_cases() {
     let error = toolchain_case_inventory::compare_generated_inventory_with_policy(
@@ -3778,6 +3961,109 @@ exit = 0
 }
 
 #[test]
+fn manifest_policy_reports_lowercase_and_uppercase_unicode_line_break_matrix() {
+    let source = r#"
+command = ["check"]
+lower_lf = "\u000a"
+upper_lf = "\u000A"
+lower_cr = "\u000d"
+upper_cr = "\u000D"
+wide_lower_lf = "\U0000000a"
+wide_upper_lf = "\U0000000A"
+wide_lower_cr = "\U0000000d"
+wide_upper_cr = "\U0000000D"
+literal_lower_lf = '\u000a'
+literal_upper_lf = '\u000A'
+literal_lower_cr = '\u000d'
+literal_upper_cr = '\u000D'
+literal_wide_lower_lf = '\U0000000a'
+literal_wide_upper_lf = '\U0000000A'
+literal_wide_lower_cr = '\U0000000d'
+literal_wide_upper_cr = '\U0000000D'
+exit = 0
+"#;
+
+    let findings = manifest_syntax::manifest_policy_findings(Path::new("case.toml"), source);
+
+    assert_eq!(
+        findings
+            .iter()
+            .map(|finding| (
+                finding.field.as_str(),
+                finding.category,
+                finding.spelling.as_str()
+            ))
+            .collect::<Vec<_>>(),
+        [
+            (
+                "lower_lf",
+                "escape-produced-line-break",
+                "escape-produced LF"
+            ),
+            (
+                "upper_lf",
+                "escape-produced-line-break",
+                "escape-produced LF"
+            ),
+            (
+                "lower_cr",
+                "escape-produced-line-break",
+                "escape-produced CR"
+            ),
+            (
+                "upper_cr",
+                "escape-produced-line-break",
+                "escape-produced CR"
+            ),
+            (
+                "wide_lower_lf",
+                "escape-produced-line-break",
+                "escape-produced LF"
+            ),
+            (
+                "wide_upper_lf",
+                "escape-produced-line-break",
+                "escape-produced LF"
+            ),
+            (
+                "wide_lower_cr",
+                "escape-produced-line-break",
+                "escape-produced CR"
+            ),
+            (
+                "wide_upper_cr",
+                "escape-produced-line-break",
+                "escape-produced CR"
+            ),
+            ("literal_lower_lf", "decoded-line-break-spelling", "\\u000a"),
+            ("literal_upper_lf", "decoded-line-break-spelling", "\\u000A"),
+            ("literal_lower_cr", "decoded-line-break-spelling", "\\u000d"),
+            ("literal_upper_cr", "decoded-line-break-spelling", "\\u000D"),
+            (
+                "literal_wide_lower_lf",
+                "decoded-line-break-spelling",
+                "\\U0000000a"
+            ),
+            (
+                "literal_wide_upper_lf",
+                "decoded-line-break-spelling",
+                "\\U0000000A"
+            ),
+            (
+                "literal_wide_lower_cr",
+                "decoded-line-break-spelling",
+                "\\U0000000d"
+            ),
+            (
+                "literal_wide_upper_cr",
+                "decoded-line-break-spelling",
+                "\\U0000000D"
+            ),
+        ]
+    );
+}
+
+#[test]
 fn manifest_policy_accepts_physical_comments_and_token_boundaries() {
     let source = r#"
 command = ["check"]
@@ -3858,6 +4144,104 @@ contains = ["\\r"]
     assert!(skipped_index < unavailable_index);
 
     fs::remove_dir_all(root).expect("inventory root should be removed");
+}
+
+#[test]
+fn toolchain_policy_preflight_reports_stable_detailed_aggregate_findings() {
+    fn write_cases(root: &Path, order: &[&str]) {
+        fs::create_dir_all(root.join("cases")).expect("case root should be created");
+        for name in order {
+            let case_dir = root.join("cases").join(name);
+            fs::create_dir_all(&case_dir).expect("case directory should be created");
+            let manifest = match *name {
+                "alpha" => {
+                    "command = [\"check\"]\nstdin = [\"\\n\", \"\\r\"]\nexit = 0\n".to_string()
+                }
+                "beta" => {
+                    "command = [\"check\"]\n[stdout]\ncontains = ['\\u000A', '\\U0000000d']\nexit = 0\n".to_string()
+                }
+                _ => unreachable!(),
+            };
+            fs::write(case_dir.join("case.toml"), manifest)
+                .expect("case manifest should be written");
+        }
+    }
+
+    let first = test_temp_root("policy-stable-aggregate-a");
+    let second = test_temp_root("policy-stable-aggregate-b");
+    write_cases(&first, &["beta", "alpha"]);
+    write_cases(&second, &["alpha", "beta"]);
+
+    let first_error = toolchain_case_inventory::run_preflight_with_roots(
+        &first,
+        &[test_discovery_root("cases", "cases")],
+    )
+    .expect_err("first policy preflight should fail");
+    let second_error = toolchain_case_inventory::run_preflight_with_roots(
+        &second,
+        &[test_discovery_root("cases", "cases")],
+    )
+    .expect_err("second policy preflight should fail");
+
+    assert_eq!(
+        first_error, second_error,
+        "aggregate policy output should not depend on filesystem entry order"
+    );
+    assert!(first_error.contains("toolchain case preflight found 4 problem(s)"));
+    assert!(first_error.contains("cases/alpha:2:29-33 field `stdin` contains escape-produced-line-break `escape-produced LF`; use physical multiline text or a sidecar so line structure remains reviewable"));
+    assert!(first_error.contains("cases/alpha:2:35-39 field `stdin` contains escape-produced-line-break `escape-produced CR`; use physical multiline text or a sidecar so line structure remains reviewable"));
+    assert!(first_error.contains("cases/beta:3:"));
+    assert!(
+        first_error
+            .contains("field `[stdout].contains` contains decoded-line-break-spelling `\\\\u000A`")
+    );
+    assert!(first_error.contains(
+        "field `[stdout].contains` contains decoded-line-break-spelling `\\\\U0000000d`"
+    ));
+    assert!(
+        first_error.contains(
+            "use physical multiline text or a sidecar so line structure remains reviewable"
+        )
+    );
+
+    fs::remove_dir_all(first).expect("first inventory root should be removed");
+    fs::remove_dir_all(second).expect("second inventory root should be removed");
+}
+
+#[test]
+fn synthetic_policy_guard_runs_before_manifest_loading_skip_and_fixtures() {
+    let root = test_temp_root("synthetic-policy-guard");
+    let case_dir = root.join("synthetic");
+    fs::create_dir_all(&case_dir).expect("synthetic case directory should be created");
+    fs::write(case_dir.join("fixture.txt"), "fixture").expect("fixture should be written");
+    fs::write(
+        case_dir.join("case.toml"),
+        r#"
+command = ["check"]
+stdin = "\n"
+exit = 0
+
+[skip]
+platforms = ["linux", "macos", "windows"]
+reason = "skip evaluation must not run before policy"
+"#,
+    )
+    .expect("synthetic manifest should be written");
+
+    let panic = std::panic::catch_unwind(|| run_case(&case_dir))
+        .expect_err("synthetic policy violation should stop the case before setup");
+    let message = panic_message(panic);
+
+    assert!(message.contains(
+        "synthetic toolchain case violates manifest line-break policy before loading resources"
+    ));
+    assert!(message.contains("field `stdin` contains escape-produced-line-break"));
+    assert!(
+        !message.contains("skip evaluation must not run"),
+        "skip evaluation should be bypassed by the synthetic policy guard"
+    );
+
+    fs::remove_dir_all(root).expect("synthetic root should be removed");
 }
 
 #[test]

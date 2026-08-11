@@ -1,0 +1,25 @@
+# Canonical formatting normalizes headers, contracts, expressions, and comments.
+use stdio
+use helpers
+
+schema WireFormat
+	format binary
+
+	count: uint8
+	flags: uint16le
+	reserved: uint16be reserves 43981
+	items: [uint24be; count]
+	payload: Dispatch(count, 1 => uint8, 2 => uint16be, 3 => uint8)
+end
+
+pub fn main(raw: String) -> output: Result<{ value : Int, tags : Vec<String> }, AppError> effects [stdio]
+	require raw != ""
+	ensure helpers::valid_output(output)
+	let parsed: Int = helpers::parse(raw)?  # parsed value
+	# preserve body comment
+	let payload: { message : String, values : Vec<Int> } = { message: raw, values: [1, 2, helpers::add(3, 4)] }
+	Ok(match Some(parsed)
+		Some(count) => { value: count + 1 * (2 + 3), tags: [helpers::choose(payload.message, "fallback"), "done"] }
+		None => { value: 0, tags: [] }
+	end)
+end

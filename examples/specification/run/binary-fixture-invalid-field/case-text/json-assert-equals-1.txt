@@ -1,0 +1,1 @@
+fixture invalid-frame-kind hex ff0001 count 3 consumed 1 diagnostic schema.invalid_field_value offset 0 field_path [{"kind":"schema","name":"DemoPacket"},{"kind":"field","name":"kind"}]

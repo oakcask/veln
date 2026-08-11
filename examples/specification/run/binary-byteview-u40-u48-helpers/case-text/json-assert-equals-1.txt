@@ -1,0 +1,14 @@
+u40-read 4328719365 4328719365
+u48-read 1108152157446 1108152157446
+output_chunk_list u40-big count 1
+output_chunk u40-big index 0 hex "0102030405" count 5
+output_chunk_list u40-little count 1
+output_chunk u40-little index 0 hex "0504030201" count 5
+output_chunk_list u48-big count 1
+output_chunk u48-big index 0 hex "010203040506" count 6
+output_chunk_list u48-little count 1
+output_chunk u48-little index 0 hex "060504030201" count 6
+byte_write_u40_be value must be between 0 and 1099511627775
+byte_write_u48_le value must be between 0 and 281474976710655
+byte read requires 5 bytes but view has 4
+byte read requires 6 bytes but view has 5

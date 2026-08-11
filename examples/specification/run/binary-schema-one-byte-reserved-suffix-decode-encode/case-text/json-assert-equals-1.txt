@@ -1,0 +1,11 @@
+85
+170
+decoded
+85
+1
+encoded
+output_chunk_list one-byte-reserved-suffix count 1
+output_chunk one-byte-reserved-suffix index 0 hex "aa" count 1
+invalid
+schema.encode_value_unrepresentable
+OneByteReservedSuffixHeader.value

@@ -84,4 +84,4 @@ equals = "payload length did not match header length"
 
 [[json_assert]]
 path = "stderr"
-equals = "Err(DecodeErrorWithReason(codec.length_mismatch, ByteOffset(9), ManualPacketWire.payload, expected_length=4; actual_length=3; reason=payload length did not match header length))\n"
+equals_file = "case-text/json-assert-equals-1.txt"

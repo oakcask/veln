@@ -1,0 +1,3 @@
+schema.encode_value_unrepresentable
+CountedItems.items.1.ItemRecord.value
+value must be between 0 and 65535

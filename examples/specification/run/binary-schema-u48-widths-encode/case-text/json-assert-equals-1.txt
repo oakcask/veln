@@ -1,0 +1,3 @@
+output_chunk_list u48-widths count 1
+output_chunk u48-widths index 0 hex "010203040506060504030201" count 12
+decoded 1108152157446 1108152157446

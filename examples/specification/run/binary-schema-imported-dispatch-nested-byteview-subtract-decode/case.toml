@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "imported-closed 5 2 3 abc\nimported-extension 5 2 3 abc\ncodec-imported-closed decoded 6\ncodec-imported-extension decoded 7\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

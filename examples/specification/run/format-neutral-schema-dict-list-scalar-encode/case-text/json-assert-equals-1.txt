@@ -1,0 +1,8 @@
+24
+2
+weight-high
+core
+-1
+-1
+missing
+missing

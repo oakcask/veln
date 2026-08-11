@@ -1,0 +1,3 @@
+completed score 502 chunks 1
+deadline-expired score 1608 chunks 2
+cancelled score 2077 ended true

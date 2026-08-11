@@ -1,0 +1,5 @@
+ABC size
+  src/app.veln::duplicate_app (src/app.veln) function ABC size=2.8 vector=(2, 2, 0) contracts_included=false
+  src/app.veln::variant_app (src/app.veln) function ABC size=2.8 vector=(2, 2, 0) contracts_included=false
+  src/util.veln::duplicate_util (src/util.veln) function ABC size=2.8 vector=(2, 2, 0) contracts_included=false
+  src/util.veln::variant_util (src/util.veln) function ABC size=2.8 vector=(2, 2, 0) contracts_included=false

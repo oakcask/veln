@@ -1,0 +1,20 @@
+data accepted
+data lifecycle half-closed-local receive 5 send 6 observed 4
+output_chunk_list data count 1
+output_chunk data index 0 hex "000004000100000001aabbccdd" count 13
+data-short failure http2.protocol.content_length_mismatch offset 23 kind 0 stream 1 data 0 increment 0 last 0 observed 0 expected 4 actual 2 state open-stream role none rule rfc9113_content_length_body
+output_chunk_list data-short count 0
+stream-window accepted
+stream-window lifecycle open receive 12 send 10 observed 0
+output_chunk_list stream-window count 1
+output_chunk stream-window index 0 hex "00000408000000000100000007" count 13
+connection-window accepted
+connection-window receive 19
+output_chunk_list connection-window count 1
+output_chunk connection-window index 0 hex "00000408000000000000000009" count 13
+window-increment failure http2.flow_control.window_increment_out_of_range offset 41 kind 8 stream 1 data 0 increment 0 last 0 observed 0 expected -1 actual 0 state window-update-increment role none rule window_update_increment_range
+output_chunk_list window-increment count 0
+data-goaway failure http2.protocol.stream_after_goaway offset 43 kind 0 stream 7 data 0 increment 0 last 5 observed 0 expected -1 actual 0 state draining role server rule goaway_last_stream_id
+output_chunk_list data-goaway count 0
+window-goaway failure http2.protocol.stream_after_goaway offset 47 kind 8 stream 7 data 0 increment 0 last 5 observed 0 expected -1 actual 0 state draining role server rule goaway_last_stream_id
+output_chunk_list window-goaway count 0

@@ -1,0 +1,22 @@
+85
+output_chunk_list wide-suffix-seven count 1
+output_chunk wide-suffix-seven index 0 hex "ab555555555555" count 7
+decoded
+85
+7
+invalid
+none
+0
+0
+invalid
+0
+schema.reserved_bits_mismatch
+20
+SevenByteWideSuffixHeader.guard
+encoded
+output_chunk_list wide-suffix-seven-derived count 1
+output_chunk wide-suffix-seven-derived index 0 hex "ab555555555555" count 7
+invalid
+schema.encode_value_unrepresentable
+SevenByteWideSuffixHeader.value
+value must be between 0 and 127

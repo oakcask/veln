@@ -1,0 +1,13 @@
+decoded
+7
+3
+3
+need_more
+need_bytes
+3
+0
+invalid
+codec.invalid_input
+62
+ManualOffsetPacketWire.kind
+0

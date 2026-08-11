@@ -1,0 +1,6 @@
+direct actions 2 state 1 first send-bytes stream 1 bytes 2
+direct second end-stream
+routed actions 1 state 2 first send-bytes stream 3 bytes 1
+routed second decline
+closed actions 1 state 2 first decline stream 5 bytes 0
+closed second decline

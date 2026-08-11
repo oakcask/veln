@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "85\n115\n61\n113\n17\n81\n44\n120\ndecoded\n85\n115\n61\n113\n17\n81\n44\n120\n7\ndecoded\n85\n115\n61\n113\n17\n81\n44\n120\n7\noutput_chunk_list packed-visible-seven-byte-direct count 1\noutput_chunk packed-visible-seven-byte-direct index 0 hex \"abcdef12345678\" count 7\nencoded\noutput_chunk_list packed-visible-seven-byte-derived count 1\noutput_chunk packed-visible-seven-byte-derived index 0 hex \"abcdef12345678\" count 7\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

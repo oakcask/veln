@@ -1,0 +1,4 @@
+# One parse error prevents the formatter from writing any selected file.
+fn bad() -> ()
+  @
+end

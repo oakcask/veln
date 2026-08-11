@@ -20,7 +20,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "adapter accepted 2 rejected 1 final closed\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"
@@ -28,4 +28,4 @@ equals = null
 
 [[file_assert]]
 path = "net-events.log"
-equals = "listen 127.0.0.1:0\naccept 127.0.0.1:0 fixture-stream\nwrite fixture-stream ByteChunk([Byte(0), Byte(0), Byte(2), Byte(1), Byte(0), Byte(0), Byte(0), Byte(0), Byte(1), Byte(130), Byte(132), Byte(0), Byte(0), Byte(1), Byte(9), Byte(4), Byte(0), Byte(0), Byte(0), Byte(1), Byte(134)])\nwrite fixture-stream ByteChunk([Byte(0), Byte(0), Byte(2), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0), Byte(1), Byte(170), Byte(187), Byte(0), Byte(0), Byte(2), Byte(0), Byte(1), Byte(0), Byte(0), Byte(0), Byte(1), Byte(204), Byte(221)])\n"
+equals_file = "case-text/file-assert-equals-1.txt"

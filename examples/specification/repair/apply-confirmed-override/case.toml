@@ -33,4 +33,4 @@ equals = "passed"
 
 [[file_assert]]
 path = "main.veln"
-equals = "# Confirmed override can apply and record a manual-review candidate.\nfn main(value: Int) -> Int\n\tvalue\nend\n"
+equals_file = "case-text/file-assert-equals-1.txt"

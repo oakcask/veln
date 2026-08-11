@@ -1,0 +1,12 @@
+schema.encode_value_unrepresentable
+LittleEndianLengthWire.value
+value must be between 0 and 16777215
+schema.encode_value_unrepresentable
+LittleEndianWideWire.value
+value must be between 0 and 4294967295
+schema.encode_value_unrepresentable
+LittleEndianStreamWire.value
+value must be between 0 and 2147483647
+schema.encode_value_unrepresentable
+LittleEndianStreamWire.value
+value must be between 0 and 2147483647

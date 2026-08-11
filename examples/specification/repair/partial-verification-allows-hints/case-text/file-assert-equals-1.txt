@@ -1,0 +1,8 @@
+# Repair verification accepts hint-only diagnostics after applying the target.
+fn main(order: { ready : Bool, paid : Bool }) -> { ready : Bool }
+	order
+end
+
+fn followup(order: { ready : Bool }) -> { ready : Bool }
+	_remaining
+end

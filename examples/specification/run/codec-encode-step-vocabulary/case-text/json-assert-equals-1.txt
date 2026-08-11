@@ -1,0 +1,11 @@
+encoded
+2
+3
+partial
+1
+2
+waiting-for-sink
+invalid
+codec.out_of_range
+DemoPacket.length
+value exceeds UInt24be

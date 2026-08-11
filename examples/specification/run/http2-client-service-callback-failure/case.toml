@@ -21,7 +21,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "service failure callback http2.client_service.callback_failure completed 0 reason callback rejected response\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"
@@ -29,4 +29,4 @@ equals = null
 
 [[file_assert]]
 path = "net-events.log"
-equals = "connect-production 127.0.0.1:0 production-stream\nwrite-production production-stream ByteChunk([Byte(80), Byte(82), Byte(73), Byte(32), Byte(42), Byte(32), Byte(72), Byte(84), Byte(84), Byte(80), Byte(47), Byte(50), Byte(46), Byte(48), Byte(13), Byte(10), Byte(13), Byte(10), Byte(83), Byte(77), Byte(13), Byte(10), Byte(13), Byte(10)])\nwrite-production production-stream ByteChunk([Byte(0), Byte(0), Byte(0), Byte(4), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0)])\nwrite-production production-stream ByteChunk([Byte(0), Byte(0), Byte(3), Byte(1), Byte(5), Byte(0), Byte(0), Byte(0), Byte(1), Byte(130), Byte(135), Byte(132)])\nread-production production-stream 00000004000000000000000101050000000189\nclose-production production-stream\n"
+equals_file = "case-text/file-assert-equals-1.txt"

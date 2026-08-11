@@ -1,0 +1,13 @@
+Content-Length: 78
+
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"rootUri":"file://."}}Content-Length: 194
+
+{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file://./math.veln","languageId":"veln","version":1,"text":"fn bump(value: Int) -> Int\n  bump(value)\nend\n"}}}Content-Length: 224
+
+{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file://./math.test.veln","languageId":"veln","version":1,"text":"use math\n\ntest bump_test() -> Int\n  math::bump(1)\n  math::bump\nend\n"}}}Content-Length: 172
+
+{"jsonrpc":"2.0","id":2,"method":"textDocument/rename","params":{"textDocument":{"uri":"file://./math.test.veln"},"position":{"line":3,"character":10},"newName":"advance"}}Content-Length: 58
+
+{"jsonrpc":"2.0","id":3,"method":"shutdown","params":null}Content-Length: 47
+
+{"jsonrpc":"2.0","method":"exit","params":null}

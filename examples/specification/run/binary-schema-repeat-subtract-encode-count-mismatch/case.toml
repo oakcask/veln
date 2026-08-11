@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "schema.encode_value_unrepresentable\nCountedValues.items\nlist length 2 does not match count expression `left_count - right_count` value 3\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

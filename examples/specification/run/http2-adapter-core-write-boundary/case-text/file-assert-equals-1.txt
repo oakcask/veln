@@ -1,0 +1,4 @@
+listen 127.0.0.1:0
+accept 127.0.0.1:0 fixture-stream
+write fixture-stream ByteChunk([Byte(0), Byte(0), Byte(2), Byte(1), Byte(0), Byte(0), Byte(0), Byte(0), Byte(1), Byte(130), Byte(132), Byte(0), Byte(0), Byte(1), Byte(9), Byte(4), Byte(0), Byte(0), Byte(0), Byte(1), Byte(134)])
+write fixture-stream ByteChunk([Byte(0), Byte(0), Byte(2), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0), Byte(1), Byte(170), Byte(187), Byte(0), Byte(0), Byte(2), Byte(0), Byte(1), Byte(0), Byte(0), Byte(0), Byte(1), Byte(204), Byte(221)])

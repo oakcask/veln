@@ -64,4 +64,4 @@ equals = "00_01"
 
 [[json_assert]]
 path = "stderr"
-equals = "Err(fixture.hex.invalid_character: expected ASCII hex digit at byte offset 1 high nibble)\n"
+equals_file = "case-text/json-assert-equals-1.txt"

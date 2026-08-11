@@ -10,8 +10,8 @@ format = "empty"
 
 [[file_assert]]
 path = "main.veln"
-equals = "# Canonical formatting normalizes headers, contracts, expressions, and comments.\nuse stdio\nuse helpers\n\nschema WireFormat\n\tformat binary\n\n\tcount: uint8\n\tflags: uint16le\n\treserved: uint16be reserves 43981\n\titems: [uint24be; count]\n\tpayload: Dispatch(count, 1 => uint8, 2 => uint16be, 3 => uint8)\nend\n\npub fn main(raw: String) -> output: Result<{ value : Int, tags : Vec<String> }, AppError> effects [stdio]\n\trequire raw != \"\"\n\tensure helpers::valid_output(output)\n\tlet parsed: Int = helpers::parse(raw)?  # parsed value\n\t# preserve body comment\n\tlet payload: { message : String, values : Vec<Int> } = { message: raw, values: [1, 2, helpers::add(3, 4)] }\n\tOk(match Some(parsed)\n\t\tSome(count) => { value: count + 1 * (2 + 3), tags: [helpers::choose(payload.message, \"fallback\"), \"done\"] }\n\t\tNone => { value: 0, tags: [] }\n\tend)\nend\n"
+equals_file = "case-text/file-assert-equals-1.txt"
 
 [[file_assert]]
 path = "helpers.veln"
-equals = "# Helper declarations participate in multi-file canonical formatting.\npub fn parse(raw: String) -> Result<Int, AppError>\n\tOk(1)\nend\n\npub fn add(left: Int, right: Int) -> Int\n\tleft + right\nend\n\npub fn choose(value: String, fallback: String) -> String\n\tif_missing({ primary: value, nested: { fallback: fallback } })\nend\n\npub fn valid_output(output: Result<{ value : Int, tags : Vec<String> }, AppError>) -> Bool\n\tmatch output\n\t\tOk(value) => value.value >= 0 and not (value.value == -1)\n\t\tErr(_) => true\n\tend\nend\n\nfn if_missing(options: { primary : String, nested : { fallback : String } }) -> String\n\tmatch options.primary\n\t\t\"\" => options.nested.fallback\n\t\t_ => options.primary\n\tend\nend\n"
+equals_file = "case-text/file-assert-equals-2.txt"

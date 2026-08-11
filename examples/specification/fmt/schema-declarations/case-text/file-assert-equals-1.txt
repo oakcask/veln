@@ -1,0 +1,15 @@
+pub schema Http2FrameHeader
+	format binary
+
+	priority: uint16be
+	length: uint24be
+	kind: uint8
+	padding_length: uint8 where padding_length <= length
+	stream_reserved: uint1 reserves 0
+	stream_id: uint31be
+	checksum: uint32be
+	settings: [uint16be; length - padding_length]
+	product_settings: [uint16be; length * padding_length]
+	payload: ByteView(length - padding_length)
+	product_payload: ByteView(length * padding_length)
+end

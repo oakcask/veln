@@ -84,7 +84,7 @@ equals = false
 
 [[json_assert]]
 path = "stderr"
-equals = "Err(RuntimeDiagnostic(codec.incomplete_input, byte read requires 3 bytes but view has 2, RuntimeByteDiagnostic(ByteOffset(2), Cons(RuntimeDiagnosticFieldPathSegment(schema, Payload), Cons(RuntimeDiagnosticFieldPathSegment(field, body), Nil)), RuntimeByteCountFacts(ByteCount(3), ByteCount(2), need_bytes), RuntimeBytePreview(0001, ByteCount(2), ByteCount(2), false))))\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[result_value_assert]]
 value_path = "error.details.value"

@@ -1,0 +1,6 @@
+add decoded 2 3 5 43707 7
+subtract decoded 5 2 3 43707 5
+output_chunk_list byteview-add-derived count 1
+output_chunk byteview-add-derived index 0 hex "0203aabbccddee" count 7
+output_chunk_list byteview-subtract-derived count 1
+output_chunk byteview-subtract-derived index 0 hex "0502aabbcc" count 5

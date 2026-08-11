@@ -1,0 +1,2 @@
+**/case-text/* -whitespace
+examples/specification/lsp/*/case-text/root-stdin-*.txt -text -diff

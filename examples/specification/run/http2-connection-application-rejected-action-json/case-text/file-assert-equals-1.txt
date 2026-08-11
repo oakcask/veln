@@ -1,0 +1,7 @@
+listen-production 127.0.0.1:0
+accept-production 127.0.0.1:0 production-stream
+write-production production-stream ByteChunk([Byte(0), Byte(0), Byte(0), Byte(4), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0)])
+read-production production-stream 505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000003010500000001828784
+write-production production-stream ByteChunk([Byte(0), Byte(0), Byte(0), Byte(4), Byte(1), Byte(0), Byte(0), Byte(0), Byte(0)])
+write-production production-stream ByteChunk([Byte(0), Byte(0), Byte(4), Byte(1), Byte(4), Byte(0), Byte(0), Byte(0), Byte(1), Byte(136), Byte(92), Byte(1), Byte(53)])
+close-production production-stream

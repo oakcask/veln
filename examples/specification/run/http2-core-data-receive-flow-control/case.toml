@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "accepted accepted\nupdated connection 6 stream 3 send 99\ninput connection 10 stream 7 send 99\nconnection failure http2.flow_control.window_exceeded offset 41 stream 5 length 11 domain connection_window_credit observed -1 connection 10 stream-credit 7 preview 9\nconnection-input connection 10 stream 7 send 99\nstream failure http2.flow_control.window_exceeded offset 43 stream 5 length 3 domain stream_window_credit observed -2147483648 connection 20 stream-credit -2147483645 preview 9\nstream-input connection 20 stream -2147483645 send 99\nmissing failure http2.protocol.invalid_stream_reference offset 47 stream 7 length 1 domain stream_reference observed 0 connection 10 stream-credit 0 preview 9\nmissing-input connection 10 stream 7 send 99\naccepted-accessor accepted DATA receive flow-control decision has no failure\nrejected-accessor rejected DATA receive flow-control decision has no state\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

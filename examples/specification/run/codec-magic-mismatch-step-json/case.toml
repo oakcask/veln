@@ -84,4 +84,4 @@ equals = "file magic did not match expected signature"
 
 [[json_assert]]
 path = "stderr"
-equals = "Err(DecodeErrorWithReason(codec.magic_mismatch, ByteOffset(18), ManualPacketWire.magic, expected_magic=VELN; actual_magic=VEIN; reason=file magic did not match expected signature))\n"
+equals_file = "case-text/json-assert-equals-1.txt"

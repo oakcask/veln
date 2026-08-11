@@ -2,7 +2,7 @@ command = ["check", "main.veln"]
 exit = 0
 
 [stdout]
-contains = ["ok\n"]
+contains_files = ["case-text/stdout-contains-1.txt"]
 
 [stderr]
 format = "empty"

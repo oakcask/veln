@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "initial 72 0 0\ninserted 72 70 2\nnewest bb 0 255\noldest a 49\nshrunk 36 36 1\noriginal 72 70 2\ngrown 96 36 1\nnegative HPACK dynamic table capacity must not be negative\npreserved 72 70 2\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

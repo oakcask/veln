@@ -1,0 +1,11 @@
+accepted accepted
+updated connection 6 stream 3 send 99
+input connection 10 stream 7 send 99
+connection failure http2.flow_control.window_exceeded offset 41 stream 5 length 11 domain connection_window_credit observed -1 connection 10 stream-credit 7 preview 9
+connection-input connection 10 stream 7 send 99
+stream failure http2.flow_control.window_exceeded offset 43 stream 5 length 3 domain stream_window_credit observed -2147483648 connection 20 stream-credit -2147483645 preview 9
+stream-input connection 20 stream -2147483645 send 99
+missing failure http2.protocol.invalid_stream_reference offset 47 stream 7 length 1 domain stream_reference observed 0 connection 10 stream-credit 0 preview 9
+missing-input connection 10 stream 7 send 99
+accepted-accessor accepted DATA receive flow-control decision has no failure
+rejected-accessor rejected DATA receive flow-control decision has no state

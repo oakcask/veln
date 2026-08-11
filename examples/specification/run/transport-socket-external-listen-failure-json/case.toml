@@ -15,7 +15,7 @@ format = "empty"
 
 [[json_assert]]
 path = "stderr"
-equals = "transport listen failed: io_failure\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error.details.operation"

@@ -1,0 +1,5 @@
+encoded 241 227 194 229 242 58 107 160 171 144 244 255
+decoded 0 255
+eos HPACK Huffman payload contains EOS symbol
+padding invalid HPACK Huffman padding
+truncated invalid HPACK Huffman code sequence

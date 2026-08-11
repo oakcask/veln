@@ -1,0 +1,9 @@
+canonical 31 154 10
+represented 234
+round-trip 1337 3
+indexed-prefix 255 0
+table-size-prefix 63 129 1
+literal-length-prefix 127 1
+indexed-decoded 255 3
+table-size-decoded 289 3
+literal-length-decoded 128 2

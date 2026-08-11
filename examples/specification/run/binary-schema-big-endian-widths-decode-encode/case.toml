@@ -20,7 +20,7 @@ equals = null
 
 [[json_assert]]
 path = "stdout"
-equals = "output_chunk_list big-endian-widths count 1\noutput_chunk big-endian-widths index 0 hex \"12341234567fffffffdeadbeef\" count 13\ndecoded 4660 1193046 2147483647 3735928559\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[output_chunk_list]]
 name = "big-endian-widths"

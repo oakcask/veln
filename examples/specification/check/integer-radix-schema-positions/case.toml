@@ -3,7 +3,7 @@ exit = 0
 
 [stdout]
 format = "text"
-contains = ["ok\n"]
+contains_files = ["case-text/stdout-contains-1.txt"]
 
 [stderr]
 format = "empty"

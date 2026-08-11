@@ -1,0 +1,18 @@
+5
+1
+4
+decoded
+5
+1
+4
+1
+decoded
+5
+1
+4
+1
+output_chunk_list packed-visible-direct count 1
+output_chunk packed-visible-direct index 0 hex "ac" count 1
+encoded
+output_chunk_list packed-visible-derived count 1
+output_chunk packed-visible-derived index 0 hex "ac" count 1

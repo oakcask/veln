@@ -1,0 +1,7 @@
+1
+1
+4
+172
+schema.encode_value_unrepresentable
+InterleavedReservedHeader.mode
+value must be between 0 and 3

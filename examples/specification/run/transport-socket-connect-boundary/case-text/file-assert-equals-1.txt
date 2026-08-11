@@ -1,0 +1,5 @@
+connect 127.0.0.1:443 client-fixture
+write client-fixture ByteChunk([Byte(10), Byte(11)])
+read client-fixture 010203
+shutdown-write client-fixture
+close client-fixture

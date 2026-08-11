@@ -1,0 +1,22 @@
+42
+0
+85
+128
+decoded
+42
+3
+invalid
+none
+0
+0
+invalid
+0
+schema.reserved_bits_mismatch
+40
+ReservedNineBitPrefixHeader.control_reserved
+encoded
+output_chunk_list reserved-nine-bit-prefix count 1
+output_chunk reserved-nine-bit-prefix index 0 hex "005580" count 3
+invalid
+schema.encode_value_unrepresentable
+ReservedNineBitPrefixHeader.control

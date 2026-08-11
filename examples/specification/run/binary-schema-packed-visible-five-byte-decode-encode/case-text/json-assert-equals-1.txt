@@ -1,0 +1,30 @@
+21
+60
+55
+23
+8
+36
+52
+decoded
+21
+60
+55
+23
+8
+36
+52
+5
+decoded
+21
+60
+55
+23
+8
+36
+52
+5
+output_chunk_list packed-visible-five-byte-direct count 1
+output_chunk packed-visible-five-byte-direct index 0 hex "abcdef1234" count 5
+encoded
+output_chunk_list packed-visible-five-byte-derived count 1
+output_chunk packed-visible-five-byte-derived index 0 hex "abcdef1234" count 5

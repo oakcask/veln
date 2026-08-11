@@ -1,0 +1,18 @@
+seven
+decoded
+5
+10
+7
+invalid
+0
+schema.reserved_bits_mismatch
+20
+SevenBytePrefixReservedGroupHeader.prefix
+eight
+decoded
+5
+10
+8
+encoded
+output_chunk_list wide-prefix count 1
+output_chunk wide-prefix index 0 hex "aaaaaaaaaaaaaada" count 8

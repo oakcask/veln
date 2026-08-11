@@ -68,4 +68,4 @@ equals = "big_endian"
 
 [[json_assert]]
 path = "stderr"
-equals = "Err(byte_write_u31_be value must be between 0 and 2147483647)\n"
+equals_file = "case-text/json-assert-equals-1.txt"

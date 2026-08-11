@@ -1,0 +1,14 @@
+empty outstanding none identifier 0 item_count 0 batch_count 0 peer_ack none
+fifo-before outstanding active identifier 5 item_count 1 batch_count 2 peer_ack none
+fifo-after-one outstanding active identifier 4 item_count 2 batch_count 1 peer_ack none
+fifo-after-two outstanding none identifier 0 item_count 0 batch_count 0 peer_ack none
+unexpected failure http2.protocol.unexpected_settings_ack offset 41 active_state connection-control rule rfc9113_settings_ack_requires_outstanding_local_settings
+independent-before outstanding active identifier 5 item_count 1 batch_count 1 peer_ack active
+independent-after-local outstanding none identifier 0 item_count 0 batch_count 0 peer_ack active
+peer-ack-send send accepted pending none
+output_chunk_list peer-ack-send count 1
+output_chunk peer-ack-send index 0 hex "000000040100000000" count 9
+independent-after-send outstanding none identifier 0 item_count 0 batch_count 0 peer_ack none
+peer-ack-none send no_pending pending none
+output_chunk_list peer-ack-none count 0
+coalesced outstanding none identifier 0 item_count 0 batch_count 0 peer_ack active

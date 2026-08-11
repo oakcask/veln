@@ -1,0 +1,13 @@
+Content-Length: 78
+
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"rootUri":"file://."}}Content-Length: 151
+
+{"jsonrpc":"2.0","id":2,"method":"textDocument/definition","params":{"textDocument":{"uri":"file://./main.veln"},"position":{"line":10,"character":4}}}Content-Length: 189
+
+{"jsonrpc":"2.0","id":3,"method":"textDocument/references","params":{"textDocument":{"uri":"file://./main.veln"},"position":{"line":10,"character":4},"context":{"includeDeclaration":true}}}Content-Length: 167
+
+{"jsonrpc":"2.0","id":4,"method":"textDocument/rename","params":{"textDocument":{"uri":"file://./main.veln"},"position":{"line":10,"character":4},"newName":"project"}}Content-Length: 58
+
+{"jsonrpc":"2.0","id":5,"method":"shutdown","params":null}Content-Length: 47
+
+{"jsonrpc":"2.0","method":"exit","params":null}

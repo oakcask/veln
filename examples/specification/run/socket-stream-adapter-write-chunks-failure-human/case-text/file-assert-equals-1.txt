@@ -1,0 +1,3 @@
+listen-production 127.0.0.1:0
+accept-production 127.0.0.1:0 production-stream
+read-production production-stream 0102

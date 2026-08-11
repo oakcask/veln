@@ -6,7 +6,7 @@ jdk = true
 
 [stdout]
 format = "text"
-contains = ["output_chunk_list sub-byte-write count 1\noutput_chunk sub-byte-write index 0 hex \"01067f\" count 3\n"]
+contains_files = ["case-text/stdout-contains-1.txt"]
 
 [stderr]
 format = "empty"

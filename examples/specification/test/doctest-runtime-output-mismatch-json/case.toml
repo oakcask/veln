@@ -64,7 +64,7 @@ equals = "contract expected"
 
 [[json_assert]]
 path = "cases.0.failure.details.actual"
-equals = "contract actual\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "cases.0.failure.details.first_difference.line"
@@ -120,7 +120,7 @@ equals = "result expected"
 
 [[json_assert]]
 path = "cases.1.failure.details.actual"
-equals = "result actual\n"
+equals_file = "case-text/json-assert-equals-2.txt"
 
 [[json_assert]]
 path = "cases.1.failure.details.first_difference.line"

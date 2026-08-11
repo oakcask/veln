@@ -12,14 +12,14 @@ VELN_NET_EVENTS = "net-events.log"
 
 [stdout]
 format = "text"
-contains = ["local 127.0.0.1:1 peer 127.0.0.1:0 bytes 3\n"]
+contains_files = ["case-text/stdout-contains-1.txt"]
 
 [stderr]
 format = "empty"
 
 [[file_assert]]
 path = "net-events.log"
-equals = "connect-production 127.0.0.1:0 production-stream\nwrite-production production-stream ByteChunk([Byte(10), Byte(11)])\nread-production production-stream 0102ff\nclose-production production-stream\n"
+equals_file = "case-text/file-assert-equals-1.txt"
 
 [[file_assert]]
 path = "client-writes.log"

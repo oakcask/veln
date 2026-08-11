@@ -1,0 +1,6 @@
+shrink 36 2 36 36 1
+wrong not_table_size_update 0 0
+incomplete incomplete_integer 0 0
+malformed malformed_integer 0 0
+limit capacity_limit 89 64
+original 100 70 2

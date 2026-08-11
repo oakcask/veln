@@ -84,4 +84,4 @@ equals = "payload checksum did not match header checksum"
 
 [[json_assert]]
 path = "stderr"
-equals = "Err(DecodeErrorWithReason(codec.checksum_mismatch, ByteOffset(12), ManualPacketWire.checksum, expected_checksum=0xabcd; actual_checksum=0x1234; reason=payload checksum did not match header checksum))\n"
+equals_file = "case-text/json-assert-equals-1.txt"

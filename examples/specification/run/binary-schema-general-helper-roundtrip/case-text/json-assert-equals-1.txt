@@ -1,0 +1,12 @@
+codec-decode 5 3 1 40 2 2 1030 2 17 4660 consumed 15
+codec-decode-outcome short invalid readiness none 0 consumed 0 error schema.truncated_field 39 TelemetryEnvelope.samples.1
+codec-decode-outcome reserved invalid readiness none 0 consumed 0 error schema.reserved_bits_mismatch 56 TelemetryEnvelope.padding
+output_chunk_list general-helper-roundtrip count 1
+output_chunk general-helper-roundtrip index 0 hex "05030128020102030400aabbb13412" count 15
+output_chunk_list general-helper-codec-roundtrip count 1
+output_chunk general-helper-codec-roundtrip index 0 hex "05030128020102030400aabbb13412" count 15
+output_chunk_list general-helper-direct count 1
+output_chunk general-helper-direct index 0 hex "05030128020102030400aabbb13412" count 15
+output_chunk_list general-helper-codec-direct count 1
+output_chunk general-helper-codec-direct index 0 hex "05030128020102030400aabbb13412" count 15
+codec-encode-outcome repeat-count invalid error schema.encode_value_unrepresentable TelemetryEnvelope.samples list length 2 does not match count field `sample_count` value 3

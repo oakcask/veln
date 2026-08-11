@@ -1,0 +1,13 @@
+171
+5
+46453
+decoded
+171
+5
+2
+encoded
+output_chunk_list suffix-reserved-group count 1
+output_chunk suffix-reserved-group index 0 hex "b575" count 2
+invalid
+schema.encode_value_unrepresentable
+SuffixReservedGroupHeader.channel

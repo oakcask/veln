@@ -1,0 +1,14 @@
+u56-read 283686952306183 283686952306183
+u56-max 72057594037927935
+output_chunk_list u56-big count 1
+output_chunk u56-big index 0 hex "01020304050607" count 7
+output_chunk_list u56-little count 1
+output_chunk u56-little index 0 hex "07060504030201" count 7
+output_chunk_list u56-max-big count 1
+output_chunk u56-max-big index 0 hex "ffffffffffffff" count 7
+output_chunk_list u56-max-little count 1
+output_chunk u56-max-little index 0 hex "ffffffffffffff" count 7
+byte_write_u56_be value must be between 0 and 72057594037927935
+byte_write_u56_le value must be between 0 and 72057594037927935
+byte read requires 7 bytes but view has 6
+byte read requires 7 bytes but view has 6

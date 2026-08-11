@@ -1,0 +1,12 @@
+fn classify(value: Int) -> Int
+	match value
+		0x0A => 0b001010
+		_ => 0xCafe
+	end
+end
+
+schema Header
+	format binary
+
+	reserved: uint8 reserves 0xFf
+end

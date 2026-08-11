@@ -32,7 +32,7 @@ equals = 0
 
 [[json_assert]]
 path = "stdout"
-equals = "2\nbackend env\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "stderr"

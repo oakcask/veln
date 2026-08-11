@@ -1,0 +1,9 @@
+data-end accepted
+data-end stream 5 lifecycle half-closed-remote error 0
+input stream 5 lifecycle open error 0
+headers-end accepted
+headers-end stream 7 lifecycle closed error 0
+data-open stream 5 lifecycle open error 0
+rst stream 5 lifecycle reset error 8
+missing failure http2.protocol.invalid_stream_reference offset 103 kind 3 stream 9 state idle-stream rule idle_streams_require_headers preview 9
+missing-state-accessor rejected stream lifecycle transition has no state

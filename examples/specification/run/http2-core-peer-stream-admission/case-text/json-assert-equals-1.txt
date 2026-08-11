@@ -1,0 +1,10 @@
+empty highest 0
+first highest 1
+ignored-trailer highest 1
+ignored-known highest 1
+higher highest 7
+new-higher decision accepted
+equal decision rejected
+equal stream 7 previous 7 role client state idle-stream rule peer_created_stream_ids_increase preview 9
+lower decision rejected
+lower stream 3 previous 7 role server state idle-stream rule peer_created_stream_ids_increase preview 9

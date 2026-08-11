@@ -1,0 +1,6 @@
+2
+5
+213
+schema.encode_value_unrepresentable
+SplitReservedHeader.high
+value must be between 0 and 3

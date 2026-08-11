@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "request accepted content-length 5\nextended-connect accepted content-length -1\nresponse accepted content-length -1\ntrailers accepted content-length -1\nduplicate rejected fact duplicate_pseudo_header header :method state request-headers\nbad-te rejected fact te_header_value_not_trailers header te state request-headers\nlength-mismatch rejected fact content_length_mismatch header content-length state request-headers\nextended-not-negotiated rejected fact extended_connect_not_negotiated header :protocol state request-headers\ninformational-end-stream rejected fact informational_response_end_stream header :status state response-headers\nresponse-trailer-pseudo rejected fact trailer_pseudo_header header :status state response-trailers\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

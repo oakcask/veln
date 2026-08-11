@@ -1,0 +1,4 @@
+open read=true write=true closed=false
+read-shutdown read=false write=true closed=false
+write-shutdown read=false write=false closed=false
+closed read=false write=false closed=true

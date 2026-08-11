@@ -20,7 +20,7 @@ equals = null
 
 [[json_assert]]
 path = "stdout"
-equals = "decoded 2 3 2 2 270 2 11\noutput_chunk_list canonical-repeat count 1\noutput_chunk canonical-repeat index 0 hex \"020302020001000200030004000500ffaabbccdd0506\" count 22\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[output_chunk_list]]
 name = "canonical-repeat"

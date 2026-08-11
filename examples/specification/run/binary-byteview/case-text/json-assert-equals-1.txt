@@ -1,0 +1,26 @@
+1
+258
+66051
+513
+197121
+66051
+66051
+2147483647
+4294967295
+2147483647
+4294967295
+2
+4660
+2
+4660
+13330
+197121
+67305985
+byte read requires 3 bytes but view has 2
+byte read requires 3 bytes but view has 2
+byte view range exceeds chunk length
+byte_write_u8_be value must be between 0 and 255
+byte_write_u32_le value must be between 0 and 4294967295
+byte_read_u31_be value exceeds maximum 2147483647
+byte_read_u31_le value exceeds maximum 2147483647
+1

@@ -1,0 +1,1 @@
+transport shutdown failed: event_record_failed

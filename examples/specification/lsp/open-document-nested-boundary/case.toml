@@ -1,6 +1,6 @@
 command = ["lsp"]
 source_errors = "expected"
-stdin = "Content-Length: 78\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"rootUri\":\"file://.\"}}Content-Length: 155\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didOpen\",\"params\":{\"textDocument\":{\"uri\":\"file://nested/hidden.veln\",\"text\":\"pub fn hidden() -> Int\\n  2\\nend\\n\"}}}Content-Length: 177\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didChange\",\"params\":{\"textDocument\":{\"uri\":\"file://app.veln\",\"version\":2},\"contentChanges\":[{\"text\":\"pub fn app() -> Int\\n  1\\nend\\n\"}]}}Content-Length: 58\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"shutdown\",\"params\":null}Content-Length: 47\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"exit\",\"params\":null}"
+stdin_file = "case-text/root-stdin-1.txt"
 exit = 0
 
 [stdout]

@@ -1,0 +1,2 @@
+output_chunk_list sub-byte-write count 1
+output_chunk sub-byte-write index 0 hex "01067f" count 3

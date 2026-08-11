@@ -1,0 +1,4 @@
+response stream 1 reused false lifecycle open active 0 capacity 2147483647
+response stream 3 reused true lifecycle open active 0 capacity 0
+response stream 1 reused false lifecycle open active 0 capacity 2147483647
+service ok

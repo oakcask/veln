@@ -6,7 +6,7 @@ jdk = true
 
 [stdout]
 format = "text"
-contains = ["schema.encode_value_unrepresentable\nSubByteWrite.control\nvalue must be between 0 and 7\n"]
+contains_files = ["case-text/stdout-contains-1.txt"]
 
 [stderr]
 format = "empty"

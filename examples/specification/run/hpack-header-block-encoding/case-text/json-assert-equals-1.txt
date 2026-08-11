@@ -1,0 +1,9 @@
+bytes 130 64 1 120 2 0 255 190
+decoded 3
+header :method 71 69 84
+header x 0 255
+header x 0 255
+table 256 35 1
+newest x 0 255
+invalid_name
+active_capacity

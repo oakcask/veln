@@ -20,7 +20,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "unsupported-request-shape http2.application.unsupported_request_shape stream 1 request headers do not end the request stream\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

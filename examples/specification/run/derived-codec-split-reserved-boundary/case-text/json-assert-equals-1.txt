@@ -1,0 +1,10 @@
+decoded
+2
+5
+1
+invalid
+0
+schema.reserved_bits_mismatch
+11
+SplitReservedHeader.gap
+encoded

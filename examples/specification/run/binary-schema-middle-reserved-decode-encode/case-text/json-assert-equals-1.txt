@@ -1,0 +1,6 @@
+5
+6
+174
+schema.encode_value_unrepresentable
+MiddleReservedHeader.low
+value must be between 0 and 7

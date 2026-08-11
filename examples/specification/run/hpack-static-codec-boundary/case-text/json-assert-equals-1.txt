@@ -1,0 +1,58 @@
+authority decoded :authority,:fixture first :authority  wire_size 1
+method-get decoded :method,:fixture first :method GET wire_size 8
+method-post decoded :method,:fixture first :method POST wire_size 9
+path-root decoded :path,:fixture first :path / wire_size 6
+path-index decoded :path,:fixture first :path /index.html wire_size 9
+scheme-http decoded :scheme,:fixture first :scheme http wire_size 8
+scheme-https decoded :scheme,:fixture first :scheme https wire_size 9
+status-200 decoded :status,:fixture first :status 200 wire_size 9
+status-500 decoded :status,:fixture first :status 500 wire_size 9
+accept-encoding decoded accept-encoding,:fixture first accept-encoding gzip, deflate wire_size 9
+status-404 decoded :status,:fixture first :status 404 wire_size 9
+response-cache-control decoded :status,cache-control first :status 200 wire_size 9
+response-content-type decoded :status,content-type first :status 200 wire_size 9
+www-authenticate decoded www-authenticate,:fixture first www-authenticate  wire_size 9
+request-get-https-root decoded :method,:scheme,:path first :method GET wire_size 9
+request-post-http-root decoded :method,:scheme,:path first :method POST wire_size 9
+unsupported-static-index failed offset 20 observed_size 1 observed_first_byte 128 expected HPACK static indexed header
+static-table-above-boundary failed offset 21 observed_size 1 observed_first_byte 190 expected HPACK static indexed header
+literal-falls-through failed offset 21 observed_size 3 observed_first_byte 16 expected HPACK static indexed header block
+literal-authority decoded :authority,:fixture first :authority abc.test wire_size 10
+literal-path decoded :path,:fixture first :path /target wire_size 9
+literal-status decoded :status,:fixture first :status 201 wire_size 5
+literal-server decoded server,:fixture first server ok wire_size 5
+literal-content-length decoded content-length,:fixture first content-length 12 wire_size 5
+literal-content-type decoded content-type,:fixture first content-type text wire_size 7
+literal-user-agent decoded user-agent,:fixture first user-agent agent wire_size 8
+literal-authorization decoded authorization,:fixture first authorization bear wire_size 7
+literal-indexed-authority decoded :authority,:fixture first :authority abc.test wire_size 10
+literal-indexed-path decoded :path,:fixture first :path /target wire_size 9
+literal-indexed-status decoded :status,:fixture first :status 201 wire_size 5
+literal-indexed-server decoded server,:fixture first server ok wire_size 4
+literal-indexed-content-length decoded content-length,:fixture first content-length 12 wire_size 4
+literal-indexed-content-type decoded content-type,:fixture first content-type text wire_size 6
+literal-indexed-user-agent decoded user-agent,:fixture first user-agent agent wire_size 7
+literal-indexed-host decoded host,:fixture first host example.net wire_size 13
+literal-never-indexed-authority decoded :authority,:fixture first :authority abc.test wire_size 10
+literal-never-indexed-path decoded :path,:fixture first :path /target wire_size 9
+literal-never-indexed-status decoded :status,:fixture first :status 201 wire_size 5
+literal-never-indexed-server decoded server,:fixture first server ok wire_size 5
+literal-never-indexed-content-length decoded content-length,:fixture first content-length 12 wire_size 5
+literal-never-indexed-content-type decoded content-type,:fixture first content-type text wire_size 7
+literal-never-indexed-user-agent decoded user-agent,:fixture first user-agent agent wire_size 8
+literal-never-indexed-set-cookie decoded set-cookie,:fixture first set-cookie id1 wire_size 6
+literal-method decoded :method,:fixture first :method PUT wire_size 5
+literal-indexed-method decoded :method,:fixture first :method PUT wire_size 5
+literal-never-indexed-method decoded :method,:fixture first :method PUT wire_size 5
+literal-huffman-path-test decoded :path,:fixture first :path test wire_size 5
+literal-huffman-path-linefeed decoded :path,:fixture first :path <lf> wire_size 6
+literal-huffman-path-byte-ff decoded :path,:fixture first :path hpack-byte-ff wire_size 6
+literal-huffman-path-bytes decoded :path,:fixture first :path hpack-bytes-00-ff wire_size 7
+literal-indexed-huffman-method-put decoded :method,:fixture first :method PUT wire_size 5
+literal-indexed-huffman-path-bytes decoded :path,:fixture first :path hpack-bytes-00-ff wire_size 7
+literal-never-indexed-huffman-status-200 decoded :status,:fixture first :status 200 wire_size 4
+literal-never-indexed-huffman-path-byte-ff decoded :path,:fixture first :path hpack-byte-ff wire_size 6
+literal-malformed-length-falls-through failed offset 46 observed_size 5 observed_first_byte 8 expected HPACK static indexed header block
+literal-indexed-malformed-length-falls-through failed offset 47 observed_size 5 observed_first_byte 72 expected HPACK static indexed header block
+literal-never-indexed-malformed-length-falls-through failed offset 48 observed_size 5 observed_first_byte 24 expected HPACK static indexed header block
+literal-saturated-length-falls-through failed offset 49 observed_size 2 observed_first_byte 8 expected HPACK static indexed header block

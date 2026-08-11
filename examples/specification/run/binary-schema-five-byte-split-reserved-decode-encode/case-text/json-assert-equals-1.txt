@@ -1,0 +1,7 @@
+5
+17
+22
+778805357238
+schema.encode_value_unrepresentable
+FiveByteSplitReservedHeader.mode
+value must be between 0 and 31

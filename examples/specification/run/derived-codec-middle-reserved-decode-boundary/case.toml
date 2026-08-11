@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "decoded\n5\n6\n1\nneed_more\nneed_bytes\n1\n0\ninvalid\n0\nschema.reserved_bits_mismatch\n96\nMiddleReservedHeader.gap\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

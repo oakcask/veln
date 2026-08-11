@@ -19,7 +19,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "completed score 502 chunks 1\ndeadline-expired score 1608 chunks 2\ncancelled score 2077 ended true\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

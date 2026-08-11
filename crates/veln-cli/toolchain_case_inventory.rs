@@ -41,7 +41,7 @@ pub(crate) fn run_preflight_with_roots(
     manifest_dir: &Path,
     roots: &[DiscoveryRoot],
 ) -> Result<Preflight, String> {
-    run_preflight_with_roots_and_policy(manifest_dir, roots, policy_enforcement_enabled())
+    run_preflight_with_roots_and_policy(manifest_dir, roots, true)
 }
 
 pub(crate) fn run_preflight_with_roots_and_policy(
@@ -77,7 +77,7 @@ pub(crate) fn compare_generated_inventory(
     manifest_dir: &Path,
     generated: &[&str],
 ) -> Result<Preflight, String> {
-    compare_generated_inventory_with_policy(manifest_dir, generated, policy_enforcement_enabled())
+    compare_generated_inventory_with_policy(manifest_dir, generated, true)
 }
 
 pub(crate) fn compare_generated_inventory_with_policy(
@@ -308,10 +308,6 @@ fn panic_message(panic: Box<dyn std::any::Any + Send>) -> String {
         return message.to_string();
     }
     "non-string panic".to_string()
-}
-
-fn policy_enforcement_enabled() -> bool {
-    std::env::var("VELN_TOOLCHAIN_CASE_POLICY").is_ok_and(|value| value == "deny")
 }
 
 fn render_preflight_errors(errors: Vec<String>) -> String {

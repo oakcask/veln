@@ -1,0 +1,4 @@
+Whole-body similarity (experimental)
+  Similarity is advisory; it never creates a metrics policy violation.
+  Review repeated bodies manually; the report does not prescribe automatic deduplication.
+  similarity:

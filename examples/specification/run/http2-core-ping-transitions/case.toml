@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "ping-request request accepted reason none observed 8 expected 8\noutput_chunk_list ping-request count 1\noutput_chunk ping-request index 0 hex \"0000080600000000000102030405060708\" count 17\nping-request-short request rejected reason http2.protocol.invalid_payload_length observed 7 expected 8\noutput_chunk_list ping-request-short count 0\nping-request-short failure kind 6 stream 0 observed 7 expected 8 active_state connection-control rule rfc9113_ping_payload_length\nping-ack response accepted reason none\noutput_chunk_list ping-ack count 1\noutput_chunk ping-ack index 0 hex \"0000080601000000000102030405060708\" count 17\nping-ack-received response no_response reason ack_received\noutput_chunk_list ping-ack-received count 0\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

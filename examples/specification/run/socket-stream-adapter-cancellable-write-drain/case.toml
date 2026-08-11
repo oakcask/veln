@@ -22,7 +22,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "written clean-end true\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"
@@ -30,7 +30,7 @@ equals = null
 
 [[file_assert]]
 path = "net-events.log"
-equals = "listen-production 127.0.0.1:0\naccept-production 127.0.0.1:0 production-stream\nread-production production-stream 0102\nread-production production-stream 0a0b\nread-end-production production-stream\nwrite-production production-stream ByteChunk([Byte(1), Byte(2)])\nwrite-production production-stream ByteChunk([Byte(10), Byte(11)])\nclose-production production-stream\naccept-end-production 127.0.0.1:0\n"
+equals_file = "case-text/file-assert-equals-1.txt"
 
 [[file_assert]]
 path = "client-writes.hex"

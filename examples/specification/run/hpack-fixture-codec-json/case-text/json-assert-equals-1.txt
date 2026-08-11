@@ -1,0 +1,11 @@
+path-index decoded :path /index.html wire_size 9 next_decode_count 1
+method-get encoded_count 1 first_byte 130 expected_first_byte 130 next_encode_count 1 table_size 4096
+path-root encoded_count 1 first_byte 132 expected_first_byte 132 next_encode_count 1 table_size 4096
+scheme-https encoded_count 1 first_byte 135 expected_first_byte 135 next_encode_count 1 table_size 4096
+status-200 encoded_count 1 first_byte 136 expected_first_byte 136 next_encode_count 1 table_size 4096
+literal-method-put encoded_count 5 first_byte 2 expected_first_byte 2 next_encode_count 1 table_size 4096
+literal-server encoded_count 5 first_byte 15 expected_first_byte 15 next_encode_count 1 table_size 4096
+literal-path-target encoded_count 9 first_byte 4 expected_first_byte 4 next_encode_count 1 table_size 4096
+unsupported-name encode_failure offset 31 observed_size 6 observed_first_byte 120 expected_fixture fixture header list encoding codec_module hpack_fixture
+unsupported-value encode_failure offset 37 observed_size 7 observed_first_byte 58 expected_fixture fixture header list encoding codec_module hpack_fixture
+unsupported-static-name-literal encode_failure offset 43 observed_size 6 observed_first_byte 120 expected_fixture fixture header list encoding codec_module hpack_fixture

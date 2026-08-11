@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "encoded\noutput_chunk_list derived-counted-values count 1\noutput_chunk derived-counted-values index 0 hex \"030001000200ff\" count 7\ninvalid\nschema.encode_value_unrepresentable\nCountedValues.items\nvalue must be between 0 and 65535\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

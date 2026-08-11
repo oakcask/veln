@@ -80,7 +80,7 @@ equals = false
 
 [[json_assert]]
 path = "stderr"
-equals = "Err(RuntimeDiagnostic(schema.fixed_field_mismatch, fixed field mismatch at byte offset 0, RuntimeByteDiagnostic(ByteOffset(0), Cons(RuntimeDiagnosticFieldPathSegment(schema, DemoPacket), Cons(RuntimeDiagnosticFieldPathSegment(field, kind), Nil)), RuntimeByteFixedValueFacts(1, 255), RuntimeBytePreview(ff0001, ByteCount(3), ByteCount(3), false))))\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[result_value_assert]]
 value_path = "error.details.value"

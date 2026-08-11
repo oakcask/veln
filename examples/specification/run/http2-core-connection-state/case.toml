@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "server role server offset 24 preface_start 24 initial_role server pending false pending_stream 0 pending_kind 0 pending_offset 0 hpack_capacity 4096 hpack_entries 0 peer_frame 16384 ack none peer_stream 0 streams 0 active_streams 0 credit 65535 lifecycle open last 0 error 0\nclient role client offset 7 preface_start 7 initial_role client pending false pending_stream 0 pending_kind 0 pending_offset 0 hpack_capacity 4096 hpack_entries 0 peer_frame 16384 ack none peer_stream 0 streams 0 active_streams 0 credit 65535 lifecycle open last 0 error 0\nupdated role server offset 31 preface_start 24 initial_role server pending false pending_stream 0 pending_kind 0 pending_offset 0 hpack_capacity 4096 hpack_entries 0 peer_frame 16384 ack active peer_stream 9 streams 1 active_streams 1 credit 65535 lifecycle draining last 9 error 0\nreplaced role server offset 24 preface_start 24 initial_role client pending true pending_stream 13 pending_kind 1 pending_offset 41 hpack_capacity 4096 hpack_entries 0 peer_frame 16384 ack none peer_stream 0 streams 0 active_streams 0 credit 65535 lifecycle closed last 13 error 0\nserver-after-update role server offset 24 preface_start 24 initial_role server pending false pending_stream 0 pending_kind 0 pending_offset 0 hpack_capacity 4096 hpack_entries 0 peer_frame 16384 ack none peer_stream 0 streams 0 active_streams 0 credit 65535 lifecycle open last 0 error 0\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

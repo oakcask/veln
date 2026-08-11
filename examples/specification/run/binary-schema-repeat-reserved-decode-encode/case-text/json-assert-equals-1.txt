@@ -1,0 +1,4 @@
+3
+42
+output_chunk_list repeat-reserved count 1
+output_chunk repeat-reserved index 0 hex "03abcdabcdabcd2a" count 8

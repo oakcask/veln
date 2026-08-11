@@ -1,0 +1,363 @@
+first decoded :fixture single-headers wire_size 8 next_decode_count 1
+second decoded :fixture header-list-accepted wire_size 8 next_decode_count 2
+authority decoded :authority  wire_size 1 next_decode_count 3
+method-post decoded :method POST wire_size 9 next_decode_count 4
+method-path decoded :method GET then :path / wire_size 2 next_decode_count 1
+path-index decoded :path /index.html wire_size 9 next_decode_count 5
+scheme-http decoded :scheme http wire_size 8 next_decode_count 6
+scheme-https decoded :scheme https wire_size 9 next_decode_count 7
+status-200 decoded :status 200 wire_size 9 next_decode_count 8
+status-204 decoded :status 204 wire_size 9 next_decode_count 9
+status-206 decoded :status 206 wire_size 9 next_decode_count 10
+status-304 decoded :status 304 wire_size 9 next_decode_count 11
+status-400 decoded :status 400 wire_size 9 next_decode_count 12
+status-404 decoded :status 404 wire_size 9 next_decode_count 13
+status-500 decoded :status 500 wire_size 9 next_decode_count 14
+accept-charset decoded accept-charset  wire_size 9 next_decode_count 15
+accept-encoding decoded accept-encoding gzip, deflate wire_size 9 next_decode_count 16
+accept-language decoded accept-language  wire_size 9 next_decode_count 17
+accept-ranges decoded accept-ranges  wire_size 9 next_decode_count 18
+accept decoded accept  wire_size 9 next_decode_count 19
+access-control-allow-origin decoded access-control-allow-origin  wire_size 9 next_decode_count 20
+age decoded age  wire_size 9 next_decode_count 21
+allow decoded allow  wire_size 9 next_decode_count 22
+authorization decoded authorization  wire_size 9 next_decode_count 23
+cache-control decoded cache-control  wire_size 9 next_decode_count 24
+content-disposition decoded content-disposition  wire_size 9 next_decode_count 25
+content-encoding decoded content-encoding  wire_size 9 next_decode_count 26
+content-language decoded content-language  wire_size 9 next_decode_count 27
+content-length decoded content-length  wire_size 9 next_decode_count 28
+content-location decoded content-location  wire_size 9 next_decode_count 29
+content-range decoded content-range  wire_size 9 next_decode_count 30
+content-type decoded content-type  wire_size 9 next_decode_count 31
+cookie decoded cookie  wire_size 9 next_decode_count 32
+date decoded date  wire_size 9 next_decode_count 33
+etag decoded etag  wire_size 9 next_decode_count 34
+expect decoded expect  wire_size 9 next_decode_count 35
+expires decoded expires  wire_size 9 next_decode_count 36
+from decoded from  wire_size 9 next_decode_count 37
+host decoded host  wire_size 9 next_decode_count 38
+if-match decoded if-match  wire_size 9 next_decode_count 39
+if-modified-since decoded if-modified-since  wire_size 9 next_decode_count 40
+if-none-match decoded if-none-match  wire_size 9 next_decode_count 41
+if-range decoded if-range  wire_size 9 next_decode_count 42
+if-unmodified-since decoded if-unmodified-since  wire_size 9 next_decode_count 43
+last-modified decoded last-modified  wire_size 9 next_decode_count 44
+link decoded link  wire_size 9 next_decode_count 45
+location decoded location  wire_size 9 next_decode_count 46
+max-forwards decoded max-forwards  wire_size 9 next_decode_count 47
+proxy-authenticate decoded proxy-authenticate  wire_size 9 next_decode_count 48
+proxy-authorization decoded proxy-authorization  wire_size 9 next_decode_count 49
+range decoded range  wire_size 9 next_decode_count 50
+referer decoded referer  wire_size 9 next_decode_count 51
+refresh decoded refresh  wire_size 9 next_decode_count 52
+retry-after decoded retry-after  wire_size 9 next_decode_count 53
+server decoded server  wire_size 9 next_decode_count 54
+set-cookie decoded set-cookie  wire_size 9 next_decode_count 55
+strict-transport-security decoded strict-transport-security  wire_size 9 next_decode_count 56
+transfer-encoding decoded transfer-encoding  wire_size 9 next_decode_count 57
+user-agent decoded user-agent  wire_size 9 next_decode_count 58
+vary decoded vary  wire_size 9 next_decode_count 59
+via decoded via  wire_size 9 next_decode_count 60
+www-authenticate decoded www-authenticate  wire_size 9 next_decode_count 61
+literal-path decoded :path /target wire_size 9 next_decode_count 62
+literal-path-empty-huffman decoded :path  wire_size 2 next_decode_count 63
+literal-authority decoded :authority example.com wire_size 13 next_decode_count 64
+literal-status decoded :status 201 wire_size 5 next_decode_count 65
+encode-raw-short-put encoded count 4 first_byte 3
+encode-raw-visible-bad encoded count 4 first_byte 3
+encode-raw-long-a encoded count 130 first_byte 127
+encode-raw-non-visible failed offset 98 observed_size 1 observed_first_byte 10 expected fixture raw string encoding
+encode-hpack-huffman-payload-test encoded count 3 first_byte 73
+encode-hpack-huffman-payload-bytes-00-ff encoded count 5 first_byte 255
+encode-hpack-huffman-payload-unsupported-string failed offset 162 observed_size 0 observed_first_byte -1 expected fixture raw string encoding
+encode-static-indexed-method-get encoded count 1 first_byte 130
+encode-static-indexed-method-post encoded count 1 first_byte 131
+encode-static-indexed-scheme-https encoded count 1 first_byte 135
+encode-static-indexed-status-200 encoded count 1 first_byte 136
+encode-static-indexed-status-404 encoded count 1 first_byte 141
+encode-static-indexed-accept-encoding encoded count 1 first_byte 144
+encode-static-indexed-content-type-empty encoded count 1 first_byte 159
+encode-static-indexed-method-put failed offset 156 observed_size 7 observed_first_byte 58 expected fixture header list encoding
+encode-static-indexed-content-type-text-fallback failed offset 160 observed_size 12 observed_first_byte 99 expected fixture header list encoding
+encode-selected-seed-static-exact-new-name encoded count 13 first_byte 130 next_encode_count 2 table_size 4096
+encode-selected-seed-state encode_state table_size 4096 encode_count 2 dynamic_entries 1
+encode-selected-carried-dynamic-exact-dynamic-name encoded count 8 first_byte 190 next_encode_count 4 table_size 4096
+encode-selected-carried-state encode_state table_size 4096 encode_count 4 dynamic_entries 2
+encode-selected-static-name-then-static-exact encoded count 5 first_byte 118 next_encode_count 2 table_size 4096
+encode-selected-static-name-state encode_state table_size 4096 encode_count 2 dynamic_entries 1
+encode-selected-capacity-42 encoded count 2 first_byte 63 next_encode_count 1 table_size 42
+encode-selected-reduced-seed encoded count 13 first_byte 130 next_encode_count 3 table_size 42
+encode-selected-reduced-seed-state encode_state table_size 42 encode_count 3 dynamic_entries 1
+encode-selected-reduced-eviction encoded count 8 first_byte 190 next_encode_count 5 table_size 42
+encode-selected-reduced-eviction-state encode_state table_size 42 encode_count 5 dynamic_entries 0
+encode-selected-invalid-name failed offset 189 observed_size 8 observed_first_byte 98 expected fixture header list encoding
+encode-selected-capacity-mismatch failed offset 190 observed_size 7 observed_first_byte 58 expected fixture header list encoding
+encode-selected-after-failures-retains-entry encoded count 1 first_byte 190 next_encode_count 3 table_size 4096
+encode-selected-after-failures-state encode_state table_size 4096 encode_count 3 dynamic_entries 1
+encode-initial encode_state table_size 4096 encode_count 0
+encode-stateful-literal-indexed-path-target encoded count 9 first_byte 68 next_encode_count 1 table_size 4096
+encode-stateful-dynamic-indexed-path-target encoded count 1 first_byte 190 next_encode_count 2 table_size 4096
+encode-stateful-after-dynamic encode_state table_size 4096 encode_count 2
+encode-stateful-literal-never-indexed-x-never encoded count 12 first_byte 16 next_encode_count 3 table_size 4096
+encode-stateful-never-indexed-x-never-dynamic-missing failed offset 134 observed_size 7 observed_first_byte 120 expected fixture header list encoding
+encode-stateful-never-indexed-retains-path-target encoded count 1 first_byte 190 next_encode_count 4 table_size 4096
+encode-stateful-dynamic-name-literal-path-fresh encoded count 9 first_byte 15 next_encode_count 3 table_size 4096
+encode-stateful-dynamic-name-retains-path-target encoded count 1 first_byte 190 next_encode_count 4 table_size 4096
+encode-stateful-after-dynamic-name encode_state table_size 4096 encode_count 4
+encode-stateful-dynamic-name-never-indexed-path-secret encoded count 10 first_byte 31 next_encode_count 3 table_size 4096
+encode-stateful-dynamic-name-never-indexed-retains-path-target encoded count 1 first_byte 190 next_encode_count 4 table_size 4096
+encode-stateful-after-dynamic-name-never-indexed encode_state table_size 4096 encode_count 4
+encode-stateful-dynamic-name-indexed-path-again encoded count 8 first_byte 126 next_encode_count 3 table_size 4096
+encode-stateful-dynamic-name-indexed-newest-path-again encoded count 1 first_byte 190 next_encode_count 4 table_size 4096
+encode-stateful-dynamic-name-indexed-retains-path-target encoded count 1 first_byte 191 next_encode_count 5 table_size 4096
+encode-stateful-after-dynamic-name-indexed encode_state table_size 4096 encode_count 5
+encode-stateful-dynamic-name-huffman-without-indexing-path-test encoded count 6 first_byte 15 next_encode_count 3 table_size 4096
+encode-stateful-dynamic-name-huffman-without-indexing-retains-path-target encoded count 1 first_byte 190 next_encode_count 4 table_size 4096
+encode-stateful-after-dynamic-name-huffman-without-indexing encode_state table_size 4096 encode_count 4 dynamic_entries 1
+encode-stateful-dynamic-name-huffman-never-indexed-path-test encoded count 6 first_byte 31 next_encode_count 3 table_size 4096
+encode-stateful-dynamic-name-huffman-never-indexed-retains-path-target encoded count 1 first_byte 190 next_encode_count 4 table_size 4096
+encode-stateful-after-dynamic-name-huffman-never-indexed encode_state table_size 4096 encode_count 4 dynamic_entries 1
+encode-stateful-dynamic-name-huffman-indexed-path-test encoded count 5 first_byte 126 next_encode_count 3 table_size 4096
+encode-stateful-dynamic-name-huffman-indexed-reuses-path-test encoded count 1 first_byte 190 next_encode_count 4 table_size 4096
+encode-stateful-dynamic-name-huffman-indexed-retains-path-target encoded count 1 first_byte 191 next_encode_count 5 table_size 4096
+encode-stateful-after-dynamic-name-huffman-indexed encode_state table_size 4096 encode_count 5 dynamic_entries 2
+encode-dynamic-name-huffman-missing failed offset 170 observed_size 5 observed_first_byte 58 expected fixture outbound dynamic-name indexed literal
+encode-dynamic-name-huffman-unsupported-value failed offset 171 observed_size 0 observed_first_byte -1 expected fixture raw string encoding
+encode-dynamic-name-huffman-after-failures-retains-path-target encoded count 1 first_byte 190 next_encode_count 3 table_size 4096
+encode-dynamic-name-literal-missing failed offset 131 observed_size 5 observed_first_byte 58 expected fixture outbound dynamic-name indexed literal
+encode-dynamic-name-never-indexed-missing failed offset 142 observed_size 5 observed_first_byte 58 expected fixture outbound dynamic-name indexed literal
+encode-dynamic-name-literal-non-visible-value failed offset 132 observed_size 1 observed_first_byte 10 expected fixture raw string encoding
+encode-dynamic-name-indexed-non-visible-value failed offset 139 observed_size 1 observed_first_byte 10 expected fixture raw string encoding
+encode-stateless-literal-indexed-path-target encoded count 9 first_byte 68
+encode-literal-visible-ascii-x-demo encoded count 14 first_byte 0 next_encode_count 1 table_size 4096
+encode-stateful-literal-indexed-ordinary-x-trace encoded count 12 first_byte 64 next_encode_count 1 table_size 4096
+encode-stateful-dynamic-indexed-ordinary-x-trace encoded count 1 first_byte 190 next_encode_count 2 table_size 4096
+encode-literal-invalid-name failed offset 128 observed_size 8 observed_first_byte 98 expected fixture header list encoding
+encode-literal-indexed-invalid-name failed offset 147 observed_size 8 observed_first_byte 98 expected fixture header list encoding
+encode-huffman-name-without-indexing-test-ok encoded count 8 first_byte 0 next_encode_count 1 table_size 4096
+encode-huffman-name-without-indexing-state encode_state table_size 4096 encode_count 1 dynamic_entries 0
+encode-huffman-name-never-indexed-test-ok encoded count 8 first_byte 16 next_encode_count 1 table_size 4096
+encode-huffman-name-never-indexed-state encode_state table_size 4096 encode_count 1 dynamic_entries 0
+encode-huffman-name-with-indexing-test-ok encoded count 8 first_byte 64 next_encode_count 1 table_size 4096
+encode-huffman-name-with-indexing-state encode_state table_size 4096 encode_count 1 dynamic_entries 1
+encode-huffman-name-with-indexing-reuses-test-ok encoded count 1 first_byte 190 next_encode_count 2 table_size 4096
+encode-huffman-name-with-indexing-reuse-state encode_state table_size 4096 encode_count 2 dynamic_entries 1
+encode-huffman-name-value-without-indexing-test-test encoded count 9 first_byte 0 next_encode_count 1 table_size 4096
+encode-huffman-name-value-without-indexing-state encode_state table_size 4096 encode_count 1 dynamic_entries 0
+encode-huffman-name-value-never-indexed-test-test encoded count 9 first_byte 16 next_encode_count 1 table_size 4096
+encode-huffman-name-value-never-indexed-state encode_state table_size 4096 encode_count 1 dynamic_entries 0
+encode-huffman-name-value-with-indexing-test-test encoded count 9 first_byte 64 next_encode_count 1 table_size 4096
+encode-huffman-name-value-with-indexing-reuses-test-test encoded count 1 first_byte 190 next_encode_count 2 table_size 4096
+encode-huffman-name-value-with-indexing-reuse-state encode_state table_size 4096 encode_count 2 dynamic_entries 1
+encode-huffman-name-unsupported failed offset 181 observed_size 0 observed_first_byte -1 expected fixture raw string encoding
+encode-huffman-name-failure-retains-path-target encoded count 1 first_byte 190 next_encode_count 2 table_size 4096
+encode-huffman-name-failure-retained-state encode_state table_size 4096 encode_count 2 dynamic_entries 1
+encode-table-size-update-zero encoded count 1 first_byte 32 next_encode_count 3 table_size 0
+encode-table-size-update-zero-state encode_state table_size 0 encode_count 3 dynamic_entries 0
+encode-after-table-size-update-zero-method-put encoded count 5 first_byte 66 next_encode_count 4 table_size 0
+encode-after-table-size-update-zero-method-put-state encode_state table_size 0 encode_count 4 dynamic_entries 0
+encode-after-table-size-update-zero-method-put-again encoded count 5 first_byte 66 next_encode_count 5 table_size 0
+encode-after-table-size-update-zero-method-put-again-state encode_state table_size 0 encode_count 5 dynamic_entries 0
+encode-table-size-update-30 encoded count 1 first_byte 62 next_encode_count 3 table_size 30
+encode-after-table-size-update-30 encoded count 9 first_byte 68 next_encode_count 4 table_size 30
+encode-after-table-size-update-30-method-put encoded count 5 first_byte 66 next_encode_count 4 table_size 30
+encode-after-table-size-update-30-method-put-again encoded count 5 first_byte 66 next_encode_count 5 table_size 30
+encode-table-size-update-42 encoded count 2 first_byte 63 next_encode_count 3 table_size 42
+encode-after-table-size-update-42-method-put encoded count 5 first_byte 66 next_encode_count 4 table_size 42
+encode-after-table-size-update-42-method-put-again encoded count 1 first_byte 190 next_encode_count 5 table_size 42
+encode-table-size-update-160 encoded count 3 first_byte 63 next_encode_count 1 table_size 160
+encode-table-size-update-over-peer-limit failed offset 126 observed_size 33 observed_first_byte 33 expected fixture outbound table-size update
+literal-method-put-huffman decoded :method PUT wire_size 3 next_decode_count 1
+literal-method-bad-huffman decoded :method bad wire_size 3 next_decode_count 1
+literal-path-test-huffman decoded :path test wire_size 4 next_decode_count 1
+literal-status-200-huffman decoded :status 200 wire_size 3 next_decode_count 1
+literal-authority-www-example-huffman decoded :authority www.example.com wire_size 13 next_decode_count 1
+literal-path-linefeed-huffman decoded :path <lf> wire_size 1 next_decode_count 1
+literal-path-nul-huffman decoded :path <nul> wire_size 1 next_decode_count 1
+literal-path-ff-huffman decoded :path hpack-byte-ff wire_size 1 next_decode_count 1
+literal-path-bytes-huffman decoded :path hpack-bytes-00-ff wire_size 2 next_decode_count 1
+literal-path-two-nul-huffman decoded :path hpack-bytes-00-00 wire_size 2 next_decode_count 1
+literal-indexed-authority decoded :authority abc.test wire_size 10 next_decode_count 1
+literal-indexed-method-put-huffman decoded :method PUT wire_size 3 next_decode_count 1
+literal-indexed-method-bad-huffman decoded :method bad wire_size 3 next_decode_count 1
+literal-indexed-scheme-https-huffman decoded :scheme https wire_size 5 next_decode_count 1
+literal-indexed-status decoded :status 201 wire_size 5 next_decode_count 1
+literal-authority-raw-odd decoded :authority odd wire_size 5 next_decode_count 1
+literal-indexed-method-raw-raw decoded :method raw wire_size 5 next_decode_count 1
+literal-never-indexed-path-raw-bot decoded :path bot wire_size 5 next_decode_count 1
+literal-raw-name-x-trace decoded x-trace ok wire_size 12 next_decode_count 1
+literal-indexed-raw-name-x-trace decoded x-trace ok wire_size 12 next_decode_count 1
+dynamic-indexed-raw-name-x-trace decoded x-trace ok wire_size 9 next_decode_count 2
+literal-never-indexed-authority decoded :authority abc.test wire_size 10 next_decode_count 1
+literal-never-indexed-raw-name-x-trace decoded x-trace ok wire_size 12 next_decode_count 1
+literal-never-indexed-method-bad-huffman decoded :method bad wire_size 3 next_decode_count 1
+literal-never-indexed-scheme-https-huffman decoded :scheme https wire_size 5 next_decode_count 1
+literal-authority-raw-long-length decoded :authority aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa wire_size 131 next_decode_count 1
+literal-path-huffman-long-length decoded :path 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 wire_size 204 next_decode_count 1
+literal-indexed-authority-raw-long-length decoded :authority aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa wire_size 131 next_decode_count 1
+literal-indexed-path-huffman-long-length decoded :path 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 wire_size 204 next_decode_count 1
+literal-never-indexed-authority-raw-long-length decoded :authority aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa wire_size 131 next_decode_count 1
+literal-never-indexed-path-huffman-long-length decoded :path 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 wire_size 204 next_decode_count 1
+literal-authority-raw-extra-long-length decoded :authority aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa wire_size 132 next_decode_count 1
+literal-indexed-authority-raw-extra-long-length decoded :authority aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa wire_size 132 next_decode_count 1
+literal-never-indexed-authority-raw-extra-long-length decoded :authority aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa wire_size 132 next_decode_count 1
+malformed-literal-continuation-length failed offset 91 observed_size 3 observed_first_byte 4 expected fixture header block
+malformed-literal-length failed offset 83 observed_size 2 observed_first_byte 4 expected fixture header block
+malformed-status-huffman-padding failed offset 90 observed_size 4 observed_first_byte 8 expected fixture HPACK Huffman padding
+literal-never-indexed-path decoded :path /target wire_size 9 next_decode_count 1
+literal-never-indexed-dynamic-missing failed offset 100 observed_size 1 observed_first_byte 190 expected fixture dynamic indexed header
+literal-indexed-path decoded :path /target wire_size 9 next_decode_count 66
+dynamic-indexed-path decoded :path /target wire_size 9 next_decode_count 67
+dynamic-core-indexed-path decoded :path /target wire_size 9 next_decode_count 2
+dynamic-core-indexed-missing failed id hpack.fixture.dynamic_index_out_of_range offset 70 requested_dynamic_index 0 dynamic_table_entry_count 0 codec_module hpack_dynamic_core
+dynamic-core-indexed-newest-method decoded :method PUT wire_size 9 next_decode_count 2
+dynamic-core-indexed-second-path decoded :path /target wire_size 9 next_decode_count 3
+dynamic-core-indexed-third-missing failed id hpack.fixture.dynamic_index_out_of_range offset 73 requested_dynamic_index 2 dynamic_table_entry_count 2 codec_module hpack_dynamic_core
+dynamic-core-after-third-missing dynamic_core_state decode_count 3 dynamic_table_entry_count 2
+dynamic-core-indexed-wide-path decoded :path /a wire_size 9 next_decode_count 1
+dynamic-core-indexed-wide-missing failed id hpack.fixture.dynamic_index_out_of_range offset 75 requested_dynamic_index 65 dynamic_table_entry_count 2 codec_module hpack_dynamic_core
+dynamic-core-indexed-multi-continuation-retained-older-path decoded :path /a wire_size 9 next_decode_count 1
+dynamic-core-indexed-multi-continuation-out-of-range failed id hpack.fixture.dynamic_index_out_of_range offset 129 requested_dynamic_index 193 dynamic_table_entry_count 66 codec_module hpack_dynamic_core
+dynamic-core-static-literal-indexed-content-type decoded content-type text wire_size 6 next_decode_count 1
+dynamic-core-static-literal-indexed-content-type-reuse decoded content-type text wire_size 9 next_decode_count 2
+dynamic-core-raw-literal-without-indexing-x-trace decoded x-trace ok wire_size 12 next_decode_count 1
+dynamic-core-raw-literal-without-indexing-state dynamic_core_accounting table_size 4096 decode_count 1 dynamic_table_entry_count 0 dynamic_table_size 0
+dynamic-core-raw-literal-indexed-x-trace decoded x-trace ok wire_size 12 next_decode_count 1
+dynamic-core-raw-literal-indexed-state dynamic_core_accounting table_size 4096 decode_count 1 dynamic_table_entry_count 1 dynamic_table_size 41
+dynamic-core-raw-literal-indexed-x-trace-reuse decoded x-trace ok wire_size 9 next_decode_count 2
+dynamic-core-raw-literal-never-indexed-x-never decoded x-never no wire_size 12 next_decode_count 1
+dynamic-core-raw-literal-never-indexed-state dynamic_core_accounting table_size 4096 decode_count 1 dynamic_table_entry_count 0 dynamic_table_size 0
+dynamic-core-raw-literal-huffman-without-indexing-x-huff decoded x-huff test wire_size 12 next_decode_count 1
+dynamic-core-raw-literal-huffman-without-indexing-state dynamic_core_accounting table_size 4096 decode_count 1 dynamic_table_entry_count 0 dynamic_table_size 0
+dynamic-core-raw-literal-huffman-indexed-x-huff decoded x-huff test wire_size 12 next_decode_count 1
+dynamic-core-raw-literal-huffman-indexed-state dynamic_core_accounting table_size 4096 decode_count 1 dynamic_table_entry_count 1 dynamic_table_size 42
+dynamic-core-raw-literal-huffman-indexed-x-huff-reuse decoded x-huff test wire_size 9 next_decode_count 2
+dynamic-core-raw-literal-huffman-never-indexed-x-huff decoded x-huff test wire_size 12 next_decode_count 1
+dynamic-core-raw-literal-huffman-never-indexed-state dynamic_core_accounting table_size 4096 decode_count 1 dynamic_table_entry_count 0 dynamic_table_size 0
+dynamic-core-raw-literal-huffman-padding failed id hpack.fixture.malformed_huffman_padding offset 134 requested_dynamic_index 0 dynamic_table_entry_count 0 codec_module hpack_dynamic_core
+dynamic-core-dynamic-name-without-indexing-path-no decoded :path /no wire_size 6 next_decode_count 2
+dynamic-core-dynamic-name-without-indexing-state dynamic_core_accounting table_size 4096 decode_count 2 dynamic_table_entry_count 1 dynamic_table_size 44
+dynamic-core-dynamic-name-without-indexing-retains-path decoded :path /target wire_size 9 next_decode_count 3
+dynamic-core-dynamic-name-huffman-without-indexing-path-test decoded :path test wire_size 6 next_decode_count 2
+dynamic-core-dynamic-name-huffman-without-indexing-state dynamic_core_accounting table_size 4096 decode_count 2 dynamic_table_entry_count 1 dynamic_table_size 44
+dynamic-core-dynamic-name-huffman-without-indexing-retains-path decoded :path /target wire_size 9 next_decode_count 3
+dynamic-core-dynamic-name-indexed-path-again decoded :path /again wire_size 8 next_decode_count 2
+dynamic-core-dynamic-name-indexed-state dynamic_core_accounting table_size 4096 decode_count 2 dynamic_table_entry_count 2 dynamic_table_size 87
+dynamic-core-dynamic-name-indexed-newest-path-again decoded :path /again wire_size 9 next_decode_count 3
+dynamic-core-dynamic-name-indexed-retains-path decoded :path /target wire_size 9 next_decode_count 3
+dynamic-core-dynamic-name-huffman-indexed-path-test decoded :path test wire_size 5 next_decode_count 2
+dynamic-core-dynamic-name-huffman-indexed-state dynamic_core_accounting table_size 4096 decode_count 2 dynamic_table_entry_count 2 dynamic_table_size 85
+dynamic-core-dynamic-name-huffman-indexed-newest-path-test decoded :path test wire_size 9 next_decode_count 3
+dynamic-core-dynamic-name-huffman-indexed-retains-path decoded :path /target wire_size 9 next_decode_count 3
+dynamic-core-dynamic-name-never-indexed-path-secret decoded :path /secret wire_size 10 next_decode_count 2
+dynamic-core-dynamic-name-never-indexed-state dynamic_core_accounting table_size 4096 decode_count 2 dynamic_table_entry_count 1 dynamic_table_size 44
+dynamic-core-dynamic-name-never-indexed-retains-path decoded :path /target wire_size 9 next_decode_count 3
+dynamic-core-dynamic-name-huffman-never-indexed-path-test decoded :path test wire_size 6 next_decode_count 2
+dynamic-core-dynamic-name-huffman-never-indexed-state dynamic_core_accounting table_size 4096 decode_count 2 dynamic_table_entry_count 1 dynamic_table_size 44
+dynamic-core-dynamic-name-huffman-never-indexed-retains-path decoded :path /target wire_size 9 next_decode_count 3
+dynamic-core-dynamic-name-huffman-padding failed id hpack.fixture.malformed_huffman_padding offset 162 requested_dynamic_index 0 dynamic_table_entry_count 0 codec_module hpack_dynamic_core
+dynamic-core-dynamic-name-wide-without-indexing-path-skip decoded :path /skip wire_size 8 next_decode_count 1
+dynamic-core-dynamic-name-wide-without-indexing-state dynamic_core_accounting table_size 4096 decode_count 1 dynamic_table_entry_count 66 dynamic_table_size 2574
+dynamic-core-dynamic-name-wide-without-indexing-retains-older-path decoded :path /a wire_size 9 next_decode_count 2
+dynamic-core-dynamic-name-wide-never-indexed-path-secret decoded :path /secret wire_size 10 next_decode_count 1
+dynamic-core-dynamic-name-wide-never-indexed-state dynamic_core_accounting table_size 4096 decode_count 1 dynamic_table_entry_count 66 dynamic_table_size 2574
+dynamic-core-dynamic-name-wide-never-indexed-retains-older-path decoded :path /a wire_size 9 next_decode_count 2
+dynamic-core-entry-size-path-target 44
+dynamic-core-accounting-path dynamic_core_accounting table_size 86 decode_count 0 dynamic_table_entry_count 1 dynamic_table_size 44
+dynamic-core-accounting-two dynamic_core_accounting table_size 86 decode_count 0 dynamic_table_entry_count 2 dynamic_table_size 86
+dynamic-core-accounting-newest-method decoded :method PUT wire_size 9 next_decode_count 1
+dynamic-core-accounting-older-path decoded :path /target wire_size 9 next_decode_count 1
+dynamic-core-accounting-reduced dynamic_core_accounting table_size 42 decode_count 0 dynamic_table_entry_count 1 dynamic_table_size 42
+dynamic-core-accounting-reduced-newest-method decoded :method PUT wire_size 9 next_decode_count 1
+dynamic-core-accounting-reduced-older-missing failed id hpack.fixture.dynamic_index_out_of_range offset 123 requested_dynamic_index 1 dynamic_table_entry_count 1 codec_module hpack_dynamic_core
+dynamic-core-accounting-reexpanded dynamic_core_accounting table_size 86 decode_count 0 dynamic_table_entry_count 1 dynamic_table_size 42
+dynamic-core-accounting-reexpanded-older-still-missing failed id hpack.fixture.dynamic_index_out_of_range offset 152 requested_dynamic_index 1 dynamic_table_entry_count 1 codec_module hpack_dynamic_core
+dynamic-core-accounting-insert-eviction dynamic_core_accounting table_size 86 decode_count 0 dynamic_table_entry_count 2 dynamic_table_size 86
+dynamic-core-accounting-insert-newest-path decoded :path /target wire_size 9 next_decode_count 1
+dynamic-core-accounting-insert-retained-method decoded :method PUT wire_size 9 next_decode_count 1
+dynamic-core-accounting-insert-evicted-path failed id hpack.fixture.dynamic_index_out_of_range offset 126 requested_dynamic_index 2 dynamic_table_entry_count 2 codec_module hpack_dynamic_core
+dynamic-core-accounting-zero dynamic_core_accounting table_size 0 decode_count 0 dynamic_table_entry_count 0 dynamic_table_size 0
+dynamic-core-accounting-zero-missing failed id hpack.fixture.dynamic_index_out_of_range offset 127 requested_dynamic_index 0 dynamic_table_entry_count 0 codec_module hpack_dynamic_core
+dynamic-core-accounting-zero-insert dynamic_core_accounting table_size 0 decode_count 0 dynamic_table_entry_count 0 dynamic_table_size 0
+dynamic-core-accounting-zero-reexpanded dynamic_core_accounting table_size 86 decode_count 0 dynamic_table_entry_count 0 dynamic_table_size 0
+dynamic-core-accounting-zero-reexpanded-missing failed id hpack.fixture.dynamic_index_out_of_range offset 153 requested_dynamic_index 0 dynamic_table_entry_count 0 codec_module hpack_dynamic_core
+dynamic-core-accounting-zero-reexpanded-insert dynamic_core_accounting table_size 86 decode_count 0 dynamic_table_entry_count 1 dynamic_table_size 42
+dynamic-core-accounting-zero-reexpanded-reuse decoded :method PUT wire_size 9 next_decode_count 1
+dynamic-core-accounting-over-limit dynamic_core_accounting table_size 30 decode_count 0 dynamic_table_entry_count 0 dynamic_table_size 0
+literal-indexed-dynamic-name-path-again decoded :path /again wire_size 8 next_decode_count 67
+dynamic-indexed-dynamic-name-path-again decoded :path /again wire_size 9 next_decode_count 68
+dynamic-name-retained-older-path decoded :path /target wire_size 9 next_decode_count 68
+literal-without-indexing-dynamic-name-path-no decoded :path /no wire_size 6 next_decode_count 67
+dynamic-name-without-indexing-retains-path decoded :path /target wire_size 9 next_decode_count 68
+literal-never-indexed-dynamic-name-path-secret decoded :path /secret wire_size 10 next_decode_count 67
+dynamic-name-never-indexed-retains-path decoded :path /target wire_size 9 next_decode_count 68
+literal-without-indexing-dynamic-name-out-of-range failed id hpack.fixture.dynamic_name_continuation_out_of_range offset 104 observed_size 7 observed_first_byte 15 expected fixture dynamic-name continuation range
+malformed-literal-never-indexed-dynamic-name failed id hpack.fixture.dynamic_name_continuation_malformed offset 105 observed_size 2 observed_first_byte 31 expected fixture dynamic-name continuation integer
+literal-indexed-dynamic-name-missing failed offset 76 observed_size 8 observed_first_byte 126 expected fixture header block
+malformed-literal-indexed-dynamic-name failed offset 77 observed_size 2 observed_first_byte 126 expected fixture header block
+literal-indexed-method-put decoded :method PUT wire_size 5 next_decode_count 68
+dynamic-indexed-method-put decoded :method PUT wire_size 9 next_decode_count 69
+dynamic-indexed-older-path decoded :path /target wire_size 9 next_decode_count 70
+literal-indexed-scheme-https-retained decoded :scheme https wire_size 5 next_decode_count 69
+dynamic-three-newest-scheme decoded :scheme https wire_size 9 next_decode_count 70
+dynamic-three-second-method decoded :method PUT wire_size 9 next_decode_count 70
+dynamic-three-third-path decoded :path /target wire_size 9 next_decode_count 70
+literal-indexed-dynamic-name-second-method decoded :method PATCH wire_size 8 next_decode_count 70
+dynamic-name-continuation-newest-method decoded :method PATCH wire_size 9 next_decode_count 71
+literal-indexed-dynamic-name-third-path decoded :path /third wire_size 9 next_decode_count 70
+dynamic-name-continuation-newest-path decoded :path /third wire_size 9 next_decode_count 71
+literal-indexed-dynamic-name-continuation-missing failed id hpack.fixture.dynamic_name_continuation_missing offset 97 observed_size 8 observed_first_byte 127 expected fixture dynamic-name continuation entry
+literal-indexed-dynamic-name-continuation-out-of-range failed id hpack.fixture.dynamic_name_continuation_out_of_range offset 98 observed_size 8 observed_first_byte 127 expected fixture dynamic-name continuation range
+malformed-literal-indexed-dynamic-name-continuation failed id hpack.fixture.dynamic_name_continuation_malformed offset 99 observed_size 2 observed_first_byte 127 expected fixture dynamic-name continuation integer
+dynamic-name-wide-index-retained-older-path decoded :path /a wire_size 9 next_decode_count 67
+dynamic-indexed-wide-continuation-retained-older-path decoded :path /a wire_size 9 next_decode_count 67
+literal-indexed-dynamic-name-wide-path-deep decoded :path /deep wire_size 8 next_decode_count 67
+dynamic-name-wide-newest-path-deep decoded :path /deep wire_size 9 next_decode_count 68
+literal-without-indexing-dynamic-name-wide-path-skip decoded :path /skip wire_size 8 next_decode_count 67
+dynamic-name-wide-without-indexing-retains-older-path decoded :path /a wire_size 9 next_decode_count 68
+literal-never-indexed-dynamic-name-wide-path-secret decoded :path /secret wire_size 10 next_decode_count 67
+dynamic-name-wide-never-indexed-retains-older-path decoded :path /a wire_size 9 next_decode_count 68
+literal-indexed-dynamic-name-wide-out-of-range failed id hpack.fixture.dynamic_name_continuation_out_of_range offset 116 observed_size 8 observed_first_byte 127 expected fixture dynamic-name continuation range
+dynamic-indexed-wide-continuation-out-of-range failed id hpack.fixture.dynamic_index_out_of_range offset 118 observed_size 2 observed_first_byte 255 expected fixture dynamic indexed header
+dynamic-three-table-size-eviction decoded :fixture table-size-update wire_size 0 next_decode_count 70
+dynamic-three-table-size-eviction state table_size 86 decode_count 70
+dynamic-three-newest-after-eviction decoded :scheme https wire_size 9 next_decode_count 71
+dynamic-three-second-after-eviction decoded :method PUT wire_size 9 next_decode_count 71
+dynamic-three-third-after-eviction failed offset 92 observed_size 1 observed_first_byte 192 expected fixture dynamic indexed header
+dynamic-insertion-evicts-older-path decoded :path /target wire_size 9 next_decode_count 71
+dynamic-insertion-eviction-newest-path decoded :path /target wire_size 9 next_decode_count 72
+dynamic-insertion-eviction-second-missing failed offset 119 observed_size 1 observed_first_byte 191 expected fixture dynamic indexed header
+dynamic-table-size-eviction decoded :fixture table-size-update wire_size 0 next_decode_count 69
+dynamic-table-size-eviction state table_size 30 decode_count 69
+dynamic-indexed-after-size-eviction failed offset 78 observed_size 1 observed_first_byte 190 expected fixture dynamic indexed header
+dynamic-table-size-partial-eviction decoded :fixture table-size-update wire_size 0 next_decode_count 69
+dynamic-table-size-partial-eviction state table_size 42 decode_count 69
+dynamic-indexed-after-partial-eviction decoded :method PUT wire_size 9 next_decode_count 70
+dynamic-older-after-partial-eviction failed offset 81 observed_size 1 observed_first_byte 191 expected fixture dynamic indexed header
+dynamic-indexed-missing failed offset 70 observed_size 1 observed_first_byte 190 expected fixture dynamic indexed header
+dynamic-entry-size-authority decoded :authority abc.test wire_size 10 next_decode_count 1
+dynamic-entry-size-authority-eviction decoded :fixture table-size-update wire_size 0 next_decode_count 2
+dynamic-entry-size-authority-eviction state table_size 42 decode_count 2
+dynamic-authority-after-size-eviction failed offset 84 observed_size 1 observed_first_byte 190 expected fixture dynamic indexed header
+table-size-update decoded :fixture table-size-update wire_size 0 next_decode_count 67
+table-size-update state table_size 30 decode_count 67
+table-size-update-31 decoded :fixture table-size-update wire_size 0 next_decode_count 67
+table-size-update-31 state table_size 31 decode_count 67
+table-size-update-32 decoded :fixture table-size-update wire_size 0 next_decode_count 67
+table-size-update-32 state table_size 32 decode_count 67
+table-size-update-160 decoded :fixture table-size-update wire_size 0 next_decode_count 67
+table-size-update-160 state table_size 160 decode_count 67
+table-size-update-general decoded :fixture table-size-update wire_size 0 next_decode_count 67
+table-size-update-general state table_size 159 decode_count 67
+table-size-update-general-wide decoded :fixture table-size-update wire_size 0 next_decode_count 67
+table-size-update-general-wide state table_size 289 decode_count 67
+table-size-update-malformed failed id hpack.fixture.table_size_update_malformed offset 77 observed_size 2 observed_first_byte 63 expected fixture HPACK malformed table-size update integer
+table-size-update-trailing-bytes failed id hpack.fixture.table_size_update_trailing_bytes offset 80 observed_size 3 observed_first_byte 63 expected fixture HPACK table-size update without trailing bytes
+malformed-literal failed offset 71 observed_size 2 observed_first_byte 4 expected fixture header block
+malformed-literal-huffman failed offset 72 observed_size 3 observed_first_byte 4 expected fixture HPACK Huffman padding
+malformed-authority failed offset 74 observed_size 2 observed_first_byte 1 expected fixture header block
+malformed-status failed offset 75 observed_size 4 observed_first_byte 8 expected fixture header block
+bad failed offset 27 observed_size 1 observed_first_byte 127 expected fixture header block
+literal-scheme-https-huffman decoded :scheme https wire_size 5 next_decode_count 1
+malformed-scheme-huffman-padding failed offset 82 observed_size 3 observed_first_byte 6 expected fixture HPACK Huffman padding

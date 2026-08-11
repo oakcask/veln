@@ -1,0 +1,7 @@
+listen 127.0.0.1:0
+accept 127.0.0.1:0 fixture-stream
+read fixture-stream 0a0b0c
+read-cancelled fixture-stream
+write fixture-stream ByteChunk([Byte(10), Byte(11), Byte(12)])
+close fixture-stream
+close-listener 127.0.0.1:0

@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "odd\nb:c\nno-separator\n42\n1\n2\nremoved\n6\n15\nbad\nb\n7\nstop\nempty\n6\n6\n4\n12\nstop\nlist-empty\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

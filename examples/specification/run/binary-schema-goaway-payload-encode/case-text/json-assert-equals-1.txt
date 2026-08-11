@@ -1,0 +1,4 @@
+output_chunk_list goaway-payload count 1
+output_chunk goaway-payload index 0 hex "000000050000000b" count 8
+last-stream-id schema.encode_value_unrepresentable Http2GoawayPayloadWire.last_stream_id value must be between 0 and 2147483647
+error-code schema.encode_value_unrepresentable Http2GoawayPayloadWire.error_code value must be between 0 and 4294967295
