@@ -42,6 +42,10 @@ because it would create a hidden case boundary. Discovery rejects symbolic
 links, Windows reparse points, and other link-like entries in either root. The
 failure identifies the offending entry and directs the author to use one
 visible, portable case boundary made of regular fixture entries.
+The preflight keeps descriptors discovered before an independent structural
+error, and it still scans their manifests for policy findings. Missing roots,
+links, or nested manifests do not suppress encoded line-break findings from
+other reliably discovered cases.
 
 The build preflight creates the generated test list from the shared inventory.
 Generated cases pass a process-wide runtime barrier before manifest loading,
@@ -173,7 +177,7 @@ cannot escape the case directory, traverse a link-like entry, or name anything
 except a regular UTF-8 file. The harness reads these files before skip
 evaluation, fixture setup, or command execution. Repeated invocations reuse
 the same discovered text snapshot. Checked-in files under `case-text/` are
-checked out as LF-normalized text unless the basename starts with `raw-`,
+checked out as LF-normalized text unless the path ends in `.raw`,
 which reserves an exact-byte fixture convention for content that must not be
 line-ending normalized.
 

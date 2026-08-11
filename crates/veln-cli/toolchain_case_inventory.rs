@@ -49,20 +49,20 @@ pub(crate) fn run_preflight_with_roots_and_policy(
     roots: &[DiscoveryRoot],
     enforce_policy: bool,
 ) -> Result<Preflight, String> {
-    let mut errors = validate_roots(manifest_dir, roots);
+    let validation = validate_roots(manifest_dir, roots);
+    let mut errors = validation.errors;
     let mut cases = Vec::new();
-    if errors.is_empty() {
-        for root in roots {
+    if !validation.has_overlap {
+        for root in validation.readable_roots {
             let root_path = manifest_dir.join(root.relative);
-            match discover_root(root, &root_path) {
-                Ok(mut discovered) => cases.append(&mut discovered),
-                Err(mut discovered_errors) => errors.append(&mut discovered_errors),
-            }
+            let mut discovered = discover_root(root, &root_path);
+            cases.append(&mut discovered.cases);
+            errors.append(&mut discovered.errors);
         }
     }
     cases.sort_by(|left, right| left.id.cmp(&right.id));
 
-    if errors.is_empty() && enforce_policy {
+    if enforce_policy {
         errors.extend(scan_policy(manifest_dir, &cases));
     }
 
@@ -189,37 +189,52 @@ fn fnv1a(bytes: &[u8]) -> u64 {
     hash
 }
 
-fn validate_roots(manifest_dir: &Path, roots: &[DiscoveryRoot]) -> Vec<String> {
+struct RootValidation<'a> {
+    errors: Vec<String>,
+    readable_roots: Vec<&'a DiscoveryRoot>,
+    has_overlap: bool,
+}
+
+fn validate_roots<'a>(manifest_dir: &Path, roots: &'a [DiscoveryRoot]) -> RootValidation<'a> {
     let mut errors = Vec::new();
     let mut canonical = Vec::new();
     for root in roots {
         let path = manifest_dir.join(root.relative);
         match fs::canonicalize(&path) {
-            Ok(path) => canonical.push((root.id, path)),
+            Ok(path) => canonical.push((root, path)),
             Err(error) => errors.push(format!(
                 "{}: discovery root must be readable before toolchain case generation: {error}",
                 root.id
             )),
         }
     }
+    let mut has_overlap = false;
     for left_index in 0..canonical.len() {
         for right_index in left_index + 1..canonical.len() {
-            let (left_id, left) = &canonical[left_index];
-            let (right_id, right) = &canonical[right_index];
+            let (left_root, left) = &canonical[left_index];
+            let (right_root, right) = &canonical[right_index];
             if left == right || left.starts_with(right) || right.starts_with(left) {
+                has_overlap = true;
                 errors.push(format!(
-                    "{left_id} and {right_id}: configured discovery roots overlap; move one root so each case has one owner"
+                    "{} and {}: configured discovery roots overlap; move one root so each case has one owner",
+                    left_root.id, right_root.id
                 ));
             }
         }
     }
-    errors
+    RootValidation {
+        errors,
+        readable_roots: canonical.into_iter().map(|(root, _)| root).collect(),
+        has_overlap,
+    }
 }
 
-fn discover_root(
-    root: &DiscoveryRoot,
-    root_path: &Path,
-) -> Result<Vec<CaseDescriptor>, Vec<String>> {
+struct DiscoveryResult {
+    cases: Vec<CaseDescriptor>,
+    errors: Vec<String>,
+}
+
+fn discover_root(root: &DiscoveryRoot, root_path: &Path) -> DiscoveryResult {
     let mut errors = Vec::new();
     let mut cases = Vec::new();
     let root_manifest = root_path.join("case.toml");
@@ -262,11 +277,7 @@ fn discover_root(
         &mut cases,
         &mut errors,
     );
-    if errors.is_empty() {
-        Ok(cases)
-    } else {
-        Err(errors)
-    }
+    DiscoveryResult { cases, errors }
 }
 
 fn discover_dir(

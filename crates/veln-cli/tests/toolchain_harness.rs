@@ -4937,29 +4937,46 @@ fn runtime_inventory_barrier_shares_one_concurrent_scan_result() {
 }
 
 #[test]
-fn toolchain_inventory_errors_prevent_partial_policy_inventory() {
-    let root = test_temp_root("policy-no-partial-inventory");
-    fs::create_dir_all(root.join("cases/rooted/nested")).expect("directories should be created");
+fn toolchain_policy_preflight_keeps_reliable_cases_when_discovery_has_errors() {
+    let root = test_temp_root("policy-partial-inventory");
+    fs::create_dir_all(root.join("primary/rooted/nested"))
+        .expect("primary directories should be created");
+    fs::create_dir_all(root.join("secondary/readable"))
+        .expect("secondary directory should be created");
     fs::write(
-        root.join("cases/rooted/case.toml"),
+        root.join("primary/rooted/case.toml"),
         "command = [\"check\"]\nstdin = \"\\n\"\nexit = 0\n",
     )
     .expect("rooted manifest should be written");
     fs::write(
-        root.join("cases/rooted/nested/case.toml"),
+        root.join("primary/rooted/nested/case.toml"),
         "command = [\"check\"]\nstdin = \"\\r\"\nexit = 0\n",
     )
     .expect("nested manifest should be written");
+    fs::write(
+        root.join("secondary/readable/case.toml"),
+        "command = [\"check\"]\n[stdout]\ncontains = [\"\\\\r\"]\nexit = 0\n",
+    )
+    .expect("secondary manifest should be written");
 
     let error = toolchain_case_inventory::run_preflight_with_roots_and_policy(
         &root,
-        &[test_discovery_root("cases", "cases")],
+        &[
+            test_discovery_root("missing", "missing"),
+            test_discovery_root("primary", "primary"),
+            test_discovery_root("secondary", "secondary"),
+        ],
         true,
     )
-    .expect_err("inventory boundary should fail before policy scanning");
+    .expect_err("mixed discovery and policy failures should aggregate");
 
+    assert!(error.contains("toolchain case preflight found 4 problem(s)"));
+    assert!(error.contains("missing: discovery root must be readable"));
     assert!(error.contains("nested case.toml"));
-    assert!(!error.contains("field `stdin`"));
+    assert!(error.contains("primary/rooted:"));
+    assert!(error.contains("field `stdin` contains escape-produced-line-break"));
+    assert!(error.contains("secondary/readable:"));
+    assert!(error.contains("field `[stdout].contains` contains decoded-line-break-spelling"));
 
     fs::remove_dir_all(root).expect("inventory root should be removed");
 }
@@ -5500,9 +5517,13 @@ fn case_text_git_attributes_cover_text_and_raw_sidecars() {
             "whitespace",
             "--",
             "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/json-assert-equals-1.txt",
-            "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/raw-protocol.bin",
+            "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/nested/json-assert-equals-1.txt",
+            "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/protocol.raw",
+            "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/nested/protocol.raw",
             "examples/specification/lsp/semantic-tokens/case-text/root-stdin-1.txt",
-            "examples/specification/lsp/semantic-tokens/case-text/raw-protocol.bin",
+            "examples/specification/lsp/semantic-tokens/case-text/nested/root-stdin-1.txt",
+            "examples/specification/lsp/semantic-tokens/case-text/protocol.raw",
+            "examples/specification/lsp/semantic-tokens/case-text/nested/protocol.raw",
         ])
         .output()
         .expect("git check-attr should run");
@@ -5514,17 +5535,22 @@ fn case_text_git_attributes_cover_text_and_raw_sidecars() {
     let stdout = String::from_utf8(output.stdout).expect("attribute output should be utf-8");
     for ordinary in [
         "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/json-assert-equals-1.txt",
+        "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/nested/json-assert-equals-1.txt",
         "examples/specification/lsp/semantic-tokens/case-text/root-stdin-1.txt",
+        "examples/specification/lsp/semantic-tokens/case-text/nested/root-stdin-1.txt",
     ] {
         assert!(stdout.contains(&format!("{ordinary}: text: set")));
         assert!(stdout.contains(&format!("{ordinary}: eol: lf")));
         assert!(stdout.contains(&format!("{ordinary}: whitespace: unset")));
     }
     for raw in [
-        "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/raw-protocol.bin",
-        "examples/specification/lsp/semantic-tokens/case-text/raw-protocol.bin",
+        "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/protocol.raw",
+        "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/nested/protocol.raw",
+        "examples/specification/lsp/semantic-tokens/case-text/protocol.raw",
+        "examples/specification/lsp/semantic-tokens/case-text/nested/protocol.raw",
     ] {
         assert!(stdout.contains(&format!("{raw}: text: unset")));
+        assert!(stdout.contains(&format!("{raw}: eol: unset")));
         assert!(stdout.contains(&format!("{raw}: diff: unset")));
     }
 }
