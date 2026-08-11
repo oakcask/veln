@@ -941,22 +941,27 @@ behavior is implemented.
 
 ## Verification Route
 
-The planned parser, fixture, assertion, migration-policy, and discovered-case
-evidence runs through:
+The implemented manifest-syntax foundation is checked by the same harness
+target that will carry the remaining fixture, assertion, migration-policy, and
+discovered-case evidence:
 
 ```sh
 cargo test -p veln-cli --test toolchain_harness
 ```
 
+The current manifest-syntax evidence is the table-driven `manifest_*` coverage
+described in
+[Toolchain Test Harness](../reference/toolchain-test-harness.md#manifest-value-syntax).
 The implementation may provide narrower test filters for development, but the
-unfiltered target is the completion evidence.
+unfiltered target remains the completion evidence for each slice.
 
 ## Completion Gate
 
 The proposal is complete only when all of the following conditions hold:
 
-1. The multiline grammar, sidecar fields, structured JSON-RPC input, decoded
-   LSP assertions, and their failure behavior pass the planned evidence above.
+1. The implemented multiline grammar remains covered, and the sidecar fields,
+   structured JSON-RPC input, decoded LSP assertions, and their failure behavior
+   pass the planned evidence above.
 2. Every discovered toolchain case has been migrated without weakening its
    assertion boundary.
 3. No authoritative `case.toml` string token contains an escape-produced LF or
@@ -981,9 +986,10 @@ the tests.
 
 ## Implementation Slices
 
-1. Add the shared lossless manifest lexer, multiline string and array parser,
-   canonical discovery inventory, and build/runtime policy preflight without
-   migrating cases.
+1. Complete the first slice by adding canonical discovery inventory and
+   build/runtime policy preflight without migrating cases. The shared manifest
+   lexer and multiline string, string-array, multiline JSON, physical-newline,
+   and error-location contracts are already implemented.
 2. Add portable case-file operands, no-follow copy checks, eager immutable
    snapshots, repository line-ending attributes, and boundary coverage.
 3. Add the JSON interoperability profile, structured request transformation
