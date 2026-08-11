@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"6d44856ed0f57c5d698a3df97fb166deb2487d67"
+source_git_tree	"173f426953069f7cb41efad21447a1275c4e0428"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1508
@@ -10235,6 +10235,10 @@ field	source_errors	"forbidden"
 case_digest	"fc295381aa45b09be107333faee0dcde578706e4bbed0aebe5b9f12e5a7bbfcc"
 case	"examples/specification/lsp/publish-diagnostics"
 field	expectations.exit	0
+field	expectations.lsp_assertions[0].equals	null
+field	expectations.lsp_assertions[0].id	2
+field	expectations.lsp_assertions[0].operation	"equals"
+field	expectations.lsp_assertions[0].path	"/result"
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"semanticTokensProvider\""
 field	expectations.stdout.contains[1]	"\"method\":\"textDocument/publishDiagnostics\""
@@ -10245,7 +10249,7 @@ field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":571,"sha256":"9a65346dfa3bd9006f05f199db8f8ef63481720dd25b4563b457afea51f2a917"}
 field	source_errors	"forbidden"
-case_digest	"1091b1641a04af8de94b71c446a5d8ea57b975df34d6f77b880b9dcfe1ef5896"
+case_digest	"fd87d80dda14fb09a50630ef4f3065b6b87f953c90f277209648887986ed1509"
 case	"examples/specification/lsp/reexported-constructor-bare-prelude-definition"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47636,4 +47640,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"049980d10e4701ddd2766f1f45ae7dfb9666408f944c3e196ee9377aa422595e"
+aggregate_digest	"f99b16887249996563e384517a2e5e874b5f7b278a8312bef6d8788d3c33d0eb"

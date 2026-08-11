@@ -7,3 +7,8 @@ contains = ["\"semanticTokensProvider\"", "\"method\":\"textDocument/publishDiag
 
 [stderr]
 format = "empty"
+
+[[lsp_assert]]
+id = 2
+path = "/result"
+equals = null

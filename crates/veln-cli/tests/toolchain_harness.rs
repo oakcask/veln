@@ -85,6 +85,7 @@ fn run_case_with_guard_and_after_invocation(
     }
     manifest.validate_fixture_schema_references(&project.root);
 
+    let mut run_failures = Vec::new();
     for run_index in 0..manifest.invocation.repeat {
         let context = CaseRunContext {
             case_dir,
@@ -103,16 +104,27 @@ fn run_case_with_guard_and_after_invocation(
                 artifact_path.as_deref(),
             ),
         );
-        if let Some(artifact_path) = artifact_path.as_deref() {
-            let evidence = CommandSourceDiagnosticEvidence::read(&context, artifact_path);
-            manifest.assert_no_unexpected_command_source_errors(&context, &evidence);
-        }
-        manifest.expectations.assert_matches(&context, &output);
-        manifest
-            .expectations
-            .assert_files_match(&context, &project.root);
-        assert_no_metrics_baseline_temp_file(&context, &project.root);
-        after_invocation(&context, &project.root);
+        collect_run_failure(&mut run_failures, || {
+            if let Some(artifact_path) = artifact_path.as_deref() {
+                let evidence = CommandSourceDiagnosticEvidence::read(&context, artifact_path);
+                manifest.assert_no_unexpected_command_source_errors(&context, &evidence);
+            }
+            manifest.expectations.assert_matches(&context, &output);
+            manifest
+                .expectations
+                .assert_files_match(&context, &project.root);
+            assert_no_metrics_baseline_temp_file(&context, &project.root);
+            after_invocation(&context, &project.root);
+        });
+    }
+    if !run_failures.is_empty() {
+        panic!("toolchain case failures:\n{}", run_failures.join("\n"));
+    }
+}
+
+fn collect_run_failure(failures: &mut Vec<String>, action: impl FnOnce()) {
+    if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(action)) {
+        failures.push(panic_message(panic));
     }
 }
 
@@ -1453,6 +1465,7 @@ struct CaseExpectations {
     help: Option<HelpExpectation>,
     json_assertions: Vec<JsonAssertion>,
     result_value_assertions: Vec<ResultValueAssertion>,
+    lsp_assertions: Vec<LspAssertion>,
     file_assertions: Vec<FileAssertion>,
     diagnostics: Vec<DiagnosticExpectation>,
     binary_fixtures: Vec<BinaryFixtureExpectation>,
@@ -1486,6 +1499,11 @@ impl CaseManifest {
 
     fn validate(&self, path: &Path) {
         self.expectations.validate(path);
+        if !self.expectations.lsp_assertions.is_empty()
+            && self.invocation.command.first().map(String::as_str) != Some("lsp")
+        {
+            manifest_error(path, 0, "lsp_assert requires `command = [\"lsp\", ...]`");
+        }
         if let Some(expectation) = &self.manifest_error
             && !expectation.has_assertion()
         {
@@ -1754,6 +1772,9 @@ impl CaseExpectations {
         for (index, assertion) in self.result_value_assertions.iter().enumerate() {
             assertion.validate(path, index);
         }
+        for (index, assertion) in self.lsp_assertions.iter().enumerate() {
+            assertion.validate(path, index);
+        }
         if let Some(help) = &self.help
             && !help.has_assertion()
         {
@@ -1774,19 +1795,39 @@ impl CaseExpectations {
     }
 
     fn assert_matches(&self, context: &CaseRunContext<'_>, output: &CapturedOutput) {
-        assert_eq!(
-            output.exit,
-            Some(self.exit),
-            "{}: expected exit {}, got {:?}\nstdout:\n{}\nstderr:\n{}",
-            context.label(),
-            self.exit,
-            output.exit,
-            output.stdout,
-            output.stderr
-        );
-
-        assert_stream(context, "stdout", &self.stdout, &output.stdout);
-        assert_stream(context, "stderr", &self.stderr, &output.stderr);
+        let mut independent_failures = Vec::new();
+        if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            assert_eq!(
+                output.exit,
+                Some(self.exit),
+                "{}: expected exit {}, got {:?}\nstdout:\n{}\nstderr:\n{}",
+                context.label(),
+                self.exit,
+                output.exit,
+                output.stdout,
+                output.stderr
+            );
+        })) {
+            independent_failures.push(panic_message(panic));
+        }
+        if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            assert_stream(context, "stdout", &self.stdout, &output.stdout)
+        })) {
+            independent_failures.push(panic_message(panic));
+        }
+        if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            assert_stream(context, "stderr", &self.stderr, &output.stderr)
+        })) {
+            independent_failures.push(panic_message(panic));
+        }
+        if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            assert_lsp_assertions(context, &output.stdout, &self.lsp_assertions)
+        })) {
+            independent_failures.push(panic_message(panic));
+        }
+        if !independent_failures.is_empty() {
+            panic!("{}", independent_failures.join("\n"));
+        }
         if let Some(help) = &self.help {
             help.assert_matches(context, output);
         }
@@ -2029,6 +2070,76 @@ struct JsonAssertion {
     equals: Option<JsonValue>,
     missing: Option<bool>,
     operation_count: usize,
+}
+
+#[derive(Debug)]
+struct LspAssertion {
+    id: Option<JsonValue>,
+    method: Option<String>,
+    occurrence: Option<usize>,
+    path: String,
+    path_present: bool,
+    pointer_tokens: Vec<String>,
+    operation: Option<LspAssertionOperation>,
+    operation_count: usize,
+}
+
+#[derive(Debug)]
+enum LspAssertionOperation {
+    Equals(JsonValue),
+    EqualsFile(String),
+    Contains(String),
+    Missing(bool),
+}
+
+impl LspAssertion {
+    fn validate(&self, path: &Path, index: usize) {
+        if self.id.is_some() == self.method.is_some() {
+            manifest_error(
+                path,
+                0,
+                format!("lsp_assert {index} needs exactly one of `id` or `method`"),
+            );
+        }
+        if !self.path_present {
+            manifest_error(path, 0, format!("lsp_assert {index} is missing `path`"));
+        }
+        if self.occurrence.is_some() && self.method.is_none() {
+            manifest_error(
+                path,
+                0,
+                format!("lsp_assert {index} `occurrence` is valid only with `method`"),
+            );
+        }
+        if matches!(self.operation, Some(LspAssertionOperation::Missing(false))) {
+            manifest_error(
+                path,
+                0,
+                format!("lsp_assert {index} `missing` must be true when present"),
+            );
+        }
+        if self.operation_count != 1 {
+            manifest_error(
+                path,
+                0,
+                format!(
+                    "lsp_assert {index} needs exactly one of `equals`, `equals_file`, `contains`, or `missing = true`"
+                ),
+            );
+        }
+    }
+
+    fn selector(&self) -> String {
+        if let Some(id) = &self.id {
+            format!("response id {}", id.to_compact_string())
+        } else {
+            format!(
+                "notification method {:?} occurrence {}",
+                self.method.as_deref().expect("validated method selector"),
+                self.occurrence.unwrap_or(0)
+            )
+        }
+    }
 }
 
 impl JsonAssertion {
@@ -2395,6 +2506,7 @@ enum Section {
     Help,
     JsonAssert(usize),
     ResultValueAssert(usize),
+    LspAssert(usize),
     FileAssert(usize),
     Diagnostic(usize),
     DiagnosticSpan(usize),
@@ -2430,6 +2542,7 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
     let mut root_stdin_operands = 0;
     let mut json_operations = Vec::<AssertionOperationPreflight>::new();
     let mut result_value_operations = Vec::<AssertionOperationPreflight>::new();
+    let mut lsp_operations = Vec::<AssertionOperationPreflight>::new();
     let mut file_assert_operations = Vec::<usize>::new();
 
     for statement in statements {
@@ -2450,6 +2563,10 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                     "[[result_value_assert]]" => {
                         result_value_operations.push(AssertionOperationPreflight::default());
                         Section::ResultValueAssert(result_value_operations.len() - 1)
+                    }
+                    "[[lsp_assert]]" => {
+                        lsp_operations.push(AssertionOperationPreflight::default());
+                        Section::LspAssert(lsp_operations.len() - 1)
                     }
                     "[[file_assert]]" => {
                         file_assert_operations.push(0);
@@ -2500,6 +2617,11 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                         ) =>
                     {
                         result_value_operations[index].record(path, key, value);
+                    }
+                    Section::LspAssert(index)
+                        if matches!(*key, "equals" | "equals_file" | "contains" | "missing") =>
+                    {
+                        lsp_operations[index].record(path, key, value);
                     }
                     Section::FileAssert(index) if matches!(*key, "equals" | "equals_file") => {
                         file_assert_operations[index] += 1;
@@ -2553,6 +2675,24 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
             );
         }
     }
+    for (index, operation) in lsp_operations.iter().enumerate() {
+        if operation.missing_false {
+            manifest_error(
+                path,
+                0,
+                format!("lsp_assert {index} `missing` must be true when present"),
+            );
+        }
+        if operation.count != 1 {
+            manifest_error(
+                path,
+                0,
+                format!(
+                    "lsp_assert {index} needs exactly one of `equals`, `equals_file`, `contains`, or `missing = true`"
+                ),
+            );
+        }
+    }
     for (index, count) in file_assert_operations.iter().enumerate() {
         if *count != 1 {
             manifest_error(
@@ -2594,6 +2734,7 @@ struct ManifestParser<'a> {
     help: Option<HelpExpectation>,
     json_assertions: Vec<JsonAssertion>,
     result_value_assertions: Vec<ResultValueAssertion>,
+    lsp_assertions: Vec<LspAssertion>,
     file_assertions: Vec<FileAssertion>,
     diagnostics: Vec<DiagnosticExpectation>,
     manifest_error: Option<ManifestErrorExpectation>,
@@ -2625,6 +2766,7 @@ impl<'a> ManifestParser<'a> {
             help: None,
             json_assertions: Vec::new(),
             result_value_assertions: Vec::new(),
+            lsp_assertions: Vec::new(),
             file_assertions: Vec::new(),
             diagnostics: Vec::new(),
             manifest_error: None,
@@ -2651,6 +2793,7 @@ impl<'a> ManifestParser<'a> {
             "[tools]" => Section::Tools,
             "[[json_assert]]" => self.parse_json_assert_header(),
             "[[result_value_assert]]" => self.parse_result_value_assert_header(),
+            "[[lsp_assert]]" => self.parse_lsp_assert_header(),
             "[[file_assert]]" => self.parse_file_assert_header(),
             "[[diagnostics]]" => self.parse_diagnostic_header(),
             "[diagnostics.span]" => self.parse_diagnostic_span_header(line_number),
@@ -2697,6 +2840,20 @@ impl<'a> ManifestParser<'a> {
             operation_count: 0,
         });
         Section::ResultValueAssert(self.result_value_assertions.len() - 1)
+    }
+
+    fn parse_lsp_assert_header(&mut self) -> Section {
+        self.lsp_assertions.push(LspAssertion {
+            id: None,
+            method: None,
+            occurrence: None,
+            path: String::new(),
+            path_present: false,
+            pointer_tokens: Vec::new(),
+            operation: None,
+            operation_count: 0,
+        });
+        Section::LspAssert(self.lsp_assertions.len() - 1)
     }
 
     fn parse_diagnostic_header(&mut self) -> Section {
@@ -2796,6 +2953,7 @@ impl<'a> ManifestParser<'a> {
             Section::ResultValueAssert(index) => {
                 self.parse_result_value_assert_key(index, line_number, key, value)
             }
+            Section::LspAssert(index) => self.parse_lsp_assert_key(index, line_number, key, value),
             Section::FileAssert(index) => {
                 self.parse_file_assert_key(index, line_number, key, value)
             }
@@ -2977,6 +3135,68 @@ impl<'a> ManifestParser<'a> {
                 self.path,
                 line_number,
                 format!("unknown result_value_assert key `{key}`"),
+            ),
+        }
+    }
+
+    fn parse_lsp_assert_key(
+        &mut self,
+        index: usize,
+        line_number: usize,
+        key: &str,
+        value: &ManifestValue<'_>,
+    ) {
+        let assertion = &mut self.lsp_assertions[index];
+        match key {
+            "id" => {
+                let id = parse_manifest_json_value(self.path, value);
+                if !matches!(
+                    id,
+                    JsonValue::Null | JsonValue::Number(_) | JsonValue::String(_)
+                ) {
+                    manifest_error(
+                        self.path,
+                        line_number,
+                        "lsp_assert `id` must be a JSON string, integer, or null",
+                    );
+                }
+                assertion.id = Some(id);
+            }
+            "method" => assertion.method = Some(parse_string(self.path, value)),
+            "occurrence" => assertion.occurrence = Some(parse_nonnegative_usize(self.path, value)),
+            "path" => {
+                assertion.path = parse_string(self.path, value);
+                assertion.path_present = true;
+                assertion.pointer_tokens =
+                    parse_json_pointer(self.path, line_number, index, &assertion.path);
+            }
+            "equals" => {
+                assertion.operation_count += 1;
+                assertion.operation = Some(LspAssertionOperation::Equals(
+                    parse_manifest_json_value(self.path, value),
+                ));
+            }
+            "equals_file" => {
+                assertion.operation_count += 1;
+                assertion.operation = Some(LspAssertionOperation::EqualsFile(
+                    self.case_text_cache.read(self.path, value),
+                ));
+            }
+            "contains" => {
+                assertion.operation_count += 1;
+                assertion.operation = Some(LspAssertionOperation::Contains(parse_string(
+                    self.path, value,
+                )));
+            }
+            "missing" => {
+                assertion.operation_count += 1;
+                assertion.operation =
+                    Some(LspAssertionOperation::Missing(parse_bool(self.path, value)));
+            }
+            _ => manifest_error(
+                self.path,
+                line_number,
+                format!("unknown lsp_assert key `{key}`"),
             ),
         }
     }
@@ -3203,6 +3423,7 @@ impl<'a> ManifestParser<'a> {
                 help: self.help,
                 json_assertions: self.json_assertions,
                 result_value_assertions: self.result_value_assertions,
+                lsp_assertions: self.lsp_assertions,
                 file_assertions: self.file_assertions,
                 diagnostics: self.diagnostics,
                 binary_fixtures: self.binary_fixtures,
@@ -7058,6 +7279,376 @@ name = "protocol-output"
     );
 }
 
+fn lsp_frame(body: &str) -> String {
+    format!("Content-Length: {}\r\n\r\n{body}", body.len())
+}
+
+fn parsed_lsp_assertions(source: &str) -> Vec<LspAssertion> {
+    parse_manifest(Path::new("case.toml"), source)
+        .expectations
+        .lsp_assertions
+}
+
+#[test]
+fn manifest_lsp_assertions_validate_selector_operation_and_pointer_contracts() {
+    for (fields, expected) in [
+        (
+            "path = \"\"\nequals = null\n",
+            "exactly one of `id` or `method`",
+        ),
+        (
+            "id = 1\nmethod = \"note\"\npath = \"\"\nequals = null\n",
+            "exactly one of `id` or `method`",
+        ),
+        (
+            "id = 1\noccurrence = 0\npath = \"\"\nequals = null\n",
+            "occurrence` is valid only with `method`",
+        ),
+        ("id = 1\nequals = null\n", "is missing `path`"),
+        ("id = 1\npath = \"\"\n", "needs exactly one"),
+        (
+            "id = 1\npath = \"\"\nequals = null\ncontains = \"x\"\n",
+            "needs exactly one",
+        ),
+        (
+            "id = 1\npath = \"\"\nmissing = false\n",
+            "missing` must be true",
+        ),
+    ] {
+        assert_manifest_parse_error(
+            &format!("command = [\"lsp\"]\nexit = 0\n[[lsp_assert]]\n{fields}"),
+            expected,
+        );
+    }
+
+    for pointer in ["value", "#fragment", "/~", "/~2", "/a~x"] {
+        assert_manifest_parse_error(
+            &format!(
+                "command = [\"lsp\"]\nexit = 0\n[[lsp_assert]]\nid = 1\npath = {pointer:?}\nequals = null\n"
+            ),
+            "JSON Pointer",
+        );
+    }
+}
+
+#[test]
+fn decoded_lsp_stream_selectors_and_json_pointer_object_matrix_succeed() {
+    let response = r#"{"jsonrpc":"2.0","id":2,"result":{"":"empty","a.b":"dot","0":"numeric","a/b":"slash","m~n":"tilde","a b":"space","日本語":"unicode","~1":"escape-order","adj~/":"adjacent"}}"#;
+    let first = r#"{"jsonrpc":"2.0","method":"note","params":{"value":"first"}}"#;
+    let second = r#"{"jsonrpc":"2.0","method":"note","params":{"value":"second"}}"#;
+    let stdout = format!(
+        "{}{}{}",
+        lsp_frame(response),
+        lsp_frame(first),
+        lsp_frame(second)
+    );
+    let source = r#"command = ["lsp"]
+exit = 0
+[[lsp_assert]]
+id = 2
+path = "/result/"
+equals = "empty"
+[[lsp_assert]]
+id = 2
+path = "/result/a.b"
+equals = "dot"
+[[lsp_assert]]
+id = 2
+path = "/result/0"
+equals = "numeric"
+[[lsp_assert]]
+id = 2
+path = "/result/a~1b"
+equals = "slash"
+[[lsp_assert]]
+id = 2
+path = "/result/m~0n"
+equals = "tilde"
+[[lsp_assert]]
+id = 2
+path = "/result/a b"
+equals = "space"
+[[lsp_assert]]
+id = 2
+path = "/result/日本語"
+equals = "unicode"
+[[lsp_assert]]
+id = 2
+path = "/result/~01"
+equals = "escape-order"
+[[lsp_assert]]
+id = 2
+path = "/result/adj~0~1"
+equals = "adjacent"
+[[lsp_assert]]
+method = "note"
+occurrence = 1
+path = "/params/value"
+equals = "second"
+[[lsp_assert]]
+method = "note"
+path = "/params/value"
+equals = "first"
+[[lsp_assert]]
+id = 2
+path = ""
+equals = {"jsonrpc":"2.0","id":2,"result":{"":"empty","a.b":"dot","0":"numeric","a/b":"slash","m~n":"tilde","a b":"space","日本語":"unicode","~1":"escape-order","adj~/":"adjacent"}}
+"#;
+    let assertions = parsed_lsp_assertions(source);
+    let context = CaseRunContext {
+        case_dir: Path::new("decoded-lsp"),
+        run_number: 1,
+    };
+    assert_lsp_assertions(&context, &stdout, &assertions);
+}
+
+#[test]
+fn decoded_lsp_transport_failure_matrix_rejects_invalid_complete_streams() {
+    let response = r#"{"jsonrpc":"2.0","id":1,"result":null}"#;
+    let valid = lsp_frame(response);
+    for (stdout, expected) in [
+        ("garbage".to_string(), "malformed or partial framing"),
+        (
+            "Content-Length: 10\r\n\r\n{}".to_string(),
+            "partial frame body",
+        ),
+        (format!("{valid}garbage"), "trailing bytes"),
+        (lsp_frame("{"), "invalid JSON"),
+        (
+            format!("{valid}{}", lsp_frame(response)),
+            "duplicate response identifier 1",
+        ),
+    ] {
+        let error = decode_lsp_stdout(&stdout).expect_err("stream should fail decoding");
+        assert!(
+            error.contains(expected),
+            "expected `{expected}` in `{error}`"
+        );
+    }
+}
+
+#[test]
+fn decoded_lsp_array_pointer_boundary_matrix_distinguishes_missing_and_invalid() {
+    let value = parse_json(r#"["first","last"]"#).expect("array should parse");
+    for (token, expected) in [("0", "first"), ("1", "last")] {
+        match json_pointer(&value, &[token.to_string()]) {
+            JsonPointerResult::Found(JsonValue::String(actual)) => assert_eq!(actual, expected),
+            _ => panic!("array token {token:?} should resolve"),
+        }
+    }
+    assert!(matches!(
+        json_pointer(&value, &["2".to_string()]),
+        JsonPointerResult::Missing
+    ));
+    for token in [
+        "184467440737095516160",
+        "01",
+        "-1",
+        "+1",
+        " 1",
+        "١",
+        "-",
+        "",
+    ] {
+        assert!(
+            matches!(
+                json_pointer(&value, &[token.to_string()]),
+                JsonPointerResult::Invalid(_)
+            ),
+            "array token {token:?} should be invalid"
+        );
+    }
+}
+
+#[test]
+fn decoded_lsp_operations_cover_string_kinds_missing_paths_and_selectors() {
+    let stdout = lsp_frame(r#"{"jsonrpc":"2.0","id":1,"result":{"text":"alpha beta","number":2}}"#);
+    let passing = parsed_lsp_assertions(
+        r#"command = ["lsp"]
+exit = 0
+[[lsp_assert]]
+id = 1
+path = "/result/text"
+contains = "beta"
+[[lsp_assert]]
+id = 1
+path = "/result/absent"
+missing = true
+"#,
+    );
+    let messages = decode_lsp_stdout(&stdout).expect("stream should decode");
+    for assertion in &passing {
+        evaluate_lsp_assertion(&messages, assertion).expect("assertion should pass");
+    }
+
+    for (fields, expected) in [
+        (
+            "id = 1\npath = \"/result/number\"\ncontains = \"2\"",
+            "requires a selected JSON string",
+        ),
+        (
+            "id = 1\npath = \"/result/text/value\"\nmissing = true",
+            "invalid traversal",
+        ),
+        (
+            "id = 1\npath = \"/result/text\"\nmissing = true",
+            "exists but should be missing",
+        ),
+        (
+            "id = 9\npath = \"/result\"\nmissing = true",
+            "selected response was not found",
+        ),
+        (
+            "method = \"absent\"\npath = \"/params\"\nmissing = true",
+            "selected notification was not found",
+        ),
+    ] {
+        let assertion = parsed_lsp_assertions(&format!(
+            "command = [\"lsp\"]\nexit = 0\n[[lsp_assert]]\n{fields}\n"
+        ))
+        .remove(0);
+        let error = evaluate_lsp_assertion(&messages, &assertion)
+            .expect_err("assertion should report its failure");
+        assert!(
+            error.contains(expected),
+            "expected `{expected}` in `{error}`"
+        );
+    }
+}
+
+#[test]
+fn decoded_lsp_equals_file_uses_an_immutable_string_operand() {
+    let root = test_temp_root("lsp-equals-file");
+    let manifest_path = root.join("case.toml");
+    fs::write(root.join("expected.txt"), "alpha\r\nbeta\n")
+        .expect("expected text should be written");
+    let manifest = parse_manifest(
+        &manifest_path,
+        "command = [\"lsp\"]\nexit = 0\n[[lsp_assert]]\nid = 1\npath = \"/result/text\"\nequals_file = \"expected.txt\"\n",
+    );
+    fs::write(root.join("expected.txt"), "changed")
+        .expect("expected text should be changed after loading");
+    let messages = decode_lsp_stdout(&lsp_frame(
+        r#"{"jsonrpc":"2.0","id":1,"result":{"text":"alpha\r\nbeta\n"}}"#,
+    ))
+    .expect("stream should decode");
+    evaluate_lsp_assertion(&messages, &manifest.expectations.lsp_assertions[0])
+        .expect("snapshot should retain exact original text");
+
+    let wrong_kind = parse_manifest(
+        &manifest_path,
+        "command = [\"lsp\"]\nexit = 0\n[[lsp_assert]]\nid = 1\npath = \"/result\"\nequals_file = \"expected.txt\"\n",
+    );
+    let error = evaluate_lsp_assertion(&messages, &wrong_kind.expectations.lsp_assertions[0])
+        .expect_err("equals_file should reject a non-string value");
+    assert!(error.contains("requires a selected JSON string"));
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn raw_stdout_and_decoded_lsp_failures_are_reported_independently() {
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"command = ["lsp"]
+exit = 0
+[stdout]
+contains = ["raw marker"]
+[[lsp_assert]]
+id = 1
+path = "/result"
+equals = "expected"
+"#,
+    );
+    let context = CaseRunContext {
+        case_dir: Path::new("independence"),
+        run_number: 1,
+    };
+    let output = CapturedOutput {
+        exit: Some(0),
+        stdout: lsp_frame(r#"{"jsonrpc":"2.0","id":1,"result":"actual"}"#),
+        stderr: String::new(),
+    };
+    let panic =
+        std::panic::catch_unwind(|| manifest.expectations.assert_matches(&context, &output))
+            .expect_err("both assertions should fail");
+    let message = panic_message(panic);
+    assert!(message.contains("raw marker"));
+    assert!(message.contains("value mismatch"));
+
+    let transport_output = CapturedOutput {
+        exit: Some(0),
+        stdout: "trailing transport bytes".to_string(),
+        stderr: String::new(),
+    };
+    let panic = std::panic::catch_unwind(|| {
+        manifest
+            .expectations
+            .assert_matches(&context, &transport_output)
+    })
+    .expect_err("raw and transport assertions should fail");
+    let message = panic_message(panic);
+    assert!(message.contains("raw marker"));
+    assert!(message.contains("malformed or partial framing"));
+    assert!(!message.contains("value mismatch"));
+}
+
+#[test]
+fn repeated_run_failures_are_grouped_by_run_and_manifest_assertion_order() {
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"command = ["lsp"]
+exit = 0
+[[lsp_assert]]
+id = 1
+path = "/result/value"
+equals = "first expected"
+[[lsp_assert]]
+id = 1
+path = "/result/other"
+equals = "second expected"
+"#,
+    );
+    let outputs = [
+        CapturedOutput {
+            exit: Some(0),
+            stdout: lsp_frame(
+                r#"{"jsonrpc":"2.0","id":1,"result":{"value":"run one","other":"one"}}"#,
+            ),
+            stderr: String::new(),
+        },
+        CapturedOutput {
+            exit: Some(7),
+            stdout: format!(
+                "{}trailing",
+                lsp_frame(r#"{"jsonrpc":"2.0","id":1,"result":{"value":"run two"}}"#)
+            ),
+            stderr: String::new(),
+        },
+    ];
+    let mut failures = Vec::new();
+    for (index, output) in outputs.iter().enumerate() {
+        let context = CaseRunContext {
+            case_dir: Path::new("repeat-lsp"),
+            run_number: index + 1,
+        };
+        collect_run_failure(&mut failures, || {
+            manifest.expectations.assert_matches(&context, output)
+        });
+    }
+    assert_eq!(failures.len(), 2);
+    assert!(failures[0].contains("repeat-lsp run 1"));
+    let first_position = failures[0]
+        .find("/result/value")
+        .expect("first assertion should be reported");
+    let second_position = failures[0]
+        .find("/result/other")
+        .expect("second assertion should be reported");
+    assert!(first_position < second_position);
+    assert!(failures[1].contains("repeat-lsp run 2"));
+    assert!(failures[1].contains("expected exit 0, got Some(7)"));
+    assert!(failures[1].contains("trailing bytes"));
+}
+
 fn assert_manifest_parse_error(source: &str, expected: &str) {
     let panic = std::panic::catch_unwind(|| parse_manifest(Path::new("case.toml"), source))
         .expect_err("incomplete manifest section should be rejected");
@@ -8434,6 +9025,300 @@ fn fake_tool_path(root: &Path, name: &str) -> PathBuf {
 #[cfg(not(windows))]
 fn fake_tool_path(root: &Path, name: &str) -> PathBuf {
     root.join(name)
+}
+
+fn parse_json_pointer(
+    path: &Path,
+    line_number: usize,
+    assertion_index: usize,
+    pointer: &str,
+) -> Vec<String> {
+    if pointer.is_empty() {
+        return Vec::new();
+    }
+    if !pointer.starts_with('/') {
+        manifest_error(
+            path,
+            line_number,
+            format!(
+                "lsp_assert {assertion_index} path `{pointer}` is not a JSON Pointer; nonempty pointers must start with `/`"
+            ),
+        );
+    }
+    pointer[1..]
+        .split('/')
+        .map(|token| {
+            let mut decoded = String::new();
+            let mut chars = token.chars();
+            while let Some(ch) = chars.next() {
+                if ch != '~' {
+                    decoded.push(ch);
+                    continue;
+                }
+                match chars.next() {
+                    Some('0') => decoded.push('~'),
+                    Some('1') => decoded.push('/'),
+                    Some(escape) => manifest_error(
+                        path,
+                        line_number,
+                        format!(
+                            "lsp_assert {assertion_index} path `{pointer}` has invalid JSON Pointer escape `~{escape}`"
+                        ),
+                    ),
+                    None => manifest_error(
+                        path,
+                        line_number,
+                        format!(
+                            "lsp_assert {assertion_index} path `{pointer}` has an incomplete JSON Pointer escape"
+                        ),
+                    ),
+                }
+            }
+            decoded
+        })
+        .collect()
+}
+
+fn assert_lsp_assertions(context: &CaseRunContext<'_>, stdout: &str, assertions: &[LspAssertion]) {
+    if assertions.is_empty() {
+        return;
+    }
+    let messages = decode_lsp_stdout(stdout).unwrap_or_else(|error| {
+        let selectors = assertions
+            .iter()
+            .map(LspAssertion::selector)
+            .collect::<Vec<_>>()
+            .join(", ");
+        panic!(
+            "{}: decoded LSP stream failed for {selectors}: {error}",
+            context.label()
+        )
+    });
+    let mut failures = Vec::new();
+    for assertion in assertions {
+        if let Err(error) = evaluate_lsp_assertion(&messages, assertion) {
+            failures.push(format!(
+                "{}: {} path {:?}: {error}",
+                context.label(),
+                assertion.selector(),
+                assertion.path
+            ));
+        }
+    }
+    if !failures.is_empty() {
+        panic!("{}", failures.join("\n"));
+    }
+}
+
+fn decode_lsp_stdout(stdout: &str) -> Result<Vec<JsonValue>, String> {
+    let bytes = stdout.as_bytes();
+    let mut offset = 0usize;
+    let mut messages = Vec::new();
+    while offset < bytes.len() {
+        let Some(header_end_relative) = find_bytes(&bytes[offset..], b"\r\n\r\n") else {
+            return if messages.is_empty() {
+                Err(format!(
+                    "malformed or partial framing at byte offset {offset}"
+                ))
+            } else {
+                Err(format!("trailing bytes at byte offset {offset}"))
+            };
+        };
+        let header_end = offset + header_end_relative;
+        let header = std::str::from_utf8(&bytes[offset..header_end])
+            .map_err(|_| format!("malformed frame header at byte offset {offset}"))?;
+        let mut content_length = None;
+        for line in header.split("\r\n") {
+            if let Some(raw) = line.strip_prefix("Content-Length:") {
+                if content_length.is_some() {
+                    return Err(format!(
+                        "duplicate Content-Length header at byte offset {offset}"
+                    ));
+                }
+                let raw = raw.trim();
+                content_length = Some(raw.parse::<usize>().map_err(|_| {
+                    format!("invalid Content-Length `{raw}` at byte offset {offset}")
+                })?);
+            }
+        }
+        let content_length = content_length
+            .ok_or_else(|| format!("missing Content-Length header at byte offset {offset}"))?;
+        let body_start = header_end + 4;
+        let body_end = body_start
+            .checked_add(content_length)
+            .ok_or_else(|| format!("Content-Length overflow at byte offset {offset}"))?;
+        if body_end > bytes.len() {
+            return Err(format!(
+                "partial frame body at byte offset {body_start}: expected {content_length} bytes, found {}",
+                bytes.len() - body_start
+            ));
+        }
+        let body = std::str::from_utf8(&bytes[body_start..body_end])
+            .map_err(|_| format!("frame body at byte offset {body_start} is not UTF-8"))?;
+        let message = parse_json(body).map_err(|error| {
+            format!("frame body at byte offset {body_start} is invalid JSON: {error}")
+        })?;
+        if !matches!(message, JsonValue::Object(_)) {
+            return Err(format!(
+                "frame body at byte offset {body_start} is not a JSON-RPC object"
+            ));
+        }
+        messages.push(message);
+        offset = body_end;
+    }
+
+    let mut response_ids = Vec::<&JsonValue>::new();
+    for message in &messages {
+        if is_lsp_response(message) {
+            let id = message
+                .object_field("id")
+                .expect("response classification requires id");
+            if response_ids.contains(&id) {
+                return Err(format!(
+                    "duplicate response identifier {}",
+                    id.to_compact_string()
+                ));
+            }
+            response_ids.push(id);
+        }
+    }
+    Ok(messages)
+}
+
+fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack
+        .windows(needle.len())
+        .position(|window| window == needle)
+}
+
+fn is_lsp_response(message: &JsonValue) -> bool {
+    message.object_field("id").is_some()
+        && message.object_field("method").is_none()
+        && (message.object_field("result").is_some() || message.object_field("error").is_some())
+}
+
+fn evaluate_lsp_assertion(messages: &[JsonValue], assertion: &LspAssertion) -> Result<(), String> {
+    let selected = if let Some(id) = &assertion.id {
+        messages
+            .iter()
+            .find(|message| is_lsp_response(message) && message.object_field("id") == Some(id))
+            .ok_or_else(|| "selected response was not found".to_string())?
+    } else {
+        let method = assertion
+            .method
+            .as_deref()
+            .expect("validated method selector");
+        messages
+            .iter()
+            .filter(|message| {
+                message.object_field("id").is_none()
+                    && message.object_field("method").and_then(JsonValue::as_str) == Some(method)
+            })
+            .nth(assertion.occurrence.unwrap_or(0))
+            .ok_or_else(|| "selected notification was not found".to_string())?
+    };
+
+    match json_pointer(selected, &assertion.pointer_tokens) {
+        JsonPointerResult::Missing => {
+            if matches!(
+                assertion.operation,
+                Some(LspAssertionOperation::Missing(true))
+            ) {
+                Ok(())
+            } else {
+                Err("selected JSON path was not found".to_string())
+            }
+        }
+        JsonPointerResult::Invalid(reason) => Err(format!("invalid traversal: {reason}")),
+        JsonPointerResult::Found(actual) => match assertion
+            .operation
+            .as_ref()
+            .expect("validated LSP assertion operation")
+        {
+            LspAssertionOperation::Equals(expected) => {
+                if actual == expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "value mismatch: expected {}, got {}",
+                        expected.to_compact_string(),
+                        actual.to_compact_string()
+                    ))
+                }
+            }
+            LspAssertionOperation::EqualsFile(expected) => {
+                let actual = actual
+                    .as_str()
+                    .ok_or_else(|| "equals_file requires a selected JSON string".to_string())?;
+                if actual == expected {
+                    Ok(())
+                } else {
+                    Err("string does not equal the expected file contents".to_string())
+                }
+            }
+            LspAssertionOperation::Contains(expected) => {
+                let actual = actual
+                    .as_str()
+                    .ok_or_else(|| "contains requires a selected JSON string".to_string())?;
+                if actual.contains(expected) {
+                    Ok(())
+                } else {
+                    Err(format!("string does not contain {expected:?}"))
+                }
+            }
+            LspAssertionOperation::Missing(true) => {
+                Err("selected JSON path exists but should be missing".to_string())
+            }
+            LspAssertionOperation::Missing(false) => unreachable!("validated missing operation"),
+        },
+    }
+}
+
+enum JsonPointerResult<'a> {
+    Found(&'a JsonValue),
+    Missing,
+    Invalid(String),
+}
+
+fn json_pointer<'a>(value: &'a JsonValue, tokens: &[String]) -> JsonPointerResult<'a> {
+    let mut current = value;
+    for token in tokens {
+        match current {
+            JsonValue::Object(entries) => {
+                let Some((_, child)) = entries.iter().find(|(key, _)| key == token) else {
+                    return JsonPointerResult::Missing;
+                };
+                current = child;
+            }
+            JsonValue::Array(values) => {
+                if token != "0"
+                    && (token.starts_with('0')
+                        || token.is_empty()
+                        || !token.bytes().all(|byte| byte.is_ascii_digit()))
+                {
+                    return JsonPointerResult::Invalid(format!(
+                        "array token {token:?} is not a canonical non-negative index"
+                    ));
+                }
+                let Ok(index) = token.parse::<usize>() else {
+                    return JsonPointerResult::Invalid(format!(
+                        "array token {token:?} exceeds the supported index range"
+                    ));
+                };
+                let Some(child) = values.get(index) else {
+                    return JsonPointerResult::Missing;
+                };
+                current = child;
+            }
+            _ => {
+                return JsonPointerResult::Invalid(format!(
+                    "token {token:?} cannot traverse {}",
+                    current.to_compact_string()
+                ));
+            }
+        }
+    }
+    JsonPointerResult::Found(current)
 }
 
 fn assert_json_path(context: &CaseRunContext<'_>, json: &JsonValue, assertion: &JsonAssertion) {

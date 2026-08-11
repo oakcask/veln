@@ -18,8 +18,8 @@ also states it.
 
 ## Catalog
 
-- Decoded LSP assertions, representative case migration, and completion of the
-  readable toolchain case stream proposal:
+- Representative LSP case migration and completion of the readable toolchain
+  case stream proposal:
   [readable-toolchain-case-streams.md](readable-toolchain-case-streams.md).
 - Agent language services through MCP, package documentation, generated public
   reference, cross-adapter conformance, and client plugins:

@@ -414,6 +414,7 @@ fn describe_expectations(fields: &mut BTreeMap<String, String>, manifest: &CaseM
     optional_help(fields, manifest.expectations.help.as_ref());
     describe_json_assertions(fields, manifest);
     describe_result_value_assertions(fields, manifest);
+    describe_lsp_assertions(fields, manifest);
     describe_file_assertions(fields, manifest);
     describe_diagnostics(fields, manifest);
     binary_fixtures(fields, &manifest.expectations.binary_fixtures);
@@ -452,6 +453,49 @@ fn describe_result_value_assertions(
             assertion.equals.as_ref(),
             assertion.missing == Some(true),
         );
+    }
+}
+
+fn describe_lsp_assertions(fields: &mut BTreeMap<String, String>, manifest: &CaseManifest) {
+    for (index, assertion) in manifest.expectations.lsp_assertions.iter().enumerate() {
+        let base = format!("expectations.lsp_assertions[{index}]");
+        if let Some(id) = &assertion.id {
+            fields.insert(format!("{base}.id"), canonical_json(id, &format!("{base}.id")));
+        }
+        optional_text(fields, &format!("{base}.method"), assertion.method.as_deref());
+        if assertion.method.is_some() {
+            scalar(
+                fields,
+                &format!("{base}.occurrence"),
+                assertion.occurrence.unwrap_or(0),
+            );
+        }
+        text(fields, &format!("{base}.path"), &assertion.path);
+        match assertion
+            .operation
+            .as_ref()
+            .expect("validated LSP assertion operation")
+        {
+            LspAssertionOperation::Equals(value) => {
+                enum_value(fields, &format!("{base}.operation"), "equals");
+                fields.insert(
+                    format!("{base}.equals"),
+                    canonical_json(value, &format!("{base}.equals")),
+                );
+            }
+            LspAssertionOperation::EqualsFile(value) => {
+                enum_value(fields, &format!("{base}.operation"), "equals_file");
+                text(fields, &format!("{base}.equals_file"), value);
+            }
+            LspAssertionOperation::Contains(value) => {
+                enum_value(fields, &format!("{base}.operation"), "contains");
+                text(fields, &format!("{base}.contains"), value);
+            }
+            LspAssertionOperation::Missing(true) => {
+                enum_value(fields, &format!("{base}.operation"), "missing");
+            }
+            LspAssertionOperation::Missing(false) => unreachable!("validated missing operation"),
+        }
     }
 }
 

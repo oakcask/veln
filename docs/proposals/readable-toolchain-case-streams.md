@@ -7,18 +7,18 @@ update-when: The readable toolchain case stream proposal scope, structured JSON-
 
 ## Summary
 
-The remaining proposal work is limited to decoded LSP response assertions,
-representative LSP case migration, and proposal completion. Implemented
+The remaining proposal work is limited to representative LSP case migration
+and proposal completion. Implemented decoded LSP response assertions,
 structured JSON-RPC request fixtures, manifest multiline syntax, case-relative
 text sidecars, portable path checks, discovery inventory, encoded-line-break
 policy, build preflight, runtime stale inventory barrier, and checked-in
 case-text migration are current harness behavior. Their normative route is
 [Toolchain Test Harness](../reference/toolchain-test-harness.md).
 
-The remaining work lets LSP assertions target decoded response messages when
-message structure is the observable behavior, then migrates representative
-cases without weakening checks. Raw stream assertions remain available for
-framing-specific cases.
+Implemented LSP assertions now target decoded responses and notifications when
+message structure is the observable behavior. The remaining work migrates
+representative cases without weakening checks. Raw stream assertions remain
+available for framing-specific cases.
 
 ## Current Behavior Route
 
@@ -41,10 +41,6 @@ reference and executable evidence before this proposal closes.
 
 ## Remaining Goals
 
-- Assert LSP output by selecting decoded responses or notifications and then
-  applying JSON path assertions.
-- Preserve raw stream assertions for invalid framing, whitespace-sensitive
-  framing, and other cases where bytes are the intended evidence.
 - Migrate representative LSP cases without weakening their previous assertion
   boundary.
 
@@ -98,7 +94,7 @@ intent.
 | Short text whose line structure belongs beside the assertion | Implemented multiline manifest string |
 | Large exact text, reusable text, or native source text | Implemented case-relative text file |
 | JSON-RPC requests sent to `veln lsp` | Implemented structured JSON-RPC request fixture |
-| JSON-RPC response fields or notifications | Planned decoded LSP assertion |
+| JSON-RPC response fields or notifications | Implemented decoded LSP assertion |
 | Invalid or presentation-sensitive JSON-RPC framing | Existing raw stream assertion |
 
 The harness must not choose representation from a size threshold. The manifest
@@ -117,20 +113,24 @@ Migration must not replace stable semantic checks with broad snapshots only to
 move text out of a manifest. Framing-specific cases keep raw stdout or stderr
 assertions.
 
-## Acceptance Model
+## Implemented Decoded Assertion Evidence
 
-The rows below describe planned evidence only.
+The harness target now checks the decoded assertion foundation through the
+following executable evidence. The harness reference is the current contract.
+
+| Case | Expected result | Executable evidence |
+| --- | --- | --- |
+| Decode valid stdout containing responses and notifications. | Selectors find the requested response `id` or notification occurrence in output order. | `decoded_lsp_stream_selectors_and_json_pointer_object_matrix_succeed`. |
+| Encounter duplicate response identifiers, malformed frames, trailing bytes, or partial frames. | The stream failure prevents semantic evaluation for that invocation. | `decoded_lsp_transport_failure_matrix_rejects_invalid_complete_streams`. |
+| Select object keys and arrays with JSON Pointers, including escape and index boundaries. | Exact decoded keys and canonical in-range array indexes resolve; invalid traversal and absent values remain distinct. | The `decoded_lsp_*pointer*` tests. |
+| Use every operation with existing, missing, and wrong-kind values or selectors. | Only the operation's declared value and kind contract succeeds. | The `decoded_lsp_operations_*` and `decoded_lsp_equals_file_*` tests. |
+| Combine raw and semantic failures and run differing repeated streams. | Both consumers report independently, and repeat findings retain run and assertion order. | The `raw_stdout_and_decoded_lsp_*` and `repeated_run_failures_*` tests. |
+| Record migrated LSP assertions in the semantic baseline. | The baseline captures each selector, path, operation, and operand so later migrations can be compared. | `examples/specification/lsp/publish-diagnostics/case.toml` and `toolchain-case-semantics.baseline`. |
+
+## Remaining Acceptance Model
 
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |
-| Decode valid stdout containing responses and notifications. | Selectors find the requested response `id` or notification occurrence in output order. | Decoded stream selector cases. |
-| Encounter duplicate response identifiers, malformed frames, trailing bytes, or partial frames. | Semantic LSP assertion preflight reports the stream failure without evaluating decoded assertions from an invalid stream. | Transport preflight failure matrix. |
-| Select the message root, empty key, dotted key, numeric object key, slash or tilde key, space, and Unicode key with JSON Pointers. | Every token resolves by exact decoded scalar spelling, and the empty pointer selects the complete message. | JSON Pointer object-key matrix. |
-| Decode `~0`, `~1`, `~01`, and adjacent escapes; reject invalid tilde escapes, nonempty paths without `/`, and URI fragments. | Valid escapes decode once in RFC order; invalid pointer syntax fails during manifest loading before resources or command execution. | Pointer syntax and escape-order table. |
-| Apply array pointers with first, last, length, huge, leading-zero, signed, whitespace, non-ASCII, and `-` tokens. | Valid indexes select by position; invalid or out-of-range indexes report absent or invalid traversal without overflow. | Array traversal boundary matrix. |
-| Use `missing = true` with an existing selected value and missing path, an existing path, and a missing LSP message. | Only the existing selection with a missing path succeeds. | Missing-path versus selector-failure cases. |
-| Fail raw stdout while the decoded stream is valid, then fail a decoded assertion while raw stdout is valid. | Raw and decoded consumers remain independent; neither failure suppresses the other. | Raw and semantic independence truth table. |
-| Run repeated invocations whose later runs differ in exit, framing, or selected values. | Each capturable invocation is checked independently and findings are grouped by run and manifest assertion order. | Scripted repeat aggregation and isolation case. |
 | Migrate representative exact-output, fragment, formatting, repeated-run, and LSP cases. | Their observable checks match the pre-migration semantic baseline or an explicitly reviewed behavior-level conversion. | Focused migrated toolchain cases plus baseline comparison. |
 
 ## Verification Route
@@ -149,23 +149,19 @@ baseline or reviewed conversion records for migrated cases.
 
 The proposal is complete only when all of the following conditions hold:
 
-1. Decoded LSP stream parsing, `[[lsp_assert]]`, and their failure behavior
-   pass the planned evidence above.
-2. Representative LSP cases have been migrated without weakening their
+1. Representative LSP cases have been migrated without weakening their
    assertion boundary.
-3. Raw stream assertions still cover framing-specific cases.
-4. The implemented behavior is documented in
+2. Raw stream assertions still cover framing-specific cases.
+3. The implemented behavior is documented in
    [Toolchain Test Harness](../reference/toolchain-test-harness.md) and is
    backed by executable harness evidence.
-5. The complete toolchain harness suite passes after migration.
-6. This proposal is removed from `docs/proposals/`, and any durable completion
+4. The complete toolchain harness suite passes after migration.
+5. This proposal is removed from `docs/proposals/`, and any durable completion
    evidence is moved to `docs/reference/implemented-proposals/` only if it
    remains useful.
 
 ## Remaining Implementation Boundary
 
-- Add decoded LSP stdout transport parsing, response and notification
-  selection, JSON Pointer paths, and dependency-aware assertion aggregation.
 - Migrate representative LSP cases from raw protocol streams to structured
   request fixtures and decoded assertions, with reviewed conversion evidence
   where raw bytes are not the behavior.
