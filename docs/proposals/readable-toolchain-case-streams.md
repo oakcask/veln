@@ -248,8 +248,8 @@ that expected content in a sidecar file instead.
 ### Implemented Manifest Syntax
 
 The TOML string, string-array, multiline JSON value, physical-newline, and
-error-location contracts are implemented. The current normative route and
-executable evidence are
+error-location contracts are implemented, including malformed and incomplete
+Unicode escape failures. The current normative route and executable evidence are
 [Toolchain Test Harness](../reference/toolchain-test-harness.md#manifest-value-syntax).
 
 ### Portable Case-File References

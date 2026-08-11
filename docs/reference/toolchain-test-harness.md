@@ -77,7 +77,8 @@ multiline strings normalize to LF, including mixed-line-ending manifests. A
 lone CR is invalid. Manifest failures report a one-based physical line. Local
 token failures take precedence over missing outer delimiters. If clean end of
 input leaves only delimiters missing, the failure points to the innermost
-unmatched opener.
+unmatched opener. A fixed-width Unicode escape that is cut short by end of
+input, LF, or CRLF fails on the line where that escape begins.
 
 The table-driven `manifest_*` tests in `toolchain_harness.rs` are the
 executable evidence for string forms, escapes, folding, quote runs,
