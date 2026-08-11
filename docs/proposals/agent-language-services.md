@@ -1003,8 +1003,9 @@ The remaining slices are:
 
 1. Define and validate language-reference topic descriptors. Generate the
    executable grammar, selected example, and compiler-owned table projections.
-2. Add `veln mcp`, resources, documentation tools, project diagnostics,
-   definition, and references.
+2. Extend the existing `veln mcp` server with resources, documentation tools,
+   project diagnostics, definition, and references beyond the implemented
+   workspace inventory tools.
 3. Add cross-adapter conformance cases, bounded search, pagination, and stale
    snapshot handling.
 4. Package and validate Codex and Claude Code plugins and document their
