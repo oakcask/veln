@@ -6343,6 +6343,10 @@ fn manifest_jsonrpc_fixture_rejects_root_message_and_envelope_failures() {
         ("[null]", "message 0 at $[0]: message must be an object"),
         ("[{\"method\":\"m\"}]", "message 0 at $[0].jsonrpc"),
         (
+            "[{\"jsonrpc\":\"2.0\"}]",
+            "message 0 at $[0].method: `method` must be a string",
+        ),
+        (
             "[{\"jsonrpc\":\"1.0\",\"method\":\"m\"}]",
             "`jsonrpc` must be the string `2.0`",
         ),
