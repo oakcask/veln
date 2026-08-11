@@ -1,12 +1,26 @@
 command = ["lsp"]
-stdin_file = "case-text/root-stdin-1.raw"
+stdin_jsonrpc_file = "requests.json"
 exit = 0
-
-[stdout]
-contains = ["\"semanticTokensProvider\"", "\"method\":\"textDocument/publishDiagnostics\"", "\"code\":\"name.unresolved\"", "\"diagnostics\":[]", "\"id\":2,\"result\":null"]
 
 [stderr]
 format = "empty"
+
+[[lsp_assert]]
+id = 1
+path = "/result/capabilities/semanticTokensProvider/full"
+equals = true
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/1/code"
+equals = "name.unresolved"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 1
+path = "/params/diagnostics"
+equals = []
 
 [[lsp_assert]]
 id = 2

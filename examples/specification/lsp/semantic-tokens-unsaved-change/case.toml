@@ -1,9 +1,21 @@
 command = ["lsp"]
-stdin_file = "case-text/root-stdin-1.raw"
+stdin_jsonrpc_file = "requests.json"
 exit = 0
-
-[stdout]
-contains = ["\"semanticTokensProvider\"", "\"full\":true", "\"id\":2,\"result\":{\"data\":[0,", "0,3,7,6,1", "\"id\":3,\"result\":null"]
 
 [stderr]
 format = "empty"
+
+[[lsp_assert]]
+id = 1
+path = "/result/capabilities/semanticTokensProvider/full"
+equals = true
+
+[[lsp_assert]]
+id = 2
+path = "/result/data"
+equals = [0, 0, 3, 7, 0, 0, 4, 2, 7, 0, 0, 3, 7, 6, 1, 0, 7, 1, 11, 0, 0, 1, 1, 11, 0, 0, 2, 2, 11, 0, 0, 3, 3, 1, 0, 0, 4, 7, 7, 0, 0, 8, 1, 11, 0, 0, 1, 1, 11, 0, 1, 2, 1, 10, 0, 1, 0, 3, 7, 0]
+
+[[lsp_assert]]
+id = 3
+path = "/result"
+equals = null
