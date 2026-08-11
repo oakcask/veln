@@ -35,13 +35,15 @@ slash-separated case directory. Descriptor order is deterministic by the
 root-qualified UTF-8 spelling, so cases with the same suffix under different
 roots remain distinct.
 
-A configured discovery root is a container. It must not contain a root-level
-`case.toml`. A directory with `case.toml` is a case root, but discovery still
-walks below it to reject a nested `case.toml`. A nested manifest is invalid
-because it would create a hidden case boundary. Discovery rejects symbolic
-links, Windows reparse points, and other link-like entries in either root. The
-failure identifies the offending entry and directs the author to use one
-visible, portable case boundary made of regular fixture entries.
+A configured discovery root is a regular container. It must not be a symbolic
+link, Windows reparse point, or other link-like entry, and it must not contain
+a root-level `case.toml`. A directory with `case.toml` is a case root, but
+discovery still walks below it to reject a nested `case.toml`. A nested
+manifest is invalid because it would create a hidden case boundary. Discovery
+also rejects symbolic links, Windows reparse points, and other link-like
+entries below either root. The failure identifies the offending entry and
+directs the author to use one visible, portable case boundary made of regular
+fixture entries.
 The preflight keeps descriptors discovered before an independent structural
 error, and it still scans their manifests for policy findings. Missing roots,
 links, or nested manifests do not suppress encoded line-break findings from
