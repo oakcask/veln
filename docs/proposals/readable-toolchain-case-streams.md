@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The decoded LSP assertion proposal scope, acceptance evidence, migration boundary, or completion gate changes.
+update-when: The readable toolchain case stream proposal scope, structured JSON-RPC current-behavior route, decoded LSP assertion acceptance evidence, migration boundary, or completion gate changes.
 ---
 
 # Readable Toolchain Case Streams
@@ -29,7 +29,7 @@ Use the current harness reference for implemented behavior:
 - portable case-relative path validation and immutable text snapshots;
 - authoritative discovery roots and generated/current inventory parity;
 - encoded-line-break policy scanning in build preflight and generated-case
-  runtime preflight; and
+  runtime preflight;
 - semantic baseline and checked migration evidence for existing cases; and
 - structured JSON-RPC request fixtures, recursive `$case_text` expansion,
   envelope validation, and deterministic input framing.
