@@ -1,5 +1,5 @@
 command = ["lsp"]
-stdin_file = "case-text/root-stdin-1.txt"
+stdin_file = "case-text/root-stdin-1.raw"
 exit = 0
 
 [stdout]

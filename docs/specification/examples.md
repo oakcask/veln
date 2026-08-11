@@ -12,6 +12,9 @@ behavior.
 Case text files under `case-text/` are fixture evidence owned by the CLI
 toolchain harness. Their placement can change how an example is reviewed
 without changing the language or command behavior that the case checks.
+Files ending in `.raw` are exact-byte fixture sidecars. Use them when checkout
+line-ending normalization would change the protocol bytes that the example
+feeds to the CLI, including LSP JSON-RPC stdin streams.
 
 ## Inference Routes
 
