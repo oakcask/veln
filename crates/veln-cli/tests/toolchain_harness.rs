@@ -4380,6 +4380,16 @@ fn manifest_syntax_errors_report_exact_physical_lines() {
             6,
             "unterminated container; expected `]`",
         ),
+        (
+            "command = [\"check\"]\nstdin = \"\\u12\nexit = 0\n",
+            2,
+            "incomplete Unicode escape",
+        ),
+        (
+            "command = [\"check\"]\r\nstdin = \"\\u12\r\nexit = 0\r\n",
+            2,
+            "incomplete Unicode escape",
+        ),
     ] {
         let panic = std::panic::catch_unwind(|| parse_manifest(Path::new("case.toml"), source))
             .expect_err("invalid manifest should be rejected");

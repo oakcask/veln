@@ -579,7 +579,11 @@ impl<'p, 'a> Lexer<'p, 'a> {
                     manifest_error(self.path, self.line, "lone carriage return in manifest");
                 }
                 if !multiline {
-                    manifest_error(self.path, opening_line, "newline in single-line string");
+                    self.report_single_line_newline_or_pending_string_error(
+                        start,
+                        opening_line,
+                        form,
+                    );
                 }
                 self.offset += 2;
                 self.line += 1;
@@ -587,7 +591,11 @@ impl<'p, 'a> Lexer<'p, 'a> {
             }
             if ch == '\n' {
                 if !multiline {
-                    manifest_error(self.path, opening_line, "newline in single-line string");
+                    self.report_single_line_newline_or_pending_string_error(
+                        start,
+                        opening_line,
+                        form,
+                    );
                 }
                 self.next_char();
                 continue;
@@ -627,6 +635,19 @@ impl<'p, 'a> Lexer<'p, 'a> {
             decoded,
             source: raw,
         }
+    }
+
+    fn report_single_line_newline_or_pending_string_error(
+        &self,
+        start: usize,
+        opening_line: usize,
+        form: StringForm,
+    ) -> ! {
+        let raw = &self.text[start..self.offset];
+        if let Err(error) = decode_toml_string(raw, opening_line, form, 0) {
+            manifest_error(self.path, error.line, error.message);
+        }
+        manifest_error(self.path, opening_line, "newline in single-line string");
     }
 
     fn peek_char(&self) -> Option<char> {
