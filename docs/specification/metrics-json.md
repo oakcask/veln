@@ -179,7 +179,9 @@ Executable evidence:
   `check-human-output-truncated-json`, `invalid-max-findings-human`, and
   `invalid-max-findings-json` cases check the shared human-output budget,
   exact omitted counts, unchanged JSON evidence, failing checked status under
-  truncation, and invalid `max_findings` diagnostics.
+  truncation, and invalid `max_findings` diagnostics. Their human-output
+  fixture fragments preserve report-section order even when inline assertions
+  and file-backed assertions are split in the case manifest.
 - The metrics `baseline-write` and `baseline-existing-file` cases check
   baseline generation, baseline file shape, and overwrite refusal.
 - The metrics `baseline-check-pass-json`,
@@ -204,7 +206,8 @@ Executable evidence:
 - The metrics `stable-ordering` and `stable-ordering-human` cases check
   public CLI ordering for selected paths, modules, edges, cycles, ABC
   subjects, same-token-count similarity instances, similarity declarations,
-  and the corresponding human prefix. The
+  and the corresponding human prefix, with file-backed and inline expected
+  fragments kept in manifest order. The
   `metrics_cli_output_is_stable_for_reversed_input_order` CLI integration test
   checks byte-for-byte stable JSON and human output for reversed input order
   when the detailed finding set is truncated.

@@ -44,4 +44,7 @@ documentation digest.
 The implemented gates are parse, manifest, export, documentation-reference,
 doctest, and identity. The authoritative executable evidence is
 `cargo test -p veln-language-service` plus package catalog fixtures under
-`examples/specification/doc/`.
+`examples/specification/doc/`. The generated Markdown fixtures keep doctest
+fences as ordered evidence between inline expected-output fragments, so
+fixture-manifest fragment placement can change without changing the
+documentation catalog contract.
