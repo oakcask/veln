@@ -395,6 +395,11 @@ fn describe_invocation(fields: &mut BTreeMap<String, String>, manifest: &CaseMan
         "invocation.stdin",
         manifest.invocation.stdin.as_deref(),
     );
+    optional_text(
+        fields,
+        "invocation.stdin_jsonrpc_file",
+        manifest.invocation.stdin_jsonrpc_file.as_deref(),
+    );
     scalar(fields, "invocation.repeat", manifest.invocation.repeat);
     for (index, (name, value)) in manifest.invocation.env.iter().enumerate() {
         text(fields, &format!("invocation.env[{index}].name"), name);
@@ -662,6 +667,7 @@ fn canonical_json(value: &JsonValue, logical_field: &str) -> String {
         JsonValue::Null => "null".to_string(),
         JsonValue::Bool(value) => value.to_string(),
         JsonValue::Number(value) => value.to_string(),
+        JsonValue::Decimal(value) => value.clone(),
         JsonValue::String(value) => {
             if value.len() >= LARGE_TEXT_BYTES {
                 large_text_descriptor(logical_field, value)
@@ -850,6 +856,33 @@ fn semantic_export_is_deterministic_and_round_trips() {
     let second = inventory.render();
     assert_eq!(first, second);
     assert_eq!(Inventory::parse(&first).unwrap(), inventory);
+}
+
+#[test]
+fn semantic_export_records_structured_jsonrpc_source_and_framed_stdin() {
+    let root = test_temp_root("semantic-jsonrpc-input");
+    let case_dir = root.join("case");
+    fs::create_dir_all(&case_dir).expect("case directory should be created");
+    fs::write(
+        case_dir.join("requests.json"),
+        r#"[{"jsonrpc":"2.0","id":1,"method":"shutdown"}]"#,
+    )
+    .expect("JSON-RPC fixture should be written");
+    let manifest = parse_manifest(
+        &case_dir.join("case.toml"),
+        "command = [\"lsp\"]\nstdin_jsonrpc_file = \"requests.json\"\nexit = 0\n",
+    );
+    let fields = describe(&manifest);
+    assert_eq!(
+        fields["invocation.stdin_jsonrpc_file"],
+        json_string("requests.json")
+    );
+    let body = r#"{"jsonrpc":"2.0","id":1,"method":"shutdown"}"#;
+    assert_eq!(
+        fields["invocation.stdin"],
+        json_string(&format!("Content-Length: {}\r\n\r\n{body}", body.len()))
+    );
+    fs::remove_dir_all(root).expect("case root should be removed");
 }
 
 #[test]

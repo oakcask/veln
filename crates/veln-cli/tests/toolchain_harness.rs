@@ -1440,6 +1440,7 @@ struct CaseInvocation {
     command: Vec<String>,
     cwd: Option<PathBuf>,
     stdin: Option<String>,
+    stdin_jsonrpc_file: Option<String>,
     repeat: usize,
     env: Vec<(String, String)>,
 }
@@ -2479,7 +2480,9 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                     manifest_error(path, *line, format!("duplicate key `{key}`"));
                 }
                 match section {
-                    Section::Root if matches!(*key, "stdin" | "stdin_file") => {
+                    Section::Root
+                        if matches!(*key, "stdin" | "stdin_file" | "stdin_jsonrpc_file") =>
+                    {
                         root_stdin_operands += 1;
                     }
                     Section::JsonAssert(index)
@@ -2511,7 +2514,7 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
         manifest_error(
             path,
             0,
-            "root invocation needs at most one of `stdin` or `stdin_file`",
+            "root invocation needs at most one of `stdin`, `stdin_file`, or `stdin_jsonrpc_file`",
         );
     }
     for (index, operation) in json_operations.iter().enumerate() {
@@ -2581,6 +2584,7 @@ struct ManifestParser<'a> {
     command: Option<Vec<String>>,
     cwd: Option<PathBuf>,
     stdin: Option<String>,
+    stdin_jsonrpc_file: Option<String>,
     exit: Option<i32>,
     repeat: usize,
     env: Vec<(String, String)>,
@@ -2611,6 +2615,7 @@ impl<'a> ManifestParser<'a> {
             command: None,
             cwd: None,
             stdin: None,
+            stdin_jsonrpc_file: None,
             exit: None,
             repeat: 1,
             env: Vec::new(),
@@ -2826,6 +2831,17 @@ impl<'a> ManifestParser<'a> {
             "stdin_file" => {
                 self.stdin_operand_count += 1;
                 self.stdin = Some(self.case_text_cache.read(self.path, value));
+            }
+            "stdin_jsonrpc_file" => {
+                self.stdin_operand_count += 1;
+                let relative = parse_string(self.path, value);
+                self.stdin = Some(load_jsonrpc_stdin(
+                    self.path,
+                    value.line(),
+                    &relative,
+                    &mut self.case_text_cache,
+                ));
+                self.stdin_jsonrpc_file = Some(relative);
             }
             "exit" => self.exit = Some(parse_i32(self.path, value)),
             "repeat" => self.repeat = parse_positive_usize(self.path, value),
@@ -3164,7 +3180,7 @@ impl<'a> ManifestParser<'a> {
             manifest_error(
                 path,
                 0,
-                "root invocation needs at most one of `stdin` or `stdin_file`",
+                "root invocation needs at most one of `stdin`, `stdin_file`, or `stdin_jsonrpc_file`",
             );
         }
         let manifest = CaseManifest {
@@ -3174,6 +3190,7 @@ impl<'a> ManifestParser<'a> {
                     .unwrap_or_else(|| manifest_error(self.path, 0, "missing `command`")),
                 cwd: self.cwd,
                 stdin: self.stdin,
+                stdin_jsonrpc_file: self.stdin_jsonrpc_file,
                 repeat: self.repeat,
                 env: self.env,
             },
@@ -3649,6 +3666,224 @@ impl CaseTextCache {
         self.snapshots.insert(relative_path, text.clone());
         text
     }
+}
+
+fn load_jsonrpc_stdin(
+    manifest_path: &Path,
+    line_number: usize,
+    relative: &str,
+    case_text_cache: &mut CaseTextCache,
+) -> String {
+    let text = case_text_cache.read_path(manifest_path, line_number, relative);
+    let fixture = parse_json(&text).unwrap_or_else(|error| {
+        manifest_error(
+            manifest_path,
+            line_number,
+            format!("invalid JSON-RPC fixture `{relative}`: {error}"),
+        )
+    });
+    let JsonValue::Array(messages) = fixture else {
+        manifest_error(
+            manifest_path,
+            line_number,
+            format!("JSON-RPC fixture `{relative}` root must be an array"),
+        );
+    };
+
+    let mut framed = String::new();
+    for (index, mut message) in messages.into_iter().enumerate() {
+        let position = format!("$[{index}]");
+        expand_case_text_directives(
+            manifest_path,
+            line_number,
+            index,
+            &position,
+            &mut message,
+            case_text_cache,
+        );
+        validate_jsonrpc_input_message(manifest_path, line_number, index, &message);
+        let body = message.to_compact_string();
+        let length = body.len();
+        framed.push_str(&format!("Content-Length: {length}\r\n\r\n{body}"));
+    }
+    framed
+}
+
+fn expand_case_text_directives(
+    manifest_path: &Path,
+    line_number: usize,
+    message_index: usize,
+    position: &str,
+    value: &mut JsonValue,
+    case_text_cache: &mut CaseTextCache,
+) {
+    match value {
+        JsonValue::Array(values) => {
+            for (index, value) in values.iter_mut().enumerate() {
+                expand_case_text_directives(
+                    manifest_path,
+                    line_number,
+                    message_index,
+                    &format!("{position}[{index}]"),
+                    value,
+                    case_text_cache,
+                );
+            }
+        }
+        JsonValue::Object(entries) => {
+            if let Some((_, directive)) = entries.iter().find(|(key, _)| key == "$case_text") {
+                if entries.len() != 1 {
+                    jsonrpc_fixture_error(
+                        manifest_path,
+                        line_number,
+                        message_index,
+                        position,
+                        "`$case_text` directive object must contain no other members",
+                    );
+                }
+                let JsonValue::String(relative) = directive else {
+                    jsonrpc_fixture_error(
+                        manifest_path,
+                        line_number,
+                        message_index,
+                        position,
+                        "`$case_text` directive value must be a string",
+                    );
+                };
+                let replacement = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    case_text_cache.read_path(manifest_path, line_number, relative)
+                }))
+                .unwrap_or_else(|panic| {
+                    jsonrpc_fixture_error(
+                        manifest_path,
+                        line_number,
+                        message_index,
+                        position,
+                        &format!("case-text reference failed: {}", panic_message(panic)),
+                    )
+                });
+                *value = JsonValue::String(replacement);
+                return;
+            }
+            for (key, value) in entries {
+                expand_case_text_directives(
+                    manifest_path,
+                    line_number,
+                    message_index,
+                    &format!("{position}.{}", escape_json_position_key(key)),
+                    value,
+                    case_text_cache,
+                );
+            }
+        }
+        _ => {}
+    }
+}
+
+fn escape_json_position_key(key: &str) -> String {
+    if key
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-')
+    {
+        key.to_string()
+    } else {
+        format!(
+            "[{}]",
+            JsonValue::String(key.to_string()).to_compact_string()
+        )
+    }
+}
+
+fn validate_jsonrpc_input_message(
+    manifest_path: &Path,
+    line_number: usize,
+    index: usize,
+    message: &JsonValue,
+) {
+    let JsonValue::Object(entries) = message else {
+        jsonrpc_fixture_error(
+            manifest_path,
+            line_number,
+            index,
+            &format!("$[{index}]"),
+            "message must be an object",
+        );
+    };
+    let field = |name: &str| {
+        entries
+            .iter()
+            .find(|(key, _)| key == name)
+            .map(|(_, value)| value)
+    };
+    if field("result").is_some() || field("error").is_some() {
+        jsonrpc_fixture_error(
+            manifest_path,
+            line_number,
+            index,
+            &format!("$[{index}]"),
+            "request or notification must not contain `result` or `error`",
+        );
+    }
+    if field("jsonrpc") != Some(&JsonValue::String("2.0".to_string())) {
+        jsonrpc_fixture_error(
+            manifest_path,
+            line_number,
+            index,
+            &format!("$[{index}].jsonrpc"),
+            "`jsonrpc` must be the string `2.0`",
+        );
+    }
+    if !matches!(field("method"), Some(JsonValue::String(_))) {
+        jsonrpc_fixture_error(
+            manifest_path,
+            line_number,
+            index,
+            &format!("$[{index}].method"),
+            "`method` must be a string",
+        );
+    }
+    if let Some(id) = field("id")
+        && !matches!(
+            id,
+            JsonValue::Null | JsonValue::String(_) | JsonValue::Number(_) | JsonValue::Decimal(_)
+        )
+    {
+        jsonrpc_fixture_error(
+            manifest_path,
+            line_number,
+            index,
+            &format!("$[{index}].id"),
+            "`id` must be a string, number, or null",
+        );
+    }
+    if let Some(params) = field("params")
+        && !matches!(
+            params,
+            JsonValue::Null | JsonValue::Array(_) | JsonValue::Object(_)
+        )
+    {
+        jsonrpc_fixture_error(
+            manifest_path,
+            line_number,
+            index,
+            &format!("$[{index}].params"),
+            "`params` must be an object, array, or null",
+        );
+    }
+}
+
+fn jsonrpc_fixture_error(
+    manifest_path: &Path,
+    line_number: usize,
+    message_index: usize,
+    position: &str,
+    fact: &str,
+) -> ! {
+    manifest_error(
+        manifest_path,
+        line_number,
+        format!("JSON-RPC fixture message {message_index} at {position}: {fact}"),
+    )
 }
 
 fn read_case_text_file_path(
@@ -6048,15 +6283,219 @@ equals_json_file = "case-text/invalid.json"
 }
 
 #[test]
+fn manifest_jsonrpc_fixture_frames_envelope_matrix_and_exact_case_text_bytes() {
+    let root = test_temp_root("jsonrpc-fixture-framing");
+    let case_dir = root.join("case");
+    let text_dir = case_dir.join("case-text");
+    fs::create_dir_all(&text_dir).expect("case text directory should be created");
+    fs::write(
+        text_dir.join("exact.raw"),
+        b"\xef\xbb\xbfalpha\r\n\xe6\x97\xa5\xe6\x9c\xac\xe8\xaa\x9e\r\n",
+    )
+    .expect("exact case text should be written");
+    fs::write(
+        case_dir.join("requests.json"),
+        r#"[
+  {"jsonrpc":"2.0","id":"request","method":"unknown/string","params":{"nested":[{"$case_text":"case-text/exact.raw"}]},"extension":true},
+  {"jsonrpc":"2.0","id":1.5,"method":"unknown/number","params":[1,null]},
+  {"jsonrpc":"2.0","id":null,"method":"unknown/null","params":null},
+  {"jsonrpc":"2.0","method":"unknown/notification"},
+  {"jsonrpc":"2.0","id":"request","method":"unknown/duplicate","params":{"methodSpecific":"unchecked"}}
+]"#,
+    )
+    .expect("JSON-RPC fixture should be written");
+
+    let manifest = parse_manifest(
+        &case_dir.join("case.toml"),
+        "command = [\"lsp\"]\nstdin_jsonrpc_file = \"requests.json\"\nexit = 0\n",
+    );
+    let bodies = [
+        "{\"jsonrpc\":\"2.0\",\"id\":\"request\",\"method\":\"unknown/string\",\"params\":{\"nested\":[\"\u{feff}alpha\\r\\n日本語\\r\\n\"]},\"extension\":true}",
+        "{\"jsonrpc\":\"2.0\",\"id\":1.5,\"method\":\"unknown/number\",\"params\":[1,null]}",
+        "{\"jsonrpc\":\"2.0\",\"id\":null,\"method\":\"unknown/null\",\"params\":null}",
+        "{\"jsonrpc\":\"2.0\",\"method\":\"unknown/notification\"}",
+        "{\"jsonrpc\":\"2.0\",\"id\":\"request\",\"method\":\"unknown/duplicate\",\"params\":{\"methodSpecific\":\"unchecked\"}}",
+    ];
+    let expected = bodies
+        .iter()
+        .map(|body| format!("Content-Length: {}\r\n\r\n{body}", body.len()))
+        .collect::<String>();
+    assert_eq!(
+        manifest.invocation.stdin.as_deref(),
+        Some(expected.as_str())
+    );
+    assert_eq!(
+        manifest.invocation.stdin_jsonrpc_file.as_deref(),
+        Some("requests.json")
+    );
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
+fn manifest_jsonrpc_fixture_rejects_root_message_and_envelope_failures() {
+    let root = test_temp_root("jsonrpc-fixture-envelope-failures");
+    let case_dir = root.join("case");
+    fs::create_dir_all(&case_dir).expect("case directory should be created");
+    let cases = [
+        ("{", "invalid JSON-RPC fixture"),
+        ("{}", "root must be an array"),
+        ("[null]", "message 0 at $[0]: message must be an object"),
+        ("[{\"method\":\"m\"}]", "message 0 at $[0].jsonrpc"),
+        (
+            "[{\"jsonrpc\":\"1.0\",\"method\":\"m\"}]",
+            "`jsonrpc` must be the string `2.0`",
+        ),
+        (
+            "[{\"jsonrpc\":\"2.0\",\"method\":false}]",
+            "message 0 at $[0].method: `method` must be a string",
+        ),
+        (
+            "[{\"jsonrpc\":\"2.0\",\"method\":\"m\",\"id\":true}]",
+            "message 0 at $[0].id: `id` must be a string, number, or null",
+        ),
+        (
+            "[{\"jsonrpc\":\"2.0\",\"method\":\"m\",\"params\":\"bad\"}]",
+            "message 0 at $[0].params: `params` must be an object, array, or null",
+        ),
+        (
+            "[{\"jsonrpc\":\"2.0\",\"method\":\"m\",\"result\":null}]",
+            "request or notification must not contain `result` or `error`",
+        ),
+        (
+            "[{\"jsonrpc\":\"2.0\",\"method\":\"m\",\"error\":null}]",
+            "request or notification must not contain `result` or `error`",
+        ),
+    ];
+    for (fixture, expected) in cases {
+        fs::write(case_dir.join("requests.json"), fixture)
+            .expect("JSON-RPC fixture should be written");
+        let panic = std::panic::catch_unwind(|| {
+            parse_manifest(
+                &case_dir.join("case.toml"),
+                "command = [\"lsp\"]\nstdin_jsonrpc_file = \"requests.json\"\nexit = 0\n",
+            );
+        })
+        .expect_err("invalid JSON-RPC fixture should fail");
+        let message = panic_message(panic);
+        assert!(
+            message.contains(expected),
+            "expected `{expected}` in `{message}`"
+        );
+    }
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
+fn manifest_jsonrpc_fixture_rejects_reserved_directive_shapes_and_paths() {
+    let root = test_temp_root("jsonrpc-fixture-directive-failures");
+    let case_dir = root.join("case");
+    fs::create_dir_all(&case_dir).expect("case directory should be created");
+    let cases = [
+        (
+            r#"[{"jsonrpc":"2.0","method":"m","params":{"deep":[{"$case_text":1}]}}]"#,
+            "message 0 at $[0].params.deep[0]: `$case_text` directive value must be a string",
+        ),
+        (
+            r#"[{"jsonrpc":"2.0","method":"m","params":{"$case_text":"missing.txt","extra":null}}]"#,
+            "`$case_text` directive object must contain no other members",
+        ),
+        (
+            r#"[{"jsonrpc":"2.0","method":"m","params":{"$case_text":"../escape.txt"}}]"#,
+            "must use portable relative components",
+        ),
+        (
+            r#"[{"jsonrpc":"2.0","method":"m","params":{"$case_text":"missing.txt"}}]"#,
+            "case file `missing.txt` must match fixture entry spelling exactly",
+        ),
+    ];
+    for (fixture, expected) in cases {
+        fs::write(case_dir.join("requests.json"), fixture)
+            .expect("JSON-RPC fixture should be written");
+        let panic = std::panic::catch_unwind(|| {
+            parse_manifest(
+                &case_dir.join("case.toml"),
+                "command = [\"lsp\"]\nstdin_jsonrpc_file = \"requests.json\"\nexit = 0\n",
+            );
+        })
+        .expect_err("invalid directive should fail");
+        let message = panic_message(panic);
+        assert!(
+            message.contains(expected),
+            "expected `{expected}` in `{message}`"
+        );
+    }
+    fs::write(case_dir.join("invalid.raw"), [0xff]).expect("non-UTF-8 sidecar should be written");
+    fs::write(
+        case_dir.join("requests.json"),
+        r#"[{"jsonrpc":"2.0","method":"m","params":{"$case_text":"invalid.raw"}}]"#,
+    )
+    .expect("JSON-RPC fixture should be written");
+    let panic = std::panic::catch_unwind(|| {
+        parse_manifest(
+            &case_dir.join("case.toml"),
+            "command = [\"lsp\"]\nstdin_jsonrpc_file = \"requests.json\"\nexit = 0\n",
+        );
+    })
+    .expect_err("non-UTF-8 directive sidecar should fail");
+    assert!(panic_message(panic).contains("failed to read case file `invalid.raw` as UTF-8"));
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[cfg(unix)]
+#[test]
+fn manifest_jsonrpc_resources_fail_before_skip_fixture_copy_and_command_start() {
+    use std::os::unix::fs::symlink;
+
+    let root = test_temp_root("jsonrpc-fixture-lifecycle");
+    let case_dir = root.join("case");
+    fs::create_dir_all(&case_dir).expect("case directory should be created");
+    fs::write(case_dir.join("requests.json"), "{").expect("invalid fixture should be written");
+    symlink("missing-target", case_dir.join("copy-must-not-start"))
+        .expect("fixture-copy sentinel link should be created");
+    fs::write(
+        case_dir.join("case.toml"),
+        r#"
+command = ["command-must-not-start"]
+stdin_jsonrpc_file = "requests.json"
+exit = 0
+
+[skip]
+platforms = ["linux", "macos"]
+reason = "skip evaluation must not run"
+"#,
+    )
+    .expect("case manifest should be written");
+    let panic = std::panic::catch_unwind(|| run_case(&case_dir))
+        .expect_err("resource failure should precede the case lifecycle");
+    let message = panic_message(panic);
+    assert!(message.contains("invalid JSON-RPC fixture"));
+    assert!(!message.contains("skip evaluation must not run"));
+    assert!(!message.contains("fixture entries must not be links"));
+    assert!(!message.contains("command-must-not-start"));
+
+    fs::write(
+        case_dir.join("requests.json"),
+        r#"[{"jsonrpc":"2.0","method":"m","params":{"$case_text":"copy-must-not-start"}}]"#,
+    )
+    .expect("link directive fixture should be written");
+    let panic = std::panic::catch_unwind(|| CaseManifest::read(&case_dir.join("case.toml")))
+        .expect_err("link-like directive sidecar should fail");
+    assert!(panic_message(panic).contains("must not traverse a link or reparse point"));
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
 fn manifest_sidecar_choice_cardinality_is_checked_before_file_io() {
     assert_manifest_parse_error(
         r#"
 command = ["check"]
 stdin = "inline"
 stdin_file = "case-text/missing-sidecar.txt"
+stdin_jsonrpc_file = "missing.json"
 exit = 0
 "#,
-        "root invocation needs at most one of `stdin` or `stdin_file`",
+        "root invocation needs at most one of `stdin`, `stdin_file`, or `stdin_jsonrpc_file`",
     );
     assert_manifest_parse_error(
         r#"
@@ -8664,6 +9103,7 @@ enum JsonValue {
     Null,
     Bool(bool),
     Number(i64),
+    Decimal(String),
     String(String),
     Array(Vec<JsonValue>),
     Object(Vec<(String, JsonValue)>),
@@ -8675,6 +9115,7 @@ impl JsonValue {
             Self::Null => "null".to_string(),
             Self::Bool(value) => value.to_string(),
             Self::Number(value) => value.to_string(),
+            Self::Decimal(value) => value.clone(),
             Self::String(value) => format!("\"{}\"", escape_json_string(value)),
             Self::Array(values) => {
                 let values = values
@@ -8822,7 +9263,7 @@ impl JsonParser<'_> {
             Some(b'"') => self.parse_string().map(JsonValue::String),
             Some(b'[') => self.parse_array(),
             Some(b'{') => self.parse_object(),
-            Some(b'-' | b'0'..=b'9') => self.parse_number().map(JsonValue::Number),
+            Some(b'-' | b'0'..=b'9') => self.parse_number(),
             Some(byte) => Err(JsonParseError::new(
                 self.offset,
                 format!("unexpected byte `{}` at byte {}", byte as char, self.offset),
@@ -8950,15 +9391,64 @@ impl JsonParser<'_> {
         })
     }
 
-    fn parse_number(&mut self) -> Result<i64, JsonParseError> {
+    fn parse_number(&mut self) -> Result<JsonValue, JsonParseError> {
         let start = self.offset;
         self.consume_if(b'-');
-        while matches!(self.peek(), Some(b'0'..=b'9')) {
-            self.offset += 1;
+        match self.peek() {
+            Some(b'0') => {
+                self.offset += 1;
+                if matches!(self.peek(), Some(b'0'..=b'9')) {
+                    return Err(JsonParseError::new(
+                        self.offset,
+                        format!("leading zero in number at byte {}", self.offset),
+                    ));
+                }
+            }
+            Some(b'1'..=b'9') => {
+                while matches!(self.peek(), Some(b'0'..=b'9')) {
+                    self.offset += 1;
+                }
+            }
+            _ => {
+                return Err(JsonParseError::new(
+                    self.offset,
+                    format!("expected digit at byte {}", self.offset),
+                ));
+            }
         }
-        self.text[start..self.offset]
-            .parse()
-            .map_err(|_| JsonParseError::new(start, format!("invalid integer at byte {start}")))
+        if self.consume_if(b'.') {
+            let fraction_start = self.offset;
+            while matches!(self.peek(), Some(b'0'..=b'9')) {
+                self.offset += 1;
+            }
+            if self.offset == fraction_start {
+                return Err(JsonParseError::new(
+                    self.offset,
+                    format!("expected fraction digit at byte {}", self.offset),
+                ));
+            }
+        }
+        if matches!(self.peek(), Some(b'e' | b'E')) {
+            self.offset += 1;
+            if matches!(self.peek(), Some(b'+' | b'-')) {
+                self.offset += 1;
+            }
+            let exponent_start = self.offset;
+            while matches!(self.peek(), Some(b'0'..=b'9')) {
+                self.offset += 1;
+            }
+            if self.offset == exponent_start {
+                return Err(JsonParseError::new(
+                    self.offset,
+                    format!("expected exponent digit at byte {}", self.offset),
+                ));
+            }
+        }
+        let raw = &self.text[start..self.offset];
+        Ok(raw
+            .parse::<i64>()
+            .map(JsonValue::Number)
+            .unwrap_or_else(|_| JsonValue::Decimal(raw.to_string())))
     }
 
     fn expect_literal(&mut self, literal: &str) -> Result<(), JsonParseError> {
