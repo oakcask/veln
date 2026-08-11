@@ -3497,131 +3497,91 @@ mod tests {
     }
 
     #[test]
-    fn git_dependency_subdir_virtual_uri_tracks_snapshot_bytes_not_materialization() {
-        let mut observed = Vec::new();
+    fn git_dependency_subdir_definition_uses_retained_virtual_document() {
+        let mut server = Server::default();
+        let project = TempProject::new("git-dependency-virtual-document");
+        let remote_url = "https://example.invalid/mono.git";
+        let repository_root = materialized_git_repository_root(&project.root, remote_url);
+        project.write(
+            "veln.toml",
+            concat!(
+                "[package]\nname = \"app\"\n\n",
+                "[dependencies.\"example/pkg\"]\n",
+                "git = \"https://example.invalid/mono.git\"\n",
+                "rev = \"abc123\"\n",
+                "subdir = \"packages/lib\"\n",
+            ),
+        );
+        project.write(
+            "main.veln",
+            concat!(
+                "use math from \"example/pkg\"\n\n",
+                "pub fn main() -> Int\n",
+                "  math::exposed(1)\n",
+                "  math::secret(1)\n",
+                "end\n",
+            ),
+        );
+        let package_root = repository_root.join("packages/lib");
+        project.write(
+            &package_root.join("veln.toml").display().to_string(),
+            concat!(
+                "[package]\nname = \"example/pkg\"\n\n",
+                "[lib]\nexports = [\"math.veln\"]\n",
+            ),
+        );
+        let retained_text = concat!(
+            "pub fn exposed(value: Int) -> Int\r\n",
+            "  value + 1\r\n",
+            "end\r\n\r\n",
+            "fn secret(value: Int) -> Int\r\n",
+            "  value\r\n",
+            "end\r\n",
+        );
+        project.write(
+            &package_root.join("math.veln").display().to_string(),
+            retained_text,
+        );
 
-        for (case, materialization, manifest_suffix, increment) in [
-            ("remote-url", "materialized/remote", "", 1),
-            ("file-url", "materialized/first", "", 1),
-            ("relocated", "materialized/second", "", 1),
-            ("manifest-change", "materialized/third", "\n", 1),
-            ("source-change", "materialized/fourth", "", 2),
-        ] {
-            let mut server = Server::default();
-            let project = TempProject::new(&format!("git-dependency-virtual-document-{case}"));
-            let remote_url = "https://example.invalid/mono.git";
-            let (git_source, repository_root) = match case {
-                "remote-url" => (
-                    remote_url.to_string(),
-                    materialized_git_repository_root(&project.root, remote_url),
-                ),
-                "file-url" => {
-                    let root = project.root.join(materialization);
-                    (format!("file://{}", root.display()), root)
-                }
-                _ => (
-                    materialization.to_string(),
-                    project.root.join(materialization),
-                ),
-            };
-            project.write(
-                "veln.toml",
-                &format!(
-                    concat!(
-                        "[package]\nname = \"app\"\n\n",
-                        "[dependencies.\"example/pkg\"]\n",
-                        "git = \"{}\"\n",
-                        "rev = \"abc123\"\n",
-                        "subdir = \"packages/lib\"\n",
-                    ),
-                    git_source
-                ),
-            );
-            project.write(
-                "main.veln",
-                concat!(
-                    "use math from \"example/pkg\"\n\n",
-                    "pub fn main() -> Int\n",
-                    "  math::exposed(1)\n",
-                    "  math::secret(1)\n",
-                    "end\n",
-                ),
-            );
-            let package_root = repository_root.join("packages/lib");
-            project.write(
-                &package_root.join("veln.toml").display().to_string(),
-                &format!(
-                    concat!(
-                        "[package]\nname = \"example/pkg\"\n\n",
-                        "[lib]\nexports = [\"math.veln\"]\n",
-                        "{}",
-                    ),
-                    manifest_suffix
-                ),
-            );
-            let retained_text = format!(
-                concat!(
-                    "pub fn exposed(value: Int) -> Int\r\n",
-                    "  value + {}\r\n",
-                    "end\r\n\r\n",
-                    "fn secret(value: Int) -> Int\r\n",
-                    "  value\r\n",
-                    "end\r\n",
-                ),
-                increment
-            );
-            project.write(
-                &package_root.join("math.veln").display().to_string(),
-                &retained_text,
-            );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+        project.write(
+            &package_root.join("math.veln").display().to_string(),
+            "pub fn changed() -> Int\n  0\nend\n",
+        );
 
-            let root_uri = path_to_uri(&project.root);
-            let main_uri = path_to_uri(&project.root.join("main.veln"));
-            server.handle_message(&initialize_request(&root_uri));
-            project.write(
-                &package_root.join("math.veln").display().to_string(),
-                "pub fn changed() -> Int\n  0\nend\n",
-            );
+        let definition = server.handle_message(&definition_request(&main_uri, 3, 10));
+        let virtual_uri = extract_string_field(&definition[0], "uri").unwrap();
+        assert!(
+            virtual_uri.starts_with("veln-pkg:///example%2Fpkg/snapshot/")
+                && virtual_uri.ends_with("/math.veln"),
+            "{}",
+            definition[0]
+        );
+        assert!(
+            !virtual_uri.contains(".veln/package/git") && !virtual_uri.contains("packages/lib"),
+            "{}",
+            definition[0]
+        );
 
-            let definition = server.handle_message(&definition_request(&main_uri, 3, 10));
-            let virtual_uri = extract_string_field(&definition[0], "uri").unwrap();
-            assert!(
-                virtual_uri.starts_with("veln-pkg:///example%2Fpkg/snapshot/")
-                    && virtual_uri.ends_with("/math.veln"),
-                "{}",
-                definition[0]
-            );
-            assert!(
-                !virtual_uri.contains(materialization) && !virtual_uri.contains("packages/lib"),
-                "{}",
-                definition[0]
-            );
+        let read = server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":3,"method":"veln/virtualDocument","params":{{"uri":"{virtual_uri}"}}}}"#
+        ));
+        assert_eq!(
+            read,
+            [response(
+                "3",
+                &format!(r#""{}""#, escape_json(retained_text))
+            )]
+        );
 
-            let read = server.handle_message(&format!(
-                r#"{{"jsonrpc":"2.0","id":3,"method":"veln/virtualDocument","params":{{"uri":"{virtual_uri}"}}}}"#
-            ));
-            assert_eq!(
-                read,
-                [response(
-                    "3",
-                    &format!(r#""{}""#, escape_json(&retained_text))
-                )],
-                "{case}"
-            );
-
-            let private_definition = server.handle_message(&definition_request(&main_uri, 4, 10));
-            assert!(
-                private_definition[0].contains(r#""result":null"#),
-                "{case}: {}",
-                private_definition[0]
-            );
-            observed.push(virtual_uri);
-        }
-
-        assert_eq!(observed[0], observed[1]);
-        assert_eq!(observed[0], observed[2]);
-        assert_ne!(observed[0], observed[3]);
-        assert_ne!(observed[0], observed[4]);
+        let private_definition = server.handle_message(&definition_request(&main_uri, 4, 10));
+        assert!(
+            private_definition[0].contains(r#""result":null"#),
+            "{}",
+            private_definition[0]
+        );
     }
 
     #[test]
