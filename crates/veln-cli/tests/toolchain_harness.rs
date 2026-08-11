@@ -2047,7 +2047,7 @@ impl JsonAssertion {
                 path,
                 0,
                 format!(
-                    "json_assert {index} needs exactly one of `equals`, `equals_file`, or `missing = true`"
+                    "json_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`"
                 ),
             );
         }
@@ -2091,7 +2091,7 @@ impl ResultValueAssertion {
                 path,
                 0,
                 format!(
-                    "result_value_assert {index} needs exactly one of `equals`, `equals_file`, or `missing = true`"
+                    "result_value_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`"
                 ),
             );
         }
@@ -2520,7 +2520,7 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                 path,
                 0,
                 format!(
-                    "json_assert {index} needs exactly one of `equals`, `equals_file`, or `missing = true`"
+                    "json_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`"
                 ),
             );
         }
@@ -2531,7 +2531,7 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                 path,
                 0,
                 format!(
-                    "result_value_assert {index} needs exactly one of `equals`, `equals_file`, or `missing = true`"
+                    "result_value_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`"
                 ),
             );
         }
@@ -5494,7 +5494,7 @@ missing = true
 
 #[test]
 #[should_panic(
-    expected = "json_assert 0 needs exactly one of `equals`, `equals_file`, or `missing = true`"
+    expected = "json_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`"
 )]
 fn manifest_json_assertions_reject_mixed_equals_and_missing() {
     parse_manifest(
@@ -5509,6 +5509,174 @@ equals = "failed"
 missing = true
 "#,
     );
+}
+
+#[test]
+fn manifest_json_assertions_parse_equals_json_file() {
+    let root = test_temp_root("json-assert-equals-json-file");
+    let case_dir = root.join("case");
+    let text_dir = case_dir.join("case-text");
+    fs::create_dir_all(&text_dir).expect("case text directory should be created");
+    fs::write(
+        text_dir.join("expected.json"),
+        "{\"nested\":[1,true,null]}\n",
+    )
+    .expect("expected JSON sidecar should be written");
+
+    let manifest = parse_manifest(
+        &case_dir.join("case.toml"),
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[[json_assert]]
+path = "stdout"
+equals_json_file = "case-text/expected.json"
+"#,
+    );
+
+    assert_eq!(
+        manifest.expectations.json_assertions[0].equals,
+        Some(JsonValue::Object(vec![(
+            "nested".to_string(),
+            JsonValue::Array(vec![
+                JsonValue::Number(1),
+                JsonValue::Bool(true),
+                JsonValue::Null
+            ])
+        )]))
+    );
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn manifest_result_value_assertions_parse_equals_json_file() {
+    let root = test_temp_root("result-value-assert-equals-json-file");
+    let case_dir = root.join("case");
+    let text_dir = case_dir.join("case-text");
+    fs::create_dir_all(&text_dir).expect("case text directory should be created");
+    fs::write(text_dir.join("expected.json"), "[\"ok\",2]\n")
+        .expect("expected JSON sidecar should be written");
+
+    let manifest = parse_manifest(
+        &case_dir.join("case.toml"),
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[[result_value_assert]]
+value_path = "error.value"
+path = "value"
+equals_json_file = "case-text/expected.json"
+"#,
+    );
+
+    assert_eq!(
+        manifest.expectations.result_value_assertions[0].equals,
+        Some(JsonValue::Array(vec![
+            JsonValue::String("ok".to_string()),
+            JsonValue::Number(2)
+        ]))
+    );
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn manifest_equals_json_file_rejects_invalid_json() {
+    let root = test_temp_root("invalid-equals-json-file");
+    let case_dir = root.join("case");
+    let text_dir = case_dir.join("case-text");
+    fs::create_dir_all(&text_dir).expect("case text directory should be created");
+    fs::write(text_dir.join("invalid.json"), "{").expect("invalid JSON sidecar should be written");
+
+    let panic = std::panic::catch_unwind(|| {
+        parse_manifest(
+            &case_dir.join("case.toml"),
+            r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[[json_assert]]
+path = "stdout"
+equals_json_file = "case-text/invalid.json"
+"#,
+        )
+    })
+    .expect_err("invalid equals_json_file JSON should be rejected");
+    let message = panic_message(panic);
+    assert!(
+        message.contains("invalid json_assert equals_json_file value"),
+        "expected invalid JSON error, got `{message}`"
+    );
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn manifest_equals_json_file_cardinality_is_checked_before_file_io() {
+    assert_manifest_parse_error(
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[[json_assert]]
+path = "stdout"
+equals = "inline"
+equals_json_file = "case-text/missing-sidecar.json"
+"#,
+        "json_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`",
+    );
+    assert_manifest_parse_error(
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[[result_value_assert]]
+value_path = "error.value"
+path = "value"
+equals = "inline"
+equals_json_file = "case-text/missing-sidecar.json"
+"#,
+        "result_value_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`",
+    );
+}
+
+#[test]
+fn manifest_equals_json_file_loads_before_skip_evaluation() {
+    let root = test_temp_root("equals-json-file-skip-lifecycle");
+    let case_dir = root.join("case");
+    let text_dir = case_dir.join("case-text");
+    fs::create_dir_all(&text_dir).expect("case text directory should be created");
+    fs::write(text_dir.join("invalid.json"), "{").expect("invalid JSON sidecar should be written");
+    fs::write(
+        case_dir.join("case.toml"),
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[skip]
+reason = "would skip after manifest loading"
+
+[[json_assert]]
+path = "stdout"
+equals_json_file = "case-text/invalid.json"
+"#,
+    )
+    .expect("case manifest should be written");
+
+    let panic = std::panic::catch_unwind(|| {
+        run_case_with_guard_and_after_invocation(
+            &case_dir,
+            |_| {},
+            |_, _| panic!("command lifecycle should not reach invocation"),
+        );
+    })
+    .expect_err("invalid equals_json_file should be rejected before skip evaluation");
+    let message = panic_message(panic);
+    assert!(
+        message.contains("invalid json_assert equals_json_file value"),
+        "expected invalid JSON error, got `{message}`"
+    );
+    fs::remove_dir_all(root).expect("test root should be removed");
 }
 
 #[test]
@@ -5532,7 +5700,7 @@ path = "stdout"
 equals = "inline"
 equals_file = "case-text/missing-sidecar.txt"
 "#,
-        "json_assert 0 needs exactly one of `equals`, `equals_file`, or `missing = true`",
+        "json_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`",
     );
     assert_manifest_parse_error(
         r#"
