@@ -107,6 +107,8 @@ and objects with nested JSON containers for `[[json_assert]]`,
 structured values. JSON containers retain JSON grammar: manifest comments,
 trailing commas, literal strings, and multiline TOML strings are invalid. A
 complete manifest string token used as `equals` becomes a JSON string value.
+JSON string escapes decode UTF-16 surrogate pairs to one scalar value and
+reject unpaired high or low surrogates.
 
 LF and CRLF each count as one physical newline. Physical newlines inside
 multiline strings normalize to LF, including mixed-line-ending manifests. A
@@ -172,7 +174,9 @@ whose `method` member is a string. An `id` may be absent, a string, a number,
 or null. A `params` member may be absent, an object, an array, or null. The
 harness rejects response-shaped input containing `result` or `error`. It does
 not reject unknown methods, extension members, duplicate identifiers, or
-method-specific parameter values.
+method-specific parameter values. JSON string escapes in the request file
+decode paired UTF-16 surrogates before framing and reject unpaired surrogate
+units before command startup.
 
 Any complete object value or array element in a structured request may use a
 `{"$case_text":"relative/path"}` directive. The object must contain only that
