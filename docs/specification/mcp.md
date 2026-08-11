@@ -21,7 +21,9 @@ error.
 Request IDs are strings or integer numbers. A request with a `null` ID or a
 fractional numeric ID is an invalid JSON-RPC request. `initialize` requires the
 declared protocol version, client capabilities object, and client name/version
-fields. `ping`, `tools/list`, and `tools/call` accept request metadata as
+fields. Requests other than `initialize` fail before a successful
+`initialize`. A second valid `initialize` in the same session fails.
+`ping`, `tools/list`, and `tools/call` accept request metadata as
 `_meta.progressToken` when the token is a string or integer number.
 `tools/list` also accepts a string `cursor` parameter; the current server still
 returns the complete tool list in one response.
@@ -58,7 +60,8 @@ successful refresh.
 
 The `../../examples/specification/mcp/workspace-lifecycle/case.toml` case checks
 initialization, exact tool declarations, accepted request metadata, both tool
-calls, invalid tool input, invalid initialize parameters, invalid request IDs,
-protocol-only standard output, and clean end-of-file termination. Table-driven
-tests in `veln-mcp` check discovery boundaries, client-root invariance, refresh
-transitions, and failure state preservation.
+calls, invalid tool input, initialization phase errors, invalid initialize
+parameters, invalid request IDs, protocol-only standard output, and clean
+end-of-file termination. Table-driven tests in `veln-mcp` check discovery
+boundaries, client-root invariance, refresh transitions, and failure state
+preservation.

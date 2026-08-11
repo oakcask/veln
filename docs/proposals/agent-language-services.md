@@ -896,7 +896,7 @@ and do not imply that the behavior is already implemented.
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |
 | Start `veln mcp` in a one-package project. | The package is selected as `.`. | Implemented `veln-mcp` selection table tests. |
-| Start above two package branches. | Both first manifest roots are listed. The planned `check_project` tool will report ambiguity when its project input is omitted. | Implemented MCP workspace lifecycle case for inventory; planned multi-package diagnostic case. |
+| Start above two package branches and complete the inventory lifecycle. | Both first manifest roots are listed after initialization. The server rejects inventory requests before initialization and rejects a second valid initialization. The planned `check_project` tool will report ambiguity when its project input is omitted. | Implemented MCP workspace lifecycle case for inventory and initialization phase boundaries; planned multi-package diagnostic case. |
 | Start where no manifest exists. | The base is selected as one anonymous project. The planned `check_project` tool will require `source`. | Implemented `veln-mcp` selection table tests; planned Q01 anonymous isolation cases. |
 | Navigate below an unselected descendant manifest. | The outer project does not own the source; navigation reports single-file scope without outer-project references. | Q02 descendant-boundary cases. |
 | Add, remove, or rename a manifest. | Selection is unchanged until `refresh_workspace`; a successful refresh replaces it atomically. Cursor staleness remains planned. | Implemented `veln-mcp` refresh transition tests; planned Q03 cursor cases. |

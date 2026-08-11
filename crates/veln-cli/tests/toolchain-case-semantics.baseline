@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"19e3df478184f03b1dc95c13d3593fff06780713"
+source_git_tree	"1a82d2b3a83ac0943969c216f927b8e9034d5ed4"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1509
@@ -10394,9 +10394,9 @@ field	expectations.exit	0
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":883,"sha256":"0f63b87c3640cff36afd1bacd0ed9d4a3b3f06b8010169d173bb43f7f220a30d"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1083,"sha256":"2f7744dc1a93ef7e2ab7535ca7eefaeb6593ac5cb788d077f4a0f5cd3b0cb316"}
 field	source_errors	"forbidden"
-case_digest	"babb0075430ed767ee16cb83f50ef9b891bb26408b50274acbe4f35971e52032"
+case_digest	"281a932ec43eeb91bf7fef4e2ea2960a5b61f2880a8b9b2895fb2788e32e0263"
 case	"examples/specification/metrics/abc-constructs"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	6
@@ -47675,4 +47675,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"8f46310417174991df695b38f3e6ee6846ce6289ce8420dee20332f49060a809"
+aggregate_digest	"aede52007dac8ee87991dda80f322028549520cf61f6ec98391472727ba97acc"

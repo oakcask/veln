@@ -12,6 +12,7 @@ pub(crate) fn run(base: PathBuf, reader: impl BufRead, mut writer: impl Write) -
     let mut server = Server {
         selection: Selection::discover(&base)?,
         base,
+        initialized: false,
     };
     for line in reader.lines() {
         if let Some(response) = server.handle_line(&line?) {
@@ -26,6 +27,7 @@ pub(crate) fn run(base: PathBuf, reader: impl BufRead, mut writer: impl Write) -
 struct Server {
     base: PathBuf,
     selection: Selection,
+    initialized: bool,
 }
 
 impl Server {
@@ -56,6 +58,7 @@ impl Server {
 
         let result = match method {
             "initialize" => self.initialize(params),
+            _ if !self.initialized => Err("Server not initialized"),
             "ping" => request_metadata_params(params).map(|()| json!({})),
             "tools/list" => {
                 list_tools_params(params).map(|()| json!({"tools": schema::declarations().clone()}))
@@ -69,7 +72,7 @@ impl Server {
         })
     }
 
-    fn initialize(&self, params: Option<&Value>) -> Result<Value, &'static str> {
+    fn initialize(&mut self, params: Option<&Value>) -> Result<Value, &'static str> {
         let Some(params) = params.and_then(Value::as_object) else {
             return Err("Invalid initialize params");
         };
@@ -83,6 +86,10 @@ impl Server {
         {
             return Err("Invalid initialize params");
         }
+        if self.initialized {
+            return Err("Server already initialized");
+        }
+        self.initialized = true;
         Ok(json!({
             "protocolVersion": PROTOCOL_VERSION,
             "capabilities": {"tools": {"listChanged": false}},
@@ -303,6 +310,7 @@ mod tests {
         let mut server = Server {
             base: workspace.root.clone(),
             selection,
+            initialized: true,
         };
         let requests = [
             json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"workspace_projects","arguments":{"unknown":true}}}),
@@ -323,6 +331,7 @@ mod tests {
         let mut server = Server {
             base: workspace.root.clone(),
             selection,
+            initialized: false,
         };
         let valid = json!({
             "jsonrpc": "2.0",
@@ -335,14 +344,6 @@ mod tests {
                 "_meta": {"progressToken": "startup"}
             }
         });
-        assert!(
-            server
-                .handle_request(valid)
-                .unwrap()
-                .get("result")
-                .is_some()
-        );
-
         let invalid_requests = [
             json!({"jsonrpc":"2.0","id":2,"method":"initialize","params":{"capabilities":{},"clientInfo":{"name":"test","version":"1"}}}),
             json!({"jsonrpc":"2.0","id":3,"method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"test","version":"1"}}}),
@@ -354,6 +355,36 @@ mod tests {
             assert_eq!(response["error"]["code"], -32602);
             assert!(response.get("result").is_none());
         }
+
+        assert!(
+            server
+                .handle_request(valid.clone())
+                .unwrap()
+                .get("result")
+                .is_some()
+        );
+        let repeated = server.handle_request(valid).unwrap();
+        assert_eq!(repeated["error"]["code"], -32602);
+        assert_eq!(repeated["error"]["message"], "Server already initialized");
+        assert!(repeated.get("result").is_none());
+    }
+
+    #[test]
+    fn lifecycle_rejects_operations_before_initialize() {
+        let workspace = TempWorkspace::new("lifecycle-before-initialize");
+        let selection = Selection::discover(&workspace.root).unwrap();
+        let mut server = Server {
+            base: workspace.root.clone(),
+            selection,
+            initialized: false,
+        };
+
+        let response = server
+            .handle_request(json!({"jsonrpc":"2.0","id":1,"method":"tools/list"}))
+            .unwrap();
+        assert_eq!(response["error"]["code"], -32602);
+        assert_eq!(response["error"]["message"], "Server not initialized");
+        assert!(response.get("result").is_none());
     }
 
     #[test]
@@ -363,6 +394,7 @@ mod tests {
         let mut server = Server {
             base: workspace.root.clone(),
             selection,
+            initialized: true,
         };
         let requests = [
             json!({"jsonrpc":"2.0","id":null,"method":"ping"}),
@@ -387,6 +419,7 @@ mod tests {
         let mut server = Server {
             base: workspace.root.clone(),
             selection,
+            initialized: true,
         };
         let refresh_params = json!({"name":"refresh_workspace","arguments":{}});
 
