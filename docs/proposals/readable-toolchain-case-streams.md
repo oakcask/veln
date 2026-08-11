@@ -27,19 +27,21 @@ baseline describes every case under both authoritative roots through the
 current parsed manifest model. The normal toolchain harness target compares
 that baseline with the current inventory without changing either artifact.
 
-The manifest-syntax foundation is also implemented. The harness has one
-physical-line-aware lexer/parser boundary and accepts the resolved TOML string,
-string-array, multiline JSON value, physical-newline, and error-location
-contracts. The canonical discovery inventory, generated/current runtime
-parity check, and encoded-line-break predicate are implemented in the same
-harness route. The current contract and executable evidence are documented in
+The manifest-syntax and readable-sidecar foundation is also implemented. The
+harness has one physical-line-aware lexer/parser boundary and accepts the
+resolved TOML string, string-array, multiline JSON value, physical-newline,
+and error-location contracts. The canonical discovery inventory,
+generated/current runtime parity check, encoded-line-break predicate,
+sidecar-backed text operands, checked-in case-text migration, and
+repository-wide zero-policy enforcement are implemented in the same harness
+route. The current contract and executable evidence are documented in
 [Toolchain Test Harness](../reference/toolchain-test-harness.md#manifest-value-syntax).
 
-Sidecar operands, manifest migrations, conversion records, structured
-JSON-RPC support, repository-wide zero-policy enforcement, and proposal
-closure remain planned. The implementation slices below retain their
-dependency order; the implemented discovery and predicate foundation does not
-imply that migration has begun.
+Structured JSON-RPC input fixtures, decoded LSP response assertions,
+conversion records for behavior-level LSP migrations, promotion into current
+specification pages, and proposal closure remain planned. The implementation
+slices below retain their dependency order; the implemented sidecar migration
+does not imply that structured LSP assertions have begun.
 
 ## Review Route
 
@@ -76,15 +78,14 @@ migration.
 
 ## Remaining Goals
 
-- Keep large exact content in a plainly reviewable sidecar file.
 - Remove manual JSON-RPC framing and `Content-Length` maintenance from LSP
   cases.
 - Assert LSP responses as decoded messages instead of escaped stdout
   substrings when message structure is the intended evidence.
 - Preserve exact bytes, final line breaks, assertion meaning, and case
-  isolation during migration.
-- Make the no-encoded-line-break rule mechanically enforceable for all current
-  and future toolchain manifests.
+  isolation during structured JSON-RPC migration.
+- Retain the implemented no-encoded-line-break rule while later fixture
+  representations are added.
 
 ## Non-Goals
 
@@ -989,22 +990,18 @@ the tests.
 
 ## Implementation Slices
 
-1. Enable repository-wide zero-policy enforcement after the checked manifests
-   have been migrated. The shared discovery inventory, generated/current
+1. Preserve the implemented shared discovery inventory, generated/current
    parity check, lexer predicate, multiline string, string-array, multiline
-   JSON, physical-newline, and error-location contracts are already
-   implemented.
-2. Add portable case-file operands, no-follow copy checks, eager immutable
-   snapshots, repository line-ending attributes, and boundary coverage.
-3. Add the JSON interoperability profile, structured request transformation
+   JSON, physical-newline, error-location, sidecar operand, migration, and
+   zero-policy enforcement contracts.
+2. Add the JSON interoperability profile, structured request transformation
    and framing, decoded LSP transport and assertions, JSON Pointer paths, and
    dependency-aware result aggregation.
-4. Migrate representative cases from every operand and assertion shape,
+3. Migrate representative LSP cases from raw protocol streams to structured
+   request fixtures and decoded assertions,
    recording only narrowly reviewed LSP conversions and differential replay
    evidence.
-5. Migrate both discovery roots, require zero policy findings and zero
-   unexplained semantic differences, then run the complete harness target.
-6. Promote implemented behavior to specification and executable examples,
+4. Promote implemented behavior to specification and executable examples,
    update the harness reference, remove migration-only artifacts that no longer
    have value, and complete the proposal lifecycle audit.
 

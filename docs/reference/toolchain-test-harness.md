@@ -56,8 +56,8 @@ assertions, diagnostic selectors, and file content assertions.
 
 ## Manifest Fields
 
-- Invocation and fixture setup: `command`, `stdin`, `repeat`, `[env]`,
-  `[tools]`, `[requires]`, and `[skip]`.
+- Invocation and fixture setup: `command`, `stdin`, `stdin_file`, `repeat`,
+  `[env]`, `[tools]`, `[requires]`, and `[skip]`.
 - Observable command results: `exit`, `[stdout]`, `[stderr]`,
   `[help]`, `[[json_assert]]`, `[[result_value_assert]]`,
   `[[diagnostics]]`, `[[file_assert]]`, `[[binary_fixture]]`, and
@@ -125,20 +125,39 @@ visible.
 
 Use `exit`, `[stdout]`, and `[stderr]` for command-visible output. Stream
 sections accept `format = "empty"`, `"text"`, or `"json"` where JSON is valid
-for stdout, plus `contains` fragments for stable text checks. Use
-`[[json_assert]]`, `[[result_value_assert]]`, and `[[diagnostics]]` for
-semantic checks inside JSON stdout. `[[result_value_assert]]` reads a rendered
-result-failure value string from `value_path`, wraps it as the outer `Err`,
-and then checks a parsed value path with either `equals` or `missing = true`.
+for stdout, plus `contains`, `contains_file`, `contains_files`,
+`not_contains`, `not_contains_file`, and `not_contains_files` fragments for
+stable text checks. Stream exact equality uses `equals_file`; the harness reads
+the expected text from the discovered case before the command runs.
+
+Use `stdin_file` when command input is easier to review as a case text file.
+Use `[[json_assert]]`, `[[result_value_assert]]`, and `[[diagnostics]]` for
+semantic checks inside JSON stdout. JSON and result-value assertions accept
+`equals`, `equals_file`, or `missing = true`; `equals_file` compares the
+selected JSON value as a string and never reparses the sidecar as JSON.
+`[[result_value_assert]]` reads a rendered result-failure value string from
+`value_path`, wraps it as the outer `Err`, and then checks a parsed value path.
+
+Use `[[file_assert]]` to check command-written files. The command output path
+is read from the copied project after execution, while `equals_file` is still
+read from the immutable discovered case. Diagnostics and help fragments also
+accept file-backed text operands where their inline string forms are accepted.
 
 Use `[help]` for command help output. It checks a help stream, defaulting to
 stdout, through stable help fragments instead of full-output equality. Its
 fields are `stream`, `summary`, `usage`, `commands`, `arguments`, `options`,
-and `contains`. `stream` is `"stdout"` or `"stderr"`. `summary` checks the
-first help line, `usage` checks the `Usage:` line, and the list fields check
-that the matching section heading and listed entries appear. Help cases should
-still use `[stdout]` and `[stderr]` for stream format and emptiness, and should
-point behavior questions to the command specification.
+`contains`, `contains_file`, and `contains_files`. `stream` is `"stdout"` or
+`"stderr"`. `summary` checks the first help line, `usage` checks the `Usage:`
+line, and the list fields check that the matching section heading and listed
+entries appear. Help cases should still use `[stdout]` and `[stderr]` for
+stream format and emptiness, and should point behavior questions to the
+command specification.
+
+File-backed manifest operands use a case-relative portable path. The path
+cannot escape the case directory, traverse a link-like entry, or name anything
+except a regular UTF-8 file. The harness reads these files before skip
+evaluation, fixture setup, or command execution. Repeated invocations reuse
+the same discovered text snapshot.
 
 Use `[[binary_fixture]]` and `[[output_chunk_list]]` only for test-owned binary
 fixture evidence. Binary fixture records compare named program-output lines
