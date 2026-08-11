@@ -334,6 +334,39 @@ fn discover_dir(
     cases: &mut Vec<CaseDescriptor>,
     errors: &mut Vec<PreflightError>,
 ) {
+    let Some(entries) = read_sorted_entries(root, dir, relative, errors) else {
+        return;
+    };
+    let entries = classify_entries(root, relative, entries, errors);
+    let local_manifest = resolve_local_manifest(
+        root,
+        relative,
+        ancestor_manifest.as_deref(),
+        &entries,
+        cases,
+        errors,
+    );
+
+    for entry in entries {
+        if entry.metadata.is_dir() {
+            discover_dir(
+                root,
+                &entry.dir_entry.path(),
+                &entry.relative,
+                local_manifest.clone(),
+                cases,
+                errors,
+            );
+        }
+    }
+}
+
+fn read_sorted_entries(
+    root: &DiscoveryRoot,
+    dir: &Path,
+    relative: &Path,
+    errors: &mut Vec<PreflightError>,
+) -> Option<Vec<fs::DirEntry>> {
     let entries = match fs::read_dir(dir) {
         Ok(entries) => entries,
         Err(error) => {
@@ -341,7 +374,7 @@ fn discover_dir(
                 "{}: read discovery directory failed: {error}",
                 display_root_path(root.id, relative)
             )));
-            return;
+            return None;
         }
     };
     let mut entries = match entries.collect::<Result<Vec<_>, _>>() {
@@ -351,11 +384,25 @@ fn discover_dir(
                 "{}: enumerate discovery directory failed: {error}",
                 display_root_path(root.id, relative)
             )));
-            return;
+            return None;
         }
     };
     entries.sort_by_key(|entry| entry.file_name());
+    Some(entries)
+}
 
+struct DiscoveryEntry {
+    dir_entry: fs::DirEntry,
+    relative: PathBuf,
+    metadata: fs::Metadata,
+}
+
+fn classify_entries(
+    root: &DiscoveryRoot,
+    relative: &Path,
+    entries: Vec<fs::DirEntry>,
+    errors: &mut Vec<PreflightError>,
+) -> Vec<DiscoveryEntry> {
     let mut classified = Vec::new();
     for entry in entries {
         let entry_relative = relative.join(entry.file_name());
@@ -383,54 +430,60 @@ fn discover_dir(
             )));
             continue;
         }
-        classified.push((entry, entry_relative, metadata));
+        classified.push(DiscoveryEntry {
+            dir_entry: entry,
+            relative: entry_relative,
+            metadata,
+        });
+    }
+    classified
+}
+
+fn resolve_local_manifest(
+    root: &DiscoveryRoot,
+    relative: &Path,
+    ancestor_manifest: Option<&Path>,
+    entries: &[DiscoveryEntry],
+    cases: &mut Vec<CaseDescriptor>,
+    errors: &mut Vec<PreflightError>,
+) -> Option<PathBuf> {
+    let Some(manifest) = entries
+        .iter()
+        .find(|entry| entry.dir_entry.file_name() == "case.toml")
+    else {
+        return ancestor_manifest.map(Path::to_path_buf);
+    };
+    let manifest_relative = relative.join("case.toml");
+    if !manifest.metadata.is_file() {
+        errors.push(PreflightError::inventory(format!(
+            "{}: case.toml must be a regular file",
+            display_root_path(root.id, &manifest_relative)
+        )));
+        return ancestor_manifest.map(Path::to_path_buf);
+    }
+    if let Some(ancestor) = ancestor_manifest {
+        errors.push(PreflightError::inventory(format!(
+            "{}: nested case.toml is below {}; remove the nested manifest or move it to a sibling case directory",
+            display_root_path(root.id, &manifest_relative),
+            display_root_path(root.id, ancestor)
+        )));
+        return Some(ancestor.to_path_buf());
+    }
+    if relative.as_os_str().is_empty() {
+        return None;
     }
 
-    let mut local_manifest = ancestor_manifest.clone();
-    for (entry, _, metadata) in &classified {
-        if entry.file_name() == "case.toml" {
-            let manifest_relative = relative.join("case.toml");
-            if !metadata.is_file() {
-                errors.push(PreflightError::inventory(format!(
-                    "{}: case.toml must be a regular file",
-                    display_root_path(root.id, &manifest_relative)
-                )));
-                continue;
-            }
-            if let Some(ancestor) = &ancestor_manifest {
-                errors.push(PreflightError::inventory(format!(
-                    "{}: nested case.toml is below {}; remove the nested manifest or move it to a sibling case directory",
-                    display_root_path(root.id, &manifest_relative),
-                    display_root_path(root.id, ancestor)
-                )));
-            } else if !relative.as_os_str().is_empty() {
-                let manifest_relative_to_crate = Path::new(root.relative).join(&manifest_relative);
-                cases.push(CaseDescriptor {
-                    id: format!("{}/{}", root.id, slash_path(relative)),
-                    root_id: root.id,
-                    case_relative: relative.to_path_buf(),
-                    manifest_relative: manifest_relative_to_crate
-                        .parent()
-                        .expect("case manifest should have a directory")
-                        .to_path_buf(),
-                });
-                local_manifest = Some(manifest_relative);
-            }
-        }
-    }
-
-    for (entry, entry_relative, metadata) in classified {
-        if metadata.is_dir() {
-            discover_dir(
-                root,
-                &entry.path(),
-                &entry_relative,
-                local_manifest.clone(),
-                cases,
-                errors,
-            );
-        }
-    }
+    let manifest_relative_to_crate = Path::new(root.relative).join(&manifest_relative);
+    cases.push(CaseDescriptor {
+        id: format!("{}/{}", root.id, slash_path(relative)),
+        root_id: root.id,
+        case_relative: relative.to_path_buf(),
+        manifest_relative: manifest_relative_to_crate
+            .parent()
+            .expect("case manifest should have a directory")
+            .to_path_buf(),
+    });
+    Some(manifest_relative)
 }
 
 fn scan_policy(manifest_dir: &Path, cases: &[CaseDescriptor]) -> Vec<PreflightError> {

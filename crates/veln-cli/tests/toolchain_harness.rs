@@ -4272,6 +4272,61 @@ fn toolchain_inventory_rejects_overlapping_root_and_manifest_boundaries() {
 
 #[cfg(unix)]
 #[test]
+fn toolchain_inventory_reports_mixed_entry_failures_in_stable_path_order() {
+    use std::os::unix::fs::symlink;
+
+    fn write_inventory(root: &Path, entries: &[&str]) {
+        fs::create_dir_all(root.join("cases/nested"))
+            .expect("inventory directories should be created");
+        for entry in entries {
+            match *entry {
+                "case.toml" => fs::write(
+                    root.join("cases/case.toml"),
+                    "command = [\"check\"]\nexit = 0\n",
+                )
+                .expect("root manifest should be written"),
+                "link" => symlink("nested", root.join("cases/link"))
+                    .expect("directory link should be created"),
+                "nested/case.toml" => fs::write(
+                    root.join("cases/nested/case.toml"),
+                    "command = [\"check\"]\nexit = 0\n",
+                )
+                .expect("nested manifest should be written"),
+                entry => panic!("unexpected fixture entry {entry}"),
+            }
+        }
+    }
+
+    let first = test_temp_root("inventory-stable-entry-errors-a");
+    let second = test_temp_root("inventory-stable-entry-errors-b");
+    write_inventory(&first, &["link", "nested/case.toml", "case.toml"]);
+    write_inventory(&second, &["case.toml", "nested/case.toml", "link"]);
+
+    let first_error = toolchain_case_inventory::run_preflight_with_roots(
+        &first,
+        &[test_discovery_root("cases", "cases")],
+    )
+    .expect_err("mixed invalid entries should fail discovery");
+    let second_error = toolchain_case_inventory::run_preflight_with_roots(
+        &second,
+        &[test_discovery_root("cases", "cases")],
+    )
+    .expect_err("mixed invalid entries should fail discovery");
+
+    assert_eq!(first_error, second_error);
+    assert!(first_error.contains("toolchain case preflight found 4 problem(s)"));
+    assert!(first_error.contains("cases/link: replace the link or reparse point"));
+    assert!(first_error.contains("cases: remove root-level case.toml"));
+    assert!(
+        first_error.contains("cases/nested/case.toml: nested case.toml is below cases/case.toml")
+    );
+
+    fs::remove_dir_all(first).expect("first inventory root should be removed");
+    fs::remove_dir_all(second).expect("second inventory root should be removed");
+}
+
+#[cfg(unix)]
+#[test]
 fn toolchain_inventory_rejects_links_without_following_them() {
     use std::os::unix::fs::symlink;
 
