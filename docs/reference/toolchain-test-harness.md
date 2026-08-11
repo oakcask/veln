@@ -136,7 +136,12 @@ Policy findings are sorted by root-qualified path, source line, token span,
 and category. A finding identifies the manifest field, location, offending
 spelling, the replacement action, and the reviewability reason: line structure
 belongs in physical multiline text or a sidecar so fixture changes remain
-visible.
+visible. If manifest lexing stops at a boundary error such as an unterminated
+string or lone carriage return, the policy scan still reports findings from
+completed earlier statements before it reports the manifest syntax failure.
+The preflight aggregates those retained findings with skipped-case,
+unavailable-tool, and malformed-manifest failures in deterministic
+root-qualified order.
 
 ## Output Cases
 
