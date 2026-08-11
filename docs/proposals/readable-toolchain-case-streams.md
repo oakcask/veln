@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The toolchain JSON-RPC fixture proposal scope, acceptance evidence, migration boundary, or completion gate changes.
+update-when: The decoded LSP assertion proposal scope, acceptance evidence, migration boundary, or completion gate changes.
 ---
 
 # Readable Toolchain Case Streams
