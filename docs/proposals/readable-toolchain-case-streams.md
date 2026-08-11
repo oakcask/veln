@@ -8,12 +8,13 @@ update-when: The toolchain case semantic baseline, manifest grammar, stream fixt
 ## Summary
 
 Make multiline toolchain inputs and expected outputs readable without embedding
-line-break escape sequences in `case.toml`. The harness will support three
-complementary representations:
+line-break escape sequences in `case.toml`. The implemented manifest syntax
+supports TOML-compatible multiline strings and multiline arrays for short
+content. The remaining slices add two complementary representations and the
+migration policy around all three forms:
 
-1. TOML-compatible multiline strings and multiline arrays for short content;
-2. case-relative sidecar files for large or independently useful exact text;
-3. structured JSON-RPC request fixtures and response assertions for LSP cases.
+1. case-relative sidecar files for large or independently useful exact text;
+2. structured JSON-RPC request fixtures and response assertions for LSP cases.
 
 The migration is complete when every discovered toolchain `case.toml` is free
 of encoded line breaks, all migrated cases preserve their previous observable
@@ -44,7 +45,9 @@ slice is complete.
   surface and [Compatibility And Migration](#compatibility-and-migration) for
   the preservation boundary.
 - Use [Resolved Design Decisions](#resolved-design-decisions) when reviewing
-  grammar, filesystem, policy, JSON, or LSP semantics.
+  filesystem, policy, JSON, or LSP semantics. Implemented manifest value syntax
+  belongs in
+  [Toolchain Test Harness](../reference/toolchain-test-harness.md#manifest-value-syntax).
 - Use [Acceptance Model](#acceptance-model) as the implementation checklist.
 - Use [Completion Gate](#completion-gate) and
   [Implementation Slices](#implementation-slices) for rollout and closure.
@@ -69,9 +72,8 @@ example, assertion values accept JSON `null`. This proposal adds the useful
 TOML-compatible forms without requiring an unrelated full manifest-language
 migration.
 
-## Goals
+## Remaining Goals
 
-- Make short multiline text readable in the manifest where it is asserted.
 - Keep large exact content in a plainly reviewable sidecar file.
 - Remove manual JSON-RPC framing and `Content-Length` maintenance from LSP
   cases.
@@ -109,46 +111,6 @@ assertion's intent.
 
 The harness does not choose a representation from a size threshold. The
 manifest author makes that choice, subject to the completion gate.
-
-## Multiline Manifest Values
-
-The manifest grammar accepts TOML-compatible multiline basic strings,
-multiline literal strings, and multiline arrays in every field that accepts the
-corresponding single-line value.
-
-```toml
-[[json_assert]]
-path = "stdout"
-equals = '''
-first line
-second line
-'''
-```
-
-```toml
-[stdout]
-contains = [
-  "stable heading",
-  '''
-first detail line
-second detail line
-''',
-]
-```
-
-The decoded values follow TOML multiline-string rules. In particular, the
-newline immediately after the opening delimiter is not part of the value.
-Subsequent line breaks are part of the value. A closing delimiter on its own
-line therefore leaves the preceding line break in the value.
-
-Multiline literal strings do not process backslash escapes. Multiline basic
-strings retain the supported escape behavior for cases that need it. Authors
-use literal strings by default when the expected text contains quotes or
-backslashes.
-
-The parser reports an unterminated multiline value at its opening line. A
-section header, comment marker, or assignment-looking line inside a multiline
-string is content, not manifest structure.
 
 ## Case-Relative Text Files
 
@@ -283,93 +245,12 @@ that expected content in a sidecar file instead.
 
 ## Resolved Design Decisions
 
-### TOML String Compatibility
+### Implemented Manifest Syntax
 
-String tokens use exactly the four string productions and decoding rules from
-TOML 1.0.0: basic, literal, multiline basic, and multiline literal. This is a
-lexical compatibility boundary. It does not make `case.toml` a TOML document.
-The accepted version is fixed; string syntax added by later TOML versions is
-unsupported until this contract is revised.
-
-All four forms are valid in every scalar position that accepts a string and in
-every string-array element. This includes single-line literal strings. Basic
-forms accept `\b`, `\t`, `\n`, `\f`, `\r`, `\"`, `\\`, `\uXXXX`, and
-`\UXXXXXXXX`. Unicode escapes must denote Unicode scalar values. Literal forms
-do not decode escapes. Both forms reject the unescaped control characters that
-TOML 1.0.0 excludes.
-
-The first physical newline after a multiline opening delimiter is not part of
-the value. A line-ending backslash in a multiline basic string removes the
-backslash and all following whitespace through the next non-whitespace
-character or the closing delimiter. An escaped backslash does not fold a line.
-One- and two-quote runs inside a multiline value are content. A closing run of
-three, four, or five delimiter quotes contributes zero, one, or two quotes to
-the end of the value. An empty multiline string therefore consists of its
-opening and closing three-quote delimiters. A non-comment token after a closing
-delimiter is invalid.
-
-### Multiline String Indentation
-
-The parser does not remove indentation from multiline strings. Spaces and tabs
-between the opening and closing delimiters are value bytes. The opening
-delimiter's position, the closing delimiter's position, and a common line
-prefix do not define structural indentation. Tabs are not expanded.
-
-Whitespace before the opening delimiter and after the closing delimiter is
-manifest structure and is not part of the value. The opening-newline and
-line-ending-backslash rules above remain the only whitespace removal performed
-inside a multiline string. Authors must keep content at the intended value
-column instead of indenting it only to align with an enclosing array. Large
-values whose exact whitespace is difficult to review inline use a sidecar.
-
-### Physical Manifest Newlines
-
-An LF or CRLF sequence in `case.toml` is one physical newline. Inside a
-multiline string, the parser decodes either spelling as one LF. A file may mix
-the two spellings without changing the decoded value. A carriage return that
-is not followed by LF is invalid anywhere in the manifest.
-
-The opening-newline rule consumes one complete LF or CRLF sequence. A second
-physical newline remains and decodes as LF. Multiline-basic folding treats LF
-and CRLF identically and leaves neither CR nor LF from a folded sequence.
-Escaped `\r` and `\n` remain explicit value characters and are not physical
-newlines. A case that needs exact CRLF value bytes cannot obtain them from
-physical manifest line endings; it uses an exact representation whose byte
-policy preserves or generates them.
-
-### Field-Directed Array Grammar
-
-The manifest field schema selects array grammar. A field whose schema is a
-string array accepts only the four manifest string tokens defined above. Its
-array layout accepts spaces, tabs, physical newlines, comments between tokens,
-an empty array, and a trailing comma. It rejects non-string elements and nested
-arrays or objects.
-
-A JSON-valued `equals` may contain a multiline JSON array or object. The
-complete compound value retains the selected JSON grammar. JSON whitespace may
-span physical lines, but a JSON compound value does not accept manifest
-comments, trailing commas, literal strings, or multiline TOML strings. Nested
-arrays and objects remain valid JSON. A top-level string-valued `equals` may
-use any manifest string token and becomes a JSON string value; manifest string
-tokens are not embedded inside a JSON compound value. The field schema, not a
-syntax heuristic, determines which grammar applies.
-
-### Manifest Error Locations
-
-Manifest errors retain the one-based physical line in the existing
-`path:line` form. A concrete invalid token or character is reported on the line
-that contains it. An escape or other fixed-width token cut short by a newline
-or end of input is reported on its starting line. A missing comma is reported
-on the line where the next element begins. An unexpected delimiter or token
-after a completed value is reported on the line of the first unexpected token.
-The primary message names that specific failed fact.
-
-If clean end of input leaves only closing delimiters missing, the error points
-to the innermost unmatched opening delimiter. A local error in a nested value
-takes precedence over an unterminated outer value. LF and CRLF each increment
-the physical line once. The contract does not require a column. A future richer
-diagnostic may identify an outer opener as related context, but it keeps the
-specific failed fact at the primary location.
+The TOML string, string-array, multiline JSON value, physical-newline, and
+error-location contracts are implemented. The current normative route and
+executable evidence are
+[Toolchain Test Harness](../reference/toolchain-test-harness.md#manifest-value-syntax).
 
 ### Portable Case-File References
 
@@ -906,44 +787,13 @@ complete message.
 
 ## Acceptance Model
 
-Rows from TOML string parsing through physical-line diagnostic equivalence
-describe implemented behavior and checked table-driven evidence in
-`toolchain_harness.rs`. Rows beginning with portable case-file references and
-all later rows describe planned evidence; they do not imply that the remaining
+The manifest syntax rows formerly tracked here are implemented and now live in
+[Toolchain Test Harness](../reference/toolchain-test-harness.md#manifest-value-syntax).
+The rows below describe planned evidence; they do not imply that the remaining
 behavior is implemented.
 
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |
-| Parse each TOML 1.0.0 string form in a scalar string field and a string-array element, including a single-line literal and an empty multiline string. | Every form decodes to the specified string and array order is preserved. | Table-driven manifest string-token cases. |
-| Decode every TOML 1.0.0 basic-string escape, including Basic Multilingual Plane and supplementary Unicode scalar values. | Each escape produces the specified scalar sequence. | Basic-string escape matrix. |
-| Use an unknown or malformed-width escape, a surrogate or out-of-range Unicode escape, or a prohibited unescaped control character. | Manifest loading fails before command execution. | Invalid string-token matrix. |
-| End a multiline basic physical line with a backslash followed by spaces, tabs, or blank lines. | The backslash and intervening whitespace are absent; an escaped backslash remains content and does not fold the line. | Multiline folding boundary cases. |
-| Put one- and two-quote runs inside multiline strings and close them with three, four, or five delimiter quotes. | Interior runs are preserved and the closing run contributes zero, one, or two terminal quotes. | Basic and literal quote-run matrix. |
-| Put an invalid quote run or a non-comment token after a multiline closing delimiter. | Manifest loading rejects the value before command execution. | Multiline delimiter rejection cases. |
-| Parse existing single-line manifests before multiline migration. | Existing strings retain their decoded values and all discovered cases still load. | Current escape regression cases and the unfiltered toolchain harness target. |
-| Parse multiline basic and literal strings whose content lines use unequal runs of spaces and tabs, including whitespace-only lines. | Every space and tab remains in the same value position; tabs are not expanded and no common prefix is removed. | Byte-exact indentation matrix for both multiline forms. |
-| Place the same multiline token after a key or at different string-array indentation depths. | Whitespace before the opening delimiter does not change the decoded value. | Scalar and string-array placement cases. |
-| Place a closing delimiter at column zero, after spaces or tabs on its own line, or immediately after content. | Only whitespace before the delimiter is included in the value, so an indented closing delimiter contributes that indentation to the final value line. | Closing-delimiter boundary matrix. |
-| Put assignment, section, comment, bracket, and comma spellings on indented lines inside a multiline string. | Each spelling and its indentation are content; parsing resumes after the closing delimiter. | Multiline parser-state cases followed by another manifest field. |
-| Migrate an escaped value containing both flush-left and intentionally indented lines. | The old and new spellings decode to byte-equal values, including the final line break. | Before-and-after scalar and string-array migration cases. |
-| Parse otherwise identical multiline basic and literal strings from all-LF, all-CRLF, and mixed-line-ending manifests. | Every form decodes to the same LF-only value. | Byte-constructed physical-newline matrix. |
-| Put one or two LF or CRLF sequences immediately after a multiline opening delimiter. | Exactly the first sequence is omitted; each retained sequence decodes as one LF. | Opening-newline boundary matrix. |
-| Fold multiline basic content across LF, CRLF, and mixed sequences with spaces, tabs, and blank lines. | Every spelling produces the same folded value and leaves no CR. | Physical-line-ending variants in the folding matrix. |
-| Place a lone CR in manifest structure, a comment, multiline content, or folding whitespace. | Manifest loading fails before command execution. | Invalid physical-newline matrix. |
-| Migrate a value containing escaped LF to a physical multiline spelling under LF and CRLF checkout forms. | Both physical spellings equal the old decoded bytes; a physical CRLF is not equivalent to an escaped CRLF value. | Before-and-after newline equivalence cases. |
-| Split a manifest string-array field across lines and use all four string forms, inter-element comments, an empty array, and a trailing comma. | The field receives only the decoded strings in source order. | Shared string-array parser matrix across representative field schemas. |
-| Put a number, boolean, null, nested array, or object in a manifest string-array field. | Manifest loading rejects the non-string element before command execution. | String-array element-kind rejection matrix. |
-| Split a JSON-valued `equals` array or object with nested arrays and objects across physical lines. | It produces the same JSON value as the compact spelling; array order remains significant and formatting whitespace does not. | Compact-versus-multiline JSON assertion cases. |
-| Put a manifest comment, trailing comma, literal string, or multiline TOML string inside a JSON compound value. | Manifest loading rejects the value as invalid JSON instead of applying manifest string-array rules. | JSON-versus-manifest grammar boundary matrix. |
-| Use a manifest multiline string as the complete value of a string-valued `equals`, then use the same token inside a JSON array. | The complete string becomes a JSON string value; the embedded form is rejected as invalid JSON. | Paired field-dispatch cases. |
-| Put bracket, brace, comma, hash, or escaped-quote spellings inside a string token in either array grammar. | They remain string content and do not close the value or begin a comment. | Array value-collection boundary cases. |
-| Put an invalid, reserved, malformed-width, or incomplete escape on a later multiline-string line. | The error identifies the invalid character's line or the incomplete escape's starting line and names the escape failure. | Exact-line lexical-error matrix. |
-| Put an invalid element, duplicate comma, forbidden JSON comment, JSON trailing comma, or unexpected delimiter on a later container line. | The error identifies the first offending token's line and its specific failed fact. | Manifest-array and JSON-container location matrix. |
-| Omit a comma before an element on the same or a later line. | The error identifies the next element's line and states that a comma is required before it. | Same-line and cross-line missing-comma cases. |
-| Put a token after a completed multiline string, manifest array, or JSON compound value. | The error identifies the first trailing token; a permitted comment or a following valid statement succeeds. | Trailing-token and statement-boundary pairs. |
-| Reach clean end of input with an open multiline string, manifest array, or nested JSON array or object. | The error identifies the innermost unmatched opener and names its missing delimiter. | Unterminated-construct precedence matrix. |
-| Put a local lexical error inside a construct that also reaches end of input unclosed. | The local error is reported instead of the containing unterminated-value error. | Nested error-precedence cases. |
-| Parse equivalent failures after LF, CRLF, and mixed-line-ending prefixes. | Every form reports the same one-based physical line and failure category. | Byte-constructed diagnostic line-ending matrix. |
 | Reference root and nested files with portable ASCII components. | Validation returns the authored component sequence and resolves the same spelling in the discovered and copied fixture. | Pure grammar cases plus discovered/copied lookup integration cases. |
 | Use an empty reference, a leading, trailing, or repeated slash, or a `.` or `..` component. | Manifest loading reports a portable-reference error before filesystem lookup. | Separator and dot-component rejection matrix. |
 | Use backslashes, a drive-relative or drive-absolute spelling, UNC spelling, or a device-path prefix. | Every host reports the same portable-reference error. | Host-independent Windows-spelling matrix. |

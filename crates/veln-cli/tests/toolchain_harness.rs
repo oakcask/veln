@@ -4115,6 +4115,70 @@ fn manifest_multiline_strings_preserve_layout_folding_and_quote_runs() {
 }
 
 #[test]
+fn manifest_multiline_indentation_and_closing_delimiters_are_value_bytes() {
+    for (spelling, expected) in [
+        (
+            "\"\"\"\n\tleft\n  middle\n\t \nright\"\"\"",
+            "\tleft\n  middle\n\t \nright",
+        ),
+        (
+            "'''\n\tleft\n  middle\n\t \nright'''",
+            "\tleft\n  middle\n\t \nright",
+        ),
+        ("\"\"\"\nvalue\n\"\"\"", "value\n"),
+        ("\"\"\"\nvalue\n  \"\"\"", "value\n  "),
+        ("\"\"\"\nvalue\"\"\"", "value"),
+        ("'''\nvalue\n'''", "value\n"),
+        ("'''\nvalue\n\t'''", "value\n\t"),
+        ("'''\nvalue'''", "value"),
+    ] {
+        let source = format!("command = [\"check\"]\nstdin = {spelling}\nexit = 0\n");
+        let manifest = parse_manifest(Path::new("case.toml"), &source);
+        assert_eq!(manifest.invocation.stdin.as_deref(), Some(expected));
+    }
+}
+
+#[test]
+fn manifest_multiline_array_placement_does_not_indent_values() {
+    let scalar = parse_manifest(
+        Path::new("case.toml"),
+        "command = [\"check\"]\nstdin = \"\"\"\nvalue\n\"\"\"\nexit = 0\n",
+    );
+    let shallow_array = parse_manifest(
+        Path::new("case.toml"),
+        "command = [\n\"\"\"\nvalue\n\"\"\"\n]\nexit = 0\n",
+    );
+    let deep_array = parse_manifest(
+        Path::new("case.toml"),
+        "command = [\n        \"\"\"\nvalue\n\"\"\"\n]\nexit = 0\n",
+    );
+
+    assert_eq!(scalar.invocation.stdin.as_deref(), Some("value\n"));
+    assert_eq!(shallow_array.invocation.command, ["value\n"]);
+    assert_eq!(deep_array.invocation.command, ["value\n"]);
+}
+
+#[test]
+fn manifest_multiline_quote_run_matrix_preserves_terminal_quotes() {
+    for (spelling, expected) in [
+        ("\"\"\"one\"two\"\"\"", "one\"two"),
+        ("\"\"\"one\"\"two\"\"\"", "one\"\"two"),
+        ("\"\"\"tail\"\"\"", "tail"),
+        ("\"\"\"tail\"\"\"\"", "tail\""),
+        ("\"\"\"tail\"\"\"\"\"", "tail\"\""),
+        ("'''one'two'''", "one'two"),
+        ("'''one''two'''", "one''two"),
+        ("'''tail'''", "tail"),
+        ("'''tail''''", "tail'"),
+        ("'''tail'''''", "tail''"),
+    ] {
+        let source = format!("command = [\"check\"]\nstdin = {spelling}\nexit = 0\n");
+        let manifest = parse_manifest(Path::new("case.toml"), &source);
+        assert_eq!(manifest.invocation.stdin.as_deref(), Some(expected));
+    }
+}
+
+#[test]
 fn manifest_physical_newline_matrix_normalizes_multiline_values() {
     for delimiters in [("\"\"\"", "\"\"\""), ("'''", "'''")] {
         let lf = format!(
@@ -4136,6 +4200,39 @@ fn manifest_physical_newline_matrix_normalizes_multiline_values() {
         let manifest = parse_manifest(Path::new("case.toml"), &source);
         assert_eq!(manifest.invocation.stdin.as_deref(), Some("\nvalue"));
     }
+}
+
+#[test]
+fn manifest_multiline_basic_folding_accepts_lf_crlf_and_mixed_lines() {
+    let lf = "command = [\"check\"]\nstdin = \"\"\"\nalpha\\\n \t beta\\  \n\n\t gamma\"\"\"\nexit = 0\n";
+    let crlf = lf.replace('\n', "\r\n");
+    let mixed = lf.replacen('\n', "\r\n", 4);
+    for source in [lf.to_string(), crlf, mixed] {
+        let manifest = parse_manifest(Path::new("case.toml"), &source);
+        assert_eq!(manifest.invocation.stdin.as_deref(), Some("alphabetagamma"));
+    }
+}
+
+#[test]
+fn manifest_physical_newlines_match_escaped_lf_not_escaped_crlf() {
+    let escaped_lf = parse_manifest(
+        Path::new("case.toml"),
+        "command = [\"check\"]\nstdin = \"first\\n  second\\n\"\nexit = 0\n",
+    );
+    for source in [
+        "command = [\"check\"]\nstdin = \"\"\"\nfirst\n  second\n\"\"\"\nexit = 0\n".to_string(),
+        "command = [\"check\"]\r\nstdin = \"\"\"\r\nfirst\r\n  second\r\n\"\"\"\r\nexit = 0\r\n"
+            .to_string(),
+    ] {
+        let manifest = parse_manifest(Path::new("case.toml"), &source);
+        assert_eq!(manifest.invocation.stdin, escaped_lf.invocation.stdin);
+    }
+
+    let escaped_crlf = parse_manifest(
+        Path::new("case.toml"),
+        "command = [\"check\"]\nstdin = \"first\\r\\n  second\\r\\n\"\nexit = 0\n",
+    );
+    assert_ne!(escaped_crlf.invocation.stdin, escaped_lf.invocation.stdin);
 }
 
 #[test]
@@ -4176,6 +4273,45 @@ fn manifest_field_directed_containers_keep_array_and_json_grammars_distinct() {
     assert_eq!(
         manifest.expectations.json_assertions[0].equals,
         Some(JsonValue::String("text\n".to_string()))
+    );
+}
+
+#[test]
+fn manifest_string_array_layout_matrix_accepts_schema_selected_fields() {
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        "command = [\n  \"check\",\n  'main.veln',\n]\nexit = 0\n[stdout]\ncontains = []\nnot_contains = [\n  \"basic\",\n  'literal',\n  \"\"\"\nmultiline basic\"\"\",\n  '''\nmultiline literal''',\n  # trailing comment\n]\n[help]\ncommands = [\"check\",]\narguments = []\noptions = [\n  \"--json\",\n]\ncontains = [\n  \"done\",\n]\n",
+    );
+
+    assert_eq!(manifest.invocation.command, ["check", "main.veln"]);
+    assert!(manifest.expectations.stdout.contains.is_empty());
+    assert_eq!(
+        manifest.expectations.stdout.not_contains,
+        ["basic", "literal", "multiline basic", "multiline literal"]
+    );
+    let help = manifest.expectations.help.as_ref().expect("help section");
+    assert_eq!(help.commands, ["check"]);
+    assert!(help.arguments.is_empty());
+    assert_eq!(help.options, ["--json"]);
+    assert_eq!(help.contains, ["done"]);
+}
+
+#[test]
+fn manifest_array_boundaries_keep_punctuation_inside_string_tokens() {
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        "command = [\"check\"]\nexit = 0\n[stdout]\ncontains = [\n  \"brackets [] braces {} comma , hash # quote \\\"\",\n]\n[[json_assert]]\npath = \"x\"\nequals = [\n  \"brackets [] braces {} comma , hash # quote \\\"\"\n]\n",
+    );
+
+    let expected = "brackets [] braces {} comma , hash # quote \"";
+    assert_eq!(manifest.expectations.stdout.contains, [expected]);
+    assert_eq!(
+        manifest.expectations.json_assertions[0]
+            .equals
+            .as_ref()
+            .unwrap()
+            .to_compact_string(),
+        format!("[{expected:?}]")
     );
 }
 
@@ -4261,6 +4397,23 @@ fn manifest_syntax_errors_report_exact_physical_lines() {
         "command = [\"check\"]\nstdin = \"\"\"a\\\rb\"\"\"\nexit = 0\n",
     ] {
         assert_manifest_parse_error(source, "lone carriage return");
+    }
+}
+
+#[test]
+fn manifest_syntax_errors_report_equivalent_lines_with_lf_crlf_and_mixed_prefixes() {
+    let lf_prefix = "command = [\"check\"]\nexit = 0\n[stdout]\n";
+    let crlf_prefix = lf_prefix.replace('\n', "\r\n");
+    let mixed_prefix = lf_prefix.replacen('\n', "\r\n", 2);
+    for prefix in [lf_prefix.to_string(), crlf_prefix, mixed_prefix] {
+        let source = format!("{prefix}contains = [\n  \"ok\"\n  \"missing comma\"\n]\n");
+        let panic = std::panic::catch_unwind(|| parse_manifest(Path::new("case.toml"), &source))
+            .expect_err("missing comma should be rejected");
+        let message = panic_message(panic);
+        assert!(
+            message.contains("case.toml:6: expected `,` before string array element"),
+            "unexpected error line: {message}"
+        );
     }
 }
 
