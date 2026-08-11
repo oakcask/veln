@@ -12,6 +12,7 @@ mod toolchain_case_inventory;
 
 fn main() {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("manifest dir set"));
+    println!("cargo:rerun-if-env-changed=VELN_TOOLCHAIN_CASE_POLICY");
     for root in toolchain_case_inventory::DISCOVERY_ROOTS {
         println!(
             "cargo:rerun-if-changed={}",

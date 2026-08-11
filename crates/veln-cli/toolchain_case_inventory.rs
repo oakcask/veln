@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 use std::fs;
+use std::panic::{self, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
 
 #[derive(Clone, Copy, Debug)]
@@ -40,6 +41,14 @@ pub(crate) fn run_preflight_with_roots(
     manifest_dir: &Path,
     roots: &[DiscoveryRoot],
 ) -> Result<Preflight, String> {
+    run_preflight_with_roots_and_policy(manifest_dir, roots, policy_enforcement_enabled())
+}
+
+pub(crate) fn run_preflight_with_roots_and_policy(
+    manifest_dir: &Path,
+    roots: &[DiscoveryRoot],
+    enforce_policy: bool,
+) -> Result<Preflight, String> {
     let mut errors = validate_roots(manifest_dir, roots);
     let mut cases = Vec::new();
     if errors.is_empty() {
@@ -53,7 +62,7 @@ pub(crate) fn run_preflight_with_roots(
     }
     cases.sort_by(|left, right| left.id.cmp(&right.id));
 
-    if errors.is_empty() && policy_enforcement_enabled() {
+    if errors.is_empty() && enforce_policy {
         errors.extend(scan_policy(manifest_dir, &cases));
     }
 
@@ -68,7 +77,16 @@ pub(crate) fn compare_generated_inventory(
     manifest_dir: &Path,
     generated: &[&str],
 ) -> Result<Preflight, String> {
-    let preflight = run_preflight(manifest_dir)?;
+    compare_generated_inventory_with_policy(manifest_dir, generated, policy_enforcement_enabled())
+}
+
+pub(crate) fn compare_generated_inventory_with_policy(
+    manifest_dir: &Path,
+    generated: &[&str],
+    enforce_policy: bool,
+) -> Result<Preflight, String> {
+    let preflight =
+        run_preflight_with_roots_and_policy(manifest_dir, &DISCOVERY_ROOTS, enforce_policy)?;
     let current = preflight
         .cases
         .iter()
@@ -253,7 +271,19 @@ fn scan_policy(manifest_dir: &Path, cases: &[CaseDescriptor]) -> Vec<String> {
                 continue;
             }
         };
-        let findings = crate::manifest_syntax::manifest_policy_findings(&manifest, &text);
+        let findings = match panic::catch_unwind(AssertUnwindSafe(|| {
+            crate::manifest_syntax::manifest_policy_findings(&manifest, &text)
+        })) {
+            Ok(findings) => findings,
+            Err(panic) => {
+                errors.push(format!(
+                    "{}: manifest policy scan failed before command generation: {}",
+                    case.id,
+                    panic_message(panic)
+                ));
+                continue;
+            }
+        };
         for finding in findings {
             errors.push(format!(
                 "{}:{}:{}-{} field `{}` contains {} `{}`; use physical multiline text or a sidecar so line structure remains reviewable",
@@ -268,6 +298,16 @@ fn scan_policy(manifest_dir: &Path, cases: &[CaseDescriptor]) -> Vec<String> {
         }
     }
     errors
+}
+
+fn panic_message(panic: Box<dyn std::any::Any + Send>) -> String {
+    if let Some(message) = panic.downcast_ref::<String>() {
+        return message.clone();
+    }
+    if let Some(message) = panic.downcast_ref::<&str>() {
+        return message.to_string();
+    }
+    "non-string panic".to_string()
 }
 
 fn policy_enforcement_enabled() -> bool {

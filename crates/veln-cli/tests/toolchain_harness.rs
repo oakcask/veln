@@ -3683,9 +3683,10 @@ fn toolchain_inventory_rejects_links_without_following_them() {
 
 #[test]
 fn toolchain_inventory_parity_reports_stale_generated_cases() {
-    let error = toolchain_case_inventory::compare_generated_inventory(
+    let error = toolchain_case_inventory::compare_generated_inventory_with_policy(
         Path::new(env!("CARGO_MANIFEST_DIR")),
         &[],
+        false,
     )
     .expect_err("empty generated inventory should be stale");
 
@@ -3725,6 +3726,58 @@ exit = 0
 }
 
 #[test]
+fn manifest_policy_reports_cr_unicode_and_obfuscated_spellings_in_order() {
+    let source = r#"
+command = ["check"]
+cr = "\r"
+unicode_lf = "\u000a"
+unicode_cr = "\U0000000D"
+literal = '\u000A'
+assembled = "\u005Cn"
+even_backslashes = "\\n"
+odd_backslashes = "\\\n"
+json = {"\u005Cr":"\\U0000000a"}
+exit = 0
+"#;
+
+    let findings = manifest_syntax::manifest_policy_findings(Path::new("case.toml"), source);
+
+    assert_eq!(
+        findings
+            .iter()
+            .map(|finding| (
+                finding.field.as_str(),
+                finding.category,
+                finding.spelling.as_str()
+            ))
+            .collect::<Vec<_>>(),
+        [
+            ("cr", "escape-produced-line-break", "escape-produced CR"),
+            (
+                "unicode_lf",
+                "escape-produced-line-break",
+                "escape-produced LF"
+            ),
+            (
+                "unicode_cr",
+                "escape-produced-line-break",
+                "escape-produced CR"
+            ),
+            ("literal", "decoded-line-break-spelling", "\\u000A"),
+            ("assembled", "decoded-line-break-spelling", "\\n"),
+            ("even_backslashes", "decoded-line-break-spelling", "\\n"),
+            (
+                "odd_backslashes",
+                "escape-produced-line-break",
+                "escape-produced LF"
+            ),
+            ("json", "decoded-line-break-spelling", "\\r"),
+            ("json", "decoded-line-break-spelling", "\\U0000000a"),
+        ]
+    );
+}
+
+#[test]
 fn manifest_policy_accepts_physical_comments_and_token_boundaries() {
     let source = r#"
 command = ["check"]
@@ -3737,6 +3790,102 @@ exit = 0
 "#;
 
     assert!(manifest_syntax::manifest_policy_findings(Path::new("case.toml"), source).is_empty());
+}
+
+#[test]
+fn toolchain_policy_preflight_aggregates_skipped_unavailable_and_lexical_cases() {
+    let root = test_temp_root("policy-aggregation");
+    for case_dir in ["cases/skipped", "cases/unavailable", "cases/malformed"] {
+        fs::create_dir_all(root.join(case_dir)).expect("case directory should be created");
+    }
+    fs::write(
+        root.join("cases/skipped/case.toml"),
+        r#"
+command = ["check"]
+stdin = "\n"
+exit = 0
+
+[skip]
+platforms = ["linux"]
+reason = "lifecycle sentinel"
+"#,
+    )
+    .expect("skipped manifest should be written");
+    fs::write(
+        root.join("cases/unavailable/case.toml"),
+        r#"
+command = ["check"]
+exit = 0
+
+[tools]
+java = "missing"
+
+[stdout]
+contains = ["\\r"]
+"#,
+    )
+    .expect("unavailable-tool manifest should be written");
+    fs::write(
+        root.join("cases/malformed/case.toml"),
+        "command = [\"check\"]\nstdin = \"\\q\"\nexit = 0\n",
+    )
+    .expect("malformed manifest should be written");
+
+    let error = toolchain_case_inventory::run_preflight_with_roots_and_policy(
+        &root,
+        &[test_discovery_root("cases", "cases")],
+        true,
+    )
+    .expect_err("policy preflight should fail");
+
+    assert!(error.contains("toolchain case preflight found 3 problem(s)"));
+    assert!(error.contains("cases/skipped:"));
+    assert!(error.contains("field `stdin` contains escape-produced-line-break"));
+    assert!(error.contains("cases/unavailable:"));
+    assert!(error.contains("field `[stdout].contains` contains decoded-line-break-spelling"));
+    assert!(error.contains("cases/malformed: manifest policy scan failed"));
+    assert!(error.contains("unsupported manifest string escape `q`"));
+    let malformed_index = error
+        .find("cases/malformed")
+        .expect("malformed case should be reported");
+    let skipped_index = error
+        .find("cases/skipped")
+        .expect("skipped case should be reported");
+    let unavailable_index = error
+        .find("cases/unavailable")
+        .expect("unavailable-tool case should be reported");
+    assert!(malformed_index < skipped_index);
+    assert!(skipped_index < unavailable_index);
+
+    fs::remove_dir_all(root).expect("inventory root should be removed");
+}
+
+#[test]
+fn toolchain_inventory_errors_prevent_partial_policy_inventory() {
+    let root = test_temp_root("policy-no-partial-inventory");
+    fs::create_dir_all(root.join("cases/rooted/nested")).expect("directories should be created");
+    fs::write(
+        root.join("cases/rooted/case.toml"),
+        "command = [\"check\"]\nstdin = \"\\n\"\nexit = 0\n",
+    )
+    .expect("rooted manifest should be written");
+    fs::write(
+        root.join("cases/rooted/nested/case.toml"),
+        "command = [\"check\"]\nstdin = \"\\r\"\nexit = 0\n",
+    )
+    .expect("nested manifest should be written");
+
+    let error = toolchain_case_inventory::run_preflight_with_roots_and_policy(
+        &root,
+        &[test_discovery_root("cases", "cases")],
+        true,
+    )
+    .expect_err("inventory boundary should fail before policy scanning");
+
+    assert!(error.contains("nested case.toml"));
+    assert!(!error.contains("field `stdin`"));
+
+    fs::remove_dir_all(root).expect("inventory root should be removed");
 }
 
 fn test_discovery_root(
