@@ -70,8 +70,9 @@ assertions, diagnostic selectors, and file content assertions.
   `[help]`, `[[json_assert]]`, `[[result_value_assert]]`,
   `[[diagnostics]]`, `[[file_assert]]`, `[[binary_fixture]]`, and
   `[[output_chunk_list]]`.
+- Manifest-failure checks: `[manifest_error]`.
 - External tool setup: `[tools] java = "missing"`, `"fake-success"`, or
-  `"real"`.
+  `"real"` and `[tools] git = "missing"` or `"real"`.
 
 ## Manifest Value Syntax
 
@@ -141,8 +142,10 @@ the expected text from the discovered case before the command runs.
 Use `stdin_file` when command input is easier to review as a case text file.
 Use `[[json_assert]]`, `[[result_value_assert]]`, and `[[diagnostics]]` for
 semantic checks inside JSON stdout. JSON and result-value assertions accept
-`equals`, `equals_file`, or `missing = true`; `equals_file` compares the
-selected JSON value as a string and never reparses the sidecar as JSON.
+`equals`, `equals_file`, `equals_json_file`, or `missing = true`.
+`equals_file` compares the selected JSON value as a string and never reparses
+the sidecar as JSON. `equals_json_file` parses the sidecar as JSON before the
+comparison.
 `[[result_value_assert]]` reads a rendered result-failure value string from
 `value_path`, wraps it as the outer `Err`, and then checks a parsed value path.
 
@@ -150,6 +153,8 @@ Use `[[file_assert]]` to check command-written files. The command output path
 is read from the copied project after execution, while `equals_file` is still
 read from the immutable discovered case. Diagnostics and help fragments also
 accept file-backed text operands where their inline string forms are accepted.
+Diagnostic exact messages use `message_file`. Manifest-failure fragment checks
+use `[manifest_error] contains_file` and `contains_files`.
 
 Use `[help]` for command help output. It checks a help stream, defaulting to
 stdout, through stable help fragments instead of full-output equality. Its
@@ -195,12 +200,13 @@ Repeated invocations can check stable stdout, stderr, exit status, JSON, file
 results, and other command-visible state changes.
 
 Use `[tools]` for controlled external tool availability owned by the harness.
-The implemented key is `java`, with values `"missing"`, `"fake-success"`, and
-`"real"`. `"missing"` runs the command with an isolated tool path that contains
-no Java launcher. `"fake-success"` installs a harness-owned Java wrapper that
-exits successfully without running arbitrary manifest code. `"real"` exposes
-the host Java launcher under the isolated tool path; cases that use it should
-also declare `[requires] jdk = true`.
+The implemented keys are `java` and `git`. Java accepts `"missing"`,
+`"fake-success"`, and `"real"`. Git accepts `"missing"` and `"real"`.
+`"missing"` runs the command with an isolated tool path that contains no
+launcher for that tool. Java `"fake-success"` installs a harness-owned wrapper
+that exits successfully without running arbitrary manifest code. `"real"`
+exposes the host launcher under the isolated tool path; Java cases that use it
+should also declare `[requires] jdk = true`.
 
 Test harness-owned tool setup with harness or runner unit tests. Do not add CLI
 cases solely to prove Java launcher setup, because JVM availability and wrapper
