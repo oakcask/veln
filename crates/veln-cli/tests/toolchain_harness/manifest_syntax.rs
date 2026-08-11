@@ -1169,102 +1169,106 @@ fn decode_toml_string(
         }
     }
 
-    let mut chars = Vec::new();
-    let mut offset = 0;
-    while offset < content.len() {
-        let ch = content[offset..]
-            .chars()
-            .next()
-            .expect("content has a char");
-        if ch == '\r' {
-            if !content[offset..].starts_with("\r\n") {
-                return Err(SyntaxError {
-                    line,
-                    message: "lone carriage return in manifest string".to_string(),
-                });
-            }
-            if !form.is_multiline() {
-                return Err(SyntaxError {
-                    line,
-                    message: "newline in single-line string".to_string(),
-                });
-            }
-            chars.push(DecodedChar {
-                value: '\n',
-                source_line: line,
+    let mut decoded = TomlStringDecoder::new(content, line, form).decode()?;
+
+    if form.is_multiline() && closing_quotes >= 4 {
+        let closing_line = opening_line + raw.bytes().filter(|byte| *byte == b'\n').count();
+        for _ in 0..closing_quotes - 3 {
+            decoded.chars.push(DecodedChar {
+                value: form.quote(),
+                source_line: closing_line,
                 escaped: false,
             });
-            offset += 2;
-            line += 1;
-            continue;
         }
-        if ch == '\n' {
-            if !form.is_multiline() {
-                return Err(SyntaxError {
-                    line,
-                    message: "newline in single-line string".to_string(),
-                });
-            }
-            chars.push(DecodedChar {
-                value: '\n',
-                source_line: line,
-                escaped: false,
-            });
-            offset += 1;
-            line += 1;
-            continue;
+    }
+    Ok(decoded)
+}
+
+struct TomlStringDecoder<'a> {
+    content: &'a str,
+    form: StringForm,
+    line: usize,
+    offset: usize,
+    chars: Vec<DecodedChar>,
+}
+
+impl<'a> TomlStringDecoder<'a> {
+    fn new(content: &'a str, line: usize, form: StringForm) -> Self {
+        Self {
+            content,
+            form,
+            line,
+            offset: 0,
+            chars: Vec::new(),
         }
-        if is_prohibited_control(ch) {
-            return Err(SyntaxError {
-                line,
+    }
+
+    fn decode(mut self) -> Result<DecodedString, SyntaxError> {
+        while self.offset < self.content.len() {
+            self.decode_next_char()?;
+        }
+        Ok(DecodedString { chars: self.chars })
+    }
+
+    fn decode_next_char(&mut self) -> Result<(), SyntaxError> {
+        let ch = self.peek_char().expect("content has a char");
+        match ch {
+            '\r' => self.decode_carriage_return(),
+            '\n' => self.decode_line_feed(),
+            prohibited if is_prohibited_control(prohibited) => Err(SyntaxError {
+                line: self.line,
                 message: "prohibited control character in manifest string".to_string(),
-            });
-        }
-        if !form.is_basic() || ch != '\\' {
-            chars.push(DecodedChar {
-                value: ch,
-                source_line: line,
-                escaped: false,
-            });
-            offset += ch.len_utf8();
-            continue;
-        }
-
-        let escape_line = line;
-        offset += 1;
-        if form.is_multiline() {
-            let mut lookahead = offset;
-            while matches!(content.as_bytes().get(lookahead), Some(b' ' | b'\t')) {
-                lookahead += 1;
-            }
-            if content[lookahead..].starts_with("\r\n") || content[lookahead..].starts_with('\n') {
-                offset = lookahead;
-                consume_physical_newline(content, &mut offset, &mut line);
-                loop {
-                    match content.as_bytes().get(offset) {
-                        Some(b' ' | b'\t') => offset += 1,
-                        Some(b'\n') => {
-                            offset += 1;
-                            line += 1;
-                        }
-                        Some(b'\r') if content[offset..].starts_with("\r\n") => {
-                            offset += 2;
-                            line += 1;
-                        }
-                        _ => break,
-                    }
-                }
-                continue;
+            }),
+            '\\' if self.form.is_basic() => self.decode_escape(),
+            plain => {
+                self.push(plain, self.line, false);
+                self.offset += plain.len_utf8();
+                Ok(())
             }
         }
+    }
 
-        let Some(escaped) = content[offset..].chars().next() else {
+    fn decode_carriage_return(&mut self) -> Result<(), SyntaxError> {
+        if !self.remaining().starts_with("\r\n") {
+            return Err(SyntaxError {
+                line: self.line,
+                message: "lone carriage return in manifest string".to_string(),
+            });
+        }
+        self.decode_physical_newline(2)
+    }
+
+    fn decode_line_feed(&mut self) -> Result<(), SyntaxError> {
+        self.decode_physical_newline(1)
+    }
+
+    fn decode_physical_newline(&mut self, width: usize) -> Result<(), SyntaxError> {
+        if !self.form.is_multiline() {
+            return Err(SyntaxError {
+                line: self.line,
+                message: "newline in single-line string".to_string(),
+            });
+        }
+        self.push('\n', self.line, false);
+        self.offset += width;
+        self.line += 1;
+        Ok(())
+    }
+
+    fn decode_escape(&mut self) -> Result<(), SyntaxError> {
+        let escape_line = self.line;
+        self.offset += 1;
+        if self.form.is_multiline() && self.consume_continuation() {
+            return Ok(());
+        }
+
+        let Some(escaped) = self.peek_char() else {
             return Err(SyntaxError {
                 line: escape_line,
                 message: "unterminated manifest string escape".to_string(),
             });
         };
-        offset += escaped.len_utf8();
+        self.offset += escaped.len_utf8();
         let value = match escaped {
             'b' => '\u{08}',
             't' => '\t',
@@ -1273,8 +1277,8 @@ fn decode_toml_string(
             'r' => '\r',
             '"' => '"',
             '\\' => '\\',
-            'u' => decode_unicode_escape(content, &mut offset, &mut line, escape_line, 4)?,
-            'U' => decode_unicode_escape(content, &mut offset, &mut line, escape_line, 8)?,
+            'u' => self.decode_unicode_escape(escape_line, 4)?,
+            'U' => self.decode_unicode_escape(escape_line, 8)?,
             _ => {
                 return Err(SyntaxError {
                     line: escape_line,
@@ -1282,71 +1286,97 @@ fn decode_toml_string(
                 });
             }
         };
-        chars.push(DecodedChar {
+        self.push(value, escape_line, true);
+        Ok(())
+    }
+
+    fn consume_continuation(&mut self) -> bool {
+        let mut lookahead = self.offset;
+        while matches!(self.content.as_bytes().get(lookahead), Some(b' ' | b'\t')) {
+            lookahead += 1;
+        }
+        if !self.content[lookahead..].starts_with("\r\n")
+            && !self.content[lookahead..].starts_with('\n')
+        {
+            return false;
+        }
+
+        self.offset = lookahead;
+        self.consume_newline();
+        while self.consume_continuation_whitespace() {}
+        true
+    }
+
+    fn consume_continuation_whitespace(&mut self) -> bool {
+        match self.content.as_bytes().get(self.offset) {
+            Some(b' ' | b'\t') => self.offset += 1,
+            Some(b'\n') => self.consume_newline(),
+            Some(b'\r') if self.remaining().starts_with("\r\n") => self.consume_newline(),
+            _ => return false,
+        }
+        true
+    }
+
+    fn consume_newline(&mut self) {
+        self.offset += if self.remaining().starts_with("\r\n") {
+            2
+        } else {
+            1
+        };
+        self.line += 1;
+    }
+
+    fn decode_unicode_escape(
+        &mut self,
+        escape_line: usize,
+        width: usize,
+    ) -> Result<char, SyntaxError> {
+        let start = self.offset;
+        let mut digits = String::with_capacity(width);
+        for _ in 0..width {
+            let Some(ch) = self.peek_char() else {
+                return Err(SyntaxError {
+                    line: escape_line,
+                    message: "incomplete Unicode escape".to_string(),
+                });
+            };
+            if ch == '\n' || ch == '\r' {
+                return Err(SyntaxError {
+                    line: escape_line,
+                    message: "incomplete Unicode escape".to_string(),
+                });
+            }
+            if !ch.is_ascii_hexdigit() {
+                return Err(SyntaxError {
+                    line: self.line,
+                    message: "invalid hexadecimal digit in Unicode escape".to_string(),
+                });
+            }
+            digits.push(ch);
+            self.offset += ch.len_utf8();
+        }
+        let codepoint = u32::from_str_radix(&digits, 16).expect("Unicode digits were validated");
+        char::from_u32(codepoint).ok_or_else(|| SyntaxError {
+            line: escape_line,
+            message: format!("Unicode escape is not a scalar value at byte {start}"),
+        })
+    }
+
+    fn peek_char(&self) -> Option<char> {
+        self.remaining().chars().next()
+    }
+
+    fn remaining(&self) -> &'a str {
+        &self.content[self.offset..]
+    }
+
+    fn push(&mut self, value: char, source_line: usize, escaped: bool) {
+        self.chars.push(DecodedChar {
             value,
-            source_line: escape_line,
-            escaped: true,
+            source_line,
+            escaped,
         });
     }
-
-    if form.is_multiline() && closing_quotes >= 4 {
-        let closing_line = opening_line + raw.bytes().filter(|byte| *byte == b'\n').count();
-        for _ in 0..closing_quotes - 3 {
-            chars.push(DecodedChar {
-                value: form.quote(),
-                source_line: closing_line,
-                escaped: false,
-            });
-        }
-    }
-    Ok(DecodedString { chars })
-}
-
-fn decode_unicode_escape(
-    content: &str,
-    offset: &mut usize,
-    line: &mut usize,
-    escape_line: usize,
-    width: usize,
-) -> Result<char, SyntaxError> {
-    let start = *offset;
-    let mut digits = String::with_capacity(width);
-    for _ in 0..width {
-        let Some(ch) = content[*offset..].chars().next() else {
-            return Err(SyntaxError {
-                line: escape_line,
-                message: "incomplete Unicode escape".to_string(),
-            });
-        };
-        if ch == '\n' || ch == '\r' {
-            return Err(SyntaxError {
-                line: escape_line,
-                message: "incomplete Unicode escape".to_string(),
-            });
-        }
-        if !ch.is_ascii_hexdigit() {
-            return Err(SyntaxError {
-                line: *line,
-                message: "invalid hexadecimal digit in Unicode escape".to_string(),
-            });
-        }
-        digits.push(ch);
-        *offset += ch.len_utf8();
-    }
-    let codepoint = u32::from_str_radix(&digits, 16).expect("Unicode digits were validated");
-    char::from_u32(codepoint).ok_or_else(|| SyntaxError {
-        line: escape_line,
-        message: format!("Unicode escape is not a scalar value at byte {start}"),
-    })
-}
-
-fn consume_physical_newline(content: &str, offset: &mut usize, line: &mut usize) {
-    if content[*offset..].starts_with("\r\n") {
-        *offset += 2;
-    } else {
-        *offset += 1;
-    }
-    *line += 1;
 }
 
 fn is_prohibited_control(ch: char) -> bool {
@@ -1356,6 +1386,46 @@ fn is_prohibited_control(ch: char) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn multiline_decoder_preserves_provenance_across_continuations_and_escapes() {
+        let decoded = decode_toml_string(
+            "\"\"\"\nfirst\\\n  second\\u0021\r\nthird\"\"\"",
+            7,
+            StringForm::MultilineBasic,
+            3,
+        )
+        .expect("multiline basic string should decode");
+
+        assert_eq!(decoded.text(), "firstsecond!\nthird");
+        assert_eq!(
+            decoded
+                .chars
+                .iter()
+                .map(|decoded| (decoded.value, decoded.source_line, decoded.escaped))
+                .collect::<Vec<_>>(),
+            [
+                ('f', 8, false),
+                ('i', 8, false),
+                ('r', 8, false),
+                ('s', 8, false),
+                ('t', 8, false),
+                ('s', 9, false),
+                ('e', 9, false),
+                ('c', 9, false),
+                ('o', 9, false),
+                ('n', 9, false),
+                ('d', 9, false),
+                ('!', 9, true),
+                ('\n', 9, false),
+                ('t', 10, false),
+                ('h', 10, false),
+                ('i', 10, false),
+                ('r', 10, false),
+                ('d', 10, false),
+            ]
+        );
+    }
 
     #[test]
     fn policy_scan_provenance_covers_toml_and_nested_json_string_tokens() {
