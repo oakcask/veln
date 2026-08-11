@@ -21,8 +21,10 @@ error.
 Request IDs are strings or integer numbers. A request with a `null` ID or a
 fractional numeric ID is an invalid JSON-RPC request. `initialize` requires the
 declared protocol version, client capabilities object, and client name/version
-fields. Request metadata accepts `_meta.progressToken` when the token is a
-string or integer number.
+fields. `ping`, `tools/list`, and `tools/call` accept request metadata as
+`_meta.progressToken` when the token is a string or integer number.
+`tools/list` also accepts a string `cursor` parameter; the current server still
+returns the complete tool list in one response.
 
 ## Workspace Selection
 
