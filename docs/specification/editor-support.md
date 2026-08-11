@@ -277,7 +277,8 @@ the exact embedded source value and checks package rename rejection.
 The LSP executable examples use ordered stdout fragments when JSON-RPC
 responses are interleaved with file-backed virtual-document text. Those
 fixture-manifest fragment boundaries are evidence placement, not a separate
-LSP response contract.
+LSP response contract. Their `stdin_file` operands use `.raw` case-text
+sidecars when the JSON-RPC framing depends on exact CRLF header separators.
 
 `textDocument/formatting` returns a single whole-document text edit containing
 the same canonical formatting produced by the formatter. Handler operation

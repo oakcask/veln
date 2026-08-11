@@ -160,6 +160,9 @@ equality uses `equals_file`; the harness reads the expected text from the
 discovered case before the command runs.
 
 Use `stdin_file` when command input is easier to review as a case text file.
+Use a `.raw` sidecar for `stdin_file` when the input protocol includes bytes
+whose framing must survive repository checkout exactly, such as LSP JSON-RPC
+headers and their CRLF separators.
 Use `[[json_assert]]`, `[[result_value_assert]]`, and `[[diagnostics]]` for
 semantic checks inside JSON stdout. JSON and result-value assertions accept
 `equals`, `equals_file`, `equals_json_file`, or `missing = true`.
