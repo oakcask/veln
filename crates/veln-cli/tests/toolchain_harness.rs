@@ -4692,9 +4692,55 @@ exit = 0
 }
 
 #[test]
+fn manifest_policy_scan_keeps_findings_before_unterminated_string_boundary() {
+    let source = "command = [\"check\"]\nstdin = \"\\n\"\nlate = \"unterminated";
+    let scan = manifest_syntax::manifest_policy_scan(Path::new("case.toml"), source);
+
+    assert_eq!(
+        scan.findings
+            .iter()
+            .map(|finding| (
+                finding.field.as_str(),
+                finding.category,
+                finding.spelling.as_str()
+            ))
+            .collect::<Vec<_>>(),
+        [("stdin", "escape-produced-line-break", "escape-produced LF")]
+    );
+    assert_eq!(scan.error.as_deref(), Some("unterminated manifest string"));
+}
+
+#[test]
+fn manifest_policy_scan_keeps_findings_before_lone_cr_boundary() {
+    let source = "command = [\"check\"]\nstdin = \"\\r\"\rbad = true\n";
+    let scan = manifest_syntax::manifest_policy_scan(Path::new("case.toml"), source);
+
+    assert_eq!(
+        scan.findings
+            .iter()
+            .map(|finding| (
+                finding.field.as_str(),
+                finding.category,
+                finding.spelling.as_str()
+            ))
+            .collect::<Vec<_>>(),
+        [("stdin", "escape-produced-line-break", "escape-produced CR")]
+    );
+    assert_eq!(
+        scan.error.as_deref(),
+        Some("lone carriage return in manifest")
+    );
+}
+
+#[test]
 fn toolchain_policy_preflight_aggregates_skipped_unavailable_and_lexical_cases() {
     let root = test_temp_root("policy-aggregation");
-    for case_dir in ["cases/skipped", "cases/unavailable", "cases/malformed"] {
+    for case_dir in [
+        "cases/lone-cr",
+        "cases/malformed",
+        "cases/skipped",
+        "cases/unavailable",
+    ] {
         fs::create_dir_all(root.join(case_dir)).expect("case directory should be created");
     }
     fs::write(
@@ -4726,9 +4772,14 @@ contains = ["\\r"]
     .expect("unavailable-tool manifest should be written");
     fs::write(
         root.join("cases/malformed/case.toml"),
-        "command = [\"check\"]\nstdin = \"\\n\"\nlate = \"\\q\"\nexit = 0\n",
+        "command = [\"check\"]\nstdin = \"\\n\"\nlate = \"unterminated",
     )
     .expect("malformed manifest should be written");
+    fs::write(
+        root.join("cases/lone-cr/case.toml"),
+        b"command = [\"check\"]\nstdin = \"\\r\"\rbad = true\n",
+    )
+    .expect("lone CR manifest should be written");
 
     let error = toolchain_case_inventory::run_preflight_with_roots_and_policy(
         &root,
@@ -4737,7 +4788,10 @@ contains = ["\\r"]
     )
     .expect_err("policy preflight should fail");
 
-    assert!(error.contains("toolchain case preflight found 4 problem(s)"));
+    assert!(error.contains("toolchain case preflight found 6 problem(s)"));
+    assert!(error.contains("cases/lone-cr:"));
+    assert!(error.contains("field `stdin` contains escape-produced-line-break"));
+    assert!(error.contains("lone carriage return in manifest"));
     assert!(error.contains("cases/skipped:"));
     assert!(error.contains("field `stdin` contains escape-produced-line-break"));
     assert!(error.contains("cases/unavailable:"));
@@ -4745,7 +4799,10 @@ contains = ["\\r"]
     assert!(error.contains("cases/malformed: manifest policy scan failed"));
     assert!(error.contains("cases/malformed:2:"));
     assert!(error.contains("field `stdin` contains escape-produced-line-break"));
-    assert!(error.contains("unsupported manifest string escape `q`"));
+    assert!(error.contains("unterminated manifest string"));
+    let lone_cr_index = error
+        .find("cases/lone-cr")
+        .expect("lone CR case should be reported");
     let malformed_index = error
         .find("cases/malformed")
         .expect("malformed case should be reported");
@@ -4755,6 +4812,7 @@ contains = ["\\r"]
     let unavailable_index = error
         .find("cases/unavailable")
         .expect("unavailable-tool case should be reported");
+    assert!(lone_cr_index < malformed_index);
     assert!(malformed_index < skipped_index);
     assert!(skipped_index < unavailable_index);
 

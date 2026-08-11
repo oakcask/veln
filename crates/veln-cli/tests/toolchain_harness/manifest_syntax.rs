@@ -135,6 +135,11 @@ pub(crate) struct ManifestPolicyScan {
     pub(crate) error: Option<String>,
 }
 
+struct Lexed<'a> {
+    tokens: Vec<Token<'a>>,
+    boundary_error: Option<SyntaxError>,
+}
+
 impl Value<'_> {
     pub(super) fn line(&self) -> usize {
         self.line
@@ -306,7 +311,7 @@ impl Value<'_> {
 }
 
 pub(crate) fn parse_document<'a>(path: &Path, text: &'a str) -> Vec<Statement<'a>> {
-    let tokens = Lexer::new(path, text).lex();
+    let tokens = Lexer::new(path, text).lex().tokens;
     DocumentParser::new(path, text, tokens).parse()
 }
 
@@ -319,9 +324,16 @@ pub(crate) fn manifest_policy_findings(path: &Path, text: &str) -> Vec<ManifestP
 }
 
 pub(crate) fn manifest_policy_scan(path: &Path, text: &str) -> ManifestPolicyScan {
+    let lexed = Lexer::new(path, text).lex_with_boundary();
+    let boundary_error = lexed.boundary_error;
+    let tokens = if boundary_error.is_some() {
+        completed_statement_prefix(lexed.tokens)
+    } else {
+        lexed.tokens
+    };
     let mut section = String::new();
     let mut findings = Vec::new();
-    for statement in parse_document(path, text) {
+    for statement in DocumentParser::new(path, text, tokens).parse() {
         match statement {
             Statement::Section { name, .. } => section = name,
             Statement::Assignment { key, value, .. } => {
@@ -341,10 +353,82 @@ pub(crate) fn manifest_policy_scan(path: &Path, text: &str) -> ManifestPolicySca
         }
     }
     sort_policy_findings(&mut findings);
+    if let Some(error) = boundary_error {
+        return ManifestPolicyScan {
+            findings,
+            error: Some(error.message),
+        };
+    }
     ManifestPolicyScan {
         findings,
         error: None,
     }
+}
+
+fn completed_statement_prefix<'a>(tokens: Vec<Token<'a>>) -> Vec<Token<'a>> {
+    let mut depth = 0usize;
+    let mut end = 0usize;
+    for (index, token) in tokens.iter().enumerate() {
+        match token.kind {
+            TokenKind::Open(_) => depth += 1,
+            TokenKind::Close(_) => depth = depth.saturating_sub(1),
+            TokenKind::Newline if depth == 0 => end = index + 1,
+            _ => {}
+        }
+    }
+    if end < tokens.len() && trailing_tokens_form_complete_statement(&tokens[end..]) {
+        end = tokens.len();
+    }
+    tokens[..end].to_vec()
+}
+
+fn trailing_tokens_form_complete_statement(tokens: &[Token<'_>]) -> bool {
+    let tokens = tokens
+        .iter()
+        .filter(|token| !matches!(&token.kind, TokenKind::Comment))
+        .collect::<Vec<_>>();
+    let Some(first) = tokens.first() else {
+        return false;
+    };
+    if matches!(&first.kind, TokenKind::Open(Delimiter::Square)) {
+        let mut depth = 0usize;
+        for token in &tokens {
+            match &token.kind {
+                TokenKind::Open(_) => depth += 1,
+                TokenKind::Close(_) => depth = depth.saturating_sub(1),
+                _ => {}
+            }
+        }
+        return depth == 0
+            && matches!(
+                tokens.last().map(|token| &token.kind),
+                Some(TokenKind::Close(Delimiter::Square))
+            );
+    }
+    matches!(&first.kind, TokenKind::Atom(_))
+        && tokens
+            .iter()
+            .position(|token| matches!(&token.kind, TokenKind::Equals))
+            .is_some_and(|equals| {
+                let value = &tokens[equals + 1..];
+                !value.is_empty() && value_tokens_are_balanced(value)
+            })
+}
+
+fn value_tokens_are_balanced(tokens: &[&Token<'_>]) -> bool {
+    let mut stack = Vec::new();
+    for token in tokens {
+        match &token.kind {
+            TokenKind::Open(delimiter) => stack.push(*delimiter),
+            TokenKind::Close(delimiter) => {
+                if stack.pop() != Some(*delimiter) {
+                    return false;
+                }
+            }
+            _ => {}
+        }
+    }
+    stack.is_empty()
 }
 
 fn sort_policy_findings(findings: &mut [ManifestPolicyFinding]) {
@@ -617,82 +701,40 @@ impl<'p, 'a> Lexer<'p, 'a> {
         }
     }
 
-    fn lex(mut self) -> Vec<Token<'a>> {
+    fn lex(self) -> Lexed<'a> {
+        let path = self.path;
+        let Lexed {
+            tokens,
+            boundary_error,
+        } = self.lex_with_boundary();
+        if let Some(error) = boundary_error {
+            manifest_error(path, error.line, error.message);
+        }
+        Lexed {
+            tokens,
+            boundary_error: None,
+        }
+    }
+
+    fn lex_with_boundary(mut self) -> Lexed<'a> {
         let mut tokens = Vec::new();
         while self.offset < self.text.len() {
+            while matches!(self.peek_char(), Some(' ' | '\t')) {
+                self.next_char();
+            }
+            if self.offset >= self.text.len() {
+                break;
+            }
             let start = self.offset;
             let line = self.line;
             let ch = self.peek_char().expect("offset should be in text");
-            let kind = match ch {
-                ' ' | '\t' => {
-                    self.next_char();
-                    continue;
-                }
-                '\n' => {
-                    self.next_char();
-                    TokenKind::Newline
-                }
-                '\r' => {
-                    if !self.text[self.offset..].starts_with("\r\n") {
-                        manifest_error(self.path, self.line, "lone carriage return in manifest");
-                    }
-                    self.offset += 2;
-                    self.line += 1;
-                    TokenKind::Newline
-                }
-                '#' => {
-                    while !matches!(self.peek_char(), None | Some('\n' | '\r')) {
-                        self.next_char();
-                    }
-                    TokenKind::Comment
-                }
-                '[' => {
-                    self.next_char();
-                    TokenKind::Open(Delimiter::Square)
-                }
-                ']' => {
-                    self.next_char();
-                    TokenKind::Close(Delimiter::Square)
-                }
-                '{' => {
-                    self.next_char();
-                    TokenKind::Open(Delimiter::Brace)
-                }
-                '}' => {
-                    self.next_char();
-                    TokenKind::Close(Delimiter::Brace)
-                }
-                '=' => {
-                    self.next_char();
-                    TokenKind::Equals
-                }
-                ',' => {
-                    self.next_char();
-                    TokenKind::Comma
-                }
-                '"' | '\'' => TokenKind::String(self.lex_string(ch)),
-                _ => {
-                    while let Some(ch) = self.peek_char() {
-                        if matches!(
-                            ch,
-                            ' ' | '\t'
-                                | '\n'
-                                | '\r'
-                                | '#'
-                                | '['
-                                | ']'
-                                | '{'
-                                | '}'
-                                | '='
-                                | ','
-                                | '"'
-                                | '\''
-                        ) {
-                            break;
-                        }
-                        self.next_char();
-                    }
-                    TokenKind::Atom(&self.text[start..self.offset])
+            let kind = match self.lex_token_kind(ch, start, line) {
+                Ok(kind) => kind,
+                Err(error) => {
+                    return Lexed {
+                        tokens,
+                        boundary_error: Some(error),
+                    };
                 }
             };
             tokens.push(Token {
@@ -702,10 +744,96 @@ impl<'p, 'a> Lexer<'p, 'a> {
                 end: self.offset,
             });
         }
-        tokens
+        Lexed {
+            tokens,
+            boundary_error: None,
+        }
     }
 
-    fn lex_string(&mut self, quote: char) -> StringToken<'a> {
+    fn lex_token_kind(
+        &mut self,
+        ch: char,
+        start: usize,
+        _line: usize,
+    ) -> Result<TokenKind<'a>, SyntaxError> {
+        Ok(match ch {
+            ' ' | '\t' => {
+                self.next_char();
+                unreachable!("layout should be skipped before lexing token kind");
+            }
+            '\n' => {
+                self.next_char();
+                TokenKind::Newline
+            }
+            '\r' => {
+                if !self.text[self.offset..].starts_with("\r\n") {
+                    return Err(SyntaxError {
+                        line: self.line,
+                        message: "lone carriage return in manifest".to_string(),
+                    });
+                }
+                self.offset += 2;
+                self.line += 1;
+                TokenKind::Newline
+            }
+            '#' => {
+                while !matches!(self.peek_char(), None | Some('\n' | '\r')) {
+                    self.next_char();
+                }
+                TokenKind::Comment
+            }
+            '[' => {
+                self.next_char();
+                TokenKind::Open(Delimiter::Square)
+            }
+            ']' => {
+                self.next_char();
+                TokenKind::Close(Delimiter::Square)
+            }
+            '{' => {
+                self.next_char();
+                TokenKind::Open(Delimiter::Brace)
+            }
+            '}' => {
+                self.next_char();
+                TokenKind::Close(Delimiter::Brace)
+            }
+            '=' => {
+                self.next_char();
+                TokenKind::Equals
+            }
+            ',' => {
+                self.next_char();
+                TokenKind::Comma
+            }
+            '"' | '\'' => TokenKind::String(self.lex_string(ch)?),
+            _ => {
+                while let Some(ch) = self.peek_char() {
+                    if matches!(
+                        ch,
+                        ' ' | '\t'
+                            | '\n'
+                            | '\r'
+                            | '#'
+                            | '['
+                            | ']'
+                            | '{'
+                            | '}'
+                            | '='
+                            | ','
+                            | '"'
+                            | '\''
+                    ) {
+                        break;
+                    }
+                    self.next_char();
+                }
+                TokenKind::Atom(&self.text[start..self.offset])
+            }
+        })
+    }
+
+    fn lex_string(&mut self, quote: char) -> Result<StringToken<'a>, SyntaxError> {
         let start = self.offset;
         let opening_line = self.line;
         let multiline =
@@ -722,20 +850,26 @@ impl<'p, 'a> Lexer<'p, 'a> {
             let Some(ch) = self.peek_char() else {
                 let raw = &self.text[start..self.offset];
                 if let Err(error) = decode_toml_string(raw, opening_line, form, 0) {
-                    manifest_error(self.path, error.line, error.message);
+                    return Err(error);
                 }
-                manifest_error(self.path, opening_line, "unterminated manifest string");
+                return Err(SyntaxError {
+                    line: opening_line,
+                    message: "unterminated manifest string".to_string(),
+                });
             };
             if ch == '\r' {
                 if !self.text[self.offset..].starts_with("\r\n") {
-                    manifest_error(self.path, self.line, "lone carriage return in manifest");
+                    return Err(SyntaxError {
+                        line: self.line,
+                        message: "lone carriage return in manifest".to_string(),
+                    });
                 }
                 if !multiline {
-                    self.report_single_line_newline_or_pending_string_error(
+                    return Err(self.single_line_newline_or_pending_string_error(
                         start,
                         opening_line,
                         form,
-                    );
+                    ));
                 }
                 self.offset += 2;
                 self.line += 1;
@@ -743,11 +877,11 @@ impl<'p, 'a> Lexer<'p, 'a> {
             }
             if ch == '\n' {
                 if !multiline {
-                    self.report_single_line_newline_or_pending_string_error(
+                    return Err(self.single_line_newline_or_pending_string_error(
                         start,
                         opening_line,
                         form,
-                    );
+                    ));
                 }
                 self.next_char();
                 continue;
@@ -755,7 +889,10 @@ impl<'p, 'a> Lexer<'p, 'a> {
             if form.is_basic() && ch == '\\' {
                 self.next_char();
                 if self.peek_char() == Some('\r') && !self.text[self.offset..].starts_with("\r\n") {
-                    manifest_error(self.path, self.line, "lone carriage return in manifest");
+                    return Err(SyntaxError {
+                        line: self.line,
+                        message: "lone carriage return in manifest".to_string(),
+                    });
                 }
                 if self.peek_char().is_some() {
                     self.next_char();
@@ -783,23 +920,26 @@ impl<'p, 'a> Lexer<'p, 'a> {
 
         let raw = &self.text[start..self.offset];
         let decoded = decode_toml_string(raw, opening_line, form, closing_quotes);
-        StringToken {
+        Ok(StringToken {
             decoded,
             source: raw,
-        }
+        })
     }
 
-    fn report_single_line_newline_or_pending_string_error(
+    fn single_line_newline_or_pending_string_error(
         &self,
         start: usize,
         opening_line: usize,
         form: StringForm,
-    ) -> ! {
+    ) -> SyntaxError {
         let raw = &self.text[start..self.offset];
         if let Err(error) = decode_toml_string(raw, opening_line, form, 0) {
-            manifest_error(self.path, error.line, error.message);
+            return error;
         }
-        manifest_error(self.path, opening_line, "newline in single-line string");
+        SyntaxError {
+            line: opening_line,
+            message: "newline in single-line string".to_string(),
+        }
     }
 
     fn peek_char(&self) -> Option<char> {
@@ -1044,7 +1184,7 @@ line
 break"""
 # "ignored\r"
 "#;
-        let tokens = Lexer::new(Path::new("case.toml"), source).lex();
+        let tokens = Lexer::new(Path::new("case.toml"), source).lex().tokens;
         let strings = tokens
             .iter()
             .filter_map(|token| match &token.kind {
@@ -1101,6 +1241,7 @@ break"""
         let source = "first = \"\"\"\nphysical\n\\u000A\"\"\"\ninvalid = \"bad\\q\"\n";
         let strings = Lexer::new(Path::new("case.toml"), source)
             .lex()
+            .tokens
             .into_iter()
             .filter_map(|token| match token.kind {
                 TokenKind::String(string) => Some(string),
