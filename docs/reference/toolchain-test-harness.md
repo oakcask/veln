@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: normative
-update-when: The CLI integration harness discovery inventory, manifest grammar, assertion model, semantic case baseline, manifest authoring policy, case-text repository attribute convention, or source-error guard evidence changes.
+update-when: The CLI integration harness discovery inventory, manifest grammar, structured JSON-RPC input validation or fixture diagnostics, assertion model, semantic case baseline, manifest authoring policy, case-text repository attribute convention, or source-error guard evidence changes.
 ---
 
 # Toolchain Test Harness
@@ -72,8 +72,9 @@ assertions, diagnostic selectors, and file content assertions.
 
 ## Manifest Fields
 
-- Invocation and fixture setup: `command`, `stdin`, `stdin_file`, `repeat`,
-  `[env]`, `[tools]`, `[requires]`, and `[skip]`.
+- Invocation and fixture setup: `command`, `stdin`, `stdin_file`,
+  `stdin_jsonrpc_file`, `repeat`, `[env]`, `[tools]`, `[requires]`, and
+  `[skip]`.
 - Observable command results: `exit`, `[stdout]`, `[stderr]`,
   `[help]`, `[[json_assert]]`, `[[result_value_assert]]`,
   `[[diagnostics]]`, `[[file_assert]]`, `[[binary_fixture]]`, and
@@ -106,6 +107,8 @@ and objects with nested JSON containers for `[[json_assert]]`,
 structured values. JSON containers retain JSON grammar: manifest comments,
 trailing commas, literal strings, and multiline TOML strings are invalid. A
 complete manifest string token used as `equals` becomes a JSON string value.
+JSON string escapes decode UTF-16 surrogate pairs to one scalar value and
+reject unpaired high or low surrogates.
 
 LF and CRLF each count as one physical newline. Physical newlines inside
 multiline strings normalize to LF, including mixed-line-ending manifests. A
@@ -163,6 +166,42 @@ Use `stdin_file` when command input is easier to review as a case text file.
 Use a `.raw` sidecar for `stdin_file` when the input protocol includes bytes
 whose framing must survive repository checkout exactly, such as LSP JSON-RPC
 headers and their CRLF separators.
+
+Use `stdin_jsonrpc_file` for an ordered UTF-8 JSON array of JSON-RPC requests
+and notifications. It is mutually exclusive with `stdin` and `stdin_file`.
+Each array element must be an object. Its `jsonrpc` member must be `"2.0"`.
+Its `method` member must be a string. An `id` may be absent, a string, a
+number, or null. A `params` member may be absent, an object, an array, or null.
+The harness rejects response-shaped input containing `result` or `error`. It
+does not reject unknown methods, extension members, duplicate identifiers, or
+method-specific parameter values. The standard envelope members `jsonrpc`,
+`method`, `id`, and `params` must not appear more than once in the same
+message object, including when one duplicate spelling has an otherwise valid
+value and another duplicate spelling has an invalid value. JSON string escapes
+in the request file decode paired UTF-16 surrogates before framing and reject
+unpaired surrogate units before command startup.
+
+Any complete object value or array element in a structured request may use a
+`{"$case_text":"relative/path"}` directive. The object must contain only that
+member, and its value must be a string. The harness recursively replaces the
+directive with the exact UTF-8 snapshot supplied by the case-relative file
+rules below. Object member order, array element order, a byte-order mark,
+CRLF, non-ASCII text, and a final line break remain observable through the
+serialized string value.
+
+The harness serializes each expanded message as compact deterministic JSON. It
+prefixes the body with `Content-Length: <UTF-8 byte length>\r\n\r\n` and
+concatenates frames in array order. Malformed JSON, root and element kind
+failures, envelope failures, malformed directives, and case-file failures stop
+manifest loading before skip evaluation, fixture copying, or command startup.
+Failures identify the indexed message when the malformed input follows a
+complete preceding array element. Failures identify the JSON value position
+when a parsed value supplies that context. The `manifest_jsonrpc_*` tests in
+`toolchain_harness.rs` are the executable evidence for the accepted envelope
+matrix, exact framing, recursive expansion, resource boundaries, and lifecycle
+ordering. Existing `stdin`, `stdin_file`, and raw `.raw` framing cases keep
+their prior behavior.
+
 Use `[[json_assert]]`, `[[result_value_assert]]`, and `[[diagnostics]]` for
 semantic checks inside JSON stdout. JSON and result-value assertions accept
 `equals`, `equals_file`, `equals_json_file`, or `missing = true`.
