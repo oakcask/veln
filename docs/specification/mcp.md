@@ -18,6 +18,12 @@ successful refreshes and for the stable `generation_failed` domain failure.
 Unknown input fields and non-object inputs produce a JSON-RPC invalid-params
 error.
 
+Request IDs are strings or integer numbers. A request with a `null` ID or a
+fractional numeric ID is an invalid JSON-RPC request. `initialize` requires the
+declared protocol version, client capabilities object, and client name/version
+fields. Request metadata accepts `_meta.progressToken` when the token is a
+string or integer number.
+
 ## Workspace Selection
 
 The server resolves its process working directory once as the workspace base.
@@ -49,7 +55,8 @@ successful refresh.
 ## Executable Evidence
 
 The `../../examples/specification/mcp/workspace-lifecycle/case.toml` case checks
-initialization, exact tool declarations, both tool calls, invalid input,
+initialization, exact tool declarations, accepted request metadata, both tool
+calls, invalid tool input, invalid initialize parameters, invalid request IDs,
 protocol-only standard output, and clean end-of-file termination. Table-driven
 tests in `veln-mcp` check discovery boundaries, client-root invariance, refresh
 transitions, and failure state preservation.

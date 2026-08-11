@@ -42,24 +42,23 @@ impl Server {
             return Some(protocol_error(Value::Null, -32600, "Invalid Request"));
         };
         let id = object.get("id").cloned();
-        let response_id = id.clone().unwrap_or(Value::Null);
         if object.get("jsonrpc").and_then(Value::as_str) != Some("2.0")
-            || !id.as_ref().is_none_or(valid_id)
+            || !id.as_ref().is_none_or(valid_request_id)
         {
-            return id.map(|_| protocol_error(response_id, -32600, "Invalid Request"));
+            return id.map(|_| protocol_error(Value::Null, -32600, "Invalid Request"));
         }
         let Some(method) = object.get("method").and_then(Value::as_str) else {
-            return id.map(|_| protocol_error(response_id, -32600, "Invalid Request"));
+            return id.map(|_| protocol_error(Value::Null, -32600, "Invalid Request"));
         };
         let params = object.get("params");
 
-        id.as_ref()?;
+        let response_id = id?;
 
         let result = match method {
             "initialize" => self.initialize(params),
-            "ping" => empty_params(params).map(|()| json!({})),
+            "ping" => request_metadata_params(params).map(|()| json!({})),
             "tools/list" => {
-                empty_params(params).map(|()| json!({"tools": schema::declarations().clone()}))
+                list_tools_params(params).map(|()| json!({"tools": schema::declarations().clone()}))
             }
             "tools/call" => self.call_tool(params),
             _ => return Some(protocol_error(response_id, -32601, "Method not found")),
@@ -71,7 +70,17 @@ impl Server {
     }
 
     fn initialize(&self, params: Option<&Value>) -> Result<Value, &'static str> {
-        if !params.is_some_and(Value::is_object) {
+        let Some(params) = params.and_then(Value::as_object) else {
+            return Err("Invalid initialize params");
+        };
+        let protocol_version = params.get("protocolVersion").and_then(Value::as_str);
+        let capabilities = params.get("capabilities");
+        let client_info = params.get("clientInfo");
+        if protocol_version.is_none()
+            || !capabilities.is_some_and(Value::is_object)
+            || !client_info.is_some_and(valid_implementation)
+            || !metadata_is_valid(params.get("_meta"))
+        {
             return Err("Invalid initialize params");
         }
         Ok(json!({
@@ -94,7 +103,11 @@ impl Server {
         let params = params
             .and_then(Value::as_object)
             .ok_or("Invalid tool call params")?;
-        if params.keys().any(|key| key != "name" && key != "arguments") {
+        if params
+            .keys()
+            .any(|key| key != "name" && key != "arguments" && key != "_meta")
+            || !metadata_is_valid(params.get("_meta"))
+        {
             return Err("Invalid tool call params");
         }
         let name = params
@@ -131,16 +144,55 @@ impl Server {
     }
 }
 
-fn valid_id(value: &Value) -> bool {
-    value.is_string() || value.is_number() || value.is_null()
+fn valid_request_id(value: &Value) -> bool {
+    value.is_string() || value.as_i64().is_some() || value.as_u64().is_some()
 }
 
-fn empty_params(params: Option<&Value>) -> Result<(), &'static str> {
+fn valid_implementation(value: &Value) -> bool {
+    let Some(object) = value.as_object() else {
+        return false;
+    };
+    object.get("name").and_then(Value::as_str).is_some()
+        && object.get("version").and_then(Value::as_str).is_some()
+}
+
+fn request_metadata_params(params: Option<&Value>) -> Result<(), &'static str> {
     match params {
-        None | Some(Value::Null) => Ok(()),
-        Some(Value::Object(object)) if object.is_empty() => Ok(()),
+        None => Ok(()),
+        Some(Value::Object(object))
+            if object.keys().all(|key| key == "_meta")
+                && metadata_is_valid(object.get("_meta")) =>
+        {
+            Ok(())
+        }
         _ => Err("Invalid params"),
     }
+}
+
+fn list_tools_params(params: Option<&Value>) -> Result<(), &'static str> {
+    match params {
+        None => Ok(()),
+        Some(Value::Object(object))
+            if object.keys().all(|key| key == "cursor" || key == "_meta")
+                && object.get("cursor").is_none_or(Value::is_string)
+                && metadata_is_valid(object.get("_meta")) =>
+        {
+            Ok(())
+        }
+        _ => Err("Invalid params"),
+    }
+}
+
+fn metadata_is_valid(value: Option<&Value>) -> bool {
+    let Some(value) = value else {
+        return true;
+    };
+    let Some(object) = value.as_object() else {
+        return false;
+    };
+    object.get("progressToken").is_none_or(|token| {
+        token.is_string() || token.as_i64().is_some() || token.as_u64().is_some()
+    })
 }
 
 fn successful_tool_result(structured: Value) -> Value {
@@ -180,9 +232,9 @@ mod tests {
         workspace.write("alpha/veln.toml", "");
         workspace.write("beta/deep/veln.toml", "");
         let input = [
-            json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{},"clientInfo":{"name":"test","version":"1"}}}),
+            json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1"}}}),
             json!({"jsonrpc":"2.0","method":"notifications/initialized"}),
-            json!({"jsonrpc":"2.0","id":2,"method":"tools/list"}),
+            json!({"jsonrpc":"2.0","id":2,"method":"tools/list","params":{"_meta":{"progressToken":"list"}}}),
             json!({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"workspace_projects","arguments":{}}}),
             json!({"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"refresh_workspace","arguments":{}}}),
         ]
@@ -221,9 +273,9 @@ mod tests {
         let workspace = TempWorkspace::new("client-roots");
         workspace.write("nested/veln.toml", "");
         let variants = [
-            json!({"capabilities":{},"clientInfo":{"name":"test","version":"1"}}),
-            json!({"capabilities":{"roots":{"listChanged":true}},"clientInfo":{"name":"test","version":"1"},"rootUri":"file:///unrelated"}),
-            json!({"capabilities":{"roots":{"listChanged":false}},"clientInfo":{"name":"test","version":"1"},"roots":[{"uri":"file:///nested","name":"nested"}]}),
+            json!({"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1"}}),
+            json!({"protocolVersion":"2025-06-18","capabilities":{"roots":{"listChanged":true}},"clientInfo":{"name":"test","version":"1"},"rootUri":"file:///unrelated"}),
+            json!({"protocolVersion":"2025-06-18","capabilities":{"roots":{"listChanged":false}},"clientInfo":{"name":"test","version":"1"},"roots":[{"uri":"file:///nested","name":"nested"}]}),
         ];
 
         for params in variants {
@@ -262,6 +314,69 @@ mod tests {
             assert_eq!(response["error"]["code"], -32602);
             assert!(response.get("result").is_none());
         }
+    }
+
+    #[test]
+    fn initialize_requires_the_declared_wire_shape() {
+        let workspace = TempWorkspace::new("initialize-wire-shape");
+        let selection = Selection::discover(&workspace.root).unwrap();
+        let mut server = Server {
+            base: workspace.root.clone(),
+            selection,
+        };
+        let valid = json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {"name": "test", "version": "1"},
+                "_meta": {"progressToken": "startup"}
+            }
+        });
+        assert!(
+            server
+                .handle_request(valid)
+                .unwrap()
+                .get("result")
+                .is_some()
+        );
+
+        let invalid_requests = [
+            json!({"jsonrpc":"2.0","id":2,"method":"initialize","params":{"capabilities":{},"clientInfo":{"name":"test","version":"1"}}}),
+            json!({"jsonrpc":"2.0","id":3,"method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"test","version":"1"}}}),
+            json!({"jsonrpc":"2.0","id":4,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test"}}}),
+            json!({"jsonrpc":"2.0","id":5,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1"},"_meta":{"progressToken":null}}}),
+        ];
+        for request in invalid_requests {
+            let response = server.handle_request(request).unwrap();
+            assert_eq!(response["error"]["code"], -32602);
+            assert!(response.get("result").is_none());
+        }
+    }
+
+    #[test]
+    fn request_ids_reject_null_and_fractional_numbers() {
+        let workspace = TempWorkspace::new("request-ids");
+        let selection = Selection::discover(&workspace.root).unwrap();
+        let mut server = Server {
+            base: workspace.root.clone(),
+            selection,
+        };
+        let requests = [
+            json!({"jsonrpc":"2.0","id":null,"method":"ping"}),
+            json!({"jsonrpc":"2.0","id":1.5,"method":"ping"}),
+        ];
+        for request in requests {
+            let response = server.handle_request(request).unwrap();
+            assert_eq!(response["id"], Value::Null);
+            assert_eq!(response["error"]["code"], -32600);
+        }
+        let response = server
+            .handle_request(json!({"jsonrpc":"2.0","id":"ok","method":"ping","params":{"_meta":{"progressToken":7}}}))
+            .unwrap();
+        assert_eq!(response["result"], json!({}));
     }
 
     #[test]

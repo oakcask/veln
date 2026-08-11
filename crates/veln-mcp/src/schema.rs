@@ -87,6 +87,8 @@ mod tests {
             assert_eq!(declaration["name"], tool.name);
             assert_eq!(declaration["inputSchema"], tool.input_schema());
             assert_eq!(declaration["outputSchema"], tool.result_schema());
+            assert_eq!(declaration["inputSchema"]["type"], "object");
+            assert_eq!(declaration["outputSchema"]["type"], "object");
             assert_eq!(declaration["inputSchema"]["additionalProperties"], false);
         }
     }
