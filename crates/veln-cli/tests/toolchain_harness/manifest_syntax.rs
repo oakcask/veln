@@ -273,11 +273,35 @@ impl Value<'_> {
         field: &str,
         findings: &mut Vec<ManifestPolicyFinding>,
     ) -> Result<(), SyntaxError> {
+        let mut json_depth = 0usize;
         for token in &self.tokens {
+            match token.kind {
+                TokenKind::Open(Delimiter::Brace) if json_depth == 0 => {
+                    json_depth = 1;
+                    continue;
+                }
+                TokenKind::Open(_) if json_depth > 0 => {
+                    json_depth += 1;
+                    continue;
+                }
+                TokenKind::Close(_) if json_depth > 0 => {
+                    json_depth = json_depth.saturating_sub(1);
+                    continue;
+                }
+                _ => {}
+            }
             let TokenKind::String(string) = &token.kind else {
                 continue;
             };
-            let decoded = string.decoded.as_ref().map_err(Clone::clone)?;
+            let json_string = json_depth > 0;
+            let decoded = if json_string {
+                match decode_json_string(string.source, token.line) {
+                    Ok(decoded) => decoded,
+                    Err(_) => continue,
+                }
+            } else {
+                string.decoded.as_ref().map_err(Clone::clone)?.clone()
+            };
             for decoded_char in &decoded.chars {
                 if decoded_char.escaped && matches!(decoded_char.value, '\n' | '\r') {
                     findings.push(ManifestPolicyFinding {
@@ -477,6 +501,154 @@ fn forbidden_decoded_spellings(text: &str) -> Vec<String> {
         index += 1;
     }
     findings
+}
+
+fn decode_json_string(raw: &str, line: usize) -> Result<DecodedString, SyntaxError> {
+    if !raw.starts_with('"') || !raw.ends_with('"') || raw.len() < 2 {
+        return Err(SyntaxError {
+            line,
+            message: "invalid JSON string".to_string(),
+        });
+    }
+    let content = &raw[1..raw.len() - 1];
+    let mut chars = Vec::new();
+    let mut offset = 0;
+    while offset < content.len() {
+        let ch = content[offset..]
+            .chars()
+            .next()
+            .expect("JSON string content has a char");
+        if ch == '\\' {
+            offset += 1;
+            let Some(escaped) = content[offset..].chars().next() else {
+                return Err(SyntaxError {
+                    line,
+                    message: "unterminated JSON string escape".to_string(),
+                });
+            };
+            offset += escaped.len_utf8();
+            let value = match escaped {
+                '"' => '"',
+                '\\' => '\\',
+                '/' => '/',
+                'b' => '\u{08}',
+                'f' => '\u{0c}',
+                'n' => '\n',
+                'r' => '\r',
+                't' => '\t',
+                'u' => decode_json_unicode_escape(content, &mut offset, line)?,
+                _ => {
+                    return Err(SyntaxError {
+                        line,
+                        message: format!("unsupported JSON string escape `{escaped}`"),
+                    });
+                }
+            };
+            chars.push(DecodedChar {
+                value,
+                source_line: line,
+                escaped: true,
+            });
+            continue;
+        }
+        if is_prohibited_control(ch) {
+            return Err(SyntaxError {
+                line,
+                message: "prohibited control character in JSON string".to_string(),
+            });
+        }
+        chars.push(DecodedChar {
+            value: ch,
+            source_line: line,
+            escaped: false,
+        });
+        offset += ch.len_utf8();
+    }
+    Ok(DecodedString { chars })
+}
+
+fn decode_json_unicode_escape(
+    content: &str,
+    offset: &mut usize,
+    line: usize,
+) -> Result<char, SyntaxError> {
+    let start = *offset;
+    let mut digits = String::with_capacity(4);
+    for _ in 0..4 {
+        let Some(ch) = content[*offset..].chars().next() else {
+            return Err(SyntaxError {
+                line,
+                message: "incomplete JSON Unicode escape".to_string(),
+            });
+        };
+        if !ch.is_ascii_hexdigit() {
+            return Err(SyntaxError {
+                line,
+                message: "invalid hexadecimal digit in JSON Unicode escape".to_string(),
+            });
+        }
+        digits.push(ch);
+        *offset += ch.len_utf8();
+    }
+    let codepoint = u16::from_str_radix(&digits, 16).expect("JSON Unicode digits were validated");
+    if (0xd800..=0xdbff).contains(&codepoint) {
+        if !content[*offset..].starts_with("\\u") {
+            return Err(SyntaxError {
+                line,
+                message: format!("unpaired JSON high surrogate at byte {start}"),
+            });
+        }
+        *offset += 2;
+        let low = decode_json_unicode_unit(content, offset, line)?;
+        if !(0xdc00..=0xdfff).contains(&low) {
+            return Err(SyntaxError {
+                line,
+                message: "invalid JSON surrogate pair".to_string(),
+            });
+        }
+        let high_value = u32::from(codepoint - 0xd800);
+        let low_value = u32::from(low - 0xdc00);
+        let scalar = 0x10000 + ((high_value << 10) | low_value);
+        return char::from_u32(scalar).ok_or_else(|| SyntaxError {
+            line,
+            message: "JSON Unicode escape is not a scalar value".to_string(),
+        });
+    }
+    if (0xdc00..=0xdfff).contains(&codepoint) {
+        return Err(SyntaxError {
+            line,
+            message: format!("unpaired JSON low surrogate at byte {start}"),
+        });
+    }
+    char::from_u32(u32::from(codepoint)).ok_or_else(|| SyntaxError {
+        line,
+        message: "JSON Unicode escape is not a scalar value".to_string(),
+    })
+}
+
+fn decode_json_unicode_unit(
+    content: &str,
+    offset: &mut usize,
+    line: usize,
+) -> Result<u16, SyntaxError> {
+    let mut digits = String::with_capacity(4);
+    for _ in 0..4 {
+        let Some(ch) = content[*offset..].chars().next() else {
+            return Err(SyntaxError {
+                line,
+                message: "incomplete JSON Unicode escape".to_string(),
+            });
+        };
+        if !ch.is_ascii_hexdigit() {
+            return Err(SyntaxError {
+                line,
+                message: "invalid hexadecimal digit in JSON Unicode escape".to_string(),
+            });
+        }
+        digits.push(ch);
+        *offset += ch.len_utf8();
+    }
+    Ok(u16::from_str_radix(&digits, 16).expect("JSON Unicode digits were validated"))
 }
 
 fn matches_forbidden_hex(digits: &str) -> bool {

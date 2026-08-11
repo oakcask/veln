@@ -99,13 +99,19 @@ pub(crate) fn compare_generated_inventory_with_policy(
 
     let mut errors = Vec::new();
     for added in current.difference(&generated) {
-        errors.push(format!(
-            "{added}: rebuild the toolchain harness because this case manifest was added after test generation"
+        errors.push(PreflightError::manifest(
+            added.clone(),
+            format!(
+                "{added}: rebuild the toolchain harness because this case manifest was added after test generation"
+            ),
         ));
     }
     for removed in generated.difference(&current) {
-        errors.push(format!(
-            "{removed}: rebuild the toolchain harness because this generated case manifest is no longer discovered"
+        errors.push(PreflightError::manifest(
+            removed.clone(),
+            format!(
+                "{removed}: rebuild the toolchain harness because this generated case manifest is no longer discovered"
+            ),
         ));
     }
     Err(render_preflight_errors(errors))
@@ -190,9 +196,31 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 }
 
 struct RootValidation<'a> {
-    errors: Vec<String>,
+    errors: Vec<PreflightError>,
     readable_roots: Vec<&'a DiscoveryRoot>,
     has_overlap: bool,
+}
+
+#[derive(Clone, Debug)]
+struct PreflightError {
+    affected_manifest: Option<String>,
+    message: String,
+}
+
+impl PreflightError {
+    fn inventory(message: impl Into<String>) -> Self {
+        Self {
+            affected_manifest: None,
+            message: message.into(),
+        }
+    }
+
+    fn manifest(affected_manifest: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            affected_manifest: Some(affected_manifest.into()),
+            message: message.into(),
+        }
+    }
 }
 
 fn validate_roots<'a>(manifest_dir: &Path, roots: &'a [DiscoveryRoot]) -> RootValidation<'a> {
@@ -203,27 +231,27 @@ fn validate_roots<'a>(manifest_dir: &Path, roots: &'a [DiscoveryRoot]) -> RootVa
         match fs::symlink_metadata(&path) {
             Ok(metadata) => {
                 if is_link_like(&metadata) {
-                    errors.push(format!(
+                    errors.push(PreflightError::inventory(format!(
                         "{}: replace the link or reparse point with a regular discovery root; discovery never follows roots that can hide or escape the configured case tree",
                         root.id
-                    ));
+                    )));
                     continue;
                 }
             }
             Err(error) => {
-                errors.push(format!(
+                errors.push(PreflightError::inventory(format!(
                     "{}: discovery root must be readable before toolchain case generation: {error}",
                     root.id
-                ));
+                )));
                 continue;
             }
         }
         match fs::canonicalize(&path) {
             Ok(path) => canonical.push((root, path)),
-            Err(error) => errors.push(format!(
+            Err(error) => errors.push(PreflightError::inventory(format!(
                 "{}: discovery root must be readable before toolchain case generation: {error}",
                 root.id
-            )),
+            ))),
         }
     }
     let mut has_overlap = false;
@@ -233,10 +261,10 @@ fn validate_roots<'a>(manifest_dir: &Path, roots: &'a [DiscoveryRoot]) -> RootVa
             let (right_root, right) = &canonical[right_index];
             if left == right || left.starts_with(right) || right.starts_with(left) {
                 has_overlap = true;
-                errors.push(format!(
+                errors.push(PreflightError::inventory(format!(
                     "{} and {}: configured discovery roots overlap; move one root so each case has one owner",
                     left_root.id, right_root.id
-                ));
+                )));
             }
         }
     }
@@ -249,7 +277,7 @@ fn validate_roots<'a>(manifest_dir: &Path, roots: &'a [DiscoveryRoot]) -> RootVa
 
 struct DiscoveryResult {
     cases: Vec<CaseDescriptor>,
-    errors: Vec<String>,
+    errors: Vec<PreflightError>,
 }
 
 fn discover_root(root: &DiscoveryRoot, root_path: &Path) -> DiscoveryResult {
@@ -259,31 +287,31 @@ fn discover_root(root: &DiscoveryRoot, root_path: &Path) -> DiscoveryResult {
     let root_ancestor = match fs::symlink_metadata(&root_manifest) {
         Ok(metadata) => {
             if is_link_like(&metadata) {
-                errors.push(format!(
+                errors.push(PreflightError::inventory(format!(
                     "{}/case.toml: replace the link or reparse point with a regular fixture entry; discovery never follows entries that can hide or escape a case",
                     root.id
-                ));
+                )));
                 None
             } else {
                 if !metadata.is_file() {
-                    errors.push(format!(
+                    errors.push(PreflightError::inventory(format!(
                         "{}/case.toml: case.toml must be a regular file",
                         root.id
-                    ));
+                    )));
                 }
-                errors.push(format!(
+                errors.push(PreflightError::inventory(format!(
                     "{}: remove root-level case.toml or move it below a case directory; discovery roots are containers",
                     root.id
-                ));
+                )));
                 Some(PathBuf::from("case.toml"))
             }
         }
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
         Err(error) => {
-            errors.push(format!(
+            errors.push(PreflightError::inventory(format!(
                 "{}: inspect root-level case.toml failed: {error}",
                 root.id
-            ));
+            )));
             None
         }
     };
@@ -304,25 +332,25 @@ fn discover_dir(
     relative: &Path,
     ancestor_manifest: Option<PathBuf>,
     cases: &mut Vec<CaseDescriptor>,
-    errors: &mut Vec<String>,
+    errors: &mut Vec<PreflightError>,
 ) {
     let entries = match fs::read_dir(dir) {
         Ok(entries) => entries,
         Err(error) => {
-            errors.push(format!(
+            errors.push(PreflightError::inventory(format!(
                 "{}: read discovery directory failed: {error}",
                 display_root_path(root.id, relative)
-            ));
+            )));
             return;
         }
     };
     let mut entries = match entries.collect::<Result<Vec<_>, _>>() {
         Ok(entries) => entries,
         Err(error) => {
-            errors.push(format!(
+            errors.push(PreflightError::inventory(format!(
                 "{}: enumerate discovery directory failed: {error}",
                 display_root_path(root.id, relative)
-            ));
+            )));
             return;
         }
     };
@@ -334,25 +362,25 @@ fn discover_dir(
         let metadata = match fs::symlink_metadata(entry.path()) {
             Ok(metadata) => metadata,
             Err(error) => {
-                errors.push(format!(
+                errors.push(PreflightError::inventory(format!(
                     "{}: inspect discovery entry failed: {error}",
                     display_root_path(root.id, &entry_relative)
-                ));
+                )));
                 continue;
             }
         };
         if is_link_like(&metadata) {
-            errors.push(format!(
+            errors.push(PreflightError::inventory(format!(
                 "{}: replace the link or reparse point with a regular fixture entry; discovery never follows entries that can hide or escape a case",
                 display_root_path(root.id, &entry_relative)
-            ));
+            )));
             continue;
         }
         if !metadata.is_dir() && !metadata.is_file() {
-            errors.push(format!(
+            errors.push(PreflightError::inventory(format!(
                 "{}: replace the non-regular fixture entry with a regular file or directory",
                 display_root_path(root.id, &entry_relative)
-            ));
+            )));
             continue;
         }
         classified.push((entry, entry_relative, metadata));
@@ -363,18 +391,18 @@ fn discover_dir(
         if entry.file_name() == "case.toml" {
             let manifest_relative = relative.join("case.toml");
             if !metadata.is_file() {
-                errors.push(format!(
+                errors.push(PreflightError::inventory(format!(
                     "{}: case.toml must be a regular file",
                     display_root_path(root.id, &manifest_relative)
-                ));
+                )));
                 continue;
             }
             if let Some(ancestor) = &ancestor_manifest {
-                errors.push(format!(
+                errors.push(PreflightError::inventory(format!(
                     "{}: nested case.toml is below {}; remove the nested manifest or move it to a sibling case directory",
                     display_root_path(root.id, &manifest_relative),
                     display_root_path(root.id, ancestor)
-                ));
+                )));
             } else if !relative.as_os_str().is_empty() {
                 let manifest_relative_to_crate = Path::new(root.relative).join(&manifest_relative);
                 cases.push(CaseDescriptor {
@@ -405,16 +433,19 @@ fn discover_dir(
     }
 }
 
-fn scan_policy(manifest_dir: &Path, cases: &[CaseDescriptor]) -> Vec<String> {
+fn scan_policy(manifest_dir: &Path, cases: &[CaseDescriptor]) -> Vec<PreflightError> {
     let mut errors = Vec::new();
     for case in cases {
         let manifest = manifest_dir.join(&case.manifest_relative).join("case.toml");
         let text = match fs::read_to_string(&manifest) {
             Ok(text) => text,
             Err(error) => {
-                errors.push(format!(
-                    "{}: read manifest failed before policy validation: {error}",
-                    case.id
+                errors.push(PreflightError::manifest(
+                    case.id.clone(),
+                    format!(
+                        "{}: read manifest failed before policy validation: {error}",
+                        case.id
+                    ),
                 ));
                 continue;
             }
@@ -424,30 +455,39 @@ fn scan_policy(manifest_dir: &Path, cases: &[CaseDescriptor]) -> Vec<String> {
         })) {
             Ok(scan) => scan,
             Err(panic) => {
-                errors.push(format!(
-                    "{}: manifest policy scan failed before command generation: {}",
-                    case.id,
-                    panic_message(panic)
+                errors.push(PreflightError::manifest(
+                    case.id.clone(),
+                    format!(
+                        "{}: manifest policy scan failed before command generation: {}",
+                        case.id,
+                        panic_message(panic)
+                    ),
                 ));
                 continue;
             }
         };
         for finding in scan.findings {
-            errors.push(format!(
-                "{}:{}:{}-{} field `{}` contains {} `{}`; use physical multiline text or a sidecar so line structure remains reviewable",
-                case.id,
-                finding.line,
-                finding.start,
-                finding.end,
-                finding.field,
-                finding.category,
-                finding.spelling.escape_debug()
+            errors.push(PreflightError::manifest(
+                case.id.clone(),
+                format!(
+                    "{}:{}:{}-{} field `{}` contains {} `{}`; use physical multiline text or a sidecar so line structure remains reviewable",
+                    case.id,
+                    finding.line,
+                    finding.start,
+                    finding.end,
+                    finding.field,
+                    finding.category,
+                    finding.spelling.escape_debug()
+                ),
             ));
         }
         if let Some(error) = scan.error {
-            errors.push(format!(
-                "{}: manifest policy scan failed before command generation: {error}",
-                case.id
+            errors.push(PreflightError::manifest(
+                case.id.clone(),
+                format!(
+                    "{}: manifest policy scan failed before command generation: {error}",
+                    case.id
+                ),
             ));
         }
     }
@@ -464,10 +504,16 @@ fn panic_message(panic: Box<dyn std::any::Any + Send>) -> String {
     "non-string panic".to_string()
 }
 
-fn render_preflight_errors(errors: Vec<String>) -> String {
+fn render_preflight_errors(errors: Vec<PreflightError>) -> String {
+    let affected_manifests = errors
+        .iter()
+        .filter_map(|error| error.affected_manifest.as_deref())
+        .collect::<BTreeSet<_>>()
+        .len();
     let mut report = format!(
-        "toolchain case preflight found {} problem(s) in the authoritative case inventory",
-        errors.len()
+        "toolchain case preflight found {} problem(s) affecting {} manifest(s) in the authoritative case inventory",
+        errors.len(),
+        affected_manifests
     );
     report.push_str(
         "\nmove encoded line structure to physical multiline manifest values or sidecars, replace links with regular fixture entries, and rebuild so policy and execution use one visible portable case set",
@@ -475,7 +521,7 @@ fn render_preflight_errors(errors: Vec<String>) -> String {
     for error in errors {
         report.push('\n');
         report.push_str("- ");
-        report.push_str(&error);
+        report.push_str(&error.message);
     }
     report
 }

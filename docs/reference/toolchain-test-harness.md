@@ -125,12 +125,13 @@ protect existing single-line case meaning.
 
 The manifest policy scanner uses the same lexer provenance. It examines every
 TOML string token and every string token inside JSON-valued manifest fields,
-including nested JSON object keys and values. The predicate rejects a decoded
-LF or CR that comes from an escape, and it rejects decoded text that spells a
-line-break escape such as `\n`, `\r`, `\u000A`, `\u000D`, `\U0000000A`, or
-`\U0000000D`. Physical newlines inside multiline strings are valid. Comments,
-separate string tokens, non-string values, and sidecar files are outside this
-predicate.
+including nested JSON object keys and values. JSON string tokens use JSON
+escape semantics, so valid JSON escapes such as `\/` do not fail the policy
+scan. The predicate rejects a decoded LF or CR that comes from an escape, and
+it rejects decoded text that spells a line-break escape such as `\n`, `\r`,
+`\u000A`, `\u000D`, `\U0000000A`, or `\U0000000D`. Physical newlines inside
+multiline strings are valid. Comments, separate string tokens, non-string
+values, and sidecar files are outside this predicate.
 
 Policy findings are sorted by root-qualified path, source line, token span,
 and category. A finding identifies the manifest field, location, offending
@@ -141,7 +142,8 @@ string or lone carriage return, the policy scan still reports findings from
 completed earlier statements before it reports the manifest syntax failure.
 The preflight aggregates those retained findings with skipped-case,
 unavailable-tool, and malformed-manifest failures in deterministic
-root-qualified order.
+root-qualified order. The summary reports both the total number of problems
+and the number of distinct affected manifest descriptors.
 
 ## Output Cases
 

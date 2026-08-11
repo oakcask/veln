@@ -4574,6 +4574,35 @@ exit = 0
 }
 
 #[test]
+fn manifest_policy_accepts_json_solidus_escape_in_keys_and_values() {
+    let source = r#"
+command = ["check"]
+json = {"https:\/\/x":"https:\/\/v", "nested":{"slash\/key":"value\/ok", "line":"\u000A", "spelled":"\\r"}}
+exit = 0
+"#;
+
+    let statements = manifest_syntax::parse_document(Path::new("case.toml"), source);
+    assert_eq!(statements.len(), 3);
+
+    let scan = manifest_syntax::manifest_policy_scan(Path::new("case.toml"), source);
+    assert_eq!(scan.error, None);
+    assert_eq!(
+        scan.findings
+            .iter()
+            .map(|finding| (
+                finding.field.as_str(),
+                finding.category,
+                finding.spelling.as_str()
+            ))
+            .collect::<Vec<_>>(),
+        [
+            ("json", "escape-produced-line-break", "escape-produced LF"),
+            ("json", "decoded-line-break-spelling", "\\r"),
+        ]
+    );
+}
+
+#[test]
 fn manifest_policy_reports_lowercase_and_uppercase_unicode_line_break_matrix() {
     let source = r#"
 command = ["check"]
@@ -4788,7 +4817,7 @@ contains = ["\\r"]
     )
     .expect_err("policy preflight should fail");
 
-    assert!(error.contains("toolchain case preflight found 6 problem(s)"));
+    assert!(error.contains("toolchain case preflight found 6 problem(s) affecting 4 manifest(s)"));
     assert!(error.contains("cases/lone-cr:"));
     assert!(error.contains("field `stdin` contains escape-produced-line-break"));
     assert!(error.contains("lone carriage return in manifest"));
@@ -4860,7 +4889,9 @@ fn toolchain_policy_preflight_reports_stable_detailed_aggregate_findings() {
         first_error, second_error,
         "aggregate policy output should not depend on filesystem entry order"
     );
-    assert!(first_error.contains("toolchain case preflight found 4 problem(s)"));
+    assert!(
+        first_error.contains("toolchain case preflight found 4 problem(s) affecting 2 manifest(s)")
+    );
     assert!(first_error.contains("cases/alpha:2:29-33 field `stdin` contains escape-produced-line-break `escape-produced LF`; use physical multiline text or a sidecar so line structure remains reviewable"));
     assert!(first_error.contains("cases/alpha:2:35-39 field `stdin` contains escape-produced-line-break `escape-produced CR`; use physical multiline text or a sidecar so line structure remains reviewable"));
     assert!(first_error.contains("cases/beta:3:"));
