@@ -1052,6 +1052,31 @@ fn private_function_reports_incomplete_annotation_inference() {
 }
 
 #[test]
+fn private_body_lines_share_local_binding_and_return_inference_state() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn helper(value: Int)\n",
+            "  let alias = value\n",
+            "  alias\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
+    let helper = environment
+        .function("helper")
+        .expect("private helper should be present");
+    assert_eq!(helper.params, [crate::semantic_model::Type::int()]);
+    assert_eq!(helper.return_type, crate::semantic_model::Type::int());
+}
+
+#[test]
 fn private_function_reports_partial_unknown_return_inference() {
     let source = SourceFile::new("main.veln", "fn helper()\n  []\nend\n");
     let parsed = parse(&source);

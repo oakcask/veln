@@ -1,5 +1,7 @@
 use std::collections::BTreeSet;
 
+use veln_ast::{BodyLine, Param};
+
 use super::boundary::{
     duplicate_name_diagnostic, exact_width_binary_primitive_name,
     exact_width_schema_primitive_diagnostic, format_neutral_schema_encode_helper_diagnostic,
@@ -181,95 +183,121 @@ impl<'a> FunctionChecker<'a> {
     pub(super) fn check_body(&mut self) {
         self.check_function_annotations();
         self.check_contracts();
-        for (index, line) in self.function.body.iter().enumerate() {
-            match &line.kind {
-                BodyLineKind::Let {
-                    pattern,
-                    annotation,
-                    expr,
-                } => {
-                    let expected = annotation.as_deref().and_then(|annotation| {
-                        self.parse_annotation(
-                            annotation,
-                            line.node_id,
-                            &line.span,
-                            ExpectedTypeSource::LocalAnnotation,
-                            "Type annotation declared here.",
-                        )
-                    });
-                    let initializer_diagnostic_count = self.diagnostics.len();
-                    let actual = self.infer_expr(expr, expected.as_ref());
-                    let initializer_has_diagnostic =
-                        self.diagnostics.len() != initializer_diagnostic_count;
-                    let deferred_initializer_diagnostic = annotation
-                        .is_none()
-                        .then(|| {
-                            self.deferred_ambiguous_initializer_diagnostic(
-                                initializer_diagnostic_count,
-                                expr,
-                                &actual,
-                            )
-                        })
-                        .flatten();
-                    if let Some(expected) = &expected {
-                        self.check_assignable(expr, &expected.ty, &actual, expected, "assignable");
-                    }
-                    let pattern_diagnostic_count = self.diagnostics.len();
-                    self.check_let_pattern_supported(pattern);
-                    let binding_type = expected
-                        .as_ref()
-                        .map_or_else(|| actual.clone(), |expected| expected.ty.clone());
-                    let pattern_bindings = self.pattern_bindings(pattern, &binding_type);
-                    let pattern_has_diagnostic = self.diagnostics.len() != pattern_diagnostic_count;
-                    for binding in pattern_bindings {
-                        if !self.declare_local_name(
-                            &binding.name,
-                            binding.node_id.display("pattern"),
-                            binding.span.clone(),
-                            "local binding",
-                        ) {
-                            continue;
-                        }
-                        self.bindings
-                            .push(Binding::new(binding.name.clone(), binding.ty.clone()));
-                        if annotation.is_none()
-                            && (!initializer_has_diagnostic
-                                || deferred_initializer_diagnostic.is_some())
-                            && !pattern_has_diagnostic
-                            && type_contains_unknown(&binding.ty)
-                        {
-                            self.omitted_local_bindings.push(OmittedLocalBinding {
-                                name: binding.name,
-                                node_id: binding.node_id,
-                                span: binding.span,
-                                deferred_initializer_diagnostic,
-                            });
-                        }
-                    }
-                }
-                BodyLineKind::Expr { expr } => {
-                    let expected = self.return_expected(line.node_id);
-                    let actual = self.infer_expr(expr, expected.as_ref());
-                    if index + 1 == self.function.body.len() {
-                        self.inferred_return_type = Some(actual.clone());
-                        if let Some(expected) = &expected {
-                            self.check_assignable(
-                                expr,
-                                &expected.ty,
-                                &actual,
-                                expected,
-                                "return_value",
-                            );
-                        }
-                    }
-                }
-            }
+        let function = self.function;
+        for (index, line) in function.body.iter().enumerate() {
+            self.check_body_line(index, line);
         }
         self.check_implicit_unit_return();
         self.check_omitted_local_inference_complete();
         self.check_private_inference_complete();
         self.check_effect_boundaries();
         self.remove_suppressed_diagnostics();
+    }
+
+    fn check_body_line(&mut self, index: usize, line: &BodyLine) {
+        match &line.kind {
+            BodyLineKind::Let {
+                pattern,
+                annotation,
+                expr,
+            } => self.check_let_line(line, pattern, annotation.as_deref(), expr),
+            BodyLineKind::Expr { expr } => self.check_expr_line(index, line, expr),
+        }
+    }
+
+    fn check_let_line(
+        &mut self,
+        line: &BodyLine,
+        pattern: &Pattern,
+        annotation: Option<&str>,
+        expr: &Expr,
+    ) {
+        let expected = annotation.and_then(|annotation| {
+            self.parse_annotation(
+                annotation,
+                line.node_id,
+                &line.span,
+                ExpectedTypeSource::LocalAnnotation,
+                "Type annotation declared here.",
+            )
+        });
+        let initializer_diagnostic_count = self.diagnostics.len();
+        let actual = self.infer_expr(expr, expected.as_ref());
+        let initializer_has_diagnostic = self.diagnostics.len() != initializer_diagnostic_count;
+        let deferred_initializer_diagnostic = annotation
+            .is_none()
+            .then(|| {
+                self.deferred_ambiguous_initializer_diagnostic(
+                    initializer_diagnostic_count,
+                    expr,
+                    &actual,
+                )
+            })
+            .flatten();
+        if let Some(expected) = &expected {
+            self.check_assignable(expr, &expected.ty, &actual, expected, "assignable");
+        }
+
+        let pattern_diagnostic_count = self.diagnostics.len();
+        self.check_let_pattern_supported(pattern);
+        let binding_type = expected
+            .as_ref()
+            .map_or_else(|| actual.clone(), |expected| expected.ty.clone());
+        let pattern_bindings = self.pattern_bindings(pattern, &binding_type);
+        let pattern_has_diagnostic = self.diagnostics.len() != pattern_diagnostic_count;
+        for binding in pattern_bindings {
+            self.bind_let_pattern(
+                binding,
+                annotation.is_none(),
+                initializer_has_diagnostic,
+                deferred_initializer_diagnostic,
+                pattern_has_diagnostic,
+            );
+        }
+    }
+
+    fn bind_let_pattern(
+        &mut self,
+        binding: PatternBinding,
+        annotation_is_omitted: bool,
+        initializer_has_diagnostic: bool,
+        deferred_initializer_diagnostic: Option<usize>,
+        pattern_has_diagnostic: bool,
+    ) {
+        if !self.declare_local_name(
+            &binding.name,
+            binding.node_id.display("pattern"),
+            binding.span.clone(),
+            "local binding",
+        ) {
+            return;
+        }
+        self.bindings
+            .push(Binding::new(binding.name.clone(), binding.ty.clone()));
+        if annotation_is_omitted
+            && (!initializer_has_diagnostic || deferred_initializer_diagnostic.is_some())
+            && !pattern_has_diagnostic
+            && type_contains_unknown(&binding.ty)
+        {
+            self.omitted_local_bindings.push(OmittedLocalBinding {
+                name: binding.name,
+                node_id: binding.node_id,
+                span: binding.span,
+                deferred_initializer_diagnostic,
+            });
+        }
+    }
+
+    fn check_expr_line(&mut self, index: usize, line: &BodyLine, expr: &Expr) {
+        let expected = self.return_expected(line.node_id);
+        let actual = self.infer_expr(expr, expected.as_ref());
+        if index + 1 != self.function.body.len() {
+            return;
+        }
+        self.inferred_return_type = Some(actual.clone());
+        if let Some(expected) = &expected {
+            self.check_assignable(expr, &expected.ty, &actual, expected, "return_value");
+        }
     }
 
     fn deferred_ambiguous_initializer_diagnostic(
@@ -351,78 +379,89 @@ impl<'a> FunctionChecker<'a> {
         {
             return;
         }
-        for param in &self.function.params {
-            if !parameter_annotation_is_omitted(param) {
-                continue;
-            }
-            let inferred = self
-                .bindings
-                .iter()
-                .rev()
-                .find(|binding| binding.name == param.name)
-                .map(|binding| &binding.ty)
-                .unwrap_or(&Type::Unknown);
-            if type_contains_unknown(inferred) {
-                let mut diagnostic = Diagnostic::new(
-                    "type.private_inference_incomplete",
-                    Severity::Error,
-                    DiagnosticKind::Type,
-                    format!("private parameter `{}` has no inferred type", param.name),
-                    Some(param.span.clone()),
-                    JsonValue::object([
-                        ("phase", JsonValue::string("type_check")),
-                        ("node_id", JsonValue::string(param.node_id.display("param"))),
-                        ("boundary", JsonValue::string("private_function")),
-                        ("slot_kind", JsonValue::string("private_parameter")),
-                        ("parameter", JsonValue::string(param.name.clone())),
-                        ("missing_fact", JsonValue::string("parameter_type")),
-                        ("inferred_type", JsonValue::string(inferred.render())),
-                    ]),
-                );
-                diagnostic.related.push(JsonValue::object([
-                    ("kind", JsonValue::string("repair_hint")),
-                    (
-                        "message",
-                        JsonValue::string("Add a parameter type annotation."),
-                    ),
-                    ("span", span_json(&param.span)),
-                ]));
-                self.diagnostics.push(diagnostic);
-            }
+        let function = self.function;
+        for param in &function.params {
+            self.check_private_parameter_inference(param);
         }
         if self.function.return_type.is_some() {
             return;
         }
-        let inferred = self.inferred_return_type.as_ref().unwrap_or(&Type::Unknown);
-        if type_contains_unknown(inferred) {
-            let mut diagnostic = Diagnostic::new(
-                "type.private_inference_incomplete",
-                Severity::Error,
-                DiagnosticKind::Type,
-                "private function has no inferred return type",
-                Some(self.function.span.clone()),
-                JsonValue::object([
-                    ("phase", JsonValue::string("type_check")),
-                    (
-                        "node_id",
-                        JsonValue::string(self.function.node_id.display("fn")),
-                    ),
-                    ("boundary", JsonValue::string("private_function")),
-                    ("slot_kind", JsonValue::string("private_return")),
-                    ("missing_fact", JsonValue::string("return_type")),
-                    ("inferred_type", JsonValue::string(inferred.render())),
-                ]),
-            );
-            diagnostic.related.push(JsonValue::object([
-                ("kind", JsonValue::string("repair_hint")),
-                (
-                    "message",
-                    JsonValue::string("Add a return type annotation."),
-                ),
-                ("span", span_json(&self.function.span)),
-            ]));
-            self.diagnostics.push(diagnostic);
+        self.check_private_return_inference();
+    }
+
+    fn check_private_parameter_inference(&mut self, param: &Param) {
+        if !parameter_annotation_is_omitted(param) {
+            return;
         }
+        let inferred = self
+            .bindings
+            .iter()
+            .rev()
+            .find(|binding| binding.name == param.name)
+            .map(|binding| &binding.ty)
+            .unwrap_or(&Type::Unknown);
+        if !type_contains_unknown(inferred) {
+            return;
+        }
+        let mut diagnostic = Diagnostic::new(
+            "type.private_inference_incomplete",
+            Severity::Error,
+            DiagnosticKind::Type,
+            format!("private parameter `{}` has no inferred type", param.name),
+            Some(param.span.clone()),
+            JsonValue::object([
+                ("phase", JsonValue::string("type_check")),
+                ("node_id", JsonValue::string(param.node_id.display("param"))),
+                ("boundary", JsonValue::string("private_function")),
+                ("slot_kind", JsonValue::string("private_parameter")),
+                ("parameter", JsonValue::string(param.name.clone())),
+                ("missing_fact", JsonValue::string("parameter_type")),
+                ("inferred_type", JsonValue::string(inferred.render())),
+            ]),
+        );
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("repair_hint")),
+            (
+                "message",
+                JsonValue::string("Add a parameter type annotation."),
+            ),
+            ("span", span_json(&param.span)),
+        ]));
+        self.diagnostics.push(diagnostic);
+    }
+
+    fn check_private_return_inference(&mut self) {
+        let inferred = self.inferred_return_type.as_ref().unwrap_or(&Type::Unknown);
+        if !type_contains_unknown(inferred) {
+            return;
+        }
+        let mut diagnostic = Diagnostic::new(
+            "type.private_inference_incomplete",
+            Severity::Error,
+            DiagnosticKind::Type,
+            "private function has no inferred return type",
+            Some(self.function.span.clone()),
+            JsonValue::object([
+                ("phase", JsonValue::string("type_check")),
+                (
+                    "node_id",
+                    JsonValue::string(self.function.node_id.display("fn")),
+                ),
+                ("boundary", JsonValue::string("private_function")),
+                ("slot_kind", JsonValue::string("private_return")),
+                ("missing_fact", JsonValue::string("return_type")),
+                ("inferred_type", JsonValue::string(inferred.render())),
+            ]),
+        );
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("repair_hint")),
+            (
+                "message",
+                JsonValue::string("Add a return type annotation."),
+            ),
+            ("span", span_json(&self.function.span)),
+        ]));
+        self.diagnostics.push(diagnostic);
     }
 
     fn check_omitted_local_inference_complete(&mut self) {
