@@ -30,14 +30,16 @@ that baseline with the current inventory without changing either artifact.
 The manifest-syntax foundation is also implemented. The harness has one
 physical-line-aware lexer/parser boundary and accepts the resolved TOML string,
 string-array, multiline JSON value, physical-newline, and error-location
-contracts. The current contract and executable evidence are documented in
+contracts. The canonical discovery inventory, generated/current runtime
+parity check, and encoded-line-break predicate are implemented in the same
+harness route. The current contract and executable evidence are documented in
 [Toolchain Test Harness](../reference/toolchain-test-harness.md#manifest-value-syntax).
 
-Canonical discovery, preflight policy, sidecar operands, manifest migrations,
-conversion records, structured JSON-RPC support, and the encoded-line-break
-policy remain planned. The implementation slices below retain their dependency
-order; the implemented syntax subset does not imply that the rest of the first
-slice is complete.
+Sidecar operands, manifest migrations, conversion records, structured
+JSON-RPC support, repository-wide zero-policy enforcement, and proposal
+closure remain planned. The implementation slices below retain their
+dependency order; the implemented discovery and predicate foundation does not
+imply that migration has begun.
 
 ## Review Route
 
@@ -987,10 +989,11 @@ the tests.
 
 ## Implementation Slices
 
-1. Complete the first slice by adding canonical discovery inventory and
-   build/runtime policy preflight without migrating cases. The shared manifest
-   lexer and multiline string, string-array, multiline JSON, physical-newline,
-   and error-location contracts are already implemented.
+1. Enable repository-wide zero-policy enforcement after the checked manifests
+   have been migrated. The shared discovery inventory, generated/current
+   parity check, lexer predicate, multiline string, string-array, multiline
+   JSON, physical-newline, and error-location contracts are already
+   implemented.
 2. Add portable case-file operands, no-follow copy checks, eager immutable
    snapshots, repository line-ending attributes, and boundary coverage.
 3. Add the JSON interoperability profile, structured request transformation

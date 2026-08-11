@@ -4,6 +4,7 @@ use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Output, Stdio};
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 #[cfg(all(unix, debug_assertions))]
 use std::thread;
@@ -20,6 +21,8 @@ use veln_project::Project;
 
 #[path = "toolchain_harness/manifest_syntax.rs"]
 mod manifest_syntax;
+#[path = "../toolchain_case_inventory.rs"]
+mod toolchain_case_inventory;
 
 use manifest_syntax::{Statement as ManifestStatement, Value as ManifestValue};
 
@@ -40,6 +43,7 @@ fn run_case_with_after_invocation(
     case_dir: &Path,
     mut after_invocation: impl FnMut(&CaseRunContext<'_>, &Path),
 ) {
+    guard_generated_or_synthetic_case(case_dir);
     let manifest = CaseManifest::read(&case_dir.join("case.toml"));
     if let Some(reason) = manifest.skip_reason() {
         eprintln!("skipping {}: {reason}", case_dir.display());
@@ -92,6 +96,49 @@ fn run_case_with_after_invocation(
             .assert_files_match(&context, &project.root);
         assert_no_metrics_baseline_temp_file(&context, &project.root);
         after_invocation(&context, &project.root);
+    }
+}
+
+fn guard_generated_or_synthetic_case(case_dir: &Path) {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    if case_dir.starts_with(manifest_dir) {
+        runtime_generated_inventory_barrier();
+    } else if std::env::var("VELN_TOOLCHAIN_CASE_POLICY").is_ok_and(|value| value == "deny") {
+        let manifest = case_dir.join("case.toml");
+        let text = fs::read_to_string(&manifest).unwrap_or_else(|error| {
+            panic!("{}: failed to read manifest: {error}", manifest.display())
+        });
+        let findings = manifest_syntax::manifest_policy_findings(&manifest, &text);
+        if !findings.is_empty() {
+            let mut message = format!(
+                "{}: synthetic toolchain case violates manifest line-break policy before loading resources",
+                manifest.display()
+            );
+            for finding in findings {
+                message.push_str(&format!(
+                    "\n- line {} field `{}` contains {} `{}`; use physical multiline text or a sidecar so line structure remains reviewable",
+                    finding.line,
+                    finding.field,
+                    finding.category,
+                    finding.spelling.escape_debug()
+                ));
+            }
+            panic!("{message}");
+        }
+    }
+}
+
+fn runtime_generated_inventory_barrier() {
+    static RESULT: OnceLock<Result<(), String>> = OnceLock::new();
+    match RESULT.get_or_init(|| {
+        toolchain_case_inventory::compare_generated_inventory(
+            Path::new(env!("CARGO_MANIFEST_DIR")),
+            GENERATED_TOOLCHAIN_CASES,
+        )
+        .map(|_| ())
+    }) {
+        Ok(()) => {}
+        Err(message) => panic!("{message}"),
     }
 }
 
@@ -3530,6 +3577,173 @@ java = "real"
     assert!(manifest.tools.needs_path());
     assert!(manifest.tools.requires_jdk());
     assert_eq!(manifest.tools.java, Some(ToolAvailability::Real));
+}
+
+#[test]
+fn toolchain_inventory_discovers_both_roots_with_stable_root_qualified_order() {
+    let root = test_temp_root("inventory-order");
+    for case_dir in ["a/zeta", "b/alpha", "a/alpha"] {
+        fs::create_dir_all(root.join(case_dir)).expect("case directory should be created");
+        fs::write(
+            root.join(case_dir).join("case.toml"),
+            "command = [\"check\"]\nexit = 0\n",
+        )
+        .expect("case manifest should be written");
+    }
+
+    let preflight = toolchain_case_inventory::run_preflight_with_roots(
+        &root,
+        &[
+            test_discovery_root("root-a", "a"),
+            test_discovery_root("root-b", "b"),
+        ],
+    )
+    .expect("inventory should be discovered");
+
+    assert_eq!(
+        preflight
+            .cases
+            .iter()
+            .map(|case| case.id.as_str())
+            .collect::<Vec<_>>(),
+        ["root-a/alpha", "root-a/zeta", "root-b/alpha"]
+    );
+    assert_eq!(
+        preflight
+            .cases
+            .iter()
+            .map(|case| case.manifest_relative.to_string_lossy().replace('\\', "/"))
+            .collect::<Vec<_>>(),
+        ["a/alpha", "a/zeta", "b/alpha"]
+    );
+
+    fs::remove_dir_all(root).expect("inventory root should be removed");
+}
+
+#[test]
+fn toolchain_inventory_rejects_overlapping_root_and_manifest_boundaries() {
+    let root = test_temp_root("inventory-boundaries");
+    fs::create_dir_all(root.join("outer/nested")).expect("directories should be created");
+    fs::write(
+        root.join("outer/case.toml"),
+        "command = [\"check\"]\nexit = 0\n",
+    )
+    .expect("outer manifest should be written");
+    fs::write(
+        root.join("outer/nested/case.toml"),
+        "command = [\"check\"]\nexit = 0\n",
+    )
+    .expect("nested manifest should be written");
+
+    let overlap = toolchain_case_inventory::run_preflight_with_roots(
+        &root,
+        &[
+            test_discovery_root("outer", "outer"),
+            test_discovery_root("nested", "outer/nested"),
+        ],
+    )
+    .expect_err("overlapping roots should fail");
+    assert!(overlap.contains("configured discovery roots overlap"));
+
+    let nested = toolchain_case_inventory::run_preflight_with_roots(
+        &root,
+        &[test_discovery_root("outer", "outer")],
+    )
+    .expect_err("root and nested manifests should fail");
+    assert!(nested.contains("root-level case.toml"));
+    assert!(nested.contains("nested case.toml"));
+
+    fs::remove_dir_all(root).expect("inventory root should be removed");
+}
+
+#[cfg(unix)]
+#[test]
+fn toolchain_inventory_rejects_links_without_following_them() {
+    use std::os::unix::fs::symlink;
+
+    let root = test_temp_root("inventory-links");
+    fs::create_dir_all(root.join("cases/ordinary")).expect("directories should be created");
+    fs::write(
+        root.join("cases/ordinary/case.toml"),
+        "command = [\"check\"]\nexit = 0\n",
+    )
+    .expect("case manifest should be written");
+    symlink("ordinary", root.join("cases/link")).expect("symlink should be created");
+
+    let error = toolchain_case_inventory::run_preflight_with_roots(
+        &root,
+        &[test_discovery_root("cases", "cases")],
+    )
+    .expect_err("link should fail discovery");
+    assert!(error.contains("replace the link or reparse point"));
+    assert!(error.contains("cases/link"));
+
+    fs::remove_dir_all(root).expect("inventory root should be removed");
+}
+
+#[test]
+fn toolchain_inventory_parity_reports_stale_generated_cases() {
+    let error = toolchain_case_inventory::compare_generated_inventory(
+        Path::new(env!("CARGO_MANIFEST_DIR")),
+        &[],
+    )
+    .expect_err("empty generated inventory should be stale");
+
+    assert!(error.contains("rebuild the toolchain harness"));
+    assert!(error.contains("case manifest was added after test generation"));
+}
+
+#[test]
+fn manifest_policy_reports_encoded_line_breaks_in_toml_and_json_strings() {
+    let source = r#"
+command = ["check"]
+stdin = ["\n", '\n', {"json":"\u000A", "nested":["\\r"]}]
+physical = """
+line
+break"""
+# "\n"
+exit = 0
+"#;
+
+    let findings = manifest_syntax::manifest_policy_findings(Path::new("case.toml"), source);
+    assert_eq!(
+        findings
+            .iter()
+            .map(|finding| (
+                finding.field.as_str(),
+                finding.category,
+                finding.spelling.as_str()
+            ))
+            .collect::<Vec<_>>(),
+        [
+            ("stdin", "escape-produced-line-break", "escape-produced LF"),
+            ("stdin", "decoded-line-break-spelling", "\\n"),
+            ("stdin", "escape-produced-line-break", "escape-produced LF"),
+            ("stdin", "decoded-line-break-spelling", "\\r"),
+        ]
+    );
+}
+
+#[test]
+fn manifest_policy_accepts_physical_comments_and_token_boundaries() {
+    let source = r#"
+command = ["check"]
+stdin = """
+first
+second"""
+split = ['\', 'n']
+# "\r"
+exit = 0
+"#;
+
+    assert!(manifest_syntax::manifest_policy_findings(Path::new("case.toml"), source).is_empty());
+}
+
+fn test_discovery_root(
+    id: &'static str,
+    relative: &'static str,
+) -> toolchain_case_inventory::DiscoveryRoot {
+    toolchain_case_inventory::DiscoveryRoot { id, relative }
 }
 
 #[test]

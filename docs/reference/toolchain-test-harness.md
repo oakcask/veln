@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: normative
-update-when: The CLI integration harness manifest grammar, assertion model, semantic case baseline, or source-error guard evidence changes.
+update-when: The CLI integration harness discovery inventory, manifest grammar, assertion model, semantic case baseline, manifest authoring policy, or source-error guard evidence changes.
 ---
 
 # Toolchain Test Harness
@@ -28,10 +28,27 @@ reference for test organization, not a source for command behavior.
 
 ## Case Layout
 
-The CLI harness discovers case directories that contain `case.toml` under
-`tests/toolchain_cases/` and `examples/specification/`. Each case is copied
-into a temporary project before the command runs, so fixtures stay isolated
-from the repository checkout.
+The CLI harness discovers case directories from one authoritative inventory.
+The configured roots are `tests/toolchain_cases/` and
+`examples/specification/`. Each descriptor records its root identity and
+slash-separated case directory. Descriptor order is deterministic by the
+root-qualified UTF-8 spelling, so cases with the same suffix under different
+roots remain distinct.
+
+A configured discovery root is a container. It must not contain a root-level
+`case.toml`. A directory with `case.toml` is a case root, but discovery still
+walks below it to reject a nested `case.toml`. A nested manifest is invalid
+because it would create a hidden case boundary. Discovery rejects symbolic
+links, Windows reparse points, and other link-like entries in either root. The
+failure identifies the offending entry and directs the author to use one
+visible, portable case boundary made of regular fixture entries.
+
+The build preflight creates the generated test list from the shared inventory.
+Generated cases pass a process-wide runtime barrier before manifest loading,
+skip evaluation, fixture setup, or command execution. The barrier rediscovers
+the current inventory and compares it with the generated list. A mismatch
+fails every generated case with added or removed descriptors and directs the
+maintainer to rebuild the harness.
 
 Cases are grouped by command or behavior area. The harness owns command
 execution, fixture copying, exit-status checks, stream checks, JSON
@@ -88,6 +105,21 @@ indentation and closing delimiters, physical-newline equivalence, schema
 selected string arrays, field-directed containers, trailing tokens, and exact
 error lines. The checked semantic baseline and the complete harness target
 protect existing single-line case meaning.
+
+The manifest policy scanner uses the same lexer provenance. It examines every
+TOML string token and every string token inside JSON-valued manifest fields,
+including nested JSON object keys and values. The predicate rejects a decoded
+LF or CR that comes from an escape, and it rejects decoded text that spells a
+line-break escape such as `\n`, `\r`, `\u000A`, `\u000D`, `\U0000000A`, or
+`\U0000000D`. Physical newlines inside multiline strings are valid. Comments,
+separate string tokens, non-string values, and sidecar files are outside this
+predicate.
+
+Policy findings are sorted by root-qualified path, source line, token span,
+and category. A finding identifies the manifest field, location, offending
+spelling, the replacement action, and the reviewability reason: line structure
+belongs in physical multiline text or a sidecar so fixture changes remain
+visible.
 
 ## Output Cases
 
@@ -161,8 +193,9 @@ manifest assertion sequences retain their order.
 
 The normal `toolchain_harness` target runs
 `checked_in_semantic_baseline_matches_authoritative_cases`. The test reads the
-baseline and current manifests without writing either one. A mismatch reports
-added or removed cases before reporting case-qualified field differences.
+baseline and current manifests from the shared discovery inventory without
+writing either one. A mismatch reports added or removed cases before reporting
+case-qualified field differences.
 Run the focused non-mutating check with:
 
 ```sh

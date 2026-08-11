@@ -46,6 +46,7 @@ impl StringForm {
 struct DecodedChar {
     value: char,
     source_line: usize,
+    escaped: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -116,6 +117,16 @@ pub(super) struct Value<'a> {
     line: usize,
     tokens: Vec<Token<'a>>,
     unterminated: Option<(Delimiter, usize)>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ManifestPolicyFinding {
+    pub(crate) field: String,
+    pub(crate) line: usize,
+    pub(crate) start: usize,
+    pub(crate) end: usize,
+    pub(crate) spelling: String,
+    pub(crate) category: &'static str,
 }
 
 impl Value<'_> {
@@ -245,11 +256,122 @@ impl Value<'_> {
     pub(super) fn is_unterminated(&self) -> bool {
         self.unterminated.is_some()
     }
+
+    fn collect_policy_findings(&self, field: &str, findings: &mut Vec<ManifestPolicyFinding>) {
+        for token in &self.tokens {
+            let TokenKind::String(string) = &token.kind else {
+                continue;
+            };
+            let decoded = string.decoded.as_ref().unwrap_or_else(|error| {
+                manifest_error(Path::new("case.toml"), error.line, &error.message)
+            });
+            for decoded_char in &decoded.chars {
+                if decoded_char.escaped && matches!(decoded_char.value, '\n' | '\r') {
+                    findings.push(ManifestPolicyFinding {
+                        field: field.to_string(),
+                        line: decoded_char.source_line,
+                        start: token.start,
+                        end: token.end,
+                        spelling: if decoded_char.value == '\n' {
+                            "escape-produced LF".to_string()
+                        } else {
+                            "escape-produced CR".to_string()
+                        },
+                        category: "escape-produced-line-break",
+                    });
+                }
+            }
+            let text = decoded.text();
+            for spelling in forbidden_decoded_spellings(&text) {
+                findings.push(ManifestPolicyFinding {
+                    field: field.to_string(),
+                    line: token.line,
+                    start: token.start,
+                    end: token.end,
+                    spelling,
+                    category: "decoded-line-break-spelling",
+                });
+            }
+        }
+    }
 }
 
-pub(super) fn parse_document<'a>(path: &Path, text: &'a str) -> Vec<Statement<'a>> {
+pub(crate) fn parse_document<'a>(path: &Path, text: &'a str) -> Vec<Statement<'a>> {
     let tokens = Lexer::new(path, text).lex();
     DocumentParser::new(path, text, tokens).parse()
+}
+
+pub(crate) fn manifest_policy_findings(path: &Path, text: &str) -> Vec<ManifestPolicyFinding> {
+    let mut section = String::new();
+    let mut findings = Vec::new();
+    for statement in parse_document(path, text) {
+        match statement {
+            Statement::Section { name, .. } => section = name,
+            Statement::Assignment { key, value, .. } => {
+                let field = if section.is_empty() {
+                    key.to_string()
+                } else {
+                    format!("{section}.{key}")
+                };
+                value.collect_policy_findings(&field, &mut findings);
+            }
+        }
+    }
+    findings.sort_by(|left, right| {
+        left.line
+            .cmp(&right.line)
+            .then(left.start.cmp(&right.start))
+            .then(left.end.cmp(&right.end))
+            .then(left.category.cmp(right.category))
+            .then(left.field.cmp(&right.field))
+            .then(left.spelling.cmp(&right.spelling))
+    });
+    findings
+}
+
+fn forbidden_decoded_spellings(text: &str) -> Vec<String> {
+    let bytes = text.as_bytes();
+    let mut findings = Vec::new();
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] != b'\\' {
+            index += 1;
+            continue;
+        }
+        if let Some(byte) = bytes.get(index + 1) {
+            if matches!(*byte, b'n' | b'r') {
+                findings.push(text[index..index + 2].to_string());
+                index += 2;
+                continue;
+            }
+        }
+        if index + 6 <= bytes.len()
+            && matches!(bytes.get(index + 1), Some(b'u'))
+            && matches_forbidden_hex(&text[index + 2..index + 6])
+        {
+            findings.push(text[index..index + 6].to_string());
+            index += 6;
+            continue;
+        }
+        if index + 10 <= bytes.len()
+            && matches!(bytes.get(index + 1), Some(b'U'))
+            && matches_forbidden_wide_hex(&text[index + 2..index + 10])
+        {
+            findings.push(text[index..index + 10].to_string());
+            index += 10;
+            continue;
+        }
+        index += 1;
+    }
+    findings
+}
+
+fn matches_forbidden_hex(digits: &str) -> bool {
+    digits.eq_ignore_ascii_case("000a") || digits.eq_ignore_ascii_case("000d")
+}
+
+fn matches_forbidden_wide_hex(digits: &str) -> bool {
+    digits.eq_ignore_ascii_case("0000000a") || digits.eq_ignore_ascii_case("0000000d")
 }
 
 struct DocumentParser<'p, 'a> {
@@ -719,6 +841,7 @@ fn decode_toml_string(
             chars.push(DecodedChar {
                 value: '\n',
                 source_line: line,
+                escaped: false,
             });
             offset += 2;
             line += 1;
@@ -734,6 +857,7 @@ fn decode_toml_string(
             chars.push(DecodedChar {
                 value: '\n',
                 source_line: line,
+                escaped: false,
             });
             offset += 1;
             line += 1;
@@ -749,6 +873,7 @@ fn decode_toml_string(
             chars.push(DecodedChar {
                 value: ch,
                 source_line: line,
+                escaped: false,
             });
             offset += ch.len_utf8();
             continue;
@@ -809,6 +934,7 @@ fn decode_toml_string(
         chars.push(DecodedChar {
             value,
             source_line: escape_line,
+            escaped: true,
         });
     }
 
@@ -818,6 +944,7 @@ fn decode_toml_string(
             chars.push(DecodedChar {
                 value: form.quote(),
                 source_line: closing_line,
+                escaped: false,
             });
         }
     }

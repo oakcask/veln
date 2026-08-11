@@ -30,24 +30,16 @@ impl Inventory {
     fn current(source_git_tree: &str) -> Self {
         let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let mut cases = BTreeMap::new();
-        for (root, manifest_relative_root) in ROOTS {
-            let root_path = manifest_dir.join(manifest_relative_root);
-            let mut manifests = Vec::new();
-            collect_manifests(&root_path, &mut manifests);
-            manifests.sort();
-            for path in manifests {
-                let relative = path
-                    .strip_prefix(&root_path)
-                    .expect("discovered manifest should be below its root")
-                    .parent()
-                    .expect("case manifest should have a parent");
-                let id = format!("{root}/{}", slash_path(relative));
-                let manifest = CaseManifest::read(&path);
-                assert!(
-                    cases.insert(id.clone(), describe(&manifest)).is_none(),
-                    "duplicate semantic case identifier `{id}`"
-                );
-            }
+        let inventory = toolchain_case_inventory::run_preflight(&manifest_dir)
+            .unwrap_or_else(|error| panic!("{error}"));
+        for case in inventory.cases {
+            let path = manifest_dir.join(&case.manifest_relative).join("case.toml");
+            let manifest = CaseManifest::read(&path);
+            assert!(
+                cases.insert(case.id.clone(), describe(&manifest)).is_none(),
+                "duplicate semantic case identifier `{}`",
+                case.id
+            );
         }
         Self {
             schema: SCHEMA.to_string(),
@@ -383,24 +375,6 @@ fn field_difference(
         )),
         (None, Some(actual)) => Some(format!("{id} field `{path}` was added ({actual})")),
         _ => None,
-    }
-}
-
-fn collect_manifests(directory: &Path, manifests: &mut Vec<PathBuf>) {
-    let manifest = directory.join("case.toml");
-    if manifest.is_file() {
-        manifests.push(manifest);
-        return;
-    }
-    let mut entries = fs::read_dir(directory)
-        .unwrap_or_else(|error| panic!("failed to read `{}`: {error}", directory.display()))
-        .collect::<Result<Vec<_>, _>>()
-        .unwrap_or_else(|error| panic!("failed to enumerate `{}`: {error}", directory.display()));
-    entries.sort_by_key(|entry| entry.path());
-    for entry in entries {
-        if entry.path().is_dir() {
-            collect_manifests(&entry.path(), manifests);
-        }
     }
 }
 
@@ -817,9 +791,6 @@ fn sha256(bytes: &[u8]) -> String {
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect()
-}
-fn slash_path(path: &Path) -> String {
-    path.to_string_lossy().replace('\\', "/")
 }
 fn line(output: &mut String, kind: &str, value: &str) {
     output.push_str(kind);

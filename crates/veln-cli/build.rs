@@ -1,53 +1,46 @@
 use std::collections::BTreeSet;
 use std::env;
 use std::fs;
-use std::io;
 use std::path::{Path, PathBuf};
+
+#[allow(dead_code)]
+#[path = "tests/toolchain_harness/manifest_syntax.rs"]
+mod manifest_syntax;
+#[allow(dead_code)]
+#[path = "toolchain_case_inventory.rs"]
+mod toolchain_case_inventory;
 
 fn main() {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("manifest dir set"));
-    let roots = ["tests/toolchain_cases", "../../examples/specification"];
-    let mut cases = Vec::new();
-
-    for root in roots {
-        collect_cases(&manifest_dir.join(root), Path::new(root), &mut cases)
-            .unwrap_or_else(|error| panic!("failed to collect `{root}` cases: {error}"));
+    for root in toolchain_case_inventory::DISCOVERY_ROOTS {
+        println!(
+            "cargo:rerun-if-changed={}",
+            manifest_dir.join(root.relative).display()
+        );
     }
-
-    cases.sort();
+    let preflight = toolchain_case_inventory::run_preflight(&manifest_dir)
+        .unwrap_or_else(|error| panic!("{error}"));
+    let cases = preflight
+        .cases
+        .iter()
+        .map(|case| case.manifest_relative.clone())
+        .collect::<Vec<_>>();
     let generated = generated_toolchain_tests(&cases);
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("out dir set"));
     fs::write(out_dir.join("toolchain_cases.rs"), generated)
         .expect("generated toolchain cases should be written");
 }
 
-fn collect_cases(root: &Path, relative: &Path, cases: &mut Vec<PathBuf>) -> io::Result<()> {
-    println!("cargo:rerun-if-changed={}", root.display());
-    if root.join("case.toml").is_file() {
-        println!(
-            "cargo:rerun-if-changed={}",
-            root.join("case.toml").display()
-        );
-        cases.push(relative.to_path_buf());
-        return Ok(());
-    }
-
-    let mut entries = fs::read_dir(root)?.collect::<Result<Vec<_>, _>>()?;
-    entries.sort_by_key(|entry| entry.path());
-    for entry in entries {
-        let path = entry.path();
-        if path.is_dir() {
-            collect_cases(&path, &relative.join(entry.file_name()), cases)?;
-        }
-    }
-    Ok(())
-}
-
 fn generated_toolchain_tests(cases: &[PathBuf]) -> String {
     let mut names = BTreeSet::new();
     let mut out = String::from(
-        "mod toolchain_semantic_baseline {\n    include!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/tests/toolchain_semantic_baseline/mod.rs\"));\n}\n\nmod generated_toolchain_cases {\n    use super::*;\n\n",
+        "mod toolchain_semantic_baseline {\n    include!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/tests/toolchain_semantic_baseline/mod.rs\"));\n}\n\nconst GENERATED_TOOLCHAIN_CASES: &[&str] = &[\n",
     );
+    for case in cases {
+        let case = case.to_string_lossy().replace('\\', "/");
+        out.push_str(&format!("    {case:?},\n"));
+    }
+    out.push_str("];\n\nmod generated_toolchain_cases {\n    use super::*;\n\n");
     for case in cases {
         let name = unique_test_name(case, &mut names);
         let case = case.to_string_lossy().replace('\\', "/");
@@ -100,4 +93,11 @@ fn fnv1a(bytes: &[u8]) -> u64 {
         hash = hash.wrapping_mul(0x100000001b3);
     }
     hash
+}
+
+fn manifest_error(path: &Path, line_number: usize, message: impl std::fmt::Display) -> ! {
+    if line_number == 0 {
+        panic!("{}: {message}", path.display());
+    }
+    panic!("{}:{line_number}: {message}", path.display());
 }
