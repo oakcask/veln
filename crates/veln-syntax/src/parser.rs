@@ -125,6 +125,27 @@ struct FunctionReturn {
     effect_spans: Option<Vec<SourceSpan>>,
 }
 
+struct HandlerHeader {
+    visibility: Visibility,
+    start: TextRange,
+    name: Option<String>,
+    params: Vec<Param>,
+    effect: HandlerEffect,
+}
+
+struct HandlerEffect {
+    path: Vec<String>,
+    span: SourceSpan,
+    effects: Option<Vec<String>>,
+    effect_spans: Option<Vec<SourceSpan>>,
+}
+
+struct HandlerBody {
+    operation_clauses: Vec<HandlerOperationClauseDecl>,
+    end: TextRange,
+    end_present: bool,
+}
+
 #[derive(Default)]
 struct SchemaBody {
     format: Option<SchemaFormatClause>,
@@ -698,6 +719,23 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_handler_decl(&mut self) -> HandlerDecl {
+        let header = self.parse_handler_header();
+        let body = self.parse_handler_body(header.start);
+        HandlerDecl {
+            visibility: header.visibility,
+            name: header.name,
+            params: header.params,
+            effect: header.effect.path,
+            effect_span: header.effect.span,
+            effects: header.effect.effects,
+            effect_spans: header.effect.effect_spans,
+            operation_clauses: body.operation_clauses,
+            span: self.source.span(header.start.cover(body.end)),
+            end_present: body.end_present,
+        }
+    }
+
+    fn parse_handler_header(&mut self) -> HandlerHeader {
         let visibility = if self.eat(TokenKind::Pub).is_some() {
             Visibility::Public
         } else {
@@ -711,10 +749,22 @@ impl<'a> Parser<'a> {
         let params = self.parse_params_in_context("handler_parameters", true);
         self.expect(TokenKind::RParen, "handler_parameters", vec![")"]);
         self.expect(TokenKind::Handles, "handler_declaration", vec!["handles"]);
+        let effect = self.parse_handler_effect();
+        self.expect_newline("handler_declaration");
+        HandlerHeader {
+            visibility,
+            start,
+            name,
+            params,
+            effect,
+        }
+    }
+
+    fn parse_handler_effect(&mut self) -> HandlerEffect {
         let effect_start = self.current().range;
-        let effect = self.parse_name_path_segments("handler_declaration", "handled effect");
+        let path = self.parse_name_path_segments("handler_declaration", "handled effect");
         let effect_end = self.previous().map_or(effect_start, |token| token.range);
-        let effect_span = self.source.span(effect_start.cover(effect_end));
+        let span = self.source.span(effect_start.cover(effect_end));
         let (effects, effect_spans) = if self.eat(TokenKind::Effects).is_some() {
             let labels = self.parse_effect_list();
             let (effects, spans): (Vec<_>, Vec<_>) = labels.into_iter().unzip();
@@ -722,8 +772,15 @@ impl<'a> Parser<'a> {
         } else {
             (None, None)
         };
-        self.expect_newline("handler_declaration");
+        HandlerEffect {
+            path,
+            span,
+            effects,
+            effect_spans,
+        }
+    }
 
+    fn parse_handler_body(&mut self, start: TextRange) -> HandlerBody {
         let mut operation_clauses = Vec::new();
         let mut end_present = false;
         while !self.at(TokenKind::Eof) {
@@ -752,16 +809,9 @@ impl<'a> Parser<'a> {
             );
         }
         let end = self.previous().map_or(start, |token| token.range);
-        HandlerDecl {
-            visibility,
-            name,
-            params,
-            effect,
-            effect_span,
-            effects,
-            effect_spans,
+        HandlerBody {
             operation_clauses,
-            span: self.source.span(start.cover(end)),
+            end,
             end_present,
         }
     }
