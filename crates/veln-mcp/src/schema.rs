@@ -149,14 +149,13 @@ mod tests {
         let Some(object) = value.as_object() else {
             return false;
         };
-        if let Some(required) = schema.get("required").and_then(Value::as_array) {
-            if !required
+        if let Some(required) = schema.get("required").and_then(Value::as_array)
+            && !required
                 .iter()
                 .filter_map(Value::as_str)
                 .all(|field| object.contains_key(field))
-            {
-                return false;
-            }
+        {
+            return false;
         }
         let properties = schema
             .get("properties")
