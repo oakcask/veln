@@ -207,6 +207,48 @@ fn parses_and_formats_lexical_handler_declarations_and_expressions() {
 }
 
 #[test]
+fn handler_declaration_preserves_header_and_body_boundaries() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub handler audit(ctx: Context) handles telemetry::Audit effects [stdio, net]\n",
+            "  record(message) => ctx.record(message)\n",
+            "\n",
+            "  flush() => ctx.flush()\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Handler(handler) = &output.tree.items[0] else {
+        panic!("expected handler declaration");
+    };
+    assert_eq!(handler.visibility, Visibility::Public);
+    assert_eq!(handler.name.as_deref(), Some("audit"));
+    assert_eq!(handler.params.len(), 1);
+    assert_eq!(handler.params[0].name, "ctx");
+    assert_eq!(handler.effect, vec!["telemetry", "Audit"]);
+    assert_eq!(
+        handler.effects.as_deref(),
+        Some(["stdio".to_string(), "net".to_string()].as_slice())
+    );
+    assert_eq!(handler.operation_clauses.len(), 2);
+    assert_eq!(
+        handler.operation_clauses[0].operation.as_deref(),
+        Some("record")
+    );
+    assert_eq!(
+        handler.operation_clauses[1].operation.as_deref(),
+        Some("flush")
+    );
+    assert!(handler.end_present);
+    assert_eq!(handler.span.start.line, 1);
+    assert_eq!(handler.span.end.line, 6);
+}
+
+#[test]
 fn rejects_trailing_comma_in_handler_operation_parameters() {
     let source = SourceFile::new(
         "main.veln",
