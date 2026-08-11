@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The schema-v1 published language-reference artifact, topic descriptors, selected specification cases, executable grammar output, compiler-owned token tables, or maintenance commands change.
+update-when: The `language-reference-v1.json` artifact, language-reference topic descriptors, selected specification cases, executable grammar output, compiler-owned token tables, or `veln-repo-language-reference generate|verify` commands change.
 ---
 
 # Published Language Reference Artifact
