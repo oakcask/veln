@@ -101,10 +101,11 @@ quotes. A longer run is invalid.
 String-array fields accept physical newlines, comments between tokens, empty
 arrays, and a trailing comma. They reject non-string elements and nested
 containers. A JSON-valued `equals` field accepts physical multiline JSON arrays
-and objects with nested JSON containers. JSON containers retain JSON grammar:
-manifest comments, trailing commas, literal strings, and multiline TOML strings
-are invalid. A complete manifest string token used as `equals` becomes a JSON
-string value.
+and objects with nested JSON containers for `[[json_assert]]`,
+`[[result_value_assert]]`, and `[[binary_fixture]]` fields that compare
+structured values. JSON containers retain JSON grammar: manifest comments,
+trailing commas, literal strings, and multiline TOML strings are invalid. A
+complete manifest string token used as `equals` becomes a JSON string value.
 
 LF and CRLF each count as one physical newline. Physical newlines inside
 multiline strings normalize to LF, including mixed-line-ending manifests. A
@@ -125,13 +126,13 @@ protect existing single-line case meaning.
 
 The manifest policy scanner uses the same lexer provenance. It examines every
 TOML string token and every string token inside JSON-valued manifest fields,
-including nested JSON object keys and values. JSON string tokens use JSON
-escape semantics, so valid JSON escapes such as `\/` do not fail the policy
-scan. The predicate rejects a decoded LF or CR that comes from an escape, and
-it rejects decoded text that spells a line-break escape such as `\n`, `\r`,
-`\u000A`, `\u000D`, `\U0000000A`, or `\U0000000D`. Physical newlines inside
-multiline strings are valid. Comments, separate string tokens, non-string
-values, and sidecar files are outside this predicate.
+including nested JSON object keys, object values, and array values. JSON string
+tokens use JSON escape semantics, so valid JSON escapes such as `\/` do not
+fail the policy scan. The predicate rejects a decoded LF or CR that comes from
+an escape, and it rejects decoded text that spells a line-break escape such as
+`\n`, `\r`, `\u000A`, `\u000D`, `\U0000000A`, or `\U0000000D`. Physical
+newlines inside multiline strings are valid. Comments, separate string tokens,
+non-string values, and sidecar files are outside this predicate.
 
 Policy findings are sorted by root-qualified path, source line, token span,
 and category. A finding identifies the manifest field, location, offending
