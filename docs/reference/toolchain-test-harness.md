@@ -47,7 +47,9 @@ fixture entries.
 The preflight keeps descriptors discovered before an independent structural
 error, and it still scans their manifests for policy findings. Missing roots,
 links, or nested manifests do not suppress encoded line-break findings from
-other reliably discovered cases.
+other reliably discovered cases. A malformed manifest also reports policy
+findings collected before the syntax failure when the lexer can identify the
+earlier string tokens.
 
 The build preflight creates the generated test list from the shared inventory.
 Generated cases pass a process-wide runtime barrier before manifest loading,
@@ -156,13 +158,19 @@ the sidecar as JSON. `equals_json_file` parses the sidecar as JSON before the
 comparison.
 `[[result_value_assert]]` reads a rendered result-failure value string from
 `value_path`, wraps it as the outer `Err`, and then checks a parsed value path.
+Each JSON or result-value assertion must declare exactly one operation.
+`missing` is only valid as `missing = true`. The manifest loader rejects an
+omitted operation or `missing = false` before it reads later file-backed
+operands.
 
 Use `[[file_assert]]` to check command-written files. The command output path
 is read from the copied project after execution, while `equals_file` is still
-read from the immutable discovered case. Diagnostics and help fragments also
-accept file-backed text operands where their inline string forms are accepted.
-Diagnostic exact messages use `message_file`. Manifest-failure fragment checks
-use `[manifest_error] contains_file` and `contains_files`.
+read from the immutable discovered case. Each file assertion must declare
+exactly one of `equals` or `equals_file` before later file-backed operands are
+read. Diagnostics and help fragments also accept file-backed text operands
+where their inline string forms are accepted. Diagnostic exact messages use
+`message_file`. Manifest-failure fragment checks use `[manifest_error]`
+`contains_file` and `contains_files`.
 
 Use `[help]` for command help output. It checks a help stream, defaulting to
 stdout, through stable help fragments instead of full-output equality. Its
