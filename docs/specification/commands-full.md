@@ -23,6 +23,7 @@ behavior, gates, or output boundaries.
 - [`veln explain`](#veln-explain)
 - [`veln package lock`](#veln-package-lock)
 - [`veln lsp`](#veln-lsp)
+- [`veln mcp`](#veln-mcp)
 
 <a id="shared-command-analysis"></a>
 
@@ -823,3 +824,19 @@ disk; unreadable documents produce an empty token data array.
 
 The semantic-token legend, token classes, LSP navigation support, and editor
 feature boundaries are specified in [editor-support.md](editor-support.md).
+
+<a id="veln-mcp"></a>
+
+## `veln mcp`
+
+`mcp` starts the agent-facing MCP server over standard input and standard
+output using JSON-RPC messages. It does not take source path arguments, and it
+does not run the shared package-root analysis used by `check`, `doc`, `fmt`,
+`metrics`, `repair`, `run`, `test`, or `package lock`.
+
+Standard output is reserved for MCP protocol messages. End-of-file on standard
+input ends the session successfully. Startup failures are command failures
+reported by the CLI command wrapper.
+
+The MCP workspace-project selection rules, implemented tools, checked tool
+schemas, and refresh state transitions are specified in [mcp.md](mcp.md).

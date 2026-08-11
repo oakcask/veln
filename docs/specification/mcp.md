@@ -41,7 +41,7 @@ generation and roots without changing them.
 | Event | Result | Stored state |
 | --- | --- | --- |
 | `refresh_workspace` discovery succeeds | Return the replacement roots and next generation. | Replace all roots and advance the generation by one. |
-| `refresh_workspace` discovery fails | Return a tool error with code `generation_failed`. | Preserve both roots and generation. |
+| `refresh_workspace` discovery fails | Return an MCP tool result with `isError: true` and structured code `generation_failed`. | Preserve both roots and generation. |
 
 Adding, removing, or renaming a manifest has no observable effect until a
 successful refresh.
