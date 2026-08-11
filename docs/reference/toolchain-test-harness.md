@@ -79,11 +79,12 @@ token failures take precedence over missing outer delimiters. If clean end of
 input leaves only delimiters missing, the failure points to the innermost
 unmatched opener.
 
-The table-driven `manifest_*` tests in `toolchain_harness.rs` are the executable
-evidence for string forms, escapes, folding, quote runs, indentation, newline
-variants, field-directed containers, trailing tokens, and exact error lines.
-The checked semantic baseline and the complete harness target protect existing
-single-line case meaning.
+The table-driven `manifest_*` tests in `toolchain_harness.rs` are the
+executable evidence for string forms, escapes, folding, quote runs,
+indentation and closing delimiters, physical-newline equivalence, schema
+selected string arrays, field-directed containers, trailing tokens, and exact
+error lines. The checked semantic baseline and the complete harness target
+protect existing single-line case meaning.
 
 ## Output Cases
 
