@@ -280,6 +280,12 @@ impl Value<'_> {
                     json_depth = 1;
                     continue;
                 }
+                TokenKind::Open(Delimiter::Square)
+                    if json_depth == 0 && field_accepts_json_array_root(field) =>
+                {
+                    json_depth = 1;
+                    continue;
+                }
                 TokenKind::Open(_) if json_depth > 0 => {
                     json_depth += 1;
                     continue;
@@ -332,6 +338,15 @@ impl Value<'_> {
         }
         Ok(())
     }
+}
+
+fn field_accepts_json_array_root(field: &str) -> bool {
+    matches!(
+        field,
+        "[[json_assert]].equals"
+            | "[[result_value_assert]].equals"
+            | "[[binary_fixture]].field_path"
+    )
 }
 
 pub(crate) fn parse_document<'a>(path: &Path, text: &'a str) -> Vec<Statement<'a>> {

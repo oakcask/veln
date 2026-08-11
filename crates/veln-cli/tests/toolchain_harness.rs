@@ -4575,19 +4575,34 @@ exit = 0
 
 #[test]
 fn manifest_policy_accepts_json_solidus_escape_in_keys_and_values() {
-    let source = r#"
+    let object_source = r#"
 command = ["check"]
 json = {"https:\/\/x":"https:\/\/v", "nested":{"slash\/key":"value\/ok", "line":"\u000A", "spelled":"\\r"}}
 exit = 0
 "#;
+    let array_source = r#"
+command = ["check"]
+exit = 0
+[[json_assert]]
+path = "payload"
+equals = ["https:\/\/x", {"slash\/key":"value\/ok"}, "\u000D", "\\n"]
+"#;
 
-    let statements = manifest_syntax::parse_document(Path::new("case.toml"), source);
-    assert_eq!(statements.len(), 3);
-
-    let scan = manifest_syntax::manifest_policy_scan(Path::new("case.toml"), source);
-    assert_eq!(scan.error, None);
+    let manifest = parse_manifest(Path::new("case.toml"), array_source);
     assert_eq!(
-        scan.findings
+        manifest.expectations.json_assertions[0]
+            .equals
+            .as_ref()
+            .unwrap()
+            .to_compact_string(),
+        r#"["https://x",{"slash/key":"value/ok"},"\r","\\n"]"#
+    );
+
+    let object_scan = manifest_syntax::manifest_policy_scan(Path::new("case.toml"), object_source);
+    assert_eq!(object_scan.error, None);
+    assert_eq!(
+        object_scan
+            .findings
             .iter()
             .map(|finding| (
                 finding.field.as_str(),
@@ -4598,6 +4613,32 @@ exit = 0
         [
             ("json", "escape-produced-line-break", "escape-produced LF"),
             ("json", "decoded-line-break-spelling", "\\r"),
+        ]
+    );
+
+    let array_scan = manifest_syntax::manifest_policy_scan(Path::new("case.toml"), array_source);
+    assert_eq!(array_scan.error, None);
+    assert_eq!(
+        array_scan
+            .findings
+            .iter()
+            .map(|finding| (
+                finding.field.as_str(),
+                finding.category,
+                finding.spelling.as_str()
+            ))
+            .collect::<Vec<_>>(),
+        [
+            (
+                "[[json_assert]].equals",
+                "escape-produced-line-break",
+                "escape-produced CR"
+            ),
+            (
+                "[[json_assert]].equals",
+                "decoded-line-break-spelling",
+                "\\n"
+            ),
         ]
     );
 }
