@@ -1,3 +1,4 @@
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::Write;
 #[cfg(unix)]
@@ -111,8 +112,7 @@ fn run_case_with_guard_and_after_invocation(
 }
 
 fn guard_generated_or_synthetic_case(case_dir: &Path) {
-    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-    if case_dir.starts_with(manifest_dir) {
+    if is_generated_inventory_member(case_dir) {
         runtime_generated_inventory_barrier();
     } else {
         let manifest = case_dir.join("case.toml");
@@ -137,6 +137,15 @@ fn guard_generated_or_synthetic_case(case_dir: &Path) {
             panic!("{message}");
         }
     }
+}
+
+fn is_generated_inventory_member(case_dir: &Path) -> bool {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let Ok(relative) = case_dir.strip_prefix(manifest_dir) else {
+        return false;
+    };
+    let relative = relative.to_string_lossy().replace('\\', "/");
+    GENERATED_TOOLCHAIN_CASES.contains(&relative.as_str())
 }
 
 fn runtime_generated_inventory_barrier() {
@@ -1206,7 +1215,19 @@ fn copy_fixture_dir(base: &Path, dir: &Path, target_root: &Path) {
         }
 
         let target = target_root.join(relative);
-        if source.is_dir() {
+        let metadata = fs::symlink_metadata(&source).unwrap_or_else(|error| {
+            panic!(
+                "{}: failed to inspect fixture entry: {error}",
+                source.display()
+            )
+        });
+        if is_link_like_metadata(&metadata) {
+            panic!(
+                "{}: replace the link or reparse point with a regular fixture entry before command execution",
+                source.display()
+            );
+        }
+        if metadata.is_dir() {
             fs::create_dir_all(&target).unwrap_or_else(|error| {
                 panic!(
                     "{}: failed to create fixture directory: {error}",
@@ -1214,7 +1235,7 @@ fn copy_fixture_dir(base: &Path, dir: &Path, target_root: &Path) {
                 )
             });
             copy_fixture_dir(base, &source, target_root);
-        } else {
+        } else if metadata.is_file() {
             if let Some(parent) = target.parent() {
                 fs::create_dir_all(parent).unwrap_or_else(|error| {
                     panic!(
@@ -1230,6 +1251,11 @@ fn copy_fixture_dir(base: &Path, dir: &Path, target_root: &Path) {
                     target.display()
                 )
             });
+        } else {
+            panic!(
+                "{}: replace the non-regular fixture entry with a regular file or directory before command execution",
+                source.display()
+            );
         }
     }
 }
@@ -1775,7 +1801,11 @@ impl CaseExpectations {
             });
             assert_eq!(
                 actual,
-                assertion.equals,
+                assertion
+                    .equals
+                    .as_ref()
+                    .expect("file assertion should have expected text")
+                    .as_str(),
                 "{}: file `{}` contents mismatch",
                 context.label(),
                 assertion.path
@@ -1947,7 +1977,8 @@ impl OutputStream {
 struct JsonAssertion {
     path: String,
     equals: Option<JsonValue>,
-    missing: bool,
+    missing: Option<bool>,
+    operation_count: usize,
 }
 
 impl JsonAssertion {
@@ -1955,11 +1986,20 @@ impl JsonAssertion {
         if self.path.is_empty() {
             manifest_error(path, 0, format!("json_assert {index} is missing `path`"));
         }
-        if self.missing == self.equals.is_some() {
+        if self.missing == Some(false) {
             manifest_error(
                 path,
                 0,
-                format!("json_assert {index} needs exactly one of `equals` or `missing = true`"),
+                format!("json_assert {index} `missing` must be true when present"),
+            );
+        }
+        if self.operation_count != 1 {
+            manifest_error(
+                path,
+                0,
+                format!(
+                    "json_assert {index} needs exactly one of `equals`, `equals_file`, or `missing = true`"
+                ),
             );
         }
     }
@@ -1970,7 +2010,8 @@ struct ResultValueAssertion {
     value_path: String,
     path: String,
     equals: Option<JsonValue>,
-    missing: bool,
+    missing: Option<bool>,
+    operation_count: usize,
 }
 
 impl ResultValueAssertion {
@@ -1989,12 +2030,19 @@ impl ResultValueAssertion {
                 format!("result_value_assert {index} is missing `path`"),
             );
         }
-        if self.missing == self.equals.is_some() {
+        if self.missing == Some(false) {
+            manifest_error(
+                path,
+                0,
+                format!("result_value_assert {index} `missing` must be true when present"),
+            );
+        }
+        if self.operation_count != 1 {
             manifest_error(
                 path,
                 0,
                 format!(
-                    "result_value_assert {index} needs exactly one of `equals` or `missing = true`"
+                    "result_value_assert {index} needs exactly one of `equals`, `equals_file`, or `missing = true`"
                 ),
             );
         }
@@ -2004,13 +2052,21 @@ impl ResultValueAssertion {
 #[derive(Debug)]
 struct FileAssertion {
     path: String,
-    equals: String,
+    equals: Option<String>,
+    operation_count: usize,
 }
 
 impl FileAssertion {
     fn validate(&self, path: &Path, index: usize) {
         if self.path.is_empty() {
             manifest_error(path, 0, format!("file_assert {index} is missing `path`"));
+        }
+        if self.operation_count != 1 {
+            manifest_error(
+                path,
+                0,
+                format!("file_assert {index} needs exactly one of `equals` or `equals_file`"),
+            );
         }
     }
 }
@@ -2281,7 +2337,7 @@ impl SkipPlatform {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum Section {
     Root,
     Stdout,
@@ -2302,8 +2358,10 @@ enum Section {
 }
 
 fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
+    let statements = manifest_syntax::parse_document(path, text);
+    validate_manifest_assignment_preflight(path, &statements);
     let mut parser = ManifestParser::new(path);
-    for statement in manifest_syntax::parse_document(path, text) {
+    for statement in statements {
         match statement {
             ManifestStatement::Section { name, line } => {
                 parser.parse_section_header(&name, line);
@@ -2314,6 +2372,130 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
         }
     }
     parser.finish()
+}
+
+fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestStatement<'_>]) {
+    let mut section = Section::Root;
+    let mut seen = BTreeSet::new();
+    let mut root_stdin_operands = 0;
+    let mut json_operations = Vec::<usize>::new();
+    let mut result_value_operations = Vec::<usize>::new();
+    let mut file_assert_operations = Vec::<usize>::new();
+
+    for statement in statements {
+        match statement {
+            ManifestStatement::Section { name, line } => {
+                section = match name.as_str() {
+                    "[stdout]" => Section::Stdout,
+                    "[stderr]" => Section::Stderr,
+                    "[help]" => Section::Help,
+                    "[requires]" => Section::Requires,
+                    "[skip]" => Section::Skip,
+                    "[env]" => Section::Env,
+                    "[tools]" => Section::Tools,
+                    "[[json_assert]]" => {
+                        json_operations.push(0);
+                        Section::JsonAssert(json_operations.len() - 1)
+                    }
+                    "[[result_value_assert]]" => {
+                        result_value_operations.push(0);
+                        Section::ResultValueAssert(result_value_operations.len() - 1)
+                    }
+                    "[[file_assert]]" => {
+                        file_assert_operations.push(0);
+                        Section::FileAssert(file_assert_operations.len() - 1)
+                    }
+                    "[[diagnostics]]" => Section::Diagnostic(0),
+                    "[diagnostics.span]" => Section::DiagnosticSpan(0),
+                    "[manifest_error]" => Section::ManifestError,
+                    "[[binary_fixture]]" => Section::BinaryFixture(0),
+                    "[[output_chunk_list]]" => Section::OutputChunkList(0),
+                    _ => continue,
+                };
+                if matches!(
+                    section,
+                    Section::Diagnostic(0)
+                        | Section::DiagnosticSpan(0)
+                        | Section::BinaryFixture(0)
+                        | Section::OutputChunkList(0)
+                ) {
+                    seen.clear();
+                } else {
+                    let _ = line;
+                }
+            }
+            ManifestStatement::Assignment { key, line, .. } => {
+                let assignment = format!("{section:?}:{key}");
+                if !seen.insert(assignment) {
+                    manifest_error(path, *line, format!("duplicate key `{key}`"));
+                }
+                match section {
+                    Section::Root if matches!(*key, "stdin" | "stdin_file") => {
+                        root_stdin_operands += 1;
+                    }
+                    Section::JsonAssert(index)
+                        if matches!(
+                            *key,
+                            "equals" | "equals_file" | "equals_json_file" | "missing"
+                        ) =>
+                    {
+                        json_operations[index] += 1;
+                    }
+                    Section::ResultValueAssert(index)
+                        if matches!(
+                            *key,
+                            "equals" | "equals_file" | "equals_json_file" | "missing"
+                        ) =>
+                    {
+                        result_value_operations[index] += 1;
+                    }
+                    Section::FileAssert(index) if matches!(*key, "equals" | "equals_file") => {
+                        file_assert_operations[index] += 1;
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    if root_stdin_operands > 1 {
+        manifest_error(
+            path,
+            0,
+            "root invocation needs at most one of `stdin` or `stdin_file`",
+        );
+    }
+    for (index, count) in json_operations.iter().enumerate() {
+        if *count > 1 {
+            manifest_error(
+                path,
+                0,
+                format!(
+                    "json_assert {index} needs exactly one of `equals`, `equals_file`, or `missing = true`"
+                ),
+            );
+        }
+    }
+    for (index, count) in result_value_operations.iter().enumerate() {
+        if *count > 1 {
+            manifest_error(
+                path,
+                0,
+                format!(
+                    "result_value_assert {index} needs exactly one of `equals`, `equals_file`, or `missing = true`"
+                ),
+            );
+        }
+    }
+    for (index, count) in file_assert_operations.iter().enumerate() {
+        if *count > 1 {
+            manifest_error(
+                path,
+                0,
+                format!("file_assert {index} needs exactly one of `equals` or `equals_file`"),
+            );
+        }
+    }
 }
 
 struct ManifestParser<'a> {
@@ -2339,6 +2521,9 @@ struct ManifestParser<'a> {
     requires: Requirements,
     skip: SkipRules,
     section: Section,
+    seen_assignments: BTreeSet<String>,
+    stdin_operand_count: usize,
+    case_text_cache: CaseTextCache,
 }
 
 impl<'a> ManifestParser<'a> {
@@ -2366,6 +2551,9 @@ impl<'a> ManifestParser<'a> {
             requires: Requirements::default(),
             skip: SkipRules::default(),
             section: Section::Root,
+            seen_assignments: BTreeSet::new(),
+            stdin_operand_count: 0,
+            case_text_cache: CaseTextCache::default(),
         }
     }
 
@@ -2402,7 +2590,8 @@ impl<'a> ManifestParser<'a> {
         self.json_assertions.push(JsonAssertion {
             path: String::new(),
             equals: None,
-            missing: false,
+            missing: None,
+            operation_count: 0,
         });
         Section::JsonAssert(self.json_assertions.len() - 1)
     }
@@ -2410,7 +2599,8 @@ impl<'a> ManifestParser<'a> {
     fn parse_file_assert_header(&mut self) -> Section {
         self.file_assertions.push(FileAssertion {
             path: String::new(),
-            equals: String::new(),
+            equals: None,
+            operation_count: 0,
         });
         Section::FileAssert(self.file_assertions.len() - 1)
     }
@@ -2420,7 +2610,8 @@ impl<'a> ManifestParser<'a> {
             value_path: String::new(),
             path: String::new(),
             equals: None,
-            missing: false,
+            missing: None,
+            operation_count: 0,
         });
         Section::ResultValueAssert(self.result_value_assertions.len() - 1)
     }
@@ -2479,20 +2670,34 @@ impl<'a> ManifestParser<'a> {
     }
 
     fn parse_section_key(&mut self, line_number: usize, key: &str, value: &ManifestValue<'_>) {
+        self.reject_duplicate_assignment(line_number, key);
         match self.section {
             Section::Root => self.parse_root_key(line_number, key, value),
-            Section::Stdout => {
-                parse_stream_key(self.path, line_number, &mut self.stdout, key, value, true)
-            }
-            Section::Stderr => {
-                parse_stream_key(self.path, line_number, &mut self.stderr, key, value, false)
-            }
+            Section::Stdout => parse_stream_key(
+                self.path,
+                line_number,
+                &mut self.stdout,
+                key,
+                value,
+                true,
+                &mut self.case_text_cache,
+            ),
+            Section::Stderr => parse_stream_key(
+                self.path,
+                line_number,
+                &mut self.stderr,
+                key,
+                value,
+                false,
+                &mut self.case_text_cache,
+            ),
             Section::Help => parse_help_key(
                 self.path,
                 line_number,
                 self.help.as_mut().expect("help section should exist"),
                 key,
                 value,
+                &mut self.case_text_cache,
             ),
             Section::Requires => self.parse_requires_key(line_number, key, value),
             Section::Skip => self.parse_skip_key(line_number, key, value),
@@ -2523,12 +2728,25 @@ impl<'a> ManifestParser<'a> {
         }
     }
 
+    fn reject_duplicate_assignment(&mut self, line_number: usize, key: &str) {
+        let assignment = format!("{:?}:{key}", self.section);
+        if !self.seen_assignments.insert(assignment) {
+            manifest_error(self.path, line_number, format!("duplicate key `{key}`"));
+        }
+    }
+
     fn parse_root_key(&mut self, line_number: usize, key: &str, value: &ManifestValue<'_>) {
         match key {
             "command" => self.command = Some(parse_string_array(self.path, value)),
             "cwd" => self.cwd = Some(PathBuf::from(parse_string(self.path, value))),
-            "stdin" => self.stdin = Some(parse_string(self.path, value)),
-            "stdin_file" => self.stdin = Some(read_case_text_file(self.path, value)),
+            "stdin" => {
+                self.stdin_operand_count += 1;
+                self.stdin = Some(parse_string(self.path, value));
+            }
+            "stdin_file" => {
+                self.stdin_operand_count += 1;
+                self.stdin = Some(self.case_text_cache.read(self.path, value));
+            }
             "exit" => self.exit = Some(parse_i32(self.path, value)),
             "repeat" => self.repeat = parse_positive_usize(self.path, value),
             "source_errors" => {
@@ -2586,15 +2804,19 @@ impl<'a> ManifestParser<'a> {
         match key {
             "path" => self.json_assertions[index].path = parse_string(self.path, value),
             "equals" => {
+                self.json_assertions[index].operation_count += 1;
                 self.json_assertions[index].equals =
                     Some(parse_manifest_json_value(self.path, value))
             }
             "equals_file" => {
-                self.json_assertions[index].equals =
-                    Some(JsonValue::String(read_case_text_file(self.path, value)))
+                self.json_assertions[index].operation_count += 1;
+                self.json_assertions[index].equals = Some(JsonValue::String(
+                    self.case_text_cache.read(self.path, value),
+                ))
             }
             "equals_json_file" => {
-                let text = read_case_text_file(self.path, value);
+                self.json_assertions[index].operation_count += 1;
+                let text = self.case_text_cache.read(self.path, value);
                 self.json_assertions[index].equals =
                     Some(parse_json(&text).unwrap_or_else(|error| {
                         manifest_error(
@@ -2604,7 +2826,10 @@ impl<'a> ManifestParser<'a> {
                         )
                     }))
             }
-            "missing" => self.json_assertions[index].missing = parse_bool(self.path, value),
+            "missing" => {
+                self.json_assertions[index].operation_count += 1;
+                self.json_assertions[index].missing = Some(parse_bool(self.path, value));
+            }
             _ => manifest_error(
                 self.path,
                 line_number,
@@ -2626,15 +2851,19 @@ impl<'a> ManifestParser<'a> {
             }
             "path" => self.result_value_assertions[index].path = parse_string(self.path, value),
             "equals" => {
+                self.result_value_assertions[index].operation_count += 1;
                 self.result_value_assertions[index].equals =
                     Some(parse_manifest_json_value(self.path, value))
             }
             "equals_file" => {
-                self.result_value_assertions[index].equals =
-                    Some(JsonValue::String(read_case_text_file(self.path, value)))
+                self.result_value_assertions[index].operation_count += 1;
+                self.result_value_assertions[index].equals = Some(JsonValue::String(
+                    self.case_text_cache.read(self.path, value),
+                ))
             }
             "equals_json_file" => {
-                let text = read_case_text_file(self.path, value);
+                self.result_value_assertions[index].operation_count += 1;
+                let text = self.case_text_cache.read(self.path, value);
                 self.result_value_assertions[index].equals =
                     Some(parse_json(&text).unwrap_or_else(|error| {
                         manifest_error(
@@ -2644,7 +2873,10 @@ impl<'a> ManifestParser<'a> {
                         )
                     }))
             }
-            "missing" => self.result_value_assertions[index].missing = parse_bool(self.path, value),
+            "missing" => {
+                self.result_value_assertions[index].operation_count += 1;
+                self.result_value_assertions[index].missing = Some(parse_bool(self.path, value));
+            }
             _ => manifest_error(
                 self.path,
                 line_number,
@@ -2662,9 +2894,14 @@ impl<'a> ManifestParser<'a> {
     ) {
         match key {
             "path" => self.file_assertions[index].path = parse_string(self.path, value),
-            "equals" => self.file_assertions[index].equals = parse_string(self.path, value),
+            "equals" => {
+                self.file_assertions[index].operation_count += 1;
+                self.file_assertions[index].equals = Some(parse_string(self.path, value));
+            }
             "equals_file" => {
-                self.file_assertions[index].equals = read_case_text_file(self.path, value)
+                self.file_assertions[index].operation_count += 1;
+                self.file_assertions[index].equals =
+                    Some(self.case_text_cache.read(self.path, value));
             }
             _ => manifest_error(
                 self.path,
@@ -2691,7 +2928,7 @@ impl<'a> ManifestParser<'a> {
                 self.diagnostics[index].message = Some(parse_string(self.path, value));
             }
             "message_file" => {
-                self.diagnostics[index].message = Some(read_case_text_file(self.path, value));
+                self.diagnostics[index].message = Some(self.case_text_cache.read(self.path, value));
             }
             _ => manifest_error(
                 self.path,
@@ -2741,12 +2978,12 @@ impl<'a> ManifestParser<'a> {
             "contains_file" => {
                 expectation
                     .contains
-                    .push(read_case_text_file(self.path, value));
+                    .push(self.case_text_cache.read(self.path, value));
             }
             "contains_files" => {
                 expectation
                     .contains
-                    .extend(read_case_text_files(self.path, value));
+                    .extend(self.case_text_cache.read_many(self.path, value));
             }
             _ => manifest_error(
                 self.path,
@@ -2841,6 +3078,13 @@ impl<'a> ManifestParser<'a> {
 
     fn finish(self) -> CaseManifest {
         let path = self.path;
+        if self.stdin_operand_count > 1 {
+            manifest_error(
+                path,
+                0,
+                "root invocation needs at most one of `stdin` or `stdin_file`",
+            );
+        }
         let manifest = CaseManifest {
             invocation: CaseInvocation {
                 command: self
@@ -3224,6 +3468,7 @@ fn parse_help_key(
     help: &mut HelpExpectation,
     key: &str,
     value: &ManifestValue<'_>,
+    case_text_cache: &mut CaseTextCache,
 ) {
     match key {
         "stream" => help.stream = OutputStream::parse(path, value),
@@ -3233,8 +3478,8 @@ fn parse_help_key(
         "arguments" => help.arguments = parse_string_array(path, value),
         "options" => help.options = parse_string_array(path, value),
         "contains" => help.contains = parse_string_array(path, value),
-        "contains_file" => help.contains.push(read_case_text_file(path, value)),
-        "contains_files" => help.contains.extend(read_case_text_files(path, value)),
+        "contains_file" => help.contains.push(case_text_cache.read(path, value)),
+        "contains_files" => help.contains.extend(case_text_cache.read_many(path, value)),
         _ => manifest_error(path, line_number, format!("unknown help key `{key}`")),
     }
 }
@@ -3246,6 +3491,7 @@ fn parse_stream_key(
     key: &str,
     value: &ManifestValue<'_>,
     allow_json: bool,
+    case_text_cache: &mut CaseTextCache,
 ) {
     match key {
         "format" => {
@@ -3261,49 +3507,58 @@ fn parse_stream_key(
                 ),
             });
         }
-        "equals_file" => stream.equals = Some(read_case_text_file(path, value)),
+        "equals_file" => stream.equals = Some(case_text_cache.read(path, value)),
         "contains" => stream.contains = parse_string_array(path, value),
-        "contains_file" => stream.contains.push(read_case_text_file(path, value)),
-        "contains_files" => stream.contains.extend(read_case_text_files(path, value)),
+        "contains_file" => stream.contains.push(case_text_cache.read(path, value)),
+        "contains_files" => stream
+            .contains
+            .extend(case_text_cache.read_many(path, value)),
         "not_contains" => stream.not_contains = parse_string_array(path, value),
-        "not_contains_file" => stream.not_contains.push(read_case_text_file(path, value)),
+        "not_contains_file" => stream.not_contains.push(case_text_cache.read(path, value)),
         "not_contains_files" => stream
             .not_contains
-            .extend(read_case_text_files(path, value)),
+            .extend(case_text_cache.read_many(path, value)),
         _ => manifest_error(path, line_number, format!("unknown stream key `{key}`")),
     }
 }
 
-fn read_case_text_files(path: &Path, value: &ManifestValue<'_>) -> Vec<String> {
-    parse_string_array(path, value)
-        .into_iter()
-        .map(|relative| read_case_text_file_path(path, value.line(), &relative))
-        .collect()
+#[derive(Debug, Default)]
+struct CaseTextCache {
+    snapshots: BTreeMap<PathBuf, String>,
 }
 
-fn read_case_text_file(path: &Path, value: &ManifestValue<'_>) -> String {
-    let relative = parse_string(path, value);
-    read_case_text_file_path(path, value.line(), &relative)
-}
-
-fn read_case_text_file_path(path: &Path, line_number: usize, relative: &str) -> String {
-    let relative_path = validate_case_file_reference(path, line_number, relative);
-    let base = path.parent().unwrap_or_else(|| Path::new(""));
-    let resolved = base.join(&relative_path);
-    let metadata = fs::symlink_metadata(&resolved).unwrap_or_else(|error| {
-        manifest_error(
-            path,
-            line_number,
-            format!("failed to inspect case file `{relative}`: {error}"),
-        )
-    });
-    if !metadata.is_file() || is_link_like_metadata(&metadata) {
-        manifest_error(
-            path,
-            line_number,
-            format!("case file `{relative}` must be a regular file"),
-        );
+impl CaseTextCache {
+    fn read_many(&mut self, path: &Path, value: &ManifestValue<'_>) -> Vec<String> {
+        parse_string_array(path, value)
+            .into_iter()
+            .map(|relative| self.read_path(path, value.line(), &relative))
+            .collect()
     }
+
+    fn read(&mut self, path: &Path, value: &ManifestValue<'_>) -> String {
+        let relative = parse_string(path, value);
+        self.read_path(path, value.line(), &relative)
+    }
+
+    fn read_path(&mut self, path: &Path, line_number: usize, relative: &str) -> String {
+        let relative_path = validate_case_file_reference(path, line_number, relative);
+        if let Some(snapshot) = self.snapshots.get(&relative_path) {
+            return snapshot.clone();
+        }
+        let text = read_case_text_file_path(path, line_number, relative, &relative_path);
+        self.snapshots.insert(relative_path, text.clone());
+        text
+    }
+}
+
+fn read_case_text_file_path(
+    path: &Path,
+    line_number: usize,
+    relative: &str,
+    relative_path: &Path,
+) -> String {
+    let base = path.parent().unwrap_or_else(|| Path::new(""));
+    let resolved = resolve_case_file_reference(path, line_number, base, relative, relative_path);
     fs::read_to_string(&resolved).unwrap_or_else(|error| {
         manifest_error(
             path,
@@ -3318,14 +3573,9 @@ fn validate_case_file_reference(path: &Path, line_number: usize, relative: &str)
         || relative.starts_with('/')
         || relative.starts_with('\\')
         || relative.contains('\\')
-        || relative.split('/').any(|component| {
-            component.is_empty()
-                || component == "."
-                || component == ".."
-                || !component
-                    .bytes()
-                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
-        })
+        || relative
+            .split('/')
+            .any(|component| !is_portable_case_file_component(component))
     {
         manifest_error(
             path,
@@ -3336,6 +3586,98 @@ fn validate_case_file_reference(path: &Path, line_number: usize, relative: &str)
     PathBuf::from(relative)
 }
 
+fn is_portable_case_file_component(component: &str) -> bool {
+    if component.is_empty() || component == "." || component == ".." || component.ends_with('.') {
+        return false;
+    }
+    if !component
+        .bytes()
+        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
+    {
+        return false;
+    }
+    let stem = component.split('.').next().unwrap_or(component);
+    !matches_reserved_windows_stem(stem)
+}
+
+fn matches_reserved_windows_stem(stem: &str) -> bool {
+    let upper = stem.to_ascii_uppercase();
+    matches!(upper.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || upper.strip_prefix("COM").is_some_and(|suffix| {
+            matches!(suffix, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")
+        })
+        || upper.strip_prefix("LPT").is_some_and(|suffix| {
+            matches!(suffix, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")
+        })
+}
+
+fn resolve_case_file_reference(
+    manifest_path: &Path,
+    line_number: usize,
+    base: &Path,
+    relative: &str,
+    relative_path: &Path,
+) -> PathBuf {
+    let mut current = base.to_path_buf();
+    let mut traversed = PathBuf::new();
+    let component_count = relative_path.components().count();
+    for (index, component) in relative_path.components().enumerate() {
+        let name = component.as_os_str();
+        if !directory_contains_exact_entry(&current, name) {
+            manifest_error(
+                manifest_path,
+                line_number,
+                format!("case file `{relative}` must match fixture entry spelling exactly"),
+            );
+        }
+        current.push(name);
+        traversed.push(name);
+        let metadata = fs::symlink_metadata(&current).unwrap_or_else(|error| {
+            manifest_error(
+                manifest_path,
+                line_number,
+                format!("failed to inspect case file `{relative}`: {error}"),
+            )
+        });
+        if is_link_like_metadata(&metadata) {
+            manifest_error(
+                manifest_path,
+                line_number,
+                format!("case file `{relative}` must not traverse a link or reparse point"),
+            );
+        }
+        let final_component = index + 1 == component_count;
+        if final_component {
+            if !metadata.is_file() {
+                manifest_error(
+                    manifest_path,
+                    line_number,
+                    format!("case file `{relative}` must be a regular file"),
+                );
+            }
+        } else if !metadata.is_dir() {
+            manifest_error(
+                manifest_path,
+                line_number,
+                format!(
+                    "case file `{relative}` component `{}` must be a directory",
+                    traversed.display()
+                ),
+            );
+        }
+    }
+    current
+}
+
+fn directory_contains_exact_entry(dir: &Path, name: &std::ffi::OsStr) -> bool {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return false;
+    };
+    entries
+        .filter_map(Result::ok)
+        .any(|entry| entry.file_name() == name)
+}
+
 #[cfg(unix)]
 fn is_link_like_metadata(metadata: &fs::Metadata) -> bool {
     metadata.file_type().is_symlink()
@@ -3343,10 +3685,10 @@ fn is_link_like_metadata(metadata: &fs::Metadata) -> bool {
 
 #[cfg(windows)]
 fn is_link_like_metadata(metadata: &fs::Metadata) -> bool {
-    use std::os::windows::fs::FileTypeExt;
+    use std::os::windows::fs::MetadataExt;
 
-    let file_type = metadata.file_type();
-    file_type.is_symlink() || file_type.is_symlink_dir() || file_type.is_symlink_file()
+    const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
+    metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0
 }
 
 #[cfg(not(any(unix, windows)))]
@@ -4342,6 +4684,68 @@ reason = "skip evaluation must not run before policy"
 }
 
 #[test]
+fn synthetic_policy_guard_also_applies_inside_crate_for_non_inventory_cases() {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let case_dir = manifest_dir.join("target/non-inventory-synthetic-policy");
+    let _ = fs::remove_dir_all(&case_dir);
+    fs::create_dir_all(&case_dir).expect("synthetic crate-local case directory should be created");
+    fs::write(
+        case_dir.join("case.toml"),
+        "command = [\"check\"]\nstdin = \"\\n\"\nexit = 0\n",
+    )
+    .expect("synthetic manifest should be written");
+
+    assert!(!is_generated_inventory_member(&case_dir));
+    let panic = std::panic::catch_unwind(|| run_case(&case_dir))
+        .expect_err("crate-local non-inventory case should use the synthetic guard");
+    let message = panic_message(panic);
+    assert!(message.contains(
+        "synthetic toolchain case violates manifest line-break policy before loading resources"
+    ));
+
+    fs::remove_dir_all(case_dir).expect("synthetic case should be removed");
+}
+
+#[test]
+fn generated_inventory_membership_is_exact() {
+    let generated = toolchain_case_path(
+        GENERATED_TOOLCHAIN_CASES
+            .first()
+            .expect("generated inventory should not be empty"),
+    );
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let sibling = manifest_dir.join("tests/toolchain_cases/not-generated");
+
+    assert!(is_generated_inventory_member(&generated));
+    assert!(!is_generated_inventory_member(&sibling));
+}
+
+#[cfg(unix)]
+#[test]
+fn fixture_copy_rejects_links_before_command_execution() {
+    use std::os::unix::fs::symlink;
+
+    let root = test_temp_root("copy-link-reject");
+    let case_dir = root.join("synthetic");
+    fs::create_dir_all(&case_dir).expect("case directory should be created");
+    fs::write(
+        case_dir.join("case.toml"),
+        "command = [\"run-command-that-must-not-start\"]\nexit = 0\n",
+    )
+    .expect("case manifest should be written");
+    fs::write(root.join("target.txt"), "target").expect("link target should be written");
+    symlink("../target.txt", case_dir.join("fixture-link.txt")).expect("symlink should be created");
+
+    let panic = std::panic::catch_unwind(|| run_case(&case_dir))
+        .expect_err("fixture copy should reject symlinks");
+    let message = panic_message(panic);
+    assert!(message.contains("replace the link or reparse point with a regular fixture entry"));
+    assert!(!message.contains("run-command-that-must-not-start"));
+
+    fs::remove_dir_all(root).expect("copy link root should be removed");
+}
+
+#[test]
 fn runtime_inventory_barrier_failure_blocks_generated_case_lifecycle() {
     let root = test_temp_root("runtime-barrier-block");
     let case_dirs = [root.join("stale-a"), root.join("stale-b")];
@@ -4884,12 +5288,14 @@ missing = true
 
     let assertion = &manifest.expectations.json_assertions[0];
     assert_eq!(assertion.path, "error.details.byte_diagnostic.byte_preview");
-    assert!(assertion.missing);
+    assert_eq!(assertion.missing, Some(true));
     assert!(assertion.equals.is_none());
 }
 
 #[test]
-#[should_panic(expected = "json_assert 0 needs exactly one of `equals` or `missing = true`")]
+#[should_panic(
+    expected = "json_assert 0 needs exactly one of `equals`, `equals_file`, or `missing = true`"
+)]
 fn manifest_json_assertions_reject_mixed_equals_and_missing() {
     parse_manifest(
         Path::new("case.toml"),
@@ -4903,6 +5309,57 @@ equals = "failed"
 missing = true
 "#,
     );
+}
+
+#[test]
+fn manifest_sidecar_choice_cardinality_is_checked_before_file_io() {
+    assert_manifest_parse_error(
+        r#"
+command = ["check"]
+stdin = "inline"
+stdin_file = "case-text/missing-sidecar.txt"
+exit = 0
+"#,
+        "root invocation needs at most one of `stdin` or `stdin_file`",
+    );
+    assert_manifest_parse_error(
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[[json_assert]]
+path = "stdout"
+equals = "inline"
+equals_file = "case-text/missing-sidecar.txt"
+"#,
+        "json_assert 0 needs exactly one of `equals`, `equals_file`, or `missing = true`",
+    );
+    assert_manifest_parse_error(
+        r#"
+command = ["run", "main", "main.veln"]
+exit = 0
+
+[[file_assert]]
+path = "out.txt"
+equals = "inline"
+equals_file = "case-text/missing-sidecar.txt"
+"#,
+        "file_assert 0 needs exactly one of `equals` or `equals_file`",
+    );
+}
+
+#[test]
+fn manifest_sidecar_paths_reject_nonportable_components_before_io() {
+    for relative in [
+        "case-text/CON.txt",
+        "case-text/lpt9.log",
+        "case-text/trailing.",
+        "case-text/space name.txt",
+        "../escape.txt",
+    ] {
+        let source = format!("command = [\"check\"]\nstdin_file = {relative:?}\nexit = 0\n");
+        assert_manifest_parse_error(&source, "must use portable relative components");
+    }
 }
 
 #[test]
@@ -5573,7 +6030,7 @@ missing = true
         assertions[0].equals,
         Some(JsonValue::String("codec.incomplete_input".to_string()))
     );
-    assert!(assertions[1].missing);
+    assert_eq!(assertions[1].missing, Some(true));
 }
 
 #[test]
@@ -6298,7 +6755,7 @@ fn fake_tool_path(root: &Path, name: &str) -> PathBuf {
 }
 
 fn assert_json_path(context: &CaseRunContext<'_>, json: &JsonValue, assertion: &JsonAssertion) {
-    if assertion.missing {
+    if assertion.missing == Some(true) {
         assert!(
             json_path(json, &assertion.path).is_none(),
             "{}: JSON path `{}` should be missing in {:?}",
@@ -6352,7 +6809,7 @@ fn assert_result_value_path(
         )
     });
 
-    if assertion.missing {
+    if assertion.missing == Some(true) {
         assert!(
             json_path(&parsed, &assertion.path).is_none(),
             "{}: result value path `{}` should be missing in {:?}",

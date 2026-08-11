@@ -223,14 +223,36 @@ fn discover_root(
     let mut errors = Vec::new();
     let mut cases = Vec::new();
     let root_manifest = root_path.join("case.toml");
-    let root_ancestor = if root_manifest.exists() {
-        errors.push(format!(
-            "{}: remove root-level case.toml or move it below a case directory; discovery roots are containers",
-            root.id
-        ));
-        Some(PathBuf::from("case.toml"))
-    } else {
-        None
+    let root_ancestor = match fs::symlink_metadata(&root_manifest) {
+        Ok(metadata) => {
+            if is_link_like(&metadata) {
+                errors.push(format!(
+                    "{}/case.toml: replace the link or reparse point with a regular fixture entry; discovery never follows entries that can hide or escape a case",
+                    root.id
+                ));
+                None
+            } else {
+                if !metadata.is_file() {
+                    errors.push(format!(
+                        "{}/case.toml: case.toml must be a regular file",
+                        root.id
+                    ));
+                }
+                errors.push(format!(
+                    "{}: remove root-level case.toml or move it below a case directory; discovery roots are containers",
+                    root.id
+                ));
+                Some(PathBuf::from("case.toml"))
+            }
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => {
+            errors.push(format!(
+                "{}: inspect root-level case.toml failed: {error}",
+                root.id
+            ));
+            None
+        }
     };
     discover_dir(
         root,
@@ -277,10 +299,47 @@ fn discover_dir(
     };
     entries.sort_by_key(|entry| entry.file_name());
 
+    let mut classified = Vec::new();
+    for entry in entries {
+        let entry_relative = relative.join(entry.file_name());
+        let metadata = match fs::symlink_metadata(entry.path()) {
+            Ok(metadata) => metadata,
+            Err(error) => {
+                errors.push(format!(
+                    "{}: inspect discovery entry failed: {error}",
+                    display_root_path(root.id, &entry_relative)
+                ));
+                continue;
+            }
+        };
+        if is_link_like(&metadata) {
+            errors.push(format!(
+                "{}: replace the link or reparse point with a regular fixture entry; discovery never follows entries that can hide or escape a case",
+                display_root_path(root.id, &entry_relative)
+            ));
+            continue;
+        }
+        if !metadata.is_dir() && !metadata.is_file() {
+            errors.push(format!(
+                "{}: replace the non-regular fixture entry with a regular file or directory",
+                display_root_path(root.id, &entry_relative)
+            ));
+            continue;
+        }
+        classified.push((entry, entry_relative, metadata));
+    }
+
     let mut local_manifest = ancestor_manifest.clone();
-    for entry in &entries {
+    for (entry, _, metadata) in &classified {
         if entry.file_name() == "case.toml" {
             let manifest_relative = relative.join("case.toml");
+            if !metadata.is_file() {
+                errors.push(format!(
+                    "{}: case.toml must be a regular file",
+                    display_root_path(root.id, &manifest_relative)
+                ));
+                continue;
+            }
             if let Some(ancestor) = &ancestor_manifest {
                 errors.push(format!(
                     "{}: nested case.toml is below {}; remove the nested manifest or move it to a sibling case directory",
@@ -303,25 +362,7 @@ fn discover_dir(
         }
     }
 
-    for entry in entries {
-        let entry_relative = relative.join(entry.file_name());
-        let metadata = match fs::symlink_metadata(entry.path()) {
-            Ok(metadata) => metadata,
-            Err(error) => {
-                errors.push(format!(
-                    "{}: inspect discovery entry failed: {error}",
-                    display_root_path(root.id, &entry_relative)
-                ));
-                continue;
-            }
-        };
-        if is_link_like(&metadata) {
-            errors.push(format!(
-                "{}: replace the link or reparse point with a regular fixture entry; discovery never follows entries that can hide or escape a case",
-                display_root_path(root.id, &entry_relative)
-            ));
-            continue;
-        }
+    for (entry, entry_relative, metadata) in classified {
         if metadata.is_dir() {
             discover_dir(
                 root,
@@ -423,8 +464,8 @@ fn is_link_like(metadata: &fs::Metadata) -> bool {
 
 #[cfg(windows)]
 fn is_link_like(metadata: &fs::Metadata) -> bool {
-    use std::os::windows::fs::FileTypeExt;
+    use std::os::windows::fs::MetadataExt;
 
-    let file_type = metadata.file_type();
-    file_type.is_symlink() || file_type.is_symlink_dir() || file_type.is_symlink_file()
+    const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
+    metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0
 }

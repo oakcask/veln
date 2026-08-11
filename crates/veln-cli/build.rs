@@ -17,14 +17,12 @@ fn main() {
             manifest_dir.join(root.relative).display()
         );
     }
-    let preflight = toolchain_case_inventory::run_preflight(&manifest_dir)
-        .unwrap_or_else(|error| panic!("{error}"));
-    let cases = preflight
-        .cases
-        .iter()
-        .map(|case| case.manifest_relative.clone())
-        .collect::<Vec<_>>();
-    let generated = toolchain_case_inventory::generated_toolchain_tests(&cases);
+    let generated = toolchain_case_inventory::generated_toolchain_tests_from_preflight(
+        &manifest_dir,
+        &toolchain_case_inventory::DISCOVERY_ROOTS,
+        true,
+    )
+    .unwrap_or_else(|error| panic!("{error}"));
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("out dir set"));
     fs::write(out_dir.join("toolchain_cases.rs"), generated)
         .expect("generated toolchain cases should be written");

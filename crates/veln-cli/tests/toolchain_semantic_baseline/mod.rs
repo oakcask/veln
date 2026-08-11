@@ -419,7 +419,12 @@ fn describe_json_assertions(fields: &mut BTreeMap<String, String>, manifest: &Ca
     for (index, assertion) in manifest.expectations.json_assertions.iter().enumerate() {
         let base = format!("expectations.json_assertions[{index}]");
         text(fields, &format!("{base}.path"), &assertion.path);
-        assertion_operation(fields, &base, assertion.equals.as_ref(), assertion.missing);
+        assertion_operation(
+            fields,
+            &base,
+            assertion.equals.as_ref(),
+            assertion.missing == Some(true),
+        );
     }
 }
 
@@ -436,7 +441,12 @@ fn describe_result_value_assertions(
         let base = format!("expectations.result_value_assertions[{index}]");
         text(fields, &format!("{base}.value_path"), &assertion.value_path);
         text(fields, &format!("{base}.path"), &assertion.path);
-        assertion_operation(fields, &base, assertion.equals.as_ref(), assertion.missing);
+        assertion_operation(
+            fields,
+            &base,
+            assertion.equals.as_ref(),
+            assertion.missing == Some(true),
+        );
     }
 }
 
@@ -445,7 +455,14 @@ fn describe_file_assertions(fields: &mut BTreeMap<String, String>, manifest: &Ca
         let base = format!("expectations.file_assertions[{index}]");
         text(fields, &format!("{base}.path"), &assertion.path);
         enum_value(fields, &format!("{base}.operation"), "equals");
-        text(fields, &format!("{base}.equals"), &assertion.equals);
+        text(
+            fields,
+            &format!("{base}.equals"),
+            assertion
+                .equals
+                .as_deref()
+                .expect("file assertion should have expected text"),
+        );
     }
 }
 
