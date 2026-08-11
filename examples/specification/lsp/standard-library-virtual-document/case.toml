@@ -4,8 +4,9 @@ stdin_file = "case-text/root-stdin-1.txt"
 exit = 0
 
 [stdout]
-contains = ["\"id\":2,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/49fff6fd61068a79d813b38870dd0a41194faa0d1383ba378feffb5e50e2d364/prelude.veln\",\"range\":{\"start\":{\"line\":97,\"character\":7},\"end\":{\"line\":97,\"character\":11}}", "\"id\":4,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/49fff6fd61068a79d813b38870dd0a41194faa0d1383ba378feffb5e50e2d364/prelude.veln\"", "\"id\":5,\"result\":null", "\"id\":6,\"result\":null", "\"id\":7,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/49fff6fd61068a79d813b38870dd0a41194faa0d1383ba378feffb5e50e2d364/http2/diagnostic.veln\"", "\"id\":8,\"result\":null", "\"id\":9,\"error\":{\"code\":-32602", "\"id\":10,\"result\":null"]
+contains = ["\"id\":2,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/49fff6fd61068a79d813b38870dd0a41194faa0d1383ba378feffb5e50e2d364/prelude.veln\",\"range\":{\"start\":{\"line\":97,\"character\":7},\"end\":{\"line\":97,\"character\":11}}"]
 contains_files = ["case-text/stdout-contains-1.txt", "case-text/stdout-contains-2.txt"]
+contains = ["\"id\":4,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/49fff6fd61068a79d813b38870dd0a41194faa0d1383ba378feffb5e50e2d364/prelude.veln\"", "\"id\":5,\"result\":null", "\"id\":6,\"result\":null", "\"id\":7,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/49fff6fd61068a79d813b38870dd0a41194faa0d1383ba378feffb5e50e2d364/http2/diagnostic.veln\"", "\"id\":8,\"result\":null", "\"id\":9,\"error\":{\"code\":-32602", "\"id\":10,\"result\":null"]
 not_contains = ["crates/veln-stdlib", "target/debug"]
 
 [stderr]

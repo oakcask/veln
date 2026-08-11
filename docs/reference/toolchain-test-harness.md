@@ -136,8 +136,10 @@ Use `exit`, `[stdout]`, and `[stderr]` for command-visible output. Stream
 sections accept `format = "empty"`, `"text"`, or `"json"` where JSON is valid
 for stdout, plus `contains`, `contains_file`, `contains_files`,
 `not_contains`, `not_contains_file`, and `not_contains_files` fragments for
-stable text checks. Stream exact equality uses `equals_file`; the harness reads
-the expected text from the discovered case before the command runs.
+stable text checks. Fragment fields append in manifest order and may repeat
+when a file-backed fragment belongs between inline fragments. Stream exact
+equality uses `equals_file`; the harness reads the expected text from the
+discovered case before the command runs.
 
 Use `stdin_file` when command input is easier to review as a case text file.
 Use `[[json_assert]]`, `[[result_value_assert]]`, and `[[diagnostics]]` for
@@ -170,7 +172,10 @@ File-backed manifest operands use a case-relative portable path. The path
 cannot escape the case directory, traverse a link-like entry, or name anything
 except a regular UTF-8 file. The harness reads these files before skip
 evaluation, fixture setup, or command execution. Repeated invocations reuse
-the same discovered text snapshot.
+the same discovered text snapshot. Checked-in files under `case-text/` are
+checked out as LF-normalized text unless the basename starts with `raw-`,
+which reserves an exact-byte fixture convention for content that must not be
+line-ending normalized.
 
 The `manifest_sidecar_*` tests in `toolchain_harness.rs` are the executable
 evidence for sidecar path grammar, operand cardinality, exact text comparison,

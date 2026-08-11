@@ -1,2 +1,4 @@
-**/case-text/* -whitespace
-examples/specification/lsp/*/case-text/root-stdin-*.txt -text -diff
+crates/veln-cli/tests/toolchain_cases/**/case-text/* text eol=lf -whitespace
+examples/specification/**/case-text/* text eol=lf -whitespace
+crates/veln-cli/tests/toolchain_cases/**/case-text/raw-* -text -diff
+examples/specification/**/case-text/raw-* -text -diff

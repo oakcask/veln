@@ -3,8 +3,8 @@ exit = 0
 
 [stdout]
 format = "text"
-contains = ["primary=src/app.veln::duplicate_app at src/app.veln:", "related: src/util.veln::duplicate_util at src/util.veln:", "primary=src/app.veln::variant_app at src/app.veln:", "related: src/util.veln::variant_util at src/util.veln:"]
 contains_files = ["case-text/stdout-contains-1.txt", "case-text/stdout-contains-2.txt", "case-text/stdout-contains-3.txt"]
+contains = ["primary=src/app.veln::duplicate_app at src/app.veln:", "related: src/util.veln::duplicate_util at src/util.veln:", "primary=src/app.veln::variant_app at src/app.veln:", "related: src/util.veln::variant_util at src/util.veln:"]
 
 [stderr]
 format = "empty"

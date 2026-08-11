@@ -2475,7 +2475,7 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
             }
             ManifestStatement::Assignment { key, line, .. } => {
                 let assignment = format!("{section:?}:{key}");
-                if !seen.insert(assignment) {
+                if !is_accumulating_manifest_key(section, key) && !seen.insert(assignment) {
                     manifest_error(path, *line, format!("duplicate key `{key}`"));
                 }
                 match section {
@@ -2719,7 +2719,9 @@ impl<'a> ManifestParser<'a> {
     }
 
     fn parse_section_key(&mut self, line_number: usize, key: &str, value: &ManifestValue<'_>) {
-        self.reject_duplicate_assignment(line_number, key);
+        if !is_accumulating_manifest_key(self.section, key) {
+            self.reject_duplicate_assignment(line_number, key);
+        }
         match self.section {
             Section::Root => self.parse_root_key(line_number, key, value),
             Section::Stdout => parse_stream_key(
@@ -3022,7 +3024,9 @@ impl<'a> ManifestParser<'a> {
             .expect("manifest_error section should exist");
         match key {
             "contains" => {
-                expectation.contains = parse_string_array(self.path, value);
+                expectation
+                    .contains
+                    .extend(parse_string_array(self.path, value));
             }
             "contains_file" => {
                 expectation
@@ -3477,6 +3481,24 @@ fn imported_use_for_path<'a>(
     })
 }
 
+fn is_accumulating_manifest_key(section: Section, key: &str) -> bool {
+    matches!(
+        (section, key),
+        (
+            Section::Stdout | Section::Stderr,
+            "contains"
+                | "contains_file"
+                | "contains_files"
+                | "not_contains"
+                | "not_contains_file"
+                | "not_contains_files"
+        ) | (
+            Section::Help | Section::ManifestError,
+            "contains" | "contains_file" | "contains_files"
+        )
+    )
+}
+
 fn fixture_schema_wrong_kind(
     module: &SurfaceModule,
     module_name: Option<&str>,
@@ -3526,7 +3548,7 @@ fn parse_help_key(
         "commands" => help.commands = parse_string_array(path, value),
         "arguments" => help.arguments = parse_string_array(path, value),
         "options" => help.options = parse_string_array(path, value),
-        "contains" => help.contains = parse_string_array(path, value),
+        "contains" => help.contains.extend(parse_string_array(path, value)),
         "contains_file" => help.contains.push(case_text_cache.read(path, value)),
         "contains_files" => help.contains.extend(case_text_cache.read_many(path, value)),
         _ => manifest_error(path, line_number, format!("unknown help key `{key}`")),
@@ -3557,12 +3579,12 @@ fn parse_stream_key(
             });
         }
         "equals_file" => stream.equals = Some(case_text_cache.read(path, value)),
-        "contains" => stream.contains = parse_string_array(path, value),
+        "contains" => stream.contains.extend(parse_string_array(path, value)),
         "contains_file" => stream.contains.push(case_text_cache.read(path, value)),
         "contains_files" => stream
             .contains
             .extend(case_text_cache.read_many(path, value)),
-        "not_contains" => stream.not_contains = parse_string_array(path, value),
+        "not_contains" => stream.not_contains.extend(parse_string_array(path, value)),
         "not_contains_file" => stream.not_contains.push(case_text_cache.read(path, value)),
         "not_contains_files" => stream
             .not_contains
@@ -5424,6 +5446,87 @@ equals_file = "case-text/missing-sidecar.txt"
 "#,
         "file_assert 0 needs exactly one of `equals` or `equals_file`",
     );
+}
+
+#[test]
+fn manifest_stream_fragments_accumulate_in_manifest_order() {
+    let root = test_temp_root("manifest-fragment-order");
+    let case_dir = root.join("examples/specification/check/manifest-fragment-order");
+    let text_dir = case_dir.join("case-text");
+    fs::create_dir_all(&text_dir).expect("case text directory should be created");
+    fs::write(text_dir.join("middle.txt"), "middle").expect("sidecar should be written");
+
+    let manifest = parse_manifest(
+        &case_dir.join("case.toml"),
+        r#"
+command = ["check"]
+exit = 0
+
+[stdout]
+contains = ["before"]
+contains_file = "case-text/middle.txt"
+contains = ["after"]
+not_contains = ["forbidden before"]
+not_contains = ["forbidden after"]
+"#,
+    );
+
+    assert_eq!(
+        manifest.expectations.stdout.contains,
+        ["before", "middle", "after"]
+    );
+    assert_eq!(
+        manifest.expectations.stdout.not_contains,
+        ["forbidden before", "forbidden after"]
+    );
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
+fn case_text_git_attributes_cover_text_and_raw_sidecars() {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let repo = manifest_dir
+        .parent()
+        .and_then(Path::parent)
+        .expect("manifest directory should be under the repository");
+    let output = Command::new("git")
+        .current_dir(repo)
+        .args([
+            "check-attr",
+            "text",
+            "eol",
+            "diff",
+            "whitespace",
+            "--",
+            "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/json-assert-equals-1.txt",
+            "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/raw-protocol.bin",
+            "examples/specification/lsp/semantic-tokens/case-text/root-stdin-1.txt",
+            "examples/specification/lsp/semantic-tokens/case-text/raw-protocol.bin",
+        ])
+        .output()
+        .expect("git check-attr should run");
+    assert!(
+        output.status.success(),
+        "git check-attr failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("attribute output should be utf-8");
+    for ordinary in [
+        "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/json-assert-equals-1.txt",
+        "examples/specification/lsp/semantic-tokens/case-text/root-stdin-1.txt",
+    ] {
+        assert!(stdout.contains(&format!("{ordinary}: text: set")));
+        assert!(stdout.contains(&format!("{ordinary}: eol: lf")));
+        assert!(stdout.contains(&format!("{ordinary}: whitespace: unset")));
+    }
+    for raw in [
+        "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/raw-protocol.bin",
+        "examples/specification/lsp/semantic-tokens/case-text/raw-protocol.bin",
+    ] {
+        assert!(stdout.contains(&format!("{raw}: text: unset")));
+        assert!(stdout.contains(&format!("{raw}: diff: unset")));
+    }
 }
 
 #[test]
