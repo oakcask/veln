@@ -934,7 +934,7 @@ already implemented.
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |
 | Generate the syntax reference. | Its grammar is byte-equivalent to executable grammar output. | Grammar freshness check. |
-| Select a reference example. | The case and display files exist and run through the specification harness. | Reference catalog validator. |
+| Select a reference example. | The case and display files exist, and each selected file is a command source input for the specification harness case. | Reference catalog validator. |
 | Change a selected example or public table fragment. | The catalog freshness check fails until regenerated. | Generator freshness test. |
 | Change only development documentation. | The public reference digest and catalog remain unchanged. | Determinism fixture. |
 | Reorder equivalent catalog input or vary catalog-owned Unicode and line endings. | Canonical artifact bytes and the domain-separated digest follow the specified normalization. | Q17 canonical-catalog vectors. |
@@ -992,9 +992,11 @@ does not implement dependency reference search or MCP resources.
 The transport-independent published language-reference generation foundation
 is implemented and specified in
 [Published Language Reference Artifact](../specification/language-reference.md).
-It validates the closed v1 topic descriptors and selected harness files, and
-generates canonical schema-v1 bytes and a domain-separated digest from the
-executable grammar, checked examples, and lexer-owned public token tables.
+It validates the closed v1 topic descriptors and selected harness command
+targets, canonicalizes set-valued descriptor fields, rejects bundle provenance
+leaks, verifies lexer-owned token projection coverage, and generates canonical
+schema-v1 bytes and a domain-separated digest from the executable grammar,
+checked examples, and lexer-owned public token tables.
 The remaining slices are:
 
 1. Add `veln mcp`, resources, documentation tools, project diagnostics,

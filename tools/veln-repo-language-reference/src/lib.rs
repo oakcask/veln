@@ -427,13 +427,197 @@ fn validate_example(
             "topic `{topic_id}` selects a non-Veln display file"
         ));
     }
-    if !manifest.contains(&format!("\"{}\"", example.file)) {
+    let command = manifest_command(&manifest_path, &manifest)?;
+    let source_inputs = command_source_inputs(&command);
+    if !source_inputs
+        .iter()
+        .any(|input| *input == Path::new(example.file))
+    {
         return Err(format!(
             "topic `{topic_id}` selects `{}` outside the case command target",
             example.file
         ));
     }
     Ok(())
+}
+
+fn manifest_command(path: &Path, manifest: &str) -> Result<Vec<String>, String> {
+    for (line_index, raw_line) in manifest.lines().enumerate() {
+        let line = strip_comment(raw_line).trim();
+        if line.is_empty() {
+            continue;
+        }
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        if key.trim() == "command" {
+            return parse_string_array(path, line_index + 1, value.trim());
+        }
+    }
+    Err(format!("{}: missing `command`", path.display()))
+}
+
+fn command_source_inputs(command: &[String]) -> Vec<&Path> {
+    let Some(command_name) = command.first().map(String::as_str) else {
+        return Vec::new();
+    };
+    match command_name {
+        "run" => run_command_source_inputs(&command[1..]),
+        "check" | "doc" | "fmt" | "metrics" | "test" => source_inputs_after_flags(&command[1..]),
+        _ => Vec::new(),
+    }
+}
+
+fn run_command_source_inputs(args: &[String]) -> Vec<&Path> {
+    let mut saw_entry = false;
+    let mut inputs = Vec::new();
+    for arg in args {
+        if arg == "--" {
+            break;
+        }
+        if arg == "--json" {
+            continue;
+        }
+        if !saw_entry {
+            saw_entry = true;
+            continue;
+        }
+        inputs.push(Path::new(arg));
+    }
+    inputs
+}
+
+fn source_inputs_after_flags(args: &[String]) -> Vec<&Path> {
+    let mut inputs = Vec::new();
+    let mut args = args.iter();
+    while let Some(arg) = args.next() {
+        if arg == "--" {
+            break;
+        }
+        if arg == "--json" {
+            continue;
+        }
+        if matches!(
+            arg.as_str(),
+            "--baseline" | "--write-baseline" | "--jobs" | "-j"
+        ) {
+            let _ = args.next();
+            continue;
+        }
+        if arg.starts_with("--baseline=")
+            || arg.starts_with("--write-baseline=")
+            || arg.starts_with("--jobs=")
+        {
+            continue;
+        }
+        inputs.push(Path::new(arg));
+    }
+    inputs
+}
+
+fn strip_comment(line: &str) -> &str {
+    let mut in_string = false;
+    let mut escaped = false;
+    for (index, ch) in line.char_indices() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+            }
+        } else if ch == '"' {
+            in_string = true;
+        } else if ch == '#' {
+            return &line[..index];
+        }
+    }
+    line
+}
+
+fn parse_string_array(path: &Path, line_number: usize, value: &str) -> Result<Vec<String>, String> {
+    let Some(inner) = value
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+    else {
+        return Err(format!(
+            "{}:{line_number}: expected string array",
+            path.display()
+        ));
+    };
+    let inner = inner.trim();
+    if inner.is_empty() {
+        return Ok(Vec::new());
+    }
+    split_array_values(inner)
+        .into_iter()
+        .map(|item| parse_string(path, line_number, item.trim()))
+        .collect()
+}
+
+fn split_array_values(value: &str) -> Vec<&str> {
+    let mut values = Vec::new();
+    let mut start = 0;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (index, ch) in value.char_indices() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+            }
+        } else if ch == '"' {
+            in_string = true;
+        } else if ch == ',' {
+            values.push(&value[start..index]);
+            start = index + 1;
+        }
+    }
+    values.push(&value[start..]);
+    values
+}
+
+fn parse_string(path: &Path, line_number: usize, value: &str) -> Result<String, String> {
+    let Some(inner) = value
+        .strip_prefix('"')
+        .and_then(|value| value.strip_suffix('"'))
+    else {
+        return Err(format!("{}:{line_number}: expected string", path.display()));
+    };
+
+    let mut parsed = String::new();
+    let mut chars = inner.chars();
+    while let Some(ch) = chars.next() {
+        if ch != '\\' {
+            parsed.push(ch);
+            continue;
+        }
+
+        let Some(escaped) = chars.next() else {
+            return Err(format!(
+                "{}:{line_number}: unterminated string escape",
+                path.display()
+            ));
+        };
+        match escaped {
+            '"' => parsed.push('"'),
+            '\\' => parsed.push('\\'),
+            'n' => parsed.push('\n'),
+            'r' => parsed.push('\r'),
+            't' => parsed.push('\t'),
+            _ => {
+                return Err(format!(
+                    "{}:{line_number}: unsupported string escape `{escaped}`",
+                    path.display()
+                ));
+            }
+        }
+    }
+    Ok(parsed)
 }
 
 fn serialize_catalog(
@@ -478,9 +662,9 @@ fn serialize_catalog(
         out.push_str("],\"id\":");
         write_json_string(&mut out, topic.id);
         out.push_str(",\"keywords\":[");
-        write_strings(&mut out, topic.keywords);
+        write_sorted_strings(&mut out, topic.keywords);
         out.push_str("],\"related\":[");
-        write_strings(&mut out, topic.related);
+        write_sorted_strings(&mut out, topic.related);
         out.push_str("],\"summary\":");
         write_json_string(&mut out, &normalize_text(topic.summary));
         out.push_str(",\"title\":");
@@ -513,11 +697,21 @@ fn write_token_table(out: &mut String, kinds: &[TokenKind]) {
     }
 }
 
-fn write_strings(out: &mut String, values: &[&str]) {
+fn write_sorted_strings(out: &mut String, values: &[&str]) {
+    let values = canonical_string_set(values);
     for (index, value) in values.iter().enumerate() {
         comma(out, index);
-        write_json_string(out, &normalize_text(value));
+        write_json_string(out, value);
     }
+}
+
+fn canonical_string_set(values: &[&str]) -> Vec<String> {
+    let mut values = values
+        .iter()
+        .map(|value| normalize_text(value))
+        .collect::<Vec<_>>();
+    values.sort();
+    values
 }
 
 fn comma(out: &mut String, index: usize) {
@@ -565,7 +759,9 @@ fn hex_digest(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::env;
     use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     fn workspace() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -637,6 +833,74 @@ mod tests {
     }
 
     #[test]
+    fn existing_files_outside_manifest_command_targets_are_rejected() {
+        let root = temporary_workspace();
+        let case_root = root.join("examples/specification/check/reference-targets");
+        fs::create_dir_all(&case_root).unwrap();
+        fs::write(
+            case_root.join("main.veln"),
+            "pub fn main() -> Int\n\t1\nend\n",
+        )
+        .unwrap();
+        fs::write(
+            case_root.join("diagnostic-only.veln"),
+            "fn diagnostic_only() -> Int\n\t1\nend\n",
+        )
+        .unwrap();
+        fs::write(
+            case_root.join("case.toml"),
+            concat!(
+                "command = [\"check\", \"--json\", \"main.veln\"]\n",
+                "exit = 1\n",
+                "\n",
+                "[[diagnostics]]\n",
+                "id = \"name.unresolved\"\n",
+                "\n",
+                "[diagnostics.span]\n",
+                "file = \"diagnostic-only.veln\"\n",
+            ),
+        )
+        .unwrap();
+
+        let example = ExampleDescriptor {
+            case: "check/reference-targets",
+            file: "diagnostic-only.veln",
+            name: "diagnostic only",
+        };
+        let error = validate_example(&root, "lexical-structure", &example).unwrap_err();
+        assert!(
+            error.contains("outside the case command target"),
+            "unexpected error: {error}"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn equivalent_set_field_order_preserves_canonical_catalog_and_digest() {
+        let mut reordered = TOPICS.to_vec();
+        reordered[0].keywords = &["syntax", "operators", "keywords", "grammar"];
+        reordered[0].related = &[
+            "tests-doc-comments-doctests",
+            "expressions-operators-patterns",
+        ];
+
+        let grammar = grammar();
+        let canonical = generate(&workspace(), TOPICS, &grammar).unwrap();
+        let alternate = generate(&workspace(), &reordered, &grammar).unwrap();
+        assert_eq!(canonical.artifact, alternate.artifact);
+        assert_eq!(canonical.digest, alternate.digest);
+    }
+
+    #[test]
+    fn catalog_owned_set_fields_use_unicode_and_newline_canonical_order() {
+        let values = ["z\r\n", "e\u{301}", "a"];
+        assert_eq!(
+            canonical_string_set(&values),
+            vec!["a".to_string(), "z\n".to_string(), "\u{e9}".to_string()]
+        );
+    }
+
+    #[test]
     fn input_change_causes_freshness_failure() {
         let mut changed = generate(&workspace(), TOPICS, &grammar()).unwrap();
         changed.artifact.push(b' ');
@@ -672,5 +936,18 @@ mod tests {
         let grammar = grammar();
         let lexical = grammar_blocks(&TOPICS[0], &grammar);
         assert_eq!(lexical, vec![grammar.complete]);
+    }
+
+    fn temporary_workspace() -> PathBuf {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = env::temp_dir().join(format!(
+            "veln-language-reference-test-{}-{suffix}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&path).unwrap();
+        path
     }
 }

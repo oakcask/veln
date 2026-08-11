@@ -318,3 +318,115 @@ fn token(kind: TokenKind, text: impl Into<String>, start: usize, end: usize) -> 
 fn is_ident_continue(ch: char) -> bool {
     ch.is_ascii_alphanumeric() || ch == '_'
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeSet;
+
+    use veln_source::SourceFile;
+
+    use super::keyword_kind;
+    use crate::{TokenKind, lex};
+
+    #[test]
+    fn public_keyword_table_matches_lexer_keyword_mapping() {
+        let lexer_keywords = keyword_spellings()
+            .iter()
+            .map(|spelling| keyword_kind(spelling).expect("spelling should be a keyword"))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            kind_indices(&lexer_keywords),
+            kind_indices(TokenKind::KEYWORDS)
+        );
+
+        for kind in TokenKind::KEYWORDS {
+            let token = lex_single(kind.label());
+            assert_eq!(
+                token,
+                *kind,
+                "keyword `{}` has wrong token kind",
+                kind.label()
+            );
+        }
+    }
+
+    #[test]
+    fn public_punctuation_table_matches_lexer_symbol_mapping() {
+        let lexer_symbols = symbol_spellings()
+            .iter()
+            .map(|spelling| lex_single(spelling))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            kind_indices(&lexer_symbols),
+            kind_indices(TokenKind::PUNCTUATION)
+        );
+
+        for kind in TokenKind::PUNCTUATION {
+            let token = lex_single(kind.label());
+            assert_eq!(
+                token,
+                *kind,
+                "symbol `{}` has wrong token kind",
+                kind.label()
+            );
+        }
+    }
+
+    fn lex_single(spelling: &str) -> TokenKind {
+        let source = SourceFile::new("token.veln", spelling);
+        let lexed = lex(&source);
+        assert_eq!(lexed.tokens.len(), 2);
+        lexed.tokens[0].kind
+    }
+
+    fn kind_indices(kinds: &[TokenKind]) -> BTreeSet<usize> {
+        kinds.iter().map(|kind| *kind as usize).collect()
+    }
+
+    fn keyword_spellings() -> &'static [&'static str] {
+        &[
+            "pub",
+            "fn",
+            "type",
+            "schema",
+            "codec",
+            "for",
+            "decode",
+            "encode",
+            "derive",
+            "with",
+            "format",
+            "where",
+            "test",
+            "effect",
+            "effects",
+            "perform",
+            "handler",
+            "handles",
+            "handle",
+            "let",
+            "end",
+            "require",
+            "ensure",
+            "invariant",
+            "mod",
+            "use",
+            "from",
+            "at",
+            "match",
+            "if",
+            "else",
+            "or",
+            "and",
+            "not",
+        ]
+    }
+
+    fn symbol_spellings() -> &'static [&'static str] {
+        &[
+            "(", ")", "[", "]", "{", "}", ",", ";", ":", ".", "::", "->", "=>", "|>", "|", "&",
+            "^", "~", "<<", ">>", ">>>", "?", "_", "=", "==", "!=", "<", "<=", ">", ">=", "+", "-",
+            "*", "/",
+        ]
+    }
+}

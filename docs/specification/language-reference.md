@@ -15,10 +15,12 @@ examples.
 The topic descriptors select grammar production names and files from existing
 specification cases. Generation fails when an identifier is invalid or
 duplicated, required metadata is empty, a relation or grammar production is
-invalid, or a selected file is absent from its case command. The selected
-cases remain executable through the toolchain harness. The artifact includes
-the selected source text but does not include case names, repository paths,
-proposal text, or maintenance commands.
+invalid, or a selected file is not one of the manifest command's source input
+paths. A file mentioned only by diagnostics, assertions, or other expectation
+metadata is not a selected command target. The selected cases remain executable
+through the toolchain harness. The artifact includes the selected source text
+but does not include case names, repository paths, proposal text, or
+maintenance commands.
 
 The executable grammar supplies the complete grammar and selected production
 blocks. The lexer-owned keyword and punctuation tables supply the public token
@@ -28,8 +30,10 @@ projections. The generator does not maintain copies of those inputs.
 
 The artifact uses lexicographically ordered object keys, compact JSON, one
 terminal LF, and schema and generator-contract versions of `1`. Catalog-owned
-text is Unicode Normalization Form C with LF line endings. Selected source
-preserves scalar content after newline normalization.
+text is Unicode Normalization Form C with LF line endings. Set-valued
+catalog-owned arrays, including topic keywords and related topic identifiers,
+are sorted after text normalization. Selected source preserves scalar content
+after newline normalization.
 
 The lowercase digest is SHA-256 over this transcript:
 
@@ -58,7 +62,9 @@ compare all canonical bytes and the digest:
 cargo run -p veln-repo-language-reference -- verify
 ```
 
-The package tests cover descriptor rejection, selected case-file validation,
-canonical serialization, the digest transcript, input-change freshness
-failure, and bundle exclusions. Existing toolchain harness cases execute every
+The package tests cover descriptor rejection, selected command-target
+validation, canonical serialization, the digest transcript, input-change
+freshness failure, and bundle exclusions. Lexer tests verify that the public
+keyword and punctuation projections cover the lexer keyword and symbol
+mappings in both directions. Existing toolchain harness cases execute every
 selected source file; no separate example duplicates are required.
