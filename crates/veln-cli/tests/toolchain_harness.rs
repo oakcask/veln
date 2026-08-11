@@ -3154,29 +3154,18 @@ fn parse_manifest_json_value(path: &Path, value: &ManifestValue<'_>) -> JsonValu
         JsonValue::Null
     } else if value.raw().starts_with('[') || value.raw().starts_with('{') {
         parse_json(value.raw()).unwrap_or_else(|error| {
-            let offset = json_error_byte_offset(&error).unwrap_or(value.raw().len());
-            if value.is_unterminated() && offset >= value.raw().len() {
+            if value.is_unterminated() && error.missing_closing_delimiter {
                 value.report_unterminated(path);
             }
             manifest_error(
                 path,
-                value.json_error_line(offset),
+                value.json_error_line(error.offset),
                 format!("invalid json assertion value: {error}"),
             )
         })
     } else {
         JsonValue::Number(parse_i64(path, value))
     }
-}
-
-fn json_error_byte_offset(error: &str) -> Option<usize> {
-    let marker = "byte ";
-    let start = error.rfind(marker)? + marker.len();
-    let digits = error[start..]
-        .chars()
-        .take_while(char::is_ascii_digit)
-        .collect::<String>();
-    digits.parse().ok()
 }
 
 fn parse_binary_fixture_hex(path: &Path, value: &ManifestValue<'_>) -> BinaryFixtureBytes {
@@ -4350,6 +4339,47 @@ fn manifest_container_trailing_tokens_and_local_errors_take_precedence() {
     let message = panic_message(panic);
     assert!(message.contains("case.toml:6: invalid json assertion value"));
     assert!(!message.contains("unterminated container"));
+
+    for (source, line, fact) in [
+        (
+            "command = [\"check\"]\nexit = 0\n[[json_assert]]\npath = \"x\"\nequals = {\n  \"bad\"\n",
+            7,
+            "expected `:`",
+        ),
+        (
+            "command = [\"check\"]\nexit = 0\n[[json_assert]]\npath = \"x\"\nequals = {\n  \"bad\":\n",
+            7,
+            "unexpected end of input",
+        ),
+        (
+            "command = [\"check\"]\nexit = 0\n[[json_assert]]\npath = \"x\"\nequals = [\n  1,\n",
+            7,
+            "unexpected end of input",
+        ),
+        (
+            "command = [\"check\"]\nexit = 0\n[[json_assert]]\npath = \"x\"\nequals = {\n  \"nested\": [\n    1\n",
+            6,
+            "unterminated container; expected `]`",
+        ),
+    ] {
+        let panic = std::panic::catch_unwind(|| parse_manifest(Path::new("case.toml"), source))
+            .expect_err("incomplete JSON container should be rejected");
+        let message = panic_message(panic);
+        assert!(
+            message.contains(&format!("case.toml:{line}:")),
+            "unexpected error line: {message}"
+        );
+        assert!(
+            message.contains(fact),
+            "expected `{fact}` in error, got `{message}`"
+        );
+        if fact != "unterminated container; expected `]`" {
+            assert!(
+                !message.contains("unterminated container"),
+                "local JSON error was replaced by outer delimiter error: {message}"
+            );
+        }
+    }
 }
 
 #[test]
@@ -6320,16 +6350,47 @@ fn escape_json_string(value: &str) -> String {
     escaped
 }
 
-fn parse_json(text: &str) -> Result<JsonValue, String> {
+#[derive(Debug)]
+struct JsonParseError {
+    message: String,
+    offset: usize,
+    missing_closing_delimiter: bool,
+}
+
+impl JsonParseError {
+    fn new(offset: usize, message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            offset,
+            missing_closing_delimiter: false,
+        }
+    }
+
+    fn missing_closing_delimiter(offset: usize, delimiter: u8) -> Self {
+        Self {
+            message: format!("expected `{}` at byte {offset}", delimiter as char),
+            offset,
+            missing_closing_delimiter: true,
+        }
+    }
+}
+
+impl std::fmt::Display for JsonParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+fn parse_json(text: &str) -> Result<JsonValue, JsonParseError> {
     let mut parser = JsonParser { text, offset: 0 };
     let value = parser.parse_value()?;
     parser.skip_ws();
     if parser.offset == text.len() {
         Ok(value)
     } else {
-        Err(format!(
-            "unexpected trailing input at byte {}",
-            parser.offset
+        Err(JsonParseError::new(
+            parser.offset,
+            format!("unexpected trailing input at byte {}", parser.offset),
         ))
     }
 }
@@ -6340,7 +6401,7 @@ struct JsonParser<'a> {
 }
 
 impl JsonParser<'_> {
-    fn parse_value(&mut self) -> Result<JsonValue, String> {
+    fn parse_value(&mut self) -> Result<JsonValue, JsonParseError> {
         self.skip_ws();
         match self.peek() {
             Some(b'n') => {
@@ -6359,15 +6420,18 @@ impl JsonParser<'_> {
             Some(b'[') => self.parse_array(),
             Some(b'{') => self.parse_object(),
             Some(b'-' | b'0'..=b'9') => self.parse_number().map(JsonValue::Number),
-            Some(byte) => Err(format!(
-                "unexpected byte `{}` at byte {}",
-                byte as char, self.offset
+            Some(byte) => Err(JsonParseError::new(
+                self.offset,
+                format!("unexpected byte `{}` at byte {}", byte as char, self.offset),
             )),
-            None => Err(format!("unexpected end of input at byte {}", self.offset)),
+            None => Err(JsonParseError::new(
+                self.offset,
+                format!("unexpected end of input at byte {}", self.offset),
+            )),
         }
     }
 
-    fn parse_array(&mut self) -> Result<JsonValue, String> {
+    fn parse_array(&mut self) -> Result<JsonValue, JsonParseError> {
         self.consume(b'[')?;
         let mut values = Vec::new();
         self.skip_ws();
@@ -6380,12 +6444,15 @@ impl JsonParser<'_> {
             if self.consume_if(b']') {
                 break;
             }
+            if self.peek().is_none() {
+                return Err(JsonParseError::missing_closing_delimiter(self.offset, b']'));
+            }
             self.consume(b',')?;
         }
         Ok(JsonValue::Array(values))
     }
 
-    fn parse_object(&mut self) -> Result<JsonValue, String> {
+    fn parse_object(&mut self) -> Result<JsonValue, JsonParseError> {
         self.consume(b'{')?;
         let mut entries = Vec::new();
         self.skip_ws();
@@ -6403,12 +6470,15 @@ impl JsonParser<'_> {
             if self.consume_if(b'}') {
                 break;
             }
+            if self.peek().is_none() {
+                return Err(JsonParseError::missing_closing_delimiter(self.offset, b'}'));
+            }
             self.consume(b',')?;
         }
         Ok(JsonValue::Object(entries))
     }
 
-    fn parse_string(&mut self) -> Result<String, String> {
+    fn parse_string(&mut self) -> Result<String, JsonParseError> {
         self.consume(b'"')?;
         let mut parsed = String::new();
         while let Some(ch) = self.next_char() {
@@ -6416,20 +6486,26 @@ impl JsonParser<'_> {
                 '"' => return Ok(parsed),
                 '\\' => parsed.push(self.parse_escape()?),
                 ch if ch.is_control() => {
-                    return Err(format!(
-                        "control character in string at byte {}",
-                        self.offset
+                    return Err(JsonParseError::new(
+                        self.offset,
+                        format!("control character in string at byte {}", self.offset),
                     ));
                 }
                 ch => parsed.push(ch),
             }
         }
-        Err(format!("unterminated string at byte {}", self.offset))
+        Err(JsonParseError::new(
+            self.offset,
+            format!("unterminated string at byte {}", self.offset),
+        ))
     }
 
-    fn parse_escape(&mut self) -> Result<char, String> {
+    fn parse_escape(&mut self) -> Result<char, JsonParseError> {
         let Some(ch) = self.next_char() else {
-            return Err(format!("unterminated escape at byte {}", self.offset));
+            return Err(JsonParseError::new(
+                self.offset,
+                format!("unterminated escape at byte {}", self.offset),
+            ));
         };
         match ch {
             '"' | '\\' | '/' => Ok(ch),
@@ -6439,26 +6515,39 @@ impl JsonParser<'_> {
             'r' => Ok('\r'),
             't' => Ok('\t'),
             'u' => self.parse_unicode_escape(),
-            _ => Err(format!("unsupported escape `{ch}` at byte {}", self.offset)),
+            _ => Err(JsonParseError::new(
+                self.offset,
+                format!("unsupported escape `{ch}` at byte {}", self.offset),
+            )),
         }
     }
 
-    fn parse_unicode_escape(&mut self) -> Result<char, String> {
+    fn parse_unicode_escape(&mut self) -> Result<char, JsonParseError> {
         let start = self.offset;
         let end = start + 4;
         let Some(hex) = self.text.get(start..end) else {
-            return Err(format!("short unicode escape at byte {start}"));
+            return Err(JsonParseError::new(
+                start,
+                format!("short unicode escape at byte {start}"),
+            ));
         };
         if !hex.chars().all(|ch| ch.is_ascii_hexdigit()) {
-            return Err(format!("invalid unicode escape `{hex}` at byte {start}"));
+            return Err(JsonParseError::new(
+                start,
+                format!("invalid unicode escape `{hex}` at byte {start}"),
+            ));
         }
         self.offset = end;
         let codepoint = u32::from_str_radix(hex, 16).expect("hex was validated");
-        char::from_u32(codepoint)
-            .ok_or_else(|| format!("invalid unicode codepoint `{hex}` at byte {start}"))
+        char::from_u32(codepoint).ok_or_else(|| {
+            JsonParseError::new(
+                start,
+                format!("invalid unicode codepoint `{hex}` at byte {start}"),
+            )
+        })
     }
 
-    fn parse_number(&mut self) -> Result<i64, String> {
+    fn parse_number(&mut self) -> Result<i64, JsonParseError> {
         let start = self.offset;
         self.consume_if(b'-');
         while matches!(self.peek(), Some(b'0'..=b'9')) {
@@ -6466,15 +6555,18 @@ impl JsonParser<'_> {
         }
         self.text[start..self.offset]
             .parse()
-            .map_err(|_| format!("invalid integer at byte {start}"))
+            .map_err(|_| JsonParseError::new(start, format!("invalid integer at byte {start}")))
     }
 
-    fn expect_literal(&mut self, literal: &str) -> Result<(), String> {
+    fn expect_literal(&mut self, literal: &str) -> Result<(), JsonParseError> {
         if self.text[self.offset..].starts_with(literal) {
             self.offset += literal.len();
             Ok(())
         } else {
-            Err(format!("expected `{literal}` at byte {}", self.offset))
+            Err(JsonParseError::new(
+                self.offset,
+                format!("expected `{literal}` at byte {}", self.offset),
+            ))
         }
     }
 
@@ -6484,13 +6576,13 @@ impl JsonParser<'_> {
         }
     }
 
-    fn consume(&mut self, expected: u8) -> Result<(), String> {
+    fn consume(&mut self, expected: u8) -> Result<(), JsonParseError> {
         if self.consume_if(expected) {
             Ok(())
         } else {
-            Err(format!(
-                "expected `{}` at byte {}",
-                expected as char, self.offset
+            Err(JsonParseError::new(
+                self.offset,
+                format!("expected `{}` at byte {}", expected as char, self.offset),
             ))
         }
     }
