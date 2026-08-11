@@ -128,11 +128,13 @@ The manifest policy scanner uses the same lexer provenance. It examines every
 TOML string token and every string token inside JSON-valued manifest fields,
 including nested JSON object keys, object values, and array values. JSON string
 tokens use JSON escape semantics, so valid JSON escapes such as `\/` do not
-fail the policy scan. The predicate rejects a decoded LF or CR that comes from
-an escape, and it rejects decoded text that spells a line-break escape such as
-`\n`, `\r`, `\u000A`, `\u000D`, `\U0000000A`, or `\U0000000D`. Physical
-newlines inside multiline strings are valid. Comments, separate string tokens,
-non-string values, and sidecar files are outside this predicate.
+fail the policy scan, while invalid JSON string escapes are retained as
+manifest policy scan failures. The predicate rejects a decoded LF or CR that
+comes from an escape, and it rejects decoded text that spells a line-break
+escape such as `\n`, `\r`, `\u000A`, `\u000D`, `\U0000000A`, or
+`\U0000000D`. Physical newlines inside multiline strings are valid. Comments,
+separate string tokens, non-string values, and sidecar files are outside this
+predicate.
 
 Policy findings are sorted by root-qualified path, source line, token span,
 and category. A finding identifies the manifest field, location, offending

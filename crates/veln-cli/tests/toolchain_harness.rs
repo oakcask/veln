@@ -4644,6 +4644,69 @@ equals = ["https:\/\/x", {"slash\/key":"value\/ok"}, "\u000D", "\\n"]
 }
 
 #[test]
+fn manifest_policy_scan_reports_invalid_json_escapes_in_object_and_array_roots() {
+    let object_source = r#"
+command = ["check"]
+exit = 0
+[[json_assert]]
+path = "payload"
+equals = {"bad":"\q"}
+"#;
+    let array_source = r#"
+command = ["check"]
+exit = 0
+[[json_assert]]
+path = "payload"
+equals = ["valid\/solidus", {"bad":"\q"}]
+"#;
+
+    let object_scan = manifest_syntax::manifest_policy_scan(Path::new("case.toml"), object_source);
+    assert_eq!(
+        object_scan.error.as_deref(),
+        Some("unsupported JSON string escape `q`")
+    );
+    assert!(object_scan.findings.is_empty());
+
+    let array_scan = manifest_syntax::manifest_policy_scan(Path::new("case.toml"), array_source);
+    assert_eq!(
+        array_scan.error.as_deref(),
+        Some("unsupported JSON string escape `q`")
+    );
+    assert!(array_scan.findings.is_empty());
+}
+
+#[test]
+fn policy_preflight_invalid_json_escape_prevents_generated_test_module_creation() {
+    let root = test_temp_root("policy-invalid-json-escape-generation-block");
+    fs::create_dir_all(root.join("cases/blocked")).expect("case directory should be created");
+    fs::write(
+        root.join("cases/blocked/case.toml"),
+        r#"
+command = ["check"]
+exit = 0
+[[json_assert]]
+path = "payload"
+equals = {"bad":"\q"}
+"#,
+    )
+    .expect("blocked manifest should be written");
+
+    let error = toolchain_case_inventory::generated_toolchain_tests_from_preflight(
+        &root,
+        &[test_discovery_root("cases", "cases")],
+        true,
+    )
+    .expect_err("policy preflight should fail before generating tests");
+
+    assert!(error.contains("toolchain case preflight found 1 problem(s)"));
+    assert!(error.contains("cases/blocked: manifest policy scan failed"));
+    assert!(error.contains("unsupported JSON string escape `q`"));
+    assert!(!error.contains("generated_toolchain_cases"));
+
+    fs::remove_dir_all(root).expect("inventory root should be removed");
+}
+
+#[test]
 fn manifest_policy_reports_lowercase_and_uppercase_unicode_line_break_matrix() {
     let source = r#"
 command = ["check"]

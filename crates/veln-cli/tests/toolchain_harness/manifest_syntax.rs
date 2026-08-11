@@ -301,10 +301,7 @@ impl Value<'_> {
             };
             let json_string = json_depth > 0;
             let decoded = if json_string {
-                match decode_json_string(string.source, token.line) {
-                    Ok(decoded) => decoded,
-                    Err(_) => continue,
-                }
+                decode_json_string(string.source, token.line)?
             } else {
                 string.decoded.as_ref().map_err(Clone::clone)?.clone()
             };
