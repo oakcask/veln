@@ -1,10 +1,17 @@
-# Examples
+---
+role: routing
+update-when: The executable specification case directory layout, fixture evidence placement, case grouping, or example routing guidance changes.
+---
 
-Status: routing
+# Examples
 
 Executable examples live under `../../examples/specification/`. Use that
 directory's README and the focused `case.toml` files as the source of checked
 behavior.
+
+Case text files under `case-text/` are fixture evidence owned by the CLI
+toolchain harness. Their placement can change how an example is reviewed
+without changing the language or command behavior that the case checks.
 
 ## Inference Routes
 
