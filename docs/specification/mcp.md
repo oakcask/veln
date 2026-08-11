@@ -13,8 +13,10 @@ messages. End-of-file ends the session successfully.
 The current MCP surface is intentionally limited to `workspace_projects` and
 `refresh_workspace`. The checked declarations under
 `../../crates/veln-mcp/schemas/mcp/v1/` define both tools' empty-object inputs and
-structured results. Unknown input fields and non-object inputs produce a
-JSON-RPC invalid-params error.
+structured results. `refresh_workspace` uses the same checked result schema for
+successful refreshes and for the stable `generation_failed` domain failure.
+Unknown input fields and non-object inputs produce a JSON-RPC invalid-params
+error.
 
 ## Workspace Selection
 

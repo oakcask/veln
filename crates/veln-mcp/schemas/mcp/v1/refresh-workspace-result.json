@@ -1,14 +1,28 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "type": "object",
-  "properties": {
-    "generation": { "type": "integer", "minimum": 0 },
-    "roots": {
-      "type": "array",
-      "items": { "type": "string" },
-      "uniqueItems": true
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "generation": { "type": "integer", "minimum": 0 },
+        "roots": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        }
+      },
+      "required": ["generation", "roots"],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "code": { "const": "generation_failed" },
+        "message": { "type": "string" },
+        "details": { "type": "object" }
+      },
+      "required": ["code", "message", "details"],
+      "additionalProperties": false
     }
-  },
-  "required": ["generation", "roots"],
-  "additionalProperties": false
+  ]
 }
