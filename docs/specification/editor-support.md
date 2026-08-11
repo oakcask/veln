@@ -274,11 +274,22 @@ embedded prelude read, and noncanonical URI rejection. The `veln-lsp`
 standard-package test additionally compares the returned virtual document with
 the exact embedded source value and checks package rename rejection.
 
-The LSP executable examples use ordered stdout fragments when JSON-RPC
+LSP executable examples use `stdin_jsonrpc_file` when the requested behavior is
+an ordered sequence of decoded JSON-RPC requests and notifications. Those
+fixtures can place document text in case-text sidecars and reference it with
+`$case_text`, so the case records the exact opened or changed source text
+without making manual `Content-Length` framing part of the behavior under
+test. The `publish-diagnostics`, `semantic-tokens`, and
+`semantic-tokens-unsaved-change` examples use decoded `[[lsp_assert]]`
+selectors for initialize capabilities, diagnostic notifications,
+semantic-token data, and shutdown responses.
+
+LSP executable examples still use ordered stdout fragments when JSON-RPC
 responses are interleaved with file-backed virtual-document text. Those
 fixture-manifest fragment boundaries are evidence placement, not a separate
-LSP response contract. Their `stdin_file` operands use `.raw` case-text
-sidecars when the JSON-RPC framing depends on exact CRLF header separators.
+LSP response contract. Examples use `stdin_file` with `.raw` case-text
+sidecars only when the observable behavior depends on exact protocol bytes,
+such as CRLF header separators or invalid JSON-RPC framing.
 
 `textDocument/formatting` returns a single whole-document text edit containing
 the same canonical formatting produced by the formatter. Handler operation
