@@ -1,0 +1,1 @@
+handler ask(ctx: Int) handles Ask\n\tvalue() => provide(ctx, 1)\n\tadd(left, right) => if left == 0\n\t\tprovide(ctx, right)\n\telse if left == 1\n\t\tprovide(ctx, left)\n\telse\n\t\tprovide(ctx, left + { left: right }.left)\n\tend\nend\n

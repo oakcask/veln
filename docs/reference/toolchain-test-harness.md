@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: normative
-update-when: The CLI integration harness manifest grammar, assertion model, semantic case baseline, or source-error guard evidence changes.
+update-when: The CLI integration harness discovery inventory, manifest grammar, assertion model, semantic case baseline, manifest authoring policy, case-text repository attribute convention, or source-error guard evidence changes.
 ---
 
 # Toolchain Test Harness
@@ -28,10 +28,43 @@ reference for test organization, not a source for command behavior.
 
 ## Case Layout
 
-The CLI harness discovers case directories that contain `case.toml` under
-`tests/toolchain_cases/` and `examples/specification/`. Each case is copied
-into a temporary project before the command runs, so fixtures stay isolated
-from the repository checkout.
+The CLI harness discovers case directories from one authoritative inventory.
+The configured roots are `tests/toolchain_cases/` and
+`examples/specification/`. Each descriptor records its root identity and
+slash-separated case directory. Descriptor order is deterministic by the
+root-qualified UTF-8 spelling, so cases with the same suffix under different
+roots remain distinct.
+
+A configured discovery root is a regular container. It must not be a symbolic
+link, Windows reparse point, or other link-like entry, and it must not contain
+a root-level `case.toml`. A directory with `case.toml` is a case root, but
+discovery still walks below it to reject a nested `case.toml`. A nested
+manifest is invalid because it would create a hidden case boundary. Discovery
+also rejects symbolic links, Windows reparse points, and other link-like
+entries below either root. The failure identifies the offending entry and
+directs the author to use one visible, portable case boundary made of regular
+fixture entries.
+The preflight keeps descriptors discovered before an independent structural
+error, and it still scans their manifests for policy findings. Missing roots,
+links, or nested manifests do not suppress encoded line-break findings from
+other reliably discovered cases. A malformed manifest also reports policy
+findings collected before the syntax failure when the lexer can identify the
+earlier string tokens.
+
+The build preflight creates the generated test list from the shared inventory.
+Generated cases pass a process-wide runtime barrier before manifest loading,
+skip evaluation, fixture setup, or command execution. The barrier rediscovers
+the current inventory and compares it with the generated list. A mismatch
+fails every generated case with added or removed descriptors and directs the
+maintainer to rebuild the harness.
+
+The `runtime_inventory_barrier_*`, `toolchain_policy_preflight_*`, and
+`synthetic_policy_guard_*` tests in `toolchain_harness.rs` are the executable
+evidence for stale generated inventory, shared policy preflight, and
+before-lifecycle ordering. The stale generated inventory test exercises the
+generated-case entry path, so the production guard reaches the runtime
+inventory comparison before skip evaluation, fixture copying, resource loading,
+or command execution.
 
 Cases are grouped by command or behavior area. The harness owns command
 execution, fixture copying, exit-status checks, stream checks, JSON
@@ -39,14 +72,15 @@ assertions, diagnostic selectors, and file content assertions.
 
 ## Manifest Fields
 
-- Invocation and fixture setup: `command`, `stdin`, `repeat`, `[env]`,
-  `[tools]`, `[requires]`, and `[skip]`.
+- Invocation and fixture setup: `command`, `stdin`, `stdin_file`, `repeat`,
+  `[env]`, `[tools]`, `[requires]`, and `[skip]`.
 - Observable command results: `exit`, `[stdout]`, `[stderr]`,
   `[help]`, `[[json_assert]]`, `[[result_value_assert]]`,
   `[[diagnostics]]`, `[[file_assert]]`, `[[binary_fixture]]`, and
   `[[output_chunk_list]]`.
+- Manifest-failure checks: `[manifest_error]`.
 - External tool setup: `[tools] java = "missing"`, `"fake-success"`, or
-  `"real"`.
+  `"real"` and `[tools] git = "missing"` or `"real"`.
 
 ## Manifest Value Syntax
 
@@ -67,10 +101,11 @@ quotes. A longer run is invalid.
 String-array fields accept physical newlines, comments between tokens, empty
 arrays, and a trailing comma. They reject non-string elements and nested
 containers. A JSON-valued `equals` field accepts physical multiline JSON arrays
-and objects with nested JSON containers. JSON containers retain JSON grammar:
-manifest comments, trailing commas, literal strings, and multiline TOML strings
-are invalid. A complete manifest string token used as `equals` becomes a JSON
-string value.
+and objects with nested JSON containers for `[[json_assert]]`,
+`[[result_value_assert]]`, and `[[binary_fixture]]` fields that compare
+structured values. JSON containers retain JSON grammar: manifest comments,
+trailing commas, literal strings, and multiline TOML strings are invalid. A
+complete manifest string token used as `equals` becomes a JSON string value.
 
 LF and CRLF each count as one physical newline. Physical newlines inside
 multiline strings normalize to LF, including mixed-line-ending manifests. A
@@ -89,24 +124,88 @@ selected string arrays, field-directed containers, trailing tokens, and exact
 error lines. The checked semantic baseline and the complete harness target
 protect existing single-line case meaning.
 
+The manifest policy scanner uses the same lexer provenance. It examines every
+TOML string token and every string token inside JSON-valued manifest fields,
+including nested JSON object keys, object values, and array values. JSON string
+tokens use JSON escape semantics, so valid JSON escapes such as `\/` do not
+fail the policy scan, while invalid JSON string escapes are retained as
+manifest policy scan failures. The predicate rejects a decoded LF or CR that
+comes from an escape, and it rejects decoded text that spells a line-break
+escape such as `\n`, `\r`, `\u000A`, `\u000D`, `\U0000000A`, or
+`\U0000000D`. Physical newlines inside multiline strings are valid. Comments,
+separate string tokens, non-string values, and sidecar files are outside this
+predicate.
+
+Policy findings are sorted by root-qualified path, source line, token span,
+and category. A finding identifies the manifest field, location, offending
+spelling, the replacement action, and the reviewability reason: line structure
+belongs in physical multiline text or a sidecar so fixture changes remain
+visible. If manifest lexing stops at a boundary error such as an unterminated
+string or lone carriage return, the policy scan still reports findings from
+completed earlier statements before it reports the manifest syntax failure.
+The preflight aggregates those retained findings with skipped-case,
+unavailable-tool, and malformed-manifest failures in deterministic
+root-qualified order. The summary reports both the total number of problems
+and the number of distinct affected manifest descriptors.
+
 ## Output Cases
 
 Use `exit`, `[stdout]`, and `[stderr]` for command-visible output. Stream
 sections accept `format = "empty"`, `"text"`, or `"json"` where JSON is valid
-for stdout, plus `contains` fragments for stable text checks. Use
-`[[json_assert]]`, `[[result_value_assert]]`, and `[[diagnostics]]` for
-semantic checks inside JSON stdout. `[[result_value_assert]]` reads a rendered
-result-failure value string from `value_path`, wraps it as the outer `Err`,
-and then checks a parsed value path with either `equals` or `missing = true`.
+for stdout, plus `contains`, `contains_file`, `contains_files`,
+`not_contains`, `not_contains_file`, and `not_contains_files` fragments for
+stable text checks. Fragment fields append in manifest order and may repeat
+when a file-backed fragment belongs between inline fragments. Stream exact
+equality uses `equals_file`; the harness reads the expected text from the
+discovered case before the command runs.
+
+Use `stdin_file` when command input is easier to review as a case text file.
+Use `[[json_assert]]`, `[[result_value_assert]]`, and `[[diagnostics]]` for
+semantic checks inside JSON stdout. JSON and result-value assertions accept
+`equals`, `equals_file`, `equals_json_file`, or `missing = true`.
+`equals_file` compares the selected JSON value as a string and never reparses
+the sidecar as JSON. `equals_json_file` parses the sidecar as JSON before the
+comparison.
+`[[result_value_assert]]` reads a rendered result-failure value string from
+`value_path`, wraps it as the outer `Err`, and then checks a parsed value path.
+Each JSON or result-value assertion must declare exactly one operation.
+`missing` is only valid as `missing = true`. The manifest loader rejects an
+omitted operation or `missing = false` before it reads later file-backed
+operands.
+
+Use `[[file_assert]]` to check command-written files. The command output path
+is read from the copied project after execution, while `equals_file` is still
+read from the immutable discovered case. Each file assertion must declare
+exactly one of `equals` or `equals_file` before later file-backed operands are
+read. Diagnostics and help fragments also accept file-backed text operands
+where their inline string forms are accepted. Diagnostic exact messages use
+`message_file`. Manifest-failure fragment checks use `[manifest_error]`
+`contains_file` and `contains_files`.
 
 Use `[help]` for command help output. It checks a help stream, defaulting to
 stdout, through stable help fragments instead of full-output equality. Its
 fields are `stream`, `summary`, `usage`, `commands`, `arguments`, `options`,
-and `contains`. `stream` is `"stdout"` or `"stderr"`. `summary` checks the
-first help line, `usage` checks the `Usage:` line, and the list fields check
-that the matching section heading and listed entries appear. Help cases should
-still use `[stdout]` and `[stderr]` for stream format and emptiness, and should
-point behavior questions to the command specification.
+`contains`, `contains_file`, and `contains_files`. `stream` is `"stdout"` or
+`"stderr"`. `summary` checks the first help line, `usage` checks the `Usage:`
+line, and the list fields check that the matching section heading and listed
+entries appear. Help cases should still use `[stdout]` and `[stderr]` for
+stream format and emptiness, and should point behavior questions to the
+command specification.
+
+File-backed manifest operands use a case-relative portable path. The path
+cannot escape the case directory, traverse a link-like entry, or name anything
+except a regular UTF-8 file. Link-like operands fail at the offending entry
+without following or exposing the target. The harness reads and validates
+these files before skip evaluation, fixture setup, or command execution.
+Repeated invocations reuse the same discovered text snapshot. Checked-in
+files under `case-text/` are checked out as LF-normalized text unless the path
+ends in `.raw`, which reserves an exact-byte fixture convention for content
+that must not be line-ending normalized.
+
+The `manifest_sidecar_*` tests in `toolchain_harness.rs` are the executable
+evidence for sidecar path grammar, link rejection, operand cardinality, UTF-8
+validation before skip evaluation, exact text comparison, snapshot timing, and
+lifecycle ordering.
 
 Use `[[binary_fixture]]` and `[[output_chunk_list]]` only for test-owned binary
 fixture evidence. Binary fixture records compare named program-output lines
@@ -132,12 +231,13 @@ Repeated invocations can check stable stdout, stderr, exit status, JSON, file
 results, and other command-visible state changes.
 
 Use `[tools]` for controlled external tool availability owned by the harness.
-The implemented key is `java`, with values `"missing"`, `"fake-success"`, and
-`"real"`. `"missing"` runs the command with an isolated tool path that contains
-no Java launcher. `"fake-success"` installs a harness-owned Java wrapper that
-exits successfully without running arbitrary manifest code. `"real"` exposes
-the host Java launcher under the isolated tool path; cases that use it should
-also declare `[requires] jdk = true`.
+The implemented keys are `java` and `git`. Java accepts `"missing"`,
+`"fake-success"`, and `"real"`. Git accepts `"missing"` and `"real"`.
+`"missing"` runs the command with an isolated tool path that contains no
+launcher for that tool. Java `"fake-success"` installs a harness-owned wrapper
+that exits successfully without running arbitrary manifest code. `"real"`
+exposes the host launcher under the isolated tool path; Java cases that use it
+should also declare `[requires] jdk = true`.
 
 Test harness-owned tool setup with harness or runner unit tests. Do not add CLI
 cases solely to prove Java launcher setup, because JVM availability and wrapper
@@ -161,8 +261,9 @@ manifest assertion sequences retain their order.
 
 The normal `toolchain_harness` target runs
 `checked_in_semantic_baseline_matches_authoritative_cases`. The test reads the
-baseline and current manifests without writing either one. A mismatch reports
-added or removed cases before reporting case-qualified field differences.
+baseline and current manifests from the shared discovery inventory without
+writing either one. A mismatch reports added or removed cases before reporting
+case-qualified field differences.
 Run the focused non-mutating check with:
 
 ```sh

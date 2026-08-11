@@ -1,0 +1,1 @@
+Err(fixture.hex.invalid_character: expected ASCII hex digit at byte offset 1 high nibble)

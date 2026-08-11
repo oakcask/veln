@@ -20,7 +20,7 @@ equals = null
 
 [[json_assert]]
 path = "stdout"
-equals = "output_chunk_list u40-widths count 1\noutput_chunk u40-widths index 0 hex \"01020304050504030201\" count 10\ndecoded 4328719365 4328719365\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[output_chunk_list]]
 name = "u40-widths"

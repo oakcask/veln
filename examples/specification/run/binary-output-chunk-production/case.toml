@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "full-fit produced 6 chunks 3 remaining 0\noutput_chunk_list full-produced count 3\noutput_chunk full-produced index 0 hex \"0102\" count 2\noutput_chunk full-produced index 1 hex \"030405\" count 3\noutput_chunk full-produced index 2 hex \"06\" count 1\noutput_chunk_list full-remaining count 0\npartial-fit produced 5 chunks 2 remaining 1\noutput_chunk_list partial-produced count 2\noutput_chunk partial-produced index 0 hex \"0102\" count 2\noutput_chunk partial-produced index 1 hex \"030405\" count 3\noutput_chunk_list partial-remaining count 1\noutput_chunk partial-remaining index 0 hex \"06\" count 1\nfirst-too-large produced 0 chunks 0 remaining 3\noutput_chunk_list first-too-large-produced count 0\noutput_chunk_list first-too-large-remaining count 3\noutput_chunk first-too-large-remaining index 0 hex \"0102\" count 2\noutput_chunk first-too-large-remaining index 1 hex \"030405\" count 3\noutput_chunk first-too-large-remaining index 2 hex \"06\" count 1\nzero-budget produced 0 chunks 0 remaining 3\noutput_chunk_list zero-produced count 0\noutput_chunk_list zero-remaining count 3\noutput_chunk zero-remaining index 0 hex \"0102\" count 2\noutput_chunk zero-remaining index 1 hex \"030405\" count 3\noutput_chunk zero-remaining index 2 hex \"06\" count 1\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

@@ -88,4 +88,4 @@ equals = 3
 
 [[json_assert]]
 path = "stderr"
-equals = "Err(DecodeErrorWithReason(codec.invalid_input, ByteOffset(42), ManualPacketWire.checksum, byte read requires 4 bytes but view has 3))\n"
+equals_file = "case-text/json-assert-equals-1.txt"

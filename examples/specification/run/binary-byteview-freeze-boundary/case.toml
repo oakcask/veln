@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "channel count 2 u16 772 offset fixed field mismatch at byte offset 3\nretained-count 2\ntask count 2 u16 1029 offset fixed field mismatch at byte offset 4\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

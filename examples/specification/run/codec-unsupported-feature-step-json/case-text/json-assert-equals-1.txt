@@ -1,0 +1,1 @@
+Err(DecodeErrorWithReason(codec.unsupported_feature, ByteOffset(28), ManualPacketWire.extension, feature=dynamic_table_size_update; reason=dynamic table size updates are disabled for this profile))

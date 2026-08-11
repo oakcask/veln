@@ -6,7 +6,7 @@ jdk = true
 
 [stdout]
 format = "text"
-contains = ["10\n10\nten\n"]
+contains_files = ["case-text/stdout-contains-1.txt"]
 
 [stderr]
 format = "empty"

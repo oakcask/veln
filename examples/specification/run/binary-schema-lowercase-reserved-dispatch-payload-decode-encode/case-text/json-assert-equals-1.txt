@@ -1,0 +1,31 @@
+closed 1
+output_chunk_list closed-reserved-dispatch count 1
+output_chunk closed-reserved-dispatch index 0 hex "01abcd" count 3
+compat 1
+output_chunk_list closed-compat-reserved-dispatch count 1
+output_chunk closed-compat-reserved-dispatch index 0 hex "01abcd" count 3
+extension 2 1
+extension-known
+output_chunk_list extension-reserved-dispatch count 1
+output_chunk extension-reserved-dispatch index 0 hex "0201abcd" count 4
+closed-subbyte 1
+output_chunk_list closed-subbyte-reserved-dispatch count 1
+output_chunk closed-subbyte-reserved-dispatch index 0 hex "0180" count 2
+closed-two-bit 1
+output_chunk_list closed-two-bit-reserved-dispatch count 1
+output_chunk closed-two-bit-reserved-dispatch index 0 hex "01c0" count 2
+closed-seven-bit 1
+output_chunk_list closed-seven-bit-reserved-dispatch count 1
+output_chunk closed-seven-bit-reserved-dispatch index 0 hex "01fe" count 2
+extension-subbyte 1 1
+extension-known
+output_chunk_list extension-subbyte-reserved-dispatch count 1
+output_chunk extension-subbyte-reserved-dispatch index 0 hex "010180" count 3
+extension-two-bit 1 1
+extension-known
+output_chunk_list extension-two-bit-reserved-dispatch count 1
+output_chunk extension-two-bit-reserved-dispatch index 0 hex "0101c0" count 3
+extension-seven-bit 1 1
+extension-known
+output_chunk_list extension-seven-bit-reserved-dispatch count 1
+output_chunk extension-seven-bit-reserved-dispatch index 0 hex "0101fe" count 3

@@ -84,4 +84,4 @@ equals = "frame sequence violated protocol state"
 
 [[json_assert]]
 path = "stderr"
-equals = "Err(DecodeErrorWithReason(codec.sequence_mismatch, ByteOffset(13), ManualPacketWire.sequence, expected_sequence=client_preface,settings; actual_sequence=settings; reason=frame sequence violated protocol state))\n"
+equals_file = "case-text/json-assert-equals-1.txt"

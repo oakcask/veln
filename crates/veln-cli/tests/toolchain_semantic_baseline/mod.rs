@@ -30,24 +30,16 @@ impl Inventory {
     fn current(source_git_tree: &str) -> Self {
         let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let mut cases = BTreeMap::new();
-        for (root, manifest_relative_root) in ROOTS {
-            let root_path = manifest_dir.join(manifest_relative_root);
-            let mut manifests = Vec::new();
-            collect_manifests(&root_path, &mut manifests);
-            manifests.sort();
-            for path in manifests {
-                let relative = path
-                    .strip_prefix(&root_path)
-                    .expect("discovered manifest should be below its root")
-                    .parent()
-                    .expect("case manifest should have a parent");
-                let id = format!("{root}/{}", slash_path(relative));
-                let manifest = CaseManifest::read(&path);
-                assert!(
-                    cases.insert(id.clone(), describe(&manifest)).is_none(),
-                    "duplicate semantic case identifier `{id}`"
-                );
-            }
+        let inventory = toolchain_case_inventory::run_preflight(&manifest_dir)
+            .unwrap_or_else(|error| panic!("{error}"));
+        for case in inventory.cases {
+            let path = manifest_dir.join(&case.manifest_relative).join("case.toml");
+            let manifest = CaseManifest::read(&path);
+            assert!(
+                cases.insert(case.id.clone(), describe(&manifest)).is_none(),
+                "duplicate semantic case identifier `{}`",
+                case.id
+            );
         }
         Self {
             schema: SCHEMA.to_string(),
@@ -386,24 +378,6 @@ fn field_difference(
     }
 }
 
-fn collect_manifests(directory: &Path, manifests: &mut Vec<PathBuf>) {
-    let manifest = directory.join("case.toml");
-    if manifest.is_file() {
-        manifests.push(manifest);
-        return;
-    }
-    let mut entries = fs::read_dir(directory)
-        .unwrap_or_else(|error| panic!("failed to read `{}`: {error}", directory.display()))
-        .collect::<Result<Vec<_>, _>>()
-        .unwrap_or_else(|error| panic!("failed to enumerate `{}`: {error}", directory.display()));
-    entries.sort_by_key(|entry| entry.path());
-    for entry in entries {
-        if entry.path().is_dir() {
-            collect_manifests(&entry.path(), manifests);
-        }
-    }
-}
-
 fn describe(manifest: &CaseManifest) -> BTreeMap<String, String> {
     let mut fields = BTreeMap::new();
     describe_invocation(&mut fields, manifest);
@@ -445,7 +419,12 @@ fn describe_json_assertions(fields: &mut BTreeMap<String, String>, manifest: &Ca
     for (index, assertion) in manifest.expectations.json_assertions.iter().enumerate() {
         let base = format!("expectations.json_assertions[{index}]");
         text(fields, &format!("{base}.path"), &assertion.path);
-        assertion_operation(fields, &base, assertion.equals.as_ref(), assertion.missing);
+        assertion_operation(
+            fields,
+            &base,
+            assertion.equals.as_ref(),
+            assertion.missing == Some(true),
+        );
     }
 }
 
@@ -462,7 +441,12 @@ fn describe_result_value_assertions(
         let base = format!("expectations.result_value_assertions[{index}]");
         text(fields, &format!("{base}.value_path"), &assertion.value_path);
         text(fields, &format!("{base}.path"), &assertion.path);
-        assertion_operation(fields, &base, assertion.equals.as_ref(), assertion.missing);
+        assertion_operation(
+            fields,
+            &base,
+            assertion.equals.as_ref(),
+            assertion.missing == Some(true),
+        );
     }
 }
 
@@ -471,7 +455,14 @@ fn describe_file_assertions(fields: &mut BTreeMap<String, String>, manifest: &Ca
         let base = format!("expectations.file_assertions[{index}]");
         text(fields, &format!("{base}.path"), &assertion.path);
         enum_value(fields, &format!("{base}.operation"), "equals");
-        text(fields, &format!("{base}.equals"), &assertion.equals);
+        text(
+            fields,
+            &format!("{base}.equals"),
+            assertion
+                .equals
+                .as_deref()
+                .expect("file assertion should have expected text"),
+        );
     }
 }
 
@@ -817,9 +808,6 @@ fn sha256(bytes: &[u8]) -> String {
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect()
-}
-fn slash_path(path: &Path) -> String {
-    path.to_string_lossy().replace('\\', "/")
 }
 fn line(output: &mut String, kind: &str, value: &str) {
     output.push_str(kind);

@@ -1,0 +1,3 @@
+output_chunk_list u40-widths count 1
+output_chunk u40-widths index 0 hex "01020304050504030201" count 10
+decoded 4328719365 4328719365

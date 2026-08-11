@@ -1,0 +1,6 @@
+decoded 4 11
+x=0,255
+table 1
+misplaced_table_size_update
+literal_failure
+table_size_update_failure

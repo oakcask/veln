@@ -1,0 +1,7 @@
+10
+45
+42
+187727495509930
+schema.encode_value_unrepresentable
+SixByteSplitReservedHeader.mode
+value must be between 0 and 63

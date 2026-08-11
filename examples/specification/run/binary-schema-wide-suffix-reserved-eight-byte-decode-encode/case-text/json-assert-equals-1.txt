@@ -1,0 +1,13 @@
+42
+output_chunk_list wide-suffix-eight count 1
+output_chunk wide-suffix-eight index 0 hex "5415555555555555" count 8
+decoded
+42
+8
+encoded
+output_chunk_list wide-suffix-eight-derived count 1
+output_chunk wide-suffix-eight-derived index 0 hex "5415555555555555" count 8
+invalid
+schema.encode_value_unrepresentable
+EightByteWideSuffixHeader.value
+value must be between 0 and 127

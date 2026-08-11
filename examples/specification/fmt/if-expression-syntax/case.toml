@@ -10,4 +10,4 @@ format = "empty"
 
 [[file_assert]]
 path = "main.veln"
-equals = "fn choose(flag: Bool, fallback: Bool) -> Int\n\tif flag\n\t\t1\n\telse if fallback\n\t\t2\n\telse\n\t\t3\n\tend\nend\n"
+equals_file = "case-text/file-assert-equals-1.txt"

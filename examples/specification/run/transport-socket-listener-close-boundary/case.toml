@@ -21,11 +21,11 @@ equals = "failed"
 
 [[json_assert]]
 path = "stdout"
-equals = "3\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "stderr"
-equals = "transport accept failed: closed\n"
+equals_file = "case-text/json-assert-equals-2.txt"
 
 [[json_assert]]
 path = "error.kind"
@@ -41,4 +41,4 @@ equals = "runtime"
 
 [[file_assert]]
 path = "net-events.log"
-equals = "listen 127.0.0.1:0\naccept 127.0.0.1:0 fixture-stream\nclose-listener 127.0.0.1:0\nread fixture-stream 0102ff\nclose fixture-stream\n"
+equals_file = "case-text/file-assert-equals-1.txt"

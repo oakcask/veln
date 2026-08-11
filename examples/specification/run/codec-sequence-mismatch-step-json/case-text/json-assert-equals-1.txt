@@ -1,0 +1,1 @@
+Err(DecodeErrorWithReason(codec.sequence_mismatch, ByteOffset(13), ManualPacketWire.sequence, expected_sequence=client_preface,settings; actual_sequence=settings; reason=frame sequence violated protocol state))

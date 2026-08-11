@@ -1,0 +1,10 @@
+request accepted content-length 5
+extended-connect accepted content-length -1
+response accepted content-length -1
+trailers accepted content-length -1
+duplicate rejected fact duplicate_pseudo_header header :method state request-headers
+bad-te rejected fact te_header_value_not_trailers header te state request-headers
+length-mismatch rejected fact content_length_mismatch header content-length state request-headers
+extended-not-negotiated rejected fact extended_connect_not_negotiated header :protocol state request-headers
+informational-end-stream rejected fact informational_response_end_stream header :status state response-headers
+response-trailer-pseudo rejected fact trailer_pseudo_header header :status state response-trailers

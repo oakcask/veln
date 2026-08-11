@@ -1,0 +1,1 @@
+Err(RuntimeDiagnostic(schema.fixed_field_mismatch, fixed field mismatch at byte offset 0, RuntimeByteDiagnostic(ByteOffset(0), Cons(RuntimeDiagnosticFieldPathSegment(schema, DemoPacket), Cons(RuntimeDiagnosticFieldPathSegment(field, kind), Nil)), RuntimeByteFixedValueFacts(1, 255), RuntimeBytePreview(ff0001, ByteCount(3), ByteCount(3), false))))

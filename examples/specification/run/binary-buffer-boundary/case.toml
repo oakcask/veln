@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "view-count 4\nprefix 2 3\nsuffix 4 5\nmiddle 3 4\nreceived 4 5\nslice-error byte view range exceeds view length\noutput_chunk_list buffer-output count 2\noutput_chunk buffer-output index 0 hex \"0203\" count 2\noutput_chunk buffer-output index 1 hex \"0405\" count 2\noutput_chunk_list empty-output count 0\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

@@ -1,0 +1,4 @@
+receiver-list cancellable outcome
+routed score 1702 chunks 1
+timed-out score 0 chunks 1
+cancelled score 2017 ended false

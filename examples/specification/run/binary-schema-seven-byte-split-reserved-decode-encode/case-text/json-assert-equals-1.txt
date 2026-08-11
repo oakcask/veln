@@ -1,0 +1,10 @@
+21
+85
+106
+7
+21
+85
+106
+schema.encode_value_unrepresentable
+SevenByteSplitReservedHeader.mode
+value must be between 0 and 127

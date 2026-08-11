@@ -73,6 +73,9 @@ This page routes implemented JSON output for `veln test --json`.
   `../../examples/specification/test/doctest-runtime-result-blocked-json/`.
 - Readable coverage for runtime expectation plus output mismatch:
   `../../examples/specification/test/doctest-runtime-output-mismatch-json/`.
+  The checked expected JSON payloads for doctest output-mismatch cases may live
+  in `case-text/` sidecars; that placement is harness evidence, not a
+  different `veln test --json` output shape.
 - Ordered parallel-job coverage:
   `../../examples/specification/test/parallel-jobs-one-json/`,
   `../../examples/specification/test/parallel-jobs-two-json/`, and

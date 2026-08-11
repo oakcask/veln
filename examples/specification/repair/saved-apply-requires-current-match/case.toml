@@ -29,4 +29,4 @@ equals = null
 
 [[file_assert]]
 path = "main.veln"
-equals = "# Saved repair JSON is not write authorization without a current safe match.\nfn main(order: { ready : Bool, paid : Bool }) -> { ready : Bool }\n\t_value satisfy candidate => candidate.ready == order.ready\nend\n"
+equals_file = "case-text/file-assert-equals-1.txt"

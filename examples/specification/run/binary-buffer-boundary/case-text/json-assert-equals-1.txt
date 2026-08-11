@@ -1,0 +1,10 @@
+view-count 4
+prefix 2 3
+suffix 4 5
+middle 3 4
+received 4 5
+slice-error byte view range exceeds view length
+output_chunk_list buffer-output count 2
+output_chunk buffer-output index 0 hex "0203" count 2
+output_chunk buffer-output index 1 hex "0405" count 2
+output_chunk_list empty-output count 0

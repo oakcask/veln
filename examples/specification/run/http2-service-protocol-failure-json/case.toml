@@ -21,8 +21,8 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "connection http2.protocol.incomplete_frame accepted 1 stream 0\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[file_assert]]
 path = "net-events.log"
-equals = "listen-production 127.0.0.1:0\naccept-production 127.0.0.1:0 production-stream-1\nwrite-production production-stream-1 ByteChunk([Byte(0), Byte(0), Byte(0), Byte(4), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0)])\nread-production production-stream-1 505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000003010500000000\nwrite-production production-stream-1 ByteChunk([Byte(0), Byte(0), Byte(0), Byte(4), Byte(1), Byte(0), Byte(0), Byte(0), Byte(0)])\nread-end-production production-stream-1\nclose-production production-stream-1\nclose-listener-production 127.0.0.1:0\n"
+equals_file = "case-text/file-assert-equals-1.txt"

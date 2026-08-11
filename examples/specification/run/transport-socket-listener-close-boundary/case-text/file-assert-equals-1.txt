@@ -1,0 +1,5 @@
+listen 127.0.0.1:0
+accept 127.0.0.1:0 fixture-stream
+close-listener 127.0.0.1:0
+read fixture-stream 0102ff
+close fixture-stream

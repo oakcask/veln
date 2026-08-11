@@ -1,0 +1,4 @@
+imported-closed 5 2 3 abc
+imported-extension 5 2 3 abc
+codec-imported-closed decoded 6
+codec-imported-extension decoded 7

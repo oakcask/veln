@@ -46,6 +46,7 @@ impl StringForm {
 struct DecodedChar {
     value: char,
     source_line: usize,
+    escaped: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -116,6 +117,27 @@ pub(super) struct Value<'a> {
     line: usize,
     tokens: Vec<Token<'a>>,
     unterminated: Option<(Delimiter, usize)>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ManifestPolicyFinding {
+    pub(crate) field: String,
+    pub(crate) line: usize,
+    pub(crate) start: usize,
+    pub(crate) end: usize,
+    pub(crate) spelling: String,
+    pub(crate) category: &'static str,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ManifestPolicyScan {
+    pub(crate) findings: Vec<ManifestPolicyFinding>,
+    pub(crate) error: Option<String>,
+}
+
+struct Lexed<'a> {
+    tokens: Vec<Token<'a>>,
+    boundary_error: Option<SyntaxError>,
 }
 
 impl Value<'_> {
@@ -245,11 +267,408 @@ impl Value<'_> {
     pub(super) fn is_unterminated(&self) -> bool {
         self.unterminated.is_some()
     }
+
+    fn try_collect_policy_findings(
+        &self,
+        field: &str,
+        findings: &mut Vec<ManifestPolicyFinding>,
+    ) -> Result<(), SyntaxError> {
+        let mut json_depth = 0usize;
+        for token in &self.tokens {
+            match token.kind {
+                TokenKind::Open(Delimiter::Brace) if json_depth == 0 => {
+                    json_depth = 1;
+                    continue;
+                }
+                TokenKind::Open(Delimiter::Square)
+                    if json_depth == 0 && field_accepts_json_array_root(field) =>
+                {
+                    json_depth = 1;
+                    continue;
+                }
+                TokenKind::Open(_) if json_depth > 0 => {
+                    json_depth += 1;
+                    continue;
+                }
+                TokenKind::Close(_) if json_depth > 0 => {
+                    json_depth = json_depth.saturating_sub(1);
+                    continue;
+                }
+                _ => {}
+            }
+            let TokenKind::String(string) = &token.kind else {
+                continue;
+            };
+            let json_string = json_depth > 0;
+            let decoded = if json_string {
+                decode_json_string(string.source, token.line)?
+            } else {
+                string.decoded.as_ref().map_err(Clone::clone)?.clone()
+            };
+            for decoded_char in &decoded.chars {
+                if decoded_char.escaped && matches!(decoded_char.value, '\n' | '\r') {
+                    findings.push(ManifestPolicyFinding {
+                        field: field.to_string(),
+                        line: decoded_char.source_line,
+                        start: token.start,
+                        end: token.end,
+                        spelling: if decoded_char.value == '\n' {
+                            "escape-produced LF".to_string()
+                        } else {
+                            "escape-produced CR".to_string()
+                        },
+                        category: "escape-produced-line-break",
+                    });
+                }
+            }
+            let text = decoded.text();
+            for spelling in forbidden_decoded_spellings(&text) {
+                findings.push(ManifestPolicyFinding {
+                    field: field.to_string(),
+                    line: token.line,
+                    start: token.start,
+                    end: token.end,
+                    spelling,
+                    category: "decoded-line-break-spelling",
+                });
+            }
+        }
+        Ok(())
+    }
 }
 
-pub(super) fn parse_document<'a>(path: &Path, text: &'a str) -> Vec<Statement<'a>> {
-    let tokens = Lexer::new(path, text).lex();
+fn field_accepts_json_array_root(field: &str) -> bool {
+    matches!(
+        field,
+        "[[json_assert]].equals"
+            | "[[result_value_assert]].equals"
+            | "[[binary_fixture]].field_path"
+    )
+}
+
+pub(crate) fn parse_document<'a>(path: &Path, text: &'a str) -> Vec<Statement<'a>> {
+    let tokens = Lexer::new(path, text).lex().tokens;
     DocumentParser::new(path, text, tokens).parse()
+}
+
+pub(crate) fn manifest_policy_findings(path: &Path, text: &str) -> Vec<ManifestPolicyFinding> {
+    let scan = manifest_policy_scan(path, text);
+    if let Some(error) = scan.error {
+        manifest_error(path, 0, error);
+    }
+    scan.findings
+}
+
+pub(crate) fn manifest_policy_scan(path: &Path, text: &str) -> ManifestPolicyScan {
+    let lexed = Lexer::new(path, text).lex_with_boundary();
+    let boundary_error = lexed.boundary_error;
+    let tokens = if boundary_error.is_some() {
+        completed_statement_prefix(lexed.tokens)
+    } else {
+        lexed.tokens
+    };
+    let mut section = String::new();
+    let mut findings = Vec::new();
+    for statement in DocumentParser::new(path, text, tokens).parse() {
+        match statement {
+            Statement::Section { name, .. } => section = name,
+            Statement::Assignment { key, value, .. } => {
+                let field = if section.is_empty() {
+                    key.to_string()
+                } else {
+                    format!("{section}.{key}")
+                };
+                if let Err(error) = value.try_collect_policy_findings(&field, &mut findings) {
+                    sort_policy_findings(&mut findings);
+                    return ManifestPolicyScan {
+                        findings,
+                        error: Some(error.message),
+                    };
+                }
+            }
+        }
+    }
+    sort_policy_findings(&mut findings);
+    if let Some(error) = boundary_error {
+        return ManifestPolicyScan {
+            findings,
+            error: Some(error.message),
+        };
+    }
+    ManifestPolicyScan {
+        findings,
+        error: None,
+    }
+}
+
+fn completed_statement_prefix<'a>(tokens: Vec<Token<'a>>) -> Vec<Token<'a>> {
+    let mut depth = 0usize;
+    let mut end = 0usize;
+    for (index, token) in tokens.iter().enumerate() {
+        match token.kind {
+            TokenKind::Open(_) => depth += 1,
+            TokenKind::Close(_) => depth = depth.saturating_sub(1),
+            TokenKind::Newline if depth == 0 => end = index + 1,
+            _ => {}
+        }
+    }
+    if end < tokens.len() && trailing_tokens_form_complete_statement(&tokens[end..]) {
+        end = tokens.len();
+    }
+    tokens[..end].to_vec()
+}
+
+fn trailing_tokens_form_complete_statement(tokens: &[Token<'_>]) -> bool {
+    let tokens = tokens
+        .iter()
+        .filter(|token| !matches!(&token.kind, TokenKind::Comment))
+        .collect::<Vec<_>>();
+    let Some(first) = tokens.first() else {
+        return false;
+    };
+    if matches!(&first.kind, TokenKind::Open(Delimiter::Square)) {
+        let mut depth = 0usize;
+        for token in &tokens {
+            match &token.kind {
+                TokenKind::Open(_) => depth += 1,
+                TokenKind::Close(_) => depth = depth.saturating_sub(1),
+                _ => {}
+            }
+        }
+        return depth == 0
+            && matches!(
+                tokens.last().map(|token| &token.kind),
+                Some(TokenKind::Close(Delimiter::Square))
+            );
+    }
+    matches!(&first.kind, TokenKind::Atom(_))
+        && tokens
+            .iter()
+            .position(|token| matches!(&token.kind, TokenKind::Equals))
+            .is_some_and(|equals| {
+                let value = &tokens[equals + 1..];
+                !value.is_empty() && value_tokens_are_balanced(value)
+            })
+}
+
+fn value_tokens_are_balanced(tokens: &[&Token<'_>]) -> bool {
+    let mut stack = Vec::new();
+    for token in tokens {
+        match &token.kind {
+            TokenKind::Open(delimiter) => stack.push(*delimiter),
+            TokenKind::Close(delimiter) if stack.pop() != Some(*delimiter) => {
+                return false;
+            }
+            TokenKind::Close(_) => {}
+            _ => {}
+        }
+    }
+    stack.is_empty()
+}
+
+fn sort_policy_findings(findings: &mut [ManifestPolicyFinding]) {
+    findings.sort_by(|left, right| {
+        left.line
+            .cmp(&right.line)
+            .then(left.start.cmp(&right.start))
+            .then(left.end.cmp(&right.end))
+            .then(left.category.cmp(right.category))
+            .then(left.field.cmp(&right.field))
+            .then(left.spelling.cmp(&right.spelling))
+    });
+}
+
+fn forbidden_decoded_spellings(text: &str) -> Vec<String> {
+    let bytes = text.as_bytes();
+    let mut findings = Vec::new();
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] != b'\\' {
+            index += 1;
+            continue;
+        }
+        if let Some(byte) = bytes.get(index + 1)
+            && matches!(*byte, b'n' | b'r')
+        {
+            findings.push(text[index..index + 2].to_string());
+            index += 2;
+            continue;
+        }
+        if index + 6 <= bytes.len()
+            && matches!(bytes.get(index + 1), Some(b'u'))
+            && matches_forbidden_hex(&text[index + 2..index + 6])
+        {
+            findings.push(text[index..index + 6].to_string());
+            index += 6;
+            continue;
+        }
+        if index + 10 <= bytes.len()
+            && matches!(bytes.get(index + 1), Some(b'U'))
+            && matches_forbidden_wide_hex(&text[index + 2..index + 10])
+        {
+            findings.push(text[index..index + 10].to_string());
+            index += 10;
+            continue;
+        }
+        index += 1;
+    }
+    findings
+}
+
+fn decode_json_string(raw: &str, line: usize) -> Result<DecodedString, SyntaxError> {
+    if !raw.starts_with('"') || !raw.ends_with('"') || raw.len() < 2 {
+        return Err(SyntaxError {
+            line,
+            message: "invalid JSON string".to_string(),
+        });
+    }
+    let content = &raw[1..raw.len() - 1];
+    let mut chars = Vec::new();
+    let mut offset = 0;
+    while offset < content.len() {
+        let ch = content[offset..]
+            .chars()
+            .next()
+            .expect("JSON string content has a char");
+        if ch == '\\' {
+            offset += 1;
+            let Some(escaped) = content[offset..].chars().next() else {
+                return Err(SyntaxError {
+                    line,
+                    message: "unterminated JSON string escape".to_string(),
+                });
+            };
+            offset += escaped.len_utf8();
+            let value = match escaped {
+                '"' => '"',
+                '\\' => '\\',
+                '/' => '/',
+                'b' => '\u{08}',
+                'f' => '\u{0c}',
+                'n' => '\n',
+                'r' => '\r',
+                't' => '\t',
+                'u' => decode_json_unicode_escape(content, &mut offset, line)?,
+                _ => {
+                    return Err(SyntaxError {
+                        line,
+                        message: format!("unsupported JSON string escape `{escaped}`"),
+                    });
+                }
+            };
+            chars.push(DecodedChar {
+                value,
+                source_line: line,
+                escaped: true,
+            });
+            continue;
+        }
+        if is_prohibited_control(ch) {
+            return Err(SyntaxError {
+                line,
+                message: "prohibited control character in JSON string".to_string(),
+            });
+        }
+        chars.push(DecodedChar {
+            value: ch,
+            source_line: line,
+            escaped: false,
+        });
+        offset += ch.len_utf8();
+    }
+    Ok(DecodedString { chars })
+}
+
+fn decode_json_unicode_escape(
+    content: &str,
+    offset: &mut usize,
+    line: usize,
+) -> Result<char, SyntaxError> {
+    let start = *offset;
+    let mut digits = String::with_capacity(4);
+    for _ in 0..4 {
+        let Some(ch) = content[*offset..].chars().next() else {
+            return Err(SyntaxError {
+                line,
+                message: "incomplete JSON Unicode escape".to_string(),
+            });
+        };
+        if !ch.is_ascii_hexdigit() {
+            return Err(SyntaxError {
+                line,
+                message: "invalid hexadecimal digit in JSON Unicode escape".to_string(),
+            });
+        }
+        digits.push(ch);
+        *offset += ch.len_utf8();
+    }
+    let codepoint = u16::from_str_radix(&digits, 16).expect("JSON Unicode digits were validated");
+    if (0xd800..=0xdbff).contains(&codepoint) {
+        if !content[*offset..].starts_with("\\u") {
+            return Err(SyntaxError {
+                line,
+                message: format!("unpaired JSON high surrogate at byte {start}"),
+            });
+        }
+        *offset += 2;
+        let low = decode_json_unicode_unit(content, offset, line)?;
+        if !(0xdc00..=0xdfff).contains(&low) {
+            return Err(SyntaxError {
+                line,
+                message: "invalid JSON surrogate pair".to_string(),
+            });
+        }
+        let high_value = u32::from(codepoint - 0xd800);
+        let low_value = u32::from(low - 0xdc00);
+        let scalar = 0x10000 + ((high_value << 10) | low_value);
+        return char::from_u32(scalar).ok_or_else(|| SyntaxError {
+            line,
+            message: "JSON Unicode escape is not a scalar value".to_string(),
+        });
+    }
+    if (0xdc00..=0xdfff).contains(&codepoint) {
+        return Err(SyntaxError {
+            line,
+            message: format!("unpaired JSON low surrogate at byte {start}"),
+        });
+    }
+    char::from_u32(u32::from(codepoint)).ok_or_else(|| SyntaxError {
+        line,
+        message: "JSON Unicode escape is not a scalar value".to_string(),
+    })
+}
+
+fn decode_json_unicode_unit(
+    content: &str,
+    offset: &mut usize,
+    line: usize,
+) -> Result<u16, SyntaxError> {
+    let mut digits = String::with_capacity(4);
+    for _ in 0..4 {
+        let Some(ch) = content[*offset..].chars().next() else {
+            return Err(SyntaxError {
+                line,
+                message: "incomplete JSON Unicode escape".to_string(),
+            });
+        };
+        if !ch.is_ascii_hexdigit() {
+            return Err(SyntaxError {
+                line,
+                message: "invalid hexadecimal digit in JSON Unicode escape".to_string(),
+            });
+        }
+        digits.push(ch);
+        *offset += ch.len_utf8();
+    }
+    Ok(u16::from_str_radix(&digits, 16).expect("JSON Unicode digits were validated"))
+}
+
+fn matches_forbidden_hex(digits: &str) -> bool {
+    digits.eq_ignore_ascii_case("000a") || digits.eq_ignore_ascii_case("000d")
+}
+
+fn matches_forbidden_wide_hex(digits: &str) -> bool {
+    digits.eq_ignore_ascii_case("0000000a") || digits.eq_ignore_ascii_case("0000000d")
 }
 
 struct DocumentParser<'p, 'a> {
@@ -465,82 +884,40 @@ impl<'p, 'a> Lexer<'p, 'a> {
         }
     }
 
-    fn lex(mut self) -> Vec<Token<'a>> {
+    fn lex(self) -> Lexed<'a> {
+        let path = self.path;
+        let Lexed {
+            tokens,
+            boundary_error,
+        } = self.lex_with_boundary();
+        if let Some(error) = boundary_error {
+            manifest_error(path, error.line, error.message);
+        }
+        Lexed {
+            tokens,
+            boundary_error: None,
+        }
+    }
+
+    fn lex_with_boundary(mut self) -> Lexed<'a> {
         let mut tokens = Vec::new();
         while self.offset < self.text.len() {
+            while matches!(self.peek_char(), Some(' ' | '\t')) {
+                self.next_char();
+            }
+            if self.offset >= self.text.len() {
+                break;
+            }
             let start = self.offset;
             let line = self.line;
             let ch = self.peek_char().expect("offset should be in text");
-            let kind = match ch {
-                ' ' | '\t' => {
-                    self.next_char();
-                    continue;
-                }
-                '\n' => {
-                    self.next_char();
-                    TokenKind::Newline
-                }
-                '\r' => {
-                    if !self.text[self.offset..].starts_with("\r\n") {
-                        manifest_error(self.path, self.line, "lone carriage return in manifest");
-                    }
-                    self.offset += 2;
-                    self.line += 1;
-                    TokenKind::Newline
-                }
-                '#' => {
-                    while !matches!(self.peek_char(), None | Some('\n' | '\r')) {
-                        self.next_char();
-                    }
-                    TokenKind::Comment
-                }
-                '[' => {
-                    self.next_char();
-                    TokenKind::Open(Delimiter::Square)
-                }
-                ']' => {
-                    self.next_char();
-                    TokenKind::Close(Delimiter::Square)
-                }
-                '{' => {
-                    self.next_char();
-                    TokenKind::Open(Delimiter::Brace)
-                }
-                '}' => {
-                    self.next_char();
-                    TokenKind::Close(Delimiter::Brace)
-                }
-                '=' => {
-                    self.next_char();
-                    TokenKind::Equals
-                }
-                ',' => {
-                    self.next_char();
-                    TokenKind::Comma
-                }
-                '"' | '\'' => TokenKind::String(self.lex_string(ch)),
-                _ => {
-                    while let Some(ch) = self.peek_char() {
-                        if matches!(
-                            ch,
-                            ' ' | '\t'
-                                | '\n'
-                                | '\r'
-                                | '#'
-                                | '['
-                                | ']'
-                                | '{'
-                                | '}'
-                                | '='
-                                | ','
-                                | '"'
-                                | '\''
-                        ) {
-                            break;
-                        }
-                        self.next_char();
-                    }
-                    TokenKind::Atom(&self.text[start..self.offset])
+            let kind = match self.lex_token_kind(ch, start, line) {
+                Ok(kind) => kind,
+                Err(error) => {
+                    return Lexed {
+                        tokens,
+                        boundary_error: Some(error),
+                    };
                 }
             };
             tokens.push(Token {
@@ -550,10 +927,96 @@ impl<'p, 'a> Lexer<'p, 'a> {
                 end: self.offset,
             });
         }
-        tokens
+        Lexed {
+            tokens,
+            boundary_error: None,
+        }
     }
 
-    fn lex_string(&mut self, quote: char) -> StringToken<'a> {
+    fn lex_token_kind(
+        &mut self,
+        ch: char,
+        start: usize,
+        _line: usize,
+    ) -> Result<TokenKind<'a>, SyntaxError> {
+        Ok(match ch {
+            ' ' | '\t' => {
+                self.next_char();
+                unreachable!("layout should be skipped before lexing token kind");
+            }
+            '\n' => {
+                self.next_char();
+                TokenKind::Newline
+            }
+            '\r' => {
+                if !self.text[self.offset..].starts_with("\r\n") {
+                    return Err(SyntaxError {
+                        line: self.line,
+                        message: "lone carriage return in manifest".to_string(),
+                    });
+                }
+                self.offset += 2;
+                self.line += 1;
+                TokenKind::Newline
+            }
+            '#' => {
+                while !matches!(self.peek_char(), None | Some('\n' | '\r')) {
+                    self.next_char();
+                }
+                TokenKind::Comment
+            }
+            '[' => {
+                self.next_char();
+                TokenKind::Open(Delimiter::Square)
+            }
+            ']' => {
+                self.next_char();
+                TokenKind::Close(Delimiter::Square)
+            }
+            '{' => {
+                self.next_char();
+                TokenKind::Open(Delimiter::Brace)
+            }
+            '}' => {
+                self.next_char();
+                TokenKind::Close(Delimiter::Brace)
+            }
+            '=' => {
+                self.next_char();
+                TokenKind::Equals
+            }
+            ',' => {
+                self.next_char();
+                TokenKind::Comma
+            }
+            '"' | '\'' => TokenKind::String(self.lex_string(ch)?),
+            _ => {
+                while let Some(ch) = self.peek_char() {
+                    if matches!(
+                        ch,
+                        ' ' | '\t'
+                            | '\n'
+                            | '\r'
+                            | '#'
+                            | '['
+                            | ']'
+                            | '{'
+                            | '}'
+                            | '='
+                            | ','
+                            | '"'
+                            | '\''
+                    ) {
+                        break;
+                    }
+                    self.next_char();
+                }
+                TokenKind::Atom(&self.text[start..self.offset])
+            }
+        })
+    }
+
+    fn lex_string(&mut self, quote: char) -> Result<StringToken<'a>, SyntaxError> {
         let start = self.offset;
         let opening_line = self.line;
         let multiline =
@@ -569,21 +1032,25 @@ impl<'p, 'a> Lexer<'p, 'a> {
         let closing_quotes = loop {
             let Some(ch) = self.peek_char() else {
                 let raw = &self.text[start..self.offset];
-                if let Err(error) = decode_toml_string(raw, opening_line, form, 0) {
-                    manifest_error(self.path, error.line, error.message);
-                }
-                manifest_error(self.path, opening_line, "unterminated manifest string");
+                decode_toml_string(raw, opening_line, form, 0)?;
+                return Err(SyntaxError {
+                    line: opening_line,
+                    message: "unterminated manifest string".to_string(),
+                });
             };
             if ch == '\r' {
                 if !self.text[self.offset..].starts_with("\r\n") {
-                    manifest_error(self.path, self.line, "lone carriage return in manifest");
+                    return Err(SyntaxError {
+                        line: self.line,
+                        message: "lone carriage return in manifest".to_string(),
+                    });
                 }
                 if !multiline {
-                    self.report_single_line_newline_or_pending_string_error(
+                    return Err(self.single_line_newline_or_pending_string_error(
                         start,
                         opening_line,
                         form,
-                    );
+                    ));
                 }
                 self.offset += 2;
                 self.line += 1;
@@ -591,11 +1058,11 @@ impl<'p, 'a> Lexer<'p, 'a> {
             }
             if ch == '\n' {
                 if !multiline {
-                    self.report_single_line_newline_or_pending_string_error(
+                    return Err(self.single_line_newline_or_pending_string_error(
                         start,
                         opening_line,
                         form,
-                    );
+                    ));
                 }
                 self.next_char();
                 continue;
@@ -603,7 +1070,10 @@ impl<'p, 'a> Lexer<'p, 'a> {
             if form.is_basic() && ch == '\\' {
                 self.next_char();
                 if self.peek_char() == Some('\r') && !self.text[self.offset..].starts_with("\r\n") {
-                    manifest_error(self.path, self.line, "lone carriage return in manifest");
+                    return Err(SyntaxError {
+                        line: self.line,
+                        message: "lone carriage return in manifest".to_string(),
+                    });
                 }
                 if self.peek_char().is_some() {
                     self.next_char();
@@ -631,23 +1101,26 @@ impl<'p, 'a> Lexer<'p, 'a> {
 
         let raw = &self.text[start..self.offset];
         let decoded = decode_toml_string(raw, opening_line, form, closing_quotes);
-        StringToken {
+        Ok(StringToken {
             decoded,
             source: raw,
-        }
+        })
     }
 
-    fn report_single_line_newline_or_pending_string_error(
+    fn single_line_newline_or_pending_string_error(
         &self,
         start: usize,
         opening_line: usize,
         form: StringForm,
-    ) -> ! {
+    ) -> SyntaxError {
         let raw = &self.text[start..self.offset];
         if let Err(error) = decode_toml_string(raw, opening_line, form, 0) {
-            manifest_error(self.path, error.line, error.message);
+            return error;
         }
-        manifest_error(self.path, opening_line, "newline in single-line string");
+        SyntaxError {
+            line: opening_line,
+            message: "newline in single-line string".to_string(),
+        }
     }
 
     fn peek_char(&self) -> Option<char> {
@@ -719,6 +1192,7 @@ fn decode_toml_string(
             chars.push(DecodedChar {
                 value: '\n',
                 source_line: line,
+                escaped: false,
             });
             offset += 2;
             line += 1;
@@ -734,6 +1208,7 @@ fn decode_toml_string(
             chars.push(DecodedChar {
                 value: '\n',
                 source_line: line,
+                escaped: false,
             });
             offset += 1;
             line += 1;
@@ -749,6 +1224,7 @@ fn decode_toml_string(
             chars.push(DecodedChar {
                 value: ch,
                 source_line: line,
+                escaped: false,
             });
             offset += ch.len_utf8();
             continue;
@@ -809,6 +1285,7 @@ fn decode_toml_string(
         chars.push(DecodedChar {
             value,
             source_line: escape_line,
+            escaped: true,
         });
     }
 
@@ -818,6 +1295,7 @@ fn decode_toml_string(
             chars.push(DecodedChar {
                 value: form.quote(),
                 source_line: closing_line,
+                escaped: false,
             });
         }
     }
@@ -873,4 +1351,100 @@ fn consume_physical_newline(content: &str, offset: &mut usize, line: &mut usize)
 
 fn is_prohibited_control(ch: char) -> bool {
     matches!(ch, '\u{0000}'..='\u{0008}' | '\u{000a}'..='\u{001f}' | '\u{007f}')
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn policy_scan_provenance_covers_toml_and_nested_json_string_tokens() {
+        let source = r#"value = ["\n", '\n', {"json":"\u000A", "nested":["\\n"]}]
+physical = """
+line
+break"""
+# "ignored\r"
+"#;
+        let tokens = Lexer::new(Path::new("case.toml"), source).lex().tokens;
+        let strings = tokens
+            .iter()
+            .filter_map(|token| match &token.kind {
+                TokenKind::String(string) => Some(string),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            strings
+                .iter()
+                .map(|string| string.source)
+                .collect::<Vec<_>>(),
+            [
+                r#""\n""#,
+                r#"'\n'"#,
+                r#""json""#,
+                r#""\u000A""#,
+                r#""nested""#,
+                r#""\\n""#,
+                "\"\"\"\nline\nbreak\"\"\"",
+            ]
+        );
+        assert_eq!(strings[0].decoded.as_ref().unwrap().text(), "\n");
+        assert_eq!(strings[1].decoded.as_ref().unwrap().text(), r#"\n"#);
+        assert_eq!(strings[3].decoded.as_ref().unwrap().text(), "\n");
+        assert_eq!(strings[5].decoded.as_ref().unwrap().text(), r#"\n"#);
+
+        let physical = strings[6].decoded.as_ref().unwrap();
+        assert_eq!(physical.text(), "line\nbreak");
+        assert_eq!(
+            physical
+                .chars
+                .iter()
+                .map(|decoded| (decoded.value, decoded.source_line))
+                .collect::<Vec<_>>(),
+            [
+                ('l', 3),
+                ('i', 3),
+                ('n', 3),
+                ('e', 3),
+                ('\n', 3),
+                ('b', 4),
+                ('r', 4),
+                ('e', 4),
+                ('a', 4),
+                ('k', 4),
+            ]
+        );
+    }
+
+    #[test]
+    fn policy_scan_provenance_retains_escape_lines_and_local_decode_errors() {
+        let source = "first = \"\"\"\nphysical\n\\u000A\"\"\"\ninvalid = \"bad\\q\"\n";
+        let strings = Lexer::new(Path::new("case.toml"), source)
+            .lex()
+            .tokens
+            .into_iter()
+            .filter_map(|token| match token.kind {
+                TokenKind::String(string) => Some(string),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        let decoded = strings[0].decoded.as_ref().unwrap();
+        assert_eq!(decoded.text(), "physical\n\n");
+        assert_eq!(
+            decoded
+                .chars
+                .iter()
+                .filter(|decoded| decoded.value == '\n')
+                .map(|decoded| decoded.source_line)
+                .collect::<Vec<_>>(),
+            [2, 3]
+        );
+
+        assert_eq!(strings[1].source, r#""bad\q""#);
+        let error = strings[1].decoded.as_ref().unwrap_err();
+        assert_eq!(error.line, 4);
+        assert_eq!(error.message, "unsupported manifest string escape `q`");
+    }
 }

@@ -1,0 +1,15 @@
+7
+ready
+ratio-high
+result-option
+nested-ok
+missing-code
+missing-ready
+missing-ratio
+missing-label
+metadata-missing
+bad-code
+503
+ratio-flag
+label-ratio-high
+404

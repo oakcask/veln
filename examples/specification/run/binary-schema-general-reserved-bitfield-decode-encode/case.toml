@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "5\n9\n10\n180\n218\ndecoded\n5\n9\n10\n2\nencoded\noutput_chunk_list general-reserved-bitfield count 1\noutput_chunk general-reserved-bitfield index 0 hex \"b4da\" count 2\ninvalid\nschema.encode_value_unrepresentable\nGeneralReservedBitfieldHeader.mode\nvalue must be between 0 and 15\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

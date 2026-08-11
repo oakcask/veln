@@ -1,0 +1,24 @@
+21
+60
+27
+3
+5
+decoded
+21
+60
+27
+3
+5
+3
+decoded
+21
+60
+27
+3
+5
+3
+output_chunk_list packed-visible-three-byte-direct count 1
+output_chunk packed-visible-three-byte-direct index 0 hex "abcde5" count 3
+encoded
+output_chunk_list packed-visible-three-byte-derived count 1
+output_chunk packed-visible-three-byte-derived index 0 hex "abcde5" count 3

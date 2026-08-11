@@ -24,7 +24,7 @@ equals = ""
 
 [[json_assert]]
 path = "stderr"
-equals = "transport write failed: closed\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error.kind"
@@ -52,4 +52,4 @@ equals = "stream write side is shut down"
 
 [[file_assert]]
 path = "net-events.log"
-equals = "listen 127.0.0.1:0\naccept 127.0.0.1:0 fixture-stream\nwrite fixture-stream ByteChunk([Byte(10), Byte(11)])\nshutdown-write fixture-stream\n"
+equals_file = "case-text/file-assert-equals-1.txt"

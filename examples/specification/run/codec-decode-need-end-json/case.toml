@@ -72,4 +72,4 @@ equals = "need_end"
 
 [[json_assert]]
 path = "stderr"
-equals = "Err(NeedMore(NeedEnd))\n"
+equals_file = "case-text/json-assert-equals-1.txt"

@@ -1,0 +1,5 @@
+preface incomplete-input connection-preface http2.protocol.partial_preface offset 0 pending 3 expected 24 kind 0 stream 0 preview 3
+frame-header incomplete-input frame http2.protocol.incomplete_frame offset 39 pending 5 expected 9 kind 0 stream 0 preview 5
+frame-payload incomplete-input frame http2.protocol.incomplete_frame offset 39 pending 12 expected 17 kind 0 stream 0 preview 12
+initial-settings incomplete-input initial-peer-settings http2.protocol.incomplete_initial_peer_settings offset 24 pending 0 expected 9 kind 4 stream 0 preview 0
+header-block incomplete-input pending-header-block http2.protocol.incomplete_header_block offset 49 pending 0 expected 0 kind 1 stream 1 preview 0

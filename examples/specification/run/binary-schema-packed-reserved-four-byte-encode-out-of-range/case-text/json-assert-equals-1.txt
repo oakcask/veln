@@ -1,0 +1,3 @@
+schema.encode_value_unrepresentable
+PackedFourBytePrefixHeader.control
+value must be between 0 and 127

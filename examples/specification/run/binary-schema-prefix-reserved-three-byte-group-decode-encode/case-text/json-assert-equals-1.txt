@@ -1,0 +1,9 @@
+10
+5
+11184853
+schema.encode_value_unrepresentable
+ThreeBytePrefixReservedGroupHeader.high
+value must be between 0 and 15
+schema.encode_value_unrepresentable
+ThreeBytePrefixReservedGroupHeader.low
+value must be between 0 and 7

@@ -1,0 +1,6 @@
+Cycles
+  src::app, src::util | path: src::app -> src::util -> src::app
+
+Modules
+  src::app (src/app.veln) fan-in=1 fan-out=1 pressure=1 external=0
+  src::util (src/util.veln) fan-in=1 fan-out=1 pressure=1 external=0

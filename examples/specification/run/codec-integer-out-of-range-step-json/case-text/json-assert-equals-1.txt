@@ -1,0 +1,1 @@
+Err(DecodeErrorWithReason(codec.integer_out_of_range, ByteOffset(18), ManualPacketWire.signed_byte, byte_width=1; min_value=-128; max_value=127; actual_value=128; reason=decoded value exceeds signed byte range))

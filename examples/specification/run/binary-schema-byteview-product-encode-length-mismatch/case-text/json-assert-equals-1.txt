@@ -1,0 +1,3 @@
+schema.encode_value_unrepresentable
+PacketWire.payload
+byte view count 4 does not match length expression `row_count * column_count` value 6

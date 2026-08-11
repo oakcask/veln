@@ -1,0 +1,17 @@
+decoded
+2
+3
+6
+43707
+8
+need_more
+need_bytes
+2
+0
+encoded
+output_chunk_list byteview-product count 1
+output_chunk byteview-product index 0 hex "0203aabbccddeeff" count 8
+invalid
+schema.encode_value_unrepresentable
+PacketWire.payload
+byte view count 4 does not match length expression `row_count * column_count` value 6

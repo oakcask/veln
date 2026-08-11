@@ -1,0 +1,12 @@
+171
+42
+192
+decoded
+171
+2
+encoded
+output_chunk_list reserved-byte-prefix count 1
+output_chunk reserved-byte-prefix index 0 hex "2ac0" count 2
+invalid
+schema.encode_value_unrepresentable
+ReservedBytePrefixHeader.payload

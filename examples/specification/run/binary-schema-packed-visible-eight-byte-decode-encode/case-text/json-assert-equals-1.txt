@@ -1,0 +1,39 @@
+1
+43
+102
+123
+98
+35
+34
+89
+113
+16
+decoded
+1
+43
+102
+123
+98
+35
+34
+89
+113
+16
+8
+decoded
+1
+43
+102
+123
+98
+35
+34
+89
+113
+16
+8
+output_chunk_list packed-visible-eight-byte-direct count 1
+output_chunk packed-visible-eight-byte-direct index 0 hex "abcdef1234567890" count 8
+encoded
+output_chunk_list packed-visible-eight-byte-derived count 1
+output_chunk packed-visible-eight-byte-derived index 0 hex "abcdef1234567890" count 8

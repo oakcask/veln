@@ -80,4 +80,4 @@ equals = "dynamic table size updates are disabled for this profile"
 
 [[json_assert]]
 path = "stderr"
-equals = "Err(DecodeErrorWithReason(codec.unsupported_feature, ByteOffset(27), ManualPacketWire.extension, feature=dynamic_table_size_update; reason=dynamic table size updates are disabled for this profile))\n"
+equals_file = "case-text/json-assert-equals-1.txt"

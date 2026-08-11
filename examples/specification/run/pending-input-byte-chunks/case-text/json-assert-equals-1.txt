@@ -1,0 +1,6 @@
+pending count 5 base 1024
+view count 2 base 1024 first16 1
+after-drop count 3 base 1026
+materialized count 2 first16 1
+pending input exceeds retained byte limit
+outgoing chunks 2 total 3 first 2/170 second 1/204

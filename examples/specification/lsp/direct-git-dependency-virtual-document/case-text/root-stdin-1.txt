@@ -1,0 +1,11 @@
+Content-Length: 78
+
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"rootUri":"file://."}}Content-Length: 151
+
+{"jsonrpc":"2.0","id":2,"method":"textDocument/definition","params":{"textDocument":{"uri":"file://./main.veln"},"position":{"line":3,"character":10}}}Content-Length: 185
+
+{"jsonrpc":"2.0","id":3,"method":"veln/virtualDocument","params":{"uri":"veln-pkg:///example%2Fpkg/snapshot/b7bcd08b64dd97eb2d5454b57f001b50594501d47590423aec9f9f8ba671283a/math.veln"}}Content-Length: 58
+
+{"jsonrpc":"2.0","id":4,"method":"shutdown","params":null}Content-Length: 47
+
+{"jsonrpc":"2.0","method":"exit","params":null}

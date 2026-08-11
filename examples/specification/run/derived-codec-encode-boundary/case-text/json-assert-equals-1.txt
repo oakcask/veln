@@ -1,0 +1,7 @@
+encoded
+output_chunk_list derived-header count 1
+output_chunk derived-header index 0 hex "000005010400000001" count 9
+invalid
+schema.encode_value_unrepresentable
+HeaderWire.stream_id
+value must be between 0 and 2147483647

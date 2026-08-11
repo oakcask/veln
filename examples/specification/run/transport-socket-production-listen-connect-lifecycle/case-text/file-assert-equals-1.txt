@@ -1,0 +1,11 @@
+listen-production 127.0.0.1:0
+connect-production 127.0.0.1:0 production-client-stream
+accept-production 127.0.0.1:0 production-stream
+write-production production-client-stream ByteChunk([Byte(127)])
+read-production production-stream 7f
+write-production production-stream ByteChunk([Byte(127)])
+read-production production-client-stream 7f
+close-production production-stream
+close-production production-client-stream
+accept-end-production 127.0.0.1:0
+close-listener-production 127.0.0.1:0

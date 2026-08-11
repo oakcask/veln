@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The documented command behavior or executable command evidence changes.
+update-when: The CLI command behavior, command-visible output contract, command gate, source-selection contract, or command evidence route changes.
 ---
 
 # Commands Full

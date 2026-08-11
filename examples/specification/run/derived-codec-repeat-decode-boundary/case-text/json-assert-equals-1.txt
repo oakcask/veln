@@ -1,0 +1,16 @@
+decoded
+3
+3
+258
+7
+need_more
+need_bytes
+1
+0
+invalid
+none
+0
+0
+schema.truncated_field
+46
+CountedValues.items.2

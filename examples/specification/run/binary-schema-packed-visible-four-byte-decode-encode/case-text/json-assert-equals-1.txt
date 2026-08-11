@@ -1,0 +1,27 @@
+21
+60
+55
+23
+8
+18
+decoded
+21
+60
+55
+23
+8
+18
+4
+decoded
+21
+60
+55
+23
+8
+18
+4
+output_chunk_list packed-visible-four-byte-direct count 1
+output_chunk packed-visible-four-byte-direct index 0 hex "abcdef12" count 4
+encoded
+output_chunk_list packed-visible-four-byte-derived count 1
+output_chunk packed-visible-four-byte-derived index 0 hex "abcdef12" count 4

@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "bounds max 2147483647 min_stream -2147483647\nconnection-debit decision accepted value 6\nstream-debit decision accepted value -7\nstream-refill decision accepted value 3\nconnection-overdebit decision rejected value 0\nconnection-overdebit failure connection_window_credit observed -1 min 0 max 2147483647\nconnection-overrefill decision rejected value 0\nconnection-overrefill failure connection_window_credit observed 2147483654 min 0 max 2147483647\nstream-overrefill decision rejected value 0\nstream-overrefill failure stream_window_credit observed 2147483654 min -2147483647 max 2147483647\nconnection-negative failure connection_window_credit observed -1 min 0 max 2147483647\nstream-too-low failure stream_window_credit observed -2147483648 min -2147483647 max 2147483647\ninitial-too-high failure initial_window_size observed 2147483648 min 0 max 2147483647\nincrement-zero failure window_update_increment observed 0 min 1 max 2147483647\ninputs connection 10 stream -5 increment 8\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

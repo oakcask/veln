@@ -1,0 +1,6 @@
+static :method 71 1 0
+dynamic newest 0 1 2
+zero zero_index 0 0 0
+incomplete incomplete_integer 0 0 0
+unavailable unavailable_dynamic_entry 64 3 2
+original 78 2

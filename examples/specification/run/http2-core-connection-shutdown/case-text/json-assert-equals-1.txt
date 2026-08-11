@@ -1,0 +1,12 @@
+first accepted
+first lifecycle draining last 5 error 11 active 1
+still-draining lifecycle draining last 5 error 11 active 1
+drained lifecycle closed last 5 error 11 active 0
+outside-boundary lifecycle closed last 5 error 33 active 1
+tightened accepted
+tightened lifecycle closed last 3 error 22 active 1
+relaxed failure http2.protocol.stream_after_goaway offset 57 stream 7 last 5 state draining role server rule goaway_last_stream_id reason boundary_increased preview 9
+truncated failure http2.frame.payload_read_failure offset 66 stream 0 last 0 state none role none rule payload_read reason byte view range exceeds chunk length preview 9
+input lifecycle open last 0 error 0 active 1
+accepted-accessor accepted connection shutdown decision has no failure
+rejected-accessor rejected connection shutdown decision has no state

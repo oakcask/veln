@@ -1,0 +1,4 @@
+[[package]]
+name = "github.com/oakcask/mirror-lib"
+source = { kind = "mirror", path = "mirror/github.com/oakcask/mirror-lib" }
+checksum = "sha256:b7b27a787ba7841689d16fb1053c8d95e0b1b057952b43bfbfa6eccbf5f82f6c"

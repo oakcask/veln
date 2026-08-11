@@ -1,0 +1,3 @@
+outbound-content-length-data-first accepted encoded_length 2 application_length 2 end_stream 0 connection_window 18 open_stream 1 closed_stream 0 stream_window 18 expected 5 observed 2 output_frames 1
+outbound-content-length-data-exact accepted encoded_length 3 application_length 3 end_stream 1 connection_window 15 open_stream 0 closed_stream 1 stream_window 0 expected 0 observed 0 output_frames 1
+outbound-content-length-padded accepted encoded_length 20 application_length 5 end_stream 1 connection_window 10 open_stream 0 closed_stream 1 stream_window 0 expected 0 observed 0 output_frames 5

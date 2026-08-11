@@ -1,0 +1,3 @@
+first decoded value 258 consumed 2 pending 2 base 102 suffix16 772
+second decoded value 772 consumed 2 pending 0 base 104
+waiting schema.truncated_field expected 0 consumed 0 pending 1 base 200 first8 5

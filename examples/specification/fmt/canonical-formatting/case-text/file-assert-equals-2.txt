@@ -1,0 +1,26 @@
+# Helper declarations participate in multi-file canonical formatting.
+pub fn parse(raw: String) -> Result<Int, AppError>
+	Ok(1)
+end
+
+pub fn add(left: Int, right: Int) -> Int
+	left + right
+end
+
+pub fn choose(value: String, fallback: String) -> String
+	if_missing({ primary: value, nested: { fallback: fallback } })
+end
+
+pub fn valid_output(output: Result<{ value : Int, tags : Vec<String> }, AppError>) -> Bool
+	match output
+		Ok(value) => value.value >= 0 and not (value.value == -1)
+		Err(_) => true
+	end
+end
+
+fn if_missing(options: { primary : String, nested : { fallback : String } }) -> String
+	match options.primary
+		"" => options.nested.fallback
+		_ => options.primary
+	end
+end

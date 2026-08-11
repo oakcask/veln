@@ -1,0 +1,13 @@
+171
+171
+0
+0
+decoded
+171
+3
+encoded
+output_chunk_list byte-visible-reserved-suffix count 1
+output_chunk byte-visible-reserved-suffix index 0 hex "ab0000" count 3
+invalid
+schema.encode_value_unrepresentable
+ByteVisibleReservedSuffixHeader.control

@@ -2,7 +2,9 @@ command = ["metrics"]
 exit = 0
 
 [stdout]
-contains = ["Veln dependency metrics (advisory)", "project modules: 2, selected modules: 2, internal edges: 2, cycles: 1, external dependencies: 0, ABC subjects: 2, ABC contract subjects: 0, similarity fingerprints: 0, similarity instances: 0, similarity regions: 0", "Cycles\n  app, util | path: app -> util -> app\n\nModules\n  showing 1 of 2 module rows; 1 omitted; use veln metrics --json for complete evidence.\n  app (app.veln) fan-in=1 fan-out=1 pressure=1 external=0", "ABC size\n  showing 1 of 2 ABC subjects; 1 omitted; use veln metrics --json for complete evidence.\n  app.veln::main", "Detailed findings omitted: 2; use veln metrics --json for complete evidence."]
+contains = ["Veln dependency metrics (advisory)", "project modules: 2, selected modules: 2, internal edges: 2, cycles: 1, external dependencies: 0, ABC subjects: 2, ABC contract subjects: 0, similarity fingerprints: 0, similarity instances: 0, similarity regions: 0"]
+contains_files = ["case-text/stdout-contains-1.txt", "case-text/stdout-contains-2.txt"]
+contains = ["Detailed findings omitted: 2; use veln metrics --json for complete evidence."]
 
 [stderr]
 format = "empty"

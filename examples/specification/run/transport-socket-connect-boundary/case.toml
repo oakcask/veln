@@ -21,7 +21,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "local client-fixture peer 127.0.0.1:443 read-bytes 3 write-bytes 2\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"
@@ -29,4 +29,4 @@ equals = null
 
 [[file_assert]]
 path = "net-events.log"
-equals = "connect 127.0.0.1:443 client-fixture\nwrite client-fixture ByteChunk([Byte(10), Byte(11)])\nread client-fixture 010203\nshutdown-write client-fixture\nclose client-fixture\n"
+equals_file = "case-text/file-assert-equals-1.txt"

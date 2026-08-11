@@ -22,7 +22,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "response stream 1 reused false lifecycle open active 0 capacity 2147483647\nresponse stream 3 reused true lifecycle open active 0 capacity 0\nresponse stream 1 reused false lifecycle open active 0 capacity 2147483647\nservice ok\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"
@@ -34,4 +34,4 @@ equals = "505249202a20485454502f322e300d0a0d0a534d0d0a0d0a0000000400000000000000
 
 [[file_assert]]
 path = "net-events.log"
-equals = "connect-production 127.0.0.1:0 production-stream\nwrite-production production-stream ByteChunk([Byte(80), Byte(82), Byte(73), Byte(32), Byte(42), Byte(32), Byte(72), Byte(84), Byte(84), Byte(80), Byte(47), Byte(50), Byte(46), Byte(48), Byte(13), Byte(10), Byte(13), Byte(10), Byte(83), Byte(77), Byte(13), Byte(10), Byte(13), Byte(10)])\nwrite-production production-stream ByteChunk([Byte(0), Byte(0), Byte(0), Byte(4), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0)])\nwrite-production production-stream ByteChunk([Byte(0), Byte(0), Byte(3), Byte(1), Byte(5), Byte(0), Byte(0), Byte(0), Byte(1), Byte(130), Byte(135), Byte(132)])\nread-production production-stream 00000004000000000000000101050000000189\nwrite-production production-stream ByteChunk([Byte(0), Byte(0), Byte(3), Byte(1), Byte(5), Byte(0), Byte(0), Byte(0), Byte(3), Byte(130), Byte(135), Byte(132)])\nread-production production-stream 00000604000000000000030000000000000101050000000389\nwrite-production production-stream ByteChunk([Byte(0), Byte(0), Byte(0), Byte(4), Byte(1), Byte(0), Byte(0), Byte(0), Byte(0)])\nclose-production production-stream\nconnect-production 127.0.0.1:0 production-stream\nwrite-production production-stream ByteChunk([Byte(80), Byte(82), Byte(73), Byte(32), Byte(42), Byte(32), Byte(72), Byte(84), Byte(84), Byte(80), Byte(47), Byte(50), Byte(46), Byte(48), Byte(13), Byte(10), Byte(13), Byte(10), Byte(83), Byte(77), Byte(13), Byte(10), Byte(13), Byte(10)])\nwrite-production production-stream ByteChunk([Byte(0), Byte(0), Byte(0), Byte(4), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0)])\nwrite-production production-stream ByteChunk([Byte(0), Byte(0), Byte(3), Byte(1), Byte(5), Byte(0), Byte(0), Byte(0), Byte(1), Byte(130), Byte(135), Byte(132)])\nread-production production-stream 00000004000000000000000101050000000189\nclose-production production-stream\n"
+equals_file = "case-text/file-assert-equals-1.txt"

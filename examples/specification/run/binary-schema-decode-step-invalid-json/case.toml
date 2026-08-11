@@ -36,4 +36,4 @@ equals = "ReservedStepPacket.padding"
 
 [[json_assert]]
 path = "stderr"
-equals = "Err(DecodeError(schema.reserved_bits_mismatch, ByteOffset(71), ReservedStepPacket.padding))\n"
+equals_file = "case-text/json-assert-equals-1.txt"

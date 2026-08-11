@@ -1,0 +1,4 @@
+[[package]]
+name = "github.com/oakcask/vendor-lib"
+source = { kind = "vendor", path = "vendor/vendor-lib" }
+checksum = "sha256:f3cafbc75999b90e9c57c58d85cecc6a9010f8905746c0d33becbbe206af4bc0"

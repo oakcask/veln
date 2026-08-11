@@ -1,0 +1,8 @@
+7
+ready
+ratio-high
+result
+bad-code
+bad-ready
+bad-ratio
+404

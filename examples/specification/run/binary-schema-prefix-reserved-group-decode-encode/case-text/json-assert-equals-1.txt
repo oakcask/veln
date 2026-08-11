@@ -1,0 +1,6 @@
+5
+3
+171
+schema.encode_value_unrepresentable
+PrefixReservedGroupHeader.high
+value must be between 0 and 7

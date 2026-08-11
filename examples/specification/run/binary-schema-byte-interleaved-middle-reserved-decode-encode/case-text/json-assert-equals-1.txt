@@ -1,0 +1,16 @@
+5
+171
+6
+85
+94
+decoded
+5
+171
+6
+2
+encoded
+output_chunk_list byte-interleaved-middle-reserved count 1
+output_chunk byte-interleaved-middle-reserved index 0 hex "555e" count 2
+invalid
+schema.encode_value_unrepresentable
+ByteInterleavedMiddleReservedHeader.low

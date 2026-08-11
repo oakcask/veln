@@ -23,7 +23,7 @@ equals = ""
 
 [[json_assert]]
 path = "stderr"
-equals = "transport accept failed: closed\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error.kind"
@@ -39,4 +39,4 @@ equals = "runtime"
 
 [[file_assert]]
 path = "net-events.log"
-equals = "listen 127.0.0.1:0\nclose-listener 127.0.0.1:0\n"
+equals_file = "case-text/file-assert-equals-1.txt"

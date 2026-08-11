@@ -1,0 +1,15 @@
+decoded
+2
+6
+8
+need_more
+need_bytes
+2
+0
+invalid
+none
+0
+0
+schema.truncated_field
+47
+CountedViews.items.1

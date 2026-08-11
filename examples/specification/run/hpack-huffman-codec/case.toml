@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "encoded 241 227 194 229 242 58 107 160 171 144 244 255\ndecoded 0 255\neos HPACK Huffman payload contains EOS symbol\npadding invalid HPACK Huffman padding\ntruncated invalid HPACK Huffman code sequence\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

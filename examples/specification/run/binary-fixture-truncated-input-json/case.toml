@@ -64,7 +64,7 @@ equals = "need_bytes"
 
 [[json_assert]]
 path = "stderr"
-equals = "Err(byte read requires 3 bytes but view has 2)\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[binary_fixture]]
 name = "short-u24"

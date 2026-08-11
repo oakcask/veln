@@ -1,9 +1,11 @@
 command = ["lsp"]
-stdin = "Content-Length: 78\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"rootUri\":\"file://.\"}}Content-Length: 151\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"textDocument/definition\",\"params\":{\"textDocument\":{\"uri\":\"file://./main.veln\"},\"position\":{\"line\":3,\"character\":10}}}Content-Length: 185\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"veln/virtualDocument\",\"params\":{\"uri\":\"veln-pkg:///example%2Fpkg/snapshot/b7bcd08b64dd97eb2d5454b57f001b50594501d47590423aec9f9f8ba671283a/math.veln\"}}Content-Length: 58\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"shutdown\",\"params\":null}Content-Length: 47\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"exit\",\"params\":null}"
+stdin_file = "case-text/root-stdin-1.txt"
 exit = 0
 
 [stdout]
-contains = ["\"id\":2,\"result\":{\"uri\":\"veln-pkg:///example%2Fpkg/snapshot/b7bcd08b64dd97eb2d5454b57f001b50594501d47590423aec9f9f8ba671283a/math.veln\",\"range\":{\"start\":{\"line\":0,\"character\":7},\"end\":{\"line\":0,\"character\":14}}", "\"id\":3,\"result\":\"pub fn exposed(value: Int) -> Int\\n  value + 1\\nend\\n\"", "\"id\":4,\"result\":null"]
+contains = ["\"id\":2,\"result\":{\"uri\":\"veln-pkg:///example%2Fpkg/snapshot/b7bcd08b64dd97eb2d5454b57f001b50594501d47590423aec9f9f8ba671283a/math.veln\",\"range\":{\"start\":{\"line\":0,\"character\":7},\"end\":{\"line\":0,\"character\":14}}"]
+contains_file = "case-text/stdout-contains-1.txt"
+contains = ["\"id\":4,\"result\":null"]
 not_contains = ["materialized/mono", "packages/lib"]
 
 [stderr]

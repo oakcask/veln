@@ -10,4 +10,4 @@ contains = ["error[manifest.reserved_standard_package]: dependency package `std`
 
 [[file_assert]]
 path = "veln.lock"
-equals = "preserve\n"
+equals_file = "case-text/file-assert-equals-1.txt"

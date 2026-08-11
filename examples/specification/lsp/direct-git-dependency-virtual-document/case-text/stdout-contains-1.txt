@@ -1,0 +1,1 @@
+"id":3,"result":"pub fn exposed(value: Int) -> Int\n  value + 1\nend\n"

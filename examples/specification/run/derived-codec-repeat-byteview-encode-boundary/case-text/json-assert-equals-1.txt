@@ -1,0 +1,7 @@
+encoded
+output_chunk_list derived-counted-views count 1
+output_chunk derived-counted-views index 0 hex "0202aabbccdd" count 6
+invalid
+schema.encode_value_unrepresentable
+CountedViews.items.0
+byte view count 1 does not match length field `item_length` value 2

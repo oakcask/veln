@@ -1,0 +1,33 @@
+add
+decoded
+5
+265
+12
+need_more
+need_bytes
+2
+0
+subtract
+invalid
+schema.length_out_of_bounds
+21
+SubtractRepeatValues.items
+0
+product
+decoded
+6
+270
+14
+encoded
+output_chunk_list repeat-add count 1
+output_chunk repeat-add index 0 hex "0203000100020003000400ff" count 12
+encoded
+output_chunk_list repeat-subtract count 1
+output_chunk repeat-subtract index 0 hex "05020001000200ff" count 8
+encoded
+output_chunk_list repeat-product count 1
+output_chunk repeat-product index 0 hex "02030001000200030004000500ff" count 14
+invalid
+schema.encode_value_unrepresentable
+ProductRepeatValues.items
+list length 5 does not match count expression `row_count * column_count` value 6

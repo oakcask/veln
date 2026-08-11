@@ -1,0 +1,6 @@
+encoded
+output_chunk_list derived-closed-nested count 1
+output_chunk derived-closed-nested index 0 hex "010100073412" count 6
+invalid
+schema.dispatch_unknown_tag
+ClosedNestedPacket.payload

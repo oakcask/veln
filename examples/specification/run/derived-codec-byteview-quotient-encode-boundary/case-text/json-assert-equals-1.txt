@@ -1,0 +1,11 @@
+encoded
+output_chunk_list byteview-quotient-derived count 1
+output_chunk byteview-quotient-derived index 0 hex "0802aabbccdd" count 6
+invalid
+schema.encode_value_unrepresentable
+PacketWire.payload
+byte view count 3 does not match length expression `total_length / chunk_count` value 4
+invalid
+schema.encode_value_unrepresentable
+PacketWire.payload
+schema length division by zero

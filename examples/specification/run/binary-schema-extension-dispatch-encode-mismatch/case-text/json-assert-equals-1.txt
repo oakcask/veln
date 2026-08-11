@@ -1,0 +1,3 @@
+schema.dispatch_mismatch
+ExtensionDispatchWritePacket.payload
+tag field `kind` value 1 selects a known payload case

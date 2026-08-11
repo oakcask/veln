@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "add decoded 2 3 5 43707 7\nsubtract decoded 5 2 3 43707 5\noutput_chunk_list byteview-add-derived count 1\noutput_chunk byteview-add-derived index 0 hex \"0203aabbccddee\" count 7\noutput_chunk_list byteview-subtract-derived count 1\noutput_chunk byteview-subtract-derived index 0 hex \"0502aabbcc\" count 5\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

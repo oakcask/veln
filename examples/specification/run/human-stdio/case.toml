@@ -5,7 +5,7 @@ exit = 0
 jdk = true
 
 [stdout]
-contains = ["out\n"]
+contains_files = ["case-text/stdout-contains-1.txt"]
 
 [stderr]
-contains = ["err\n"]
+contains_files = ["case-text/stderr-contains-1.txt"]

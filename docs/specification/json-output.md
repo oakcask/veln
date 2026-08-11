@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: A command JSON schema, output field, or executable JSON evidence changes.
+update-when: A command JSON schema, command-visible JSON output field, or command-specific JSON evidence route changes.
 ---
 
 # JSON Output

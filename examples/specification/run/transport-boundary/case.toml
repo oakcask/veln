@@ -20,7 +20,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "3\n2\ntimeout\ndeadline\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"
@@ -28,4 +28,4 @@ equals = null
 
 [[file_assert]]
 path = "net-events.log"
-equals = "send ByteChunk([Byte(10), Byte(11)])\n"
+equals_file = "case-text/file-assert-equals-1.txt"

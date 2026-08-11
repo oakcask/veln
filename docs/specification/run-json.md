@@ -1,3 +1,9 @@
+---
+role: specification
+authority: normative
+update-when: The `veln run --json` output schema, runtime failure details, result failure projection, output events, summary shape, or executable run JSON evidence changes.
+---
+
 # Run JSON
 
 `veln run --json` emits schema version `veln-run-json/v0` with:

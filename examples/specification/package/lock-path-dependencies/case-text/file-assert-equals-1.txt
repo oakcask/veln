@@ -1,0 +1,9 @@
+[[package]]
+name = "github.com/oakcask/alpha"
+source = { kind = "path", path = "vendor/alpha" }
+checksum = "sha256:e808c864d3f4f85c2ec16c784cfbc0921ac75a2126c08829b9945d69c597115f"
+
+[[package]]
+name = "github.com/oakcask/zeta"
+source = { kind = "path", path = "vendor/zeta" }
+checksum = "sha256:d69d2629100736569a3e55327b5e633731f4e84b55109b271a0414fa3ca6a07d"

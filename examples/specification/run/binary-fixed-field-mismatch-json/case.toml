@@ -80,4 +80,4 @@ equals = false
 
 [[json_assert]]
 path = "stderr"
-equals = "Err(fixed field mismatch at byte offset 0)\n"
+equals_file = "case-text/json-assert-equals-1.txt"

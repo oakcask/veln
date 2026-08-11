@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "settings-connection accepted\ndata-open accepted\npush-associated accepted\npriority-idle accepted\nwindow-half-remote accepted\nconnection-data rejected\nconnection-data failure http2.protocol.invalid_frame_kind offset 13 kind 0 stream 0 expected 4 state connection-control rule connection_frames_require_settings preview 9\nreserved-data rejected\nreserved-data failure http2.protocol.invalid_frame_kind offset 17 kind 0 stream 5 expected 1 state reserved-by-peer-stream rule reserved_by_peer_requires_response_headers preview 9\nclosed-window rejected\nclosed-window failure http2.protocol.invalid_frame_kind offset 19 kind 8 stream 9 expected 1 state closed-by-peer-stream rule closed_by_peer_rejects_later_frames preview 9\npush-missing rejected\npush-missing failure http2.protocol.invalid_frame_kind offset 23 kind 5 stream 11 expected 1 state server-receive rule server_receives_no_push_promise preview 9\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

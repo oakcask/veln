@@ -16,11 +16,11 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "out-line\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "stderr"
-equals = "err-line\n"
+equals_file = "case-text/json-assert-equals-2.txt"
 
 [[json_assert]]
 path = "error"

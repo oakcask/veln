@@ -1,0 +1,11 @@
+ping-request request accepted reason none observed 8 expected 8
+output_chunk_list ping-request count 1
+output_chunk ping-request index 0 hex "0000080600000000000102030405060708" count 17
+ping-request-short request rejected reason http2.protocol.invalid_payload_length observed 7 expected 8
+output_chunk_list ping-request-short count 0
+ping-request-short failure kind 6 stream 0 observed 7 expected 8 active_state connection-control rule rfc9113_ping_payload_length
+ping-ack response accepted reason none
+output_chunk_list ping-ack count 1
+output_chunk ping-ack index 0 hex "0000080601000000000102030405060708" count 17
+ping-ack-received response no_response reason ack_received
+output_chunk_list ping-ack-received count 0

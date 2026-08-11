@@ -1,0 +1,11 @@
+goaway-send accepted last 5 error 11
+goaway-send lifecycle draining last 5 error 11 active 1
+output_chunk_list goaway-send count 1
+output_chunk goaway-send index 0 hex "00000a070000000000000000050000000baabb" count 19
+goaway-drained lifecycle closed last 5 error 11 active 0
+goaway-outside-boundary lifecycle closed last 5 error 11 active 1
+goaway-relaxed failure http2.protocol.stream_after_goaway offset 37 stream 7 last 5 state closed role server rule goaway_last_stream_id reason boundary_increased preview 0
+output_chunk_list goaway-relaxed count 0
+goaway-encode encode_error reason byte_write_u31_be value must be between 0 and 2147483647
+output_chunk_list goaway-encode count 0
+input lifecycle open last 0 error 0 active 1

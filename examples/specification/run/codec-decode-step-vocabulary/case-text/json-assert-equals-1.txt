@@ -1,0 +1,10 @@
+decoded
+3
+3
+need_more
+need_bytes
+8
+invalid
+codec.invalid_input
+5
+DemoPacket.kind

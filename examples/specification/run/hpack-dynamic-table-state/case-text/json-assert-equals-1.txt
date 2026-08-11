@@ -1,0 +1,9 @@
+initial 72 0 0
+inserted 72 70 2
+newest bb 0 255
+oldest a 49
+shrunk 36 36 1
+original 72 70 2
+grown 96 36 1
+negative HPACK dynamic table capacity must not be negative
+preserved 72 70 2

@@ -20,7 +20,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "invalid-action-sequence http2.application.invalid_action_sequence index 0 DATA cannot appear before response HEADERS\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

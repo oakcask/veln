@@ -21,8 +21,8 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "ok\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[file_assert]]
 path = "client-writes.hex"
-equals = "00000004000000000000000004010000000000000101050000000189\n00000004000000000000000004010000000000000101050000000189"
+equals_file = "case-text/file-assert-equals-1.txt"

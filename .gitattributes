@@ -1,0 +1,4 @@
+crates/veln-cli/tests/toolchain_cases/**/case-text/** text eol=lf -whitespace
+examples/specification/**/case-text/** text eol=lf -whitespace
+crates/veln-cli/tests/toolchain_cases/**/case-text/**/*.raw -text -eol -diff
+examples/specification/**/case-text/**/*.raw -text -eol -diff

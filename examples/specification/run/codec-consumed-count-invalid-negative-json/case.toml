@@ -44,4 +44,4 @@ missing = true
 
 [[json_assert]]
 path = "stderr"
-equals = "Err(DecodeErrorWithReason(codec.consumed_count_invalid, ByteOffset(22), ManualPacketWire.count, available_count=3; actual_consumed_count=-1; reason=decoded consumed count is outside supplied ByteView))\n"
+equals_file = "case-text/json-assert-equals-1.txt"

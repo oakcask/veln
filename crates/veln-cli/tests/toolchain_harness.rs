@@ -1,11 +1,13 @@
+use std::cell::RefCell;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::Write;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Output, Stdio};
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
-#[cfg(all(unix, debug_assertions))]
 use std::thread;
 #[cfg(all(unix, debug_assertions))]
 use std::time::{Duration, Instant};
@@ -20,11 +22,17 @@ use veln_project::Project;
 
 #[path = "toolchain_harness/manifest_syntax.rs"]
 mod manifest_syntax;
+#[path = "../toolchain_case_inventory.rs"]
+mod toolchain_case_inventory;
 
 use manifest_syntax::{Statement as ManifestStatement, Value as ManifestValue};
 
 static NEXT_TEST_DIR: AtomicUsize = AtomicUsize::new(0);
 const SOURCE_DIAGNOSTIC_ARTIFACT_ENV: &str = "VELN_HARNESS_SOURCE_DIAGNOSTICS";
+
+thread_local! {
+    static TEST_GENERATED_TOOLCHAIN_CASES: RefCell<Option<Vec<String>>> = const { RefCell::new(None) };
+}
 
 include!(concat!(env!("OUT_DIR"), "/toolchain_cases.rs"));
 
@@ -40,6 +48,19 @@ fn run_case_with_after_invocation(
     case_dir: &Path,
     mut after_invocation: impl FnMut(&CaseRunContext<'_>, &Path),
 ) {
+    run_case_with_guard_and_after_invocation(
+        case_dir,
+        guard_generated_or_synthetic_case,
+        &mut after_invocation,
+    );
+}
+
+fn run_case_with_guard_and_after_invocation(
+    case_dir: &Path,
+    guard_case: impl FnOnce(&Path),
+    mut after_invocation: impl FnMut(&CaseRunContext<'_>, &Path),
+) {
+    guard_case(case_dir);
     let manifest = CaseManifest::read(&case_dir.join("case.toml"));
     if let Some(reason) = manifest.skip_reason() {
         eprintln!("skipping {}: {reason}", case_dir.display());
@@ -92,6 +113,117 @@ fn run_case_with_after_invocation(
             .assert_files_match(&context, &project.root);
         assert_no_metrics_baseline_temp_file(&context, &project.root);
         after_invocation(&context, &project.root);
+    }
+}
+
+fn guard_generated_or_synthetic_case(case_dir: &Path) {
+    if is_generated_inventory_member(case_dir) {
+        runtime_generated_inventory_barrier();
+    } else {
+        let manifest = case_dir.join("case.toml");
+        let text = fs::read_to_string(&manifest).unwrap_or_else(|error| {
+            panic!("{}: failed to read manifest: {error}", manifest.display())
+        });
+        let findings = manifest_syntax::manifest_policy_findings(&manifest, &text);
+        if !findings.is_empty() {
+            let mut message = format!(
+                "{}: synthetic toolchain case violates manifest line-break policy before loading resources",
+                manifest.display()
+            );
+            for finding in findings {
+                message.push_str(&format!(
+                    "\n- line {} field `{}` contains {} `{}`; use physical multiline text or a sidecar so line structure remains reviewable",
+                    finding.line,
+                    finding.field,
+                    finding.category,
+                    finding.spelling.escape_debug()
+                ));
+            }
+            panic!("{message}");
+        }
+    }
+}
+
+fn is_generated_inventory_member(case_dir: &Path) -> bool {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let Ok(relative) = case_dir.strip_prefix(manifest_dir) else {
+        return false;
+    };
+    let relative = relative.to_string_lossy().replace('\\', "/");
+    generated_toolchain_cases_contains(&relative)
+}
+
+fn runtime_generated_inventory_barrier() {
+    if let Some(error) = TEST_GENERATED_TOOLCHAIN_CASES.with(|cases| {
+        let borrowed = cases.borrow();
+        let generated = borrowed.as_ref()?;
+        let generated = generated.iter().map(String::as_str).collect::<Vec<_>>();
+        toolchain_case_inventory::compare_generated_inventory(
+            Path::new(env!("CARGO_MANIFEST_DIR")),
+            &generated,
+        )
+        .err()
+    }) {
+        panic!("{error}");
+    }
+
+    static BARRIER: RuntimeInventoryBarrier = RuntimeInventoryBarrier::new();
+    BARRIER.check_with(|| {
+        toolchain_case_inventory::compare_generated_inventory(
+            Path::new(env!("CARGO_MANIFEST_DIR")),
+            GENERATED_TOOLCHAIN_CASES,
+        )
+        .map(|_| ())
+    });
+}
+
+fn generated_toolchain_cases_contains(relative: &str) -> bool {
+    TEST_GENERATED_TOOLCHAIN_CASES.with(|cases| {
+        cases.borrow().as_ref().map_or_else(
+            || GENERATED_TOOLCHAIN_CASES.contains(&relative),
+            |generated| generated.iter().any(|case| case == relative),
+        )
+    })
+}
+
+fn with_test_generated_toolchain_cases(generated: Vec<String>, test: impl FnOnce()) {
+    struct Reset;
+
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            TEST_GENERATED_TOOLCHAIN_CASES.with(|cases| {
+                *cases.borrow_mut() = None;
+            });
+        }
+    }
+
+    TEST_GENERATED_TOOLCHAIN_CASES.with(|cases| {
+        assert!(
+            cases.borrow().is_none(),
+            "test generated inventory override should not be nested"
+        );
+        *cases.borrow_mut() = Some(generated);
+    });
+    let _reset = Reset;
+    test();
+}
+
+struct RuntimeInventoryBarrier {
+    result: OnceLock<Result<(), String>>,
+}
+
+impl RuntimeInventoryBarrier {
+    const fn new() -> Self {
+        Self {
+            result: OnceLock::new(),
+        }
+    }
+
+    fn check_with(&self, scan: impl FnOnce() -> Result<(), String>) {
+        match self.result.get_or_init(scan) {
+            Ok(()) => {}
+            Err(message) => panic!("{message}"),
+        }
     }
 }
 
@@ -1132,7 +1264,19 @@ fn copy_fixture_dir(base: &Path, dir: &Path, target_root: &Path) {
         }
 
         let target = target_root.join(relative);
-        if source.is_dir() {
+        let metadata = fs::symlink_metadata(&source).unwrap_or_else(|error| {
+            panic!(
+                "{}: failed to inspect fixture entry: {error}",
+                source.display()
+            )
+        });
+        if is_link_like_metadata(&metadata) {
+            panic!(
+                "{}: replace the link or reparse point with a regular fixture entry before command execution",
+                source.display()
+            );
+        }
+        if metadata.is_dir() {
             fs::create_dir_all(&target).unwrap_or_else(|error| {
                 panic!(
                     "{}: failed to create fixture directory: {error}",
@@ -1140,7 +1284,7 @@ fn copy_fixture_dir(base: &Path, dir: &Path, target_root: &Path) {
                 )
             });
             copy_fixture_dir(base, &source, target_root);
-        } else {
+        } else if metadata.is_file() {
             if let Some(parent) = target.parent() {
                 fs::create_dir_all(parent).unwrap_or_else(|error| {
                     panic!(
@@ -1156,6 +1300,11 @@ fn copy_fixture_dir(base: &Path, dir: &Path, target_root: &Path) {
                     target.display()
                 )
             });
+        } else {
+            panic!(
+                "{}: replace the non-regular fixture entry with a regular file or directory before command execution",
+                source.display()
+            );
         }
     }
 }
@@ -1701,7 +1850,11 @@ impl CaseExpectations {
             });
             assert_eq!(
                 actual,
-                assertion.equals,
+                assertion
+                    .equals
+                    .as_ref()
+                    .expect("file assertion should have expected text")
+                    .as_str(),
                 "{}: file `{}` contents mismatch",
                 context.label(),
                 assertion.path
@@ -1763,6 +1916,7 @@ struct StreamExpectation {
     format: Option<StreamFormat>,
     contains: Vec<String>,
     not_contains: Vec<String>,
+    equals: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1872,7 +2026,8 @@ impl OutputStream {
 struct JsonAssertion {
     path: String,
     equals: Option<JsonValue>,
-    missing: bool,
+    missing: Option<bool>,
+    operation_count: usize,
 }
 
 impl JsonAssertion {
@@ -1880,11 +2035,20 @@ impl JsonAssertion {
         if self.path.is_empty() {
             manifest_error(path, 0, format!("json_assert {index} is missing `path`"));
         }
-        if self.missing == self.equals.is_some() {
+        if self.missing == Some(false) {
             manifest_error(
                 path,
                 0,
-                format!("json_assert {index} needs exactly one of `equals` or `missing = true`"),
+                format!("json_assert {index} `missing` must be true when present"),
+            );
+        }
+        if self.operation_count != 1 {
+            manifest_error(
+                path,
+                0,
+                format!(
+                    "json_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`"
+                ),
             );
         }
     }
@@ -1895,7 +2059,8 @@ struct ResultValueAssertion {
     value_path: String,
     path: String,
     equals: Option<JsonValue>,
-    missing: bool,
+    missing: Option<bool>,
+    operation_count: usize,
 }
 
 impl ResultValueAssertion {
@@ -1914,12 +2079,19 @@ impl ResultValueAssertion {
                 format!("result_value_assert {index} is missing `path`"),
             );
         }
-        if self.missing == self.equals.is_some() {
+        if self.missing == Some(false) {
+            manifest_error(
+                path,
+                0,
+                format!("result_value_assert {index} `missing` must be true when present"),
+            );
+        }
+        if self.operation_count != 1 {
             manifest_error(
                 path,
                 0,
                 format!(
-                    "result_value_assert {index} needs exactly one of `equals` or `missing = true`"
+                    "result_value_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`"
                 ),
             );
         }
@@ -1929,13 +2101,21 @@ impl ResultValueAssertion {
 #[derive(Debug)]
 struct FileAssertion {
     path: String,
-    equals: String,
+    equals: Option<String>,
+    operation_count: usize,
 }
 
 impl FileAssertion {
     fn validate(&self, path: &Path, index: usize) {
         if self.path.is_empty() {
             manifest_error(path, 0, format!("file_assert {index} is missing `path`"));
+        }
+        if self.operation_count != 1 {
+            manifest_error(
+                path,
+                0,
+                format!("file_assert {index} needs exactly one of `equals` or `equals_file`"),
+            );
         }
     }
 }
@@ -2206,7 +2386,7 @@ impl SkipPlatform {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum Section {
     Root,
     Stdout,
@@ -2227,8 +2407,10 @@ enum Section {
 }
 
 fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
+    let statements = manifest_syntax::parse_document(path, text);
+    validate_manifest_assignment_preflight(path, &statements);
     let mut parser = ManifestParser::new(path);
-    for statement in manifest_syntax::parse_document(path, text) {
+    for statement in statements {
         match statement {
             ManifestStatement::Section { name, line } => {
                 parser.parse_section_header(&name, line);
@@ -2239,6 +2421,159 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
         }
     }
     parser.finish()
+}
+
+fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestStatement<'_>]) {
+    let mut section = Section::Root;
+    let mut seen = BTreeSet::new();
+    let mut root_stdin_operands = 0;
+    let mut json_operations = Vec::<AssertionOperationPreflight>::new();
+    let mut result_value_operations = Vec::<AssertionOperationPreflight>::new();
+    let mut file_assert_operations = Vec::<usize>::new();
+
+    for statement in statements {
+        match statement {
+            ManifestStatement::Section { name, line } => {
+                section = match name.as_str() {
+                    "[stdout]" => Section::Stdout,
+                    "[stderr]" => Section::Stderr,
+                    "[help]" => Section::Help,
+                    "[requires]" => Section::Requires,
+                    "[skip]" => Section::Skip,
+                    "[env]" => Section::Env,
+                    "[tools]" => Section::Tools,
+                    "[[json_assert]]" => {
+                        json_operations.push(AssertionOperationPreflight::default());
+                        Section::JsonAssert(json_operations.len() - 1)
+                    }
+                    "[[result_value_assert]]" => {
+                        result_value_operations.push(AssertionOperationPreflight::default());
+                        Section::ResultValueAssert(result_value_operations.len() - 1)
+                    }
+                    "[[file_assert]]" => {
+                        file_assert_operations.push(0);
+                        Section::FileAssert(file_assert_operations.len() - 1)
+                    }
+                    "[[diagnostics]]" => Section::Diagnostic(0),
+                    "[diagnostics.span]" => Section::DiagnosticSpan(0),
+                    "[manifest_error]" => Section::ManifestError,
+                    "[[binary_fixture]]" => Section::BinaryFixture(0),
+                    "[[output_chunk_list]]" => Section::OutputChunkList(0),
+                    _ => continue,
+                };
+                if matches!(
+                    section,
+                    Section::Diagnostic(0)
+                        | Section::DiagnosticSpan(0)
+                        | Section::BinaryFixture(0)
+                        | Section::OutputChunkList(0)
+                ) {
+                    seen.clear();
+                } else {
+                    let _ = line;
+                }
+            }
+            ManifestStatement::Assignment { key, line, value } => {
+                let assignment = format!("{section:?}:{key}");
+                if !is_accumulating_manifest_key(section, key) && !seen.insert(assignment) {
+                    manifest_error(path, *line, format!("duplicate key `{key}`"));
+                }
+                match section {
+                    Section::Root if matches!(*key, "stdin" | "stdin_file") => {
+                        root_stdin_operands += 1;
+                    }
+                    Section::JsonAssert(index)
+                        if matches!(
+                            *key,
+                            "equals" | "equals_file" | "equals_json_file" | "missing"
+                        ) =>
+                    {
+                        json_operations[index].record(path, key, value);
+                    }
+                    Section::ResultValueAssert(index)
+                        if matches!(
+                            *key,
+                            "equals" | "equals_file" | "equals_json_file" | "missing"
+                        ) =>
+                    {
+                        result_value_operations[index].record(path, key, value);
+                    }
+                    Section::FileAssert(index) if matches!(*key, "equals" | "equals_file") => {
+                        file_assert_operations[index] += 1;
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    if root_stdin_operands > 1 {
+        manifest_error(
+            path,
+            0,
+            "root invocation needs at most one of `stdin` or `stdin_file`",
+        );
+    }
+    for (index, operation) in json_operations.iter().enumerate() {
+        if operation.missing_false {
+            manifest_error(
+                path,
+                0,
+                format!("json_assert {index} `missing` must be true when present"),
+            );
+        }
+        if operation.count != 1 {
+            manifest_error(
+                path,
+                0,
+                format!(
+                    "json_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`"
+                ),
+            );
+        }
+    }
+    for (index, operation) in result_value_operations.iter().enumerate() {
+        if operation.missing_false {
+            manifest_error(
+                path,
+                0,
+                format!("result_value_assert {index} `missing` must be true when present"),
+            );
+        }
+        if operation.count != 1 {
+            manifest_error(
+                path,
+                0,
+                format!(
+                    "result_value_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`"
+                ),
+            );
+        }
+    }
+    for (index, count) in file_assert_operations.iter().enumerate() {
+        if *count != 1 {
+            manifest_error(
+                path,
+                0,
+                format!("file_assert {index} needs exactly one of `equals` or `equals_file`"),
+            );
+        }
+    }
+}
+
+#[derive(Default)]
+struct AssertionOperationPreflight {
+    count: usize,
+    missing_false: bool,
+}
+
+impl AssertionOperationPreflight {
+    fn record(&mut self, path: &Path, key: &str, value: &ManifestValue<'_>) {
+        self.count += 1;
+        if key == "missing" && !parse_bool(path, value) {
+            self.missing_false = true;
+        }
+    }
 }
 
 struct ManifestParser<'a> {
@@ -2264,6 +2599,9 @@ struct ManifestParser<'a> {
     requires: Requirements,
     skip: SkipRules,
     section: Section,
+    seen_assignments: BTreeSet<String>,
+    stdin_operand_count: usize,
+    case_text_cache: CaseTextCache,
 }
 
 impl<'a> ManifestParser<'a> {
@@ -2291,6 +2629,9 @@ impl<'a> ManifestParser<'a> {
             requires: Requirements::default(),
             skip: SkipRules::default(),
             section: Section::Root,
+            seen_assignments: BTreeSet::new(),
+            stdin_operand_count: 0,
+            case_text_cache: CaseTextCache::default(),
         }
     }
 
@@ -2327,7 +2668,8 @@ impl<'a> ManifestParser<'a> {
         self.json_assertions.push(JsonAssertion {
             path: String::new(),
             equals: None,
-            missing: false,
+            missing: None,
+            operation_count: 0,
         });
         Section::JsonAssert(self.json_assertions.len() - 1)
     }
@@ -2335,7 +2677,8 @@ impl<'a> ManifestParser<'a> {
     fn parse_file_assert_header(&mut self) -> Section {
         self.file_assertions.push(FileAssertion {
             path: String::new(),
-            equals: String::new(),
+            equals: None,
+            operation_count: 0,
         });
         Section::FileAssert(self.file_assertions.len() - 1)
     }
@@ -2345,7 +2688,8 @@ impl<'a> ManifestParser<'a> {
             value_path: String::new(),
             path: String::new(),
             equals: None,
-            missing: false,
+            missing: None,
+            operation_count: 0,
         });
         Section::ResultValueAssert(self.result_value_assertions.len() - 1)
     }
@@ -2404,20 +2748,36 @@ impl<'a> ManifestParser<'a> {
     }
 
     fn parse_section_key(&mut self, line_number: usize, key: &str, value: &ManifestValue<'_>) {
+        if !is_accumulating_manifest_key(self.section, key) {
+            self.reject_duplicate_assignment(line_number, key);
+        }
         match self.section {
             Section::Root => self.parse_root_key(line_number, key, value),
-            Section::Stdout => {
-                parse_stream_key(self.path, line_number, &mut self.stdout, key, value, true)
-            }
-            Section::Stderr => {
-                parse_stream_key(self.path, line_number, &mut self.stderr, key, value, false)
-            }
+            Section::Stdout => parse_stream_key(
+                self.path,
+                line_number,
+                &mut self.stdout,
+                key,
+                value,
+                true,
+                &mut self.case_text_cache,
+            ),
+            Section::Stderr => parse_stream_key(
+                self.path,
+                line_number,
+                &mut self.stderr,
+                key,
+                value,
+                false,
+                &mut self.case_text_cache,
+            ),
             Section::Help => parse_help_key(
                 self.path,
                 line_number,
                 self.help.as_mut().expect("help section should exist"),
                 key,
                 value,
+                &mut self.case_text_cache,
             ),
             Section::Requires => self.parse_requires_key(line_number, key, value),
             Section::Skip => self.parse_skip_key(line_number, key, value),
@@ -2448,11 +2808,25 @@ impl<'a> ManifestParser<'a> {
         }
     }
 
+    fn reject_duplicate_assignment(&mut self, line_number: usize, key: &str) {
+        let assignment = format!("{:?}:{key}", self.section);
+        if !self.seen_assignments.insert(assignment) {
+            manifest_error(self.path, line_number, format!("duplicate key `{key}`"));
+        }
+    }
+
     fn parse_root_key(&mut self, line_number: usize, key: &str, value: &ManifestValue<'_>) {
         match key {
             "command" => self.command = Some(parse_string_array(self.path, value)),
             "cwd" => self.cwd = Some(PathBuf::from(parse_string(self.path, value))),
-            "stdin" => self.stdin = Some(parse_string(self.path, value)),
+            "stdin" => {
+                self.stdin_operand_count += 1;
+                self.stdin = Some(parse_string(self.path, value));
+            }
+            "stdin_file" => {
+                self.stdin_operand_count += 1;
+                self.stdin = Some(self.case_text_cache.read(self.path, value));
+            }
             "exit" => self.exit = Some(parse_i32(self.path, value)),
             "repeat" => self.repeat = parse_positive_usize(self.path, value),
             "source_errors" => {
@@ -2510,10 +2884,32 @@ impl<'a> ManifestParser<'a> {
         match key {
             "path" => self.json_assertions[index].path = parse_string(self.path, value),
             "equals" => {
+                self.json_assertions[index].operation_count += 1;
                 self.json_assertions[index].equals =
                     Some(parse_manifest_json_value(self.path, value))
             }
-            "missing" => self.json_assertions[index].missing = parse_bool(self.path, value),
+            "equals_file" => {
+                self.json_assertions[index].operation_count += 1;
+                self.json_assertions[index].equals = Some(JsonValue::String(
+                    self.case_text_cache.read(self.path, value),
+                ))
+            }
+            "equals_json_file" => {
+                self.json_assertions[index].operation_count += 1;
+                let text = self.case_text_cache.read(self.path, value);
+                self.json_assertions[index].equals =
+                    Some(parse_json(&text).unwrap_or_else(|error| {
+                        manifest_error(
+                            self.path,
+                            line_number,
+                            format!("invalid json_assert equals_json_file value: {error}"),
+                        )
+                    }))
+            }
+            "missing" => {
+                self.json_assertions[index].operation_count += 1;
+                self.json_assertions[index].missing = Some(parse_bool(self.path, value));
+            }
             _ => manifest_error(
                 self.path,
                 line_number,
@@ -2535,10 +2931,32 @@ impl<'a> ManifestParser<'a> {
             }
             "path" => self.result_value_assertions[index].path = parse_string(self.path, value),
             "equals" => {
+                self.result_value_assertions[index].operation_count += 1;
                 self.result_value_assertions[index].equals =
                     Some(parse_manifest_json_value(self.path, value))
             }
-            "missing" => self.result_value_assertions[index].missing = parse_bool(self.path, value),
+            "equals_file" => {
+                self.result_value_assertions[index].operation_count += 1;
+                self.result_value_assertions[index].equals = Some(JsonValue::String(
+                    self.case_text_cache.read(self.path, value),
+                ))
+            }
+            "equals_json_file" => {
+                self.result_value_assertions[index].operation_count += 1;
+                let text = self.case_text_cache.read(self.path, value);
+                self.result_value_assertions[index].equals =
+                    Some(parse_json(&text).unwrap_or_else(|error| {
+                        manifest_error(
+                            self.path,
+                            line_number,
+                            format!("invalid result_value_assert equals_json_file value: {error}"),
+                        )
+                    }))
+            }
+            "missing" => {
+                self.result_value_assertions[index].operation_count += 1;
+                self.result_value_assertions[index].missing = Some(parse_bool(self.path, value));
+            }
             _ => manifest_error(
                 self.path,
                 line_number,
@@ -2556,7 +2974,15 @@ impl<'a> ManifestParser<'a> {
     ) {
         match key {
             "path" => self.file_assertions[index].path = parse_string(self.path, value),
-            "equals" => self.file_assertions[index].equals = parse_string(self.path, value),
+            "equals" => {
+                self.file_assertions[index].operation_count += 1;
+                self.file_assertions[index].equals = Some(parse_string(self.path, value));
+            }
+            "equals_file" => {
+                self.file_assertions[index].operation_count += 1;
+                self.file_assertions[index].equals =
+                    Some(self.case_text_cache.read(self.path, value));
+            }
             _ => manifest_error(
                 self.path,
                 line_number,
@@ -2580,6 +3006,9 @@ impl<'a> ManifestParser<'a> {
             "kind" => self.diagnostics[index].kind = Some(parse_string(self.path, value)),
             "message" => {
                 self.diagnostics[index].message = Some(parse_string(self.path, value));
+            }
+            "message_file" => {
+                self.diagnostics[index].message = Some(self.case_text_cache.read(self.path, value));
             }
             _ => manifest_error(
                 self.path,
@@ -2624,7 +3053,19 @@ impl<'a> ManifestParser<'a> {
             .expect("manifest_error section should exist");
         match key {
             "contains" => {
-                expectation.contains = parse_string_array(self.path, value);
+                expectation
+                    .contains
+                    .extend(parse_string_array(self.path, value));
+            }
+            "contains_file" => {
+                expectation
+                    .contains
+                    .push(self.case_text_cache.read(self.path, value));
+            }
+            "contains_files" => {
+                expectation
+                    .contains
+                    .extend(self.case_text_cache.read_many(self.path, value));
             }
             _ => manifest_error(
                 self.path,
@@ -2719,6 +3160,13 @@ impl<'a> ManifestParser<'a> {
 
     fn finish(self) -> CaseManifest {
         let path = self.path;
+        if self.stdin_operand_count > 1 {
+            manifest_error(
+                path,
+                0,
+                "root invocation needs at most one of `stdin` or `stdin_file`",
+            );
+        }
         let manifest = CaseManifest {
             invocation: CaseInvocation {
                 command: self
@@ -3062,6 +3510,24 @@ fn imported_use_for_path<'a>(
     })
 }
 
+fn is_accumulating_manifest_key(section: Section, key: &str) -> bool {
+    matches!(
+        (section, key),
+        (
+            Section::Stdout | Section::Stderr,
+            "contains"
+                | "contains_file"
+                | "contains_files"
+                | "not_contains"
+                | "not_contains_file"
+                | "not_contains_files"
+        ) | (
+            Section::Help | Section::ManifestError,
+            "contains" | "contains_file" | "contains_files"
+        )
+    )
+}
+
 fn fixture_schema_wrong_kind(
     module: &SurfaceModule,
     module_name: Option<&str>,
@@ -3102,6 +3568,7 @@ fn parse_help_key(
     help: &mut HelpExpectation,
     key: &str,
     value: &ManifestValue<'_>,
+    case_text_cache: &mut CaseTextCache,
 ) {
     match key {
         "stream" => help.stream = OutputStream::parse(path, value),
@@ -3110,7 +3577,9 @@ fn parse_help_key(
         "commands" => help.commands = parse_string_array(path, value),
         "arguments" => help.arguments = parse_string_array(path, value),
         "options" => help.options = parse_string_array(path, value),
-        "contains" => help.contains = parse_string_array(path, value),
+        "contains" => help.contains.extend(parse_string_array(path, value)),
+        "contains_file" => help.contains.push(case_text_cache.read(path, value)),
+        "contains_files" => help.contains.extend(case_text_cache.read_many(path, value)),
         _ => manifest_error(path, line_number, format!("unknown help key `{key}`")),
     }
 }
@@ -3122,6 +3591,7 @@ fn parse_stream_key(
     key: &str,
     value: &ManifestValue<'_>,
     allow_json: bool,
+    case_text_cache: &mut CaseTextCache,
 ) {
     match key {
         "format" => {
@@ -3137,10 +3607,193 @@ fn parse_stream_key(
                 ),
             });
         }
-        "contains" => stream.contains = parse_string_array(path, value),
-        "not_contains" => stream.not_contains = parse_string_array(path, value),
+        "equals_file" => stream.equals = Some(case_text_cache.read(path, value)),
+        "contains" => stream.contains.extend(parse_string_array(path, value)),
+        "contains_file" => stream.contains.push(case_text_cache.read(path, value)),
+        "contains_files" => stream
+            .contains
+            .extend(case_text_cache.read_many(path, value)),
+        "not_contains" => stream.not_contains.extend(parse_string_array(path, value)),
+        "not_contains_file" => stream.not_contains.push(case_text_cache.read(path, value)),
+        "not_contains_files" => stream
+            .not_contains
+            .extend(case_text_cache.read_many(path, value)),
         _ => manifest_error(path, line_number, format!("unknown stream key `{key}`")),
     }
+}
+
+#[derive(Debug, Default)]
+struct CaseTextCache {
+    snapshots: BTreeMap<PathBuf, String>,
+}
+
+impl CaseTextCache {
+    fn read_many(&mut self, path: &Path, value: &ManifestValue<'_>) -> Vec<String> {
+        parse_string_array(path, value)
+            .into_iter()
+            .map(|relative| self.read_path(path, value.line(), &relative))
+            .collect()
+    }
+
+    fn read(&mut self, path: &Path, value: &ManifestValue<'_>) -> String {
+        let relative = parse_string(path, value);
+        self.read_path(path, value.line(), &relative)
+    }
+
+    fn read_path(&mut self, path: &Path, line_number: usize, relative: &str) -> String {
+        let relative_path = validate_case_file_reference(path, line_number, relative);
+        if let Some(snapshot) = self.snapshots.get(&relative_path) {
+            return snapshot.clone();
+        }
+        let text = read_case_text_file_path(path, line_number, relative, &relative_path);
+        self.snapshots.insert(relative_path, text.clone());
+        text
+    }
+}
+
+fn read_case_text_file_path(
+    path: &Path,
+    line_number: usize,
+    relative: &str,
+    relative_path: &Path,
+) -> String {
+    let base = path.parent().unwrap_or_else(|| Path::new(""));
+    let resolved = resolve_case_file_reference(path, line_number, base, relative, relative_path);
+    fs::read_to_string(&resolved).unwrap_or_else(|error| {
+        manifest_error(
+            path,
+            line_number,
+            format!("failed to read case file `{relative}` as UTF-8: {error}"),
+        )
+    })
+}
+
+fn validate_case_file_reference(path: &Path, line_number: usize, relative: &str) -> PathBuf {
+    if relative.is_empty()
+        || relative.starts_with('/')
+        || relative.starts_with('\\')
+        || relative.contains('\\')
+        || relative
+            .split('/')
+            .any(|component| !is_portable_case_file_component(component))
+    {
+        manifest_error(
+            path,
+            line_number,
+            format!("case file reference `{relative}` must use portable relative components"),
+        );
+    }
+    PathBuf::from(relative)
+}
+
+fn is_portable_case_file_component(component: &str) -> bool {
+    if component.is_empty() || component == "." || component == ".." || component.ends_with('.') {
+        return false;
+    }
+    if !component
+        .bytes()
+        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
+    {
+        return false;
+    }
+    let stem = component.split('.').next().unwrap_or(component);
+    !matches_reserved_windows_stem(stem)
+}
+
+fn matches_reserved_windows_stem(stem: &str) -> bool {
+    let upper = stem.to_ascii_uppercase();
+    matches!(upper.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || upper.strip_prefix("COM").is_some_and(|suffix| {
+            matches!(suffix, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")
+        })
+        || upper.strip_prefix("LPT").is_some_and(|suffix| {
+            matches!(suffix, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")
+        })
+}
+
+fn resolve_case_file_reference(
+    manifest_path: &Path,
+    line_number: usize,
+    base: &Path,
+    relative: &str,
+    relative_path: &Path,
+) -> PathBuf {
+    let mut current = base.to_path_buf();
+    let mut traversed = PathBuf::new();
+    let component_count = relative_path.components().count();
+    for (index, component) in relative_path.components().enumerate() {
+        let name = component.as_os_str();
+        if !directory_contains_exact_entry(&current, name) {
+            manifest_error(
+                manifest_path,
+                line_number,
+                format!("case file `{relative}` must match fixture entry spelling exactly"),
+            );
+        }
+        current.push(name);
+        traversed.push(name);
+        let metadata = fs::symlink_metadata(&current).unwrap_or_else(|error| {
+            manifest_error(
+                manifest_path,
+                line_number,
+                format!("failed to inspect case file `{relative}`: {error}"),
+            )
+        });
+        if is_link_like_metadata(&metadata) {
+            manifest_error(
+                manifest_path,
+                line_number,
+                format!("case file `{relative}` must not traverse a link or reparse point"),
+            );
+        }
+        let final_component = index + 1 == component_count;
+        if final_component {
+            if !metadata.is_file() {
+                manifest_error(
+                    manifest_path,
+                    line_number,
+                    format!("case file `{relative}` must be a regular file"),
+                );
+            }
+        } else if !metadata.is_dir() {
+            manifest_error(
+                manifest_path,
+                line_number,
+                format!(
+                    "case file `{relative}` component `{}` must be a directory",
+                    traversed.display()
+                ),
+            );
+        }
+    }
+    current
+}
+
+fn directory_contains_exact_entry(dir: &Path, name: &std::ffi::OsStr) -> bool {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return false;
+    };
+    entries
+        .filter_map(Result::ok)
+        .any(|entry| entry.file_name() == name)
+}
+
+#[cfg(unix)]
+fn is_link_like_metadata(metadata: &fs::Metadata) -> bool {
+    metadata.file_type().is_symlink()
+}
+
+#[cfg(windows)]
+fn is_link_like_metadata(metadata: &fs::Metadata) -> bool {
+    use std::os::windows::fs::MetadataExt;
+
+    const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
+    metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0
+}
+
+#[cfg(not(any(unix, windows)))]
+fn is_link_like_metadata(_metadata: &fs::Metadata) -> bool {
+    false
 }
 
 fn parse_manifest_json_value(path: &Path, value: &ManifestValue<'_>) -> JsonValue {
@@ -3347,6 +4000,14 @@ fn assert_stream(
         Some(StreamFormat::Text) | Some(StreamFormat::Json) | None => {}
     }
 
+    if let Some(expected) = &expectation.equals {
+        assert_eq!(
+            actual,
+            expected,
+            "{}: expected {name} to equal configured text",
+            context.label()
+        );
+    }
     for fragment in &expectation.contains {
         assert_contains_fragment(context, name, actual, fragment);
     }
@@ -3530,6 +4191,1108 @@ java = "real"
     assert!(manifest.tools.needs_path());
     assert!(manifest.tools.requires_jdk());
     assert_eq!(manifest.tools.java, Some(ToolAvailability::Real));
+}
+
+#[test]
+fn toolchain_inventory_discovers_both_roots_with_stable_root_qualified_order() {
+    let root = test_temp_root("inventory-order");
+    for case_dir in ["a/zeta", "b/alpha", "a/alpha"] {
+        fs::create_dir_all(root.join(case_dir)).expect("case directory should be created");
+        fs::write(
+            root.join(case_dir).join("case.toml"),
+            "command = [\"check\"]\nexit = 0\n",
+        )
+        .expect("case manifest should be written");
+    }
+
+    let preflight = toolchain_case_inventory::run_preflight_with_roots(
+        &root,
+        &[
+            test_discovery_root("root-a", "a"),
+            test_discovery_root("root-b", "b"),
+        ],
+    )
+    .expect("inventory should be discovered");
+
+    assert_eq!(
+        preflight
+            .cases
+            .iter()
+            .map(|case| case.id.as_str())
+            .collect::<Vec<_>>(),
+        ["root-a/alpha", "root-a/zeta", "root-b/alpha"]
+    );
+    assert_eq!(
+        preflight
+            .cases
+            .iter()
+            .map(|case| case.manifest_relative.to_string_lossy().replace('\\', "/"))
+            .collect::<Vec<_>>(),
+        ["a/alpha", "a/zeta", "b/alpha"]
+    );
+
+    fs::remove_dir_all(root).expect("inventory root should be removed");
+}
+
+#[test]
+fn toolchain_inventory_rejects_overlapping_root_and_manifest_boundaries() {
+    let root = test_temp_root("inventory-boundaries");
+    fs::create_dir_all(root.join("outer/nested")).expect("directories should be created");
+    fs::write(
+        root.join("outer/case.toml"),
+        "command = [\"check\"]\nexit = 0\n",
+    )
+    .expect("outer manifest should be written");
+    fs::write(
+        root.join("outer/nested/case.toml"),
+        "command = [\"check\"]\nexit = 0\n",
+    )
+    .expect("nested manifest should be written");
+
+    let overlap = toolchain_case_inventory::run_preflight_with_roots(
+        &root,
+        &[
+            test_discovery_root("outer", "outer"),
+            test_discovery_root("nested", "outer/nested"),
+        ],
+    )
+    .expect_err("overlapping roots should fail");
+    assert!(overlap.contains("configured discovery roots overlap"));
+
+    let nested = toolchain_case_inventory::run_preflight_with_roots(
+        &root,
+        &[test_discovery_root("outer", "outer")],
+    )
+    .expect_err("root and nested manifests should fail");
+    assert!(nested.contains("root-level case.toml"));
+    assert!(nested.contains("nested case.toml"));
+
+    fs::remove_dir_all(root).expect("inventory root should be removed");
+}
+
+#[cfg(unix)]
+#[test]
+fn toolchain_inventory_rejects_links_without_following_them() {
+    use std::os::unix::fs::symlink;
+
+    let root = test_temp_root("inventory-links");
+    fs::create_dir_all(root.join("cases/ordinary")).expect("directories should be created");
+    fs::write(
+        root.join("cases/ordinary/case.toml"),
+        "command = [\"check\"]\nexit = 0\n",
+    )
+    .expect("case manifest should be written");
+    symlink("ordinary", root.join("cases/link")).expect("symlink should be created");
+
+    let error = toolchain_case_inventory::run_preflight_with_roots(
+        &root,
+        &[test_discovery_root("cases", "cases")],
+    )
+    .expect_err("link should fail discovery");
+    assert!(error.contains("replace the link or reparse point"));
+    assert!(error.contains("cases/link"));
+
+    fs::remove_dir_all(root).expect("inventory root should be removed");
+}
+
+#[cfg(unix)]
+#[test]
+fn toolchain_inventory_rejects_root_links_without_following_them() {
+    use std::os::unix::fs::symlink;
+
+    let root = test_temp_root("inventory-root-links");
+    fs::create_dir_all(root.join("external/hidden")).expect("target case directory should exist");
+    fs::write(
+        root.join("external/hidden/case.toml"),
+        "command = [\"check\"]\nexit = 0\n",
+    )
+    .expect("target case manifest should be written");
+    symlink("external", root.join("linked-root")).expect("root symlink should be created");
+
+    let error = toolchain_case_inventory::run_preflight_with_roots(
+        &root,
+        &[test_discovery_root("linked-root", "linked-root")],
+    )
+    .expect_err("root symlink should fail discovery before traversal");
+
+    assert!(error.contains("linked-root: replace the link or reparse point"));
+    assert!(
+        !error.contains("hidden"),
+        "discovery should not resolve root symlink targets"
+    );
+
+    fs::remove_dir_all(root).expect("inventory root should be removed");
+}
+
+#[cfg(unix)]
+#[test]
+fn toolchain_inventory_rejects_broken_root_links_without_resolving_them() {
+    use std::os::unix::fs::symlink;
+
+    let root = test_temp_root("inventory-broken-root-link");
+    symlink("missing-target", root.join("linked-root"))
+        .expect("broken root symlink should be created");
+
+    let error = toolchain_case_inventory::run_preflight_with_roots(
+        &root,
+        &[test_discovery_root("linked-root", "linked-root")],
+    )
+    .expect_err("broken root symlink should fail as a link-like root");
+
+    assert!(error.contains("linked-root: replace the link or reparse point"));
+    assert!(
+        !error.contains("missing-target"),
+        "discovery should not resolve broken root link targets"
+    );
+
+    fs::remove_dir_all(root).expect("inventory root should be removed");
+}
+
+#[cfg(unix)]
+#[test]
+fn toolchain_inventory_rejects_broken_file_links_and_link_cycles() {
+    use std::os::unix::fs::symlink;
+
+    let root = test_temp_root("inventory-link-kinds");
+    fs::create_dir_all(root.join("cases/ordinary")).expect("case directory should be created");
+    fs::write(
+        root.join("cases/ordinary/case.toml"),
+        "command = [\"check\"]\nexit = 0\n",
+    )
+    .expect("case manifest should be written");
+    symlink("missing-target", root.join("cases/broken-link"))
+        .expect("broken symlink should be created");
+    fs::write(root.join("target-file"), "fixture").expect("target file should be written");
+    symlink("../target-file", root.join("cases/file-link"))
+        .expect("file symlink should be created");
+    symlink("cycle-b", root.join("cases/cycle-a")).expect("first cycle link should be created");
+    symlink("cycle-a", root.join("cases/cycle-b")).expect("second cycle link should be created");
+
+    let error = toolchain_case_inventory::run_preflight_with_roots(
+        &root,
+        &[test_discovery_root("cases", "cases")],
+    )
+    .expect_err("link-like entries should fail discovery before following them");
+
+    assert!(error.contains("cases/broken-link: replace the link or reparse point"));
+    assert!(error.contains("cases/file-link: replace the link or reparse point"));
+    assert!(error.contains("cases/cycle-a: replace the link or reparse point"));
+    assert!(error.contains("cases/cycle-b: replace the link or reparse point"));
+    assert!(
+        !error.contains("missing-target"),
+        "discovery should not resolve broken link targets"
+    );
+
+    fs::remove_dir_all(root).expect("inventory root should be removed");
+}
+
+#[cfg(windows)]
+#[test]
+fn toolchain_inventory_rejects_windows_reparse_point_roots() {
+    use std::os::windows::fs::symlink_dir;
+
+    let root = test_temp_root("inventory-windows-root-reparse");
+    fs::create_dir_all(root.join("external/hidden")).expect("target case directory should exist");
+    fs::write(
+        root.join("external/hidden/case.toml"),
+        "command = [\"check\"]\nexit = 0\n",
+    )
+    .expect("target case manifest should be written");
+    symlink_dir(root.join("external"), root.join("linked-root"))
+        .expect("root reparse point should be created");
+
+    let error = toolchain_case_inventory::run_preflight_with_roots(
+        &root,
+        &[test_discovery_root("linked-root", "linked-root")],
+    )
+    .expect_err("root reparse point should fail discovery before traversal");
+
+    assert!(error.contains("linked-root: replace the link or reparse point"));
+    assert!(
+        !error.contains("hidden"),
+        "discovery should not resolve root reparse point targets"
+    );
+
+    fs::remove_dir_all(root).expect("inventory root should be removed");
+}
+
+#[cfg(windows)]
+#[test]
+fn toolchain_inventory_rejects_windows_reparse_point_files_and_directories() {
+    use std::os::windows::fs::{symlink_dir, symlink_file};
+
+    let root = test_temp_root("inventory-windows-reparse");
+    fs::create_dir_all(root.join("cases/ordinary")).expect("case directory should be created");
+    fs::write(
+        root.join("cases/ordinary/case.toml"),
+        "command = [\"check\"]\nexit = 0\n",
+    )
+    .expect("case manifest should be written");
+    fs::write(root.join("target-file"), "fixture").expect("target file should be written");
+    symlink_file(root.join("target-file"), root.join("cases/file-link"))
+        .expect("file reparse point should be created");
+    symlink_dir(
+        root.join("cases/ordinary"),
+        root.join("cases/directory-link"),
+    )
+    .expect("directory reparse point should be created");
+
+    let error = toolchain_case_inventory::run_preflight_with_roots(
+        &root,
+        &[test_discovery_root("cases", "cases")],
+    )
+    .expect_err("Windows reparse points should fail discovery before traversal");
+
+    assert!(error.contains("cases/directory-link: replace the link or reparse point"));
+    assert!(error.contains("cases/file-link: replace the link or reparse point"));
+    assert!(
+        !error.contains("target-file"),
+        "discovery should not resolve reparse point targets"
+    );
+
+    fs::remove_dir_all(root).expect("inventory root should be removed");
+}
+
+#[test]
+fn toolchain_inventory_parity_reports_stale_generated_cases() {
+    let error = toolchain_case_inventory::compare_generated_inventory_with_policy(
+        Path::new(env!("CARGO_MANIFEST_DIR")),
+        &[],
+        false,
+    )
+    .expect_err("empty generated inventory should be stale");
+
+    assert!(error.contains("rebuild the toolchain harness"));
+    assert!(error.contains("case manifest was added after test generation"));
+}
+
+#[test]
+fn policy_preflight_failure_prevents_generated_test_module_creation() {
+    let root = test_temp_root("policy-generation-block");
+    fs::create_dir_all(root.join("cases/blocked")).expect("case directory should be created");
+    fs::write(
+        root.join("cases/blocked/case.toml"),
+        "command = [\"check\"]\nstdin = \"\\n\"\nexit = 0\n",
+    )
+    .expect("blocked manifest should be written");
+
+    let error = toolchain_case_inventory::generated_toolchain_tests_from_preflight(
+        &root,
+        &[test_discovery_root("cases", "cases")],
+        true,
+    )
+    .expect_err("policy preflight should fail before generating tests");
+
+    assert!(error.contains("toolchain case preflight found 1 problem(s)"));
+    assert!(error.contains("field `stdin` contains escape-produced-line-break"));
+    assert!(!error.contains("generated_toolchain_cases"));
+
+    fs::remove_dir_all(root).expect("inventory root should be removed");
+}
+
+#[test]
+fn manifest_policy_reports_encoded_line_breaks_in_toml_and_json_strings() {
+    let source = r#"
+command = ["check"]
+stdin = ["\n", '\n', {"json":"\u000A", "nested":["\\r"]}]
+physical = """
+line
+break"""
+# "\n"
+exit = 0
+"#;
+
+    let findings = manifest_syntax::manifest_policy_findings(Path::new("case.toml"), source);
+    assert_eq!(
+        findings
+            .iter()
+            .map(|finding| (
+                finding.field.as_str(),
+                finding.category,
+                finding.spelling.as_str()
+            ))
+            .collect::<Vec<_>>(),
+        [
+            ("stdin", "escape-produced-line-break", "escape-produced LF"),
+            ("stdin", "decoded-line-break-spelling", "\\n"),
+            ("stdin", "escape-produced-line-break", "escape-produced LF"),
+            ("stdin", "decoded-line-break-spelling", "\\r"),
+        ]
+    );
+}
+
+#[test]
+fn manifest_policy_reports_cr_unicode_and_obfuscated_spellings_in_order() {
+    let source = r#"
+command = ["check"]
+cr = "\r"
+unicode_lf = "\u000a"
+unicode_cr = "\U0000000D"
+literal = '\u000A'
+assembled = "\u005Cn"
+even_backslashes = "\\n"
+odd_backslashes = "\\\n"
+json = {"\u005Cr":"\\U0000000a"}
+exit = 0
+"#;
+
+    let findings = manifest_syntax::manifest_policy_findings(Path::new("case.toml"), source);
+
+    assert_eq!(
+        findings
+            .iter()
+            .map(|finding| (
+                finding.field.as_str(),
+                finding.category,
+                finding.spelling.as_str()
+            ))
+            .collect::<Vec<_>>(),
+        [
+            ("cr", "escape-produced-line-break", "escape-produced CR"),
+            (
+                "unicode_lf",
+                "escape-produced-line-break",
+                "escape-produced LF"
+            ),
+            (
+                "unicode_cr",
+                "escape-produced-line-break",
+                "escape-produced CR"
+            ),
+            ("literal", "decoded-line-break-spelling", "\\u000A"),
+            ("assembled", "decoded-line-break-spelling", "\\n"),
+            ("even_backslashes", "decoded-line-break-spelling", "\\n"),
+            (
+                "odd_backslashes",
+                "escape-produced-line-break",
+                "escape-produced LF"
+            ),
+            ("json", "decoded-line-break-spelling", "\\r"),
+            ("json", "decoded-line-break-spelling", "\\U0000000a"),
+        ]
+    );
+}
+
+#[test]
+fn manifest_policy_accepts_json_solidus_escape_in_keys_and_values() {
+    let object_source = r#"
+command = ["check"]
+json = {"https:\/\/x":"https:\/\/v", "nested":{"slash\/key":"value\/ok", "line":"\u000A", "spelled":"\\r"}}
+exit = 0
+"#;
+    let array_source = r#"
+command = ["check"]
+exit = 0
+[[json_assert]]
+path = "payload"
+equals = ["https:\/\/x", {"slash\/key":"value\/ok"}, "\u000D", "\\n"]
+"#;
+
+    let manifest = parse_manifest(Path::new("case.toml"), array_source);
+    assert_eq!(
+        manifest.expectations.json_assertions[0]
+            .equals
+            .as_ref()
+            .unwrap()
+            .to_compact_string(),
+        r#"["https://x",{"slash/key":"value/ok"},"\r","\\n"]"#
+    );
+
+    let object_scan = manifest_syntax::manifest_policy_scan(Path::new("case.toml"), object_source);
+    assert_eq!(object_scan.error, None);
+    assert_eq!(
+        object_scan
+            .findings
+            .iter()
+            .map(|finding| (
+                finding.field.as_str(),
+                finding.category,
+                finding.spelling.as_str()
+            ))
+            .collect::<Vec<_>>(),
+        [
+            ("json", "escape-produced-line-break", "escape-produced LF"),
+            ("json", "decoded-line-break-spelling", "\\r"),
+        ]
+    );
+
+    let array_scan = manifest_syntax::manifest_policy_scan(Path::new("case.toml"), array_source);
+    assert_eq!(array_scan.error, None);
+    assert_eq!(
+        array_scan
+            .findings
+            .iter()
+            .map(|finding| (
+                finding.field.as_str(),
+                finding.category,
+                finding.spelling.as_str()
+            ))
+            .collect::<Vec<_>>(),
+        [
+            (
+                "[[json_assert]].equals",
+                "escape-produced-line-break",
+                "escape-produced CR"
+            ),
+            (
+                "[[json_assert]].equals",
+                "decoded-line-break-spelling",
+                "\\n"
+            ),
+        ]
+    );
+}
+
+#[test]
+fn manifest_policy_scan_reports_invalid_json_escapes_in_object_and_array_roots() {
+    let object_source = r#"
+command = ["check"]
+exit = 0
+[[json_assert]]
+path = "payload"
+equals = {"bad":"\q"}
+"#;
+    let array_source = r#"
+command = ["check"]
+exit = 0
+[[json_assert]]
+path = "payload"
+equals = ["valid\/solidus", {"bad":"\q"}]
+"#;
+
+    let object_scan = manifest_syntax::manifest_policy_scan(Path::new("case.toml"), object_source);
+    assert_eq!(
+        object_scan.error.as_deref(),
+        Some("unsupported JSON string escape `q`")
+    );
+    assert!(object_scan.findings.is_empty());
+
+    let array_scan = manifest_syntax::manifest_policy_scan(Path::new("case.toml"), array_source);
+    assert_eq!(
+        array_scan.error.as_deref(),
+        Some("unsupported JSON string escape `q`")
+    );
+    assert!(array_scan.findings.is_empty());
+}
+
+#[test]
+fn policy_preflight_invalid_json_escape_prevents_generated_test_module_creation() {
+    let root = test_temp_root("policy-invalid-json-escape-generation-block");
+    fs::create_dir_all(root.join("cases/blocked")).expect("case directory should be created");
+    fs::write(
+        root.join("cases/blocked/case.toml"),
+        r#"
+command = ["check"]
+exit = 0
+[[json_assert]]
+path = "payload"
+equals = {"bad":"\q"}
+"#,
+    )
+    .expect("blocked manifest should be written");
+
+    let error = toolchain_case_inventory::generated_toolchain_tests_from_preflight(
+        &root,
+        &[test_discovery_root("cases", "cases")],
+        true,
+    )
+    .expect_err("policy preflight should fail before generating tests");
+
+    assert!(error.contains("toolchain case preflight found 1 problem(s)"));
+    assert!(error.contains("cases/blocked: manifest policy scan failed"));
+    assert!(error.contains("unsupported JSON string escape `q`"));
+    assert!(!error.contains("generated_toolchain_cases"));
+
+    fs::remove_dir_all(root).expect("inventory root should be removed");
+}
+
+#[test]
+fn manifest_policy_reports_lowercase_and_uppercase_unicode_line_break_matrix() {
+    let source = r#"
+command = ["check"]
+lower_lf = "\u000a"
+upper_lf = "\u000A"
+lower_cr = "\u000d"
+upper_cr = "\u000D"
+wide_lower_lf = "\U0000000a"
+wide_upper_lf = "\U0000000A"
+wide_lower_cr = "\U0000000d"
+wide_upper_cr = "\U0000000D"
+literal_lower_lf = '\u000a'
+literal_upper_lf = '\u000A'
+literal_lower_cr = '\u000d'
+literal_upper_cr = '\u000D'
+literal_wide_lower_lf = '\U0000000a'
+literal_wide_upper_lf = '\U0000000A'
+literal_wide_lower_cr = '\U0000000d'
+literal_wide_upper_cr = '\U0000000D'
+exit = 0
+"#;
+
+    let findings = manifest_syntax::manifest_policy_findings(Path::new("case.toml"), source);
+
+    assert_eq!(
+        findings
+            .iter()
+            .map(|finding| (
+                finding.field.as_str(),
+                finding.category,
+                finding.spelling.as_str()
+            ))
+            .collect::<Vec<_>>(),
+        [
+            (
+                "lower_lf",
+                "escape-produced-line-break",
+                "escape-produced LF"
+            ),
+            (
+                "upper_lf",
+                "escape-produced-line-break",
+                "escape-produced LF"
+            ),
+            (
+                "lower_cr",
+                "escape-produced-line-break",
+                "escape-produced CR"
+            ),
+            (
+                "upper_cr",
+                "escape-produced-line-break",
+                "escape-produced CR"
+            ),
+            (
+                "wide_lower_lf",
+                "escape-produced-line-break",
+                "escape-produced LF"
+            ),
+            (
+                "wide_upper_lf",
+                "escape-produced-line-break",
+                "escape-produced LF"
+            ),
+            (
+                "wide_lower_cr",
+                "escape-produced-line-break",
+                "escape-produced CR"
+            ),
+            (
+                "wide_upper_cr",
+                "escape-produced-line-break",
+                "escape-produced CR"
+            ),
+            ("literal_lower_lf", "decoded-line-break-spelling", "\\u000a"),
+            ("literal_upper_lf", "decoded-line-break-spelling", "\\u000A"),
+            ("literal_lower_cr", "decoded-line-break-spelling", "\\u000d"),
+            ("literal_upper_cr", "decoded-line-break-spelling", "\\u000D"),
+            (
+                "literal_wide_lower_lf",
+                "decoded-line-break-spelling",
+                "\\U0000000a"
+            ),
+            (
+                "literal_wide_upper_lf",
+                "decoded-line-break-spelling",
+                "\\U0000000A"
+            ),
+            (
+                "literal_wide_lower_cr",
+                "decoded-line-break-spelling",
+                "\\U0000000d"
+            ),
+            (
+                "literal_wide_upper_cr",
+                "decoded-line-break-spelling",
+                "\\U0000000D"
+            ),
+        ]
+    );
+}
+
+#[test]
+fn manifest_policy_accepts_physical_comments_and_token_boundaries() {
+    let source = r#"
+command = ["check"]
+stdin = """
+first
+second"""
+split = ['\', 'n']
+# "\r"
+exit = 0
+"#;
+
+    assert!(manifest_syntax::manifest_policy_findings(Path::new("case.toml"), source).is_empty());
+}
+
+#[test]
+fn manifest_policy_scan_keeps_findings_before_unterminated_string_boundary() {
+    let source = "command = [\"check\"]\nstdin = \"\\n\"\nlate = \"unterminated";
+    let scan = manifest_syntax::manifest_policy_scan(Path::new("case.toml"), source);
+
+    assert_eq!(
+        scan.findings
+            .iter()
+            .map(|finding| (
+                finding.field.as_str(),
+                finding.category,
+                finding.spelling.as_str()
+            ))
+            .collect::<Vec<_>>(),
+        [("stdin", "escape-produced-line-break", "escape-produced LF")]
+    );
+    assert_eq!(scan.error.as_deref(), Some("unterminated manifest string"));
+}
+
+#[test]
+fn manifest_policy_scan_keeps_findings_before_lone_cr_boundary() {
+    let source = "command = [\"check\"]\nstdin = \"\\r\"\rbad = true\n";
+    let scan = manifest_syntax::manifest_policy_scan(Path::new("case.toml"), source);
+
+    assert_eq!(
+        scan.findings
+            .iter()
+            .map(|finding| (
+                finding.field.as_str(),
+                finding.category,
+                finding.spelling.as_str()
+            ))
+            .collect::<Vec<_>>(),
+        [("stdin", "escape-produced-line-break", "escape-produced CR")]
+    );
+    assert_eq!(
+        scan.error.as_deref(),
+        Some("lone carriage return in manifest")
+    );
+}
+
+#[test]
+fn toolchain_policy_preflight_aggregates_skipped_unavailable_and_lexical_cases() {
+    let root = test_temp_root("policy-aggregation");
+    for case_dir in [
+        "cases/lone-cr",
+        "cases/malformed",
+        "cases/skipped",
+        "cases/unavailable",
+    ] {
+        fs::create_dir_all(root.join(case_dir)).expect("case directory should be created");
+    }
+    fs::write(
+        root.join("cases/skipped/case.toml"),
+        r#"
+command = ["check"]
+stdin = "\n"
+exit = 0
+
+[skip]
+platforms = ["linux"]
+reason = "lifecycle sentinel"
+"#,
+    )
+    .expect("skipped manifest should be written");
+    fs::write(
+        root.join("cases/unavailable/case.toml"),
+        r#"
+command = ["check"]
+exit = 0
+
+[tools]
+java = "missing"
+
+[stdout]
+contains = ["\\r"]
+"#,
+    )
+    .expect("unavailable-tool manifest should be written");
+    fs::write(
+        root.join("cases/malformed/case.toml"),
+        "command = [\"check\"]\nstdin = \"\\n\"\nlate = \"unterminated",
+    )
+    .expect("malformed manifest should be written");
+    fs::write(
+        root.join("cases/lone-cr/case.toml"),
+        b"command = [\"check\"]\nstdin = \"\\r\"\rbad = true\n",
+    )
+    .expect("lone CR manifest should be written");
+
+    let error = toolchain_case_inventory::run_preflight_with_roots_and_policy(
+        &root,
+        &[test_discovery_root("cases", "cases")],
+        true,
+    )
+    .expect_err("policy preflight should fail");
+
+    assert!(error.contains("toolchain case preflight found 6 problem(s) affecting 4 manifest(s)"));
+    assert!(error.contains("cases/lone-cr:"));
+    assert!(error.contains("field `stdin` contains escape-produced-line-break"));
+    assert!(error.contains("lone carriage return in manifest"));
+    assert!(error.contains("cases/skipped:"));
+    assert!(error.contains("field `stdin` contains escape-produced-line-break"));
+    assert!(error.contains("cases/unavailable:"));
+    assert!(error.contains("field `[stdout].contains` contains decoded-line-break-spelling"));
+    assert!(error.contains("cases/malformed: manifest policy scan failed"));
+    assert!(error.contains("cases/malformed:2:"));
+    assert!(error.contains("field `stdin` contains escape-produced-line-break"));
+    assert!(error.contains("unterminated manifest string"));
+    let lone_cr_index = error
+        .find("cases/lone-cr")
+        .expect("lone CR case should be reported");
+    let malformed_index = error
+        .find("cases/malformed")
+        .expect("malformed case should be reported");
+    let skipped_index = error
+        .find("cases/skipped")
+        .expect("skipped case should be reported");
+    let unavailable_index = error
+        .find("cases/unavailable")
+        .expect("unavailable-tool case should be reported");
+    assert!(lone_cr_index < malformed_index);
+    assert!(malformed_index < skipped_index);
+    assert!(skipped_index < unavailable_index);
+
+    fs::remove_dir_all(root).expect("inventory root should be removed");
+}
+
+#[test]
+fn toolchain_policy_preflight_reports_stable_detailed_aggregate_findings() {
+    fn write_cases(root: &Path, order: &[&str]) {
+        fs::create_dir_all(root.join("cases")).expect("case root should be created");
+        for name in order {
+            let case_dir = root.join("cases").join(name);
+            fs::create_dir_all(&case_dir).expect("case directory should be created");
+            let manifest = match *name {
+                "alpha" => {
+                    "command = [\"check\"]\nstdin = [\"\\n\", \"\\r\"]\nexit = 0\n".to_string()
+                }
+                "beta" => {
+                    "command = [\"check\"]\n[stdout]\ncontains = ['\\u000A', '\\U0000000d']\nexit = 0\n".to_string()
+                }
+                _ => unreachable!(),
+            };
+            fs::write(case_dir.join("case.toml"), manifest)
+                .expect("case manifest should be written");
+        }
+    }
+
+    let first = test_temp_root("policy-stable-aggregate-a");
+    let second = test_temp_root("policy-stable-aggregate-b");
+    write_cases(&first, &["beta", "alpha"]);
+    write_cases(&second, &["alpha", "beta"]);
+
+    let first_error = toolchain_case_inventory::run_preflight_with_roots(
+        &first,
+        &[test_discovery_root("cases", "cases")],
+    )
+    .expect_err("first policy preflight should fail");
+    let second_error = toolchain_case_inventory::run_preflight_with_roots(
+        &second,
+        &[test_discovery_root("cases", "cases")],
+    )
+    .expect_err("second policy preflight should fail");
+
+    assert_eq!(
+        first_error, second_error,
+        "aggregate policy output should not depend on filesystem entry order"
+    );
+    assert!(
+        first_error.contains("toolchain case preflight found 4 problem(s) affecting 2 manifest(s)")
+    );
+    assert!(first_error.contains("cases/alpha:2:29-33 field `stdin` contains escape-produced-line-break `escape-produced LF`; use physical multiline text or a sidecar so line structure remains reviewable"));
+    assert!(first_error.contains("cases/alpha:2:35-39 field `stdin` contains escape-produced-line-break `escape-produced CR`; use physical multiline text or a sidecar so line structure remains reviewable"));
+    assert!(first_error.contains("cases/beta:3:"));
+    assert!(
+        first_error
+            .contains("field `[stdout].contains` contains decoded-line-break-spelling `\\\\u000A`")
+    );
+    assert!(first_error.contains(
+        "field `[stdout].contains` contains decoded-line-break-spelling `\\\\U0000000d`"
+    ));
+    assert!(
+        first_error.contains(
+            "use physical multiline text or a sidecar so line structure remains reviewable"
+        )
+    );
+
+    fs::remove_dir_all(first).expect("first inventory root should be removed");
+    fs::remove_dir_all(second).expect("second inventory root should be removed");
+}
+
+#[test]
+fn synthetic_policy_guard_runs_before_manifest_loading_skip_and_fixtures() {
+    let root = test_temp_root("synthetic-policy-guard");
+    let case_dir = root.join("synthetic");
+    fs::create_dir_all(&case_dir).expect("synthetic case directory should be created");
+    fs::write(case_dir.join("fixture.txt"), "fixture").expect("fixture should be written");
+    fs::write(
+        case_dir.join("case.toml"),
+        r#"
+command = ["check"]
+stdin = "\n"
+stdin_file = "case-text/missing-sidecar.txt"
+exit = 0
+
+[skip]
+platforms = ["linux", "macos", "windows"]
+reason = "skip evaluation must not run before policy"
+"#,
+    )
+    .expect("synthetic manifest should be written");
+
+    let panic = std::panic::catch_unwind(|| run_case(&case_dir))
+        .expect_err("synthetic policy violation should stop the case before setup");
+    let message = panic_message(panic);
+
+    assert!(message.contains(
+        "synthetic toolchain case violates manifest line-break policy before loading resources"
+    ));
+    assert!(message.contains("field `stdin` contains escape-produced-line-break"));
+    assert!(
+        !message.contains("skip evaluation must not run"),
+        "skip evaluation should be bypassed by the synthetic policy guard"
+    );
+    assert!(
+        !message.contains("missing-sidecar"),
+        "sidecar resource loading should be bypassed by the synthetic policy guard"
+    );
+    assert!(
+        !root.join("command-started").exists(),
+        "command execution should be bypassed by the synthetic policy guard"
+    );
+
+    fs::remove_dir_all(root).expect("synthetic root should be removed");
+}
+
+#[test]
+fn synthetic_policy_guard_also_applies_inside_crate_for_non_inventory_cases() {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let case_dir = manifest_dir.join("target/non-inventory-synthetic-policy");
+    let _ = fs::remove_dir_all(&case_dir);
+    fs::create_dir_all(&case_dir).expect("synthetic crate-local case directory should be created");
+    fs::write(
+        case_dir.join("case.toml"),
+        "command = [\"check\"]\nstdin = \"\\n\"\nexit = 0\n",
+    )
+    .expect("synthetic manifest should be written");
+
+    assert!(!is_generated_inventory_member(&case_dir));
+    let panic = std::panic::catch_unwind(|| run_case(&case_dir))
+        .expect_err("crate-local non-inventory case should use the synthetic guard");
+    let message = panic_message(panic);
+    assert!(message.contains(
+        "synthetic toolchain case violates manifest line-break policy before loading resources"
+    ));
+
+    fs::remove_dir_all(case_dir).expect("synthetic case should be removed");
+}
+
+#[test]
+fn generated_inventory_membership_is_exact() {
+    let generated = toolchain_case_path(
+        GENERATED_TOOLCHAIN_CASES
+            .first()
+            .expect("generated inventory should not be empty"),
+    );
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let sibling = manifest_dir.join("tests/toolchain_cases/not-generated");
+
+    assert!(is_generated_inventory_member(&generated));
+    assert!(!is_generated_inventory_member(&sibling));
+}
+
+#[cfg(unix)]
+#[test]
+fn fixture_copy_rejects_links_before_command_execution() {
+    use std::os::unix::fs::symlink;
+
+    let root = test_temp_root("copy-link-reject");
+    let case_dir = root.join("synthetic");
+    fs::create_dir_all(&case_dir).expect("case directory should be created");
+    fs::write(
+        case_dir.join("case.toml"),
+        "command = [\"run-command-that-must-not-start\"]\nexit = 0\n",
+    )
+    .expect("case manifest should be written");
+    fs::write(root.join("target.txt"), "target").expect("link target should be written");
+    symlink("../target.txt", case_dir.join("fixture-link.txt")).expect("symlink should be created");
+
+    let panic = std::panic::catch_unwind(|| run_case(&case_dir))
+        .expect_err("fixture copy should reject symlinks");
+    let message = panic_message(panic);
+    assert!(message.contains("replace the link or reparse point with a regular fixture entry"));
+    assert!(!message.contains("run-command-that-must-not-start"));
+
+    fs::remove_dir_all(root).expect("copy link root should be removed");
+}
+
+#[cfg(unix)]
+#[test]
+fn runtime_inventory_barrier_failure_blocks_generated_case_lifecycle() {
+    use std::os::unix::fs::symlink;
+
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let case_dir = manifest_dir.join("target/runtime-barrier-block/stale-generated");
+    let _ = fs::remove_dir_all(&case_dir);
+    fs::create_dir_all(&case_dir).expect("case directory should be created");
+    fs::write(
+        manifest_dir.join("target/runtime-barrier-target.txt"),
+        "target",
+    )
+    .expect("link target should be written");
+    symlink(
+        "../runtime-barrier-target.txt",
+        case_dir.join("fixture-link.txt"),
+    )
+    .expect("fixture sentinel link should be created");
+    fs::write(
+        case_dir.join("case.toml"),
+        r#"
+command = ["run-command-that-must-not-start"]
+stdin_file = "case-text/missing-sidecar.txt"
+exit = 0
+
+[skip]
+platforms = ["linux", "macos", "windows"]
+reason = "skip evaluation must not run after stale inventory"
+"#,
+    )
+    .expect("case manifest should be written");
+
+    let relative = case_dir
+        .strip_prefix(manifest_dir)
+        .expect("stale generated case should be under manifest dir")
+        .to_string_lossy()
+        .replace('\\', "/");
+    assert!(!GENERATED_TOOLCHAIN_CASES.contains(&relative.as_str()));
+    let mut stale_generated = GENERATED_TOOLCHAIN_CASES
+        .iter()
+        .map(|case| (*case).to_string())
+        .collect::<Vec<_>>();
+    stale_generated.push(relative.clone());
+    with_test_generated_toolchain_cases(stale_generated, || {
+        assert!(is_generated_inventory_member(&case_dir));
+        let panic = std::panic::catch_unwind(|| run_case(&case_dir))
+            .expect_err("stale inventory should stop generated case execution");
+        let message = panic_message(panic);
+
+        assert!(message.contains("toolchain case preflight found"));
+        assert!(message.contains(&format!(
+            "{relative}: rebuild the toolchain harness because this generated case manifest is no longer discovered"
+        )));
+        assert!(
+            !message.contains("skip evaluation must not run"),
+            "skip evaluation should be bypassed by the runtime barrier"
+        );
+        assert!(
+            !message.contains("replace the link or reparse point"),
+            "fixture copying should be bypassed by the runtime barrier"
+        );
+        assert!(
+            !message.contains("missing-sidecar"),
+            "resource loading should be bypassed by the runtime barrier"
+        );
+        assert!(
+            !message.contains("run-command-that-must-not-start"),
+            "command execution should be bypassed by the runtime barrier"
+        );
+    });
+
+    fs::remove_dir_all(manifest_dir.join("target/runtime-barrier-block"))
+        .expect("runtime root should be removed");
+    fs::remove_file(manifest_dir.join("target/runtime-barrier-target.txt"))
+        .expect("link target should be removed");
+}
+
+#[test]
+fn runtime_inventory_barrier_shares_one_concurrent_scan_result() {
+    use std::sync::{Arc, Barrier};
+
+    let barrier = Arc::new(RuntimeInventoryBarrier::new());
+    let ready = Arc::new(Barrier::new(8));
+    let scans = Arc::new(AtomicUsize::new(0));
+    let mut threads = Vec::new();
+    for _ in 0..8 {
+        let barrier = Arc::clone(&barrier);
+        let ready = Arc::clone(&ready);
+        let scans = Arc::clone(&scans);
+        threads.push(thread::spawn(move || {
+            ready.wait();
+            let panic = std::panic::catch_unwind(|| {
+                barrier.check_with(|| {
+                    scans.fetch_add(1, Ordering::SeqCst);
+                    Err("shared stale inventory result".to_string())
+                });
+            })
+            .expect_err("shared failing scan should panic in every caller");
+            panic_message(panic)
+        }));
+    }
+
+    let messages = threads
+        .into_iter()
+        .map(|thread| thread.join().expect("barrier thread should complete"))
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        scans.load(Ordering::SeqCst),
+        1,
+        "concurrent generated tests should share one runtime scan"
+    );
+    assert!(
+        messages
+            .iter()
+            .all(|message| message.contains("shared stale inventory result"))
+    );
+}
+
+#[test]
+fn toolchain_policy_preflight_keeps_reliable_cases_when_discovery_has_errors() {
+    let root = test_temp_root("policy-partial-inventory");
+    fs::create_dir_all(root.join("primary/rooted/nested"))
+        .expect("primary directories should be created");
+    fs::create_dir_all(root.join("secondary/readable"))
+        .expect("secondary directory should be created");
+    fs::write(
+        root.join("primary/rooted/case.toml"),
+        "command = [\"check\"]\nstdin = \"\\n\"\nexit = 0\n",
+    )
+    .expect("rooted manifest should be written");
+    fs::write(
+        root.join("primary/rooted/nested/case.toml"),
+        "command = [\"check\"]\nstdin = \"\\r\"\nexit = 0\n",
+    )
+    .expect("nested manifest should be written");
+    fs::write(
+        root.join("secondary/readable/case.toml"),
+        "command = [\"check\"]\n[stdout]\ncontains = [\"\\\\r\"]\nexit = 0\n",
+    )
+    .expect("secondary manifest should be written");
+
+    let error = toolchain_case_inventory::run_preflight_with_roots_and_policy(
+        &root,
+        &[
+            test_discovery_root("missing", "missing"),
+            test_discovery_root("primary", "primary"),
+            test_discovery_root("secondary", "secondary"),
+        ],
+        true,
+    )
+    .expect_err("mixed discovery and policy failures should aggregate");
+
+    assert!(error.contains("toolchain case preflight found 4 problem(s)"));
+    assert!(error.contains("missing: discovery root must be readable"));
+    assert!(error.contains("nested case.toml"));
+    assert!(error.contains("primary/rooted:"));
+    assert!(error.contains("field `stdin` contains escape-produced-line-break"));
+    assert!(error.contains("secondary/readable:"));
+    assert!(error.contains("field `[stdout].contains` contains decoded-line-break-spelling"));
+
+    fs::remove_dir_all(root).expect("inventory root should be removed");
+}
+
+fn test_discovery_root(
+    id: &'static str,
+    relative: &'static str,
+) -> toolchain_case_inventory::DiscoveryRoot {
+    toolchain_case_inventory::DiscoveryRoot { id, relative }
 }
 
 #[test]
@@ -3949,12 +5712,14 @@ missing = true
 
     let assertion = &manifest.expectations.json_assertions[0];
     assert_eq!(assertion.path, "error.details.byte_diagnostic.byte_preview");
-    assert!(assertion.missing);
+    assert_eq!(assertion.missing, Some(true));
     assert!(assertion.equals.is_none());
 }
 
 #[test]
-#[should_panic(expected = "json_assert 0 needs exactly one of `equals` or `missing = true`")]
+#[should_panic(
+    expected = "json_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`"
+)]
 fn manifest_json_assertions_reject_mixed_equals_and_missing() {
     parse_manifest(
         Path::new("case.toml"),
@@ -3968,6 +5733,540 @@ equals = "failed"
 missing = true
 "#,
     );
+}
+
+#[test]
+fn manifest_json_assertions_parse_equals_json_file() {
+    let root = test_temp_root("json-assert-equals-json-file");
+    let case_dir = root.join("case");
+    let text_dir = case_dir.join("case-text");
+    fs::create_dir_all(&text_dir).expect("case text directory should be created");
+    fs::write(
+        text_dir.join("expected.json"),
+        "{\"nested\":[1,true,null]}\n",
+    )
+    .expect("expected JSON sidecar should be written");
+
+    let manifest = parse_manifest(
+        &case_dir.join("case.toml"),
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[[json_assert]]
+path = "stdout"
+equals_json_file = "case-text/expected.json"
+"#,
+    );
+
+    assert_eq!(
+        manifest.expectations.json_assertions[0].equals,
+        Some(JsonValue::Object(vec![(
+            "nested".to_string(),
+            JsonValue::Array(vec![
+                JsonValue::Number(1),
+                JsonValue::Bool(true),
+                JsonValue::Null
+            ])
+        )]))
+    );
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn manifest_result_value_assertions_parse_equals_json_file() {
+    let root = test_temp_root("result-value-assert-equals-json-file");
+    let case_dir = root.join("case");
+    let text_dir = case_dir.join("case-text");
+    fs::create_dir_all(&text_dir).expect("case text directory should be created");
+    fs::write(text_dir.join("expected.json"), "[\"ok\",2]\n")
+        .expect("expected JSON sidecar should be written");
+
+    let manifest = parse_manifest(
+        &case_dir.join("case.toml"),
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[[result_value_assert]]
+value_path = "error.value"
+path = "value"
+equals_json_file = "case-text/expected.json"
+"#,
+    );
+
+    assert_eq!(
+        manifest.expectations.result_value_assertions[0].equals,
+        Some(JsonValue::Array(vec![
+            JsonValue::String("ok".to_string()),
+            JsonValue::Number(2)
+        ]))
+    );
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn manifest_equals_json_file_rejects_invalid_json() {
+    let root = test_temp_root("invalid-equals-json-file");
+    let case_dir = root.join("case");
+    let text_dir = case_dir.join("case-text");
+    fs::create_dir_all(&text_dir).expect("case text directory should be created");
+    fs::write(text_dir.join("invalid.json"), "{").expect("invalid JSON sidecar should be written");
+
+    let panic = std::panic::catch_unwind(|| {
+        parse_manifest(
+            &case_dir.join("case.toml"),
+            r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[[json_assert]]
+path = "stdout"
+equals_json_file = "case-text/invalid.json"
+"#,
+        )
+    })
+    .expect_err("invalid equals_json_file JSON should be rejected");
+    let message = panic_message(panic);
+    assert!(
+        message.contains("invalid json_assert equals_json_file value"),
+        "expected invalid JSON error, got `{message}`"
+    );
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn manifest_equals_json_file_cardinality_is_checked_before_file_io() {
+    assert_manifest_parse_error(
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[[json_assert]]
+path = "stdout"
+equals = "inline"
+equals_json_file = "case-text/missing-sidecar.json"
+"#,
+        "json_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`",
+    );
+    assert_manifest_parse_error(
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[[result_value_assert]]
+value_path = "error.value"
+path = "value"
+equals = "inline"
+equals_json_file = "case-text/missing-sidecar.json"
+"#,
+        "result_value_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`",
+    );
+}
+
+#[test]
+fn manifest_assertion_missing_false_is_checked_before_file_io() {
+    assert_manifest_parse_error_without(
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[[json_assert]]
+path = "status"
+missing = false
+
+[[json_assert]]
+path = "stdout"
+equals_file = "case-text/missing-sidecar.txt"
+"#,
+        "json_assert 0 `missing` must be true when present",
+        "missing-sidecar",
+    );
+    assert_manifest_parse_error_without(
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[[result_value_assert]]
+value_path = "error.value"
+path = "value"
+missing = false
+
+[[result_value_assert]]
+value_path = "error.other"
+path = "value"
+equals_file = "case-text/missing-sidecar.txt"
+"#,
+        "result_value_assert 0 `missing` must be true when present",
+        "missing-sidecar",
+    );
+}
+
+#[test]
+fn manifest_assertion_operation_omission_is_checked_before_file_io() {
+    assert_manifest_parse_error_without(
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[[json_assert]]
+path = "status"
+
+[[json_assert]]
+path = "stdout"
+equals_file = "case-text/missing-sidecar.txt"
+"#,
+        "json_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`",
+        "missing-sidecar",
+    );
+    assert_manifest_parse_error_without(
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[[result_value_assert]]
+value_path = "error.value"
+path = "value"
+
+[[result_value_assert]]
+value_path = "error.other"
+path = "value"
+equals_file = "case-text/missing-sidecar.txt"
+"#,
+        "result_value_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`",
+        "missing-sidecar",
+    );
+    assert_manifest_parse_error_without(
+        r#"
+command = ["run", "main", "main.veln"]
+exit = 0
+
+[[file_assert]]
+path = "out.txt"
+
+[[file_assert]]
+path = "other.txt"
+equals_file = "case-text/missing-sidecar.txt"
+"#,
+        "file_assert 0 needs exactly one of `equals` or `equals_file`",
+        "missing-sidecar",
+    );
+}
+
+#[test]
+fn manifest_equals_json_file_loads_before_skip_evaluation() {
+    let root = test_temp_root("equals-json-file-skip-lifecycle");
+    let case_dir = root.join("case");
+    let text_dir = case_dir.join("case-text");
+    fs::create_dir_all(&text_dir).expect("case text directory should be created");
+    fs::write(text_dir.join("invalid.json"), "{").expect("invalid JSON sidecar should be written");
+    fs::write(
+        case_dir.join("case.toml"),
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[skip]
+reason = "would skip after manifest loading"
+
+[[json_assert]]
+path = "stdout"
+equals_json_file = "case-text/invalid.json"
+"#,
+    )
+    .expect("case manifest should be written");
+
+    let panic = std::panic::catch_unwind(|| {
+        run_case_with_guard_and_after_invocation(
+            &case_dir,
+            |_| {},
+            |_, _| panic!("command lifecycle should not reach invocation"),
+        );
+    })
+    .expect_err("invalid equals_json_file should be rejected before skip evaluation");
+    let message = panic_message(panic);
+    assert!(
+        message.contains("invalid json_assert equals_json_file value"),
+        "expected invalid JSON error, got `{message}`"
+    );
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn manifest_sidecar_choice_cardinality_is_checked_before_file_io() {
+    assert_manifest_parse_error(
+        r#"
+command = ["check"]
+stdin = "inline"
+stdin_file = "case-text/missing-sidecar.txt"
+exit = 0
+"#,
+        "root invocation needs at most one of `stdin` or `stdin_file`",
+    );
+    assert_manifest_parse_error(
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[[json_assert]]
+path = "stdout"
+equals = "inline"
+equals_file = "case-text/missing-sidecar.txt"
+"#,
+        "json_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`",
+    );
+    assert_manifest_parse_error(
+        r#"
+command = ["run", "main", "main.veln"]
+exit = 0
+
+[[file_assert]]
+path = "out.txt"
+equals = "inline"
+equals_file = "case-text/missing-sidecar.txt"
+"#,
+        "file_assert 0 needs exactly one of `equals` or `equals_file`",
+    );
+}
+
+#[test]
+fn manifest_stream_fragments_accumulate_in_manifest_order() {
+    let root = test_temp_root("manifest-fragment-order");
+    let case_dir = root.join("examples/specification/check/manifest-fragment-order");
+    let text_dir = case_dir.join("case-text");
+    fs::create_dir_all(&text_dir).expect("case text directory should be created");
+    fs::write(text_dir.join("middle.txt"), "middle").expect("sidecar should be written");
+
+    let manifest = parse_manifest(
+        &case_dir.join("case.toml"),
+        r#"
+command = ["check"]
+exit = 0
+
+[stdout]
+contains = ["before"]
+contains_file = "case-text/middle.txt"
+contains = ["after"]
+not_contains = ["forbidden before"]
+not_contains = ["forbidden after"]
+"#,
+    );
+
+    assert_eq!(
+        manifest.expectations.stdout.contains,
+        ["before", "middle", "after"]
+    );
+    assert_eq!(
+        manifest.expectations.stdout.not_contains,
+        ["forbidden before", "forbidden after"]
+    );
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
+fn case_text_git_attributes_cover_text_and_raw_sidecars() {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let repo = manifest_dir
+        .parent()
+        .and_then(Path::parent)
+        .expect("manifest directory should be under the repository");
+    let output = Command::new("git")
+        .current_dir(repo)
+        .args([
+            "check-attr",
+            "text",
+            "eol",
+            "diff",
+            "whitespace",
+            "--",
+            "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/json-assert-equals-1.txt",
+            "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/nested/json-assert-equals-1.txt",
+            "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/protocol.raw",
+            "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/nested/protocol.raw",
+            "examples/specification/lsp/semantic-tokens/case-text/root-stdin-1.txt",
+            "examples/specification/lsp/semantic-tokens/case-text/nested/root-stdin-1.txt",
+            "examples/specification/lsp/semantic-tokens/case-text/protocol.raw",
+            "examples/specification/lsp/semantic-tokens/case-text/nested/protocol.raw",
+        ])
+        .output()
+        .expect("git check-attr should run");
+    assert!(
+        output.status.success(),
+        "git check-attr failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("attribute output should be utf-8");
+    for ordinary in [
+        "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/json-assert-equals-1.txt",
+        "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/nested/json-assert-equals-1.txt",
+        "examples/specification/lsp/semantic-tokens/case-text/root-stdin-1.txt",
+        "examples/specification/lsp/semantic-tokens/case-text/nested/root-stdin-1.txt",
+    ] {
+        assert!(stdout.contains(&format!("{ordinary}: text: set")));
+        assert!(stdout.contains(&format!("{ordinary}: eol: lf")));
+        assert!(stdout.contains(&format!("{ordinary}: whitespace: unset")));
+    }
+    for raw in [
+        "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/protocol.raw",
+        "crates/veln-cli/tests/toolchain_cases/run/json-success/case-text/nested/protocol.raw",
+        "examples/specification/lsp/semantic-tokens/case-text/protocol.raw",
+        "examples/specification/lsp/semantic-tokens/case-text/nested/protocol.raw",
+    ] {
+        assert!(stdout.contains(&format!("{raw}: text: unset")));
+        assert!(stdout.contains(&format!("{raw}: eol: unset")));
+        assert!(stdout.contains(&format!("{raw}: diff: unset")));
+    }
+}
+
+#[test]
+fn manifest_sidecar_paths_reject_nonportable_components_before_io() {
+    for relative in [
+        "case-text/CON.txt",
+        "case-text/lpt9.log",
+        "case-text/trailing.",
+        "case-text/space name.txt",
+        "../escape.txt",
+    ] {
+        let source = format!("command = [\"check\"]\nstdin_file = {relative:?}\nexit = 0\n");
+        assert_manifest_parse_error(&source, "must use portable relative components");
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn manifest_sidecar_paths_reject_links_without_following_targets() {
+    use std::os::unix::fs::symlink;
+
+    let root = test_temp_root("manifest-sidecar-link");
+    let case_dir = root.join("case");
+    let text_dir = case_dir.join("case-text");
+    fs::create_dir_all(&text_dir).expect("case text directory should be created");
+    fs::write(root.join("outside.txt"), "target").expect("link target should be written");
+    symlink("../../outside.txt", text_dir.join("linked.txt")).expect("file symlink should exist");
+    symlink("../../outside-dir", text_dir.join("linked-dir")).expect("dir symlink should exist");
+
+    for relative in ["case-text/linked.txt", "case-text/linked-dir/file.txt"] {
+        let source = format!("command = [\"check\"]\nstdin_file = {relative:?}\nexit = 0\n");
+        let panic = std::panic::catch_unwind(|| {
+            parse_manifest(&case_dir.join("case.toml"), &source);
+        })
+        .expect_err("sidecar link traversal should be rejected");
+        let message = panic_message(panic);
+        assert!(
+            message.contains("must not traverse a link or reparse point"),
+            "unexpected sidecar link error: {message}"
+        );
+        assert!(
+            !message.contains("outside"),
+            "sidecar diagnostics should not expose followed targets: {message}"
+        );
+    }
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
+fn manifest_sidecar_files_must_be_utf8_before_skip_evaluation() {
+    let root = test_temp_root("manifest-sidecar-utf8-skip");
+    let case_dir = root.join("case");
+    let text_dir = case_dir.join("case-text");
+    fs::create_dir_all(&text_dir).expect("case text directory should be created");
+    fs::write(text_dir.join("invalid.raw"), [0xff, b'a']).expect("invalid sidecar should exist");
+    fs::write(
+        case_dir.join("case.toml"),
+        r#"
+command = ["run-command-that-must-not-start"]
+stdin_file = "case-text/invalid.raw"
+exit = 0
+
+[skip]
+platforms = ["linux", "macos", "windows"]
+reason = "skip evaluation must not hide sidecar loading"
+"#,
+    )
+    .expect("case manifest should be written");
+
+    let panic = std::panic::catch_unwind(|| run_case(&case_dir))
+        .expect_err("invalid UTF-8 sidecar should fail before skip evaluation");
+    let message = panic_message(panic);
+    assert!(message.contains("failed to read case file `case-text/invalid.raw` as UTF-8"));
+    assert!(
+        !message.contains("skip evaluation must not hide sidecar loading"),
+        "skip evaluation should be bypassed by sidecar loading failure"
+    );
+    assert!(
+        !message.contains("run-command-that-must-not-start"),
+        "command execution should be bypassed by sidecar loading failure"
+    );
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
+fn manifest_sidecar_files_preserve_bom_crlf_and_final_line_breaks() {
+    let root = test_temp_root("manifest-sidecar-exact-text");
+    let case_dir = root.join("case");
+    let text_dir = case_dir.join("case-text");
+    fs::create_dir_all(&text_dir).expect("case text directory should be created");
+    fs::write(text_dir.join("exact.raw"), b"\xef\xbb\xbfalpha\r\nbeta\r\n")
+        .expect("exact text sidecar should be written");
+
+    let manifest = parse_manifest(
+        &case_dir.join("case.toml"),
+        r#"
+command = ["check"]
+stdin_file = "case-text/exact.raw"
+exit = 0
+"#,
+    );
+
+    assert_eq!(
+        manifest.invocation.stdin.as_deref(),
+        Some("\u{feff}alpha\r\nbeta\r\n")
+    );
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
+fn manifest_sidecar_snapshots_are_immutable_across_repeated_invocations() {
+    let root = test_temp_root("manifest-sidecar-repeat-snapshot");
+    let case_dir = root.join("examples/specification/check/manifest-sidecar-repeat-snapshot");
+    let text_dir = case_dir.join("case-text");
+    fs::create_dir_all(&text_dir).expect("case text directory should be created");
+    fs::write(text_dir.join("out.txt"), "original").expect("sidecar should be written");
+    fs::write(case_dir.join("out.txt"), "original").expect("asserted file should be written");
+    fs::write(case_dir.join("main.veln"), "fn main() -> ()\n\t()\nend\n")
+        .expect("source file should be written");
+    fs::write(
+        case_dir.join("case.toml"),
+        r#"
+command = ["check", "main.veln"]
+repeat = 2
+exit = 0
+
+[[file_assert]]
+path = "out.txt"
+equals_file = "case-text/out.txt"
+"#,
+    )
+    .expect("case manifest should be written");
+
+    let panic = std::panic::catch_unwind(|| {
+        run_case_with_after_invocation(&case_dir, |context, project_root| {
+            if context.run_number == 1 {
+                fs::write(project_root.join("out.txt"), "mutated")
+                    .expect("copied fixture should be mutable after first run");
+            }
+        });
+    })
+    .expect_err("second run should compare against the original sidecar snapshot");
+    let message = panic_message(panic);
+    assert!(message.contains("run 2"));
+    assert!(message.contains("file `out.txt` contents mismatch"));
+
+    fs::remove_dir_all(root).expect("case root should be removed");
 }
 
 #[test]
@@ -4005,6 +6304,20 @@ fn assert_manifest_parse_error(source: &str, expected: &str) {
     assert!(
         message.contains(expected),
         "expected panic to contain `{expected}`, got `{message}`"
+    );
+}
+
+fn assert_manifest_parse_error_without(source: &str, expected: &str, forbidden: &str) {
+    let panic = std::panic::catch_unwind(|| parse_manifest(Path::new("case.toml"), source))
+        .expect_err("manifest should be rejected");
+    let message = panic_message(panic);
+    assert!(
+        message.contains(expected),
+        "expected panic to contain `{expected}`, got `{message}`"
+    );
+    assert!(
+        !message.contains(forbidden),
+        "expected panic to avoid `{forbidden}`, got `{message}`"
     );
 }
 
@@ -4638,7 +6951,7 @@ missing = true
         assertions[0].equals,
         Some(JsonValue::String("codec.incomplete_input".to_string()))
     );
-    assert!(assertions[1].missing);
+    assert_eq!(assertions[1].missing, Some(true));
 }
 
 #[test]
@@ -5363,7 +7676,7 @@ fn fake_tool_path(root: &Path, name: &str) -> PathBuf {
 }
 
 fn assert_json_path(context: &CaseRunContext<'_>, json: &JsonValue, assertion: &JsonAssertion) {
-    if assertion.missing {
+    if assertion.missing == Some(true) {
         assert!(
             json_path(json, &assertion.path).is_none(),
             "{}: JSON path `{}` should be missing in {:?}",
@@ -5417,7 +7730,7 @@ fn assert_result_value_path(
         )
     });
 
-    if assertion.missing {
+    if assertion.missing == Some(true) {
         assert!(
             json_path(&parsed, &assertion.path).is_none(),
             "{}: result value path `{}` should be missing in {:?}",

@@ -84,4 +84,4 @@ equals = "DATA padding did not match payload boundary"
 
 [[json_assert]]
 path = "stderr"
-equals = "Err(DecodeErrorWithReason(codec.padding_mismatch, ByteOffset(24), ManualPacketWire.padding, expected_padding_length=2; actual_padding_length=5; reason=DATA padding did not match payload boundary))\n"
+equals_file = "case-text/json-assert-equals-1.txt"

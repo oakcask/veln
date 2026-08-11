@@ -1,0 +1,1 @@
+fixture.hex.odd_length: dangling hex nibble at byte offset 1 high nibble

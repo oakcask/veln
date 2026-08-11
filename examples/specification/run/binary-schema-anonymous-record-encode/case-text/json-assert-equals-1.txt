@@ -1,0 +1,2 @@
+output_chunk_list anonymous-record-encode count 1
+output_chunk anonymous-record-encode index 0 hex "0a0102030405060708090bff" count 12

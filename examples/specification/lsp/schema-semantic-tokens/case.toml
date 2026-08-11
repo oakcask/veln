@@ -1,5 +1,5 @@
 command = ["lsp"]
-stdin = "Content-Length: 58\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}Content-Length: 234\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didOpen\",\"params\":{\"textDocument\":{\"uri\":\"file://schema.veln\",\"languageId\":\"veln\",\"version\":1,\"text\":\"pub schema Http2FrameHeader\\n  format binary\\n\\n  length: UInt24be\\n  kind: UInt8\\nend\\n\"}}}Content-Length: 123\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"textDocument/semanticTokens/full\",\"params\":{\"textDocument\":{\"uri\":\"file://schema.veln\"}}}Content-Length: 58\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"shutdown\",\"params\":null}Content-Length: 47\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"exit\",\"params\":null}"
+stdin_file = "case-text/root-stdin-1.txt"
 exit = 0
 
 [stdout]

@@ -1,0 +1,33 @@
+85
+115
+61
+113
+17
+81
+44
+120
+decoded
+85
+115
+61
+113
+17
+81
+44
+120
+7
+decoded
+85
+115
+61
+113
+17
+81
+44
+120
+7
+output_chunk_list packed-visible-seven-byte-direct count 1
+output_chunk packed-visible-seven-byte-direct index 0 hex "abcdef12345678" count 7
+encoded
+output_chunk_list packed-visible-seven-byte-derived count 1
+output_chunk packed-visible-seven-byte-derived index 0 hex "abcdef12345678" count 7

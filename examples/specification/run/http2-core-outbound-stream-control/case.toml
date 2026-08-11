@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "rst-stream accepted\nrst-stream stream 1 lifecycle reset\noutput_chunk_list rst-stream count 1\noutput_chunk rst-stream index 0 hex \"00000403000000000100000008\" count 13\nrst-stream-repeat failure http2.protocol.invalid_frame_kind offset 19 kind 3 stream 1 dependency 0 last 0 state reset-stream rule reset_stream_rejects_later_frames preview 0\noutput_chunk_list rst-stream-repeat count 0\npriority accepted\noutput_chunk_list priority count 1\noutput_chunk priority index 0 hex \"000005020000000001800000030f\" count 14\npriority-dependency failure http2.protocol.priority_dependency offset 29 kind 2 stream 1 dependency 1 last 0 state stream-control rule rfc9113_priority_dependency preview 0\noutput_chunk_list priority-dependency count 0\npriority-goaway failure http2.protocol.stream_after_goaway offset 31 kind 2 stream 7 dependency 0 last 5 state draining rule goaway_last_stream_id preview 0\noutput_chunk_list priority-goaway count 0\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

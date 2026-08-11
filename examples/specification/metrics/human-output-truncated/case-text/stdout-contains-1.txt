@@ -1,0 +1,6 @@
+Cycles
+  app, util | path: app -> util -> app
+
+Modules
+  showing 1 of 2 module rows; 1 omitted; use veln metrics --json for complete evidence.
+  app (app.veln) fan-in=1 fan-out=1 pressure=1 external=0

@@ -1,0 +1,4 @@
+exists
+entries
+read-dir-error
+write-dir-error

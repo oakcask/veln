@@ -1,0 +1,3 @@
+fixture local-private hex 00 count 1 consumed none diagnostic schema.invalid_field_value offset 0 field_path [{"kind":"schema","name":"LocalPacket"}]
+fixture imported-public hex 01 count 1 consumed none diagnostic schema.invalid_field_value offset 0 field_path [{"kind":"schema","name":"PublicPacket"}]
+fixture imported-alias hex 02 count 1 consumed none diagnostic schema.invalid_field_value offset 0 field_path [{"kind":"schema","name":"PublicPacket"}]

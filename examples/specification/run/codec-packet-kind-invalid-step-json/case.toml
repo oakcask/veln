@@ -92,4 +92,4 @@ missing = true
 
 [[json_assert]]
 path = "stderr"
-equals = "Err(DecodeErrorWithReason(codec.packet_kind_invalid, ByteOffset(5), ManualPacketWire.kind, packet kind 7 is not accepted))\n"
+equals_file = "case-text/json-assert-equals-1.txt"

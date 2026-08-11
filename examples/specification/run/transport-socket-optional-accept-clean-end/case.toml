@@ -20,7 +20,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "ended\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"
@@ -28,4 +28,4 @@ equals = null
 
 [[file_assert]]
 path = "net-events.log"
-equals = "listen 127.0.0.1:0\naccept-end 127.0.0.1:0\n"
+equals_file = "case-text/file-assert-equals-1.txt"

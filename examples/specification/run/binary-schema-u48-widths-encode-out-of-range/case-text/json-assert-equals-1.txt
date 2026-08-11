@@ -1,0 +1,6 @@
+schema.encode_value_unrepresentable
+UInt48BigWidth.value
+value must be between 0 and 281474976710655
+schema.encode_value_unrepresentable
+UInt48LittleWidth.value
+value must be between 0 and 281474976710655

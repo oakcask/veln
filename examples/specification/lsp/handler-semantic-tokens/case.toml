@@ -1,5 +1,5 @@
 command = ["lsp"]
-stdin = "Content-Length: 58\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}Content-Length: 327\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didOpen\",\"params\":{\"textDocument\":{\"uri\":\"file://main.veln\",\"languageId\":\"veln\",\"version\":1,\"text\":\"pub effect Ask\\n  value() -> Int\\nend\\n\\npub handler ask(ctx: Int) handles Ask effects [stdio]\\n  value() => provide_value(ctx)\\nend\\n\\nfn provide_value(ctx: Int) -> Int\\n  ctx\\nend\\n\"}}}Content-Length: 121\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"textDocument/semanticTokens/full\",\"params\":{\"textDocument\":{\"uri\":\"file://main.veln\"}}}Content-Length: 58\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"shutdown\",\"params\":null}Content-Length: 47\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"exit\",\"params\":null}"
+stdin_file = "case-text/root-stdin-1.txt"
 exit = 0
 
 [stdout]

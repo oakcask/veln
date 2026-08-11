@@ -1,0 +1,13 @@
+settings-connection accepted
+data-open accepted
+push-associated accepted
+priority-idle accepted
+window-half-remote accepted
+connection-data rejected
+connection-data failure http2.protocol.invalid_frame_kind offset 13 kind 0 stream 0 expected 4 state connection-control rule connection_frames_require_settings preview 9
+reserved-data rejected
+reserved-data failure http2.protocol.invalid_frame_kind offset 17 kind 0 stream 5 expected 1 state reserved-by-peer-stream rule reserved_by_peer_requires_response_headers preview 9
+closed-window rejected
+closed-window failure http2.protocol.invalid_frame_kind offset 19 kind 8 stream 9 expected 1 state closed-by-peer-stream rule closed_by_peer_rejects_later_frames preview 9
+push-missing rejected
+push-missing failure http2.protocol.invalid_frame_kind offset 23 kind 5 stream 11 expected 1 state server-receive rule server_receives_no_push_promise preview 9

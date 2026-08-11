@@ -1,0 +1,14 @@
+decoded
+1
+1
+4
+1
+need_more
+need_bytes
+1
+0
+invalid
+0
+schema.reserved_bits_mismatch
+96
+InterleavedReservedHeader.guard

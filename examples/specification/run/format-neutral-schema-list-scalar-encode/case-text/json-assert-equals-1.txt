@@ -1,0 +1,8 @@
+10
+2
+ratio-high
+alpha
+0
+0
+missing
+missing

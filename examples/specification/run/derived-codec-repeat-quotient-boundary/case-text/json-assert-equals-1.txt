@@ -1,0 +1,20 @@
+decoded
+4
+10
+10
+need_more
+need_bytes
+2
+0
+invalid
+schema.length_division_by_zero
+43
+CountedValues.items
+0
+encoded
+output_chunk_list repeat-quotient count 1
+output_chunk repeat-quotient index 0 hex "08020001000200030004" count 10
+invalid
+schema.encode_value_unrepresentable
+CountedValues.items
+list length 3 does not match count expression `total_count / group_count` value 4

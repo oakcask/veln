@@ -1,3 +1,9 @@
+---
+role: specification
+authority: normative
+update-when: The `veln repair --apply` write boundary, repair application JSON output, or executable repair-application evidence changes.
+---
+
 # Repair Application
 
 This page specifies the implemented `veln repair --apply` write boundary. Use
@@ -77,6 +83,9 @@ The applying-command boundary is covered by the executable repair case route in
 `examples/specification/repair/README.md`. Use that index for safe apply,
 confirmed override, override refusal, saved-input freshness, verification, and
 rollback evidence instead of expanding this page with every fixture.
+The apply cases keep expected post-write file contents in `case-text/`
+sidecars, so long repaired source bodies remain visible review evidence rather
+than command contract text inside the manifest.
 
 ## Boundary
 

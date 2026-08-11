@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "selected 0:1 action-score 40 left-chunks 1 left-ended false right-chunks 0 right-ended true writes 1\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"

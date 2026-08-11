@@ -1,0 +1,4 @@
+```veln
+let seed: Int = 1
+visible(seed)
+```

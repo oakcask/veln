@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "incremental incremental_indexing x 0 6 2\ndynamic-name without_indexing older 116 6 1\nnever never_indexed :path 0 7 1\nunavailable unavailable_dynamic_name 63 0 0\ntruncated truncated_raw_value 0 3 1\nhuffman value_huffman_failure 0 0 0\noriginal 38 1\n"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error"
