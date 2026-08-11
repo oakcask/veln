@@ -874,3 +874,98 @@ fn consume_physical_newline(content: &str, offset: &mut usize, line: &mut usize)
 fn is_prohibited_control(ch: char) -> bool {
     matches!(ch, '\u{0000}'..='\u{0008}' | '\u{000a}'..='\u{001f}' | '\u{007f}')
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn policy_scan_provenance_covers_toml_and_nested_json_string_tokens() {
+        let source = r#"value = ["\n", '\n', {"json":"\u000A", "nested":["\\n"]}]
+physical = """
+line
+break"""
+# "ignored\r"
+"#;
+        let tokens = Lexer::new(Path::new("case.toml"), source).lex();
+        let strings = tokens
+            .iter()
+            .filter_map(|token| match &token.kind {
+                TokenKind::String(string) => Some(string),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            strings
+                .iter()
+                .map(|string| string.source)
+                .collect::<Vec<_>>(),
+            [
+                r#""\n""#,
+                r#"'\n'"#,
+                r#""json""#,
+                r#""\u000A""#,
+                r#""nested""#,
+                r#""\\n""#,
+                "\"\"\"\nline\nbreak\"\"\"",
+            ]
+        );
+        assert_eq!(strings[0].decoded.as_ref().unwrap().text(), "\n");
+        assert_eq!(strings[1].decoded.as_ref().unwrap().text(), r#"\n"#);
+        assert_eq!(strings[3].decoded.as_ref().unwrap().text(), "\n");
+        assert_eq!(strings[5].decoded.as_ref().unwrap().text(), r#"\n"#);
+
+        let physical = strings[6].decoded.as_ref().unwrap();
+        assert_eq!(physical.text(), "line\nbreak");
+        assert_eq!(
+            physical
+                .chars
+                .iter()
+                .map(|decoded| (decoded.value, decoded.source_line))
+                .collect::<Vec<_>>(),
+            [
+                ('l', 3),
+                ('i', 3),
+                ('n', 3),
+                ('e', 3),
+                ('\n', 3),
+                ('b', 4),
+                ('r', 4),
+                ('e', 4),
+                ('a', 4),
+                ('k', 4),
+            ]
+        );
+    }
+
+    #[test]
+    fn policy_scan_provenance_retains_escape_lines_and_local_decode_errors() {
+        let source = "first = \"\"\"\nphysical\n\\u000A\"\"\"\ninvalid = \"bad\\q\"\n";
+        let strings = Lexer::new(Path::new("case.toml"), source)
+            .lex()
+            .into_iter()
+            .filter_map(|token| match token.kind {
+                TokenKind::String(string) => Some(string),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        let decoded = strings[0].decoded.as_ref().unwrap();
+        assert_eq!(decoded.text(), "physical\n\n");
+        assert_eq!(
+            decoded
+                .chars
+                .iter()
+                .filter(|decoded| decoded.value == '\n')
+                .map(|decoded| decoded.source_line)
+                .collect::<Vec<_>>(),
+            [2, 3]
+        );
+
+        assert_eq!(strings[1].source, r#""bad\q""#);
+        let error = strings[1].decoded.as_ref().unwrap_err();
+        assert_eq!(error.line, 4);
+        assert_eq!(error.message, "unsupported manifest string escape `q`");
+    }
+}
