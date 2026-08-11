@@ -19,6 +19,7 @@ members = [
     "crates/veln-syntax",
     "crates/veln-test",
     "tools/veln-repo-metrics",
+    "tools/veln-repo-language-reference",
 ]
 resolver = "3"
 

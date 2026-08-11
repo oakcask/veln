@@ -35,6 +35,9 @@ tracked in `../proposals/`.
   virtual-source resolution: [package-snapshots.md](package-snapshots.md),
   [package-documentation.md](package-documentation.md), then
   [package-virtual-sources.md](package-virtual-sources.md).
+- Generated public language-reference topics, canonical artifact bytes,
+  digest, and freshness route:
+  [language-reference.md](language-reference.md).
 - CLI behavior, diagnostics, run output, or test output:
   [topic-map.md#commands-and-output](topic-map.md#commands-and-output).
 - Human diagnostic wording, related notes, spans, or stable diagnostic details:

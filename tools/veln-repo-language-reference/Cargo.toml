@@ -1,0 +1,17 @@
+[package]
+name = "veln-repo-language-reference"
+edition.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+sha2.workspace = true
+unicode-normalization.workspace = true
+veln-syntax.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "veln-repo-language-reference"
+path = "src/main.rs"

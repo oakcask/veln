@@ -397,6 +397,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "veln-repo-language-reference"
+version = "0.1.0"
+dependencies = [
+ "sha2",
+ "unicode-normalization",
+ "veln-syntax",
+]
+
+[[package]]
 name = "veln-repo-metrics"
 version = "0.1.0"
 dependencies = [

@@ -989,15 +989,19 @@ physical materialization paths, and retained exact-byte reads.
 This bounded implementation retains validated workspace, direct-dependency,
 and embedded standard-package captures for the definition-to-read path. It
 does not implement dependency reference search or MCP resources.
+The transport-independent published language-reference generation foundation
+is implemented and specified in
+[Published Language Reference Artifact](../specification/language-reference.md).
+It validates the closed v1 topic descriptors and selected harness files, and
+generates canonical schema-v1 bytes and a domain-separated digest from the
+executable grammar, checked examples, and lexer-owned public token tables.
 The remaining slices are:
 
-1. Define and validate language-reference topic descriptors. Generate the
-   executable grammar, selected example, and compiler-owned table projections.
-2. Add `veln mcp`, resources, documentation tools, project diagnostics,
+1. Add `veln mcp`, resources, documentation tools, project diagnostics,
    definition, and references.
-3. Add cross-adapter conformance cases, bounded search, pagination, and stale
+2. Add cross-adapter conformance cases, bounded search, pagination, and stale
    snapshot handling.
-4. Package and validate Codex and Claude Code plugins and document their
+3. Package and validate Codex and Claude Code plugins and document their
    client-native installation flows.
 
 ## Deferred Work

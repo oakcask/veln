@@ -58,6 +58,9 @@ smallest specification page to read. Start with the short page; open the matchin
 
 ## Runtime, Examples, And Rationale
 
+- Generated public language-reference topics, selected executable grammar and
+  specification cases, canonical artifact bytes, digest, and freshness route:
+  [language-reference.md](language-reference.md).
 - Transport-independent package snapshot digest inputs, transcript, spelling,
   and fixed vectors: [package-snapshots.md](package-snapshots.md).
 - Transport-independent package documentation catalogs, canonical result

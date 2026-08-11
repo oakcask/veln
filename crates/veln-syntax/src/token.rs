@@ -167,6 +167,82 @@ impl TokenKind {
         Self::Slash,
     ];
 
+    /// Source spellings reserved as language keywords by the lexer.
+    pub const KEYWORDS: &'static [Self] = &[
+        Self::Pub,
+        Self::Fn,
+        Self::Type,
+        Self::Schema,
+        Self::Codec,
+        Self::For,
+        Self::Decode,
+        Self::Encode,
+        Self::Derive,
+        Self::With,
+        Self::Format,
+        Self::Where,
+        Self::Test,
+        Self::Effect,
+        Self::Effects,
+        Self::Perform,
+        Self::Handler,
+        Self::Handles,
+        Self::Handle,
+        Self::Let,
+        Self::End,
+        Self::Require,
+        Self::Ensure,
+        Self::Invariant,
+        Self::Mod,
+        Self::Use,
+        Self::From,
+        Self::At,
+        Self::Match,
+        Self::If,
+        Self::Else,
+        Self::Or,
+        Self::And,
+        Self::Not,
+    ];
+
+    /// Source spellings recognized as punctuation or operators by the lexer.
+    pub const PUNCTUATION: &'static [Self] = &[
+        Self::LParen,
+        Self::RParen,
+        Self::LBracket,
+        Self::RBracket,
+        Self::LBrace,
+        Self::RBrace,
+        Self::Comma,
+        Self::Semicolon,
+        Self::Colon,
+        Self::Dot,
+        Self::DoubleColon,
+        Self::Arrow,
+        Self::FatArrow,
+        Self::PipeGreater,
+        Self::Pipe,
+        Self::Ampersand,
+        Self::Caret,
+        Self::Tilde,
+        Self::ShiftLeft,
+        Self::ShiftRight,
+        Self::ShiftRightLogical,
+        Self::Question,
+        Self::Underscore,
+        Self::Equal,
+        Self::EqualEqual,
+        Self::BangEqual,
+        Self::Less,
+        Self::LessEqual,
+        Self::Greater,
+        Self::GreaterEqual,
+        Self::Plus,
+        Self::Minus,
+        Self::Star,
+        Self::Slash,
+    ];
+
     pub fn label(&self) -> &'static str {
         TOKEN_LABELS[*self as usize]
     }
@@ -293,5 +369,19 @@ mod tests {
             assert_eq!(*kind as usize, index);
             assert!(!kind.label().is_empty());
         }
+    }
+
+    #[test]
+    fn public_token_tables_partition_reserved_source_spellings() {
+        assert_eq!(TokenKind::KEYWORDS.first(), Some(&TokenKind::Pub));
+        assert_eq!(TokenKind::KEYWORDS.last(), Some(&TokenKind::Not));
+        assert_eq!(TokenKind::PUNCTUATION.first(), Some(&TokenKind::LParen));
+        assert_eq!(TokenKind::PUNCTUATION.last(), Some(&TokenKind::Slash));
+        assert!(
+            TokenKind::KEYWORDS
+                .iter()
+                .chain(TokenKind::PUNCTUATION)
+                .all(|kind| !kind.label().is_empty())
+        );
     }
 }
