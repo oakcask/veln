@@ -3,3 +3,4 @@
 {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":2,"column":4,"page_size":1}}}
 {"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":2,"column":4,"include_declaration":false}}}
 {"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":2,"column":4,"page_size":1001}}}
+{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":2,"column":4,"page_size":0}}}

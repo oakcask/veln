@@ -111,6 +111,11 @@ fn invalid_tool_inputs_are_protocol_invalid_params() {
         json!({"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"definition","arguments":{"source":null,"line":1,"column":1}}}),
         json!({"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":0,"column":1}}}),
         json!({"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":1}}}),
+        json!({"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":1,"column":1,"unknown":true}}}),
+        json!({"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"references","arguments":{"source":null,"line":1,"column":1}}}),
+        json!({"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":1,"column":1,"page_size":0}}}),
+        json!({"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":1,"column":1,"cursor":"r1-mixed"}}}),
+        json!({"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"references","arguments":{"cursor":null}}}),
     ];
     for request in requests {
         let response = server.handle_request(request).unwrap();
