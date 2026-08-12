@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"d44fea30f6d342ef3392d66ab8d345511935bff5"
+source_git_tree	"b30c39c5809850a5d3cba45216f198852acf4ddd"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1512
@@ -10409,6 +10409,8 @@ case	"examples/specification/mcp/definition-workspace"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"description\":\"Resolve a supported symbol in one saved workspace source\""
+field	expectations.stdout.contains[10]	"\"id\":10,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"code\\\":\\\"invalid_position\\\""
+field	expectations.stdout.contains[11]	"\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":11"
 field	expectations.stdout.contains[1]	"\"name\":\"definition\",\"outputSchema\""
 field	expectations.stdout.contains[2]	"\"required\":[\"source\",\"line\",\"column\"]"
 field	expectations.stdout.contains[3]	"\"range\":{\"end\":{\"column\":10,\"line\":1},\"start\":{\"column\":4,\"line\":1}}"
@@ -10422,9 +10424,9 @@ field	expectations.stdout.not_contains[0]	"veln-pkg:"
 field	expectations.stdout.not_contains[1]	"target/debug"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1180,"sha256":"b003498c37722803f77815c642858edac9918221677ecf7762b559ed89cbe5ff"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1489,"sha256":"e2b4d5447b2dc59fe02b8523e695cee21a53e3b32c1a7f0cdcd1919eb1631384"}
 field	source_errors	"forbidden"
-case_digest	"dea454253998033184639db2b74295aa1fb065062b41770ed3594c8892fdc06b"
+case_digest	"d50ea8d804bad9b7aab8e92b1e97db5c1e8fbbea00d421c2cba265a943b2fd1c"
 case	"examples/specification/mcp/workspace-lifecycle"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47711,4 +47713,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"1323b42c752dc9c0c83cca6db7e5e7516372840b038691bd3b30fa058e3518a4"
+aggregate_digest	"8d43bc7068a9c3c8a586ad656884ade1a9f022bc17cd933fd0d7e37e1f7e9234"
