@@ -166,10 +166,10 @@ Use `stdin_file` when command input is easier to review as a case text file.
 Use a `.raw` sidecar for `stdin_file` when the input protocol includes bytes
 whose framing must survive repository checkout exactly, such as LSP JSON-RPC
 headers and their CRLF separators.
-MCP cases use `stdin_file` and stream `equals_file` sidecars when the behavior
-under test is the newline-delimited stdio protocol itself. Keep those fixtures
-as ordinary `case-text/` files when LF-normalized JSON lines are the intended
-observable bytes.
+MCP cases use `stdin_file` with stream fragments or `equals_file` sidecars when
+the behavior under test is the newline-delimited stdio protocol itself. Keep
+those fixtures as ordinary `case-text/` files when LF-normalized JSON lines are
+the intended observable bytes.
 
 Use `stdin_jsonrpc_file` for an ordered UTF-8 JSON array of JSON-RPC requests
 and notifications. It is mutually exclusive with `stdin` and `stdin_file`.
@@ -334,7 +334,9 @@ text values, including nested strings inside typed JSON assertions, record an
 explicit logical field, byte length, and SHA-256 digest. Binary values record
 their byte length and SHA-256 digest. JSON object members are key-sorted
 because object member order is not part of an assertion value; arrays and all
-manifest assertion sequences retain their order.
+manifest assertion sequences retain their order. The baseline includes MCP
+stdio specification cases that use `stdin_file` JSON lines and stream
+fragments to pin advertised tool declarations and representative tool results.
 
 The normal `toolchain_harness` target runs
 `checked_in_semantic_baseline_matches_authoritative_cases`. The test reads the
