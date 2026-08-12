@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, workspace project selection, refresh transition, tool schemas, or executable MCP cases change.
+update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, workspace project selection, refresh transition, saved project diagnostics, tool schemas, or executable MCP cases change.
 ---
 
 # MCP Workspace Projects And Diagnostics
