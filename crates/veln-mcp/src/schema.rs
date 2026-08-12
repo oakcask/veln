@@ -136,25 +136,81 @@ fn matches_integer_schema(schema: &Value, value: &Value) -> bool {
     let Some(number) = value.as_number() else {
         return false;
     };
-    if !number.is_i64()
-        && !number.is_u64()
-        && !number
-            .as_f64()
-            .is_some_and(|value| value.is_finite() && value.fract() == 0.0)
-    {
+    if !json_number_is_integer(&number.to_string()) {
         return false;
     }
     if let Some(minimum) = schema.get("minimum").and_then(Value::as_i64)
-        && match (number.as_i64(), number.as_u64(), number.as_f64()) {
-            (Some(value), _, _) => value < minimum,
-            (None, Some(value), _) => minimum >= 0 && value < minimum as u64,
-            (None, None, Some(value)) => value < minimum as f64,
-            (None, None, None) => true,
-        }
+        && json_number_is_less_than_i64(&number.to_string(), minimum)
     {
         return false;
     }
     true
+}
+
+fn json_number_is_integer(text: &str) -> bool {
+    let Some((digits, scale)) = json_number_digits_and_scale(text) else {
+        return false;
+    };
+    if scale <= 0 {
+        return true;
+    }
+    let scale = scale as usize;
+    scale <= digits.len()
+        && digits[digits.len() - scale..]
+            .bytes()
+            .all(|byte| byte == b'0')
+}
+
+fn json_number_is_less_than_i64(text: &str, minimum: i64) -> bool {
+    if minimum < 0 {
+        return text.starts_with('-')
+            && text
+                .parse::<f64>()
+                .is_ok_and(|value| value < minimum as f64);
+    }
+    let Some((mut digits, scale)) = json_number_digits_and_scale(text) else {
+        return true;
+    };
+    if text.starts_with('-') {
+        return true;
+    }
+    if scale > 0 {
+        digits.truncate(digits.len().saturating_sub(scale as usize));
+    } else {
+        digits.extend(std::iter::repeat_n('0', scale.unsigned_abs() as usize));
+    }
+    let normalized = digits.trim_start_matches('0');
+    if normalized.is_empty() {
+        return 0 < minimum;
+    }
+    let minimum = minimum.to_string();
+    normalized.len() < minimum.len()
+        || (normalized.len() == minimum.len() && normalized < minimum.as_str())
+}
+
+fn json_number_digits_and_scale(text: &str) -> Option<(String, i64)> {
+    let text = text.strip_prefix('-').unwrap_or(text);
+    let (mantissa, exponent) = match text.find(['e', 'E']) {
+        Some(index) => {
+            let exponent = text[index + 1..].parse::<i64>().ok()?;
+            (&text[..index], exponent)
+        }
+        None => (text, 0),
+    };
+    let (integer, fraction) = match mantissa.split_once('.') {
+        Some((integer, fraction)) => (integer, fraction),
+        None => (mantissa, ""),
+    };
+    if integer.is_empty()
+        || !integer.bytes().all(|byte| byte.is_ascii_digit())
+        || !fraction.bytes().all(|byte| byte.is_ascii_digit())
+    {
+        return None;
+    }
+    let mut digits = String::with_capacity(integer.len() + fraction.len());
+    digits.push_str(integer);
+    digits.push_str(fraction);
+    Some((digits, fraction.len() as i64 - exponent))
 }
 
 fn matches_object_schema(root: &Value, schema: &Value, value: &Value) -> bool {
@@ -316,6 +372,10 @@ mod tests {
         )
         .unwrap();
         assert!(tool.accepts_input(&above_u64));
+        let non_integer =
+            serde_json::from_str(r#"{"source":"main.veln","line":6.0000000000000001,"column":1}"#)
+                .unwrap();
+        assert!(!tool.accepts_input(&non_integer));
         for value in [
             serde_json::json!({}),
             serde_json::json!({"source":"main.veln","line":1}),

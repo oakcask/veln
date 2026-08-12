@@ -88,19 +88,51 @@ fn coordinate(value: &Value) -> Coordinate {
     let number = value
         .as_number()
         .expect("definition input schema requires a positive integer coordinate");
-    if let Some(value) = number.as_u64() {
-        return usize::try_from(value)
-            .map(Coordinate::Addressable)
-            .unwrap_or(Coordinate::OutOfRange);
+    match parse_coordinate_integer(&number.to_string()) {
+        Some(value) if value >= 1 => Coordinate::Addressable(value),
+        _ => Coordinate::OutOfRange,
     }
-    let value = number
-        .as_f64()
-        .expect("definition input schema requires a JSON number coordinate");
-    if value.is_finite() && value.fract() == 0.0 && value >= 1.0 && value < usize::MAX as f64 {
-        Coordinate::Addressable(value as usize)
-    } else {
-        Coordinate::OutOfRange
+}
+
+fn parse_coordinate_integer(text: &str) -> Option<usize> {
+    if text.starts_with('-') {
+        return None;
     }
+    let (mantissa, exponent) = match text.find(['e', 'E']) {
+        Some(index) => (&text[..index], text[index + 1..].parse::<i64>().ok()?),
+        None => (text, 0),
+    };
+    let (integer, fraction) = match mantissa.split_once('.') {
+        Some((integer, fraction)) => (integer, fraction),
+        None => (mantissa, ""),
+    };
+    let mut digits = String::with_capacity(integer.len() + fraction.len());
+    digits.push_str(integer);
+    digits.push_str(fraction);
+    let scale = fraction.len() as i64 - exponent;
+    if scale > 0 {
+        let scale = scale as usize;
+        if scale > digits.len()
+            || !digits[digits.len() - scale..]
+                .bytes()
+                .all(|byte| byte == b'0')
+        {
+            return None;
+        }
+        digits.truncate(digits.len() - scale);
+    }
+    let mut parsed = digits
+        .trim_start_matches('0')
+        .bytes()
+        .try_fold(0usize, |parsed, byte| {
+            parsed.checked_mul(10)?.checked_add((byte - b'0') as usize)
+        })?;
+    if scale < 0 {
+        for _ in 0..scale.unsigned_abs() {
+            parsed = parsed.checked_mul(10)?;
+        }
+    }
+    Some(parsed)
 }
 
 fn valid_position(text: &str, line: Coordinate, column: Coordinate) -> bool {
@@ -175,6 +207,8 @@ mod tests {
         for value in [json!(1), json!(1.0), json!(1e0)] {
             assert!(matches!(coordinate(&value), Coordinate::Addressable(1)));
         }
+        let non_integer = serde_json::from_str("6.0000000000000001").unwrap();
+        assert!(matches!(coordinate(&non_integer), Coordinate::OutOfRange));
         let above_u64 = serde_json::from_str("18446744073709551616").unwrap();
         assert!(matches!(coordinate(&above_u64), Coordinate::OutOfRange));
     }

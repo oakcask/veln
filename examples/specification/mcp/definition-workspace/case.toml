@@ -13,6 +13,7 @@ contains = [
   "\"id\":6,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"definition\\\"",
   "\"id\":7,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"definition\\\"",
   "\"id\":8,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"code\\\":\\\"invalid_position\\\"",
+  "\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":9",
 ]
 not_contains = ["veln-pkg:", "target/debug"]
 
