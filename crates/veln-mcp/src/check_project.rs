@@ -71,7 +71,7 @@ pub(crate) fn check_project(
     CheckProjectOutcome::Success(structured)
 }
 
-struct Target {
+pub(crate) struct Target {
     base: WorkspaceBase,
     root: PathBuf,
     root_display: String,
@@ -335,6 +335,69 @@ fn capture_stable_project(target: &Target) -> Result<CapturedProject, CaptureErr
     capture_stable_project_with(|| capture_once(target))
 }
 
+pub(crate) fn capture_navigation_source(
+    base: &WorkspaceBase,
+    selection: &Selection,
+    source: &str,
+) -> Result<(CapturedProject, String), CheckProjectOutcome> {
+    let source = validate_source_path(base, source)?;
+    for root in selection.roots() {
+        if selection.root_kind(root) != Some(SelectedRootKind::Manifest) {
+            continue;
+        }
+        let Some(relative) = source_beneath_root(&source, root) else {
+            continue;
+        };
+        let target = selected_target(
+            base,
+            root,
+            SelectedRootKind::Manifest,
+            None,
+            selection.root_identity(root).cloned(),
+        )?;
+        let captured = stable_capture_or_failure(&target)?;
+        if captured
+            .project
+            .files
+            .iter()
+            .any(|file| file.path().as_str() == relative)
+        {
+            return Ok((captured, relative.to_string()));
+        }
+        break;
+    }
+
+    let target = Target {
+        base: base.clone(),
+        root: base.path().to_path_buf(),
+        root_display: ".".to_string(),
+        mode: AnalysisMode::SingleFile {
+            source: source.clone(),
+        },
+        input: Some(PathBuf::from(&source)),
+        require_manifest: false,
+        selected_root_identity: None,
+    };
+    stable_capture_or_failure(&target).map(|captured| (captured, source))
+}
+
+fn source_beneath_root<'a>(source: &'a str, root: &str) -> Option<&'a str> {
+    if root == "." {
+        return Some(source);
+    }
+    source.strip_prefix(root)?.strip_prefix('/')
+}
+
+fn stable_capture_or_failure(target: &Target) -> Result<CapturedProject, CheckProjectOutcome> {
+    capture_stable_project(target).map_err(|_| {
+        domain_failure(
+            "snapshot_changed",
+            "workspace files changed during capture",
+            json!({}),
+        )
+    })
+}
+
 fn capture_stable_project_with(
     mut capture: impl FnMut() -> io::Result<CapturedProject>,
 ) -> Result<CapturedProject, CaptureError> {
@@ -357,8 +420,8 @@ fn capture_stable_project_with(
     }
 }
 
-struct CapturedProject {
-    project: Project,
+pub(crate) struct CapturedProject {
+    pub(crate) project: Project,
     dependencies: Vec<CapturedDependencyProject>,
     key: Value,
 }

@@ -9,6 +9,7 @@ rustix.workspace = true
 serde_json.workspace = true
 veln-analysis.workspace = true
 veln-diagnostics.workspace = true
+veln-language-service.workspace = true
 veln-project.workspace = true
 veln-source.workspace = true
 

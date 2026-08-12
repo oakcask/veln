@@ -1,6 +1,7 @@
 //! Model Context Protocol access to saved Veln workspaces.
 
 mod check_project;
+mod definition;
 mod schema;
 mod server;
 mod workspace;
