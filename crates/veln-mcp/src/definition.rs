@@ -87,13 +87,17 @@ pub(crate) fn definition(
 }
 
 pub(crate) fn coordinate(value: &Value) -> Coordinate {
+    match positive_integer(value) {
+        Some(value) => Coordinate::Addressable(value),
+        None => Coordinate::OutOfRange,
+    }
+}
+
+pub(crate) fn positive_integer(value: &Value) -> Option<usize> {
     let number = value
         .as_number()
         .expect("definition input schema requires a positive integer coordinate");
-    match parse_coordinate_integer(&number.to_string()) {
-        Some(value) if value >= 1 => Coordinate::Addressable(value),
-        _ => Coordinate::OutOfRange,
-    }
+    parse_coordinate_integer(&number.to_string()).filter(|value| *value >= 1)
 }
 
 fn parse_coordinate_integer(text: &str) -> Option<usize> {

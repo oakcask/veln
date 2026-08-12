@@ -6,7 +6,7 @@ use veln_language_service::{EffectiveProjectSnapshot, NavigationSource, SourcePo
 use veln_source::{SourcePath, SourceSpan};
 
 use crate::check_project::{CheckProjectOutcome, capture_navigation_source};
-use crate::definition::{Coordinate, coordinate, path_to_uri, valid_position};
+use crate::definition::{Coordinate, coordinate, path_to_uri, positive_integer, valid_position};
 use crate::workspace::{Selection, WorkspaceBase};
 
 const DEFAULT_PAGE_SIZE: usize = 100;
@@ -72,8 +72,7 @@ impl ReferenceCursors {
             .unwrap_or(true);
         let page_size = arguments
             .get("page_size")
-            .and_then(Value::as_u64)
-            .map(|size| size as usize)
+            .and_then(positive_integer)
             .unwrap_or(DEFAULT_PAGE_SIZE);
         let captured = match capture(base, selection, arguments, include_declaration) {
             Ok(captured) => captured,

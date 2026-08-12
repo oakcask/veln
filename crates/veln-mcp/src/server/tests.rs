@@ -712,6 +712,52 @@ fn references_default_and_maximum_page_sizes_are_exact() {
 }
 
 #[test]
+fn references_page_size_accepts_integral_json_number_spellings() {
+    let workspace = TempWorkspace::new("references-integral-page-size");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "fn target() -> Int\n  target()\n  target()\nend\n",
+    );
+    for raw_page_size in ["1e0", "1.0"] {
+        let request = serde_json::from_str::<Value>(&format!(
+            r#"{{
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {{
+                    "name": "references",
+                    "arguments": {{
+                        "source": "main.veln",
+                        "line": 2,
+                        "column": 4,
+                        "page_size": {raw_page_size}
+                    }}
+                }}
+            }}"#
+        ))
+        .unwrap();
+        let response = initialized_server(&workspace)
+            .handle_request(request)
+            .unwrap();
+        assert!(
+            response.get("error").is_none(),
+            "{raw_page_size}: {response:#}"
+        );
+        let content = &response["result"]["structuredContent"];
+        assert_eq!(
+            content["references"].as_array().unwrap().len(),
+            1,
+            "{raw_page_size}: {response:#}"
+        );
+        assert!(
+            content["cursor"].is_string(),
+            "{raw_page_size}: {response:#}"
+        );
+    }
+}
+
+#[test]
 fn references_isolate_symbol_identity_and_single_file_scope() {
     let workspace = TempWorkspace::new("references-identity-scope");
     workspace.write("app/veln.toml", "");

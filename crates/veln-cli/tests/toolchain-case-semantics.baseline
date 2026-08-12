@@ -10446,6 +10446,7 @@ case	"examples/specification/mcp/references-workspace"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"name\":\"references\",\"outputSchema\""
+field	expectations.stdout.contains[10]	"\"id\":8,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"cursor\\\":\\\"r1-"
 field	expectations.stdout.contains[1]	"\"include_declaration\":{\"type\":\"boolean\"}"
 field	expectations.stdout.contains[2]	"\"maximum\":1000,\"minimum\":1,\"type\":\"integer\""
 field	expectations.stdout.contains[3]	"\"project_wide\":true,\"references\":[{"
@@ -10454,13 +10455,14 @@ field	expectations.stdout.contains[5]	"\"id\":3,\"jsonrpc\":\"2.0\""
 field	expectations.stdout.contains[6]	"\"id\":4,\"jsonrpc\":\"2.0\""
 field	expectations.stdout.contains[7]	"\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":5"
 field	expectations.stdout.contains[8]	"\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":6"
+field	expectations.stdout.contains[9]	"\"id\":7,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"cursor\\\":\\\"r1-"
 field	expectations.stdout.not_contains[0]	"veln-pkg:"
 field	expectations.stdout.not_contains[1]	"target/debug"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":814,"sha256":"92ec757bb89ec51af2fac79ad727575d002537863f52e748dd812b1e8fd5372f"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1112,"sha256":"c8e0527adf2ba76189216517b1a780d46df33bbc89ad3f556d50105d7d395e47"}
 field	source_errors	"forbidden"
-case_digest	"e3b8b07be7403c8d5f962f275872d329aebf430f2ee568b363ce2cde209c972e"
+case_digest	"c2d4bf8e4983b0291e11b905716e3f8fd36fd6abdd9233742eb488f15598109a"
 case	"examples/specification/mcp/workspace-lifecycle"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47747,4 +47749,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"b4359b8fcc0575149a7a264b40304543a700947d547f574df3e30cc2c1309b38"
+aggregate_digest	"d3ac022f64af0cf542f009cd7c4678ea4b1276929a4a55391fbc1d25ed55a438"
