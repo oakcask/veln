@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"2ebf178af73f9efb055c821002b5c460a91307b1"
+source_git_tree	"9c53adedad2d33880b1d6c7064027b72f24bf1d6"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1510
+case_count	1511
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -10389,6 +10389,14 @@ field	invocation.repeat	1
 field	invocation.stdin	"Content-Length: 78\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"rootUri\":\"file://.\"}}Content-Length: 58\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"shutdown\",\"params\":null}Content-Length: 47\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"exit\",\"params\":null}"
 field	source_errors	"forbidden"
 case_digest	"eb739af3a0616c466d6ee63d3110bd5a32765e251983a18df3590e7c1380f806"
+case	"examples/specification/mcp/anonymous-single-file-isolation"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	invocation.command[0]	"mcp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":335,"sha256":"f63732b6d11034633ce2095a2cece3f32881d4ccf57816807397de3cbd75d293"}
+field	source_errors	"forbidden"
+case_digest	"6d4fb9e72f0487f3c8d00349c7c3f1edecf9d1087bb10a954be311329aa00627"
 case	"examples/specification/mcp/check-project-diagnostics"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47683,4 +47691,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"3159a09944323a83c9ba6be4f4c451b7a31c3830ceeaa9252f81365551fdd279"
+aggregate_digest	"0f029e1c2b436734c57dd06d71503f2fe2c5a058883e9f3570d1d97f549562bd"
