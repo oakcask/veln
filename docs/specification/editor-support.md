@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The documented editor-facing behavior or its LSP server evidence changes.
+update-when: The documented editor-facing behavior, shared `veln-language-service` navigation behavior, or LSP server evidence changes.
 ---
 
 # Editor Support

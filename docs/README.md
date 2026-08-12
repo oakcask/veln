@@ -1,6 +1,6 @@
 ---
 role: routing
-update-when: A documentation route is added, moved, reclassified, or no longer answers the routed task.
+update-when: A top-level documentation route is added, moved, reclassified, or no longer routes a current documentation task to the right document set.
 ---
 
 # Veln Design Notes
