@@ -112,6 +112,48 @@ struct DependencyNode {
     file: PathBuf,
 }
 
+struct ModuleCatalog {
+    nodes: Vec<DependencyNode>,
+    module_index: std::collections::BTreeMap<ModuleKey, usize>,
+    source_to_node: Vec<Option<usize>>,
+    crate_roots: std::collections::BTreeMap<String, PathBuf>,
+}
+
+impl ModuleCatalog {
+    fn from_sources(sources: &[SourceFile]) -> Self {
+        let mut nodes = Vec::new();
+        let mut module_index = std::collections::BTreeMap::new();
+        let source_to_node = sources
+            .iter()
+            .map(|source| {
+                let key = module_key_for_path(&source.path)?;
+                Some(*module_index.entry(key.clone()).or_insert_with(|| {
+                    let index = nodes.len();
+                    nodes.push(DependencyNode {
+                        key,
+                        file: source.path.clone(),
+                    });
+                    index
+                }))
+            })
+            .collect();
+        let crate_roots = nodes
+            .iter()
+            .filter_map(|node| {
+                node.key
+                    .crate_import_name()
+                    .map(|name| (name, node.key.crate_src_root.clone()))
+            })
+            .collect();
+        Self {
+            nodes,
+            module_index,
+            source_to_node,
+            crate_roots,
+        }
+    }
+}
+
 #[derive(Debug)]
 struct DependencyGraph {
     nodes: Vec<DependencyNode>,
@@ -121,66 +163,11 @@ struct DependencyGraph {
 
 impl DependencyGraph {
     fn from_sources(sources: &[SourceFile]) -> Result<Self, String> {
-        let mut nodes = Vec::new();
-        let mut module_index = std::collections::BTreeMap::new();
-        let mut source_to_node = Vec::new();
-        for source in sources {
-            let Some(key) = module_key_for_path(&source.path) else {
-                source_to_node.push(None);
-                continue;
-            };
-            let index = if let Some(existing) = module_index.get(&key) {
-                *existing
-            } else {
-                let index = nodes.len();
-                module_index.insert(key.clone(), index);
-                nodes.push(DependencyNode {
-                    key,
-                    file: source.path.clone(),
-                });
-                index
-            };
-            source_to_node.push(Some(index));
-        }
-
-        let mut crate_roots = std::collections::BTreeMap::new();
-        for node in &nodes {
-            if let Some(import_name) = node.key.crate_import_name() {
-                crate_roots.insert(import_name, node.key.crate_src_root.clone());
-            }
-        }
-
-        let mut edges = std::collections::BTreeSet::new();
-        for (source_index, source) in sources.iter().enumerate() {
-            let Some(graph_source_index) = source_to_node[source_index] else {
-                continue;
-            };
-            let syntax = syn::parse_file(&source.source)
-                .map_err(|error| format!("failed to parse {}: {error}", source.path.display()))?;
-            let current = &nodes[graph_source_index].key;
-            let mut visitor = DependencyVisitor {
-                crate_roots: &crate_roots,
-                current,
-                edges: &mut edges,
-                inline_modules: Vec::new(),
-                module_index: &module_index,
-                source_index: graph_source_index,
-            };
-            visitor.visit_file(&syntax);
-        }
-
-        let mut incoming = vec![Vec::new(); nodes.len()];
-        let mut outgoing = vec![Vec::new(); nodes.len()];
-        for (source, target) in edges {
-            outgoing[source].push(target);
-            incoming[target].push(source);
-        }
-        for edges in incoming.iter_mut().chain(outgoing.iter_mut()) {
-            edges.sort_unstable();
-        }
-
+        let catalog = ModuleCatalog::from_sources(sources);
+        let edges = collect_dependency_edges(sources, &catalog)?;
+        let (incoming, outgoing) = build_adjacency(catalog.nodes.len(), edges);
         Ok(Self {
-            nodes,
+            nodes: catalog.nodes,
             incoming,
             outgoing,
         })
@@ -266,6 +253,49 @@ impl DependencyGraph {
         });
         components
     }
+}
+
+fn collect_dependency_edges(
+    sources: &[SourceFile],
+    catalog: &ModuleCatalog,
+) -> Result<std::collections::BTreeSet<(usize, usize)>, String> {
+    let mut edges = std::collections::BTreeSet::new();
+    for (source_index, source) in sources.iter().enumerate() {
+        let Some(graph_source_index) = catalog.source_to_node[source_index] else {
+            continue;
+        };
+        let syntax = syn::parse_file(&source.source)
+            .map_err(|error| format!("failed to parse {}: {error}", source.path.display()))?;
+        let current = &catalog.nodes[graph_source_index].key;
+        let mut visitor = DependencyVisitor {
+            crate_roots: &catalog.crate_roots,
+            current,
+            edges: &mut edges,
+            inline_modules: Vec::new(),
+            module_index: &catalog.module_index,
+            source_index: graph_source_index,
+        };
+        visitor.visit_file(&syntax);
+    }
+
+    Ok(edges)
+}
+
+fn build_adjacency(
+    node_count: usize,
+    edges: std::collections::BTreeSet<(usize, usize)>,
+) -> (Vec<Vec<usize>>, Vec<Vec<usize>>) {
+    let mut incoming = vec![Vec::new(); node_count];
+    let mut outgoing = vec![Vec::new(); node_count];
+    for (source, target) in edges {
+        outgoing[source].push(target);
+        incoming[target].push(source);
+    }
+    for edges in incoming.iter_mut().chain(outgoing.iter_mut()) {
+        edges.sort_unstable();
+    }
+
+    (incoming, outgoing)
 }
 
 #[derive(Debug)]
@@ -586,6 +616,37 @@ mod tests {
         assert!(summary.contains("crates/sample/src/a.rs"));
         assert!(summary.contains("crates/sample/src/b.rs"));
         assert!(summary.contains("cycles: 1"));
+    }
+
+    #[test]
+    fn resolves_dependencies_across_crate_module_catalogs() {
+        let sources = vec![
+            SourceFile {
+                path: PathBuf::from("crates/alpha/src/lib.rs"),
+                source: "use beta::support; pub fn alpha() { support::beta(); }".to_string(),
+            },
+            SourceFile {
+                path: PathBuf::from("crates/beta/src/lib.rs"),
+                source: "pub mod support;".to_string(),
+            },
+            SourceFile {
+                path: PathBuf::from("crates/beta/src/support.rs"),
+                source: "pub fn beta() { alpha::alpha(); }".to_string(),
+            },
+        ];
+
+        let graph = DependencyGraph::from_sources(&sources).unwrap();
+        let report = graph.report();
+
+        assert_eq!(graph.edge_count(), 2);
+        assert_eq!(report.cycles.len(), 1);
+        assert_eq!(
+            report.cycles[0],
+            vec![
+                PathBuf::from("crates/alpha/src/lib.rs"),
+                PathBuf::from("crates/beta/src/support.rs"),
+            ]
+        );
     }
 
     #[test]
