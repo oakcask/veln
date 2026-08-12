@@ -50,23 +50,25 @@ impl Server {
         request: Value,
         raw_id: Option<ResponseId>,
     ) -> Option<JsonRpcResponse> {
-        let Some(object) = request.as_object() else {
-            return Some(protocol_error(Value::Null, -32600, "Invalid Request"));
+        let request = match Request::parse(&request, raw_id) {
+            Ok(Some(request)) => request,
+            Ok(None) => return None,
+            Err(response) => return Some(response),
         };
-        let id = object.get("id").cloned();
-        if object.get("jsonrpc").and_then(Value::as_str) != Some("2.0")
-            || !id.as_ref().is_none_or(valid_request_id)
-        {
-            return Some(protocol_error(Value::Null, -32600, "Invalid Request"));
-        }
-        let Some(method) = object.get("method").and_then(Value::as_str) else {
-            return Some(protocol_error(Value::Null, -32600, "Invalid Request"));
-        };
-        let params = object.get("params");
+        let result = self.dispatch(request.method, request.params);
+        Some(match result {
+            Ok(result) => JsonRpcResponse::result(request.response_id, result),
+            Err(RequestError::InvalidParams(message)) => {
+                protocol_error(request.response_id, -32602, message)
+            }
+            Err(RequestError::MethodNotFound) => {
+                protocol_error(request.response_id, -32601, "Method not found")
+            }
+        })
+    }
 
-        let response_id = raw_id.or_else(|| id.map(ResponseId::from_value))?;
-
-        let result = match method {
+    fn dispatch(&mut self, method: &str, params: Option<&Value>) -> Result<Value, RequestError> {
+        match method {
             "initialize" => self.initialize(params),
             _ if !self.initialized => Err("Server not initialized"),
             "ping" => request_metadata_params(params).map(|()| json!({})),
@@ -74,12 +76,9 @@ impl Server {
                 list_tools_params(params).map(|()| json!({"tools": schema::declarations().clone()}))
             }
             "tools/call" => self.call_tool(params),
-            _ => return Some(protocol_error(response_id, -32601, "Method not found")),
-        };
-        Some(match result {
-            Ok(result) => JsonRpcResponse::result(response_id, result),
-            Err(message) => protocol_error(response_id, -32602, message),
-        })
+            _ => return Err(RequestError::MethodNotFound),
+        }
+        .map_err(RequestError::InvalidParams)
     }
 
     fn initialize(&mut self, params: Option<&Value>) -> Result<Value, &'static str> {
@@ -117,6 +116,89 @@ impl Server {
         params: Option<&Value>,
         refresh: impl FnOnce(&mut Selection) -> io::Result<()>,
     ) -> Result<Value, &'static str> {
+        let call = ToolCall::parse(params)?;
+        let empty_arguments = json!({});
+        let arguments = call.arguments.unwrap_or(&empty_arguments);
+        if !call.tool.accepts_input(arguments) {
+            return Err("Tool input does not match its schema");
+        }
+        Ok(match call.name {
+            "workspace_projects" => successful_tool_result(self.selection_result()),
+            "refresh_workspace" => self.refresh_workspace_tool(refresh),
+            _ => unreachable!("tool name was checked against declarations"),
+        })
+    }
+
+    fn refresh_workspace_tool(
+        &mut self,
+        refresh: impl FnOnce(&mut Selection) -> io::Result<()>,
+    ) -> Value {
+        match refresh(&mut self.selection) {
+            Ok(()) => successful_tool_result(self.selection_result()),
+            Err(_) => domain_failure(
+                "generation_failed",
+                "workspace project discovery failed",
+                json!({}),
+            ),
+        }
+    }
+
+    fn selection_result(&self) -> Value {
+        json!({
+            "generation": self.selection.generation(),
+            "roots": self.selection.roots(),
+        })
+    }
+}
+
+struct Request<'a> {
+    response_id: ResponseId,
+    method: &'a str,
+    params: Option<&'a Value>,
+}
+
+impl<'a> Request<'a> {
+    fn parse(
+        request: &'a Value,
+        raw_id: Option<ResponseId>,
+    ) -> Result<Option<Self>, JsonRpcResponse> {
+        let Some(object) = request.as_object() else {
+            return Err(protocol_error(Value::Null, -32600, "Invalid Request"));
+        };
+        let id = object.get("id").cloned();
+        if object.get("jsonrpc").and_then(Value::as_str) != Some("2.0")
+            || !id.as_ref().is_none_or(valid_request_id)
+        {
+            return Err(protocol_error(Value::Null, -32600, "Invalid Request"));
+        }
+        let Some(method) = object.get("method").and_then(Value::as_str) else {
+            return Err(protocol_error(Value::Null, -32600, "Invalid Request"));
+        };
+        let params = object.get("params");
+        let Some(response_id) = raw_id.or_else(|| id.map(ResponseId::from_value)) else {
+            return Ok(None);
+        };
+        Ok(Some(Self {
+            response_id,
+            method,
+            params,
+        }))
+    }
+}
+
+enum RequestError {
+    InvalidParams(&'static str),
+    MethodNotFound,
+}
+
+struct ToolCall<'a> {
+    name: &'a str,
+    arguments: Option<&'a Value>,
+    tool: schema::ToolSchema,
+}
+
+impl<'a> ToolCall<'a> {
+    fn parse(params: Option<&'a Value>) -> Result<Self, &'static str> {
         let params = params
             .and_then(Value::as_object)
             .ok_or("Invalid tool call params")?;
@@ -132,31 +214,10 @@ impl Server {
             .and_then(Value::as_str)
             .ok_or("Invalid tool call params")?;
         let tool = schema::tool(name).ok_or("Unknown tool")?;
-        let empty_arguments = json!({});
-        let arguments = params.get("arguments").unwrap_or(&empty_arguments);
-        if !tool.accepts_input(arguments) {
-            return Err("Tool input does not match its schema");
-        }
-
-        let result = match name {
-            "workspace_projects" => return Ok(successful_tool_result(self.selection_result())),
-            "refresh_workspace" => match refresh(&mut self.selection) {
-                Ok(()) => return Ok(successful_tool_result(self.selection_result())),
-                Err(_) => domain_failure(
-                    "generation_failed",
-                    "workspace project discovery failed",
-                    json!({}),
-                ),
-            },
-            _ => unreachable!("tool name was checked against declarations"),
-        };
-        Ok(result)
-    }
-
-    fn selection_result(&self) -> Value {
-        json!({
-            "generation": self.selection.generation(),
-            "roots": self.selection.roots(),
+        Ok(Self {
+            name,
+            arguments: params.get("arguments"),
+            tool,
         })
     }
 }
@@ -473,320 +534,4 @@ fn skip_json_number(bytes: &[u8], mut offset: usize) -> Option<usize> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    #[test]
-    fn lifecycle_lists_and_calls_only_implemented_tools() {
-        let workspace = TempWorkspace::new("lifecycle");
-        workspace.write("alpha/veln.toml", "");
-        workspace.write("beta/deep/veln.toml", "");
-        let input = [
-            json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1"}}}),
-            json!({"jsonrpc":"2.0","method":"notifications/initialized"}),
-            json!({"jsonrpc":"2.0","id":2,"method":"tools/list","params":{"_meta":{"progressToken":"list"}}}),
-            json!({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"workspace_projects","arguments":{}}}),
-            json!({"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"refresh_workspace","arguments":{}}}),
-        ]
-        .into_iter()
-        .map(|message| message.to_string())
-        .collect::<Vec<_>>()
-        .join("\n");
-        let mut output = Vec::new();
-        run(workspace.root.clone(), input.as_bytes(), &mut output).unwrap();
-        let responses = String::from_utf8(output)
-            .unwrap()
-            .lines()
-            .map(|line| serde_json::from_str::<Value>(line).unwrap())
-            .collect::<Vec<_>>();
-
-        assert_eq!(responses.len(), 4);
-        let names = responses[1]["result"]["tools"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|tool| tool["name"].as_str().unwrap())
-            .collect::<Vec<_>>();
-        assert_eq!(names, ["workspace_projects", "refresh_workspace"]);
-        assert_eq!(
-            responses[2]["result"]["structuredContent"],
-            json!({
-                "generation": 0,
-                "roots": ["alpha", "beta/deep"]
-            })
-        );
-        assert_eq!(responses[3]["result"]["structuredContent"]["generation"], 1);
-    }
-
-    #[test]
-    fn client_root_information_does_not_change_selection() {
-        let workspace = TempWorkspace::new("client-roots");
-        workspace.write("nested/veln.toml", "");
-        let variants = [
-            json!({"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1"}}),
-            json!({"protocolVersion":"2025-06-18","capabilities":{"roots":{"listChanged":true}},"clientInfo":{"name":"test","version":"1"},"rootUri":"file:///unrelated"}),
-            json!({"protocolVersion":"2025-06-18","capabilities":{"roots":{"listChanged":false}},"clientInfo":{"name":"test","version":"1"},"roots":[{"uri":"file:///nested","name":"nested"}]}),
-        ];
-
-        for params in variants {
-            let input = format!(
-                "{}\n{}\n",
-                json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":params}),
-                json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"workspace_projects","arguments":{}}})
-            );
-            let mut output = Vec::new();
-            run(workspace.root.clone(), input.as_bytes(), &mut output).unwrap();
-            let response = String::from_utf8(output).unwrap();
-            let selection =
-                serde_json::from_str::<Value>(response.lines().nth(1).unwrap()).unwrap();
-            assert_eq!(
-                selection["result"]["structuredContent"]["roots"],
-                json!(["nested"])
-            );
-        }
-    }
-
-    #[test]
-    fn invalid_tool_inputs_are_protocol_invalid_params() {
-        let workspace = TempWorkspace::new("invalid-input");
-        let selection = Selection::discover(&workspace.root).unwrap();
-        let mut server = Server {
-            base: workspace.root.clone(),
-            selection,
-            initialized: true,
-        };
-        let requests = [
-            json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"workspace_projects","arguments":{"unknown":true}}}),
-            json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"refresh_workspace","arguments":[]}}),
-            json!({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"refresh_workspace","arguments":null}}),
-        ];
-        for request in requests {
-            let response = server.handle_request(request).unwrap();
-            assert_eq!(response["error"]["code"], -32602);
-            assert!(response.get("result").is_none());
-        }
-    }
-
-    #[test]
-    fn initialize_requires_the_declared_wire_shape() {
-        let workspace = TempWorkspace::new("initialize-wire-shape");
-        let selection = Selection::discover(&workspace.root).unwrap();
-        let mut server = Server {
-            base: workspace.root.clone(),
-            selection,
-            initialized: false,
-        };
-        let valid = json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {
-                "protocolVersion": "2025-06-18",
-                "capabilities": {},
-                "clientInfo": {"name": "test", "version": "1"},
-                "_meta": {"progressToken": "startup"}
-            }
-        });
-        let invalid_requests = [
-            json!({"jsonrpc":"2.0","id":2,"method":"initialize","params":{"capabilities":{},"clientInfo":{"name":"test","version":"1"}}}),
-            json!({"jsonrpc":"2.0","id":3,"method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"test","version":"1"}}}),
-            json!({"jsonrpc":"2.0","id":4,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test"}}}),
-            json!({"jsonrpc":"2.0","id":5,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1"},"_meta":{"progressToken":null}}}),
-        ];
-        for request in invalid_requests {
-            let response = server.handle_request(request).unwrap();
-            assert_eq!(response["error"]["code"], -32602);
-            assert!(response.get("result").is_none());
-        }
-
-        assert!(
-            server
-                .handle_request(valid.clone())
-                .unwrap()
-                .get("result")
-                .is_some()
-        );
-        let repeated = server.handle_request(valid).unwrap();
-        assert_eq!(repeated["error"]["code"], -32602);
-        assert_eq!(repeated["error"]["message"], "Server already initialized");
-        assert!(repeated.get("result").is_none());
-    }
-
-    #[test]
-    fn lifecycle_rejects_operations_before_initialize() {
-        let workspace = TempWorkspace::new("lifecycle-before-initialize");
-        let selection = Selection::discover(&workspace.root).unwrap();
-        let mut server = Server {
-            base: workspace.root.clone(),
-            selection,
-            initialized: false,
-        };
-
-        let response = server
-            .handle_request(json!({"jsonrpc":"2.0","id":1,"method":"tools/list"}))
-            .unwrap();
-        assert_eq!(response["error"]["code"], -32602);
-        assert_eq!(response["error"]["message"], "Server not initialized");
-        assert!(response.get("result").is_none());
-    }
-
-    #[test]
-    fn request_ids_accept_strings_and_numbers_but_reject_null() {
-        let workspace = TempWorkspace::new("request-ids");
-        let selection = Selection::discover(&workspace.root).unwrap();
-        let mut server = Server {
-            base: workspace.root.clone(),
-            selection,
-            initialized: true,
-        };
-
-        let null_response = server
-            .handle_request(json!({"jsonrpc":"2.0","id":null,"method":"ping"}))
-            .unwrap();
-        assert_eq!(null_response["id"], Value::Null);
-        assert_eq!(null_response["error"]["code"], -32600);
-
-        for id in [
-            json!("ok"),
-            json!(0),
-            json!(-1),
-            json!(1),
-            json!(1.5),
-            json!(1e3),
-        ] {
-            let response = server
-                .handle_request(json!({"jsonrpc":"2.0","id":id,"method":"ping"}))
-                .unwrap();
-            assert_eq!(response["result"], json!({}));
-        }
-
-        let response = server
-            .handle_request(json!({"jsonrpc":"2.0","id":"ok","method":"ping","params":{"_meta":{"progressToken":7.5}}}))
-            .unwrap();
-        assert_eq!(response["result"], json!({}));
-    }
-
-    #[test]
-    fn stdio_preserves_numeric_request_id_spellings() {
-        let workspace = TempWorkspace::new("large-request-ids");
-        let input = [
-            r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1"}}}"#,
-            r#"{"jsonrpc":"2.0","id":7.5,"method":"ping"}"#,
-            r#"{"jsonrpc":"2.0","id":1e3,"method":"ping"}"#,
-            r#"{"jsonrpc":"2.0","id":18446744073709551616,"method":"ping"}"#,
-            r#"{"jsonrpc":"2.0","id":18446744073709551617,"method":"ping"}"#,
-        ]
-        .join("\n");
-        let mut output = Vec::new();
-        run(workspace.root.clone(), input.as_bytes(), &mut output).unwrap();
-        let response = String::from_utf8(output).unwrap();
-        let lines = response.lines().collect::<Vec<_>>();
-
-        assert_eq!(lines.len(), 5);
-        assert!(lines[1].contains(r#""id":7.5"#), "{response}");
-        assert!(lines[2].contains(r#""id":1e3"#), "{response}");
-        assert!(
-            lines[3].contains(r#""id":18446744073709551616"#),
-            "{response}"
-        );
-        assert!(
-            lines[4].contains(r#""id":18446744073709551617"#),
-            "{response}"
-        );
-    }
-
-    #[test]
-    fn malformed_idless_requests_return_invalid_request_with_null_id() {
-        let workspace = TempWorkspace::new("malformed-idless");
-        let selection = Selection::discover(&workspace.root).unwrap();
-        let mut server = Server {
-            base: workspace.root.clone(),
-            selection,
-            initialized: true,
-        };
-
-        let notification = server.handle_request(json!({"jsonrpc":"2.0","method":"ping"}));
-        assert!(notification.is_none());
-
-        for request in [
-            json!({"jsonrpc":"2.0","method":7}),
-            json!({"jsonrpc":"2.0"}),
-            json!({"method":"ping"}),
-        ] {
-            let response = server.handle_request(request).unwrap();
-            assert_eq!(response["id"], Value::Null);
-            assert_eq!(response["error"]["code"], -32600);
-            assert!(response.get("result").is_none());
-        }
-    }
-
-    #[test]
-    fn refresh_domain_failure_preserves_the_observable_selection() {
-        let workspace = TempWorkspace::new("refresh-domain-failure");
-        workspace.write("alpha/veln.toml", "");
-        let selection = Selection::discover(&workspace.root).unwrap();
-        let mut server = Server {
-            base: workspace.root.clone(),
-            selection,
-            initialized: true,
-        };
-        let refresh_params = json!({"name":"refresh_workspace","arguments":{}});
-
-        let result = server
-            .call_tool_with_refresh(Some(&refresh_params), |selection| {
-                selection.refresh_with(|| Err(io::Error::other("injected discovery failure")))
-            })
-            .unwrap();
-        assert_eq!(result["isError"], true);
-        assert_eq!(
-            result["structuredContent"],
-            json!({
-                "code": "generation_failed",
-                "message": "workspace project discovery failed",
-                "details": {}
-            })
-        );
-
-        let list_params = json!({"name":"workspace_projects","arguments":{}});
-        let following = server.call_tool(Some(&list_params)).unwrap();
-        assert_eq!(
-            following["structuredContent"],
-            json!({"generation": 0, "roots": ["alpha"]})
-        );
-    }
-
-    struct TempWorkspace {
-        root: PathBuf,
-    }
-
-    impl TempWorkspace {
-        fn new(name: &str) -> Self {
-            let nonce = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos();
-            let root = std::env::temp_dir().join(format!(
-                "veln-mcp-server-{name}-{}-{nonce}",
-                std::process::id()
-            ));
-            fs::create_dir_all(&root).unwrap();
-            Self { root }
-        }
-
-        fn write(&self, relative: &str, contents: &str) {
-            let path = self.root.join(relative);
-            if let Some(parent) = path.parent() {
-                fs::create_dir_all(parent).unwrap();
-            }
-            fs::write(path, contents).unwrap();
-        }
-    }
-
-    impl Drop for TempWorkspace {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.root);
-        }
-    }
-}
+mod tests;
