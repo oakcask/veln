@@ -581,6 +581,32 @@ impl SymbolIndex {
             .map(Symbol::Function)
     }
 
+    fn function_for_bare_reference(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<FunctionSymbol> {
+        if local_binding_shadows_call_target(tokens, token_index, name) {
+            return None;
+        }
+        if let Some(symbol) = self.functions.iter().find(|symbol| {
+            symbol.name == name && symbol.module == file.module && symbol.package.is_none()
+        }) {
+            return Some(symbol.clone());
+        }
+        if self.has_visible_non_prelude_imported_function(file, name)
+            || self.has_visible_non_prelude_imported_constructor(file, name)
+        {
+            return None;
+        }
+        self.functions
+            .iter()
+            .find(|symbol| symbol.name == name && symbol.standard_prelude)
+            .cloned()
+    }
+
     fn symbol_for_qualified_call(
         &self,
         file: &IndexedFile,
@@ -852,25 +878,39 @@ impl SymbolIndex {
                 {
                     return file.module == symbol.module;
                 }
-                if !is_call_target_token(&tokens, *index)
-                    || is_field_name(&tokens, *index)
+                if is_field_name(&tokens, *index)
                     || is_function_declaration_name(&tokens, *index)
                     || is_parameter_name(&tokens, *index)
                     || is_local_binding_name(&tokens, *index)
                     || is_handler_operation_clause_operation_name(&tokens, *index)
+                    || is_qualifier_segment(&tokens, *index)
                 {
                     return false;
                 }
-                let resolved = match qualifier_for_token(&tokens, *index) {
-                    Some(qualifier) => self.symbol_for_qualified_call(file, &qualifier, &token.text),
-                    None => {
+                let is_call = is_call_target_token(&tokens, *index);
+                let resolved = match (qualifier_for_token(&tokens, *index), is_call) {
+                    (Some(qualifier), true) => self
+                        .symbol_for_qualified_call(file, &qualifier, &token.text)
+                        .and_then(|symbol| match symbol {
+                            Symbol::Function(symbol) => Some(symbol),
+                            Symbol::Constructor(_) | Symbol::Local(_) => None,
+                        }),
+                    (Some(_), false) => None,
+                    (None, true) => {
                         if local_binding_shadows_call_target(&tokens, *index, &token.text) {
                             return false;
                         }
                         self.symbol_for_bare_call(file, &tokens, *index, &token.text)
+                            .and_then(|symbol| match symbol {
+                                Symbol::Function(symbol) => Some(symbol),
+                                Symbol::Constructor(_) | Symbol::Local(_) => None,
+                            })
+                    }
+                    (None, false) => {
+                        self.function_for_bare_reference(file, &tokens, *index, &token.text)
                     }
                 };
-                matches!(resolved, Some(Symbol::Function(resolved)) if same_function(&resolved, symbol))
+                matches!(resolved, Some(resolved) if same_function(&resolved, symbol))
             })
             .map(|(_, token)| file.source.span(token.range))
             .collect()
@@ -1873,6 +1913,10 @@ fn is_codec_implementation_function_reference(tokens: &[Token], index: usize, na
 
 fn is_call_target_token(tokens: &[Token], index: usize) -> bool {
     next_non_whitespace_token(tokens, index).is_some_and(|next| next.kind == TokenKind::LParen)
+}
+
+fn is_qualifier_segment(tokens: &[Token], index: usize) -> bool {
+    next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::DoubleColon)
 }
 
 fn is_handler_operation_clause_operation_name(tokens: &[Token], index: usize) -> bool {
