@@ -1,0 +1,280 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "oneOf": [
+    {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "analysis": {
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "mode": {
+                  "const": "project"
+                },
+                "generation": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "project": {
+                  "type": "string"
+                },
+                "project_wide": {
+                  "const": true
+                }
+              },
+              "required": ["mode", "generation", "project", "project_wide"],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "mode": {
+                  "const": "single_file"
+                },
+                "generation": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "project": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "project_wide": {
+                  "const": false
+                }
+              },
+              "required": ["mode", "generation", "project", "source", "project_wide"],
+              "type": "object"
+            }
+          ]
+        },
+        "diagnostics": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "span": {
+                "$ref": "#/$defs/span"
+              },
+              "related": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "span": {
+                      "oneOf": [
+                        {
+                          "$ref": "#/$defs/span"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "effect": {
+                      "type": "string"
+                    },
+                    "operations": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "boundary": {
+                      "type": "string"
+                    },
+                    "declared_effects": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "known_effects": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "field_path": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "kind": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["kind", "name"],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "field_path_display": {
+                      "type": "string"
+                    },
+                    "source_path": {
+                      "type": "string"
+                    },
+                    "source_kind": {
+                      "type": "string"
+                    },
+                    "package": {
+                      "type": "string"
+                    },
+                    "companion_path": {
+                      "type": "string"
+                    },
+                    "companion_target": {
+                      "type": "string"
+                    },
+                    "companion_target_module": {
+                      "type": "string"
+                    },
+                    "declaration_kind": {
+                      "type": "string"
+                    },
+                    "handler": {
+                      "type": "string"
+                    },
+                    "handler_module": {
+                      "type": "string"
+                    },
+                    "handled_effect": {
+                      "type": "string"
+                    },
+                    "target_module": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "details": {
+                "type": "object"
+              }
+            },
+            "required": ["id", "kind", "severity", "message", "span", "related", "details"],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "summary": {
+          "additionalProperties": false,
+          "properties": {
+            "diagnostic_count": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "by_severity": {
+              "additionalProperties": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "by_kind": {
+              "additionalProperties": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "type": "object"
+            }
+          },
+          "required": ["diagnostic_count", "by_severity", "by_kind"],
+          "type": "object"
+        }
+      },
+      "required": ["schema_version", "analysis", "diagnostics", "summary"],
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "enum": [
+            "invalid_path",
+            "invalid_query",
+            "source_required",
+            "project_not_selected",
+            "project_ambiguous",
+            "snapshot_changed"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "object"
+        }
+      },
+      "required": ["code", "message", "details"],
+      "type": "object"
+    }
+  ],
+  "$defs": {
+    "position": {
+      "additionalProperties": false,
+      "properties": {
+        "line": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "column": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "offset": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": ["line", "column", "offset"],
+      "type": "object"
+    },
+    "span": {
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/position"
+        },
+        "end": {
+          "$ref": "#/$defs/position"
+        }
+      },
+      "required": ["file", "start", "end"],
+      "type": "object"
+    }
+  }
+}

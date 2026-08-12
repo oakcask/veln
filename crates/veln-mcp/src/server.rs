@@ -3,14 +3,16 @@ use std::path::PathBuf;
 
 use serde_json::{Value, json};
 
+use crate::check_project::{self, CheckProjectOutcome};
 use crate::schema;
-use crate::workspace::Selection;
+use crate::workspace::{Selection, WorkspaceBase};
 
 const PROTOCOL_VERSION: &str = "2025-06-18";
 
 pub(crate) fn run(base: PathBuf, reader: impl BufRead, mut writer: impl Write) -> io::Result<()> {
+    let base = WorkspaceBase::open(base)?;
     let mut server = Server {
-        selection: Selection::discover(&base)?,
+        selection: Selection::discover(base.path())?,
         base,
         initialized: false,
     };
@@ -25,7 +27,7 @@ pub(crate) fn run(base: PathBuf, reader: impl BufRead, mut writer: impl Write) -
 }
 
 struct Server {
-    base: PathBuf,
+    base: WorkspaceBase,
     selection: Selection,
     initialized: bool,
 }
@@ -108,7 +110,7 @@ impl Server {
 
     fn call_tool(&mut self, params: Option<&Value>) -> Result<Value, &'static str> {
         let base = self.base.clone();
-        self.call_tool_with_refresh(params, |selection| selection.refresh(&base))
+        self.call_tool_with_refresh(params, |selection| selection.refresh(base.path()))
     }
 
     fn call_tool_with_refresh(
@@ -125,8 +127,34 @@ impl Server {
         Ok(match call.name {
             "workspace_projects" => successful_tool_result(self.selection_result()),
             "refresh_workspace" => self.refresh_workspace_tool(refresh),
+            "check_project" => self.check_project_tool(arguments),
             _ => unreachable!("tool name was checked against declarations"),
         })
+    }
+
+    fn check_project_tool(&self, arguments: &Value) -> Value {
+        let tool = schema::tool("check_project").expect("check_project tool is declared");
+        match check_project::check_project(&self.base, &self.selection, arguments) {
+            CheckProjectOutcome::Success(result) => {
+                assert!(
+                    tool.accepts_result(&result),
+                    "check_project success result must match the advertised schema"
+                );
+                successful_tool_result(result)
+            }
+            CheckProjectOutcome::DomainFailure {
+                code,
+                message,
+                details,
+            } => {
+                let result = json!({"code": code, "message": message, "details": details});
+                assert!(
+                    tool.accepts_result(&result),
+                    "check_project domain result must match the advertised schema"
+                );
+                domain_failure(code, message, result["details"].clone())
+            }
+        }
     }
 
     fn refresh_workspace_tool(

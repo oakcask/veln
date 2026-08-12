@@ -1,19 +1,219 @@
 use std::ffi::OsStr;
 use std::fs;
+#[cfg(target_os = "linux")]
+use std::fs::File;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+#[cfg(target_os = "linux")]
+use std::sync::Arc;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct Selection {
     generation: u64,
     roots: Vec<String>,
+    kinds: Vec<SelectedRootKind>,
+    identities: Vec<Option<SelectedRootIdentity>>,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct WorkspaceBase {
+    path: PathBuf,
+    identity: FileIdentity,
+    #[cfg(target_os = "linux")]
+    dir: Arc<File>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum SelectedRootKind {
+    Manifest,
+    Anonymous,
+}
+
+type DiscoverySelection = (
+    Vec<String>,
+    Vec<SelectedRootKind>,
+    Vec<Option<SelectedRootIdentity>>,
+);
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct FileIdentity {
+    #[cfg(unix)]
+    device: u64,
+    #[cfg(unix)]
+    inode: u64,
+    #[cfg(unix)]
+    changed_seconds: i64,
+    #[cfg(unix)]
+    changed_nanoseconds: i64,
+    #[cfg(windows)]
+    volume_serial_number: Option<u32>,
+    #[cfg(windows)]
+    file_index: Option<u64>,
+    #[cfg(not(any(unix, windows)))]
+    len: u64,
+    #[cfg(not(any(unix, windows)))]
+    modified: Option<std::time::SystemTime>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct SelectedRootIdentity {
+    root: FileIdentity,
+    manifest: Option<FileIdentity>,
+}
+
+impl WorkspaceBase {
+    pub(crate) fn open(path: PathBuf) -> io::Result<Self> {
+        let path = path.canonicalize()?;
+        let identity = FileIdentity::read(&path)?;
+        #[cfg(target_os = "linux")]
+        let dir = Arc::new(File::open(&path)?);
+        Ok(Self {
+            path,
+            identity,
+            #[cfg(target_os = "linux")]
+            dir,
+        })
+    }
+
+    pub(crate) fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub(crate) fn matches_current(&self) -> io::Result<bool> {
+        Ok(self
+            .identity
+            .matches_same_file(&FileIdentity::read(&self.path)?))
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(crate) fn dir(&self) -> &File {
+        &self.dir
+    }
+}
+
+impl SelectedRootIdentity {
+    pub(crate) fn read(root: &Path) -> io::Result<Self> {
+        Ok(Self {
+            root: FileIdentity::read(root)?,
+            manifest: if is_regular_manifest(root)? {
+                Some(FileIdentity::read(&root.join("veln.toml"))?)
+            } else {
+                None
+            },
+        })
+    }
+
+    pub(crate) fn matches_current(&self, root: &Path) -> io::Result<bool> {
+        if !self.root.matches_same_file(&FileIdentity::read(root)?) {
+            return Ok(false);
+        }
+        let Some(manifest) = &self.manifest else {
+            return Ok(true);
+        };
+        Ok(Some(manifest.clone())
+            == if is_regular_manifest(root)? {
+                Some(FileIdentity::read(&root.join("veln.toml"))?)
+            } else {
+                None
+            })
+    }
+}
+
+impl FileIdentity {
+    pub(crate) fn read(path: &Path) -> io::Result<Self> {
+        Self::from_metadata(&fs::symlink_metadata(path)?)
+    }
+
+    fn from_metadata(metadata: &fs::Metadata) -> io::Result<Self> {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+
+            Ok(Self {
+                device: metadata.dev(),
+                inode: metadata.ino(),
+                changed_seconds: metadata.ctime(),
+                changed_nanoseconds: metadata.ctime_nsec(),
+            })
+        }
+
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::MetadataExt;
+
+            Ok(Self {
+                volume_serial_number: metadata.volume_serial_number(),
+                file_index: metadata.file_index(),
+            })
+        }
+
+        #[cfg(not(any(unix, windows)))]
+        {
+            Ok(Self {
+                len: metadata.len(),
+                modified: metadata.modified().ok(),
+            })
+        }
+    }
+
+    pub(crate) fn to_json(&self) -> serde_json::Value {
+        #[cfg(unix)]
+        {
+            serde_json::json!({
+                "device": self.device,
+                "inode": self.inode,
+                "changed_seconds": self.changed_seconds,
+                "changed_nanoseconds": self.changed_nanoseconds,
+            })
+        }
+
+        #[cfg(windows)]
+        {
+            serde_json::json!({
+                "volume_serial_number": self.volume_serial_number,
+                "file_index": self.file_index,
+            })
+        }
+
+        #[cfg(not(any(unix, windows)))]
+        {
+            serde_json::json!({
+                "len": self.len,
+                "modified": self
+                    .modified
+                    .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|duration| duration.as_nanos().to_string()),
+            })
+        }
+    }
+
+    fn matches_same_file(&self, other: &Self) -> bool {
+        #[cfg(unix)]
+        {
+            self.device == other.device && self.inode == other.inode
+        }
+
+        #[cfg(windows)]
+        {
+            self.volume_serial_number == other.volume_serial_number
+                && self.file_index == other.file_index
+        }
+
+        #[cfg(not(any(unix, windows)))]
+        {
+            self == other
+        }
+    }
 }
 
 impl Selection {
     pub(crate) fn discover(base: &Path) -> io::Result<Self> {
+        let (roots, kinds, identities) = discover_selection(base)?;
         Ok(Self {
             generation: 0,
-            roots: discover_roots(base)?,
+            roots,
+            kinds,
+            identities,
         })
     }
 
@@ -25,28 +225,50 @@ impl Selection {
         &self.roots
     }
 
+    pub(crate) fn root_kind(&self, path: &str) -> Option<SelectedRootKind> {
+        self.roots
+            .iter()
+            .zip(self.kinds.iter())
+            .find(|(root, _)| root.as_str() == path)
+            .map(|(_, kind)| *kind)
+    }
+
+    pub(crate) fn root_identity(&self, path: &str) -> Option<&SelectedRootIdentity> {
+        self.roots
+            .iter()
+            .zip(self.identities.iter())
+            .find(|(root, _)| root.as_str() == path)
+            .and_then(|(_, identity)| identity.as_ref())
+    }
+
     pub(crate) fn refresh(&mut self, base: &Path) -> io::Result<()> {
-        self.refresh_with(|| discover_roots(base))
+        self.refresh_with(|| discover_selection(base))
     }
 
     pub(crate) fn refresh_with(
         &mut self,
-        discover: impl FnOnce() -> io::Result<Vec<String>>,
+        discover: impl FnOnce() -> io::Result<DiscoverySelection>,
     ) -> io::Result<()> {
-        let roots = discover()?;
+        let (roots, kinds, identities) = discover()?;
         let generation = self
             .generation
             .checked_add(1)
             .ok_or_else(|| io::Error::other("workspace generation exhausted"))?;
         self.roots = roots;
+        self.kinds = kinds;
+        self.identities = identities;
         self.generation = generation;
         Ok(())
     }
 }
 
-fn discover_roots(base: &Path) -> io::Result<Vec<String>> {
+fn discover_selection(base: &Path) -> io::Result<DiscoverySelection> {
     if is_regular_manifest(base)? {
-        return Ok(vec![".".to_string()]);
+        return Ok((
+            vec![".".to_string()],
+            vec![SelectedRootKind::Manifest],
+            vec![Some(SelectedRootIdentity::read(base)?)],
+        ));
     }
 
     let mut roots = Vec::new();
@@ -55,8 +277,18 @@ fn discover_roots(base: &Path) -> io::Result<Vec<String>> {
     roots.dedup();
     if roots.is_empty() {
         roots.push(".".to_string());
+        return Ok((
+            roots,
+            vec![SelectedRootKind::Anonymous],
+            vec![Some(SelectedRootIdentity::read(base)?)],
+        ));
     }
-    Ok(roots)
+    let kinds = vec![SelectedRootKind::Manifest; roots.len()];
+    let identities = roots
+        .iter()
+        .map(|root| SelectedRootIdentity::read(&root_path(base, root)).map(Some))
+        .collect::<io::Result<Vec<_>>>()?;
+    Ok((roots, kinds, identities))
 }
 
 fn discover_branches(base: &Path, directory: &Path, roots: &mut Vec<String>) -> io::Result<()> {
@@ -107,6 +339,14 @@ fn relative_root(base: &Path, root: &Path) -> io::Result<String> {
         .map(|components| components.join("/"))
 }
 
+fn root_path(base: &Path, root: &str) -> std::path::PathBuf {
+    if root == "." {
+        base.to_path_buf()
+    } else {
+        base.join(root)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -144,6 +384,11 @@ mod tests {
                 expected: &["."],
             },
             Case {
+                name: "manifest named directory",
+                files: &["veln.toml/ignored", "nested/veln.toml/ignored"],
+                expected: &["."],
+            },
+            Case {
                 name: "git skipped and target ordinary",
                 files: &[".git/hidden/veln.toml", "target/project/veln.toml"],
                 expected: &["target/project"],
@@ -178,13 +423,9 @@ mod tests {
     fn refresh_replaces_selection_only_after_success() {
         let project = TempWorkspace::new("refresh");
         let mut selection = Selection::discover(project.root()).unwrap();
-        assert_eq!(
-            selection,
-            Selection {
-                generation: 0,
-                roots: vec![".".into()]
-            }
-        );
+        assert_eq!(selection.generation(), 0);
+        assert_eq!(selection.roots(), ["."]);
+        assert_eq!(selection.root_kind("."), Some(SelectedRootKind::Anonymous));
 
         project.write("nested/veln.toml", "");
         assert_eq!(selection.roots(), ["."]);
@@ -193,7 +434,11 @@ mod tests {
             selection,
             Selection {
                 generation: 1,
-                roots: vec!["nested".into()]
+                roots: vec!["nested".into()],
+                kinds: vec![SelectedRootKind::Manifest],
+                identities: vec![Some(
+                    SelectedRootIdentity::read(&project.path("nested")).unwrap()
+                )],
             }
         );
 
@@ -205,7 +450,11 @@ mod tests {
             selection,
             Selection {
                 generation: 2,
-                roots: vec!["renamed".into()]
+                roots: vec!["renamed".into()],
+                kinds: vec![SelectedRootKind::Manifest],
+                identities: vec![Some(
+                    SelectedRootIdentity::read(&project.path("renamed")).unwrap()
+                )],
             }
         );
     }
@@ -224,6 +473,46 @@ mod tests {
             "injected discovery failure"
         );
         assert_eq!(selection, previous);
+    }
+
+    #[test]
+    fn exhausted_generation_preserves_roots_and_generation() {
+        let mut selection = Selection {
+            generation: u64::MAX,
+            roots: vec!["alpha".into()],
+            kinds: vec![SelectedRootKind::Manifest],
+            identities: vec![None],
+        };
+        let previous = selection.clone();
+
+        let failure = selection.refresh_with(|| {
+            Ok((
+                vec!["beta".into()],
+                vec![SelectedRootKind::Manifest],
+                vec![None],
+            ))
+        });
+
+        assert_eq!(
+            failure.unwrap_err().to_string(),
+            "workspace generation exhausted"
+        );
+        assert_eq!(selection, previous);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn manifest_symlinks_do_not_select_projects() {
+        use std::os::unix::fs::symlink;
+
+        let project = TempWorkspace::new("manifest-symlink");
+        project.write("manifest", "");
+        fs::create_dir_all(project.path("nested")).unwrap();
+        symlink(project.path("manifest"), project.path("veln.toml")).unwrap();
+        symlink(project.path("manifest"), project.path("nested/veln.toml")).unwrap();
+
+        let selection = Selection::discover(project.root()).unwrap();
+        assert_eq!(selection.roots(), ["."]);
     }
 
     #[cfg(unix)]
