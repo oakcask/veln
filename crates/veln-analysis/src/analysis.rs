@@ -18,7 +18,8 @@ use veln_source::SourceSpan;
 use veln_test::{DoctestExpectation, doctest_sources, reconcile_expected_doctest_failures};
 
 use crate::surface::{
-    ReachabilityCache, load_embedded_standard_surface_module_for_names, load_surface_modules,
+    CapturedDependencyProject, ReachabilityCache, load_embedded_standard_surface_module_for_names,
+    load_surface_modules, load_surface_modules_with_captured_dependencies,
     reachable_entry_module_with_standard_cache,
 };
 
@@ -224,6 +225,61 @@ pub(crate) fn analyze_project_with_test_standard_cache(
 
 pub fn checked_project_diagnostics(project: Project, doctest_mode: DoctestMode) -> Vec<Diagnostic> {
     analyze_project(project, doctest_mode).checked_diagnostics()
+}
+
+pub fn checked_project_diagnostics_with_captured_dependencies(
+    project: Project,
+    doctest_mode: DoctestMode,
+    dependencies: Vec<CapturedDependencyProject>,
+) -> Vec<Diagnostic> {
+    analyze_project_with_captured_dependencies(project, doctest_mode, &dependencies)
+        .checked_diagnostics()
+}
+
+fn analyze_project_with_captured_dependencies(
+    mut project: Project,
+    doctest_mode: DoctestMode,
+    dependencies: &[CapturedDependencyProject],
+) -> ProjectAnalysis {
+    let doctests = match doctest_mode {
+        DoctestMode::Include => Some(doctest_sources(&project.files)),
+        DoctestMode::Exclude => None,
+    };
+    let mut source_diagnostics = Vec::new();
+    let mut doctest_expectations = BTreeMap::new();
+    let mut expected_doctest_failures = BTreeMap::new();
+
+    if let Some(doctests) = doctests {
+        source_diagnostics.extend(doctests.diagnostics);
+        project.files.extend(doctests.sources);
+        doctest_expectations = doctests.expectations;
+        expected_doctest_failures = doctests.expected_failures;
+    }
+
+    let (loaded, parse_diagnostics) =
+        load_surface_modules_with_captured_dependencies(&project, dependencies);
+    source_diagnostics.extend(parse_diagnostics);
+
+    let standard = standard_environment_for_modules(&loaded.selected_standard_module_names);
+    let (semantic_diagnostics, checked) =
+        check_project_surface_module_with_standard_modules_environment(
+            &loaded.application,
+            &loaded.selected_standard_module_names,
+            &standard.environment,
+        );
+
+    ProjectAnalysis {
+        project,
+        module: loaded.application,
+        selected_standard: standard.module,
+        selected_standard_module_names: loaded.selected_standard_module_names,
+        doctest_expectations,
+        source_diagnostics,
+        semantic_diagnostics,
+        checked,
+        expected_doctest_failures,
+        reachability_cache: ReachabilityCache::default(),
+    }
 }
 
 impl ProjectAnalysis {

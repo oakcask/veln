@@ -3,7 +3,9 @@ use std::io;
 use std::path::{Component, Path, PathBuf};
 
 use serde_json::{Value, json};
-use veln_analysis::{DoctestMode, checked_project_diagnostics};
+use veln_analysis::{
+    CapturedDependencyProject, DoctestMode, checked_project_diagnostics_with_captured_dependencies,
+};
 use veln_diagnostics::diagnostic_to_json;
 use veln_project::{Project, dependency_root};
 
@@ -43,10 +45,14 @@ pub(crate) fn check_project(
         }
     };
 
-    let diagnostics = checked_project_diagnostics(captured, DoctestMode::Exclude)
-        .iter()
-        .map(diagnostic_to_serde)
-        .collect::<Vec<_>>();
+    let diagnostics = checked_project_diagnostics_with_captured_dependencies(
+        captured.project,
+        DoctestMode::Exclude,
+        captured.dependencies,
+    )
+    .iter()
+    .map(diagnostic_to_serde)
+    .collect::<Vec<_>>();
     let structured = json!({
         "schema_version": 1,
         "analysis": target.metadata(selection.generation()),
@@ -293,20 +299,20 @@ enum CaptureError {
     Io,
 }
 
-fn capture_stable_project(target: &Target) -> Result<Project, CaptureError> {
+fn capture_stable_project(target: &Target) -> Result<CapturedProject, CaptureError> {
     capture_stable_project_with(|| capture_once(target))
 }
 
 fn capture_stable_project_with(
     mut capture: impl FnMut() -> io::Result<CapturedProject>,
-) -> Result<Project, CaptureError> {
+) -> Result<CapturedProject, CaptureError> {
     let mut first_error = None;
     for _ in 0..SNAPSHOT_ATTEMPTS {
         let first = capture();
         let second = capture();
         match (first, second) {
             (Ok(first), Ok(second)) if first.key == second.key => {
-                return Ok(first.project);
+                return Ok(first);
             }
             (Ok(_), Ok(_)) => {}
             (Err(error), _) | (_, Err(error)) => first_error = Some(error),
@@ -321,6 +327,7 @@ fn capture_stable_project_with(
 
 struct CapturedProject {
     project: Project,
+    dependencies: Vec<CapturedDependencyProject>,
     key: Value,
 }
 
@@ -336,21 +343,26 @@ fn capture_once(target: &Target) -> io::Result<CapturedProject> {
             "selected manifest project no longer has a manifest",
         ));
     }
-    let key = snapshot_key(&project)?;
-    Ok(CapturedProject { project, key })
+    let dependencies = dependency_snapshots(&project)?;
+    let key = snapshot_key(&project, &dependencies);
+    Ok(CapturedProject {
+        project,
+        dependencies,
+        key,
+    })
 }
 
-fn snapshot_key(project: &Project) -> io::Result<Value> {
-    Ok(json!({
+fn snapshot_key(project: &Project, dependencies: &[CapturedDependencyProject]) -> Value {
+    json!({
         "manifest": project.manifest.as_ref().map(|manifest| &manifest.source_bytes),
         "files": project.files.iter().map(|file| {
             json!({"path": file.path().as_str(), "text": file.text()})
         }).collect::<Vec<_>>(),
-        "dependencies": dependency_snapshot_keys(project)?,
-    }))
+        "dependencies": dependencies.iter().map(dependency_snapshot_key).collect::<Vec<_>>(),
+    })
 }
 
-fn dependency_snapshot_keys(project: &Project) -> io::Result<Vec<Value>> {
+fn dependency_snapshots(project: &Project) -> io::Result<Vec<CapturedDependencyProject>> {
     let Some(manifest) = &project.manifest else {
         return Ok(Vec::new());
     };
@@ -361,24 +373,40 @@ fn dependency_snapshot_keys(project: &Project) -> io::Result<Vec<Value>> {
         };
         let dependency_root = dependency_root(&project.root, &source.value);
         let Ok(dependency_project) = Project::discover(dependency_root, &[]) else {
-            snapshots.push(json!({
-                "package": dependency.package,
-                "root": source.value,
-                "unavailable": true,
-            }));
+            snapshots.push(CapturedDependencyProject {
+                package: dependency.package.clone(),
+                source: source.value.clone(),
+                project: None,
+            });
             continue;
         };
-        snapshots.push(json!({
-            "package": dependency.package,
-            "root": source.value,
-            "manifest": dependency_project.manifest.as_ref().map(|manifest| &manifest.source_bytes),
-            "files": dependency_project.files.iter().map(|file| {
-                json!({"path": file.path().as_str(), "text": file.text()})
-            }).collect::<Vec<_>>()
-        }));
+        snapshots.push(CapturedDependencyProject {
+            package: dependency.package.clone(),
+            source: source.value.clone(),
+            project: Some(dependency_project),
+        });
     }
-    snapshots.sort_by_key(Value::to_string);
+    snapshots
+        .sort_by(|left, right| (&left.package, &left.source).cmp(&(&right.package, &right.source)));
     Ok(snapshots)
+}
+
+fn dependency_snapshot_key(snapshot: &CapturedDependencyProject) -> Value {
+    let Some(project) = &snapshot.project else {
+        return json!({
+            "package": snapshot.package,
+            "root": snapshot.source,
+            "unavailable": true,
+        });
+    };
+    json!({
+        "package": snapshot.package,
+        "root": snapshot.source,
+        "manifest": project.manifest.as_ref().map(|manifest| &manifest.source_bytes),
+        "files": project.files.iter().map(|file| {
+            json!({"path": file.path().as_str(), "text": file.text()})
+        }).collect::<Vec<_>>()
+    })
 }
 
 fn validate_manifest_root(root: &Path) -> io::Result<()> {
@@ -502,6 +530,71 @@ mod tests {
                     ),
                 ],
             ),
+            (
+                "dependency",
+                vec![
+                    captured_project_with_dependencies(
+                        vec![("main.veln", clean_source())],
+                        Some(dependency_manifest()),
+                        vec![captured_dependency(
+                            "dep",
+                            "../dep",
+                            vec![("lib.veln", clean_source())],
+                            Some("name = \"dep\"\n"),
+                        )],
+                    ),
+                    captured_project_with_dependencies(
+                        vec![("main.veln", clean_source())],
+                        Some(dependency_manifest()),
+                        vec![captured_dependency(
+                            "dep",
+                            "../dep",
+                            vec![("lib.veln", "fn answer() -> Int\n  2\nend\n")],
+                            Some("name = \"dep\"\n"),
+                        )],
+                    ),
+                    captured_project_with_dependencies(
+                        vec![("main.veln", clean_source())],
+                        Some(dependency_manifest()),
+                        vec![captured_dependency(
+                            "dep",
+                            "../dep",
+                            vec![("lib.veln", clean_source())],
+                            Some("name = \"dep\"\n"),
+                        )],
+                    ),
+                    captured_project_with_dependencies(
+                        vec![("main.veln", clean_source())],
+                        Some(dependency_manifest()),
+                        vec![captured_dependency(
+                            "dep",
+                            "../dep",
+                            vec![("lib.veln", "fn answer() -> Int\n  2\nend\n")],
+                            Some("name = \"dep\"\n"),
+                        )],
+                    ),
+                    captured_project_with_dependencies(
+                        vec![("main.veln", clean_source())],
+                        Some(dependency_manifest()),
+                        vec![captured_dependency(
+                            "dep",
+                            "../dep",
+                            vec![("lib.veln", clean_source())],
+                            Some("name = \"dep\"\n"),
+                        )],
+                    ),
+                    captured_project_with_dependencies(
+                        vec![("main.veln", clean_source())],
+                        Some(dependency_manifest()),
+                        vec![captured_dependency(
+                            "dep",
+                            "../dep",
+                            vec![("lib.veln", "fn answer() -> Int\n  2\nend\n")],
+                            Some("name = \"dep\"\n"),
+                        )],
+                    ),
+                ],
+            ),
         ];
 
         for (name, captures) in cases {
@@ -512,7 +605,53 @@ mod tests {
         }
     }
 
+    #[test]
+    fn captured_direct_local_dependencies_feed_successful_analysis() {
+        let captured = captured_project_with_dependencies(
+            vec![(
+                "main.veln",
+                concat!(
+                    "use foo from \"github.com/oakcask/foo\"\n\n",
+                    "pub fn main() -> Int\n",
+                    "  add_one(1)\n",
+                    "end\n",
+                ),
+            )],
+            Some("[dependencies.\"github.com/oakcask/foo\"]\npath = \"vendor/foo\"\n"),
+            vec![captured_dependency(
+                "github.com/oakcask/foo",
+                "vendor/foo",
+                vec![(
+                    "foo.veln",
+                    "pub fn add_one(value: Int) -> Int\n  value + 1\nend\n",
+                )],
+                Some(concat!(
+                    "[package]\n",
+                    "name = \"github.com/oakcask/foo\"\n\n",
+                    "[lib]\n",
+                    "exports = [\"foo.veln\"]\n",
+                )),
+            )],
+        );
+
+        let diagnostics = checked_project_diagnostics_with_captured_dependencies(
+            captured.project,
+            DoctestMode::Exclude,
+            captured.dependencies,
+        );
+
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    }
+
     fn captured_project(files: Vec<(&str, &str)>, manifest: Option<&str>) -> CapturedProject {
+        captured_project_with_dependencies(files, manifest, Vec::new())
+    }
+
+    fn captured_project_with_dependencies(
+        files: Vec<(&str, &str)>,
+        manifest: Option<&str>,
+        dependencies: Vec<CapturedDependencyProject>,
+    ) -> CapturedProject {
         let project = Project {
             root: PathBuf::from("."),
             files: files
@@ -521,8 +660,36 @@ mod tests {
                 .collect(),
             manifest: manifest.map(|text| parse_manifest_text("veln.toml", text)),
         };
-        let key = snapshot_key(&project).unwrap();
-        CapturedProject { project, key }
+        let key = snapshot_key(&project, &dependencies);
+        CapturedProject {
+            project,
+            dependencies,
+            key,
+        }
+    }
+
+    fn captured_dependency(
+        package: &str,
+        source: &str,
+        files: Vec<(&str, &str)>,
+        manifest: Option<&str>,
+    ) -> CapturedDependencyProject {
+        CapturedDependencyProject {
+            package: package.to_string(),
+            source: source.to_string(),
+            project: Some(Project {
+                root: PathBuf::from(source),
+                files: files
+                    .into_iter()
+                    .map(|(path, text)| SourceFile::new(path, text))
+                    .collect(),
+                manifest: manifest.map(|text| parse_manifest_text("veln.toml", text)),
+            }),
+        }
+    }
+
+    fn dependency_manifest() -> &'static str {
+        "[dependencies.dep]\npath = \"../dep\"\n"
     }
 
     fn clean_source() -> &'static str {

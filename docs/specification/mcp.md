@@ -67,9 +67,11 @@ the operation reports `snapshot_changed` instead of reclassifying the root.
 ## Project Diagnostics
 
 `check_project` analyzes one immutable saved snapshot. It retries capture when
-the manifest bytes, owned source path set, or source bytes change during the
-operation. If no stable capture is available, the tool returns a domain failure
-with code `snapshot_changed` and no partial diagnostics.
+the selected manifest bytes, owned source path set, owned source bytes, or
+direct local dependency manifest and source bytes change during the operation.
+Successful analysis uses the captured direct local dependency inputs. If no
+stable capture is available, the tool returns a domain failure with code
+`snapshot_changed` and no partial diagnostics.
 
 Project selection follows the current workspace selection. An explicit
 manifest project must name one selected root and must omit `source`.
@@ -107,4 +109,5 @@ advertised `check_project` schema and a diagnostic result over stdio.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous
-isolation, clean analysis, and structured language diagnostics.
+isolation, direct local dependency snapshots, clean analysis, and structured
+language diagnostics.

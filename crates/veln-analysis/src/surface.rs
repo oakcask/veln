@@ -71,18 +71,33 @@ pub(crate) struct LoadedSurfaceModules {
     pub(crate) selected_standard_module_names: BTreeSet<String>,
 }
 
+#[derive(Clone, Debug)]
+pub struct CapturedDependencyProject {
+    pub package: String,
+    pub source: String,
+    pub project: Option<Project>,
+}
+
 pub fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diagnostic>) {
-    let (modules, diagnostics) = load_surface_modules_with_combined(project, true);
+    let (modules, diagnostics) = load_surface_modules_with_combined(project, true, None);
     (modules.combined, diagnostics)
 }
 
 pub(crate) fn load_surface_modules(project: &Project) -> (LoadedSurfaceModules, Vec<Diagnostic>) {
-    load_surface_modules_with_combined(project, false)
+    load_surface_modules_with_combined(project, false, None)
+}
+
+pub(crate) fn load_surface_modules_with_captured_dependencies(
+    project: &Project,
+    dependencies: &[CapturedDependencyProject],
+) -> (LoadedSurfaceModules, Vec<Diagnostic>) {
+    load_surface_modules_with_combined(project, false, Some(dependencies))
 }
 
 fn load_surface_modules_with_combined(
     project: &Project,
     include_combined: bool,
+    captured_dependencies: Option<&[CapturedDependencyProject]>,
 ) -> (LoadedSurfaceModules, Vec<Diagnostic>) {
     let mut diagnostics = Vec::new();
     let mut parts = SurfaceParts::new();
@@ -98,7 +113,7 @@ fn load_surface_modules_with_combined(
     diagnostics.extend(validate_companion_sources(project));
     diagnostics.extend(validate_companion_public_declarations(&parts.module));
     diagnostics.extend(validate_reserved_standard_package(project, toolchain_std));
-    load_external_dependencies(project, &mut diagnostics, &mut parts);
+    load_external_dependencies(project, captured_dependencies, &mut diagnostics, &mut parts);
     rewrite_standard_import_targets(&mut parts.module.uses);
     add_implicit_standard_prelude_imports(&mut parts);
     let selected_standard = if toolchain_std {
@@ -434,6 +449,7 @@ fn external_module_key(package: &str, module_name: &str) -> String {
 
 fn load_external_dependencies(
     project: &Project,
+    captured_dependencies: Option<&[CapturedDependencyProject]>,
     diagnostics: &mut Vec<Diagnostic>,
     parts: &mut SurfaceParts,
 ) {
@@ -459,7 +475,14 @@ fn load_external_dependencies(
             continue;
         }
         loaded.insert(package.to_string());
-        load_external_dependency_package(project, package, &use_decl, diagnostics, parts);
+        load_external_dependency_package(
+            project,
+            captured_dependencies,
+            package,
+            &use_decl,
+            diagnostics,
+            parts,
+        );
     }
 }
 
@@ -650,14 +673,19 @@ fn validate_standard_package_import(use_decl: &UseDecl, diagnostics: &mut Vec<Di
 
 fn load_external_dependency_package(
     project: &Project,
+    captured_dependencies: Option<&[CapturedDependencyProject]>,
     package: &str,
     use_decl: &UseDecl,
     diagnostics: &mut Vec<Diagnostic>,
     parts: &mut SurfaceParts,
 ) {
-    let Some((dependency_project, dependency)) =
-        load_external_dependency_project(project, package, use_decl, diagnostics)
-    else {
+    let Some((dependency_project, dependency)) = load_external_dependency_project(
+        project,
+        captured_dependencies,
+        package,
+        use_decl,
+        diagnostics,
+    ) else {
         return;
     };
     let dependency_manifest = dependency_project
@@ -688,6 +716,7 @@ fn load_external_dependency_package(
 
 fn load_external_dependency_project<'a>(
     project: &'a Project,
+    captured_dependencies: Option<&[CapturedDependencyProject]>,
     package: &str,
     use_decl: &UseDecl,
     diagnostics: &mut Vec<Diagnostic>,
@@ -704,6 +733,23 @@ fn load_external_dependency_project<'a>(
         diagnostics.push(unavailable_external_package_diagnostic(use_decl));
         return None;
     };
+    if let Some(captured) = captured_dependencies
+        .and_then(|dependencies| captured_dependency_project(dependencies, dependency))
+    {
+        let Some(dependency_project) = &captured.project else {
+            diagnostics.push(unavailable_external_package_diagnostic(use_decl));
+            return None;
+        };
+        if dependency_project.manifest.is_none() {
+            diagnostics.push(package_name_mismatch_diagnostic(
+                package,
+                None,
+                &dependency.package_span,
+            ));
+            return None;
+        }
+        return Some((dependency_project.clone(), dependency));
+    }
     let Some(dependency_root) = dependency
         .direct_analysis_source_root(&project.root)
         .ok()
@@ -746,6 +792,16 @@ fn load_external_dependency_project<'a>(
         return None;
     }
     Some((dependency_project, dependency))
+}
+
+fn captured_dependency_project<'a>(
+    dependencies: &'a [CapturedDependencyProject],
+    dependency: &veln_project::ManifestDependency,
+) -> Option<&'a CapturedDependencyProject> {
+    let source = dependency.direct_local_source()?;
+    dependencies
+        .iter()
+        .find(|captured| captured.package == dependency.package && captured.source == source.value)
 }
 
 fn dependency_package_name_matches(
