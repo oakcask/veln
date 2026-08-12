@@ -350,7 +350,7 @@ mod tests {
     use super::process_discovered_test_cases;
     use super::{
         JvmExecution, SchedulerError, TestCaseJob, TestExecution, TestJvmExecution,
-        TestProgramHookGuard, execute_test_case_job, execute_test_program,
+        TestProgramHookGuard, TestRunFiles, execute_test_case_job, execute_test_program,
         preflight_runnable_test_case_jobs, prepare_test_case_job, resolve_test_jobs,
         run_test_case_jobs,
     };
@@ -587,6 +587,22 @@ mod tests {
             !build_dir.exists(),
             "hooked tool errors should clean per-case artifacts"
         );
+    }
+
+    #[test]
+    fn test_run_files_isolate_case_artifacts() {
+        let first = TestRunFiles::create().expect("first case artifacts should be created");
+        let second = TestRunFiles::create().expect("second case artifacts should be created");
+        let build_dirs = [first.build_dir.clone(), second.build_dir.clone()];
+
+        assert_ne!(first.build_dir, second.build_dir);
+        assert_ne!(first.event_file, second.event_file);
+        assert_ne!(first.contract_error_file, second.contract_error_file);
+        assert_ne!(first.result_error_file, second.result_error_file);
+
+        drop(first);
+        drop(second);
+        assert!(build_dirs.iter().all(|path| !path.exists()));
     }
 
     #[test]
