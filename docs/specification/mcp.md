@@ -71,8 +71,9 @@ operation reports `snapshot_changed` instead of reclassifying the root.
 the selected manifest bytes, owned source path set, owned source bytes, or
 dependency manifest and source bytes that analysis can read from path, vendor,
 mirror, or locally materialized git inputs change during the operation.
-Selected manifest-project capture does not read saved sources through file or
-directory symbolic links below the selected root.
+Selected manifest-project capture excludes project-local file and directory
+symbolic links from the owned source path set and does not read source bytes
+through them.
 Successful analysis uses the captured dependency inputs and does not fall back
 to reading uncaptured dependency files. If no stable capture is available, the
 tool returns a domain failure with code `snapshot_changed` and no partial

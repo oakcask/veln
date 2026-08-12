@@ -443,6 +443,9 @@ One operation uses one immutable capture containing project selection, the
 complete owned path sets, manifest bytes, source bytes, and dependency
 snapshots. Discovery, hashing, analysis, documentation generation, and the
 operation's responses consume only that capture.
+Manifest-project diagnostics exclude project-local file and directory symbolic
+links from the captured owned source set and do not read source bytes through
+them.
 
 Each capture attempt enumerates and reads all inputs and then independently
 enumerates and reads them again. The attempt succeeds only when both path sets
