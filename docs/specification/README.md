@@ -37,6 +37,8 @@ tracked in `../proposals/`.
   [package-virtual-sources.md](package-virtual-sources.md).
 - CLI behavior, diagnostics, run output, or test output:
   [topic-map.md#commands-and-output](topic-map.md#commands-and-output).
+- MCP workspace selection, tool schemas, and refresh behavior:
+  [mcp.md](mcp.md).
 - Human diagnostic wording, related notes, spans, or stable diagnostic details:
   [diagnostics-json.md](diagnostics-json.md).
 - Advisory hole repair candidates in `check --json`:
@@ -64,6 +66,7 @@ tracked in `../proposals/`.
   gates.
 - Runtime and examples: [execution.md](execution.md) and [examples.md](examples.md).
 - Editor support: [editor-support.md](editor-support.md).
+- MCP workspace project inventory: [mcp.md](mcp.md).
 - Rationale: [source-decisions.md](source-decisions.md).
 
 ## Update When

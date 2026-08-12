@@ -154,3 +154,9 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
 
 - Updating executable specification coverage.
 - Checking which public CLI behavior is pinned by a case.
+
+## Agent Protocol Routes
+
+- MCP stdio lifecycle, workspace-project inventory, tool schemas, refresh,
+  initialization phase boundaries, request metadata, and JSON-RPC framing:
+  `../../examples/specification/mcp/workspace-lifecycle/`.

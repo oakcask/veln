@@ -20,8 +20,24 @@ fn main() -> ExitCode {
 
 fn run(args: Vec<String>) -> Result<ExitCode, String> {
     let command = Command::parse(args)?;
-    let analysis_start = matches!(
-        &command,
+    let analysis_start = analysis_start_for(&command)?;
+    let analysis_start = || {
+        analysis_start
+            .clone()
+            .expect("analysis commands should select a package root")
+    };
+    run_command(command, analysis_start)
+}
+
+fn analysis_start_for(command: &Command) -> Result<Option<commands::CommandAnalysisStart>, String> {
+    analysis_command(command)
+        .then(commands::CommandAnalysisStart::select)
+        .transpose()
+}
+
+fn analysis_command(command: &Command) -> bool {
+    matches!(
+        command,
         Command::Check { .. }
             | Command::Doc { .. }
             | Command::Fmt { .. }
@@ -31,13 +47,22 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
             | Command::Repair { .. }
             | Command::PackageLock
     )
-    .then(commands::CommandAnalysisStart::select)
-    .transpose()?;
-    let analysis_start = || {
-        analysis_start
-            .clone()
-            .expect("analysis commands should select a package root")
-    };
+}
+
+fn run_command(
+    command: Command,
+    analysis_start: impl Fn() -> commands::CommandAnalysisStart,
+) -> Result<ExitCode, String> {
+    if analysis_command(&command) {
+        return run_analysis_command(command, &analysis_start);
+    }
+    run_standalone_command(command)
+}
+
+fn run_analysis_command(
+    command: Command,
+    analysis_start: &impl Fn() -> commands::CommandAnalysisStart,
+) -> Result<ExitCode, String> {
     match command {
         Command::Check { json, inputs } => commands::check::check(analysis_start(), json, inputs),
         Command::Doc { inputs } => commands::doc::doc(analysis_start(), inputs),
@@ -88,8 +113,22 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
             diagnostic_id,
         } => commands::explain::explain(list, diagnostic_id),
         Command::PackageLock => commands::package::lock(analysis_start()),
+        _ => unreachable!("analysis command predicate should only route analysis commands"),
+    }
+}
+
+fn run_standalone_command(command: Command) -> Result<ExitCode, String> {
+    match command {
+        Command::Explain {
+            list,
+            diagnostic_id,
+        } => commands::explain::explain(list, diagnostic_id),
         Command::Lsp => {
             veln_lsp::run_stdio().map_err(|error| format!("lsp failed: {error}"))?;
+            Ok(ExitCode::SUCCESS)
+        }
+        Command::Mcp => {
+            veln_mcp::run_stdio().map_err(|error| format!("mcp failed: {error}"))?;
             Ok(ExitCode::SUCCESS)
         }
         Command::Help { text } => {
@@ -100,5 +139,6 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
             println!("veln {}", env!("CARGO_PKG_VERSION"));
             Ok(ExitCode::SUCCESS)
         }
+        _ => unreachable!("analysis commands should be routed before standalone execution"),
     }
 }

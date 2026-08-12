@@ -1,0 +1,71 @@
+---
+role: specification
+authority: normative
+update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, workspace project selection, refresh transition, tool schemas, or executable MCP cases change.
+---
+
+# MCP Workspace Projects
+
+`veln mcp` runs a Model Context Protocol (MCP) server over standard input and
+standard output. Standard output contains only newline-delimited JSON-RPC
+messages. End-of-file ends the session successfully.
+
+The current MCP surface is intentionally limited to `workspace_projects` and
+`refresh_workspace`. The checked declarations under
+`../../crates/veln-mcp/schemas/mcp/v1/` define both tools' empty-object inputs and
+structured results. `refresh_workspace` uses the same checked result schema for
+successful refreshes and for the stable `generation_failed` domain failure.
+Unknown input fields and non-object inputs produce a JSON-RPC invalid-params
+error.
+
+Request IDs are strings or JSON numbers. A request with a `null` ID is an
+invalid JSON-RPC request. Numeric request IDs are returned unchanged in the
+response, including fractional, exponent-form, and implementation-large
+numbers. A malformed ID-less request object returns `Invalid Request` with a
+`null` ID. A structurally valid notification has no response. `initialize`
+requires the declared protocol version, client capabilities object, and client
+name/version fields. Requests other than `initialize` fail before a successful
+`initialize`. A second valid `initialize` in the same session fails. `ping`,
+`tools/list`, and `tools/call` accept request metadata as `_meta.progressToken`
+when the token is a string or JSON number. `tools/list` also accepts a string
+`cursor` parameter; the current server still returns the complete tool list in
+one response.
+
+## Workspace Selection
+
+The server resolves its process working directory once as the workspace base.
+Client root fields do not change the selection.
+
+| Workspace state | Selected relative roots |
+| --- | --- |
+| The base contains a regular `veln.toml`. | `.` only. Descendants are not searched. |
+| The base has manifests below separate directory branches. | The first manifest directory on each branch, sorted and deduplicated. |
+| The base has no manifest below it. | `.` as one anonymous project. |
+
+Implicit discovery does not traverse `.git` or directory symbolic links. An
+ordinary `target` directory remains discoverable. Relative roots use `/`
+separators. If a selected root cannot be represented as UTF-8, discovery fails
+instead of returning a lossy root spelling.
+
+## Selection State
+
+The initial generation is zero. `workspace_projects` observes the current
+generation and roots without changing them.
+
+| Event | Result | Stored state |
+| --- | --- | --- |
+| `refresh_workspace` discovery succeeds | Return the replacement roots and next generation. | Replace all roots and advance the generation by one. |
+| `refresh_workspace` discovery fails, including an unrepresentable root spelling | Return an MCP tool result with `isError: true` and structured code `generation_failed`. | Preserve both roots and generation. |
+
+Adding, removing, or renaming a manifest has no observable effect until a
+successful refresh.
+
+## Executable Evidence
+
+The `../../examples/specification/mcp/workspace-lifecycle/case.toml` case checks
+initialization, exact tool declarations, accepted request metadata, numeric
+request ID preservation, both tool calls, invalid tool input, initialization
+phase errors, invalid initialize parameters, invalid request IDs, malformed
+ID-less requests, protocol-only standard output, and clean end-of-file
+termination. Table-driven tests in `veln-mcp` check discovery boundaries,
+client-root invariance, refresh transitions, and failure state preservation.

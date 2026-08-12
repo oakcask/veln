@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: normative
-update-when: The CLI integration harness discovery inventory, manifest grammar, structured JSON-RPC input validation or fixture diagnostics, assertion model, semantic case baseline, manifest authoring policy, case-text repository attribute convention, or source-error guard evidence changes.
+update-when: The CLI integration harness discovery inventory, manifest grammar, structured JSON-RPC input validation or fixture diagnostics, assertion model, semantic case baseline, manifest authoring policy, case-text fixture sidecar convention, or source-error guard evidence changes.
 ---
 
 # Toolchain Test Harness
@@ -166,6 +166,10 @@ Use `stdin_file` when command input is easier to review as a case text file.
 Use a `.raw` sidecar for `stdin_file` when the input protocol includes bytes
 whose framing must survive repository checkout exactly, such as LSP JSON-RPC
 headers and their CRLF separators.
+MCP cases use `stdin_file` and stream `equals_file` sidecars when the behavior
+under test is the newline-delimited stdio protocol itself. Keep those fixtures
+as ordinary `case-text/` files when LF-normalized JSON lines are the intended
+observable bytes.
 
 Use `stdin_jsonrpc_file` for an ordered UTF-8 JSON array of JSON-RPC requests
 and notifications. It is mutually exclusive with `stdin` and `stdin_file`.

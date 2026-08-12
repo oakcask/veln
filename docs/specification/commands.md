@@ -29,6 +29,10 @@ requiring the full command reference on the first read.
   implemented command behavior. Use
   [commands-full.md#command-help](commands-full.md#command-help) when changing
   help parsing or output.
+- `mcp`: starts a stdio MCP server without source path arguments and without
+  the shared package-root analysis used by source-oriented commands. Standard
+  output carries only MCP JSON-RPC messages. Use [mcp.md](mcp.md) for the
+  workspace-project tool contract, tool schemas, and refresh behavior.
 - `check`: source discovery, nested-manifest package boundaries for recursive
   and explicit inputs, ordinary `target` source directories, source path
   derived local module identity,
