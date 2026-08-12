@@ -400,7 +400,7 @@ fn capture_navigation_source_once(
         if selection.root_kind(root) != Some(SelectedRootKind::Manifest) {
             continue;
         }
-        let Some(relative) = source_beneath_root(&source, root) else {
+        let Some(relative) = source_beneath_root(source, root) else {
             continue;
         };
         let target = selected_target(
