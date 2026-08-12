@@ -1,0 +1,4 @@
+fn helper() -> Int
+  helper()
+  helper()
+end

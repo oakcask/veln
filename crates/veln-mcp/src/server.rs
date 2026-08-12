@@ -5,6 +5,7 @@ use serde_json::{Value, json};
 
 use crate::check_project::{self, CheckProjectOutcome};
 use crate::definition::{self, DefinitionOutcome};
+use crate::references::{ReferenceCursors, ReferencesOutcome};
 use crate::schema;
 use crate::workspace::{Selection, WorkspaceBase};
 
@@ -16,6 +17,7 @@ pub(crate) fn run(base: PathBuf, reader: impl BufRead, mut writer: impl Write) -
         selection: Selection::discover(base.path())?,
         base,
         initialized: false,
+        references: ReferenceCursors::new(),
     };
     for line in reader.lines() {
         if let Some(response) = server.handle_line(&line?) {
@@ -31,6 +33,7 @@ struct Server {
     base: WorkspaceBase,
     selection: Selection,
     initialized: bool,
+    references: ReferenceCursors,
 }
 
 impl Server {
@@ -130,6 +133,7 @@ impl Server {
             "refresh_workspace" => self.refresh_workspace_tool(refresh),
             "check_project" => self.check_project_tool(arguments),
             "definition" => self.definition_tool(arguments),
+            "references" => self.references_tool(arguments),
             _ => unreachable!("tool name was checked against declarations"),
         })
     }
@@ -153,6 +157,31 @@ impl Server {
                 assert!(
                     tool.accepts_result(&result),
                     "definition domain result must match the advertised schema: {result}"
+                );
+                domain_failure(code, message, result["details"].clone())
+            }
+        }
+    }
+
+    fn references_tool(&mut self, arguments: &Value) -> Value {
+        let tool = schema::tool("references").expect("references tool is declared");
+        match self.references.call(&self.base, &self.selection, arguments) {
+            ReferencesOutcome::Success(result) => {
+                assert!(
+                    tool.accepts_result(&result),
+                    "references success result must match the advertised schema: {result}"
+                );
+                successful_tool_result(result)
+            }
+            ReferencesOutcome::DomainFailure {
+                code,
+                message,
+                details,
+            } => {
+                let result = json!({"code": code, "message": message, "details": details});
+                assert!(
+                    tool.accepts_result(&result),
+                    "references domain result must match the advertised schema: {result}"
                 );
                 domain_failure(code, message, result["details"].clone())
             }
@@ -189,7 +218,10 @@ impl Server {
         refresh: impl FnOnce(&mut Selection) -> io::Result<()>,
     ) -> Value {
         match refresh(&mut self.selection) {
-            Ok(()) => successful_tool_result(self.selection_result()),
+            Ok(()) => {
+                self.references.stale_all();
+                successful_tool_result(self.selection_result())
+            }
             Err(_) => domain_failure(
                 "generation_failed",
                 "workspace project discovery failed",

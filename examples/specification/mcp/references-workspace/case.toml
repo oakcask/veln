@@ -1,0 +1,19 @@
+command = ["mcp"]
+stdin_file = "case-text/root-stdin-1.jsonl"
+exit = 0
+
+[stdout]
+contains = [
+  "\"name\":\"references\",\"outputSchema\"",
+  "\"include_declaration\":{\"type\":\"boolean\"}",
+  "\"maximum\":1000,\"minimum\":1,\"type\":\"integer\"",
+  "\"project_wide\":true,\"references\":[{",
+  "\"scope\":{\"mode\":\"project\",\"project\":\".\"}",
+  "\"id\":3,\"jsonrpc\":\"2.0\"",
+  "\"id\":4,\"jsonrpc\":\"2.0\"",
+  "\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":5",
+]
+not_contains = ["veln-pkg:", "target/debug"]
+
+[stderr]
+format = "empty"

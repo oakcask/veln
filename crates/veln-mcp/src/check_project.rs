@@ -335,19 +335,34 @@ fn capture_stable_project(target: &Target) -> Result<CapturedProject, CaptureErr
     capture_stable_project_with(|| capture_once(target))
 }
 
+pub(crate) struct NavigationCapture {
+    pub(crate) project: CapturedProject,
+    pub(crate) source: String,
+    pub(crate) scope_root: Option<String>,
+    pub(crate) project_wide: bool,
+}
+
 pub(crate) fn capture_navigation_source(
     base: &WorkspaceBase,
     selection: &Selection,
     source: &str,
-) -> Result<(CapturedProject, String), CheckProjectOutcome> {
+) -> Result<NavigationCapture, CheckProjectOutcome> {
     let source = validate_source_path(base, source)?;
-    stable_navigation_capture_or_failure(base, selection, &source)
-        .map(|captured| (captured.project, captured.source))
+    stable_navigation_capture_or_failure(base, selection, &source).map(|captured| {
+        NavigationCapture {
+            project: captured.project,
+            source: captured.source,
+            scope_root: captured.scope_root,
+            project_wide: captured.project_wide,
+        }
+    })
 }
 
 struct CapturedNavigationSource {
     project: CapturedProject,
     source: String,
+    scope_root: Option<String>,
+    project_wide: bool,
     key: Value,
 }
 
@@ -427,6 +442,8 @@ fn capture_navigation_source_once(
                 }),
                 project: captured,
                 source: relative.to_string(),
+                scope_root: Some(root.to_string()),
+                project_wide: true,
             });
         }
         inspected_project = Some(json!({
@@ -457,6 +474,8 @@ fn capture_navigation_source_once(
         }),
         project: captured,
         source: source.to_string(),
+        scope_root: None,
+        project_wide: false,
     })
 }
 
@@ -1194,6 +1213,8 @@ mod tests {
         CapturedNavigationSource {
             project,
             source: source.to_string(),
+            scope_root: None,
+            project_wide: false,
             key,
         }
     }

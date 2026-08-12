@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"b30c39c5809850a5d3cba45216f198852acf4ddd"
+source_git_tree	"51ec9c310ae2e697c03c39b022c864f64a35b681"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1512
+case_count	1513
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -10427,6 +10427,24 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1489,"sha256":"e2b4d5447b2dc59fe02b8523e695cee21a53e3b32c1a7f0cdcd1919eb1631384"}
 field	source_errors	"forbidden"
 case_digest	"d50ea8d804bad9b7aab8e92b1e97db5c1e8fbbea00d421c2cba265a943b2fd1c"
+case	"examples/specification/mcp/references-workspace"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"name\":\"references\",\"outputSchema\""
+field	expectations.stdout.contains[1]	"\"include_declaration\":{\"type\":\"boolean\"}"
+field	expectations.stdout.contains[2]	"\"maximum\":1000,\"minimum\":1,\"type\":\"integer\""
+field	expectations.stdout.contains[3]	"\"project_wide\":true,\"references\":[{"
+field	expectations.stdout.contains[4]	"\"scope\":{\"mode\":\"project\",\"project\":\".\"}"
+field	expectations.stdout.contains[5]	"\"id\":3,\"jsonrpc\":\"2.0\""
+field	expectations.stdout.contains[6]	"\"id\":4,\"jsonrpc\":\"2.0\""
+field	expectations.stdout.contains[7]	"\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":5"
+field	expectations.stdout.not_contains[0]	"veln-pkg:"
+field	expectations.stdout.not_contains[1]	"target/debug"
+field	invocation.command[0]	"mcp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":667,"sha256":"0326a18d18007cf20629a009257886c442a89daee82a6b6758e4c7e38f5751ed"}
+field	source_errors	"forbidden"
+case_digest	"98eac9893dbf134f9a8f8b1f1ecc5c19d8bd3a57862d2d359e613ceac42700d4"
 case	"examples/specification/mcp/workspace-lifecycle"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47713,4 +47731,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"8d43bc7068a9c3c8a586ad656884ade1a9f022bc17cd933fd0d7e37e1f7e9234"
+aggregate_digest	"f5b39b784469d3fd5ee092cad838963c3714420b44775574a1adcfa839aeabb3"

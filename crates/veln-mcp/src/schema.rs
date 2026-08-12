@@ -14,6 +14,8 @@ const CHECK_PROJECT_INPUT: &str = include_str!("../schemas/mcp/v1/check-project-
 const CHECK_PROJECT_RESULT: &str = include_str!("../schemas/mcp/v1/check-project-result.json");
 const DEFINITION_INPUT: &str = include_str!("../schemas/mcp/v1/definition-input.json");
 const DEFINITION_RESULT: &str = include_str!("../schemas/mcp/v1/definition-result.json");
+const REFERENCES_INPUT: &str = include_str!("../schemas/mcp/v1/references-input.json");
+const REFERENCES_RESULT: &str = include_str!("../schemas/mcp/v1/references-result.json");
 
 #[derive(Clone, Copy)]
 pub(crate) struct ToolSchema {
@@ -43,7 +45,7 @@ impl ToolSchema {
                     && object.get("project").is_none_or(Value::is_string)
                     && object.get("source").is_none_or(Value::is_string)
             }
-            "definition" => matches_schema(&self.input_schema(), value),
+            "definition" | "references" => matches_schema(&self.input_schema(), value),
             _ => false,
         }
     }
@@ -53,7 +55,7 @@ impl ToolSchema {
     }
 }
 
-pub(crate) const TOOLS: [ToolSchema; 4] = [
+pub(crate) const TOOLS: [ToolSchema; 5] = [
     ToolSchema {
         name: "workspace_projects",
         description: "Return the current workspace project selection without refreshing it",
@@ -77,6 +79,12 @@ pub(crate) const TOOLS: [ToolSchema; 4] = [
         description: "Resolve a supported symbol in one saved workspace source",
         input: DEFINITION_INPUT,
         result: DEFINITION_RESULT,
+    },
+    ToolSchema {
+        name: "references",
+        description: "Find a bounded page of references in a saved workspace scope",
+        input: REFERENCES_INPUT,
+        result: REFERENCES_RESULT,
     },
 ];
 
@@ -144,7 +152,44 @@ fn matches_integer_schema(schema: &Value, value: &Value) -> bool {
     {
         return false;
     }
+    if let Some(maximum) = schema.get("maximum").and_then(Value::as_u64)
+        && json_number_exceeds_u64(&number.to_string(), maximum)
+    {
+        return false;
+    }
     true
+}
+
+fn json_number_exceeds_u64(text: &str, maximum: u64) -> bool {
+    let Some(parts) = JsonNumberParts::parse(text) else {
+        return true;
+    };
+    if parts.negative || !json_number_is_integer(text) {
+        return false;
+    }
+    let scale = parts.signed_scale();
+    let Some(scale) = scale else {
+        return matches!(parts.exponent, JsonExponent::HugePositive);
+    };
+    let mut digits = parts.digits;
+    let trailing_zeros = if scale > 0 {
+        digits.truncate(digits.len().saturating_sub(scale as usize));
+        0
+    } else {
+        scale.unsigned_abs() as usize
+    };
+    let normalized = digits.trim_start_matches('0');
+    if normalized.is_empty() {
+        return false;
+    }
+    let maximum = maximum.to_string();
+    let total_len = normalized.len().saturating_add(trailing_zeros);
+    total_len > maximum.len()
+        || (total_len == maximum.len()
+            && normalized
+                .bytes()
+                .chain(std::iter::repeat_n(b'0', trailing_zeros))
+                .gt(maximum.bytes()))
 }
 
 fn json_number_is_integer(text: &str) -> bool {
@@ -499,6 +544,29 @@ mod tests {
                 "details": {"source": "main.veln"}
             });
             assert!(tool.accepts_result(&result), "{result}");
+        }
+    }
+
+    #[test]
+    fn references_input_separates_initial_and_continuation_requests_and_bounds_pages() {
+        let tool = tool("references").unwrap();
+        for value in [
+            serde_json::json!({"source":"main.veln","line":1,"column":1}),
+            serde_json::json!({"source":"main.veln","line":1,"column":1,"include_declaration":false,"page_size":1}),
+            serde_json::json!({"source":"main.veln","line":1,"column":1,"page_size":1000}),
+            serde_json::json!({"cursor":"opaque"}),
+        ] {
+            assert!(tool.accepts_input(&value), "{value}");
+        }
+        for value in [
+            serde_json::json!({"source":"main.veln","line":1,"column":1,"page_size":0}),
+            serde_json::json!({"source":"main.veln","line":1,"column":1,"page_size":1001}),
+            serde_json::json!({"source":"main.veln","line":1,"column":1,"page_size":null}),
+            serde_json::json!({"cursor":"opaque","source":"main.veln","line":1,"column":1}),
+            serde_json::json!({"cursor":null}),
+            serde_json::json!({"unknown":true}),
+        ] {
+            assert!(!tool.accepts_input(&value), "{value}");
         }
     }
 

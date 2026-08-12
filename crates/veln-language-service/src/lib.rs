@@ -295,7 +295,12 @@ pub fn navigate(
             .iter()
             .flat_map(|file| request.index.references_in_file(file, symbol))
             .collect(),
-        Symbol::Constructor(_) => Vec::new(),
+        Symbol::Constructor(symbol) => request
+            .index
+            .files
+            .iter()
+            .flat_map(|file| request.index.constructor_references_in_file(file, symbol))
+            .collect(),
         Symbol::Local(symbol) => request.index.local_references(symbol, false),
     };
     sort_locations(&mut references);
@@ -505,6 +510,9 @@ impl SymbolIndex {
         if let Some(symbol) = self.function_declared_at(name, selection) {
             return Some(Symbol::Function(symbol));
         }
+        if let Some(symbol) = self.constructor_declared_at(name, selection) {
+            return Some(Symbol::Constructor(symbol));
+        }
 
         if !is_call_target_token(tokens, token_index) {
             return None;
@@ -517,6 +525,23 @@ impl SymbolIndex {
 
     fn function_declared_at(&self, name: &str, selection: &SourceSpan) -> Option<FunctionSymbol> {
         self.functions
+            .iter()
+            .find(|symbol| {
+                symbol.name == name
+                    && symbol.package.is_none()
+                    && symbol.declaration.span.file == selection.file
+                    && symbol.declaration.span.start.offset == selection.start.offset
+                    && symbol.declaration.span.end.offset == selection.end.offset
+            })
+            .cloned()
+    }
+
+    fn constructor_declared_at(
+        &self,
+        name: &str,
+        selection: &SourceSpan,
+    ) -> Option<ConstructorSymbol> {
+        self.constructors
             .iter()
             .find(|symbol| {
                 symbol.name == name
@@ -580,10 +605,11 @@ impl SymbolIndex {
                     symbol.name == name
                         && symbol.module == qualifier
                         && file.uses.contains(&symbol.module)
-                        && file
-                            .companion_target_module
-                            .as_ref()
-                            .is_some_and(|target| target == &symbol.module)
+                        && (symbol.public
+                            || file
+                                .companion_target_module
+                                .as_ref()
+                                .is_some_and(|target| target == &symbol.module))
                 }
             })
             .cloned()
@@ -817,15 +843,59 @@ impl SymbolIndex {
             return call_references(&file.source, &symbol.name);
         }
         if file.uses.contains(&symbol.module)
-            && file
-                .companion_target_module
-                .as_ref()
-                .is_some_and(|target| target == &symbol.module)
+            && (symbol.public
+                || file
+                    .companion_target_module
+                    .as_ref()
+                    .is_some_and(|target| target == &symbol.module))
         {
             return qualified_references(&file.source, &symbol.module, &symbol.name);
         }
         Vec::new()
     }
+
+    fn constructor_references_in_file(
+        &self,
+        file: &IndexedFile,
+        symbol: &ConstructorSymbol,
+    ) -> Vec<SourceSpan> {
+        if symbol.package.is_some() || !matches!(file.origin, IndexedOrigin::Workspace) {
+            return Vec::new();
+        }
+        let tokens = lex(&file.source).tokens;
+        tokens
+            .iter()
+            .enumerate()
+            .filter(|(index, token)| {
+                if token.text != symbol.name || !is_call_target_token(&tokens, *index) {
+                    return false;
+                }
+                if self.constructors.iter().any(|constructor| {
+                    constructor.declaration.span.file.as_str() == file.source.path().as_str()
+                        && constructor.declaration.span.start.offset == token.range.start
+                        && constructor.declaration.span.end.offset == token.range.end
+                }) {
+                    return false;
+                }
+                let resolved = match qualifier_for_token(&tokens, *index) {
+                    Some(qualifier) => {
+                        self.constructor_for_qualified_call(file, &qualifier, &token.text)
+                    }
+                    None => self.constructor_for_bare_call(file, &token.text),
+                };
+                resolved.is_some_and(|resolved| same_constructor(&resolved, symbol))
+            })
+            .map(|(_, token)| file.source.span(token.range))
+            .collect()
+    }
+}
+
+fn same_constructor(left: &ConstructorSymbol, right: &ConstructorSymbol) -> bool {
+    left.module == right.module
+        && left.type_name == right.type_name
+        && left.name == right.name
+        && left.package == right.package
+        && left.declaration == right.declaration
 }
 
 fn index_workspace_source(source: SourceFile) -> IndexedFile {
@@ -2162,6 +2232,30 @@ mod tests {
             locations(&result.references),
             [("math.test.veln", 4, 9), ("math.veln", 2, 3)]
         );
+    }
+
+    #[test]
+    fn constructor_references_resolve_identity_and_accept_the_declaration() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "type Left\n",
+                "  same(Int)\n",
+                "end\n\n",
+                "type Right\n",
+                "  same(Bool)\n",
+                "end\n\n",
+                "fn main() -> Left\n",
+                "  same(1)\n",
+                "end\n",
+            ),
+        )];
+        for (line, column) in [(2, 4), (10, 4)] {
+            let result = query(sources.clone(), "main.veln", line, column).unwrap();
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+            assert_location(&result.definition, "main.veln", 2, 3);
+            assert_eq!(locations(&result.references), [("main.veln", 10, 3)]);
+        }
     }
 
     #[test]

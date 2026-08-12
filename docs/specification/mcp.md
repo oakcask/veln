@@ -1,23 +1,24 @@
 ---
 role: specification
 authority: normative
-update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, workspace project selection, refresh transition, saved project diagnostics or definitions, tool schemas, or executable MCP cases change.
+update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, workspace project selection, refresh transition, saved project diagnostics, navigation tools, tool schemas, or executable MCP cases change.
 ---
 
-# MCP Workspace Projects, Diagnostics, And Definitions
+# MCP Workspace Projects, Diagnostics, And Navigation
 
 `veln mcp` runs a Model Context Protocol (MCP) server over standard input and
 standard output. Standard output contains only newline-delimited JSON-RPC
 messages. End-of-file ends the session successfully.
 
 The current MCP surface contains `workspace_projects`, `refresh_workspace`,
-`check_project`, and `definition`. The checked declarations under
+`check_project`, `definition`, and `references`. The checked declarations under
 `../../crates/veln-mcp/schemas/mcp/v1/` define the advertised input and result
 schemas. The `check_project` result schema closes diagnostics, summary counts,
 and the two analysis metadata shapes. Schema failures, unknown input fields,
 `null` in non-nullable fields, and non-object inputs produce a JSON-RPC
-invalid-params error. The `definition` input requires one source plus positive
-JSON integer line and column coordinates.
+invalid-params error. Navigation positions use positive JSON integer line and
+column coordinates. The `references` schema separates an initial source
+request from a cursor-only continuation request.
 `refresh_workspace` reports the stable `generation_failed` domain failure as an
 MCP tool result with `isError: true`.
 
@@ -145,6 +146,39 @@ lookup falls back from a selected outer project to anonymous single-file scope
 for a source below a descendant manifest, the ownership decision and the
 anonymous source bytes belong to the same stable capture attempt.
 
+## Saved Workspace References
+
+`references` uses the same saved capture, project inference, position rules,
+and supported symbol set as `definition`. An initial request requires
+`source`, `line`, and `column`. It accepts `include_declaration` and
+`page_size`. Declarations are included by default. The default page size is
+100. A page size from 1 through 1,000 is accepted; zero and values above 1,000
+are schema errors. A continuation request contains only the returned `cursor`.
+
+Locations use canonical `file:` URIs and half-open one-based Unicode-scalar
+ranges. They are ordered by URI, start position, and end position, with
+duplicates removed. Functions, type constructors, handler context parameters,
+handler operation clause parameters, and exact test-companion access to target
+private functions preserve symbol identity. Declarations, same-spelled fields,
+local shadows, comments, strings, other constructors, and unrelated test files
+are not references to the selected symbol. A valid position without a
+supported symbol succeeds with an empty list.
+
+Every page returns `scope`, `project_wide`, and `cursor`. Project results use
+`scope.mode: "project"`, include the selected relative `project`, and set
+`project_wide: true`. Anonymous results use `scope.mode: "single_file"`,
+include the workspace-relative `source`, and set `project_wide: false`. A null
+cursor marks the terminal page.
+
+A continuation cursor is opaque, authenticated, bound to one server process,
+and single-use. It binds the selection generation, captured locations, page
+size, declaration policy, and next offset. The server retains at most 64
+continuations. Tampered, foreign, restarted, reused, and terminal cursors
+return `invalid_cursor`. An evicted cursor returns `stale_snapshot`. A
+successful `refresh_workspace` makes retained cursors stale. A failed refresh
+preserves them. Changes after the initial capture do not change retained
+locations.
+
 ## Executable Evidence
 
 The `../../examples/specification/mcp/workspace-lifecycle/` case checks
@@ -162,6 +196,9 @@ The `definition-workspace` MCP specification case checks the advertised
 decimal and exponent integer coordinate spellings, and invalid-position
 results plus non-integer decimal and negative-exponent coordinate schema
 rejection over stdio.
+The `references-workspace` case checks the advertised `references` schemas, a
+bounded page, declaration exclusion, explicit project scope, and
+above-maximum page rejection over stdio.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous
@@ -176,6 +213,11 @@ success, invalid positions including oversized positive integers, half-open
 ranges, LF, CRLF, terminal-newline, empty-file, non-BMP scalar coordinates,
 extreme positive and negative exponent coordinates, and non-integer numeric
 coordinate schema rejection.
+Reference tests cover symbol identity, deterministic ordering, declaration
+policy, project and descendant-boundary single-file scopes, capture failure,
+zero/default/maximum/above-maximum page boundaries, concatenation without gaps
+or duplicates, unrelated changes after capture, tampering, cross-server use,
+reuse, eviction, and successful versus failed refresh.
 Unix-only `veln-mcp` tests also
 check canonical resolved-base URI spelling, definition path symlink rejection,
 anonymous workspace-base symlink replacement, and that selected

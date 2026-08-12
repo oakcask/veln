@@ -63,7 +63,8 @@ fn assert_implemented_tool_names(response: &Value) {
             "workspace_projects",
             "refresh_workspace",
             "check_project",
-            "definition"
+            "definition",
+            "references"
         ]
     );
 }
@@ -430,6 +431,7 @@ fn definition_rejects_paths_and_changed_workspace_identity() {
         base,
         selection,
         initialized: true,
+        references: ReferenceCursors::new(),
     };
     let result = server.definition_tool(&json!({"source":"main.veln","line":2,"column":4}));
     assert_eq!(result["structuredContent"]["code"], "snapshot_changed");
@@ -461,6 +463,7 @@ fn definition_rejects_symlink_paths_and_spells_uris_from_the_resolved_base() {
         base,
         selection,
         initialized: true,
+        references: ReferenceCursors::new(),
     };
     let result = server.definition_tool(&json!({"source":"main.veln","line":6,"column":4}));
     let uri = result["structuredContent"]["definition"]["uri"]
@@ -475,6 +478,370 @@ fn definition_rejects_symlink_paths_and_spells_uris_from_the_resolved_base() {
 fn definition_result(workspace: &TempWorkspace, source: &str, line: usize, column: usize) -> Value {
     initialized_server(workspace)
         .definition_tool(&json!({"source": source, "line": line, "column": column}))
+}
+
+#[test]
+fn references_cover_supported_symbols_and_declaration_policy() {
+    struct Case {
+        name: &'static str,
+        source: &'static str,
+        line: usize,
+        column: usize,
+        expected_lines: &'static [usize],
+    }
+    let cases = [
+        Case {
+            name: "function",
+            source: "fn helper() -> Int\n  helper()\nend\n\nfn noise(helper: fn() -> Int) -> Int\n  record.helper\n  \"helper()\"\n  # helper()\n  helper()\nend\n",
+            line: 2,
+            column: 4,
+            expected_lines: &[1, 2],
+        },
+        Case {
+            name: "constructor",
+            source: "type Token\n  byte(Int)\nend\n\nfn main() -> Token\n  byte(1)\nend\n",
+            line: 6,
+            column: 4,
+            expected_lines: &[2, 6],
+        },
+        Case {
+            name: "handler context",
+            source: "effect Adjust\n  amount(value: Int) -> Int\nend\n\nhandler adjust(callback: fn(Int) -> Int) handles Adjust\n  amount(value) => callback(value)\nend\n",
+            line: 6,
+            column: 22,
+            expected_lines: &[5, 6],
+        },
+        Case {
+            name: "handler clause",
+            source: "effect Choose\n  pick(value: Bool) -> Int\nend\n\nhandler choose() handles Choose\n  pick(value) => value\nend\n",
+            line: 6,
+            column: 18,
+            expected_lines: &[6, 6],
+        },
+    ];
+
+    for case in cases {
+        let workspace = TempWorkspace::new(case.name);
+        workspace.write("veln.toml", "");
+        workspace.write("main.veln", case.source);
+        let mut server = initialized_server(&workspace);
+        let result = server.references_tool(&json!({
+            "source": "main.veln",
+            "line": case.line,
+            "column": case.column
+        }));
+        assert_eq!(result["isError"], false, "{}: {result:#}", case.name);
+        let lines = result["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|location| location["range"]["start"]["line"].as_u64().unwrap() as usize)
+            .collect::<Vec<_>>();
+        assert_eq!(lines, case.expected_lines, "{}", case.name);
+        assert_eq!(
+            result["structuredContent"]["scope"],
+            json!({"mode":"project","project":"."})
+        );
+        assert_eq!(result["structuredContent"]["project_wide"], true);
+
+        let without_declaration = server.references_tool(&json!({
+            "source": "main.veln",
+            "line": case.line,
+            "column": case.column,
+            "include_declaration": false
+        }));
+        assert_eq!(
+            without_declaration["structuredContent"]["references"]
+                .as_array()
+                .unwrap()
+                .len(),
+            case.expected_lines.len() - 1,
+            "{}: {without_declaration:#}",
+            case.name
+        );
+    }
+}
+
+#[test]
+fn references_include_exact_companion_uses_of_private_functions() {
+    let workspace = TempWorkspace::new("references-exact-companion");
+    workspace.write("veln.toml", "");
+    workspace.write("math.veln", "fn helper() -> Int\n  helper()\nend\n");
+    workspace.write(
+        "math.test.veln",
+        "use math\n\ntest companion() -> Int\n  math::helper()\nend\n",
+    );
+    workspace.write(
+        "other.test.veln",
+        "use math\n\ntest unrelated() -> Int\n  math::helper()\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    let result = server.references_tool(&json!({
+        "source":"math.test.veln","line":4,"column":11
+    }));
+    let locations = result["structuredContent"]["references"]
+        .as_array()
+        .unwrap();
+    assert_eq!(locations.len(), 3, "{result:#}");
+    assert!(
+        locations[0]["uri"]
+            .as_str()
+            .unwrap()
+            .ends_with("math.test.veln")
+    );
+    assert!(locations[1]["uri"].as_str().unwrap().ends_with("math.veln"));
+    assert!(locations[2]["uri"].as_str().unwrap().ends_with("math.veln"));
+    assert!(locations.iter().all(|location| {
+        !location["uri"]
+            .as_str()
+            .unwrap()
+            .ends_with("other.test.veln")
+    }));
+}
+
+#[test]
+fn references_find_public_project_functions_in_uri_range_order() {
+    let workspace = TempWorkspace::new("references-project-functions");
+    workspace.write("veln.toml", "");
+    workspace.write("math.veln", "pub fn helper() -> Int\n  helper()\nend\n");
+    workspace.write(
+        "zeta.veln",
+        "use math\n\nfn zeta() -> Int\n  math::helper()\nend\n",
+    );
+    workspace.write(
+        "alpha.veln",
+        "use math\n\nfn alpha() -> Int\n  math::helper()\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    let result = server.references_tool(&json!({
+        "source":"zeta.veln","line":4,"column":10
+    }));
+    let files = result["structuredContent"]["references"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|location| {
+            location["uri"]
+                .as_str()
+                .unwrap()
+                .rsplit('/')
+                .next()
+                .unwrap()
+                .to_string()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(files, ["alpha.veln", "math.veln", "math.veln", "zeta.veln"]);
+}
+
+#[test]
+fn references_default_and_maximum_page_sizes_are_exact() {
+    let workspace = TempWorkspace::new("references-page-boundaries");
+    workspace.write("veln.toml", "");
+    let mut source = String::from("fn target() -> Int\n");
+    for _ in 0..1001 {
+        source.push_str("  target()\n");
+    }
+    source.push_str("end\n");
+    workspace.write("main.veln", &source);
+    let mut server = initialized_server(&workspace);
+    let default_page = server.references_tool(&json!({
+        "source":"main.veln","line":2,"column":4
+    }));
+    assert_eq!(
+        default_page["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        100
+    );
+    assert!(default_page["structuredContent"]["cursor"].is_string());
+
+    let maximum_page = server.references_tool(&json!({
+        "source":"main.veln","line":2,"column":4,"page_size":1000
+    }));
+    assert_eq!(
+        maximum_page["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1000
+    );
+    assert!(maximum_page["structuredContent"]["cursor"].is_string());
+}
+
+#[test]
+fn references_isolate_symbol_identity_and_single_file_scope() {
+    let workspace = TempWorkspace::new("references-identity-scope");
+    workspace.write("app/veln.toml", "");
+    workspace.write(
+        "app/main.veln",
+        "type Left\n  same(Int)\nend\n\ntype Right\n  same(Bool)\nend\n\nfn main() -> Left\n  same(1)\nend\n",
+    );
+    workspace.write("app/nested/veln.toml", "");
+    workspace.write(
+        "app/nested/main.veln",
+        "fn helper() -> Int\n  helper()\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    let constructor = server.references_tool(&json!({
+        "source":"app/main.veln","line":10,"column":4
+    }));
+    let lines = constructor["structuredContent"]["references"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|location| location["range"]["start"]["line"].as_u64().unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(lines, [2, 10], "{constructor:#}");
+
+    let isolated = server.references_tool(&json!({
+        "source":"app/nested/main.veln","line":2,"column":4
+    }));
+    assert_eq!(
+        isolated["structuredContent"]["scope"],
+        json!({"mode":"single_file","source":"app/nested/main.veln"})
+    );
+    assert_eq!(isolated["structuredContent"]["project_wide"], false);
+    assert_eq!(
+        isolated["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+
+    let no_symbol = server.references_tool(&json!({
+        "source":"app/main.veln","line":4,"column":1
+    }));
+    assert_eq!(
+        no_symbol["structuredContent"]["references"],
+        json!([]),
+        "{no_symbol:#}"
+    );
+}
+
+#[test]
+fn references_cursor_pages_are_complete_single_use_and_snapshot_bound() {
+    let workspace = TempWorkspace::new("references-cursor-pages");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "fn target() -> Int\n  target()\n  target()\n  target()\n  target()\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    let first = server.references_tool(&json!({
+        "source":"main.veln","line":2,"column":4,"page_size":2
+    }));
+    let cursor1 = first["structuredContent"]["cursor"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    workspace.write("unrelated.veln", "fn unrelated() -> Int\n  1\nend\n");
+    let second = server.references_tool(&json!({"cursor":cursor1}));
+    let cursor2 = second["structuredContent"]["cursor"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let third = server.references_tool(&json!({"cursor":cursor2}));
+    assert!(third["structuredContent"]["cursor"].is_null(), "{third:#}");
+    let lines = [&first, &second, &third]
+        .into_iter()
+        .flat_map(|result| {
+            result["structuredContent"]["references"]
+                .as_array()
+                .unwrap()
+        })
+        .map(|location| location["range"]["start"]["line"].as_u64().unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(lines, [1, 2, 3, 4, 5]);
+
+    for invalid in [cursor1.clone(), format!("{cursor1}x"), cursor2] {
+        let result = server.references_tool(&json!({"cursor":invalid}));
+        assert_eq!(
+            result["structuredContent"]["code"], "invalid_cursor",
+            "{result:#}"
+        );
+    }
+    let other_workspace = TempWorkspace::new("references-cross-server");
+    other_workspace.write("main.veln", "fn main() -> Int\n  main()\nend\n");
+    let mut other = initialized_server(&other_workspace);
+    let cross_server = other.references_tool(&json!({"cursor":cursor1}));
+    assert_eq!(cross_server["structuredContent"]["code"], "invalid_cursor");
+    let mut restarted = initialized_server(&workspace);
+    let after_restart = restarted.references_tool(&json!({"cursor":cursor1}));
+    assert_eq!(after_restart["structuredContent"]["code"], "invalid_cursor");
+}
+
+#[test]
+fn references_cursor_eviction_and_refresh_transitions_are_explicit() {
+    let workspace = TempWorkspace::new("references-cursor-transitions");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "fn target() -> Int\n  target()\n  target()\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    let mut cursors = Vec::new();
+    for _ in 0..=64 {
+        let result = server.references_tool(&json!({
+            "source":"main.veln","line":2,"column":4,"page_size":1
+        }));
+        cursors.push(
+            result["structuredContent"]["cursor"]
+                .as_str()
+                .unwrap()
+                .to_string(),
+        );
+    }
+    let evicted = server.references_tool(&json!({"cursor":cursors[0]}));
+    assert_eq!(evicted["structuredContent"]["code"], "stale_snapshot");
+
+    let retained = cursors.last().unwrap().clone();
+    let failed = server
+        .call_tool_with_refresh(
+            Some(&json!({"name":"refresh_workspace","arguments":{}})),
+            |_| Err(io::Error::other("injected refresh failure")),
+        )
+        .unwrap();
+    assert_eq!(failed["structuredContent"]["code"], "generation_failed");
+    let after_failure = server.references_tool(&json!({"cursor":retained}));
+    assert_eq!(after_failure["isError"], false, "{after_failure:#}");
+
+    let fresh = server.references_tool(&json!({
+        "source":"main.veln","line":2,"column":4,"page_size":1
+    }));
+    let pre_refresh = fresh["structuredContent"]["cursor"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let refreshed = server
+        .call_tool(Some(&json!({"name":"refresh_workspace","arguments":{}})))
+        .unwrap();
+    assert_eq!(refreshed["isError"], false);
+    let stale = server.references_tool(&json!({"cursor":pre_refresh}));
+    assert_eq!(stale["structuredContent"]["code"], "stale_snapshot");
+}
+
+#[test]
+fn references_report_capture_failure_without_publishing_a_cursor() {
+    let workspace = TempWorkspace::new("references-capture-failure");
+    workspace.write("main.veln", "fn main() -> Int\n  main()\nend\n");
+    let base = WorkspaceBase::open(workspace.root.clone()).unwrap();
+    let selection = Selection::discover(base.path()).unwrap();
+    fs::remove_dir_all(&workspace.root).unwrap();
+    workspace.write("main.veln", "fn main() -> Int\n  main()\nend\n");
+    let mut server = Server {
+        base,
+        selection,
+        initialized: true,
+        references: ReferenceCursors::new(),
+    };
+    let result = server.references_tool(&json!({
+        "source":"main.veln","line":2,"column":4,"page_size":1
+    }));
+    assert_eq!(result["isError"], true, "{result:#}");
+    assert_eq!(result["structuredContent"]["code"], "snapshot_changed");
+    assert!(result["structuredContent"].get("cursor").is_none());
 }
 
 #[test]
@@ -599,6 +966,7 @@ fn check_project_does_not_reclassify_selection_before_refresh() {
         base,
         selection,
         initialized: true,
+        references: ReferenceCursors::new(),
     };
 
     let result = server
@@ -626,6 +994,7 @@ fn anonymous_check_project_ignores_manifest_added_before_refresh() {
         base,
         selection,
         initialized: true,
+        references: ReferenceCursors::new(),
     };
 
     let result = server
@@ -694,6 +1063,7 @@ fn selected_project_root_symlink_replacement_reports_snapshot_changed() {
         base,
         selection,
         initialized: true,
+        references: ReferenceCursors::new(),
     };
     let result = server
         .call_tool(Some(
@@ -721,6 +1091,7 @@ fn selected_project_root_directory_replacement_reports_snapshot_changed() {
         base,
         selection,
         initialized: true,
+        references: ReferenceCursors::new(),
     };
     let result = server
         .call_tool(Some(
@@ -751,6 +1122,7 @@ fn anonymous_workspace_base_symlink_replacement_reports_snapshot_changed() {
         base,
         selection,
         initialized: true,
+        references: ReferenceCursors::new(),
     };
     let result = server
         .call_tool(Some(
@@ -776,6 +1148,7 @@ fn anonymous_workspace_base_directory_replacement_reports_snapshot_changed() {
         base,
         selection,
         initialized: true,
+        references: ReferenceCursors::new(),
     };
     let result = server
         .call_tool(Some(
@@ -1160,6 +1533,7 @@ fn initialize_requires_the_declared_wire_shape() {
         base: WorkspaceBase::open(workspace.root.clone()).unwrap(),
         selection,
         initialized: false,
+        references: ReferenceCursors::new(),
     };
     let valid = json!({
         "jsonrpc": "2.0",
@@ -1205,6 +1579,7 @@ fn lifecycle_rejects_operations_before_initialize() {
         base: WorkspaceBase::open(workspace.root.clone()).unwrap(),
         selection,
         initialized: false,
+        references: ReferenceCursors::new(),
     };
 
     let response = server
@@ -1370,6 +1745,7 @@ fn initialized_server(workspace: &TempWorkspace) -> Server {
         base,
         selection,
         initialized: true,
+        references: ReferenceCursors::new(),
     }
 }
 
