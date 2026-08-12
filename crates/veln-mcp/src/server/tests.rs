@@ -424,6 +424,48 @@ fn check_project_rejects_symlink_traversing_sources() {
     assert_eq!(parent_result["structuredContent"]["code"], "invalid_path");
 }
 
+#[cfg(unix)]
+#[test]
+fn manifest_check_project_does_not_read_symlinked_project_sources() {
+    use std::os::unix::fs::symlink;
+
+    let workspace = TempWorkspace::new("manifest-source-symlink");
+    workspace.write("alpha/veln.toml", "");
+    workspace.write("outside/bad.veln", mismatch_source());
+    symlink(
+        workspace.path("outside/bad.veln"),
+        workspace.path("alpha/main.veln"),
+    )
+    .unwrap();
+
+    let result = check_project_result(&workspace, json!({"project": "alpha"}));
+
+    assert_eq!(result["isError"], false);
+    assert_eq!(
+        result["structuredContent"]["summary"],
+        json!({"diagnostic_count": 0, "by_severity": {}, "by_kind": {}})
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn manifest_check_project_does_not_read_symlinked_project_directories() {
+    use std::os::unix::fs::symlink;
+
+    let workspace = TempWorkspace::new("manifest-directory-symlink");
+    workspace.write("alpha/veln.toml", "");
+    workspace.write("outside/bad.veln", mismatch_source());
+    symlink(workspace.path("outside"), workspace.path("alpha/linked")).unwrap();
+
+    let result = check_project_result(&workspace, json!({"project": "alpha"}));
+
+    assert_eq!(result["isError"], false);
+    assert_eq!(
+        result["structuredContent"]["summary"],
+        json!({"diagnostic_count": 0, "by_severity": {}, "by_kind": {}})
+    );
+}
+
 #[test]
 fn anonymous_check_project_analyzes_only_the_selected_source() {
     let workspace = TempWorkspace::new("anonymous-isolation");

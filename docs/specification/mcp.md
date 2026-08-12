@@ -71,6 +71,8 @@ operation reports `snapshot_changed` instead of reclassifying the root.
 the selected manifest bytes, owned source path set, owned source bytes, or
 dependency manifest and source bytes that analysis can read from path, vendor,
 mirror, or locally materialized git inputs change during the operation.
+Selected manifest-project capture does not read saved sources through file or
+directory symbolic links below the selected root.
 Successful analysis uses the captured dependency inputs and does not fall back
 to reading uncaptured dependency files. If no stable capture is available, the
 tool returns a domain failure with code `snapshot_changed` and no partial
@@ -120,4 +122,6 @@ project/source decision rows, schema failures, path boundaries, anonymous
 isolation before refresh, companion-shaped anonymous source names, dependency
 snapshots for direct path and locally materialized git inputs, clean analysis,
 selected-root symlink and regular-directory replacement, and structured
-language diagnostics with spanless related notes.
+language diagnostics with spanless related notes. Unix-only `veln-mcp` tests
+also check that selected manifest-project analysis does not consume source
+bytes through project-local file or directory symbolic links.

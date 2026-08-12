@@ -1,13 +1,17 @@
-use std::fs;
-use std::io;
+use std::ffi::OsStr;
+use std::fs::{self, File};
+use std::io::{self, Read};
+#[cfg(unix)]
+use std::os::unix::ffi::OsStrExt;
 use std::path::{Component, Path, PathBuf};
 
+use rustix::fs::{FileType, Mode, OFlags, RawDir, ResolveFlags, openat2};
 use serde_json::{Value, json};
 use veln_analysis::{
     CapturedDependencyProject, DoctestMode, checked_project_diagnostics_with_captured_dependencies,
 };
 use veln_diagnostics::diagnostic_to_json;
-use veln_project::Project;
+use veln_project::{Project, parse_manifest_text};
 use veln_source::SourceFile;
 
 use crate::workspace::{FileIdentity, SelectedRootIdentity, SelectedRootKind, Selection};
@@ -64,6 +68,7 @@ pub(crate) fn check_project(
 }
 
 struct Target {
+    base: PathBuf,
     root: PathBuf,
     root_display: String,
     mode: AnalysisMode,
@@ -166,6 +171,7 @@ fn selected_target(
     }
     if kind == SelectedRootKind::Manifest {
         return Ok(Target {
+            base: base.to_path_buf(),
             root: root_path(base, project),
             root_display: project.to_string(),
             mode: AnalysisMode::Project,
@@ -191,6 +197,7 @@ fn selected_target(
     };
     let source = validate_source_path(base, source)?;
     Ok(Target {
+        base: base.to_path_buf(),
         root: base.to_path_buf(),
         root_display: ".".to_string(),
         mode: AnalysisMode::SingleFile {
@@ -352,8 +359,7 @@ struct CapturedProject {
 fn capture_once(target: &Target) -> io::Result<CapturedProject> {
     validate_selected_root_identity(target)?;
     let project = if target.require_manifest {
-        validate_manifest_root(&target.root)?;
-        Project::discover(target.root.clone(), &[])?
+        capture_manifest_project(target)?
     } else {
         let input = target.input.as_ref().ok_or_else(|| {
             io::Error::new(
@@ -361,9 +367,10 @@ fn capture_once(target: &Target) -> io::Result<CapturedProject> {
                 "anonymous capture requires one input source",
             )
         })?;
+        let root = open_checked_root(target)?;
         Project {
             root: target.root.clone(),
-            files: vec![SourceFile::read(&target.root, &target.root.join(input))?],
+            files: vec![read_source_file(&root, input)?],
             manifest: None,
         }
     };
@@ -380,6 +387,118 @@ fn capture_once(target: &Target) -> io::Result<CapturedProject> {
         dependencies,
         key,
     })
+}
+
+fn capture_manifest_project(target: &Target) -> io::Result<Project> {
+    validate_manifest_root(&target.root)?;
+    let root = open_checked_root(target)?;
+    let manifest_text = read_text_beneath(&root, Path::new("veln.toml"))?;
+    let manifest = parse_manifest_text("veln.toml", &manifest_text);
+    let mut source_paths = Vec::new();
+    collect_veln_files_beneath(&root, Path::new("."), &mut source_paths)?;
+    source_paths.sort();
+    source_paths.dedup();
+    let files = source_paths
+        .iter()
+        .map(|path| read_source_file(&root, path))
+        .collect::<io::Result<Vec<_>>>()?;
+    Ok(Project {
+        root: target.root.clone(),
+        files,
+        manifest: Some(manifest),
+    })
+}
+
+fn open_checked_root(target: &Target) -> io::Result<File> {
+    let base = File::open(&target.base)?;
+    open_dir_beneath(&base, Path::new(&target.root_display))
+}
+
+fn open_dir_beneath(base: &File, path: &Path) -> io::Result<File> {
+    let fd = openat2(
+        base,
+        path,
+        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
+        Mode::empty(),
+        ResolveFlags::BENEATH | ResolveFlags::NO_SYMLINKS | ResolveFlags::NO_MAGICLINKS,
+    )?;
+    Ok(File::from(fd))
+}
+
+fn read_source_file(root: &File, path: &Path) -> io::Result<SourceFile> {
+    let text = read_text_beneath(root, path)?;
+    Ok(SourceFile::new(display_relative_path(path), text))
+}
+
+fn read_text_beneath(root: &File, path: &Path) -> io::Result<String> {
+    let fd = openat2(
+        root,
+        path,
+        OFlags::RDONLY | OFlags::CLOEXEC,
+        Mode::empty(),
+        ResolveFlags::BENEATH | ResolveFlags::NO_SYMLINKS | ResolveFlags::NO_MAGICLINKS,
+    )?;
+    let mut file = File::from(fd);
+    if !file.metadata()?.file_type().is_file() {
+        return Err(io::Error::other("captured path is not a regular file"));
+    }
+    let mut text = String::new();
+    file.read_to_string(&mut text)?;
+    Ok(text)
+}
+
+fn collect_veln_files_beneath(
+    dir: &File,
+    relative_dir: &Path,
+    paths: &mut Vec<PathBuf>,
+) -> io::Result<()> {
+    let mut children = Vec::new();
+    let mut buffer = Vec::with_capacity(8192);
+    let mut entries = RawDir::new(dir, buffer.spare_capacity_mut());
+    while let Some(entry) = entries.next() {
+        let entry = entry?;
+        let name = os_str_from_cstr(entry.file_name())?;
+        if name == OsStr::new(".") || name == OsStr::new("..") || name == OsStr::new(".git") {
+            continue;
+        }
+        let child = relative_dir.join(name);
+        match entry.file_type() {
+            FileType::Directory => children.push((PathBuf::from(name), child)),
+            FileType::RegularFile
+                if child
+                    .extension()
+                    .is_some_and(|extension| extension == "veln") =>
+            {
+                paths.push(child);
+            }
+            _ => {}
+        }
+    }
+    children.sort_by(|left, right| left.1.cmp(&right.1));
+    for (name, child) in children {
+        let dir = open_dir_beneath(dir, &name)?;
+        if read_text_beneath(&dir, Path::new("veln.toml")).is_ok() {
+            continue;
+        }
+        collect_veln_files_beneath(&dir, &child, paths)?;
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+fn os_str_from_cstr(value: &std::ffi::CStr) -> io::Result<&OsStr> {
+    Ok(OsStr::from_bytes(value.to_bytes()))
+}
+
+fn display_relative_path(path: &Path) -> String {
+    path.components()
+        .filter_map(|component| match component {
+            Component::CurDir => None,
+            Component::Normal(part) => Some(part.to_string_lossy().into_owned()),
+            _ => Some(component.as_os_str().to_string_lossy().into_owned()),
+        })
+        .collect::<Vec<_>>()
+        .join("/")
 }
 
 fn snapshot_key(
