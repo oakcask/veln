@@ -93,11 +93,18 @@ fn is_regular_manifest(directory: &Path) -> io::Result<bool> {
 
 fn relative_root(base: &Path, root: &Path) -> io::Result<String> {
     let relative = root.strip_prefix(base).map_err(io::Error::other)?;
-    Ok(relative
+    relative
         .components()
-        .map(|component| component.as_os_str().to_string_lossy())
-        .collect::<Vec<_>>()
-        .join("/"))
+        .map(|component| {
+            component.as_os_str().to_str().ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "workspace project root is not representable as UTF-8",
+                )
+            })
+        })
+        .collect::<io::Result<Vec<_>>>()
+        .map(|components| components.join("/"))
 }
 
 #[cfg(test)]
@@ -217,6 +224,25 @@ mod tests {
             "injected discovery failure"
         );
         assert_eq!(selection, previous);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn unrepresentable_manifest_root_fails_discovery_instead_of_lossy_spelling() {
+        use std::ffi::OsString;
+        use std::os::unix::ffi::OsStringExt;
+
+        let project = TempWorkspace::new("non-utf8-root");
+        let root = project.root().join(OsString::from_vec(vec![b'p', 0xff]));
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("veln.toml"), "").unwrap();
+
+        let error = Selection::discover(project.root()).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+        assert_eq!(
+            error.to_string(),
+            "workspace project root is not representable as UTF-8"
+        );
     }
 
     struct TempWorkspace {

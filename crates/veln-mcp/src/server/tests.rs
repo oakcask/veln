@@ -296,6 +296,45 @@ fn refresh_domain_failure_preserves_the_observable_selection() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn refresh_with_unrepresentable_manifest_root_reports_generation_failure() {
+    use std::ffi::OsString;
+    use std::os::unix::ffi::OsStringExt;
+
+    let workspace = TempWorkspace::new("refresh-non-utf8-root");
+    workspace.write("alpha/veln.toml", "");
+    let selection = Selection::discover(&workspace.root).unwrap();
+    let mut server = Server {
+        base: workspace.root.clone(),
+        selection,
+        initialized: true,
+    };
+
+    let unrepresentable_root = workspace.root.join(OsString::from_vec(vec![b'p', 0xff]));
+    fs::create_dir_all(&unrepresentable_root).unwrap();
+    fs::write(unrepresentable_root.join("veln.toml"), "").unwrap();
+
+    let refresh_params = json!({"name":"refresh_workspace","arguments":{}});
+    let result = server.call_tool(Some(&refresh_params)).unwrap();
+    assert_eq!(
+        result["structuredContent"],
+        json!({
+            "code": "generation_failed",
+            "message": "workspace project discovery failed",
+            "details": {}
+        })
+    );
+    assert_eq!(result["isError"], true);
+
+    let list_params = json!({"name":"workspace_projects","arguments":{}});
+    let following = server.call_tool(Some(&list_params)).unwrap();
+    assert_eq!(
+        following["structuredContent"],
+        json!({"generation": 0, "roots": ["alpha"]})
+    );
+}
+
 struct TempWorkspace {
     root: PathBuf,
 }

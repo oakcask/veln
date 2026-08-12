@@ -44,7 +44,8 @@ Client root fields do not change the selection.
 
 Implicit discovery does not traverse `.git` or directory symbolic links. An
 ordinary `target` directory remains discoverable. Relative roots use `/`
-separators.
+separators. If a selected root cannot be represented as UTF-8, discovery fails
+instead of returning a lossy root spelling.
 
 ## Selection State
 
@@ -54,7 +55,7 @@ generation and roots without changing them.
 | Event | Result | Stored state |
 | --- | --- | --- |
 | `refresh_workspace` discovery succeeds | Return the replacement roots and next generation. | Replace all roots and advance the generation by one. |
-| `refresh_workspace` discovery fails | Return an MCP tool result with `isError: true` and structured code `generation_failed`. | Preserve both roots and generation. |
+| `refresh_workspace` discovery fails, including an unrepresentable root spelling | Return an MCP tool result with `isError: true` and structured code `generation_failed`. | Preserve both roots and generation. |
 
 Adding, removing, or renaming a manifest has no observable effect until a
 successful refresh.

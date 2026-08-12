@@ -905,6 +905,7 @@ and do not imply that the behavior is already implemented.
 | Supply an absolute path or escaping relative path. | The tool rejects the input before reading the target. | Path-boundary MCP cases. |
 | Change a manifest, source, or file set during capture. | The complete capture retries at most three times, then returns `snapshot_changed` without partial publication. | Q05 stable-capture race cases. |
 | List projects or send malformed inventory-tool input. | Roots use `.` or relative `/` spelling; checked schemas reject unknown fields and invalid shapes as protocol errors. | Implemented MCP workspace lifecycle and schema tests; broader Q06 cases remain planned. |
+| Discover a manifest root whose relative spelling is not representable as UTF-8. | Discovery fails instead of returning a lossy project root. A refresh reports `generation_failed` and preserves the previous roots and generation. | Implemented `veln-mcp` unrepresentable-root discovery and refresh tests. |
 | Client roots are absent, unrelated, or nested. | Project selection is unchanged. | Implemented `veln-mcp` client-root invariance tests. |
 
 ### Diagnostics And Navigation
