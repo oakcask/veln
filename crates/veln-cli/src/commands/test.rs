@@ -350,7 +350,7 @@ mod tests {
     use super::process_discovered_test_cases;
     use super::{
         JvmExecution, SchedulerError, TestCaseJob, TestExecution, TestJvmExecution,
-        TestProgramHookGuard, execute_test_case_job, execute_test_program,
+        TestProgramHookGuard, TestRunFiles, execute_test_case_job, execute_test_program,
         preflight_runnable_test_case_jobs, prepare_test_case_job, resolve_test_jobs,
         run_test_case_jobs,
     };
@@ -590,110 +590,33 @@ mod tests {
     }
 
     #[test]
+    fn test_run_files_isolate_case_artifacts() {
+        let first = TestRunFiles::create().expect("first case artifacts should be created");
+        let second = TestRunFiles::create().expect("second case artifacts should be created");
+        let build_dirs = [first.build_dir.clone(), second.build_dir.clone()];
+
+        assert_ne!(first.build_dir, second.build_dir);
+        assert_ne!(first.event_file, second.event_file);
+        assert_ne!(first.contract_error_file, second.contract_error_file);
+        assert_ne!(first.result_error_file, second.result_error_file);
+
+        drop(first);
+        drop(second);
+        assert!(build_dirs.iter().all(|path| !path.exists()));
+    }
+
+    #[test]
     fn production_jvm_path_overlaps_and_keeps_case_artifacts_isolated() {
         if !jdk_is_available() {
             return;
         }
 
-        let project = TempProject::new("production-jvm-overlap");
-        project.write(
-            "main_test.veln",
-            concat!(
-                "test alpha() -> () effects [stdio]\n",
-                "  stdio::println(\"alpha out\")\n",
-                "  stdio::eprintln(\"alpha err\")\n",
-                "  ()\n",
-                "end\n",
-                "test beta() -> () effects [stdio]\n",
-                "  stdio::println(\"beta out\")\n",
-                "  stdio::eprintln(\"beta err\")\n",
-                "  ()\n",
-                "end\n",
-                "test gamma() -> () effects [stdio]\n",
-                "  stdio::println(\"gamma out\")\n",
-                "  stdio::eprintln(\"gamma err\")\n",
-                "  ()\n",
-                "end\n",
-            ),
-        );
-        let (analysis, cases) = analyzed_cases(&project.root);
-        let case_names = cases
-            .iter()
-            .map(|case| case.name.clone())
-            .collect::<Vec<_>>();
-        let reusable_program = analysis
-            .reusable_standard_ir()
-            .map(|ir| generate_classfiles_with_test_entries(ir, &case_names));
-        let analysis_mutex = Mutex::new(analysis);
-        let execution = Arc::new(TestJvmExecution::ready(JvmExecution::for_test(
-            project.root.join("cache/jvm"),
-        )));
-        let observed = Arc::new((
-            Mutex::new(ProductionPathObservation::default()),
-            Condvar::new(),
-        ));
-        let _hook = TestProgramHookGuard::install({
-            let observed = Arc::clone(&observed);
-            Arc::new(
-                move |_case_name,
-                      build_dir,
-                      event_file,
-                      contract_error_file,
-                      result_error_file,
-                      java_args| {
-                    let (lock, cvar) = &*observed;
-                    let mut observation = lock.lock().expect("observation should lock");
-                    observation.build_dirs.push(build_dir.to_path_buf());
-                    observation.event_files.push(event_file.to_path_buf());
-                    observation
-                        .contract_error_files
-                        .push(contract_error_file.to_path_buf());
-                    observation
-                        .result_error_files
-                        .push(result_error_file.to_path_buf());
-                    observation.java_args.push(java_args.to_vec());
-                    cvar.notify_all();
-                    while observation.build_dirs.len() < 2 {
-                        observation = cvar
-                            .wait(observation)
-                            .expect("observation should lock after wait");
-                    }
-                    None
-                },
-            )
-        });
+        let mut scenario = ProductionJvmScenario::new();
+        let _hook = scenario.install_path_observer();
+        let records = scenario.run_cases();
 
-        let records = run_test_case_jobs(
-            cases,
-            2,
-            |case| {
-                let analysis = analysis_mutex.lock().expect("analysis state should lock");
-                let mut job = prepare_test_case_job(&analysis, reusable_program.as_ref(), case);
-                job.set_execution(Arc::clone(&execution));
-                Ok::<_, String>(job)
-            },
-            execute_test_case_job,
-        )
-        .expect("production JVM path should complete");
-
-        assert_eq!(case_names_of(&records), ["alpha", "beta", "gamma"]);
-        assert_stdio_event(&records[0], "stdout", "alpha out");
-        assert_stdio_event(&records[0], "stderr", "alpha err");
-        assert_stdio_event(&records[1], "stdout", "beta out");
-        assert_stdio_event(&records[1], "stderr", "beta err");
-        assert_stdio_event(&records[2], "stdout", "gamma out");
-        assert_stdio_event(&records[2], "stderr", "gamma err");
-
-        let observation = observed.0.lock().expect("observation should lock");
-        assert_eq!(observation.build_dirs.len(), 3);
-        assert_unique_paths(&observation.build_dirs);
-        assert_unique_paths(&observation.event_files);
-        assert_unique_paths(&observation.contract_error_files);
-        assert_unique_paths(&observation.result_error_files);
-        assert!(
-            observation.build_dirs.iter().all(|path| !path.exists()),
-            "per-case build directories should be cleaned up after execution"
-        );
+        assert_production_jvm_outputs(&records);
+        scenario.assert_isolated_artifacts();
     }
 
     #[test]
@@ -862,7 +785,152 @@ mod tests {
         event_files: Vec<PathBuf>,
         contract_error_files: Vec<PathBuf>,
         result_error_files: Vec<PathBuf>,
-        java_args: Vec<Vec<String>>,
+    }
+
+    struct ProductionJvmScenario {
+        _project: TempProject,
+        analysis: Mutex<ProjectAnalysis>,
+        cases: Vec<TestCase>,
+        reusable_program: Option<JvmProgram>,
+        execution: Arc<TestJvmExecution>,
+        observed: Arc<(Mutex<ProductionPathObservation>, Condvar)>,
+    }
+
+    impl ProductionJvmScenario {
+        fn new() -> Self {
+            let project = TempProject::new("production-jvm-overlap");
+            project.write("main_test.veln", production_jvm_fixture_source());
+            let (analysis, cases) = analyzed_cases(&project.root);
+            let case_names = cases
+                .iter()
+                .map(|case| case.name.clone())
+                .collect::<Vec<_>>();
+            let reusable_program = analysis
+                .reusable_standard_ir()
+                .map(|ir| generate_classfiles_with_test_entries(ir, &case_names));
+            let execution = Arc::new(TestJvmExecution::ready(JvmExecution::for_test(
+                project.root.join("cache/jvm"),
+            )));
+            Self {
+                _project: project,
+                analysis: Mutex::new(analysis),
+                cases,
+                reusable_program,
+                execution,
+                observed: Arc::new((
+                    Mutex::new(ProductionPathObservation::default()),
+                    Condvar::new(),
+                )),
+            }
+        }
+
+        fn install_path_observer(&self) -> TestProgramHookGuard {
+            let observed = Arc::clone(&self.observed);
+            TestProgramHookGuard::install(Arc::new(
+                move |_case_name,
+                      build_dir,
+                      event_file,
+                      contract_error_file,
+                      result_error_file,
+                      _java_args| {
+                    observe_overlapping_case_paths(
+                        &observed,
+                        build_dir,
+                        event_file,
+                        contract_error_file,
+                        result_error_file,
+                    );
+                    None
+                },
+            ))
+        }
+
+        fn run_cases(&mut self) -> Vec<TestCase> {
+            let cases = std::mem::take(&mut self.cases);
+            let analysis = &self.analysis;
+            let reusable_program = self.reusable_program.as_ref();
+            let execution = Arc::clone(&self.execution);
+            run_test_case_jobs(
+                cases,
+                2,
+                |case| {
+                    let analysis = analysis.lock().expect("analysis state should lock");
+                    let mut job = prepare_test_case_job(&analysis, reusable_program, case);
+                    job.set_execution(Arc::clone(&execution));
+                    Ok::<_, String>(job)
+                },
+                execute_test_case_job,
+            )
+            .expect("production JVM path should complete")
+        }
+
+        fn assert_isolated_artifacts(&self) {
+            let observation = self.observed.0.lock().expect("observation should lock");
+            assert_eq!(observation.build_dirs.len(), 3);
+            assert_unique_paths(&observation.build_dirs);
+            assert_unique_paths(&observation.event_files);
+            assert_unique_paths(&observation.contract_error_files);
+            assert_unique_paths(&observation.result_error_files);
+            assert!(
+                observation.build_dirs.iter().all(|path| !path.exists()),
+                "per-case build directories should be cleaned up after execution"
+            );
+        }
+    }
+
+    fn production_jvm_fixture_source() -> &'static str {
+        concat!(
+            "test alpha() -> () effects [stdio]\n",
+            "  stdio::println(\"alpha out\")\n",
+            "  stdio::eprintln(\"alpha err\")\n",
+            "  ()\n",
+            "end\n",
+            "test beta() -> () effects [stdio]\n",
+            "  stdio::println(\"beta out\")\n",
+            "  stdio::eprintln(\"beta err\")\n",
+            "  ()\n",
+            "end\n",
+            "test gamma() -> () effects [stdio]\n",
+            "  stdio::println(\"gamma out\")\n",
+            "  stdio::eprintln(\"gamma err\")\n",
+            "  ()\n",
+            "end\n",
+        )
+    }
+
+    fn observe_overlapping_case_paths(
+        observed: &(Mutex<ProductionPathObservation>, Condvar),
+        build_dir: &Path,
+        event_file: &Path,
+        contract_error_file: &Path,
+        result_error_file: &Path,
+    ) {
+        let (lock, cvar) = observed;
+        let mut observation = lock.lock().expect("observation should lock");
+        observation.build_dirs.push(build_dir.to_path_buf());
+        observation.event_files.push(event_file.to_path_buf());
+        observation
+            .contract_error_files
+            .push(contract_error_file.to_path_buf());
+        observation
+            .result_error_files
+            .push(result_error_file.to_path_buf());
+        cvar.notify_all();
+        while observation.build_dirs.len() < 2 {
+            observation = cvar
+                .wait(observation)
+                .expect("observation should lock after wait");
+        }
+    }
+
+    fn assert_production_jvm_outputs(records: &[TestCase]) {
+        assert_eq!(case_names_of(records), ["alpha", "beta", "gamma"]);
+        assert_stdio_event(&records[0], "stdout", "alpha out");
+        assert_stdio_event(&records[0], "stderr", "alpha err");
+        assert_stdio_event(&records[1], "stdout", "beta out");
+        assert_stdio_event(&records[1], "stderr", "beta err");
+        assert_stdio_event(&records[2], "stdout", "gamma out");
+        assert_stdio_event(&records[2], "stderr", "gamma err");
     }
 
     struct TempProject {
