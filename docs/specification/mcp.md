@@ -68,10 +68,12 @@ the operation reports `snapshot_changed` instead of reclassifying the root.
 
 `check_project` analyzes one immutable saved snapshot. It retries capture when
 the selected manifest bytes, owned source path set, owned source bytes, or
-direct local dependency manifest and source bytes change during the operation.
-Successful analysis uses the captured direct local dependency inputs. If no
-stable capture is available, the tool returns a domain failure with code
-`snapshot_changed` and no partial diagnostics.
+dependency manifest and source bytes that analysis can read from path, vendor,
+mirror, or locally materialized git inputs change during the operation.
+Successful analysis uses the captured dependency inputs and does not fall back
+to reading uncaptured dependency files. If no stable capture is available, the
+tool returns a domain failure with code `snapshot_changed` and no partial
+diagnostics.
 
 Project selection follows the current workspace selection. An explicit
 manifest project must name one selected root and must omit `source`.
@@ -79,8 +81,10 @@ If exactly one manifest project is selected, omitting `project` selects that
 project. If multiple manifest projects are selected, omitting `project` returns
 `project_ambiguous` with the sorted relative roots. An anonymous workspace
 requires `project: "."` and exactly one accepted regular `.veln` `source`;
-only that file is analyzed. Anonymous requests that omit either the explicit
-project or the source return `source_required`.
+only that file is analyzed. Manifest files added after the last successful
+discovery and companion-shaped source names do not expand an anonymous
+analysis beyond the requested file. Anonymous requests that omit either the
+explicit project or the source return `source_required`.
 
 Tool paths are workspace-relative `/` paths. Absolute paths, paths that escape
 the workspace, missing paths, non-regular source paths, non-`.veln` sources,
@@ -106,9 +110,12 @@ phase errors, invalid initialize parameters, invalid request IDs, malformed
 ID-less requests, protocol-only standard output, and clean end-of-file
 termination. The `check-project-diagnostics` MCP specification case checks the
 advertised `check_project` schema and a diagnostic result with a spanless
-compiler-owned related note over stdio.
+compiler-owned related note over stdio. The `anonymous-single-file-isolation`
+case checks anonymous `check_project` analysis over only the requested source
+when another saved source in the same workspace contains a language error.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous
-isolation, direct local dependency snapshots, clean analysis, and structured
-language diagnostics with spanless related notes.
+isolation before refresh, companion-shaped anonymous source names, dependency
+snapshots for direct path and locally materialized git inputs, clean analysis,
+and structured language diagnostics with spanless related notes.

@@ -750,6 +750,10 @@ fn load_external_dependency_project<'a>(
         }
         return Some((dependency_project.clone(), dependency));
     }
+    if captured_dependencies.is_some() {
+        diagnostics.push(unavailable_external_package_diagnostic(use_decl));
+        return None;
+    }
     let Some(dependency_root) = dependency
         .direct_analysis_source_root(&project.root)
         .ok()
@@ -798,10 +802,21 @@ fn captured_dependency_project<'a>(
     dependencies: &'a [CapturedDependencyProject],
     dependency: &veln_project::ManifestDependency,
 ) -> Option<&'a CapturedDependencyProject> {
-    let source = dependency.direct_local_source()?;
+    let source = captured_dependency_source(dependency)?;
     dependencies
         .iter()
-        .find(|captured| captured.package == dependency.package && captured.source == source.value)
+        .find(|captured| captured.package == dependency.package && captured.source == source)
+}
+
+fn captured_dependency_source(dependency: &veln_project::ManifestDependency) -> Option<String> {
+    if let Some(source) = dependency.direct_local_source() {
+        return Some(source.value.clone());
+    }
+    let git = dependency.git.as_ref()?;
+    if let Some(subdir) = &dependency.subdir {
+        return Some(format!("{}#{}", git.value, subdir.value));
+    }
+    Some(git.value.clone())
 }
 
 fn dependency_package_name_matches(

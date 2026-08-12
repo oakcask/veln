@@ -9,8 +9,6 @@ serde_json.workspace = true
 veln-analysis.workspace = true
 veln-diagnostics.workspace = true
 veln-project.workspace = true
-
-[dev-dependencies]
 veln-source.workspace = true
 
 [lints]

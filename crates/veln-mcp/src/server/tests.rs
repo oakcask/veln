@@ -247,6 +247,68 @@ fn check_project_does_not_reclassify_selection_before_refresh() {
     assert_eq!(result["structuredContent"]["code"], "snapshot_changed");
 }
 
+#[test]
+fn anonymous_check_project_ignores_manifest_added_before_refresh() {
+    let workspace = TempWorkspace::new("anonymous-manifest-added-before-refresh");
+    workspace.write("main.veln", clean_source());
+    let selection = Selection::discover(&workspace.root).unwrap();
+    workspace.write(
+        "veln.toml",
+        "[lib]\nexports = [\"main.veln\", \"extra.veln\"]\n",
+    );
+    workspace.write("extra.veln", mismatch_source());
+    let mut server = Server {
+        base: workspace.root.clone(),
+        selection,
+        initialized: true,
+    };
+
+    let result = server
+        .call_tool(Some(
+            &json!({"name": "check_project", "arguments": {"project": ".", "source": "main.veln"}}),
+        ))
+        .unwrap();
+
+    assert_eq!(result["isError"], false);
+    assert_eq!(
+        result["structuredContent"]["summary"],
+        json!({"diagnostic_count": 0, "by_severity": {}, "by_kind": {}})
+    );
+    assert_eq!(
+        result["structuredContent"]["analysis"],
+        json!({
+            "mode": "single_file",
+            "generation": 0,
+            "project": ".",
+            "source": "main.veln",
+            "project_wide": false
+        })
+    );
+}
+
+#[test]
+fn anonymous_check_project_does_not_expand_companion_named_source() {
+    let workspace = TempWorkspace::new("anonymous-companion-shaped-source");
+    workspace.write("main.test.veln", "fn companion_entry() -> Int\n  1\nend\n");
+    workspace.write("main.veln", mismatch_source());
+
+    let result = check_project_result(
+        &workspace,
+        json!({"project": ".", "source": "main.test.veln"}),
+    );
+
+    assert_eq!(result["isError"], false);
+    let diagnostics = result["structuredContent"]["diagnostics"]
+        .as_array()
+        .unwrap();
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic["span"]["file"] != "main.veln" && diagnostic["id"] != "type.mismatch"
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn selected_project_root_symlink_replacement_reports_snapshot_changed() {
@@ -381,6 +443,58 @@ fn check_project_returns_structured_language_diagnostics_as_successful_tool_resu
     assert_eq!(
         result["structuredContent"]["summary"]["by_severity"]["error"],
         1
+    );
+}
+
+#[test]
+fn check_project_uses_captured_materialized_git_dependency() {
+    let workspace = TempWorkspace::new("captured-materialized-git-dependency");
+    workspace.write(
+        "veln.toml",
+        concat!(
+            "[dependencies.\"github.com/oakcask/foo\"]\n",
+            "git = \"https://example.invalid/foo.git\"\n",
+            "rev = \"abc123\"\n",
+        ),
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use foo from \"github.com/oakcask/foo\"\n\n",
+            "fn main() -> Int\n",
+            "  add_one(1)\n",
+            "end\n",
+        ),
+    );
+    let materialized = veln_project::materialized_git_repository_root(
+        &workspace.root,
+        "https://example.invalid/foo.git",
+    );
+    let dependency_root = materialized
+        .strip_prefix(&workspace.root)
+        .unwrap()
+        .to_string_lossy()
+        .replace('\\', "/");
+    workspace.write(
+        &format!("{dependency_root}/veln.toml"),
+        concat!(
+            "[package]\n",
+            "name = \"github.com/oakcask/foo\"\n\n",
+            "[lib]\n",
+            "exports = [\"foo.veln\"]\n",
+        ),
+    );
+    workspace.write(
+        &format!("{dependency_root}/foo.veln"),
+        "pub fn add_one(value: Int) -> Int\n  value + 1\nend\n",
+    );
+
+    let result = check_project_result(&workspace, json!({"project": "."}));
+
+    assert_eq!(result["isError"], false);
+    assert_eq!(
+        result["structuredContent"]["summary"],
+        json!({"diagnostic_count": 0, "by_severity": {}, "by_kind": {}})
     );
 }
 

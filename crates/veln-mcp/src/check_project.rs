@@ -7,7 +7,8 @@ use veln_analysis::{
     CapturedDependencyProject, DoctestMode, checked_project_diagnostics_with_captured_dependencies,
 };
 use veln_diagnostics::diagnostic_to_json;
-use veln_project::{Project, dependency_root};
+use veln_project::Project;
+use veln_source::SourceFile;
 
 use crate::workspace::{SelectedRootKind, Selection};
 
@@ -332,11 +333,22 @@ struct CapturedProject {
 }
 
 fn capture_once(target: &Target) -> io::Result<CapturedProject> {
-    if target.require_manifest {
+    let project = if target.require_manifest {
         validate_manifest_root(&target.root)?;
-    }
-    let inputs = target.input.iter().cloned().collect::<Vec<_>>();
-    let project = Project::discover(target.root.clone(), &inputs)?;
+        Project::discover(target.root.clone(), &[])?
+    } else {
+        let input = target.input.as_ref().ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "anonymous capture requires one input source",
+            )
+        })?;
+        Project {
+            root: target.root.clone(),
+            files: vec![SourceFile::read(&target.root, &target.root.join(input))?],
+            manifest: None,
+        }
+    };
     if target.require_manifest && project.manifest.is_none() {
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
@@ -368,27 +380,48 @@ fn dependency_snapshots(project: &Project) -> io::Result<Vec<CapturedDependencyP
     };
     let mut snapshots = Vec::new();
     for dependency in &manifest.dependencies {
-        let Some(source) = dependency.direct_local_source() else {
-            continue;
+        let source = dependency_snapshot_source(dependency);
+        let dependency_root = match dependency.direct_analysis_source_root(&project.root) {
+            Ok(Some(root)) => root,
+            Ok(None) | Err(_) => {
+                snapshots.push(CapturedDependencyProject {
+                    package: dependency.package.clone(),
+                    source,
+                    project: None,
+                });
+                continue;
+            }
         };
-        let dependency_root = dependency_root(&project.root, &source.value);
         let Ok(dependency_project) = Project::discover(dependency_root, &[]) else {
             snapshots.push(CapturedDependencyProject {
                 package: dependency.package.clone(),
-                source: source.value.clone(),
+                source,
                 project: None,
             });
             continue;
         };
         snapshots.push(CapturedDependencyProject {
             package: dependency.package.clone(),
-            source: source.value.clone(),
+            source,
             project: Some(dependency_project),
         });
     }
     snapshots
         .sort_by(|left, right| (&left.package, &left.source).cmp(&(&right.package, &right.source)));
     Ok(snapshots)
+}
+
+fn dependency_snapshot_source(dependency: &veln_project::ManifestDependency) -> String {
+    if let Some(source) = dependency.direct_local_source() {
+        return source.value.clone();
+    }
+    if let Some(git) = &dependency.git {
+        if let Some(subdir) = &dependency.subdir {
+            return format!("{}#{}", git.value, subdir.value);
+        }
+        return git.value.clone();
+    }
+    "<unresolved>".to_string()
 }
 
 fn dependency_snapshot_key(snapshot: &CapturedDependencyProject) -> Value {
@@ -531,64 +564,64 @@ mod tests {
                 ],
             ),
             (
-                "dependency",
+                "locally materialized git dependency",
                 vec![
                     captured_project_with_dependencies(
                         vec![("main.veln", clean_source())],
-                        Some(dependency_manifest()),
+                        Some(git_dependency_manifest()),
                         vec![captured_dependency(
                             "dep",
-                            "../dep",
+                            "https://example.invalid/dep.git",
                             vec![("lib.veln", clean_source())],
                             Some("name = \"dep\"\n"),
                         )],
                     ),
                     captured_project_with_dependencies(
                         vec![("main.veln", clean_source())],
-                        Some(dependency_manifest()),
+                        Some(git_dependency_manifest()),
                         vec![captured_dependency(
                             "dep",
-                            "../dep",
+                            "https://example.invalid/dep.git",
                             vec![("lib.veln", "fn answer() -> Int\n  2\nend\n")],
                             Some("name = \"dep\"\n"),
                         )],
                     ),
                     captured_project_with_dependencies(
                         vec![("main.veln", clean_source())],
-                        Some(dependency_manifest()),
+                        Some(git_dependency_manifest()),
                         vec![captured_dependency(
                             "dep",
-                            "../dep",
+                            "https://example.invalid/dep.git",
                             vec![("lib.veln", clean_source())],
                             Some("name = \"dep\"\n"),
                         )],
                     ),
                     captured_project_with_dependencies(
                         vec![("main.veln", clean_source())],
-                        Some(dependency_manifest()),
+                        Some(git_dependency_manifest()),
                         vec![captured_dependency(
                             "dep",
-                            "../dep",
+                            "https://example.invalid/dep.git",
                             vec![("lib.veln", "fn answer() -> Int\n  2\nend\n")],
                             Some("name = \"dep\"\n"),
                         )],
                     ),
                     captured_project_with_dependencies(
                         vec![("main.veln", clean_source())],
-                        Some(dependency_manifest()),
+                        Some(git_dependency_manifest()),
                         vec![captured_dependency(
                             "dep",
-                            "../dep",
+                            "https://example.invalid/dep.git",
                             vec![("lib.veln", clean_source())],
                             Some("name = \"dep\"\n"),
                         )],
                     ),
                     captured_project_with_dependencies(
                         vec![("main.veln", clean_source())],
-                        Some(dependency_manifest()),
+                        Some(git_dependency_manifest()),
                         vec![captured_dependency(
                             "dep",
-                            "../dep",
+                            "https://example.invalid/dep.git",
                             vec![("lib.veln", "fn answer() -> Int\n  2\nend\n")],
                             Some("name = \"dep\"\n"),
                         )],
@@ -688,8 +721,8 @@ mod tests {
         }
     }
 
-    fn dependency_manifest() -> &'static str {
-        "[dependencies.dep]\npath = \"../dep\"\n"
+    fn git_dependency_manifest() -> &'static str {
+        "[dependencies.dep]\ngit = \"https://example.invalid/dep.git\"\nrev = \"abc123\"\n"
     }
 
     fn clean_source() -> &'static str {
