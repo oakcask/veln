@@ -322,6 +322,16 @@ fn definition_distinguishes_no_symbol_from_invalid_positions_and_uses_canonical_
         assert_eq!(invalid["isError"], true, "{line}:{column} {invalid:#}");
         assert_eq!(invalid["structuredContent"]["code"], "invalid_position");
     }
+    let huge_position = initialized_server(&workspace).definition_tool(&json!({
+        "source": "main.veln",
+        "line": u64::MAX,
+        "column": 1
+    }));
+    assert_eq!(huge_position["isError"], true, "{huge_position:#}");
+    assert_eq!(
+        huge_position["structuredContent"]["code"],
+        "invalid_position"
+    );
 }
 
 #[test]

@@ -133,14 +133,18 @@ fn matches_schema_with_root(root: &Value, schema: &Value, value: &Value) -> bool
 }
 
 fn matches_integer_schema(schema: &Value, value: &Value) -> bool {
-    let Some(number) = value
-        .as_i64()
-        .or_else(|| value.as_u64().and_then(|value| value.try_into().ok()))
-    else {
+    let Some(number) = value.as_number() else {
         return false;
     };
+    if !number.is_i64() && !number.is_u64() {
+        return false;
+    }
     if let Some(minimum) = schema.get("minimum").and_then(Value::as_i64)
-        && number < minimum
+        && match (number.as_i64(), number.as_u64()) {
+            (Some(value), _) => value < minimum,
+            (None, Some(value)) => minimum >= 0 && value < minimum as u64,
+            (None, None) => true,
+        }
     {
         return false;
     }
@@ -289,6 +293,11 @@ mod tests {
         assert!(tool.accepts_input(&serde_json::json!({
             "source": "main.veln",
             "line": 1,
+            "column": 1
+        })));
+        assert!(tool.accepts_input(&serde_json::json!({
+            "source": "main.veln",
+            "line": u64::MAX,
             "column": 1
         })));
         for value in [

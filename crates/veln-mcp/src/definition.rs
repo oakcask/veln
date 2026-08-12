@@ -28,12 +28,10 @@ pub(crate) fn definition(
         .expect("definition input schema requires a string source");
     let line = arguments["line"]
         .as_u64()
-        .and_then(|value| value.try_into().ok())
-        .expect("definition input schema requires a supported positive line");
+        .expect("definition input schema requires a positive line");
     let column = arguments["column"]
         .as_u64()
-        .and_then(|value| value.try_into().ok())
-        .expect("definition input schema requires a supported positive column");
+        .expect("definition input schema requires a positive column");
     let (captured, captured_source) = match capture_navigation_source(base, selection, source) {
         Ok(captured) => captured,
         Err(failure) => return failure.into(),
@@ -58,8 +56,12 @@ pub(crate) fn definition(
         &snapshot,
         SourcePosition {
             source: SourcePath::new(captured_source),
-            line,
-            column,
+            line: line
+                .try_into()
+                .expect("valid definition line should fit in usize"),
+            column: column
+                .try_into()
+                .expect("valid definition column should fit in usize"),
         },
     );
     let definition = result.and_then(|result| match result.definition.source {
@@ -81,12 +83,20 @@ pub(crate) fn definition(
     DefinitionOutcome::Success(json!({"definition": definition}))
 }
 
-fn valid_position(text: &str, line: usize, column: usize) -> bool {
-    let Some(selected_line) = text.split('\n').nth(line.saturating_sub(1)) else {
+fn valid_position(text: &str, line: u64, column: u64) -> bool {
+    let Ok(line_index) = usize::try_from(line.saturating_sub(1)) else {
         return false;
     };
-    let selected_line = selected_line.strip_suffix('\r').unwrap_or(selected_line);
-    column <= selected_line.chars().count() + 1
+    let mut lines = text.split('\n').peekable();
+    let Some(selected_line) = lines.nth(line_index) else {
+        return false;
+    };
+    let selected_line = if lines.peek().is_some() {
+        selected_line.strip_suffix('\r').unwrap_or(selected_line)
+    } else {
+        selected_line
+    };
+    column <= selected_line.chars().count() as u64 + 1
 }
 
 fn path_to_uri(path: &Path) -> String {
@@ -149,6 +159,8 @@ mod tests {
             ("a\n", (2, 2), false),
             ("a\r\n", (1, 2), true),
             ("a\r\n", (1, 3), false),
+            ("a\r", (1, 3), true),
+            ("a\r", (1, 4), false),
             ("😀x", (1, 3), true),
             ("😀x", (1, 4), false),
             ("x", (2, 1), false),
