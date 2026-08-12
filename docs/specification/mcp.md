@@ -18,15 +18,18 @@ successful refreshes and for the stable `generation_failed` domain failure.
 Unknown input fields and non-object inputs produce a JSON-RPC invalid-params
 error.
 
-Request IDs are strings or JSON integers. A request with a `null` ID or
-fractional numeric ID is an invalid JSON-RPC request. Integer request IDs are
-returned unchanged in the response. `initialize` requires the declared protocol
-version, client capabilities object, and client name/version fields. Requests
-other than `initialize` fail before a successful `initialize`. A second valid
-`initialize` in the same session fails. `ping`, `tools/list`, and `tools/call`
-accept request metadata as `_meta.progressToken` when the token is a string or
-JSON number. `tools/list` also accepts a string `cursor` parameter; the current
-server still returns the complete tool list in one response.
+Request IDs are strings or JSON numbers. A request with a `null` ID is an
+invalid JSON-RPC request. Numeric request IDs are returned unchanged in the
+response, including fractional, exponent-form, and implementation-large
+numbers. A malformed ID-less request object returns `Invalid Request` with a
+`null` ID. A structurally valid notification has no response. `initialize`
+requires the declared protocol version, client capabilities object, and client
+name/version fields. Requests other than `initialize` fail before a successful
+`initialize`. A second valid `initialize` in the same session fails. `ping`,
+`tools/list`, and `tools/call` accept request metadata as `_meta.progressToken`
+when the token is a string or JSON number. `tools/list` also accepts a string
+`cursor` parameter; the current server still returns the complete tool list in
+one response.
 
 ## Workspace Selection
 
@@ -59,9 +62,9 @@ successful refresh.
 ## Executable Evidence
 
 The `../../examples/specification/mcp/workspace-lifecycle/case.toml` case checks
-initialization, exact tool declarations, accepted request metadata, integer
+initialization, exact tool declarations, accepted request metadata, numeric
 request ID preservation, both tool calls, invalid tool input, initialization
-phase errors, invalid initialize parameters, invalid request IDs, protocol-only
-standard output, and clean end-of-file termination. Table-driven tests in
-`veln-mcp` check discovery boundaries, client-root invariance, refresh
-transitions, and failure state preservation.
+phase errors, invalid initialize parameters, invalid request IDs, malformed
+ID-less requests, protocol-only standard output, and clean end-of-file
+termination. Table-driven tests in `veln-mcp` check discovery boundaries,
+client-root invariance, refresh transitions, and failure state preservation.

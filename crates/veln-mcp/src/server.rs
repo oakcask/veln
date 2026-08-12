@@ -55,14 +55,12 @@ impl Server {
         };
         let id = object.get("id").cloned();
         if object.get("jsonrpc").and_then(Value::as_str) != Some("2.0")
-            || !id
-                .as_ref()
-                .is_none_or(|id| valid_request_id(id, raw_id.as_ref()))
+            || !id.as_ref().is_none_or(valid_request_id)
         {
-            return id.map(|_| protocol_error(Value::Null, -32600, "Invalid Request"));
+            return Some(protocol_error(Value::Null, -32600, "Invalid Request"));
         }
         let Some(method) = object.get("method").and_then(Value::as_str) else {
-            return id.map(|_| protocol_error(Value::Null, -32600, "Invalid Request"));
+            return Some(protocol_error(Value::Null, -32600, "Invalid Request"));
         };
         let params = object.get("params");
 
@@ -163,11 +161,8 @@ impl Server {
     }
 }
 
-fn valid_request_id(value: &Value, raw_id: Option<&ResponseId>) -> bool {
-    value.is_string()
-        || raw_id.is_some_and(ResponseId::is_integer_number)
-        || value.as_i64().is_some()
-        || value.as_u64().is_some()
+fn valid_request_id(value: &Value) -> bool {
+    value.is_string() || value.is_number()
 }
 
 fn valid_implementation(value: &Value) -> bool {
@@ -255,15 +250,6 @@ impl ResponseId {
                 serde_json::to_writer(writer, value).map_err(io::Error::other)
             }
             ResponseId::RawNumber(raw) => writer.write_all(raw.as_bytes()),
-        }
-    }
-
-    fn is_integer_number(&self) -> bool {
-        match self {
-            ResponseId::Value(value) => value.as_i64().is_some() || value.as_u64().is_some(),
-            ResponseId::RawNumber(raw) => {
-                raw.bytes().all(|byte| !matches!(byte, b'.' | b'e' | b'E'))
-            }
         }
     }
 
@@ -647,7 +633,7 @@ mod tests {
     }
 
     #[test]
-    fn request_ids_accept_strings_and_integers_but_reject_null_and_fractions() {
+    fn request_ids_accept_strings_and_numbers_but_reject_null() {
         let workspace = TempWorkspace::new("request-ids");
         let selection = Selection::discover(&workspace.root).unwrap();
         let mut server = Server {
@@ -662,16 +648,14 @@ mod tests {
         assert_eq!(null_response["id"], Value::Null);
         assert_eq!(null_response["error"]["code"], -32600);
 
-        for id in [json!(1.5), json!(1e3)] {
-            let fractional_response = server
-                .handle_request(json!({"jsonrpc":"2.0","id":id,"method":"ping"}))
-                .unwrap();
-            assert_eq!(fractional_response["id"], Value::Null);
-            assert_eq!(fractional_response["error"]["code"], -32600);
-            assert!(fractional_response.get("result").is_none());
-        }
-
-        for id in [json!("ok"), json!(0), json!(-1), json!(1)] {
+        for id in [
+            json!("ok"),
+            json!(0),
+            json!(-1),
+            json!(1),
+            json!(1.5),
+            json!(1e3),
+        ] {
             let response = server
                 .handle_request(json!({"jsonrpc":"2.0","id":id,"method":"ping"}))
                 .unwrap();
@@ -685,11 +669,12 @@ mod tests {
     }
 
     #[test]
-    fn stdio_preserves_large_adjacent_numeric_request_ids() {
+    fn stdio_preserves_numeric_request_id_spellings() {
         let workspace = TempWorkspace::new("large-request-ids");
         let input = [
             r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1"}}}"#,
             r#"{"jsonrpc":"2.0","id":7.5,"method":"ping"}"#,
+            r#"{"jsonrpc":"2.0","id":1e3,"method":"ping"}"#,
             r#"{"jsonrpc":"2.0","id":18446744073709551616,"method":"ping"}"#,
             r#"{"jsonrpc":"2.0","id":18446744073709551617,"method":"ping"}"#,
         ]
@@ -699,20 +684,42 @@ mod tests {
         let response = String::from_utf8(output).unwrap();
         let lines = response.lines().collect::<Vec<_>>();
 
-        assert_eq!(lines.len(), 4);
+        assert_eq!(lines.len(), 5);
+        assert!(lines[1].contains(r#""id":7.5"#), "{response}");
+        assert!(lines[2].contains(r#""id":1e3"#), "{response}");
         assert!(
-            lines[1].contains(r#""error":{"code":-32600,"message":"Invalid Request"}"#),
-            "{response}"
-        );
-        assert!(lines[1].contains(r#""id":null"#), "{response}");
-        assert!(
-            lines[2].contains(r#""id":18446744073709551616"#),
+            lines[3].contains(r#""id":18446744073709551616"#),
             "{response}"
         );
         assert!(
-            lines[3].contains(r#""id":18446744073709551617"#),
+            lines[4].contains(r#""id":18446744073709551617"#),
             "{response}"
         );
+    }
+
+    #[test]
+    fn malformed_idless_requests_return_invalid_request_with_null_id() {
+        let workspace = TempWorkspace::new("malformed-idless");
+        let selection = Selection::discover(&workspace.root).unwrap();
+        let mut server = Server {
+            base: workspace.root.clone(),
+            selection,
+            initialized: true,
+        };
+
+        let notification = server.handle_request(json!({"jsonrpc":"2.0","method":"ping"}));
+        assert!(notification.is_none());
+
+        for request in [
+            json!({"jsonrpc":"2.0","method":7}),
+            json!({"jsonrpc":"2.0"}),
+            json!({"method":"ping"}),
+        ] {
+            let response = server.handle_request(request).unwrap();
+            assert_eq!(response["id"], Value::Null);
+            assert_eq!(response["error"]["code"], -32600);
+            assert!(response.get("result").is_none());
+        }
     }
 
     #[test]
