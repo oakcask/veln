@@ -99,7 +99,7 @@ fn parse_coordinate_integer(text: &str) -> Option<usize> {
         return None;
     }
     let (mantissa, exponent) = match text.find(['e', 'E']) {
-        Some(index) => (&text[..index], text[index + 1..].parse::<i64>().ok()?),
+        Some(index) => (&text[..index], parse_json_exponent(&text[index + 1..])?),
         None => (text, 0),
     };
     let (integer, fraction) = match mantissa.split_once('.') {
@@ -109,7 +109,9 @@ fn parse_coordinate_integer(text: &str) -> Option<usize> {
     let mut digits = String::with_capacity(integer.len() + fraction.len());
     digits.push_str(integer);
     digits.push_str(fraction);
-    let scale = fraction.len() as i64 - exponent;
+    let scale = i64::try_from(fraction.len())
+        .ok()
+        .and_then(|fraction_len| fraction_len.checked_sub(exponent))?;
     if scale > 0 {
         let scale = scale as usize;
         if scale > digits.len()
@@ -121,18 +123,36 @@ fn parse_coordinate_integer(text: &str) -> Option<usize> {
         }
         digits.truncate(digits.len() - scale);
     }
-    let mut parsed = digits
-        .trim_start_matches('0')
-        .bytes()
-        .try_fold(0usize, |parsed, byte| {
-            parsed.checked_mul(10)?.checked_add((byte - b'0') as usize)
-        })?;
-    if scale < 0 {
-        for _ in 0..scale.unsigned_abs() {
-            parsed = parsed.checked_mul(10)?;
-        }
+    let trimmed = digits.trim_start_matches('0');
+    if trimmed.is_empty() {
+        return Some(0);
+    }
+    let trailing_zeros = if scale < 0 {
+        usize::try_from(scale.unsigned_abs()).ok()?
+    } else {
+        0
+    };
+    if trimmed.len() + trailing_zeros > usize::MAX.to_string().len() {
+        return None;
+    }
+    let mut parsed = trimmed.bytes().try_fold(0usize, |parsed, byte| {
+        parsed.checked_mul(10)?.checked_add((byte - b'0') as usize)
+    })?;
+    for _ in 0..trailing_zeros {
+        parsed = parsed.checked_mul(10)?;
     }
     Some(parsed)
+}
+
+fn parse_json_exponent(text: &str) -> Option<i64> {
+    let digits = match text.as_bytes().first() {
+        Some(b'+') | Some(b'-') => &text[1..],
+        _ => text,
+    };
+    if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    text.parse::<i64>().ok()
 }
 
 fn valid_position(text: &str, line: Coordinate, column: Coordinate) -> bool {

@@ -160,7 +160,8 @@ when another saved source in the same workspace contains a language error.
 The `definition-workspace` MCP specification case checks the advertised
 `definition` declaration plus representative definition, no-definition,
 decimal and exponent integer coordinate spellings, and invalid-position
-results plus non-integer coordinate schema rejection over stdio.
+results plus non-integer decimal and negative-exponent coordinate schema
+rejection over stdio.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous
@@ -173,7 +174,8 @@ anonymous and descendant-manifest isolation, every implemented symbol kind,
 canonical URI spelling, path rejection, stable-capture failure, no-symbol
 success, invalid positions including oversized positive integers, half-open
 ranges, LF, CRLF, terminal-newline, empty-file, non-BMP scalar coordinates,
-and non-integer numeric coordinate schema rejection.
+extreme positive and negative exponent coordinates, and non-integer numeric
+coordinate schema rejection.
 Unix-only `veln-mcp` tests also
 check canonical resolved-base URI spelling, definition path symlink rejection,
 anonymous workspace-base symlink replacement, and that selected

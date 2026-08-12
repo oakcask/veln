@@ -148,15 +148,17 @@ fn matches_integer_schema(schema: &Value, value: &Value) -> bool {
 }
 
 fn json_number_is_integer(text: &str) -> bool {
-    let Some((digits, scale)) = json_number_digits_and_scale(text) else {
+    let Some(parts) = JsonNumberParts::parse(text) else {
         return false;
     };
-    if scale <= 0 {
+    if parts.is_zero() || parts.exponent_at_least_fraction_len() {
         return true;
     }
-    let scale = scale as usize;
-    scale <= digits.len()
-        && digits[digits.len() - scale..]
+    let Some(scale) = parts.fraction_scale() else {
+        return false;
+    };
+    scale <= parts.digits.len()
+        && parts.digits[parts.digits.len() - scale..]
             .bytes()
             .all(|byte| byte == b'0')
 }
@@ -168,49 +170,135 @@ fn json_number_is_less_than_i64(text: &str, minimum: i64) -> bool {
                 .parse::<f64>()
                 .is_ok_and(|value| value < minimum as f64);
     }
-    let Some((mut digits, scale)) = json_number_digits_and_scale(text) else {
+    let Some(parts) = JsonNumberParts::parse(text) else {
         return true;
     };
-    if text.starts_with('-') {
+    if parts.negative {
         return true;
     }
-    if scale > 0 {
-        digits.truncate(digits.len().saturating_sub(scale as usize));
-    } else {
-        digits.extend(std::iter::repeat_n('0', scale.unsigned_abs() as usize));
+    if parts.is_zero() {
+        return 0 < minimum;
     }
+    let scale = parts.signed_scale();
+    if scale
+        .is_none_or(|scale| scale < 0 && scale.unsigned_abs() as usize > minimum.to_string().len())
+    {
+        return false;
+    }
+    let Some(scale) = scale else {
+        return true;
+    };
+    let mut digits = parts.digits;
+    let trailing_zeros = if scale > 0 {
+        digits.truncate(digits.len().saturating_sub(scale as usize));
+        0
+    } else {
+        scale.unsigned_abs() as usize
+    };
     let normalized = digits.trim_start_matches('0');
     if normalized.is_empty() {
         return 0 < minimum;
     }
     let minimum = minimum.to_string();
-    normalized.len() < minimum.len()
-        || (normalized.len() == minimum.len() && normalized < minimum.as_str())
+    let total_len = normalized.len() + trailing_zeros;
+    total_len < minimum.len()
+        || (total_len == minimum.len()
+            && normalized
+                .bytes()
+                .chain(std::iter::repeat_n(b'0', trailing_zeros))
+                .lt(minimum.bytes()))
 }
 
-fn json_number_digits_and_scale(text: &str) -> Option<(String, i64)> {
-    let text = text.strip_prefix('-').unwrap_or(text);
-    let (mantissa, exponent) = match text.find(['e', 'E']) {
-        Some(index) => {
-            let exponent = text[index + 1..].parse::<i64>().ok()?;
-            (&text[..index], exponent)
+struct JsonNumberParts {
+    negative: bool,
+    digits: String,
+    fraction_len: usize,
+    exponent: JsonExponent,
+}
+
+enum JsonExponent {
+    Finite(i64),
+    HugePositive,
+    HugeNegative,
+}
+
+impl JsonNumberParts {
+    fn parse(text: &str) -> Option<Self> {
+        let (negative, text) = match text.strip_prefix('-') {
+            Some(text) => (true, text),
+            None => (false, text),
+        };
+        let (mantissa, exponent) = match text.find(['e', 'E']) {
+            Some(index) => (&text[..index], JsonExponent::parse(&text[index + 1..])?),
+            None => (&text[..], JsonExponent::Finite(0)),
+        };
+        let (integer, fraction) = match mantissa.split_once('.') {
+            Some((integer, fraction)) => (integer, fraction),
+            None => (mantissa, ""),
+        };
+        if integer.is_empty()
+            || !integer.bytes().all(|byte| byte.is_ascii_digit())
+            || !fraction.bytes().all(|byte| byte.is_ascii_digit())
+        {
+            return None;
         }
-        None => (text, 0),
-    };
-    let (integer, fraction) = match mantissa.split_once('.') {
-        Some((integer, fraction)) => (integer, fraction),
-        None => (mantissa, ""),
-    };
-    if integer.is_empty()
-        || !integer.bytes().all(|byte| byte.is_ascii_digit())
-        || !fraction.bytes().all(|byte| byte.is_ascii_digit())
-    {
-        return None;
+        let mut digits = String::with_capacity(integer.len() + fraction.len());
+        digits.push_str(integer);
+        digits.push_str(fraction);
+        Some(Self {
+            negative,
+            digits,
+            fraction_len: fraction.len(),
+            exponent,
+        })
     }
-    let mut digits = String::with_capacity(integer.len() + fraction.len());
-    digits.push_str(integer);
-    digits.push_str(fraction);
-    Some((digits, fraction.len() as i64 - exponent))
+
+    fn is_zero(&self) -> bool {
+        self.digits.bytes().all(|byte| byte == b'0')
+    }
+
+    fn exponent_at_least_fraction_len(&self) -> bool {
+        match self.exponent {
+            JsonExponent::Finite(exponent) => exponent >= self.fraction_len as i64,
+            JsonExponent::HugePositive => true,
+            JsonExponent::HugeNegative => false,
+        }
+    }
+
+    fn signed_scale(&self) -> Option<i64> {
+        let JsonExponent::Finite(exponent) = self.exponent else {
+            return None;
+        };
+        i64::try_from(self.fraction_len)
+            .ok()
+            .and_then(|fraction_len| fraction_len.checked_sub(exponent))
+    }
+
+    fn fraction_scale(&self) -> Option<usize> {
+        let scale = self.signed_scale()?;
+        if scale <= 0 {
+            return Some(0);
+        }
+        usize::try_from(scale).ok()
+    }
+}
+
+impl JsonExponent {
+    fn parse(text: &str) -> Option<Self> {
+        let (sign, digits) = match text.as_bytes().first() {
+            Some(b'+') => (1, &text[1..]),
+            Some(b'-') => (-1, &text[1..]),
+            _ => (1, text),
+        };
+        if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+            return None;
+        }
+        match text.parse::<i64>() {
+            Ok(value) => Some(Self::Finite(value)),
+            Err(_) if sign >= 0 => Some(Self::HugePositive),
+            Err(_) => Some(Self::HugeNegative),
+        }
+    }
 }
 
 fn matches_object_schema(root: &Value, schema: &Value, value: &Value) -> bool {
@@ -372,6 +460,16 @@ mod tests {
         )
         .unwrap();
         assert!(tool.accepts_input(&above_u64));
+        let huge_positive_exponent = serde_json::from_str(
+            r#"{"source":"main.veln","line":1e9223372036854775807,"column":1}"#,
+        )
+        .unwrap();
+        assert!(tool.accepts_input(&huge_positive_exponent));
+        let huge_negative_exponent = serde_json::from_str(
+            r#"{"source":"main.veln","line":1e-9223372036854775808,"column":1}"#,
+        )
+        .unwrap();
+        assert!(!tool.accepts_input(&huge_negative_exponent));
         let non_integer =
             serde_json::from_str(r#"{"source":"main.veln","line":6.0000000000000001,"column":1}"#)
                 .unwrap();

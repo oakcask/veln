@@ -350,6 +350,20 @@ fn definition_distinguishes_no_symbol_from_invalid_positions_and_uses_canonical_
     assert_eq!(above_u64["isError"], true, "{above_u64:#}");
     assert_eq!(above_u64["structuredContent"]["code"], "invalid_position");
 
+    let huge_positive_exponent_arguments =
+        serde_json::from_str(r#"{"source":"main.veln","line":1e9223372036854775807,"column":1}"#)
+            .unwrap();
+    let huge_positive_exponent =
+        initialized_server(&workspace).definition_tool(&huge_positive_exponent_arguments);
+    assert_eq!(
+        huge_positive_exponent["isError"], true,
+        "{huge_positive_exponent:#}"
+    );
+    assert_eq!(
+        huge_positive_exponent["structuredContent"]["code"],
+        "invalid_position"
+    );
+
     let non_integer_request = serde_json::from_str(
         r#"{
             "jsonrpc": "2.0",
@@ -370,6 +384,30 @@ fn definition_distinguishes_no_symbol_from_invalid_positions_and_uses_canonical_
         .handle_request(non_integer_request)
         .unwrap();
     assert_eq!(non_integer["error"]["code"], -32602, "{non_integer:#}");
+
+    let huge_negative_exponent_request = serde_json::from_str(
+        r#"{
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {
+                "name": "definition",
+                "arguments": {
+                    "source": "main.veln",
+                    "line": 1e-9223372036854775808,
+                    "column": 9
+                }
+            }
+        }"#,
+    )
+    .unwrap();
+    let huge_negative_exponent = initialized_server(&workspace)
+        .handle_request(huge_negative_exponent_request)
+        .unwrap();
+    assert_eq!(
+        huge_negative_exponent["error"]["code"], -32602,
+        "{huge_negative_exponent:#}"
+    );
 }
 
 #[test]
