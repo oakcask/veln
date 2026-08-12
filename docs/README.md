@@ -29,7 +29,7 @@ first route is not obvious.
 - Update diagnostics, related notes, or command JSON behavior:
   [specification/diagnostics-json.md](specification/diagnostics-json.md)
   or [specification/json-output.md](specification/json-output.md).
-- Update MCP workspace selection, saved diagnostics, or tool schemas:
+- Update MCP workspace selection, saved diagnostics, saved definitions, or tool schemas:
   [specification/mcp.md](specification/mcp.md).
 - Check rationale behind current behavior:
   [specification/source-decisions.md](specification/source-decisions.md).

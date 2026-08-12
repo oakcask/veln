@@ -166,3 +166,6 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
 - MCP anonymous single-file `check_project` isolation from other saved
   workspace sources:
   `../../examples/specification/mcp/anonymous-single-file-isolation/`.
+- MCP saved workspace `definition` tool schema advertising, declaration
+  location, no-definition, and invalid-position results:
+  `../../examples/specification/mcp/definition-workspace/`.
