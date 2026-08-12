@@ -472,6 +472,7 @@ dependencies = [
  "serde_json",
  "veln-analysis",
  "veln-diagnostics",
+ "veln-language-service",
  "veln-project",
  "veln-source",
 ]

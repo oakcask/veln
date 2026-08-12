@@ -1,22 +1,23 @@
 ---
 role: specification
 authority: normative
-update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, workspace project selection, refresh transition, saved project diagnostics, tool schemas, or executable MCP cases change.
+update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, workspace project selection, refresh transition, saved project diagnostics or definitions, tool schemas, or executable MCP cases change.
 ---
 
-# MCP Workspace Projects And Diagnostics
+# MCP Workspace Projects, Diagnostics, And Definitions
 
 `veln mcp` runs a Model Context Protocol (MCP) server over standard input and
 standard output. Standard output contains only newline-delimited JSON-RPC
 messages. End-of-file ends the session successfully.
 
-The current MCP surface contains `workspace_projects`, `refresh_workspace`, and
-`check_project`. The checked declarations under
+The current MCP surface contains `workspace_projects`, `refresh_workspace`,
+`check_project`, and `definition`. The checked declarations under
 `../../crates/veln-mcp/schemas/mcp/v1/` define the advertised input and result
 schemas. The `check_project` result schema closes diagnostics, summary counts,
 and the two analysis metadata shapes. Schema failures, unknown input fields,
 `null` in non-nullable fields, and non-object inputs produce a JSON-RPC
-invalid-params error.
+invalid-params error. The `definition` input requires one source plus positive
+JSON integer line and column coordinates.
 `refresh_workspace` reports the stable `generation_failed` domain failure as an
 MCP tool result with `isError: true`.
 
@@ -76,7 +77,8 @@ mirror, or locally materialized git inputs change during the operation.
 Selected manifest-project capture excludes project-local file and directory
 symbolic links from the owned source path set and does not read source bytes
 through them. A descendant directory that contains a regular `veln.toml` is a
-nested package boundary even when that manifest file is not valid UTF-8. A
+nested package boundary even when that manifest file is not valid UTF-8.
+Captured snapshots include those descendant boundary marker bytes. A
 descendant `veln.toml` symbolic link is not a nested package boundary.
 Successful analysis uses the captured dependency inputs and does not fall back
 to reading uncaptured dependency files. If no stable capture is available, the
@@ -110,6 +112,39 @@ counts and analysis metadata. The metadata uses `mode: "project"` with
 `mode: "single_file"` with `project_wide: false` and `source` for anonymous
 single-file analysis.
 
+## Saved Workspace Definitions
+
+`definition` reads one saved workspace-relative regular `.veln` source and a
+one-based line and Unicode-scalar column. The line and column are positive JSON
+integer values; decimal and exponent spellings that denote an integer address
+the same source position as the equivalent plain integer. If the source is in a
+selected manifest project's captured owned-source set, the tool resolves
+symbols over that project. Any other accepted source uses anonymous single-file
+scope. A source below an unselected descendant manifest is therefore not
+analyzed with the outer project.
+
+The implemented symbol set is functions, type constructors, handler context
+parameters, handler operation clause parameters, and exact test-companion
+access to target-private functions. Other declarations, dependencies, and the
+standard library do not produce definition locations through this MCP slice.
+A supported workspace declaration returns one canonical `file:` URI based on
+the resolved workspace-base identity and a half-open range. A valid position
+without a supported symbol succeeds with `definition: null`.
+
+LF and CRLF each end one logical line, and neither CRLF terminator scalar is an
+addressable position. A line containing `N` Unicode scalars accepts columns 1
+through `N + 1`. A terminal newline creates a final empty line at column 1;
+an empty file accepts only `(1, 1)`. A token's end is excluded from its
+selection. A positive integer line or column that does not address one of these
+source positions, including a value larger than the implementation's native
+coordinate range, returns `invalid_position`.
+Definition capture uses the same no-follow path checks, selected-root and
+workspace-base identity checks, stable double capture, bounded retry, and
+`snapshot_changed` failure as saved project diagnostics. When definition
+lookup falls back from a selected outer project to anonymous single-file scope
+for a source below a descendant manifest, the ownership decision and the
+anonymous source bytes belong to the same stable capture attempt.
+
 ## Executable Evidence
 
 The `../../examples/specification/mcp/workspace-lifecycle/` case checks
@@ -122,6 +157,11 @@ advertised `check_project` schema and a diagnostic result with a spanless
 compiler-owned related note over stdio. The `anonymous-single-file-isolation`
 case checks anonymous `check_project` analysis over only the requested source
 when another saved source in the same workspace contains a language error.
+The `definition-workspace` MCP specification case checks the advertised
+`definition` declaration plus representative definition, no-definition,
+decimal and exponent integer coordinate spellings, and invalid-position
+results plus non-integer decimal and negative-exponent coordinate schema
+rejection over stdio.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous
@@ -129,9 +169,18 @@ isolation before refresh, companion-shaped anonymous source names, dependency
 snapshots for direct path and locally materialized git inputs, clean analysis,
 selected-root symlink and regular-directory replacement, and structured
 language diagnostics with spanless related notes and closed related-note
-schemas. Unix-only `veln-mcp` tests also check anonymous workspace-base symlink
-replacement and that selected manifest-project analysis does not consume source
-bytes through project-local file or directory symbolic links. Linux-only
+schemas. They also check definition schema rejection, project inference,
+anonymous and descendant-manifest isolation, every implemented symbol kind,
+canonical URI spelling, path rejection, stable-capture failure, no-symbol
+success, invalid positions including oversized positive integers, half-open
+ranges, LF, CRLF, terminal-newline, empty-file, non-BMP scalar coordinates,
+extreme positive and negative exponent coordinates, and non-integer numeric
+coordinate schema rejection.
+Unix-only `veln-mcp` tests also
+check canonical resolved-base URI spelling, definition path symlink rejection,
+anonymous workspace-base symlink replacement, and that selected
+manifest-project analysis does not consume source bytes through project-local
+file or directory symbolic links. Linux-only
 `veln-mcp` coverage checks that a symlinked descendant `veln.toml` is ignored
 as a nested package marker. A `veln-mcp` test also checks that a non-UTF-8
 descendant regular manifest still forms a nested package boundary. Non-Linux

@@ -124,7 +124,7 @@ impl FileIdentity {
         Self::from_metadata(&fs::symlink_metadata(path)?)
     }
 
-    fn from_metadata(metadata: &fs::Metadata) -> io::Result<Self> {
+    pub(crate) fn from_metadata(metadata: &fs::Metadata) -> io::Result<Self> {
         #[cfg(unix)]
         {
             use std::os::unix::fs::MetadataExt;

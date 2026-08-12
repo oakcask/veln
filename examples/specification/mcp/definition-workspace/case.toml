@@ -1,0 +1,23 @@
+command = ["mcp"]
+stdin_file = "case-text/root-stdin-1.jsonl"
+exit = 0
+
+[stdout]
+contains = [
+  "\"description\":\"Resolve a supported symbol in one saved workspace source\"",
+  "\"name\":\"definition\",\"outputSchema\"",
+  "\"required\":[\"source\",\"line\",\"column\"]",
+  "\"range\":{\"end\":{\"column\":10,\"line\":1},\"start\":{\"column\":4,\"line\":1}}",
+  "\"structuredContent\":{\"definition\":null}",
+  "\"isError\":true,\"structuredContent\":{\"code\":\"invalid_position\"",
+  "\"id\":6,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"definition\\\"",
+  "\"id\":7,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"definition\\\"",
+  "\"id\":8,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"code\\\":\\\"invalid_position\\\"",
+  "\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":9",
+  "\"id\":10,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"code\\\":\\\"invalid_position\\\"",
+  "\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":11",
+]
+not_contains = ["veln-pkg:", "target/debug"]
+
+[stderr]
+format = "empty"

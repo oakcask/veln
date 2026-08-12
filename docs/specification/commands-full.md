@@ -838,6 +838,6 @@ Standard output is reserved for MCP protocol messages. End-of-file on standard
 input ends the session successfully. Startup failures are command failures
 reported by the CLI command wrapper.
 
-The MCP workspace-project selection rules, saved diagnostics, implemented
-tools, checked tool schemas, and refresh state transitions are specified in
-[mcp.md](mcp.md).
+The MCP workspace-project selection rules, saved diagnostics, saved
+definitions, implemented tools, checked tool schemas, and refresh state
+transitions are specified in [mcp.md](mcp.md).

@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"9c53adedad2d33880b1d6c7064027b72f24bf1d6"
+source_git_tree	"b30c39c5809850a5d3cba45216f198852acf4ddd"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1511
+case_count	1512
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -10405,6 +10405,28 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":318,"sha256":"893d220f3ec22d12285e3a02a2278d6676701c615560c184d09770f0921613ae"}
 field	source_errors	"forbidden"
 case_digest	"eb78983618a2e68fb34c7ef35a89977a4162f2ec83efbdc5208538932580725d"
+case	"examples/specification/mcp/definition-workspace"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"description\":\"Resolve a supported symbol in one saved workspace source\""
+field	expectations.stdout.contains[10]	"\"id\":10,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"code\\\":\\\"invalid_position\\\""
+field	expectations.stdout.contains[11]	"\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":11"
+field	expectations.stdout.contains[1]	"\"name\":\"definition\",\"outputSchema\""
+field	expectations.stdout.contains[2]	"\"required\":[\"source\",\"line\",\"column\"]"
+field	expectations.stdout.contains[3]	"\"range\":{\"end\":{\"column\":10,\"line\":1},\"start\":{\"column\":4,\"line\":1}}"
+field	expectations.stdout.contains[4]	"\"structuredContent\":{\"definition\":null}"
+field	expectations.stdout.contains[5]	"\"isError\":true,\"structuredContent\":{\"code\":\"invalid_position\""
+field	expectations.stdout.contains[6]	"\"id\":6,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"definition\\\""
+field	expectations.stdout.contains[7]	"\"id\":7,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"definition\\\""
+field	expectations.stdout.contains[8]	"\"id\":8,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"code\\\":\\\"invalid_position\\\""
+field	expectations.stdout.contains[9]	"\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":9"
+field	expectations.stdout.not_contains[0]	"veln-pkg:"
+field	expectations.stdout.not_contains[1]	"target/debug"
+field	invocation.command[0]	"mcp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1489,"sha256":"e2b4d5447b2dc59fe02b8523e695cee21a53e3b32c1a7f0cdcd1919eb1631384"}
+field	source_errors	"forbidden"
+case_digest	"d50ea8d804bad9b7aab8e92b1e97db5c1e8fbbea00d421c2cba265a943b2fd1c"
 case	"examples/specification/mcp/workspace-lifecycle"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47691,4 +47713,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"0f029e1c2b436734c57dd06d71503f2fe2c5a058883e9f3570d1d97f549562bd"
+aggregate_digest	"8d43bc7068a9c3c8a586ad656884ade1a9f022bc17cd933fd0d7e37e1f7e9234"

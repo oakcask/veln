@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use serde_json::{Value, json};
 
 use crate::check_project::{self, CheckProjectOutcome};
+use crate::definition::{self, DefinitionOutcome};
 use crate::schema;
 use crate::workspace::{Selection, WorkspaceBase};
 
@@ -128,8 +129,34 @@ impl Server {
             "workspace_projects" => successful_tool_result(self.selection_result()),
             "refresh_workspace" => self.refresh_workspace_tool(refresh),
             "check_project" => self.check_project_tool(arguments),
+            "definition" => self.definition_tool(arguments),
             _ => unreachable!("tool name was checked against declarations"),
         })
+    }
+
+    fn definition_tool(&self, arguments: &Value) -> Value {
+        let tool = schema::tool("definition").expect("definition tool is declared");
+        match definition::definition(&self.base, &self.selection, arguments) {
+            DefinitionOutcome::Success(result) => {
+                assert!(
+                    tool.accepts_result(&result),
+                    "definition success result must match the advertised schema"
+                );
+                successful_tool_result(result)
+            }
+            DefinitionOutcome::DomainFailure {
+                code,
+                message,
+                details,
+            } => {
+                let result = json!({"code": code, "message": message, "details": details});
+                assert!(
+                    tool.accepts_result(&result),
+                    "definition domain result must match the advertised schema: {result}"
+                );
+                domain_failure(code, message, result["details"].clone())
+            }
+        }
     }
 
     fn check_project_tool(&self, arguments: &Value) -> Value {

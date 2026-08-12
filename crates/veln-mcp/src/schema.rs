@@ -12,6 +12,8 @@ const REFRESH_WORKSPACE_RESULT: &str =
     include_str!("../schemas/mcp/v1/refresh-workspace-result.json");
 const CHECK_PROJECT_INPUT: &str = include_str!("../schemas/mcp/v1/check-project-input.json");
 const CHECK_PROJECT_RESULT: &str = include_str!("../schemas/mcp/v1/check-project-result.json");
+const DEFINITION_INPUT: &str = include_str!("../schemas/mcp/v1/definition-input.json");
+const DEFINITION_RESULT: &str = include_str!("../schemas/mcp/v1/definition-result.json");
 
 #[derive(Clone, Copy)]
 pub(crate) struct ToolSchema {
@@ -41,6 +43,7 @@ impl ToolSchema {
                     && object.get("project").is_none_or(Value::is_string)
                     && object.get("source").is_none_or(Value::is_string)
             }
+            "definition" => matches_schema(&self.input_schema(), value),
             _ => false,
         }
     }
@@ -50,7 +53,7 @@ impl ToolSchema {
     }
 }
 
-pub(crate) const TOOLS: [ToolSchema; 3] = [
+pub(crate) const TOOLS: [ToolSchema; 4] = [
     ToolSchema {
         name: "workspace_projects",
         description: "Return the current workspace project selection without refreshing it",
@@ -68,6 +71,12 @@ pub(crate) const TOOLS: [ToolSchema; 3] = [
         description: "Analyze one saved workspace project or anonymous Veln source",
         input: CHECK_PROJECT_INPUT,
         result: CHECK_PROJECT_RESULT,
+    },
+    ToolSchema {
+        name: "definition",
+        description: "Resolve a supported symbol in one saved workspace source",
+        input: DEFINITION_INPUT,
+        result: DEFINITION_RESULT,
     },
 ];
 
@@ -124,18 +133,172 @@ fn matches_schema_with_root(root: &Value, schema: &Value, value: &Value) -> bool
 }
 
 fn matches_integer_schema(schema: &Value, value: &Value) -> bool {
-    let Some(number) = value
-        .as_i64()
-        .or_else(|| value.as_u64().and_then(|value| value.try_into().ok()))
-    else {
+    let Some(number) = value.as_number() else {
         return false;
     };
+    if !json_number_is_integer(&number.to_string()) {
+        return false;
+    }
     if let Some(minimum) = schema.get("minimum").and_then(Value::as_i64)
-        && number < minimum
+        && json_number_is_less_than_i64(&number.to_string(), minimum)
     {
         return false;
     }
     true
+}
+
+fn json_number_is_integer(text: &str) -> bool {
+    let Some(parts) = JsonNumberParts::parse(text) else {
+        return false;
+    };
+    if parts.is_zero() || parts.exponent_at_least_fraction_len() {
+        return true;
+    }
+    let Some(scale) = parts.fraction_scale() else {
+        return false;
+    };
+    scale <= parts.digits.len()
+        && parts.digits[parts.digits.len() - scale..]
+            .bytes()
+            .all(|byte| byte == b'0')
+}
+
+fn json_number_is_less_than_i64(text: &str, minimum: i64) -> bool {
+    if minimum < 0 {
+        return text.starts_with('-')
+            && text
+                .parse::<f64>()
+                .is_ok_and(|value| value < minimum as f64);
+    }
+    let Some(parts) = JsonNumberParts::parse(text) else {
+        return true;
+    };
+    if parts.negative {
+        return true;
+    }
+    if parts.is_zero() {
+        return 0 < minimum;
+    }
+    let scale = parts.signed_scale();
+    if scale
+        .is_none_or(|scale| scale < 0 && scale.unsigned_abs() as usize > minimum.to_string().len())
+    {
+        return false;
+    }
+    let Some(scale) = scale else {
+        return true;
+    };
+    let mut digits = parts.digits;
+    let trailing_zeros = if scale > 0 {
+        digits.truncate(digits.len().saturating_sub(scale as usize));
+        0
+    } else {
+        scale.unsigned_abs() as usize
+    };
+    let normalized = digits.trim_start_matches('0');
+    if normalized.is_empty() {
+        return 0 < minimum;
+    }
+    let minimum = minimum.to_string();
+    let total_len = normalized.len() + trailing_zeros;
+    total_len < minimum.len()
+        || (total_len == minimum.len()
+            && normalized
+                .bytes()
+                .chain(std::iter::repeat_n(b'0', trailing_zeros))
+                .lt(minimum.bytes()))
+}
+
+struct JsonNumberParts {
+    negative: bool,
+    digits: String,
+    fraction_len: usize,
+    exponent: JsonExponent,
+}
+
+enum JsonExponent {
+    Finite(i64),
+    HugePositive,
+    HugeNegative,
+}
+
+impl JsonNumberParts {
+    fn parse(text: &str) -> Option<Self> {
+        let (negative, text) = match text.strip_prefix('-') {
+            Some(text) => (true, text),
+            None => (false, text),
+        };
+        let (mantissa, exponent) = match text.find(['e', 'E']) {
+            Some(index) => (&text[..index], JsonExponent::parse(&text[index + 1..])?),
+            None => (text, JsonExponent::Finite(0)),
+        };
+        let (integer, fraction) = match mantissa.split_once('.') {
+            Some((integer, fraction)) => (integer, fraction),
+            None => (mantissa, ""),
+        };
+        if integer.is_empty()
+            || !integer.bytes().all(|byte| byte.is_ascii_digit())
+            || !fraction.bytes().all(|byte| byte.is_ascii_digit())
+        {
+            return None;
+        }
+        let mut digits = String::with_capacity(integer.len() + fraction.len());
+        digits.push_str(integer);
+        digits.push_str(fraction);
+        Some(Self {
+            negative,
+            digits,
+            fraction_len: fraction.len(),
+            exponent,
+        })
+    }
+
+    fn is_zero(&self) -> bool {
+        self.digits.bytes().all(|byte| byte == b'0')
+    }
+
+    fn exponent_at_least_fraction_len(&self) -> bool {
+        match self.exponent {
+            JsonExponent::Finite(exponent) => exponent >= self.fraction_len as i64,
+            JsonExponent::HugePositive => true,
+            JsonExponent::HugeNegative => false,
+        }
+    }
+
+    fn signed_scale(&self) -> Option<i64> {
+        let JsonExponent::Finite(exponent) = self.exponent else {
+            return None;
+        };
+        i64::try_from(self.fraction_len)
+            .ok()
+            .and_then(|fraction_len| fraction_len.checked_sub(exponent))
+    }
+
+    fn fraction_scale(&self) -> Option<usize> {
+        let scale = self.signed_scale()?;
+        if scale <= 0 {
+            return Some(0);
+        }
+        usize::try_from(scale).ok()
+    }
+}
+
+impl JsonExponent {
+    fn parse(text: &str) -> Option<Self> {
+        let (sign, digits) = match text.as_bytes().first() {
+            Some(b'+') => (1, &text[1..]),
+            Some(b'-') => (-1, &text[1..]),
+            _ => (1, text),
+        };
+        if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+            return None;
+        }
+        match text.parse::<i64>() {
+            Ok(value) => Some(Self::Finite(value)),
+            Err(_) if sign >= 0 => Some(Self::HugePositive),
+            Err(_) => Some(Self::HugeNegative),
+        }
+    }
 }
 
 fn matches_object_schema(root: &Value, schema: &Value, value: &Value) -> bool {
@@ -271,6 +434,71 @@ mod tests {
             serde_json::json!(null),
         ] {
             assert!(!tool.accepts_input(&value), "{value}");
+        }
+    }
+
+    #[test]
+    fn definition_input_requires_closed_positive_coordinates() {
+        let tool = tool("definition").unwrap();
+        assert!(tool.accepts_input(&serde_json::json!({
+            "source": "main.veln",
+            "line": 1,
+            "column": 1
+        })));
+        assert!(tool.accepts_input(&serde_json::json!({
+            "source": "main.veln",
+            "line": u64::MAX,
+            "column": 1
+        })));
+        assert!(tool.accepts_input(&serde_json::json!({
+            "source": "main.veln",
+            "line": 1.0,
+            "column": 1e0
+        })));
+        let above_u64 = serde_json::from_str(
+            r#"{"source":"main.veln","line":18446744073709551616,"column":1}"#,
+        )
+        .unwrap();
+        assert!(tool.accepts_input(&above_u64));
+        let huge_positive_exponent = serde_json::from_str(
+            r#"{"source":"main.veln","line":1e9223372036854775807,"column":1}"#,
+        )
+        .unwrap();
+        assert!(tool.accepts_input(&huge_positive_exponent));
+        let huge_negative_exponent = serde_json::from_str(
+            r#"{"source":"main.veln","line":1e-9223372036854775808,"column":1}"#,
+        )
+        .unwrap();
+        assert!(!tool.accepts_input(&huge_negative_exponent));
+        let non_integer =
+            serde_json::from_str(r#"{"source":"main.veln","line":6.0000000000000001,"column":1}"#)
+                .unwrap();
+        assert!(!tool.accepts_input(&non_integer));
+        for value in [
+            serde_json::json!({}),
+            serde_json::json!({"source":"main.veln","line":1}),
+            serde_json::json!({"source":"main.veln","line":0,"column":1}),
+            serde_json::json!({"source":"main.veln","line":1,"column":-1}),
+            serde_json::json!({"source":"main.veln","line":1.5,"column":1}),
+            serde_json::json!({"source":null,"line":1,"column":1}),
+            serde_json::json!({"source":"main.veln","line":1,"column":1,"extra":true}),
+            serde_json::json!([]),
+        ] {
+            assert!(!tool.accepts_input(&value), "{value}");
+        }
+    }
+
+    #[test]
+    fn definition_result_accepts_empty_location_and_domain_failures() {
+        let tool = tool("definition").unwrap();
+        assert!(tool.accepts_result(&serde_json::json!({"definition": null})));
+        for code in ["invalid_path", "invalid_position", "snapshot_changed"] {
+            let result = serde_json::json!({
+                "code": code,
+                "message": "failed",
+                "details": {"source": "main.veln"}
+            });
+            assert!(tool.accepts_result(&result), "{result}");
         }
     }
 
