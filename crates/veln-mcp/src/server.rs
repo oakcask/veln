@@ -16,7 +16,7 @@ pub(crate) fn run(base: PathBuf, reader: impl BufRead, mut writer: impl Write) -
     };
     for line in reader.lines() {
         if let Some(response) = server.handle_line(&line?) {
-            serde_json::to_writer(&mut writer, &response)?;
+            response.write_json(&mut writer)?;
             writer.write_all(b"\n")?;
             writer.flush()?;
         }
@@ -31,15 +31,25 @@ struct Server {
 }
 
 impl Server {
-    fn handle_line(&mut self, line: &str) -> Option<Value> {
+    fn handle_line(&mut self, line: &str) -> Option<JsonRpcResponse> {
         let request = match serde_json::from_str::<Value>(line) {
             Ok(request) => request,
             Err(_) => return Some(protocol_error(Value::Null, -32700, "Parse error")),
         };
-        self.handle_request(request)
+        self.handle_request_with_id(request, request_id_from_line(line))
     }
 
+    #[cfg(test)]
     fn handle_request(&mut self, request: Value) -> Option<Value> {
+        self.handle_request_with_id(request, None)
+            .map(JsonRpcResponse::into_value)
+    }
+
+    fn handle_request_with_id(
+        &mut self,
+        request: Value,
+        raw_id: Option<ResponseId>,
+    ) -> Option<JsonRpcResponse> {
         let Some(object) = request.as_object() else {
             return Some(protocol_error(Value::Null, -32600, "Invalid Request"));
         };
@@ -54,7 +64,7 @@ impl Server {
         };
         let params = object.get("params");
 
-        let response_id = id?;
+        let response_id = raw_id.or_else(|| id.map(ResponseId::from_value))?;
 
         let result = match method {
             "initialize" => self.initialize(params),
@@ -67,7 +77,7 @@ impl Server {
             _ => return Some(protocol_error(response_id, -32601, "Method not found")),
         };
         Some(match result {
-            Ok(result) => json!({"jsonrpc": "2.0", "id": response_id, "result": result}),
+            Ok(result) => JsonRpcResponse::result(response_id, result),
             Err(message) => protocol_error(response_id, -32602, message),
         })
     }
@@ -219,12 +229,247 @@ fn domain_failure(code: &str, message: &str, details: Value) -> Value {
     })
 }
 
-fn protocol_error(id: Value, code: i64, message: &str) -> Value {
-    json!({
-        "jsonrpc": "2.0",
-        "id": id,
-        "error": {"code": code, "message": message},
-    })
+fn protocol_error(id: impl Into<ResponseId>, code: i64, message: &str) -> JsonRpcResponse {
+    JsonRpcResponse::error(id.into(), code, message)
+}
+
+#[derive(Clone)]
+enum ResponseId {
+    Value(Value),
+    RawNumber(String),
+}
+
+impl ResponseId {
+    fn from_value(value: Value) -> Self {
+        Self::Value(value)
+    }
+
+    fn write_json(&self, writer: &mut impl Write) -> io::Result<()> {
+        match self {
+            ResponseId::Value(value) => {
+                serde_json::to_writer(writer, value).map_err(io::Error::other)
+            }
+            ResponseId::RawNumber(raw) => writer.write_all(raw.as_bytes()),
+        }
+    }
+
+    #[cfg(test)]
+    fn into_value(self) -> Value {
+        match self {
+            ResponseId::Value(value) => value,
+            ResponseId::RawNumber(raw) => {
+                serde_json::from_str(&raw).expect("raw numeric request id was parsed from JSON")
+            }
+        }
+    }
+}
+
+impl From<Value> for ResponseId {
+    fn from(value: Value) -> Self {
+        Self::Value(value)
+    }
+}
+
+enum JsonRpcResponse {
+    Result { id: ResponseId, result: Value },
+    Error { id: ResponseId, error: Value },
+}
+
+impl JsonRpcResponse {
+    fn result(id: ResponseId, result: Value) -> Self {
+        Self::Result { id, result }
+    }
+
+    fn error(id: ResponseId, code: i64, message: &str) -> Self {
+        Self::Error {
+            id,
+            error: json!({"code": code, "message": message}),
+        }
+    }
+
+    fn write_json(&self, writer: &mut impl Write) -> io::Result<()> {
+        match self {
+            JsonRpcResponse::Result { id, result } => {
+                writer.write_all(b"{\"id\":")?;
+                id.write_json(writer)?;
+                writer.write_all(b",\"jsonrpc\":\"2.0\",\"result\":")?;
+                serde_json::to_writer(&mut *writer, result).map_err(io::Error::other)?;
+                writer.write_all(b"}")
+            }
+            JsonRpcResponse::Error { id, error } => {
+                writer.write_all(b"{\"error\":")?;
+                serde_json::to_writer(&mut *writer, error).map_err(io::Error::other)?;
+                writer.write_all(b",\"id\":")?;
+                id.write_json(writer)?;
+                writer.write_all(b",\"jsonrpc\":\"2.0\"}")
+            }
+        }
+    }
+
+    #[cfg(test)]
+    fn into_value(self) -> Value {
+        match self {
+            JsonRpcResponse::Result { id, result } => {
+                json!({"jsonrpc": "2.0", "id": id.into_value(), "result": result})
+            }
+            JsonRpcResponse::Error { id, error } => {
+                json!({"jsonrpc": "2.0", "id": id.into_value(), "error": error})
+            }
+        }
+    }
+}
+
+fn request_id_from_line(line: &str) -> Option<ResponseId> {
+    let id = top_level_field_lexeme(line, "id")?;
+    let value = serde_json::from_str::<Value>(id).ok()?;
+    if value.is_number() {
+        Some(ResponseId::RawNumber(id.to_string()))
+    } else {
+        Some(ResponseId::Value(value))
+    }
+}
+
+fn top_level_field_lexeme<'a>(text: &'a str, target: &str) -> Option<&'a str> {
+    let bytes = text.as_bytes();
+    let mut offset = skip_json_ws(bytes, 0);
+    if bytes.get(offset) != Some(&b'{') {
+        return None;
+    }
+    offset += 1;
+    loop {
+        offset = skip_json_ws(bytes, offset);
+        match bytes.get(offset) {
+            Some(b'}') => return None,
+            Some(b'"') => {}
+            _ => return None,
+        }
+        let key_end = skip_json_string(bytes, offset)?;
+        let key = serde_json::from_str::<String>(&text[offset..key_end]).ok()?;
+        offset = skip_json_ws(bytes, key_end);
+        if bytes.get(offset) != Some(&b':') {
+            return None;
+        }
+        offset = skip_json_ws(bytes, offset + 1);
+        let value_start = offset;
+        let value_end = skip_json_value(bytes, offset)?;
+        if key == target {
+            return Some(&text[value_start..value_end]);
+        }
+        offset = skip_json_ws(bytes, value_end);
+        match bytes.get(offset) {
+            Some(b',') => offset += 1,
+            Some(b'}') => return None,
+            _ => return None,
+        }
+    }
+}
+
+fn skip_json_ws(bytes: &[u8], mut offset: usize) -> usize {
+    while matches!(bytes.get(offset), Some(b' ' | b'\n' | b'\r' | b'\t')) {
+        offset += 1;
+    }
+    offset
+}
+
+fn skip_json_value(bytes: &[u8], offset: usize) -> Option<usize> {
+    match bytes.get(offset)? {
+        b'"' => skip_json_string(bytes, offset),
+        b'{' => skip_json_container(bytes, offset, b'{', b'}'),
+        b'[' => skip_json_container(bytes, offset, b'[', b']'),
+        b'-' | b'0'..=b'9' => skip_json_number(bytes, offset),
+        b't' => bytes
+            .get(offset..offset + 4)
+            .is_some_and(|slice| slice == b"true")
+            .then_some(offset + 4),
+        b'f' => bytes
+            .get(offset..offset + 5)
+            .is_some_and(|slice| slice == b"false")
+            .then_some(offset + 5),
+        b'n' => bytes
+            .get(offset..offset + 4)
+            .is_some_and(|slice| slice == b"null")
+            .then_some(offset + 4),
+        _ => None,
+    }
+}
+
+fn skip_json_string(bytes: &[u8], mut offset: usize) -> Option<usize> {
+    if bytes.get(offset) != Some(&b'"') {
+        return None;
+    }
+    offset += 1;
+    while let Some(byte) = bytes.get(offset) {
+        match byte {
+            b'"' => return Some(offset + 1),
+            b'\\' => offset += 2,
+            _ => offset += 1,
+        }
+    }
+    None
+}
+
+fn skip_json_container(bytes: &[u8], mut offset: usize, open: u8, close: u8) -> Option<usize> {
+    if bytes.get(offset) != Some(&open) {
+        return None;
+    }
+    let mut depth = 1usize;
+    offset += 1;
+    while let Some(byte) = bytes.get(offset) {
+        match byte {
+            b'"' => offset = skip_json_string(bytes, offset)?,
+            byte if *byte == open => {
+                depth += 1;
+                offset += 1;
+            }
+            byte if *byte == close => {
+                depth -= 1;
+                offset += 1;
+                if depth == 0 {
+                    return Some(offset);
+                }
+            }
+            _ => offset += 1,
+        }
+    }
+    None
+}
+
+fn skip_json_number(bytes: &[u8], mut offset: usize) -> Option<usize> {
+    if bytes.get(offset) == Some(&b'-') {
+        offset += 1;
+    }
+    match bytes.get(offset)? {
+        b'0' => offset += 1,
+        b'1'..=b'9' => {
+            offset += 1;
+            while matches!(bytes.get(offset), Some(b'0'..=b'9')) {
+                offset += 1;
+            }
+        }
+        _ => return None,
+    }
+    if bytes.get(offset) == Some(&b'.') {
+        offset += 1;
+        if !matches!(bytes.get(offset), Some(b'0'..=b'9')) {
+            return None;
+        }
+        while matches!(bytes.get(offset), Some(b'0'..=b'9')) {
+            offset += 1;
+        }
+    }
+    if matches!(bytes.get(offset), Some(b'e' | b'E')) {
+        offset += 1;
+        if matches!(bytes.get(offset), Some(b'+' | b'-')) {
+            offset += 1;
+        }
+        if !matches!(bytes.get(offset), Some(b'0'..=b'9')) {
+            return None;
+        }
+        while matches!(bytes.get(offset), Some(b'0'..=b'9')) {
+            offset += 1;
+        }
+    }
+    Some(offset)
 }
 
 #[cfg(test)]
@@ -413,6 +658,31 @@ mod tests {
             .handle_request(json!({"jsonrpc":"2.0","id":"ok","method":"ping","params":{"_meta":{"progressToken":7.5}}}))
             .unwrap();
         assert_eq!(response["result"], json!({}));
+    }
+
+    #[test]
+    fn stdio_preserves_large_adjacent_numeric_request_ids() {
+        let workspace = TempWorkspace::new("large-request-ids");
+        let input = [
+            r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1"}}}"#,
+            r#"{"jsonrpc":"2.0","id":18446744073709551616,"method":"ping"}"#,
+            r#"{"jsonrpc":"2.0","id":18446744073709551617,"method":"ping"}"#,
+        ]
+        .join("\n");
+        let mut output = Vec::new();
+        run(workspace.root.clone(), input.as_bytes(), &mut output).unwrap();
+        let response = String::from_utf8(output).unwrap();
+        let lines = response.lines().collect::<Vec<_>>();
+
+        assert_eq!(lines.len(), 3);
+        assert!(
+            lines[1].contains(r#""id":18446744073709551616"#),
+            "{response}"
+        );
+        assert!(
+            lines[2].contains(r#""id":18446744073709551617"#),
+            "{response}"
+        );
     }
 
     #[test]
