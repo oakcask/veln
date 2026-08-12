@@ -200,6 +200,8 @@ rejection over stdio.
 The `references-workspace` case checks the advertised `references` schemas, a
 bounded page, declaration exclusion, explicit project scope, and
 above-maximum page rejection over stdio.
+The `references-function-constructor-identity` case checks that same-spelled
+functions and constructors keep distinct reference identity over stdio.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous
