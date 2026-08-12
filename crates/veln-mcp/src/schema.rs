@@ -230,7 +230,7 @@ impl JsonNumberParts {
         };
         let (mantissa, exponent) = match text.find(['e', 'E']) {
             Some(index) => (&text[..index], JsonExponent::parse(&text[index + 1..])?),
-            None => (&text[..], JsonExponent::Finite(0)),
+            None => (text, JsonExponent::Finite(0)),
         };
         let (integer, fraction) = match mantissa.split_once('.') {
             Some((integer, fraction)) => (integer, fraction),
