@@ -16,8 +16,8 @@ The current MCP surface contains `workspace_projects`, `refresh_workspace`,
 schemas. The `check_project` result schema closes diagnostics, summary counts,
 and the two analysis metadata shapes. Schema failures, unknown input fields,
 `null` in non-nullable fields, and non-object inputs produce a JSON-RPC
-invalid-params error. The `definition` input requires one source, line, and
-column.
+invalid-params error. The `definition` input requires one source plus positive
+JSON integer line and column coordinates.
 `refresh_workspace` reports the stable `generation_failed` domain failure as an
 MCP tool result with `isError: true`.
 
@@ -133,7 +133,9 @@ LF and CRLF each end one logical line, and neither CRLF terminator scalar is an
 addressable position. A line containing `N` Unicode scalars accepts columns 1
 through `N + 1`. A terminal newline creates a final empty line at column 1;
 an empty file accepts only `(1, 1)`. A token's end is excluded from its
-selection. A position outside these bounds returns `invalid_position`.
+selection. A positive integer line or column that does not address one of these
+source positions, including an implementation-large line number, returns
+`invalid_position`.
 Definition capture uses the same no-follow path checks, selected-root and
 workspace-base identity checks, stable double capture, bounded retry, and
 `snapshot_changed` failure as saved project diagnostics. When definition
@@ -166,8 +168,9 @@ language diagnostics with spanless related notes and closed related-note
 schemas. They also check definition schema rejection, project inference,
 anonymous and descendant-manifest isolation, every implemented symbol kind,
 canonical URI spelling, path rejection, stable-capture failure, no-symbol
-success, invalid positions, half-open ranges, LF, CRLF, terminal-newline,
-empty-file, and non-BMP scalar coordinates. Unix-only `veln-mcp` tests also
+success, invalid positions including oversized positive integers, half-open
+ranges, LF, CRLF, terminal-newline, empty-file, and non-BMP scalar coordinates.
+Unix-only `veln-mcp` tests also
 check canonical resolved-base URI spelling, definition path symlink rejection,
 anonymous workspace-base symlink replacement, and that selected
 manifest-project analysis does not consume source bytes through project-local

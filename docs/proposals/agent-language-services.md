@@ -244,8 +244,9 @@ The stable v1 domain codes are `invalid_path`, `invalid_position`,
 `project_ambiguous`, `snapshot_changed`, `invalid_cursor`, `stale_snapshot`,
 `resource_not_found`, `generation_failed`, `resource_capacity`, and
 `incompatible_version`. The request spelling of the
-workspace base is `.`. Numeric values outside their documented range are
-rejected and are never clamped.
+workspace base is `.`. Numeric values outside JSON schema ranges are rejected
+and are never clamped. Positive coordinate values that pass schema validation
+but do not address a selected source position return `invalid_position`.
 
 The first capability exposes these model-controlled tools:
 
@@ -930,7 +931,7 @@ implemented.
 | Resolve an exported dependency declaration. | `definition` returns a `veln-pkg:` location and documentation link. | Path-dependency MCP case. |
 | Resolve a private dependency declaration from a consumer. | No definition is returned. | Dependency visibility case. |
 | Resolve a standard-library declaration. | The result points to matching `veln-pkg:` source and `veln-doc:` documentation snapshots. | Embedded standard-package case. |
-| Address empty, LF, CRLF, non-BMP, end-of-line, end-of-file, and token-end positions. | Validity and half-open selection follow the scalar-coordinate contract. | Implemented workspace-definition MCP coordinate table; broader cross-adapter Q07 matrix remains planned. |
+| Address empty, LF, CRLF, non-BMP, end-of-line, end-of-file, token-end, and oversized positive positions. | Validity and half-open selection follow the scalar-coordinate contract, and unaddressable positive coordinates return `invalid_position`. | Implemented workspace-definition MCP coordinate table; broader cross-adapter Q07 matrix remains planned. |
 | Run LSP and MCP on the same saved project without overlays. | Filesystem identities and Unicode-scalar locations match after declaration-policy normalization and concatenation of all MCP pages. | Q07 cross-adapter encoding matrix. |
 | Apply an LSP open-document overlay. | LSP reflects the overlay; MCP continues to reflect saved files. | Existing LSP overlay cases plus MCP comparison. |
 
