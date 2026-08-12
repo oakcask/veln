@@ -36,7 +36,7 @@ smallest specification page to read. Start with the short page; open the matchin
 ## Commands And Output
 
 - MCP stdio lifecycle, workspace project selection, saved diagnostics, saved
-  definitions, tool declarations, and atomic refresh: [mcp.md](mcp.md).
+  navigation, tool declarations, and atomic refresh: [mcp.md](mcp.md).
 - Command gates, source discovery, entry selection, formatting, checking,
   running, and testing: [commands.md](commands.md).
 - Choosing the command-specific machine-readable output page:
