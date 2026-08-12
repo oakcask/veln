@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"df786535dc9150132d1605834fdb011a741bf5b0"
+source_git_tree	"d44fea30f6d342ef3392d66ab8d345511935bff5"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1512
@@ -10417,13 +10417,14 @@ field	expectations.stdout.contains[5]	"\"isError\":true,\"structuredContent\":{\
 field	expectations.stdout.contains[6]	"\"id\":6,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"definition\\\""
 field	expectations.stdout.contains[7]	"\"id\":7,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"definition\\\""
 field	expectations.stdout.contains[8]	"\"id\":8,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"code\\\":\\\"invalid_position\\\""
+field	expectations.stdout.contains[9]	"\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":9"
 field	expectations.stdout.not_contains[0]	"veln-pkg:"
 field	expectations.stdout.not_contains[1]	"target/debug"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1030,"sha256":"52348d0aab0956ddc80b68f07ca2de2318d5233da5700459e910dd5bea8384c0"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1180,"sha256":"b003498c37722803f77815c642858edac9918221677ecf7762b559ed89cbe5ff"}
 field	source_errors	"forbidden"
-case_digest	"6cbd8775c43bcad512d63712341da77b1c9826e566aa6dde92f7b05832a111c7"
+case_digest	"dea454253998033184639db2b74295aa1fb065062b41770ed3594c8892fdc06b"
 case	"examples/specification/mcp/workspace-lifecycle"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47710,4 +47711,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"2a6b7290eb32b2d5d46b0bed721fe12d28f6e849636f2e03fa4d0bf8e190cd73"
+aggregate_digest	"1323b42c752dc9c0c83cca6db7e5e7516372840b038691bd3b30fa058e3518a4"
