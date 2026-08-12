@@ -10,7 +10,7 @@ use veln_diagnostics::diagnostic_to_json;
 use veln_project::Project;
 use veln_source::SourceFile;
 
-use crate::workspace::{SelectedRootKind, Selection};
+use crate::workspace::{FileIdentity, SelectedRootIdentity, SelectedRootKind, Selection};
 
 const SNAPSHOT_ATTEMPTS: usize = 3;
 
@@ -69,6 +69,7 @@ struct Target {
     mode: AnalysisMode,
     input: Option<PathBuf>,
     require_manifest: bool,
+    selected_root_identity: Option<SelectedRootIdentity>,
 }
 
 enum AnalysisMode {
@@ -111,7 +112,8 @@ fn select_target(
                 json!({"project": project, "roots": selection.roots()}),
             ));
         };
-        return selected_target(base, &project, kind, source);
+        let identity = selection.root_identity(&project).cloned();
+        return selected_target(base, &project, kind, source, identity);
     }
 
     let manifest_roots = selection
@@ -121,8 +123,20 @@ fn select_target(
         .map(String::as_str)
         .collect::<Vec<_>>();
     match (manifest_roots.as_slice(), source) {
-        ([project], None) => selected_target(base, project, SelectedRootKind::Manifest, None),
-        ([project], Some(_)) => selected_target(base, project, SelectedRootKind::Manifest, source),
+        ([project], None) => selected_target(
+            base,
+            project,
+            SelectedRootKind::Manifest,
+            None,
+            selection.root_identity(project).cloned(),
+        ),
+        ([project], Some(_)) => selected_target(
+            base,
+            project,
+            SelectedRootKind::Manifest,
+            source,
+            selection.root_identity(project).cloned(),
+        ),
         ([], _) => Err(domain_failure(
             "source_required",
             "anonymous analysis requires project `.` and one source",
@@ -141,6 +155,7 @@ fn selected_target(
     project: &str,
     kind: SelectedRootKind,
     source: Option<&str>,
+    selected_root_identity: Option<SelectedRootIdentity>,
 ) -> Result<Target, CheckProjectOutcome> {
     if kind == SelectedRootKind::Manifest && source.is_some() {
         return Err(domain_failure(
@@ -156,6 +171,7 @@ fn selected_target(
             mode: AnalysisMode::Project,
             input: None,
             require_manifest: true,
+            selected_root_identity,
         });
     }
 
@@ -182,6 +198,7 @@ fn selected_target(
         },
         input: Some(PathBuf::from(source)),
         require_manifest: false,
+        selected_root_identity: None,
     })
 }
 
@@ -333,6 +350,7 @@ struct CapturedProject {
 }
 
 fn capture_once(target: &Target) -> io::Result<CapturedProject> {
+    validate_selected_root_identity(target)?;
     let project = if target.require_manifest {
         validate_manifest_root(&target.root)?;
         Project::discover(target.root.clone(), &[])?
@@ -356,7 +374,7 @@ fn capture_once(target: &Target) -> io::Result<CapturedProject> {
         ));
     }
     let dependencies = dependency_snapshots(&project)?;
-    let key = snapshot_key(&project, &dependencies);
+    let key = snapshot_key(&project, &dependencies)?;
     Ok(CapturedProject {
         project,
         dependencies,
@@ -364,14 +382,27 @@ fn capture_once(target: &Target) -> io::Result<CapturedProject> {
     })
 }
 
-fn snapshot_key(project: &Project, dependencies: &[CapturedDependencyProject]) -> Value {
-    json!({
+fn snapshot_key(
+    project: &Project,
+    dependencies: &[CapturedDependencyProject],
+) -> io::Result<Value> {
+    Ok(json!({
+        "root": FileIdentity::read(&project.root)?.to_json(),
+        "manifest_identity": match &project.manifest {
+            Some(_) => Some(FileIdentity::read(&project.root.join("veln.toml"))?.to_json()),
+            None => None,
+        },
         "manifest": project.manifest.as_ref().map(|manifest| &manifest.source_bytes),
         "files": project.files.iter().map(|file| {
-            json!({"path": file.path().as_str(), "text": file.text()})
-        }).collect::<Vec<_>>(),
+            let path = project.root.join(file.path().as_str());
+            Ok(json!({
+                "path": file.path().as_str(),
+                "identity": FileIdentity::read(&path)?.to_json(),
+                "text": file.text()
+            }))
+        }).collect::<io::Result<Vec<_>>>()?,
         "dependencies": dependencies.iter().map(dependency_snapshot_key).collect::<Vec<_>>(),
-    })
+    }))
 }
 
 fn dependency_snapshots(project: &Project) -> io::Result<Vec<CapturedDependencyProject>> {
@@ -465,6 +496,19 @@ fn validate_manifest_root(root: &Path) -> io::Result<()> {
         Ok(())
     } else {
         Err(io::Error::other("selected project manifest is not a file"))
+    }
+}
+
+fn validate_selected_root_identity(target: &Target) -> io::Result<()> {
+    let Some(expected) = &target.selected_root_identity else {
+        return Ok(());
+    };
+    if expected.matches_current(&target.root)? {
+        Ok(())
+    } else {
+        Err(io::Error::other(
+            "selected project root filesystem identity changed",
+        ))
     }
 }
 
@@ -693,12 +737,25 @@ mod tests {
                 .collect(),
             manifest: manifest.map(|text| parse_manifest_text("veln.toml", text)),
         };
-        let key = snapshot_key(&project, &dependencies);
+        let key = synthetic_snapshot_key(&project, &dependencies);
         CapturedProject {
             project,
             dependencies,
             key,
         }
+    }
+
+    fn synthetic_snapshot_key(
+        project: &Project,
+        dependencies: &[CapturedDependencyProject],
+    ) -> Value {
+        json!({
+            "manifest": project.manifest.as_ref().map(|manifest| &manifest.source_bytes),
+            "files": project.files.iter().map(|file| {
+                json!({"path": file.path().as_str(), "text": file.text()})
+            }).collect::<Vec<_>>(),
+            "dependencies": dependencies.iter().map(dependency_snapshot_key).collect::<Vec<_>>(),
+        })
     }
 
     fn captured_dependency(

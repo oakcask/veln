@@ -8,6 +8,7 @@ pub(crate) struct Selection {
     generation: u64,
     roots: Vec<String>,
     kinds: Vec<SelectedRootKind>,
+    identities: Vec<Option<SelectedRootIdentity>>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -16,13 +17,99 @@ pub(crate) enum SelectedRootKind {
     Anonymous,
 }
 
+type DiscoverySelection = (
+    Vec<String>,
+    Vec<SelectedRootKind>,
+    Vec<Option<SelectedRootIdentity>>,
+);
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct FileIdentity {
+    #[cfg(unix)]
+    device: u64,
+    #[cfg(unix)]
+    inode: u64,
+    #[cfg(not(unix))]
+    len: u64,
+    #[cfg(not(unix))]
+    modified: Option<std::time::SystemTime>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct SelectedRootIdentity {
+    root: FileIdentity,
+    manifest: FileIdentity,
+}
+
+impl SelectedRootIdentity {
+    pub(crate) fn read(root: &Path) -> io::Result<Self> {
+        Ok(Self {
+            root: FileIdentity::read(root)?,
+            manifest: FileIdentity::read(&root.join("veln.toml"))?,
+        })
+    }
+
+    pub(crate) fn matches_current(&self, root: &Path) -> io::Result<bool> {
+        Ok(self.root == FileIdentity::read(root)?
+            && self.manifest == FileIdentity::read(&root.join("veln.toml"))?)
+    }
+}
+
+impl FileIdentity {
+    pub(crate) fn read(path: &Path) -> io::Result<Self> {
+        Self::from_metadata(&fs::symlink_metadata(path)?)
+    }
+
+    fn from_metadata(metadata: &fs::Metadata) -> io::Result<Self> {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+
+            Ok(Self {
+                device: metadata.dev(),
+                inode: metadata.ino(),
+            })
+        }
+
+        #[cfg(not(unix))]
+        {
+            Ok(Self {
+                len: metadata.len(),
+                modified: metadata.modified().ok(),
+            })
+        }
+    }
+
+    pub(crate) fn to_json(&self) -> serde_json::Value {
+        #[cfg(unix)]
+        {
+            serde_json::json!({
+                "device": self.device,
+                "inode": self.inode,
+            })
+        }
+
+        #[cfg(not(unix))]
+        {
+            serde_json::json!({
+                "len": self.len,
+                "modified": self
+                    .modified
+                    .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|duration| duration.as_nanos().to_string()),
+            })
+        }
+    }
+}
+
 impl Selection {
     pub(crate) fn discover(base: &Path) -> io::Result<Self> {
-        let (roots, kinds) = discover_selection(base)?;
+        let (roots, kinds, identities) = discover_selection(base)?;
         Ok(Self {
             generation: 0,
             roots,
             kinds,
+            identities,
         })
     }
 
@@ -42,29 +129,42 @@ impl Selection {
             .map(|(_, kind)| *kind)
     }
 
+    pub(crate) fn root_identity(&self, path: &str) -> Option<&SelectedRootIdentity> {
+        self.roots
+            .iter()
+            .zip(self.identities.iter())
+            .find(|(root, _)| root.as_str() == path)
+            .and_then(|(_, identity)| identity.as_ref())
+    }
+
     pub(crate) fn refresh(&mut self, base: &Path) -> io::Result<()> {
         self.refresh_with(|| discover_selection(base))
     }
 
     pub(crate) fn refresh_with(
         &mut self,
-        discover: impl FnOnce() -> io::Result<(Vec<String>, Vec<SelectedRootKind>)>,
+        discover: impl FnOnce() -> io::Result<DiscoverySelection>,
     ) -> io::Result<()> {
-        let (roots, kinds) = discover()?;
+        let (roots, kinds, identities) = discover()?;
         let generation = self
             .generation
             .checked_add(1)
             .ok_or_else(|| io::Error::other("workspace generation exhausted"))?;
         self.roots = roots;
         self.kinds = kinds;
+        self.identities = identities;
         self.generation = generation;
         Ok(())
     }
 }
 
-fn discover_selection(base: &Path) -> io::Result<(Vec<String>, Vec<SelectedRootKind>)> {
+fn discover_selection(base: &Path) -> io::Result<DiscoverySelection> {
     if is_regular_manifest(base)? {
-        return Ok((vec![".".to_string()], vec![SelectedRootKind::Manifest]));
+        return Ok((
+            vec![".".to_string()],
+            vec![SelectedRootKind::Manifest],
+            vec![Some(SelectedRootIdentity::read(base)?)],
+        ));
     }
 
     let mut roots = Vec::new();
@@ -73,10 +173,14 @@ fn discover_selection(base: &Path) -> io::Result<(Vec<String>, Vec<SelectedRootK
     roots.dedup();
     if roots.is_empty() {
         roots.push(".".to_string());
-        return Ok((roots, vec![SelectedRootKind::Anonymous]));
+        return Ok((roots, vec![SelectedRootKind::Anonymous], vec![None]));
     }
     let kinds = vec![SelectedRootKind::Manifest; roots.len()];
-    Ok((roots, kinds))
+    let identities = roots
+        .iter()
+        .map(|root| SelectedRootIdentity::read(&root_path(base, root)).map(Some))
+        .collect::<io::Result<Vec<_>>>()?;
+    Ok((roots, kinds, identities))
 }
 
 fn discover_branches(base: &Path, directory: &Path, roots: &mut Vec<String>) -> io::Result<()> {
@@ -125,6 +229,14 @@ fn relative_root(base: &Path, root: &Path) -> io::Result<String> {
         })
         .collect::<io::Result<Vec<_>>>()
         .map(|components| components.join("/"))
+}
+
+fn root_path(base: &Path, root: &str) -> std::path::PathBuf {
+    if root == "." {
+        base.to_path_buf()
+    } else {
+        base.join(root)
+    }
 }
 
 #[cfg(test)]
@@ -209,6 +321,7 @@ mod tests {
                 generation: 0,
                 roots: vec![".".into()],
                 kinds: vec![SelectedRootKind::Anonymous],
+                identities: vec![None],
             }
         );
 
@@ -221,6 +334,9 @@ mod tests {
                 generation: 1,
                 roots: vec!["nested".into()],
                 kinds: vec![SelectedRootKind::Manifest],
+                identities: vec![Some(
+                    SelectedRootIdentity::read(&project.path("nested")).unwrap()
+                )],
             }
         );
 
@@ -234,6 +350,9 @@ mod tests {
                 generation: 2,
                 roots: vec!["renamed".into()],
                 kinds: vec![SelectedRootKind::Manifest],
+                identities: vec![Some(
+                    SelectedRootIdentity::read(&project.path("renamed")).unwrap()
+                )],
             }
         );
     }
@@ -260,11 +379,17 @@ mod tests {
             generation: u64::MAX,
             roots: vec!["alpha".into()],
             kinds: vec![SelectedRootKind::Manifest],
+            identities: vec![None],
         };
         let previous = selection.clone();
 
-        let failure =
-            selection.refresh_with(|| Ok((vec!["beta".into()], vec![SelectedRootKind::Manifest])));
+        let failure = selection.refresh_with(|| {
+            Ok((
+                vec!["beta".into()],
+                vec![SelectedRootKind::Manifest],
+                vec![None],
+            ))
+        });
 
         assert_eq!(
             failure.unwrap_err().to_string(),

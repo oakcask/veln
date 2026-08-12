@@ -340,6 +340,32 @@ fn selected_project_root_symlink_replacement_reports_snapshot_changed() {
 }
 
 #[test]
+fn selected_project_root_directory_replacement_reports_snapshot_changed() {
+    let workspace = TempWorkspace::new("selected-root-directory-replacement");
+    workspace.write("alpha/veln.toml", "");
+    workspace.write("alpha/main.veln", clean_source());
+    let selection = Selection::discover(&workspace.root).unwrap();
+
+    fs::remove_dir_all(workspace.path("alpha")).unwrap();
+    workspace.write("alpha/veln.toml", "");
+    workspace.write("alpha/main.veln", clean_source());
+
+    let mut server = Server {
+        base: workspace.root.clone(),
+        selection,
+        initialized: true,
+    };
+    let result = server
+        .call_tool(Some(
+            &json!({"name": "check_project", "arguments": {"project": "alpha"}}),
+        ))
+        .unwrap();
+
+    assert_eq!(result["isError"], true);
+    assert_eq!(result["structuredContent"]["code"], "snapshot_changed");
+}
+
+#[test]
 fn check_project_rejects_source_path_boundaries_before_analysis() {
     let workspace = TempWorkspace::new("source-boundaries");
     workspace.write("main.veln", clean_source());
