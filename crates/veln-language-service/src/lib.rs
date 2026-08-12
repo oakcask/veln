@@ -879,6 +879,7 @@ impl SymbolIndex {
                     return file.module == symbol.module;
                 }
                 if is_field_name(&tokens, *index)
+                    || is_module_import_name(&tokens, *index)
                     || is_function_declaration_name(&tokens, *index)
                     || is_parameter_name(&tokens, *index)
                     || is_local_binding_name(&tokens, *index)
@@ -1820,6 +1821,10 @@ fn is_function_declaration_name(tokens: &[Token], index: usize) -> bool {
         .is_some_and(|previous| matches!(previous.kind, TokenKind::Fn | TokenKind::Test))
 }
 
+fn is_module_import_name(tokens: &[Token], index: usize) -> bool {
+    previous_non_layout_token(tokens, index).is_some_and(|previous| previous.kind == TokenKind::Use)
+}
+
 fn is_parameter_name(tokens: &[Token], index: usize) -> bool {
     if next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::Colon) {
         return true;
@@ -2247,6 +2252,36 @@ mod tests {
         assert_eq!(
             locations(&result.references),
             [("math.test.veln", 4, 9), ("math.veln", 2, 3)]
+        );
+    }
+
+    #[test]
+    fn function_references_exclude_same_named_module_imports() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use helper\n\n",
+                    "fn helper() -> Int\n",
+                    "  1\n",
+                    "end\n\n",
+                    "fn main() -> Int\n",
+                    "  let callback: fn() -> Int = helper\n",
+                    "  callback() + helper()\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            3,
+            4,
+        )
+        .unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+        assert_location(&result.definition, "main.veln", 3, 4);
+        assert_eq!(
+            locations(&result.references),
+            [("main.veln", 8, 31), ("main.veln", 9, 16)]
         );
     }
 

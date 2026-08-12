@@ -1,0 +1,10 @@
+use helper
+
+fn helper() -> Int
+  1
+end
+
+fn main() -> Int
+  let callback: fn() -> Int = helper
+  callback() + helper()
+end

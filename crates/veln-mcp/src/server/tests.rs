@@ -605,6 +605,37 @@ fn references_include_exact_companion_uses_of_private_functions() {
 }
 
 #[test]
+fn references_exclude_same_named_module_imports() {
+    let workspace = TempWorkspace::new("references-module-import");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use helper\n\n",
+            "fn helper() -> Int\n",
+            "  1\n",
+            "end\n\n",
+            "fn main() -> Int\n",
+            "  let callback: fn() -> Int = helper\n",
+            "  callback() + helper()\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    let result = server.references_tool(&json!({
+        "source":"main.veln","line":3,"column":4
+    }));
+    let lines = result["structuredContent"]["references"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|location| location["range"]["start"]["line"].as_u64().unwrap())
+        .collect::<Vec<_>>();
+
+    assert_eq!(lines, [3, 8, 9], "{result:#}");
+}
+
+#[test]
 fn references_find_public_project_functions_in_uri_range_order() {
     let workspace = TempWorkspace::new("references-project-functions");
     workspace.write("veln.toml", "");
