@@ -230,10 +230,10 @@ a successful result with no definition or references.
 
 ### Tools
 
-The implemented workspace-project, `check_project`, and workspace `definition`
-input and result schemas
+The implemented workspace-project, `check_project`, workspace `definition`,
+and workspace `references` input and result schemas
 are checked JSON Schemas in the `mcp/v1` schema bundle. Their tool declarations
-derive from the same files. The remaining reference, broader definition,
+derive from the same files. The remaining broader definition,
 resource-metadata, and documentation schemas are planned. Schema objects reject
 unknown fields and reject `null` unless a field explicitly permits it. Schema
 or JSON-RPC shape failures map to protocol invalid-params errors. A decoded
@@ -859,7 +859,7 @@ The resolved-decision evidence groups are:
 | Q03 rediscovery | Manifest add, remove, and rename before and after refresh; atomic refresh failure; cursor invalidation; resource survival. |
 | Q04 filesystem identity | Symbolic base, internal and external directory links, file links, missing leaves, alias URI equality, and link replacement. |
 | Q05 stable capture | Implemented for `check_project` manifest, source, owned path-set changes, readable dependency input changes and reuse across path, vendor, mirror, and locally materialized git sources, bounded retry, no partial publication, pre-refresh selection preservation, anonymous single-file isolation, anonymous base symlink and regular-directory replacement, selected-root symlink and regular-directory replacement, nested regular manifest marker boundaries, symlinked nested manifest marker exclusion, project-local source symlink exclusion, non-Linux fail-closed saved snapshot capture, and workspace navigation capture that compares project ownership and anonymous fallback in one stable attempt. |
-| Q06 schemas and errors | Implemented for workspace inventory, `check_project`, and workspace `definition` schema freshness, nullable field rejection, unknown fields including related-note fields, exact non-integer coordinate rejection, stable domain codes, and protocol mapping. Reference, broader definition, resource, and documentation schemas remain planned. |
+| Q06 schemas and errors | Implemented for workspace inventory, `check_project`, workspace `definition`, and workspace `references` schema freshness, nullable field rejection, unknown fields including related-note fields, exact non-integer coordinate rejection, stable domain codes, and protocol mapping. Broader definition, resource, and documentation schemas remain planned. |
 | Q07 coordinates | Empty, LF, CRLF, terminal newline, non-BMP scalar, end positions, token-end exclusion, all LSP encodings, and normalized cross-adapter pages. |
 | Q08 reference universe | Project, other-project exclusion, dependency consumer and declaration behavior, dependency-as-project behavior, and visibly single-file anonymous results. |
 | Q09 cursors | Cursor-only continuation, page concatenation, tamper, cross-server, restart, reuse, eviction, unrelated changes, byte restoration, and refresh. |

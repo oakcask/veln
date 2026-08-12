@@ -881,7 +881,12 @@ impl SymbolIndex {
                     Some(qualifier) => {
                         self.constructor_for_qualified_call(file, &qualifier, &token.text)
                     }
-                    None => self.constructor_for_bare_call(file, &token.text),
+                    None => {
+                        if local_binding_shadows_call_target(&tokens, *index, &token.text) {
+                            return false;
+                        }
+                        self.constructor_for_bare_call(file, &token.text)
+                    }
                 };
                 resolved.is_some_and(|resolved| same_constructor(&resolved, symbol))
             })
@@ -2256,6 +2261,38 @@ mod tests {
             assert_location(&result.definition, "main.veln", 2, 3);
             assert_eq!(locations(&result.references), [("main.veln", 10, 3)]);
         }
+    }
+
+    #[test]
+    fn constructor_references_exclude_locally_shadowed_bare_calls() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "type Box\n",
+                    "  wrap(Int)\n",
+                    "end\n\n",
+                    "fn from_parameter(wrap: fn(Int) -> Box) -> Box\n",
+                    "  wrap(1)\n",
+                    "end\n\n",
+                    "fn from_let() -> Box\n",
+                    "  let wrap = fn(value: Int) -> Box\n",
+                    "    Box::wrap(value)\n",
+                    "  wrap(2)\n",
+                    "end\n\n",
+                    "fn from_constructor() -> Box\n",
+                    "  wrap(3)\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            2,
+            4,
+        )
+        .unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+        assert_eq!(locations(&result.references), [("main.veln", 16, 3)]);
     }
 
     #[test]

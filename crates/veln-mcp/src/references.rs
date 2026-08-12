@@ -11,6 +11,7 @@ use crate::workspace::{Selection, WorkspaceBase};
 
 const DEFAULT_PAGE_SIZE: usize = 100;
 const MAX_CONTINUATIONS: usize = 64;
+const MAX_STALE_CURSORS: usize = 64;
 
 pub(crate) enum ReferencesOutcome {
     Success(Value),
@@ -41,7 +42,8 @@ pub(crate) struct ReferenceCursors {
     hasher: RandomState,
     next_id: u64,
     states: VecDeque<(String, Continuation)>,
-    stale: HashSet<String>,
+    stale_order: VecDeque<String>,
+    stale_lookup: HashSet<String>,
 }
 
 impl ReferenceCursors {
@@ -50,7 +52,8 @@ impl ReferenceCursors {
             hasher: RandomState::new(),
             next_id: 0,
             states: VecDeque::new(),
-            stale: HashSet::new(),
+            stale_order: VecDeque::new(),
+            stale_lookup: HashSet::new(),
         }
     }
 
@@ -86,7 +89,7 @@ impl ReferenceCursors {
 
     pub(crate) fn stale_all(&mut self) {
         while let Some((cursor, _)) = self.states.pop_front() {
-            self.stale.insert(cursor);
+            self.retain_stale(cursor);
         }
     }
 
@@ -115,7 +118,7 @@ impl ReferenceCursors {
             .iter()
             .position(|(retained, _)| retained == cursor)
         else {
-            return if self.stale.contains(cursor) {
+            return if self.stale_lookup.contains(cursor) {
                 failure("stale_snapshot", "reference snapshot is no longer retained")
             } else {
                 failure("invalid_cursor", "reference cursor is invalid")
@@ -126,7 +129,7 @@ impl ReferenceCursors {
             .remove(index)
             .expect("located continuation remains present");
         if continuation.generation != selection.generation() {
-            self.stale.insert(cursor.to_string());
+            self.retain_stale(cursor.to_string());
             return failure("stale_snapshot", "reference snapshot is no longer current");
         }
         ReferencesOutcome::Success(self.page(continuation))
@@ -158,7 +161,7 @@ impl ReferenceCursors {
         if self.states.len() == MAX_CONTINUATIONS
             && let Some((evicted, _)) = self.states.pop_front()
         {
-            self.stale.insert(evicted);
+            self.retain_stale(evicted);
         }
         let id = self.next_id;
         self.next_id = self.next_id.wrapping_add(1);
@@ -178,6 +181,20 @@ impl ReferenceCursors {
         let cursor = format!("r1-{id:016x}-{:016x}", hasher.finish());
         self.states.push_back((cursor.clone(), continuation));
         cursor
+    }
+
+    fn retain_stale(&mut self, cursor: String) {
+        if !self.stale_lookup.insert(cursor.clone()) {
+            return;
+        }
+        self.stale_order.push_back(cursor);
+        while self.stale_order.len() > MAX_STALE_CURSORS {
+            if let Some(expired) = self.stale_order.pop_front() {
+                self.stale_lookup.remove(&expired);
+            } else {
+                break;
+            }
+        }
     }
 }
 
@@ -227,20 +244,13 @@ fn capture(
         }
         spans.extend(result.references);
     }
-    spans.sort_by(|left, right| {
-        left.file
-            .as_str()
-            .cmp(right.file.as_str())
-            .then(left.start.line.cmp(&right.start.line))
-            .then(left.start.column.cmp(&right.start.column))
-            .then(left.end.line.cmp(&right.end.line))
-            .then(left.end.column.cmp(&right.end.column))
-    });
     spans.dedup_by(|left, right| left == right);
-    let locations = spans
+    let mut locations = spans
         .iter()
         .map(|span| location(&root, span))
         .collect::<Vec<_>>();
+    locations.sort_by(compare_locations);
+    locations.dedup_by(|left, right| left == right);
     let scope = if let Some(root) = captured.scope_root {
         json!({"mode": "project", "project": root})
     } else {
@@ -261,6 +271,31 @@ fn location(root: &std::path::Path, span: &SourceSpan) -> Value {
             "end": {"line": span.end.line, "column": span.end.column}
         }
     })
+}
+
+fn compare_locations(left: &Value, right: &Value) -> std::cmp::Ordering {
+    location_uri(left)
+        .cmp(location_uri(right))
+        .then(location_position(left, "start").cmp(&location_position(right, "start")))
+        .then(location_position(left, "end").cmp(&location_position(right, "end")))
+}
+
+fn location_uri(location: &Value) -> &str {
+    location["uri"]
+        .as_str()
+        .expect("reference location has a URI")
+}
+
+fn location_position(location: &Value, key: &str) -> (u64, u64) {
+    let position = &location["range"][key];
+    (
+        position["line"]
+            .as_u64()
+            .expect("reference line is an unsigned integer"),
+        position["column"]
+            .as_u64()
+            .expect("reference column is an unsigned integer"),
+    )
 }
 
 fn failure(code: &'static str, message: &'static str) -> ReferencesOutcome {

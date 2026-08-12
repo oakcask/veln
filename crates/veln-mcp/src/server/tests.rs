@@ -639,6 +639,43 @@ fn references_find_public_project_functions_in_uri_range_order() {
 }
 
 #[test]
+fn references_order_percent_encoded_canonical_uris() {
+    let workspace = TempWorkspace::new("references-percent-encoded-order");
+    workspace.write("veln.toml", "");
+    workspace.write("math.veln", "pub fn helper() -> Int\n  helper()\nend\n");
+    workspace.write(
+        "zeta.veln",
+        "use math\n\nfn zeta() -> Int\n  math::helper()\nend\n",
+    );
+    workspace.write(
+        "é.veln",
+        "mod accent\nuse math\n\nfn accent() -> Int\n  math::helper()\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    let result = server.references_tool(&json!({
+        "source":"zeta.veln","line":4,"column":10
+    }));
+    let files = result["structuredContent"]["references"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|location| {
+            location["uri"]
+                .as_str()
+                .unwrap()
+                .rsplit('/')
+                .next()
+                .unwrap()
+                .to_string()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        files,
+        ["%C3%A9.veln", "math.veln", "math.veln", "zeta.veln"]
+    );
+}
+
+#[test]
 fn references_default_and_maximum_page_sizes_are_exact() {
     let workspace = TempWorkspace::new("references-page-boundaries");
     workspace.write("veln.toml", "");
@@ -825,6 +862,37 @@ fn references_cursor_eviction_and_refresh_transitions_are_explicit() {
     assert_eq!(refreshed["isError"], false);
     let stale = server.references_tool(&json!({"cursor":pre_refresh}));
     assert_eq!(stale["structuredContent"]["code"], "stale_snapshot");
+}
+
+#[test]
+fn references_cursor_tombstones_are_bounded() {
+    let workspace = TempWorkspace::new("references-cursor-tombstone-bound");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "fn target() -> Int\n  target()\n  target()\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    let mut cursors = Vec::new();
+    for _ in 0..130 {
+        let result = server.references_tool(&json!({
+            "source":"main.veln","line":2,"column":4,"page_size":1
+        }));
+        cursors.push(
+            result["structuredContent"]["cursor"]
+                .as_str()
+                .unwrap()
+                .to_string(),
+        );
+    }
+
+    let oldest = server.references_tool(&json!({"cursor":cursors[0]}));
+    assert_eq!(oldest["structuredContent"]["code"], "invalid_cursor");
+    let newest_evicted = server.references_tool(&json!({"cursor":cursors[65]}));
+    assert_eq!(
+        newest_evicted["structuredContent"]["code"],
+        "stale_snapshot"
+    );
 }
 
 #[test]
