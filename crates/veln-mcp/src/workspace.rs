@@ -29,6 +29,10 @@ pub(crate) struct FileIdentity {
     device: u64,
     #[cfg(unix)]
     inode: u64,
+    #[cfg(unix)]
+    changed_seconds: i64,
+    #[cfg(unix)]
+    changed_nanoseconds: i64,
     #[cfg(not(unix))]
     len: u64,
     #[cfg(not(unix))]
@@ -68,6 +72,8 @@ impl FileIdentity {
             Ok(Self {
                 device: metadata.dev(),
                 inode: metadata.ino(),
+                changed_seconds: metadata.ctime(),
+                changed_nanoseconds: metadata.ctime_nsec(),
             })
         }
 
@@ -86,6 +92,8 @@ impl FileIdentity {
             serde_json::json!({
                 "device": self.device,
                 "inode": self.inode,
+                "changed_seconds": self.changed_seconds,
+                "changed_nanoseconds": self.changed_nanoseconds,
             })
         }
 
