@@ -76,11 +76,13 @@ mirror, or locally materialized git inputs change during the operation.
 Selected manifest-project capture excludes project-local file and directory
 symbolic links from the owned source path set and does not read source bytes
 through them. A descendant directory that contains a regular `veln.toml` is a
-nested package boundary even when that manifest file is not valid UTF-8.
+nested package boundary even when that manifest file is not valid UTF-8. A
+descendant `veln.toml` symbolic link is not a nested package boundary.
 Successful analysis uses the captured dependency inputs and does not fall back
 to reading uncaptured dependency files. If no stable capture is available, the
 tool returns a domain failure with code `snapshot_changed` and no partial
-diagnostics.
+diagnostics. Platforms without handle-relative no-follow saved snapshot
+capture fail closed with `snapshot_changed`.
 
 Project selection follows the current workspace selection. An explicit
 manifest project must name one selected root and must omit `source`.
@@ -126,8 +128,11 @@ project/source decision rows, schema failures, path boundaries, anonymous
 isolation before refresh, companion-shaped anonymous source names, dependency
 snapshots for direct path and locally materialized git inputs, clean analysis,
 selected-root symlink and regular-directory replacement, and structured
-language diagnostics with spanless related notes. Unix-only `veln-mcp` tests
-also check anonymous workspace-base symlink replacement and that selected
-manifest-project analysis does not consume source bytes through project-local
-file or directory symbolic links. A `veln-mcp` test also checks that a non-UTF-8
-descendant manifest still forms a nested package boundary.
+language diagnostics with spanless related notes and closed related-note
+schemas. Unix-only `veln-mcp` tests also check anonymous workspace-base symlink
+replacement and that selected manifest-project analysis does not consume source
+bytes through project-local file or directory symbolic links. Linux-only
+`veln-mcp` coverage checks that a symlinked descendant `veln.toml` is ignored
+as a nested package marker. A `veln-mcp` test also checks that a non-UTF-8
+descendant regular manifest still forms a nested package boundary. Non-Linux
+`veln-mcp` coverage checks the fail-closed saved snapshot boundary.

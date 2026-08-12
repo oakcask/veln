@@ -286,7 +286,21 @@ mod tests {
             "related": [
                 {"message": "expected here", "span": span()},
                 {"message": "Accepted integer form: 0 or 1."},
-                {"kind": "repair_hint", "message": "Use a selected declaration.", "span": null}
+                {"kind": "repair_hint", "message": "Use a selected declaration.", "span": null},
+                {
+                    "kind": "effect_declaration",
+                    "message": "Candidate effect is declared here.",
+                    "effect": "net",
+                    "operations": ["request"],
+                    "span": span()
+                },
+                {
+                    "message": "Field path: Packet.kind.",
+                    "field_path": [
+                        {"kind": "schema", "name": "Packet"},
+                        {"kind": "field", "name": "kind"}
+                    ]
+                }
             ],
             "details": {"expected": "Int"}
         });
@@ -335,6 +349,16 @@ mod tests {
         let mut invalid_extra = project_success.clone();
         invalid_extra["diagnostics"][0]["extra"] = serde_json::json!(true);
         assert!(!tool.accepts_result(&invalid_extra));
+
+        let mut invalid_related_extra = project_success.clone();
+        invalid_related_extra["diagnostics"][0]["related"][0]["unexpected"] =
+            serde_json::json!(true);
+        assert!(!tool.accepts_result(&invalid_related_extra));
+
+        let mut invalid_related_path_extra = project_success.clone();
+        invalid_related_path_extra["diagnostics"][0]["related"][4]["field_path"][0]["unexpected"] =
+            serde_json::json!(true);
+        assert!(!tool.accepts_result(&invalid_related_path_extra));
 
         let mut invalid_summary = project_success;
         invalid_summary["summary"]["by_kind"]["type"] = serde_json::json!("one");

@@ -520,6 +520,44 @@ fn manifest_check_project_does_not_read_symlinked_project_directories() {
     );
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn manifest_check_project_ignores_symlinked_nested_manifest_boundary() {
+    use std::os::unix::fs::symlink;
+
+    let workspace = TempWorkspace::new("manifest-nested-symlink-boundary");
+    workspace.write("alpha/veln.toml", "");
+    workspace.write("alpha/main.veln", clean_source());
+    workspace.mkdir("alpha/nested");
+    symlink(
+        workspace.path("alpha/veln.toml"),
+        workspace.path("alpha/nested/veln.toml"),
+    )
+    .unwrap();
+    workspace.write("alpha/nested/bad.veln", mismatch_source());
+
+    let result = check_project_result(&workspace, json!({"project": "alpha"}));
+
+    assert_eq!(result["isError"], false);
+    assert_eq!(
+        result["structuredContent"]["summary"],
+        json!({"diagnostic_count": 1, "by_severity": {"error": 1}, "by_kind": {"type": 1}})
+    );
+}
+
+#[cfg(not(target_os = "linux"))]
+#[test]
+fn check_project_fails_closed_without_handle_relative_capture_support() {
+    let workspace = TempWorkspace::new("no-handle-relative-capture-support");
+    workspace.write("veln.toml", "");
+    workspace.write("main.veln", clean_source());
+
+    let result = check_project_result(&workspace, json!({"project": "."}));
+
+    assert_eq!(result["isError"], true);
+    assert_eq!(result["structuredContent"]["code"], "snapshot_changed");
+}
+
 #[test]
 fn manifest_check_project_stops_at_non_utf8_nested_manifest_boundary() {
     let workspace = TempWorkspace::new("manifest-non-utf8-nested-boundary");

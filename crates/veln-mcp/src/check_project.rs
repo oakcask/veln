@@ -1,3 +1,4 @@
+#[cfg(target_os = "linux")]
 use std::ffi::OsStr;
 use std::fs::{self, File};
 use std::io::{self, Read};
@@ -433,10 +434,8 @@ fn open_dir_beneath(base: &WorkspaceBase, path: &Path) -> io::Result<File> {
 }
 
 #[cfg(not(target_os = "linux"))]
-fn open_dir_beneath(base: &WorkspaceBase, path: &Path) -> io::Result<File> {
-    let path = root_path(base.path(), path.to_str().unwrap_or("."));
-    reject_path_symlink_or_non_dir(base.path(), &path)?;
-    File::open(path)
+fn open_dir_beneath(_base: &WorkspaceBase, _path: &Path) -> io::Result<File> {
+    Err(no_handle_relative_capture_support())
 }
 
 #[cfg(target_os = "linux")]
@@ -475,17 +474,8 @@ fn read_text_beneath(root: &File, _root_path: &Path, path: &Path) -> io::Result<
 }
 
 #[cfg(not(target_os = "linux"))]
-fn read_text_beneath(_root: &File, root_path: &Path, path: &Path) -> io::Result<String> {
-    let path = root_path.join(path);
-    let mut file = File::open(&path)?;
-    if !fs::symlink_metadata(&path)?.file_type().is_file()
-        || !file.metadata()?.file_type().is_file()
-    {
-        return Err(io::Error::other("captured path is not a regular file"));
-    }
-    let mut text = String::new();
-    file.read_to_string(&mut text)?;
-    Ok(text)
+fn read_text_beneath(_root: &File, _root_path: &Path, _path: &Path) -> io::Result<String> {
+    Err(no_handle_relative_capture_support())
 }
 
 #[cfg(target_os = "linux")]
@@ -530,39 +520,12 @@ fn collect_veln_files_beneath(
 
 #[cfg(not(target_os = "linux"))]
 fn collect_veln_files_beneath(
-    dir: &File,
-    root_path: &Path,
-    relative_dir: &Path,
-    paths: &mut Vec<PathBuf>,
+    _dir: &File,
+    _root_path: &Path,
+    _relative_dir: &Path,
+    _paths: &mut Vec<PathBuf>,
 ) -> io::Result<()> {
-    let mut children = Vec::new();
-    for entry in fs::read_dir(root_path.join(relative_dir))? {
-        let entry = entry?;
-        let name = entry.file_name();
-        if name == OsStr::new(".") || name == OsStr::new("..") || name == OsStr::new(".git") {
-            continue;
-        }
-        let child = relative_dir.join(&name);
-        let path = root_path.join(&child);
-        let file_type = fs::symlink_metadata(&path)?.file_type();
-        if file_type.is_dir() {
-            children.push(child);
-        } else if file_type.is_file()
-            && path
-                .extension()
-                .is_some_and(|extension| extension == "veln")
-        {
-            paths.push(child);
-        }
-    }
-    children.sort();
-    for child in children {
-        if is_regular_file(&root_path.join(&child).join("veln.toml"))? {
-            continue;
-        }
-        collect_veln_files_beneath(dir, root_path, &child, paths)?;
-    }
-    Ok(())
+    Err(no_handle_relative_capture_support())
 }
 
 #[cfg(target_os = "linux")]
@@ -576,8 +539,19 @@ fn has_regular_file_beneath(root: &File, path: &Path) -> io::Result<bool> {
     ) {
         Ok(fd) => Ok(File::from(fd).metadata()?.file_type().is_file()),
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(error) if path == Path::new("veln.toml") && linux_open_rejected_non_regular(&error) => {
+            Ok(false)
+        }
         Err(error) => Err(error.into()),
     }
+}
+
+#[cfg(target_os = "linux")]
+fn linux_open_rejected_non_regular(error: &rustix::io::Errno) -> bool {
+    matches!(
+        *error,
+        rustix::io::Errno::LOOP | rustix::io::Errno::NOTDIR | rustix::io::Errno::ISDIR
+    )
 }
 
 #[cfg(target_os = "linux")]
@@ -737,37 +711,8 @@ fn validate_base_identity(target: &Target) -> io::Result<()> {
 }
 
 #[cfg(not(target_os = "linux"))]
-fn reject_path_symlink_or_non_dir(base: &Path, path: &Path) -> io::Result<()> {
-    let relative = path.strip_prefix(base).map_err(io::Error::other)?;
-    let mut current = base.to_path_buf();
-    for component in relative.components() {
-        match component {
-            Component::CurDir => {}
-            Component::Normal(part) => {
-                current.push(part);
-                let metadata = fs::symlink_metadata(&current)?;
-                if metadata.file_type().is_symlink() {
-                    return Err(io::Error::other("path traverses a symbolic link"));
-                }
-                if !metadata.file_type().is_dir() {
-                    return Err(io::Error::other("path is not a directory"));
-                }
-            }
-            Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
-                return Err(io::Error::other("path escapes the workspace"));
-            }
-        }
-    }
-    Ok(())
-}
-
-#[cfg(not(target_os = "linux"))]
-fn is_regular_file(path: &Path) -> io::Result<bool> {
-    match fs::symlink_metadata(path) {
-        Ok(metadata) => Ok(metadata.file_type().is_file()),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
-        Err(error) => Err(error),
-    }
+fn no_handle_relative_capture_support() -> io::Error {
+    io::Error::other("handle-relative no-follow project capture is not supported on this platform")
 }
 
 fn diagnostic_to_serde(diagnostic: &veln_diagnostics::Diagnostic) -> Value {

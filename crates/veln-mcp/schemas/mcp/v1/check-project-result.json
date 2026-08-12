@@ -76,8 +76,11 @@
               },
               "related": {
                 "items": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
                     "message": {
                       "type": "string"
                     },
@@ -90,6 +93,85 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "effect": {
+                      "type": "string"
+                    },
+                    "operations": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "boundary": {
+                      "type": "string"
+                    },
+                    "declared_effects": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "known_effects": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "field_path": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "kind": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["kind", "name"],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "field_path_display": {
+                      "type": "string"
+                    },
+                    "source_path": {
+                      "type": "string"
+                    },
+                    "source_kind": {
+                      "type": "string"
+                    },
+                    "package": {
+                      "type": "string"
+                    },
+                    "companion_path": {
+                      "type": "string"
+                    },
+                    "companion_target": {
+                      "type": "string"
+                    },
+                    "companion_target_module": {
+                      "type": "string"
+                    },
+                    "declaration_kind": {
+                      "type": "string"
+                    },
+                    "handler": {
+                      "type": "string"
+                    },
+                    "handler_module": {
+                      "type": "string"
+                    },
+                    "handled_effect": {
+                      "type": "string"
+                    },
+                    "target_module": {
+                      "type": "string"
                     }
                   },
                   "type": "object"
