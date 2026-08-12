@@ -63,7 +63,9 @@ Adding, removing, or renaming a manifest has no observable effect until a
 successful refresh. `check_project` uses the project kind selected at the last
 successful discovery. If a selected manifest root is replaced before analysis,
 including replacement with another regular directory at the same path, the
-operation reports `snapshot_changed` instead of reclassifying the root.
+operation reports `snapshot_changed` instead of reclassifying the root. An
+anonymous workspace base replacement also reports `snapshot_changed` instead
+of consuming bytes from the replacement directory.
 
 ## Project Diagnostics
 
@@ -73,7 +75,8 @@ dependency manifest and source bytes that analysis can read from path, vendor,
 mirror, or locally materialized git inputs change during the operation.
 Selected manifest-project capture excludes project-local file and directory
 symbolic links from the owned source path set and does not read source bytes
-through them.
+through them. A descendant directory that contains a regular `veln.toml` is a
+nested package boundary even when that manifest file is not valid UTF-8.
 Successful analysis uses the captured dependency inputs and does not fall back
 to reading uncaptured dependency files. If no stable capture is available, the
 tool returns a domain failure with code `snapshot_changed` and no partial
@@ -124,5 +127,7 @@ isolation before refresh, companion-shaped anonymous source names, dependency
 snapshots for direct path and locally materialized git inputs, clean analysis,
 selected-root symlink and regular-directory replacement, and structured
 language diagnostics with spanless related notes. Unix-only `veln-mcp` tests
-also check that selected manifest-project analysis does not consume source
-bytes through project-local file or directory symbolic links.
+also check anonymous workspace-base symlink replacement and that selected
+manifest-project analysis does not consume source bytes through project-local
+file or directory symbolic links. A `veln-mcp` test also checks that a non-UTF-8
+descendant manifest still forms a nested package boundary.

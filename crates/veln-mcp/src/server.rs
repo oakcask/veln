@@ -5,13 +5,14 @@ use serde_json::{Value, json};
 
 use crate::check_project::{self, CheckProjectOutcome};
 use crate::schema;
-use crate::workspace::Selection;
+use crate::workspace::{Selection, WorkspaceBase};
 
 const PROTOCOL_VERSION: &str = "2025-06-18";
 
 pub(crate) fn run(base: PathBuf, reader: impl BufRead, mut writer: impl Write) -> io::Result<()> {
+    let base = WorkspaceBase::open(base)?;
     let mut server = Server {
-        selection: Selection::discover(&base)?,
+        selection: Selection::discover(base.path())?,
         base,
         initialized: false,
     };
@@ -26,7 +27,7 @@ pub(crate) fn run(base: PathBuf, reader: impl BufRead, mut writer: impl Write) -
 }
 
 struct Server {
-    base: PathBuf,
+    base: WorkspaceBase,
     selection: Selection,
     initialized: bool,
 }
@@ -109,7 +110,7 @@ impl Server {
 
     fn call_tool(&mut self, params: Option<&Value>) -> Result<Value, &'static str> {
         let base = self.base.clone();
-        self.call_tool_with_refresh(params, |selection| selection.refresh(&base))
+        self.call_tool_with_refresh(params, |selection| selection.refresh(base.path()))
     }
 
     fn call_tool_with_refresh(

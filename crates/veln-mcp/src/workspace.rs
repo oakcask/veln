@@ -1,7 +1,11 @@
 use std::ffi::OsStr;
 use std::fs;
+#[cfg(target_os = "linux")]
+use std::fs::File;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+#[cfg(target_os = "linux")]
+use std::sync::Arc;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct Selection {
@@ -9,6 +13,14 @@ pub(crate) struct Selection {
     roots: Vec<String>,
     kinds: Vec<SelectedRootKind>,
     identities: Vec<Option<SelectedRootIdentity>>,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct WorkspaceBase {
+    path: PathBuf,
+    identity: FileIdentity,
+    #[cfg(target_os = "linux")]
+    dir: Arc<File>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -33,29 +45,77 @@ pub(crate) struct FileIdentity {
     changed_seconds: i64,
     #[cfg(unix)]
     changed_nanoseconds: i64,
-    #[cfg(not(unix))]
+    #[cfg(windows)]
+    volume_serial_number: Option<u32>,
+    #[cfg(windows)]
+    file_index: Option<u64>,
+    #[cfg(not(any(unix, windows)))]
     len: u64,
-    #[cfg(not(unix))]
+    #[cfg(not(any(unix, windows)))]
     modified: Option<std::time::SystemTime>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct SelectedRootIdentity {
     root: FileIdentity,
-    manifest: FileIdentity,
+    manifest: Option<FileIdentity>,
+}
+
+impl WorkspaceBase {
+    pub(crate) fn open(path: PathBuf) -> io::Result<Self> {
+        let path = path.canonicalize()?;
+        let identity = FileIdentity::read(&path)?;
+        #[cfg(target_os = "linux")]
+        let dir = Arc::new(File::open(&path)?);
+        Ok(Self {
+            path,
+            identity,
+            #[cfg(target_os = "linux")]
+            dir,
+        })
+    }
+
+    pub(crate) fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub(crate) fn matches_current(&self) -> io::Result<bool> {
+        Ok(self
+            .identity
+            .matches_same_file(&FileIdentity::read(&self.path)?))
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(crate) fn dir(&self) -> &File {
+        &self.dir
+    }
 }
 
 impl SelectedRootIdentity {
     pub(crate) fn read(root: &Path) -> io::Result<Self> {
         Ok(Self {
             root: FileIdentity::read(root)?,
-            manifest: FileIdentity::read(&root.join("veln.toml"))?,
+            manifest: if is_regular_manifest(root)? {
+                Some(FileIdentity::read(&root.join("veln.toml"))?)
+            } else {
+                None
+            },
         })
     }
 
     pub(crate) fn matches_current(&self, root: &Path) -> io::Result<bool> {
-        Ok(self.root == FileIdentity::read(root)?
-            && self.manifest == FileIdentity::read(&root.join("veln.toml"))?)
+        if !self.root.matches_same_file(&FileIdentity::read(root)?) {
+            return Ok(false);
+        }
+        let Some(manifest) = &self.manifest else {
+            return Ok(true);
+        };
+        Ok(Some(manifest.clone())
+            == if is_regular_manifest(root)? {
+                Some(FileIdentity::read(&root.join("veln.toml"))?)
+            } else {
+                None
+            })
     }
 }
 
@@ -77,7 +137,17 @@ impl FileIdentity {
             })
         }
 
-        #[cfg(not(unix))]
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::MetadataExt;
+
+            Ok(Self {
+                volume_serial_number: metadata.volume_serial_number(),
+                file_index: metadata.file_index(),
+            })
+        }
+
+        #[cfg(not(any(unix, windows)))]
         {
             Ok(Self {
                 len: metadata.len(),
@@ -97,7 +167,15 @@ impl FileIdentity {
             })
         }
 
-        #[cfg(not(unix))]
+        #[cfg(windows)]
+        {
+            serde_json::json!({
+                "volume_serial_number": self.volume_serial_number,
+                "file_index": self.file_index,
+            })
+        }
+
+        #[cfg(not(any(unix, windows)))]
         {
             serde_json::json!({
                 "len": self.len,
@@ -106,6 +184,24 @@ impl FileIdentity {
                     .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
                     .map(|duration| duration.as_nanos().to_string()),
             })
+        }
+    }
+
+    fn matches_same_file(&self, other: &Self) -> bool {
+        #[cfg(unix)]
+        {
+            self.device == other.device && self.inode == other.inode
+        }
+
+        #[cfg(windows)]
+        {
+            self.volume_serial_number == other.volume_serial_number
+                && self.file_index == other.file_index
+        }
+
+        #[cfg(not(any(unix, windows)))]
+        {
+            self == other
         }
     }
 }
@@ -181,7 +277,11 @@ fn discover_selection(base: &Path) -> io::Result<DiscoverySelection> {
     roots.dedup();
     if roots.is_empty() {
         roots.push(".".to_string());
-        return Ok((roots, vec![SelectedRootKind::Anonymous], vec![None]));
+        return Ok((
+            roots,
+            vec![SelectedRootKind::Anonymous],
+            vec![Some(SelectedRootIdentity::read(base)?)],
+        ));
     }
     let kinds = vec![SelectedRootKind::Manifest; roots.len()];
     let identities = roots
@@ -323,15 +423,9 @@ mod tests {
     fn refresh_replaces_selection_only_after_success() {
         let project = TempWorkspace::new("refresh");
         let mut selection = Selection::discover(project.root()).unwrap();
-        assert_eq!(
-            selection,
-            Selection {
-                generation: 0,
-                roots: vec![".".into()],
-                kinds: vec![SelectedRootKind::Anonymous],
-                identities: vec![None],
-            }
-        );
+        assert_eq!(selection.generation(), 0);
+        assert_eq!(selection.roots(), ["."]);
+        assert_eq!(selection.root_kind("."), Some(SelectedRootKind::Anonymous));
 
         project.write("nested/veln.toml", "");
         assert_eq!(selection.roots(), ["."]);

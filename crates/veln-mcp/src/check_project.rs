@@ -1,10 +1,11 @@
 use std::ffi::OsStr;
 use std::fs::{self, File};
 use std::io::{self, Read};
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Component, Path, PathBuf};
 
+#[cfg(target_os = "linux")]
 use rustix::fs::{FileType, Mode, OFlags, RawDir, ResolveFlags, openat2};
 use serde_json::{Value, json};
 use veln_analysis::{
@@ -14,7 +15,9 @@ use veln_diagnostics::diagnostic_to_json;
 use veln_project::{Project, parse_manifest_text};
 use veln_source::SourceFile;
 
-use crate::workspace::{FileIdentity, SelectedRootIdentity, SelectedRootKind, Selection};
+use crate::workspace::{
+    FileIdentity, SelectedRootIdentity, SelectedRootKind, Selection, WorkspaceBase,
+};
 
 const SNAPSHOT_ATTEMPTS: usize = 3;
 
@@ -28,7 +31,7 @@ pub(crate) enum CheckProjectOutcome {
 }
 
 pub(crate) fn check_project(
-    base: &Path,
+    base: &WorkspaceBase,
     selection: &Selection,
     arguments: &Value,
 ) -> CheckProjectOutcome {
@@ -68,7 +71,7 @@ pub(crate) fn check_project(
 }
 
 struct Target {
-    base: PathBuf,
+    base: WorkspaceBase,
     root: PathBuf,
     root_display: String,
     mode: AnalysisMode,
@@ -103,7 +106,7 @@ impl Target {
 }
 
 fn select_target(
-    base: &Path,
+    base: &WorkspaceBase,
     selection: &Selection,
     project: Option<&str>,
     source: Option<&str>,
@@ -156,7 +159,7 @@ fn select_target(
 }
 
 fn selected_target(
-    base: &Path,
+    base: &WorkspaceBase,
     project: &str,
     kind: SelectedRootKind,
     source: Option<&str>,
@@ -171,8 +174,8 @@ fn selected_target(
     }
     if kind == SelectedRootKind::Manifest {
         return Ok(Target {
-            base: base.to_path_buf(),
-            root: root_path(base, project),
+            base: base.clone(),
+            root: root_path(base.path(), project),
             root_display: project.to_string(),
             mode: AnalysisMode::Project,
             input: None,
@@ -197,15 +200,15 @@ fn selected_target(
     };
     let source = validate_source_path(base, source)?;
     Ok(Target {
-        base: base.to_path_buf(),
-        root: base.to_path_buf(),
+        base: base.clone(),
+        root: base.path().to_path_buf(),
         root_display: ".".to_string(),
         mode: AnalysisMode::SingleFile {
             source: source.clone(),
         },
         input: Some(PathBuf::from(source)),
         require_manifest: false,
-        selected_root_identity: None,
+        selected_root_identity,
     })
 }
 
@@ -217,23 +220,26 @@ fn validate_project_path(project: &str) -> Result<String, CheckProjectOutcome> {
     Ok(normalized)
 }
 
-fn validate_source_path(base: &Path, source: &str) -> Result<String, CheckProjectOutcome> {
+fn validate_source_path(base: &WorkspaceBase, source: &str) -> Result<String, CheckProjectOutcome> {
     reject_spelled_source_traversal(base, source)?;
     let normalized = normalize_relative(source)?;
     if normalized == "." || !normalized.ends_with(".veln") {
         return Err(invalid_path("source must be one `.veln` file"));
     }
-    reject_link_or_non_file(base, &normalized)?;
+    reject_link_or_non_file(base.path(), &normalized)?;
     Ok(normalized)
 }
 
-fn reject_spelled_source_traversal(base: &Path, source: &str) -> Result<(), CheckProjectOutcome> {
-    let mut current = base.to_path_buf();
+fn reject_spelled_source_traversal(
+    base: &WorkspaceBase,
+    source: &str,
+) -> Result<(), CheckProjectOutcome> {
+    let mut current = base.path().to_path_buf();
     for component in Path::new(source).components() {
         match component {
             Component::CurDir => {}
             Component::ParentDir => {
-                if current == base {
+                if current == base.path() {
                     return Err(invalid_path("path escapes the workspace"));
                 }
                 current.pop();
@@ -357,6 +363,7 @@ struct CapturedProject {
 }
 
 fn capture_once(target: &Target) -> io::Result<CapturedProject> {
+    validate_base_identity(target)?;
     validate_selected_root_identity(target)?;
     let project = if target.require_manifest {
         capture_manifest_project(target)?
@@ -370,7 +377,7 @@ fn capture_once(target: &Target) -> io::Result<CapturedProject> {
         let root = open_checked_root(target)?;
         Project {
             root: target.root.clone(),
-            files: vec![read_source_file(&root, input)?],
+            files: vec![read_source_file(&root, &target.root, input)?],
             manifest: None,
         }
     };
@@ -392,15 +399,15 @@ fn capture_once(target: &Target) -> io::Result<CapturedProject> {
 fn capture_manifest_project(target: &Target) -> io::Result<Project> {
     validate_manifest_root(&target.root)?;
     let root = open_checked_root(target)?;
-    let manifest_text = read_text_beneath(&root, Path::new("veln.toml"))?;
+    let manifest_text = read_text_beneath(&root, &target.root, Path::new("veln.toml"))?;
     let manifest = parse_manifest_text("veln.toml", &manifest_text);
     let mut source_paths = Vec::new();
-    collect_veln_files_beneath(&root, Path::new("."), &mut source_paths)?;
+    collect_veln_files_beneath(&root, &target.root, Path::new("."), &mut source_paths)?;
     source_paths.sort();
     source_paths.dedup();
     let files = source_paths
         .iter()
-        .map(|path| read_source_file(&root, path))
+        .map(|path| read_source_file(&root, &target.root, path))
         .collect::<io::Result<Vec<_>>>()?;
     Ok(Project {
         root: target.root.clone(),
@@ -410,13 +417,13 @@ fn capture_manifest_project(target: &Target) -> io::Result<Project> {
 }
 
 fn open_checked_root(target: &Target) -> io::Result<File> {
-    let base = File::open(&target.base)?;
-    open_dir_beneath(&base, Path::new(&target.root_display))
+    open_dir_beneath(&target.base, Path::new(&target.root_display))
 }
 
-fn open_dir_beneath(base: &File, path: &Path) -> io::Result<File> {
+#[cfg(target_os = "linux")]
+fn open_dir_beneath(base: &WorkspaceBase, path: &Path) -> io::Result<File> {
     let fd = openat2(
-        base,
+        base.dir(),
         path,
         OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
         Mode::empty(),
@@ -425,12 +432,32 @@ fn open_dir_beneath(base: &File, path: &Path) -> io::Result<File> {
     Ok(File::from(fd))
 }
 
-fn read_source_file(root: &File, path: &Path) -> io::Result<SourceFile> {
-    let text = read_text_beneath(root, path)?;
+#[cfg(not(target_os = "linux"))]
+fn open_dir_beneath(base: &WorkspaceBase, path: &Path) -> io::Result<File> {
+    let path = root_path(base.path(), path.to_str().unwrap_or("."));
+    reject_path_symlink_or_non_dir(base.path(), &path)?;
+    File::open(path)
+}
+
+#[cfg(target_os = "linux")]
+fn open_child_dir_beneath(parent: &File, path: &Path) -> io::Result<File> {
+    let fd = openat2(
+        parent,
+        path,
+        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
+        Mode::empty(),
+        ResolveFlags::BENEATH | ResolveFlags::NO_SYMLINKS | ResolveFlags::NO_MAGICLINKS,
+    )?;
+    Ok(File::from(fd))
+}
+
+fn read_source_file(root: &File, root_path: &Path, path: &Path) -> io::Result<SourceFile> {
+    let text = read_text_beneath(root, root_path, path)?;
     Ok(SourceFile::new(display_relative_path(path), text))
 }
 
-fn read_text_beneath(root: &File, path: &Path) -> io::Result<String> {
+#[cfg(target_os = "linux")]
+fn read_text_beneath(root: &File, _root_path: &Path, path: &Path) -> io::Result<String> {
     let fd = openat2(
         root,
         path,
@@ -447,8 +474,24 @@ fn read_text_beneath(root: &File, path: &Path) -> io::Result<String> {
     Ok(text)
 }
 
+#[cfg(not(target_os = "linux"))]
+fn read_text_beneath(_root: &File, root_path: &Path, path: &Path) -> io::Result<String> {
+    let path = root_path.join(path);
+    let mut file = File::open(&path)?;
+    if !fs::symlink_metadata(&path)?.file_type().is_file()
+        || !file.metadata()?.file_type().is_file()
+    {
+        return Err(io::Error::other("captured path is not a regular file"));
+    }
+    let mut text = String::new();
+    file.read_to_string(&mut text)?;
+    Ok(text)
+}
+
+#[cfg(target_os = "linux")]
 fn collect_veln_files_beneath(
     dir: &File,
+    _root_path: &Path,
     relative_dir: &Path,
     paths: &mut Vec<PathBuf>,
 ) -> io::Result<()> {
@@ -476,16 +519,68 @@ fn collect_veln_files_beneath(
     }
     children.sort_by(|left, right| left.1.cmp(&right.1));
     for (name, child) in children {
-        let dir = open_dir_beneath(dir, &name)?;
-        if read_text_beneath(&dir, Path::new("veln.toml")).is_ok() {
+        let dir = open_child_dir_beneath(dir, &name)?;
+        if has_regular_file_beneath(&dir, Path::new("veln.toml"))? {
             continue;
         }
-        collect_veln_files_beneath(&dir, &child, paths)?;
+        collect_veln_files_beneath(&dir, _root_path, &child, paths)?;
     }
     Ok(())
 }
 
-#[cfg(unix)]
+#[cfg(not(target_os = "linux"))]
+fn collect_veln_files_beneath(
+    dir: &File,
+    root_path: &Path,
+    relative_dir: &Path,
+    paths: &mut Vec<PathBuf>,
+) -> io::Result<()> {
+    let mut children = Vec::new();
+    for entry in fs::read_dir(root_path.join(relative_dir))? {
+        let entry = entry?;
+        let name = entry.file_name();
+        if name == OsStr::new(".") || name == OsStr::new("..") || name == OsStr::new(".git") {
+            continue;
+        }
+        let child = relative_dir.join(&name);
+        let path = root_path.join(&child);
+        let file_type = fs::symlink_metadata(&path)?.file_type();
+        if file_type.is_dir() {
+            children.push(child);
+        } else if file_type.is_file()
+            && path
+                .extension()
+                .is_some_and(|extension| extension == "veln")
+        {
+            paths.push(child);
+        }
+    }
+    children.sort();
+    for child in children {
+        if is_regular_file(&root_path.join(&child).join("veln.toml"))? {
+            continue;
+        }
+        collect_veln_files_beneath(dir, root_path, &child, paths)?;
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn has_regular_file_beneath(root: &File, path: &Path) -> io::Result<bool> {
+    match openat2(
+        root,
+        path,
+        OFlags::RDONLY | OFlags::CLOEXEC,
+        Mode::empty(),
+        ResolveFlags::BENEATH | ResolveFlags::NO_SYMLINKS | ResolveFlags::NO_MAGICLINKS,
+    ) {
+        Ok(fd) => Ok(File::from(fd).metadata()?.file_type().is_file()),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error.into()),
+    }
+}
+
+#[cfg(target_os = "linux")]
 fn os_str_from_cstr(value: &std::ffi::CStr) -> io::Result<&OsStr> {
     Ok(OsStr::from_bytes(value.to_bytes()))
 }
@@ -628,6 +723,50 @@ fn validate_selected_root_identity(target: &Target) -> io::Result<()> {
         Err(io::Error::other(
             "selected project root filesystem identity changed",
         ))
+    }
+}
+
+fn validate_base_identity(target: &Target) -> io::Result<()> {
+    if target.base.matches_current()? {
+        Ok(())
+    } else {
+        Err(io::Error::other(
+            "workspace base filesystem identity changed",
+        ))
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn reject_path_symlink_or_non_dir(base: &Path, path: &Path) -> io::Result<()> {
+    let relative = path.strip_prefix(base).map_err(io::Error::other)?;
+    let mut current = base.to_path_buf();
+    for component in relative.components() {
+        match component {
+            Component::CurDir => {}
+            Component::Normal(part) => {
+                current.push(part);
+                let metadata = fs::symlink_metadata(&current)?;
+                if metadata.file_type().is_symlink() {
+                    return Err(io::Error::other("path traverses a symbolic link"));
+                }
+                if !metadata.file_type().is_dir() {
+                    return Err(io::Error::other("path is not a directory"));
+                }
+            }
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+                return Err(io::Error::other("path escapes the workspace"));
+            }
+        }
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn is_regular_file(path: &Path) -> io::Result<bool> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) => Ok(metadata.file_type().is_file()),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error),
     }
 }
 
