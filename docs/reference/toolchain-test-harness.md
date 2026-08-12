@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: normative
-update-when: The CLI integration harness discovery inventory, manifest grammar, structured JSON-RPC input validation or fixture diagnostics, assertion model, semantic case baseline, manifest authoring policy, case-text repository attribute convention, or source-error guard evidence changes.
+update-when: The CLI integration harness discovery inventory, manifest grammar, structured JSON-RPC input validation or fixture diagnostics, assertion model, semantic case baseline, manifest authoring policy, case-text fixture sidecar convention, or source-error guard evidence changes.
 ---
 
 # Toolchain Test Harness
