@@ -16,7 +16,7 @@ intelligence without requiring them to drive the editor-oriented LSP protocol.
 The workspace-project inventory, saved project diagnostics, and bounded
 workspace-definition slices are
 implemented and specified in
-[MCP Workspace Projects And Diagnostics](../specification/mcp.md). `veln mcp`
+[MCP Workspace Projects, Diagnostics, And Definitions](../specification/mcp.md). `veln mcp`
 currently exposes `workspace_projects`, `refresh_workspace`, and
 `check_project`, plus workspace-only `definition` for the language service's
 current function, constructor, and handler-binding symbol set. Broader
