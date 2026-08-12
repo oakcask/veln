@@ -1821,7 +1821,19 @@ fn is_function_declaration_name(tokens: &[Token], index: usize) -> bool {
 }
 
 fn is_parameter_name(tokens: &[Token], index: usize) -> bool {
-    next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::Colon)
+    if next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::Colon) {
+        return true;
+    }
+    if !previous_non_layout_token(tokens, index)
+        .is_some_and(|previous| matches!(previous.kind, TokenKind::LParen | TokenKind::Comma))
+    {
+        return false;
+    }
+    tokens[..index]
+        .iter()
+        .rev()
+        .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
+        .any(|token| matches!(token.kind, TokenKind::Fn | TokenKind::Test))
 }
 
 fn is_local_binding_name(tokens: &[Token], index: usize) -> bool {
