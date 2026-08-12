@@ -163,3 +163,6 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
 - MCP saved project diagnostics, `check_project` tool schema advertising, and
   spanless related-note projection:
   `../../examples/specification/mcp/check-project-diagnostics/`.
+- MCP anonymous single-file `check_project` isolation from other saved
+  workspace sources:
+  `../../examples/specification/mcp/anonymous-single-file-isolation/`.
