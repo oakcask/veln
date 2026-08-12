@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"51ec9c310ae2e697c03c39b022c864f64a35b681"
+source_git_tree	"20ed3615fd1c4b394dcd33e3a03537e8497ed6cf"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1513
@@ -10438,13 +10438,14 @@ field	expectations.stdout.contains[4]	"\"scope\":{\"mode\":\"project\",\"project
 field	expectations.stdout.contains[5]	"\"id\":3,\"jsonrpc\":\"2.0\""
 field	expectations.stdout.contains[6]	"\"id\":4,\"jsonrpc\":\"2.0\""
 field	expectations.stdout.contains[7]	"\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":5"
+field	expectations.stdout.contains[8]	"\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":6"
 field	expectations.stdout.not_contains[0]	"veln-pkg:"
 field	expectations.stdout.not_contains[1]	"target/debug"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":667,"sha256":"0326a18d18007cf20629a009257886c442a89daee82a6b6758e4c7e38f5751ed"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":814,"sha256":"92ec757bb89ec51af2fac79ad727575d002537863f52e748dd812b1e8fd5372f"}
 field	source_errors	"forbidden"
-case_digest	"98eac9893dbf134f9a8f8b1f1ecc5c19d8bd3a57862d2d359e613ceac42700d4"
+case_digest	"e3b8b07be7403c8d5f962f275872d329aebf430f2ee568b363ce2cde209c972e"
 case	"examples/specification/mcp/workspace-lifecycle"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47731,4 +47732,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"f5b39b784469d3fd5ee092cad838963c3714420b44775574a1adcfa839aeabb3"
+aggregate_digest	"d82aa02d8d1402a56966d96ee62556edfd8d7800c95776c8f8cf6b7d51bc37e4"
