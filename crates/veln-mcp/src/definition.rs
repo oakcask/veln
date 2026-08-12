@@ -9,6 +9,12 @@ use veln_source::SourcePath;
 use crate::check_project::{CheckProjectOutcome, capture_navigation_source};
 use crate::workspace::{Selection, WorkspaceBase};
 
+#[derive(Clone, Copy)]
+enum Coordinate {
+    Addressable(usize),
+    OutOfRange,
+}
+
 pub(crate) enum DefinitionOutcome {
     Success(Value),
     DomainFailure {
@@ -26,12 +32,8 @@ pub(crate) fn definition(
     let source = arguments["source"]
         .as_str()
         .expect("definition input schema requires a string source");
-    let line = arguments["line"]
-        .as_u64()
-        .expect("definition input schema requires a positive line");
-    let column = arguments["column"]
-        .as_u64()
-        .expect("definition input schema requires a positive column");
+    let line = coordinate(&arguments["line"]);
+    let column = coordinate(&arguments["column"]);
     let (captured, captured_source) = match capture_navigation_source(base, selection, source) {
         Ok(captured) => captured,
         Err(failure) => return failure.into(),
@@ -46,9 +48,12 @@ pub(crate) fn definition(
         return domain_failure(
             "invalid_position",
             "position is outside the selected source",
-            json!({"source": source, "line": line, "column": column}),
+            json!({"source": source, "line": arguments["line"].clone(), "column": arguments["column"].clone()}),
         );
     }
+    let (Coordinate::Addressable(line), Coordinate::Addressable(column)) = (line, column) else {
+        unreachable!("valid positions are addressable")
+    };
 
     let root = captured.project.root.clone();
     let snapshot = EffectiveProjectSnapshot::new(captured.project.files);
@@ -56,12 +61,8 @@ pub(crate) fn definition(
         &snapshot,
         SourcePosition {
             source: SourcePath::new(captured_source),
-            line: line
-                .try_into()
-                .expect("valid definition line should fit in usize"),
-            column: column
-                .try_into()
-                .expect("valid definition column should fit in usize"),
+            line,
+            column,
         },
     );
     let definition = result.and_then(|result| match result.definition.source {
@@ -83,12 +84,31 @@ pub(crate) fn definition(
     DefinitionOutcome::Success(json!({"definition": definition}))
 }
 
-fn valid_position(text: &str, line: u64, column: u64) -> bool {
-    let Ok(line_index) = usize::try_from(line.saturating_sub(1)) else {
+fn coordinate(value: &Value) -> Coordinate {
+    let number = value
+        .as_number()
+        .expect("definition input schema requires a positive integer coordinate");
+    if let Some(value) = number.as_u64() {
+        return usize::try_from(value)
+            .map(Coordinate::Addressable)
+            .unwrap_or(Coordinate::OutOfRange);
+    }
+    let value = number
+        .as_f64()
+        .expect("definition input schema requires a JSON number coordinate");
+    if value.is_finite() && value.fract() == 0.0 && value >= 1.0 && value < usize::MAX as f64 {
+        Coordinate::Addressable(value as usize)
+    } else {
+        Coordinate::OutOfRange
+    }
+}
+
+fn valid_position(text: &str, line: Coordinate, column: Coordinate) -> bool {
+    let (Coordinate::Addressable(line), Coordinate::Addressable(column)) = (line, column) else {
         return false;
     };
     let mut lines = text.split('\n').peekable();
-    let Some(selected_line) = lines.nth(line_index) else {
+    let Some(selected_line) = lines.nth(line.saturating_sub(1)) else {
         return false;
     };
     let selected_line = if lines.peek().is_some() {
@@ -96,7 +116,7 @@ fn valid_position(text: &str, line: u64, column: u64) -> bool {
     } else {
         selected_line
     };
-    column <= selected_line.chars().count() as u64 + 1
+    column <= selected_line.chars().count() + 1
 }
 
 fn path_to_uri(path: &Path) -> String {
@@ -147,7 +167,17 @@ impl From<CheckProjectOutcome> for DefinitionOutcome {
 
 #[cfg(test)]
 mod tests {
-    use super::valid_position;
+    use super::{Coordinate, coordinate, valid_position};
+    use serde_json::json;
+
+    #[test]
+    fn coordinates_accept_integral_json_number_spellings() {
+        for value in [json!(1), json!(1.0), json!(1e0)] {
+            assert!(matches!(coordinate(&value), Coordinate::Addressable(1)));
+        }
+        let above_u64 = serde_json::from_str("18446744073709551616").unwrap();
+        assert!(matches!(coordinate(&above_u64), Coordinate::OutOfRange));
+    }
 
     #[test]
     fn positions_follow_lf_crlf_terminal_empty_and_scalar_rules() {
@@ -167,10 +197,19 @@ mod tests {
         ];
         for (text, (line, column), expected) in cases {
             assert_eq!(
-                valid_position(text, line, column),
+                valid_position(
+                    text,
+                    Coordinate::Addressable(line),
+                    Coordinate::Addressable(column)
+                ),
                 expected,
                 "{text:?} {line}:{column}"
             );
         }
+        assert!(!valid_position(
+            "x",
+            Coordinate::OutOfRange,
+            Coordinate::Addressable(1)
+        ));
     }
 }

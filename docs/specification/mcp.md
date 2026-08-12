@@ -115,11 +115,13 @@ single-file analysis.
 ## Saved Workspace Definitions
 
 `definition` reads one saved workspace-relative regular `.veln` source and a
-one-based line and Unicode-scalar column. If the source is in a selected
-manifest project's captured owned-source set, the tool resolves symbols over
-that project. Any other accepted source uses anonymous single-file scope. A
-source below an unselected descendant manifest is therefore not analyzed with
-the outer project.
+one-based line and Unicode-scalar column. The line and column are positive JSON
+integer values; decimal and exponent spellings that denote an integer address
+the same source position as the equivalent plain integer. If the source is in a
+selected manifest project's captured owned-source set, the tool resolves
+symbols over that project. Any other accepted source uses anonymous single-file
+scope. A source below an unselected descendant manifest is therefore not
+analyzed with the outer project.
 
 The implemented symbol set is functions, type constructors, handler context
 parameters, handler operation clause parameters, and exact test-companion
@@ -134,8 +136,8 @@ addressable position. A line containing `N` Unicode scalars accepts columns 1
 through `N + 1`. A terminal newline creates a final empty line at column 1;
 an empty file accepts only `(1, 1)`. A token's end is excluded from its
 selection. A positive integer line or column that does not address one of these
-source positions, including an implementation-large line number, returns
-`invalid_position`.
+source positions, including a value larger than the implementation's native
+coordinate range, returns `invalid_position`.
 Definition capture uses the same no-follow path checks, selected-root and
 workspace-base identity checks, stable double capture, bounded retry, and
 `snapshot_changed` failure as saved project diagnostics. When definition
@@ -156,8 +158,9 @@ compiler-owned related note over stdio. The `anonymous-single-file-isolation`
 case checks anonymous `check_project` analysis over only the requested source
 when another saved source in the same workspace contains a language error.
 The `definition-workspace` MCP specification case checks the advertised
-`definition` declaration plus representative definition, no-definition, and
-invalid-position results over stdio.
+`definition` declaration plus representative definition, no-definition,
+decimal and exponent integer coordinate spellings, and invalid-position
+results over stdio.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous

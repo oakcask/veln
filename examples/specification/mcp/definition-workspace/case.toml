@@ -10,6 +10,9 @@ contains = [
   "\"range\":{\"end\":{\"column\":10,\"line\":1},\"start\":{\"column\":4,\"line\":1}}",
   "\"structuredContent\":{\"definition\":null}",
   "\"isError\":true,\"structuredContent\":{\"code\":\"invalid_position\"",
+  "\"id\":6,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"definition\\\"",
+  "\"id\":7,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"definition\\\"",
+  "\"id\":8,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"code\\\":\\\"invalid_position\\\"",
 ]
 not_contains = ["veln-pkg:", "target/debug"]
 

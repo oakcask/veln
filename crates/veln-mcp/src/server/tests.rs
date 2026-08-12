@@ -322,6 +322,17 @@ fn definition_distinguishes_no_symbol_from_invalid_positions_and_uses_canonical_
         assert_eq!(invalid["isError"], true, "{line}:{column} {invalid:#}");
         assert_eq!(invalid["structuredContent"]["code"], "invalid_position");
     }
+    for arguments in [
+        json!({"source": "main.veln", "line": 6.0, "column": 9}),
+        json!({"source": "main.veln", "line": 6, "column": 9e0}),
+    ] {
+        let integral_spelling = initialized_server(&workspace).definition_tool(&arguments);
+        assert_eq!(integral_spelling["isError"], false, "{integral_spelling:#}");
+        assert_eq!(
+            integral_spelling["structuredContent"]["definition"]["range"]["start"],
+            json!({"line": 1, "column": 4})
+        );
+    }
     let huge_position = initialized_server(&workspace).definition_tool(&json!({
         "source": "main.veln",
         "line": u64::MAX,
@@ -332,6 +343,12 @@ fn definition_distinguishes_no_symbol_from_invalid_positions_and_uses_canonical_
         huge_position["structuredContent"]["code"],
         "invalid_position"
     );
+    let above_u64_arguments =
+        serde_json::from_str(r#"{"source":"main.veln","line":18446744073709551616,"column":1}"#)
+            .unwrap();
+    let above_u64 = initialized_server(&workspace).definition_tool(&above_u64_arguments);
+    assert_eq!(above_u64["isError"], true, "{above_u64:#}");
+    assert_eq!(above_u64["structuredContent"]["code"], "invalid_position");
 }
 
 #[test]

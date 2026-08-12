@@ -136,14 +136,20 @@ fn matches_integer_schema(schema: &Value, value: &Value) -> bool {
     let Some(number) = value.as_number() else {
         return false;
     };
-    if !number.is_i64() && !number.is_u64() {
+    if !number.is_i64()
+        && !number.is_u64()
+        && !number
+            .as_f64()
+            .is_some_and(|value| value.is_finite() && value.fract() == 0.0)
+    {
         return false;
     }
     if let Some(minimum) = schema.get("minimum").and_then(Value::as_i64)
-        && match (number.as_i64(), number.as_u64()) {
-            (Some(value), _) => value < minimum,
-            (None, Some(value)) => minimum >= 0 && value < minimum as u64,
-            (None, None) => true,
+        && match (number.as_i64(), number.as_u64(), number.as_f64()) {
+            (Some(value), _, _) => value < minimum,
+            (None, Some(value), _) => minimum >= 0 && value < minimum as u64,
+            (None, None, Some(value)) => value < minimum as f64,
+            (None, None, None) => true,
         }
     {
         return false;
@@ -300,11 +306,22 @@ mod tests {
             "line": u64::MAX,
             "column": 1
         })));
+        assert!(tool.accepts_input(&serde_json::json!({
+            "source": "main.veln",
+            "line": 1.0,
+            "column": 1e0
+        })));
+        let above_u64 = serde_json::from_str(
+            r#"{"source":"main.veln","line":18446744073709551616,"column":1}"#,
+        )
+        .unwrap();
+        assert!(tool.accepts_input(&above_u64));
         for value in [
             serde_json::json!({}),
             serde_json::json!({"source":"main.veln","line":1}),
             serde_json::json!({"source":"main.veln","line":0,"column":1}),
             serde_json::json!({"source":"main.veln","line":1,"column":-1}),
+            serde_json::json!({"source":"main.veln","line":1.5,"column":1}),
             serde_json::json!({"source":null,"line":1,"column":1}),
             serde_json::json!({"source":"main.veln","line":1,"column":1,"extra":true}),
             serde_json::json!([]),
