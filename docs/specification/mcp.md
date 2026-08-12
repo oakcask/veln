@@ -152,8 +152,10 @@ anonymous source bytes belong to the same stable capture attempt.
 and supported symbol set as `definition`. An initial request requires
 `source`, `line`, and `column`. It accepts `include_declaration` and
 `page_size`. Declarations are included by default. The default page size is
-100. A page size from 1 through 1,000 is accepted; zero and values above 1,000
-are schema errors. A continuation request contains only the returned `cursor`.
+100. A page size from 1 through 1,000 is accepted; decimal and exponent
+spellings that denote an integer page size address the same page size as the
+equivalent plain integer. Zero and values above 1,000 are schema errors. A
+continuation request contains only the returned `cursor`.
 
 Locations use canonical `file:` URIs and half-open one-based Unicode-scalar
 ranges. They are ordered by URI, start position, and end position, with
@@ -198,8 +200,9 @@ decimal and exponent integer coordinate spellings, and invalid-position
 results plus non-integer decimal and negative-exponent coordinate schema
 rejection over stdio.
 The `references-workspace` case checks the advertised `references` schemas, a
-bounded page, declaration exclusion, explicit project scope, and
-above-maximum page rejection over stdio.
+bounded page, declaration exclusion, explicit project scope, zero and
+above-maximum page rejection, and decimal and exponent integer page-size
+spellings over stdio.
 The `references-function-constructor-identity` case checks that same-spelled
 functions and constructors keep distinct reference identity over stdio.
 Table-driven tests in `veln-mcp` check discovery boundaries,
