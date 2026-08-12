@@ -1,0 +1,11 @@
+type Maker
+  same(Int)
+end
+
+fn same(value: Int) -> Int
+  value
+end
+
+fn main() -> Maker
+  same(1)
+end

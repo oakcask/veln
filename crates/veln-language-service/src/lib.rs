@@ -839,19 +839,41 @@ impl SymbolIndex {
         if !matches!(file.origin, IndexedOrigin::Workspace) {
             return Vec::new();
         }
-        if file.module == symbol.module {
-            return call_references(&file.source, &symbol.name);
-        }
-        if file.uses.contains(&symbol.module)
-            && (symbol.public
-                || file
-                    .companion_target_module
-                    .as_ref()
-                    .is_some_and(|target| target == &symbol.module))
-        {
-            return qualified_references(&file.source, &symbol.module, &symbol.name);
-        }
-        Vec::new()
+        let tokens = lex(&file.source).tokens;
+        tokens
+            .iter()
+            .enumerate()
+            .filter(|(index, token)| {
+                if token.text != symbol.name || token.kind != TokenKind::Ident {
+                    return false;
+                }
+                if is_function_alias_target_reference(&tokens, *index, &symbol.name)
+                    || is_codec_implementation_function_reference(&tokens, *index, &symbol.name)
+                {
+                    return file.module == symbol.module;
+                }
+                if !is_call_target_token(&tokens, *index)
+                    || is_field_name(&tokens, *index)
+                    || is_function_declaration_name(&tokens, *index)
+                    || is_parameter_name(&tokens, *index)
+                    || is_local_binding_name(&tokens, *index)
+                    || is_handler_operation_clause_operation_name(&tokens, *index)
+                {
+                    return false;
+                }
+                let resolved = match qualifier_for_token(&tokens, *index) {
+                    Some(qualifier) => self.symbol_for_qualified_call(file, &qualifier, &token.text),
+                    None => {
+                        if local_binding_shadows_call_target(&tokens, *index, &token.text) {
+                            return false;
+                        }
+                        self.symbol_for_bare_call(file, &tokens, *index, &token.text)
+                    }
+                };
+                matches!(resolved, Some(Symbol::Function(resolved)) if same_function(&resolved, symbol))
+            })
+            .map(|(_, token)| file.source.span(token.range))
+            .collect()
     }
 
     fn constructor_references_in_file(
@@ -868,6 +890,9 @@ impl SymbolIndex {
             .enumerate()
             .filter(|(index, token)| {
                 if token.text != symbol.name || !is_call_target_token(&tokens, *index) {
+                    return false;
+                }
+                if is_function_declaration_name(&tokens, *index) {
                     return false;
                 }
                 if self.constructors.iter().any(|constructor| {
@@ -898,6 +923,13 @@ impl SymbolIndex {
 fn same_constructor(left: &ConstructorSymbol, right: &ConstructorSymbol) -> bool {
     left.module == right.module
         && left.type_name == right.type_name
+        && left.name == right.name
+        && left.package == right.package
+        && left.declaration == right.declaration
+}
+
+fn same_function(left: &FunctionSymbol, right: &FunctionSymbol) -> bool {
+    left.module == right.module
         && left.name == right.name
         && left.package == right.package
         && left.declaration == right.declaration
@@ -1298,47 +1330,6 @@ fn matching_rparen_index(tokens: &[Token], lparen_index: usize, end_index: usize
         }
     }
     None
-}
-
-fn call_references(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
-    let tokens = lex(source).tokens;
-    let scopes = function_scopes(&tokens);
-    tokens
-        .iter()
-        .enumerate()
-        .filter(|(index, token)| {
-            token.text == name
-                && is_identifier(&token.text)
-                && previous_non_layout_token(&tokens, *index)
-                    .is_none_or(|previous| previous.kind != TokenKind::DoubleColon)
-                && !is_field_name(&tokens, *index)
-                && !is_function_declaration_name(&tokens, *index)
-                && !is_parameter_name(&tokens, *index)
-                && !is_local_binding_name(&tokens, *index)
-                && !is_handler_operation_clause_operation_name(&tokens, *index)
-                && (token_scope(&scopes, token.range.start)
-                    .is_some_and(|scope| !scope.shadows(name, &tokens, *index))
-                    || is_handler_operation_clause_call_target(&tokens, *index)
-                    || is_function_alias_target_reference(&tokens, *index, name)
-                    || is_codec_implementation_function_reference(&tokens, *index, name))
-        })
-        .map(|(_, token)| source.span(token.range))
-        .collect()
-}
-
-fn qualified_references(source: &SourceFile, module: &str, name: &str) -> Vec<SourceSpan> {
-    let tokens = lex(source).tokens;
-    let module_segments = module.split("::").collect::<Vec<_>>();
-    tokens
-        .iter()
-        .enumerate()
-        .filter(|(index, token)| {
-            token.text == name
-                && is_call_target_token(&tokens, *index)
-                && qualified_reference_matches(&tokens, *index, &module_segments)
-        })
-        .map(|(_, token)| source.span(token.range))
-        .collect()
 }
 
 fn local_binding_shadows_call_target(tokens: &[Token], index: usize, name: &str) -> bool {
@@ -1784,12 +1775,6 @@ fn is_else_if(tokens: &[Token], index: usize) -> bool {
         .is_some_and(|previous| previous.kind == TokenKind::Else)
 }
 
-fn token_scope(scopes: &[FunctionScope], offset: usize) -> Option<&FunctionScope> {
-    scopes
-        .iter()
-        .find(|scope| offset >= scope.body_start && offset < scope.end)
-}
-
 fn is_function_declaration_name(tokens: &[Token], index: usize) -> bool {
     previous_non_layout_token(tokens, index)
         .is_some_and(|previous| matches!(previous.kind, TokenKind::Fn | TokenKind::Test))
@@ -1888,11 +1873,6 @@ fn is_codec_implementation_function_reference(tokens: &[Token], index: usize, na
 
 fn is_call_target_token(tokens: &[Token], index: usize) -> bool {
     next_non_whitespace_token(tokens, index).is_some_and(|next| next.kind == TokenKind::LParen)
-}
-
-fn is_handler_operation_clause_call_target(tokens: &[Token], index: usize) -> bool {
-    is_call_target_token(tokens, index)
-        && inside_handler_operation_clause_body(tokens, tokens[index].range.start)
 }
 
 fn is_handler_operation_clause_operation_name(tokens: &[Token], index: usize) -> bool {
@@ -2015,31 +1995,6 @@ fn qualifier_for_token(tokens: &[Token], name_index: usize) -> Option<String> {
     }
     segments.reverse();
     Some(segments.join("::"))
-}
-
-fn qualified_reference_matches(
-    tokens: &[Token],
-    name_index: usize,
-    module_segments: &[&str],
-) -> bool {
-    let mut expected_index = name_index;
-    for expected_segment in module_segments.iter().rev() {
-        let Some(separator_index) = previous_non_layout_index(tokens, expected_index) else {
-            return false;
-        };
-        if tokens[separator_index].kind != TokenKind::DoubleColon {
-            return false;
-        }
-        let Some(segment_index) = previous_non_layout_index(tokens, separator_index) else {
-            return false;
-        };
-        if tokens[segment_index].text != *expected_segment {
-            return false;
-        }
-        expected_index = segment_index;
-    }
-    previous_non_layout_token(tokens, expected_index)
-        .is_none_or(|previous| previous.kind != TokenKind::DoubleColon)
 }
 
 fn next_non_layout_token(tokens: &[Token], index: usize) -> Option<&Token> {
@@ -2293,6 +2248,36 @@ mod tests {
 
         assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
         assert_eq!(locations(&result.references), [("main.veln", 16, 3)]);
+    }
+
+    #[test]
+    fn same_named_function_and_constructor_keep_reference_identity() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "type Maker\n",
+                "  same(Int)\n",
+                "end\n\n",
+                "fn same(value: Int) -> Int\n",
+                "  value\n",
+                "end\n\n",
+                "fn main() -> Maker\n",
+                "  same(1)\n",
+                "end\n",
+            ),
+        )];
+
+        let function = query(sources.clone(), "main.veln", 5, 4).unwrap();
+        assert_eq!(function.selected_symbol.kind, SymbolKind::Function);
+        assert_location(&function.definition, "main.veln", 5, 4);
+        assert!(function.references.is_empty());
+
+        for (line, column) in [(2, 4), (10, 4)] {
+            let constructor = query(sources.clone(), "main.veln", line, column).unwrap();
+            assert_eq!(constructor.selected_symbol.kind, SymbolKind::Constructor);
+            assert_location(&constructor.definition, "main.veln", 2, 3);
+            assert_eq!(locations(&constructor.references), [("main.veln", 10, 3)]);
+        }
     }
 
     #[test]

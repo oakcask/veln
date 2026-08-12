@@ -763,6 +763,49 @@ fn references_isolate_symbol_identity_and_single_file_scope() {
 }
 
 #[test]
+fn references_separate_same_named_functions_and_constructors() {
+    let workspace = TempWorkspace::new("references-function-constructor-identity");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "type Maker\n",
+            "  same(Int)\n",
+            "end\n\n",
+            "fn same(value: Int) -> Int\n",
+            "  value\n",
+            "end\n\n",
+            "fn main() -> Maker\n",
+            "  same(1)\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+
+    let function = server.references_tool(&json!({
+        "source":"main.veln","line":5,"column":4
+    }));
+    let function_lines = function["structuredContent"]["references"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|location| location["range"]["start"]["line"].as_u64().unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(function_lines, [5], "{function:#}");
+
+    let constructor = server.references_tool(&json!({
+        "source":"main.veln","line":10,"column":4
+    }));
+    let constructor_lines = constructor["structuredContent"]["references"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|location| location["range"]["start"]["line"].as_u64().unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(constructor_lines, [2, 10], "{constructor:#}");
+}
+
+#[test]
 fn references_cursor_pages_are_complete_single_use_and_snapshot_bound() {
     let workspace = TempWorkspace::new("references-cursor-pages");
     workspace.write("veln.toml", "");

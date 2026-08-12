@@ -1,0 +1,16 @@
+command = ["mcp"]
+stdin_file = "case-text/root-stdin-1.jsonl"
+exit = 0
+
+[stdout]
+contains = [
+  "\"id\":3,\"jsonrpc\":\"2.0\"",
+  "\"references\":[{\"range\":{\"end\":{\"column\":8,\"line\":5},\"start\":{\"column\":4,\"line\":5}}",
+  "\"id\":4,\"jsonrpc\":\"2.0\"",
+  "\"references\":[{\"range\":{\"end\":{\"column\":7,\"line\":2},\"start\":{\"column\":3,\"line\":2}}",
+  "{\"range\":{\"end\":{\"column\":7,\"line\":10},\"start\":{\"column\":3,\"line\":10}}",
+]
+not_contains = ["veln-pkg:", "target/debug"]
+
+[stderr]
+format = "empty"
