@@ -437,6 +437,7 @@ dependencies = [
  "veln-analysis",
  "veln-diagnostics",
  "veln-project",
+ "veln-source",
 ]
 
 [[package]]

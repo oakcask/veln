@@ -226,13 +226,13 @@ a successful result with no definition or references.
 
 ### Tools
 
-The implemented workspace-project input and result schemas are checked JSON
-Schemas in the `mcp/v1` schema bundle. Their tool declarations derive from the
-same files. The remaining input, result, resource-metadata, and domain-error
-schemas are planned. Schema objects reject unknown fields and reject `null`
-unless a field explicitly permits it. Schema or JSON-RPC shape failures map to
-protocol invalid-params errors. A decoded domain failure is an MCP tool error
-with `{code, message, details}`.
+The implemented workspace-project and `check_project` input and result schemas
+are checked JSON Schemas in the `mcp/v1` schema bundle. Their tool declarations
+derive from the same files. The remaining definition, reference,
+resource-metadata, and documentation schemas are planned. Schema objects reject
+unknown fields and reject `null` unless a field explicitly permits it. Schema
+or JSON-RPC shape failures map to protocol invalid-params errors. A decoded
+domain failure is an MCP tool error with `{code, message, details}`.
 
 The stable v1 domain codes are `invalid_path`, `invalid_position`,
 `invalid_query`, `source_required`, `project_not_selected`,
@@ -849,8 +849,8 @@ The resolved-decision evidence groups are:
 | Q02 descendant ownership | Outer source ownership and unselected descendant single-file analysis without outer references. |
 | Q03 rediscovery | Manifest add, remove, and rename before and after refresh; atomic refresh failure; cursor invalidation; resource survival. |
 | Q04 filesystem identity | Symbolic base, internal and external directory links, file links, missing leaves, alias URI equality, and link replacement. |
-| Q05 stable capture | File and manifest byte changes, path-set changes, bounded retry, no partial publication, and concurrent captures. |
-| Q06 schemas and errors | Schema freshness, required and nullable fields, unknown fields, every domain code, protocol mapping, project listing, and all numeric boundaries. |
+| Q05 stable capture | Implemented for `check_project` manifest, source, owned path-set changes, bounded retry, no partial publication, pre-refresh selection preservation, and selected-root symlink replacement. Concurrent navigation captures remain planned. |
+| Q06 schemas and errors | Implemented for workspace inventory and `check_project` schema freshness, nullable field rejection, unknown fields, stable domain codes, and protocol mapping. Definition, reference, resource, and documentation schemas remain planned. |
 | Q07 coordinates | Empty, LF, CRLF, terminal newline, non-BMP scalar, end positions, token-end exclusion, all LSP encodings, and normalized cross-adapter pages. |
 | Q08 reference universe | Project, other-project exclusion, dependency consumer and declaration behavior, dependency-as-project behavior, and visibly single-file anonymous results. |
 | Q09 cursors | Cursor-only continuation, page concatenation, tamper, cross-server, restart, reuse, eviction, unrelated changes, byte restoration, and refresh. |
@@ -904,7 +904,7 @@ implemented.
 | Start through a symbolic base alias. | The alias is accepted once and returned `file:` URIs use the resolved identity spelling. | Q04 symbolic-base cases. |
 | Supply a path containing a directory or file symbolic link. | The path is rejected without following the link. | Implemented `veln-mcp` no-follow source-path test; broader Q04 navigation cases remain planned. |
 | Supply an absolute path or escaping relative path. | The tool rejects the input before reading the target. | Implemented `veln-mcp` path-boundary source tests. |
-| Change a manifest, source, or file set during capture. | The complete capture retries at most three times, then returns `snapshot_changed` without partial publication. | Q05 stable-capture race cases. |
+| Change a manifest, source, or file set during capture. | The complete capture retries at most three times, then returns `snapshot_changed` without partial publication. | Implemented `veln-mcp` stable-capture retry tests for `check_project`; concurrent navigation captures remain planned. |
 | List projects or send malformed inventory-tool input. | Roots use `.` or relative `/` spelling; checked schemas reject unknown fields and invalid shapes as protocol errors. | Implemented MCP workspace lifecycle and schema tests; broader Q06 cases remain planned. |
 | Discover a manifest root whose relative spelling is not representable as UTF-8. | Discovery fails instead of returning a lossy project root. A refresh reports `generation_failed` and preserves the previous roots and generation. | Implemented `veln-mcp` unrepresentable-root discovery and refresh tests. |
 | Client roots are absent, unrelated, or nested. | Project selection is unchanged. | Implemented `veln-mcp` client-root invariance tests. |
@@ -1006,8 +1006,8 @@ The remaining slices are:
 1. Define and validate language-reference topic descriptors. Generate the
    executable grammar, selected example, and compiler-owned table projections.
 2. Extend the existing `veln mcp` server with resources, documentation tools,
-   project diagnostics, definition, and references beyond the implemented
-   workspace inventory tools.
+   definition, and references beyond the implemented workspace inventory and
+   project diagnostics tools.
 3. Add cross-adapter conformance cases, bounded search, pagination, and stale
    snapshot handling.
 4. Package and validate Codex and Claude Code plugins and document their

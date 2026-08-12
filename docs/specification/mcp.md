@@ -13,8 +13,10 @@ messages. End-of-file ends the session successfully.
 The current MCP surface contains `workspace_projects`, `refresh_workspace`, and
 `check_project`. The checked declarations under
 `../../crates/veln-mcp/schemas/mcp/v1/` define the advertised input and result
-schemas. Schema failures, unknown input fields, `null` in non-nullable fields,
-and non-object inputs produce a JSON-RPC invalid-params error.
+schemas. The `check_project` result schema closes diagnostics, summary counts,
+and the two analysis metadata shapes. Schema failures, unknown input fields,
+`null` in non-nullable fields, and non-object inputs produce a JSON-RPC
+invalid-params error.
 `refresh_workspace` reports the stable `generation_failed` domain failure as an
 MCP tool result with `isError: true`.
 
@@ -58,7 +60,9 @@ generation and roots without changing them.
 | `refresh_workspace` discovery fails, including an unrepresentable root spelling | Return an MCP tool result with `isError: true` and structured code `generation_failed`. | Preserve both roots and generation. |
 
 Adding, removing, or renaming a manifest has no observable effect until a
-successful refresh.
+successful refresh. `check_project` uses the project kind selected at the last
+successful discovery. If a selected manifest root is replaced before analysis,
+the operation reports `snapshot_changed` instead of reclassifying the root.
 
 ## Project Diagnostics
 

@@ -7,13 +7,22 @@ use std::path::Path;
 pub(crate) struct Selection {
     generation: u64,
     roots: Vec<String>,
+    kinds: Vec<SelectedRootKind>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum SelectedRootKind {
+    Manifest,
+    Anonymous,
 }
 
 impl Selection {
     pub(crate) fn discover(base: &Path) -> io::Result<Self> {
+        let (roots, kinds) = discover_selection(base)?;
         Ok(Self {
             generation: 0,
-            roots: discover_roots(base)?,
+            roots,
+            kinds,
         })
     }
 
@@ -25,28 +34,37 @@ impl Selection {
         &self.roots
     }
 
+    pub(crate) fn root_kind(&self, path: &str) -> Option<SelectedRootKind> {
+        self.roots
+            .iter()
+            .zip(self.kinds.iter())
+            .find(|(root, _)| root.as_str() == path)
+            .map(|(_, kind)| *kind)
+    }
+
     pub(crate) fn refresh(&mut self, base: &Path) -> io::Result<()> {
-        self.refresh_with(|| discover_roots(base))
+        self.refresh_with(|| discover_selection(base))
     }
 
     pub(crate) fn refresh_with(
         &mut self,
-        discover: impl FnOnce() -> io::Result<Vec<String>>,
+        discover: impl FnOnce() -> io::Result<(Vec<String>, Vec<SelectedRootKind>)>,
     ) -> io::Result<()> {
-        let roots = discover()?;
+        let (roots, kinds) = discover()?;
         let generation = self
             .generation
             .checked_add(1)
             .ok_or_else(|| io::Error::other("workspace generation exhausted"))?;
         self.roots = roots;
+        self.kinds = kinds;
         self.generation = generation;
         Ok(())
     }
 }
 
-fn discover_roots(base: &Path) -> io::Result<Vec<String>> {
+fn discover_selection(base: &Path) -> io::Result<(Vec<String>, Vec<SelectedRootKind>)> {
     if is_regular_manifest(base)? {
-        return Ok(vec![".".to_string()]);
+        return Ok((vec![".".to_string()], vec![SelectedRootKind::Manifest]));
     }
 
     let mut roots = Vec::new();
@@ -55,8 +73,10 @@ fn discover_roots(base: &Path) -> io::Result<Vec<String>> {
     roots.dedup();
     if roots.is_empty() {
         roots.push(".".to_string());
+        return Ok((roots, vec![SelectedRootKind::Anonymous]));
     }
-    Ok(roots)
+    let kinds = vec![SelectedRootKind::Manifest; roots.len()];
+    Ok((roots, kinds))
 }
 
 fn discover_branches(base: &Path, directory: &Path, roots: &mut Vec<String>) -> io::Result<()> {
@@ -187,7 +207,8 @@ mod tests {
             selection,
             Selection {
                 generation: 0,
-                roots: vec![".".into()]
+                roots: vec![".".into()],
+                kinds: vec![SelectedRootKind::Anonymous],
             }
         );
 
@@ -198,7 +219,8 @@ mod tests {
             selection,
             Selection {
                 generation: 1,
-                roots: vec!["nested".into()]
+                roots: vec!["nested".into()],
+                kinds: vec![SelectedRootKind::Manifest],
             }
         );
 
@@ -210,7 +232,8 @@ mod tests {
             selection,
             Selection {
                 generation: 2,
-                roots: vec!["renamed".into()]
+                roots: vec!["renamed".into()],
+                kinds: vec![SelectedRootKind::Manifest],
             }
         );
     }
@@ -236,10 +259,12 @@ mod tests {
         let mut selection = Selection {
             generation: u64::MAX,
             roots: vec!["alpha".into()],
+            kinds: vec![SelectedRootKind::Manifest],
         };
         let previous = selection.clone();
 
-        let failure = selection.refresh_with(|| Ok(vec!["beta".into()]));
+        let failure =
+            selection.refresh_with(|| Ok((vec!["beta".into()], vec![SelectedRootKind::Manifest])));
 
         assert_eq!(
             failure.unwrap_err().to_string(),

@@ -9,35 +9,119 @@
           "const": 1
         },
         "analysis": {
-          "additionalProperties": false,
-          "properties": {
-            "mode": {
-              "enum": ["project", "single_file"]
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "mode": {
+                  "const": "project"
+                },
+                "generation": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "project": {
+                  "type": "string"
+                },
+                "project_wide": {
+                  "const": true
+                }
+              },
+              "required": ["mode", "generation", "project", "project_wide"],
+              "type": "object"
             },
-            "generation": {
-              "minimum": 0,
-              "type": "integer"
-            },
-            "project": {
-              "type": "string"
-            },
-            "source": {
-              "type": "string"
-            },
-            "project_wide": {
-              "type": "boolean"
+            {
+              "additionalProperties": false,
+              "properties": {
+                "mode": {
+                  "const": "single_file"
+                },
+                "generation": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "project": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "project_wide": {
+                  "const": false
+                }
+              },
+              "required": ["mode", "generation", "project", "source", "project_wide"],
+              "type": "object"
             }
-          },
-          "required": ["mode", "generation", "project", "project_wide"],
-          "type": "object"
+          ]
         },
         "diagnostics": {
           "items": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "span": {
+                "$ref": "#/$defs/span"
+              },
+              "related": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "span": {
+                      "$ref": "#/$defs/span"
+                    }
+                  },
+                  "required": ["message", "span"],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "details": {
+                "type": "object"
+              }
+            },
+            "required": ["id", "kind", "severity", "message", "span", "related", "details"],
             "type": "object"
           },
           "type": "array"
         },
         "summary": {
+          "additionalProperties": false,
+          "properties": {
+            "diagnostic_count": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "by_severity": {
+              "additionalProperties": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "by_kind": {
+              "additionalProperties": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "type": "object"
+            }
+          },
+          "required": ["diagnostic_count", "by_severity", "by_kind"],
           "type": "object"
         }
       },
@@ -67,5 +151,42 @@
       "required": ["code", "message", "details"],
       "type": "object"
     }
-  ]
+  ],
+  "$defs": {
+    "position": {
+      "additionalProperties": false,
+      "properties": {
+        "line": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "column": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "offset": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": ["line", "column", "offset"],
+      "type": "object"
+    },
+    "span": {
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/position"
+        },
+        "end": {
+          "$ref": "#/$defs/position"
+        }
+      },
+      "required": ["file", "start", "end"],
+      "type": "object"
+    }
+  }
 }

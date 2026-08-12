@@ -225,6 +225,59 @@ fn check_project_selection_table_reports_success_and_stable_domain_failures() {
 }
 
 #[test]
+fn check_project_does_not_reclassify_selection_before_refresh() {
+    let workspace = TempWorkspace::new("selection-fixed-before-refresh");
+    workspace.write("veln.toml", "");
+    workspace.write("main.veln", clean_source());
+    let selection = Selection::discover(&workspace.root).unwrap();
+    fs::remove_file(workspace.path("veln.toml")).unwrap();
+    let mut server = Server {
+        base: workspace.root.clone(),
+        selection,
+        initialized: true,
+    };
+
+    let result = server
+        .call_tool(Some(
+            &json!({"name": "check_project", "arguments": {"project": "."}}),
+        ))
+        .unwrap();
+
+    assert_eq!(result["isError"], true);
+    assert_eq!(result["structuredContent"]["code"], "snapshot_changed");
+}
+
+#[cfg(unix)]
+#[test]
+fn selected_project_root_symlink_replacement_reports_snapshot_changed() {
+    use std::os::unix::fs::symlink;
+
+    let workspace = TempWorkspace::new("selected-root-symlink-replacement");
+    workspace.write("alpha/veln.toml", "");
+    workspace.write("alpha/main.veln", clean_source());
+    let selection = Selection::discover(&workspace.root).unwrap();
+
+    fs::remove_dir_all(workspace.path("alpha")).unwrap();
+    workspace.write("outside/veln.toml", "");
+    workspace.write("outside/main.veln", clean_source());
+    symlink(workspace.path("outside"), workspace.path("alpha")).unwrap();
+
+    let mut server = Server {
+        base: workspace.root.clone(),
+        selection,
+        initialized: true,
+    };
+    let result = server
+        .call_tool(Some(
+            &json!({"name": "check_project", "arguments": {"project": "alpha"}}),
+        ))
+        .unwrap();
+
+    assert_eq!(result["isError"], true);
+    assert_eq!(result["structuredContent"]["code"], "snapshot_changed");
+}
+
+#[test]
 fn check_project_rejects_source_path_boundaries_before_analysis() {
     let workspace = TempWorkspace::new("source-boundaries");
     workspace.write("main.veln", clean_source());
@@ -679,6 +732,10 @@ impl TempWorkspace {
 
     fn mkdir(&self, relative: &str) {
         fs::create_dir_all(self.root.join(relative)).unwrap();
+    }
+
+    fn path(&self, relative: &str) -> PathBuf {
+        self.root.join(relative)
     }
 }
 

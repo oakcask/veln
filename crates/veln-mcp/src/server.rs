@@ -132,13 +132,27 @@ impl Server {
     }
 
     fn check_project_tool(&self, arguments: &Value) -> Value {
+        let tool = schema::tool("check_project").expect("check_project tool is declared");
         match check_project::check_project(&self.base, &self.selection, arguments) {
-            CheckProjectOutcome::Success(result) => successful_tool_result(result),
+            CheckProjectOutcome::Success(result) => {
+                assert!(
+                    tool.accepts_result(&result),
+                    "check_project success result must match the advertised schema"
+                );
+                successful_tool_result(result)
+            }
             CheckProjectOutcome::DomainFailure {
                 code,
                 message,
                 details,
-            } => domain_failure(code, message, details),
+            } => {
+                let result = json!({"code": code, "message": message, "details": details});
+                assert!(
+                    tool.accepts_result(&result),
+                    "check_project domain result must match the advertised schema"
+                );
+                domain_failure(code, message, result["details"].clone())
+            }
         }
     }
 

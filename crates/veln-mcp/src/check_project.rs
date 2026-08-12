@@ -5,9 +5,9 @@ use std::path::{Component, Path, PathBuf};
 use serde_json::{Value, json};
 use veln_analysis::{DoctestMode, checked_project_diagnostics};
 use veln_diagnostics::diagnostic_to_json;
-use veln_project::Project;
+use veln_project::{Project, dependency_root};
 
-use crate::workspace::Selection;
+use crate::workspace::{SelectedRootKind, Selection};
 
 const SNAPSHOT_ATTEMPTS: usize = 3;
 
@@ -32,7 +32,7 @@ pub(crate) fn check_project(
         Ok(target) => target,
         Err(failure) => return failure,
     };
-    let captured = match capture_stable_project(&target.root, target.input.as_deref()) {
+    let captured = match capture_stable_project(&target) {
         Ok(project) => project,
         Err(CaptureError::Changed | CaptureError::Io) => {
             return domain_failure(
@@ -61,6 +61,7 @@ struct Target {
     root_display: String,
     mode: AnalysisMode,
     input: Option<PathBuf>,
+    require_manifest: bool,
 }
 
 enum AnalysisMode {
@@ -96,25 +97,25 @@ fn select_target(
 ) -> Result<Target, CheckProjectOutcome> {
     if let Some(project) = project {
         let project = validate_project_path(project)?;
-        if !selection.roots().contains(&project) {
+        let Some(kind) = selection.root_kind(&project) else {
             return Err(domain_failure(
                 "project_not_selected",
                 "project is not selected in this workspace",
                 json!({"project": project, "roots": selection.roots()}),
             ));
-        }
-        return selected_target(base, &project, source);
+        };
+        return selected_target(base, &project, kind, source);
     }
 
     let manifest_roots = selection
         .roots()
         .iter()
-        .filter(|root| is_manifest_project(base, root))
-        .cloned()
+        .filter(|root| selection.root_kind(root) == Some(SelectedRootKind::Manifest))
+        .map(String::as_str)
         .collect::<Vec<_>>();
     match (manifest_roots.as_slice(), source) {
-        ([project], None) => selected_target(base, project, None),
-        ([project], Some(_)) => selected_target(base, project, source),
+        ([project], None) => selected_target(base, project, SelectedRootKind::Manifest, None),
+        ([project], Some(_)) => selected_target(base, project, SelectedRootKind::Manifest, source),
         ([], _) => Err(domain_failure(
             "source_required",
             "anonymous analysis requires project `.` and one source",
@@ -131,21 +132,23 @@ fn select_target(
 fn selected_target(
     base: &Path,
     project: &str,
+    kind: SelectedRootKind,
     source: Option<&str>,
 ) -> Result<Target, CheckProjectOutcome> {
-    if is_manifest_project(base, project) {
-        if source.is_some() {
-            return Err(domain_failure(
-                "invalid_query",
-                "manifest project analysis does not accept a source",
-                json!({"project": project}),
-            ));
-        }
+    if kind == SelectedRootKind::Manifest && source.is_some() {
+        return Err(domain_failure(
+            "invalid_query",
+            "manifest project analysis does not accept a source",
+            json!({"project": project}),
+        ));
+    }
+    if kind == SelectedRootKind::Manifest {
         return Ok(Target {
             root: root_path(base, project),
             root_display: project.to_string(),
             mode: AnalysisMode::Project,
             input: None,
+            require_manifest: true,
         });
     }
 
@@ -171,6 +174,7 @@ fn selected_target(
             source: source.clone(),
         },
         input: Some(PathBuf::from(source)),
+        require_manifest: false,
     })
 }
 
@@ -276,11 +280,6 @@ fn reject_link_or_non_file(base: &Path, source: &str) -> Result<(), CheckProject
     Ok(())
 }
 
-fn is_manifest_project(base: &Path, root: &str) -> bool {
-    fs::symlink_metadata(root_path(base, root).join("veln.toml"))
-        .is_ok_and(|metadata| metadata.file_type().is_file())
-}
-
 fn root_path(base: &Path, root: &str) -> PathBuf {
     if root == "." {
         base.to_path_buf()
@@ -294,15 +293,20 @@ enum CaptureError {
     Io,
 }
 
-fn capture_stable_project(root: &Path, input: Option<&Path>) -> Result<Project, CaptureError> {
-    let inputs = input.into_iter().map(PathBuf::from).collect::<Vec<_>>();
+fn capture_stable_project(target: &Target) -> Result<Project, CaptureError> {
+    capture_stable_project_with(|| capture_once(target))
+}
+
+fn capture_stable_project_with(
+    mut capture: impl FnMut() -> io::Result<CapturedProject>,
+) -> Result<Project, CaptureError> {
     let mut first_error = None;
     for _ in 0..SNAPSHOT_ATTEMPTS {
-        let first = capture_once(root, &inputs);
-        let second = capture_once(root, &inputs);
+        let first = capture();
+        let second = capture();
         match (first, second) {
-            (Ok(first), Ok(second)) if snapshot_key(&first) == snapshot_key(&second) => {
-                return Ok(first);
+            (Ok(first), Ok(second)) if first.key == second.key => {
+                return Ok(first.project);
             }
             (Ok(_), Ok(_)) => {}
             (Err(error), _) | (_, Err(error)) => first_error = Some(error),
@@ -315,17 +319,92 @@ fn capture_stable_project(root: &Path, input: Option<&Path>) -> Result<Project, 
     }
 }
 
-fn capture_once(root: &Path, inputs: &[PathBuf]) -> io::Result<Project> {
-    Project::discover(root.to_path_buf(), inputs)
+struct CapturedProject {
+    project: Project,
+    key: Value,
 }
 
-fn snapshot_key(project: &Project) -> Value {
-    json!({
-        "manifest": fs::read(project.root.join("veln.toml")).ok(),
+fn capture_once(target: &Target) -> io::Result<CapturedProject> {
+    if target.require_manifest {
+        validate_manifest_root(&target.root)?;
+    }
+    let inputs = target.input.iter().cloned().collect::<Vec<_>>();
+    let project = Project::discover(target.root.clone(), &inputs)?;
+    if target.require_manifest && project.manifest.is_none() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "selected manifest project no longer has a manifest",
+        ));
+    }
+    let key = snapshot_key(&project)?;
+    Ok(CapturedProject { project, key })
+}
+
+fn snapshot_key(project: &Project) -> io::Result<Value> {
+    Ok(json!({
+        "manifest": project.manifest.as_ref().map(|manifest| &manifest.source_bytes),
         "files": project.files.iter().map(|file| {
             json!({"path": file.path().as_str(), "text": file.text()})
-        }).collect::<Vec<_>>()
-    })
+        }).collect::<Vec<_>>(),
+        "dependencies": dependency_snapshot_keys(project)?,
+    }))
+}
+
+fn dependency_snapshot_keys(project: &Project) -> io::Result<Vec<Value>> {
+    let Some(manifest) = &project.manifest else {
+        return Ok(Vec::new());
+    };
+    let mut snapshots = Vec::new();
+    for dependency in &manifest.dependencies {
+        let Some(source) = dependency.direct_local_source() else {
+            continue;
+        };
+        let dependency_root = dependency_root(&project.root, &source.value);
+        let Ok(dependency_project) = Project::discover(dependency_root, &[]) else {
+            snapshots.push(json!({
+                "package": dependency.package,
+                "root": source.value,
+                "unavailable": true,
+            }));
+            continue;
+        };
+        snapshots.push(json!({
+            "package": dependency.package,
+            "root": source.value,
+            "manifest": dependency_project.manifest.as_ref().map(|manifest| &manifest.source_bytes),
+            "files": dependency_project.files.iter().map(|file| {
+                json!({"path": file.path().as_str(), "text": file.text()})
+            }).collect::<Vec<_>>()
+        }));
+    }
+    snapshots.sort_by_key(Value::to_string);
+    Ok(snapshots)
+}
+
+fn validate_manifest_root(root: &Path) -> io::Result<()> {
+    let mut current = PathBuf::new();
+    for component in root.components() {
+        current.push(component.as_os_str());
+        if matches!(component, Component::RootDir | Component::Prefix(_)) {
+            continue;
+        }
+        let metadata = fs::symlink_metadata(&current)?;
+        if metadata.file_type().is_symlink() {
+            return Err(io::Error::other(
+                "selected project root traverses a symbolic link",
+            ));
+        }
+        if !metadata.file_type().is_dir() {
+            return Err(io::Error::other("selected project root is not a directory"));
+        }
+    }
+    let manifest = root.join("veln.toml");
+    let metadata = fs::symlink_metadata(manifest)?;
+    if metadata.file_type().is_file() {
+        Ok(())
+    } else {
+        Err(io::Error::other("selected project manifest is not a file"))
+    }
 }
 
 fn diagnostic_to_serde(diagnostic: &veln_diagnostics::Diagnostic) -> Value {
@@ -369,5 +448,84 @@ fn domain_failure(
         code,
         message,
         details,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use veln_project::parse_manifest_text;
+    use veln_source::SourceFile;
+
+    #[test]
+    fn stable_capture_retries_manifest_source_and_path_set_changes_only_three_times() {
+        let cases = [
+            (
+                "manifest",
+                vec![
+                    captured_project(vec![("main.veln", clean_source())], Some("name = \"a\"\n")),
+                    captured_project(vec![("main.veln", clean_source())], Some("name = \"b\"\n")),
+                    captured_project(vec![("main.veln", clean_source())], Some("name = \"a\"\n")),
+                    captured_project(vec![("main.veln", clean_source())], Some("name = \"b\"\n")),
+                    captured_project(vec![("main.veln", clean_source())], Some("name = \"a\"\n")),
+                    captured_project(vec![("main.veln", clean_source())], Some("name = \"b\"\n")),
+                ],
+            ),
+            (
+                "source",
+                vec![
+                    captured_project(vec![("main.veln", "fn main() -> Int\n  1\nend\n")], None),
+                    captured_project(vec![("main.veln", "fn main() -> Int\n  2\nend\n")], None),
+                    captured_project(vec![("main.veln", "fn main() -> Int\n  1\nend\n")], None),
+                    captured_project(vec![("main.veln", "fn main() -> Int\n  2\nend\n")], None),
+                    captured_project(vec![("main.veln", "fn main() -> Int\n  1\nend\n")], None),
+                    captured_project(vec![("main.veln", "fn main() -> Int\n  2\nend\n")], None),
+                ],
+            ),
+            (
+                "path set",
+                vec![
+                    captured_project(vec![("a.veln", clean_source())], None),
+                    captured_project(
+                        vec![("a.veln", clean_source()), ("b.veln", clean_source())],
+                        None,
+                    ),
+                    captured_project(vec![("a.veln", clean_source())], None),
+                    captured_project(
+                        vec![("a.veln", clean_source()), ("b.veln", clean_source())],
+                        None,
+                    ),
+                    captured_project(vec![("a.veln", clean_source())], None),
+                    captured_project(
+                        vec![("a.veln", clean_source()), ("b.veln", clean_source())],
+                        None,
+                    ),
+                ],
+            ),
+        ];
+
+        for (name, captures) in cases {
+            let mut captures = captures.into_iter();
+            let result = capture_stable_project_with(|| Ok(captures.next().unwrap()));
+            assert!(matches!(result, Err(CaptureError::Changed)), "{name}");
+            assert!(captures.next().is_none(), "{name}");
+        }
+    }
+
+    fn captured_project(files: Vec<(&str, &str)>, manifest: Option<&str>) -> CapturedProject {
+        let project = Project {
+            root: PathBuf::from("."),
+            files: files
+                .into_iter()
+                .map(|(path, text)| SourceFile::new(path, text))
+                .collect(),
+            manifest: manifest.map(|text| parse_manifest_text("veln.toml", text)),
+        };
+        let key = snapshot_key(&project).unwrap();
+        CapturedProject { project, key }
+    }
+
+    fn clean_source() -> &'static str {
+        "fn main() -> Int\n  1\nend\n"
     }
 }
