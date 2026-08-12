@@ -205,6 +205,8 @@ above-maximum page rejection, and decimal and exponent integer page-size
 spellings over stdio.
 The `references-function-constructor-identity` case checks that same-spelled
 functions and constructors keep distinct reference identity over stdio.
+The `references-module-import-isolation` case checks that a same-named module
+import is not a reference to a function declaration over stdio.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous
