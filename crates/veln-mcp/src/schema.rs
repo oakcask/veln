@@ -117,6 +117,7 @@ fn matches_schema_with_root(root: &Value, schema: &Value, value: &Value) -> bool
         Some("string") => value.is_string(),
         Some("integer") => matches_integer_schema(schema, value),
         Some("boolean") => value.is_boolean(),
+        Some("null") => value.is_null(),
         Some(_) => false,
         None => true,
     }
@@ -282,7 +283,11 @@ mod tests {
             "severity": "error",
             "message": "type mismatch",
             "span": span(),
-            "related": [{"message": "expected here", "span": span()}],
+            "related": [
+                {"message": "expected here", "span": span()},
+                {"message": "Accepted integer form: 0 or 1."},
+                {"kind": "repair_hint", "message": "Use a selected declaration.", "span": null}
+            ],
             "details": {"expected": "Int"}
         });
         let project_success = serde_json::json!({

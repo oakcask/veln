@@ -913,7 +913,7 @@ implemented.
 
 | Case | Expected result | Evidence |
 | --- | --- | --- |
-| Analyze a saved project with errors. | `check_project` returns structured Veln diagnostics without transport failure. | Implemented MCP diagnostic fixture and `veln-mcp` structured diagnostic test. |
+| Analyze a saved project with errors. | `check_project` returns structured Veln diagnostics without transport failure, including compiler-owned related notes that do not carry spans. | Implemented MCP diagnostic fixture and `veln-mcp` structured diagnostic tests. |
 | Resolve a workspace declaration. | `definition` returns a `file:` location with MCP coordinates. | Shared language-service and MCP cases. |
 | Resolve project references with shadowing and same-spelled fields. | Only references with the selected symbol identity are returned in deterministic order. | Table-driven symbol cases. |
 | Search references to a dependency symbol from one selected project. | Consumer uses and the optional exported declaration are returned; other projects and dependency-internal uses are excluded, and the scope is explicit. | Q08 reference-universe cases. |

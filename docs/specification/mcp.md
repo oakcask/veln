@@ -105,9 +105,10 @@ request ID preservation, both tool calls, invalid tool input, initialization
 phase errors, invalid initialize parameters, invalid request IDs, malformed
 ID-less requests, protocol-only standard output, and clean end-of-file
 termination. The `check-project-diagnostics` MCP specification case checks the
-advertised `check_project` schema and a diagnostic result over stdio.
+advertised `check_project` schema and a diagnostic result with a spanless
+compiler-owned related note over stdio.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous
 isolation, direct local dependency snapshots, clean analysis, and structured
-language diagnostics.
+language diagnostics with spanless related notes.

@@ -76,16 +76,22 @@
               },
               "related": {
                 "items": {
-                  "additionalProperties": false,
+                  "additionalProperties": true,
                   "properties": {
                     "message": {
                       "type": "string"
                     },
                     "span": {
-                      "$ref": "#/$defs/span"
+                      "oneOf": [
+                        {
+                          "$ref": "#/$defs/span"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
-                  "required": ["message", "span"],
                   "type": "object"
                 },
                 "type": "array"

@@ -407,6 +407,32 @@ fn mismatch_source() -> &'static str {
 }
 
 #[test]
+fn check_project_keeps_spanless_related_notes_without_panicking() {
+    let workspace = TempWorkspace::new("spanless-related");
+    workspace.write("veln.toml", "");
+    workspace.write("main.veln", integer_literal_source());
+
+    let result = check_project_result(&workspace, json!({"project": "."}));
+
+    assert_eq!(result["isError"], false);
+    let diagnostics = result["structuredContent"]["diagnostics"]
+        .as_array()
+        .unwrap();
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic["id"] == "parse.integer_literal"
+                && diagnostic["related"][0]["message"] == "Accepted integer form: 0 or 1."
+                && diagnostic["related"][0].get("span").is_none()
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+fn integer_literal_source() -> &'static str {
+    "fn main() -> Int\n  0b102\nend\n"
+}
+
+#[test]
 fn tool_calls_require_the_declared_wire_shape() {
     let workspace = TempWorkspace::new("tool-call-wire-shape");
     let selection = Selection::discover(&workspace.root).unwrap();
