@@ -896,10 +896,10 @@ behavior has been promoted to specification and executable-example routes.
 
 ## Acceptance Model
 
-The workspace inventory and saved diagnostics rows implemented by the current
-slice point to current specification and executable evidence. All other rows
-describe planned evidence and do not imply that the behavior is already
-implemented.
+The workspace inventory, saved diagnostics, and bounded workspace-definition
+rows implemented by the current slice point to current specification and
+executable evidence. All other rows describe planned evidence and do not imply
+that the behavior is already implemented.
 
 ### Server And Project Selection
 
