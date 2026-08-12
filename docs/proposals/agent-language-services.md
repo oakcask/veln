@@ -355,15 +355,16 @@ relative scope root when present, and whether the result is project-wide. An
 empty single-file result is therefore not presented as a complete project-wide
 answer.
 
-The server retains at most 64 reference continuation states. A cursor is an
-opaque authenticated token bound to one server process, selection generation,
-captured result, page size, declaration policy, and next offset. A continuation
-contains only that cursor. Tampered, cross-server, post-restart, reused, and
-terminal cursors return `invalid_cursor`. A cursor whose retained state was
-evicted returns `stale_snapshot`. There is no time-based expiry. Unrelated file
-changes do not affect a retained result, but a successful workspace refresh
-stales every earlier cursor. Byte-identical restoration does not revive an
-evicted cursor.
+The server retains at most 64 reference continuation states and at most 64
+stale cursor identities. A cursor is an opaque authenticated token bound to one
+server process, selection generation, captured result, page size, declaration
+policy, and next offset. A continuation contains only that cursor. Tampered,
+cross-server, post-restart, reused, terminal, and no-longer-retained stale
+cursors return `invalid_cursor`. A recently evicted or refresh-staled cursor
+returns `stale_snapshot`. There is no time-based expiry. Unrelated file changes
+do not affect a retained result, but a successful workspace refresh stales
+every earlier cursor. Byte-identical restoration does not revive an evicted
+cursor.
 
 ## Semantic Locations
 
@@ -862,7 +863,7 @@ The resolved-decision evidence groups are:
 | Q06 schemas and errors | Implemented for workspace inventory, `check_project`, workspace `definition`, and workspace `references` schema freshness, nullable field rejection, unknown fields including related-note fields, exact non-integer coordinate rejection, stable domain codes, and protocol mapping. Broader definition, resource, and documentation schemas remain planned. |
 | Q07 coordinates | Empty, LF, CRLF, terminal newline, non-BMP scalar, end positions, token-end exclusion, all LSP encodings, and normalized cross-adapter pages. |
 | Q08 reference universe | Project, other-project exclusion, dependency consumer and declaration behavior, dependency-as-project behavior, and visibly single-file anonymous results. |
-| Q09 cursors | Cursor-only continuation, page concatenation, tamper, cross-server, restart, reuse, eviction, unrelated changes, byte restoration, and refresh. |
+| Q09 cursors | Cursor-only continuation, page concatenation, tamper, cross-server, restart, reuse, stale-cursor retention bounds, eviction, unrelated changes, byte restoration, and refresh. |
 | Q10 resource lifetime | Cross-project deduplication, coexisting digests, refresh and removal survival, capacity rejection, and shutdown. |
 | Q11 package digest | All three fixed vectors, reversed discovery order, tag, byte-order, domain, and one-byte changes. |
 | Q12 distribution set | Filesystem capture covers every inclusion and exclusion, private and non-exported sources, generated and `target` sources, exact-byte digest integration, ordering, and relocation. Digest-analysis-resource set equality remains planned. |
@@ -927,7 +928,7 @@ behavior is already implemented.
 | Resolve project references with shadowing and same-spelled fields. | Only references with the selected symbol identity are returned in deterministic order. | Implemented table-driven language-service and MCP symbol cases for the current workspace symbol set. |
 | Search references to a dependency symbol from one selected project. | Consumer uses and the optional exported declaration are returned; other projects and dependency-internal uses are excluded, and the scope is explicit. | Q08 reference-universe cases. |
 | Continue a paged reference result. | The request contains only its single-use cursor and concatenated pages have no gaps or duplicates. | Implemented MCP cursor state-machine cases. |
-| Use a tampered, cross-server, restarted, evicted, or pre-refresh cursor. | The server returns the specified `invalid_cursor` or `stale_snapshot` domain error without reinterpreting inputs. | Implemented MCP cursor rejection and refresh-transition cases. |
+| Use a tampered, cross-server, restarted, evicted, no-longer-retained stale, or pre-refresh cursor. | The server returns the specified `invalid_cursor` or `stale_snapshot` domain error without reinterpreting inputs. | Implemented MCP cursor rejection, stale-retention-bound, and refresh-transition cases. |
 | Resolve an exported dependency declaration. | `definition` returns a `veln-pkg:` location and documentation link. | Path-dependency MCP case. |
 | Resolve a private dependency declaration from a consumer. | No definition is returned. | Dependency visibility case. |
 | Resolve a standard-library declaration. | The result points to matching `veln-pkg:` source and `veln-doc:` documentation snapshots. | Embedded standard-package case. |

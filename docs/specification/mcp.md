@@ -173,11 +173,12 @@ cursor marks the terminal page.
 A continuation cursor is opaque, authenticated, bound to one server process,
 and single-use. It binds the selection generation, captured locations, page
 size, declaration policy, and next offset. The server retains at most 64
-continuations. Tampered, foreign, restarted, reused, and terminal cursors
-return `invalid_cursor`. An evicted cursor returns `stale_snapshot`. A
-successful `refresh_workspace` makes retained cursors stale. A failed refresh
-preserves them. Changes after the initial capture do not change retained
-locations.
+continuations and at most 64 stale cursor identities. Tampered, foreign,
+restarted, reused, terminal, and no-longer-retained stale cursors return
+`invalid_cursor`. A recently evicted or refresh-staled cursor returns
+`stale_snapshot`. A successful `refresh_workspace` makes retained cursors
+stale. A failed refresh preserves them. Changes after the initial capture do
+not change retained locations.
 
 ## Executable Evidence
 
@@ -217,7 +218,8 @@ Reference tests cover symbol identity, deterministic ordering, declaration
 policy, project and descendant-boundary single-file scopes, capture failure,
 zero/default/maximum/above-maximum page boundaries, concatenation without gaps
 or duplicates, unrelated changes after capture, tampering, cross-server use,
-reuse, eviction, and successful versus failed refresh.
+reuse, bounded stale-cursor retention, eviction, and successful versus failed
+refresh.
 Unix-only `veln-mcp` tests also
 check canonical resolved-base URI spelling, definition path symlink rejection,
 anonymous workspace-base symlink replacement, and that selected
