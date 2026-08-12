@@ -109,6 +109,77 @@ fn invalid_tool_inputs_are_protocol_invalid_params() {
 }
 
 #[test]
+fn tool_calls_require_the_declared_wire_shape() {
+    let workspace = TempWorkspace::new("tool-call-wire-shape");
+    let selection = Selection::discover(&workspace.root).unwrap();
+    let mut server = Server {
+        base: workspace.root.clone(),
+        selection,
+        initialized: true,
+    };
+    let invalid_params = [
+        Value::Null,
+        json!([]),
+        json!({}),
+        json!({"name": 1}),
+        json!({"name": "unknown"}),
+        json!({"name": "workspace_projects", "unknown": true}),
+        json!({"name": "workspace_projects", "_meta": null}),
+        json!({"name": "workspace_projects", "_meta": {"progressToken": null}}),
+    ];
+
+    for (index, params) in invalid_params.into_iter().enumerate() {
+        let response = server
+            .handle_request(json!({
+                "jsonrpc": "2.0",
+                "id": index,
+                "method": "tools/call",
+                "params": params
+            }))
+            .unwrap();
+        assert_eq!(response["error"]["code"], -32602, "{params}");
+        assert!(response.get("result").is_none(), "{params}");
+    }
+
+    for params in [
+        json!({"name": "workspace_projects"}),
+        json!({"name": "workspace_projects", "_meta": {"progressToken": 1}}),
+    ] {
+        let response = server
+            .handle_request(json!({
+                "jsonrpc": "2.0",
+                "id": "accepted",
+                "method": "tools/call",
+                "params": params
+            }))
+            .unwrap();
+        assert_eq!(response["result"]["structuredContent"]["generation"], 0);
+        assert_eq!(response["result"]["isError"], false);
+    }
+}
+
+#[test]
+fn stdio_reports_parse_and_unknown_method_errors() {
+    let workspace = TempWorkspace::new("protocol-errors");
+    let input = [
+        "not json".to_string(),
+        json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1"}}}).to_string(),
+        json!({"jsonrpc":"2.0","id":2,"method":"unknown"}).to_string(),
+    ]
+    .join("\n");
+    let mut output = Vec::new();
+
+    run(workspace.root.clone(), input.as_bytes(), &mut output).unwrap();
+
+    let responses = parse_responses(output);
+    assert_eq!(responses[0]["id"], Value::Null);
+    assert_eq!(responses[0]["error"]["code"], -32700);
+    assert_eq!(responses[1]["result"]["protocolVersion"], "2025-06-18");
+    assert_eq!(responses[2]["id"], 2);
+    assert_eq!(responses[2]["error"]["code"], -32601);
+}
+
+#[test]
 fn initialize_requires_the_declared_wire_shape() {
     let workspace = TempWorkspace::new("initialize-wire-shape");
     let selection = Selection::discover(&workspace.root).unwrap();

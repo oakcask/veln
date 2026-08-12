@@ -144,6 +144,11 @@ mod tests {
                 expected: &["."],
             },
             Case {
+                name: "manifest named directory",
+                files: &["veln.toml/ignored", "nested/veln.toml/ignored"],
+                expected: &["."],
+            },
+            Case {
                 name: "git skipped and target ordinary",
                 files: &[".git/hidden/veln.toml", "target/project/veln.toml"],
                 expected: &["target/project"],
@@ -224,6 +229,38 @@ mod tests {
             "injected discovery failure"
         );
         assert_eq!(selection, previous);
+    }
+
+    #[test]
+    fn exhausted_generation_preserves_roots_and_generation() {
+        let mut selection = Selection {
+            generation: u64::MAX,
+            roots: vec!["alpha".into()],
+        };
+        let previous = selection.clone();
+
+        let failure = selection.refresh_with(|| Ok(vec!["beta".into()]));
+
+        assert_eq!(
+            failure.unwrap_err().to_string(),
+            "workspace generation exhausted"
+        );
+        assert_eq!(selection, previous);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn manifest_symlinks_do_not_select_projects() {
+        use std::os::unix::fs::symlink;
+
+        let project = TempWorkspace::new("manifest-symlink");
+        project.write("manifest", "");
+        fs::create_dir_all(project.path("nested")).unwrap();
+        symlink(project.path("manifest"), project.path("veln.toml")).unwrap();
+        symlink(project.path("manifest"), project.path("nested/veln.toml")).unwrap();
+
+        let selection = Selection::discover(project.root()).unwrap();
+        assert_eq!(selection.roots(), ["."]);
     }
 
     #[cfg(unix)]
