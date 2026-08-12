@@ -205,7 +205,7 @@ fn selected_target(
         root: base.path().to_path_buf(),
         root_display: ".".to_string(),
         mode: AnalysisMode::SingleFile {
-            source: source.clone(),
+            source: source.to_string(),
         },
         input: Some(PathBuf::from(source)),
         require_manifest: false,
@@ -341,6 +341,61 @@ pub(crate) fn capture_navigation_source(
     source: &str,
 ) -> Result<(CapturedProject, String), CheckProjectOutcome> {
     let source = validate_source_path(base, source)?;
+    stable_navigation_capture_or_failure(base, selection, &source)
+        .map(|captured| (captured.project, captured.source))
+}
+
+struct CapturedNavigationSource {
+    project: CapturedProject,
+    source: String,
+    key: Value,
+}
+
+fn stable_navigation_capture_or_failure(
+    base: &WorkspaceBase,
+    selection: &Selection,
+    source: &str,
+) -> Result<CapturedNavigationSource, CheckProjectOutcome> {
+    capture_stable_navigation_source_with(|| {
+        capture_navigation_source_once(base, selection, source)
+    })
+    .map_err(|_| {
+        domain_failure(
+            "snapshot_changed",
+            "workspace files changed during capture",
+            json!({}),
+        )
+    })
+}
+
+fn capture_stable_navigation_source_with(
+    mut capture: impl FnMut() -> io::Result<CapturedNavigationSource>,
+) -> Result<CapturedNavigationSource, CaptureError> {
+    let mut first_error = None;
+    for _ in 0..SNAPSHOT_ATTEMPTS {
+        let first = capture();
+        let second = capture();
+        match (first, second) {
+            (Ok(first), Ok(second)) if first.key == second.key => {
+                return Ok(first);
+            }
+            (Ok(_), Ok(_)) => {}
+            (Err(error), _) | (_, Err(error)) => first_error = Some(error),
+        }
+    }
+    if first_error.is_some() {
+        Err(CaptureError::Io)
+    } else {
+        Err(CaptureError::Changed)
+    }
+}
+
+fn capture_navigation_source_once(
+    base: &WorkspaceBase,
+    selection: &Selection,
+    source: &str,
+) -> io::Result<CapturedNavigationSource> {
+    let mut inspected_project = None;
     for root in selection.roots() {
         if selection.root_kind(root) != Some(SelectedRootKind::Manifest) {
             continue;
@@ -354,16 +409,30 @@ pub(crate) fn capture_navigation_source(
             SelectedRootKind::Manifest,
             None,
             selection.root_identity(root).cloned(),
-        )?;
-        let captured = stable_capture_or_failure(&target)?;
+        )
+        .map_err(navigation_domain_as_io)?;
+        let captured = capture_once(&target)?;
         if captured
             .project
             .files
             .iter()
             .any(|file| file.path().as_str() == relative)
         {
-            return Ok((captured, relative.to_string()));
+            return Ok(CapturedNavigationSource {
+                key: json!({
+                    "mode": "selected_project",
+                    "root": root,
+                    "source": relative,
+                    "project": captured.key.clone(),
+                }),
+                project: captured,
+                source: relative.to_string(),
+            });
         }
+        inspected_project = Some(json!({
+            "root": root,
+            "project": captured.key.clone(),
+        }));
         break;
     }
 
@@ -372,13 +441,23 @@ pub(crate) fn capture_navigation_source(
         root: base.path().to_path_buf(),
         root_display: ".".to_string(),
         mode: AnalysisMode::SingleFile {
-            source: source.clone(),
+            source: source.to_string(),
         },
         input: Some(PathBuf::from(&source)),
         require_manifest: false,
         selected_root_identity: None,
     };
-    stable_capture_or_failure(&target).map(|captured| (captured, source))
+    let captured = capture_once(&target)?;
+    Ok(CapturedNavigationSource {
+        key: json!({
+            "mode": "single_file",
+            "source": source,
+            "inspected_project": inspected_project,
+            "project": captured.key.clone(),
+        }),
+        project: captured,
+        source: source.to_string(),
+    })
 }
 
 fn source_beneath_root<'a>(source: &'a str, root: &str) -> Option<&'a str> {
@@ -388,14 +467,11 @@ fn source_beneath_root<'a>(source: &'a str, root: &str) -> Option<&'a str> {
     source.strip_prefix(root)?.strip_prefix('/')
 }
 
-fn stable_capture_or_failure(target: &Target) -> Result<CapturedProject, CheckProjectOutcome> {
-    capture_stable_project(target).map_err(|_| {
-        domain_failure(
-            "snapshot_changed",
-            "workspace files changed during capture",
-            json!({}),
-        )
-    })
+fn navigation_domain_as_io(failure: CheckProjectOutcome) -> io::Error {
+    match failure {
+        CheckProjectOutcome::DomainFailure { message, .. } => io::Error::other(message),
+        CheckProjectOutcome::Success(_) => io::Error::other("unexpected navigation success"),
+    }
 }
 
 fn capture_stable_project_with(
@@ -429,8 +505,9 @@ pub(crate) struct CapturedProject {
 fn capture_once(target: &Target) -> io::Result<CapturedProject> {
     validate_base_identity(target)?;
     validate_selected_root_identity(target)?;
-    let project = if target.require_manifest {
-        capture_manifest_project(target)?
+    let (project, boundary_manifests) = if target.require_manifest {
+        let captured = capture_manifest_project(target)?;
+        (captured.project, captured.boundary_manifests)
     } else {
         let input = target.input.as_ref().ok_or_else(|| {
             io::Error::new(
@@ -439,11 +516,14 @@ fn capture_once(target: &Target) -> io::Result<CapturedProject> {
             )
         })?;
         let root = open_checked_root(target)?;
-        Project {
-            root: target.root.clone(),
-            files: vec![read_source_file(&root, &target.root, input)?],
-            manifest: None,
-        }
+        (
+            Project {
+                root: target.root.clone(),
+                files: vec![read_source_file(&root, &target.root, input)?],
+                manifest: None,
+            },
+            Vec::new(),
+        )
     };
     if target.require_manifest && project.manifest.is_none() {
         return Err(io::Error::new(
@@ -452,7 +532,7 @@ fn capture_once(target: &Target) -> io::Result<CapturedProject> {
         ));
     }
     let dependencies = dependency_snapshots(&project)?;
-    let key = snapshot_key(&project, &dependencies)?;
+    let key = snapshot_key(&project, &dependencies, &boundary_manifests)?;
     Ok(CapturedProject {
         project,
         dependencies,
@@ -460,23 +540,45 @@ fn capture_once(target: &Target) -> io::Result<CapturedProject> {
     })
 }
 
-fn capture_manifest_project(target: &Target) -> io::Result<Project> {
+struct ManifestCapture {
+    project: Project,
+    boundary_manifests: Vec<BoundaryManifest>,
+}
+
+struct BoundaryManifest {
+    path: String,
+    identity: FileIdentity,
+    bytes: Vec<u8>,
+}
+
+fn capture_manifest_project(target: &Target) -> io::Result<ManifestCapture> {
     validate_manifest_root(&target.root)?;
     let root = open_checked_root(target)?;
     let manifest_text = read_text_beneath(&root, &target.root, Path::new("veln.toml"))?;
     let manifest = parse_manifest_text("veln.toml", &manifest_text);
     let mut source_paths = Vec::new();
-    collect_veln_files_beneath(&root, &target.root, Path::new("."), &mut source_paths)?;
+    let mut boundary_manifests = Vec::new();
+    collect_veln_files_beneath(
+        &root,
+        &target.root,
+        Path::new("."),
+        &mut source_paths,
+        &mut boundary_manifests,
+    )?;
     source_paths.sort();
     source_paths.dedup();
+    boundary_manifests.sort_by(|left, right| left.path.cmp(&right.path));
     let files = source_paths
         .iter()
         .map(|path| read_source_file(&root, &target.root, path))
         .collect::<io::Result<Vec<_>>>()?;
-    Ok(Project {
-        root: target.root.clone(),
-        files,
-        manifest: Some(manifest),
+    Ok(ManifestCapture {
+        project: Project {
+            root: target.root.clone(),
+            files,
+            manifest: Some(manifest),
+        },
+        boundary_manifests,
     })
 }
 
@@ -547,6 +649,7 @@ fn collect_veln_files_beneath(
     _root_path: &Path,
     relative_dir: &Path,
     paths: &mut Vec<PathBuf>,
+    boundary_manifests: &mut Vec<BoundaryManifest>,
 ) -> io::Result<()> {
     let mut children = Vec::new();
     let mut buffer = Vec::with_capacity(8192);
@@ -574,9 +677,10 @@ fn collect_veln_files_beneath(
     for (name, child) in children {
         let dir = open_child_dir_beneath(dir, &name)?;
         if has_regular_file_beneath(&dir, Path::new("veln.toml"))? {
+            boundary_manifests.push(read_boundary_manifest(&dir, &child)?);
             continue;
         }
-        collect_veln_files_beneath(&dir, _root_path, &child, paths)?;
+        collect_veln_files_beneath(&dir, _root_path, &child, paths, boundary_manifests)?;
     }
     Ok(())
 }
@@ -587,8 +691,34 @@ fn collect_veln_files_beneath(
     _root_path: &Path,
     _relative_dir: &Path,
     _paths: &mut Vec<PathBuf>,
+    _boundary_manifests: &mut Vec<BoundaryManifest>,
 ) -> io::Result<()> {
     Err(no_handle_relative_capture_support())
+}
+
+#[cfg(target_os = "linux")]
+fn read_boundary_manifest(dir: &File, relative_dir: &Path) -> io::Result<BoundaryManifest> {
+    let fd = openat2(
+        dir,
+        Path::new("veln.toml"),
+        OFlags::RDONLY | OFlags::CLOEXEC,
+        Mode::empty(),
+        ResolveFlags::BENEATH | ResolveFlags::NO_SYMLINKS | ResolveFlags::NO_MAGICLINKS,
+    )?;
+    let mut file = File::from(fd);
+    if !file.metadata()?.file_type().is_file() {
+        return Err(io::Error::other(
+            "nested manifest boundary is not a regular file",
+        ));
+    }
+    let identity = FileIdentity::from_metadata(&file.metadata()?)?;
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes)?;
+    Ok(BoundaryManifest {
+        path: display_relative_path(&relative_dir.join("veln.toml")),
+        identity,
+        bytes,
+    })
 }
 
 #[cfg(target_os = "linux")]
@@ -636,6 +766,7 @@ fn display_relative_path(path: &Path) -> String {
 fn snapshot_key(
     project: &Project,
     dependencies: &[CapturedDependencyProject],
+    boundary_manifests: &[BoundaryManifest],
 ) -> io::Result<Value> {
     Ok(json!({
         "root": FileIdentity::read(&project.root)?.to_json(),
@@ -652,6 +783,13 @@ fn snapshot_key(
                 "text": file.text()
             }))
         }).collect::<io::Result<Vec<_>>>()?,
+        "boundary_manifests": boundary_manifests.iter().map(|boundary| {
+            json!({
+                "path": boundary.path,
+                "identity": boundary.identity.to_json(),
+                "bytes": boundary.bytes,
+            })
+        }).collect::<Vec<_>>(),
         "dependencies": dependencies.iter().map(dependency_snapshot_key).collect::<Vec<_>>(),
     }))
 }
@@ -949,6 +1087,64 @@ mod tests {
     }
 
     #[test]
+    fn navigation_capture_retries_descendant_boundary_changes_as_one_attempt() {
+        let mut captures = [
+            captured_navigation_source(
+                captured_project(vec![("main.veln", clean_source())], Some("")),
+                "nested/main.veln",
+                navigation_boundary_key("name = \"a\"\n"),
+            ),
+            captured_navigation_source(
+                captured_project(vec![("main.veln", clean_source())], Some("")),
+                "nested/main.veln",
+                navigation_boundary_key("name = \"b\"\n"),
+            ),
+            captured_navigation_source(
+                captured_project(vec![("main.veln", clean_source())], Some("")),
+                "nested/main.veln",
+                navigation_boundary_key("name = \"a\"\n"),
+            ),
+            captured_navigation_source(
+                captured_project(vec![("main.veln", clean_source())], Some("")),
+                "nested/main.veln",
+                navigation_boundary_key("name = \"b\"\n"),
+            ),
+            captured_navigation_source(
+                captured_project(vec![("main.veln", clean_source())], Some("")),
+                "nested/main.veln",
+                navigation_boundary_key("name = \"a\"\n"),
+            ),
+            captured_navigation_source(
+                captured_project(vec![("main.veln", clean_source())], Some("")),
+                "nested/main.veln",
+                navigation_boundary_key("name = \"b\"\n"),
+            ),
+        ]
+        .into_iter();
+
+        let result = capture_stable_navigation_source_with(|| Ok(captures.next().unwrap()));
+
+        assert!(matches!(result, Err(CaptureError::Changed)));
+        assert!(captures.next().is_none());
+    }
+
+    fn navigation_boundary_key(boundary_text: &str) -> Value {
+        json!({
+            "mode": "single_file",
+            "source": "nested/main.veln",
+            "inspected_project": {
+                "root": ".",
+                "project": {
+                    "boundary_manifests": [
+                        {"path": "nested/veln.toml", "text": boundary_text}
+                    ]
+                }
+            },
+            "project": {"files": [{"path": "nested/main.veln", "text": clean_source()}]}
+        })
+    }
+
+    #[test]
     fn captured_direct_local_dependencies_feed_successful_analysis() {
         let captured = captured_project_with_dependencies(
             vec![(
@@ -990,6 +1186,18 @@ mod tests {
         captured_project_with_dependencies(files, manifest, Vec::new())
     }
 
+    fn captured_navigation_source(
+        project: CapturedProject,
+        source: &str,
+        key: Value,
+    ) -> CapturedNavigationSource {
+        CapturedNavigationSource {
+            project,
+            source: source.to_string(),
+            key,
+        }
+    }
+
     fn captured_project_with_dependencies(
         files: Vec<(&str, &str)>,
         manifest: Option<&str>,
@@ -1020,6 +1228,7 @@ mod tests {
             "files": project.files.iter().map(|file| {
                 json!({"path": file.path().as_str(), "text": file.text()})
             }).collect::<Vec<_>>(),
+            "boundary_manifests": [],
             "dependencies": dependencies.iter().map(dependency_snapshot_key).collect::<Vec<_>>(),
         })
     }

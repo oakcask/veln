@@ -77,7 +77,8 @@ mirror, or locally materialized git inputs change during the operation.
 Selected manifest-project capture excludes project-local file and directory
 symbolic links from the owned source path set and does not read source bytes
 through them. A descendant directory that contains a regular `veln.toml` is a
-nested package boundary even when that manifest file is not valid UTF-8. A
+nested package boundary even when that manifest file is not valid UTF-8.
+Captured snapshots include those descendant boundary marker bytes. A
 descendant `veln.toml` symbolic link is not a nested package boundary.
 Successful analysis uses the captured dependency inputs and does not fall back
 to reading uncaptured dependency files. If no stable capture is available, the
@@ -135,7 +136,10 @@ an empty file accepts only `(1, 1)`. A token's end is excluded from its
 selection. A position outside these bounds returns `invalid_position`.
 Definition capture uses the same no-follow path checks, selected-root and
 workspace-base identity checks, stable double capture, bounded retry, and
-`snapshot_changed` failure as saved project diagnostics.
+`snapshot_changed` failure as saved project diagnostics. When definition
+lookup falls back from a selected outer project to anonymous single-file scope
+for a source below a descendant manifest, the ownership decision and the
+anonymous source bytes belong to the same stable capture attempt.
 
 ## Executable Evidence
 
