@@ -10,6 +10,8 @@ const REFRESH_WORKSPACE_INPUT: &str =
     include_str!("../schemas/mcp/v1/refresh-workspace-input.json");
 const REFRESH_WORKSPACE_RESULT: &str =
     include_str!("../schemas/mcp/v1/refresh-workspace-result.json");
+const CHECK_PROJECT_INPUT: &str = include_str!("../schemas/mcp/v1/check-project-input.json");
+const CHECK_PROJECT_RESULT: &str = include_str!("../schemas/mcp/v1/check-project-result.json");
 
 #[derive(Clone, Copy)]
 pub(crate) struct ToolSchema {
@@ -29,11 +31,22 @@ impl ToolSchema {
     }
 
     pub(crate) fn accepts_input(self, value: &Value) -> bool {
-        value.as_object().is_some_and(serde_json::Map::is_empty)
+        let Some(object) = value.as_object() else {
+            return false;
+        };
+        match self.name {
+            "workspace_projects" | "refresh_workspace" => object.is_empty(),
+            "check_project" => {
+                object.keys().all(|key| key == "project" || key == "source")
+                    && object.get("project").is_none_or(Value::is_string)
+                    && object.get("source").is_none_or(Value::is_string)
+            }
+            _ => false,
+        }
     }
 }
 
-pub(crate) const TOOLS: [ToolSchema; 2] = [
+pub(crate) const TOOLS: [ToolSchema; 3] = [
     ToolSchema {
         name: "workspace_projects",
         description: "Return the current workspace project selection without refreshing it",
@@ -45,6 +58,12 @@ pub(crate) const TOOLS: [ToolSchema; 2] = [
         description: "Rediscover workspace projects and atomically replace the selection",
         input: REFRESH_WORKSPACE_INPUT,
         result: REFRESH_WORKSPACE_RESULT,
+    },
+    ToolSchema {
+        name: "check_project",
+        description: "Analyze one saved workspace project or anonymous Veln source",
+        input: CHECK_PROJECT_INPUT,
+        result: CHECK_PROJECT_RESULT,
     },
 ];
 
@@ -115,12 +134,37 @@ mod tests {
     }
 
     #[test]
-    fn tool_inputs_accept_only_empty_objects() {
-        for tool in TOOLS {
+    fn empty_tool_inputs_accept_only_empty_objects() {
+        for tool in [
+            tool("workspace_projects").unwrap(),
+            tool("refresh_workspace").unwrap(),
+        ] {
             assert!(tool.accepts_input(&serde_json::json!({})));
             assert!(!tool.accepts_input(&serde_json::json!({"unknown": true})));
             assert!(!tool.accepts_input(&serde_json::json!([])));
             assert!(!tool.accepts_input(&Value::Null));
+        }
+    }
+
+    #[test]
+    fn check_project_input_accepts_only_declared_string_fields() {
+        let tool = tool("check_project").unwrap();
+        for value in [
+            serde_json::json!({}),
+            serde_json::json!({"project": "."}),
+            serde_json::json!({"source": "main.veln"}),
+            serde_json::json!({"project": ".", "source": "main.veln"}),
+        ] {
+            assert!(tool.accepts_input(&value), "{value}");
+        }
+        for value in [
+            serde_json::json!({"unknown": true}),
+            serde_json::json!({"project": null}),
+            serde_json::json!({"source": null}),
+            serde_json::json!({"project": []}),
+            serde_json::json!(null),
+        ] {
+            assert!(!tool.accepts_input(&value), "{value}");
         }
     }
 

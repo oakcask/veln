@@ -13,16 +13,16 @@ intelligence without requiring them to drive the editor-oriented LSP protocol.
 
 ## Implementation Status
 
-The workspace-project inventory slice is implemented and specified in
-[MCP Workspace Projects](../specification/mcp.md). `veln mcp` currently exposes
-only `workspace_projects` and `refresh_workspace`. The remaining diagnostics,
-navigation, documentation resources and search, pagination, snapshot resource
-lifetime, conformance completion, and client plugin work in this proposal is
-still planned.
+The workspace-project inventory and saved project diagnostics slices are
+implemented and specified in
+[MCP Workspace Projects And Diagnostics](../specification/mcp.md). `veln mcp`
+currently exposes `workspace_projects`, `refresh_workspace`, and
+`check_project`. Definition and reference navigation, documentation resources
+and search, pagination, snapshot resource lifetime, conformance completion,
+and client plugin work in this proposal remain planned.
 
-The first complete capability includes:
+The remaining first-capability work includes:
 
-- project diagnostics;
 - definition and reference lookup;
 - language-reference search and retrieval;
 - exported package and standard-library documentation;
@@ -887,22 +887,23 @@ behavior has been promoted to specification and executable-example routes.
 
 ## Acceptance Model
 
-The workspace inventory rows implemented by the current slice point to current
-specification and executable evidence. All other rows describe planned evidence
-and do not imply that the behavior is already implemented.
+The workspace inventory and saved diagnostics rows implemented by the current
+slice point to current specification and executable evidence. All other rows
+describe planned evidence and do not imply that the behavior is already
+implemented.
 
 ### Server And Project Selection
 
-| Case | Expected result | Planned evidence |
+| Case | Expected result | Evidence |
 | --- | --- | --- |
 | Start `veln mcp` in a one-package project. | The package is selected as `.`. | Implemented `veln-mcp` selection table tests. |
-| Start above two package branches and complete the inventory lifecycle. | Both first manifest roots are listed after initialization. The server rejects inventory requests before initialization and rejects a second valid initialization. The planned `check_project` tool will report ambiguity when its project input is omitted. | Implemented MCP workspace lifecycle case for inventory and initialization phase boundaries; planned multi-package diagnostic case. |
-| Start where no manifest exists. | The base is selected as one anonymous project. The planned `check_project` tool will require `source`. | Implemented `veln-mcp` selection table tests; planned Q01 anonymous isolation cases. |
+| Start above two package branches and complete the inventory lifecycle. | Both first manifest roots are listed after initialization. The server rejects inventory requests before initialization and rejects a second valid initialization. `check_project` reports ambiguity when its project input is omitted. | Implemented MCP workspace lifecycle case for inventory and initialization phase boundaries; implemented `veln-mcp` multi-project ambiguity test. |
+| Start where no manifest exists. | The base is selected as one anonymous project. `check_project` requires `project: "."` and `source`. | Implemented `veln-mcp` selection table and anonymous isolation tests. |
 | Navigate below an unselected descendant manifest. | The outer project does not own the source; navigation reports single-file scope without outer-project references. | Q02 descendant-boundary cases. |
 | Add, remove, or rename a manifest. | Selection is unchanged until `refresh_workspace`; a successful refresh replaces it atomically. Cursor staleness remains planned. | Implemented `veln-mcp` refresh transition tests; planned Q03 cursor cases. |
 | Start through a symbolic base alias. | The alias is accepted once and returned `file:` URIs use the resolved identity spelling. | Q04 symbolic-base cases. |
-| Supply a path containing a directory or file symbolic link. | The path is rejected without following the link. | Q04 no-follow cases. |
-| Supply an absolute path or escaping relative path. | The tool rejects the input before reading the target. | Path-boundary MCP cases. |
+| Supply a path containing a directory or file symbolic link. | The path is rejected without following the link. | Implemented `veln-mcp` no-follow source-path test; broader Q04 navigation cases remain planned. |
+| Supply an absolute path or escaping relative path. | The tool rejects the input before reading the target. | Implemented `veln-mcp` path-boundary source tests. |
 | Change a manifest, source, or file set during capture. | The complete capture retries at most three times, then returns `snapshot_changed` without partial publication. | Q05 stable-capture race cases. |
 | List projects or send malformed inventory-tool input. | Roots use `.` or relative `/` spelling; checked schemas reject unknown fields and invalid shapes as protocol errors. | Implemented MCP workspace lifecycle and schema tests; broader Q06 cases remain planned. |
 | Discover a manifest root whose relative spelling is not representable as UTF-8. | Discovery fails instead of returning a lossy project root. A refresh reports `generation_failed` and preserves the previous roots and generation. | Implemented `veln-mcp` unrepresentable-root discovery and refresh tests. |
@@ -910,9 +911,9 @@ and do not imply that the behavior is already implemented.
 
 ### Diagnostics And Navigation
 
-| Case | Expected result | Planned evidence |
+| Case | Expected result | Evidence |
 | --- | --- | --- |
-| Analyze a saved project with errors. | `check_project` returns structured Veln diagnostics without transport failure. | MCP diagnostic fixture aligned with command diagnostics. |
+| Analyze a saved project with errors. | `check_project` returns structured Veln diagnostics without transport failure. | Implemented MCP diagnostic fixture and `veln-mcp` structured diagnostic test. |
 | Resolve a workspace declaration. | `definition` returns a `file:` location with MCP coordinates. | Shared language-service and MCP cases. |
 | Resolve project references with shadowing and same-spelled fields. | Only references with the selected symbol identity are returned in deterministic order. | Table-driven symbol cases. |
 | Search references to a dependency symbol from one selected project. | Consumer uses and the optional exported declaration are returned; other projects and dependency-internal uses are excluded, and the scope is explicit. | Q08 reference-universe cases. |

@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use serde_json::{Value, json};
 
+use crate::check_project::{self, CheckProjectOutcome};
 use crate::schema;
 use crate::workspace::Selection;
 
@@ -125,8 +126,20 @@ impl Server {
         Ok(match call.name {
             "workspace_projects" => successful_tool_result(self.selection_result()),
             "refresh_workspace" => self.refresh_workspace_tool(refresh),
+            "check_project" => self.check_project_tool(arguments),
             _ => unreachable!("tool name was checked against declarations"),
         })
+    }
+
+    fn check_project_tool(&self, arguments: &Value) -> Value {
+        match check_project::check_project(&self.base, &self.selection, arguments) {
+            CheckProjectOutcome::Success(result) => successful_tool_result(result),
+            CheckProjectOutcome::DomainFailure {
+                code,
+                message,
+                details,
+            } => domain_failure(code, message, details),
+        }
     }
 
     fn refresh_workspace_tool(

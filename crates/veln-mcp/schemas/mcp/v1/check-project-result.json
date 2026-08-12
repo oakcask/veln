@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "oneOf": [
+    {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "analysis": {
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "enum": ["project", "single_file"]
+            },
+            "generation": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "project": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            },
+            "project_wide": {
+              "type": "boolean"
+            }
+          },
+          "required": ["mode", "generation", "project", "project_wide"],
+          "type": "object"
+        },
+        "diagnostics": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "summary": {
+          "type": "object"
+        }
+      },
+      "required": ["schema_version", "analysis", "diagnostics", "summary"],
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "enum": [
+            "invalid_path",
+            "invalid_query",
+            "source_required",
+            "project_not_selected",
+            "project_ambiguous",
+            "snapshot_changed"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "object"
+        }
+      },
+      "required": ["code", "message", "details"],
+      "type": "object"
+    }
+  ]
+}
