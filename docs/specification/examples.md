@@ -160,3 +160,6 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
 - MCP stdio lifecycle, workspace-project inventory, tool schemas, refresh,
   initialization phase boundaries, request metadata, and JSON-RPC framing:
   `../../examples/specification/mcp/workspace-lifecycle/`.
+- MCP saved project diagnostics, `check_project` tool schema advertising, and
+  spanless related-note projection:
+  `../../examples/specification/mcp/check-project-diagnostics/`.
