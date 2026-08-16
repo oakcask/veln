@@ -429,7 +429,7 @@ enum IndexedOrigin {
 struct SymbolIndex {
     files: Vec<IndexedFile>,
     functions: Vec<FunctionSymbol>,
-    constructors: Vec<ConstructorSymbol>,
+    constructors: ConstructorTable,
     type_aliases: Vec<TypeAliasSymbol>,
     functions_by_name: BTreeMap<String, Vec<usize>>,
     constructors_by_name: BTreeMap<String, Vec<usize>>,
@@ -491,7 +491,7 @@ impl SymbolIndex {
             constructors_by_name: constructor_indices_by_name(&constructors),
             type_aliases_by_target_name: type_alias_indices_by_target_name(&type_aliases),
             functions,
-            constructors,
+            constructors: ConstructorTable::new(constructors),
             type_aliases,
             files,
         }
@@ -574,7 +574,15 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<Symbol> {
         if let Some(symbol) = self.constructor_for_bare_call(file, name) {
+            if self.has_local_function(file, name)
+                || self.has_visible_non_prelude_imported_function(file, name)
+            {
+                return None;
+            }
             return Some(Symbol::Constructor(symbol));
+        }
+        if self.has_ambiguous_constructor_for_bare_call(file, name) {
+            return None;
         }
         if let Some(symbol) = self.functions_named(name).find(|symbol| {
             symbol.name == name && symbol.module == file.module && symbol.package.is_none()
@@ -600,7 +608,13 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<Symbol> {
         if let Some(symbol) = self.constructor_for_qualified_call(file, qualifier, name) {
+            if self.has_qualified_function(file, qualifier, name) {
+                return None;
+            }
             return Some(Symbol::Constructor(symbol));
+        }
+        if self.has_ambiguous_constructor_for_qualified_call(file, qualifier, name) {
+            return None;
         }
         self.functions_named(name)
             .find(|symbol| match &symbol.package {
@@ -631,44 +645,92 @@ impl SymbolIndex {
         file: &IndexedFile,
         name: &str,
     ) -> Option<ConstructorSymbol> {
-        self.constructors_named(name)
-            .find(|symbol| {
+        exactly_one_constructor(self.constructors_named(name).filter(|symbol| {
+            symbol.name == name
+                && symbol.package.is_none()
+                && symbol.module == file.module
+                && visible_workspace_constructor_from(file, symbol)
+        }))
+        .cloned()
+        .or_else(|| {
+            let candidates = self.constructors_named(name).filter(|symbol| {
                 symbol.name == name
+                    && !symbol.standard_prelude
                     && symbol.package.is_none()
-                    && symbol.module == file.module
+                    && symbol.module != file.module
+                    && (file.uses.contains(&symbol.module)
+                        || self.constructor_reexport_visible_from(file, symbol, None))
                     && visible_workspace_constructor_from(file, symbol)
-            })
-            .cloned()
-            .or_else(|| {
-                let mut candidates = self.constructors_named(name).filter(|symbol| {
+            });
+            exactly_one_constructor(candidates).cloned()
+        })
+        .or_else(|| {
+            let candidates = self.constructors_named(name).filter(|symbol| {
+                symbol.name == name
+                    && !symbol.standard_prelude
+                    && symbol.public
+                    && symbol.package.as_ref().is_some_and(|package| {
+                        file.external_uses
+                            .contains(&(symbol.module.clone(), package.clone()))
+                            || self.constructor_reexport_visible_from(file, symbol, Some(package))
+                    })
+            });
+            exactly_one_constructor(candidates).cloned()
+        })
+    }
+
+    fn has_ambiguous_constructor_for_bare_call(&self, file: &IndexedFile, name: &str) -> bool {
+        at_least_two_constructors(self.constructors_named(name).filter(|symbol| {
+            symbol.name == name
+                && symbol.package.is_none()
+                && symbol.module == file.module
+                && visible_workspace_constructor_from(file, symbol)
+        })) || at_least_two_constructors(self.constructors_named(name).filter(|symbol| {
+            symbol.name == name
+                && !symbol.standard_prelude
+                && symbol.package.is_none()
+                && symbol.module != file.module
+                && (file.uses.contains(&symbol.module)
+                    || self.constructor_reexport_visible_from(file, symbol, None))
+                && visible_workspace_constructor_from(file, symbol)
+        })) || at_least_two_constructors(self.constructors_named(name).filter(|symbol| {
+            symbol.name == name
+                && !symbol.standard_prelude
+                && symbol.public
+                && symbol.package.as_ref().is_some_and(|package| {
+                    file.external_uses
+                        .contains(&(symbol.module.clone(), package.clone()))
+                        || self.constructor_reexport_visible_from(file, symbol, Some(package))
+                })
+        }))
+    }
+
+    fn has_local_function(&self, file: &IndexedFile, name: &str) -> bool {
+        self.functions_named(name).any(|symbol| {
+            symbol.name == name && symbol.module == file.module && symbol.package.is_none()
+        })
+    }
+
+    fn has_qualified_function(&self, file: &IndexedFile, qualifier: &str, name: &str) -> bool {
+        self.functions_named(name)
+            .any(|symbol| match &symbol.package {
+                Some(package) => {
                     symbol.name == name
-                        && !symbol.standard_prelude
-                        && symbol.package.is_none()
-                        && symbol.module != file.module
-                        && (file.uses.contains(&symbol.module)
-                            || self.constructor_reexport_visible_from(file, symbol, None))
-                        && visible_workspace_constructor_from(file, symbol)
-                });
-                let candidate = candidates.next()?;
-                candidates.next().is_none().then(|| candidate.clone())
-            })
-            .or_else(|| {
-                let mut candidates = self.constructors_named(name).filter(|symbol| {
+                        && symbol.module == qualifier
+                        && (symbol.standard_prelude
+                            || file
+                                .external_uses
+                                .contains(&(symbol.module.clone(), package.clone())))
+                }
+                None => {
                     symbol.name == name
-                        && !symbol.standard_prelude
-                        && symbol.public
-                        && symbol.package.as_ref().is_some_and(|package| {
-                            file.external_uses
-                                .contains(&(symbol.module.clone(), package.clone()))
-                                || self.constructor_reexport_visible_from(
-                                    file,
-                                    symbol,
-                                    Some(package),
-                                )
-                        })
-                });
-                let candidate = candidates.next()?;
-                candidates.next().is_none().then(|| candidate.clone())
+                        && symbol.module == qualifier
+                        && file.uses.contains(&symbol.module)
+                        && file
+                            .companion_target_module
+                            .as_ref()
+                            .is_some_and(|target| target == &symbol.module)
+                }
             })
     }
 
@@ -678,34 +740,85 @@ impl SymbolIndex {
         qualifier: &str,
         name: &str,
     ) -> Option<ConstructorSymbol> {
-        self.constructors_named(name)
-            .find(|symbol| {
-                symbol.name == name
-                    && (constructor_qualifier_matches(symbol, qualifier)
-                        || self.constructor_reexport_qualifier_matches(file, symbol, qualifier))
-                    && match &symbol.package {
-                        Some(package) => {
-                            symbol.standard_prelude
-                                || file
-                                    .external_uses
-                                    .contains(&(symbol.module.clone(), package.clone()))
-                                || self.constructor_reexport_visible_from(
-                                    file,
-                                    symbol,
-                                    Some(package),
-                                )
-                        }
-                        None => {
-                            symbol.module == file.module
-                                || ((file.uses.contains(&symbol.module)
-                                    || self.constructor_reexport_visible_from(file, symbol, None))
-                                    && visible_workspace_constructor_from(file, symbol))
-                        }
+        exactly_one_constructor(self.constructors_named(name).filter(|symbol| {
+            symbol.name == name
+                && (constructor_qualifier_matches(symbol, qualifier)
+                    || self.constructor_reexport_qualifier_matches(file, symbol, qualifier))
+                && match &symbol.package {
+                    Some(package) => {
+                        symbol.standard_prelude
+                            || file
+                                .external_uses
+                                .contains(&(symbol.module.clone(), package.clone()))
+                            || self.constructor_reexport_visible_from(file, symbol, Some(package))
                     }
-            })
-            .cloned()
+                    None => {
+                        symbol.module == file.module
+                            || ((file.uses.contains(&symbol.module)
+                                || self.constructor_reexport_visible_from(file, symbol, None))
+                                && visible_workspace_constructor_from(file, symbol))
+                    }
+                }
+        }))
+        .cloned()
     }
 
+    fn has_ambiguous_constructor_for_qualified_call(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        name: &str,
+    ) -> bool {
+        at_least_two_constructors(self.constructors_named(name).filter(|symbol| {
+            symbol.name == name
+                && (constructor_qualifier_matches(symbol, qualifier)
+                    || self.constructor_reexport_qualifier_matches(file, symbol, qualifier))
+                && match &symbol.package {
+                    Some(package) => {
+                        symbol.standard_prelude
+                            || file
+                                .external_uses
+                                .contains(&(symbol.module.clone(), package.clone()))
+                            || self.constructor_reexport_visible_from(file, symbol, Some(package))
+                    }
+                    None => {
+                        symbol.module == file.module
+                            || ((file.uses.contains(&symbol.module)
+                                || self.constructor_reexport_visible_from(file, symbol, None))
+                                && visible_workspace_constructor_from(file, symbol))
+                    }
+                }
+        }))
+    }
+}
+
+#[derive(Debug)]
+struct ConstructorTable(Vec<ConstructorSymbol>);
+
+impl ConstructorTable {
+    fn new(constructors: Vec<ConstructorSymbol>) -> Self {
+        Self(constructors)
+    }
+
+    fn get(&self, index: usize) -> Option<&ConstructorSymbol> {
+        self.0.get(index)
+    }
+}
+
+fn exactly_one_constructor<'a>(
+    mut candidates: impl Iterator<Item = &'a ConstructorSymbol>,
+) -> Option<&'a ConstructorSymbol> {
+    let candidate = candidates.next()?;
+    candidates.next().is_none().then_some(candidate)
+}
+
+fn at_least_two_constructors<'a>(
+    mut candidates: impl Iterator<Item = &'a ConstructorSymbol>,
+) -> bool {
+    candidates.next().is_some() && candidates.next().is_some()
+}
+
+impl SymbolIndex {
     fn constructor_reexport_qualifier_matches(
         &self,
         file: &IndexedFile,
@@ -913,9 +1026,11 @@ impl SymbolIndex {
         let indices = self.constructors_by_name.get(name);
         #[cfg(test)]
         navigation_stats::record_constructor_candidates(indices.map_or(0, Vec::len));
-        indices
-            .into_iter()
-            .flat_map(|indices| indices.iter().map(|index| &self.constructors[*index]))
+        indices.into_iter().flat_map(|indices| {
+            indices
+                .iter()
+                .filter_map(|index| self.constructors.get(*index))
+        })
     }
 
     fn type_aliases_targeting(&self, name: &str) -> impl Iterator<Item = &TypeAliasSymbol> {
@@ -2323,6 +2438,58 @@ mod tests {
             navigation_stats::constructor_candidates_considered(),
             0,
             "reference lookup scanned unrelated constructor candidates instead of using the name index"
+        );
+    }
+
+    #[test]
+    fn ambiguous_same_scope_constructor_call_has_no_selected_symbol() {
+        assert!(
+            query(
+                vec![source(
+                    "main.veln",
+                    concat!(
+                        "type Left\n",
+                        "  same(Int)\n",
+                        "end\n\n",
+                        "type Right\n",
+                        "  same(Int)\n",
+                        "end\n\n",
+                        "fn main() -> Left\n",
+                        "  same(1)\n",
+                        "end\n",
+                    ),
+                )],
+                "main.veln",
+                10,
+                4,
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn bare_constructor_and_function_call_collision_has_no_selected_symbol() {
+        assert!(
+            query(
+                vec![source(
+                    "main.veln",
+                    concat!(
+                        "type Shape\n",
+                        "  same(Int)\n",
+                        "end\n\n",
+                        "fn same(value: Int) -> Int\n",
+                        "  value\n",
+                        "end\n\n",
+                        "fn main() -> Shape\n",
+                        "  same(1)\n",
+                        "end\n",
+                    ),
+                )],
+                "main.veln",
+                10,
+                4,
+            )
+            .is_none()
         );
     }
 

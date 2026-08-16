@@ -8,9 +8,10 @@ contains = [
   "\"name\":\"references\",\"outputSchema\"",
   "\"required\":[\"source\",\"line\",\"column\"]",
   "\"id\":3,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"references\\\"",
+  "\"scope\":{\"mode\":\"project\",\"project_wide\":true,\"root\":\".\",\"source\":\"main.veln\"}",
   "\"range\":{\"end\":{\"column\":9,\"line\":10},\"start\":{\"column\":3,\"line\":10}}",
   "\"range\":{\"end\":{\"column\":9,\"line\":14},\"start\":{\"column\":3,\"line\":14}}",
-  "\"id\":4,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"references\\\":[]}\"",
+  "\"id\":4,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"references\\\":[],\\\"scope\\\"",
   "\"id\":5,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"code\\\":\\\"invalid_position\\\"",
   "\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":6",
 ]

@@ -513,7 +513,15 @@ mod tests {
     #[test]
     fn references_result_accepts_locations_empty_list_and_domain_failures() {
         let tool = tool("references").unwrap();
-        assert!(tool.accepts_result(&serde_json::json!({"references": []})));
+        assert!(tool.accepts_result(&serde_json::json!({
+            "references": [],
+            "scope": {
+                "mode": "single_file",
+                "root": ".",
+                "source": "main.veln",
+                "project_wide": false
+            }
+        })));
         assert!(tool.accepts_result(&serde_json::json!({
             "references": [{
                 "uri": "file:///workspace/main.veln",
@@ -521,15 +529,28 @@ mod tests {
                     "start": {"line": 1, "column": 3},
                     "end": {"line": 1, "column": 9}
                 }
-            }]
+            }],
+            "scope": {
+                "mode": "project",
+                "root": ".",
+                "source": "main.veln",
+                "project_wide": true
+            }
         })));
+        assert!(!tool.accepts_result(&serde_json::json!({"references": []})));
         assert!(!tool.accepts_result(&serde_json::json!({
             "references": [{
                 "uri": "file:///workspace/main.veln",
                 "range": {
                     "start": {"line": 1, "column": 3}
                 }
-            }]
+            }],
+            "scope": {
+                "mode": "project",
+                "root": ".",
+                "source": "main.veln",
+                "project_wide": true
+            }
         })));
         for code in ["invalid_path", "invalid_position", "snapshot_changed"] {
             let result = serde_json::json!({

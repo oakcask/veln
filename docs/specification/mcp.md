@@ -131,14 +131,18 @@ A supported workspace declaration returns one canonical `file:` URI based on
 the resolved workspace-base identity and a half-open range. A valid position
 without a supported symbol succeeds with `definition: null`.
 
-`references` returns a `references` array of canonical `file:` locations for
-supported workspace function reference sites. Each returned function reference
-must resolve to the same function identity as the selected symbol. Same-spelled
-constructors and functions in another scope are excluded. The tool returns an
-empty array when the selected position has no supported symbol or when the
-selected symbol kind has no supported reference search. Constructor selections
-currently have no MCP reference search, so an ambiguous bare constructor call
-such as `same(1)` is unselected and returns an empty `references` array.
+`references` returns a `scope` object and a `references` array of canonical
+`file:` locations for supported workspace function reference sites. The scope
+object names the analysis `mode`, `root`, selected `source`, and
+`project_wide` value. Project navigation has `project_wide: true`. Anonymous
+single-file navigation has `project_wide: false`. Each returned function
+reference must resolve to the same function identity as the selected symbol.
+Same-spelled constructors and functions in another scope are excluded. The tool
+returns an empty array when the selected position has no supported symbol or
+when the selected symbol kind has no supported reference search. Constructor
+selections currently have no MCP reference search, so an ambiguous bare
+constructor call such as `same(1)` is unselected and returns an empty
+`references` array.
 
 LF and CRLF each end one logical line, and neither CRLF terminator scalar is an
 addressable position. A line containing `N` Unicode scalars accepts columns 1

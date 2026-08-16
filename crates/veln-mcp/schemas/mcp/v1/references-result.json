@@ -28,6 +28,32 @@
       },
       "required": ["uri", "range"]
     },
+    "scope": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": { "const": "project" },
+            "root": { "type": "string" },
+            "source": { "type": "string" },
+            "project_wide": { "const": true }
+          },
+          "required": ["mode", "root", "source", "project_wide"]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": { "const": "single_file" },
+            "root": { "type": "string" },
+            "source": { "type": "string" },
+            "project_wide": { "const": false }
+          },
+          "required": ["mode", "root", "source", "project_wide"]
+        }
+      ]
+    },
     "failure": {
       "type": "object",
       "additionalProperties": false,
@@ -48,9 +74,10 @@
         "references": {
           "type": "array",
           "items": { "$ref": "#/$defs/location" }
-        }
+        },
+        "scope": { "$ref": "#/$defs/scope" }
       },
-      "required": ["references"]
+      "required": ["references", "scope"]
     },
     { "$ref": "#/$defs/failure" }
   ]

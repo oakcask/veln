@@ -25,10 +25,11 @@ pub(crate) fn references(
         .expect("references input schema requires a string source");
     let line = coordinate(&arguments["line"]);
     let column = coordinate(&arguments["column"]);
-    let (captured, captured_source) = match capture_navigation_source(base, selection, source) {
-        Ok(captured) => captured,
-        Err(failure) => return failure.into(),
-    };
+    let (captured, captured_source, scope) =
+        match capture_navigation_source(base, selection, source) {
+            Ok(captured) => captured,
+            Err(failure) => return failure.into(),
+        };
     let source_file = captured
         .project
         .files
@@ -64,7 +65,7 @@ pub(crate) fn references(
             .collect::<Vec<_>>()
     })
     .unwrap_or_default();
-    ReferencesOutcome::Success(json!({"references": references}))
+    ReferencesOutcome::Success(json!({"references": references, "scope": scope.to_json()}))
 }
 
 fn domain_failure(code: &'static str, message: &'static str, details: Value) -> ReferencesOutcome {

@@ -431,6 +431,16 @@ fn references_return_supported_workspace_symbol_uses() {
     let result = references_result(&workspace, "math.test.veln", 4, 11);
 
     assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(
+        result["structuredContent"]["scope"],
+        json!({
+            "mode": "project",
+            "root": ".",
+            "source": "math.test.veln",
+            "project_wide": true
+        }),
+        "{result:#}"
+    );
     let references = result["structuredContent"]["references"]
         .as_array()
         .unwrap();
@@ -484,9 +494,30 @@ fn references_isolate_symbol_identity_and_single_file_scope() {
 
     assert_eq!(constructor["isError"], false, "{constructor:#}");
     assert_eq!(
+        constructor["structuredContent"]["scope"],
+        json!({
+            "mode": "single_file",
+            "root": ".",
+            "source": "main.veln",
+            "project_wide": false
+        }),
+        "{constructor:#}"
+    );
+    assert_eq!(
         constructor["structuredContent"]["references"],
         json!([]),
         "{constructor:#}"
+    );
+
+    let ambiguous_definition = definition_result(&workspace, "main.veln", 10, 4);
+    assert_eq!(
+        ambiguous_definition["isError"], false,
+        "{ambiguous_definition:#}"
+    );
+    assert_eq!(
+        ambiguous_definition["structuredContent"]["definition"],
+        json!(null),
+        "{ambiguous_definition:#}"
     );
 
     let function = references_result(&workspace, "main.veln", 5, 4);

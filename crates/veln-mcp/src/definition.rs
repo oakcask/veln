@@ -36,7 +36,7 @@ pub(crate) fn definition(
         .expect("definition input schema requires a string source");
     let line = coordinate(&arguments["line"]);
     let column = coordinate(&arguments["column"]);
-    let (captured, captured_source) = match capture_navigation_source(base, selection, source) {
+    let (captured, captured_source, _) = match capture_navigation_source(base, selection, source) {
         Ok(captured) => captured,
         Err(failure) => return failure.into(),
     };

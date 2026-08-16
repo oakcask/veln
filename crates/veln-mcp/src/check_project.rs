@@ -339,16 +339,35 @@ pub(crate) fn capture_navigation_source(
     base: &WorkspaceBase,
     selection: &Selection,
     source: &str,
-) -> Result<(CapturedProject, String), CheckProjectOutcome> {
+) -> Result<(CapturedProject, String, NavigationScope), CheckProjectOutcome> {
     let source = validate_source_path(base, source)?;
     stable_navigation_capture_or_failure(base, selection, &source)
-        .map(|captured| (captured.project, captured.source))
+        .map(|captured| (captured.project, captured.source, captured.scope))
 }
 
 struct CapturedNavigationSource {
     project: CapturedProject,
     source: String,
+    scope: NavigationScope,
     key: Value,
+}
+
+pub(crate) struct NavigationScope {
+    mode: &'static str,
+    root: String,
+    source: String,
+    project_wide: bool,
+}
+
+impl NavigationScope {
+    pub(crate) fn to_json(&self) -> Value {
+        json!({
+            "mode": self.mode,
+            "root": self.root,
+            "source": self.source,
+            "project_wide": self.project_wide,
+        })
+    }
 }
 
 fn stable_navigation_capture_or_failure(
@@ -427,6 +446,12 @@ fn capture_navigation_source_once(
                 }),
                 project: captured,
                 source: relative.to_string(),
+                scope: NavigationScope {
+                    mode: "project",
+                    root: root.to_string(),
+                    source: relative.to_string(),
+                    project_wide: true,
+                },
             });
         }
         inspected_project = Some(json!({
@@ -457,6 +482,12 @@ fn capture_navigation_source_once(
         }),
         project: captured,
         source: source.to_string(),
+        scope: NavigationScope {
+            mode: "single_file",
+            root: ".".to_string(),
+            source: source.to_string(),
+            project_wide: false,
+        },
     })
 }
 
@@ -1194,6 +1225,12 @@ mod tests {
         CapturedNavigationSource {
             project,
             source: source.to_string(),
+            scope: NavigationScope {
+                mode: "single_file",
+                root: ".".to_string(),
+                source: source.to_string(),
+                project_wide: false,
+            },
             key,
         }
     }
