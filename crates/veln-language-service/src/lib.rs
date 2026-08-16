@@ -1155,16 +1155,14 @@ impl SymbolIndex {
         let mut names = CallableValueNames::default();
         for symbol in &self.functions {
             if symbol.package.is_none() {
-                if symbol.module == file.module {
-                    names.insert_bare(symbol.name.clone());
-                    names.insert_qualified(symbol.module.clone(), symbol.name.clone());
-                } else if file.uses.contains(&symbol.module)
-                    && symbol.public
-                    && file
-                        .companion_target_module
-                        .as_ref()
-                        .is_some_and(|target| target == &symbol.module)
-                {
+                let visible_workspace_function = symbol.module == file.module
+                    || file.uses.contains(&symbol.module)
+                        && symbol.public
+                        && file
+                            .companion_target_module
+                            .as_ref()
+                            .is_some_and(|target| target == &symbol.module);
+                if visible_workspace_function {
                     names.insert_bare(symbol.name.clone());
                     names.insert_qualified(symbol.module.clone(), symbol.name.clone());
                 }
