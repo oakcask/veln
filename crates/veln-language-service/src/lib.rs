@@ -814,7 +814,7 @@ impl SymbolIndex {
             return Vec::new();
         }
         if file.module == symbol.module {
-            return call_references(&file.source, &symbol.name);
+            return self.bare_function_references_in_file(file, symbol);
         }
         if file.uses.contains(&symbol.module)
             && file
@@ -822,10 +822,68 @@ impl SymbolIndex {
                 .as_ref()
                 .is_some_and(|target| target == &symbol.module)
         {
-            return qualified_references(&file.source, &symbol.module, &symbol.name);
+            return self.qualified_function_references_in_file(file, symbol);
         }
         Vec::new()
     }
+
+    fn bare_function_references_in_file(
+        &self,
+        file: &IndexedFile,
+        symbol: &FunctionSymbol,
+    ) -> Vec<SourceSpan> {
+        let tokens = lex(&file.source).tokens;
+        call_references(&file.source, &symbol.name)
+            .into_iter()
+            .filter(|span| {
+                let Some(index) = token_index_at_span_start(&tokens, span) else {
+                    return true;
+                };
+                !is_call_target_token(&tokens, index)
+                    || matches!(
+                        self.symbol_for_bare_call(file, &tokens, index, &symbol.name),
+                        Some(Symbol::Function(candidate))
+                            if same_function_symbol(&candidate, symbol)
+                    )
+            })
+            .collect()
+    }
+
+    fn qualified_function_references_in_file(
+        &self,
+        file: &IndexedFile,
+        symbol: &FunctionSymbol,
+    ) -> Vec<SourceSpan> {
+        let tokens = lex(&file.source).tokens;
+        qualified_references(&file.source, &symbol.module, &symbol.name)
+            .into_iter()
+            .filter(|span| {
+                let Some(index) = token_index_at_span_start(&tokens, span) else {
+                    return true;
+                };
+                let Some(qualifier) = qualifier_for_token(&tokens, index) else {
+                    return false;
+                };
+                matches!(
+                    self.symbol_for_qualified_call(file, &qualifier, &symbol.name),
+                    Some(Symbol::Function(candidate)) if same_function_symbol(&candidate, symbol)
+                )
+            })
+            .collect()
+    }
+}
+
+fn token_index_at_span_start(tokens: &[Token], span: &SourceSpan) -> Option<usize> {
+    tokens.iter().position(|token| {
+        token.range.start == span.start.offset && token.range.end == span.end.offset
+    })
+}
+
+fn same_function_symbol(left: &FunctionSymbol, right: &FunctionSymbol) -> bool {
+    left.name == right.name
+        && left.module == right.module
+        && left.package == right.package
+        && left.declaration == right.declaration
 }
 
 fn index_workspace_source(source: SourceFile) -> IndexedFile {

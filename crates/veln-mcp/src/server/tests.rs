@@ -463,14 +463,15 @@ fn references_isolate_symbol_identity_and_single_file_scope() {
     workspace.write(
         "main.veln",
         concat!(
-            "type Left\n",
+            "type Shape\n",
             "  same(Int)\n",
             "end\n\n",
-            "type Right\n",
-            "  same(Int)\n",
+            "fn same(value: Int) -> Int\n",
+            "  value\n",
             "end\n\n",
-            "fn main() -> Left\n",
+            "fn main() -> Shape\n",
             "  same(1)\n",
+            "  same\n",
             "end\n",
         ),
     );
@@ -479,13 +480,26 @@ fn references_isolate_symbol_identity_and_single_file_scope() {
         "fn same(value: Int) -> Int\n  same(value)\nend\n",
     );
 
-    let result = references_result(&workspace, "main.veln", 10, 4);
+    let constructor = references_result(&workspace, "main.veln", 10, 4);
 
-    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(constructor["isError"], false, "{constructor:#}");
     assert_eq!(
-        result["structuredContent"]["references"],
+        constructor["structuredContent"]["references"],
         json!([]),
-        "{result:#}"
+        "{constructor:#}"
+    );
+
+    let function = references_result(&workspace, "main.veln", 5, 4);
+
+    assert_eq!(function["isError"], false, "{function:#}");
+    let references = function["structuredContent"]["references"]
+        .as_array()
+        .unwrap();
+    assert_eq!(references.len(), 1, "{references:#?}");
+    assert_eq!(
+        references[0]["range"]["start"],
+        json!({"line": 11, "column": 3}),
+        "{references:#?}"
     );
 }
 
