@@ -449,6 +449,10 @@ struct SymbolIndex {
     workspace_constructor_names_by_module: BTreeMap<String, BTreeSet<String>>,
     public_workspace_constructor_names_by_module: BTreeMap<String, BTreeSet<String>>,
     public_package_constructor_names_by_import: BTreeMap<(String, String), BTreeSet<String>>,
+    public_reexported_constructor_names_by_import:
+        BTreeMap<(String, Option<String>), BTreeSet<String>>,
+    private_workspace_reexported_constructor_names_by_import_and_module:
+        BTreeMap<(String, String), BTreeSet<String>>,
     type_aliases_by_target_name: BTreeMap<String, Vec<usize>>,
     visible_bare_constructor_names_by_source: BTreeMap<IndexedSourceKey, BTreeSet<String>>,
 }
@@ -519,12 +523,18 @@ impl SymbolIndex {
                 &constructors,
             ),
             type_aliases_by_target_name: type_alias_indices_by_target_name(&type_aliases),
+            public_reexported_constructor_names_by_import: BTreeMap::new(),
+            private_workspace_reexported_constructor_names_by_import_and_module: BTreeMap::new(),
             functions,
             constructors: ConstructorTable::new(constructors),
             type_aliases,
             files,
             visible_bare_constructor_names_by_source: BTreeMap::new(),
         };
+        index.public_reexported_constructor_names_by_import =
+            public_reexported_constructor_names_by_import(&index);
+        index.private_workspace_reexported_constructor_names_by_import_and_module =
+            private_workspace_reexported_constructor_names_by_import_and_module(&index);
         index.visible_bare_constructor_names_by_source =
             visible_bare_constructor_names_by_source(&index);
         index
@@ -1294,44 +1304,99 @@ fn visible_bare_constructor_names_by_source(
                         .flat_map(|module_names| module_names.iter().cloned()),
                 );
             }
-            names.extend(reexported_bare_constructor_names(index, file));
+            names.extend(reexported_public_bare_constructor_names(index, file));
+            names.extend(reexported_private_workspace_bare_constructor_names(
+                index, file,
+            ));
             (file.key(), names)
         })
         .collect()
 }
 
-fn reexported_bare_constructor_names(index: &SymbolIndex, file: &IndexedFile) -> BTreeSet<String> {
-    let mut names = BTreeSet::new();
+fn public_reexported_constructor_names_by_import(
+    index: &SymbolIndex,
+) -> BTreeMap<(String, Option<String>), BTreeSet<String>> {
+    let mut names = BTreeMap::<(String, Option<String>), BTreeSet<String>>::new();
     for alias in &index.type_aliases {
-        if alias.package.is_none() && !file.uses.contains(&alias.module) {
-            continue;
+        for symbol in index.constructors_for_type(&alias.target_name) {
+            if type_alias_targets_constructor(alias, symbol)
+                && symbol.public
+                && !symbol.standard_prelude
+                && alias.package.as_ref() == symbol.package.as_ref()
+            {
+                names
+                    .entry((alias.module.clone(), alias.package.clone()))
+                    .or_default()
+                    .insert(symbol.name.clone());
+            }
         }
-        if let Some(alias_package) = &alias.package
-            && !file
-                .external_uses
-                .contains(&(alias.module.clone(), alias_package.clone()))
-        {
-            continue;
-        }
+    }
+    names
+}
+
+fn reexported_public_bare_constructor_names(
+    index: &SymbolIndex,
+    file: &IndexedFile,
+) -> BTreeSet<String> {
+    let mut names = BTreeSet::new();
+    for module in &file.uses {
         names.extend(
             index
-                .constructors_for_type(&alias.target_name)
-                .filter(|symbol| {
-                    type_alias_targets_constructor(alias, symbol)
-                        && match &symbol.package {
-                            Some(package) => {
-                                symbol.public
-                                    && alias.package.as_ref() == Some(package)
-                                    && !symbol.standard_prelude
-                            }
-                            None => {
-                                alias.package.is_none()
-                                    && !symbol.standard_prelude
-                                    && visible_workspace_constructor_from(file, symbol)
-                            }
-                        }
-                })
-                .map(|symbol| symbol.name.clone()),
+                .public_reexported_constructor_names_by_import
+                .get(&(module.clone(), None))
+                .into_iter()
+                .flat_map(|module_names| module_names.iter().cloned()),
+        );
+    }
+    for (module, package) in &file.external_uses {
+        names.extend(
+            index
+                .public_reexported_constructor_names_by_import
+                .get(&(module.clone(), Some(package.clone())))
+                .into_iter()
+                .flat_map(|module_names| module_names.iter().cloned()),
+        );
+    }
+    names
+}
+
+fn private_workspace_reexported_constructor_names_by_import_and_module(
+    index: &SymbolIndex,
+) -> BTreeMap<(String, String), BTreeSet<String>> {
+    let mut names = BTreeMap::<(String, String), BTreeSet<String>>::new();
+    for alias in index
+        .type_aliases
+        .iter()
+        .filter(|alias| alias.package.is_none())
+    {
+        for symbol in index.constructors_for_type(&alias.target_name) {
+            if type_alias_targets_constructor(alias, symbol)
+                && !symbol.public
+                && symbol.package.is_none()
+                && !symbol.standard_prelude
+            {
+                names
+                    .entry((alias.module.clone(), symbol.module.clone()))
+                    .or_default()
+                    .insert(symbol.name.clone());
+            }
+        }
+    }
+    names
+}
+
+fn reexported_private_workspace_bare_constructor_names(
+    index: &SymbolIndex,
+    file: &IndexedFile,
+) -> BTreeSet<String> {
+    let mut names = BTreeSet::new();
+    for module in &file.uses {
+        names.extend(
+            index
+                .private_workspace_reexported_constructor_names_by_import_and_module
+                .get(&(module.clone(), file.module.clone()))
+                .into_iter()
+                .flat_map(|module_names| module_names.iter().cloned()),
         );
     }
     names
@@ -3761,6 +3826,55 @@ mod tests {
             sources.push(source(
                 &format!("unused{index}.veln"),
                 "type Token\n  target(Int)\nend\n",
+            ));
+        }
+        EffectiveProjectSnapshot::new(sources)
+    }
+
+    #[test]
+    fn reexported_constructor_visibility_index_does_not_scan_per_source() {
+        let size = 400;
+        let snapshot = reexported_constructor_visibility_snapshot(size);
+
+        navigation_stats::reset();
+        let result = navigate(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("caller0.veln"),
+                line: 4,
+                column: 4,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+        assert_location(&result.definition, "model.veln", 2, 7);
+        assert!(
+            navigation_stats::constructor_candidates_considered() < size / 20,
+            "re-exported constructor visibility scanned constructor candidates once per source"
+        );
+    }
+
+    fn reexported_constructor_visibility_snapshot(size: usize) -> EffectiveProjectSnapshot {
+        let mut sources = vec![
+            source(
+                "facade.veln",
+                concat!("use model\n\n", "pub type Token = model::Token\n"),
+            ),
+            source(
+                "model.veln",
+                concat!("pub type Token\n", "  pub target(Int)\n", "end\n"),
+            ),
+        ];
+        for index in 0..size {
+            sources.push(source(
+                &format!("caller{index}.veln"),
+                concat!(
+                    "use facade\n\n",
+                    "pub fn caller() -> Token\n",
+                    "  target(0)\n",
+                    "end\n",
+                ),
             ));
         }
         EffectiveProjectSnapshot::new(sources)
