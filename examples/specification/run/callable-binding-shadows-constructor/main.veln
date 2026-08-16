@@ -1,0 +1,26 @@
+# Bare calls resolve callable bindings before same-named constructors.
+type Token
+	pack(Int)
+end
+
+fn add_ten(value: Int) -> Int
+	value + 10
+end
+
+fn add_twenty(value: Int) -> Int
+	value + 20
+end
+
+fn parameter_shadow(pack: fn(Int) -> Int) -> Int
+	pack(1)
+end
+
+fn local_shadow() -> Int
+	let pack = add_twenty
+	pack(2)
+end
+
+pub fn main() -> () effects [stdio]
+	stdio::println(int_to_string(parameter_shadow(add_ten)))
+	stdio::println(int_to_string(local_shadow()))
+end

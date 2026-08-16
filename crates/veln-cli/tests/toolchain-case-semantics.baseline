@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"4c25d47f3ba7146d70eb12f34adb96c6d9da4a9a"
+source_git_tree	"8cd492393cca06edc394e99083958c092ec17606"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1516
+case_count	1517
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -23224,6 +23224,27 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"e38f7b658465aa21f67da06540526d38848798684f72d436af8e2b75618b4f9f"
+case	"examples/specification/run/callable-binding-shadows-constructor"
+field	expectations.exit	0
+field	expectations.json_assertions[0].equals	"passed"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	"11\n22\n"
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"stdout"
+field	expectations.json_assertions[2].equals	null
+field	expectations.json_assertions[2].operation	"equals"
+field	expectations.json_assertions[2].path	"error"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.repeat	1
+field	requirements.jdk	true
+field	source_errors	"forbidden"
+case_digest	"0dcd47635771a309b8b49438678f56e6aec6cf46a676f01774680564ff1694f8"
 case	"examples/specification/run/channel-first-stream-routing"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -47791,4 +47812,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"86a2ce5bbeddf215c59bbed9136e964c5ecb6307a9e37a92879312d81fe1623d"
+aggregate_digest	"6e33e16ebdd42c104910c7158b6a1122181c1ecddf06f560360be44325a0ff4f"

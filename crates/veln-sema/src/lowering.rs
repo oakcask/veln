@@ -1069,6 +1069,9 @@ impl<'a> CoreLowerer<'a> {
         args: &[Expr],
         expected: Option<&CoreType>,
     ) -> CoreExpr {
+        if self.bare_callee_has_local_binding(callee) {
+            return self.lower_general_call(expr, callee, args, expected);
+        }
         if let Some(call) = self.lower_constructor_call(expr, callee, args, expected) {
             return call;
         }
@@ -1079,6 +1082,19 @@ impl<'a> CoreLowerer<'a> {
             return call;
         }
         self.lower_general_call(expr, callee, args, expected)
+    }
+
+    fn bare_callee_has_local_binding(&self, callee: &Expr) -> bool {
+        let ExprKind::NamePath(segments) = &callee.kind else {
+            return false;
+        };
+        let [name] = segments.as_slice() else {
+            return false;
+        };
+        self.bindings
+            .iter()
+            .rev()
+            .any(|binding| &binding.name == name)
     }
 
     fn lower_perform(

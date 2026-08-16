@@ -12468,6 +12468,69 @@ fn call_resolution_prefers_local_callable_over_function_declaration() {
 }
 
 #[test]
+fn call_resolution_prefers_local_callable_over_constructor() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Token\n",
+            "  pack(Int)\n",
+            "end\n",
+            "fn pack_value(value: Int) -> Int\n",
+            "  value + 10\n",
+            "end\n",
+            "pub fn parameter_shadow(pack: fn(Int) -> Int) -> Int\n",
+            "  pack(1)\n",
+            "end\n",
+            "pub fn local_shadow() -> Int\n",
+            "  let pack = pack_value\n",
+            "  pack(2)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    for (function_name, expected_arg) in [("parameter_shadow", "1"), ("local_shadow", "2")] {
+        let function = core
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("shadow function should be lowered");
+        let CoreStmtKind::Return { expr } = &function.body[function.body.len() - 1].kind else {
+            panic!("tail expression should lower as return");
+        };
+        let CoreExprKind::Call { target, args } = &expr.kind else {
+            panic!("tail expression should lower as call");
+        };
+        assert_eq!(target, &CoreCallTarget::Value("pack".to_string()));
+        assert!(matches!(&args[0].kind, CoreExprKind::IntLiteral(value) if value == expected_arg));
+    }
+
+    let ir = lowered.ir.expect("complete core should lower to IR");
+    for function_name in ["parameter_shadow", "local_shadow"] {
+        let function = ir
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("shadow function should be in IR");
+        let IrStmtKind::Return { value } = &function.body[function.body.len() - 1].kind else {
+            panic!("tail expression should lower as IR return");
+        };
+        assert!(matches!(
+            &value.kind,
+            IrExprKind::Call {
+                target: IrCallTarget::Value(name),
+                ..
+            } if name == "pack"
+        ));
+    }
+}
+
+#[test]
 fn non_callable_local_shadow_blocks_function_call_resolution() {
     let source = SourceFile::new(
         "main.veln",
