@@ -42,7 +42,9 @@ Duplicate declarations in the same implemented namespace produce
 declaration reported as related context.
 
 Local value bindings and declarations in the current source module shadow
-imported names for both bare values and calls. The standard prelude remains
+imported names for both bare values and calls. A bare call to a local
+function-typed parameter or `let` binding also resolves to that binding before
+considering a same-spelled ADT constructor. The standard prelude remains
 available through `prelude::` when a local declaration shadows its bare name.
 The `StreamInput` standard ADT constructors are available as `Chunk(bytes)`,
 `End`, `StreamInput::Chunk(bytes)`, `StreamInput::End`,

@@ -29,6 +29,8 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/check/declared-helper-callback-inference/`,
   `../../examples/specification/check/callback-return-expected-type-inference/`,
   and `../../examples/specification/check/collection-callback-inference/`.
+- Callable binding precedence over same-spelled constructors:
+  `../../examples/specification/run/callable-binding-shadows-constructor/`.
 
 ## Binary Schema Routes
 
