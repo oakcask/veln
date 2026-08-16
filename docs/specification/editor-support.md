@@ -165,8 +165,9 @@ visibility, handler bindings, deterministic ordering, shadowing, field
 isolation, constructor definition priority when functions share the same
 spelling, bare constructor ambiguity that blocks imported constructor
 definition, same-identity function references when constructors share the same
-spelling, dense same-spelled constructor lookup growth, and positions without a
-supported symbol.
+spelling, callable bindings that shadow same-spelled constructor calls, dense
+same-spelled constructor lookup growth, and positions without a supported
+symbol.
 
 `veln-lsp` captures the workspace manifest, saved workspace sources, valid
 direct path, vendor, mirror, and locally available direct git dependency
@@ -277,6 +278,13 @@ private prelude boundary, the exact standard snapshot URI, the complete
 embedded prelude read, and noncanonical URI rejection. The `veln-lsp`
 standard-package test additionally compares the returned virtual document with
 the exact embedded source value and checks package rename rejection.
+
+The executable LSP example
+`../../examples/specification/lsp/callable-shadow-constructor-navigation/`
+checks that a callable parameter or local binding shadows a same-spelled
+constructor at a bare call site. Definition and references return no
+constructor location, and rename returns no constructor edit for the shadowed
+call.
 
 LSP executable examples use `stdin_jsonrpc_file` when the requested behavior is
 an ordered sequence of decoded JSON-RPC requests and notifications. Those
@@ -418,6 +426,8 @@ Implemented:
   handler operation clause bindings.
 - Stdio definition, references, prepare-rename, and rename responses for
   handler context parameters selected from operation clause bodies.
+- Stdio definition, references, and rename rejection for bare constructor calls
+  shadowed by same-spelled callable parameters or local bindings.
 - Stdio diagnostic publication for discovered workspace Veln files across
   resolved workspace roots, including unopened files, with unsaved open
   document overlays.

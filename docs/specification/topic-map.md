@@ -17,7 +17,8 @@ smallest specification page to read. Start with the short page; open the matchin
   [types.md](types.md).
 - Names, stdio calls, prelude helpers, concurrency calls, and effects:
   [names-effects.md](names-effects.md).
-- Editor lexical fallback, semantic token classes, and LSP full-token encoding:
+- Editor lexical fallback, semantic token classes, LSP full-token encoding,
+  diagnostics, navigation, formatting, and rename:
   [editor-support.md](editor-support.md).
 
 ## Contracts And Holes
