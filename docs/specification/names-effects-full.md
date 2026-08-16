@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The documented name resolution, effect behavior, or executable evidence changes.
+update-when: The name-resolution contract, effect contract, or executable names/effects evidence changes.
 ---
 
 # Names And Effects
