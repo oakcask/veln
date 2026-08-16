@@ -461,7 +461,7 @@ struct SymbolIndex {
 struct FunctionScope {
     body_start: usize,
     end: usize,
-    params: BTreeSet<String>,
+    params: BTreeMap<String, bool>,
     result_binding: Option<String>,
     local_bindings: Vec<LocalBinding>,
 }
@@ -471,6 +471,7 @@ struct LocalBinding {
     name: String,
     start: usize,
     end: usize,
+    callable: bool,
 }
 
 #[derive(Debug)]
@@ -616,7 +617,7 @@ impl SymbolIndex {
         token_index: usize,
         name: &str,
     ) -> Option<Symbol> {
-        if local_binding_shadows_call_target(file, tokens, token_index, name) {
+        if self.local_callable_binding_shadows_call_target(file, tokens, token_index, name) {
             return None;
         }
         if self.has_visible_bare_constructor_name(file, name) {
@@ -626,6 +627,9 @@ impl SymbolIndex {
             if self.has_ambiguous_constructor_for_bare_call(file, name) {
                 return None;
             }
+        }
+        if self.local_binding_shadows_call_target(file, tokens, token_index, name) {
+            return None;
         }
         if let Some(symbol) = self.functions_named(name).find(|symbol| {
             symbol.name == name && symbol.module == file.module && symbol.package.is_none()
@@ -1059,6 +1063,69 @@ impl SymbolIndex {
                     )
             })
             .map(|index| file.source.span(tokens[index].range))
+            .collect()
+    }
+
+    fn local_binding_shadows_call_target(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        index: usize,
+        name: &str,
+    ) -> bool {
+        let offset = tokens[index].range.start;
+        let callable_values = self.callable_function_value_names(file);
+        function_scopes(tokens, &callable_values)
+            .iter()
+            .any(|scope| {
+                offset >= scope.body_start
+                    && offset < scope.end
+                    && scope.shadows(name, tokens, index)
+            })
+            || handler_operation_clause_bindings(file, tokens)
+                .iter()
+                .any(|binding| {
+                    binding.name == name && offset >= binding.start && offset < binding.end
+                })
+    }
+
+    fn local_callable_binding_shadows_call_target(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        index: usize,
+        name: &str,
+    ) -> bool {
+        let offset = tokens[index].range.start;
+        let callable_values = self.callable_function_value_names(file);
+        function_scopes(tokens, &callable_values)
+            .iter()
+            .any(|scope| {
+                offset >= scope.body_start
+                    && offset < scope.end
+                    && scope.callable_shadows(name, tokens, index)
+            })
+            || handler_operation_clause_bindings(file, tokens)
+                .iter()
+                .any(|binding| {
+                    binding.name == name && offset >= binding.start && offset < binding.end
+                })
+    }
+
+    fn callable_function_value_names(&self, file: &IndexedFile) -> BTreeSet<String> {
+        self.functions
+            .iter()
+            .filter(|symbol| {
+                symbol.package.is_none()
+                    && (symbol.module == file.module
+                        || file.uses.contains(&symbol.module)
+                            && symbol.public
+                            && file
+                                .companion_target_module
+                                .as_ref()
+                                .is_some_and(|target| target == &symbol.module))
+            })
+            .map(|symbol| symbol.name.clone())
             .collect()
     }
 
@@ -1757,7 +1824,7 @@ fn matching_rparen_index(tokens: &[Token], lparen_index: usize, end_index: usize
 }
 
 fn call_reference_token_indices(tokens: &[Token], name: &str) -> Vec<usize> {
-    let scopes = function_scopes(tokens);
+    let scopes = function_scopes(tokens, &BTreeSet::new());
     tokens
         .iter()
         .enumerate()
@@ -1795,21 +1862,7 @@ fn qualified_reference_token_indices(tokens: &[Token], module: &str, name: &str)
         .collect()
 }
 
-fn local_binding_shadows_call_target(
-    file: &IndexedFile,
-    tokens: &[Token],
-    index: usize,
-    name: &str,
-) -> bool {
-    let offset = tokens[index].range.start;
-    function_scopes(tokens).iter().any(|scope| {
-        offset >= scope.body_start && offset < scope.end && scope.shadows(name, tokens, index)
-    }) || handler_operation_clause_bindings(file, tokens)
-        .iter()
-        .any(|binding| binding.name == name && offset >= binding.start && offset < binding.end)
-}
-
-fn function_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
+fn function_scopes(tokens: &[Token], function_values: &BTreeSet<String>) -> Vec<FunctionScope> {
     let mut scopes = Vec::new();
     for (index, token) in tokens.iter().enumerate() {
         if !matches!(token.kind, TokenKind::Fn | TokenKind::Test) {
@@ -1823,9 +1876,9 @@ fn function_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
             continue;
         };
         let end = function_scope_end(tokens, index + 1).unwrap_or(body_start);
-        let params = parameter_names(tokens, index, body_start);
+        let params = parameter_bindings(tokens, index, body_start);
         let result_binding = result_binding_name(tokens, index, body_start);
-        let local_bindings = local_bindings(tokens, body_start, end);
+        let local_bindings = local_bindings(tokens, body_start, end, &params, function_values);
         scopes.push(FunctionScope {
             body_start,
             end,
@@ -1840,13 +1893,24 @@ fn function_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
 impl FunctionScope {
     fn shadows(&self, name: &str, tokens: &[Token], index: usize) -> bool {
         let offset = tokens[index].range.start;
-        self.params.contains(name)
+        self.params.contains_key(name)
             || self
                 .result_binding
                 .as_deref()
                 .is_some_and(|binding| binding == name && is_ensure_reference(tokens, index))
             || self.local_bindings.iter().any(|binding| {
                 binding.name == name && binding.start <= offset && offset < binding.end
+            })
+    }
+
+    fn callable_shadows(&self, name: &str, tokens: &[Token], index: usize) -> bool {
+        let offset = tokens[index].range.start;
+        self.params.get(name).copied().unwrap_or(false)
+            || self.local_bindings.iter().any(|binding| {
+                binding.callable
+                    && binding.name == name
+                    && binding.start <= offset
+                    && offset < binding.end
             })
     }
 }
@@ -1867,37 +1931,70 @@ fn function_scope_end(tokens: &[Token], start: usize) -> Option<usize> {
     None
 }
 
-fn parameter_names(tokens: &[Token], start: usize, body_start: usize) -> BTreeSet<String> {
-    let mut names = BTreeSet::new();
+fn parameter_bindings(tokens: &[Token], start: usize, body_start: usize) -> BTreeMap<String, bool> {
+    let mut names = BTreeMap::new();
     let mut depth = 0usize;
-    let mut expect_parameter_name = false;
-    for token in tokens[start..]
+    let mut pending_parameter_name: Option<String> = None;
+    let mut pending_type_start: Option<usize> = None;
+    for (relative_index, token) in tokens[start..]
         .iter()
-        .take_while(|token| token.range.start < body_start)
+        .enumerate()
+        .take_while(|(_, token)| token.range.start < body_start)
     {
+        let index = start + relative_index;
         match token.kind {
             TokenKind::LParen => {
                 depth += 1;
                 if depth == 1 {
-                    expect_parameter_name = true;
+                    pending_parameter_name = None;
+                    pending_type_start = None;
                 }
             }
             TokenKind::RParen => {
+                if depth == 1 {
+                    insert_pending_parameter(
+                        tokens,
+                        &mut names,
+                        pending_parameter_name.take(),
+                        pending_type_start.take(),
+                        index,
+                    );
+                }
                 depth = depth.saturating_sub(1);
-                expect_parameter_name = false;
             }
-            TokenKind::Comma if depth == 1 => expect_parameter_name = true,
-            TokenKind::Ident if depth == 1 && expect_parameter_name => {
-                names.insert(token.text.clone());
-                expect_parameter_name = false;
+            TokenKind::Comma if depth == 1 => {
+                insert_pending_parameter(
+                    tokens,
+                    &mut names,
+                    pending_parameter_name.take(),
+                    pending_type_start.take(),
+                    index,
+                );
             }
-            token_kind if !is_layout_token_kind(token_kind) && depth == 1 => {
-                expect_parameter_name = false;
+            TokenKind::Ident if depth == 1 && pending_parameter_name.is_none() => {
+                pending_parameter_name = Some(token.text.clone());
+            }
+            TokenKind::Colon if depth == 1 && pending_parameter_name.is_some() => {
+                pending_type_start = Some(index + 1);
             }
             _ => {}
         }
     }
     names
+}
+
+fn insert_pending_parameter(
+    tokens: &[Token],
+    names: &mut BTreeMap<String, bool>,
+    name: Option<String>,
+    type_start: Option<usize>,
+    end: usize,
+) {
+    let Some(name) = name else {
+        return;
+    };
+    let callable = type_start.is_some_and(|start| type_range_contains_fn(tokens, start, end));
+    names.insert(name, callable);
 }
 
 fn result_binding_name(tokens: &[Token], start: usize, body_start: usize) -> Option<String> {
@@ -1918,8 +2015,19 @@ fn result_binding_name(tokens: &[Token], start: usize, body_start: usize) -> Opt
         .then(|| candidate.text.clone())
 }
 
-fn local_bindings(tokens: &[Token], body_start: usize, end: usize) -> Vec<LocalBinding> {
+fn local_bindings(
+    tokens: &[Token],
+    body_start: usize,
+    end: usize,
+    params: &BTreeMap<String, bool>,
+    function_values: &BTreeSet<String>,
+) -> Vec<LocalBinding> {
     let mut bindings = Vec::new();
+    let mut callable_values = params
+        .iter()
+        .filter_map(|(name, callable)| callable.then_some(name.clone()))
+        .collect::<BTreeSet<_>>();
+    callable_values.extend(function_values.iter().cloned());
     for (index, token) in tokens.iter().enumerate() {
         if token.range.start < body_start
             || token.range.start >= end
@@ -1929,19 +2037,63 @@ fn local_bindings(tokens: &[Token], body_start: usize, end: usize) -> Vec<LocalB
         }
         let binding_end = local_binding_scope_end(tokens, index, end);
         let binding_start = let_binding_scope_start(tokens, index);
-        bindings.extend(
-            let_binding_names(tokens, index)
-                .into_iter()
-                .map(|name| LocalBinding {
-                    name,
-                    start: binding_start,
-                    end: binding_end,
-                }),
-        );
+        let callable = let_binding_is_callable(tokens, index, &callable_values);
+        let names = let_binding_names(tokens, index);
+        for name in names {
+            if callable {
+                callable_values.insert(name.clone());
+            }
+            bindings.push(LocalBinding {
+                name,
+                start: binding_start,
+                end: binding_end,
+                callable,
+            });
+        }
     }
     bindings.extend(match_arm_pattern_binding_names(tokens, body_start, end));
     bindings.extend(satisfy_candidate_binding_names(tokens, body_start, end));
     bindings
+}
+
+fn let_binding_is_callable(
+    tokens: &[Token],
+    let_index: usize,
+    callable_values: &BTreeSet<String>,
+) -> bool {
+    let line_end = tokens[let_index + 1..]
+        .iter()
+        .position(|token| token.kind == TokenKind::Newline || token.kind == TokenKind::Eof)
+        .map_or(tokens.len(), |relative| let_index + 1 + relative);
+    if let Some(colon_index) = tokens[let_index + 1..line_end]
+        .iter()
+        .position(|token| token.kind == TokenKind::Colon)
+        .map(|relative| let_index + 1 + relative)
+        && let Some(equal_index) = tokens[colon_index + 1..line_end]
+            .iter()
+            .position(|token| token.kind == TokenKind::Equal)
+            .map(|relative| colon_index + 1 + relative)
+        && type_range_contains_fn(tokens, colon_index + 1, equal_index)
+    {
+        return true;
+    }
+    let Some(equal_index) = tokens[let_index + 1..line_end]
+        .iter()
+        .position(|token| token.kind == TokenKind::Equal)
+        .map(|relative| let_index + 1 + relative)
+    else {
+        return false;
+    };
+    next_non_layout_index_before(tokens, equal_index, line_end).is_some_and(|value_index| {
+        tokens[value_index].kind == TokenKind::Ident
+            && callable_values.contains(&tokens[value_index].text)
+    })
+}
+
+fn type_range_contains_fn(tokens: &[Token], start: usize, end: usize) -> bool {
+    tokens[start..end]
+        .iter()
+        .any(|token| token.kind == TokenKind::Fn)
 }
 
 fn let_binding_scope_start(tokens: &[Token], let_index: usize) -> usize {
@@ -2002,9 +2154,15 @@ fn local_binding_shadows_name(
     scope_start: usize,
     scope_end: usize,
 ) -> bool {
-    local_bindings(tokens, scope_start, scope_end)
-        .iter()
-        .any(|binding| binding.name == name && offset >= binding.start && offset < binding.end)
+    local_bindings(
+        tokens,
+        scope_start,
+        scope_end,
+        &BTreeMap::new(),
+        &BTreeSet::new(),
+    )
+    .iter()
+    .any(|binding| binding.name == name && offset >= binding.start && offset < binding.end)
 }
 
 fn handler_operation_clause_parameter_shadows_name(
@@ -2112,6 +2270,7 @@ fn match_arm_pattern_binding_names(
                 name,
                 start: scope_start,
                 end: scope_end,
+                callable: false,
             });
         }
     }
@@ -2154,6 +2313,7 @@ fn satisfy_candidate_binding_names(
             name: candidate.text.clone(),
             start: tokens[arrow_index].range.end,
             end,
+            callable: false,
         });
     }
     bindings
@@ -2509,6 +2669,13 @@ fn next_non_layout_token(tokens: &[Token], index: usize) -> Option<&Token> {
 
 fn next_non_layout_index(tokens: &[Token], index: usize) -> Option<usize> {
     tokens[index + 1..]
+        .iter()
+        .position(|token| !is_layout_token(token))
+        .map(|relative_index| index + 1 + relative_index)
+}
+
+fn next_non_layout_index_before(tokens: &[Token], index: usize, end: usize) -> Option<usize> {
+    tokens[index + 1..end]
         .iter()
         .position(|token| !is_layout_token(token))
         .map(|relative_index| index + 1 + relative_index)
@@ -2881,6 +3048,54 @@ mod tests {
         assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
         assert_location(&result.definition, "main.veln", 2, 3);
         assert!(result.references.is_empty());
+    }
+
+    #[test]
+    fn non_callable_local_bindings_do_not_shadow_constructor_call_navigation() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "type Token\n",
+                "  pack(Int)\n",
+                "end\n\n",
+                "fn parameter_shadow(pack: Int) -> Token\n",
+                "  pack(1)\n",
+                "end\n\n",
+                "fn local_shadow(value: Int) -> Token\n",
+                "  let pack = value\n",
+                "  pack(2)\n",
+                "end\n",
+            ),
+        )];
+
+        for (line, column) in [(6, 4), (11, 4)] {
+            let result = query(sources.clone(), "main.veln", line, column).unwrap();
+
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+            assert_location(&result.definition, "main.veln", 2, 3);
+            assert!(result.references.is_empty());
+        }
+    }
+
+    #[test]
+    fn callable_local_function_value_shadows_constructor_call_navigation() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "type Token\n",
+                "  pack(Int)\n",
+                "end\n\n",
+                "fn pack_value(value: Int) -> Int\n",
+                "  value\n",
+                "end\n\n",
+                "fn local_shadow() -> Int\n",
+                "  let pack = pack_value\n",
+                "  pack(2)\n",
+                "end\n",
+            ),
+        )];
+
+        assert!(query(sources, "main.veln", 11, 4).is_none());
     }
 
     #[test]

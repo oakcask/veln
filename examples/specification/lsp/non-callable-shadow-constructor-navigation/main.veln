@@ -1,0 +1,12 @@
+type Token
+  pack(Int)
+end
+
+pub fn parameter_shadow(pack: Int) -> Token
+  pack(1)
+end
+
+pub fn local_shadow(value: Int) -> Token
+  let pack = value
+  pack(2)
+end

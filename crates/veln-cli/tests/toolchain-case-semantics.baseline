@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"8cd492393cca06edc394e99083958c092ec17606"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1517
+case_count	1518
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -10244,6 +10244,27 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":633,"sha256":"ad176054c1e66f32ea9ebb3189d8d4e45ec973140eae147da1ffaf56184d274d"}
 field	source_errors	"forbidden"
 case_digest	"574f9e413bcd009177b66ab642e83d107408db95e155c79702d526566bdbc94c"
+case	"examples/specification/lsp/non-callable-shadow-constructor-navigation"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"definitionProvider\":true"
+field	expectations.stdout.contains[10]	"\"newText\":\"pack_value\""
+field	expectations.stdout.contains[1]	"\"referencesProvider\":true"
+field	expectations.stdout.contains[2]	"\"renameProvider\":{\"prepareProvider\":true}"
+field	expectations.stdout.contains[3]	"\"id\":2,\"result\":{\"uri\":\"file://"
+field	expectations.stdout.contains[4]	"\"id\":3,\"result\":[{\"uri\":\"file://"
+field	expectations.stdout.contains[5]	"\"id\":4,\"result\":{\"changes\":{\"file://"
+field	expectations.stdout.contains[6]	"\"id\":5,\"result\":{\"uri\":\"file://"
+field	expectations.stdout.contains[7]	"\"id\":6,\"result\":[{\"uri\":\"file://"
+field	expectations.stdout.contains[8]	"\"id\":7,\"result\":{\"changes\":{\"file://"
+field	expectations.stdout.contains[9]	"\"range\":{\"start\":{\"line\":1,\"character\":2},\"end\":{\"line\":1,\"character\":6}}"
+field	expectations.stdout.not_contains[0]	"\"id\":2,\"result\":null"
+field	expectations.stdout.not_contains[1]	"\"id\":5,\"result\":null"
+field	invocation.command[0]	"lsp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1406,"sha256":"afd33b09a24ec27c67671eeaf97361e160a42ae00f1f7af612f605d9a065f920"}
+field	source_errors	"forbidden"
+case_digest	"1961a81b9ed7fcec7e5e4fe05671a01e915646e27442821f2b0bb0b01e5514e5"
 case	"examples/specification/lsp/open-document-nested-boundary"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47812,4 +47833,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"6e33e16ebdd42c104910c7158b6a1122181c1ecddf06f560360be44325a0ff4f"
+aggregate_digest	"b9d02c2476233de0014cf43a4905b12cce7d7c1b72973df5f0665eb0a370cd13"
