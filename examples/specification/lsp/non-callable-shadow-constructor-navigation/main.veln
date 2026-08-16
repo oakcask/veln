@@ -10,3 +10,18 @@ pub fn local_shadow(value: Int) -> Token
   let pack = value
   pack(2)
 end
+
+effect Build
+  make(pack: Int) -> Token
+  wrap(value: Int) -> Token
+end
+
+handler context(pack: Int) handles Build
+  wrap(value) => pack(1)
+  make(value) => pack(value)
+end
+
+handler clause() handles Build
+  make(pack) => pack(2)
+  wrap(value) => pack(value)
+end

@@ -456,6 +456,7 @@ struct SymbolIndex {
         BTreeMap<(String, String), BTreeSet<String>>,
     type_aliases_by_target_name: BTreeMap<String, Vec<usize>>,
     visible_bare_constructor_names_by_source: BTreeMap<IndexedSourceKey, BTreeSet<String>>,
+    visible_bare_constructor_indices_by_source: BTreeMap<(IndexedSourceKey, String), Vec<usize>>,
 }
 
 #[derive(Debug)]
@@ -509,6 +510,7 @@ struct ClauseBinding {
     start: usize,
     end: usize,
     kind: LocalSymbolKind,
+    callable: bool,
 }
 
 impl SymbolIndex {
@@ -560,6 +562,7 @@ impl SymbolIndex {
             type_aliases,
             files,
             visible_bare_constructor_names_by_source: BTreeMap::new(),
+            visible_bare_constructor_indices_by_source: BTreeMap::new(),
         };
         index.public_reexported_constructor_names_by_import =
             public_reexported_constructor_names_by_import(&index);
@@ -567,6 +570,8 @@ impl SymbolIndex {
             private_workspace_reexported_constructor_names_by_import_and_module(&index);
         index.visible_bare_constructor_names_by_source =
             visible_bare_constructor_names_by_source(&index);
+        index.visible_bare_constructor_indices_by_source =
+            visible_bare_constructor_indices_by_source(&index);
         index
     }
 
@@ -718,7 +723,7 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<ConstructorSymbol> {
         let current_module_candidates: Vec<_> = self
-            .constructors_named(name)
+            .visible_bare_constructors_named(file, name)
             .filter(|symbol| {
                 symbol.name == name
                     && symbol.package.is_none()
@@ -731,7 +736,7 @@ impl SymbolIndex {
         }
 
         let workspace_import_candidates: Vec<_> = self
-            .constructors_named(name)
+            .visible_bare_constructors_named(file, name)
             .filter(|symbol| {
                 symbol.name == name
                     && !symbol.standard_prelude
@@ -746,51 +751,63 @@ impl SymbolIndex {
             return exactly_one_constructor(workspace_import_candidates.into_iter()).cloned();
         }
 
-        let external_import_candidates = self.constructors_named(name).filter(|symbol| {
-            symbol.name == name
-                && !symbol.standard_prelude
-                && symbol.public
-                && symbol.package.as_ref().is_some_and(|package| {
-                    file.external_uses
-                        .contains(&(symbol.module.clone(), package.clone()))
-                        || self.constructor_reexport_visible_from(file, symbol, Some(package))
-                })
-        });
+        let external_import_candidates =
+            self.visible_bare_constructors_named(file, name)
+                .filter(|symbol| {
+                    symbol.name == name
+                        && !symbol.standard_prelude
+                        && symbol.public
+                        && symbol.package.as_ref().is_some_and(|package| {
+                            file.external_uses
+                                .contains(&(symbol.module.clone(), package.clone()))
+                                || self.constructor_reexport_visible_from(
+                                    file,
+                                    symbol,
+                                    Some(package),
+                                )
+                        })
+                });
         if let Some(symbol) = exactly_one_constructor(external_import_candidates) {
             return Some(symbol.clone());
         }
 
         let standard_prelude_candidates = self
-            .constructors_named(name)
+            .visible_bare_constructors_named(file, name)
             .filter(|symbol| symbol.name == name && symbol.standard_prelude && symbol.public);
         exactly_one_constructor(standard_prelude_candidates).cloned()
     }
 
     fn has_ambiguous_constructor_for_bare_call(&self, file: &IndexedFile, name: &str) -> bool {
-        at_least_two_constructors(self.constructors_named(name).filter(|symbol| {
-            symbol.name == name
-                && symbol.package.is_none()
-                && symbol.module == file.module
-                && visible_workspace_constructor_from(file, symbol)
-        })) || at_least_two_constructors(self.constructors_named(name).filter(|symbol| {
-            symbol.name == name
-                && !symbol.standard_prelude
-                && symbol.package.is_none()
-                && symbol.module != file.module
-                && (file.uses.contains(&symbol.module)
-                    || self.constructor_reexport_visible_from(file, symbol, None))
-                && visible_workspace_constructor_from(file, symbol)
-        })) || at_least_two_constructors(self.constructors_named(name).filter(|symbol| {
-            symbol.name == name
-                && !symbol.standard_prelude
-                && symbol.public
-                && symbol.package.as_ref().is_some_and(|package| {
-                    file.external_uses
-                        .contains(&(symbol.module.clone(), package.clone()))
-                        || self.constructor_reexport_visible_from(file, symbol, Some(package))
-                })
-        })) || at_least_two_constructors(
-            self.constructors_named(name)
+        at_least_two_constructors(self.visible_bare_constructors_named(file, name).filter(
+            |symbol| {
+                symbol.name == name
+                    && symbol.package.is_none()
+                    && symbol.module == file.module
+                    && visible_workspace_constructor_from(file, symbol)
+            },
+        )) || at_least_two_constructors(self.visible_bare_constructors_named(file, name).filter(
+            |symbol| {
+                symbol.name == name
+                    && !symbol.standard_prelude
+                    && symbol.package.is_none()
+                    && symbol.module != file.module
+                    && (file.uses.contains(&symbol.module)
+                        || self.constructor_reexport_visible_from(file, symbol, None))
+                    && visible_workspace_constructor_from(file, symbol)
+            },
+        )) || at_least_two_constructors(self.visible_bare_constructors_named(file, name).filter(
+            |symbol| {
+                symbol.name == name
+                    && !symbol.standard_prelude
+                    && symbol.public
+                    && symbol.package.as_ref().is_some_and(|package| {
+                        file.external_uses
+                            .contains(&(symbol.module.clone(), package.clone()))
+                            || self.constructor_reexport_visible_from(file, symbol, Some(package))
+                    })
+            },
+        )) || at_least_two_constructors(
+            self.visible_bare_constructors_named(file, name)
                 .filter(|symbol| symbol.name == name && symbol.standard_prelude && symbol.public),
         )
     }
@@ -1147,7 +1164,10 @@ impl SymbolIndex {
             || handler_operation_clause_bindings(file, tokens)
                 .iter()
                 .any(|binding| {
-                    binding.name == name && offset >= binding.start && offset < binding.end
+                    binding.callable
+                        && binding.name == name
+                        && offset >= binding.start
+                        && offset < binding.end
                 })
     }
 
@@ -1218,6 +1238,20 @@ impl SymbolIndex {
             indices: self
                 .constructors_by_name
                 .get(name)
+                .map(|indices| indices.iter()),
+        }
+    }
+
+    fn visible_bare_constructors_named(
+        &self,
+        file: &IndexedFile,
+        name: &str,
+    ) -> ConstructorCandidates<'_> {
+        ConstructorCandidates {
+            table: &self.constructors,
+            indices: self
+                .visible_bare_constructor_indices_by_source
+                .get(&(file.key(), name.to_string()))
                 .map(|indices| indices.iter()),
         }
     }
@@ -1442,6 +1476,74 @@ fn visible_bare_constructor_names_by_source(
             (file.key(), names)
         })
         .collect()
+}
+
+fn visible_bare_constructor_indices_by_source(
+    index: &SymbolIndex,
+) -> BTreeMap<(IndexedSourceKey, String), Vec<usize>> {
+    let mut indices = BTreeMap::<(IndexedSourceKey, String), Vec<usize>>::new();
+    for file in &index.files {
+        let source_key = file.key();
+        let Some(names) = index
+            .visible_bare_constructor_names_by_source
+            .get(&source_key)
+        else {
+            continue;
+        };
+        for name in names {
+            for constructor_index in index
+                .constructors_by_name
+                .get(name)
+                .into_iter()
+                .flat_map(|constructor_indices| constructor_indices.iter().copied())
+            {
+                let Some(symbol) = index.constructors.get(constructor_index) else {
+                    continue;
+                };
+                if !visible_bare_constructor_from(index, file, symbol) {
+                    continue;
+                }
+                indices
+                    .entry((source_key.clone(), name.clone()))
+                    .or_default()
+                    .push(constructor_index);
+            }
+        }
+    }
+    indices
+}
+
+fn visible_bare_constructor_from(
+    index: &SymbolIndex,
+    file: &IndexedFile,
+    symbol: &ConstructorSymbol,
+) -> bool {
+    if symbol.package.is_none()
+        && symbol.module == file.module
+        && visible_workspace_constructor_from(file, symbol)
+    {
+        return true;
+    }
+    if !symbol.standard_prelude
+        && symbol.package.is_none()
+        && symbol.module != file.module
+        && (file.uses.contains(&symbol.module)
+            || index.constructor_reexport_visible_from(file, symbol, None))
+        && visible_workspace_constructor_from(file, symbol)
+    {
+        return true;
+    }
+    if !symbol.standard_prelude
+        && symbol.public
+        && symbol.package.as_ref().is_some_and(|package| {
+            file.external_uses
+                .contains(&(symbol.module.clone(), package.clone()))
+                || index.constructor_reexport_visible_from(file, symbol, Some(package))
+        })
+    {
+        return true;
+    }
+    symbol.standard_prelude && symbol.public
 }
 
 fn public_reexported_constructor_names_by_import(
@@ -1721,6 +1823,13 @@ fn handler_operation_clause_symbol(
         .into_iter()
         .find(|binding| {
             let token_offset = tokens[token_index].range.start;
+            if is_call_target_token(tokens, token_index)
+                && token_offset >= binding.start
+                && token_offset < binding.end
+                && !binding.callable
+            {
+                return false;
+            }
             binding.name == name
                 && ((selection.start.offset >= binding.declaration.start.offset
                     && selection.start.offset < binding.declaration.end.offset)
@@ -1747,7 +1856,11 @@ fn handler_operation_clause_symbol(
 }
 
 fn handler_operation_clause_bindings(file: &IndexedFile, tokens: &[Token]) -> Vec<ClauseBinding> {
+    if !tokens.iter().any(|token| token.kind == TokenKind::Handler) {
+        return Vec::new();
+    }
     let mut clause_bindings = Vec::new();
+    let operation_parameter_callables = handler_operation_parameter_callables(tokens);
     for (arrow_index, arrow) in tokens.iter().enumerate() {
         if arrow.kind != TokenKind::FatArrow
             || !inside_top_level_block(tokens, arrow_index, TokenKind::Handler)
@@ -1771,20 +1884,117 @@ fn handler_operation_clause_bindings(file: &IndexedFile, tokens: &[Token]) -> Ve
         else {
             continue;
         };
-        for token in &tokens[lparen_index + 1..rparen_index] {
-            if token.kind == TokenKind::Ident && is_identifier(&token.text) {
-                clause_bindings.push(ClauseBinding {
-                    name: token.text.clone(),
-                    declaration: file.source.span(token.range),
-                    start: arrow.range.end,
-                    end: body_end,
-                    kind: LocalSymbolKind::HandlerOperationClauseParameter,
-                });
-            }
+        let Some(operation_index) = previous_non_layout_index(tokens, lparen_index) else {
+            continue;
+        };
+        let operation_name = tokens[operation_index].text.clone();
+        for (parameter_index, token_index) in
+            handler_operation_clause_parameter_name_indices(tokens, lparen_index, rparen_index)
+                .into_iter()
+                .enumerate()
+        {
+            let token = &tokens[token_index];
+            let callable = operation_parameter_callables
+                .get(&operation_name)
+                .and_then(|callables| callables.get(parameter_index))
+                .copied()
+                .unwrap_or(false);
+            clause_bindings.push(ClauseBinding {
+                name: token.text.clone(),
+                declaration: file.source.span(token.range),
+                start: arrow.range.end,
+                end: body_end,
+                kind: LocalSymbolKind::HandlerOperationClauseParameter,
+                callable,
+            });
         }
     }
     clause_bindings.extend(handler_context_parameter_bindings(file, tokens));
     clause_bindings
+}
+
+fn handler_operation_clause_parameter_name_indices(
+    tokens: &[Token],
+    lparen_index: usize,
+    rparen_index: usize,
+) -> Vec<usize> {
+    let mut indices = Vec::new();
+    let mut depth = 0usize;
+    let mut pending_parameter = true;
+    for (relative_index, token) in tokens[lparen_index + 1..rparen_index].iter().enumerate() {
+        let index = lparen_index + 1 + relative_index;
+        match token.kind {
+            TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => depth += 1,
+            TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
+                depth = depth.saturating_sub(1);
+            }
+            TokenKind::Comma if depth == 0 => pending_parameter = true,
+            TokenKind::Colon if depth == 0 => pending_parameter = false,
+            TokenKind::Ident if depth == 0 && pending_parameter && is_identifier(&token.text) => {
+                indices.push(index);
+                pending_parameter = false;
+            }
+            _ => {}
+        }
+    }
+    indices
+}
+
+fn handler_operation_parameter_callables(tokens: &[Token]) -> BTreeMap<String, Vec<bool>> {
+    let mut operations = BTreeMap::new();
+    for (index, token) in tokens.iter().enumerate() {
+        if token.kind != TokenKind::Ident
+            || !inside_top_level_block(tokens, index, TokenKind::Effect)
+        {
+            continue;
+        }
+        let Some(lparen_index) = next_non_layout_index(tokens, index) else {
+            continue;
+        };
+        if tokens[lparen_index].kind != TokenKind::LParen {
+            continue;
+        }
+        let Some(rparen_index) = matching_rparen_index(tokens, lparen_index, tokens.len()) else {
+            continue;
+        };
+        operations.insert(
+            token.text.clone(),
+            parameter_callables_in_range(tokens, lparen_index, rparen_index),
+        );
+    }
+    operations
+}
+
+fn parameter_callables_in_range(
+    tokens: &[Token],
+    lparen_index: usize,
+    rparen_index: usize,
+) -> Vec<bool> {
+    let mut callables = Vec::new();
+    let mut depth = 0usize;
+    let mut pending_type_start = None;
+    for (relative_index, token) in tokens[lparen_index + 1..rparen_index].iter().enumerate() {
+        let index = lparen_index + 1 + relative_index;
+        match token.kind {
+            TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => depth += 1,
+            TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
+                depth = depth.saturating_sub(1);
+            }
+            TokenKind::Colon if depth == 0 => pending_type_start = Some(index + 1),
+            TokenKind::Comma if depth == 0 => {
+                callables.push(
+                    pending_type_start
+                        .take()
+                        .is_some_and(|start| type_range_contains_fn(tokens, start, index)),
+                );
+            }
+            _ => {}
+        }
+    }
+    if let Some(start) = pending_type_start {
+        callables.push(type_range_contains_fn(tokens, start, rparen_index));
+    }
+    callables
 }
 
 fn handler_context_parameter_bindings(file: &IndexedFile, tokens: &[Token]) -> Vec<ClauseBinding> {
@@ -1821,22 +2031,25 @@ fn handler_context_parameter_bindings_for_handler(
     let Some(rparen_index) = matching_rparen_index(tokens, lparen_index, tokens.len()) else {
         return Vec::new();
     };
-    tokens[lparen_index + 1..rparen_index]
-        .iter()
-        .enumerate()
-        .filter(|(_, token)| token.kind == TokenKind::Ident && is_identifier(&token.text))
-        .filter(|(relative_index, _)| {
-            let index = lparen_index + 1 + relative_index;
-            next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::Colon)
-        })
-        .map(|(_, token)| ClauseBinding {
+    let mut bindings = Vec::new();
+    for token_index in
+        handler_operation_clause_parameter_name_indices(tokens, lparen_index, rparen_index)
+    {
+        let token = &tokens[token_index];
+        let callable = next_non_layout_index(tokens, token_index).is_some_and(|colon_index| {
+            tokens[colon_index].kind == TokenKind::Colon
+                && type_range_contains_fn(tokens, colon_index + 1, rparen_index)
+        });
+        bindings.push(ClauseBinding {
             name: token.text.clone(),
             declaration: file.source.span(token.range),
             start: body_start,
             end: handler_end,
             kind: LocalSymbolKind::HandlerContextParameter,
-        })
-        .collect()
+            callable,
+        });
+    }
+    bindings
 }
 
 fn handler_operation_clause_body_end(
@@ -2980,6 +3193,29 @@ mod tests {
     }
 
     #[test]
+    fn bare_function_references_use_visible_same_named_constructor_index() {
+        let size = 200;
+        let snapshot = visible_and_non_visible_same_named_constructor_reference_snapshot(size);
+
+        navigation_stats::reset();
+        let result = navigate(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 3,
+                column: 4,
+            },
+        )
+        .unwrap();
+
+        assert!(result.references.is_empty());
+        assert!(
+            navigation_stats::constructor_candidates_considered() < size * 4,
+            "reference lookup scanned non-visible same-named constructors for each candidate"
+        );
+    }
+
+    #[test]
     fn constructor_reference_counter_observes_indexed_candidates() {
         let size = 2000;
         let snapshot = dense_constructor_call_snapshot(size);
@@ -3133,6 +3369,36 @@ mod tests {
         )];
 
         for (line, column) in [(6, 4), (11, 4)] {
+            let result = query(sources.clone(), "main.veln", line, column).unwrap();
+
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+            assert_location(&result.definition, "main.veln", 2, 3);
+            assert!(result.references.is_empty());
+        }
+    }
+
+    #[test]
+    fn non_callable_handler_bindings_do_not_shadow_constructor_call_navigation() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "type Token\n",
+                "  pack(Int)\n",
+                "end\n\n",
+                "effect Build\n",
+                "  make(pack: Int) -> Token\n",
+                "  wrap(value: Int) -> Token\n",
+                "end\n\n",
+                "handler context(pack: Int) handles Build\n",
+                "  wrap(value) => pack(1)\n",
+                "end\n\n",
+                "handler clause() handles Build\n",
+                "  make(pack) => pack(2)\n",
+                "end\n",
+            ),
+        )];
+
+        for (line, column) in [(11, 18), (15, 17)] {
             let result = query(sources.clone(), "main.veln", line, column).unwrap();
 
             assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
@@ -4196,6 +4462,31 @@ mod tests {
         }
         main.push_str("end\n");
         sources.push(source("main.veln", &main));
+        for index in 0..size {
+            sources.push(source(
+                &format!("unused{index}.veln"),
+                "type Token\n  target(Int)\nend\n",
+            ));
+        }
+        EffectiveProjectSnapshot::new(sources)
+    }
+
+    fn visible_and_non_visible_same_named_constructor_reference_snapshot(
+        size: usize,
+    ) -> EffectiveProjectSnapshot {
+        let mut sources = Vec::new();
+        let mut main = String::from(
+            "use model\n\nfn target(value: Int) -> Int\n  value\nend\n\nfn caller() -> Int\n",
+        );
+        for _ in 0..size {
+            main.push_str("  target(0)\n");
+        }
+        main.push_str("end\n");
+        sources.push(source("main.veln", &main));
+        sources.push(source(
+            "model.veln",
+            "pub type Visible\n  pub target(Int)\nend\n",
+        ));
         for index in 0..size {
             sources.push(source(
                 &format!("unused{index}.veln"),
