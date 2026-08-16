@@ -166,10 +166,11 @@ isolation, constructor definition priority when functions share the same
 spelling, bare constructor ambiguity that blocks imported constructor
 definition, same-identity function references when constructors share the same
 spelling, callable bindings that shadow same-spelled constructor calls,
-non-callable local bindings that leave same-spelled constructor calls
-selectable, dependency constructor package locations keyed by source origin,
-dense same-spelled and re-exported constructor lookup growth, and positions
-without a supported symbol.
+non-callable parameter, local, handler context, and handler operation clause
+bindings that leave same-spelled constructor calls selectable, dependency
+constructor package locations keyed by source origin, dense same-spelled and
+re-exported constructor lookup growth, and positions without a supported
+symbol.
 
 `veln-lsp` captures the workspace manifest, saved workspace sources, valid
 direct path, vendor, mirror, and locally available direct git dependency
@@ -289,9 +290,10 @@ constructor location, and rename returns no constructor edit for the shadowed
 call.
 The executable LSP example
 `../../examples/specification/lsp/non-callable-shadow-constructor-navigation/`
-checks that a non-callable parameter or local binding with the same spelling
-does not block constructor navigation at a bare call site. Definition,
-references, and rename select the constructor call and declaration.
+checks that a non-callable parameter, local binding, handler context parameter,
+or handler operation clause parameter with the same spelling does not block
+constructor navigation at a bare call site. Definition, references, and rename
+select the constructor call and declaration.
 
 LSP executable examples use `stdin_jsonrpc_file` when the requested behavior is
 an ordered sequence of decoded JSON-RPC requests and notifications. Those
@@ -436,7 +438,8 @@ Implemented:
 - Stdio definition, references, and rename rejection for bare constructor calls
   shadowed by same-spelled callable parameters or local bindings.
 - Stdio definition, references, and rename responses for bare constructor calls
-  with same-spelled non-callable parameters or local bindings.
+  with same-spelled non-callable parameters, local bindings, handler context
+  parameters, or handler operation clause parameters.
 - Stdio diagnostic publication for discovered workspace Veln files across
   resolved workspace roots, including unopened files, with unsaved open
   document overlays.
