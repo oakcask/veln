@@ -800,8 +800,31 @@ impl ConstructorTable {
         Self(constructors)
     }
 
+    #[allow(dead_code)]
+    fn iter(&self) -> ConstructorTableIter<'_> {
+        ConstructorTableIter {
+            symbols: self.0.iter(),
+        }
+    }
+
     fn get(&self, index: usize) -> Option<&ConstructorSymbol> {
         self.0.get(index)
+    }
+}
+
+#[allow(dead_code)]
+struct ConstructorTableIter<'a> {
+    symbols: std::slice::Iter<'a, ConstructorSymbol>,
+}
+
+impl<'a> Iterator for ConstructorTableIter<'a> {
+    type Item = &'a ConstructorSymbol;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let symbol = self.symbols.next()?;
+        #[cfg(test)]
+        navigation_stats::record_constructor_candidate();
+        Some(symbol)
     }
 }
 
