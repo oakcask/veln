@@ -3834,6 +3834,53 @@ mod tests {
     }
 
     #[test]
+    fn callable_binding_shadows_constructor_for_bare_call_navigation() {
+        let mut server = Server::default();
+        let project = TempProject::new("callable-shadow-constructor-navigation");
+        project.write(
+            "main.veln",
+            concat!(
+                "type Token\n",
+                "  byte(Int)\n",
+                "end\n",
+                "\n",
+                "pub fn parameter_shadow(byte: fn(Int) -> Token) -> Token\n",
+                "  byte(1)\n",
+                "end\n",
+                "\n",
+                "pub fn local_shadow(identity: fn(Int) -> Token) -> Token\n",
+                "  let byte = identity\n",
+                "  byte(1)\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        for (line, character) in [(5, 4), (10, 4)] {
+            let definition = server.handle_message(&definition_request(&main_uri, line, character));
+            let references = server.handle_message(&references_request(&main_uri, line, character));
+            let rename = server.handle_message(&rename_request(&main_uri, line, character, "pack"));
+
+            assert_eq!(definition.len(), 1);
+            assert!(
+                definition[0].contains(r#""result":null"#),
+                "{}",
+                definition[0]
+            );
+            assert_eq!(references.len(), 1);
+            assert!(
+                references[0].contains(r#""result":[]"#),
+                "{}",
+                references[0]
+            );
+            assert_eq!(rename.len(), 1);
+            assert!(rename[0].contains(r#""changes":{}"#), "{}", rename[0]);
+        }
+    }
+
+    #[test]
     fn ambiguous_current_module_constructor_definition_does_not_fall_back_to_import() {
         let mut server = Server::default();
         let project = TempProject::new("current-constructor-ambiguity-blocks-import-definition");

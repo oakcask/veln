@@ -1,0 +1,12 @@
+type Token
+  byte(Int)
+end
+
+pub fn parameter_shadow(byte: fn(Int) -> Token) -> Token
+  byte(1)
+end
+
+pub fn local_shadow(identity: fn(Int) -> Token) -> Token
+  let byte = identity
+  byte(1)
+end
