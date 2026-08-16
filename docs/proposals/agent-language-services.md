@@ -19,11 +19,13 @@ implemented and specified in
 [MCP Workspace Projects, Diagnostics, And Navigation](../specification/mcp.md). `veln mcp`
 currently exposes `workspace_projects`, `refresh_workspace`, and
 `check_project`, plus workspace-only `definition` and `references` for the
-language service's current function, constructor, and handler-binding symbol
-set. Broader definition and reference navigation beyond that implemented
-workspace symbol set, dependency reference search, documentation resources and
-search, pagination, snapshot resource lifetime, conformance completion, and
-client plugin work in this proposal remain planned.
+language service's current bounded navigation set. Definition covers functions,
+type constructors, handler bindings, and exact test-companion access to private
+target functions. References currently return same-identity workspace function
+references only. Broader definition and reference navigation beyond those
+implemented workspace cases, dependency reference search, documentation
+resources and search, pagination, snapshot resource lifetime, conformance
+completion, and client plugin work in this proposal remain planned.
 
 The remaining first-capability work includes:
 
