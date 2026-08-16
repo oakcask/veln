@@ -3785,6 +3785,9 @@ mod tests {
                 "use model\n\n",
                 "pub fn main() -> Token\n",
                 "  byte(1)\n",
+                "end\n\n",
+                "fn byte(value: Int) -> Int\n",
+                "  value\n",
                 "end\n",
             ),
         );
@@ -3811,6 +3814,22 @@ mod tests {
             !definition[0].contains("veln-pkg:///std/snapshot/"),
             "{}",
             definition[0]
+        );
+
+        let references = server.handle_message(&references_request(&main_uri, 6, 4));
+        assert!(
+            references[0].contains(
+                r#""range":{"start":{"line":6,"character":3},"end":{"line":6,"character":7}}"#
+            ),
+            "{}",
+            references[0]
+        );
+        assert!(
+            !references[0].contains(
+                r#""range":{"start":{"line":3,"character":2},"end":{"line":3,"character":6}}"#
+            ),
+            "{}",
+            references[0]
         );
     }
 

@@ -5,3 +5,15 @@ end
 fn main() -> Int
   helper()
 end
+
+type Shape
+  same(Int)
+end
+
+fn same(value: Int) -> Int
+  value
+end
+
+fn construct() -> Shape
+  same(1)
+end

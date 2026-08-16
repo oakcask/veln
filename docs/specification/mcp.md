@@ -137,12 +137,13 @@ object names the analysis `mode`, `root`, selected `source`, and
 `project_wide` value. Project navigation has `project_wide: true`. Anonymous
 single-file navigation has `project_wide: false`. Each returned function
 reference must resolve to the same function identity as the selected symbol.
-Same-spelled constructors and functions in another scope are excluded. The tool
+Same-spelled constructors and functions in another scope are excluded. A call
+that resolves to a same-spelled constructor is not a function reference. The tool
 returns an empty array when the selected position has no supported symbol or
 when the selected symbol kind has no supported reference search. Constructor
-selections currently have no MCP reference search, so an ambiguous bare
-constructor call such as `same(1)` is unselected and returns an empty
-`references` array.
+selections currently have no MCP reference search, so a selected constructor
+call returns an empty `references` array. An ambiguous bare constructor call
+such as `same(1)` is unselected and also returns an empty `references` array.
 
 LF and CRLF each end one logical line, and neither CRLF terminator scalar is an
 addressable position. A line containing `N` Unicode scalars accepts columns 1
@@ -172,13 +173,14 @@ case checks anonymous `check_project` analysis over only the requested source
 when another saved source in the same workspace contains a language error.
 The `definition-workspace` MCP specification case checks the advertised
 `definition` declaration plus representative definition, no-definition,
-decimal and exponent integer coordinate spellings, and invalid-position
-results plus non-integer decimal and negative-exponent coordinate schema
-rejection over stdio. The `references-workspace` MCP specification case checks
-the advertised `references` declaration, workspace function reference
-locations, same-spelled constructor exclusion, unsupported handler-binding
-reference searches, invalid positions, and non-integer coordinate schema
-rejection over stdio.
+same-spelled constructor/function definition priority, decimal and exponent
+integer coordinate spellings, and invalid-position results plus non-integer
+decimal and negative-exponent coordinate schema rejection over stdio. The
+`references-workspace` MCP specification case checks the advertised
+`references` declaration, workspace function reference locations,
+same-spelled constructor exclusion from function references, unsupported
+handler-binding reference searches, invalid positions, and non-integer
+coordinate schema rejection over stdio.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous

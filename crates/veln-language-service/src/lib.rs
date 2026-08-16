@@ -574,11 +574,6 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<Symbol> {
         if let Some(symbol) = self.constructor_for_bare_call(file, name) {
-            if self.has_local_function(file, name)
-                || self.has_visible_non_prelude_imported_function(file, name)
-            {
-                return None;
-            }
             return Some(Symbol::Constructor(symbol));
         }
         if self.has_ambiguous_constructor_for_bare_call(file, name) {
@@ -608,9 +603,6 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<Symbol> {
         if let Some(symbol) = self.constructor_for_qualified_call(file, qualifier, name) {
-            if self.has_qualified_function(file, qualifier, name) {
-                return None;
-            }
             return Some(Symbol::Constructor(symbol));
         }
         if self.has_ambiguous_constructor_for_qualified_call(file, qualifier, name) {
@@ -703,35 +695,6 @@ impl SymbolIndex {
                         || self.constructor_reexport_visible_from(file, symbol, Some(package))
                 })
         }))
-    }
-
-    fn has_local_function(&self, file: &IndexedFile, name: &str) -> bool {
-        self.functions_named(name).any(|symbol| {
-            symbol.name == name && symbol.module == file.module && symbol.package.is_none()
-        })
-    }
-
-    fn has_qualified_function(&self, file: &IndexedFile, qualifier: &str, name: &str) -> bool {
-        self.functions_named(name)
-            .any(|symbol| match &symbol.package {
-                Some(package) => {
-                    symbol.name == name
-                        && symbol.module == qualifier
-                        && (symbol.standard_prelude
-                            || file
-                                .external_uses
-                                .contains(&(symbol.module.clone(), package.clone())))
-                }
-                None => {
-                    symbol.name == name
-                        && symbol.module == qualifier
-                        && file.uses.contains(&symbol.module)
-                        && file
-                            .companion_target_module
-                            .as_ref()
-                            .is_some_and(|target| target == &symbol.module)
-                }
-            })
     }
 
     fn constructor_for_qualified_call(
@@ -2542,29 +2505,67 @@ mod tests {
     }
 
     #[test]
-    fn bare_constructor_and_function_call_collision_has_no_selected_symbol() {
-        assert!(
-            query(
-                vec![source(
+    fn bare_constructor_wins_over_same_named_function_call() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "type Shape\n",
+                    "  same(Int)\n",
+                    "end\n\n",
+                    "fn same(value: Int) -> Int\n",
+                    "  value\n",
+                    "end\n\n",
+                    "fn main() -> Shape\n",
+                    "  same(1)\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            10,
+            4,
+        )
+        .unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+        assert_location(&result.definition, "main.veln", 2, 3);
+        assert!(result.references.is_empty());
+    }
+
+    #[test]
+    fn qualified_constructor_wins_over_same_named_function_call() {
+        let result = query(
+            vec![
+                source(
+                    "main.test.veln",
+                    concat!(
+                        "use main\n\n",
+                        "test make_shape() -> main::Shape\n",
+                        "  main::same(1)\n",
+                        "end\n",
+                    ),
+                ),
+                source(
                     "main.veln",
                     concat!(
-                        "type Shape\n",
-                        "  same(Int)\n",
+                        "pub type Shape\n",
+                        "  pub same(Int)\n",
                         "end\n\n",
                         "fn same(value: Int) -> Int\n",
                         "  value\n",
-                        "end\n\n",
-                        "fn main() -> Shape\n",
-                        "  same(1)\n",
                         "end\n",
                     ),
-                )],
-                "main.veln",
-                10,
-                4,
-            )
-            .is_none()
-        );
+                ),
+            ],
+            "main.test.veln",
+            4,
+            9,
+        )
+        .unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+        assert_location(&result.definition, "main.veln", 2, 7);
+        assert!(result.references.is_empty());
     }
 
     #[test]

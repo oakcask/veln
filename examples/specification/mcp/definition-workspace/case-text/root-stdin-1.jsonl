@@ -9,3 +9,4 @@
 {"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":6.0000000000000001,"column":4}}}
 {"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":1e9223372036854775807,"column":1}}}
 {"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":1e-9223372036854775808,"column":4}}}
+{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":18,"column":4}}}

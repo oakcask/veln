@@ -15,8 +15,9 @@ contains = [
   "\"id\":5,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"code\\\":\\\"invalid_position\\\"",
   "\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":6",
   "\"id\":7,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"references\\\":[],\\\"scope\\\"",
+  "\"id\":8,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"references\\\":[],\\\"scope\\\"",
 ]
-not_contains = ["target/debug"]
+not_contains = ["\"range\":{\"end\":{\"column\":9,\"line\":34},\"start\":{\"column\":3,\"line\":34}}", "target/debug"]
 
 [stderr]
 format = "empty"

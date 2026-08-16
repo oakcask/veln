@@ -3,3 +3,7 @@ use model
 pub fn main() -> Token
   byte(1)
 end
+
+fn byte(value: Int) -> Int
+  value
+end

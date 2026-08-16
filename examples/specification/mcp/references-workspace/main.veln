@@ -21,3 +21,15 @@ end
 handler adjust(callback: fn(Int) -> Int) handles Adjust
   amount(value) => callback(value)
 end
+
+type Unique
+  unique(Int)
+end
+
+fn unique(value: Int) -> Int
+  value
+end
+
+fn construct_unique() -> Unique
+  unique(1)
+end

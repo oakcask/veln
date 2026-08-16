@@ -162,7 +162,8 @@ and deterministic reference locations as Veln source identities and ranges.
 The result contains no URI serialization, JSON, JSON-RPC, or LSP coordinate
 representation. Its direct tests cover project functions, exact companion
 visibility, handler bindings, deterministic ordering, shadowing, field
-isolation, same-identity function references when constructors share the same
+isolation, constructor definition priority when functions share the same
+spelling, same-identity function references when constructors share the same
 spelling, dense same-spelled constructor lookup growth, and positions without a
 supported symbol.
 
