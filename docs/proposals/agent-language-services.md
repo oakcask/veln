@@ -14,20 +14,21 @@ intelligence without requiring them to drive the editor-oriented LSP protocol.
 ## Implementation Status
 
 The workspace-project inventory, saved project diagnostics, and bounded
-workspace-definition slices are
+workspace navigation slices are
 implemented and specified in
-[MCP Workspace Projects, Diagnostics, And Definitions](../specification/mcp.md). `veln mcp`
+[MCP Workspace Projects, Diagnostics, And Navigation](../specification/mcp.md). `veln mcp`
 currently exposes `workspace_projects`, `refresh_workspace`, and
-`check_project`, plus workspace-only `definition` for the language service's
-current function, constructor, and handler-binding symbol set. Broader
-definition and reference navigation, documentation resources and search,
-pagination, snapshot resource lifetime, conformance completion, and client
-plugin work in this proposal remain planned.
+`check_project`, plus workspace-only `definition` and `references` for the
+language service's current function, constructor, and handler-binding symbol
+set. Broader definition and reference navigation beyond that implemented
+workspace symbol set, dependency reference search, documentation resources and
+search, pagination, snapshot resource lifetime, conformance completion, and
+client plugin work in this proposal remain planned.
 
 The remaining first-capability work includes:
 
-- definition lookup beyond the implemented workspace symbol set, and
-  reference lookup;
+- definition and reference lookup beyond the implemented workspace symbol set,
+  including dependency reference search;
 - language-reference search and retrieval;
 - exported package and standard-library documentation;
 - virtual source locations for dependencies and the standard library; and
@@ -230,14 +231,14 @@ a successful result with no definition or references.
 
 ### Tools
 
-The implemented workspace-project, `check_project`, and workspace `definition`
-input and result schemas
+The implemented workspace-project, `check_project`, workspace `definition`, and
+workspace `references` input and result schemas
 are checked JSON Schemas in the `mcp/v1` schema bundle. Their tool declarations
-derive from the same files. The remaining reference, broader definition,
+derive from the same files. The broader definition, broader reference,
 resource-metadata, and documentation schemas are planned. Schema objects reject
-unknown fields and reject `null` unless a field explicitly permits it. Schema
-or JSON-RPC shape failures map to protocol invalid-params errors. A decoded
-domain failure is an MCP tool error with `{code, message, details}`.
+unknown fields and reject `null` unless a field explicitly permits it. Schema or
+JSON-RPC shape failures map to protocol invalid-params errors. A decoded domain
+failure is an MCP tool error with `{code, message, details}`.
 
 The stable v1 domain codes are `invalid_path`, `invalid_position`,
 `invalid_query`, `source_required`, `project_not_selected`,
@@ -855,11 +856,11 @@ The resolved-decision evidence groups are:
 | Decision | Required evidence |
 | --- | --- |
 | Q01 anonymous diagnostics | Required single source, two unrelated files, invalid combinations, and invalid source paths. |
-| Q02 descendant ownership | Implemented for workspace `definition` project inference and unselected descendant single-file isolation; outer-reference coverage remains planned. |
+| Q02 descendant ownership | Implemented for workspace navigation project inference and unselected descendant single-file isolation in the bounded workspace symbol set; dependency and paginated reference scopes remain planned. |
 | Q03 rediscovery | Manifest add, remove, and rename before and after refresh; atomic refresh failure; cursor invalidation; resource survival. |
 | Q04 filesystem identity | Symbolic base, internal and external directory links, file links, missing leaves, alias URI equality, and link replacement. |
-| Q05 stable capture | Implemented for `check_project` manifest, source, owned path-set changes, readable dependency input changes and reuse across path, vendor, mirror, and locally materialized git sources, bounded retry, no partial publication, pre-refresh selection preservation, anonymous single-file isolation, anonymous base symlink and regular-directory replacement, selected-root symlink and regular-directory replacement, nested regular manifest marker boundaries, symlinked nested manifest marker exclusion, project-local source symlink exclusion, non-Linux fail-closed saved snapshot capture, and workspace `definition` capture that compares project ownership and anonymous fallback in one stable attempt. Reference navigation captures remain planned. |
-| Q06 schemas and errors | Implemented for workspace inventory, `check_project`, and workspace `definition` schema freshness, nullable field rejection, unknown fields including related-note fields, exact non-integer coordinate rejection, stable domain codes, and protocol mapping. Reference, broader definition, resource, and documentation schemas remain planned. |
+| Q05 stable capture | Implemented for `check_project` manifest, source, owned path-set changes, readable dependency input changes and reuse across path, vendor, mirror, and locally materialized git sources, bounded retry, no partial publication, pre-refresh selection preservation, anonymous single-file isolation, anonymous base symlink and regular-directory replacement, selected-root symlink and regular-directory replacement, nested regular manifest marker boundaries, symlinked nested manifest marker exclusion, project-local source symlink exclusion, non-Linux fail-closed saved snapshot capture, and workspace `definition` and `references` navigation capture. Broader navigation captures for dependencies, standard packages, resources, and pagination remain planned. |
+| Q06 schemas and errors | Implemented for workspace inventory, `check_project`, workspace `definition`, and workspace `references` schema freshness, nullable field rejection, unknown fields including related-note fields, exact non-integer coordinate rejection, stable domain codes, and protocol mapping. Broader definition, broader reference, resource, and documentation schemas remain planned. |
 | Q07 coordinates | Empty, LF, CRLF, terminal newline, non-BMP scalar, end positions, token-end exclusion, all LSP encodings, and normalized cross-adapter pages. |
 | Q08 reference universe | Project, other-project exclusion, dependency consumer and declaration behavior, dependency-as-project behavior, and visibly single-file anonymous results. |
 | Q09 cursors | Cursor-only continuation, page concatenation, tamper, cross-server, restart, reuse, eviction, unrelated changes, byte restoration, and refresh. |
@@ -896,10 +897,10 @@ behavior has been promoted to specification and executable-example routes.
 
 ## Acceptance Model
 
-The workspace inventory, saved diagnostics, and bounded workspace-definition
+The workspace inventory, saved diagnostics, and bounded workspace-navigation
 rows implemented by the current slice point to current specification and
-executable evidence. All other rows describe planned evidence and do not imply
-that the behavior is already implemented.
+executable evidence. Other rows describe planned evidence unless their evidence
+cell explicitly cites implemented specification or executable evidence.
 
 ### Server And Project Selection
 
@@ -908,12 +909,12 @@ that the behavior is already implemented.
 | Start `veln mcp` in a one-package project. | The package is selected as `.`. | Implemented `veln-mcp` selection table tests. |
 | Start above two package branches and complete the inventory lifecycle. | Both first manifest roots are listed after initialization. The server rejects inventory requests before initialization and rejects a second valid initialization. `check_project` reports ambiguity when its project input is omitted. | Implemented MCP workspace lifecycle case for inventory and initialization phase boundaries; implemented `veln-mcp` multi-project ambiguity test. |
 | Start where no manifest exists. | The base is selected as one anonymous project. `check_project` requires `project: "."` and `source`, and analyzes exactly that source until refresh even if a manifest or companion target appears later. | Implemented MCP anonymous single-file executable case plus `veln-mcp` selection table, pre-refresh manifest addition, and companion-shaped source tests. |
-| Navigate below an unselected descendant manifest. | The outer project does not own the source; navigation reports single-file scope without outer-project references. | Implemented MCP definition descendant-boundary isolation; reference-result scope remains planned. |
+| Navigate below an unselected descendant manifest. | The outer project does not own the source; navigation reports single-file scope without outer-project references. | Implemented MCP navigation descendant-boundary isolation for the bounded workspace symbol set. |
 | Add, remove, or rename a manifest. | Selection is unchanged until `refresh_workspace`; a successful refresh replaces it atomically. Cursor staleness remains planned. | Implemented `veln-mcp` refresh transition tests; planned Q03 cursor cases. |
 | Start through a symbolic base alias. | The alias is accepted once and returned `file:` URIs use the resolved identity spelling. | Implemented MCP definition canonical resolved-base URI case; broader Q04 symbolic-base cases remain planned. |
 | Supply a path containing a directory or file symbolic link. | The path is rejected without following the link. | Implemented `veln-mcp` no-follow source-path test; broader Q04 navigation cases remain planned. |
 | Supply an absolute path or escaping relative path. | The tool rejects the input before reading the target. | Implemented `veln-mcp` path-boundary source tests. |
-| Change a selected root identity, anonymous base identity, manifest, source, dependency input, or file set during capture. | The complete capture retries at most three times, then returns `snapshot_changed` without partial publication. | Implemented `veln-mcp` stable-capture retry tests for `check_project`, including anonymous base and selected-root symlink and regular-directory replacement, nested regular manifest marker boundaries, symlinked nested manifest marker exclusion, project-local source symlink exclusion, non-Linux fail-closed capture, and dependency snapshot changes; implemented workspace `definition` navigation capture coverage for descendant boundary changes during anonymous fallback; reference navigation captures remain planned. |
+| Change a selected root identity, anonymous base identity, manifest, source, dependency input, or file set during capture. | The complete capture retries at most three times, then returns `snapshot_changed` without partial publication. | Implemented `veln-mcp` stable-capture retry tests for `check_project`, including anonymous base and selected-root symlink and regular-directory replacement, nested regular manifest marker boundaries, symlinked nested manifest marker exclusion, project-local source symlink exclusion, non-Linux fail-closed capture, and dependency snapshot changes; implemented workspace navigation capture coverage for the bounded `definition` and `references` symbol set. |
 | List projects or send malformed inventory-tool input. | Roots use `.` or relative `/` spelling; checked schemas reject unknown fields and invalid shapes as protocol errors. | Implemented MCP workspace lifecycle and schema tests; broader Q06 cases remain planned. |
 | Discover a manifest root whose relative spelling is not representable as UTF-8. | Discovery fails instead of returning a lossy project root. A refresh reports `generation_failed` and preserves the previous roots and generation. | Implemented `veln-mcp` unrepresentable-root discovery and refresh tests. |
 | Client roots are absent, unrelated, or nested. | Project selection is unchanged. | Implemented `veln-mcp` client-root invariance tests. |
@@ -924,7 +925,7 @@ that the behavior is already implemented.
 | --- | --- | --- |
 | Analyze a saved project with errors. | `check_project` returns structured Veln diagnostics without transport failure, including compiler-owned related notes that do not carry spans. | Implemented MCP diagnostic fixture and `veln-mcp` structured diagnostic tests. |
 | Resolve a workspace declaration. | `definition` returns a `file:` location with MCP coordinates. | Implemented language-service symbol cases, table-driven MCP cases, and MCP stdio definition case for the bounded workspace symbol set. |
-| Resolve project references with shadowing and same-spelled fields. | Only references with the selected symbol identity are returned in deterministic order. | Table-driven symbol cases. |
+| Resolve workspace function references with shadowing and same-spelled fields. | Only references with the selected symbol identity are returned in deterministic order. | Implemented MCP `references-workspace` executable case and table-driven symbol cases for the bounded workspace symbol set. |
 | Search references to a dependency symbol from one selected project. | Consumer uses and the optional exported declaration are returned; other projects and dependency-internal uses are excluded, and the scope is explicit. | Q08 reference-universe cases. |
 | Continue a paged reference result. | The request contains only its single-use cursor and concatenated pages have no gaps or duplicates. | Q09 cursor state-machine cases. |
 | Use a tampered, cross-server, restarted, evicted, or pre-refresh cursor. | The server returns the specified `invalid_cursor` or `stale_snapshot` domain error without reinterpreting inputs. | Q09 cursor rejection cases. |
@@ -1010,18 +1011,20 @@ physical materialization paths, and retained exact-byte reads.
 This bounded implementation retains validated workspace, direct-dependency,
 and embedded standard-package captures for the definition-to-read path. It
 does not implement dependency reference search or MCP resources.
-The MCP workspace-definition slice reuses the saved capture boundary and
-returns `file:` locations for functions, type constructors, handler context
-parameters, handler operation clause parameters, and exact test-companion
-access to private target functions. Dependency and standard-library locations,
-the proposal's additional symbol kinds, and all MCP references remain planned.
+The MCP workspace-navigation slice reuses the saved capture boundary and
+returns `file:` locations for definitions and reference sites in the bounded
+workspace symbol set: functions, type constructors, handler context parameters,
+handler operation clause parameters, and exact test-companion access to private
+target functions. Dependency and standard-library locations, the proposal's
+additional symbol kinds, dependency reference search, pagination, and reference
+cursor state remain planned.
 The remaining slices are:
 
 1. Define and validate language-reference topic descriptors. Generate the
    executable grammar, selected example, and compiler-owned table projections.
 2. Extend the existing `veln mcp` server with resources, documentation tools,
-   references, and definition beyond the implemented workspace-only symbol
-   inventory.
+   dependency reference search, pagination, and definition beyond the
+   implemented workspace-only symbol inventory.
 3. Add cross-adapter conformance cases, bounded search, pagination, and stale
    snapshot handling.
 4. Package and validate Codex and Claude Code plugins and document their
