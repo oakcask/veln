@@ -22,15 +22,18 @@ currently exposes `workspace_projects`, `refresh_workspace`, and
 language service's current bounded navigation set. Definition covers functions,
 type constructors, handler bindings, and exact test-companion access to private
 target functions. References currently return same-identity workspace function
-references only. Broader definition and reference navigation beyond those
-implemented workspace cases, dependency reference search, documentation
-resources and search, pagination, snapshot resource lifetime, conformance
-completion, and client plugin work in this proposal remain planned.
+references only. The implemented navigation slice uses captured direct
+dependencies and the embedded standard library for symbol identity, but it
+does not return dependency or standard-library locations. Broader definition
+and reference navigation beyond those implemented workspace cases, dependency
+reference search, documentation resources and search, pagination, snapshot
+resource lifetime, conformance completion, and client plugin work in this
+proposal remain planned.
 
 The remaining first-capability work includes:
 
 - definition and reference lookup beyond the implemented workspace symbol set,
-  including dependency reference search;
+  including returned dependency locations and dependency reference search;
 - language-reference search and retrieval;
 - exported package and standard-library documentation;
 - virtual source locations for dependencies and the standard library; and

@@ -173,3 +173,9 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
 - MCP saved workspace `definition` tool schema advertising, declaration
   location, no-definition, and invalid-position results:
   `../../examples/specification/mcp/definition-workspace/`.
+- MCP saved workspace `references` tool schema advertising, workspace function
+  reference locations, and unsupported reference searches:
+  `../../examples/specification/mcp/references-workspace/`.
+- MCP saved workspace navigation identity across direct dependencies and
+  callable constructor shadowing:
+  `../../examples/specification/mcp/navigation-dependency-identity/`.

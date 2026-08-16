@@ -125,11 +125,13 @@ descendant manifest is therefore not analyzed with the outer project.
 
 The implemented symbol set is functions, type constructors, handler context
 parameters, handler operation clause parameters, and exact test-companion
-access to target-private functions. Other declarations, dependencies, and the
-standard library do not produce definition locations through this MCP slice.
-A supported workspace declaration returns one canonical `file:` URI based on
-the resolved workspace-base identity and a half-open range. A valid position
-without a supported symbol succeeds with `definition: null`.
+access to target-private functions. Navigation resolves symbol identity with
+the selected project's captured direct dependencies and the embedded standard
+library, but this MCP slice returns only workspace-owned locations. Dependency
+and standard-library declarations therefore do not produce definition
+locations. A supported workspace declaration returns one canonical `file:` URI
+based on the resolved workspace-base identity and a half-open range. A valid
+position without a supported workspace symbol succeeds with `definition: null`.
 
 `references` returns a `scope` object and a `references` array of canonical
 `file:` locations for supported workspace function reference sites. The scope
@@ -138,12 +140,14 @@ object names the analysis `mode`, `root`, selected `source`, and
 single-file navigation has `project_wide: false`. Each returned function
 reference must resolve to the same function identity as the selected symbol.
 Same-spelled constructors and functions in another scope are excluded. A call
-that resolves to a same-spelled constructor is not a function reference. The tool
-returns an empty array when the selected position has no supported symbol or
-when the selected symbol kind has no supported reference search. Constructor
-selections currently have no MCP reference search, so a selected constructor
-call returns an empty `references` array. An ambiguous bare constructor call
-such as `same(1)` is unselected and also returns an empty `references` array.
+that resolves to a same-spelled dependency or standard-library constructor is
+not a workspace function reference, even when a workspace function has the same
+spelling. The tool returns an empty array when the selected position has no
+supported symbol or when the selected symbol kind has no supported reference
+search. Constructor selections currently have no MCP reference search, so a
+selected constructor call returns an empty `references` array. An ambiguous
+bare constructor call such as `same(1)` is unselected and also returns an empty
+`references` array.
 
 LF and CRLF each end one logical line, and neither CRLF terminator scalar is an
 addressable position. A line containing `N` Unicode scalars accepts columns 1
@@ -180,7 +184,11 @@ decimal and negative-exponent coordinate schema rejection over stdio. The
 `references` declaration, workspace function reference locations,
 same-spelled constructor exclusion from function references, unsupported
 handler-binding reference searches, invalid positions, and non-integer
-coordinate schema rejection over stdio.
+coordinate schema rejection over stdio. The `navigation-dependency-identity`
+MCP specification case checks that dependency constructor identity suppresses
+workspace function definition and reference results for the same spelling, and
+that a callable binding can shadow a same-spelled constructor for MCP
+navigation.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous
