@@ -468,6 +468,47 @@ fn references_return_supported_workspace_symbol_uses() {
 }
 
 #[test]
+fn references_leave_handler_bindings_unsupported() {
+    let workspace = TempWorkspace::new("references-handler-bindings");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "effect Adjust\n",
+            "  amount(value: Int) -> Int\n",
+            "end\n\n",
+            "handler adjust(callback: fn(Int) -> Int) handles Adjust\n",
+            "  amount(value) => callback(value)\n",
+            "end\n",
+        ),
+    );
+
+    for (name, line, column) in [
+        ("handler context parameter", 6, 22),
+        ("handler operation clause parameter", 6, 29),
+    ] {
+        let result = references_result(&workspace, "main.veln", line, column);
+
+        assert_eq!(result["isError"], false, "{name}: {result:#}");
+        assert_eq!(
+            result["structuredContent"]["scope"],
+            json!({
+                "mode": "project",
+                "root": ".",
+                "source": "main.veln",
+                "project_wide": true
+            }),
+            "{name}: {result:#}"
+        );
+        assert_eq!(
+            result["structuredContent"]["references"],
+            json!([]),
+            "{name}: {result:#}"
+        );
+    }
+}
+
+#[test]
 fn references_isolate_symbol_identity_and_single_file_scope() {
     let workspace = TempWorkspace::new("references-constructor-identity");
     workspace.write(

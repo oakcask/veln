@@ -1,5 +1,5 @@
 use serde_json::{Value, json};
-use veln_language_service::{EffectiveProjectSnapshot, SourcePosition, navigate};
+use veln_language_service::{EffectiveProjectSnapshot, SourcePosition, SymbolKind, navigate};
 use veln_source::SourcePath;
 
 use crate::check_project::{CheckProjectOutcome, capture_navigation_source};
@@ -57,6 +57,7 @@ pub(crate) fn references(
             column,
         },
     )
+    .filter(|result| result.selected_symbol.kind == SymbolKind::Function)
     .map(|result| {
         result
             .references

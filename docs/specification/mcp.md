@@ -176,8 +176,9 @@ decimal and exponent integer coordinate spellings, and invalid-position
 results plus non-integer decimal and negative-exponent coordinate schema
 rejection over stdio. The `references-workspace` MCP specification case checks
 the advertised `references` declaration, workspace function reference
-locations, same-spelled constructor exclusion, invalid positions, and
-non-integer coordinate schema rejection over stdio.
+locations, same-spelled constructor exclusion, unsupported handler-binding
+reference searches, invalid positions, and non-integer coordinate schema
+rejection over stdio.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous

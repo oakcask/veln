@@ -377,8 +377,6 @@ impl AdtRegistry {
             return matches;
         };
         for (descriptor, variant) in self.variants_named(name) {
-            #[cfg(test)]
-            constructor_lookup_counters::record_candidate_scan();
             if !self.descriptor_visible(descriptor, segments, current_module, uses, include_imports)
             {
                 continue;
@@ -2781,6 +2779,8 @@ fn constructor_matches_visible_path(
     uses: &[UseDecl],
     current_module: Option<&str>,
 ) -> bool {
+    #[cfg(test)]
+    constructor_lookup_counters::record_candidate_scan();
     match segments {
         [name] => name == &variant.name,
         [qualifier, name] if name == &variant.name => {
