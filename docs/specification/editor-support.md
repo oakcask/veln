@@ -162,7 +162,9 @@ and deterministic reference locations as Veln source identities and ranges.
 The result contains no URI serialization, JSON, JSON-RPC, or LSP coordinate
 representation. Its direct tests cover project functions, exact companion
 visibility, handler bindings, deterministic ordering, shadowing, field
-isolation, and positions without a supported symbol.
+isolation, same-identity function references when constructors share the same
+spelling, dense same-spelled constructor lookup growth, and positions without a
+supported symbol.
 
 `veln-lsp` captures the workspace manifest, saved workspace sources, valid
 direct path, vendor, mirror, and locally available direct git dependency
