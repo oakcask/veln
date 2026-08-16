@@ -12531,6 +12531,54 @@ fn call_resolution_prefers_local_callable_over_constructor() {
 }
 
 #[test]
+fn call_resolution_preserves_constructor_when_local_binding_is_not_callable() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Token\n",
+            "  pack(Int)\n",
+            "end\n",
+            "pub fn main(pack: Int) -> Token\n",
+            "  pack(1)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::AdtVariant { name, .. } if name == &vec!["Token".to_string(), "pack".to_string()]
+    ));
+
+    let ir = lowered.ir.expect("complete core should lower to IR");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::AdtVariant { name, .. } if name == &vec!["Token".to_string(), "pack".to_string()]
+    ));
+}
+
+#[test]
 fn non_callable_local_shadow_blocks_function_call_resolution() {
     let source = SourceFile::new(
         "main.veln",

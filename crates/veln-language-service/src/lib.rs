@@ -414,6 +414,18 @@ struct IndexedFile {
     origin: IndexedOrigin,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum IndexedSourceOrigin {
+    Workspace,
+    Package { identity: String },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct IndexedSourceKey {
+    origin: IndexedSourceOrigin,
+    path: String,
+}
+
 #[derive(Debug)]
 enum IndexedOrigin {
     Workspace,
@@ -433,8 +445,12 @@ struct SymbolIndex {
     type_aliases: Vec<TypeAliasSymbol>,
     functions_by_name: BTreeMap<String, Vec<usize>>,
     constructors_by_name: BTreeMap<String, Vec<usize>>,
+    constructors_by_type_name: BTreeMap<String, Vec<usize>>,
+    workspace_constructor_names_by_module: BTreeMap<String, BTreeSet<String>>,
+    public_workspace_constructor_names_by_module: BTreeMap<String, BTreeSet<String>>,
+    public_package_constructor_names_by_import: BTreeMap<(String, String), BTreeSet<String>>,
     type_aliases_by_target_name: BTreeMap<String, Vec<usize>>,
-    visible_bare_constructor_names_by_source: BTreeMap<String, BTreeSet<String>>,
+    visible_bare_constructor_names_by_source: BTreeMap<IndexedSourceKey, BTreeSet<String>>,
 }
 
 #[derive(Debug)]
@@ -490,6 +506,18 @@ impl SymbolIndex {
         let mut index = Self {
             functions_by_name: function_indices_by_name(&functions),
             constructors_by_name: constructor_indices_by_name(&constructors),
+            constructors_by_type_name: constructor_indices_by_type_name(&constructors),
+            workspace_constructor_names_by_module: workspace_constructor_names_by_module(
+                &constructors,
+                false,
+            ),
+            public_workspace_constructor_names_by_module: workspace_constructor_names_by_module(
+                &constructors,
+                true,
+            ),
+            public_package_constructor_names_by_import: public_package_constructor_names_by_import(
+                &constructors,
+            ),
             type_aliases_by_target_name: type_alias_indices_by_target_name(&type_aliases),
             functions,
             constructors: ConstructorTable::new(constructors),
@@ -1062,9 +1090,19 @@ impl SymbolIndex {
         }
     }
 
+    fn constructors_for_type(&self, name: &str) -> ConstructorCandidates<'_> {
+        ConstructorCandidates {
+            table: &self.constructors,
+            indices: self
+                .constructors_by_type_name
+                .get(name)
+                .map(|indices| indices.iter()),
+        }
+    }
+
     fn has_visible_bare_constructor_name(&self, file: &IndexedFile, name: &str) -> bool {
         self.visible_bare_constructor_names_by_source
-            .get(file.source.path().as_str())
+            .get(&file.key())
             .is_some_and(|names| names.contains(name))
     }
 
@@ -1073,6 +1111,21 @@ impl SymbolIndex {
             .get(name)
             .into_iter()
             .flat_map(|indices| indices.iter().map(|index| &self.type_aliases[*index]))
+    }
+}
+
+impl IndexedFile {
+    fn key(&self) -> IndexedSourceKey {
+        let origin = match &self.origin {
+            IndexedOrigin::Workspace => IndexedSourceOrigin::Workspace,
+            IndexedOrigin::Package { identity, .. } => IndexedSourceOrigin::Package {
+                identity: identity.clone(),
+            },
+        };
+        IndexedSourceKey {
+            origin,
+            path: self.source.path().as_str().to_string(),
+        }
     }
 }
 
@@ -1148,6 +1201,53 @@ fn constructor_indices_by_name(constructors: &[ConstructorSymbol]) -> BTreeMap<S
     indices
 }
 
+fn constructor_indices_by_type_name(
+    constructors: &[ConstructorSymbol],
+) -> BTreeMap<String, Vec<usize>> {
+    let mut indices = BTreeMap::new();
+    for (index, symbol) in constructors.iter().enumerate() {
+        indices
+            .entry(symbol.type_name.clone())
+            .or_insert_with(Vec::new)
+            .push(index);
+    }
+    indices
+}
+
+fn workspace_constructor_names_by_module(
+    constructors: &[ConstructorSymbol],
+    public_only: bool,
+) -> BTreeMap<String, BTreeSet<String>> {
+    let mut names = BTreeMap::<String, BTreeSet<String>>::new();
+    for symbol in constructors {
+        if symbol.package.is_none() && !symbol.standard_prelude && (!public_only || symbol.public) {
+            names
+                .entry(symbol.module.clone())
+                .or_default()
+                .insert(symbol.name.clone());
+        }
+    }
+    names
+}
+
+fn public_package_constructor_names_by_import(
+    constructors: &[ConstructorSymbol],
+) -> BTreeMap<(String, String), BTreeSet<String>> {
+    let mut names = BTreeMap::<(String, String), BTreeSet<String>>::new();
+    for symbol in constructors {
+        if symbol.public
+            && !symbol.standard_prelude
+            && let Some(package) = &symbol.package
+        {
+            names
+                .entry((symbol.module.clone(), package.clone()))
+                .or_default()
+                .insert(symbol.name.clone());
+        }
+    }
+    names
+}
+
 fn type_alias_indices_by_target_name(
     type_aliases: &[TypeAliasSymbol],
 ) -> BTreeMap<String, Vec<usize>> {
@@ -1163,50 +1263,78 @@ fn type_alias_indices_by_target_name(
 
 fn visible_bare_constructor_names_by_source(
     index: &SymbolIndex,
-) -> BTreeMap<String, BTreeSet<String>> {
+) -> BTreeMap<IndexedSourceKey, BTreeSet<String>> {
     index
         .files
         .iter()
         .map(|file| {
-            let names = index
-                .constructors
-                .0
-                .iter()
-                .filter(|symbol| constructor_is_bare_visible_from(index, file, symbol))
-                .map(|symbol| symbol.name.clone())
-                .collect();
-            (file.source.path().as_str().to_string(), names)
+            let mut names = BTreeSet::new();
+            names.extend(
+                index
+                    .workspace_constructor_names_by_module
+                    .get(&file.module)
+                    .into_iter()
+                    .flat_map(|module_names| module_names.iter().cloned()),
+            );
+            for module in &file.uses {
+                names.extend(
+                    index
+                        .public_workspace_constructor_names_by_module
+                        .get(module)
+                        .into_iter()
+                        .flat_map(|module_names| module_names.iter().cloned()),
+                );
+            }
+            for import in &file.external_uses {
+                names.extend(
+                    index
+                        .public_package_constructor_names_by_import
+                        .get(import)
+                        .into_iter()
+                        .flat_map(|module_names| module_names.iter().cloned()),
+                );
+            }
+            names.extend(reexported_bare_constructor_names(index, file));
+            (file.key(), names)
         })
         .collect()
 }
 
-fn constructor_is_bare_visible_from(
-    index: &SymbolIndex,
-    file: &IndexedFile,
-    symbol: &ConstructorSymbol,
-) -> bool {
-    if symbol.package.is_none()
-        && symbol.module == file.module
-        && visible_workspace_constructor_from(file, symbol)
-    {
-        return true;
+fn reexported_bare_constructor_names(index: &SymbolIndex, file: &IndexedFile) -> BTreeSet<String> {
+    let mut names = BTreeSet::new();
+    for alias in &index.type_aliases {
+        if alias.package.is_none() && !file.uses.contains(&alias.module) {
+            continue;
+        }
+        if let Some(alias_package) = &alias.package
+            && !file
+                .external_uses
+                .contains(&(alias.module.clone(), alias_package.clone()))
+        {
+            continue;
+        }
+        names.extend(
+            index
+                .constructors_for_type(&alias.target_name)
+                .filter(|symbol| {
+                    type_alias_targets_constructor(alias, symbol)
+                        && match &symbol.package {
+                            Some(package) => {
+                                symbol.public
+                                    && alias.package.as_ref() == Some(package)
+                                    && !symbol.standard_prelude
+                            }
+                            None => {
+                                alias.package.is_none()
+                                    && !symbol.standard_prelude
+                                    && visible_workspace_constructor_from(file, symbol)
+                            }
+                        }
+                })
+                .map(|symbol| symbol.name.clone()),
+        );
     }
-    if !symbol.standard_prelude
-        && symbol.package.is_none()
-        && symbol.module != file.module
-        && (file.uses.contains(&symbol.module)
-            || index.constructor_reexport_visible_from(file, symbol, None))
-        && visible_workspace_constructor_from(file, symbol)
-    {
-        return true;
-    }
-    !symbol.standard_prelude
-        && symbol.public
-        && symbol.package.as_ref().is_some_and(|package| {
-            file.external_uses
-                .contains(&(symbol.module.clone(), package.clone()))
-                || index.constructor_reexport_visible_from(file, symbol, Some(package))
-        })
+    names
 }
 
 fn visible_workspace_constructor_from(file: &IndexedFile, symbol: &ConstructorSymbol) -> bool {
@@ -3383,6 +3511,53 @@ mod tests {
 
         assert_location(&result.definition, "math.veln", 1, 8);
         assert!(result.references.is_empty());
+    }
+
+    #[test]
+    fn dependency_constructor_visibility_uses_origin_aware_source_keys() {
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[
+                ("main.veln", "pub fn unrelated() -> Int\n  0\nend\n"),
+                (
+                    "wire.veln",
+                    concat!("pub type Packet\n", "  pub target(Int)\n", "end\n"),
+                ),
+            ],
+            ["main.veln", "wire.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use wire from \"example/pkg\"\n\n",
+                    "fn target(value: Int) -> Int\n",
+                    "  value\n",
+                    "end\n\n",
+                    "pub fn main() -> Packet\n",
+                    "  target(1)\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        );
+
+        let result = navigate(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 8,
+                column: 4,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+        assert_eq!(result.definition.span.file.as_str(), "wire.veln");
+        let NavigationSource::Package { uri } = result.definition.source else {
+            panic!("dependency constructor did not use a package location");
+        };
+        assert!(uri.ends_with("/wire.veln"), "{uri}");
     }
 
     #[test]
