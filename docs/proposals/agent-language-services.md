@@ -249,17 +249,17 @@ workspace base is `.`. Numeric values outside JSON schema ranges are rejected
 and are never clamped. Positive coordinate values that pass schema validation
 but do not address a selected source position return `invalid_position`.
 
-The first capability exposes these model-controlled tools:
+The first capability target includes these model-controlled tools:
 
 | Tool | Purpose |
 | --- | --- |
-| `check_project` | Analyze one saved workspace project and return structured diagnostics. |
-| `definition` | Resolve the symbol at a saved source position and return its declaration location. |
-| `references` | Return a deterministic, bounded page of locations for the symbol at a saved source position. |
-| `search_docs` | Search the published language and package reference catalogs. |
-| `read_doc` | Read one published documentation resource through a model-controlled route. |
-| `workspace_projects` | Return the current selection generation and sorted project roots. |
-| `refresh_workspace` | Atomically rediscover workspace projects and return the new selection generation. |
+| `workspace_projects` | Implemented: return the current selection generation and sorted project roots. |
+| `refresh_workspace` | Implemented: atomically rediscover workspace projects and return the new selection generation. |
+| `check_project` | Implemented: analyze one saved workspace project and return structured diagnostics. |
+| `definition` | Implemented for the bounded workspace symbol set: resolve the symbol at a saved source position and return its declaration location. |
+| `references` | Implemented for function references in the bounded workspace symbol set: return deterministic locations for the symbol at a saved source position. |
+| `search_docs` | Planned: search the published language and package reference catalogs. |
+| `read_doc` | Planned: read one published documentation resource through a model-controlled route. |
 
 `check_project` accepts an optional workspace-relative project root and an
 optional source path. The source path is required only for an anonymous
@@ -932,7 +932,7 @@ cell explicitly cites implemented specification or executable evidence.
 | Resolve an exported dependency declaration. | `definition` returns a `veln-pkg:` location and documentation link. | Path-dependency MCP case. |
 | Resolve a private dependency declaration from a consumer. | No definition is returned. | Dependency visibility case. |
 | Resolve a standard-library declaration. | The result points to matching `veln-pkg:` source and `veln-doc:` documentation snapshots. | Embedded standard-package case. |
-| Address empty, LF, CRLF, non-BMP, end-of-line, end-of-file, token-end, decimal and exponent integer spellings, non-integer numeric spellings, and oversized positive positions. | Validity and half-open selection follow the scalar-coordinate contract, non-integer numeric coordinates are protocol invalid params, and unaddressable positive coordinates return `invalid_position`. | Implemented workspace-definition MCP coordinate table and stdio regressions for integral decimal and exponent spellings, non-integer decimal and extreme negative exponent spellings, a value above `u64::MAX`, and an extreme positive exponent; broader cross-adapter Q07 matrix remains planned. |
+| Address empty, LF, CRLF, non-BMP, end-of-line, end-of-file, token-end, decimal and exponent integer spellings, non-integer numeric spellings, and oversized positive positions. | Validity and half-open selection follow the scalar-coordinate contract, non-integer numeric coordinates are protocol invalid params, and unaddressable positive coordinates return `invalid_position`. | Implemented workspace-navigation MCP coordinate table and stdio regressions for integral decimal and exponent spellings, non-integer decimal and extreme negative exponent spellings, a value above `u64::MAX`, and an extreme positive exponent; broader cross-adapter Q07 matrix remains planned. |
 | Run LSP and MCP on the same saved project without overlays. | Filesystem identities and Unicode-scalar locations match after declaration-policy normalization and concatenation of all MCP pages. | Q07 cross-adapter encoding matrix. |
 | Apply an LSP open-document overlay. | LSP reflects the overlay; MCP continues to reflect saved files. | Existing LSP overlay cases plus MCP comparison. |
 
