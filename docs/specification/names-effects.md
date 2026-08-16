@@ -15,7 +15,8 @@ compiler-known calls.
   imports, and manifest export checks:
   [names-effects-full.md](names-effects-full.md#name-resolution).
   The checked `callable-binding-shadows-constructor` case fixes bare callable
-  binding precedence over same-spelled ADT constructors.
+  binding precedence over same-spelled ADT constructors. Non-callable local
+  bindings do not block same-spelled constructor calls.
 - Declaration effect spelling, effect-row substitution, host effect labels,
   nominal operation effects, lexical handlers, and effect inference:
   [names-effects-full.md](names-effects-full.md#effect-labels) and

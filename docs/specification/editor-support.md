@@ -165,9 +165,10 @@ visibility, handler bindings, deterministic ordering, shadowing, field
 isolation, constructor definition priority when functions share the same
 spelling, bare constructor ambiguity that blocks imported constructor
 definition, same-identity function references when constructors share the same
-spelling, callable bindings that shadow same-spelled constructor calls, dense
-same-spelled constructor lookup growth, and positions without a supported
-symbol.
+spelling, callable bindings that shadow same-spelled constructor calls,
+dependency constructor package locations keyed by source origin, dense
+same-spelled and re-exported constructor lookup growth, and positions without a
+supported symbol.
 
 `veln-lsp` captures the workspace manifest, saved workspace sources, valid
 direct path, vendor, mirror, and locally available direct git dependency

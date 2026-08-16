@@ -44,8 +44,10 @@ declaration reported as related context.
 Local value bindings and declarations in the current source module shadow
 imported names for both bare values and calls. A bare call to a local
 function-typed parameter or `let` binding also resolves to that binding before
-considering a same-spelled ADT constructor. The standard prelude remains
-available through `prelude::` when a local declaration shadows its bare name.
+considering a same-spelled ADT constructor. A non-callable local binding with
+the same spelling does not block a visible ADT constructor call. The standard
+prelude remains available through `prelude::` when a local declaration shadows
+its bare name.
 The `StreamInput` standard ADT constructors are available as `Chunk(bytes)`,
 `End`, `StreamInput::Chunk(bytes)`, `StreamInput::End`,
 `prelude::Chunk(bytes)`, `prelude::End`,
