@@ -1,0 +1,17 @@
+use model
+
+type LocalToken
+  byte(Int)
+end
+
+type OtherToken
+  byte(Int)
+end
+
+pub fn main() -> LocalToken
+  byte(1)
+end
+
+fn byte(value: Int) -> Int
+  value
+end

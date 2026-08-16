@@ -637,15 +637,22 @@ impl SymbolIndex {
         file: &IndexedFile,
         name: &str,
     ) -> Option<ConstructorSymbol> {
-        exactly_one_constructor(self.constructors_named(name).filter(|symbol| {
-            symbol.name == name
-                && symbol.package.is_none()
-                && symbol.module == file.module
-                && visible_workspace_constructor_from(file, symbol)
-        }))
-        .cloned()
-        .or_else(|| {
-            let candidates = self.constructors_named(name).filter(|symbol| {
+        let current_module_candidates: Vec<_> = self
+            .constructors_named(name)
+            .filter(|symbol| {
+                symbol.name == name
+                    && symbol.package.is_none()
+                    && symbol.module == file.module
+                    && visible_workspace_constructor_from(file, symbol)
+            })
+            .collect();
+        if !current_module_candidates.is_empty() {
+            return exactly_one_constructor(current_module_candidates.into_iter()).cloned();
+        }
+
+        let workspace_import_candidates: Vec<_> = self
+            .constructors_named(name)
+            .filter(|symbol| {
                 symbol.name == name
                     && !symbol.standard_prelude
                     && symbol.package.is_none()
@@ -653,22 +660,23 @@ impl SymbolIndex {
                     && (file.uses.contains(&symbol.module)
                         || self.constructor_reexport_visible_from(file, symbol, None))
                     && visible_workspace_constructor_from(file, symbol)
-            });
-            exactly_one_constructor(candidates).cloned()
-        })
-        .or_else(|| {
-            let candidates = self.constructors_named(name).filter(|symbol| {
-                symbol.name == name
-                    && !symbol.standard_prelude
-                    && symbol.public
-                    && symbol.package.as_ref().is_some_and(|package| {
-                        file.external_uses
-                            .contains(&(symbol.module.clone(), package.clone()))
-                            || self.constructor_reexport_visible_from(file, symbol, Some(package))
-                    })
-            });
-            exactly_one_constructor(candidates).cloned()
-        })
+            })
+            .collect();
+        if !workspace_import_candidates.is_empty() {
+            return exactly_one_constructor(workspace_import_candidates.into_iter()).cloned();
+        }
+
+        let external_import_candidates = self.constructors_named(name).filter(|symbol| {
+            symbol.name == name
+                && !symbol.standard_prelude
+                && symbol.public
+                && symbol.package.as_ref().is_some_and(|package| {
+                    file.external_uses
+                        .contains(&(symbol.module.clone(), package.clone()))
+                        || self.constructor_reexport_visible_from(file, symbol, Some(package))
+                })
+        });
+        exactly_one_constructor(external_import_candidates).cloned()
     }
 
     fn has_ambiguous_constructor_for_bare_call(&self, file: &IndexedFile, name: &str) -> bool {
@@ -2502,6 +2510,59 @@ mod tests {
             )
             .is_none()
         );
+    }
+
+    #[test]
+    fn ambiguous_current_module_constructor_call_does_not_fall_back_to_import() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "main.veln",
+                concat!(
+                    "use model\n\n",
+                    "type LocalToken\n",
+                    "  byte(Int)\n",
+                    "end\n\n",
+                    "type OtherToken\n",
+                    "  byte(Int)\n",
+                    "end\n\n",
+                    "pub fn main() -> LocalToken\n",
+                    "  byte(1)\n",
+                    "end\n\n",
+                    "fn byte(value: Int) -> Int\n",
+                    "  value\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "model.veln",
+                concat!("pub type ImportedToken\n", "  pub byte(Int)\n", "end\n"),
+            ),
+        ]);
+
+        assert!(
+            navigate(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 12,
+                    column: 4,
+                },
+            )
+            .is_none()
+        );
+
+        let function = navigate(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 15,
+                column: 4,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(function.selected_symbol.kind, SymbolKind::Function);
+        assert!(function.references.is_empty());
     }
 
     #[test]

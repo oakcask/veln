@@ -7022,6 +7022,7 @@ fn case_text_git_attributes_cover_text_and_raw_sidecars() {
         "examples/specification/lsp/ambiguous-bare-prelude-definition/case-text/root-stdin-1.raw",
         "examples/specification/lsp/companion-private-function-identity/case-text/root-stdin-1.raw",
         "examples/specification/lsp/companion-private-function-rename-overlay/case-text/root-stdin-1.raw",
+        "examples/specification/lsp/current-constructor-ambiguity-blocks-import-definition/case-text/root-stdin-1.raw",
         "examples/specification/lsp/direct-dependency-virtual-document-boundary/case-text/root-stdin-1.raw",
         "examples/specification/lsp/direct-git-dependency-virtual-document/case-text/root-stdin-1.raw",
         "examples/specification/lsp/handler-context-callable-binding/case-text/root-stdin-1.raw",

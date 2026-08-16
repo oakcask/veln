@@ -3834,6 +3834,59 @@ mod tests {
     }
 
     #[test]
+    fn ambiguous_current_module_constructor_definition_does_not_fall_back_to_import() {
+        let mut server = Server::default();
+        let project = TempProject::new("current-constructor-ambiguity-blocks-import-definition");
+        project.write(
+            "main.veln",
+            concat!(
+                "use model\n\n",
+                "type LocalToken\n",
+                "  byte(Int)\n",
+                "end\n\n",
+                "type OtherToken\n",
+                "  byte(Int)\n",
+                "end\n\n",
+                "pub fn main() -> LocalToken\n",
+                "  byte(1)\n",
+                "end\n\n",
+                "fn byte(value: Int) -> Int\n",
+                "  value\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "model.veln",
+            concat!("pub type ImportedToken\n", "  pub byte(Int)\n", "end\n"),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let definition = server.handle_message(&definition_request(&main_uri, 11, 4));
+
+        assert_eq!(definition.len(), 1);
+        assert!(definition[0].contains(r#""id":2,"result":null"#));
+
+        let references = server.handle_message(&references_request(&main_uri, 14, 4));
+        assert!(
+            references[0].contains(
+                r#""range":{"start":{"line":14,"character":3},"end":{"line":14,"character":7}}"#
+            ),
+            "{}",
+            references[0]
+        );
+        assert!(
+            !references[0].contains(
+                r#""range":{"start":{"line":11,"character":2},"end":{"line":11,"character":6}}"#
+            ),
+            "{}",
+            references[0]
+        );
+        assert!(!references[0].contains("/model.veln"), "{}", references[0]);
+    }
+
+    #[test]
     fn reexported_constructor_definition_wins_over_bare_prelude_fallback() {
         let mut server = Server::default();
         let project = TempProject::new("reexported-constructor-bare-prelude-definition");

@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"194a2652e6ea11cdf30af7adfe7388b998b46beb"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1513
+case_count	1514
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -10046,6 +10046,23 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":908,"sha256":"dd98de64df4ff1071a30f6655ea1fdd7c6f4ae741e3981a639336c10c5fde88d"}
 field	source_errors	"expected"
 case_digest	"fd82512f27b0fb996e3838111f486c0fb8bc46241a3a4b94369650d63cdc1678"
+case	"examples/specification/lsp/current-constructor-ambiguity-blocks-import-definition"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"definitionProvider\":true"
+field	expectations.stdout.contains[1]	"\"id\":2,\"result\":null"
+field	expectations.stdout.contains[2]	"\"id\":3,\"result\":[{\"uri\":\"file://"
+field	expectations.stdout.contains[3]	"/main.veln\",\"range\":{\"start\":{\"line\":14,\"character\":3},\"end\":{\"line\":14,\"character\":7}}}]"
+field	expectations.stdout.contains[4]	"\"id\":4,\"result\":null"
+field	expectations.stdout.not_contains[0]	"\"id\":2,\"result\":{\"uri\":\"file://"
+field	expectations.stdout.not_contains[1]	"veln-pkg:///std/snapshot/"
+field	expectations.stdout.not_contains[2]	"crates/veln-stdlib"
+field	expectations.stdout.not_contains[3]	"target/debug"
+field	invocation.command[0]	"lsp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":637,"sha256":"05f3a3631b38728d1f831ca33c51035442de2a016257846b4417af22a8d31332"}
+field	source_errors	"expected"
+case_digest	"5b03280d9c4bd7ab2c142ef49faff4332dc3126deb5f981077ce9cf9501a2d2b"
 case	"examples/specification/lsp/direct-dependency-virtual-document-boundary"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47740,4 +47757,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"cabfb4390eed78ad7100923e63a3ea7042effb7d6c79e387b781ca3bb81cf2d2"
+aggregate_digest	"1ac8c85b953136708a80a50c67d79dc5d0a5327c73e9f0c3702b03da9f120a6a"

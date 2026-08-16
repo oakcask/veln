@@ -1,0 +1,11 @@
+command = ["lsp"]
+source_errors = "expected"
+stdin_file = "case-text/root-stdin-1.raw"
+exit = 0
+
+[stdout]
+contains = ["\"definitionProvider\":true", "\"id\":2,\"result\":null", "\"id\":3,\"result\":[{\"uri\":\"file://", "/main.veln\",\"range\":{\"start\":{\"line\":14,\"character\":3},\"end\":{\"line\":14,\"character\":7}}}]", "\"id\":4,\"result\":null"]
+not_contains = ["\"id\":2,\"result\":{\"uri\":\"file://", "veln-pkg:///std/snapshot/", "crates/veln-stdlib", "target/debug"]
+
+[stderr]
+format = "empty"

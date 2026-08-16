@@ -1,0 +1,3 @@
+pub type ImportedToken
+  pub byte(Int)
+end
