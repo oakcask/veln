@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"194a2652e6ea11cdf30af7adfe7388b998b46beb"
+source_git_tree	"4c25d47f3ba7146d70eb12f34adb96c6d9da4a9a"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1514
+case_count	1515
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -10002,6 +10002,25 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":422,"sha256":"5152e055874a433fe545366a571cccd284ab956fbadefa5f8700f102485c1a59"}
 field	source_errors	"expected"
 case_digest	"cec461edcd50b3f7f61aa87e5e2995015b759b414fd27d9f8e3e2429a0233c8c"
+case	"examples/specification/lsp/callable-shadow-constructor-navigation"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"definitionProvider\":true"
+field	expectations.stdout.contains[1]	"\"referencesProvider\":true"
+field	expectations.stdout.contains[2]	"\"renameProvider\":{\"prepareProvider\":true}"
+field	expectations.stdout.contains[3]	"\"id\":2,\"result\":null"
+field	expectations.stdout.contains[4]	"\"id\":3,\"result\":[]"
+field	expectations.stdout.contains[5]	"\"id\":4,\"result\":{\"changes\":{}}"
+field	expectations.stdout.contains[6]	"\"id\":5,\"result\":null"
+field	expectations.stdout.contains[7]	"\"id\":6,\"result\":[]"
+field	expectations.stdout.contains[8]	"\"id\":7,\"result\":{\"changes\":{}}"
+field	expectations.stdout.not_contains[0]	"\"range\":{\"start\":{\"line\":1,\"character\":2},\"end\":{\"line\":1,\"character\":6}}"
+field	expectations.stdout.not_contains[1]	"\"newText\":\"pack\""
+field	invocation.command[0]	"lsp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1394,"sha256":"e6e99ec0efa9cfb4c8e6664cb3178c3f609a05bf070ca47f8b543b88d52635e5"}
+field	source_errors	"forbidden"
+case_digest	"79789749d49b9f0b7819819853a45ed15e401f009056dbeb2f8a3c3d02834aea"
 case	"examples/specification/lsp/companion-private-function-identity"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47757,4 +47776,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"1ac8c85b953136708a80a50c67d79dc5d0a5327c73e9f0c3702b03da9f120a6a"
+aggregate_digest	"ff6dc64edb1422e08feb7f56deb803f2bcba2b953aab4896f3310cd0fbb08ce3"
