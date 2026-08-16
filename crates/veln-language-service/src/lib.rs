@@ -36,8 +36,8 @@ mod navigation_stats {
         CONSTRUCTOR_CANDIDATES_CONSIDERED.set(0);
     }
 
-    pub fn record_constructor_candidates(count: usize) {
-        CONSTRUCTOR_CANDIDATES_CONSIDERED.with(|value| value.set(value.get() + count));
+    pub fn record_constructor_candidate() {
+        CONSTRUCTOR_CANDIDATES_CONSIDERED.with(|value| value.set(value.get() + 1));
     }
 
     pub fn constructor_candidates_considered() -> usize {
@@ -805,6 +805,30 @@ impl ConstructorTable {
     }
 }
 
+struct ConstructorCandidates<'a> {
+    table: &'a ConstructorTable,
+    indices: Option<std::slice::Iter<'a, usize>>,
+}
+
+impl<'a> Iterator for ConstructorCandidates<'a> {
+    type Item = &'a ConstructorSymbol;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let indices = self.indices.as_mut()?;
+        loop {
+            let index = indices.next()?;
+            let symbol = self.table.get(*index);
+            if symbol.is_some() {
+                #[cfg(test)]
+                navigation_stats::record_constructor_candidate();
+            }
+            if let Some(symbol) = symbol {
+                return Some(symbol);
+            }
+        }
+    }
+}
+
 fn exactly_one_constructor<'a>(
     mut candidates: impl Iterator<Item = &'a ConstructorSymbol>,
 ) -> Option<&'a ConstructorSymbol> {
@@ -1022,15 +1046,14 @@ impl SymbolIndex {
             .flat_map(|indices| indices.iter().map(|index| &self.functions[*index]))
     }
 
-    fn constructors_named(&self, name: &str) -> impl Iterator<Item = &ConstructorSymbol> {
-        let indices = self.constructors_by_name.get(name);
-        #[cfg(test)]
-        navigation_stats::record_constructor_candidates(indices.map_or(0, Vec::len));
-        indices.into_iter().flat_map(|indices| {
-            indices
-                .iter()
-                .filter_map(|index| self.constructors.get(*index))
-        })
+    fn constructors_named(&self, name: &str) -> ConstructorCandidates<'_> {
+        ConstructorCandidates {
+            table: &self.constructors,
+            indices: self
+                .constructors_by_name
+                .get(name)
+                .map(|indices| indices.iter()),
+        }
     }
 
     fn type_aliases_targeting(&self, name: &str) -> impl Iterator<Item = &TypeAliasSymbol> {
@@ -2442,6 +2465,34 @@ mod tests {
     }
 
     #[test]
+    fn constructor_reference_counter_observes_indexed_candidates() {
+        let size = 2000;
+        let snapshot = dense_constructor_call_snapshot(size);
+
+        navigation_stats::reset();
+        let result = navigate(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: size + 9,
+                column: 4,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+        assert_location(&result.definition, "main.veln", 2, 7);
+        assert!(
+            navigation_stats::constructor_candidates_considered() > 0,
+            "constructor lookup bypassed the indexed candidate iterator"
+        );
+        assert!(
+            navigation_stats::constructor_candidates_considered() < size / 10,
+            "constructor lookup scanned unrelated constructor candidates instead of using the name index"
+        );
+    }
+
+    #[test]
     fn ambiguous_same_scope_constructor_call_has_no_selected_symbol() {
         assert!(
             query(
@@ -3294,6 +3345,15 @@ mod tests {
             text.push_str("  target(0)\n");
         }
         text.push_str("end\n");
+        EffectiveProjectSnapshot::new(vec![source("main.veln", &text)])
+    }
+
+    fn dense_constructor_call_snapshot(size: usize) -> EffectiveProjectSnapshot {
+        let mut text = String::from("pub type Target\n  pub target(Int)\nend\n\npub type Noise\n");
+        for index in 0..size {
+            text.push_str(&format!("  pub C{index}(Int)\n"));
+        }
+        text.push_str("end\n\npub fn caller() -> Target\n  target(0)\nend\n");
         EffectiveProjectSnapshot::new(vec![source("main.veln", &text)])
     }
 
