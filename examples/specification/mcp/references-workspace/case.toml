@@ -1,0 +1,20 @@
+command = ["mcp"]
+stdin_file = "case-text/root-stdin-1.jsonl"
+exit = 0
+
+[stdout]
+contains = [
+  "\"description\":\"Find supported references for one saved workspace symbol\"",
+  "\"name\":\"references\",\"outputSchema\"",
+  "\"required\":[\"source\",\"line\",\"column\"]",
+  "\"id\":3,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"references\\\"",
+  "\"range\":{\"end\":{\"column\":9,\"line\":10},\"start\":{\"column\":3,\"line\":10}}",
+  "\"range\":{\"end\":{\"column\":9,\"line\":14},\"start\":{\"column\":3,\"line\":14}}",
+  "\"id\":4,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"references\\\":[]}\"",
+  "\"id\":5,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"code\\\":\\\"invalid_position\\\"",
+  "\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":6",
+]
+not_contains = ["target/debug"]
+
+[stderr]
+format = "empty"

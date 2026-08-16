@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"b30c39c5809850a5d3cba45216f198852acf4ddd"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1512
+case_count	1513
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -10427,6 +10427,24 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1489,"sha256":"e2b4d5447b2dc59fe02b8523e695cee21a53e3b32c1a7f0cdcd1919eb1631384"}
 field	source_errors	"forbidden"
 case_digest	"d50ea8d804bad9b7aab8e92b1e97db5c1e8fbbea00d421c2cba265a943b2fd1c"
+case	"examples/specification/mcp/references-workspace"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"description\":\"Find supported references for one saved workspace symbol\""
+field	expectations.stdout.contains[1]	"\"name\":\"references\",\"outputSchema\""
+field	expectations.stdout.contains[2]	"\"required\":[\"source\",\"line\",\"column\"]"
+field	expectations.stdout.contains[3]	"\"id\":3,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"references\\\""
+field	expectations.stdout.contains[4]	"\"range\":{\"end\":{\"column\":9,\"line\":10},\"start\":{\"column\":3,\"line\":10}}"
+field	expectations.stdout.contains[5]	"\"range\":{\"end\":{\"column\":9,\"line\":14},\"start\":{\"column\":3,\"line\":14}}"
+field	expectations.stdout.contains[6]	"\"id\":4,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"references\\\":[]}\""
+field	expectations.stdout.contains[7]	"\"id\":5,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"code\\\":\\\"invalid_position\\\""
+field	expectations.stdout.contains[8]	"\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":6"
+field	expectations.stdout.not_contains[0]	"target/debug"
+field	invocation.command[0]	"mcp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":762,"sha256":"75f4eb4e84b7103f5decdf6d1710bab84960804878efc7920cf1591c6bb0aef4"}
+field	source_errors	"forbidden"
+case_digest	"5e93435951f05bcf1a27447efcfea3512ba5443905994343b284dd87ed2a46ad"
 case	"examples/specification/mcp/workspace-lifecycle"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47713,4 +47731,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"8d43bc7068a9c3c8a586ad656884ade1a9f022bc17cd933fd0d7e37e1f7e9234"
+aggregate_digest	"a747ec43d1be09faa521aef76a36fc300e7ce1277839decadacf5e599f446999"

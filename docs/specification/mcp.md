@@ -1,23 +1,23 @@
 ---
 role: specification
 authority: normative
-update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, workspace project selection, refresh transition, saved project diagnostics or definitions, tool schemas, or executable MCP cases change.
+update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, workspace project selection, refresh transition, saved project diagnostics, navigation tools, tool schemas, or executable MCP cases change.
 ---
 
-# MCP Workspace Projects, Diagnostics, And Definitions
+# MCP Workspace Projects, Diagnostics, And Navigation
 
 `veln mcp` runs a Model Context Protocol (MCP) server over standard input and
 standard output. Standard output contains only newline-delimited JSON-RPC
 messages. End-of-file ends the session successfully.
 
 The current MCP surface contains `workspace_projects`, `refresh_workspace`,
-`check_project`, and `definition`. The checked declarations under
+`check_project`, `definition`, and `references`. The checked declarations under
 `../../crates/veln-mcp/schemas/mcp/v1/` define the advertised input and result
 schemas. The `check_project` result schema closes diagnostics, summary counts,
 and the two analysis metadata shapes. Schema failures, unknown input fields,
 `null` in non-nullable fields, and non-object inputs produce a JSON-RPC
-invalid-params error. The `definition` input requires one source plus positive
-JSON integer line and column coordinates.
+invalid-params error. The `definition` and `references` inputs require one
+source plus positive JSON integer line and column coordinates.
 `refresh_workspace` reports the stable `generation_failed` domain failure as an
 MCP tool result with `isError: true`.
 
@@ -112,16 +112,16 @@ counts and analysis metadata. The metadata uses `mode: "project"` with
 `mode: "single_file"` with `project_wide: false` and `source` for anonymous
 single-file analysis.
 
-## Saved Workspace Definitions
+## Saved Workspace Navigation
 
-`definition` reads one saved workspace-relative regular `.veln` source and a
-one-based line and Unicode-scalar column. The line and column are positive JSON
-integer values; decimal and exponent spellings that denote an integer address
-the same source position as the equivalent plain integer. If the source is in a
-selected manifest project's captured owned-source set, the tool resolves
-symbols over that project. Any other accepted source uses anonymous single-file
-scope. A source below an unselected descendant manifest is therefore not
-analyzed with the outer project.
+`definition` and `references` read one saved workspace-relative regular
+`.veln` source and a one-based line and Unicode-scalar column. The line and
+column are positive JSON integer values; decimal and exponent spellings that
+denote an integer address the same source position as the equivalent plain
+integer. If the source is in a selected manifest project's captured
+owned-source set, the tool resolves symbols over that project. Any other
+accepted source uses anonymous single-file scope. A source below an unselected
+descendant manifest is therefore not analyzed with the outer project.
 
 The implemented symbol set is functions, type constructors, handler context
 parameters, handler operation clause parameters, and exact test-companion
@@ -131,6 +131,13 @@ A supported workspace declaration returns one canonical `file:` URI based on
 the resolved workspace-base identity and a half-open range. A valid position
 without a supported symbol succeeds with `definition: null`.
 
+`references` returns a `references` array of canonical `file:` locations for
+supported workspace reference sites. It returns an empty array when the selected
+position has no supported symbol or when the selected symbol kind has no
+supported reference search. Constructor selections currently have no MCP
+reference search, so an ambiguous bare constructor call such as `same(1)` is
+unselected and returns an empty `references` array.
+
 LF and CRLF each end one logical line, and neither CRLF terminator scalar is an
 addressable position. A line containing `N` Unicode scalars accepts columns 1
 through `N + 1`. A terminal newline creates a final empty line at column 1;
@@ -138,12 +145,12 @@ an empty file accepts only `(1, 1)`. A token's end is excluded from its
 selection. A positive integer line or column that does not address one of these
 source positions, including a value larger than the implementation's native
 coordinate range, returns `invalid_position`.
-Definition capture uses the same no-follow path checks, selected-root and
+Navigation capture uses the same no-follow path checks, selected-root and
 workspace-base identity checks, stable double capture, bounded retry, and
-`snapshot_changed` failure as saved project diagnostics. When definition
-lookup falls back from a selected outer project to anonymous single-file scope
-for a source below a descendant manifest, the ownership decision and the
-anonymous source bytes belong to the same stable capture attempt.
+`snapshot_changed` failure as saved project diagnostics. When navigation lookup
+falls back from a selected outer project to anonymous single-file scope for a
+source below a descendant manifest, the ownership decision and the anonymous
+source bytes belong to the same stable capture attempt.
 
 ## Executable Evidence
 
@@ -161,7 +168,10 @@ The `definition-workspace` MCP specification case checks the advertised
 `definition` declaration plus representative definition, no-definition,
 decimal and exponent integer coordinate spellings, and invalid-position
 results plus non-integer decimal and negative-exponent coordinate schema
-rejection over stdio.
+rejection over stdio. The `references-workspace` MCP specification case checks
+the advertised `references` declaration, workspace function reference
+locations, empty references for an ambiguous bare constructor call, invalid
+positions, and non-integer coordinate schema rejection over stdio.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous

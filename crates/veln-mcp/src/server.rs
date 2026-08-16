@@ -5,6 +5,7 @@ use serde_json::{Value, json};
 
 use crate::check_project::{self, CheckProjectOutcome};
 use crate::definition::{self, DefinitionOutcome};
+use crate::references::{self, ReferencesOutcome};
 use crate::schema;
 use crate::workspace::{Selection, WorkspaceBase};
 
@@ -130,8 +131,34 @@ impl Server {
             "refresh_workspace" => self.refresh_workspace_tool(refresh),
             "check_project" => self.check_project_tool(arguments),
             "definition" => self.definition_tool(arguments),
+            "references" => self.references_tool(arguments),
             _ => unreachable!("tool name was checked against declarations"),
         })
+    }
+
+    fn references_tool(&self, arguments: &Value) -> Value {
+        let tool = schema::tool("references").expect("references tool is declared");
+        match references::references(&self.base, &self.selection, arguments) {
+            ReferencesOutcome::Success(result) => {
+                assert!(
+                    tool.accepts_result(&result),
+                    "references success result must match the advertised schema"
+                );
+                successful_tool_result(result)
+            }
+            ReferencesOutcome::DomainFailure {
+                code,
+                message,
+                details,
+            } => {
+                let result = json!({"code": code, "message": message, "details": details});
+                assert!(
+                    tool.accepts_result(&result),
+                    "references domain result must match the advertised schema: {result}"
+                );
+                domain_failure(code, message, result["details"].clone())
+            }
+        }
     }
 
     fn definition_tool(&self, arguments: &Value) -> Value {

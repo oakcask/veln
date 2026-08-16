@@ -3,14 +3,16 @@ use std::path::Path;
 use serde_json::{Value, json};
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
-use veln_language_service::{EffectiveProjectSnapshot, NavigationSource, SourcePosition, navigate};
+use veln_language_service::{
+    EffectiveProjectSnapshot, NavigationLocation, NavigationSource, SourcePosition, navigate,
+};
 use veln_source::SourcePath;
 
 use crate::check_project::{CheckProjectOutcome, capture_navigation_source};
 use crate::workspace::{Selection, WorkspaceBase};
 
 #[derive(Clone, Copy)]
-enum Coordinate {
+pub(crate) enum Coordinate {
     Addressable(usize),
     OutOfRange,
 }
@@ -65,26 +67,12 @@ pub(crate) fn definition(
             column,
         },
     );
-    let definition = result.and_then(|result| match result.definition.source {
-        NavigationSource::Workspace => Some(json!({
-            "uri": path_to_uri(&root.join(result.definition.span.file.as_str())),
-            "range": {
-                "start": {
-                    "line": result.definition.span.start.line,
-                    "column": result.definition.span.start.column
-                },
-                "end": {
-                    "line": result.definition.span.end.line,
-                    "column": result.definition.span.end.column
-                }
-            }
-        })),
-        NavigationSource::Package { .. } => None,
-    });
+    let definition =
+        result.and_then(|result| workspace_navigation_location_to_json(&root, &result.definition));
     DefinitionOutcome::Success(json!({"definition": definition}))
 }
 
-fn coordinate(value: &Value) -> Coordinate {
+pub(crate) fn coordinate(value: &Value) -> Coordinate {
     let number = value
         .as_number()
         .expect("definition input schema requires a positive integer coordinate");
@@ -155,7 +143,7 @@ fn parse_json_exponent(text: &str) -> Option<i64> {
     text.parse::<i64>().ok()
 }
 
-fn valid_position(text: &str, line: Coordinate, column: Coordinate) -> bool {
+pub(crate) fn valid_position(text: &str, line: Coordinate, column: Coordinate) -> bool {
     let (Coordinate::Addressable(line), Coordinate::Addressable(column)) = (line, column) else {
         return false;
     };
@@ -171,7 +159,33 @@ fn valid_position(text: &str, line: Coordinate, column: Coordinate) -> bool {
     column <= selected_line.chars().count() + 1
 }
 
-fn path_to_uri(path: &Path) -> String {
+pub(crate) fn workspace_navigation_location_to_json(
+    root: &Path,
+    location: &NavigationLocation,
+) -> Option<Value> {
+    match location.source {
+        NavigationSource::Workspace => Some(source_span_to_location_json(root, &location.span)),
+        NavigationSource::Package { .. } => None,
+    }
+}
+
+pub(crate) fn source_span_to_location_json(root: &Path, span: &veln_source::SourceSpan) -> Value {
+    json!({
+        "uri": path_to_uri(&root.join(span.file.as_str())),
+        "range": {
+            "start": {
+                "line": span.start.line,
+                "column": span.start.column
+            },
+            "end": {
+                "line": span.end.line,
+                "column": span.end.column
+            }
+        }
+    })
+}
+
+pub(crate) fn path_to_uri(path: &Path) -> String {
     #[cfg(unix)]
     let bytes = path.as_os_str().as_bytes();
     #[cfg(not(unix))]

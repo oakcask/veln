@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 }
+      },
+      "required": ["line", "column"]
+    },
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "start": { "$ref": "#/$defs/position" },
+        "end": { "$ref": "#/$defs/position" }
+      },
+      "required": ["start", "end"]
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "uri": { "type": "string" },
+        "range": { "$ref": "#/$defs/range" }
+      },
+      "required": ["uri", "range"]
+    },
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": { "enum": ["invalid_path", "invalid_position", "snapshot_changed"] },
+        "message": { "type": "string" },
+        "details": { "type": "object" }
+      },
+      "required": ["code", "message", "details"]
+    }
+  },
+  "type": "object",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "references": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/location" }
+        }
+      },
+      "required": ["references"]
+    },
+    { "$ref": "#/$defs/failure" }
+  ]
+}

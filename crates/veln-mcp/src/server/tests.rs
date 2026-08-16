@@ -63,7 +63,8 @@ fn assert_implemented_tool_names(response: &Value) {
             "workspace_projects",
             "refresh_workspace",
             "check_project",
-            "definition"
+            "definition",
+            "references"
         ]
     );
 }
@@ -110,6 +111,10 @@ fn invalid_tool_inputs_are_protocol_invalid_params() {
         json!({"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"definition","arguments":{"source":null,"line":1,"column":1}}}),
         json!({"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":0,"column":1}}}),
         json!({"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":1}}}),
+        json!({"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":1,"column":1,"unknown":true}}}),
+        json!({"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"references","arguments":{"source":null,"line":1,"column":1}}}),
+        json!({"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":0,"column":1}}}),
+        json!({"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":1}}}),
     ];
     for request in requests {
         let response = server.handle_request(request).unwrap();
@@ -411,6 +416,80 @@ fn definition_distinguishes_no_symbol_from_invalid_positions_and_uses_canonical_
 }
 
 #[test]
+fn references_return_supported_workspace_symbol_uses() {
+    let workspace = TempWorkspace::new("references-workspace");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "math.veln",
+        "fn increment(value: Int) -> Int\n  increment(value - 1)\nend\n",
+    );
+    workspace.write(
+        "math.test.veln",
+        "use math\n\ntest companion() -> Int\n  math::increment(1)\nend\n",
+    );
+
+    let result = references_result(&workspace, "math.test.veln", 4, 11);
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    let references = result["structuredContent"]["references"]
+        .as_array()
+        .unwrap();
+    assert_eq!(references.len(), 2, "{references:#?}");
+    assert!(
+        references[0]["uri"]
+            .as_str()
+            .is_some_and(|uri| uri.ends_with("math.test.veln")),
+        "{references:#?}"
+    );
+    assert_eq!(
+        references[0]["range"]["start"],
+        json!({"line": 4, "column": 9})
+    );
+    assert!(
+        references[1]["uri"]
+            .as_str()
+            .is_some_and(|uri| uri.ends_with("math.veln")),
+        "{references:#?}"
+    );
+    assert_eq!(
+        references[1]["range"]["start"],
+        json!({"line": 2, "column": 3})
+    );
+}
+
+#[test]
+fn references_isolate_symbol_identity_and_single_file_scope() {
+    let workspace = TempWorkspace::new("references-constructor-identity");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "type Left\n",
+            "  same(Int)\n",
+            "end\n\n",
+            "type Right\n",
+            "  same(Int)\n",
+            "end\n\n",
+            "fn main() -> Left\n",
+            "  same(1)\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "other.veln",
+        "fn same(value: Int) -> Int\n  same(value)\nend\n",
+    );
+
+    let result = references_result(&workspace, "main.veln", 10, 4);
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(
+        result["structuredContent"]["references"],
+        json!([]),
+        "{result:#}"
+    );
+}
+
+#[test]
 fn definition_rejects_paths_and_changed_workspace_identity() {
     let workspace = TempWorkspace::new("definition-boundaries");
     workspace.write("main.veln", "fn main() -> Int\n  main()\nend\n");
@@ -475,6 +554,11 @@ fn definition_rejects_symlink_paths_and_spells_uris_from_the_resolved_base() {
 fn definition_result(workspace: &TempWorkspace, source: &str, line: usize, column: usize) -> Value {
     initialized_server(workspace)
         .definition_tool(&json!({"source": source, "line": line, "column": column}))
+}
+
+fn references_result(workspace: &TempWorkspace, source: &str, line: usize, column: usize) -> Value {
+    initialized_server(workspace)
+        .references_tool(&json!({"source": source, "line": line, "column": column}))
 }
 
 #[test]

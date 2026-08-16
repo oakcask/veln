@@ -1,0 +1,15 @@
+type Left
+  same(Int)
+end
+
+type Right
+  same(Int)
+end
+
+fn helper(value: Int) -> Int
+  helper(value - 1)
+end
+
+fn main() -> Int
+  helper(1) + same(1)
+end
