@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The MCP acceptance model, language-service scope, virtual-location contract, reference inputs, plugin boundary, or implementation status changes.
+update-when: The `veln mcp` acceptance model, agent language-service scope, virtual-location contract, reference inputs, plugin boundary, or implementation status changes.
 ---
 
 # Agent Language Services

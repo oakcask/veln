@@ -1,6 +1,6 @@
 ---
 role: routing
-update-when: A specification topic route is added, moved, renamed, or no longer points to the smallest current behavior page.
+update-when: A language specification topic page or smallest-page route for source surface, contracts, commands, JSON, runtime, examples, or rationale is added, moved, renamed, removed, or stops selecting current behavior.
 ---
 
 # Language Topic Map

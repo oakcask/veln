@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: A command JSON schema, command-visible JSON output field, MCP JSON-RPC tool schema route, or command-specific JSON evidence route changes.
+update-when: A CLI command JSON schema, command-visible JSON output field, MCP JSON-RPC response schema, MCP tool schema route, or command-specific JSON evidence route changes.
 ---
 
 # JSON Output

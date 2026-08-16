@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The documented editor-facing behavior or its LSP server evidence changes.
+update-when: The editor semantic-token contract, LSP diagnostics contract, navigation contract, formatting contract, rename contract, virtual-document contract, or executable LSP evidence changes.
 ---
 
 # Editor Support

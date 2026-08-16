@@ -1,6 +1,6 @@
 ---
 role: routing
-update-when: A specification route is added, moved, reclassified, or no longer points to current behavior.
+update-when: A language specification page, topic route, implemented-behavior responsibility, or executable specification evidence route is added, moved, reclassified, removed, or stops selecting current behavior.
 ---
 
 # Language Specification
