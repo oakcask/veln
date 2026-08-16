@@ -24,6 +24,27 @@ use veln_project::{
 use veln_source::{SourceFile, SourcePath, SourceSpan};
 use veln_syntax::{PublicAliasKind, SyntaxItem, Token, TokenKind, Visibility, lex, parse};
 
+#[cfg(test)]
+mod navigation_stats {
+    use std::cell::Cell;
+
+    thread_local! {
+        static CONSTRUCTOR_CANDIDATES_CONSIDERED: Cell<usize> = const { Cell::new(0) };
+    }
+
+    pub fn reset() {
+        CONSTRUCTOR_CANDIDATES_CONSIDERED.set(0);
+    }
+
+    pub fn record_constructor_candidates(count: usize) {
+        CONSTRUCTOR_CANDIDATES_CONSIDERED.with(|value| value.set(value.get() + count));
+    }
+
+    pub fn constructor_candidates_considered() -> usize {
+        CONSTRUCTOR_CANDIDATES_CONSIDERED.get()
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct EffectiveProjectSnapshot {
     sources: Vec<SourceFile>,
@@ -889,8 +910,10 @@ impl SymbolIndex {
     }
 
     fn constructors_named(&self, name: &str) -> impl Iterator<Item = &ConstructorSymbol> {
-        self.constructors_by_name
-            .get(name)
+        let indices = self.constructors_by_name.get(name);
+        #[cfg(test)]
+        navigation_stats::record_constructor_candidates(indices.map_or(0, Vec::len));
+        indices
             .into_iter()
             .flat_map(|indices| indices.iter().map(|index| &self.constructors[*index]))
     }
@@ -2213,7 +2236,6 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
-    use std::time::{Duration, Instant};
 
     use veln_project::{capture_package_snapshot, parse_manifest_text};
 
@@ -2282,23 +2304,25 @@ mod tests {
 
     #[test]
     fn bare_function_references_scale_across_unrelated_constructor_names() {
-        let (small, small_references) = timed_dense_constructor_reference_query(500);
-        let (medium, medium_references) = timed_dense_constructor_reference_query(1000);
-        let (large, large_references) = timed_dense_constructor_reference_query(2000);
+        let size = 2000;
+        let snapshot = dense_constructor_reference_snapshot(size);
 
-        eprintln!(
-            "dense constructor reference query timings: 500={small:?} 1000={medium:?} 2000={large:?}"
-        );
-        assert_eq!(small_references, 500);
-        assert_eq!(medium_references, 1000);
-        assert_eq!(large_references, 2000);
-        assert!(
-            medium <= small * 6 + Duration::from_millis(100),
-            "medium reference query grew too quickly: small={small:?} medium={medium:?}"
-        );
-        assert!(
-            large <= medium * 6 + Duration::from_millis(100),
-            "large reference query grew too quickly: medium={medium:?} large={large:?}"
+        navigation_stats::reset();
+        let result = navigate(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 1,
+                column: 4,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(result.references.len(), size);
+        assert_eq!(
+            navigation_stats::constructor_candidates_considered(),
+            0,
+            "reference lookup scanned unrelated constructor candidates instead of using the name index"
         );
     }
 
@@ -3092,7 +3116,7 @@ mod tests {
         )
     }
 
-    fn timed_dense_constructor_reference_query(size: usize) -> (Duration, usize) {
+    fn dense_constructor_reference_snapshot(size: usize) -> EffectiveProjectSnapshot {
         let mut text =
             String::from("fn target(value: Int) -> Int\n  value\nend\n\npub type Token\n");
         for index in 0..size {
@@ -3103,20 +3127,7 @@ mod tests {
             text.push_str("  target(0)\n");
         }
         text.push_str("end\n");
-        let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &text)]);
-
-        let started = Instant::now();
-        let result = navigate(
-            &snapshot,
-            SourcePosition {
-                source: SourcePath::new("main.veln"),
-                line: 1,
-                column: 4,
-            },
-        )
-        .unwrap();
-
-        (started.elapsed(), result.references.len())
+        EffectiveProjectSnapshot::new(vec![source("main.veln", &text)])
     }
 
     fn dependency_snapshot(
