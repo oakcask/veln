@@ -1343,25 +1343,25 @@ fn matching_rparen_index(tokens: &[Token], lparen_index: usize, end_index: usize
 }
 
 fn call_reference_token_indices(tokens: &[Token], name: &str) -> Vec<usize> {
-    let scopes = function_scopes(&tokens);
+    let scopes = function_scopes(tokens);
     tokens
         .iter()
         .enumerate()
         .filter(|(index, token)| {
             token.text == name
                 && is_identifier(&token.text)
-                && previous_non_layout_token(&tokens, *index)
+                && previous_non_layout_token(tokens, *index)
                     .is_none_or(|previous| previous.kind != TokenKind::DoubleColon)
-                && !is_field_name(&tokens, *index)
-                && !is_function_declaration_name(&tokens, *index)
-                && !is_parameter_name(&tokens, *index)
-                && !is_local_binding_name(&tokens, *index)
-                && !is_handler_operation_clause_operation_name(&tokens, *index)
+                && !is_field_name(tokens, *index)
+                && !is_function_declaration_name(tokens, *index)
+                && !is_parameter_name(tokens, *index)
+                && !is_local_binding_name(tokens, *index)
+                && !is_handler_operation_clause_operation_name(tokens, *index)
                 && (token_scope(&scopes, token.range.start)
-                    .is_some_and(|scope| !scope.shadows(name, &tokens, *index))
-                    || is_handler_operation_clause_call_target(&tokens, *index)
-                    || is_function_alias_target_reference(&tokens, *index, name)
-                    || is_codec_implementation_function_reference(&tokens, *index, name))
+                    .is_some_and(|scope| !scope.shadows(name, tokens, *index))
+                    || is_handler_operation_clause_call_target(tokens, *index)
+                    || is_function_alias_target_reference(tokens, *index, name)
+                    || is_codec_implementation_function_reference(tokens, *index, name))
         })
         .map(|(index, _)| index)
         .collect()
@@ -1374,8 +1374,8 @@ fn qualified_reference_token_indices(tokens: &[Token], module: &str, name: &str)
         .enumerate()
         .filter(|(index, token)| {
             token.text == name
-                && is_call_target_token(&tokens, *index)
-                && qualified_reference_matches(&tokens, *index, &module_segments)
+                && is_call_target_token(tokens, *index)
+                && qualified_reference_matches(tokens, *index, &module_segments)
         })
         .map(|(index, _)| index)
         .collect()
