@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"8cd492393cca06edc394e99083958c092ec17606"
+source_git_tree	"18bc6ec73b701864785b98be7f16d5858c8205a0"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1518
@@ -10248,7 +10248,13 @@ case	"examples/specification/lsp/non-callable-shadow-constructor-navigation"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"definitionProvider\":true"
-field	expectations.stdout.contains[10]	"\"newText\":\"pack_value\""
+field	expectations.stdout.contains[10]	"\"id\":9,\"result\":[{\"uri\":\"file://"
+field	expectations.stdout.contains[11]	"\"id\":10,\"result\":{\"changes\":{\"file://"
+field	expectations.stdout.contains[12]	"\"id\":11,\"result\":{\"uri\":\"file://"
+field	expectations.stdout.contains[13]	"\"id\":12,\"result\":[{\"uri\":\"file://"
+field	expectations.stdout.contains[14]	"\"id\":13,\"result\":{\"changes\":{\"file://"
+field	expectations.stdout.contains[15]	"\"range\":{\"start\":{\"line\":1,\"character\":2},\"end\":{\"line\":1,\"character\":6}}"
+field	expectations.stdout.contains[16]	"\"newText\":\"pack_value\""
 field	expectations.stdout.contains[1]	"\"referencesProvider\":true"
 field	expectations.stdout.contains[2]	"\"renameProvider\":{\"prepareProvider\":true}"
 field	expectations.stdout.contains[3]	"\"id\":2,\"result\":{\"uri\":\"file://"
@@ -10257,14 +10263,16 @@ field	expectations.stdout.contains[5]	"\"id\":4,\"result\":{\"changes\":{\"file:
 field	expectations.stdout.contains[6]	"\"id\":5,\"result\":{\"uri\":\"file://"
 field	expectations.stdout.contains[7]	"\"id\":6,\"result\":[{\"uri\":\"file://"
 field	expectations.stdout.contains[8]	"\"id\":7,\"result\":{\"changes\":{\"file://"
-field	expectations.stdout.contains[9]	"\"range\":{\"start\":{\"line\":1,\"character\":2},\"end\":{\"line\":1,\"character\":6}}"
+field	expectations.stdout.contains[9]	"\"id\":8,\"result\":{\"uri\":\"file://"
 field	expectations.stdout.not_contains[0]	"\"id\":2,\"result\":null"
 field	expectations.stdout.not_contains[1]	"\"id\":5,\"result\":null"
+field	expectations.stdout.not_contains[2]	"\"id\":8,\"result\":null"
+field	expectations.stdout.not_contains[3]	"\"id\":11,\"result\":null"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1406,"sha256":"afd33b09a24ec27c67671eeaf97361e160a42ae00f1f7af612f605d9a065f920"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2575,"sha256":"36ee08d8bedc537e67560f751fb8fbdf01b9b3f8494a9f9261ab0766cf2c5f4e"}
 field	source_errors	"forbidden"
-case_digest	"1961a81b9ed7fcec7e5e4fe05671a01e915646e27442821f2b0bb0b01e5514e5"
+case_digest	"c23808754dcdb043790981842dc26b278a6d99fd94ee24cd4df4d39403c1982c"
 case	"examples/specification/lsp/open-document-nested-boundary"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47833,4 +47841,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"b9d02c2476233de0014cf43a4905b12cce7d7c1b72973df5f0665eb0a370cd13"
+aggregate_digest	"049b657ef990cec1fb3e18514e084501bdd9565c7f548c84d507da2d32b23d67"
