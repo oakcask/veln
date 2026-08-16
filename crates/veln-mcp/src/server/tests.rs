@@ -550,15 +550,15 @@ fn references_isolate_symbol_identity_and_single_file_scope() {
         "{constructor:#}"
     );
 
-    let ambiguous_definition = definition_result(&workspace, "main.veln", 10, 4);
+    let constructor_definition = definition_result(&workspace, "main.veln", 10, 4);
     assert_eq!(
-        ambiguous_definition["isError"], false,
-        "{ambiguous_definition:#}"
+        constructor_definition["isError"], false,
+        "{constructor_definition:#}"
     );
     assert_eq!(
-        ambiguous_definition["structuredContent"]["definition"],
-        json!(null),
-        "{ambiguous_definition:#}"
+        constructor_definition["structuredContent"]["definition"]["range"]["start"],
+        json!({"line": 2, "column": 3}),
+        "{constructor_definition:#}"
     );
 
     let function = references_result(&workspace, "main.veln", 5, 4);
