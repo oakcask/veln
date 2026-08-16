@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: A command JSON schema, command-visible JSON output field, or command-specific JSON evidence route changes.
+update-when: A command JSON schema, command-visible JSON output field, MCP JSON-RPC tool schema route, or command-specific JSON evidence route changes.
 ---
 
 # JSON Output
@@ -17,6 +17,9 @@ details.
   relevant command analysis path described by [commands.md](commands.md).
 - Help output is human command output, not command JSON. Use
   [commands.md](commands.md) for top-level and subcommand help behavior.
+- `veln mcp` JSON-RPC messages and MCP tool schemas are not command-specific
+  JSON envelopes. Use [mcp.md](mcp.md) for MCP stdio responses, tool
+  declarations, input schemas, and result schemas.
 - Human diagnostic wording, related notes, spans, or stable diagnostic details:
   [diagnostics-json.md](diagnostics-json.md). Keep human output and structured
   output aligned before checking command-specific behavior.
@@ -48,11 +51,15 @@ details.
   must stay stable for tools.
 - Updating command behavior where human output and JSON output must stay
   aligned.
+- Updating MCP JSON-RPC responses, tool declarations, input schemas, or result
+  schemas.
 
 ## Skip Unless Needed
 
 - Use [commands.md](commands.md) first when the task is about CLI gates,
   source discovery, entry selection, or exit behavior.
+- Use [mcp.md](mcp.md) instead when the machine-readable change is specific to
+  the `veln mcp` stdio server or MCP tool schemas.
 - Use [diagnostics-json.md](diagnostics-json.md) before a broader command page
   when only diagnostic fields or related notes change.
 - Use the `*-full.md` files only after the short JSON page points to the

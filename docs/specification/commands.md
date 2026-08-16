@@ -32,7 +32,7 @@ requiring the full command reference on the first read.
 - `mcp`: starts a stdio MCP server without source path arguments and without
   the shared package-root analysis used by source-oriented commands. Standard
   output carries only MCP JSON-RPC messages. Use [mcp.md](mcp.md) for the
-  workspace-project tool contract, saved diagnostics, saved definitions, tool
+  workspace-project tool contract, saved diagnostics, saved navigation, tool
   schemas, and refresh behavior.
 - `check`: source discovery, nested-manifest package boundaries for recursive
   and explicit inputs, ordinary `target` source directories, source path
