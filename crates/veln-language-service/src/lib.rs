@@ -12,7 +12,7 @@ pub use package_documentation::{
 };
 pub use virtual_source::{VirtualSourceCatalog, VirtualSourceCatalogError, VirtualSourceEntry};
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt;
 use std::sync::{Arc, OnceLock};
@@ -410,6 +410,9 @@ struct SymbolIndex {
     functions: Vec<FunctionSymbol>,
     constructors: Vec<ConstructorSymbol>,
     type_aliases: Vec<TypeAliasSymbol>,
+    functions_by_name: BTreeMap<String, Vec<usize>>,
+    constructors_by_name: BTreeMap<String, Vec<usize>>,
+    type_aliases_by_target_name: BTreeMap<String, Vec<usize>>,
 }
 
 #[derive(Debug)]
@@ -450,10 +453,25 @@ impl SymbolIndex {
         for dependency in dependencies.into_iter().chain(standard_library) {
             index_dependency_sources(&mut files, dependency);
         }
+        let functions = files
+            .iter()
+            .flat_map(function_declarations)
+            .collect::<Vec<_>>();
+        let constructors = files
+            .iter()
+            .flat_map(constructor_declarations)
+            .collect::<Vec<_>>();
+        let type_aliases = files
+            .iter()
+            .flat_map(type_alias_declarations)
+            .collect::<Vec<_>>();
         Self {
-            functions: files.iter().flat_map(function_declarations).collect(),
-            constructors: files.iter().flat_map(constructor_declarations).collect(),
-            type_aliases: files.iter().flat_map(type_alias_declarations).collect(),
+            functions_by_name: function_indices_by_name(&functions),
+            constructors_by_name: constructor_indices_by_name(&constructors),
+            type_aliases_by_target_name: type_alias_indices_by_target_name(&type_aliases),
+            functions,
+            constructors,
+            type_aliases,
             files,
         }
     }
@@ -516,8 +534,7 @@ impl SymbolIndex {
     }
 
     fn function_declared_at(&self, name: &str, selection: &SourceSpan) -> Option<FunctionSymbol> {
-        self.functions
-            .iter()
+        self.functions_named(name)
             .find(|symbol| {
                 symbol.name == name
                     && symbol.package.is_none()
@@ -538,7 +555,7 @@ impl SymbolIndex {
         if let Some(symbol) = self.constructor_for_bare_call(file, name) {
             return Some(Symbol::Constructor(symbol));
         }
-        if let Some(symbol) = self.functions.iter().find(|symbol| {
+        if let Some(symbol) = self.functions_named(name).find(|symbol| {
             symbol.name == name && symbol.module == file.module && symbol.package.is_none()
         }) {
             return Some(Symbol::Function(symbol.clone()));
@@ -549,8 +566,7 @@ impl SymbolIndex {
         {
             return None;
         }
-        self.functions
-            .iter()
+        self.functions_named(name)
             .find(|symbol| symbol.name == name && symbol.standard_prelude)
             .cloned()
             .map(Symbol::Function)
@@ -565,8 +581,7 @@ impl SymbolIndex {
         if let Some(symbol) = self.constructor_for_qualified_call(file, qualifier, name) {
             return Some(Symbol::Constructor(symbol));
         }
-        self.functions
-            .iter()
+        self.functions_named(name)
             .find(|symbol| match &symbol.package {
                 Some(package) => {
                     symbol.name == name
@@ -595,8 +610,7 @@ impl SymbolIndex {
         file: &IndexedFile,
         name: &str,
     ) -> Option<ConstructorSymbol> {
-        self.constructors
-            .iter()
+        self.constructors_named(name)
             .find(|symbol| {
                 symbol.name == name
                     && symbol.package.is_none()
@@ -605,7 +619,7 @@ impl SymbolIndex {
             })
             .cloned()
             .or_else(|| {
-                let mut candidates = self.constructors.iter().filter(|symbol| {
+                let mut candidates = self.constructors_named(name).filter(|symbol| {
                     symbol.name == name
                         && !symbol.standard_prelude
                         && symbol.package.is_none()
@@ -618,7 +632,7 @@ impl SymbolIndex {
                 candidates.next().is_none().then(|| candidate.clone())
             })
             .or_else(|| {
-                let mut candidates = self.constructors.iter().filter(|symbol| {
+                let mut candidates = self.constructors_named(name).filter(|symbol| {
                     symbol.name == name
                         && !symbol.standard_prelude
                         && symbol.public
@@ -643,8 +657,7 @@ impl SymbolIndex {
         qualifier: &str,
         name: &str,
     ) -> Option<ConstructorSymbol> {
-        self.constructors
-            .iter()
+        self.constructors_named(name)
             .find(|symbol| {
                 symbol.name == name
                     && (constructor_qualifier_matches(symbol, qualifier)
@@ -678,7 +691,7 @@ impl SymbolIndex {
         symbol: &ConstructorSymbol,
         qualifier: &str,
     ) -> bool {
-        self.type_aliases.iter().any(|alias| {
+        self.type_aliases_targeting(&symbol.type_name).any(|alias| {
             type_alias_targets_constructor(alias, symbol)
                 && (qualifier == alias.module
                     || qualifier == format!("{}::{}", alias.module, alias.name))
@@ -692,7 +705,7 @@ impl SymbolIndex {
     }
 
     fn has_visible_non_prelude_imported_constructor(&self, file: &IndexedFile, name: &str) -> bool {
-        self.constructors.iter().any(|symbol| {
+        self.constructors_named(name).any(|symbol| {
             if symbol.name != name || symbol.standard_prelude {
                 return false;
             }
@@ -721,7 +734,7 @@ impl SymbolIndex {
         symbol: &ConstructorSymbol,
         package: Option<&String>,
     ) -> bool {
-        self.type_aliases.iter().any(|alias| {
+        self.type_aliases_targeting(&symbol.type_name).any(|alias| {
             if !type_alias_targets_constructor(alias, symbol) {
                 return false;
             }
@@ -738,7 +751,7 @@ impl SymbolIndex {
     }
 
     fn has_visible_non_prelude_imported_function(&self, file: &IndexedFile, name: &str) -> bool {
-        self.functions.iter().any(|symbol| {
+        self.functions_named(name).any(|symbol| {
             if symbol.name != name || symbol.standard_prelude {
                 return false;
             }
@@ -833,19 +846,17 @@ impl SymbolIndex {
         symbol: &FunctionSymbol,
     ) -> Vec<SourceSpan> {
         let tokens = lex(&file.source).tokens;
-        call_references(&file.source, &symbol.name)
+        call_reference_token_indices(&tokens, &symbol.name)
             .into_iter()
-            .filter(|span| {
-                let Some(index) = token_index_at_span_start(&tokens, span) else {
-                    return true;
-                };
-                !is_call_target_token(&tokens, index)
+            .filter(|index| {
+                !is_call_target_token(&tokens, *index)
                     || matches!(
-                        self.symbol_for_bare_call(file, &tokens, index, &symbol.name),
+                        self.symbol_for_bare_call(file, &tokens, *index, &symbol.name),
                         Some(Symbol::Function(candidate))
                             if same_function_symbol(&candidate, symbol)
                     )
             })
+            .map(|index| file.source.span(tokens[index].range))
             .collect()
     }
 
@@ -855,13 +866,10 @@ impl SymbolIndex {
         symbol: &FunctionSymbol,
     ) -> Vec<SourceSpan> {
         let tokens = lex(&file.source).tokens;
-        qualified_references(&file.source, &symbol.module, &symbol.name)
+        qualified_reference_token_indices(&tokens, &symbol.module, &symbol.name)
             .into_iter()
-            .filter(|span| {
-                let Some(index) = token_index_at_span_start(&tokens, span) else {
-                    return true;
-                };
-                let Some(qualifier) = qualifier_for_token(&tokens, index) else {
+            .filter(|index| {
+                let Some(qualifier) = qualifier_for_token(&tokens, *index) else {
                     return false;
                 };
                 matches!(
@@ -869,14 +877,30 @@ impl SymbolIndex {
                     Some(Symbol::Function(candidate)) if same_function_symbol(&candidate, symbol)
                 )
             })
+            .map(|index| file.source.span(tokens[index].range))
             .collect()
     }
-}
 
-fn token_index_at_span_start(tokens: &[Token], span: &SourceSpan) -> Option<usize> {
-    tokens.iter().position(|token| {
-        token.range.start == span.start.offset && token.range.end == span.end.offset
-    })
+    fn functions_named(&self, name: &str) -> impl Iterator<Item = &FunctionSymbol> {
+        self.functions_by_name
+            .get(name)
+            .into_iter()
+            .flat_map(|indices| indices.iter().map(|index| &self.functions[*index]))
+    }
+
+    fn constructors_named(&self, name: &str) -> impl Iterator<Item = &ConstructorSymbol> {
+        self.constructors_by_name
+            .get(name)
+            .into_iter()
+            .flat_map(|indices| indices.iter().map(|index| &self.constructors[*index]))
+    }
+
+    fn type_aliases_targeting(&self, name: &str) -> impl Iterator<Item = &TypeAliasSymbol> {
+        self.type_aliases_by_target_name
+            .get(name)
+            .into_iter()
+            .flat_map(|indices| indices.iter().map(|index| &self.type_aliases[*index]))
+    }
 }
 
 fn same_function_symbol(left: &FunctionSymbol, right: &FunctionSymbol) -> bool {
@@ -927,6 +951,41 @@ fn index_dependency_sources(files: &mut Vec<IndexedFile>, dependency: DirectDepe
             },
         });
     }
+}
+
+fn function_indices_by_name(functions: &[FunctionSymbol]) -> BTreeMap<String, Vec<usize>> {
+    let mut indices = BTreeMap::new();
+    for (index, symbol) in functions.iter().enumerate() {
+        indices
+            .entry(symbol.name.clone())
+            .or_insert_with(Vec::new)
+            .push(index);
+    }
+    indices
+}
+
+fn constructor_indices_by_name(constructors: &[ConstructorSymbol]) -> BTreeMap<String, Vec<usize>> {
+    let mut indices = BTreeMap::new();
+    for (index, symbol) in constructors.iter().enumerate() {
+        indices
+            .entry(symbol.name.clone())
+            .or_insert_with(Vec::new)
+            .push(index);
+    }
+    indices
+}
+
+fn type_alias_indices_by_target_name(
+    type_aliases: &[TypeAliasSymbol],
+) -> BTreeMap<String, Vec<usize>> {
+    let mut indices = BTreeMap::new();
+    for (index, alias) in type_aliases.iter().enumerate() {
+        indices
+            .entry(alias.target_name.clone())
+            .or_insert_with(Vec::new)
+            .push(index);
+    }
+    indices
 }
 
 fn visible_workspace_constructor_from(file: &IndexedFile, symbol: &ConstructorSymbol) -> bool {
@@ -1283,8 +1342,7 @@ fn matching_rparen_index(tokens: &[Token], lparen_index: usize, end_index: usize
     None
 }
 
-fn call_references(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
-    let tokens = lex(source).tokens;
+fn call_reference_token_indices(tokens: &[Token], name: &str) -> Vec<usize> {
     let scopes = function_scopes(&tokens);
     tokens
         .iter()
@@ -1305,12 +1363,11 @@ fn call_references(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
                     || is_function_alias_target_reference(&tokens, *index, name)
                     || is_codec_implementation_function_reference(&tokens, *index, name))
         })
-        .map(|(_, token)| source.span(token.range))
+        .map(|(index, _)| index)
         .collect()
 }
 
-fn qualified_references(source: &SourceFile, module: &str, name: &str) -> Vec<SourceSpan> {
-    let tokens = lex(source).tokens;
+fn qualified_reference_token_indices(tokens: &[Token], module: &str, name: &str) -> Vec<usize> {
     let module_segments = module.split("::").collect::<Vec<_>>();
     tokens
         .iter()
@@ -1320,7 +1377,7 @@ fn qualified_references(source: &SourceFile, module: &str, name: &str) -> Vec<So
                 && is_call_target_token(&tokens, *index)
                 && qualified_reference_matches(&tokens, *index, &module_segments)
         })
-        .map(|(_, token)| source.span(token.range))
+        .map(|(index, _)| index)
         .collect()
 }
 
@@ -2156,6 +2213,7 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{Duration, Instant};
 
     use veln_project::{capture_package_snapshot, parse_manifest_text};
 
@@ -2219,6 +2277,28 @@ mod tests {
         assert_eq!(
             locations(&result.references),
             [("math.test.veln", 4, 9), ("math.veln", 2, 3)]
+        );
+    }
+
+    #[test]
+    fn bare_function_references_scale_across_unrelated_constructor_names() {
+        let (small, small_references) = timed_dense_constructor_reference_query(500);
+        let (medium, medium_references) = timed_dense_constructor_reference_query(1000);
+        let (large, large_references) = timed_dense_constructor_reference_query(2000);
+
+        eprintln!(
+            "dense constructor reference query timings: 500={small:?} 1000={medium:?} 2000={large:?}"
+        );
+        assert_eq!(small_references, 500);
+        assert_eq!(medium_references, 1000);
+        assert_eq!(large_references, 2000);
+        assert!(
+            medium <= small * 6 + Duration::from_millis(100),
+            "medium reference query grew too quickly: small={small:?} medium={medium:?}"
+        );
+        assert!(
+            large <= medium * 6 + Duration::from_millis(100),
+            "large reference query grew too quickly: medium={medium:?} large={large:?}"
         );
     }
 
@@ -3010,6 +3090,33 @@ mod tests {
                 column: 10,
             },
         )
+    }
+
+    fn timed_dense_constructor_reference_query(size: usize) -> (Duration, usize) {
+        let mut text =
+            String::from("fn target(value: Int) -> Int\n  value\nend\n\npub type Token\n");
+        for index in 0..size {
+            text.push_str(&format!("  pub C{index}(Int)\n"));
+        }
+        text.push_str("end\n\npub fn caller() -> Int\n");
+        for _ in 0..size {
+            text.push_str("  target(0)\n");
+        }
+        text.push_str("end\n");
+        let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &text)]);
+
+        let started = Instant::now();
+        let result = navigate(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 1,
+                column: 4,
+            },
+        )
+        .unwrap();
+
+        (started.elapsed(), result.references.len())
     }
 
     fn dependency_snapshot(
