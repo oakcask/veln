@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"4c25d47f3ba7146d70eb12f34adb96c6d9da4a9a"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1515
+case_count	1516
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -10468,6 +10468,21 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1624,"sha256":"4432ba27021d1b0527541149dec9f7690cb60a4d2240251ad85e34fb2bec4ce4"}
 field	source_errors	"forbidden"
 case_digest	"d3a2a70b7ee5efc92fd1d61a4091c6ff416a334de1202aebd6b8d79ca8ddc15f"
+case	"examples/specification/mcp/navigation-dependency-identity"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":2,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"definition\\\":null}\""
+field	expectations.stdout.contains[1]	"\"id\":3,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"references\\\":[],\\\"scope\\\""
+field	expectations.stdout.contains[2]	"\"id\":4,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"definition\\\":null}\""
+field	expectations.stdout.contains[3]	"\"id\":5,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"references\\\":[],\\\"scope\\\""
+field	expectations.stdout.not_contains[0]	"\"range\":{\"end\":{\"column\":10,\"line\":4},\"start\":{\"column\":3,\"line\":4}}"
+field	expectations.stdout.not_contains[1]	"vendor/lib/math.veln"
+field	expectations.stdout.not_contains[2]	"target/debug"
+field	invocation.command[0]	"mcp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":684,"sha256":"707c0f7dda9889e0b8cb6027a7c5d7890dbcc74593003576ff7aba230f833451"}
+field	source_errors	"forbidden"
+case_digest	"04d1a8bb9e1ae3f080045086a706ab274dc9ea09b37ecb466a0ac2e668e81e46"
 case	"examples/specification/mcp/references-workspace"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47776,4 +47791,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"ff6dc64edb1422e08feb7f56deb803f2bcba2b953aab4896f3310cd0fbb08ce3"
+aggregate_digest	"86a2ce5bbeddf215c59bbed9136e964c5ecb6307a9e37a92879312d81fe1623d"

@@ -11,9 +11,14 @@ use rustix::fs::{FileType, Mode, OFlags, RawDir, ResolveFlags, openat2};
 use serde_json::{Value, json};
 use veln_analysis::{
     CapturedDependencyProject, DoctestMode, checked_project_diagnostics_with_captured_dependencies,
+    validate_manifest_exports,
 };
 use veln_diagnostics::diagnostic_to_json;
-use veln_project::{Project, parse_manifest_text};
+use veln_language_service::{DirectDependencySnapshot, EffectiveProjectSnapshot};
+use veln_project::{
+    PackageIdentity, PackageSnapshotSource, Project, capture_embedded_package_snapshot,
+    parse_manifest_text,
+};
 use veln_source::SourceFile;
 
 use crate::workspace::{
@@ -531,6 +536,78 @@ pub(crate) struct CapturedProject {
     pub(crate) project: Project,
     dependencies: Vec<CapturedDependencyProject>,
     key: Value,
+}
+
+impl CapturedProject {
+    pub(crate) fn into_navigation_snapshot(self) -> EffectiveProjectSnapshot {
+        let Self {
+            project,
+            dependencies,
+            key: _,
+        } = self;
+        let direct_dependencies = dependencies
+            .iter()
+            .filter_map(retained_captured_dependency)
+            .collect::<Vec<_>>();
+        let snapshot =
+            EffectiveProjectSnapshot::with_direct_dependencies(project.files, direct_dependencies);
+        match retained_standard_library() {
+            Some(standard_library) => snapshot.with_standard_library(standard_library),
+            None => snapshot,
+        }
+    }
+}
+
+fn retained_captured_dependency(
+    dependency: &CapturedDependencyProject,
+) -> Option<DirectDependencySnapshot> {
+    let identity = PackageIdentity::new(&dependency.package).ok()?;
+    let project = dependency.project.as_ref()?;
+    if !validate_manifest_exports(project).is_empty() {
+        return None;
+    }
+    let manifest = project.manifest.clone()?;
+    let snapshot = capture_embedded_package_snapshot(
+        &manifest.source_bytes,
+        project
+            .files
+            .iter()
+            .map(|file| PackageSnapshotSource::new(file.path().as_str(), file.text().as_bytes())),
+    )
+    .ok()?;
+    DirectDependencySnapshot::from_validated_manifest(&identity, snapshot, manifest).ok()
+}
+
+fn retained_standard_library() -> Option<DirectDependencySnapshot> {
+    let bundle = veln_stdlib::package_bundle();
+    let snapshot = capture_embedded_package_snapshot(
+        bundle.manifest.as_bytes(),
+        bundle
+            .files
+            .iter()
+            .map(|file| PackageSnapshotSource::new(file.path, file.text.as_bytes())),
+    )
+    .ok()?;
+    let manifest = parse_manifest_text("veln.toml", bundle.manifest);
+    let project = Project {
+        root: PathBuf::new(),
+        files: snapshot
+            .sources()
+            .iter()
+            .map(|source| {
+                SourceFile::new(
+                    source.path(),
+                    std::str::from_utf8(source.bytes())
+                        .expect("embedded standard package source text is valid UTF-8"),
+                )
+            })
+            .collect(),
+        manifest: Some(manifest),
+    };
+    if !validate_manifest_exports(&project).is_empty() {
+        return None;
+    }
+    DirectDependencySnapshot::from_validated_standard_library(snapshot, project.manifest?).ok()
 }
 
 fn capture_once(target: &Target) -> io::Result<CapturedProject> {

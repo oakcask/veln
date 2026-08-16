@@ -1,5 +1,5 @@
 use serde_json::{Value, json};
-use veln_language_service::{EffectiveProjectSnapshot, SourcePosition, SymbolKind, navigate};
+use veln_language_service::{SourcePosition, SymbolKind, navigate};
 use veln_source::SourcePath;
 
 use crate::check_project::{CheckProjectOutcome, capture_navigation_source};
@@ -48,7 +48,7 @@ pub(crate) fn references(
     };
 
     let root = captured.project.root.clone();
-    let snapshot = EffectiveProjectSnapshot::new(captured.project.files);
+    let snapshot = captured.into_navigation_snapshot();
     let references = navigate(
         &snapshot,
         SourcePosition {

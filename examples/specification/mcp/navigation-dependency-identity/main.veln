@@ -1,0 +1,21 @@
+use math from "example/pkg"
+
+pub fn build() -> Token
+  exposed(1)
+end
+
+fn exposed(value: Int) -> Int
+  value
+end
+
+pub fn use_exposed() -> Int
+  exposed(2)
+end
+
+type Local
+  pack(Int)
+end
+
+fn parameter_shadow(pack: fn(Int) -> Local) -> Local
+  pack(1)
+end

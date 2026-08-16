@@ -3,9 +3,7 @@ use std::path::Path;
 use serde_json::{Value, json};
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
-use veln_language_service::{
-    EffectiveProjectSnapshot, NavigationLocation, NavigationSource, SourcePosition, navigate,
-};
+use veln_language_service::{NavigationLocation, NavigationSource, SourcePosition, navigate};
 use veln_source::SourcePath;
 
 use crate::check_project::{CheckProjectOutcome, capture_navigation_source};
@@ -58,7 +56,7 @@ pub(crate) fn definition(
     };
 
     let root = captured.project.root.clone();
-    let snapshot = EffectiveProjectSnapshot::new(captured.project.files);
+    let snapshot = captured.into_navigation_snapshot();
     let result = navigate(
         &snapshot,
         SourcePosition {

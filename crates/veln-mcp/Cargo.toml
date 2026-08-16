@@ -12,6 +12,7 @@ veln-diagnostics.workspace = true
 veln-language-service.workspace = true
 veln-project.workspace = true
 veln-source.workspace = true
+veln-stdlib.workspace = true
 
 [lints]
 workspace = true

@@ -475,6 +475,7 @@ dependencies = [
  "veln-language-service",
  "veln-project",
  "veln-source",
+ "veln-stdlib",
 ]
 
 [[package]]

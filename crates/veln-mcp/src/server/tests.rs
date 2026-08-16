@@ -576,6 +576,105 @@ fn references_isolate_symbol_identity_and_single_file_scope() {
 }
 
 #[test]
+fn navigation_uses_dependencies_for_identity_before_limiting_results_to_workspace() {
+    let workspace = TempWorkspace::new("navigation-dependency-identity");
+    workspace.write(
+        "veln.toml",
+        concat!(
+            "[package]\n",
+            "name = \"app\"\n\n",
+            "[dependencies.\"example/pkg\"]\n",
+            "path = \"vendor/lib\"\n",
+        ),
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use math from \"example/pkg\"\n\n",
+            "pub fn build() -> Token\n",
+            "  exposed(1)\n",
+            "end\n\n",
+            "fn exposed(value: Int) -> Int\n",
+            "  value\n",
+            "end\n\n",
+            "pub fn use_exposed() -> Int\n",
+            "  exposed(2)\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/lib/veln.toml",
+        concat!(
+            "[package]\n",
+            "name = \"example/pkg\"\n\n",
+            "[lib]\n",
+            "exports = [\"math.veln\"]\n",
+        ),
+    );
+    workspace.write(
+        "vendor/lib/math.veln",
+        concat!("pub type Token\n", "  pub exposed(Int)\n", "end\n"),
+    );
+
+    let constructor_definition = definition_result(&workspace, "main.veln", 4, 4);
+    assert_eq!(
+        constructor_definition["structuredContent"]["definition"],
+        Value::Null,
+        "{constructor_definition:#}"
+    );
+
+    let function_references = references_result(&workspace, "main.veln", 7, 4);
+    assert_eq!(
+        function_references["isError"], false,
+        "{function_references:#}"
+    );
+    assert_eq!(
+        function_references["structuredContent"]["references"],
+        json!([]),
+        "{function_references:#}"
+    );
+}
+
+#[test]
+fn callable_bindings_shadow_constructor_for_mcp_navigation() {
+    let workspace = TempWorkspace::new("callable-shadow-constructor-mcp-navigation");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "type Token\n",
+            "  pack(Int)\n",
+            "end\n\n",
+            "fn parameter_shadow(pack: fn(Int) -> Token) -> Token\n",
+            "  pack(1)\n",
+            "end\n\n",
+            "fn local_shadow(identity: fn(Int) -> Token) -> Token\n",
+            "  let pack = identity\n",
+            "  pack(1)\n",
+            "end\n",
+        ),
+    );
+
+    for (line, column) in [(6, 4), (11, 4)] {
+        let definition = definition_result(&workspace, "main.veln", line, column);
+        assert_eq!(definition["isError"], false, "{definition:#}");
+        assert_eq!(
+            definition["structuredContent"]["definition"],
+            Value::Null,
+            "{definition:#}"
+        );
+
+        let references = references_result(&workspace, "main.veln", line, column);
+        assert_eq!(references["isError"], false, "{references:#}");
+        assert_eq!(
+            references["structuredContent"]["references"],
+            json!([]),
+            "{references:#}"
+        );
+    }
+}
+
+#[test]
 fn definition_rejects_paths_and_changed_workspace_identity() {
     let workspace = TempWorkspace::new("definition-boundaries");
     workspace.write("main.veln", "fn main() -> Int\n  main()\nend\n");

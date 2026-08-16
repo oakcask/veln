@@ -1,0 +1,5 @@
+[package]
+name = "app"
+
+[dependencies."example/pkg"]
+path = "vendor/lib"
