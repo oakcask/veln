@@ -132,11 +132,13 @@ the resolved workspace-base identity and a half-open range. A valid position
 without a supported symbol succeeds with `definition: null`.
 
 `references` returns a `references` array of canonical `file:` locations for
-supported workspace reference sites. It returns an empty array when the selected
-position has no supported symbol or when the selected symbol kind has no
-supported reference search. Constructor selections currently have no MCP
-reference search, so an ambiguous bare constructor call such as `same(1)` is
-unselected and returns an empty `references` array.
+supported workspace function reference sites. Each returned function reference
+must resolve to the same function identity as the selected symbol. Same-spelled
+constructors and functions in another scope are excluded. The tool returns an
+empty array when the selected position has no supported symbol or when the
+selected symbol kind has no supported reference search. Constructor selections
+currently have no MCP reference search, so an ambiguous bare constructor call
+such as `same(1)` is unselected and returns an empty `references` array.
 
 LF and CRLF each end one logical line, and neither CRLF terminator scalar is an
 addressable position. A line containing `N` Unicode scalars accepts columns 1
@@ -170,8 +172,8 @@ decimal and exponent integer coordinate spellings, and invalid-position
 results plus non-integer decimal and negative-exponent coordinate schema
 rejection over stdio. The `references-workspace` MCP specification case checks
 the advertised `references` declaration, workspace function reference
-locations, empty references for an ambiguous bare constructor call, invalid
-positions, and non-integer coordinate schema rejection over stdio.
+locations, same-spelled constructor exclusion, invalid positions, and
+non-integer coordinate schema rejection over stdio.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous

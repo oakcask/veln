@@ -257,7 +257,7 @@ The first capability target includes these model-controlled tools:
 | `refresh_workspace` | Implemented: atomically rediscover workspace projects and return the new selection generation. |
 | `check_project` | Implemented: analyze one saved workspace project and return structured diagnostics. |
 | `definition` | Implemented for the bounded workspace symbol set: resolve the symbol at a saved source position and return its declaration location. |
-| `references` | Implemented for function references in the bounded workspace symbol set: return deterministic locations for the symbol at a saved source position. |
+| `references` | Implemented for function references in the bounded workspace symbol set: return deterministic same-identity locations for the symbol at a saved source position. |
 | `search_docs` | Planned: search the published language and package reference catalogs. |
 | `read_doc` | Planned: read one published documentation resource through a model-controlled route. |
 
@@ -1012,11 +1012,12 @@ This bounded implementation retains validated workspace, direct-dependency,
 and embedded standard-package captures for the definition-to-read path. It
 does not implement dependency reference search or MCP resources.
 The MCP workspace-navigation slice reuses the saved capture boundary and
-returns `file:` locations for definitions and reference sites in the bounded
-workspace symbol set: functions, type constructors, handler context parameters,
-handler operation clause parameters, and exact test-companion access to private
-target functions. Dependency and standard-library locations, the proposal's
-additional symbol kinds, dependency reference search, pagination, and reference
+returns `file:` locations for definitions in the bounded workspace symbol set:
+functions, type constructors, handler context parameters, handler operation
+clause parameters, and exact test-companion access to private target functions.
+It returns same-identity workspace reference locations for functions in that
+bounded set. Dependency and standard-library locations, reference search for
+other symbol kinds, dependency reference search, pagination, and reference
 cursor state remain planned.
 The remaining slices are:
 
