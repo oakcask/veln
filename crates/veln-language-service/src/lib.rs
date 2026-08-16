@@ -448,6 +448,7 @@ struct SymbolIndex {
     constructors_by_type_name: BTreeMap<String, Vec<usize>>,
     workspace_constructor_names_by_module: BTreeMap<String, BTreeSet<String>>,
     public_workspace_constructor_names_by_module: BTreeMap<String, BTreeSet<String>>,
+    standard_prelude_constructor_names: BTreeSet<String>,
     public_package_constructor_names_by_import: BTreeMap<(String, String), BTreeSet<String>>,
     public_reexported_constructor_names_by_import:
         BTreeMap<(String, Option<String>), BTreeSet<String>>,
@@ -472,6 +473,33 @@ struct LocalBinding {
     start: usize,
     end: usize,
     callable: bool,
+}
+
+#[derive(Debug, Default)]
+struct CallableValueNames {
+    bare: BTreeSet<String>,
+    qualified: BTreeSet<(String, String)>,
+}
+
+impl CallableValueNames {
+    fn insert_bare(&mut self, name: String) {
+        self.bare.insert(name);
+    }
+
+    fn insert_qualified(&mut self, module: String, name: String) {
+        self.qualified.insert((module, name));
+    }
+
+    fn contains_token(&self, tokens: &[Token], index: usize) -> bool {
+        let token = &tokens[index];
+        if token.kind != TokenKind::Ident {
+            return false;
+        }
+        match qualifier_for_token(tokens, index) {
+            Some(qualifier) => self.qualified.contains(&(qualifier, token.text.clone())),
+            None => self.bare.contains(&token.text),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -520,6 +548,7 @@ impl SymbolIndex {
                 &constructors,
                 true,
             ),
+            standard_prelude_constructor_names: standard_prelude_constructor_names(&constructors),
             public_package_constructor_names_by_import: public_package_constructor_names_by_import(
                 &constructors,
             ),
@@ -727,7 +756,14 @@ impl SymbolIndex {
                         || self.constructor_reexport_visible_from(file, symbol, Some(package))
                 })
         });
-        exactly_one_constructor(external_import_candidates).cloned()
+        if let Some(symbol) = exactly_one_constructor(external_import_candidates) {
+            return Some(symbol.clone());
+        }
+
+        let standard_prelude_candidates = self
+            .constructors_named(name)
+            .filter(|symbol| symbol.name == name && symbol.standard_prelude && symbol.public);
+        exactly_one_constructor(standard_prelude_candidates).cloned()
     }
 
     fn has_ambiguous_constructor_for_bare_call(&self, file: &IndexedFile, name: &str) -> bool {
@@ -753,7 +789,10 @@ impl SymbolIndex {
                         .contains(&(symbol.module.clone(), package.clone()))
                         || self.constructor_reexport_visible_from(file, symbol, Some(package))
                 })
-        }))
+        })) || at_least_two_constructors(
+            self.constructors_named(name)
+                .filter(|symbol| symbol.name == name && symbol.standard_prelude && symbol.public),
+        )
     }
 
     fn constructor_for_qualified_call(
@@ -1112,21 +1151,39 @@ impl SymbolIndex {
                 })
     }
 
-    fn callable_function_value_names(&self, file: &IndexedFile) -> BTreeSet<String> {
-        self.functions
-            .iter()
-            .filter(|symbol| {
-                symbol.package.is_none()
-                    && (symbol.module == file.module
-                        || file.uses.contains(&symbol.module)
-                            && symbol.public
-                            && file
-                                .companion_target_module
-                                .as_ref()
-                                .is_some_and(|target| target == &symbol.module))
-            })
-            .map(|symbol| symbol.name.clone())
-            .collect()
+    fn callable_function_value_names(&self, file: &IndexedFile) -> CallableValueNames {
+        let mut names = CallableValueNames::default();
+        for symbol in &self.functions {
+            if symbol.package.is_none() {
+                if symbol.module == file.module {
+                    names.insert_bare(symbol.name.clone());
+                    names.insert_qualified(symbol.module.clone(), symbol.name.clone());
+                } else if file.uses.contains(&symbol.module)
+                    && symbol.public
+                    && file
+                        .companion_target_module
+                        .as_ref()
+                        .is_some_and(|target| target == &symbol.module)
+                {
+                    names.insert_bare(symbol.name.clone());
+                    names.insert_qualified(symbol.module.clone(), symbol.name.clone());
+                }
+                continue;
+            }
+
+            let imported = symbol.standard_prelude
+                || symbol.package.as_ref().is_some_and(|package| {
+                    symbol.public
+                        && file
+                            .external_uses
+                            .contains(&(symbol.module.clone(), package.clone()))
+                });
+            if imported {
+                names.insert_bare(symbol.name.clone());
+                names.insert_qualified(symbol.module.clone(), symbol.name.clone());
+            }
+        }
+        names
     }
 
     fn qualified_function_references_in_file(
@@ -1325,6 +1382,14 @@ fn public_package_constructor_names_by_import(
     names
 }
 
+fn standard_prelude_constructor_names(constructors: &[ConstructorSymbol]) -> BTreeSet<String> {
+    constructors
+        .iter()
+        .filter(|symbol| symbol.standard_prelude && symbol.public)
+        .map(|symbol| symbol.name.clone())
+        .collect()
+}
+
 fn type_alias_indices_by_target_name(
     type_aliases: &[TypeAliasSymbol],
 ) -> BTreeMap<String, Vec<usize>> {
@@ -1371,6 +1436,7 @@ fn visible_bare_constructor_names_by_source(
                         .flat_map(|module_names| module_names.iter().cloned()),
                 );
             }
+            names.extend(index.standard_prelude_constructor_names.iter().cloned());
             names.extend(reexported_public_bare_constructor_names(index, file));
             names.extend(reexported_private_workspace_bare_constructor_names(
                 index, file,
@@ -1824,7 +1890,7 @@ fn matching_rparen_index(tokens: &[Token], lparen_index: usize, end_index: usize
 }
 
 fn call_reference_token_indices(tokens: &[Token], name: &str) -> Vec<usize> {
-    let scopes = function_scopes(tokens, &BTreeSet::new());
+    let scopes = function_scopes(tokens, &CallableValueNames::default());
     tokens
         .iter()
         .enumerate()
@@ -1862,7 +1928,7 @@ fn qualified_reference_token_indices(tokens: &[Token], module: &str, name: &str)
         .collect()
 }
 
-fn function_scopes(tokens: &[Token], function_values: &BTreeSet<String>) -> Vec<FunctionScope> {
+fn function_scopes(tokens: &[Token], function_values: &CallableValueNames) -> Vec<FunctionScope> {
     let mut scopes = Vec::new();
     for (index, token) in tokens.iter().enumerate() {
         if !matches!(token.kind, TokenKind::Fn | TokenKind::Test) {
@@ -2020,14 +2086,22 @@ fn local_bindings(
     body_start: usize,
     end: usize,
     params: &BTreeMap<String, bool>,
-    function_values: &BTreeSet<String>,
+    function_values: &CallableValueNames,
 ) -> Vec<LocalBinding> {
     let mut bindings = Vec::new();
-    let mut callable_values = params
-        .iter()
-        .filter_map(|(name, callable)| callable.then_some(name.clone()))
-        .collect::<BTreeSet<_>>();
-    callable_values.extend(function_values.iter().cloned());
+    let mut callable_values = CallableValueNames {
+        bare: params
+            .iter()
+            .filter_map(|(name, callable)| callable.then_some(name.clone()))
+            .collect(),
+        qualified: BTreeSet::new(),
+    };
+    callable_values
+        .bare
+        .extend(function_values.bare.iter().cloned());
+    callable_values
+        .qualified
+        .extend(function_values.qualified.iter().cloned());
     for (index, token) in tokens.iter().enumerate() {
         if token.range.start < body_start
             || token.range.start >= end
@@ -2041,7 +2115,7 @@ fn local_bindings(
         let names = let_binding_names(tokens, index);
         for name in names {
             if callable {
-                callable_values.insert(name.clone());
+                callable_values.insert_bare(name.clone());
             }
             bindings.push(LocalBinding {
                 name,
@@ -2059,7 +2133,7 @@ fn local_bindings(
 fn let_binding_is_callable(
     tokens: &[Token],
     let_index: usize,
-    callable_values: &BTreeSet<String>,
+    callable_values: &CallableValueNames,
 ) -> bool {
     let line_end = tokens[let_index + 1..]
         .iter()
@@ -2084,10 +2158,9 @@ fn let_binding_is_callable(
     else {
         return false;
     };
-    next_non_layout_index_before(tokens, equal_index, line_end).is_some_and(|value_index| {
-        tokens[value_index].kind == TokenKind::Ident
-            && callable_values.contains(&tokens[value_index].text)
-    })
+    previous_non_layout_index(tokens, line_end)
+        .filter(|value_index| *value_index > equal_index)
+        .is_some_and(|value_index| callable_values.contains_token(tokens, value_index))
 }
 
 fn type_range_contains_fn(tokens: &[Token], start: usize, end: usize) -> bool {
@@ -2159,7 +2232,7 @@ fn local_binding_shadows_name(
         scope_start,
         scope_end,
         &BTreeMap::new(),
-        &BTreeSet::new(),
+        &CallableValueNames::default(),
     )
     .iter()
     .any(|binding| binding.name == name && offset >= binding.start && offset < binding.end)
@@ -2669,13 +2742,6 @@ fn next_non_layout_token(tokens: &[Token], index: usize) -> Option<&Token> {
 
 fn next_non_layout_index(tokens: &[Token], index: usize) -> Option<usize> {
     tokens[index + 1..]
-        .iter()
-        .position(|token| !is_layout_token(token))
-        .map(|relative_index| index + 1 + relative_index)
-}
-
-fn next_non_layout_index_before(tokens: &[Token], index: usize, end: usize) -> Option<usize> {
-    tokens[index + 1..end]
         .iter()
         .position(|token| !is_layout_token(token))
         .map(|relative_index| index + 1 + relative_index)
@@ -3549,6 +3615,101 @@ mod tests {
 
         assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
         assert_location(&result.definition, "model.veln", 2, 7);
+    }
+
+    #[test]
+    fn imported_function_value_binding_shadows_same_named_constructor_call() {
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[(
+                "math.veln",
+                "pub fn pack(value: Int) -> Int\n  value\nend\n",
+            )],
+            ["math.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "main.veln",
+                    concat!(
+                        "use math from \"example/pkg\"\n",
+                        "use model\n\n",
+                        "pub fn main() -> Int\n",
+                        "  let pack = math::pack\n",
+                        "  pack(1)\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "model.veln",
+                    concat!("pub type Token\n", "  pub pack(Int)\n", "end\n"),
+                ),
+            ],
+            vec![dependency],
+        );
+
+        assert!(
+            navigate(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 6,
+                    column: 4,
+                },
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn standard_prelude_constructor_wins_over_workspace_function_call() {
+        let standard_library = standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                concat!(
+                    "pub type StreamInput\n",
+                    "  pub Chunk(Vec<Byte>)\n",
+                    "end\n"
+                ),
+            )],
+            ["prelude.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "fn Chunk(value: Int) -> Int\n",
+                "  value\n",
+                "end\n\n",
+                "pub fn main() -> StreamInput\n",
+                "  Chunk([])\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library);
+
+        let result = navigate(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 6,
+                column: 4,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+        assert_eq!(result.definition.span.file.as_str(), "prelude.veln");
+        assert_eq!(
+            (
+                result.definition.span.start.line,
+                result.definition.span.start.column
+            ),
+            (2, 7)
+        );
+        let NavigationSource::Package { uri } = result.definition.source else {
+            panic!("prelude constructor did not use a package location");
+        };
+        assert!(uri.starts_with("veln-pkg:///std/snapshot/"), "{uri}");
     }
 
     #[test]
