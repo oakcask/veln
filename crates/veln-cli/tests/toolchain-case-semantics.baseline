@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"18bc6ec73b701864785b98be7f16d5858c8205a0"
+source_git_tree	"4b15eba91f0f3d5c3d7332c62ea7525fa474abbf"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1518
+case_count	1520
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -10244,6 +10244,22 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":633,"sha256":"ad176054c1e66f32ea9ebb3189d8d4e45ec973140eae147da1ffaf56184d274d"}
 field	source_errors	"forbidden"
 case_digest	"574f9e413bcd009177b66ab642e83d107408db95e155c79702d526566bdbc94c"
+case	"examples/specification/lsp/imported-constructor-collision-navigation"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"definitionProvider\":true"
+field	expectations.stdout.contains[1]	"\"referencesProvider\":true"
+field	expectations.stdout.contains[2]	"\"renameProvider\":{\"prepareProvider\":true}"
+field	expectations.stdout.contains[3]	"\"id\":2,\"result\":null"
+field	expectations.stdout.contains[4]	"\"id\":3,\"result\":[]"
+field	expectations.stdout.contains[5]	"\"id\":4,\"result\":{\"changes\":{}}"
+field	expectations.stdout.not_contains[0]	"\"range\":{\"start\":{\"line\":1,\"character\":6},\"end\":{\"line\":1,\"character\":10}}"
+field	expectations.stdout.not_contains[1]	"\"newText\":\"packed\""
+field	invocation.command[0]	"lsp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":810,"sha256":"eb4cf5f96847b6f890c72d9bec41a49f2263e5515b3ef8ec46770090d940be0f"}
+field	source_errors	"expected"
+case_digest	"36a68c2b9ae641980670f4e3bda6d5110c7ebddbce92d380639d238e9481f0b3"
 case	"examples/specification/lsp/non-callable-shadow-constructor-navigation"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -10346,6 +10362,22 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":596,"sha256":"9e94279671e9fe6342020ba543e520d7a5cc2cec092381d5a4869b4f20062577"}
 field	source_errors	"forbidden"
 case_digest	"689c52a8e1aecdf70b5b4f1bd39d388d0a9b045f7f3024488c54790e7901b296"
+case	"examples/specification/lsp/returned-callable-shadow-constructor-navigation"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"definitionProvider\":true"
+field	expectations.stdout.contains[1]	"\"referencesProvider\":true"
+field	expectations.stdout.contains[2]	"\"renameProvider\":{\"prepareProvider\":true}"
+field	expectations.stdout.contains[3]	"\"id\":2,\"result\":null"
+field	expectations.stdout.contains[4]	"\"id\":3,\"result\":[]"
+field	expectations.stdout.contains[5]	"\"id\":4,\"result\":{\"changes\":{}}"
+field	expectations.stdout.not_contains[0]	"\"range\":{\"start\":{\"line\":1,\"character\":2},\"end\":{\"line\":1,\"character\":6}}"
+field	expectations.stdout.not_contains[1]	"\"newText\":\"pack\""
+field	invocation.command[0]	"lsp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":811,"sha256":"81cdcceff49985652dd92cfa5814a2c22778da73742fc97015e3fbdc85d1deec"}
+field	source_errors	"forbidden"
+case_digest	"27d38ed8d19396f026c9ed1181ba614e12829070dde8c71855a87dc694c87f69"
 case	"examples/specification/lsp/schema-semantic-tokens"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47844,4 +47876,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"aade6e53a0b644add8873e62d002a4b41915f0fd22f02847cc16f485854de74b"
+aggregate_digest	"95f85af9d0c52d7fc6cd0ec8e63d1964c88def839bac76e8c19b5c8cb8ffa57d"

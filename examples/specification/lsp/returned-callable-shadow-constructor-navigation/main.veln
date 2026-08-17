@@ -1,0 +1,16 @@
+type Token
+  pack(Int)
+end
+
+fn direct(value: Int) -> Int
+  value
+end
+
+fn factory() -> fn(Int) -> Int
+  direct
+end
+
+pub fn main() -> Int
+  let pack = factory()
+  pack(1)
+end

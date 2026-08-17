@@ -1,0 +1,6 @@
+use local
+use model from "example/pkg"
+
+pub fn main() -> LocalToken
+  pack(1)
+end
