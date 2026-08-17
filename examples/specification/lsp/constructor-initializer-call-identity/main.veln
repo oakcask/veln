@@ -4,6 +4,7 @@ end
 
 type Token
   pack(Int)
+  build(Int)
 end
 
 fn direct(value: Int) -> Int
@@ -17,4 +18,14 @@ end
 pub fn main() -> Token
   let pack = make(0)
   pack(1)
+end
+
+fn source(value: Int) -> Int
+  value
+end
+
+pub fn shadowed_initializer() -> Token
+  let source = 0
+  let build = source
+  build(1)
 end

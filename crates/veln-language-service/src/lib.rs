@@ -587,6 +587,13 @@ impl CallableValueNames {
             .extend(fields);
     }
 
+    fn shadow_bare_binding(&mut self, name: &str) {
+        self.bare.remove(name);
+        self.field_access.remove(name);
+        self.returned_by_bare_call.remove(name);
+        self.fields_returned_by_bare_call.remove(name);
+    }
+
     fn contains_token(&self, tokens: &[Token], index: usize) -> bool {
         let token = &tokens[index];
         if token.kind != TokenKind::Ident {
@@ -2980,6 +2987,7 @@ fn local_bindings(
         let callable_fields = let_binding_callable_fields(tokens, index, &callable_values);
         let bindings_for_let = let_binding_infos(tokens, index, &callable_values, &callable_fields);
         for (name, callable) in bindings_for_let {
+            callable_values.shadow_bare_binding(&name);
             if callable {
                 callable_values.insert_bare(name.clone());
             }
@@ -4977,6 +4985,34 @@ mod tests {
         let result = query(sources, "main.veln", 19, 4).unwrap();
         assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
         assert_location(&result.definition, "main.veln", 6, 3);
+        assert!(result.references.is_empty());
+    }
+
+    #[test]
+    fn shadowed_function_name_does_not_create_callable_initializer_navigation() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "type Token\n",
+                "  build(Int)\n",
+                "end\n\n",
+                "fn source(value: Int) -> Int\n",
+                "  value\n",
+                "end\n\n",
+                "fn main() -> Token\n",
+                "  let source = 0\n",
+                "  let build = source\n",
+                "  build(1)\n",
+                "end\n",
+            ),
+        )];
+
+        let initializer = query(sources.clone(), "main.veln", 11, 14);
+        assert!(initializer.is_none(), "{initializer:#?}");
+
+        let result = query(sources, "main.veln", 12, 4).unwrap();
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+        assert_location(&result.definition, "main.veln", 2, 3);
         assert!(result.references.is_empty());
     }
 

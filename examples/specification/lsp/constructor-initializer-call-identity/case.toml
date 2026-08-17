@@ -3,8 +3,8 @@ stdin_jsonrpc_file = "requests.json"
 exit = 0
 
 [stdout]
-contains = ["\"definitionProvider\":true", "\"id\":2,\"result\":{\"uri\":\"file://", "\"id\":3,\"result\":{\"uri\":\"file://", "\"id\":4,\"result\":[{\"uri\":\"file://", "\"newText\":\"box\""]
-not_contains = ["\"id\":3,\"result\":null", "\"id\":4,\"result\":[]", "\"changes\":{}"]
+contains = ["\"definitionProvider\":true", "\"id\":2,\"result\":{\"uri\":\"file://", "\"id\":3,\"result\":{\"uri\":\"file://", "\"id\":4,\"result\":[{\"uri\":\"file://", "\"id\":6,\"result\":null", "\"id\":7,\"result\":{\"uri\":\"file://", "\"id\":8,\"result\":[{\"uri\":\"file://", "\"newText\":\"box\""]
+not_contains = ["\"id\":3,\"result\":null", "\"id\":4,\"result\":[]", "\"id\":7,\"result\":null", "\"id\":8,\"result\":[]", "\"changes\":{}"]
 
 [stderr]
 format = "empty"
@@ -38,3 +38,28 @@ equals = {"line":5,"character":2}
 id = 4
 path = "/result/0/range/end"
 equals = {"line":5,"character":6}
+
+[[lsp_assert]]
+id = 6
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 7
+path = "/result/range/start"
+equals = {"line":6,"character":2}
+
+[[lsp_assert]]
+id = 7
+path = "/result/range/end"
+equals = {"line":6,"character":7}
+
+[[lsp_assert]]
+id = 8
+path = "/result/0/range/start"
+equals = {"line":6,"character":2}
+
+[[lsp_assert]]
+id = 8
+path = "/result/0/range/end"
+equals = {"line":6,"character":7}

@@ -313,7 +313,9 @@ The focused
 case checks that a local binding initialized from a same-spelled constructor
 call does not become callable merely because a function with the same spelling
 returns a function. Definition, references, and rename select the later
-constructor call.
+constructor call. The same case checks that a local binding initialized from a
+shadowed function name does not become callable when the shadowing binding is
+not callable; the later same-spelled bare call still selects the constructor.
 The executable LSP example
 `../../examples/specification/lsp/non-callable-shadow-constructor-navigation/`
 checks that a non-callable parameter, local binding, handler context parameter,

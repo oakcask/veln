@@ -709,6 +709,51 @@ fn callable_bindings_shadow_constructor_for_mcp_navigation() {
 }
 
 #[test]
+fn shadowed_function_name_does_not_create_callable_initializer_for_mcp_navigation() {
+    let workspace = TempWorkspace::new("shadowed-function-initializer-mcp-navigation");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "type Token\n",
+            "  build(Int)\n",
+            "end\n\n",
+            "fn source(value: Int) -> Int\n",
+            "  value\n",
+            "end\n\n",
+            "fn main() -> Token\n",
+            "  let source = 0\n",
+            "  let build = source\n",
+            "  build(1)\n",
+            "end\n",
+        ),
+    );
+
+    let initializer_definition = definition_result(&workspace, "main.veln", 11, 14);
+    assert_eq!(
+        initializer_definition["structuredContent"]["definition"],
+        Value::Null,
+        "{initializer_definition:#}"
+    );
+
+    let definition = definition_result(&workspace, "main.veln", 12, 4);
+    assert_eq!(definition["isError"], false, "{definition:#}");
+    assert_eq!(
+        definition["structuredContent"]["definition"]["range"],
+        json!({"start":{"line":2,"column":3},"end":{"line":2,"column":8}}),
+        "{definition:#}"
+    );
+
+    let references = references_result(&workspace, "main.veln", 12, 4);
+    assert_eq!(references["isError"], false, "{references:#}");
+    assert_eq!(
+        references["structuredContent"]["references"],
+        json!([]),
+        "{references:#}"
+    );
+}
+
+#[test]
 fn definition_rejects_paths_and_changed_workspace_identity() {
     let workspace = TempWorkspace::new("definition-boundaries");
     workspace.write("main.veln", "fn main() -> Int\n  main()\nend\n");
