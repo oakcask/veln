@@ -161,8 +161,9 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
 
 - LSP navigation for imported constructor definition, current-module and
   workspace/dependency constructor ambiguity, callable and returned-callable
-  shadowing of same-spelled constructor calls, workspace function references,
-  and package virtual documents:
+  shadowing of same-spelled constructor calls, handler operation callable
+  effect identity, workspace function references, and package virtual
+  documents:
   `../../examples/specification/lsp/`.
 - MCP stdio lifecycle, workspace-project inventory, tool schemas, refresh,
   initialization phase boundaries, request metadata, and JSON-RPC framing:

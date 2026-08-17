@@ -174,8 +174,9 @@ locations keyed by source origin, workspace and dependency constructor import
 collisions that leave same-spelled constructor calls ambiguous, dense
 same-spelled and re-exported constructor lookup growth, exclusion of
 same-spelled local type annotations from function references, record types
-with callable fields as non-callable for constructor shadowing, and positions
-without a supported symbol.
+with callable fields as non-callable for constructor shadowing, handler
+operation clause parameter callability from the handled effect identity, and
+positions without a supported symbol.
 
 `veln-lsp` captures the workspace manifest, saved workspace sources, valid
 direct path, vendor, mirror, and locally available direct git dependency
@@ -311,6 +312,12 @@ a dependency constructor imported with `use module from "package"` make the
 bare constructor call ambiguous. Definition and references return no
 constructor location, and rename returns no constructor edit for the ambiguous
 call.
+The executable LSP example
+`../../examples/specification/lsp/handler-operation-callable-effect-identity/`
+checks that handler operation clause parameter navigation uses the parameter
+type from the effect that the handler actually handles. A callable operation
+parameter shadows a same-spelled constructor call even when another visible
+effect declares the same operation parameter as non-callable.
 
 LSP executable examples use `stdin_jsonrpc_file` when the requested behavior is
 an ordered sequence of decoded JSON-RPC requests and notifications. Those
@@ -464,6 +471,9 @@ Implemented:
 - Stdio definition, references, and rename rejection for bare constructor calls
   made ambiguous by same-spelled imported workspace and dependency
   constructors.
+- Stdio definition, references, and rename responses for handler operation
+  clause parameters whose callable status comes from the handler's handled
+  effect identity.
 - Stdio diagnostic publication for discovered workspace Veln files across
   resolved workspace roots, including unopened files, with unsaved open
   document overlays.

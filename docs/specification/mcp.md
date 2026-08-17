@@ -149,6 +149,13 @@ reference search, so a selected constructor call returns an empty `references`
 array. An ambiguous bare constructor call such as `same(1)` is unselected and
 also returns an empty `references` array.
 
+For handler operation clause parameters, navigation uses the operation
+signature from the effect that the handler actually handles. If that signature
+declares a function-typed clause parameter, the parameter shadows a
+same-spelled constructor call in the clause body. A same-named operation on
+another visible effect does not control that clause parameter's callable
+status.
+
 LF and CRLF each end one logical line, and neither CRLF terminator scalar is an
 addressable position. A line containing `N` Unicode scalars accepts columns 1
 through `N + 1`. A terminal newline creates a final empty line at column 1;
