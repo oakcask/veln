@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The `veln mcp` tool schemas, navigation acceptance cases, virtual-location contract, published-reference inputs, client-plugin boundary, or implementation status changes.
+update-when: The `veln mcp` tool schemas, navigation acceptance cases, slice-closure evidence gate, virtual-location contract, published-reference inputs, client-plugin boundary, or implementation status changes.
 ---
 
 # Agent Language Services
@@ -43,6 +43,17 @@ Do not add callable-versus-constructor precedence in an MCP adapter. Sources
 that violate the casing rules must be rejected by the shared language
 semantics. Navigation, lowering, LSP, and MCP must consume the same name class
 and selected target for accepted sources.
+
+### Slice-Closure Prerequisite
+
+Before implementing the next MCP navigation slice, complete
+[Agent Language Services Slice Closure](agent-language-services-slice-closure.md).
+That prerequisite separates this active plan from its implemented history,
+adds response-local assertions for MCP JSONL output with dynamic canonical
+locations, and closes the evidence rule for shared capture invariants. Reissue
+the saved workspace function-reference target only after that gate passes. The
+next-slice boundary below remains planning input and is not selectable work
+until the prerequisite is complete.
 
 ### Next Slice: Saved Workspace Function References
 
