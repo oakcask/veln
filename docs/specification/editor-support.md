@@ -166,14 +166,15 @@ isolation, constructor definition priority when functions share the same
 spelling, bare constructor ambiguity that blocks imported constructor
 definition, same-identity function references when constructors share the same
 spelling, callable bindings that shadow same-spelled constructor calls,
-bindings initialized from calls that return functions and shadow same-spelled
-constructor calls, non-callable parameter, local, handler context, and handler
-operation clause bindings that leave same-spelled constructor calls selectable,
-dependency constructor package locations keyed by source origin, workspace and
-dependency constructor import collisions that leave same-spelled constructor
-calls ambiguous, dense same-spelled and re-exported constructor lookup growth,
-exclusion of same-spelled local type annotations from function references, and
-positions without a supported symbol.
+bindings initialized from parenthesized callable values or calls that return
+functions and shadow same-spelled constructor calls, non-callable parameter,
+local, handler context, and handler operation clause bindings that leave
+same-spelled constructor calls selectable, dependency constructor package
+locations keyed by source origin, workspace and dependency constructor import
+collisions that leave same-spelled constructor calls ambiguous, dense
+same-spelled and re-exported constructor lookup growth, exclusion of
+same-spelled local type annotations from function references, and positions
+without a supported symbol.
 
 `veln-lsp` captures the workspace manifest, saved workspace sources, valid
 direct path, vendor, mirror, and locally available direct git dependency
@@ -287,10 +288,11 @@ the exact embedded source value and checks package rename rejection.
 
 The executable LSP example
 `../../examples/specification/lsp/callable-shadow-constructor-navigation/`
-checks that a callable parameter, local binding, or local binding initialized
-from a call that returns a function shadows a same-spelled constructor at a
-bare call site. Definition and references return no constructor location, and
-rename returns no constructor edit for the shadowed call. The focused
+checks that a callable parameter, local binding, local binding initialized
+from a parenthesized callable value, or local binding initialized from a call
+that returns a function shadows a same-spelled constructor at a bare call site.
+Definition and references return no constructor location, and rename returns
+no constructor edit for the shadowed call. The focused
 `../../examples/specification/lsp/returned-callable-shadow-constructor-navigation/`
 case covers the returned-callable binding form.
 The executable LSP example
@@ -450,7 +452,8 @@ Implemented:
   handler context parameters selected from operation clause bodies.
 - Stdio definition, references, and rename rejection for bare constructor calls
   shadowed by same-spelled callable parameters, local bindings, or local
-  bindings initialized from calls that return functions.
+  bindings initialized from parenthesized callable values or calls that return
+  functions.
 - Stdio definition, references, and rename responses for bare constructor calls
   with same-spelled non-callable parameters, local bindings, handler context
   parameters, or handler operation clause parameters.
