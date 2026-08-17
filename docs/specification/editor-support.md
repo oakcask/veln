@@ -166,11 +166,14 @@ isolation, constructor definition priority when functions share the same
 spelling, bare constructor ambiguity that blocks imported constructor
 definition, same-identity function references when constructors share the same
 spelling, callable bindings that shadow same-spelled constructor calls,
-non-callable parameter, local, handler context, and handler operation clause
-bindings that leave same-spelled constructor calls selectable, dependency
-constructor package locations keyed by source origin, dense same-spelled and
-re-exported constructor lookup growth, exclusion of same-spelled local type
-annotations from function references, and positions without a supported symbol.
+bindings initialized from calls that return functions and shadow same-spelled
+constructor calls, non-callable parameter, local, handler context, and handler
+operation clause bindings that leave same-spelled constructor calls selectable,
+dependency constructor package locations keyed by source origin, workspace and
+dependency constructor import collisions that leave same-spelled constructor
+calls ambiguous, dense same-spelled and re-exported constructor lookup growth,
+exclusion of same-spelled local type annotations from function references, and
+positions without a supported symbol.
 
 `veln-lsp` captures the workspace manifest, saved workspace sources, valid
 direct path, vendor, mirror, and locally available direct git dependency
@@ -284,16 +287,25 @@ the exact embedded source value and checks package rename rejection.
 
 The executable LSP example
 `../../examples/specification/lsp/callable-shadow-constructor-navigation/`
-checks that a callable parameter or local binding shadows a same-spelled
-constructor at a bare call site. Definition and references return no
-constructor location, and rename returns no constructor edit for the shadowed
-call.
+checks that a callable parameter, local binding, or local binding initialized
+from a call that returns a function shadows a same-spelled constructor at a
+bare call site. Definition and references return no constructor location, and
+rename returns no constructor edit for the shadowed call. The focused
+`../../examples/specification/lsp/returned-callable-shadow-constructor-navigation/`
+case covers the returned-callable binding form.
 The executable LSP example
 `../../examples/specification/lsp/non-callable-shadow-constructor-navigation/`
 checks that a non-callable parameter, local binding, handler context parameter,
 or handler operation clause parameter with the same spelling does not block
 constructor navigation at a bare call site. Definition, references, and rename
 select the constructor call and declaration.
+The executable LSP example
+`../../examples/specification/lsp/imported-constructor-collision-navigation/`
+checks that a same-spelled workspace constructor imported with `use module` and
+a dependency constructor imported with `use module from "package"` make the
+bare constructor call ambiguous. Definition and references return no
+constructor location, and rename returns no constructor edit for the ambiguous
+call.
 
 LSP executable examples use `stdin_jsonrpc_file` when the requested behavior is
 an ordered sequence of decoded JSON-RPC requests and notifications. Those
@@ -437,10 +449,14 @@ Implemented:
 - Stdio definition, references, prepare-rename, and rename responses for
   handler context parameters selected from operation clause bodies.
 - Stdio definition, references, and rename rejection for bare constructor calls
-  shadowed by same-spelled callable parameters or local bindings.
+  shadowed by same-spelled callable parameters, local bindings, or local
+  bindings initialized from calls that return functions.
 - Stdio definition, references, and rename responses for bare constructor calls
   with same-spelled non-callable parameters, local bindings, handler context
   parameters, or handler operation clause parameters.
+- Stdio definition, references, and rename rejection for bare constructor calls
+  made ambiguous by same-spelled imported workspace and dependency
+  constructors.
 - Stdio diagnostic publication for discovered workspace Veln files across
   resolved workspace roots, including unopened files, with unsaved open
   document overlays.
