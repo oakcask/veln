@@ -169,8 +169,8 @@ spelling, callable bindings that shadow same-spelled constructor calls,
 non-callable parameter, local, handler context, and handler operation clause
 bindings that leave same-spelled constructor calls selectable, dependency
 constructor package locations keyed by source origin, dense same-spelled and
-re-exported constructor lookup growth, and positions without a supported
-symbol.
+re-exported constructor lookup growth, exclusion of same-spelled local type
+annotations from function references, and positions without a supported symbol.
 
 `veln-lsp` captures the workspace manifest, saved workspace sources, valid
 direct path, vendor, mirror, and locally available direct git dependency
@@ -335,11 +335,12 @@ valid qualified call references in the exact matching companion. A same-named
 companion-local declaration, bare companion reference, target callable
 parameter, target local `let` binding, or target pattern binding is a different
 symbol and is not edited inside the binding's scope. Record field labels and
-field accesses that use the same text are not function references. In
+field accesses that use the same text are not function references. A same-named
+type annotation on a local `let` binding is not a function reference. In
 `let name = name`, the initializer reference remains part of the production
 function identity when it resolves before the local binding starts. Valid target
-references after nested blocks, including `else if` branches, remain part of the
-production function identity. Calls through another qualifier, companion
+references after nested blocks, including `else if` branches, remain part of
+the production function identity. Calls through another qualifier, companion
 function-value references, companion public-alias targets, comments, and string
 literals are not edited.
 Definition, prepare-rename, and rename requests whose selected text is inside a
