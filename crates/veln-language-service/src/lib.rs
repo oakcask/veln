@@ -3172,7 +3172,6 @@ fn local_bindings(
         end,
         &callable_values,
         constructor_payload_callables,
-        constructor_payload_templates,
     ));
     bindings.extend(satisfy_candidate_binding_names(tokens, body_start, end));
     bindings
@@ -3464,7 +3463,6 @@ fn constructor_payload_callables_from_rhs(
     equal_index: usize,
     value_index: usize,
     callable_values: &CallableValueNames,
-    constructor_payload_templates: &BTreeMap<String, BTreeMap<String, ConstructorPayloadTemplate>>,
 ) -> BTreeMap<String, Vec<bool>> {
     if tokens[value_index].kind == TokenKind::Ident {
         return callable_values.constructor_payloads_for_token(tokens, value_index);
@@ -3478,13 +3476,7 @@ fn constructor_payload_callables_from_rhs(
         return previous_non_layout_index(tokens, value_index)
             .filter(|inner| *inner > lparen_index)
             .map_or_else(BTreeMap::new, |inner| {
-                constructor_payload_callables_from_rhs(
-                    tokens,
-                    equal_index,
-                    inner,
-                    callable_values,
-                    constructor_payload_templates,
-                )
+                constructor_payload_callables_from_rhs(tokens, equal_index, inner, callable_values)
             });
     }
     BTreeMap::new()
@@ -3987,7 +3979,6 @@ fn match_arm_pattern_binding_names(
     function_end: usize,
     callable_values: &CallableValueNames,
     constructor_payload_callables: &BTreeMap<String, Vec<bool>>,
-    constructor_payload_templates: &BTreeMap<String, BTreeMap<String, ConstructorPayloadTemplate>>,
 ) -> Vec<LocalBinding> {
     let mut bindings = Vec::new();
     for (index, token) in tokens.iter().enumerate() {
@@ -4002,12 +3993,8 @@ fn match_arm_pattern_binding_names(
         let scope_end = match_arm_scope_end(tokens, index + 1, function_end);
         let pattern_start = match_arm_pattern_start(tokens, index, body_start);
         let callable_fields = enclosing_match_callable_fields(tokens, index, callable_values);
-        let match_payload_callables = enclosing_match_constructor_payload_callables(
-            tokens,
-            index,
-            callable_values,
-            constructor_payload_templates,
-        );
+        let match_payload_callables =
+            enclosing_match_constructor_payload_callables(tokens, index, callable_values);
         let mut effective_constructor_payload_callables = constructor_payload_callables.clone();
         for (constructor, payloads) in match_payload_callables {
             effective_constructor_payload_callables.insert(constructor, payloads);
@@ -4039,7 +4026,6 @@ fn enclosing_match_constructor_payload_callables(
     tokens: &[Token],
     arrow_index: usize,
     callable_values: &CallableValueNames,
-    constructor_payload_templates: &BTreeMap<String, BTreeMap<String, ConstructorPayloadTemplate>>,
 ) -> BTreeMap<String, Vec<bool>> {
     let Some(match_index) = enclosing_match_index(tokens, arrow_index) else {
         return BTreeMap::new();
@@ -4059,7 +4045,6 @@ fn enclosing_match_constructor_payload_callables(
                 match_index,
                 value_index,
                 callable_values,
-                constructor_payload_templates,
             )
         },
     )
