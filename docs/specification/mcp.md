@@ -161,7 +161,10 @@ The `definition-workspace` MCP specification case checks the advertised
 `definition` declaration plus representative definition, no-definition,
 decimal and exponent integer coordinate spellings, and invalid-position
 results plus non-integer decimal and negative-exponent coordinate schema
-rejection over stdio.
+rejection over stdio. Its MCP JSONL assertions bind those responses to
+canonical workspace `file:` URIs, exact ranges, content cardinality, indexed
+content kind, `isError` values, protocol errors, and absent success-only
+fields.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous
