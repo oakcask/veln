@@ -10030,6 +10030,9 @@ field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"definitionProvider\":true"
 field	expectations.stdout.contains[10]	"\"id\":9,\"result\":[]"
 field	expectations.stdout.contains[11]	"\"id\":10,\"result\":{\"changes\":{}}"
+field	expectations.stdout.contains[12]	"\"id\":11,\"result\":null"
+field	expectations.stdout.contains[13]	"\"id\":12,\"result\":[]"
+field	expectations.stdout.contains[14]	"\"id\":13,\"result\":{\"changes\":{}}"
 field	expectations.stdout.contains[1]	"\"referencesProvider\":true"
 field	expectations.stdout.contains[2]	"\"renameProvider\":{\"prepareProvider\":true}"
 field	expectations.stdout.contains[3]	"\"id\":2,\"result\":null"
@@ -10043,9 +10046,9 @@ field	expectations.stdout.not_contains[0]	"\"range\":{\"start\":{\"line\":1,\"ch
 field	expectations.stdout.not_contains[1]	"\"newText\":\"pack\""
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1969,"sha256":"674b8fa4466e486a38537ee90c83858213143452815b7638d0f9f4c98a6e54f4"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2534,"sha256":"d83ccfdc97dc324cf53abc92b0dd8f1cd0d64c0468b64b1cc134a24f6a78f6fc"}
 field	source_errors	"forbidden"
-case_digest	"5773346b9b3093650e3f220781bf1a8d077686a658f0aaea827d3d0b5e4d2f46"
+case_digest	"d26fb9551efa731fbecf2a530a312ce709bc2d098aaec7f3f8f2be0f1df078ef"
 case	"examples/specification/lsp/companion-private-function-identity"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47928,4 +47931,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"09c6487541b0660e05d694d1ec41cb85930586b1a6592c04628e81e59d51a64b"
+aggregate_digest	"5ac9d19b2aec088b0ec4e1fccf25075b491b917a0548442c258bbf2a2b9f5c58"

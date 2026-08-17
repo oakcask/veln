@@ -15,3 +15,11 @@ pub fn parenthesized_shadow(identity: fn(Int) -> Token) -> Token
   let byte = (identity)
   byte(1)
 end
+
+pub fn match_shadow(flag: Bool, identity: fn(Int) -> Token) -> Token
+  let byte = match flag
+    true => identity
+    false => identity
+  end
+  byte(1)
+end

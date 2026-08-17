@@ -294,8 +294,10 @@ The executable LSP example
 checks that a callable parameter, local binding, local binding initialized
 from a parenthesized callable value, or local binding initialized from a call
 that returns a function shadows a same-spelled constructor at a bare call site.
-Definition and references return no constructor location, and rename returns
-no constructor edit for the shadowed call. The focused
+The same example checks a local binding initialized from a `match` expression
+whose arms return function values. Definition and references return no
+constructor location, and rename returns no constructor edit for the shadowed
+call. The focused
 `../../examples/specification/lsp/returned-callable-shadow-constructor-navigation/`
 case covers the returned-callable binding form. The focused
 `../../examples/specification/lsp/callable-field-shadow-constructor-navigation/`

@@ -3857,13 +3857,21 @@ mod tests {
                 "  let byte = (identity)\n",
                 "  byte(1)\n",
                 "end\n",
+                "\n",
+                "pub fn match_shadow(flag: Bool, identity: fn(Int) -> Token) -> Token\n",
+                "  let byte = match flag\n",
+                "    true => identity\n",
+                "    false => identity\n",
+                "  end\n",
+                "  byte(1)\n",
+                "end\n",
             ),
         );
         let root_uri = path_to_uri(&project.root);
         let main_uri = path_to_uri(&project.root.join("main.veln"));
         server.handle_message(&initialize_request(&root_uri));
 
-        for (line, character) in [(5, 4), (10, 4), (15, 4)] {
+        for (line, character) in [(5, 4), (10, 4), (15, 4), (23, 4)] {
             let definition = server.handle_message(&definition_request(&main_uri, line, character));
             let references = server.handle_message(&references_request(&main_uri, line, character));
             let rename = server.handle_message(&rename_request(&main_uri, line, character, "pack"));

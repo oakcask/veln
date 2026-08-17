@@ -2899,11 +2899,92 @@ fn let_binding_is_callable(
     else {
         return false;
     };
+    if next_non_layout_index(tokens, equal_index)
+        .is_some_and(|value_index| tokens[value_index].kind == TokenKind::Match)
+    {
+        return match_rhs_is_callable(tokens, equal_index, callable_values);
+    }
     previous_non_layout_index(tokens, line_end)
         .filter(|value_index| *value_index > equal_index)
         .is_some_and(|value_index| {
             callable_rhs_is_callable(tokens, equal_index, value_index, callable_values)
         })
+}
+
+fn match_rhs_is_callable(
+    tokens: &[Token],
+    equal_index: usize,
+    callable_values: &CallableValueNames,
+) -> bool {
+    let Some(match_index) = next_non_layout_index(tokens, equal_index) else {
+        return false;
+    };
+    if tokens[match_index].kind != TokenKind::Match {
+        return false;
+    }
+    let Some(end_index) = matching_block_end_index(tokens, match_index) else {
+        return false;
+    };
+    let mut arm_arrows = Vec::new();
+    let mut depth = 1usize;
+    for index in match_index + 1..end_index {
+        match tokens[index].kind {
+            TokenKind::If if !is_else_if(tokens, index) => depth += 1,
+            TokenKind::Match | TokenKind::Handler => depth += 1,
+            TokenKind::End => depth = depth.saturating_sub(1),
+            TokenKind::FatArrow if depth == 1 => arm_arrows.push(index),
+            _ => {}
+        }
+    }
+    !arm_arrows.is_empty()
+        && arm_arrows.iter().all(|arrow_index| {
+            match_arm_expression_end_index(tokens, *arrow_index, end_index)
+                .and_then(|arm_end| previous_non_layout_index(tokens, arm_end))
+                .filter(|value_index| *value_index > *arrow_index)
+                .is_some_and(|value_index| {
+                    callable_rhs_is_callable(tokens, *arrow_index, value_index, callable_values)
+                })
+        })
+}
+
+fn match_arm_expression_end_index(
+    tokens: &[Token],
+    arrow_index: usize,
+    match_end_index: usize,
+) -> Option<usize> {
+    let value_index = next_non_layout_index(tokens, arrow_index)?;
+    let mut depth = 0usize;
+    for index in value_index + 1..=match_end_index {
+        match tokens[index].kind {
+            TokenKind::If if !is_else_if(tokens, index) => depth += 1,
+            TokenKind::Match | TokenKind::Handler => depth += 1,
+            TokenKind::End if depth == 0 => return Some(index),
+            TokenKind::End => depth = depth.saturating_sub(1),
+            TokenKind::Newline if depth == 0 => return Some(index),
+            _ => {}
+        }
+    }
+    Some(match_end_index)
+}
+
+fn matching_block_end_index(tokens: &[Token], start_index: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    for (relative_index, token) in tokens[start_index..].iter().enumerate() {
+        let index = start_index + relative_index;
+        match token.kind {
+            TokenKind::If if !is_else_if(tokens, index) => depth += 1,
+            TokenKind::Match | TokenKind::Handler => depth += 1,
+            TokenKind::End => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    return Some(index);
+                }
+            }
+            TokenKind::Eof => return None,
+            _ => {}
+        }
+    }
+    None
 }
 
 fn callable_rhs_is_callable(
@@ -4267,6 +4348,33 @@ mod tests {
         )];
 
         assert!(query(sources, "main.veln", 11, 4).is_none());
+    }
+
+    #[test]
+    fn match_callable_local_binding_shadows_constructor_call_navigation() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "type Token\n",
+                "  pack(Int)\n",
+                "end\n\n",
+                "fn first(value: Int) -> Int\n",
+                "  value\n",
+                "end\n\n",
+                "fn second(value: Int) -> Int\n",
+                "  value + 1\n",
+                "end\n\n",
+                "fn choose(flag: Bool) -> Int\n",
+                "  let pack = match flag\n",
+                "    true => first\n",
+                "    false => second\n",
+                "  end\n",
+                "  pack(1)\n",
+                "end\n",
+            ),
+        )];
+
+        assert!(query(sources, "main.veln", 18, 4).is_none());
     }
 
     #[test]
