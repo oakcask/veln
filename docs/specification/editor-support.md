@@ -169,8 +169,8 @@ spelling, callable bindings that shadow same-spelled constructor calls,
 bindings initialized from parenthesized callable values, callable record
 fields, fields of records returned by calls, or calls that return functions
 when those initializer calls resolve to the function identity, qualified
-workspace function values, and `if` expressions that initialize callable bindings which shadow
-same-spelled constructor calls,
+workspace function values, and `if` expressions that initialize callable
+bindings which shadow same-spelled constructor calls,
 non-callable parameter, local, handler context, and handler operation clause
 bindings that leave
 same-spelled constructor calls selectable, dependency constructor package

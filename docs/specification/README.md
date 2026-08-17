@@ -29,7 +29,7 @@ tracked in `../proposals/`.
 - Source files, grammar, names, types, effects, contracts, or holes:
   [topic-map.md#source-surface](topic-map.md#source-surface) and
   [topic-map.md#contracts-and-holes](topic-map.md#contracts-and-holes).
-- Editor highlighting and semantic token behavior:
+- Editor highlighting, LSP diagnostics, navigation, formatting, and rename:
   [editor-support.md](editor-support.md).
 - Package snapshots, package documentation catalogs, and canonical
   virtual-source resolution: [package-snapshots.md](package-snapshots.md),
