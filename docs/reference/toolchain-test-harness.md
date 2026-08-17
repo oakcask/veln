@@ -77,7 +77,7 @@ assertions, diagnostic selectors, and file content assertions.
   `[skip]`.
 - Observable command results: `exit`, `[stdout]`, `[stderr]`,
   `[help]`, `[[json_assert]]`, `[[result_value_assert]]`,
-  `[[lsp_assert]]`, `[[diagnostics]]`, `[[file_assert]]`,
+  `[[lsp_assert]]`, `[[mcp_assert]]`, `[[diagnostics]]`, `[[file_assert]]`,
   `[[binary_fixture]]`, and `[[output_chunk_list]]`.
 - Manifest-failure checks: `[manifest_error]`.
 - External tool setup: `[tools] java = "missing"`, `"fake-success"`, or
@@ -236,6 +236,34 @@ case-text sidecars. Their decoded assertions cover initialization capability
 values, non-empty and cleared diagnostic notifications, complete semantic
 token data, and shutdown responses. Raw LSP cases remain only where protocol
 framing or an as-yet-unmigrated representation is still part of the fixture.
+
+Use repeatable `[[mcp_assert]]` sections to check newline-delimited JSON on
+`veln mcp` stdout. Each section selects exactly one response with a JSON string
+or integer `id`. Other response IDs may appear in the stream. A missing or
+duplicate selected ID fails that assertion.
+
+Each MCP assertion supplies `path` as an RFC 6901 JSON Pointer, including the
+empty pointer for the complete response. It declares exactly one operation:
+`equals`, `length`, `workspace_file_uri`, or `missing = true`. `equals`
+compares a complete JSON value. Object member order is ignored. Array order and
+cardinality are preserved. `length` requires an array and checks its exact
+cardinality. A missing path satisfies only `missing = true`; invalid traversal
+does not count as a missing path.
+
+`workspace_file_uri` names one portable case-workspace-relative regular file.
+The operand rejects absolute paths, empty or dot segments, backslashes,
+nonportable components, nonexistent files, and link-like traversal. The
+harness compares the selected JSON string with the canonical percent-encoded
+`file:` URI for the copied case-workspace file.
+
+Before evaluating any MCP assertion, the harness decodes every nonempty stdout
+line as one JSON object. Malformed JSON and non-object lines fail the decoded
+stream. Raw stdout checks remain independent, and all response-local assertion
+failures are aggregated in manifest order. The `decoded_mcp_*`,
+`manifest_mcp_*`, and `mcp_workspace_file_uri_*` tests in
+`toolchain_harness.rs` cover selection, decoding, pointers, operations,
+workspace operands, equality semantics, and aggregation. The semantic baseline
+records each selector, path, operation, and operand.
 
 Use `[[json_assert]]`, `[[result_value_assert]]`, and `[[diagnostics]]` for
 semantic checks inside JSON stdout. JSON and result-value assertions accept

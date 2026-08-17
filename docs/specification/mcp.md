@@ -161,7 +161,10 @@ The `definition-workspace` MCP specification case checks the advertised
 `definition` declaration plus representative definition, no-definition,
 decimal and exponent integer coordinate spellings, and invalid-position
 results plus non-integer decimal and negative-exponent coordinate schema
-rejection over stdio.
+rejection over stdio. Its response-local assertions bind the canonical dynamic
+workspace URI, exact definition range, indexed content, content cardinality,
+success and failure state, and absent result fields to individual response
+IDs. The toolchain semantic baseline records those selectors and operands.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous

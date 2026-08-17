@@ -34,6 +34,11 @@ under `../../specification/` and its executable example routes.
 
 ## Records
 
+- Agent language service foundations:
+  [agent-language-services-foundations.md](agent-language-services-foundations.md).
+- Agent language services slice closure:
+  [agent-language-services-slice-closure.md](agent-language-services-slice-closure.md).
+
 - Schema declaration composition surface:
   [schema-declaration-surface.md](schema-declaration-surface.md).
 - Integer bitwise operators:

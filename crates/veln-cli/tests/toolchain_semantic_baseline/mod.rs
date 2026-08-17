@@ -415,6 +415,7 @@ fn describe_expectations(fields: &mut BTreeMap<String, String>, manifest: &CaseM
     describe_json_assertions(fields, manifest);
     describe_result_value_assertions(fields, manifest);
     describe_lsp_assertions(fields, manifest);
+    describe_mcp_assertions(fields, manifest);
     describe_file_assertions(fields, manifest);
     describe_diagnostics(fields, manifest);
     binary_fixtures(fields, &manifest.expectations.binary_fixtures);
@@ -495,6 +496,54 @@ fn describe_lsp_assertions(fields: &mut BTreeMap<String, String>, manifest: &Cas
                 enum_value(fields, &format!("{base}.operation"), "missing");
             }
             LspAssertionOperation::Missing(false) => unreachable!("validated missing operation"),
+        }
+    }
+}
+
+fn describe_mcp_assertions(fields: &mut BTreeMap<String, String>, manifest: &CaseManifest) {
+    for (index, assertion) in manifest.expectations.mcp_assertions.iter().enumerate() {
+        let base = format!("expectations.mcp_assertions[{index}]");
+        fields.insert(
+            format!("{base}.id"),
+            canonical_json(
+                assertion
+                    .id
+                    .as_ref()
+                    .expect("validated MCP response selector"),
+                &format!("{base}.id"),
+            ),
+        );
+        text(fields, &format!("{base}.path"), &assertion.path);
+        match assertion
+            .operation
+            .as_ref()
+            .expect("validated MCP assertion operation")
+        {
+            McpAssertionOperation::Equals(value) => {
+                enum_value(fields, &format!("{base}.operation"), "equals");
+                fields.insert(
+                    format!("{base}.equals"),
+                    canonical_json(value, &format!("{base}.equals")),
+                );
+            }
+            McpAssertionOperation::Length(value) => {
+                enum_value(fields, &format!("{base}.operation"), "length");
+                scalar(fields, &format!("{base}.length"), *value);
+            }
+            McpAssertionOperation::Missing(true) => {
+                enum_value(fields, &format!("{base}.operation"), "missing");
+            }
+            McpAssertionOperation::Missing(false) => {
+                unreachable!("validated missing operation")
+            }
+            McpAssertionOperation::WorkspaceFileUri(value) => {
+                enum_value(
+                    fields,
+                    &format!("{base}.operation"),
+                    "workspace_file_uri",
+                );
+                text(fields, &format!("{base}.workspace_file_uri"), value);
+            }
         }
     }
 }
