@@ -32,7 +32,10 @@ of manifest escape sequences and into structured or file-backed forms:
 
 Representative LSP cases now use structured request fixtures and decoded
 assertions for publish diagnostics, semantic tokens, and semantic tokens after
-an unsaved document change.
+an unsaved document change. Later navigation cases can still use raw
+`stdin_file` sidecars when the protocol stream itself is part of the fixture;
+the semantic baseline records those sidecar bytes alongside the case stream
+fragments so the remaining raw coverage stays reviewable.
 
 ## Completion Evidence
 
