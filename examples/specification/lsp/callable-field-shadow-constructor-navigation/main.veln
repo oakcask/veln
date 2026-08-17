@@ -27,3 +27,14 @@ pub fn returned_field() -> Int
   let pack = record.pack
   pack(3)
 end
+
+pub fn destructured_let(record: {callback: fn(Int) -> Int}) -> Int
+  let {callback: pack}: {callback: fn(Int) -> Int} = record
+  pack(4)
+end
+
+pub fn destructured_match(record: {callback: fn(Int) -> Int}) -> Int
+  match record
+    {callback: pack} => pack(5)
+  end
+end

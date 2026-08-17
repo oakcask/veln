@@ -2,4 +2,4 @@
 name = "example/pkg"
 
 [lib]
-exports = ["math.veln"]
+exports = ["math.veln", "missing.veln"]

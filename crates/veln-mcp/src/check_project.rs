@@ -563,9 +563,6 @@ fn retained_captured_dependency(
 ) -> Option<DirectDependencySnapshot> {
     let identity = PackageIdentity::new(&dependency.package).ok()?;
     let project = dependency.project.as_ref()?;
-    if !validate_manifest_exports(project).is_empty() {
-        return None;
-    }
     let manifest = project.manifest.clone()?;
     let snapshot = capture_embedded_package_snapshot(
         &manifest.source_bytes,

@@ -502,9 +502,6 @@ fn retained_direct_dependencies(
                     .collect(),
                 manifest: Some(dependency_manifest),
             };
-            if !validate_manifest_exports(&dependency_project).is_empty() {
-                return None;
-            }
             let dependency_manifest = dependency_project.manifest?;
             DirectDependencySnapshot::from_validated_manifest(
                 &identity,

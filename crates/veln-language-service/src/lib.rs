@@ -517,6 +517,13 @@ struct LocalBinding {
     callable: bool,
 }
 
+#[derive(Debug)]
+struct PatternBinding {
+    name: String,
+    field: Option<String>,
+    name_end: usize,
+}
+
 #[derive(Clone, Debug, Default)]
 struct BindingInfo {
     callable: bool,
@@ -2931,10 +2938,9 @@ fn local_bindings(
         }
         let binding_end = local_binding_scope_end(tokens, index, end);
         let binding_start = let_binding_scope_start(tokens, index);
-        let callable = let_binding_is_callable(tokens, index, &callable_values);
         let callable_fields = let_binding_callable_fields(tokens, index, &callable_values);
-        let names = let_binding_names(tokens, index);
-        for name in names {
+        let bindings_for_let = let_binding_infos(tokens, index, &callable_values, &callable_fields);
+        for (name, callable) in bindings_for_let {
             if callable {
                 callable_values.insert_bare(name.clone());
             }
@@ -2949,7 +2955,12 @@ fn local_bindings(
             });
         }
     }
-    bindings.extend(match_arm_pattern_binding_names(tokens, body_start, end));
+    bindings.extend(match_arm_pattern_binding_names(
+        tokens,
+        body_start,
+        end,
+        &callable_values,
+    ));
     bindings.extend(satisfy_candidate_binding_names(tokens, body_start, end));
     bindings
 }
@@ -3376,15 +3387,27 @@ fn local_binding_scope_end(tokens: &[Token], let_index: usize, function_end: usi
     function_end
 }
 
-fn let_binding_names(tokens: &[Token], let_index: usize) -> Vec<String> {
-    let mut names = let_pattern_binding_names(tokens, let_index)
+fn let_binding_infos(
+    tokens: &[Token],
+    let_index: usize,
+    callable_values: &CallableValueNames,
+    callable_fields: &BTreeSet<String>,
+) -> Vec<(String, bool)> {
+    let whole_binding_callable = let_binding_is_callable(tokens, let_index, callable_values);
+    let mut names = let_pattern_binding_fields(tokens, let_index)
         .into_iter()
-        .map(|(name, _)| name)
+        .map(|binding| {
+            let callable = binding
+                .field
+                .as_ref()
+                .is_some_and(|field| callable_fields.contains(field));
+            (binding.name, callable)
+        })
         .collect::<Vec<_>>();
     if let Some(name) = simple_let_binding_name(tokens, let_index)
-        && !names.iter().any(|existing| existing == &name)
+        && !names.iter().any(|(existing, _)| existing == &name)
     {
-        names.push(name);
+        names.push((name, whole_binding_callable));
     }
     names
 }
@@ -3474,9 +3497,17 @@ fn handler_operation_clause_parameter_names_in_range(
 }
 
 fn let_pattern_binding_names(tokens: &[Token], let_index: usize) -> Vec<(String, usize)> {
+    let_pattern_binding_fields(tokens, let_index)
+        .into_iter()
+        .map(|binding| (binding.name, binding.name_end))
+        .collect()
+}
+
+fn let_pattern_binding_fields(tokens: &[Token], let_index: usize) -> Vec<PatternBinding> {
     let mut names = Vec::new();
     let mut depth = 0usize;
     let mut index = let_index + 1;
+    let mut pending_field = None;
     while index < tokens.len() {
         let token = &tokens[index];
         if token.kind == TokenKind::Eof || token.kind == TokenKind::Newline {
@@ -3486,12 +3517,36 @@ fn let_pattern_binding_names(tokens: &[Token], let_index: usize) -> Vec<(String,
             break;
         }
         match token.kind {
-            TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => depth += 1,
+            TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => {
+                depth += 1;
+                pending_field = None;
+            }
             TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
                 depth = depth.saturating_sub(1);
+                pending_field = None;
             }
+            TokenKind::Comma => {
+                pending_field = None;
+            }
+            TokenKind::Ident
+                if is_identifier(&token.text)
+                    && next_non_layout_token(tokens, index)
+                        .is_some_and(|next| next.kind == TokenKind::Colon) =>
+            {
+                pending_field = Some(token.text.clone());
+            }
+            TokenKind::Ident
+                if depth == 0
+                    && next_non_layout_token(tokens, index).is_some_and(|next| {
+                        matches!(next.kind, TokenKind::Colon | TokenKind::Equal)
+                    }) => {}
             TokenKind::Ident if is_pattern_binding_token(tokens, index) => {
-                names.push((token.text.clone(), token.range.end));
+                names.push(PatternBinding {
+                    name: token.text.clone(),
+                    field: pending_field.clone(),
+                    name_end: token.range.end,
+                });
+                pending_field = None;
             }
             _ => {}
         }
@@ -3504,6 +3559,7 @@ fn match_arm_pattern_binding_names(
     tokens: &[Token],
     body_start: usize,
     function_end: usize,
+    callable_values: &CallableValueNames,
 ) -> Vec<LocalBinding> {
     let mut bindings = Vec::new();
     for (index, token) in tokens.iter().enumerate() {
@@ -3517,16 +3573,57 @@ fn match_arm_pattern_binding_names(
         let scope_start = token.range.end;
         let scope_end = match_arm_scope_end(tokens, index + 1, function_end);
         let pattern_start = match_arm_pattern_start(tokens, index, body_start);
-        for name in pattern_binding_names_in_range(tokens, pattern_start, index) {
+        let callable_fields = enclosing_match_callable_fields(tokens, index, callable_values);
+        for binding in pattern_bindings_in_range(tokens, pattern_start, index) {
+            let callable = binding
+                .field
+                .as_ref()
+                .is_some_and(|field| callable_fields.contains(field));
             bindings.push(LocalBinding {
-                name,
+                name: binding.name,
                 start: scope_start,
                 end: scope_end,
-                callable: false,
+                callable,
             });
         }
     }
     bindings
+}
+
+fn enclosing_match_callable_fields(
+    tokens: &[Token],
+    arrow_index: usize,
+    callable_values: &CallableValueNames,
+) -> BTreeSet<String> {
+    let Some(match_index) = enclosing_match_index(tokens, arrow_index) else {
+        return BTreeSet::new();
+    };
+    let Some(line_end) = tokens[match_index + 1..]
+        .iter()
+        .position(|token| token.kind == TokenKind::Newline || token.kind == TokenKind::Eof)
+        .map(|relative| match_index + 1 + relative)
+    else {
+        return BTreeSet::new();
+    };
+    previous_non_layout_index_before(tokens, line_end, match_index)
+        .map_or_else(BTreeSet::new, |value_index| {
+            callable_fields_from_rhs(tokens, match_index, value_index, callable_values)
+        })
+}
+
+fn enclosing_match_index(tokens: &[Token], arrow_index: usize) -> Option<usize> {
+    let mut nested_blocks = 0usize;
+    for (index, token) in tokens[..arrow_index].iter().enumerate().rev() {
+        match token.kind {
+            TokenKind::End => nested_blocks += 1,
+            TokenKind::Match if nested_blocks == 0 => return Some(index),
+            TokenKind::If | TokenKind::Handler | TokenKind::Match => {
+                nested_blocks = nested_blocks.saturating_sub(1);
+            }
+            _ => {}
+        }
+    }
+    None
 }
 
 fn satisfy_candidate_binding_names(
@@ -3628,15 +3725,40 @@ fn match_arm_pattern_start_from_arrow(tokens: &[Token], arrow_start: usize) -> u
         })
 }
 
-fn pattern_binding_names_in_range(tokens: &[Token], start: usize, end_index: usize) -> Vec<String> {
+fn pattern_bindings_in_range(
+    tokens: &[Token],
+    start: usize,
+    end_index: usize,
+) -> Vec<PatternBinding> {
+    let mut pending_field = None;
     tokens[..end_index]
         .iter()
         .enumerate()
         .filter(|(_, token)| token.range.start >= start)
-        .filter(|(index, token)| {
-            token.kind == TokenKind::Ident && is_pattern_binding_token(tokens, *index)
+        .filter_map(|(index, token)| match token.kind {
+            TokenKind::Ident
+                if is_identifier(&token.text)
+                    && next_non_layout_token(tokens, index)
+                        .is_some_and(|next| next.kind == TokenKind::Colon) =>
+            {
+                pending_field = Some(token.text.clone());
+                None
+            }
+            TokenKind::Ident if is_pattern_binding_token(tokens, index) => {
+                let binding = PatternBinding {
+                    name: token.text.clone(),
+                    field: pending_field.clone(),
+                    name_end: token.range.end,
+                };
+                pending_field = None;
+                Some(binding)
+            }
+            TokenKind::Comma | TokenKind::LBrace | TokenKind::RBrace => {
+                pending_field = None;
+                None
+            }
+            _ => None,
         })
-        .map(|(_, token)| token.text.clone())
         .collect()
 }
 
@@ -4651,6 +4773,36 @@ mod tests {
         )];
 
         for (line, column) in [(11, 4), (18, 4), (28, 4)] {
+            let result = query(sources.clone(), "main.veln", line, column);
+
+            assert!(result.is_none(), "{result:#?}");
+        }
+    }
+
+    #[test]
+    fn callable_record_pattern_binding_shadows_constructor_call_navigation() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "type Token\n",
+                "  pack(Int)\n",
+                "end\n\n",
+                "fn direct(value: Int) -> Int\n",
+                "  value\n",
+                "end\n\n",
+                "fn destructured_let(record: {callback: fn(Int) -> Int}) -> Int\n",
+                "  let {callback: pack}: {callback: fn(Int) -> Int} = record\n",
+                "  pack(1)\n",
+                "end\n\n",
+                "fn destructured_match(record: {callback: fn(Int) -> Int}) -> Int\n",
+                "  match record\n",
+                "    {callback: pack} => pack(2)\n",
+                "  end\n",
+                "end\n",
+            ),
+        )];
+
+        for (line, column) in [(11, 4), (16, 25)] {
             let result = query(sources.clone(), "main.veln", line, column);
 
             assert!(result.is_none(), "{result:#?}");
@@ -5778,6 +5930,45 @@ mod tests {
         let result = dependency_query(dependency, "math::exposed()").unwrap();
 
         assert_eq!(result.definition.span.file.as_str(), "math.veln");
+    }
+
+    #[test]
+    fn direct_dependency_snapshot_keeps_valid_exports_with_missing_export() {
+        let root = TempDependency::new(
+            "example/pkg",
+            &[("math.veln", "pub type Token\n  pub exposed(Int)\nend\n")],
+        );
+        let identity = PackageIdentity::new("example/pkg").unwrap();
+        let snapshot = capture_package_snapshot(&root.path).unwrap();
+        let manifest = parse_manifest_text(
+            "veln.toml",
+            "[package]\nname = \"example/pkg\"\n\n[lib]\nexports = [\"math.veln\", \"missing.veln\"]\n",
+        );
+
+        let dependency =
+            DirectDependencySnapshot::from_validated_manifest(&identity, snapshot, manifest)
+                .unwrap();
+        let result = navigate(
+            &EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![source(
+                    "main.veln",
+                    "use math from \"example/pkg\"\n\npub fn main() -> Token\n  exposed(1)\nend\n",
+                )],
+                vec![dependency],
+            ),
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 4,
+                column: 4,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+        let NavigationSource::Package { uri } = result.definition.source else {
+            panic!("dependency constructor did not use a package location");
+        };
+        assert!(uri.ends_with("/math.veln"), "{uri}");
     }
 
     #[test]
