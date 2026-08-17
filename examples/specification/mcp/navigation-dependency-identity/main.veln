@@ -29,3 +29,17 @@ fn field_shadow(record: {pack: fn(Int) -> Local}) -> Local
   let pack = record.pack
   pack(1)
 end
+
+fn build_local(value: Int) -> Local
+  pack(value)
+end
+
+fn make_record() -> {pack: fn(Int) -> Local}
+  {pack: build_local}
+end
+
+fn returned_field() -> Local
+  let record = make_record()
+  let pack = record.pack
+  pack(1)
+end

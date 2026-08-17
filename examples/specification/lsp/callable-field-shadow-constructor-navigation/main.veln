@@ -17,3 +17,13 @@ pub fn local_field() -> Int
   let pack = alias.pack
   pack(2)
 end
+
+fn make_record() -> {pack: fn(Int) -> Int}
+  {pack: direct}
+end
+
+pub fn returned_field() -> Int
+  let record = make_record()
+  let pack = record.pack
+  pack(3)
+end

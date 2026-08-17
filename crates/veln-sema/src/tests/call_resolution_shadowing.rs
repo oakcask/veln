@@ -203,6 +203,14 @@ fn call_resolution_prefers_callable_record_field_binding_over_constructor() {
             "  let pack = alias.pack\n",
             "  pack(2)\n",
             "end\n",
+            "fn make_record() -> {pack: fn(Int) -> Int}\n",
+            "  {pack: direct}\n",
+            "end\n",
+            "pub fn returned_field() -> Int\n",
+            "  let record = make_record()\n",
+            "  let pack = record.pack\n",
+            "  pack(3)\n",
+            "end\n",
         ),
     );
     let parsed = parse(&source);
@@ -212,7 +220,11 @@ fn call_resolution_prefers_callable_record_field_binding_over_constructor() {
 
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
     let core = lowered.core.expect("checked core should be built");
-    for (function_name, expected_arg) in [("parameter_field", "1"), ("local_field", "2")] {
+    for (function_name, expected_arg) in [
+        ("parameter_field", "1"),
+        ("local_field", "2"),
+        ("returned_field", "3"),
+    ] {
         let function = core
             .functions
             .iter()
@@ -229,7 +241,7 @@ fn call_resolution_prefers_callable_record_field_binding_over_constructor() {
     }
 
     let ir = lowered.ir.expect("complete core should lower to IR");
-    for function_name in ["parameter_field", "local_field"] {
+    for function_name in ["parameter_field", "local_field", "returned_field"] {
         let function = ir
             .functions
             .iter()

@@ -365,6 +365,7 @@ struct FunctionSymbol {
     public: bool,
     standard_prelude: bool,
     returns_callable: bool,
+    returns_callable_fields: BTreeSet<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -519,6 +520,8 @@ struct CallableValueNames {
     field_access: BTreeMap<String, BTreeSet<String>>,
     returned_by_bare_call: BTreeSet<String>,
     returned_by_qualified_call: BTreeSet<(String, String)>,
+    fields_returned_by_bare_call: BTreeMap<String, BTreeSet<String>>,
+    fields_returned_by_qualified_call: BTreeMap<(String, String), BTreeSet<String>>,
 }
 
 impl CallableValueNames {
@@ -540,6 +543,29 @@ impl CallableValueNames {
 
     fn insert_qualified_returning_callable(&mut self, module: String, name: String) {
         self.returned_by_qualified_call.insert((module, name));
+    }
+
+    fn insert_bare_returning_callable_fields(
+        &mut self,
+        name: String,
+        fields: impl IntoIterator<Item = String>,
+    ) {
+        self.fields_returned_by_bare_call
+            .entry(name)
+            .or_default()
+            .extend(fields);
+    }
+
+    fn insert_qualified_returning_callable_fields(
+        &mut self,
+        module: String,
+        name: String,
+        fields: impl IntoIterator<Item = String>,
+    ) {
+        self.fields_returned_by_qualified_call
+            .entry((module, name))
+            .or_default()
+            .extend(fields);
     }
 
     fn contains_token(&self, tokens: &[Token], index: usize) -> bool {
@@ -596,6 +622,25 @@ impl CallableValueNames {
                 .returned_by_qualified_call
                 .contains(&(qualifier, token.text.clone())),
             None => self.returned_by_bare_call.contains(&token.text),
+        }
+    }
+
+    fn callable_fields_returned_by_call(&self, tokens: &[Token], index: usize) -> BTreeSet<String> {
+        let token = &tokens[index];
+        if token.kind != TokenKind::Ident || !is_call_target_token(tokens, index) {
+            return BTreeSet::new();
+        }
+        match qualifier_for_token(tokens, index) {
+            Some(qualifier) => self
+                .fields_returned_by_qualified_call
+                .get(&(qualifier, token.text.clone()))
+                .cloned()
+                .unwrap_or_default(),
+            None => self
+                .fields_returned_by_bare_call
+                .get(&token.text)
+                .cloned()
+                .unwrap_or_default(),
         }
     }
 }
@@ -1305,6 +1350,17 @@ impl SymbolIndex {
                             symbol.name.clone(),
                         );
                     }
+                    if !symbol.returns_callable_fields.is_empty() {
+                        names.insert_bare_returning_callable_fields(
+                            symbol.name.clone(),
+                            symbol.returns_callable_fields.clone(),
+                        );
+                        names.insert_qualified_returning_callable_fields(
+                            symbol.module.clone(),
+                            symbol.name.clone(),
+                            symbol.returns_callable_fields.clone(),
+                        );
+                    }
                 }
                 continue;
             }
@@ -1324,6 +1380,17 @@ impl SymbolIndex {
                     names.insert_qualified_returning_callable(
                         symbol.module.clone(),
                         symbol.name.clone(),
+                    );
+                }
+                if !symbol.returns_callable_fields.is_empty() {
+                    names.insert_bare_returning_callable_fields(
+                        symbol.name.clone(),
+                        symbol.returns_callable_fields.clone(),
+                    );
+                    names.insert_qualified_returning_callable_fields(
+                        symbol.module.clone(),
+                        symbol.name.clone(),
+                        symbol.returns_callable_fields.clone(),
                     );
                 }
             }
@@ -2037,6 +2104,7 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
                 public,
                 standard_prelude,
                 returns_callable: function_signature_returns_callable(&tokens, index),
+                returns_callable_fields: function_signature_callable_record_fields(&tokens, index),
             });
         }
     }
@@ -2044,18 +2112,40 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
 }
 
 fn function_signature_returns_callable(tokens: &[Token], function_index: usize) -> bool {
+    let Some((return_start, return_end)) = function_signature_return_range(tokens, function_index)
+    else {
+        return false;
+    };
+    type_range_is_callable(tokens, return_start, return_end)
+}
+
+fn function_signature_callable_record_fields(
+    tokens: &[Token],
+    function_index: usize,
+) -> BTreeSet<String> {
+    let Some((return_start, return_end)) = function_signature_return_range(tokens, function_index)
+    else {
+        return BTreeSet::new();
+    };
+    callable_record_fields_in_type_range(tokens, return_start, return_end)
+}
+
+fn function_signature_return_range(
+    tokens: &[Token],
+    function_index: usize,
+) -> Option<(usize, usize)> {
     let Some(arrow_index) = tokens[function_index..]
         .iter()
         .position(|token| token.kind == TokenKind::Arrow)
         .map(|index| function_index + index)
     else {
-        return false;
+        return None;
     };
     let line_end = tokens[arrow_index + 1..]
         .iter()
         .position(|token| token.kind == TokenKind::Newline || token.kind == TokenKind::Eof)
         .map_or(tokens.len(), |relative| arrow_index + 1 + relative);
-    type_range_is_callable(tokens, arrow_index + 1, line_end)
+    Some((arrow_index + 1, line_end))
 }
 
 fn constructor_declarations(file: &IndexedFile) -> Vec<ConstructorSymbol> {
@@ -2741,6 +2831,10 @@ fn local_bindings(
             .collect(),
         returned_by_bare_call: function_values.returned_by_bare_call.clone(),
         returned_by_qualified_call: function_values.returned_by_qualified_call.clone(),
+        fields_returned_by_bare_call: function_values.fields_returned_by_bare_call.clone(),
+        fields_returned_by_qualified_call: function_values
+            .fields_returned_by_qualified_call
+            .clone(),
     };
     callable_values
         .bare
@@ -2902,6 +2996,9 @@ fn callable_fields_from_rhs(
             .map_or_else(BTreeSet::new, |inner| {
                 callable_fields_from_rhs(tokens, equal_index, inner, callable_values)
             });
+    }
+    if let Some(callee_index) = rhs_call_target_index(tokens, equal_index, value_index) {
+        return callable_values.callable_fields_returned_by_call(tokens, callee_index);
     }
     BTreeSet::new()
 }
@@ -4195,11 +4292,19 @@ mod tests {
                 "  let alias = record\n",
                 "  let pack = alias.pack\n",
                 "  pack(2)\n",
+                "end\n\n",
+                "fn make_record() -> {pack: fn(Int) -> Int}\n",
+                "  {pack: direct}\n",
+                "end\n\n",
+                "fn returned_field() -> Int\n",
+                "  let record = make_record()\n",
+                "  let pack = record.pack\n",
+                "  pack(3)\n",
                 "end\n",
             ),
         )];
 
-        for (line, column) in [(11, 4), (18, 4)] {
+        for (line, column) in [(11, 4), (18, 4), (28, 4)] {
             let result = query(sources.clone(), "main.veln", line, column);
 
             assert!(result.is_none(), "{result:#?}");

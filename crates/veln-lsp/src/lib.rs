@@ -3978,13 +3978,23 @@ mod tests {
                 "  let pack = alias.pack\n",
                 "  pack(2)\n",
                 "end\n",
+                "\n",
+                "fn make_record() -> {pack: fn(Int) -> Int}\n",
+                "  {pack: direct}\n",
+                "end\n",
+                "\n",
+                "pub fn returned_field() -> Int\n",
+                "  let record = make_record()\n",
+                "  let pack = record.pack\n",
+                "  pack(3)\n",
+                "end\n",
             ),
         );
         let root_uri = path_to_uri(&project.root);
         let main_uri = path_to_uri(&project.root.join("main.veln"));
         server.handle_message(&initialize_request(&root_uri));
 
-        for (line, character) in [(10, 4), (17, 4)] {
+        for (line, character) in [(10, 4), (17, 4), (27, 4)] {
             let definition = server.handle_message(&definition_request(&main_uri, line, character));
             let references = server.handle_message(&references_request(&main_uri, line, character));
             let rename = server.handle_message(&rename_request(&main_uri, line, character, "box"));
