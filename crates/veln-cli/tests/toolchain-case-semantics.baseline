@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"d8d1037e275a04230f49245cb4e86468b70d89c0"
+source_git_tree	"a7c942b4131bfd985c23d4a1728a445825d943b5"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1522
@@ -10033,6 +10033,9 @@ field	expectations.stdout.contains[11]	"\"id\":10,\"result\":{\"changes\":{}}"
 field	expectations.stdout.contains[12]	"\"id\":11,\"result\":null"
 field	expectations.stdout.contains[13]	"\"id\":12,\"result\":[]"
 field	expectations.stdout.contains[14]	"\"id\":13,\"result\":{\"changes\":{}}"
+field	expectations.stdout.contains[15]	"\"id\":14,\"result\":null"
+field	expectations.stdout.contains[16]	"\"id\":15,\"result\":[]"
+field	expectations.stdout.contains[17]	"\"id\":16,\"result\":{\"changes\":{}}"
 field	expectations.stdout.contains[1]	"\"referencesProvider\":true"
 field	expectations.stdout.contains[2]	"\"renameProvider\":{\"prepareProvider\":true}"
 field	expectations.stdout.contains[3]	"\"id\":2,\"result\":null"
@@ -10046,9 +10049,9 @@ field	expectations.stdout.not_contains[0]	"\"range\":{\"start\":{\"line\":1,\"ch
 field	expectations.stdout.not_contains[1]	"\"newText\":\"pack\""
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2534,"sha256":"d83ccfdc97dc324cf53abc92b0dd8f1cd0d64c0468b64b1cc134a24f6a78f6fc"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3104,"sha256":"4544c355aa9bbaaa50bc331b8d05d875463fe13827f5a67a39ab4dc26f1167c7"}
 field	source_errors	"forbidden"
-case_digest	"d26fb9551efa731fbecf2a530a312ce709bc2d098aaec7f3f8f2be0f1df078ef"
+case_digest	"0f2898303bbd9ba77c6a1b3af9e99469ec7f3f53f8a9b1d85ce649a6ca52857c"
 case	"examples/specification/lsp/companion-private-function-identity"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47931,4 +47934,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"a2564818c5bd0f9234a3b9bd21687b85ffb24f02374d97451b69bd8ebcf53c9f"
+aggregate_digest	"c83f998552816db0a211feb0c2a58d805bc853e43d54f6d5e2b092d606122e4e"
