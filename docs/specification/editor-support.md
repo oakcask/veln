@@ -173,7 +173,8 @@ same-spelled constructor calls selectable, dependency constructor package
 locations keyed by source origin, workspace and dependency constructor import
 collisions that leave same-spelled constructor calls ambiguous, dense
 same-spelled and re-exported constructor lookup growth, exclusion of
-same-spelled local type annotations from function references, and positions
+same-spelled local type annotations from function references, record types
+with callable fields as non-callable for constructor shadowing, and positions
 without a supported symbol.
 
 `veln-lsp` captures the workspace manifest, saved workspace sources, valid
@@ -298,9 +299,11 @@ case covers the returned-callable binding form.
 The executable LSP example
 `../../examples/specification/lsp/non-callable-shadow-constructor-navigation/`
 checks that a non-callable parameter, local binding, handler context parameter,
-or handler operation clause parameter with the same spelling does not block
-constructor navigation at a bare call site. Definition, references, and rename
-select the constructor call and declaration.
+handler operation clause parameter, or record-typed binding with callable
+fields and the same spelling does not block constructor navigation at a bare
+call site. Definition, references, and rename select the constructor call and
+declaration. The focused `veln-language-service` and `veln-lsp` tests cover
+record-typed parameter and local bindings with callable fields.
 The executable LSP example
 `../../examples/specification/lsp/imported-constructor-collision-navigation/`
 checks that a same-spelled workspace constructor imported with `use module` and
@@ -456,7 +459,8 @@ Implemented:
   functions.
 - Stdio definition, references, and rename responses for bare constructor calls
   with same-spelled non-callable parameters, local bindings, handler context
-  parameters, or handler operation clause parameters.
+  parameters, handler operation clause parameters, or record-typed bindings
+  with callable fields.
 - Stdio definition, references, and rename rejection for bare constructor calls
   made ambiguous by same-spelled imported workspace and dependency
   constructors.
