@@ -129,6 +129,62 @@ fn call_resolution_prefers_if_inferred_callable_over_constructor() {
 }
 
 #[test]
+fn call_resolution_prefers_performed_callable_over_constructor() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Token\n",
+            "  pack(Int)\n",
+            "end\n",
+            "effect Build\n",
+            "  callback() -> fn(Int) -> Int\n",
+            "end\n",
+            "pub fn main() -> Int effects [Build]\n",
+            "  let pack = perform Build::callback()\n",
+            "  pack(1)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[main.body.len() - 1].kind else {
+        panic!("tail expression should lower as return");
+    };
+    let CoreExprKind::Call { target, args } = &expr.kind else {
+        panic!("tail expression should lower as call");
+    };
+    assert_eq!(target, &CoreCallTarget::Value("pack".to_string()));
+    assert!(matches!(&args[0].kind, CoreExprKind::IntLiteral(value) if value == "1"));
+
+    let ir = lowered.ir.expect("complete core should lower to IR");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[main.body.len() - 1].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::Value(name),
+            ..
+        } if name == "pack"
+    ));
+}
+
+#[test]
 fn call_resolution_preserves_constructor_when_local_binding_is_not_callable() {
     let source = SourceFile::new(
         "main.veln",

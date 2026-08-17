@@ -397,7 +397,13 @@ struct EffectSymbol {
     package: Option<String>,
     public: bool,
     standard_prelude: bool,
-    operations: BTreeMap<String, Vec<bool>>,
+    operations: BTreeMap<String, EffectOperationSymbol>,
+}
+
+#[derive(Clone, Debug)]
+struct EffectOperationSymbol {
+    parameter_callables: Vec<bool>,
+    returns_callable: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -541,6 +547,7 @@ struct CallableValueNames {
     returned_by_qualified_call: BTreeSet<(String, String)>,
     fields_returned_by_bare_call: BTreeMap<String, BTreeSet<String>>,
     fields_returned_by_qualified_call: BTreeMap<(String, String), BTreeSet<String>>,
+    performed_by_effect: BTreeSet<(String, String)>,
 }
 
 impl CallableValueNames {
@@ -585,6 +592,10 @@ impl CallableValueNames {
             .entry((module, name))
             .or_default()
             .extend(fields);
+    }
+
+    fn insert_perform_returning_callable(&mut self, effect_path: String, operation: String) {
+        self.performed_by_effect.insert((effect_path, operation));
     }
 
     fn shadow_bare_binding(&mut self, name: &str) {
@@ -649,6 +660,17 @@ impl CallableValueNames {
                 .contains(&(qualifier, token.text.clone())),
             None => self.returned_by_bare_call.contains(&token.text),
         }
+    }
+
+    fn perform_returns_callable(&self, tokens: &[Token], operation_index: usize) -> bool {
+        let operation = &tokens[operation_index];
+        if operation.kind != TokenKind::Ident || !is_call_target_token(tokens, operation_index) {
+            return false;
+        }
+        perform_effect_path_for_operation(tokens, operation_index).is_some_and(|effect_path| {
+            self.performed_by_effect
+                .contains(&(effect_path, operation.text.clone()))
+        })
     }
 
     fn callable_fields_returned_by_call(&self, tokens: &[Token], index: usize) -> BTreeSet<String> {
@@ -1403,6 +1425,26 @@ impl SymbolIndex {
                 }
             }
         }
+        for effect in &self.effects {
+            for (operation_name, operation) in &effect.operations {
+                if !operation.returns_callable {
+                    continue;
+                }
+                if self.effect_visible_from(file, effect, None) {
+                    names.insert_perform_returning_callable(
+                        effect.name.clone(),
+                        operation_name.clone(),
+                    );
+                }
+                let qualified_effect = format!("{}::{}", effect.module, effect.name);
+                if self.effect_visible_from(file, effect, Some(&effect.module)) {
+                    names.insert_perform_returning_callable(
+                        qualified_effect,
+                        operation_name.clone(),
+                    );
+                }
+            }
+        }
         names
     }
 
@@ -1581,7 +1623,12 @@ impl SymbolIndex {
             effect.name == *effect_name
                 && self.effect_visible_from(file, effect, qualifier.as_deref())
         }))
-        .and_then(|effect| effect.operations.get(operation_name).cloned())
+        .and_then(|effect| {
+            effect
+                .operations
+                .get(operation_name)
+                .map(|operation| operation.parameter_callables.clone())
+        })
     }
 
     fn effect_visible_from(
@@ -2381,13 +2428,19 @@ fn effect_declarations(file: &IndexedFile) -> Vec<EffectSymbol> {
                         .filter_map(|operation| {
                             Some((
                                 operation.name.clone()?,
-                                operation
-                                    .params
-                                    .iter()
-                                    .map(|param| {
-                                        param.ty.as_deref().is_some_and(type_text_is_callable)
-                                    })
-                                    .collect(),
+                                EffectOperationSymbol {
+                                    parameter_callables: operation
+                                        .params
+                                        .iter()
+                                        .map(|param| {
+                                            param.ty.as_deref().is_some_and(type_text_is_callable)
+                                        })
+                                        .collect(),
+                                    returns_callable: operation
+                                        .return_type
+                                        .as_deref()
+                                        .is_some_and(type_text_is_callable),
+                                },
                             ))
                         })
                         .collect(),
@@ -2968,6 +3021,7 @@ fn local_bindings(
         fields_returned_by_qualified_call: function_values
             .fields_returned_by_qualified_call
             .clone(),
+        performed_by_effect: function_values.performed_by_effect.clone(),
     };
     callable_values
         .bare
@@ -3227,6 +3281,7 @@ fn callable_rhs_is_callable(
         return false;
     };
     callable_values.call_returns_callable(tokens, callee_index)
+        || callable_values.perform_returns_callable(tokens, callee_index)
 }
 
 fn let_binding_callable_fields(
@@ -4153,6 +4208,34 @@ fn qualifier_for_token(tokens: &[Token], name_index: usize) -> Option<String> {
         };
         segments.push(tokens[previous_segment].text.as_str());
         cursor = previous_segment;
+    }
+    segments.reverse();
+    Some(segments.join("::"))
+}
+
+fn perform_effect_path_for_operation(tokens: &[Token], operation_index: usize) -> Option<String> {
+    let separator_index = previous_non_layout_index(tokens, operation_index)?;
+    if tokens[separator_index].kind != TokenKind::DoubleColon {
+        return None;
+    }
+    let segment_index = previous_non_layout_index(tokens, separator_index)?;
+    let mut segments = vec![tokens[segment_index].text.as_str()];
+    let mut cursor = segment_index;
+    while let Some(previous_separator) = previous_non_layout_index(tokens, cursor) {
+        if tokens[previous_separator].kind != TokenKind::DoubleColon {
+            break;
+        }
+        let Some(previous_segment) = previous_non_layout_index(tokens, previous_separator) else {
+            break;
+        };
+        segments.push(tokens[previous_segment].text.as_str());
+        cursor = previous_segment;
+    }
+    let first_segment_index = cursor;
+    if previous_non_layout_token(tokens, first_segment_index)
+        .is_none_or(|previous| previous.kind != TokenKind::Perform)
+    {
+        return None;
     }
     segments.reverse();
     Some(segments.join("::"))
@@ -5669,6 +5752,27 @@ mod tests {
         )];
 
         assert!(query(sources, "main.veln", 15, 4).is_none());
+    }
+
+    #[test]
+    fn performed_function_value_binding_shadows_same_named_constructor_call() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "type Token\n",
+                "  pack(Int)\n",
+                "end\n\n",
+                "effect Build\n",
+                "  callback() -> fn(Int) -> Int\n",
+                "end\n\n",
+                "pub fn main() -> Int effects [Build]\n",
+                "  let pack = perform Build::callback()\n",
+                "  pack(1)\n",
+                "end\n",
+            ),
+        )];
+
+        assert!(query(sources, "main.veln", 11, 4).is_none());
     }
 
     #[test]

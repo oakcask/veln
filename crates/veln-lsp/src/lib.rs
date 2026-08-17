@@ -3862,13 +3862,22 @@ mod tests {
                 "  end\n",
                 "  byte(1)\n",
                 "end\n",
+                "\n",
+                "effect Build\n",
+                "  callback() -> fn(Int) -> Token\n",
+                "end\n",
+                "\n",
+                "pub fn perform_shadow() -> Token effects [Build]\n",
+                "  let byte = perform Build::callback()\n",
+                "  byte(1)\n",
+                "end\n",
             ),
         );
         let root_uri = path_to_uri(&project.root);
         let main_uri = path_to_uri(&project.root.join("main.veln"));
         server.handle_message(&initialize_request(&root_uri));
 
-        for (line, character) in [(5, 4), (10, 4), (15, 4), (23, 4)] {
+        for (line, character) in [(5, 4), (10, 4), (15, 4), (23, 4), (32, 4)] {
             let definition = server.handle_message(&definition_request(&main_uri, line, character));
             let references = server.handle_message(&references_request(&main_uri, line, character));
             let rename = server.handle_message(&rename_request(&main_uri, line, character, "pack"));

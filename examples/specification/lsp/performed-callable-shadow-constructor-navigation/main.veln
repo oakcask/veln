@@ -1,0 +1,12 @@
+type Token
+  pack(Int)
+end
+
+effect Build
+  callback() -> fn(Int) -> Int
+end
+
+pub fn main() -> Int effects [Build]
+  let pack = perform Build::callback()
+  pack(1)
+end
