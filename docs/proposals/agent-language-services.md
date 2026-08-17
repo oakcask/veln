@@ -13,21 +13,20 @@ intelligence without requiring them to drive the editor-oriented LSP protocol.
 
 ## Implementation Status
 
-The workspace-project inventory, saved project diagnostics, and bounded
-workspace-definition slices are
+The workspace-project inventory, saved project diagnostics, bounded
+workspace-definition slice, and saved workspace-function-reference slice are
 implemented and specified in
-[MCP Workspace Projects, Diagnostics, And Definitions](../specification/mcp.md). `veln mcp`
+[MCP Workspace Projects, Diagnostics, Definitions, And References](../specification/mcp.md). `veln mcp`
 currently exposes `workspace_projects`, `refresh_workspace`, and
-`check_project`, plus workspace-only `definition` for the language service's
-current function, constructor, and handler-binding symbol set. Broader
-definition and reference navigation, documentation resources and search,
+`check_project`, plus workspace-only `definition` and project-owned function
+`references` for the language service's current navigation results. Broader
+definition and reference symbol coverage, documentation resources and search,
 pagination, snapshot resource lifetime, conformance completion, and client
 plugin work in this proposal remain planned.
 
 The remaining first-capability work includes:
 
-- definition lookup beyond the implemented workspace symbol set, and
-  reference lookup;
+- definition and reference lookup beyond the implemented workspace symbol set;
 - language-reference search and retrieval;
 - exported package and standard-library documentation;
 - virtual source locations for dependencies and the standard library; and
@@ -43,47 +42,6 @@ Do not add callable-versus-constructor precedence in an MCP adapter. Sources
 that violate the casing rules must be rejected by the shared language
 semantics. Navigation, lowering, LSP, and MCP must consume the same name class
 and selected target for accepted sources.
-
-### Next Slice: Saved Workspace Function References
-
-The next navigation slice exposes the shared language service's current
-workspace-function reference results through `veln mcp`. This is an
-intermediate slice of the eventual v1 `references` contract below. It is not a
-request to complete the closed v1 navigation matrix.
-
-The slice has this boundary:
-
-| Included | Excluded |
-| --- | --- |
-| A checked `references` input with `source`, `line`, and `column`. | `include_declaration`, page size, continuation cursors, and retained cursor state. |
-| Selected-project and anonymous single-file capture using the existing navigation selection rules. | Dependency and standard-library reference search or virtual locations. |
-| Canonical `file:` locations for the current shared language service's project-owned function reference sites, in deterministic order. | New symbol kinds or broader definition coverage. |
-| Explicit project or single-file scope metadata, including whether the result is project-wide. | Changes to language name resolution, callable classification, lowering, LSP behavior, or the shared navigation symbol set. |
-| Empty success for a valid position with no supported function reference search. | Exhaustive enumeration of expression forms that can produce, store, or shadow callable values. |
-| Existing path, coordinate, schema, and stable-capture failure behavior. | Pagination, resource lifetime, documentation tools, and plugin work. |
-
-The current language-service result is an input to this adapter slice, not an
-open-ended acceptance target. If implementation exposes an independently
-reproducible defect in language resolution or existing LSP navigation, record
-that defect as separate work. Do not expand this slice to repair it unless it
-prevents one of the acceptance rows below from passing.
-
-| Case | Expected result | Planned evidence |
-| --- | --- | --- |
-| Request references at a project-owned function call in a selected project. | Return only that function's project-owned reference sites as sorted canonical `file:` locations, plus project scope metadata. | One MCP stdio specification case with a declaration, a recursive call, an ordinary call, and an unrelated ambiguous constructor call. |
-| Request references at the unrelated ambiguous constructor call in that case. | Return an empty reference list because constructor reference search is outside this slice. | The same MCP stdio specification case. |
-| Request references for an accepted source outside a selected project's owned-source set. | Analyze only that source and report single-file scope with `project_wide: false`. | One table-driven descendant-boundary or anonymous-source case. |
-| Supply an invalid position or a schema-invalid coordinate. | Return `invalid_position` for an unaddressable positive coordinate and protocol invalid params for a non-integer coordinate. | The MCP stdio specification case and schema tests. |
-| Replace a captured source identity or bytes during the operation. | Return `snapshot_changed` without partial reference locations. | Existing navigation stable-capture harness extended to the `references` adapter. |
-| List MCP tools after initialization. | Advertise the checked `references` input and result schemas. | The existing workspace-lifecycle tool-list case. |
-
-This slice is complete when these six rows pass and its implemented contract is
-promoted to the MCP specification and executable-example routes. A newly
-discovered constructor-versus-value naming collision belongs to
-[Identifier Casing](identifier-casing.md) and does not keep this slice open. A
-new callable-producing expression, shadowing form, or LSP navigation edge case
-also does not keep this slice open. The broader v1 rows remain planned work and
-must be selected as separate bounded slices.
 
 Language semantics belong to an editor- and agent-neutral language service.
 `veln lsp` and `veln mcp` adapt that service to different session and transport
@@ -911,11 +869,11 @@ The resolved-decision evidence groups are:
 | Decision | Required evidence |
 | --- | --- |
 | Q01 anonymous diagnostics | Required single source, two unrelated files, invalid combinations, and invalid source paths. |
-| Q02 descendant ownership | Implemented for workspace `definition` project inference and unselected descendant single-file isolation; outer-reference coverage remains planned. |
+| Q02 descendant ownership | Implemented for workspace `definition` project inference and unselected descendant single-file isolation. Function references have project and anonymous single-file scope coverage; explicit descendant reference coverage remains planned with the broader symbol matrix. |
 | Q03 rediscovery | Manifest add, remove, and rename before and after refresh; atomic refresh failure; cursor invalidation; resource survival. |
 | Q04 filesystem identity | Symbolic base, internal and external directory links, file links, missing leaves, alias URI equality, and link replacement. |
-| Q05 stable capture | Implemented for `check_project` manifest, source, owned path-set changes, readable dependency input changes and reuse across path, vendor, mirror, and locally materialized git sources, bounded retry, no partial publication, pre-refresh selection preservation, anonymous single-file isolation, anonymous base symlink and regular-directory replacement, selected-root symlink and regular-directory replacement, nested regular manifest marker boundaries, symlinked nested manifest marker exclusion, project-local source symlink exclusion, non-Linux fail-closed saved snapshot capture, and workspace `definition` capture that compares project ownership and anonymous fallback in one stable attempt. Reference navigation captures remain planned. |
-| Q06 schemas and errors | Implemented for workspace inventory, `check_project`, and workspace `definition` schema freshness, nullable field rejection, unknown fields including related-note fields, exact non-integer coordinate rejection, stable domain codes, and protocol mapping. Reference, broader definition, resource, and documentation schemas remain planned. |
+| Q05 stable capture | Implemented for `check_project` manifest, source, owned path-set changes, readable dependency input changes and reuse across path, vendor, mirror, and locally materialized git sources, bounded retry, no partial publication, pre-refresh selection preservation, anonymous single-file isolation, anonymous base symlink and regular-directory replacement, selected-root symlink and regular-directory replacement, nested regular manifest marker boundaries, symlinked nested manifest marker exclusion, project-local source symlink exclusion, non-Linux fail-closed saved snapshot capture, and workspace `definition` and function `references` capture through the shared navigation boundary. Broader reference navigation remains planned. |
+| Q06 schemas and errors | Implemented for workspace inventory, `check_project`, workspace `definition`, and saved function `references` schema freshness, nullable field rejection, unknown fields including related-note fields, exact non-integer coordinate rejection, stable domain codes, and protocol mapping. Broader definition, reference pagination, resource, and documentation schemas remain planned. |
 | Q07 coordinates | Empty, LF, CRLF, terminal newline, non-BMP scalar, end positions, token-end exclusion, all LSP encodings, and normalized cross-adapter pages. |
 | Q08 reference universe | Project, other-project exclusion, dependency consumer and declaration behavior, dependency-as-project behavior, and visibly single-file anonymous results. |
 | Q09 cursors | Cursor-only continuation, page concatenation, tamper, cross-server, restart, reuse, eviction, unrelated changes, byte restoration, and refresh. |
@@ -964,12 +922,12 @@ that the behavior is already implemented.
 | Start `veln mcp` in a one-package project. | The package is selected as `.`. | Implemented `veln-mcp` selection table tests. |
 | Start above two package branches and complete the inventory lifecycle. | Both first manifest roots are listed after initialization. The server rejects inventory requests before initialization and rejects a second valid initialization. `check_project` reports ambiguity when its project input is omitted. | Implemented MCP workspace lifecycle case for inventory and initialization phase boundaries; implemented `veln-mcp` multi-project ambiguity test. |
 | Start where no manifest exists. | The base is selected as one anonymous project. `check_project` requires `project: "."` and `source`, and analyzes exactly that source until refresh even if a manifest or companion target appears later. | Implemented MCP anonymous single-file executable case plus `veln-mcp` selection table, pre-refresh manifest addition, and companion-shaped source tests. |
-| Navigate below an unselected descendant manifest. | The outer project does not own the source; navigation reports single-file scope without outer-project references. | Implemented MCP definition descendant-boundary isolation; reference-result scope remains planned. |
+| Navigate below an unselected descendant manifest. | The outer project does not own the source; navigation reports single-file scope without outer-project references. | Implemented MCP definition descendant-boundary isolation; function references have equivalent anonymous single-file scope coverage, while the explicit descendant reference case remains planned with broader symbol coverage. |
 | Add, remove, or rename a manifest. | Selection is unchanged until `refresh_workspace`; a successful refresh replaces it atomically. Cursor staleness remains planned. | Implemented `veln-mcp` refresh transition tests; planned Q03 cursor cases. |
 | Start through a symbolic base alias. | The alias is accepted once and returned `file:` URIs use the resolved identity spelling. | Implemented MCP definition canonical resolved-base URI case; broader Q04 symbolic-base cases remain planned. |
 | Supply a path containing a directory or file symbolic link. | The path is rejected without following the link. | Implemented `veln-mcp` no-follow source-path test; broader Q04 navigation cases remain planned. |
 | Supply an absolute path or escaping relative path. | The tool rejects the input before reading the target. | Implemented `veln-mcp` path-boundary source tests. |
-| Change a selected root identity, anonymous base identity, manifest, source, dependency input, or file set during capture. | The complete capture retries at most three times, then returns `snapshot_changed` without partial publication. | Implemented `veln-mcp` stable-capture retry tests for `check_project`, including anonymous base and selected-root symlink and regular-directory replacement, nested regular manifest marker boundaries, symlinked nested manifest marker exclusion, project-local source symlink exclusion, non-Linux fail-closed capture, and dependency snapshot changes; implemented workspace `definition` navigation capture coverage for descendant boundary changes during anonymous fallback; reference navigation captures remain planned. |
+| Change a selected root identity, anonymous base identity, manifest, source, dependency input, or file set during capture. | The complete capture retries at most three times, then returns `snapshot_changed` without partial publication. | Implemented `veln-mcp` stable-capture retry tests for `check_project`, including anonymous base and selected-root symlink and regular-directory replacement, nested regular manifest marker boundaries, symlinked nested manifest marker exclusion, project-local source symlink exclusion, non-Linux fail-closed capture, and dependency snapshot changes; implemented workspace `definition` navigation capture coverage for descendant boundary changes during anonymous fallback and function-reference fail-closed coverage; broader reference navigation remains planned. |
 | List projects or send malformed inventory-tool input. | Roots use `.` or relative `/` spelling; checked schemas reject unknown fields and invalid shapes as protocol errors. | Implemented MCP workspace lifecycle and schema tests; broader Q06 cases remain planned. |
 | Discover a manifest root whose relative spelling is not representable as UTF-8. | Discovery fails instead of returning a lossy project root. A refresh reports `generation_failed` and preserves the previous roots and generation. | Implemented `veln-mcp` unrepresentable-root discovery and refresh tests. |
 | Client roots are absent, unrelated, or nested. | Project selection is unchanged. | Implemented `veln-mcp` client-root invariance tests. |
@@ -1066,13 +1024,14 @@ physical materialization paths, and retained exact-byte reads.
 This bounded implementation retains validated workspace, direct-dependency,
 and embedded standard-package captures for the definition-to-read path. It
 does not implement dependency reference search or MCP resources.
-The MCP workspace-definition slice reuses the saved capture boundary and
-returns `file:` locations for functions, type constructors, handler context
-parameters, handler operation clause parameters, and exact test-companion
-access to private target functions. Dependency and standard-library locations,
-the proposal's additional symbol kinds, and all MCP references remain planned.
-The bounded saved-workspace function-reference slice is defined under
-[Next Slice: Saved Workspace Function References](#next-slice-saved-workspace-function-references).
+The MCP workspace-definition and saved function-reference slices reuse the
+saved capture boundary. The definition slice returns `file:` locations for
+functions, type constructors, handler context parameters, handler operation
+clause parameters, and exact test-companion access to private target
+functions. The reference slice returns deterministic project-owned function
+sites with explicit project or single-file scope.
+Dependency and standard-library locations, the proposal's additional symbol
+kinds, and broader MCP references remain planned.
 The subsequent slices are:
 
 1. Define and validate language-reference topic descriptors. Generate the

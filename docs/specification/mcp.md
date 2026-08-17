@@ -1,10 +1,10 @@
 ---
 role: specification
 authority: normative
-update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, workspace project selection, refresh transition, saved project diagnostics or definitions, tool schemas, or executable MCP cases change.
+update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, workspace project selection, refresh transition, saved project diagnostics, definitions, function references, tool schemas, or executable MCP cases change.
 ---
 
-# MCP Workspace Projects, Diagnostics, And Definitions
+# MCP Workspace Projects, Diagnostics, Definitions, And References
 
 `veln mcp` runs a Model Context Protocol (MCP) server over standard input and
 standard output. Standard output contains only newline-delimited JSON-RPC
@@ -145,6 +145,29 @@ lookup falls back from a selected outer project to anonymous single-file scope
 for a source below a descendant manifest, the ownership decision and the
 anonymous source bytes belong to the same stable capture attempt.
 
+## Saved Workspace Function References
+
+`references` accepts the same saved source path and one-based position as
+`definition`. It uses the same selected-project ownership decision, anonymous
+single-file fallback, coordinate validation, and stable capture boundary. Its
+input has only `source`, `line`, and `column`; declaration inclusion,
+pagination, and cursors are not part of this bounded adapter slice.
+
+When the selected symbol is a project-owned function, the result contains the
+shared language service's reference sites as canonical `file:` locations. The
+locations are ordered by source path and half-open source range. The function
+declaration is not included. A constructor, handler binding, unsupported
+symbol, or valid position without a symbol returns an empty successful list.
+
+Every success reports `scope` as `project` or `single_file`, the
+workspace-relative `scope_root`, and `project_wide`. A selected manifest
+project reports its project root and `project_wide: true`. Anonymous analysis
+reports the selected source and `project_wide: false`, including sources below
+an unselected descendant manifest. An unaddressable positive coordinate
+returns `invalid_position`. A schema-invalid coordinate is a protocol
+invalid-params error. A capture change returns `snapshot_changed` without
+partial locations.
+
 ## Executable Evidence
 
 The `../../examples/specification/mcp/workspace-lifecycle/` case checks
@@ -162,6 +185,13 @@ The `definition-workspace` MCP specification case checks the advertised
 decimal and exponent integer coordinate spellings, and invalid-position
 results plus non-integer decimal and negative-exponent coordinate schema
 rejection over stdio.
+
+The `function-references` MCP specification case checks the advertised
+`references` schemas, declaration and call selection, recursive and ordinary
+reference locations in deterministic order, an unrelated constructor's empty
+result, project scope metadata, invalid position, and invalid coordinate shape
+over stdio.
+
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous
@@ -176,6 +206,11 @@ success, invalid positions including oversized positive integers, half-open
 ranges, LF, CRLF, terminal-newline, empty-file, non-BMP scalar coordinates,
 extreme positive and negative exponent coordinates, and non-integer numeric
 coordinate schema rejection.
+
+The same tests check function-reference input and result schemas, deterministic
+locations, project and anonymous single-file scope metadata, unsupported-symbol
+empty success, and capture-change failure without partial locations.
+
 Unix-only `veln-mcp` tests also
 check canonical resolved-base URI spelling, definition path symlink rejection,
 anonymous workspace-base symlink replacement, and that selected

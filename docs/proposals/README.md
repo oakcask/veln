@@ -21,8 +21,8 @@ also states it.
 - Identifier casing that separates type and constructor names from module,
   function, and value-binding names:
   [identifier-casing.md](identifier-casing.md).
-- Agent language services through MCP, package documentation, generated public
-  reference, cross-adapter conformance, and client plugins:
+- Broader agent language services through MCP, package documentation,
+  generated public reference, cross-adapter conformance, and client plugins:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule

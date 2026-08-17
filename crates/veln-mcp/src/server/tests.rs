@@ -63,7 +63,8 @@ fn assert_implemented_tool_names(response: &Value) {
             "workspace_projects",
             "refresh_workspace",
             "check_project",
-            "definition"
+            "definition",
+            "references"
         ]
     );
 }
@@ -110,6 +111,8 @@ fn invalid_tool_inputs_are_protocol_invalid_params() {
         json!({"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"definition","arguments":{"source":null,"line":1,"column":1}}}),
         json!({"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":0,"column":1}}}),
         json!({"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":1}}}),
+        json!({"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":0,"column":1}}}),
+        json!({"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":1,"column":1,"include_declaration":true}}}),
     ];
     for request in requests {
         let response = server.handle_request(request).unwrap();
@@ -475,6 +478,122 @@ fn definition_rejects_symlink_paths_and_spells_uris_from_the_resolved_base() {
 fn definition_result(workspace: &TempWorkspace, source: &str, line: usize, column: usize) -> Value {
     initialized_server(workspace)
         .definition_tool(&json!({"source": source, "line": line, "column": column}))
+}
+
+#[test]
+fn references_report_deterministic_function_sites_and_capture_scope() {
+    struct Case {
+        name: &'static str,
+        files: Vec<(&'static str, &'static str)>,
+        source: &'static str,
+        line: usize,
+        column: usize,
+        scope: &'static str,
+        scope_root: &'static str,
+        project_wide: bool,
+        expected_starts: Vec<(&'static str, usize, usize)>,
+    }
+
+    let cases = [
+        Case {
+            name: "selected project",
+            files: vec![
+                ("app/veln.toml", ""),
+                (
+                    "app/main.veln",
+                    "fn helper() -> Int\n  helper()\nend\n\nfn main() -> Int\n  helper()\nend\n",
+                ),
+            ],
+            source: "app/main.veln",
+            line: 6,
+            column: 4,
+            scope: "project",
+            scope_root: "app",
+            project_wide: true,
+            expected_starts: vec![("app/main.veln", 2, 3), ("app/main.veln", 6, 3)],
+        },
+        Case {
+            name: "anonymous single file",
+            files: vec![
+                ("app/veln.toml", ""),
+                ("app/owned.veln", "fn helper() -> Int\n  1\nend\n"),
+                (
+                    "loose.veln",
+                    "fn helper() -> Int\n  helper()\nend\n\nfn main() -> Int\n  helper()\nend\n",
+                ),
+            ],
+            source: "loose.veln",
+            line: 6,
+            column: 4,
+            scope: "single_file",
+            scope_root: "loose.veln",
+            project_wide: false,
+            expected_starts: vec![("loose.veln", 2, 3), ("loose.veln", 6, 3)],
+        },
+    ];
+
+    for case in cases {
+        let workspace = TempWorkspace::new(case.name);
+        for (path, text) in case.files {
+            workspace.write(path, text);
+        }
+        let result = references_result(&workspace, case.source, case.line, case.column);
+        let content = &result["structuredContent"];
+        assert_eq!(result["isError"], false, "{}: {result:#}", case.name);
+        assert_eq!(content["scope"], case.scope, "{}", case.name);
+        assert_eq!(content["scope_root"], case.scope_root, "{}", case.name);
+        assert_eq!(content["project_wide"], case.project_wide, "{}", case.name);
+        let actual = content["references"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|location| {
+                let uri = location["uri"].as_str().unwrap();
+                let file = case
+                    .expected_starts
+                    .iter()
+                    .map(|(file, _, _)| *file)
+                    .find(|file| uri.ends_with(file))
+                    .unwrap_or(uri);
+                (
+                    file,
+                    location["range"]["start"]["line"].as_u64().unwrap() as usize,
+                    location["range"]["start"]["column"].as_u64().unwrap() as usize,
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(actual, case.expected_starts, "{}", case.name);
+    }
+}
+
+#[test]
+fn references_return_empty_for_unsupported_symbols_and_fail_closed_on_snapshot_change() {
+    let workspace = TempWorkspace::new("references-boundaries");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "type Token\n  byte(Int)\nend\n\nfn main() -> Token\n  byte(1)\nend\n",
+    );
+    let constructor = references_result(&workspace, "main.veln", 6, 4);
+    assert_eq!(constructor["structuredContent"]["references"], json!([]));
+
+    let base = WorkspaceBase::open(workspace.root.clone()).unwrap();
+    let selection = Selection::discover(base.path()).unwrap();
+    fs::remove_dir_all(&workspace.root).unwrap();
+    workspace.write("main.veln", "fn main() -> Int\n  main()\nend\n");
+    let server = Server {
+        base,
+        selection,
+        initialized: true,
+    };
+    let changed = server.references_tool(&json!({"source":"main.veln","line":2,"column":4}));
+    assert_eq!(changed["structuredContent"]["code"], "snapshot_changed");
+    assert!(changed["structuredContent"].get("references").is_none());
+}
+
+fn references_result(workspace: &TempWorkspace, source: &str, line: usize, column: usize) -> Value {
+    initialized_server(workspace)
+        .references_tool(&json!({"source": source, "line": line, "column": column}))
 }
 
 #[test]

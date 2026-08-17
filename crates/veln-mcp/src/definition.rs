@@ -10,7 +10,7 @@ use crate::check_project::{CheckProjectOutcome, capture_navigation_source};
 use crate::workspace::{Selection, WorkspaceBase};
 
 #[derive(Clone, Copy)]
-enum Coordinate {
+pub(crate) enum Coordinate {
     Addressable(usize),
     OutOfRange,
 }
@@ -84,7 +84,7 @@ pub(crate) fn definition(
     DefinitionOutcome::Success(json!({"definition": definition}))
 }
 
-fn coordinate(value: &Value) -> Coordinate {
+pub(crate) fn coordinate(value: &Value) -> Coordinate {
     let number = value
         .as_number()
         .expect("definition input schema requires a positive integer coordinate");
@@ -155,7 +155,7 @@ fn parse_json_exponent(text: &str) -> Option<i64> {
     text.parse::<i64>().ok()
 }
 
-fn valid_position(text: &str, line: Coordinate, column: Coordinate) -> bool {
+pub(crate) fn valid_position(text: &str, line: Coordinate, column: Coordinate) -> bool {
     let (Coordinate::Addressable(line), Coordinate::Addressable(column)) = (line, column) else {
         return false;
     };
@@ -171,7 +171,7 @@ fn valid_position(text: &str, line: Coordinate, column: Coordinate) -> bool {
     column <= selected_line.chars().count() + 1
 }
 
-fn path_to_uri(path: &Path) -> String {
+pub(crate) fn path_to_uri(path: &Path) -> String {
     #[cfg(unix)]
     let bytes = path.as_os_str().as_bytes();
     #[cfg(not(unix))]

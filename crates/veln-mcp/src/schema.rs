@@ -14,6 +14,8 @@ const CHECK_PROJECT_INPUT: &str = include_str!("../schemas/mcp/v1/check-project-
 const CHECK_PROJECT_RESULT: &str = include_str!("../schemas/mcp/v1/check-project-result.json");
 const DEFINITION_INPUT: &str = include_str!("../schemas/mcp/v1/definition-input.json");
 const DEFINITION_RESULT: &str = include_str!("../schemas/mcp/v1/definition-result.json");
+const REFERENCES_INPUT: &str = include_str!("../schemas/mcp/v1/references-input.json");
+const REFERENCES_RESULT: &str = include_str!("../schemas/mcp/v1/references-result.json");
 
 #[derive(Clone, Copy)]
 pub(crate) struct ToolSchema {
@@ -43,7 +45,7 @@ impl ToolSchema {
                     && object.get("project").is_none_or(Value::is_string)
                     && object.get("source").is_none_or(Value::is_string)
             }
-            "definition" => matches_schema(&self.input_schema(), value),
+            "definition" | "references" => matches_schema(&self.input_schema(), value),
             _ => false,
         }
     }
@@ -53,7 +55,7 @@ impl ToolSchema {
     }
 }
 
-pub(crate) const TOOLS: [ToolSchema; 4] = [
+pub(crate) const TOOLS: [ToolSchema; 5] = [
     ToolSchema {
         name: "workspace_projects",
         description: "Return the current workspace project selection without refreshing it",
@@ -77,6 +79,12 @@ pub(crate) const TOOLS: [ToolSchema; 4] = [
         description: "Resolve a supported symbol in one saved workspace source",
         input: DEFINITION_INPUT,
         result: DEFINITION_RESULT,
+    },
+    ToolSchema {
+        name: "references",
+        description: "Find project-owned function references from one saved workspace source",
+        input: REFERENCES_INPUT,
+        result: REFERENCES_RESULT,
     },
 ];
 
@@ -499,6 +507,49 @@ mod tests {
                 "details": {"source": "main.veln"}
             });
             assert!(tool.accepts_result(&result), "{result}");
+        }
+    }
+
+    #[test]
+    fn references_schemas_require_coordinates_scope_and_closed_locations() {
+        let tool = tool("references").unwrap();
+        assert!(tool.accepts_input(&serde_json::json!({
+            "source": "main.veln", "line": 1.0, "column": 1e0
+        })));
+        for invalid in [
+            serde_json::json!({"source":"main.veln","line":0,"column":1}),
+            serde_json::json!({"source":"main.veln","line":1.5,"column":1}),
+            serde_json::json!({"source":"main.veln","line":1,"column":1,"include_declaration":true}),
+        ] {
+            assert!(!tool.accepts_input(&invalid), "{invalid}");
+        }
+        let success = serde_json::json!({
+            "references": [{
+                "uri": "file:///workspace/main.veln",
+                "range": {
+                    "start": {"line": 2, "column": 3},
+                    "end": {"line": 2, "column": 9}
+                }
+            }],
+            "scope": "project",
+            "scope_root": ".",
+            "project_wide": true
+        });
+        assert!(tool.accepts_result(&success));
+        let mut invalid = success;
+        invalid["references"][0]["extra"] = serde_json::json!(true);
+        assert!(!tool.accepts_result(&invalid));
+        let mismatched_scope = serde_json::json!({
+            "references": [],
+            "scope": "single_file",
+            "scope_root": "main.veln",
+            "project_wide": true
+        });
+        assert!(!tool.accepts_result(&mismatched_scope));
+        for code in ["invalid_path", "invalid_position", "snapshot_changed"] {
+            assert!(tool.accepts_result(&serde_json::json!({
+                "code": code, "message": "failed", "details": {}
+            })));
         }
     }
 

@@ -1,0 +1,15 @@
+type Token
+  byte(Int)
+end
+
+fn helper(value: Int) -> Int
+  if value == 0 then 0 else helper(value - 1) end
+end
+
+fn main() -> Int
+  helper(2)
+end
+
+fn token() -> Token
+  byte(1)
+end
