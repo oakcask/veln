@@ -686,10 +686,28 @@ fn callable_bindings_shadow_constructor_for_mcp_navigation() {
             "    Wrapped(pack) => pack(1)\n",
             "  end\n",
             "end\n",
+            "\n",
+            "type Carrier<A>\n",
+            "  Carry(A)\n",
+            "end\n",
+            "\n",
+            "fn generic_constructor_payload(value: Carrier<fn(Int) -> Token>) -> Token\n",
+            "  match value\n",
+            "    Carry(pack) => pack(1)\n",
+            "  end\n",
+            "end\n",
         ),
     );
 
-    for (line, column) in [(6, 4), (11, 4), (16, 4), (21, 4), (34, 4), (44, 23)] {
+    for (line, column) in [
+        (6, 4),
+        (11, 4),
+        (16, 4),
+        (21, 4),
+        (34, 4),
+        (44, 23),
+        (54, 21),
+    ] {
         let definition = definition_result(&workspace, "main.veln", line, column);
         assert_eq!(definition["isError"], false, "{definition:#}");
         assert_eq!(

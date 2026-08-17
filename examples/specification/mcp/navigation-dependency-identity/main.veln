@@ -43,3 +43,13 @@ fn returned_field() -> Local
   let pack = record.pack
   pack(1)
 end
+
+type Carrier<A>
+  Carry(A)
+end
+
+fn generic_payload_shadow(value: Carrier<fn(Int) -> Local>) -> Local
+  match value
+    Carry(pack) => pack(1)
+  end
+end

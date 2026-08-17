@@ -3871,13 +3871,23 @@ mod tests {
                 "  let byte = perform Build::callback()\n",
                 "  byte(1)\n",
                 "end\n",
+                "\n",
+                "type Carrier<A>\n",
+                "  Carry(A)\n",
+                "end\n",
+                "\n",
+                "pub fn generic_payload_shadow(value: Carrier<fn(Int) -> Token>) -> Token\n",
+                "  match value\n",
+                "    Carry(byte) => byte(1)\n",
+                "  end\n",
+                "end\n",
             ),
         );
         let root_uri = path_to_uri(&project.root);
         let main_uri = path_to_uri(&project.root.join("main.veln"));
         server.handle_message(&initialize_request(&root_uri));
 
-        for (line, character) in [(5, 4), (10, 4), (15, 4), (23, 4), (32, 4)] {
+        for (line, character) in [(5, 4), (10, 4), (15, 4), (23, 4), (32, 4), (41, 20)] {
             let definition = server.handle_message(&definition_request(&main_uri, line, character));
             let references = server.handle_message(&references_request(&main_uri, line, character));
             let rename = server.handle_message(&rename_request(&main_uri, line, character, "pack"));
