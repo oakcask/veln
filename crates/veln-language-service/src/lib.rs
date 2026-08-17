@@ -2134,13 +2134,10 @@ fn function_signature_return_range(
     tokens: &[Token],
     function_index: usize,
 ) -> Option<(usize, usize)> {
-    let Some(arrow_index) = tokens[function_index..]
+    let arrow_index = tokens[function_index..]
         .iter()
         .position(|token| token.kind == TokenKind::Arrow)
-        .map(|index| function_index + index)
-    else {
-        return None;
-    };
+        .map(|index| function_index + index)?;
     let line_end = tokens[arrow_index + 1..]
         .iter()
         .position(|token| token.kind == TokenKind::Newline || token.kind == TokenKind::Eof)
