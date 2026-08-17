@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"b30c39c5809850a5d3cba45216f198852acf4ddd"
+source_git_tree	"e7cf298862e80f2192383d0ab17c87bdd6dc466b"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1512
+case_count	1513
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -10427,6 +10427,29 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1489,"sha256":"e2b4d5447b2dc59fe02b8523e695cee21a53e3b32c1a7f0cdcd1919eb1631384"}
 field	source_errors	"forbidden"
 case_digest	"d50ea8d804bad9b7aab8e92b1e97db5c1e8fbbea00d421c2cba265a943b2fd1c"
+case	"examples/specification/mcp/function-references"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"description\":\"Find project-owned function references from one saved workspace source\""
+field	expectations.stdout.contains[10]	"\"id\":6,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"project_wide\\\":true,\\\"references\\\":[]"
+field	expectations.stdout.contains[11]	"\"isError\":true,\"structuredContent\":{\"code\":\"invalid_position\""
+field	expectations.stdout.contains[12]	"\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":8"
+field	expectations.stdout.contains[1]	"\"name\":\"references\",\"outputSchema\""
+field	expectations.stdout.contains[2]	"\"required\":[\"source\",\"line\",\"column\"]"
+field	expectations.stdout.contains[3]	"\"scope\":\"project\",\"scope_root\":\".\""
+field	expectations.stdout.contains[4]	"\"project_wide\":true"
+field	expectations.stdout.contains[5]	"\"start\":{\"column\":29,\"line\":6}"
+field	expectations.stdout.contains[6]	"\"start\":{\"column\":3,\"line\":10}"
+field	expectations.stdout.contains[7]	"\"id\":3,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"project_wide\\\":true"
+field	expectations.stdout.contains[8]	"\"id\":4,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"project_wide\\\":true"
+field	expectations.stdout.contains[9]	"\"id\":5,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"project_wide\\\":true"
+field	expectations.stdout.not_contains[0]	"veln-pkg:"
+field	expectations.stdout.not_contains[1]	"target/debug"
+field	invocation.command[0]	"mcp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1014,"sha256":"169374cebb8a009f38d4fe42ac64cea0236cb5d46df97eeb99eca99ca18c4a3e"}
+field	source_errors	"forbidden"
+case_digest	"12af185bd886f7fc5f07467b678751e6f04983cb8c99fe6ebd0833ce1d339656"
 case	"examples/specification/mcp/workspace-lifecycle"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47713,4 +47736,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"8d43bc7068a9c3c8a586ad656884ade1a9f022bc17cd933fd0d7e37e1f7e9234"
+aggregate_digest	"c04db18811dcef80ece63ef3ba4092272f0b9aaa3f46c71b34494d1b84942145"
