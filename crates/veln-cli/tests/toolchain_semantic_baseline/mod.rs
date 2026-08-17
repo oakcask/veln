@@ -414,6 +414,7 @@ fn describe_expectations(fields: &mut BTreeMap<String, String>, manifest: &CaseM
     optional_help(fields, manifest.expectations.help.as_ref());
     describe_json_assertions(fields, manifest);
     describe_result_value_assertions(fields, manifest);
+    describe_mcp_jsonl_assertions(fields, manifest);
     describe_lsp_assertions(fields, manifest);
     describe_file_assertions(fields, manifest);
     describe_diagnostics(fields, manifest);
@@ -495,6 +496,57 @@ fn describe_lsp_assertions(fields: &mut BTreeMap<String, String>, manifest: &Cas
                 enum_value(fields, &format!("{base}.operation"), "missing");
             }
             LspAssertionOperation::Missing(false) => unreachable!("validated missing operation"),
+        }
+    }
+}
+
+fn describe_mcp_jsonl_assertions(fields: &mut BTreeMap<String, String>, manifest: &CaseManifest) {
+    for (index, assertion) in manifest
+        .expectations
+        .mcp_jsonl_assertions
+        .iter()
+        .enumerate()
+    {
+        let base = format!("expectations.mcp_jsonl_assertions[{index}]");
+        match assertion
+            .id
+            .as_ref()
+            .expect("validated MCP JSONL assertion id")
+        {
+            McpJsonlId::Integer(value) => scalar(fields, &format!("{base}.id"), value),
+            McpJsonlId::String(value) => text(fields, &format!("{base}.id"), value),
+        }
+        text(fields, &format!("{base}.path"), &assertion.path);
+        match assertion
+            .operation
+            .as_ref()
+            .expect("validated MCP JSONL assertion operation")
+        {
+            McpJsonlAssertionOperation::Equals(value) => {
+                enum_value(fields, &format!("{base}.operation"), "equals");
+                fields.insert(
+                    format!("{base}.equals"),
+                    canonical_json(value, &format!("{base}.equals")),
+                );
+            }
+            McpJsonlAssertionOperation::EqualsFile(value) => {
+                enum_value(fields, &format!("{base}.operation"), "equals_file");
+                text(fields, &format!("{base}.equals_file"), value);
+            }
+            McpJsonlAssertionOperation::ArrayLen(value) => {
+                enum_value(fields, &format!("{base}.operation"), "array_len");
+                scalar(fields, &format!("{base}.array_len"), value);
+            }
+            McpJsonlAssertionOperation::Missing(true) => {
+                enum_value(fields, &format!("{base}.operation"), "missing");
+            }
+            McpJsonlAssertionOperation::Missing(false) => {
+                unreachable!("validated missing operation")
+            }
+            McpJsonlAssertionOperation::WorkspaceFileUri(value) => {
+                enum_value(fields, &format!("{base}.operation"), "workspace_file_uri");
+                text(fields, &format!("{base}.workspace_file_uri"), value);
+            }
         }
     }
 }

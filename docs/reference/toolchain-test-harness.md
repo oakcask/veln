@@ -77,7 +77,7 @@ assertions, diagnostic selectors, and file content assertions.
   `[skip]`.
 - Observable command results: `exit`, `[stdout]`, `[stderr]`,
   `[help]`, `[[json_assert]]`, `[[result_value_assert]]`,
-  `[[lsp_assert]]`, `[[diagnostics]]`, `[[file_assert]]`,
+  `[[mcp_jsonl_assert]]`, `[[lsp_assert]]`, `[[diagnostics]]`, `[[file_assert]]`,
   `[[binary_fixture]]`, and `[[output_chunk_list]]`.
 - Manifest-failure checks: `[manifest_error]`.
 - External tool setup: `[tools] java = "missing"`, `"fake-success"`, or
@@ -236,6 +236,43 @@ case-text sidecars. Their decoded assertions cover initialization capability
 values, non-empty and cleared diagnostic notifications, complete semantic
 token data, and shutdown responses. Raw LSP cases remain only where protocol
 framing or an as-yet-unmigrated representation is still part of the fixture.
+
+Use repeatable `[[mcp_jsonl_assert]]` sections to check decoded JSON-RPC
+responses from `veln mcp` stdout. Each section selects exactly one JSON object
+by an integer or string `id`, then selects a value with an RFC 6901 JSON
+Pointer in `path`, including the empty pointer for the complete response.
+Pointer syntax is validated while the manifest loads. Missing selected IDs and
+IDs that select more than one response fail the assertion. Other IDs in the
+stream remain valid input.
+
+Each MCP JSONL assertion declares exactly one of `equals`, `equals_file`,
+`equals_json_file`, `array_len`, `missing = true`, or `workspace_file_uri`.
+`equals` and `equals_json_file` compare complete JSON values. Object member
+order is ignored. Array order and array cardinality are significant.
+`equals_file` requires the selected value to be a JSON string. `array_len`
+requires the selected value to be a JSON array and compares its exact length.
+`missing = true` succeeds only when the selected response exists and the
+pointer does not resolve.
+
+`workspace_file_uri` requires the selected value to be a JSON string and
+compares it with the canonical `file:` URI for one regular file in the copied
+case workspace. The operand is a nonempty case-workspace-relative path. It
+rejects absolute paths, empty segments, `.`, `..`, backslashes, link-like
+traversal, nonexistent entries, and non-regular final entries.
+
+The harness decodes every nonempty stdout line as one JSON object before it
+evaluates MCP JSONL assertions. Malformed JSON and non-object lines fail the
+decoded assertion set for that invocation. Raw stdout checks still run
+independently. Repeated invocations decode and assert their own streams;
+failures are reported by run and manifest assertion order. The semantic
+baseline records each MCP JSONL assertion selector, path, operation, and
+operand. The `manifest_mcp_jsonl_*` and `decoded_mcp_jsonl_*` tests in
+`toolchain_harness.rs` cover selector validation, pointer decoding, object
+member order, array order, length checks, missing values, workspace URI
+operands, decoded stream failures, wrong value kinds, and assertion
+aggregation. The `examples/specification/mcp/definition-workspace/` case uses
+MCP JSONL assertions for dynamic workspace `file:` URIs, response-local ranges,
+content cardinality, indexed content type, protocol errors, and absence.
 
 Use `[[json_assert]]`, `[[result_value_assert]]`, and `[[diagnostics]]` for
 semantic checks inside JSON stdout. JSON and result-value assertions accept

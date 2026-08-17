@@ -48,14 +48,18 @@ and selected target for accepted sources.
 
 Before implementing the next MCP navigation slice, complete
 [Agent Language Services Lifecycle Migration](agent-language-services-lifecycle-migration.md),
-then [Agent Language Services Slice Closure](agent-language-services-slice-closure.md).
+then the remaining rows in
+[Agent Language Services Slice Closure](agent-language-services-slice-closure.md).
 The first prerequisite separates this active plan from implemented history
 without dropping its closed matrices, Q01 through Q22 gate, or unresolved
-acceptance rows. The second adds response-local assertions for MCP JSONL output
-with dynamic canonical locations and closes the evidence rule for shared
-capture invariants. Reissue the saved workspace function-reference target only
-after both gates pass. The next-slice boundary below remains planning input and
-is not selectable work until both prerequisites are complete.
+acceptance rows. The remaining slice-closure rows close the evidence rule for
+shared capture invariants. Response-local assertions for MCP JSONL output with
+dynamic canonical locations are implemented in
+[Toolchain Test Harness](../reference/toolchain-test-harness.md) and checked by
+`examples/specification/mcp/definition-workspace/`. Reissue the saved workspace
+function-reference target only after both gates pass. The next-slice boundary
+below remains planning input and is not selectable work until both
+prerequisites are complete.
 
 ### Next Slice: Saved Workspace Function References
 

@@ -10407,26 +10407,104 @@ field	source_errors	"forbidden"
 case_digest	"eb78983618a2e68fb34c7ef35a89977a4162f2ec83efbdc5208538932580725d"
 case	"examples/specification/mcp/definition-workspace"
 field	expectations.exit	0
+field	expectations.mcp_jsonl_assertions[0].id	3
+field	expectations.mcp_jsonl_assertions[0].operation	"workspace_file_uri"
+field	expectations.mcp_jsonl_assertions[0].path	"/result/structuredContent/definition/uri"
+field	expectations.mcp_jsonl_assertions[0].workspace_file_uri	"main.veln"
+field	expectations.mcp_jsonl_assertions[10].id	5
+field	expectations.mcp_jsonl_assertions[10].operation	"missing"
+field	expectations.mcp_jsonl_assertions[10].path	"/result/structuredContent/definition"
+field	expectations.mcp_jsonl_assertions[11].id	6
+field	expectations.mcp_jsonl_assertions[11].operation	"workspace_file_uri"
+field	expectations.mcp_jsonl_assertions[11].path	"/result/structuredContent/definition/uri"
+field	expectations.mcp_jsonl_assertions[11].workspace_file_uri	"main.veln"
+field	expectations.mcp_jsonl_assertions[12].equals	{"end":{"column":10,"line":1},"start":{"column":4,"line":1}}
+field	expectations.mcp_jsonl_assertions[12].id	6
+field	expectations.mcp_jsonl_assertions[12].operation	"equals"
+field	expectations.mcp_jsonl_assertions[12].path	"/result/structuredContent/definition/range"
+field	expectations.mcp_jsonl_assertions[13].id	7
+field	expectations.mcp_jsonl_assertions[13].operation	"workspace_file_uri"
+field	expectations.mcp_jsonl_assertions[13].path	"/result/structuredContent/definition/uri"
+field	expectations.mcp_jsonl_assertions[13].workspace_file_uri	"main.veln"
+field	expectations.mcp_jsonl_assertions[14].equals	{"end":{"column":10,"line":1},"start":{"column":4,"line":1}}
+field	expectations.mcp_jsonl_assertions[14].id	7
+field	expectations.mcp_jsonl_assertions[14].operation	"equals"
+field	expectations.mcp_jsonl_assertions[14].path	"/result/structuredContent/definition/range"
+field	expectations.mcp_jsonl_assertions[15].equals	"invalid_position"
+field	expectations.mcp_jsonl_assertions[15].id	8
+field	expectations.mcp_jsonl_assertions[15].operation	"equals"
+field	expectations.mcp_jsonl_assertions[15].path	"/result/structuredContent/code"
+field	expectations.mcp_jsonl_assertions[16].equals	true
+field	expectations.mcp_jsonl_assertions[16].id	8
+field	expectations.mcp_jsonl_assertions[16].operation	"equals"
+field	expectations.mcp_jsonl_assertions[16].path	"/result/isError"
+field	expectations.mcp_jsonl_assertions[17].equals	-32602
+field	expectations.mcp_jsonl_assertions[17].id	9
+field	expectations.mcp_jsonl_assertions[17].operation	"equals"
+field	expectations.mcp_jsonl_assertions[17].path	"/error/code"
+field	expectations.mcp_jsonl_assertions[18].id	9
+field	expectations.mcp_jsonl_assertions[18].operation	"missing"
+field	expectations.mcp_jsonl_assertions[18].path	"/result"
+field	expectations.mcp_jsonl_assertions[19].equals	"invalid_position"
+field	expectations.mcp_jsonl_assertions[19].id	10
+field	expectations.mcp_jsonl_assertions[19].operation	"equals"
+field	expectations.mcp_jsonl_assertions[19].path	"/result/structuredContent/code"
+field	expectations.mcp_jsonl_assertions[1].equals	{"end":{"column":10,"line":1},"start":{"column":4,"line":1}}
+field	expectations.mcp_jsonl_assertions[1].id	3
+field	expectations.mcp_jsonl_assertions[1].operation	"equals"
+field	expectations.mcp_jsonl_assertions[1].path	"/result/structuredContent/definition/range"
+field	expectations.mcp_jsonl_assertions[20].equals	true
+field	expectations.mcp_jsonl_assertions[20].id	10
+field	expectations.mcp_jsonl_assertions[20].operation	"equals"
+field	expectations.mcp_jsonl_assertions[20].path	"/result/isError"
+field	expectations.mcp_jsonl_assertions[21].equals	-32602
+field	expectations.mcp_jsonl_assertions[21].id	11
+field	expectations.mcp_jsonl_assertions[21].operation	"equals"
+field	expectations.mcp_jsonl_assertions[21].path	"/error/code"
+field	expectations.mcp_jsonl_assertions[22].id	11
+field	expectations.mcp_jsonl_assertions[22].operation	"missing"
+field	expectations.mcp_jsonl_assertions[22].path	"/result"
+field	expectations.mcp_jsonl_assertions[2].array_len	1
+field	expectations.mcp_jsonl_assertions[2].id	3
+field	expectations.mcp_jsonl_assertions[2].operation	"array_len"
+field	expectations.mcp_jsonl_assertions[2].path	"/result/content"
+field	expectations.mcp_jsonl_assertions[3].equals	"text"
+field	expectations.mcp_jsonl_assertions[3].id	3
+field	expectations.mcp_jsonl_assertions[3].operation	"equals"
+field	expectations.mcp_jsonl_assertions[3].path	"/result/content/0/type"
+field	expectations.mcp_jsonl_assertions[4].equals	false
+field	expectations.mcp_jsonl_assertions[4].id	3
+field	expectations.mcp_jsonl_assertions[4].operation	"equals"
+field	expectations.mcp_jsonl_assertions[4].path	"/result/isError"
+field	expectations.mcp_jsonl_assertions[5].id	3
+field	expectations.mcp_jsonl_assertions[5].operation	"missing"
+field	expectations.mcp_jsonl_assertions[5].path	"/error"
+field	expectations.mcp_jsonl_assertions[6].equals	null
+field	expectations.mcp_jsonl_assertions[6].id	4
+field	expectations.mcp_jsonl_assertions[6].operation	"equals"
+field	expectations.mcp_jsonl_assertions[6].path	"/result/structuredContent/definition"
+field	expectations.mcp_jsonl_assertions[7].id	4
+field	expectations.mcp_jsonl_assertions[7].operation	"missing"
+field	expectations.mcp_jsonl_assertions[7].path	"/error"
+field	expectations.mcp_jsonl_assertions[8].equals	"invalid_position"
+field	expectations.mcp_jsonl_assertions[8].id	5
+field	expectations.mcp_jsonl_assertions[8].operation	"equals"
+field	expectations.mcp_jsonl_assertions[8].path	"/result/structuredContent/code"
+field	expectations.mcp_jsonl_assertions[9].equals	true
+field	expectations.mcp_jsonl_assertions[9].id	5
+field	expectations.mcp_jsonl_assertions[9].operation	"equals"
+field	expectations.mcp_jsonl_assertions[9].path	"/result/isError"
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"description\":\"Resolve a supported symbol in one saved workspace source\""
-field	expectations.stdout.contains[10]	"\"id\":10,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"code\\\":\\\"invalid_position\\\""
-field	expectations.stdout.contains[11]	"\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":11"
 field	expectations.stdout.contains[1]	"\"name\":\"definition\",\"outputSchema\""
 field	expectations.stdout.contains[2]	"\"required\":[\"source\",\"line\",\"column\"]"
-field	expectations.stdout.contains[3]	"\"range\":{\"end\":{\"column\":10,\"line\":1},\"start\":{\"column\":4,\"line\":1}}"
-field	expectations.stdout.contains[4]	"\"structuredContent\":{\"definition\":null}"
-field	expectations.stdout.contains[5]	"\"isError\":true,\"structuredContent\":{\"code\":\"invalid_position\""
-field	expectations.stdout.contains[6]	"\"id\":6,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"definition\\\""
-field	expectations.stdout.contains[7]	"\"id\":7,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"definition\\\""
-field	expectations.stdout.contains[8]	"\"id\":8,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"code\\\":\\\"invalid_position\\\""
-field	expectations.stdout.contains[9]	"\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":9"
 field	expectations.stdout.not_contains[0]	"veln-pkg:"
 field	expectations.stdout.not_contains[1]	"target/debug"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1489,"sha256":"e2b4d5447b2dc59fe02b8523e695cee21a53e3b32c1a7f0cdcd1919eb1631384"}
 field	source_errors	"forbidden"
-case_digest	"d50ea8d804bad9b7aab8e92b1e97db5c1e8fbbea00d421c2cba265a943b2fd1c"
+case_digest	"afec76fe25d1fd98a8b59adb9b977d3e370d4639454efcb11e253dbfa1615251"
 case	"examples/specification/mcp/workspace-lifecycle"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47713,4 +47791,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"8d43bc7068a9c3c8a586ad656884ade1a9f022bc17cd933fd0d7e37e1f7e9234"
+aggregate_digest	"96c92f43652d40ac33f7826fff6dec10bd807a5a5b6cc376a05a697b037cb9c5"

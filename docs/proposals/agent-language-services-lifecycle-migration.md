@@ -145,7 +145,8 @@ outcome and planned evidence.
 
 ## Non-Goals
 
-- Implementing MCP JSONL assertions or changing an executable MCP case.
+- Revising the implemented MCP JSONL assertion contract or executable MCP
+  evidence.
 - Implementing saved references, broader navigation, resources, documentation
   publication, conformance, or plugins.
 - Revising the membership of either closed matrix or Q01-Q22.
@@ -154,6 +155,6 @@ outcome and planned evidence.
 ## Completion Rule
 
 This proposal completes only when all seven acceptance rows pass. Move the
-completed proposal record out of `docs/proposals/` before selecting the MCP
-JSONL assertion target. Later capability work may revise a closed set only
+completed proposal record out of `docs/proposals/` before selecting the next
+MCP navigation target. Later capability work may revise a closed set only
 through a separate proposal that states the old and new finite membership.

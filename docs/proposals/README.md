@@ -23,8 +23,8 @@ also states it.
   [identifier-casing.md](identifier-casing.md).
 - Lossless lifecycle migration for the agent-language-services proposal:
   [agent-language-services-lifecycle-migration.md](agent-language-services-lifecycle-migration.md).
-- Finite lifecycle and executable-evidence gates for agent language service
-  slices:
+- Remaining lifecycle and shared-capture evidence gates for agent language
+  service slices:
   [agent-language-services-slice-closure.md](agent-language-services-slice-closure.md).
 - Agent language services through MCP, package documentation, generated public
   reference, cross-adapter conformance, and client plugins:
