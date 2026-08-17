@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"4b15eba91f0f3d5c3d7332c62ea7525fa474abbf"
+source_git_tree	"024f2a5e7af2bdcf0a46c00c0563c1528da287dc"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1520
@@ -10006,6 +10006,8 @@ case	"examples/specification/lsp/callable-shadow-constructor-navigation"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"definitionProvider\":true"
+field	expectations.stdout.contains[10]	"\"id\":9,\"result\":[]"
+field	expectations.stdout.contains[11]	"\"id\":10,\"result\":{\"changes\":{}}"
 field	expectations.stdout.contains[1]	"\"referencesProvider\":true"
 field	expectations.stdout.contains[2]	"\"renameProvider\":{\"prepareProvider\":true}"
 field	expectations.stdout.contains[3]	"\"id\":2,\"result\":null"
@@ -10014,13 +10016,14 @@ field	expectations.stdout.contains[5]	"\"id\":4,\"result\":{\"changes\":{}}"
 field	expectations.stdout.contains[6]	"\"id\":5,\"result\":null"
 field	expectations.stdout.contains[7]	"\"id\":6,\"result\":[]"
 field	expectations.stdout.contains[8]	"\"id\":7,\"result\":{\"changes\":{}}"
+field	expectations.stdout.contains[9]	"\"id\":8,\"result\":null"
 field	expectations.stdout.not_contains[0]	"\"range\":{\"start\":{\"line\":1,\"character\":2},\"end\":{\"line\":1,\"character\":6}}"
 field	expectations.stdout.not_contains[1]	"\"newText\":\"pack\""
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1394,"sha256":"e6e99ec0efa9cfb4c8e6664cb3178c3f609a05bf070ca47f8b543b88d52635e5"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1969,"sha256":"674b8fa4466e486a38537ee90c83858213143452815b7638d0f9f4c98a6e54f4"}
 field	source_errors	"forbidden"
-case_digest	"79789749d49b9f0b7819819853a45ed15e401f009056dbeb2f8a3c3d02834aea"
+case_digest	"5773346b9b3093650e3f220781bf1a8d077686a658f0aaea827d3d0b5e4d2f46"
 case	"examples/specification/lsp/companion-private-function-identity"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -10536,14 +10539,16 @@ field	expectations.stdout.contains[0]	"\"id\":2,\"jsonrpc\":\"2.0\",\"result\":{
 field	expectations.stdout.contains[1]	"\"id\":3,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"references\\\":[],\\\"scope\\\""
 field	expectations.stdout.contains[2]	"\"id\":4,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"definition\\\":null}\""
 field	expectations.stdout.contains[3]	"\"id\":5,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"references\\\":[],\\\"scope\\\""
+field	expectations.stdout.contains[4]	"\"id\":6,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"definition\\\":null}\""
+field	expectations.stdout.contains[5]	"\"id\":7,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"references\\\":[],\\\"scope\\\""
 field	expectations.stdout.not_contains[0]	"\"range\":{\"end\":{\"column\":10,\"line\":4},\"start\":{\"column\":3,\"line\":4}}"
 field	expectations.stdout.not_contains[1]	"vendor/lib/math.veln"
 field	expectations.stdout.not_contains[2]	"target/debug"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":684,"sha256":"707c0f7dda9889e0b8cb6027a7c5d7890dbcc74593003576ff7aba230f833451"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":952,"sha256":"0a36c5fd416e702ed2deb8d6875685db3385b4fbad35c1611df9a2aac2022318"}
 field	source_errors	"forbidden"
-case_digest	"04d1a8bb9e1ae3f080045086a706ab274dc9ea09b37ecb466a0ac2e668e81e46"
+case_digest	"3d2a025751c97de0bddebc80f5e05d2480f4ab51819e96aba679137042883674"
 case	"examples/specification/mcp/references-workspace"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47876,4 +47881,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"95f85af9d0c52d7fc6cd0ec8e63d1964c88def839bac76e8c19b5c8cb8ffa57d"
+aggregate_digest	"79ffe4f7487af20cc96dc08f4dacf157465d4989c6d88ca128bb68f92a2c96e4"
