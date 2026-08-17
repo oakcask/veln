@@ -6,3 +6,4 @@
 {"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":14.000000000000001,"column":4}}}
 {"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":22,"column":22}}}
 {"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":29,"column":4}}}
+{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":41,"column":4}}}

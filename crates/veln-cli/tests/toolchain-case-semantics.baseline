@@ -10518,6 +10518,8 @@ field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"description\":\"Find supported references for one saved workspace symbol\""
 field	expectations.stdout.contains[10]	"\"id\":7,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"references\\\":[],\\\"scope\\\""
 field	expectations.stdout.contains[11]	"\"id\":8,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"references\\\":[],\\\"scope\\\""
+field	expectations.stdout.contains[12]	"\"id\":9,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"references\\\""
+field	expectations.stdout.contains[13]	"\"range\":{\"end\":{\"column\":9,\"line\":47},\"start\":{\"column\":3,\"line\":47}}"
 field	expectations.stdout.contains[1]	"\"name\":\"references\",\"outputSchema\""
 field	expectations.stdout.contains[2]	"\"required\":[\"source\",\"line\",\"column\"]"
 field	expectations.stdout.contains[3]	"\"id\":3,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"references\\\""
@@ -10528,12 +10530,13 @@ field	expectations.stdout.contains[7]	"\"id\":4,\"jsonrpc\":\"2.0\",\"result\":{
 field	expectations.stdout.contains[8]	"\"id\":5,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"code\\\":\\\"invalid_position\\\""
 field	expectations.stdout.contains[9]	"\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":6"
 field	expectations.stdout.not_contains[0]	"\"range\":{\"end\":{\"column\":9,\"line\":34},\"start\":{\"column\":3,\"line\":34}}"
-field	expectations.stdout.not_contains[1]	"target/debug"
+field	expectations.stdout.not_contains[1]	"\"range\":{\"end\":{\"column\":20,\"line\":46},\"start\":{\"column\":14,\"line\":46}}"
+field	expectations.stdout.not_contains[2]	"target/debug"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1031,"sha256":"aa39f200336fda0c86f5bfdf84fc099342a8fa6586cb4e0a365104ca33f953cd"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1165,"sha256":"b5306702891fbe4550b0b4cb61b675005d45d8e9fdb2c9c85ab27cb4eaf0146e"}
 field	source_errors	"forbidden"
-case_digest	"adf58bc01296559558f0aac890c9f3d6fe3b7605965c8f59211e7cab4315adee"
+case_digest	"bd0d6fee22ab26e53238fdef48905479aab6582f392f2929faad7c6fdcfab91d"
 case	"examples/specification/mcp/workspace-lifecycle"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47841,4 +47844,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"049b657ef990cec1fb3e18514e084501bdd9565c7f548c84d507da2d32b23d67"
+aggregate_digest	"aade6e53a0b644add8873e62d002a4b41915f0fd22f02847cc16f485854de74b"

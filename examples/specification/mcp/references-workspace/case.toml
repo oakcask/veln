@@ -16,8 +16,14 @@ contains = [
   "\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":6",
   "\"id\":7,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"references\\\":[],\\\"scope\\\"",
   "\"id\":8,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"references\\\":[],\\\"scope\\\"",
+  "\"id\":9,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"references\\\"",
+  "\"range\":{\"end\":{\"column\":9,\"line\":47},\"start\":{\"column\":3,\"line\":47}}",
 ]
-not_contains = ["\"range\":{\"end\":{\"column\":9,\"line\":34},\"start\":{\"column\":3,\"line\":34}}", "target/debug"]
+not_contains = [
+  "\"range\":{\"end\":{\"column\":9,\"line\":34},\"start\":{\"column\":3,\"line\":34}}",
+  "\"range\":{\"end\":{\"column\":20,\"line\":46},\"start\":{\"column\":14,\"line\":46}}",
+  "target/debug",
+]
 
 [stderr]
 format = "empty"

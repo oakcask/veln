@@ -2114,6 +2114,7 @@ fn call_reference_token_indices(tokens: &[Token], name: &str) -> Vec<usize> {
                 && !is_function_declaration_name(tokens, *index)
                 && !is_parameter_name(tokens, *index)
                 && !is_local_binding_name(tokens, *index)
+                && !is_local_binding_type_reference(tokens, *index)
                 && !is_handler_operation_clause_operation_name(tokens, *index)
                 && (token_scope(&scopes, token.range.start)
                     .is_some_and(|scope| !scope.shadows(name, tokens, *index))
@@ -2709,6 +2710,34 @@ fn is_local_binding_name(tokens: &[Token], index: usize) -> bool {
         || is_let_pattern_binding_name(tokens, index)
         || is_match_arm_pattern_binding_name(tokens, index)
         || is_satisfy_candidate_binding_name(tokens, index)
+}
+
+fn is_local_binding_type_reference(tokens: &[Token], index: usize) -> bool {
+    let Some(let_index) = tokens[..index]
+        .iter()
+        .enumerate()
+        .rev()
+        .take_while(|(_, token)| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
+        .find_map(|(previous_index, token)| {
+            (token.kind == TokenKind::Let).then_some(previous_index)
+        })
+    else {
+        return false;
+    };
+    let Some(colon_index) = tokens[let_index + 1..index]
+        .iter()
+        .position(|token| token.kind == TokenKind::Colon)
+        .map(|relative_index| let_index + 1 + relative_index)
+    else {
+        return false;
+    };
+    tokens[index + 1..]
+        .iter()
+        .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
+        .any(|token| token.kind == TokenKind::Equal)
+        && tokens[colon_index + 1..index]
+            .iter()
+            .all(|token| token.kind != TokenKind::Equal)
 }
 
 fn is_let_pattern_binding_name(tokens: &[Token], index: usize) -> bool {
@@ -3583,6 +3612,34 @@ mod tests {
         let transform = query(sources, "main.veln", 5, 4).unwrap();
         assert_eq!(transform.selected_symbol.kind, SymbolKind::Function);
         assert_eq!(locations(&transform.references), [("main.veln", 18, 17)]);
+    }
+
+    #[test]
+    fn function_references_exclude_same_named_local_type_annotations() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "type Helper\n",
+                    "  wrapped(Int)\n",
+                    "end\n\n",
+                    "fn Helper(value: Int) -> Int\n",
+                    "  value\n",
+                    "end\n\n",
+                    "fn main() -> Int\n",
+                    "  let typed: Helper = wrapped(1)\n",
+                    "  Helper(typed)\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            5,
+            4,
+        )
+        .unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+        assert_eq!(locations(&result.references), [("main.veln", 11, 3)]);
     }
 
     #[test]
