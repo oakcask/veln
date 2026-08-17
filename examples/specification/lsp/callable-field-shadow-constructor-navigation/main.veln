@@ -38,3 +38,13 @@ pub fn destructured_match(record: {callback: fn(Int) -> Int}) -> Int
     {callback: pack} => pack(5)
   end
 end
+
+type Wrapped
+  Wrapped(fn(Int) -> Int)
+end
+
+pub fn destructured_constructor(value: Wrapped) -> Int
+  match value
+    Wrapped(pack) => pack(6)
+  end
+end

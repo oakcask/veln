@@ -387,6 +387,7 @@ struct ConstructorSymbol {
     package: Option<String>,
     public: bool,
     standard_prelude: bool,
+    payload_callables: Vec<bool>,
 }
 
 #[derive(Clone, Debug)]
@@ -522,6 +523,7 @@ struct PatternBinding {
     name: String,
     field: Option<String>,
     name_end: usize,
+    callable: Option<bool>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -1466,7 +1468,8 @@ impl SymbolIndex {
     fn navigation_facts(&self, file: &IndexedFile) -> FileNavigationFacts {
         let tokens = lex(&file.source).tokens;
         let callable_values = self.callable_function_value_names(file);
-        let scopes = function_scopes(&tokens, &callable_values);
+        let constructor_payload_callables = self.visible_constructor_payload_callables(file);
+        let scopes = function_scopes(&tokens, &callable_values, &constructor_payload_callables);
         let clause_bindings = handler_operation_clause_bindings(self, file, &tokens);
         FileNavigationFacts {
             tokens,
@@ -1520,6 +1523,25 @@ impl SymbolIndex {
         self.visible_bare_constructor_names_by_source
             .get(&file.key())
             .is_some_and(|names| names.contains(name))
+    }
+
+    fn visible_constructor_payload_callables(
+        &self,
+        file: &IndexedFile,
+    ) -> BTreeMap<String, Vec<bool>> {
+        let file_key = file.key();
+        self.visible_bare_constructor_indices_by_source
+            .iter()
+            .filter(|((source_key, _), _)| *source_key == file_key)
+            .filter_map(|((_, name), indices)| {
+                let [index] = indices.as_slice() else {
+                    return None;
+                };
+                self.constructors
+                    .get(*index)
+                    .map(|symbol| (name.clone(), symbol.payload_callables.clone()))
+            })
+            .collect()
     }
 
     fn type_aliases_targeting(&self, name: &str) -> impl Iterator<Item = &TypeAliasSymbol> {
@@ -2258,6 +2280,11 @@ fn constructor_declarations(file: &IndexedFile) -> Vec<ConstructorSymbol> {
                     package,
                     public,
                     standard_prelude,
+                    payload_callables: variant
+                        .fields
+                        .iter()
+                        .map(|field| type_text_is_callable(&field.ty))
+                        .collect(),
                 })
             })
         })
@@ -2662,7 +2689,7 @@ fn matching_rparen_index(tokens: &[Token], lparen_index: usize, end_index: usize
 }
 
 fn call_reference_token_indices(tokens: &[Token], name: &str) -> Vec<usize> {
-    let scopes = function_scopes(tokens, &CallableValueNames::default());
+    let scopes = function_scopes(tokens, &CallableValueNames::default(), &BTreeMap::new());
     tokens
         .iter()
         .enumerate()
@@ -2701,7 +2728,11 @@ fn qualified_reference_token_indices(tokens: &[Token], module: &str, name: &str)
         .collect()
 }
 
-fn function_scopes(tokens: &[Token], function_values: &CallableValueNames) -> Vec<FunctionScope> {
+fn function_scopes(
+    tokens: &[Token],
+    function_values: &CallableValueNames,
+    constructor_payload_callables: &BTreeMap<String, Vec<bool>>,
+) -> Vec<FunctionScope> {
     #[cfg(test)]
     navigation_stats::record_function_scope_build();
 
@@ -2720,7 +2751,14 @@ fn function_scopes(tokens: &[Token], function_values: &CallableValueNames) -> Ve
         let end = function_scope_end(tokens, index + 1).unwrap_or(body_start);
         let params = parameter_bindings(tokens, index, body_start);
         let result_binding = result_binding_name(tokens, index, body_start);
-        let local_bindings = local_bindings(tokens, body_start, end, &params, function_values);
+        let local_bindings = local_bindings(
+            tokens,
+            body_start,
+            end,
+            &params,
+            function_values,
+            constructor_payload_callables,
+        );
         scopes.push(FunctionScope {
             body_start,
             end,
@@ -2903,6 +2941,7 @@ fn local_bindings(
     end: usize,
     params: &BTreeMap<String, BindingInfo>,
     function_values: &CallableValueNames,
+    constructor_payload_callables: &BTreeMap<String, Vec<bool>>,
 ) -> Vec<LocalBinding> {
     let mut bindings = Vec::new();
     let mut callable_values = CallableValueNames {
@@ -2960,6 +2999,7 @@ fn local_bindings(
         body_start,
         end,
         &callable_values,
+        constructor_payload_callables,
     ));
     bindings.extend(satisfy_candidate_binding_names(tokens, body_start, end));
     bindings
@@ -3435,6 +3475,7 @@ fn local_binding_shadows_name(
         scope_end,
         &BTreeMap::new(),
         &CallableValueNames::default(),
+        &BTreeMap::new(),
     )
     .iter()
     .any(|binding| binding.name == name && offset >= binding.start && offset < binding.end)
@@ -3545,6 +3586,7 @@ fn let_pattern_binding_fields(tokens: &[Token], let_index: usize) -> Vec<Pattern
                     name: token.text.clone(),
                     field: pending_field.clone(),
                     name_end: token.range.end,
+                    callable: None,
                 });
                 pending_field = None;
             }
@@ -3560,6 +3602,7 @@ fn match_arm_pattern_binding_names(
     body_start: usize,
     function_end: usize,
     callable_values: &CallableValueNames,
+    constructor_payload_callables: &BTreeMap<String, Vec<bool>>,
 ) -> Vec<LocalBinding> {
     let mut bindings = Vec::new();
     for (index, token) in tokens.iter().enumerate() {
@@ -3574,11 +3617,15 @@ fn match_arm_pattern_binding_names(
         let scope_end = match_arm_scope_end(tokens, index + 1, function_end);
         let pattern_start = match_arm_pattern_start(tokens, index, body_start);
         let callable_fields = enclosing_match_callable_fields(tokens, index, callable_values);
-        for binding in pattern_bindings_in_range(tokens, pattern_start, index) {
-            let callable = binding
-                .field
-                .as_ref()
-                .is_some_and(|field| callable_fields.contains(field));
+        for binding in
+            pattern_bindings_in_range(tokens, pattern_start, index, constructor_payload_callables)
+        {
+            let callable = binding.callable.unwrap_or_else(|| {
+                binding
+                    .field
+                    .as_ref()
+                    .is_some_and(|field| callable_fields.contains(field))
+            });
             bindings.push(LocalBinding {
                 name: binding.name,
                 start: scope_start,
@@ -3729,13 +3776,55 @@ fn pattern_bindings_in_range(
     tokens: &[Token],
     start: usize,
     end_index: usize,
+    constructor_payload_callables: &BTreeMap<String, Vec<bool>>,
 ) -> Vec<PatternBinding> {
+    #[derive(Clone)]
+    struct ActiveConstructorPattern {
+        payload_callables: Vec<bool>,
+        payload_index: usize,
+        depth: usize,
+    }
+
     let mut pending_field = None;
+    let mut pending_constructor_payloads: Option<Vec<bool>> = None;
+    let mut active_constructor: Option<ActiveConstructorPattern> = None;
     tokens[..end_index]
         .iter()
         .enumerate()
         .filter(|(_, token)| token.range.start >= start)
         .filter_map(|(index, token)| match token.kind {
+            TokenKind::Ident
+                if next_non_layout_token(tokens, index)
+                    .is_some_and(|next| next.kind == TokenKind::LParen)
+                    && constructor_payload_callables.contains_key(&token.text) =>
+            {
+                pending_constructor_payloads =
+                    constructor_payload_callables.get(&token.text).cloned();
+                None
+            }
+            TokenKind::LParen => {
+                if let Some(payload_callables) = pending_constructor_payloads.take() {
+                    active_constructor = Some(ActiveConstructorPattern {
+                        payload_callables,
+                        payload_index: 0,
+                        depth: 1,
+                    });
+                } else if let Some(active) = active_constructor.as_mut() {
+                    active.depth += 1;
+                }
+                pending_field = None;
+                None
+            }
+            TokenKind::RParen => {
+                if let Some(active) = active_constructor.as_mut() {
+                    active.depth = active.depth.saturating_sub(1);
+                    if active.depth == 0 {
+                        active_constructor = None;
+                    }
+                }
+                pending_field = None;
+                None
+            }
             TokenKind::Ident
                 if is_identifier(&token.text)
                     && next_non_layout_token(tokens, index)
@@ -3745,15 +3834,36 @@ fn pattern_bindings_in_range(
                 None
             }
             TokenKind::Ident if is_pattern_binding_token(tokens, index) => {
+                let callable = active_constructor.as_ref().and_then(|constructor| {
+                    (constructor.depth == 1).then(|| {
+                        constructor
+                            .payload_callables
+                            .get(constructor.payload_index)
+                            .copied()
+                            .unwrap_or(false)
+                    })
+                });
                 let binding = PatternBinding {
                     name: token.text.clone(),
                     field: pending_field.clone(),
                     name_end: token.range.end,
+                    callable,
                 };
+                if active_constructor
+                    .as_ref()
+                    .is_some_and(|constructor| constructor.depth == 1)
+                    && let Some(constructor) = active_constructor.as_mut()
+                {
+                    constructor.payload_index += 1;
+                }
                 pending_field = None;
                 Some(binding)
             }
-            TokenKind::Comma | TokenKind::LBrace | TokenKind::RBrace => {
+            TokenKind::Comma => {
+                pending_field = None;
+                None
+            }
+            TokenKind::LBrace | TokenKind::RBrace => {
                 pending_field = None;
                 None
             }
@@ -4807,6 +4917,33 @@ mod tests {
 
             assert!(result.is_none(), "{result:#?}");
         }
+    }
+
+    #[test]
+    fn callable_constructor_payload_binding_shadows_constructor_call_navigation() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "type Token\n",
+                "  pack(Int)\n",
+                "end\n\n",
+                "type Wrapped\n",
+                "  Wrapped(fn(Int) -> Int)\n",
+                "end\n\n",
+                "fn direct(value: Int) -> Int\n",
+                "  value\n",
+                "end\n\n",
+                "fn main(value: Wrapped) -> Int\n",
+                "  match value\n",
+                "    Wrapped(pack) => pack(1)\n",
+                "  end\n",
+                "end\n",
+            ),
+        )];
+
+        let result = query(sources, "main.veln", 15, 23);
+
+        assert!(result.is_none(), "{result:#?}");
     }
 
     #[test]

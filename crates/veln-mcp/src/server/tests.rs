@@ -676,10 +676,20 @@ fn callable_bindings_shadow_constructor_for_mcp_navigation() {
             "  let pack = record.pack\n",
             "  pack(1)\n",
             "end\n",
+            "\n",
+            "type Wrapped\n",
+            "  Wrapped(fn(Int) -> Token)\n",
+            "end\n",
+            "\n",
+            "fn constructor_payload(value: Wrapped) -> Token\n",
+            "  match value\n",
+            "    Wrapped(pack) => pack(1)\n",
+            "  end\n",
+            "end\n",
         ),
     );
 
-    for (line, column) in [(6, 4), (11, 4), (16, 4), (21, 4), (34, 4)] {
+    for (line, column) in [(6, 4), (11, 4), (16, 4), (21, 4), (34, 4), (44, 23)] {
         let definition = definition_result(&workspace, "main.veln", line, column);
         assert_eq!(definition["isError"], false, "{definition:#}");
         assert_eq!(
