@@ -1,0 +1,22 @@
+type Token
+  pack(Int)
+end
+
+fn direct(value: Int) -> Int
+  value
+end
+
+fn parameter(value: Option<fn(Int) -> Int>) -> Int
+  match value
+    Some(pack) => pack(1)
+    None => 0
+  end
+end
+
+fn annotated_local() -> Int
+  let value: Option<fn(Int) -> Int> = Some(direct)
+  match value
+    Some(pack) => pack(2)
+    None => 0
+  end
+end

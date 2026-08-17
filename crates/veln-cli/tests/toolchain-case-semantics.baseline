@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"518d5c9ba3a3e39f826c17c6c7ad3216f1674854"
+source_git_tree	"41b733e6f7136b82508faf0500cda9672f865c17"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1524
+case_count	1525
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -10221,6 +10221,25 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":631,"sha256":"5bcca689e77f49d74c7951f14bd8f7cf5c5266264bef97089798e0ef08e03a8d"}
 field	source_errors	"forbidden"
 case_digest	"f05d492877521893ff3945b2e17f20871977d120484cfcd00f3dc04efe74aa0a"
+case	"examples/specification/lsp/generic-constructor-payload-callable-navigation"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"definitionProvider\":true"
+field	expectations.stdout.contains[1]	"\"referencesProvider\":true"
+field	expectations.stdout.contains[2]	"\"renameProvider\":{\"prepareProvider\":true}"
+field	expectations.stdout.contains[3]	"\"id\":2,\"result\":null"
+field	expectations.stdout.contains[4]	"\"id\":3,\"result\":[]"
+field	expectations.stdout.contains[5]	"\"id\":4,\"result\":{\"changes\":{}}"
+field	expectations.stdout.contains[6]	"\"id\":5,\"result\":null"
+field	expectations.stdout.contains[7]	"\"id\":6,\"result\":[]"
+field	expectations.stdout.contains[8]	"\"id\":7,\"result\":{\"changes\":{}}"
+field	expectations.stdout.not_contains[0]	"\"range\":{\"start\":{\"line\":1,\"character\":2},\"end\":{\"line\":1,\"character\":6}}"
+field	expectations.stdout.not_contains[1]	"\"newText\":\"box\""
+field	invocation.command[0]	"lsp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1382,"sha256":"2148b30835c49d90ea1b0b0241082a47f593c507638cf8f79e40645c761a46e7"}
+field	source_errors	"forbidden"
+case_digest	"2ea237aa4925594337504a171e562915d9952c22bc96232960a5ea63999ea0e9"
 case	"examples/specification/lsp/handler-context-callable-binding"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -23440,7 +23459,7 @@ field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
 field	expectations.json_assertions[0].operation	"equals"
 field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals	"11\n22\n33\n"
+field	expectations.json_assertions[1].equals	"11\n22\n33\n13\n"
 field	expectations.json_assertions[1].operation	"equals"
 field	expectations.json_assertions[1].path	"stdout"
 field	expectations.json_assertions[2].equals	null
@@ -23455,7 +23474,7 @@ field	invocation.command[3]	"main.veln"
 field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
-case_digest	"2fd67d15b14c0850c468f7abfa41d91dbab6a12b3fe1716439c514b2763e0ce5"
+case_digest	"28926a64056a12ea0a044ff9e30e54f9493a22b2b02be28c0024b88aea357190"
 case	"examples/specification/run/channel-first-stream-routing"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -48023,4 +48042,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"3826324e1f0e8f50e3ad2469b54621e9fa1efdd58ff7fb89be804307cbb35dc2"
+aggregate_digest	"a4ab168ac41b3ff094e91d396f4a1f30324690da0db57f9cf4d4730496f03fee"

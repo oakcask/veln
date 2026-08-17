@@ -27,8 +27,16 @@ fn qualified_workspace_shadow() -> Int
 	pack(33)
 end
 
+fn generic_payload_shadow(value: Option<fn(Int) -> Int>) -> Int
+	match value
+		Some(pack) => pack(3)
+		None => 0
+	end
+end
+
 pub fn main() -> () effects [stdio]
 	stdio::println(int_to_string(parameter_shadow(add_ten)))
 	stdio::println(int_to_string(local_shadow()))
 	stdio::println(int_to_string(qualified_workspace_shadow()))
+	stdio::println(int_to_string(generic_payload_shadow(Some(add_ten))))
 end

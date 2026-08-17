@@ -536,6 +536,7 @@ struct PatternBinding {
 struct BindingInfo {
     callable: bool,
     callable_fields: BTreeSet<String>,
+    constructor_payload_callables: BTreeMap<String, Vec<bool>>,
 }
 
 #[derive(Debug, Default)]
@@ -543,6 +544,7 @@ struct CallableValueNames {
     bare: BTreeSet<String>,
     qualified: BTreeSet<(String, String)>,
     field_access: BTreeMap<String, BTreeSet<String>>,
+    constructor_payloads_by_value: BTreeMap<String, BTreeMap<String, Vec<bool>>>,
     returned_by_bare_call: BTreeSet<String>,
     returned_by_qualified_call: BTreeSet<(String, String)>,
     fields_returned_by_bare_call: BTreeMap<String, BTreeSet<String>>,
@@ -561,6 +563,14 @@ impl CallableValueNames {
 
     fn insert_field_accesses(&mut self, base: String, fields: impl IntoIterator<Item = String>) {
         self.field_access.entry(base).or_default().extend(fields);
+    }
+
+    fn insert_constructor_payload_callables(
+        &mut self,
+        value: String,
+        payloads: BTreeMap<String, Vec<bool>>,
+    ) {
+        self.constructor_payloads_by_value.insert(value, payloads);
     }
 
     fn insert_bare_returning_callable(&mut self, name: String) {
@@ -601,6 +611,7 @@ impl CallableValueNames {
     fn shadow_bare_binding(&mut self, name: &str) {
         self.bare.remove(name);
         self.field_access.remove(name);
+        self.constructor_payloads_by_value.remove(name);
         self.returned_by_bare_call.remove(name);
         self.fields_returned_by_bare_call.remove(name);
     }
@@ -644,6 +655,21 @@ impl CallableValueNames {
             return BTreeSet::new();
         }
         self.field_access
+            .get(&token.text)
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    fn constructor_payloads_for_token(
+        &self,
+        tokens: &[Token],
+        index: usize,
+    ) -> BTreeMap<String, Vec<bool>> {
+        let token = &tokens[index];
+        if token.kind != TokenKind::Ident {
+            return BTreeMap::new();
+        }
+        self.constructor_payloads_by_value
             .get(&token.text)
             .cloned()
             .unwrap_or_default()
@@ -2973,6 +2999,9 @@ fn insert_pending_parameter(
     let info = type_start.map_or_else(BindingInfo::default, |start| BindingInfo {
         callable: type_range_is_callable(tokens, start, end),
         callable_fields: callable_record_fields_in_type_range(tokens, start, end),
+        constructor_payload_callables: callable_constructor_payloads_in_type_range(
+            tokens, start, end,
+        ),
     });
     names.insert(name, info);
 }
@@ -3015,6 +3044,11 @@ fn local_bindings(
             .filter(|(_, info)| !info.callable_fields.is_empty())
             .map(|(name, info)| (name.clone(), info.callable_fields.clone()))
             .collect(),
+        constructor_payloads_by_value: params
+            .iter()
+            .filter(|(_, info)| !info.constructor_payload_callables.is_empty())
+            .map(|(name, info)| (name.clone(), info.constructor_payload_callables.clone()))
+            .collect(),
         returned_by_bare_call: function_values.returned_by_bare_call.clone(),
         returned_by_qualified_call: function_values.returned_by_qualified_call.clone(),
         fields_returned_by_bare_call: function_values.fields_returned_by_bare_call.clone(),
@@ -3040,19 +3074,25 @@ fn local_bindings(
         let binding_start = let_binding_scope_start(tokens, index);
         let callable_fields = let_binding_callable_fields(tokens, index, &callable_values);
         let bindings_for_let = let_binding_infos(tokens, index, &callable_values, &callable_fields);
-        for (name, callable) in bindings_for_let {
+        for (name, info) in bindings_for_let {
             callable_values.shadow_bare_binding(&name);
-            if callable {
+            if info.callable {
                 callable_values.insert_bare(name.clone());
             }
             if !callable_fields.is_empty() {
                 callable_values.insert_field_accesses(name.clone(), callable_fields.clone());
             }
+            if !info.constructor_payload_callables.is_empty() {
+                callable_values.insert_constructor_payload_callables(
+                    name.clone(),
+                    info.constructor_payload_callables.clone(),
+                );
+            }
             bindings.push(LocalBinding {
                 name,
                 start: binding_start,
                 end: binding_end,
-                callable,
+                callable: info.callable,
             });
         }
     }
@@ -3348,6 +3388,30 @@ fn callable_fields_from_rhs(
     BTreeSet::new()
 }
 
+fn constructor_payload_callables_from_rhs(
+    tokens: &[Token],
+    equal_index: usize,
+    value_index: usize,
+    callable_values: &CallableValueNames,
+) -> BTreeMap<String, Vec<bool>> {
+    if tokens[value_index].kind == TokenKind::Ident {
+        return callable_values.constructor_payloads_for_token(tokens, value_index);
+    }
+    if tokens[value_index].kind == TokenKind::RParen
+        && let Some(lparen_index) = matching_lparen_index(tokens, value_index, equal_index + 1)
+        && previous_non_layout_index(tokens, lparen_index).is_none_or(|previous| {
+            previous <= equal_index || tokens[previous].kind != TokenKind::Ident
+        })
+    {
+        return previous_non_layout_index(tokens, value_index)
+            .filter(|inner| *inner > lparen_index)
+            .map_or_else(BTreeMap::new, |inner| {
+                constructor_payload_callables_from_rhs(tokens, equal_index, inner, callable_values)
+            });
+    }
+    BTreeMap::new()
+}
+
 fn rhs_call_target_index(
     tokens: &[Token],
     equal_index: usize,
@@ -3462,6 +3526,88 @@ fn insert_pending_callable_record_field(
     }
 }
 
+fn callable_constructor_payloads_in_type_range(
+    tokens: &[Token],
+    start: usize,
+    end: usize,
+) -> BTreeMap<String, Vec<bool>> {
+    let Some(head_index) = next_non_layout_index_before(tokens, start.saturating_sub(1), end)
+    else {
+        return BTreeMap::new();
+    };
+    if tokens[head_index].kind != TokenKind::Ident {
+        return BTreeMap::new();
+    }
+    let Some(args) = type_argument_ranges(tokens, head_index, end) else {
+        return BTreeMap::new();
+    };
+    match tokens[head_index].text.as_str() {
+        "Option" if args.len() == 1 => {
+            let mut payloads = BTreeMap::new();
+            payloads.insert(
+                "Some".to_string(),
+                vec![type_range_is_callable(tokens, args[0].0, args[0].1)],
+            );
+            payloads
+        }
+        "Result" if args.len() == 2 => {
+            let mut payloads = BTreeMap::new();
+            payloads.insert(
+                "Ok".to_string(),
+                vec![type_range_is_callable(tokens, args[0].0, args[0].1)],
+            );
+            payloads.insert(
+                "Err".to_string(),
+                vec![type_range_is_callable(tokens, args[1].0, args[1].1)],
+            );
+            payloads
+        }
+        "List" if args.len() == 1 => {
+            let mut payloads = BTreeMap::new();
+            payloads.insert(
+                "Cons".to_string(),
+                vec![type_range_is_callable(tokens, args[0].0, args[0].1), false],
+            );
+            payloads
+        }
+        _ => BTreeMap::new(),
+    }
+}
+
+fn type_argument_ranges(
+    tokens: &[Token],
+    head_index: usize,
+    end: usize,
+) -> Option<Vec<(usize, usize)>> {
+    let less_index = next_non_layout_index_before(tokens, head_index, end)?;
+    if tokens[less_index].kind != TokenKind::Less {
+        return None;
+    }
+    let mut args = Vec::new();
+    let mut depth = 0usize;
+    let mut arg_start = next_non_layout_index_before(tokens, less_index, end)?;
+    for index in less_index + 1..end {
+        match tokens[index].kind {
+            TokenKind::Less | TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => {
+                depth += 1;
+            }
+            TokenKind::Greater if depth == 0 => {
+                args.push((arg_start, index));
+                return Some(args);
+            }
+            TokenKind::Greater | TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
+                depth = depth.saturating_sub(1);
+            }
+            TokenKind::Comma if depth == 0 => {
+                args.push((arg_start, index));
+                arg_start = next_non_layout_index_before(tokens, index, end)?;
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
 fn let_binding_scope_start(tokens: &[Token], let_index: usize) -> usize {
     tokens[let_index + 1..]
         .iter()
@@ -3495,8 +3641,12 @@ fn let_binding_infos(
     let_index: usize,
     callable_values: &CallableValueNames,
     callable_fields: &BTreeSet<String>,
-) -> Vec<(String, bool)> {
+) -> Vec<(String, BindingInfo)> {
     let whole_binding_callable = let_binding_is_callable(tokens, let_index, callable_values);
+    let constructor_payload_callables = simple_let_binding_annotation_range(tokens, let_index)
+        .map_or_else(BTreeMap::new, |(start, end)| {
+            callable_constructor_payloads_in_type_range(tokens, start, end)
+        });
     let mut names = let_pattern_binding_fields(tokens, let_index)
         .into_iter()
         .map(|binding| {
@@ -3504,15 +3654,48 @@ fn let_binding_infos(
                 .field
                 .as_ref()
                 .is_some_and(|field| callable_fields.contains(field));
-            (binding.name, callable)
+            (
+                binding.name,
+                BindingInfo {
+                    callable,
+                    callable_fields: BTreeSet::new(),
+                    constructor_payload_callables: BTreeMap::new(),
+                },
+            )
         })
         .collect::<Vec<_>>();
     if let Some(name) = simple_let_binding_name(tokens, let_index)
         && !names.iter().any(|(existing, _)| existing == &name)
     {
-        names.push((name, whole_binding_callable));
+        names.push((
+            name,
+            BindingInfo {
+                callable: whole_binding_callable,
+                callable_fields: BTreeSet::new(),
+                constructor_payload_callables,
+            },
+        ));
     }
     names
+}
+
+fn simple_let_binding_annotation_range(
+    tokens: &[Token],
+    let_index: usize,
+) -> Option<(usize, usize)> {
+    let line_end = tokens[let_index + 1..]
+        .iter()
+        .position(|token| token.kind == TokenKind::Newline || token.kind == TokenKind::Eof)
+        .map_or(tokens.len(), |relative| let_index + 1 + relative);
+    let colon_index = tokens[let_index + 1..line_end]
+        .iter()
+        .position(|token| token.kind == TokenKind::Colon)
+        .map(|relative| let_index + 1 + relative)?;
+    let end = tokens[colon_index + 1..line_end]
+        .iter()
+        .position(|token| token.kind == TokenKind::Equal)
+        .map_or(line_end, |relative| colon_index + 1 + relative);
+    Some((colon_index + 1, end))
 }
 
 fn simple_let_binding_name(tokens: &[Token], let_index: usize) -> Option<String> {
@@ -3680,9 +3863,18 @@ fn match_arm_pattern_binding_names(
         let scope_end = match_arm_scope_end(tokens, index + 1, function_end);
         let pattern_start = match_arm_pattern_start(tokens, index, body_start);
         let callable_fields = enclosing_match_callable_fields(tokens, index, callable_values);
-        for binding in
-            pattern_bindings_in_range(tokens, pattern_start, index, constructor_payload_callables)
-        {
+        let match_payload_callables =
+            enclosing_match_constructor_payload_callables(tokens, index, callable_values);
+        let mut effective_constructor_payload_callables = constructor_payload_callables.clone();
+        for (constructor, payloads) in match_payload_callables {
+            effective_constructor_payload_callables.insert(constructor, payloads);
+        }
+        for binding in pattern_bindings_in_range(
+            tokens,
+            pattern_start,
+            index,
+            &effective_constructor_payload_callables,
+        ) {
             let callable = binding.callable.unwrap_or_else(|| {
                 binding
                     .field
@@ -3698,6 +3890,34 @@ fn match_arm_pattern_binding_names(
         }
     }
     bindings
+}
+
+fn enclosing_match_constructor_payload_callables(
+    tokens: &[Token],
+    arrow_index: usize,
+    callable_values: &CallableValueNames,
+) -> BTreeMap<String, Vec<bool>> {
+    let Some(match_index) = enclosing_match_index(tokens, arrow_index) else {
+        return BTreeMap::new();
+    };
+    let Some(line_end) = tokens[match_index + 1..]
+        .iter()
+        .position(|token| token.kind == TokenKind::Newline || token.kind == TokenKind::Eof)
+        .map(|relative| match_index + 1 + relative)
+    else {
+        return BTreeMap::new();
+    };
+    previous_non_layout_index_before(tokens, line_end, match_index).map_or_else(
+        BTreeMap::new,
+        |value_index| {
+            constructor_payload_callables_from_rhs(
+                tokens,
+                match_index,
+                value_index,
+                callable_values,
+            )
+        },
+    )
 }
 
 fn enclosing_match_callable_fields(
@@ -5035,6 +5255,40 @@ mod tests {
         let result = query(sources, "main.veln", 15, 23);
 
         assert!(result.is_none(), "{result:#?}");
+    }
+
+    #[test]
+    fn generic_constructor_payload_binding_shadows_constructor_call_navigation() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "type Token\n",
+                "  pack(Int)\n",
+                "end\n\n",
+                "fn direct(value: Int) -> Int\n",
+                "  value\n",
+                "end\n\n",
+                "fn parameter(value: Option<fn(Int) -> Int>) -> Int\n",
+                "  match value\n",
+                "    Some(pack) => pack(1)\n",
+                "    None => 0\n",
+                "  end\n",
+                "end\n\n",
+                "fn annotated_local() -> Int\n",
+                "  let value: Option<fn(Int) -> Int> = Some(direct)\n",
+                "  match value\n",
+                "    Some(pack) => pack(2)\n",
+                "    None => 0\n",
+                "  end\n",
+                "end\n",
+            ),
+        )];
+
+        for (line, column) in [(11, 22), (19, 22)] {
+            let result = query(sources.clone(), "main.veln", line, column);
+
+            assert!(result.is_none(), "{result:#?}");
+        }
     }
 
     #[test]
