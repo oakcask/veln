@@ -23,3 +23,14 @@ pub fn match_shadow(flag: Bool, identity: fn(Int) -> Token) -> Token
   end
   byte(1)
 end
+
+pub fn if_shadow(flag: Bool, backup: Bool, identity: fn(Int) -> Token) -> Token
+  let byte = if flag
+    identity
+  else if backup
+    identity
+  else
+    identity
+  end
+  byte(1)
+end

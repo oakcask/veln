@@ -2929,11 +2929,81 @@ fn let_binding_is_callable(
     {
         return match_rhs_is_callable(tokens, equal_index, callable_values);
     }
+    if next_non_layout_index(tokens, equal_index)
+        .is_some_and(|value_index| tokens[value_index].kind == TokenKind::If)
+    {
+        return if_rhs_is_callable(tokens, equal_index, callable_values);
+    }
     previous_non_layout_index(tokens, line_end)
         .filter(|value_index| *value_index > equal_index)
         .is_some_and(|value_index| {
             callable_rhs_is_callable(tokens, equal_index, value_index, callable_values)
         })
+}
+
+fn if_rhs_is_callable(
+    tokens: &[Token],
+    equal_index: usize,
+    callable_values: &CallableValueNames,
+) -> bool {
+    let Some(if_index) = next_non_layout_index(tokens, equal_index) else {
+        return false;
+    };
+    if tokens[if_index].kind != TokenKind::If {
+        return false;
+    }
+    let Some(end_index) = matching_block_end_index(tokens, if_index) else {
+        return false;
+    };
+    let mut branches = Vec::new();
+    let mut branch_start = if_condition_end(tokens, if_index)
+        .and_then(|condition_end| next_non_layout_index_before(tokens, condition_end, end_index));
+    let mut depth = 1usize;
+    for index in if_index + 1..=end_index {
+        match tokens[index].kind {
+            TokenKind::If if !is_else_if(tokens, index) => depth += 1,
+            TokenKind::Match | TokenKind::Handler => depth += 1,
+            TokenKind::End => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    if let Some(start) = branch_start {
+                        branches.push((start, index));
+                    }
+                    break;
+                }
+            }
+            TokenKind::Else if depth == 1 => {
+                if let Some(start) = branch_start {
+                    branches.push((start, index));
+                }
+                branch_start = if next_non_layout_index(tokens, index)
+                    .is_some_and(|next| tokens[next].kind == TokenKind::If)
+                {
+                    next_non_layout_index(tokens, index)
+                        .and_then(|else_if_index| if_condition_end(tokens, else_if_index))
+                        .and_then(|condition_end| {
+                            next_non_layout_index_before(tokens, condition_end, end_index)
+                        })
+                } else {
+                    next_non_layout_index_before(tokens, index, end_index)
+                };
+            }
+            _ => {}
+        }
+    }
+    !branches.is_empty()
+        && branches.iter().all(|(start, end)| {
+            previous_non_layout_index_before(tokens, *end, *start).is_some_and(|value_index| {
+                callable_rhs_is_callable(tokens, equal_index, value_index, callable_values)
+            })
+        })
+}
+
+fn if_condition_end(tokens: &[Token], if_index: usize) -> Option<usize> {
+    tokens[if_index + 1..]
+        .iter()
+        .position(|token| token.kind == TokenKind::Newline || token.kind == TokenKind::Eof)
+        .map(|relative| if_index + 1 + relative)
 }
 
 fn match_rhs_is_callable(
@@ -3826,6 +3896,17 @@ fn next_non_layout_index(tokens: &[Token], index: usize) -> Option<usize> {
         .map(|relative_index| index + 1 + relative_index)
 }
 
+fn next_non_layout_index_before(
+    tokens: &[Token],
+    index: usize,
+    upper_bound: usize,
+) -> Option<usize> {
+    tokens[index + 1..upper_bound]
+        .iter()
+        .position(|token| !is_layout_token(token))
+        .map(|relative_index| index + 1 + relative_index)
+}
+
 fn previous_non_layout_token(tokens: &[Token], index: usize) -> Option<&Token> {
     let previous = previous_non_layout_index(tokens, index)?;
     Some(&tokens[previous])
@@ -3838,6 +3919,19 @@ fn previous_non_layout_index(tokens: &[Token], index: usize) -> Option<usize> {
         .rev()
         .find(|(_, token)| !is_layout_token(token))
         .map(|(index, _)| index)
+}
+
+fn previous_non_layout_index_before(
+    tokens: &[Token],
+    index: usize,
+    lower_bound: usize,
+) -> Option<usize> {
+    tokens[lower_bound..index]
+        .iter()
+        .enumerate()
+        .rev()
+        .find(|(_, token)| !is_layout_token(token))
+        .map(|(relative_index, _)| lower_bound + relative_index)
 }
 
 fn is_layout_token(token: &Token) -> bool {
@@ -5158,6 +5252,36 @@ mod tests {
         )];
 
         assert!(query(sources, "main.veln", 15, 4).is_none());
+    }
+
+    #[test]
+    fn if_inferred_function_value_binding_shadows_same_named_constructor_call() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "type Token\n",
+                "  pack(Int)\n",
+                "end\n\n",
+                "fn direct(value: Int) -> Int\n",
+                "  value\n",
+                "end\n",
+                "fn backup(value: Int) -> Int\n",
+                "  value + 1\n",
+                "end\n\n",
+                "pub fn main(flag: Bool, other: Bool) -> Int\n",
+                "  let pack = if flag\n",
+                "    direct\n",
+                "  else if other\n",
+                "    backup\n",
+                "  else\n",
+                "    direct\n",
+                "  end\n",
+                "  pack(1)\n",
+                "end\n",
+            ),
+        )];
+
+        assert!(query(sources, "main.veln", 20, 4).is_none());
     }
 
     #[test]
