@@ -3953,6 +3953,60 @@ mod tests {
     }
 
     #[test]
+    fn callable_record_field_binding_shadows_constructor_navigation() {
+        let mut server = Server::default();
+        let project = TempProject::new("callable-field-shadow-constructor-navigation");
+        project.write(
+            "main.veln",
+            concat!(
+                "type Token\n",
+                "  pack(Int)\n",
+                "end\n",
+                "\n",
+                "fn direct(value: Int) -> Int\n",
+                "  value\n",
+                "end\n",
+                "\n",
+                "pub fn parameter_field(record: {pack: fn(Int) -> Int}) -> Int\n",
+                "  let pack = record.pack\n",
+                "  pack(1)\n",
+                "end\n",
+                "\n",
+                "pub fn local_field() -> Int\n",
+                "  let record: {pack: fn(Int) -> Int} = {pack: direct}\n",
+                "  let alias = record\n",
+                "  let pack = alias.pack\n",
+                "  pack(2)\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        for (line, character) in [(10, 4), (17, 4)] {
+            let definition = server.handle_message(&definition_request(&main_uri, line, character));
+            let references = server.handle_message(&references_request(&main_uri, line, character));
+            let rename = server.handle_message(&rename_request(&main_uri, line, character, "box"));
+
+            assert_eq!(definition.len(), 1);
+            assert!(
+                definition[0].contains(r#""result":null"#),
+                "{}",
+                definition[0]
+            );
+            assert_eq!(references.len(), 1);
+            assert!(
+                references[0].contains(r#""result":[]"#),
+                "{}",
+                references[0]
+            );
+            assert_eq!(rename.len(), 1);
+            assert!(rename[0].contains(r#""changes":{}"#), "{}", rename[0]);
+        }
+    }
+
+    #[test]
     fn ambiguous_current_module_constructor_definition_does_not_fall_back_to_import() {
         let mut server = Server::default();
         let project = TempProject::new("current-constructor-ambiguity-blocks-import-definition");

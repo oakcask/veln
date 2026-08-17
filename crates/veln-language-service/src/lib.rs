@@ -493,7 +493,7 @@ struct SymbolIndex {
 struct FunctionScope {
     body_start: usize,
     end: usize,
-    params: BTreeMap<String, bool>,
+    params: BTreeMap<String, BindingInfo>,
     result_binding: Option<String>,
     local_bindings: Vec<LocalBinding>,
 }
@@ -506,10 +506,17 @@ struct LocalBinding {
     callable: bool,
 }
 
+#[derive(Clone, Debug, Default)]
+struct BindingInfo {
+    callable: bool,
+    callable_fields: BTreeSet<String>,
+}
+
 #[derive(Debug, Default)]
 struct CallableValueNames {
     bare: BTreeSet<String>,
     qualified: BTreeSet<(String, String)>,
+    field_access: BTreeMap<String, BTreeSet<String>>,
     returned_by_bare_call: BTreeSet<String>,
     returned_by_qualified_call: BTreeSet<(String, String)>,
 }
@@ -521,6 +528,10 @@ impl CallableValueNames {
 
     fn insert_qualified(&mut self, module: String, name: String) {
         self.qualified.insert((module, name));
+    }
+
+    fn insert_field_accesses(&mut self, base: String, fields: impl IntoIterator<Item = String>) {
+        self.field_access.entry(base).or_default().extend(fields);
     }
 
     fn insert_bare_returning_callable(&mut self, name: String) {
@@ -540,6 +551,39 @@ impl CallableValueNames {
             Some(qualifier) => self.qualified.contains(&(qualifier, token.text.clone())),
             None => self.bare.contains(&token.text),
         }
+    }
+
+    fn contains_field_access(&self, tokens: &[Token], index: usize) -> bool {
+        let field = &tokens[index];
+        if field.kind != TokenKind::Ident {
+            return false;
+        }
+        let Some(dot_index) = previous_non_layout_index(tokens, index) else {
+            return false;
+        };
+        if tokens[dot_index].kind != TokenKind::Dot {
+            return false;
+        }
+        let Some(base_index) = previous_non_layout_index(tokens, dot_index) else {
+            return false;
+        };
+        let base = &tokens[base_index];
+        base.kind == TokenKind::Ident
+            && self
+                .field_access
+                .get(&base.text)
+                .is_some_and(|fields| fields.contains(&field.text))
+    }
+
+    fn callable_fields_for_token(&self, tokens: &[Token], index: usize) -> BTreeSet<String> {
+        let token = &tokens[index];
+        if token.kind != TokenKind::Ident {
+            return BTreeSet::new();
+        }
+        self.field_access
+            .get(&token.text)
+            .cloned()
+            .unwrap_or_default()
     }
 
     fn call_returns_callable(&self, tokens: &[Token], index: usize) -> bool {
@@ -2557,7 +2601,9 @@ impl FunctionScope {
 
     fn callable_shadows(&self, name: &str, tokens: &[Token], index: usize) -> bool {
         let offset = tokens[index].range.start;
-        self.params.get(name).copied().unwrap_or(false)
+        self.params
+            .get(name)
+            .is_some_and(|binding| binding.callable)
             || self.local_bindings.iter().any(|binding| {
                 binding.callable
                     && binding.name == name
@@ -2583,7 +2629,11 @@ fn function_scope_end(tokens: &[Token], start: usize) -> Option<usize> {
     None
 }
 
-fn parameter_bindings(tokens: &[Token], start: usize, body_start: usize) -> BTreeMap<String, bool> {
+fn parameter_bindings(
+    tokens: &[Token],
+    start: usize,
+    body_start: usize,
+) -> BTreeMap<String, BindingInfo> {
     let mut names = BTreeMap::new();
     let mut depth = 0usize;
     let mut pending_parameter_name: Option<String> = None;
@@ -2637,7 +2687,7 @@ fn parameter_bindings(tokens: &[Token], start: usize, body_start: usize) -> BTre
 
 fn insert_pending_parameter(
     tokens: &[Token],
-    names: &mut BTreeMap<String, bool>,
+    names: &mut BTreeMap<String, BindingInfo>,
     name: Option<String>,
     type_start: Option<usize>,
     end: usize,
@@ -2645,8 +2695,11 @@ fn insert_pending_parameter(
     let Some(name) = name else {
         return;
     };
-    let callable = type_start.is_some_and(|start| type_range_is_callable(tokens, start, end));
-    names.insert(name, callable);
+    let info = type_start.map_or_else(BindingInfo::default, |start| BindingInfo {
+        callable: type_range_is_callable(tokens, start, end),
+        callable_fields: callable_record_fields_in_type_range(tokens, start, end),
+    });
+    names.insert(name, info);
 }
 
 fn result_binding_name(tokens: &[Token], start: usize, body_start: usize) -> Option<String> {
@@ -2671,16 +2724,21 @@ fn local_bindings(
     tokens: &[Token],
     body_start: usize,
     end: usize,
-    params: &BTreeMap<String, bool>,
+    params: &BTreeMap<String, BindingInfo>,
     function_values: &CallableValueNames,
 ) -> Vec<LocalBinding> {
     let mut bindings = Vec::new();
     let mut callable_values = CallableValueNames {
         bare: params
             .iter()
-            .filter_map(|(name, callable)| callable.then_some(name.clone()))
+            .filter_map(|(name, info)| info.callable.then_some(name.clone()))
             .collect(),
         qualified: BTreeSet::new(),
+        field_access: params
+            .iter()
+            .filter(|(_, info)| !info.callable_fields.is_empty())
+            .map(|(name, info)| (name.clone(), info.callable_fields.clone()))
+            .collect(),
         returned_by_bare_call: function_values.returned_by_bare_call.clone(),
         returned_by_qualified_call: function_values.returned_by_qualified_call.clone(),
     };
@@ -2700,10 +2758,14 @@ fn local_bindings(
         let binding_end = local_binding_scope_end(tokens, index, end);
         let binding_start = let_binding_scope_start(tokens, index);
         let callable = let_binding_is_callable(tokens, index, &callable_values);
+        let callable_fields = let_binding_callable_fields(tokens, index, &callable_values);
         let names = let_binding_names(tokens, index);
         for name in names {
             if callable {
                 callable_values.insert_bare(name.clone());
+            }
+            if !callable_fields.is_empty() {
+                callable_values.insert_field_accesses(name.clone(), callable_fields.clone());
             }
             bindings.push(LocalBinding {
                 name,
@@ -2762,6 +2824,9 @@ fn callable_rhs_is_callable(
     if callable_values.contains_token(tokens, value_index) {
         return true;
     }
+    if callable_values.contains_field_access(tokens, value_index) {
+        return true;
+    }
     if tokens[value_index].kind == TokenKind::RParen
         && let Some(lparen_index) = matching_lparen_index(tokens, value_index, equal_index + 1)
         && previous_non_layout_index(tokens, lparen_index).is_none_or(|previous| {
@@ -2778,6 +2843,67 @@ fn callable_rhs_is_callable(
         return false;
     };
     callable_values.call_returns_callable(tokens, callee_index)
+}
+
+fn let_binding_callable_fields(
+    tokens: &[Token],
+    let_index: usize,
+    callable_values: &CallableValueNames,
+) -> BTreeSet<String> {
+    let line_end = tokens[let_index + 1..]
+        .iter()
+        .position(|token| token.kind == TokenKind::Newline || token.kind == TokenKind::Eof)
+        .map_or(tokens.len(), |relative| let_index + 1 + relative);
+    if let Some(colon_index) = tokens[let_index + 1..line_end]
+        .iter()
+        .position(|token| token.kind == TokenKind::Colon)
+        .map(|relative| let_index + 1 + relative)
+    {
+        let annotation_end = tokens[colon_index + 1..line_end]
+            .iter()
+            .position(|token| token.kind == TokenKind::Equal)
+            .map_or(line_end, |relative| colon_index + 1 + relative);
+        let fields = callable_record_fields_in_type_range(tokens, colon_index + 1, annotation_end);
+        if !fields.is_empty() {
+            return fields;
+        }
+    }
+    let Some(equal_index) = tokens[let_index + 1..line_end]
+        .iter()
+        .position(|token| token.kind == TokenKind::Equal)
+        .map(|relative| let_index + 1 + relative)
+    else {
+        return BTreeSet::new();
+    };
+    previous_non_layout_index(tokens, line_end)
+        .filter(|value_index| *value_index > equal_index)
+        .map_or_else(BTreeSet::new, |value_index| {
+            callable_fields_from_rhs(tokens, equal_index, value_index, callable_values)
+        })
+}
+
+fn callable_fields_from_rhs(
+    tokens: &[Token],
+    equal_index: usize,
+    value_index: usize,
+    callable_values: &CallableValueNames,
+) -> BTreeSet<String> {
+    if tokens[value_index].kind == TokenKind::Ident {
+        return callable_values.callable_fields_for_token(tokens, value_index);
+    }
+    if tokens[value_index].kind == TokenKind::RParen
+        && let Some(lparen_index) = matching_lparen_index(tokens, value_index, equal_index + 1)
+        && previous_non_layout_index(tokens, lparen_index).is_none_or(|previous| {
+            previous <= equal_index || tokens[previous].kind != TokenKind::Ident
+        })
+    {
+        return previous_non_layout_index(tokens, value_index)
+            .filter(|inner| *inner > lparen_index)
+            .map_or_else(BTreeSet::new, |inner| {
+                callable_fields_from_rhs(tokens, equal_index, inner, callable_values)
+            });
+    }
+    BTreeSet::new()
 }
 
 fn rhs_call_target_index(
@@ -2825,6 +2951,73 @@ fn type_range_is_callable(tokens: &[Token], start: usize, end: usize) -> bool {
         .iter()
         .find(|token| !is_layout_token(token))
         .is_some_and(|token| token.kind == TokenKind::Fn)
+}
+
+fn callable_record_fields_in_type_range(
+    tokens: &[Token],
+    start: usize,
+    end: usize,
+) -> BTreeSet<String> {
+    let mut fields = BTreeSet::new();
+    let mut depth = 0usize;
+    let mut pending_field: Option<String> = None;
+    let mut pending_type_start: Option<usize> = None;
+    for (relative_index, token) in tokens[start..end].iter().enumerate() {
+        let index = start + relative_index;
+        match token.kind {
+            TokenKind::LBrace | TokenKind::LParen | TokenKind::LBracket => {
+                depth += 1;
+                if depth == 1 {
+                    pending_field = None;
+                    pending_type_start = None;
+                }
+            }
+            TokenKind::RBrace | TokenKind::RParen | TokenKind::RBracket => {
+                if depth == 1 {
+                    insert_pending_callable_record_field(
+                        tokens,
+                        &mut fields,
+                        pending_field.take(),
+                        pending_type_start.take(),
+                        index,
+                    );
+                }
+                depth = depth.saturating_sub(1);
+            }
+            TokenKind::Comma if depth == 1 => {
+                insert_pending_callable_record_field(
+                    tokens,
+                    &mut fields,
+                    pending_field.take(),
+                    pending_type_start.take(),
+                    index,
+                );
+            }
+            TokenKind::Ident if depth == 1 && pending_field.is_none() => {
+                pending_field = Some(token.text.clone());
+            }
+            TokenKind::Colon if depth == 1 && pending_field.is_some() => {
+                pending_type_start = Some(index + 1);
+            }
+            _ => {}
+        }
+    }
+    fields
+}
+
+fn insert_pending_callable_record_field(
+    tokens: &[Token],
+    fields: &mut BTreeSet<String>,
+    name: Option<String>,
+    type_start: Option<usize>,
+    end: usize,
+) {
+    let (Some(name), Some(type_start)) = (name, type_start) else {
+        return;
+    };
+    if type_range_is_callable(tokens, type_start, end) {
+        fields.insert(name);
+    }
 }
 
 fn let_binding_scope_start(tokens: &[Token], let_index: usize) -> usize {
@@ -3980,6 +4173,37 @@ mod tests {
         )];
 
         assert!(query(sources, "main.veln", 11, 4).is_none());
+    }
+
+    #[test]
+    fn callable_record_field_binding_shadows_constructor_call_navigation() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "type Token\n",
+                "  pack(Int)\n",
+                "end\n\n",
+                "fn direct(value: Int) -> Int\n",
+                "  value\n",
+                "end\n\n",
+                "fn parameter_field(record: {pack: fn(Int) -> Int}) -> Int\n",
+                "  let pack = record.pack\n",
+                "  pack(1)\n",
+                "end\n\n",
+                "fn local_field() -> Int\n",
+                "  let record: {pack: fn(Int) -> Int} = {pack: direct}\n",
+                "  let alias = record\n",
+                "  let pack = alias.pack\n",
+                "  pack(2)\n",
+                "end\n",
+            ),
+        )];
+
+        for (line, column) in [(11, 4), (18, 4)] {
+            let result = query(sources.clone(), "main.veln", line, column);
+
+            assert!(result.is_none(), "{result:#?}");
+        }
     }
 
     #[test]

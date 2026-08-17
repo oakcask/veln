@@ -296,7 +296,9 @@ that returns a function shadows a same-spelled constructor at a bare call site.
 Definition and references return no constructor location, and rename returns
 no constructor edit for the shadowed call. The focused
 `../../examples/specification/lsp/returned-callable-shadow-constructor-navigation/`
-case covers the returned-callable binding form.
+case covers the returned-callable binding form. The focused
+`../../examples/specification/lsp/callable-field-shadow-constructor-navigation/`
+case covers local bindings initialized from callable record fields.
 The executable LSP example
 `../../examples/specification/lsp/non-callable-shadow-constructor-navigation/`
 checks that a non-callable parameter, local binding, handler context parameter,

@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"2383755d5fca3b63eff6bb66beaf9856c25db799"
+source_git_tree	"e237a36656e1c7b3b3838f36e7f6be326c6d49ac"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1521
+case_count	1522
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -10002,6 +10002,25 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":422,"sha256":"5152e055874a433fe545366a571cccd284ab956fbadefa5f8700f102485c1a59"}
 field	source_errors	"expected"
 case_digest	"cec461edcd50b3f7f61aa87e5e2995015b759b414fd27d9f8e3e2429a0233c8c"
+case	"examples/specification/lsp/callable-field-shadow-constructor-navigation"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"definitionProvider\":true"
+field	expectations.stdout.contains[1]	"\"referencesProvider\":true"
+field	expectations.stdout.contains[2]	"\"renameProvider\":{\"prepareProvider\":true}"
+field	expectations.stdout.contains[3]	"\"id\":2,\"result\":null"
+field	expectations.stdout.contains[4]	"\"id\":3,\"result\":[]"
+field	expectations.stdout.contains[5]	"\"id\":4,\"result\":{\"changes\":{}}"
+field	expectations.stdout.contains[6]	"\"id\":5,\"result\":null"
+field	expectations.stdout.contains[7]	"\"id\":6,\"result\":[]"
+field	expectations.stdout.contains[8]	"\"id\":7,\"result\":{\"changes\":{}}"
+field	expectations.stdout.not_contains[0]	"\"range\":{\"start\":{\"line\":1,\"character\":2},\"end\":{\"line\":1,\"character\":6}}"
+field	expectations.stdout.not_contains[1]	"\"newText\":\"box\""
+field	invocation.command[0]	"lsp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1376,"sha256":"aa8d144f472a783b56626680ca8220b720d7847a68b9f4eb1b332a4c9ecd307e"}
+field	source_errors	"forbidden"
+case_digest	"dcf3c35f635a299d0b9776e0ac5e9d0ba422b5b11525b4488f1fcc50a8eaf6bb"
 case	"examples/specification/lsp/callable-shadow-constructor-navigation"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47902,4 +47921,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"8f95aece27f960050858f5c8da837b409b7af86b2ad6092f56753a158c7f3f4e"
+aggregate_digest	"56badc08bca4d9097a9118bd76cdec03817b6a386b96a9983280f8f1d10794a8"

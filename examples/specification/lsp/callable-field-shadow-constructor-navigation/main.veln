@@ -1,0 +1,19 @@
+type Token
+  pack(Int)
+end
+
+fn direct(value: Int) -> Int
+  value
+end
+
+pub fn parameter_field(record: {pack: fn(Int) -> Int}) -> Int
+  let pack = record.pack
+  pack(1)
+end
+
+pub fn local_field() -> Int
+  let record: {pack: fn(Int) -> Int} = {pack: direct}
+  let alias = record
+  let pack = alias.pack
+  pack(2)
+end
