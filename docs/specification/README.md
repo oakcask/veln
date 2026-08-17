@@ -38,7 +38,7 @@ tracked in `../proposals/`.
 - CLI behavior, diagnostics, run output, or test output:
   [topic-map.md#commands-and-output](topic-map.md#commands-and-output).
 - MCP workspace selection, tool schemas, refresh behavior, saved diagnostics,
-  and saved definitions:
+  saved definitions, and saved function references:
   [mcp.md](mcp.md).
 - Human diagnostic wording, related notes, spans, or stable diagnostic details:
   [diagnostics-json.md](diagnostics-json.md).
@@ -67,7 +67,8 @@ tracked in `../proposals/`.
   gates.
 - Runtime and examples: [execution.md](execution.md) and [examples.md](examples.md).
 - Editor support: [editor-support.md](editor-support.md).
-- MCP workspace project inventory, saved diagnostics, and saved definitions:
+- MCP workspace project inventory, saved diagnostics, saved definitions, and
+  saved function references:
   [mcp.md](mcp.md).
 - Rationale: [source-decisions.md](source-decisions.md).
 

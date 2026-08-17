@@ -169,3 +169,7 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
 - MCP saved workspace `definition` tool schema advertising, declaration
   location, no-definition, and invalid-position results:
   `../../examples/specification/mcp/definition-workspace/`.
+- MCP saved workspace `references` tool schema advertising, function reference
+  locations, empty unsupported-symbol results, scope metadata, and coordinate
+  rejection:
+  `../../examples/specification/mcp/function-references/`.
