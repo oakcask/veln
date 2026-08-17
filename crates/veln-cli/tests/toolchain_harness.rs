@@ -7425,6 +7425,50 @@ fn decoded_lsp_transport_failure_matrix_rejects_invalid_complete_streams() {
 }
 
 #[test]
+fn decoded_lsp_transport_preserves_header_and_body_failure_boundaries() {
+    for (stdout, expected) in [
+        (
+            "Content-Type: application/vscode-jsonrpc; charset=utf-8\r\n\r\n{}".to_string(),
+            "missing Content-Length header",
+        ),
+        (
+            "Content-Length: 2\r\nContent-Length: 2\r\n\r\n{}".to_string(),
+            "duplicate Content-Length header",
+        ),
+        (
+            "Content-Length: many\r\n\r\n{}".to_string(),
+            "invalid Content-Length `many`",
+        ),
+        (lsp_frame("[]"), "is not a JSON-RPC object"),
+        (
+            "Content-Length: 1\r\n\r\né".to_string(),
+            "frame body at byte offset 21 is not UTF-8",
+        ),
+    ] {
+        let error = decode_lsp_stdout(&stdout).expect_err("stream should fail decoding");
+        assert!(
+            error.contains(expected),
+            "expected `{expected}` in `{error}`"
+        );
+    }
+}
+
+#[test]
+fn decoded_lsp_duplicate_ids_are_rejected_only_for_responses() {
+    let requests = format!(
+        "{}{}",
+        lsp_frame(r#"{"jsonrpc":"2.0","id":1,"method":"first"}"#),
+        lsp_frame(r#"{"jsonrpc":"2.0","id":1,"method":"second"}"#),
+    );
+    assert_eq!(
+        decode_lsp_stdout(&requests)
+            .expect("request identifiers may repeat in decoded server output")
+            .len(),
+        2
+    );
+}
+
+#[test]
 fn decoded_lsp_array_pointer_boundary_matrix_distinguishes_missing_and_invalid() {
     let value = parse_json(r#"["first","last"]"#).expect("array should parse");
     for (token, expected) in [("0", "first"), ("1", "last")] {
@@ -9112,60 +9156,82 @@ fn decode_lsp_stdout(stdout: &str) -> Result<Vec<JsonValue>, String> {
     let mut offset = 0usize;
     let mut messages = Vec::new();
     while offset < bytes.len() {
-        let Some(header_end_relative) = find_bytes(&bytes[offset..], b"\r\n\r\n") else {
-            return if messages.is_empty() {
-                Err(format!(
-                    "malformed or partial framing at byte offset {offset}"
-                ))
-            } else {
-                Err(format!("trailing bytes at byte offset {offset}"))
-            };
+        let missing_delimiter_error = if messages.is_empty() {
+            "malformed or partial framing"
+        } else {
+            "trailing bytes"
         };
-        let header_end = offset + header_end_relative;
-        let header = std::str::from_utf8(&bytes[offset..header_end])
-            .map_err(|_| format!("malformed frame header at byte offset {offset}"))?;
-        let mut content_length = None;
-        for line in header.split("\r\n") {
-            if let Some(raw) = line.strip_prefix("Content-Length:") {
-                if content_length.is_some() {
-                    return Err(format!(
-                        "duplicate Content-Length header at byte offset {offset}"
-                    ));
-                }
-                let raw = raw.trim();
-                content_length = Some(raw.parse::<usize>().map_err(|_| {
-                    format!("invalid Content-Length `{raw}` at byte offset {offset}")
-                })?);
-            }
-        }
-        let content_length = content_length
-            .ok_or_else(|| format!("missing Content-Length header at byte offset {offset}"))?;
-        let body_start = header_end + 4;
-        let body_end = body_start
-            .checked_add(content_length)
-            .ok_or_else(|| format!("Content-Length overflow at byte offset {offset}"))?;
-        if body_end > bytes.len() {
-            return Err(format!(
-                "partial frame body at byte offset {body_start}: expected {content_length} bytes, found {}",
-                bytes.len() - body_start
-            ));
-        }
-        let body = std::str::from_utf8(&bytes[body_start..body_end])
-            .map_err(|_| format!("frame body at byte offset {body_start} is not UTF-8"))?;
-        let message = parse_json(body).map_err(|error| {
-            format!("frame body at byte offset {body_start} is invalid JSON: {error}")
-        })?;
-        if !matches!(message, JsonValue::Object(_)) {
-            return Err(format!(
-                "frame body at byte offset {body_start} is not a JSON-RPC object"
-            ));
-        }
+        let (message, next_offset) = decode_lsp_frame(bytes, offset, missing_delimiter_error)?;
         messages.push(message);
-        offset = body_end;
+        offset = next_offset;
     }
 
+    validate_unique_lsp_response_ids(&messages)?;
+    Ok(messages)
+}
+
+fn decode_lsp_frame(
+    bytes: &[u8],
+    offset: usize,
+    missing_delimiter_error: &str,
+) -> Result<(JsonValue, usize), String> {
+    let (body_start, content_length) = decode_lsp_header(bytes, offset, missing_delimiter_error)?;
+    let body_end = body_start
+        .checked_add(content_length)
+        .ok_or_else(|| format!("Content-Length overflow at byte offset {offset}"))?;
+    if body_end > bytes.len() {
+        return Err(format!(
+            "partial frame body at byte offset {body_start}: expected {content_length} bytes, found {}",
+            bytes.len() - body_start
+        ));
+    }
+    let body = std::str::from_utf8(&bytes[body_start..body_end])
+        .map_err(|_| format!("frame body at byte offset {body_start} is not UTF-8"))?;
+    let message = parse_json(body).map_err(|error| {
+        format!("frame body at byte offset {body_start} is invalid JSON: {error}")
+    })?;
+    if !matches!(message, JsonValue::Object(_)) {
+        return Err(format!(
+            "frame body at byte offset {body_start} is not a JSON-RPC object"
+        ));
+    }
+    Ok((message, body_end))
+}
+
+fn decode_lsp_header(
+    bytes: &[u8],
+    offset: usize,
+    missing_delimiter_error: &str,
+) -> Result<(usize, usize), String> {
+    let Some(header_end_relative) = find_bytes(&bytes[offset..], b"\r\n\r\n") else {
+        return Err(format!("{missing_delimiter_error} at byte offset {offset}"));
+    };
+    let header_end = offset + header_end_relative;
+    let header = std::str::from_utf8(&bytes[offset..header_end])
+        .map_err(|_| format!("malformed frame header at byte offset {offset}"))?;
+    let mut content_length = None;
+    for line in header.split("\r\n") {
+        if let Some(raw) = line.strip_prefix("Content-Length:") {
+            if content_length.is_some() {
+                return Err(format!(
+                    "duplicate Content-Length header at byte offset {offset}"
+                ));
+            }
+            let raw = raw.trim();
+            content_length =
+                Some(raw.parse::<usize>().map_err(|_| {
+                    format!("invalid Content-Length `{raw}` at byte offset {offset}")
+                })?);
+        }
+    }
+    let content_length = content_length
+        .ok_or_else(|| format!("missing Content-Length header at byte offset {offset}"))?;
+    Ok((header_end + 4, content_length))
+}
+
+fn validate_unique_lsp_response_ids(messages: &[JsonValue]) -> Result<(), String> {
     let mut response_ids = Vec::<&JsonValue>::new();
-    for message in &messages {
+    for message in messages {
         if is_lsp_response(message) {
             let id = message
                 .object_field("id")
@@ -9179,7 +9245,7 @@ fn decode_lsp_stdout(stdout: &str) -> Result<Vec<JsonValue>, String> {
             response_ids.push(id);
         }
     }
-    Ok(messages)
+    Ok(())
 }
 
 fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
