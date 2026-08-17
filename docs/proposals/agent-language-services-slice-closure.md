@@ -1,16 +1,16 @@
 ---
 role: proposal
-update-when: The agent-language-services proposal lifecycle, MCP JSONL assertion contract, shared-capture evidence boundary, or saved-reference slice status changes.
+update-when: The agent-language-services lifecycle-migration prerequisite, MCP JSONL assertion contract, executable definition-fixture response set, shared-capture evidence boundary, or saved-reference slice status changes.
 ---
 
 # Agent Language Services Slice Closure
 
 ## Summary
 
-Establish one finite completion boundary for agent-language-service slices
-before retrying saved workspace function references. Separate implemented
-history from the active proposal, add response-local MCP JSONL assertions, and
-state when shared invariant evidence can be composed with adapter evidence.
+Establish the executable-evidence boundary for agent-language-service slices
+before retrying saved workspace function references. After a separate,
+lossless lifecycle migration completes, add response-local MCP JSONL assertions
+and state when shared invariant evidence can be composed with adapter evidence.
 
 The saved-reference adapter is not implemented by this proposal. A later
 target may reintroduce that bounded slice only after this proposal's closure
@@ -18,11 +18,12 @@ gate passes.
 
 ## Problem
 
-The active agent-language-services proposal currently serves two roles. It is
-both the plan for unresolved capabilities and a ledger of implemented slices.
-Each completed slice therefore adds more current-status prose and implemented
-acceptance rows to an active proposal. Removing only the newest target does not
-leave the proposal with only unimplemented work.
+The active agent-language-services proposal currently serves two roles. Its
+lifecycle migration has a separate finite proposal because the closed
+capability matrices, Q01 through Q22 gate, and unresolved acceptance rows must
+not disappear while implemented history moves. Combining that migration with
+harness work makes a lost requirement difficult to distinguish from an
+intentional lifecycle edit.
 
 MCP stdio cases also need to assert results that contain workspace-specific
 canonical `file:` URIs. Exact stream fixtures cannot name the temporary
@@ -40,10 +41,8 @@ described as source-mutation evidence.
 
 ## Goals
 
-- Keep `docs/proposals/agent-language-services.md` limited to unresolved
-  requirements, dependencies, non-goals, and a finite completion gate.
-- Preserve useful implemented history in one supporting implementation record
-  without making that record authority for current behavior.
+- Require the lossless agent-language-services lifecycle migration to complete
+  before changing the MCP harness or executable cases.
 - Let executable MCP cases select one JSONL response and assert nested values,
   array order and length, missing values, and canonical workspace `file:` URIs.
 - Define a compositional evidence rule for shared capture invariants and
@@ -60,30 +59,16 @@ described as source-mutation evidence.
 - Requiring every adapter to duplicate the same filesystem race harness.
 - Treating implementation records or active proposals as current behavior.
 - Adding a general JSON query language to the toolchain case format.
+- Reorganizing the umbrella agent-language-services proposal in the same PR as
+  the harness and executable-evidence changes.
 
-## Lifecycle Boundary
+## Lifecycle Prerequisite
 
-The agent-language-services proposal must be split by lifecycle, not by copying
-the complete page into two active documents.
-
-| Content class | Required destination |
-| --- | --- |
-| Current observable behavior | The matching page under `docs/specification/` and checked examples. |
-| Completed slice rationale and evidence routes that remain useful | One supporting record under `docs/reference/implemented-proposals/`. |
-| Unresolved externally observable requirements and acceptance rows | `docs/proposals/agent-language-services.md`. |
-| Rejected, superseded, or obsolete plan text | Remove it, preserving rationale under `docs/reference/` only when it remains useful. |
-
-The active proposal may link to a current specification to state a prerequisite
-or an exclusion. It must not retain an implementation-status inventory,
-implemented acceptance rows, or a chronological slice ledger. The supporting
-record must state that current behavior is defined by specification and
-executable evidence, not by the record.
-
-After the split, every acceptance row in the active proposal names planned
-evidence. The existing closed capability matrices and enumerated completion
-gate remain the stopping condition. Adding a new capability requires a new
-proposal or an explicit revision of that finite gate; completing a slice does
-not append another implemented row to the active proposal.
+Complete [Agent Language Services Lifecycle Migration](agent-language-services-lifecycle-migration.md)
+in a documentation-only PR before selecting this proposal's harness work. That
+migration preserves the closed capability matrices, Q01 through Q22 gate, and
+unresolved acceptance rows through an enumerated ledger. This proposal does
+not repeat or weaken that gate.
 
 ## MCP JSONL Assertion Contract
 
@@ -105,11 +90,35 @@ reject malformed JSON and non-object lines. Each assertion then requires
 exactly one response with its selected ID. Harness unit tests must cover string
 and integer IDs, missing and duplicate selected IDs, unrelated IDs, escaped
 JSON Pointer segments, reordered object members, ordered arrays, array length,
-missing values, dynamic workspace URIs, and every rejection row above.
+missing values, dynamic workspace URIs, and every rejection row above. The
+ordered-array test uses at least two distinguishable values and proves that the
+reversed expectation fails.
 
 Stream-wide `contains` and `not_contains` remain available for incidental text
 or discovery checks. They are not sufficient evidence for response-local MCP
 locations, order, cardinality, or failure payloads.
+
+## Executable Definition Evidence
+
+Convert the `definition-workspace` case without reducing its coordinate and
+failure coverage. Response-local assertions must observe every definition call
+in its checked input:
+
+| Response | Required observation |
+| --- | --- |
+| ID 3 | Canonical workspace URI, exact range, singleton content cardinality and indexed content type, `isError: false`, and absent protocol error. |
+| ID 4 | Successful no-definition result and absent protocol error. |
+| ID 5 | `invalid_position`, `isError: true`, and absent success-only definition. |
+| IDs 6 and 7 | Integral decimal and exponent coordinates return the same canonical URI and exact range as ID 3. |
+| IDs 8 and 10 | Oversized positive coordinates return `invalid_position` with `isError: true`. |
+| IDs 9 and 11 | Non-integer coordinates return protocol invalid params and have no result. |
+
+The singleton content assertion proves the definition result's actual
+cardinality and index. It does not claim to prove a multi-location ordering
+contract. Generic JSON array order belongs to the two-or-more-element harness
+unit test because this executable definition result has only one location.
+Raw stream assertions may remain for initialization and tool discovery text.
+They must not replace any response observation in the table.
 
 ## Shared Capture Evidence
 
@@ -132,21 +141,22 @@ and atomic-publication test.
 
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |
-| Split the umbrella proposal. | The active page contains only unresolved work; useful completed history is in one supporting implementation record; current behavior routes to specification and executable examples. | Documentation lifecycle review, frontmatter validation, link validation, and a stale implemented-row search. |
-| Assert an ordered MCP result with a dynamic workspace URI. | One response ID has the expected array length; each index has the expected range and a URI equal to the canonical URI for its case-relative file. Together these indexed assertions prove order, cardinality, and complete location content without literal dynamic-URI array equality. | Toolchain-harness unit case and one MCP executable fixture using the new assertion surface. |
+| Satisfy the lifecycle prerequisite. | The separate lifecycle-migration proposal is complete and no undefined future matrix replaces a preserved finite input. | Completed proposal record and its checked migration ledger. |
+| Preserve generic JSON array order. | Equality accepts the expected two-or-more-element order and rejects the reversed order; exact length remains independently assertable. | Focused toolchain-harness unit cases. |
+| Convert the executable definition case. | IDs 3 through 11 have every response-local observation in the executable definition evidence table, while raw checks remain only for incidental initialization and discovery text. | One MCP executable fixture using the new assertion surface and the checked semantic baseline. |
 | Select malformed, missing, or duplicate JSONL responses. | The harness rejects each case with an actionable assertion failure. | Table-driven harness rejection tests. |
 | Reuse the shared capture boundary from an adapter. | Shared mutation evidence and adapter mapping evidence jointly prove `snapshot_changed` with no partial success fields. | Shared capture test plus focused adapter result test, recorded together in the slice evidence map. |
 | Publish the implemented harness contract. | The normative harness reference defines JSONL selection, equality, length, absence, and workspace-file URI assertions and points to the checked unit and semantic-baseline evidence. | Update `docs/reference/toolchain-test-harness.md`, harness tests, one executable case, and the checked semantic baseline. |
-| Complete this proposal. | Harness support, lifecycle split, capture-evidence rule, normative harness reference, and checked evidence are complete; no requirement in this page remains planned. | Final proposal audit, then move this page to implemented proposal records and remove its catalog entry. |
+| Complete this proposal. | Harness support, definition-response coverage, capture-evidence rule, normative harness reference, and checked evidence are complete; no requirement in this page remains planned. | Final proposal audit, then move this page to implemented proposal records and remove its catalog entry. |
 
 ## Implementation Order
 
-1. Add and test the MCP JSONL assertion surface.
-2. Move implemented agent-language-service history to a supporting record and
-   reduce the active proposal to its unimplemented remainder.
-3. Document the shared-capture evidence composition in the active proposal's
+1. Complete the documentation-only lifecycle-migration proposal.
+2. Add and test the MCP JSONL assertion surface.
+3. Convert every required definition response to response-local evidence.
+4. Document the shared-capture evidence composition in the active proposal's
    acceptance map.
-4. Update `docs/reference/toolchain-test-harness.md`, one executable JSONL
+5. Update `docs/reference/toolchain-test-harness.md`, one executable JSONL
    case, and the semantic baseline with the implemented assertion contract.
-5. Complete the proposal lifecycle audit. A later proposal selection may then
+6. Complete the proposal lifecycle audit. A later proposal selection may then
    issue a new bounded saved-reference target.

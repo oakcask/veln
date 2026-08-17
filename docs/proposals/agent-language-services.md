@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The `veln mcp` tool schemas, navigation acceptance cases, slice-closure evidence gate, virtual-location contract, published-reference inputs, client-plugin boundary, or implementation status changes.
+update-when: The `veln mcp` tool schemas, navigation acceptance cases, lifecycle-migration or slice-closure evidence gate, virtual-location contract, published-reference inputs, client-plugin boundary, or implementation status changes.
 ---
 
 # Agent Language Services
@@ -47,13 +47,15 @@ and selected target for accepted sources.
 ### Slice-Closure Prerequisite
 
 Before implementing the next MCP navigation slice, complete
-[Agent Language Services Slice Closure](agent-language-services-slice-closure.md).
-That prerequisite separates this active plan from its implemented history,
-adds response-local assertions for MCP JSONL output with dynamic canonical
-locations, and closes the evidence rule for shared capture invariants. Reissue
-the saved workspace function-reference target only after that gate passes. The
-next-slice boundary below remains planning input and is not selectable work
-until the prerequisite is complete.
+[Agent Language Services Lifecycle Migration](agent-language-services-lifecycle-migration.md),
+then [Agent Language Services Slice Closure](agent-language-services-slice-closure.md).
+The first prerequisite separates this active plan from implemented history
+without dropping its closed matrices, Q01 through Q22 gate, or unresolved
+acceptance rows. The second adds response-local assertions for MCP JSONL output
+with dynamic canonical locations and closes the evidence rule for shared
+capture invariants. Reissue the saved workspace function-reference target only
+after both gates pass. The next-slice boundary below remains planning input and
+is not selectable work until both prerequisites are complete.
 
 ### Next Slice: Saved Workspace Function References
 
