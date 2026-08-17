@@ -160,10 +160,10 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
 ## Agent Protocol Routes
 
 - LSP navigation for imported constructor definition, current-module and
-  workspace/dependency constructor ambiguity, callable and returned-callable
-  shadowing of same-spelled constructor calls, handler operation callable
-  effect identity, workspace function references, and package virtual
-  documents:
+  workspace/dependency constructor ambiguity, callable, returned-callable, and
+  record-field-derived callable shadowing of same-spelled constructor calls,
+  handler operation callable effect identity, workspace function references,
+  and package virtual documents:
   `../../examples/specification/lsp/`.
 - MCP stdio lifecycle, workspace-project inventory, tool schemas, refresh,
   initialization phase boundaries, request metadata, and JSON-RPC framing:

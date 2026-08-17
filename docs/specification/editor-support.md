@@ -166,8 +166,9 @@ isolation, constructor definition priority when functions share the same
 spelling, bare constructor ambiguity that blocks imported constructor
 definition, same-identity function references when constructors share the same
 spelling, callable bindings that shadow same-spelled constructor calls,
-bindings initialized from parenthesized callable values or calls that return
-functions and shadow same-spelled constructor calls, non-callable parameter,
+bindings initialized from parenthesized callable values, callable record
+fields, or calls that return functions and shadow same-spelled constructor
+calls, non-callable parameter,
 local, handler context, and handler operation clause bindings that leave
 same-spelled constructor calls selectable, dependency constructor package
 locations keyed by source origin, workspace and dependency constructor import
@@ -464,8 +465,8 @@ Implemented:
   handler context parameters selected from operation clause bodies.
 - Stdio definition, references, and rename rejection for bare constructor calls
   shadowed by same-spelled callable parameters, local bindings, or local
-  bindings initialized from parenthesized callable values or calls that return
-  functions.
+  bindings initialized from parenthesized callable values, callable record
+  fields, or calls that return functions.
 - Stdio definition, references, and rename responses for bare constructor calls
   with same-spelled non-callable parameters, local bindings, handler context
   parameters, handler operation clause parameters, or record-typed bindings
