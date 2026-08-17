@@ -179,8 +179,9 @@ collisions that leave same-spelled constructor calls ambiguous, dense
 same-spelled and re-exported constructor lookup growth, exclusion of
 same-spelled local type annotations from function references, record types
 with callable fields as non-callable for constructor shadowing, handler
-operation clause parameter callability from the handled effect identity, and
-positions without a supported symbol.
+operation clause parameter callability from the handled effect identity,
+function-typed constructor payload pattern bindings that shadow same-spelled
+constructor calls, and positions without a supported symbol.
 
 `veln-lsp` captures the workspace manifest, saved workspace sources, valid
 direct path, vendor, mirror, and locally available direct git dependency
@@ -480,8 +481,8 @@ Implemented:
   shadowed by same-spelled callable parameters, local bindings, or local
   bindings initialized from parenthesized callable values, callable record
   fields, fields of records returned by calls, calls that return functions, or
-  qualified workspace function values, or `match` expressions whose arms
-  return function values.
+  qualified workspace function values, `match` expressions whose arms return
+  function values, or function-typed constructor payload pattern bindings.
 - Stdio definition, references, and rename responses for bare constructor calls
   with same-spelled non-callable parameters, local bindings, handler context
   parameters, handler operation clause parameters, or record-typed bindings

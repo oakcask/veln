@@ -341,6 +341,8 @@ The closed v1 navigation matrix contains:
 Definition and reference results follow existing visibility and shadowing
 rules. A same-spelled field, local binding, declaration, local type annotation,
 comment, or string is not a reference unless it resolves to the selected symbol.
+Function-typed constructor payload pattern bindings participate in the same
+callable-shadowing rule as local function-typed bindings.
 Private dependency declarations do not become navigable merely because their
 source snapshot is loaded. A dependency must be initialized as a separate
 workspace project to provide editor operations over its private declarations.
@@ -931,6 +933,7 @@ cell explicitly cites implemented specification or executable evidence.
 | Analyze a saved project with errors. | `check_project` returns structured Veln diagnostics without transport failure, including compiler-owned related notes that do not carry spans. | Implemented MCP diagnostic fixture and `veln-mcp` structured diagnostic tests. |
 | Resolve a workspace declaration. | `definition` returns a `file:` location with MCP coordinates. | Implemented language-service symbol cases, table-driven MCP cases, and MCP stdio definition case for the bounded workspace symbol set. |
 | Resolve workspace function references with shadowing, same-spelled fields, and same-spelled local type annotations. | Only references with the selected symbol identity are returned in deterministic order. | Implemented MCP `references-workspace` executable case and table-driven symbol cases for the bounded workspace symbol set. |
+| Resolve callable constructor payload pattern bindings that shadow same-spelled constructor calls. | Definition and reference requests at the shadowed call return no workspace constructor result. | Implemented shared language-service tests, LSP executable evidence, and MCP table-driven navigation evidence for the bounded workspace symbol set. |
 | Search references to a dependency symbol from one selected project. | Consumer uses and the optional exported declaration are returned; other projects and dependency-internal uses are excluded, and the scope is explicit. | Q08 reference-universe cases. |
 | Continue a paged reference result. | The request contains only its single-use cursor and concatenated pages have no gaps or duplicates. | Q09 cursor state-machine cases. |
 | Use a tampered, cross-server, restarted, evicted, or pre-refresh cursor. | The server returns the specified `invalid_cursor` or `stale_snapshot` domain error without reinterpreting inputs. | Q09 cursor rejection cases. |

@@ -163,9 +163,9 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   workspace/dependency constructor ambiguity, constructor-initializer identity,
   callable, returned-callable, record-field-derived, `match`-initialized, and
   `if`-initialized callable shadowing of same-spelled constructor calls,
-  including fields read from records returned by calls, handler operation
-  callable effect identity, workspace function references, and package virtual
-  documents:
+  including fields read from records returned by calls and function-typed
+  constructor payload pattern bindings, handler operation callable effect
+  identity, workspace function references, and package virtual documents:
   `../../examples/specification/lsp/`.
 - MCP stdio lifecycle, workspace-project inventory, tool schemas, refresh,
   initialization phase boundaries, request metadata, and JSON-RPC framing:
@@ -184,5 +184,5 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/mcp/references-workspace/`.
 - MCP saved workspace navigation identity across direct dependencies and
   callable constructor shadowing, including fields read from records returned
-  by calls:
+  by calls and function-typed constructor payload pattern bindings:
   `../../examples/specification/mcp/navigation-dependency-identity/`.
