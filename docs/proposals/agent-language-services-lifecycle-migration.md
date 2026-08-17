@@ -12,6 +12,14 @@ without replacing finite acceptance sets with summaries or future matrices.
 This documentation-only migration is a prerequisite for the MCP JSONL
 assertion target. It does not change toolchain behavior or executable cases.
 
+## Selection State
+
+This proposal is ready. Select only the frozen-source-inventory PR first. That
+PR must add the inventory, migration-ledger schema, validator, and rejection
+tests without reorganizing the umbrella proposal. Select the migration PR only
+after the frozen inventory has merged. Neither target may change the MCP
+harness, executable MCP fixtures, or semantic baselines.
+
 ## Problem
 
 The active agent-language-services proposal mixes implemented history with

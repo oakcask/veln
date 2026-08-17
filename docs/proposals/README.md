@@ -16,27 +16,44 @@ also states it.
 - Completed proposal history:
   [Implemented Proposal Records](../reference/implemented-proposals/README.md).
 
-## Catalog
+## Ready
 
 - Identifier casing that separates type and constructor names from module,
   function, and value-binding names:
   [identifier-casing.md](identifier-casing.md).
-- Lossless lifecycle migration for the agent-language-services proposal:
+- Lossless lifecycle migration for the agent-language-services proposal. Select
+  its frozen-source-inventory PR before its migration PR:
   [agent-language-services-lifecycle-migration.md](agent-language-services-lifecycle-migration.md).
-- Finite lifecycle and executable-evidence gates for agent language service
-  slices:
+
+Only proposals and subsections listed in this section are selectable targets.
+
+## Blocked
+
+- The agent-language-services slice-closure proposal is blocked until the
+  lifecycle-migration proposal leaves this directory as a completed
+  implementation record:
   [agent-language-services-slice-closure.md](agent-language-services-slice-closure.md).
-- Agent language services through MCP, package documentation, generated public
-  reference, cross-adapter conformance, and client plugins:
+- The agent-language-services umbrella is a planning inventory. Its next saved
+  workspace function-reference slice is blocked by identifier casing and slice
+  closure. Move another independently ready bounded slice into the Ready
+  section before selecting it:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule
 
 Before implementing a proposal slice, compare it with the matching
-specification page and executable cases. Do not select work that is already
-covered there or only extends a numbered, width-based, arity-based, route-count,
-or diagnostic-id sequence. Such work needs a concrete new capability and a
-bounded stopping condition.
+specification page and executable cases. Select only a proposal or subsection
+listed under Ready. A named prerequisite that still lives in this directory is
+incomplete, so do not issue or implement a target for its dependent proposal.
+Move the dependent proposal to Ready only after the prerequisite leaves this
+directory and its completed implementation record is linked. If Ready contains
+no suitable bounded slice, report that there is no target instead of selecting
+work from Blocked.
+
+Do not select work that is already covered by the current specification or
+only extends a numbered, width-based, arity-based, route-count, or diagnostic-id
+sequence. Such work needs a concrete new capability and a bounded stopping
+condition.
 
 ## Proposal Shape
 
