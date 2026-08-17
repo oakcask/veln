@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The MCP acceptance model, language-service scope, virtual-location contract, reference inputs, plugin boundary, or implementation status changes.
+update-when: The `veln mcp` tool schemas, navigation acceptance cases, virtual-location contract, published-reference inputs, client-plugin boundary, or implementation status changes.
 ---
 
 # Agent Language Services
@@ -32,6 +32,58 @@ The remaining first-capability work includes:
 - exported package and standard-library documentation;
 - virtual source locations for dependencies and the standard library; and
 - plugin packaging for Codex and Claude Code.
+
+### Language-Semantics Prerequisite
+
+The full navigation matrix depends on casing rules that separate type and
+constructor names from module, function, and value-binding names. That language
+change is tracked separately in [Identifier Casing](identifier-casing.md).
+
+Do not add callable-versus-constructor precedence in an MCP adapter. Sources
+that violate the casing rules must be rejected by the shared language
+semantics. Navigation, lowering, LSP, and MCP must consume the same name class
+and selected target for accepted sources.
+
+### Next Slice: Saved Workspace Function References
+
+The next navigation slice exposes the shared language service's current
+workspace-function reference results through `veln mcp`. This is an
+intermediate slice of the eventual v1 `references` contract below. It is not a
+request to complete the closed v1 navigation matrix.
+
+The slice has this boundary:
+
+| Included | Excluded |
+| --- | --- |
+| A checked `references` input with `source`, `line`, and `column`. | `include_declaration`, page size, continuation cursors, and retained cursor state. |
+| Selected-project and anonymous single-file capture using the existing navigation selection rules. | Dependency and standard-library reference search or virtual locations. |
+| Canonical `file:` locations for the current shared language service's project-owned function reference sites, in deterministic order. | New symbol kinds or broader definition coverage. |
+| Explicit project or single-file scope metadata, including whether the result is project-wide. | Changes to language name resolution, callable classification, lowering, LSP behavior, or the shared navigation symbol set. |
+| Empty success for a valid position with no supported function reference search. | Exhaustive enumeration of expression forms that can produce, store, or shadow callable values. |
+| Existing path, coordinate, schema, and stable-capture failure behavior. | Pagination, resource lifetime, documentation tools, and plugin work. |
+
+The current language-service result is an input to this adapter slice, not an
+open-ended acceptance target. If implementation exposes an independently
+reproducible defect in language resolution or existing LSP navigation, record
+that defect as separate work. Do not expand this slice to repair it unless it
+prevents one of the acceptance rows below from passing.
+
+| Case | Expected result | Planned evidence |
+| --- | --- | --- |
+| Request references at a project-owned function call in a selected project. | Return only that function's project-owned reference sites as sorted canonical `file:` locations, plus project scope metadata. | One MCP stdio specification case with a declaration, a recursive call, an ordinary call, and an unrelated ambiguous constructor call. |
+| Request references at the unrelated ambiguous constructor call in that case. | Return an empty reference list because constructor reference search is outside this slice. | The same MCP stdio specification case. |
+| Request references for an accepted source outside a selected project's owned-source set. | Analyze only that source and report single-file scope with `project_wide: false`. | One table-driven descendant-boundary or anonymous-source case. |
+| Supply an invalid position or a schema-invalid coordinate. | Return `invalid_position` for an unaddressable positive coordinate and protocol invalid params for a non-integer coordinate. | The MCP stdio specification case and schema tests. |
+| Replace a captured source identity or bytes during the operation. | Return `snapshot_changed` without partial reference locations. | Existing navigation stable-capture harness extended to the `references` adapter. |
+| List MCP tools after initialization. | Advertise the checked `references` input and result schemas. | The existing workspace-lifecycle tool-list case. |
+
+This slice is complete when these six rows pass and its implemented contract is
+promoted to the MCP specification and executable-example routes. A newly
+discovered constructor-versus-value naming collision belongs to
+[Identifier Casing](identifier-casing.md) and does not keep this slice open. A
+new callable-producing expression, shadowing form, or LSP navigation edge case
+also does not keep this slice open. The broader v1 rows remain planned work and
+must be selected as separate bounded slices.
 
 Language semantics belong to an editor- and agent-neutral language service.
 `veln lsp` and `veln mcp` adapt that service to different session and transport
@@ -332,12 +384,16 @@ The closed v1 navigation matrix contains:
 - visible declarations in direct dependency exports; and
 - visible standard-library declarations.
 
-Definition and reference results follow existing visibility and shadowing
-rules. A same-spelled field, local binding, declaration, comment, or string is
-not a reference unless it resolves to the selected symbol. Private dependency
-declarations do not become navigable merely because their source snapshot is
-loaded. A dependency must be initialized as a separate workspace project to
-provide editor operations over its private declarations.
+The completed v1 capability follows the implemented visibility and shadowing
+rules specified under
+[LSP Navigation, Formatting, And Rename](../specification/editor-support.md#lsp-navigation-formatting-and-rename).
+A same-spelled field, local binding, declaration, comment, or string is not a
+reference unless it resolves to the selected symbol. This final-capability rule
+does not widen an intermediate slice beyond its explicit symbol and case
+matrix. Private dependency declarations do not become navigable merely because
+their source snapshot is loaded. A dependency must be initialized as a
+separate workspace project to provide editor operations over its private
+declarations.
 
 MCP definition and references use saved files. LSP definition and references
 apply the current open-document overlays before calling the same semantic
@@ -924,7 +980,7 @@ that the behavior is already implemented.
 | --- | --- | --- |
 | Analyze a saved project with errors. | `check_project` returns structured Veln diagnostics without transport failure, including compiler-owned related notes that do not carry spans. | Implemented MCP diagnostic fixture and `veln-mcp` structured diagnostic tests. |
 | Resolve a workspace declaration. | `definition` returns a `file:` location with MCP coordinates. | Implemented language-service symbol cases, table-driven MCP cases, and MCP stdio definition case for the bounded workspace symbol set. |
-| Resolve project references with shadowing and same-spelled fields. | Only references with the selected symbol identity are returned in deterministic order. | Table-driven symbol cases. |
+| Resolve references for every symbol in the closed v1 navigation matrix, including shadowing and same-spelled fields. | Only references with the selected symbol identity are returned in deterministic order. | Planned table-driven cases covering each matrix symbol kind and its declared collision boundary; the bounded saved-workspace function slice above is only the first subset. |
 | Search references to a dependency symbol from one selected project. | Consumer uses and the optional exported declaration are returned; other projects and dependency-internal uses are excluded, and the scope is explicit. | Q08 reference-universe cases. |
 | Continue a paged reference result. | The request contains only its single-use cursor and concatenated pages have no gaps or duplicates. | Q09 cursor state-machine cases. |
 | Use a tampered, cross-server, restarted, evicted, or pre-refresh cursor. | The server returns the specified `invalid_cursor` or `stale_snapshot` domain error without reinterpreting inputs. | Q09 cursor rejection cases. |
@@ -1015,13 +1071,15 @@ returns `file:` locations for functions, type constructors, handler context
 parameters, handler operation clause parameters, and exact test-companion
 access to private target functions. Dependency and standard-library locations,
 the proposal's additional symbol kinds, and all MCP references remain planned.
-The remaining slices are:
+The bounded saved-workspace function-reference slice is defined under
+[Next Slice: Saved Workspace Function References](#next-slice-saved-workspace-function-references).
+The subsequent slices are:
 
 1. Define and validate language-reference topic descriptors. Generate the
    executable grammar, selected example, and compiler-owned table projections.
 2. Extend the existing `veln mcp` server with resources, documentation tools,
-   references, and definition beyond the implemented workspace-only symbol
-   inventory.
+   dependency reference search, paginated references, and definition beyond
+   the implemented workspace-only symbol inventory.
 3. Add cross-adapter conformance cases, bounded search, pagination, and stale
    snapshot handling.
 4. Package and validate Codex and Claude Code plugins and document their
