@@ -16,9 +16,10 @@ compiler-known calls.
   [names-effects-full.md](names-effects-full.md#name-resolution).
   The checked `callable-binding-shadows-constructor` case fixes bare callable
   binding precedence over same-spelled ADT constructors, including callable
-  bindings taken from record fields and from fields of records returned by
-  calls. Non-callable local bindings, including records with callable fields,
-  do not block same-spelled constructor calls.
+  bindings initialized from qualified workspace function values, taken from
+  record fields, and taken from fields of records returned by calls.
+  Non-callable local bindings, including records with callable fields, do not
+  block same-spelled constructor calls.
 - Declaration effect spelling, effect-row substitution, host effect labels,
   nominal operation effects, lexical handlers, and effect inference:
   [names-effects-full.md](names-effects-full.md#effect-labels) and

@@ -168,8 +168,10 @@ definition, same-identity function references when constructors share the same
 spelling, callable bindings that shadow same-spelled constructor calls,
 bindings initialized from parenthesized callable values, callable record
 fields, fields of records returned by calls, or calls that return functions
-and shadow same-spelled constructor calls, non-callable parameter,
-local, handler context, and handler operation clause bindings that leave
+and shadow same-spelled constructor calls, qualified workspace function values
+that initialize callable bindings which shadow same-spelled constructor calls,
+non-callable parameter, local, handler context, and handler operation clause
+bindings that leave
 same-spelled constructor calls selectable, dependency constructor package
 locations keyed by source origin, workspace and dependency constructor import
 collisions that leave same-spelled constructor calls ambiguous, dense
@@ -470,7 +472,8 @@ Implemented:
   shadowed by same-spelled callable parameters, local bindings, or local
   bindings initialized from parenthesized callable values, callable record
   fields, fields of records returned by calls, calls that return functions, or
-  `match` expressions whose arms return function values.
+  qualified workspace function values, or `match` expressions whose arms
+  return function values.
 - Stdio definition, references, and rename responses for bare constructor calls
   with same-spelled non-callable parameters, local bindings, handler context
   parameters, handler operation clause parameters, or record-typed bindings

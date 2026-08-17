@@ -199,7 +199,8 @@ that parameter, local, parenthesized, record-field-derived, and
 returned-record-field-derived callable bindings can shadow same-spelled
 constructors for MCP navigation. The saved navigation implementation uses the
 same callable-binding shadowing selector as LSP navigation, including
-`match`-initialized local bindings whose arms return function values.
+qualified workspace function values and `match`-initialized local bindings
+whose arms return function values.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous
