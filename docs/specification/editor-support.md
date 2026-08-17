@@ -169,7 +169,8 @@ spelling, callable bindings that shadow same-spelled constructor calls,
 bindings initialized from parenthesized callable values, callable record
 fields, fields of records returned by calls, or calls that return functions
 when those initializer calls resolve to the function identity, qualified
-workspace function values, and `if` expressions that initialize callable
+workspace function values, perform expressions whose selected operation
+returns a function value, and `if` expressions that initialize callable
 bindings which shadow same-spelled constructor calls,
 non-callable parameter, local, handler context, and handler operation clause
 bindings that leave
@@ -308,6 +309,10 @@ case covers the returned-callable binding form. The focused
 `../../examples/specification/lsp/callable-field-shadow-constructor-navigation/`
 case covers local bindings initialized from callable record fields, including
 fields read from records returned by calls.
+The focused
+`../../examples/specification/lsp/performed-callable-shadow-constructor-navigation/`
+case covers local bindings initialized from `perform Effect::operation()`
+when the selected operation returns a function value.
 The focused
 `../../examples/specification/lsp/constructor-initializer-call-identity/`
 case checks that a local binding initialized from a same-spelled constructor
@@ -483,7 +488,8 @@ Implemented:
   shadowed by same-spelled callable parameters, local bindings, or local
   bindings initialized from parenthesized callable values, callable record
   fields, fields of records returned by calls, calls that return functions, or
-  qualified workspace function values, `match` expressions whose arms return
+  qualified workspace function values, perform expressions whose selected
+  operation returns a function value, `match` expressions whose arms return
   function values, or function-typed constructor payload pattern bindings.
 - Stdio definition, references, and rename responses for bare constructor calls
   with same-spelled non-callable parameters, local bindings, handler context

@@ -17,8 +17,9 @@ compiler-known calls.
   The checked `callable-binding-shadows-constructor` case fixes bare callable
   binding precedence over same-spelled ADT constructors, including callable
   bindings initialized from qualified workspace function values, taken from
-  record fields, taken from fields of records returned by calls, and bound
-  from function-typed constructor payload patterns.
+  record fields, taken from fields of records returned by calls, taken from
+  `perform Effect::operation()` when the selected operation returns a function
+  value, and bound from function-typed constructor payload patterns.
   Non-callable local bindings, including records with callable fields, do not
   block same-spelled constructor calls.
 - Declaration effect spelling, effect-row substitution, host effect labels,

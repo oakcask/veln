@@ -48,7 +48,9 @@ considering a same-spelled ADT constructor. The binding is callable for this
 precedence only when its type is a function type. A `let` binding initialized
 from a callable record field is callable for this precedence, including when
 the record value came from a call that returns a record with that callable
-field. A pattern binding from a function-typed ADT constructor payload is also
+field. A `let` binding initialized from `perform Effect::operation()` is
+callable for this precedence when the selected operation returns a function
+value. A pattern binding from a function-typed ADT constructor payload is also
 callable for this precedence. A record type that contains a callable field is
 still a non-callable binding. A non-callable local binding with the same
 spelling does not block a visible ADT constructor call. The standard prelude
