@@ -12579,6 +12579,71 @@ fn call_resolution_preserves_constructor_when_local_binding_is_not_callable() {
 }
 
 #[test]
+fn call_resolution_preserves_constructor_when_binding_record_contains_callable_field() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Token\n",
+            "  pack(Int)\n",
+            "end\n",
+            "fn stringify(value: Int) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
+            "pub fn parameter_record(pack: {callback: fn(Int) -> String}) -> Token\n",
+            "  pack(1)\n",
+            "end\n",
+            "pub fn local_record() -> Token\n",
+            "  let pack: {callback: fn(Int) -> String} = {callback: stringify}\n",
+            "  pack(2)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    for (function_name, expected_arg) in [("parameter_record", "1"), ("local_record", "2")] {
+        let function = core
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("record function should be lowered");
+        let CoreStmtKind::Return { expr } = &function.body[function.body.len() - 1].kind else {
+            panic!("tail expression should lower as return");
+        };
+        let CoreExprKind::AdtVariant { name, payloads } = &expr.kind else {
+            panic!("tail expression should lower as constructor");
+        };
+        assert_eq!(name, &vec!["Token".to_string(), "pack".to_string()]);
+        assert!(
+            matches!(&payloads[0].kind, CoreExprKind::IntLiteral(value) if value == expected_arg)
+        );
+    }
+
+    let ir = lowered.ir.expect("complete core should lower to IR");
+    for function_name in ["parameter_record", "local_record"] {
+        let function = ir
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("record function should be in IR");
+        let IrStmtKind::Return { value } = &function.body[function.body.len() - 1].kind else {
+            panic!("tail expression should lower as IR return");
+        };
+        assert!(matches!(
+            &value.kind,
+            IrExprKind::AdtVariant { name, .. } if name == &vec![
+                "Token".to_string(),
+                "pack".to_string()
+            ]
+        ));
+    }
+}
+
+#[test]
 fn non_callable_local_shadow_blocks_function_call_resolution() {
     let source = SourceFile::new(
         "main.veln",

@@ -3886,6 +3886,73 @@ mod tests {
     }
 
     #[test]
+    fn record_with_callable_field_does_not_shadow_constructor_navigation() {
+        let mut server = Server::default();
+        let project = TempProject::new("record-callable-field-constructor-navigation");
+        project.write(
+            "main.veln",
+            concat!(
+                "type Token\n",
+                "  byte(Int)\n",
+                "end\n",
+                "\n",
+                "fn stringify(value: Int) -> String\n",
+                "  \"ok\"\n",
+                "end\n",
+                "\n",
+                "pub fn parameter_record(byte: {callback: fn(Int) -> String}) -> Token\n",
+                "  byte(1)\n",
+                "end\n",
+                "\n",
+                "pub fn local_record() -> Token\n",
+                "  let byte: {callback: fn(Int) -> String} = {callback: stringify}\n",
+                "  byte(2)\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        for (line, character) in [(9, 4), (14, 4)] {
+            let definition = server.handle_message(&definition_request(&main_uri, line, character));
+            let references = server.handle_message(&references_request(&main_uri, line, character));
+            let rename = server.handle_message(&rename_request(&main_uri, line, character, "pack"));
+
+            assert_eq!(definition.len(), 1);
+            assert!(
+                definition[0].contains(
+                    r#""range":{"start":{"line":1,"character":2},"end":{"line":1,"character":6}}"#
+                ),
+                "{}",
+                definition[0]
+            );
+            assert_eq!(references.len(), 1);
+            assert!(
+                references[0].contains(
+                    r#""range":{"start":{"line":1,"character":2},"end":{"line":1,"character":6}}"#
+                ),
+                "{}",
+                references[0]
+            );
+            assert!(!references[0].contains(r#""line":8,"character":24"#));
+            assert!(!references[0].contains(r#""line":13,"character":6"#));
+            assert_eq!(rename.len(), 1);
+            assert!(rename[0].contains(r#""newText":"pack""#), "{}", rename[0]);
+            assert!(
+                !rename[0].contains(r#""line":8,"character":24"#),
+                "{}",
+                rename[0]
+            );
+            assert!(
+                !rename[0].contains(r#""line":13,"character":6"#),
+                "{}",
+                rename[0]
+            );
+        }
+    }
+
+    #[test]
     fn ambiguous_current_module_constructor_definition_does_not_fall_back_to_import() {
         let mut server = Server::default();
         let project = TempProject::new("current-constructor-ambiguity-blocks-import-definition");

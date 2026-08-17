@@ -1906,7 +1906,7 @@ fn function_signature_returns_callable(tokens: &[Token], function_index: usize) 
         .iter()
         .position(|token| token.kind == TokenKind::Newline || token.kind == TokenKind::Eof)
         .map_or(tokens.len(), |relative| arrow_index + 1 + relative);
-    type_range_contains_fn(tokens, arrow_index + 1, line_end)
+    type_range_is_callable(tokens, arrow_index + 1, line_end)
 }
 
 fn constructor_declarations(file: &IndexedFile) -> Vec<ConstructorSymbol> {
@@ -2190,14 +2190,14 @@ fn parameter_callables_in_range(
                 callables.push(
                     pending_type_start
                         .take()
-                        .is_some_and(|start| type_range_contains_fn(tokens, start, index)),
+                        .is_some_and(|start| type_range_is_callable(tokens, start, index)),
                 );
             }
             _ => {}
         }
     }
     if let Some(start) = pending_type_start {
-        callables.push(type_range_contains_fn(tokens, start, rparen_index));
+        callables.push(type_range_is_callable(tokens, start, rparen_index));
     }
     callables
 }
@@ -2426,14 +2426,14 @@ fn parameter_bindings(tokens: &[Token], start: usize, body_start: usize) -> BTre
     {
         let index = start + relative_index;
         match token.kind {
-            TokenKind::LParen => {
+            TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => {
                 depth += 1;
                 if depth == 1 {
                     pending_parameter_name = None;
                     pending_type_start = None;
                 }
             }
-            TokenKind::RParen => {
+            TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
                 if depth == 1 {
                     insert_pending_parameter(
                         tokens,
@@ -2476,7 +2476,7 @@ fn insert_pending_parameter(
     let Some(name) = name else {
         return;
     };
-    let callable = type_start.is_some_and(|start| type_range_contains_fn(tokens, start, end));
+    let callable = type_start.is_some_and(|start| type_range_is_callable(tokens, start, end));
     names.insert(name, callable);
 }
 
@@ -2566,7 +2566,7 @@ fn let_binding_is_callable(
             .iter()
             .position(|token| token.kind == TokenKind::Equal)
             .map(|relative| colon_index + 1 + relative)
-        && type_range_contains_fn(tokens, colon_index + 1, equal_index)
+        && type_range_is_callable(tokens, colon_index + 1, equal_index)
     {
         return true;
     }
@@ -2651,10 +2651,11 @@ fn matching_lparen_index(
     None
 }
 
-fn type_range_contains_fn(tokens: &[Token], start: usize, end: usize) -> bool {
+fn type_range_is_callable(tokens: &[Token], start: usize, end: usize) -> bool {
     tokens[start..end]
         .iter()
-        .any(|token| token.kind == TokenKind::Fn)
+        .find(|token| !is_layout_token(token))
+        .is_some_and(|token| token.kind == TokenKind::Fn)
 }
 
 fn let_binding_scope_start(tokens: &[Token], let_index: usize) -> usize {
@@ -3723,6 +3724,36 @@ mod tests {
         )];
 
         for (line, column) in [(6, 4), (11, 4)] {
+            let result = query(sources.clone(), "main.veln", line, column).unwrap();
+
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+            assert_location(&result.definition, "main.veln", 2, 3);
+            assert!(result.references.is_empty());
+        }
+    }
+
+    #[test]
+    fn record_with_callable_field_does_not_shadow_constructor_call_navigation() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "type Token\n",
+                "  pack(Int)\n",
+                "end\n\n",
+                "fn stringify(value: Int) -> String\n",
+                "  \"ok\"\n",
+                "end\n\n",
+                "fn parameter_record(pack: {callback: fn(Int) -> String}) -> Token\n",
+                "  pack(1)\n",
+                "end\n\n",
+                "fn local_record() -> Token\n",
+                "  let pack: {callback: fn(Int) -> String} = {callback: stringify}\n",
+                "  pack(2)\n",
+                "end\n",
+            ),
+        )];
+
+        for (line, column) in [(10, 4), (15, 4)] {
             let result = query(sources.clone(), "main.veln", line, column).unwrap();
 
             assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
