@@ -162,8 +162,9 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
 - LSP navigation for imported constructor definition, current-module and
   workspace/dependency constructor ambiguity, callable, returned-callable, and
   record-field-derived callable shadowing of same-spelled constructor calls,
-  handler operation callable effect identity, workspace function references,
-  and package virtual documents:
+  including fields read from records returned by calls, handler operation
+  callable effect identity, workspace function references, and package virtual
+  documents:
   `../../examples/specification/lsp/`.
 - MCP stdio lifecycle, workspace-project inventory, tool schemas, refresh,
   initialization phase boundaries, request metadata, and JSON-RPC framing:
@@ -181,5 +182,6 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   reference locations, and unsupported reference searches:
   `../../examples/specification/mcp/references-workspace/`.
 - MCP saved workspace navigation identity across direct dependencies and
-  callable constructor shadowing:
+  callable constructor shadowing, including fields read from records returned
+  by calls:
   `../../examples/specification/mcp/navigation-dependency-identity/`.

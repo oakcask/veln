@@ -167,8 +167,8 @@ spelling, bare constructor ambiguity that blocks imported constructor
 definition, same-identity function references when constructors share the same
 spelling, callable bindings that shadow same-spelled constructor calls,
 bindings initialized from parenthesized callable values, callable record
-fields, or calls that return functions and shadow same-spelled constructor
-calls, non-callable parameter,
+fields, fields of records returned by calls, or calls that return functions
+and shadow same-spelled constructor calls, non-callable parameter,
 local, handler context, and handler operation clause bindings that leave
 same-spelled constructor calls selectable, dependency constructor package
 locations keyed by source origin, workspace and dependency constructor import
@@ -299,7 +299,8 @@ no constructor edit for the shadowed call. The focused
 `../../examples/specification/lsp/returned-callable-shadow-constructor-navigation/`
 case covers the returned-callable binding form. The focused
 `../../examples/specification/lsp/callable-field-shadow-constructor-navigation/`
-case covers local bindings initialized from callable record fields.
+case covers local bindings initialized from callable record fields, including
+fields read from records returned by calls.
 The executable LSP example
 `../../examples/specification/lsp/non-callable-shadow-constructor-navigation/`
 checks that a non-callable parameter, local binding, handler context parameter,
@@ -466,7 +467,7 @@ Implemented:
 - Stdio definition, references, and rename rejection for bare constructor calls
   shadowed by same-spelled callable parameters, local bindings, or local
   bindings initialized from parenthesized callable values, callable record
-  fields, or calls that return functions.
+  fields, fields of records returned by calls, or calls that return functions.
 - Stdio definition, references, and rename responses for bare constructor calls
   with same-spelled non-callable parameters, local bindings, handler context
   parameters, handler operation clause parameters, or record-typed bindings
