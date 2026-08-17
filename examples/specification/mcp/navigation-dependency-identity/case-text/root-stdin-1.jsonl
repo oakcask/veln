@@ -5,3 +5,5 @@
 {"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":20,"column":4}}}
 {"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":25,"column":4}}}
 {"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":25,"column":4}}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":30,"column":4}}}
+{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":30,"column":4}}}

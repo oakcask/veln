@@ -24,3 +24,8 @@ fn parenthesized_shadow(identity: fn(Int) -> Local) -> Local
   let pack = (identity)
   pack(1)
 end
+
+fn field_shadow(record: {pack: fn(Int) -> Local}) -> Local
+  let pack = record.pack
+  pack(1)
+end

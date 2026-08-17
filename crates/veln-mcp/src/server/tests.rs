@@ -657,10 +657,15 @@ fn callable_bindings_shadow_constructor_for_mcp_navigation() {
             "  let pack = (identity)\n",
             "  pack(1)\n",
             "end\n",
+            "\n",
+            "fn field_shadow(record: {pack: fn(Int) -> Token}) -> Token\n",
+            "  let pack = record.pack\n",
+            "  pack(1)\n",
+            "end\n",
         ),
     );
 
-    for (line, column) in [(6, 4), (11, 4), (16, 4)] {
+    for (line, column) in [(6, 4), (11, 4), (16, 4), (21, 4)] {
         let definition = definition_result(&workspace, "main.veln", line, column);
         assert_eq!(definition["isError"], false, "{definition:#}");
         assert_eq!(

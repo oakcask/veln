@@ -195,8 +195,8 @@ exclusion, invalid positions, and non-integer coordinate schema rejection over
 stdio. The `navigation-dependency-identity`
 MCP specification case checks that dependency constructor identity suppresses
 workspace function definition and reference results for the same spelling, and
-that callable and parenthesized callable bindings can shadow same-spelled
-constructors for MCP navigation.
+that parameter, local, parenthesized, and record-field-derived callable
+bindings can shadow same-spelled constructors for MCP navigation.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous
