@@ -201,7 +201,8 @@ constructor payload pattern bindings, can shadow same-spelled constructors for
 MCP navigation. The saved navigation implementation uses the same
 callable-binding shadowing selector as LSP navigation, including qualified
 workspace function values and `match`-initialized local bindings whose arms
-return function values.
+return function values. It also checks that a local binding initialized from a
+shadowed non-callable value does not shadow a same-spelled constructor.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous

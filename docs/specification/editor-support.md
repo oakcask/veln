@@ -488,7 +488,8 @@ Implemented:
 - Stdio definition, references, and rename responses for bare constructor calls
   with same-spelled non-callable parameters, local bindings, handler context
   parameters, handler operation clause parameters, or record-typed bindings
-  with callable fields.
+  with callable fields, including local bindings initialized from shadowed
+  non-callable values.
 - Stdio definition, references, and rename rejection for bare constructor calls
   made ambiguous by same-spelled imported workspace and dependency
   constructors.
