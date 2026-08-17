@@ -7020,10 +7020,8 @@ fn case_text_git_attributes_cover_text_and_raw_sidecars() {
         .expect("manifest directory should be under the repository");
     let migrated_lsp_raw_sidecars = [
         "examples/specification/lsp/ambiguous-bare-prelude-definition/case-text/root-stdin-1.raw",
-        "examples/specification/lsp/callable-shadow-constructor-navigation/case-text/root-stdin-1.raw",
         "examples/specification/lsp/companion-private-function-identity/case-text/root-stdin-1.raw",
         "examples/specification/lsp/companion-private-function-rename-overlay/case-text/root-stdin-1.raw",
-        "examples/specification/lsp/current-constructor-ambiguity-blocks-import-definition/case-text/root-stdin-1.raw",
         "examples/specification/lsp/direct-dependency-virtual-document-boundary/case-text/root-stdin-1.raw",
         "examples/specification/lsp/direct-git-dependency-virtual-document/case-text/root-stdin-1.raw",
         "examples/specification/lsp/handler-context-callable-binding/case-text/root-stdin-1.raw",
@@ -7032,7 +7030,6 @@ fn case_text_git_attributes_cover_text_and_raw_sidecars() {
         "examples/specification/lsp/handler-satisfy-semantic-tokens/case-text/root-stdin-1.raw",
         "examples/specification/lsp/handler-semantic-tokens/case-text/root-stdin-1.raw",
         "examples/specification/lsp/imported-constructor-bare-prelude-definition/case-text/root-stdin-1.raw",
-        "examples/specification/lsp/non-callable-shadow-constructor-navigation/case-text/root-stdin-1.raw",
         "examples/specification/lsp/open-document-nested-boundary/case-text/root-stdin-1.raw",
         "examples/specification/lsp/private-import-bare-prelude-definition/case-text/root-stdin-1.raw",
         "examples/specification/lsp/reexported-constructor-bare-prelude-definition/case-text/root-stdin-1.raw",

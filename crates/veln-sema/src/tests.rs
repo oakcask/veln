@@ -2,6 +2,7 @@ mod support;
 
 use self::support::*;
 
+mod call_resolution_shadowing;
 mod calls_pipeline_and_float_types;
 mod channel_effects_and_contract_predicates;
 mod contract_case_split_proofs;
