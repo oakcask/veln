@@ -33,35 +33,16 @@ The remaining first-capability work includes:
 - virtual source locations for dependencies and the standard library; and
 - plugin packaging for Codex and Claude Code.
 
-### Semantic Prerequisite: Callable And Constructor Collisions
+### Language-Semantics Prerequisite
 
-The current specification does not close every bare-call collision that the
-full navigation matrix would expose. [Names And Effects](../specification/names-effects-full.md#name-resolution)
-states that local value bindings and declarations shadow imported names for
-bare calls. [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename)
-specifies selected function identities and some callable-binding boundaries.
-Neither page provides a closed decision table for a same-spelled visible type
-constructor and local value binding.
+The full navigation matrix depends on casing rules that separate type and
+constructor names from module, function, and value-binding names. That language
+change is tracked separately in [Identifier Casing](identifier-casing.md).
 
-Do not resolve that semantic gap incidentally while implementing an MCP
-adapter. Before a navigation slice claims callable-versus-constructor collision
-coverage, a separate language-semantics change must add executable cases and
-promote their behavior to the current specification. Its decision table must
-distinguish at least:
-
-| Call-site state | Required decision |
-| --- | --- |
-| No visible local value binding and one or more visible constructor candidates. | Select one constructor or report constructor ambiguity according to current constructor visibility rules. |
-| The nearest visible value binding has a function type and a same-spelled constructor is visible. | Specify whether the call selects the value binding or constructor. |
-| The nearest visible value binding is not callable and a same-spelled constructor is visible. | Specify whether the call selects the constructor or reports a non-callable-value diagnostic. |
-| A same-spelled binding is being initialized. | Specify whether the new binding is visible in its own initializer before resolving the call. |
-| The callee is qualified. | Specify which bare-name shadowing rules no longer apply. |
-
-The semantic decision must depend on binding visibility, callee qualification,
-and the established callable status at the call site. It must not require a
-separate normative rule for every expression form that can produce a callable
-value. Navigation, lowering, LSP, and MCP must consume the same decided target;
-adding adapter-specific precedence is not an acceptable resolution.
+Do not add callable-versus-constructor precedence in an MCP adapter. Sources
+that violate the casing rules must be rejected by the shared language
+semantics. Navigation, lowering, LSP, and MCP must consume the same name class
+and selected target for accepted sources.
 
 ### Next Slice: Saved Workspace Function References
 
@@ -97,9 +78,11 @@ prevents one of the acceptance rows below from passing.
 | List MCP tools after initialization. | Advertise the checked `references` input and result schemas. | The existing workspace-lifecycle tool-list case. |
 
 This slice is complete when these six rows pass and its implemented contract is
-promoted to the MCP specification and executable-example routes. Discovering
-another callable-producing expression, shadowing form, or LSP navigation edge
-case does not keep this slice open. The broader v1 rows remain planned work and
+promoted to the MCP specification and executable-example routes. A newly
+discovered constructor-versus-value naming collision belongs to
+[Identifier Casing](identifier-casing.md) and does not keep this slice open. A
+new callable-producing expression, shadowing form, or LSP navigation edge case
+also does not keep this slice open. The broader v1 rows remain planned work and
 must be selected as separate bounded slices.
 
 Language semantics belong to an editor- and agent-neutral language service.
