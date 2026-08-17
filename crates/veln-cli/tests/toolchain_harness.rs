@@ -7608,13 +7608,14 @@ fn decoded_mcp_jsonl_assertions_cover_response_local_contract() {
     fs::write(root.join("main.veln"), "fn value() -> Int { 1 }\n")
         .expect("workspace file should be written");
     let expected_uri = workspace_file_uri(&root, "main.veln").expect("URI should build");
+    let location_response = format!(
+        r#"{{"jsonrpc":"2.0","id":2,"result":{{"location":{{"uri":{}}},"ordered":[{{"name":"left"}},{{"name":"right"}}]}}}}"#,
+        JsonValue::String(expected_uri).to_compact_string()
+    );
     let stdout = format!(
         "{}\n{}\n{}\n",
         r#"{"jsonrpc":"2.0","id":"alpha","result":{"object":{"b":2,"a":1},"escaped":{"a/b":{"m~n":"ok"}},"array":["first","second"],"absent_parent":{}}}"#,
-        format!(
-            r#"{{"jsonrpc":"2.0","id":2,"result":{{"location":{{"uri":{}}},"ordered":[{{"name":"left"}},{{"name":"right"}}]}}}}"#,
-            JsonValue::String(expected_uri).to_compact_string()
-        ),
+        location_response,
         r#"{"jsonrpc":"2.0","id":999,"result":{"ignored":true}}"#
     );
     let assertions = parsed_mcp_jsonl_assertions(
