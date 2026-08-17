@@ -1,0 +1,15 @@
+type Token
+  pack(Int)
+end
+
+effect Build
+  run(pack: fn(Int) -> Token) -> Token
+end
+
+effect Other
+  run(pack: Int) -> Token
+end
+
+handler build() handles Build
+  run(pack) => pack(1)
+end

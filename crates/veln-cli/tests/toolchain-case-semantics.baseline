@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"024f2a5e7af2bdcf0a46c00c0563c1528da287dc"
+source_git_tree	"2383755d5fca3b63eff6bb66beaf9856c25db799"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1520
+case_count	1521
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -10170,6 +10170,27 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":825,"sha256":"04eb19535096384c8e5d8c73cca32d3e5b14a818ba7b5e503e99ab2533624a22"}
 field	source_errors	"forbidden"
 case_digest	"bb1f412982e56532a6840d71aad3bb676312c7bb982b3e6ea312482ccd2d1393"
+case	"examples/specification/lsp/handler-operation-callable-effect-identity"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"definitionProvider\":true"
+field	expectations.stdout.contains[10]	"\"range\":{\"start\":{\"line\":13,\"character\":6},\"end\":{\"line\":13,\"character\":10}}"
+field	expectations.stdout.contains[11]	"\"range\":{\"start\":{\"line\":13,\"character\":15},\"end\":{\"line\":13,\"character\":19}}"
+field	expectations.stdout.contains[1]	"\"referencesProvider\":true"
+field	expectations.stdout.contains[2]	"\"renameProvider\":{\"prepareProvider\":true}"
+field	expectations.stdout.contains[3]	"\"id\":2,\"result\":{\"uri\":\"file://"
+field	expectations.stdout.contains[4]	"/main.veln\",\"range\":{\"start\":{\"line\":13,\"character\":6},\"end\":{\"line\":13,\"character\":10}}"
+field	expectations.stdout.contains[5]	"\"id\":3,\"result\":["
+field	expectations.stdout.contains[6]	"\"range\":{\"start\":{\"line\":13,\"character\":6},\"end\":{\"line\":13,\"character\":10}}"
+field	expectations.stdout.contains[7]	"\"range\":{\"start\":{\"line\":13,\"character\":15},\"end\":{\"line\":13,\"character\":19}}"
+field	expectations.stdout.contains[8]	"\"id\":4,\"result\":{\"changes\":{\"file://"
+field	expectations.stdout.contains[9]	"\"newText\":\"packed\""
+field	expectations.stdout.not_contains[0]	"\"range\":{\"start\":{\"line\":1,\"character\":2},\"end\":{\"line\":1,\"character\":6}}"
+field	invocation.command[0]	"lsp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":827,"sha256":"31decdde1c4ebc0e3e61834bcf491b88eb952410887063e272f48f4384064f08"}
+field	source_errors	"forbidden"
+case_digest	"c267b6eb9ec91be0ce8d90b0826e1544bb43bf91f483cadbb3883fe4fd25b4c7"
 case	"examples/specification/lsp/handler-operation-editor"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47881,4 +47902,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"79ffe4f7487af20cc96dc08f4dacf157465d4989c6d88ca128bb68f92a2c96e4"
+aggregate_digest	"8f95aece27f960050858f5c8da837b409b7af86b2ad6092f56753a158c7f3f4e"

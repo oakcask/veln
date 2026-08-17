@@ -7026,6 +7026,7 @@ fn case_text_git_attributes_cover_text_and_raw_sidecars() {
         "examples/specification/lsp/direct-git-dependency-virtual-document/case-text/root-stdin-1.raw",
         "examples/specification/lsp/handler-context-callable-binding/case-text/root-stdin-1.raw",
         "examples/specification/lsp/handler-context-operation-heading-isolation/case-text/root-stdin-1.raw",
+        "examples/specification/lsp/handler-operation-callable-effect-identity/case-text/root-stdin-1.raw",
         "examples/specification/lsp/handler-operation-editor/case-text/root-stdin-1.raw",
         "examples/specification/lsp/handler-satisfy-semantic-tokens/case-text/root-stdin-1.raw",
         "examples/specification/lsp/handler-semantic-tokens/case-text/root-stdin-1.raw",

@@ -379,6 +379,16 @@ struct ConstructorSymbol {
 }
 
 #[derive(Clone, Debug)]
+struct EffectSymbol {
+    module: String,
+    name: String,
+    package: Option<String>,
+    public: bool,
+    standard_prelude: bool,
+    operations: BTreeMap<String, Vec<bool>>,
+}
+
+#[derive(Clone, Debug)]
 struct TypeAliasSymbol {
     module: String,
     name: String,
@@ -457,7 +467,9 @@ struct SymbolIndex {
     functions: Vec<FunctionSymbol>,
     constructors: ConstructorTable,
     type_aliases: Vec<TypeAliasSymbol>,
+    effects: Vec<EffectSymbol>,
     functions_by_name: BTreeMap<String, Vec<usize>>,
+    effects_by_name: BTreeMap<String, Vec<usize>>,
     constructors_by_name: BTreeMap<String, Vec<usize>>,
     constructors_by_type_name: BTreeMap<String, Vec<usize>>,
     workspace_constructor_names_by_module: BTreeMap<String, BTreeSet<String>>,
@@ -579,8 +591,13 @@ impl SymbolIndex {
             .iter()
             .flat_map(type_alias_declarations)
             .collect::<Vec<_>>();
+        let effects = files
+            .iter()
+            .flat_map(effect_declarations)
+            .collect::<Vec<_>>();
         let mut index = Self {
             functions_by_name: function_indices_by_name(&functions),
+            effects_by_name: effect_indices_by_name(&effects),
             constructors_by_name: constructor_indices_by_name(&constructors),
             constructors_by_type_name: constructor_indices_by_type_name(&constructors),
             workspace_constructor_names_by_module: workspace_constructor_names_by_module(
@@ -603,6 +620,7 @@ impl SymbolIndex {
             functions,
             constructors: ConstructorTable::new(constructors),
             type_aliases,
+            effects,
             files,
             visible_bare_constructor_names_by_source: BTreeMap::new(),
             visible_bare_constructor_indices_by_source: BTreeMap::new(),
@@ -657,7 +675,7 @@ impl SymbolIndex {
         selection: &SourceSpan,
     ) -> Option<Symbol> {
         if let Some(symbol) =
-            handler_operation_clause_symbol(file, tokens, token_index, name, selection)
+            handler_operation_clause_symbol(self, file, tokens, token_index, name, selection)
         {
             return Some(Symbol::Local(symbol));
         }
@@ -1189,7 +1207,7 @@ impl SymbolIndex {
                     && offset < scope.end
                     && scope.shadows(name, tokens, index)
             })
-            || handler_operation_clause_bindings(file, tokens)
+            || handler_operation_clause_bindings(self, file, tokens)
                 .iter()
                 .any(|binding| {
                     binding.name == name && offset >= binding.start && offset < binding.end
@@ -1212,7 +1230,7 @@ impl SymbolIndex {
                     && offset < scope.end
                     && scope.callable_shadows(name, tokens, index)
             })
-            || handler_operation_clause_bindings(file, tokens)
+            || handler_operation_clause_bindings(self, file, tokens)
                 .iter()
                 .any(|binding| {
                     binding.callable
@@ -1343,6 +1361,82 @@ impl SymbolIndex {
             .into_iter()
             .flat_map(|indices| indices.iter().map(|index| &self.type_aliases[*index]))
     }
+
+    fn effects_named(&self, name: &str) -> impl Iterator<Item = &EffectSymbol> {
+        self.effects_by_name
+            .get(name)
+            .into_iter()
+            .flat_map(|indices| indices.iter().map(|index| &self.effects[*index]))
+    }
+
+    fn handler_operation_parameter_callables(
+        &self,
+        file: &IndexedFile,
+        effect_path: &[String],
+        operation_name: &str,
+    ) -> Option<Vec<bool>> {
+        let effect_name = effect_path.last()?;
+        let qualifier = match effect_path {
+            [_] => None,
+            [segments @ .., _] => Some(segments.join("::")),
+            [] => None,
+        };
+        exactly_one_effect(self.effects_named(effect_name).filter(|effect| {
+            effect.name == *effect_name
+                && self.effect_visible_from(file, effect, qualifier.as_deref())
+        }))
+        .and_then(|effect| effect.operations.get(operation_name).cloned())
+    }
+
+    fn effect_visible_from(
+        &self,
+        file: &IndexedFile,
+        effect: &EffectSymbol,
+        qualifier: Option<&str>,
+    ) -> bool {
+        match qualifier {
+            Some(qualifier) => {
+                effect.module == qualifier
+                    && match &effect.package {
+                        Some(package) => {
+                            effect.public
+                                && (effect.standard_prelude
+                                    || file
+                                        .external_uses
+                                        .contains(&(effect.module.clone(), package.clone())))
+                        }
+                        None => {
+                            effect.module == file.module
+                                || (effect.public && file.uses.contains(&effect.module))
+                                || file
+                                    .companion_target_module
+                                    .as_ref()
+                                    .is_some_and(|target| target == &effect.module)
+                        }
+                    }
+            }
+            None => match &effect.package {
+                Some(package) => {
+                    effect.public
+                        && (effect.standard_prelude
+                            || file
+                                .external_uses
+                                .contains(&(effect.module.clone(), package.clone())))
+                }
+                None => {
+                    effect.module == file.module
+                        || (effect.public && file.uses.contains(&effect.module))
+                }
+            },
+        }
+    }
+}
+
+fn exactly_one_effect<'a>(
+    mut candidates: impl Iterator<Item = &'a EffectSymbol>,
+) -> Option<&'a EffectSymbol> {
+    let candidate = candidates.next()?;
+    candidates.next().is_none().then_some(candidate)
 }
 
 impl IndexedFile {
@@ -1413,6 +1507,17 @@ fn index_dependency_sources(files: &mut Vec<IndexedFile>, dependency: DirectDepe
 fn function_indices_by_name(functions: &[FunctionSymbol]) -> BTreeMap<String, Vec<usize>> {
     let mut indices = BTreeMap::new();
     for (index, symbol) in functions.iter().enumerate() {
+        indices
+            .entry(symbol.name.clone())
+            .or_insert_with(Vec::new)
+            .push(index);
+    }
+    indices
+}
+
+fn effect_indices_by_name(effects: &[EffectSymbol]) -> BTreeMap<String, Vec<usize>> {
+    let mut indices = BTreeMap::new();
+    for (index, symbol) in effects.iter().enumerate() {
         indices
             .entry(symbol.name.clone())
             .or_insert_with(Vec::new)
@@ -2017,14 +2122,70 @@ fn type_alias_declarations(file: &IndexedFile) -> Vec<TypeAliasSymbol> {
         .collect()
 }
 
+fn effect_declarations(file: &IndexedFile) -> Vec<EffectSymbol> {
+    parse(&file.source)
+        .tree
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Effect(effect) => {
+                let name = effect.name.clone()?;
+                let public = effect.visibility == Visibility::Public;
+                let (package, standard_prelude) = match &file.origin {
+                    IndexedOrigin::Workspace => (None, false),
+                    IndexedOrigin::Package {
+                        identity,
+                        exported,
+                        standard_library,
+                        ..
+                    } => {
+                        if !exported || !public {
+                            return None;
+                        }
+                        (
+                            Some(identity.clone()),
+                            *standard_library && file.module == "prelude",
+                        )
+                    }
+                };
+                Some(EffectSymbol {
+                    module: file.module.clone(),
+                    name,
+                    package,
+                    public,
+                    standard_prelude,
+                    operations: effect
+                        .operations
+                        .iter()
+                        .filter_map(|operation| {
+                            Some((
+                                operation.name.clone()?,
+                                operation
+                                    .params
+                                    .iter()
+                                    .map(|param| {
+                                        param.ty.as_deref().is_some_and(type_text_is_callable)
+                                    })
+                                    .collect(),
+                            ))
+                        })
+                        .collect(),
+                })
+            }
+            _ => None,
+        })
+        .collect()
+}
+
 fn handler_operation_clause_symbol(
+    index: &SymbolIndex,
     file: &IndexedFile,
     tokens: &[Token],
     token_index: usize,
     name: &str,
     selection: &SourceSpan,
 ) -> Option<LocalSymbol> {
-    handler_operation_clause_bindings(file, tokens)
+    handler_operation_clause_bindings(index, file, tokens)
         .into_iter()
         .find(|binding| {
             let token_offset = tokens[token_index].range.start;
@@ -2060,12 +2221,15 @@ fn handler_operation_clause_symbol(
         })
 }
 
-fn handler_operation_clause_bindings(file: &IndexedFile, tokens: &[Token]) -> Vec<ClauseBinding> {
+fn handler_operation_clause_bindings(
+    index: &SymbolIndex,
+    file: &IndexedFile,
+    tokens: &[Token],
+) -> Vec<ClauseBinding> {
     if !tokens.iter().any(|token| token.kind == TokenKind::Handler) {
         return Vec::new();
     }
     let mut clause_bindings = Vec::new();
-    let operation_parameter_callables = handler_operation_parameter_callables(tokens);
     for (arrow_index, arrow) in tokens.iter().enumerate() {
         if arrow.kind != TokenKind::FatArrow
             || !inside_top_level_block(tokens, arrow_index, TokenKind::Handler)
@@ -2093,14 +2257,18 @@ fn handler_operation_clause_bindings(file: &IndexedFile, tokens: &[Token]) -> Ve
             continue;
         };
         let operation_name = tokens[operation_index].text.clone();
+        let operation_callables =
+            handled_effect_for_clause(file, arrow.range.start).and_then(|effect| {
+                index.handler_operation_parameter_callables(file, &effect, &operation_name)
+            });
         for (parameter_index, token_index) in
             handler_operation_clause_parameter_name_indices(tokens, lparen_index, rparen_index)
                 .into_iter()
                 .enumerate()
         {
             let token = &tokens[token_index];
-            let callable = operation_parameter_callables
-                .get(&operation_name)
+            let callable = operation_callables
+                .as_ref()
                 .and_then(|callables| callables.get(parameter_index))
                 .copied()
                 .unwrap_or(false);
@@ -2145,31 +2313,6 @@ fn handler_operation_clause_parameter_name_indices(
     indices
 }
 
-fn handler_operation_parameter_callables(tokens: &[Token]) -> BTreeMap<String, Vec<bool>> {
-    let mut operations = BTreeMap::new();
-    for (index, token) in tokens.iter().enumerate() {
-        if token.kind != TokenKind::Ident
-            || !inside_top_level_block(tokens, index, TokenKind::Effect)
-        {
-            continue;
-        }
-        let Some(lparen_index) = next_non_layout_index(tokens, index) else {
-            continue;
-        };
-        if tokens[lparen_index].kind != TokenKind::LParen {
-            continue;
-        }
-        let Some(rparen_index) = matching_rparen_index(tokens, lparen_index, tokens.len()) else {
-            continue;
-        };
-        operations.insert(
-            token.text.clone(),
-            parameter_callables_in_range(tokens, lparen_index, rparen_index),
-        );
-    }
-    operations
-}
-
 fn parameter_callables_in_range(
     tokens: &[Token],
     lparen_index: usize,
@@ -2200,6 +2343,32 @@ fn parameter_callables_in_range(
         callables.push(type_range_is_callable(tokens, start, rparen_index));
     }
     callables
+}
+
+fn type_text_is_callable(text: &str) -> bool {
+    text.trim_start()
+        .strip_prefix("fn")
+        .is_some_and(|rest| rest.trim_start().starts_with('('))
+}
+
+fn handled_effect_for_clause(file: &IndexedFile, arrow_offset: usize) -> Option<Vec<String>> {
+    parse(&file.source)
+        .tree
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Handler(handler) => Some(handler),
+            _ => None,
+        })
+        .find(|handler| {
+            arrow_offset >= handler.span.start.offset
+                && arrow_offset < handler.span.end.offset
+                && handler.operation_clauses.iter().any(|clause| {
+                    arrow_offset >= clause.span.start.offset
+                        && arrow_offset < clause.span.end.offset
+                })
+        })
+        .map(|handler| handler.effect.clone())
 }
 
 fn handler_context_parameter_bindings(file: &IndexedFile, tokens: &[Token]) -> Vec<ClauseBinding> {
@@ -3995,6 +4164,85 @@ mod tests {
         let transform = query(sources, "main.veln", 5, 4).unwrap();
         assert_eq!(transform.selected_symbol.kind, SymbolKind::Function);
         assert_eq!(locations(&transform.references), [("main.veln", 18, 17)]);
+    }
+
+    #[test]
+    fn handler_operation_callable_parameter_uses_handled_effect_identity() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "type Token\n",
+                "  pack(Int)\n",
+                "end\n\n",
+                "effect Build\n",
+                "  run(pack: fn(Int) -> Token) -> Token\n",
+                "end\n\n",
+                "effect Other\n",
+                "  run(pack: Int) -> Token\n",
+                "end\n\n",
+                "handler build() handles Build\n",
+                "  run(pack) => pack(1)\n",
+                "end\n",
+            ),
+        )];
+
+        let result = query(sources, "main.veln", 14, 17).unwrap();
+
+        assert_eq!(
+            result.selected_symbol.kind,
+            SymbolKind::HandlerOperationClauseParameter
+        );
+        assert_location(&result.definition, "main.veln", 14, 7);
+    }
+
+    #[test]
+    fn handler_operation_callable_parameter_uses_dependency_effect_signature() {
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[(
+                "math.veln",
+                concat!(
+                    "pub effect Build\n",
+                    "  run(pack: fn(Int) -> Int) -> Int\n",
+                    "end\n",
+                ),
+            )],
+            ["./math.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use math from \"example/pkg\"\n\n",
+                    "type Token\n",
+                    "  pack(Int)\n",
+                    "end\n\n",
+                    "effect Build\n",
+                    "  run(pack: Int) -> Int\n",
+                    "end\n\n",
+                    "handler build() handles math::Build\n",
+                    "  run(pack) => pack(1)\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        );
+
+        let result = navigate(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 12,
+                column: 17,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            result.selected_symbol.kind,
+            SymbolKind::HandlerOperationClauseParameter
+        );
+        assert_location(&result.definition, "main.veln", 12, 7);
     }
 
     #[test]
