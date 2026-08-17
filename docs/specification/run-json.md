@@ -16,6 +16,13 @@ update-when: The `veln run --json` output schema, runtime failure details, resul
 - `error`: `null` for passed runs, or a structured result, runtime, or runner
   error
 
+Successful `run --json` cases can also serve as executable evidence for
+language behavior whose observable result is ordinary stdout. The
+`examples/specification/run/callable-binding-shadows-constructor/` case keeps
+the standard success envelope while pinning callable binding precedence over
+same-spelled constructors; the name-resolution contract is specified in
+[names-effects.md](names-effects.md).
+
 Runtime contract failures use `error.kind: "contract"`. The error details use
 `kind: "contract"` and `phase: "runtime"` and include:
 
