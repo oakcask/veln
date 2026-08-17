@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"00abe7e892e7bcae5d4345c1790aecc0817b799f"
+source_git_tree	"87a576178a49e1753da81dc0becaaa0917539d87"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1523
@@ -10109,6 +10109,10 @@ field	expectations.lsp_assertions[0].equals	{"character":2,"line":1}
 field	expectations.lsp_assertions[0].id	2
 field	expectations.lsp_assertions[0].operation	"equals"
 field	expectations.lsp_assertions[0].path	"/result/range/start"
+field	expectations.lsp_assertions[10].equals	{"character":7,"line":6}
+field	expectations.lsp_assertions[10].id	8
+field	expectations.lsp_assertions[10].operation	"equals"
+field	expectations.lsp_assertions[10].path	"/result/0/range/end"
 field	expectations.lsp_assertions[1].equals	{"character":6,"line":1}
 field	expectations.lsp_assertions[1].id	2
 field	expectations.lsp_assertions[1].operation	"equals"
@@ -10129,21 +10133,42 @@ field	expectations.lsp_assertions[5].equals	{"character":6,"line":5}
 field	expectations.lsp_assertions[5].id	4
 field	expectations.lsp_assertions[5].operation	"equals"
 field	expectations.lsp_assertions[5].path	"/result/0/range/end"
+field	expectations.lsp_assertions[6].equals	null
+field	expectations.lsp_assertions[6].id	6
+field	expectations.lsp_assertions[6].operation	"equals"
+field	expectations.lsp_assertions[6].path	"/result"
+field	expectations.lsp_assertions[7].equals	{"character":2,"line":6}
+field	expectations.lsp_assertions[7].id	7
+field	expectations.lsp_assertions[7].operation	"equals"
+field	expectations.lsp_assertions[7].path	"/result/range/start"
+field	expectations.lsp_assertions[8].equals	{"character":7,"line":6}
+field	expectations.lsp_assertions[8].id	7
+field	expectations.lsp_assertions[8].operation	"equals"
+field	expectations.lsp_assertions[8].path	"/result/range/end"
+field	expectations.lsp_assertions[9].equals	{"character":2,"line":6}
+field	expectations.lsp_assertions[9].id	8
+field	expectations.lsp_assertions[9].operation	"equals"
+field	expectations.lsp_assertions[9].path	"/result/0/range/start"
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"definitionProvider\":true"
 field	expectations.stdout.contains[1]	"\"id\":2,\"result\":{\"uri\":\"file://"
 field	expectations.stdout.contains[2]	"\"id\":3,\"result\":{\"uri\":\"file://"
 field	expectations.stdout.contains[3]	"\"id\":4,\"result\":[{\"uri\":\"file://"
-field	expectations.stdout.contains[4]	"\"newText\":\"box\""
+field	expectations.stdout.contains[4]	"\"id\":6,\"result\":null"
+field	expectations.stdout.contains[5]	"\"id\":7,\"result\":{\"uri\":\"file://"
+field	expectations.stdout.contains[6]	"\"id\":8,\"result\":[{\"uri\":\"file://"
+field	expectations.stdout.contains[7]	"\"newText\":\"box\""
 field	expectations.stdout.not_contains[0]	"\"id\":3,\"result\":null"
 field	expectations.stdout.not_contains[1]	"\"id\":4,\"result\":[]"
-field	expectations.stdout.not_contains[2]	"\"changes\":{}"
+field	expectations.stdout.not_contains[2]	"\"id\":7,\"result\":null"
+field	expectations.stdout.not_contains[3]	"\"id\":8,\"result\":[]"
+field	expectations.stdout.not_contains[4]	"\"changes\":{}"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":996,"sha256":"7288bf06c0f5bd9f4f89ca914759a28f8a942b73a61b9c8b9b326be2aee9dd9e"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1744,"sha256":"1ef6eec9cb53c28e2490c40dd2ef95e343668e2e9951b11dca780f1460550d43"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"forbidden"
-case_digest	"0b20e75124c02c952b5c6769d674cb98037dcd20f3b11d791c0fe9c639a37565"
+case_digest	"6bdc4370aacec076002275e04b0b9b4b361b4a7eac9c5996143d04e7fbf9f442"
 case	"examples/specification/lsp/current-constructor-ambiguity-blocks-import-definition"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47982,4 +48007,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"337053fac491a23b71fa5ca264ce19fdc2ac9224461120bc2313a50fec27feae"
+aggregate_digest	"33f7b6061c4f48c6d675fbca4bd799ad9aa3dda9f42ac1bcfe65fe66224f08e7"
