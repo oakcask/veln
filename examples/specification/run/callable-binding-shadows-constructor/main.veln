@@ -1,4 +1,6 @@
 # Bare calls resolve callable bindings before same-named constructors.
+use math
+
 type Token
 	pack(Int)
 end
@@ -20,7 +22,13 @@ fn local_shadow() -> Int
 	pack(2)
 end
 
+fn qualified_workspace_shadow() -> Int
+	let pack = math::identity
+	pack(33)
+end
+
 pub fn main() -> () effects [stdio]
 	stdio::println(int_to_string(parameter_shadow(add_ten)))
 	stdio::println(int_to_string(local_shadow()))
+	stdio::println(int_to_string(qualified_workspace_shadow()))
 end

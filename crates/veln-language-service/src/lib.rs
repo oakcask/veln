@@ -34,11 +34,13 @@ mod navigation_stats {
     thread_local! {
         static CONSTRUCTOR_CANDIDATES_CONSIDERED: Cell<usize> = const { Cell::new(0) };
         static CONSTRUCTOR_INDEX_CANDIDATES_CONSIDERED: Cell<usize> = const { Cell::new(0) };
+        static FUNCTION_SCOPE_BUILDS: Cell<usize> = const { Cell::new(0) };
     }
 
     pub fn reset() {
         CONSTRUCTOR_CANDIDATES_CONSIDERED.set(0);
         CONSTRUCTOR_INDEX_CANDIDATES_CONSIDERED.set(0);
+        FUNCTION_SCOPE_BUILDS.set(0);
     }
 
     pub fn record_constructor_candidate() {
@@ -49,12 +51,20 @@ mod navigation_stats {
         CONSTRUCTOR_INDEX_CANDIDATES_CONSIDERED.with(|value| value.set(value.get() + 1));
     }
 
+    pub fn record_function_scope_build() {
+        FUNCTION_SCOPE_BUILDS.with(|value| value.set(value.get() + 1));
+    }
+
     pub fn constructor_candidates_considered() -> usize {
         CONSTRUCTOR_CANDIDATES_CONSIDERED.get()
     }
 
     pub fn constructor_index_candidates_considered() -> usize {
         CONSTRUCTOR_INDEX_CANDIDATES_CONSIDERED.get()
+    }
+
+    pub fn function_scope_builds() -> usize {
+        FUNCTION_SCOPE_BUILDS.get()
     }
 }
 
@@ -655,6 +665,12 @@ struct ClauseBinding {
     callable: bool,
 }
 
+struct FileNavigationFacts {
+    tokens: Vec<Token>,
+    scopes: Vec<FunctionScope>,
+    clause_bindings: Vec<ClauseBinding>,
+}
+
 impl SymbolIndex {
     fn new(
         sources: Vec<SourceFile>,
@@ -739,15 +755,15 @@ impl SymbolIndex {
             .iter()
             .find(|file| file.source.path().as_str() == source_path)?;
         let offset = offset_for_position(file.source.text(), position)?;
-        let tokens = lex(&file.source).tokens;
-        let (token_index, token) = identifier_token_at(&tokens, offset)?;
+        let facts = self.navigation_facts(file);
+        let (token_index, token) = identifier_token_at(&facts.tokens, offset)?;
         let selection = file.source.span(token.range);
         let name = file
             .source
             .text()
             .get(selection.start.offset..selection.end.offset)?
             .to_string();
-        let symbol = self.symbol_for_selection(file, &tokens, token_index, &name, &selection)?;
+        let symbol = self.symbol_for_selection(file, &facts, token_index, &name, &selection)?;
         Some(SymbolRequest {
             index: self,
             symbol,
@@ -758,18 +774,18 @@ impl SymbolIndex {
     fn symbol_for_selection(
         &self,
         file: &IndexedFile,
-        tokens: &[Token],
+        facts: &FileNavigationFacts,
         token_index: usize,
         name: &str,
         selection: &SourceSpan,
     ) -> Option<Symbol> {
         if let Some(symbol) =
-            handler_operation_clause_symbol(self, file, tokens, token_index, name, selection)
+            handler_operation_clause_symbol(self, file, &facts.tokens, token_index, name, selection)
         {
             return Some(Symbol::Local(symbol));
         }
 
-        if is_handler_operation_clause_operation_name(tokens, token_index) {
+        if is_handler_operation_clause_operation_name(&facts.tokens, token_index) {
             return None;
         }
 
@@ -777,11 +793,11 @@ impl SymbolIndex {
             return Some(Symbol::Function(symbol));
         }
 
-        if !is_call_target_token(tokens, token_index) {
+        if !is_call_target_token(&facts.tokens, token_index) {
             return None;
         }
-        let Some(qualifier) = qualifier_for_token(tokens, token_index) else {
-            return self.symbol_for_bare_call(file, tokens, token_index, name);
+        let Some(qualifier) = qualifier_for_token(&facts.tokens, token_index) else {
+            return self.symbol_for_bare_call(file, facts, token_index, name);
         };
         self.symbol_for_qualified_call(file, &qualifier, name)
     }
@@ -801,11 +817,11 @@ impl SymbolIndex {
     fn symbol_for_bare_call(
         &self,
         file: &IndexedFile,
-        tokens: &[Token],
+        facts: &FileNavigationFacts,
         token_index: usize,
         name: &str,
     ) -> Option<Symbol> {
-        if self.local_callable_binding_shadows_call_target(file, tokens, token_index, name) {
+        if local_callable_binding_shadows_call_target(facts, token_index, name) {
             return None;
         }
         if self.has_visible_bare_constructor_name(file, name) {
@@ -816,7 +832,7 @@ impl SymbolIndex {
                 return None;
             }
         }
-        if self.local_binding_shadows_call_target(file, tokens, token_index, name) {
+        if local_binding_shadows_call_target(facts, token_index, name) {
             return None;
         }
         if let Some(symbol) = self.functions_named(name).find(|symbol| {
@@ -1265,96 +1281,59 @@ impl SymbolIndex {
         file: &IndexedFile,
         symbol: &FunctionSymbol,
     ) -> Vec<SourceSpan> {
-        let tokens = lex(&file.source).tokens;
-        call_reference_token_indices(&tokens, &symbol.name)
+        let facts = self.navigation_facts(file);
+        call_reference_token_indices(&facts.tokens, &symbol.name)
             .into_iter()
             .filter(|index| {
-                !is_call_target_token(&tokens, *index)
+                !is_call_target_token(&facts.tokens, *index)
                     || matches!(
-                        self.symbol_for_bare_call(file, &tokens, *index, &symbol.name),
+                        self.symbol_for_bare_call(file, &facts, *index, &symbol.name),
                         Some(Symbol::Function(candidate))
                             if same_function_symbol(&candidate, symbol)
                     )
             })
-            .map(|index| file.source.span(tokens[index].range))
+            .map(|index| file.source.span(facts.tokens[index].range))
             .collect()
-    }
-
-    fn local_binding_shadows_call_target(
-        &self,
-        file: &IndexedFile,
-        tokens: &[Token],
-        index: usize,
-        name: &str,
-    ) -> bool {
-        let offset = tokens[index].range.start;
-        let callable_values = self.callable_function_value_names(file);
-        function_scopes(tokens, &callable_values)
-            .iter()
-            .any(|scope| {
-                offset >= scope.body_start
-                    && offset < scope.end
-                    && scope.shadows(name, tokens, index)
-            })
-            || handler_operation_clause_bindings(self, file, tokens)
-                .iter()
-                .any(|binding| {
-                    binding.name == name && offset >= binding.start && offset < binding.end
-                })
-    }
-
-    fn local_callable_binding_shadows_call_target(
-        &self,
-        file: &IndexedFile,
-        tokens: &[Token],
-        index: usize,
-        name: &str,
-    ) -> bool {
-        let offset = tokens[index].range.start;
-        let callable_values = self.callable_function_value_names(file);
-        function_scopes(tokens, &callable_values)
-            .iter()
-            .any(|scope| {
-                offset >= scope.body_start
-                    && offset < scope.end
-                    && scope.callable_shadows(name, tokens, index)
-            })
-            || handler_operation_clause_bindings(self, file, tokens)
-                .iter()
-                .any(|binding| {
-                    binding.callable
-                        && binding.name == name
-                        && offset >= binding.start
-                        && offset < binding.end
-                })
     }
 
     fn callable_function_value_names(&self, file: &IndexedFile) -> CallableValueNames {
         let mut names = CallableValueNames::default();
         for symbol in &self.functions {
             if symbol.package.is_none() {
-                let visible_workspace_function = symbol.module == file.module
+                let visible_bare_workspace_function = symbol.module == file.module
                     || file.uses.contains(&symbol.module)
                         && symbol.public
                         && file
                             .companion_target_module
                             .as_ref()
                             .is_some_and(|target| target == &symbol.module);
-                if visible_workspace_function {
+                let visible_qualified_workspace_function = symbol.module == file.module
+                    || symbol.public && file.uses.contains(&symbol.module)
+                    || file
+                        .companion_target_module
+                        .as_ref()
+                        .is_some_and(|target| target == &symbol.module);
+                if visible_bare_workspace_function {
                     names.insert_bare(symbol.name.clone());
-                    names.insert_qualified(symbol.module.clone(), symbol.name.clone());
                     if symbol.returns_callable {
                         names.insert_bare_returning_callable(symbol.name.clone());
-                        names.insert_qualified_returning_callable(
-                            symbol.module.clone(),
-                            symbol.name.clone(),
-                        );
                     }
                     if !symbol.returns_callable_fields.is_empty() {
                         names.insert_bare_returning_callable_fields(
                             symbol.name.clone(),
                             symbol.returns_callable_fields.clone(),
                         );
+                    }
+                }
+                if visible_qualified_workspace_function {
+                    names.insert_qualified(symbol.module.clone(), symbol.name.clone());
+                    if symbol.returns_callable {
+                        names.insert_qualified_returning_callable(
+                            symbol.module.clone(),
+                            symbol.name.clone(),
+                        );
+                    }
+                    if !symbol.returns_callable_fields.is_empty() {
                         names.insert_qualified_returning_callable_fields(
                             symbol.module.clone(),
                             symbol.name.clone(),
@@ -1403,11 +1382,11 @@ impl SymbolIndex {
         file: &IndexedFile,
         symbol: &FunctionSymbol,
     ) -> Vec<SourceSpan> {
-        let tokens = lex(&file.source).tokens;
-        qualified_reference_token_indices(&tokens, &symbol.module, &symbol.name)
+        let facts = self.navigation_facts(file);
+        qualified_reference_token_indices(&facts.tokens, &symbol.module, &symbol.name)
             .into_iter()
             .filter(|index| {
-                let Some(qualifier) = qualifier_for_token(&tokens, *index) else {
+                let Some(qualifier) = qualifier_for_token(&facts.tokens, *index) else {
                     return false;
                 };
                 matches!(
@@ -1415,8 +1394,20 @@ impl SymbolIndex {
                     Some(Symbol::Function(candidate)) if same_function_symbol(&candidate, symbol)
                 )
             })
-            .map(|index| file.source.span(tokens[index].range))
+            .map(|index| file.source.span(facts.tokens[index].range))
             .collect()
+    }
+
+    fn navigation_facts(&self, file: &IndexedFile) -> FileNavigationFacts {
+        let tokens = lex(&file.source).tokens;
+        let callable_values = self.callable_function_value_names(file);
+        let scopes = function_scopes(&tokens, &callable_values);
+        let clause_bindings = handler_operation_clause_bindings(self, file, &tokens);
+        FileNavigationFacts {
+            tokens,
+            scopes,
+            clause_bindings,
+        }
     }
 
     fn functions_named(&self, name: &str) -> impl Iterator<Item = &FunctionSymbol> {
@@ -2646,6 +2637,9 @@ fn qualified_reference_token_indices(tokens: &[Token], module: &str, name: &str)
 }
 
 fn function_scopes(tokens: &[Token], function_values: &CallableValueNames) -> Vec<FunctionScope> {
+    #[cfg(test)]
+    navigation_stats::record_function_scope_build();
+
     let mut scopes = Vec::new();
     for (index, token) in tokens.iter().enumerate() {
         if !matches!(token.kind, TokenKind::Fn | TokenKind::Test) {
@@ -2698,6 +2692,37 @@ impl FunctionScope {
                     && offset < binding.end
             })
     }
+}
+
+fn local_binding_shadows_call_target(
+    facts: &FileNavigationFacts,
+    index: usize,
+    name: &str,
+) -> bool {
+    let offset = facts.tokens[index].range.start;
+    facts.scopes.iter().any(|scope| {
+        offset >= scope.body_start
+            && offset < scope.end
+            && scope.shadows(name, &facts.tokens, index)
+    }) || facts
+        .clause_bindings
+        .iter()
+        .any(|binding| binding.name == name && offset >= binding.start && offset < binding.end)
+}
+
+fn local_callable_binding_shadows_call_target(
+    facts: &FileNavigationFacts,
+    index: usize,
+    name: &str,
+) -> bool {
+    let offset = facts.tokens[index].range.start;
+    facts.scopes.iter().any(|scope| {
+        offset >= scope.body_start
+            && offset < scope.end
+            && scope.callable_shadows(name, &facts.tokens, index)
+    }) || facts.clause_bindings.iter().any(|binding| {
+        binding.callable && binding.name == name && offset >= binding.start && offset < binding.end
+    })
 }
 
 fn function_scope_end(tokens: &[Token], start: usize) -> Option<usize> {
@@ -4012,6 +4037,45 @@ mod tests {
     }
 
     #[test]
+    fn bare_function_references_reuse_file_scopes_across_candidates() {
+        let small = 500;
+        let large = 2000;
+
+        navigation_stats::reset();
+        let small_snapshot = dense_constructor_reference_snapshot(small);
+        let small_result = navigate(
+            &small_snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 1,
+                column: 4,
+            },
+        )
+        .unwrap();
+        let small_builds = navigation_stats::function_scope_builds();
+
+        navigation_stats::reset();
+        let large_snapshot = dense_constructor_reference_snapshot(large);
+        let large_result = navigate(
+            &large_snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 1,
+                column: 4,
+            },
+        )
+        .unwrap();
+        let large_builds = navigation_stats::function_scope_builds();
+
+        assert_eq!(small_result.references.len(), small);
+        assert_eq!(large_result.references.len(), large);
+        assert_eq!(
+            small_builds, large_builds,
+            "reference lookup rebuilt function scopes per candidate: {small_builds} -> {large_builds}"
+        );
+    }
+
+    #[test]
     fn bare_function_references_skip_non_visible_same_named_constructors() {
         let size = 200;
         let snapshot = non_visible_same_named_constructor_reference_snapshot(size);
@@ -4348,6 +4412,31 @@ mod tests {
         )];
 
         assert!(query(sources, "main.veln", 11, 4).is_none());
+    }
+
+    #[test]
+    fn qualified_workspace_function_value_shadows_constructor_call_navigation() {
+        let sources = vec![
+            source(
+                "main.veln",
+                concat!(
+                    "use math\n\n",
+                    "type Token\n",
+                    "  pack(Int)\n",
+                    "end\n\n",
+                    "fn local_shadow() -> Int\n",
+                    "  let pack = math::identity\n",
+                    "  pack(2)\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "math.veln",
+                "pub fn identity(value: Int) -> Int\n  value\nend\n",
+            ),
+        ];
+
+        assert!(query(sources, "main.veln", 9, 4).is_none());
     }
 
     #[test]

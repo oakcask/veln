@@ -23348,7 +23348,7 @@ field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
 field	expectations.json_assertions[0].operation	"equals"
 field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals	"11\n22\n"
+field	expectations.json_assertions[1].equals	"11\n22\n33\n"
 field	expectations.json_assertions[1].operation	"equals"
 field	expectations.json_assertions[1].path	"stdout"
 field	expectations.json_assertions[2].equals	null
@@ -23363,7 +23363,7 @@ field	invocation.command[3]	"main.veln"
 field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
-case_digest	"0dcd47635771a309b8b49438678f56e6aec6cf46a676f01774680564ff1694f8"
+case_digest	"2fd67d15b14c0850c468f7abfa41d91dbab6a12b3fe1716439c514b2763e0ce5"
 case	"examples/specification/run/channel-first-stream-routing"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -47931,4 +47931,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"5ac9d19b2aec088b0ec4e1fccf25075b491b917a0548442c258bbf2a2b9f5c58"
+aggregate_digest	"a2564818c5bd0f9234a3b9bd21687b85ffb24f02374d97451b69bd8ebcf53c9f"
