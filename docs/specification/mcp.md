@@ -197,7 +197,9 @@ MCP specification case checks that dependency constructor identity suppresses
 workspace function definition and reference results for the same spelling, and
 that parameter, local, parenthesized, record-field-derived, and
 returned-record-field-derived callable bindings can shadow same-spelled
-constructors for MCP navigation.
+constructors for MCP navigation. The saved navigation implementation uses the
+same callable-binding shadowing selector as LSP navigation, including
+`match`-initialized local bindings whose arms return function values.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous

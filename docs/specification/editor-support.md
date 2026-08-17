@@ -469,7 +469,8 @@ Implemented:
 - Stdio definition, references, and rename rejection for bare constructor calls
   shadowed by same-spelled callable parameters, local bindings, or local
   bindings initialized from parenthesized callable values, callable record
-  fields, fields of records returned by calls, or calls that return functions.
+  fields, fields of records returned by calls, calls that return functions, or
+  `match` expressions whose arms return function values.
 - Stdio definition, references, and rename responses for bare constructor calls
   with same-spelled non-callable parameters, local bindings, handler context
   parameters, handler operation clause parameters, or record-typed bindings
