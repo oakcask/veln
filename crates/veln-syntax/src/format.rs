@@ -6,6 +6,10 @@ use crate::{
 };
 use veln_literals::parse_integer_literal;
 
+mod commented_match_rewrite;
+
+use commented_match_rewrite::tree_has_commented_match_rewrite;
+
 pub fn format_tree(tree: &SyntaxTree) -> String {
     let comments = LineComments::from_tree(tree);
     if comments.requires_lossless_preservation {
@@ -168,97 +172,6 @@ fn format_handler_decl(out: &mut String, comments: &LineComments, handler: &Hand
         0,
         String::from("end"),
     );
-}
-
-fn tree_has_commented_match_rewrite(tree: &SyntaxTree, comments: &LineComments) -> bool {
-    tree.items.iter().any(|item| match item {
-        SyntaxItem::Function(function) => function.body.iter().any(|line| match line {
-            BodyLine::Let { expr, .. } | BodyLine::Expr { expr, .. } => {
-                expr_has_commented_match_rewrite(expr, comments)
-            }
-        }),
-        SyntaxItem::Schema(_) | SyntaxItem::Effect(_) | SyntaxItem::Handler(_) => false,
-        SyntaxItem::Type(_) | SyntaxItem::Codec(_) | SyntaxItem::PublicAlias(_) => false,
-    })
-}
-
-fn expr_has_commented_match_rewrite(expr: &Expr, comments: &LineComments) -> bool {
-    if let ExprKind::Match { scrutinee, arms } = &expr.kind
-        && (literal_match_rewrite(scrutinee, arms).is_some() || bool_match_rewrite(arms).is_some())
-        && comments.has_comment_in_span(&expr.span)
-    {
-        return true;
-    }
-
-    match &expr.kind {
-        ExprKind::TypeApply { callee, .. } => expr_has_commented_match_rewrite(callee, comments),
-        ExprKind::Call { callee, args } => {
-            expr_has_commented_match_rewrite(callee, comments)
-                || args
-                    .iter()
-                    .any(|arg| expr_has_commented_match_rewrite(arg, comments))
-        }
-        ExprKind::Perform { args, .. } => args
-            .iter()
-            .any(|arg| expr_has_commented_match_rewrite(arg, comments)),
-        ExprKind::Handle { body, args, .. } => {
-            expr_has_commented_match_rewrite(body, comments)
-                || args
-                    .iter()
-                    .any(|arg| expr_has_commented_match_rewrite(arg, comments))
-        }
-        ExprKind::SchemaDecode { input, base, .. } => {
-            expr_has_commented_match_rewrite(input, comments)
-                || expr_has_commented_match_rewrite(base, comments)
-        }
-        ExprKind::SchemaEncode { value, .. } => expr_has_commented_match_rewrite(value, comments),
-        ExprKind::FieldAccess { base, .. } | ExprKind::Try(base) => {
-            expr_has_commented_match_rewrite(base, comments)
-        }
-        ExprKind::Record(fields) => fields
-            .iter()
-            .any(|field| expr_has_commented_match_rewrite(&field.expr, comments)),
-        ExprKind::Dict(entries) => entries.iter().any(|entry| {
-            expr_has_commented_match_rewrite(&entry.key, comments)
-                || expr_has_commented_match_rewrite(&entry.value, comments)
-        }),
-        ExprKind::List(items) => items
-            .iter()
-            .any(|item| expr_has_commented_match_rewrite(item, comments)),
-        ExprKind::Match { scrutinee, arms } => {
-            expr_has_commented_match_rewrite(scrutinee, comments)
-                || arms
-                    .iter()
-                    .any(|arm| expr_has_commented_match_rewrite(&arm.expr, comments))
-        }
-        ExprKind::If {
-            condition,
-            then_branch,
-            else_if_branches,
-            else_branch,
-        } => {
-            expr_has_commented_match_rewrite(condition, comments)
-                || expr_has_commented_match_rewrite(then_branch, comments)
-                || else_if_branches.iter().any(|branch| {
-                    expr_has_commented_match_rewrite(&branch.condition, comments)
-                        || expr_has_commented_match_rewrite(&branch.expr, comments)
-                })
-                || expr_has_commented_match_rewrite(else_branch, comments)
-        }
-        ExprKind::Prefix { expr, .. } => expr_has_commented_match_rewrite(expr, comments),
-        ExprKind::Binary { left, right, .. } => {
-            expr_has_commented_match_rewrite(left, comments)
-                || expr_has_commented_match_rewrite(right, comments)
-        }
-        ExprKind::Missing
-        | ExprKind::Hole { .. }
-        | ExprKind::NamePath(_)
-        | ExprKind::StringLiteral(_)
-        | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
-        | ExprKind::BoolLiteral(_)
-        | ExprKind::Unit => false,
-    }
 }
 
 fn format_codec_decl(out: &mut String, comments: &LineComments, codec: &CodecDecl) {
