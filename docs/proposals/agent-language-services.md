@@ -240,14 +240,14 @@ a successful result with no definition or references.
 
 ### Tools
 
-The implemented workspace-project, `check_project`, and workspace `definition`
-input and result schemas
-are checked JSON Schemas in the `mcp/v1` schema bundle. Their tool declarations
-derive from the same files. The remaining reference, broader definition,
-resource-metadata, and documentation schemas are planned. Schema objects reject
-unknown fields and reject `null` unless a field explicitly permits it. Schema
-or JSON-RPC shape failures map to protocol invalid-params errors. A decoded
-domain failure is an MCP tool error with `{code, message, details}`.
+The implemented workspace-project, `check_project`, workspace `definition`,
+and saved function `references` input and result schemas are checked JSON
+Schemas in the `mcp/v1` schema bundle. Their tool declarations derive from the
+same files. Broader definition coverage, reference pagination, resource
+metadata, and documentation schemas are planned. Schema objects reject unknown
+fields and reject `null` unless a field explicitly permits it. Schema or
+JSON-RPC shape failures map to protocol invalid-params errors. A decoded domain
+failure is an MCP tool error with `{code, message, details}`.
 
 The stable v1 domain codes are `invalid_path`, `invalid_position`,
 `invalid_query`, `source_required`, `project_not_selected`,
@@ -264,7 +264,7 @@ The first capability exposes these model-controlled tools:
 | --- | --- |
 | `check_project` | Analyze one saved workspace project and return structured diagnostics. |
 | `definition` | Resolve the symbol at a saved source position and return its declaration location. |
-| `references` | Return a deterministic, bounded page of locations for the symbol at a saved source position. |
+| `references` | Return deterministic project-owned function locations for the symbol at a saved source position. |
 | `search_docs` | Search the published language and package reference catalogs. |
 | `read_doc` | Read one published documentation resource through a model-controlled route. |
 | `workspace_projects` | Return the current selection generation and sorted project roots. |
@@ -284,13 +284,15 @@ zero or one semantic location. When the declaration has published
 documentation, the result also contains its documentation resource URI and
 declaration identifier.
 
-The first `references` request accepts a workspace-relative source path,
-position, `include_declaration`, and a bounded page size. A continuation
-request contains only `cursor`. `include_declaration` defaults to true and the
-page size defaults to 100 with a maximum of 1,000. Values outside that range
-are rejected rather than clamped. Results are sorted by URI, start line, start
-column, end line, and end column. Each result states whether its scope is a
-selected project or one file and whether it is project-wide.
+The implemented saved function `references` slice accepts only a
+workspace-relative source path, line, and column. It returns deterministic
+project-owned function reference locations for the shared language service's
+current function-navigation result. The declaration is not included. Pagination,
+cursors, dependency references, and declaration-inclusion controls remain part
+of the broader planned reference capability. Future paginated reference
+requests use bounded page sizes instead of clamping values outside the accepted
+range. Each result states whether its scope is a selected project or one file
+and whether it is project-wide.
 
 `search_docs` accepts a query of at most 256 Unicode scalars, a scope of
 `language`, `package`, `stdlib`, or `all`, and a result count that defaults to
@@ -910,10 +912,10 @@ behavior has been promoted to specification and executable-example routes.
 
 ## Acceptance Model
 
-The workspace inventory, saved diagnostics, and bounded workspace-definition
-rows implemented by the current slice point to current specification and
-executable evidence. All other rows describe planned evidence and do not imply
-that the behavior is already implemented.
+The workspace inventory, saved diagnostics, bounded workspace-definition, and
+saved function-reference rows implemented by current slices point to current
+specification and executable evidence. All other rows describe planned evidence
+and do not imply that the behavior is already implemented.
 
 ### Server And Project Selection
 

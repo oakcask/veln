@@ -11,13 +11,13 @@ standard output. Standard output contains only newline-delimited JSON-RPC
 messages. End-of-file ends the session successfully.
 
 The current MCP surface contains `workspace_projects`, `refresh_workspace`,
-`check_project`, and `definition`. The checked declarations under
+`check_project`, `definition`, and `references`. The checked declarations under
 `../../crates/veln-mcp/schemas/mcp/v1/` define the advertised input and result
 schemas. The `check_project` result schema closes diagnostics, summary counts,
 and the two analysis metadata shapes. Schema failures, unknown input fields,
 `null` in non-nullable fields, and non-object inputs produce a JSON-RPC
-invalid-params error. The `definition` input requires one source plus positive
-JSON integer line and column coordinates.
+invalid-params error. The `definition` and `references` inputs each require
+one source plus positive JSON integer line and column coordinates.
 `refresh_workspace` reports the stable `generation_failed` domain failure as an
 MCP tool result with `isError: true`.
 
