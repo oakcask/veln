@@ -1315,10 +1315,12 @@ impl SymbolIndex {
                         .is_some_and(|target| target == &symbol.module);
                 if visible_bare_workspace_function {
                     names.insert_bare(symbol.name.clone());
-                    if symbol.returns_callable {
+                    if symbol.returns_callable && self.bare_call_selects_function(file, symbol) {
                         names.insert_bare_returning_callable(symbol.name.clone());
                     }
-                    if !symbol.returns_callable_fields.is_empty() {
+                    if !symbol.returns_callable_fields.is_empty()
+                        && self.bare_call_selects_function(file, symbol)
+                    {
                         names.insert_bare_returning_callable_fields(
                             symbol.name.clone(),
                             symbol.returns_callable_fields.clone(),
@@ -1327,13 +1329,16 @@ impl SymbolIndex {
                 }
                 if visible_qualified_workspace_function {
                     names.insert_qualified(symbol.module.clone(), symbol.name.clone());
-                    if symbol.returns_callable {
+                    if symbol.returns_callable && self.qualified_call_selects_function(file, symbol)
+                    {
                         names.insert_qualified_returning_callable(
                             symbol.module.clone(),
                             symbol.name.clone(),
                         );
                     }
-                    if !symbol.returns_callable_fields.is_empty() {
+                    if !symbol.returns_callable_fields.is_empty()
+                        && self.qualified_call_selects_function(file, symbol)
+                    {
                         names.insert_qualified_returning_callable_fields(
                             symbol.module.clone(),
                             symbol.name.clone(),
@@ -1354,18 +1359,26 @@ impl SymbolIndex {
             if imported {
                 names.insert_bare(symbol.name.clone());
                 names.insert_qualified(symbol.module.clone(), symbol.name.clone());
-                if symbol.returns_callable {
+                if symbol.returns_callable && self.bare_call_selects_function(file, symbol) {
                     names.insert_bare_returning_callable(symbol.name.clone());
+                }
+                if symbol.returns_callable && self.qualified_call_selects_function(file, symbol) {
                     names.insert_qualified_returning_callable(
                         symbol.module.clone(),
                         symbol.name.clone(),
                     );
                 }
-                if !symbol.returns_callable_fields.is_empty() {
+                if !symbol.returns_callable_fields.is_empty()
+                    && self.bare_call_selects_function(file, symbol)
+                {
                     names.insert_bare_returning_callable_fields(
                         symbol.name.clone(),
                         symbol.returns_callable_fields.clone(),
                     );
+                }
+                if !symbol.returns_callable_fields.is_empty()
+                    && self.qualified_call_selects_function(file, symbol)
+                {
                     names.insert_qualified_returning_callable_fields(
                         symbol.module.clone(),
                         symbol.name.clone(),
@@ -1375,6 +1388,51 @@ impl SymbolIndex {
             }
         }
         names
+    }
+
+    fn bare_call_selects_function(&self, file: &IndexedFile, symbol: &FunctionSymbol) -> bool {
+        if self.has_visible_bare_constructor_name(file, &symbol.name)
+            && (self.constructor_for_bare_call(file, &symbol.name).is_some()
+                || self.has_ambiguous_constructor_for_bare_call(file, &symbol.name))
+        {
+            return false;
+        }
+        if symbol.package.is_none() && symbol.module == file.module {
+            return true;
+        }
+        if self.has_visible_non_prelude_imported_function(file, &symbol.name)
+            || self.has_visible_non_prelude_imported_constructor(file, &symbol.name)
+        {
+            return false;
+        }
+        symbol.standard_prelude
+    }
+
+    fn qualified_call_selects_function(&self, file: &IndexedFile, symbol: &FunctionSymbol) -> bool {
+        if self
+            .constructor_for_qualified_call(file, &symbol.module, &symbol.name)
+            .is_some()
+            || self.has_ambiguous_constructor_for_qualified_call(file, &symbol.module, &symbol.name)
+        {
+            return false;
+        }
+        match &symbol.package {
+            Some(package) => {
+                symbol.standard_prelude
+                    || symbol.public
+                        && file
+                            .external_uses
+                            .contains(&(symbol.module.clone(), package.clone()))
+            }
+            None => {
+                symbol.module == file.module
+                    || symbol.public && file.uses.contains(&symbol.module)
+                    || file
+                        .companion_target_module
+                        .as_ref()
+                        .is_some_and(|target| target == &symbol.module)
+            }
+        }
     }
 
     fn qualified_function_references_in_file(
@@ -4597,6 +4655,40 @@ mod tests {
 
             assert!(result.is_none(), "{result:#?}");
         }
+    }
+
+    #[test]
+    fn constructor_initializer_call_does_not_create_callable_shadow_navigation() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "type Maker\n",
+                "  make(Int)\n",
+                "end\n\n",
+                "type Token\n",
+                "  pack(Int)\n",
+                "end\n\n",
+                "fn direct(value: Int) -> Int\n",
+                "  value\n",
+                "end\n\n",
+                "fn make(value: Int) -> fn(Int) -> Int\n",
+                "  direct\n",
+                "end\n\n",
+                "fn main() -> Token\n",
+                "  let pack = make(0)\n",
+                "  pack(1)\n",
+                "end\n",
+            ),
+        )];
+
+        let initializer = query(sources.clone(), "main.veln", 18, 14).unwrap();
+        assert_eq!(initializer.selected_symbol.kind, SymbolKind::Constructor);
+        assert_location(&initializer.definition, "main.veln", 2, 3);
+
+        let result = query(sources, "main.veln", 19, 4).unwrap();
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+        assert_location(&result.definition, "main.veln", 6, 3);
+        assert!(result.references.is_empty());
     }
 
     #[test]

@@ -324,3 +324,75 @@ fn call_resolution_prefers_callable_record_field_binding_over_constructor() {
         ));
     }
 }
+
+#[test]
+fn call_resolution_preserves_constructor_when_initializer_call_uses_constructor() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Maker\n",
+            "  make(Int)\n",
+            "end\n",
+            "type Token\n",
+            "  pack(Int)\n",
+            "end\n",
+            "fn direct(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+            "fn make(value: Int) -> fn(Int) -> Int\n",
+            "  direct\n",
+            "end\n",
+            "pub fn main() -> Token\n",
+            "  let pack = make(0)\n",
+            "  pack(1)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Let { expr, .. } = &main.body[0].kind else {
+        panic!("initializer should lower as let");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::AdtVariant { name, .. } if name.as_slice() == ["Maker", "make"]
+    ));
+    let CoreStmtKind::Return { expr } = &main.body[1].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::AdtVariant { name, .. } if name.as_slice() == ["Token", "pack"]
+    ));
+
+    let ir = lowered.ir.expect("complete core should lower to IR");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Let { value, .. } = &main.body[0].kind else {
+        panic!("initializer should lower as IR let");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::AdtVariant { name, .. } if name.as_slice() == ["Maker", "make"]
+    ));
+    let IrStmtKind::Return { value } = &main.body[1].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::AdtVariant { name, .. } if name.as_slice() == ["Token", "pack"]
+    ));
+}

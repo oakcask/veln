@@ -1,0 +1,9 @@
+[
+  {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"rootUri":"file://."}},
+  {"jsonrpc":"2.0","id":2,"method":"textDocument/definition","params":{"textDocument":{"uri":"file://./main.veln"},"position":{"line":17,"character":14}}},
+  {"jsonrpc":"2.0","id":3,"method":"textDocument/definition","params":{"textDocument":{"uri":"file://./main.veln"},"position":{"line":18,"character":4}}},
+  {"jsonrpc":"2.0","id":4,"method":"textDocument/references","params":{"textDocument":{"uri":"file://./main.veln"},"position":{"line":18,"character":4},"context":{"includeDeclaration":true}}},
+  {"jsonrpc":"2.0","id":5,"method":"textDocument/rename","params":{"textDocument":{"uri":"file://./main.veln"},"position":{"line":18,"character":4},"newName":"box"}},
+  {"jsonrpc":"2.0","id":6,"method":"shutdown","params":null},
+  {"jsonrpc":"2.0","method":"exit","params":null}
+]

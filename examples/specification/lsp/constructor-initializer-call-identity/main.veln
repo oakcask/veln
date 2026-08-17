@@ -1,0 +1,20 @@
+type Maker
+  make(Int)
+end
+
+type Token
+  pack(Int)
+end
+
+fn direct(value: Int) -> Int
+  value
+end
+
+fn make(value: Int) -> fn(Int) -> Int
+  direct
+end
+
+pub fn main() -> Token
+  let pack = make(0)
+  pack(1)
+end

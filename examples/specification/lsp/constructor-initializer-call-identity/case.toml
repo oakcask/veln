@@ -1,0 +1,40 @@
+command = ["lsp"]
+stdin_jsonrpc_file = "requests.json"
+exit = 0
+
+[stdout]
+contains = ["\"definitionProvider\":true", "\"id\":2,\"result\":{\"uri\":\"file://", "\"id\":3,\"result\":{\"uri\":\"file://", "\"id\":4,\"result\":[{\"uri\":\"file://", "\"newText\":\"box\""]
+not_contains = ["\"id\":3,\"result\":null", "\"id\":4,\"result\":[]", "\"changes\":{}"]
+
+[stderr]
+format = "empty"
+
+[[lsp_assert]]
+id = 2
+path = "/result/range/start"
+equals = {"line":1,"character":2}
+
+[[lsp_assert]]
+id = 2
+path = "/result/range/end"
+equals = {"line":1,"character":6}
+
+[[lsp_assert]]
+id = 3
+path = "/result/range/start"
+equals = {"line":5,"character":2}
+
+[[lsp_assert]]
+id = 3
+path = "/result/range/end"
+equals = {"line":5,"character":6}
+
+[[lsp_assert]]
+id = 4
+path = "/result/0/range/start"
+equals = {"line":5,"character":2}
+
+[[lsp_assert]]
+id = 4
+path = "/result/0/range/end"
+equals = {"line":5,"character":6}

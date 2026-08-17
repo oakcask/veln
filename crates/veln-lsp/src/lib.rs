@@ -4025,6 +4025,73 @@ mod tests {
     }
 
     #[test]
+    fn constructor_initializer_call_does_not_create_callable_shadow_navigation() {
+        let mut server = Server::default();
+        let project = TempProject::new("constructor-initializer-not-callable-navigation");
+        project.write(
+            "main.veln",
+            concat!(
+                "type Maker\n",
+                "  make(Int)\n",
+                "end\n",
+                "\n",
+                "type Token\n",
+                "  pack(Int)\n",
+                "end\n",
+                "\n",
+                "fn direct(value: Int) -> Int\n",
+                "  value\n",
+                "end\n",
+                "\n",
+                "fn make(value: Int) -> fn(Int) -> Int\n",
+                "  direct\n",
+                "end\n",
+                "\n",
+                "pub fn main() -> Token\n",
+                "  let pack = make(0)\n",
+                "  pack(1)\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let initializer_definition = server.handle_message(&definition_request(&main_uri, 17, 14));
+        assert_eq!(initializer_definition.len(), 1);
+        assert!(
+            initializer_definition[0].contains(
+                r#""range":{"start":{"line":1,"character":2},"end":{"line":1,"character":6}}"#
+            ),
+            "{}",
+            initializer_definition[0]
+        );
+
+        let definition = server.handle_message(&definition_request(&main_uri, 18, 4));
+        let references = server.handle_message(&references_request(&main_uri, 18, 4));
+        let rename = server.handle_message(&rename_request(&main_uri, 18, 4, "box"));
+
+        assert_eq!(definition.len(), 1);
+        assert!(
+            definition[0].contains(
+                r#""range":{"start":{"line":5,"character":2},"end":{"line":5,"character":6}}"#
+            ),
+            "{}",
+            definition[0]
+        );
+        assert_eq!(references.len(), 1);
+        assert!(
+            references[0].contains(
+                r#""range":{"start":{"line":5,"character":2},"end":{"line":5,"character":6}}"#
+            ),
+            "{}",
+            references[0]
+        );
+        assert_eq!(rename.len(), 1);
+        assert!(rename[0].contains(r#""newText":"box""#), "{}", rename[0]);
+    }
+
+    #[test]
     fn ambiguous_current_module_constructor_definition_does_not_fall_back_to_import() {
         let mut server = Server::default();
         let project = TempProject::new("current-constructor-ambiguity-blocks-import-definition");

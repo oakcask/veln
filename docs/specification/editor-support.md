@@ -168,8 +168,8 @@ definition, same-identity function references when constructors share the same
 spelling, callable bindings that shadow same-spelled constructor calls,
 bindings initialized from parenthesized callable values, callable record
 fields, fields of records returned by calls, or calls that return functions
-and shadow same-spelled constructor calls, qualified workspace function values
-and `if` expressions that initialize callable bindings which shadow
+when those initializer calls resolve to the function identity, qualified
+workspace function values, and `if` expressions that initialize callable bindings which shadow
 same-spelled constructor calls,
 non-callable parameter, local, handler context, and handler operation clause
 bindings that leave
@@ -296,7 +296,8 @@ The executable LSP example
 `../../examples/specification/lsp/callable-shadow-constructor-navigation/`
 checks that a callable parameter, local binding, local binding initialized
 from a parenthesized callable value, or local binding initialized from a call
-that returns a function shadows a same-spelled constructor at a bare call site.
+that resolves to a function returning a function shadows a same-spelled
+constructor at a bare call site.
 The same example checks a local binding initialized from a `match` expression
 whose arms return function values. Definition and references return no
 constructor location, and rename returns no constructor edit for the shadowed
@@ -306,6 +307,12 @@ case covers the returned-callable binding form. The focused
 `../../examples/specification/lsp/callable-field-shadow-constructor-navigation/`
 case covers local bindings initialized from callable record fields, including
 fields read from records returned by calls.
+The focused
+`../../examples/specification/lsp/constructor-initializer-call-identity/`
+case checks that a local binding initialized from a same-spelled constructor
+call does not become callable merely because a function with the same spelling
+returns a function. Definition, references, and rename select the later
+constructor call.
 The executable LSP example
 `../../examples/specification/lsp/non-callable-shadow-constructor-navigation/`
 checks that a non-callable parameter, local binding, handler context parameter,
