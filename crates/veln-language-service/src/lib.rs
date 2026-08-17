@@ -24,6 +24,9 @@ use veln_project::{
 use veln_source::{SourceFile, SourcePath, SourceSpan};
 use veln_syntax::{PublicAliasKind, SyntaxItem, Token, TokenKind, Visibility, lex, parse};
 
+type PublicReexportConstructorIndex = BTreeMap<(String, Option<String>, String), Vec<usize>>;
+type PrivateWorkspaceReexportConstructorIndex = BTreeMap<(String, String, String), Vec<usize>>;
+
 #[cfg(test)]
 mod navigation_stats {
     use std::cell::Cell;
@@ -1685,11 +1688,11 @@ fn extend_reexported_visible_constructor_indices(
 fn reexported_constructor_indices_by_import(
     index: &SymbolIndex,
 ) -> (
-    BTreeMap<(String, Option<String>, String), Vec<usize>>,
-    BTreeMap<(String, String, String), Vec<usize>>,
+    PublicReexportConstructorIndex,
+    PrivateWorkspaceReexportConstructorIndex,
 ) {
-    let mut public_indices = BTreeMap::<(String, Option<String>, String), Vec<usize>>::new();
-    let mut private_workspace_indices = BTreeMap::<(String, String, String), Vec<usize>>::new();
+    let mut public_indices = PublicReexportConstructorIndex::new();
+    let mut private_workspace_indices = PrivateWorkspaceReexportConstructorIndex::new();
     for alias in &index.type_aliases {
         for constructor_index in index
             .constructors_by_type_name
