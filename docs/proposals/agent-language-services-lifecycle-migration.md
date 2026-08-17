@@ -79,6 +79,17 @@ symbols” is not allowed.
 
 ## Frozen Source Inventory
 
+The authoritative first-PR artifacts are
+`agent-language-services-source-inventory.json` and
+`agent-language-services-migration-ledger.schema.json`. Run
+`node workflow-scripts/check-agent-language-services-inventory.mjs` and
+`node --test workflow-scripts/check-agent-language-services-inventory.test.mjs`
+from the repository root to check the frozen source and injected rejection
+cases. The documentation-validation workflow runs both commands and applies
+the diff-scope guard. Run the guard locally with
+`INVENTORY_BASE_SHA=BASE INVENTORY_HEAD_SHA=HEAD node workflow-scripts/check-agent-language-services-inventory.mjs --check-diff`,
+where `BASE` and `HEAD` identify the review range.
+
 Complete the migration in two PRs. The first PR adds a frozen source inventory,
 the migration-ledger schema, and their validator. It does not reorganize or
 remove umbrella proposal content. The second PR performs the lifecycle

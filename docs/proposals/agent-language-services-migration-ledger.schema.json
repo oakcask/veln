@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent-language-services-migration-ledger.schema.json",
+  "title": "Agent language services migration ledger",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "entries"],
+  "properties": {
+    "format": { "const": 1 },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entry" }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "lifecycle", "destination"],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "pattern": "^ALS-[0-9]{4}(?:\\.[1-9][0-9]*)*$"
+        },
+        "lifecycle": {
+          "enum": ["current", "completed", "planned", "removed"]
+        },
+        "destination": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "path"],
+          "properties": {
+            "kind": {
+              "enum": ["specification", "implementation-record", "proposal", "removal"]
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^docs/(?:specification|reference/implemented-proposals|proposals)/[^/]+\\.md$"
+            },
+            "anchor": { "type": "string", "minLength": 1 },
+            "evidence": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "rationale": { "type": "string", "minLength": 1 }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "lifecycle": { "const": "current" } } },
+          "then": {
+            "properties": {
+              "destination": {
+                "required": ["kind", "path", "evidence"],
+                "properties": { "kind": { "const": "specification" } }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "lifecycle": { "const": "completed" } } },
+          "then": {
+            "properties": {
+              "destination": {
+                "properties": { "kind": { "const": "implementation-record" } }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "lifecycle": { "const": "planned" } } },
+          "then": {
+            "properties": {
+              "destination": {
+                "properties": { "kind": { "const": "proposal" } }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "lifecycle": { "const": "removed" } } },
+          "then": {
+            "properties": {
+              "destination": {
+                "required": ["kind", "path", "rationale"],
+                "properties": { "kind": { "const": "removal" } }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -9,6 +9,7 @@ on:
       - .github/workflows/workflow--test-scripts.yaml
       - AGENTS.md
       - docs/**/*.md
+      - docs/**/*.json
       - workflow-scripts/**/*.mjs
   pull_request:
     paths:
@@ -16,6 +17,7 @@ on:
       - .github/workflows/workflow--test-scripts.yaml
       - AGENTS.md
       - docs/**/*.md
+      - docs/**/*.json
       - workflow-scripts/**/*.mjs
 
 permissions:
@@ -41,3 +43,11 @@ jobs:
           DOC_FRONTMATTER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           DOC_FRONTMATTER_HEAD_SHA: ${{ github.sha }}
         run: node workflow-scripts/check-doc-frontmatter.mjs
+      - name: Validate frozen language-services inventory and migration ledger schema
+        run: node workflow-scripts/check-agent-language-services-inventory.mjs
+      - name: Keep the frozen-inventory change within its documentation-only boundary
+        if: github.event_name == 'pull_request'
+        env:
+          INVENTORY_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          INVENTORY_HEAD_SHA: ${{ github.sha }}
+        run: node workflow-scripts/check-agent-language-services-inventory.mjs --check-diff
