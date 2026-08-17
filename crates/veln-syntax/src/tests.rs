@@ -3502,6 +3502,26 @@ fn format_tree_keeps_commented_bool_match_lossless() {
 }
 
 #[test]
+fn format_tree_keeps_nested_commented_bool_match_lossless() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn choose(flag: Bool) -> String\n",
+            "\twrap(match flag # keep this nested shape\n",
+            "\t\ttrue => \"yes\"\n",
+            "\t\tfalse => \"no\"\n",
+            "\tend)\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(format_tree(&output.tree), source.text());
+}
+
+#[test]
 fn reports_missing_match_arm_arrow_and_keeps_arm_expression() {
     let source = SourceFile::new(
         "main.veln",
