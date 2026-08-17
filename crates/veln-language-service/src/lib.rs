@@ -465,6 +465,10 @@ struct SymbolIndex {
         BTreeMap<(String, Option<String>), BTreeSet<String>>,
     private_workspace_reexported_constructor_names_by_import_and_module:
         BTreeMap<(String, String), BTreeSet<String>>,
+    public_reexported_constructor_indices_by_import:
+        BTreeMap<(String, Option<String>, String), Vec<usize>>,
+    private_workspace_reexported_constructor_indices_by_import_and_module:
+        BTreeMap<(String, String, String), Vec<usize>>,
     type_aliases_by_target_name: BTreeMap<String, Vec<usize>>,
     visible_bare_constructor_names_by_source: BTreeMap<IndexedSourceKey, BTreeSet<String>>,
     visible_bare_constructor_indices_by_source: BTreeMap<(IndexedSourceKey, String), Vec<usize>>,
@@ -591,6 +595,8 @@ impl SymbolIndex {
             type_aliases_by_target_name: type_alias_indices_by_target_name(&type_aliases),
             public_reexported_constructor_names_by_import: BTreeMap::new(),
             private_workspace_reexported_constructor_names_by_import_and_module: BTreeMap::new(),
+            public_reexported_constructor_indices_by_import: BTreeMap::new(),
+            private_workspace_reexported_constructor_indices_by_import_and_module: BTreeMap::new(),
             functions,
             constructors: ConstructorTable::new(constructors),
             type_aliases,
@@ -602,6 +608,10 @@ impl SymbolIndex {
             public_reexported_constructor_names_by_import(&index);
         index.private_workspace_reexported_constructor_names_by_import_and_module =
             private_workspace_reexported_constructor_names_by_import_and_module(&index);
+        (
+            index.public_reexported_constructor_indices_by_import,
+            index.private_workspace_reexported_constructor_indices_by_import_and_module,
+        ) = reexported_constructor_indices_by_import(&index);
         index.visible_bare_constructor_names_by_source =
             visible_bare_constructor_names_by_source(&index);
         index.visible_bare_constructor_indices_by_source =
@@ -1638,23 +1648,88 @@ fn extend_reexported_visible_constructor_indices(
     name: &str,
 ) {
     let source_key = file.key();
-    for constructor_index in index
-        .constructors_by_name
-        .get(name)
-        .into_iter()
-        .flat_map(|constructor_indices| constructor_indices.iter().copied())
-    {
-        let Some(symbol) = index.constructors.get(constructor_index) else {
-            continue;
-        };
-        if !index.constructor_reexport_visible_from(file, symbol, symbol.package.as_ref()) {
-            continue;
-        }
-        indexed
-            .entry((source_key.clone(), name.to_string()))
-            .or_default()
-            .insert(constructor_index);
+    for module in &file.uses {
+        extend_visible_constructor_indices(
+            indexed,
+            &source_key,
+            name,
+            index.public_reexported_constructor_indices_by_import.get(&(
+                module.clone(),
+                None,
+                name.to_string(),
+            )),
+        );
+        extend_visible_constructor_indices(
+            indexed,
+            &source_key,
+            name,
+            index
+                .private_workspace_reexported_constructor_indices_by_import_and_module
+                .get(&(module.clone(), file.module.clone(), name.to_string())),
+        );
     }
+    for (module, package) in &file.external_uses {
+        extend_visible_constructor_indices(
+            indexed,
+            &source_key,
+            name,
+            index.public_reexported_constructor_indices_by_import.get(&(
+                module.clone(),
+                Some(package.clone()),
+                name.to_string(),
+            )),
+        );
+    }
+}
+
+fn reexported_constructor_indices_by_import(
+    index: &SymbolIndex,
+) -> (
+    BTreeMap<(String, Option<String>, String), Vec<usize>>,
+    BTreeMap<(String, String, String), Vec<usize>>,
+) {
+    let mut public_indices = BTreeMap::<(String, Option<String>, String), Vec<usize>>::new();
+    let mut private_workspace_indices = BTreeMap::<(String, String, String), Vec<usize>>::new();
+    for alias in &index.type_aliases {
+        for constructor_index in index
+            .constructors_by_type_name
+            .get(&alias.target_name)
+            .into_iter()
+            .flat_map(|constructor_indices| constructor_indices.iter().copied())
+        {
+            #[cfg(test)]
+            navigation_stats::record_constructor_index_candidate();
+            let Some(symbol) = index.constructors.get(constructor_index) else {
+                continue;
+            };
+            if !type_alias_targets_constructor(alias, symbol)
+                || symbol.standard_prelude
+                || alias.package.as_ref() != symbol.package.as_ref()
+            {
+                continue;
+            }
+            if symbol.public {
+                public_indices
+                    .entry((
+                        alias.module.clone(),
+                        alias.package.clone(),
+                        symbol.name.clone(),
+                    ))
+                    .or_default()
+                    .push(constructor_index);
+            } else if symbol.package.is_none() {
+                private_workspace_indices
+                    .entry((
+                        alias.module.clone(),
+                        symbol.module.clone(),
+                        symbol.name.clone(),
+                    ))
+                    .or_default()
+                    .push(constructor_index);
+            }
+        }
+    }
+    (public_indices, private_workspace_indices)
 }
 
 fn public_reexported_constructor_names_by_import(
@@ -2502,11 +2577,35 @@ fn let_binding_is_callable(
     previous_non_layout_index(tokens, line_end)
         .filter(|value_index| *value_index > equal_index)
         .is_some_and(|value_index| {
-            callable_values.contains_token(tokens, value_index)
-                || rhs_call_target_index(tokens, equal_index, value_index).is_some_and(
-                    |callee_index| callable_values.call_returns_callable(tokens, callee_index),
-                )
+            callable_rhs_is_callable(tokens, equal_index, value_index, callable_values)
         })
+}
+
+fn callable_rhs_is_callable(
+    tokens: &[Token],
+    equal_index: usize,
+    value_index: usize,
+    callable_values: &CallableValueNames,
+) -> bool {
+    if callable_values.contains_token(tokens, value_index) {
+        return true;
+    }
+    if tokens[value_index].kind == TokenKind::RParen
+        && let Some(lparen_index) = matching_lparen_index(tokens, value_index, equal_index + 1)
+        && previous_non_layout_index(tokens, lparen_index).is_none_or(|previous| {
+            previous <= equal_index || tokens[previous].kind != TokenKind::Ident
+        })
+    {
+        return previous_non_layout_index(tokens, value_index)
+            .filter(|inner| *inner > lparen_index)
+            .is_some_and(|inner| {
+                callable_rhs_is_callable(tokens, equal_index, inner, callable_values)
+            });
+    }
+    let Some(callee_index) = rhs_call_target_index(tokens, equal_index, value_index) else {
+        return false;
+    };
+    callable_values.call_returns_callable(tokens, callee_index)
 }
 
 fn rhs_call_target_index(
@@ -2521,7 +2620,11 @@ fn rhs_call_target_index(
         return None;
     }
     let lparen_index = matching_lparen_index(tokens, value_index, equal_index + 1)?;
-    previous_non_layout_index(tokens, lparen_index)
+    let previous = previous_non_layout_index(tokens, lparen_index)?;
+    if previous > equal_index && tokens[previous].kind == TokenKind::Ident {
+        return Some(previous);
+    }
+    previous_non_layout_index(tokens, value_index).filter(|inner| *inner > lparen_index)
 }
 
 fn matching_lparen_index(
@@ -3388,6 +3491,32 @@ mod tests {
             navigation_stats::constructor_candidates_considered(),
             0,
             "reference lookup scanned same-named constructors that are not visible from the source file"
+        );
+    }
+
+    #[test]
+    fn parenthesized_callable_binding_shadows_constructor_for_bare_call_navigation() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "type Token\n",
+                    "  pack(Int)\n",
+                    "end\n\n",
+                    "fn caller(pack_value: fn(Int) -> Token) -> Token\n",
+                    "  let pack = (pack_value)\n",
+                    "  pack(1)\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            7,
+            4,
+        );
+
+        assert!(
+            result.is_none(),
+            "parenthesized callable alias resolved to the constructor instead of the local binding"
         );
     }
 
@@ -4842,12 +4971,18 @@ mod tests {
 
     #[test]
     fn reexported_constructor_visibility_index_does_not_scan_per_source() {
-        let size = 400;
-        let snapshot = reexported_constructor_visibility_snapshot(size);
+        let small = 100;
+        let large = 200;
 
         navigation_stats::reset();
+        let small_snapshot = reexported_constructor_visibility_snapshot(small);
+        let _ = small_snapshot.navigation_index();
+        let small_count = navigation_stats::constructor_index_candidates_considered();
+
+        navigation_stats::reset();
+        let large_snapshot = reexported_constructor_visibility_snapshot(large);
         let result = navigate(
-            &snapshot,
+            &large_snapshot,
             SourcePosition {
                 source: SourcePath::new("caller0.veln"),
                 line: 4,
@@ -4855,12 +4990,15 @@ mod tests {
             },
         )
         .unwrap();
+        let large_count = navigation_stats::constructor_index_candidates_considered();
 
         assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
         assert_location(&result.definition, "model.veln", 2, 7);
+        assert!(small_count >= small, "{small_count}");
+        assert!(large_count >= large, "{large_count}");
         assert!(
-            navigation_stats::constructor_candidates_considered() < size / 20,
-            "re-exported constructor visibility scanned constructor candidates once per source"
+            large_count < small_count * 3,
+            "re-exported constructor visibility index build grew quadratically: {small_count} -> {large_count}"
         );
     }
 
@@ -4884,6 +5022,10 @@ mod tests {
                     "  target(0)\n",
                     "end\n",
                 ),
+            ));
+            sources.push(source(
+                &format!("unused{index}.veln"),
+                "type Noise\n  target(Int)\nend\n",
             ));
         }
         EffectiveProjectSnapshot::new(sources)

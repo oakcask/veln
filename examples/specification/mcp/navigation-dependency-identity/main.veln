@@ -19,3 +19,8 @@ end
 fn parameter_shadow(pack: fn(Int) -> Local) -> Local
   pack(1)
 end
+
+fn parenthesized_shadow(identity: fn(Int) -> Local) -> Local
+  let pack = (identity)
+  pack(1)
+end

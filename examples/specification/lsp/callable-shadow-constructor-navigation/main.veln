@@ -10,3 +10,8 @@ pub fn local_shadow(identity: fn(Int) -> Token) -> Token
   let byte = identity
   byte(1)
 end
+
+pub fn parenthesized_shadow(identity: fn(Int) -> Token) -> Token
+  let byte = (identity)
+  byte(1)
+end
