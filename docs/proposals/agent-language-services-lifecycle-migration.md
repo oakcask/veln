@@ -119,11 +119,13 @@ symbols” is not allowed.
 
 ## Frozen Source Universe
 
-Complete the migration in two PRs. The first PR adds a frozen source inventory,
-an independent source-universe contract, a lifecycle review manifest, the
-migration-ledger schema, and their validator. It does not reorganize or remove
-umbrella proposal content. The second PR performs the lifecycle migration and
-may not modify the frozen artifacts or weaken the validator.
+Complete the migration in two PRs after the inventory review gate installs the
+base-owned content validator and its tests. The first migration PR adds a
+frozen source inventory, an independent source-universe contract, a lifecycle
+review manifest, the migration-ledger schema, and the closed fixture corpus. It
+does not revise validator code or reorganize or remove umbrella proposal
+content. The second PR performs the lifecycle migration and may not modify the
+frozen artifacts or validator policy.
 
 The source-universe contract is derived from the immutable reviewed
 source-decision authority established by the inventory review gate. Its root
@@ -150,6 +152,9 @@ contract, then compares contract membership and named identities with the
 inventory, in both directions. Deleting one source node from both the contract
 and inventory must therefore fail. A generator may propose records, spans, or
 digests, but generator output is not the completeness or lifecycle authority.
+The validator also rejects duplicate and missing root IDs independently of
+array length or encounter order. Replacing one expected root with a duplicate
+of another must fail even when the inventory remains unchanged.
 
 A detached top-level identity list is not sufficient evidence. Removing an
 identity occurrence or changing a conformance record to supporting must fail
@@ -229,6 +234,11 @@ tracked target provenance for that exact base. A stacked base that contains a
 frozen artifact is post-bootstrap even when the default branch does not contain
 one. It cannot be used to revise the frozen artifacts or validator.
 
+Each lifecycle PR adds exactly one tracked target receipt whose filename equals
+the event PR number. The guard reads that receipt from the event head tree.
+Existing receipts are immutable and are not lifecycle policy inputs for later
+PRs.
+
 The pull-request event base name is input to this check, not another candidate
 for the repository default branch. The event base name must equal the
 independently resolved default-branch name, and the event base commit,
@@ -246,9 +256,8 @@ after bootstrap, the permitted second migration paths, a frozen-artifact edit,
 a validator or workflow-registration edit, a protected-path rename, and a
 regular file changed to a symbolic link.
 
-Workflow path filters include every immutable JSON and provenance path. Push
-validation receives the pre-push default revision separately from the new head;
-it does not use the new head as both states of the bootstrap transition.
+Workflow path filters include every immutable JSON and provenance path. The
+required pull-request ruleset prevents direct default-branch pushes.
 Diff-scope validation examines every protected artifact, validator, test, and
 workflow-registration path in the selected range. It does not return early
 because no lifecycle JSON path changed. A local invocation without a concrete
@@ -323,6 +332,43 @@ and checked evidence against the repository. A corpus source ID must be an
 actual leaf from the reviewed inventory; positive cases may not use unknown or
 parent IDs.
 
+Represent ledger entries as an object keyed by concrete inventory leaf ID. The
+committed schema lists every leaf ID in `required` and rejects additional
+properties. JSON object-key uniqueness and the closed key set therefore
+express exactly-once structural coverage. Do not use an array whose
+`uniqueItems` constraint compares whole entry objects instead of source IDs.
+
+Reject a raw ledger object that repeats a source-ID key before ordinary JSON
+parsing or schema evaluation. The strict-parser fixture is named
+`duplicate_source_id_key` and contains exactly one repeated concrete leaf key
+whose two values differ.
+
+Execute the committed JSON Schema with a conforming schema evaluator. A
+handwritten shape check is not evidence that the committed schema accepts or
+rejects a fixture. Run the same closed structural corpus through the schema
+evaluator and semantic validator. The schema-equivalence fixture identities
+are:
+
+```text
+catch_all_leaf
+invalid_destination_shape
+invalid_removed_conformance
+lifecycle_mismatch
+missing_leaf
+parent_mapping
+range_leaf
+unknown_leaf
+wildcard_leaf
+```
+
+The validator rejects a missing, extra, or renamed required fixture before it
+evaluates fixture contents. The schema-and-semantic equivalence claim is
+limited to those nine structural fixtures plus the valid fixture. The strict
+duplicate-key parser case is required but is outside schema equivalence because
+it has no parsed JSON instance. Content
+checks such as destination existence, role, anchor, and checked evidence remain
+semantic-validator requirements and do not claim JSON Schema equivalence.
+
 ## Acceptance Model
 
 | Case | Expected result | Planned evidence |
@@ -331,16 +377,17 @@ parent IDs.
 | Check target readiness before implementation. | The generated frozen-inventory target is accepted only after both prerequisites leave `docs/proposals/` and its declared default-branch base has no frozen artifact. | Accepted handoff from the checked target-readiness command plus blocked-prerequisite, stale-base, and stacked-base rejection fixtures. |
 | Close the prerequisite client-platform set. | The platform-matrix proposal is complete and every plugin cell has a literal client-platform identity. | Link to the completed matrix record plus checked exact key list and row count. |
 | Freeze the source universe independently. | A first PR records stable IDs, source spans, classifications, and digests for every independently parsed complete source node without changing the umbrella proposal or the pre-branch source-decision authority. The structural parser exposes no semantic classification, and no writer creates or overwrites reviewed inputs. | Source-parser result-shape assertion; CommonMark continuation fixture; writer non-mutation assertion; base-authority-to-contract and contract-to-inventory comparisons; injected source-node, contract-node, inventory-node, duplicate, unexpected, synchronized-mutation, and generator-omission cases for each record class. |
+| Keep source-universe roots bijective. | Every expected reviewed root appears exactly once even when the root array length is unchanged. | Same-ID duplicate, omitted-root, and different-ID replacement fixtures. |
 | Preserve named finite inputs. | Q01-Q22, both closed matrices, the six saved-reference rows, every unresolved acceptance row, and every other named conformance item have exact source-bound identity occurrences. | One missing and one detached source-occurrence mutation for each item class, including tool, resource, declaration, encoding, and plugin cells. |
 | Separate lifecycle semantically. | Every conformance leaf matches the reviewed lifecycle manifest, and mixed parents partition every meaningful Unicode scalar without lifecycle mixing. | Golden ambiguous-word cases plus injected gap, overlap, out-of-range, wrong-lifecycle, hidden-delimiter, and non-BMP boundary failures. |
-| Keep the ledger schema and validator equivalent. | Both validators reject the same invalid structural ledger cases and accept the same valid corpus. | Per-keyword schema weakening and closedness mutation corpus. |
-| Inventory the finite inputs. | The migration ledger contains exactly one entry for every frozen leaf ID and its lifecycle equals the frozen lifecycle. | Missing, duplicate, parent, wildcard, range, catch-all, unknown-leaf, and lifecycle-mismatch rejection cases. |
+| Keep the ledger schema and validator equivalent. | The committed schema evaluator and semantic validator reject the nine named invalid structural fixtures and accept the same valid fixture. | Exact fixture-name check, keyed-entry schema, and closed-object cases. |
+| Inventory the finite inputs. | The migration ledger contains exactly one entry for every frozen leaf ID and its lifecycle equals the frozen lifecycle. | Missing, strict duplicate-key, parent, wildcard, range, catch-all, unknown-leaf, and lifecycle-mismatch rejection cases. |
 | Route current behavior. | Every `current` entry links to an existing specification anchor and unique checked evidence; no proposal or implementation record is cited as current authority. | Missing path, missing anchor, wrong role, wrong directory, empty evidence, duplicate evidence, missing evidence, and unchecked-evidence cases. |
 | Preserve unresolved work. | Every `planned` entry retains a concrete input, observable outcome, boundary, and named evidence route in an active proposal page. | Ledger-to-proposal validation and proposal review. |
 | Move completed history. | Every `completed` entry links to a supporting implementation record, and active proposal pages contain no implemented status ledger. | Stale implemented-row search and frontmatter validation. |
 | Remove only supporting explanation. | Conformance leaves reject `removed`; supporting leaves accept it only with a rationale and existing superseding destination. | Paired conformance rejection and supporting-explanation acceptance fixtures. |
 | Keep the completion gate finite. | Active proposal pages contain every planned leaf from the frozen inventory, including the closed matrices and Q01-Q22 identities, or link to focused proposal pages that contain them. No completion row depends on an undefined future matrix or capability list. | Frozen-inventory-to-proposal validation and injected missing-entry failure tests for each item class. |
-| Bound the diff guard to its phase. | The bootstrap allowlist runs only on one default-branch-targeting PR whose event base commit equals its provenance base and independently resolved default-branch commit. A branch-local staged authority and any non-default or frozen stacked base are rejected. Later docs work passes while frozen artifacts, validator registration, and protected executable evidence remain immutable. | Base-ref and default-ref assertions plus the complete base/head and PR/push event table, including missing-provenance, blocked-target, branch-local-authority, retargeted-non-default-base, stacked-base, JSON-only, type-change, copy, rename, unrelated-source, unrelated-doc, migration-path, frozen-edit, validator-edit, and workflow-registration cases. |
+| Bound the diff guard to its phase. | The bootstrap allowlist runs only on one default-branch-targeting PR whose event base commit equals its provenance base and independently resolved default-branch commit. A branch-local staged authority and any non-default or frozen stacked base are rejected. Later docs work passes while frozen artifacts, validator registration, and protected executable evidence remain immutable. | Base-ref and default-ref assertions plus the complete base/head PR event table and direct-push ruleset evidence, including missing-provenance, blocked-target, branch-local-authority, retargeted-non-default-base, stacked-base, JSON-only, type-change, copy, rename, unrelated-source, unrelated-doc, migration-path, frozen-edit, validator-edit, and workflow-registration cases. |
 | Complete the migration independently. | The PR changes documentation and its documentation validators only. It does not change harness code, executable MCP fixtures, or semantic baselines. | Phase-aware diff-scope check with actionable failure output. |
 
 ## Non-Goals
@@ -353,7 +400,7 @@ parent IDs.
 
 ## Completion Rule
 
-This proposal completes only when all fifteen acceptance rows pass. Move the
+This proposal completes only when all sixteen acceptance rows pass. Move the
 completed proposal record out of `docs/proposals/` before selecting the MCP
 JSONL assertion target. Later capability work may revise a closed set only
 through a separate proposal that states the old and new finite membership.
