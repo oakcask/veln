@@ -9,12 +9,9 @@
     },
     {
       "proposal_path": "docs/proposals/agent-language-services-lifecycle-migration.md",
-      "proposal_anchor": "#frozen-source-universe",
+      "proposal_anchor": "#agent-language-services-lifecycle-migration",
       "state": "ready",
-      "prerequisites": [
-        "docs/proposals/agent-language-services-platform-matrix-closure.md",
-        "docs/proposals/checked-proposal-target-readiness.md"
-      ]
+      "prerequisites": []
     },
     {
       "proposal_path": "docs/proposals/agent-language-services-slice-closure.md",

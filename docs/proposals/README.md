@@ -21,9 +21,9 @@ also states it.
 - Identifier casing that separates type and constructor names from module,
   function, and value-binding names:
   [identifier-casing.md](identifier-casing.md).
-- Add the frozen source inventory for the agent-language-services lifecycle
-  migration:
-  [agent-language-services-lifecycle-migration.md](agent-language-services-lifecycle-migration.md#frozen-source-universe).
+- Perform the agent-language-services content migration from the frozen source
+  inventory:
+  [agent-language-services-lifecycle-migration.md](agent-language-services-lifecycle-migration.md).
 
 Only proposals and subsections listed in this section are selectable targets.
 

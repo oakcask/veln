@@ -29,6 +29,8 @@ behavior page needs rationale, source support, or toolchain reference material.
   [proposal-target-readiness/README.md](proposal-target-readiness/README.md).
 - Agent language-services lifecycle review authority:
   [agent-language-services-lifecycle-review/source-decisions.json](agent-language-services-lifecycle-review/source-decisions.json).
+- Agent language-services frozen lifecycle artifacts:
+  [agent-language-services-lifecycle/README.md](agent-language-services-lifecycle/README.md).
 - HTTP/2 public symbol migration and residual-name classification:
   [http2-standard-module-migration.md](http2-standard-module-migration.md).
 - Implemented proposal records:

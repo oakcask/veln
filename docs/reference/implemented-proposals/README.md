@@ -84,6 +84,8 @@ under `../../specification/` and its executable example routes.
   [agent-language-services-platform-matrix-closure.md](agent-language-services-platform-matrix-closure.md).
 - Agent language services inventory review gate:
   [agent-language-services-inventory-review-gate.md](agent-language-services-inventory-review-gate.md).
+- Agent language services frozen source inventory:
+  [agent-language-services-frozen-source-inventory.md](agent-language-services-frozen-source-inventory.md).
 - Self-hosting standard library:
   [self-hosting-standard-library.md](self-hosting-standard-library.md).
 - Standard library package:
