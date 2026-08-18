@@ -41,3 +41,8 @@ jobs:
           DOC_FRONTMATTER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           DOC_FRONTMATTER_HEAD_SHA: ${{ github.sha }}
         run: node workflow-scripts/check-doc-frontmatter.mjs
+      - name: Validate the closed agent language platform matrix
+        env:
+          AGENT_PLATFORM_MATRIX_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          AGENT_PLATFORM_MATRIX_HEAD_SHA: ${{ github.sha }}
+        run: node workflow-scripts/check-agent-language-platform-matrix.mjs

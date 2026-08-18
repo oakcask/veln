@@ -21,18 +21,14 @@ also states it.
 - Identifier casing that separates type and constructor names from module,
   function, and value-binding names:
   [identifier-casing.md](identifier-casing.md).
-- Close the agent-language-services client-platform set before freezing its
-  conformance universe:
-  [agent-language-services-platform-matrix-closure.md](agent-language-services-platform-matrix-closure.md).
+- Add the agent-language-services frozen source inventory after the completed
+  client-platform matrix prerequisite:
+  [agent-language-services-lifecycle-migration.md](agent-language-services-lifecycle-migration.md).
 
 Only proposals and subsections listed in this section are selectable targets.
 
 ## Blocked
 
-- The agent-language-services lifecycle migration is blocked until the
-  client-platform matrix closure leaves this directory as a completed
-  implementation record:
-  [agent-language-services-lifecycle-migration.md](agent-language-services-lifecycle-migration.md).
 - The agent-language-services slice-closure proposal is blocked until the
   lifecycle-migration proposal leaves this directory as a completed
   implementation record:

@@ -845,9 +845,9 @@ Each client starts one server per active workspace root with that root as the
 process working directory. A host mode is unsupported when it cannot set the
 working directory or document and demonstrate inheritance from the workspace
 launch directory. Initialization verifies that the client root resolves to the
-server workspace base. It also exchanges the toolchain version, MCP contract,
-language-service ABI, and reference schema version before making tools and
-resources available.
+server workspace base selected by the [Closed Client-Platform Matrix](#closed-client-platform-matrix "matrix-ref:agent-plugin-server-lifecycle").
+It also exchanges the toolchain version, MCP contract, language-service ABI,
+and reference schema version before making tools and resources available.
 
 An explicit client executable setting takes precedence. Otherwise the first
 `veln` on `PATH` is used. A missing executable tells the user to install Veln
@@ -866,25 +866,70 @@ The shared skill instructs agents to:
 
 The first capability supplies validated plugin artifacts and documents the
 client-native installation and enablement flows. It does not authorize the
-`veln` executable to mutate client user configuration. A later proposal may
-add an installer after the supported clients expose a sufficiently stable,
-non-interactive installation contract.
+`veln` executable to mutate client user configuration.
 
-`compatibility.toml` is the authoritative client matrix. The v1 matrix pins one
-tested Codex host build and one tested Claude Code build per supported platform,
-their manifest-schema revisions, validator versions and integrity digests, and
-the required Veln, MCP, LSP, language-service, and reference-schema contracts.
-Widening a host range requires adding and passing both boundary builds. Shared
-skill content and `.mcp.json` are common authority. Each client manifest and
-Claude Code's `.lsp.json` are authoritative only for that client. Client staging
+A later proposal may add an installer after the [Closed Client-Platform Matrix](#closed-client-platform-matrix "matrix-ref:agent-plugin-installer-boundary")
+clients expose a sufficiently stable, non-interactive installation contract.
+
+The v1 compatibility records are selected only by the [Closed Client-Platform Matrix](#closed-client-platform-matrix "matrix-ref:agent-plugin-compatibility-authority").
+Each future record supplies all compatibility field identities from that table
+with values proven by checked plugin and validator artifacts. Shared skill
+content and `.mcp.json` are common authority. Each client manifest and Claude
+Code's `.lsp.json` are authoritative only for that client. Client staging
 packages omit files unknown to that client and are freshness-checked against the
 shared inputs.
 
-Every matrix cell uses client-native installation, opens a fixture workspace,
-checks process working directory, performs MCP initialize, tool, resource, and
-template listing, resource reads, every tool, one domain failure, and shutdown.
-Claude Code additionally performs the LSP initialize, initialized,
-virtual-document, shutdown, and exit sequence.
+Every [Closed Client-Platform Matrix](#closed-client-platform-matrix "matrix-ref:agent-plugin-native-validation")
+cell uses client-native installation, opens a fixture workspace, checks process
+working directory, performs MCP initialize, tool, resource, and template
+listing, resource reads, every tool, one domain failure, and shutdown. Claude
+Code additionally performs the LSP initialize, initialized, virtual-document,
+shutdown, and exit sequence.
+
+### Closed Client-Platform Matrix
+
+Closed client-platform row count: `2`.
+
+Matrix closure phase: `agent-language-services-platform-matrix-closed`.
+
+| Client | Platform |
+| --- | --- |
+| `codex` | `x86_64-unknown-linux-gnu` |
+| `claude-code` | `x86_64-unknown-linux-gnu` |
+
+#### Compatibility Field Identities
+
+| Compatibility field |
+| --- |
+| `client` |
+| `platform` |
+| `host-build` |
+| `manifest-schema` |
+| `validator-version` |
+| `validator-integrity` |
+| `veln-contract` |
+| `mcp-contract` |
+| `lsp-contract` |
+| `language-service-contract` |
+| `reference-schema-contract` |
+
+#### Matrix Reference Registry
+
+| Reference ID | Document | Heading | Block | Label | Destination |
+| --- | --- | --- | --- | --- | --- |
+| `agent-plugin-server-lifecycle` | `agent-language-services.md` | `## Agent Plugin` | paragraph 3 | `Closed Client-Platform Matrix` | `#closed-client-platform-matrix` |
+| `agent-plugin-installer-boundary` | `agent-language-services.md` | `## Agent Plugin` | paragraph 7 | `Closed Client-Platform Matrix` | `#closed-client-platform-matrix` |
+| `agent-plugin-compatibility-authority` | `agent-language-services.md` | `## Agent Plugin` | paragraph 8 | `Closed Client-Platform Matrix` | `#closed-client-platform-matrix` |
+| `agent-plugin-native-validation` | `agent-language-services.md` | `## Agent Plugin` | paragraph 9 | `Closed Client-Platform Matrix` | `#closed-client-platform-matrix` |
+| `conformance-requirement-coverage` | `agent-language-services.md` | `## Conformance Contract` | paragraph 1 | `Closed Client-Platform Matrix` | `#closed-client-platform-matrix` |
+| `conformance-capability-membership` | `agent-language-services.md` | `## Conformance Contract` | paragraph 2 | `Closed Client-Platform Matrix` | `#closed-client-platform-matrix` |
+| `q21-plugin-matrix` | `agent-language-services.md` | `## Conformance Contract` | table row `Q21 plugin matrix` | `Closed Client-Platform Matrix` | `#closed-client-platform-matrix` |
+| `q22-gate-totality` | `agent-language-services.md` | `## Conformance Contract` | table row `Q22 gate totality` | `Closed Client-Platform Matrix` | `#closed-client-platform-matrix` |
+| `umbrella-completion` | `agent-language-services.md` | `## Conformance Contract` | paragraph 5 | `Closed Client-Platform Matrix` | `#closed-client-platform-matrix` |
+| `plugin-acceptance-completion` | `agent-language-services.md` | `### Plugin` | table row `Run the proposal completion gate` | `Closed Client-Platform Matrix` | `#closed-client-platform-matrix` |
+| `lifecycle-conformance-cells` | `agent-language-services-lifecycle-migration.md` | `## Preserved Finite Inputs` | list item 6 | `Closed Client-Platform Matrix` | `agent-language-services.md#closed-client-platform-matrix` |
+| `lifecycle-compatibility-cells` | `agent-language-services-lifecycle-migration.md` | `## Preserved Finite Inputs` | list item 7 | `Closed Client-Platform Matrix` | `agent-language-services.md#closed-client-platform-matrix` |
+| `lifecycle-prerequisite-acceptance` | `agent-language-services-lifecycle-migration.md` | `## Acceptance Model` | table row `Close the prerequisite client-platform set` | `Closed Client-Platform Matrix` | `agent-language-services.md#closed-client-platform-matrix` |
 
 ## Safety And Privacy
 
@@ -908,16 +953,17 @@ completion gate. A repository-maintenance package named
 `veln-repo-agent-language-conformance` under `tools/` validates it. The
 manifest contains one requirement ID and at least one planned evidence ID for
 every normative paragraph, acceptance row, schema field, domain error,
-resource template, lifecycle transition, and supported client-platform cell.
-It rejects missing, duplicate, skipped, orphaned, or unimplemented mappings.
+resource template, lifecycle transition, and [Closed Client-Platform Matrix](#closed-client-platform-matrix "matrix-ref:conformance-requirement-coverage")
+cell. It rejects missing, duplicate, skipped, orphaned, or unimplemented
+mappings.
 
 The v1 manifest closes the capability matrices that this proposal previously
 introduced as extensible minimums. It enumerates exactly the symbol kinds under
 Definition And Reference Coverage, the language topics under Topic Catalog,
 the tools and resource kinds under MCP Server Contract, the package-document
-declaration kinds, the LSP encodings, and the plugin compatibility cells.
-Adding a capability requires a new conformance-suite version or an explicit
-backward-compatible extension entry.
+declaration kinds, the LSP encodings, and the [Closed Client-Platform Matrix](#closed-client-platform-matrix "matrix-ref:conformance-capability-membership")
+plugin compatibility cells. Adding a capability requires a new
+conformance-suite version or an explicit backward-compatible extension entry.
 
 The resolved-decision evidence groups are:
 
@@ -943,8 +989,8 @@ The resolved-decision evidence groups are:
 | Q18 generation failure | Every generation gate, ordered diagnostics, resource and search absence, source survival, and positive, negative, ignored, invalid, and mismatched doctests. |
 | Q19 search and reads | Query normalization, all scopes and rank tiers, ties, deduplication, bounds, scalar excerpts, truncation flags, size boundary, and route byte equality. |
 | Q20 executable binding | Workspace paths, multi-root startup, inherited or explicit working directory, missing and shadowed executable, every incompatible contract, and matching initialization. |
-| Q21 plugin matrix | Pinned validators, generated-package freshness, every supported client and platform boundary, native install, MCP smoke, Claude LSP smoke, and unknown-file isolation. |
-| Q22 gate totality | Injected missing requirement, duplicate evidence, missing matrix cell, stale artifact, undeclared capability, malformed request class, and plugin mismatch. |
+| Q21 plugin matrix | Pinned validators, generated-package freshness, every [Closed Client-Platform Matrix](#closed-client-platform-matrix "matrix-ref:q21-plugin-matrix") cell boundary, native install, MCP smoke, Claude LSP smoke, and unknown-file isolation. |
+| Q22 gate totality | Injected missing requirement, duplicate evidence, missing [Closed Client-Platform Matrix](#closed-client-platform-matrix "matrix-ref:q22-gate-totality") cell, stale artifact, undeclared capability, malformed request class, and plugin mismatch. |
 
 Q11 is implemented by the `veln-project` fixed-vector and transcript-mutation
 tests. The Q12 filesystem-capture foundation is implemented by the
@@ -960,8 +1006,9 @@ The gate also covers resource-template listing and reads, every malformed
 request class, zero/default/maximum/above-maximum bounds, all documentation
 failure classes, digest incompatibility, stdout framing purity, generated
 artifact freshness, and cross-adapter and cross-renderer equivalence. The
-proposal completes only when every declared cell passes and implemented
-behavior has been promoted to specification and executable-example routes.
+proposal completes only when every declared [Closed Client-Platform Matrix](#closed-client-platform-matrix "matrix-ref:umbrella-completion")
+cell passes and implemented behavior has been promoted to specification and
+executable-example routes.
 
 ## Acceptance Model
 
@@ -1041,7 +1088,7 @@ that the behavior is already implemented.
 | Validate the Claude Code plugin. | Its MCP and LSP configurations bind the active workspace and complete both protocol lifecycles with the pinned client. | Q20/Q21 pinned Claude native smoke. |
 | Start with a missing, shadowed, or incompatible executable. | Startup fails before capability use and names the failed version fact and required action outside MCP stdout. | Q20 executable-binding matrix. |
 | Use the shared skill. | Instructions route agents to reference, package docs, navigation, and diagnostics without claiming proposals as current behavior. | Plugin content review and scenario tests. |
-| Run the proposal completion gate. | Every requirement and evidence mapping, closed capability matrix, generated artifact, and supported client-platform cell passes with no orphan. | Q22 conformance-manifest self-check and gate command. |
+| Run the proposal completion gate | Every requirement and evidence mapping, closed capability matrix, generated artifact, and [Closed Client-Platform Matrix](#closed-client-platform-matrix "matrix-ref:plugin-acceptance-completion") cell passes with no orphan. | Q22 conformance-manifest self-check and gate command. |
 
 ## Implementation Slices
 

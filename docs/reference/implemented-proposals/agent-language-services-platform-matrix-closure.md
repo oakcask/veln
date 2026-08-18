@@ -1,9 +1,14 @@
 ---
-role: proposal
-update-when: The agent-language-services plugin clients, supported platforms, compatibility field identities, matrix-reference registry, closure phase boundary, or lifecycle-migration source-universe prerequisite changes.
+role: implementation-record
+authority: supporting
+update-when: The agent-language-services closed client-platform matrix record, validator evidence, or lifecycle-migration prerequisite route is superseded.
 ---
 
 # Agent Language Services Platform Matrix Closure
+
+This record preserves the completed documentation-contract prerequisite. The
+current closed matrix lives in
+[Agent Language Services](../../proposals/agent-language-services.md#closed-client-platform-matrix).
 
 ## Summary
 
@@ -32,7 +37,7 @@ the closure phase, and permitted path transitions exact structural identities.
 
 This proposal is ready. Complete it before selecting the frozen source
 inventory PR from
-[Agent Language Services Lifecycle Migration](agent-language-services-lifecycle-migration.md).
+[Agent Language Services Lifecycle Migration](../../proposals/agent-language-services-lifecycle-migration.md).
 
 ## Scope
 
