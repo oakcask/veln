@@ -21,18 +21,14 @@ also states it.
 - Identifier casing that separates type and constructor names from module,
   function, and value-binding names:
   [identifier-casing.md](identifier-casing.md).
-- Establish PR-visible target provenance and an independent reviewed source
-  authority before another agent-language-services inventory attempt:
-  [agent-language-services-inventory-review-gate.md](agent-language-services-inventory-review-gate.md).
+- The first frozen source inventory slice of the agent-language-services
+  lifecycle migration:
+  [agent-language-services-lifecycle-migration.md#frozen-source-universe](agent-language-services-lifecycle-migration.md#frozen-source-universe).
 
 Only proposals and subsections listed in this section are selectable targets.
 
 ## Blocked
 
-- The agent-language-services lifecycle migration is blocked until the
-  inventory review gate leaves this directory as a completed implementation
-  record:
-  [agent-language-services-lifecycle-migration.md](agent-language-services-lifecycle-migration.md).
 - The agent-language-services slice-closure proposal is blocked until the
   lifecycle-migration proposal leaves this directory as a completed
   implementation record:

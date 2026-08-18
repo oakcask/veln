@@ -8,6 +8,8 @@ on:
       - .agents/skills/docs-progressive-disclosure/SKILL.md
       - .github/workflows/workflow--test-scripts.yaml
       - AGENTS.md
+      - docs/reference/agent-language-services-lifecycle/**/*.json
+      - docs/reference/agent-language-services-lifecycle-review/**/*.json
       - docs/**/*.md
       - workflow-scripts/**/*.mjs
   pull_request:
@@ -15,6 +17,8 @@ on:
       - .agents/skills/docs-progressive-disclosure/SKILL.md
       - .github/workflows/workflow--test-scripts.yaml
       - AGENTS.md
+      - docs/reference/agent-language-services-lifecycle/**/*.json
+      - docs/reference/agent-language-services-lifecycle-review/**/*.json
       - docs/**/*.md
       - workflow-scripts/**/*.mjs
 
@@ -43,3 +47,10 @@ jobs:
         run: node workflow-scripts/check-doc-frontmatter.mjs
       - name: Validate proposal target readiness
         run: node workflow-scripts/check-proposal-target-readiness.mjs validate
+      - name: Validate agent language-services lifecycle artifacts
+        env:
+          AGENT_LANGUAGE_SERVICES_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          AGENT_LANGUAGE_SERVICES_HEAD_SHA: ${{ github.sha }}
+        run: |
+          node workflow-scripts/check-agent-language-services-lifecycle.mjs validate
+          node workflow-scripts/check-agent-language-services-lifecycle.mjs diff-scope

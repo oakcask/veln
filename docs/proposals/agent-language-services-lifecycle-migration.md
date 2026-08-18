@@ -19,11 +19,10 @@ The checked target-readiness prerequisite is recorded under
 The client-platform prerequisite is complete and recorded under
 [Agent Language Services Platform Matrix Closure](../reference/implemented-proposals/agent-language-services-platform-matrix-closure.md).
 
-Do not select this proposal while
-[Agent Language Services Inventory Review Gate](agent-language-services-inventory-review-gate.md)
-remains under `docs/proposals/`. That gate must establish PR-visible target
-provenance and an immutable reviewed source-decision authority before another
-inventory implementation begins.
+The inventory review gate is complete and recorded under
+[Agent Language Services Inventory Review Gate](../reference/implemented-proposals/agent-language-services-inventory-review-gate.md).
+That gate establishes PR-visible target provenance and an immutable reviewed
+source-decision authority before another inventory implementation begins.
 
 After the gate completes, select only the corrected frozen source inventory PR
 first. Its base is the default branch revision that contains all completed

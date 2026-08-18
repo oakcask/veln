@@ -1,0 +1,28 @@
+{
+  "$id": "https://veln-lang.invalid/schemas/agent-language-services-migration-ledger.schema.json",
+  "schema_version": 1,
+  "description": "Structural contract for the later migration ledger. The semantic validator resolves leaf IDs, lifecycle equality, and destination roles.",
+  "required": [
+    "schema_version",
+    "entries"
+  ],
+  "leaf_id_pattern": "^ALS-S[0-9]{4}(\\.[0-9]+)?$",
+  "forbidden_leaf_id_patterns": [
+    "\\*",
+    "\\.\\.",
+    "^all$",
+    "^remaining$"
+  ],
+  "lifecycle_enum": [
+    "current",
+    "completed",
+    "planned",
+    "removed"
+  ],
+  "destination_kinds_by_lifecycle": {
+    "current": "specification",
+    "completed": "implementation-record",
+    "planned": "proposal",
+    "removed": "removed"
+  }
+}
