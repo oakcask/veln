@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, workspace project selection, refresh transition, saved project diagnostics or definitions, tool schemas, or executable MCP cases change.
+update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, workspace project selection, refresh transition, saved project diagnostics or definitions, tool schemas, agent plugin client-platform matrix contract, or executable MCP cases change.
 ---
 
 # MCP Workspace Projects, Diagnostics, And Definitions
@@ -20,6 +20,43 @@ invalid-params error. The `definition` input requires one source plus positive
 JSON integer line and column coordinates.
 `refresh_workspace` reports the stable `generation_failed` domain failure as an
 MCP tool result with `isError: true`.
+
+## Agent Plugin Matrix Contract
+
+The agent-language-services planning page keeps one closed client-platform
+membership table. The table is the current authority for plugin compatibility
+cell identity until plugin artifacts provide validated compatibility values.
+It contains exactly these rows in this order:
+
+| Client | Platform |
+| --- | --- |
+| codex | x86_64-unknown-linux-gnu |
+| claude-code | x86_64-unknown-linux-gnu |
+
+The compatibility field-identity table contains exactly these field names in
+this order and no values:
+
+| Field |
+| --- |
+| client |
+| platform |
+| host-build |
+| manifest-schema |
+| validator-version |
+| validator-integrity |
+| veln-contract |
+| mcp-contract |
+| lsp-contract |
+| language-service-contract |
+| reference-schema-contract |
+
+The documentation contract is closed. Plugin requirements, Q21 evidence, Q22
+totality evidence, and proposal completion references that quantify over
+plugin compatibility cells must route to the closed matrix. A future change
+that adds a client, platform, field identity, or compatibility value must
+update the table and the validator evidence together. The current contract does
+not claim that either client-platform row has a passing host build, manifest
+schema, validator version, integrity digest, or toolchain contract value.
 
 Request IDs are strings or JSON numbers. A request with a `null` ID is an
 invalid JSON-RPC request. Numeric request IDs are returned unchanged in the
@@ -146,6 +183,17 @@ for a source below a descendant manifest, the ownership decision and the
 anonymous source bytes belong to the same stable capture attempt.
 
 ## Executable Evidence
+
+`../../workflow-scripts/check-agent-language-platform-matrix.mjs` validates the
+closed agent-language-services client-platform matrix, compatibility field
+identities, required matrix-reference links, absence of unbound platform-set
+references, and transition-only diff scope. Its focused tests in
+`../../workflow-scripts/check-agent-language-platform-matrix.test.mjs` cover the
+positive repository document, matrix row count and order, duplicate and
+wildcard keys, hidden and displaced tables, field-identity shape, missing and
+wrong-destination references, unbound platform-set wording, extra transition
+paths, protected-path operation changes, Git type changes, executable-bit
+changes, and retirement of the transition allowlist after closure.
 
 The `../../examples/specification/mcp/workspace-lifecycle/` case checks
 initialization, exact tool declarations, accepted request metadata, numeric
