@@ -11,8 +11,7 @@ update-when: The closed agent-language-services client-platform matrix, matrix r
 The agent-language-services proposal now has one closed client-platform
 membership table. The table contains exactly `codex/x86_64-unknown-linux-gnu`
 followed by `claude-code/x86_64-unknown-linux-gnu`. The proposal also declares
-the eleven compatibility field identities that future checked compatibility
-records must use.
+the eleven compatibility fields as exact literal values in each row.
 
 This record closes only the finite documentation contract. It does not claim
 that either client-platform cell is supported, installable, or host-validated.
@@ -21,10 +20,9 @@ that either client-platform cell is supported, installable, or host-validated.
 
 The canonical source is
 [Closed Client-Platform Matrix](../../proposals/agent-language-services.md#closed-client-platform-matrix).
-The matrix section owns the row-count paragraph, phase identity, membership
-table, compatibility-field table, and matrix-reference registry. All plugin,
-Q21, Q22, completion, and lifecycle-prerequisite references route to that
-registry.
+The matrix section owns the row-count paragraph, phase identity, compatibility
+table, and matrix-reference registry. All plugin, Q21, Q22, completion, and
+lifecycle-prerequisite references route to that registry.
 
 The documentation validator
 `workflow-scripts/check-agent-language-platform-matrix.mjs` checks the

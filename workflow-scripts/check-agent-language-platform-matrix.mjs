@@ -22,6 +22,35 @@ export const expectedFields = [
   "reference-schema-contract",
 ];
 
+export const expectedCellRows = [
+  [
+    "codex",
+    "x86_64-unknown-linux-gnu",
+    "x86_64-unknown-linux-gnu",
+    "agent-language-services-v1",
+    "agent-platform-matrix-validator-v1",
+    "0daa73783d55340cae2cba0fc68bf01d0082fa6825dd1409d29f0266b1542545",
+    "veln-toolchain-contract-v1",
+    "mcp-tool-contract-v1",
+    "lsp-adapter-contract-v1",
+    "language-service-contract-v1",
+    "reference-schema-contract-v1",
+  ],
+  [
+    "claude-code",
+    "x86_64-unknown-linux-gnu",
+    "x86_64-unknown-linux-gnu",
+    "agent-language-services-v1",
+    "agent-platform-matrix-validator-v1",
+    "b512373bba9ba13ea2ce3d12ec7c3eca81c50ad85f39d60ca61d58585ea5f44d",
+    "veln-toolchain-contract-v1",
+    "mcp-tool-contract-v1",
+    "lsp-adapter-contract-v1",
+    "language-service-contract-v1",
+    "reference-schema-contract-v1",
+  ],
+];
+
 export const expectedReferences = [
   ["agent-plugin-server-lifecycle", "agent-language-services.md", "## Agent Plugin", "paragraph 3", "Closed Client-Platform Matrix", "#closed-client-platform-matrix"],
   ["agent-plugin-installer-boundary", "agent-language-services.md", "## Agent Plugin", "paragraph 7", "Closed Client-Platform Matrix", "#closed-client-platform-matrix"],
@@ -235,9 +264,9 @@ function validateRangeFromEnvironment(repoRoot, env) {
 
 function validateMatrixBlocks(blocks) {
   const errors = [];
-  const expectedKinds = ["paragraph", "paragraph", "table", "heading4", "table", "heading4", "table"];
+  const expectedKinds = ["paragraph", "paragraph", "table", "heading4", "table"];
   if (blocks.length !== expectedKinds.length) {
-    errors.push(`Closed Client-Platform Matrix: restore exactly seven blocks; found ${blocks.length}`);
+    errors.push(`Closed Client-Platform Matrix: restore exactly five blocks; found ${blocks.length}`);
     return errors;
   }
   expectedKinds.forEach((kind, index) => {
@@ -245,25 +274,59 @@ function validateMatrixBlocks(blocks) {
   });
   if (blocks[0].text.trim() !== "Closed client-platform row count: `2`.") errors.push("row count: restore exact literal `2`; finite lifecycle coverage depends on the checked table size");
   if (blocks[1].text.trim() !== phaseText) errors.push("phase: restore exact matrix closure phase paragraph");
-  const membership = tableRows(blocks[2]);
-  assertExactRows(errors, "membership", membership, [["Client", "Platform"], ["---", "---"], ["`codex`", "`x86_64-unknown-linux-gnu`"], ["`claude-code`", "`x86_64-unknown-linux-gnu`"]]);
-  const keys = membership.slice(2).map((row) => `${stripCode(row[0] ?? "")}/${stripCode(row[1] ?? "")}`);
+  const matrix = tableRows(blocks[2]);
+  validateCompatibilityMatrix(errors, matrix);
+  const keys = matrix.slice(2).map((row) => `${stripCode(row[0] ?? "")}/${stripCode(row[1] ?? "")}`);
   expectedKeys.forEach((key, index) => {
-    if (keys[index] !== key) errors.push(`membership row ${index + 1}: restore exact key ${key}; ranges, wildcards, placeholders, and catch-all cells cannot prove finite coverage`);
+    if (keys[index] !== key) errors.push(`compatibility row ${index + 1}: restore exact key ${key}; ranges, wildcards, placeholders, and catch-all cells cannot prove finite coverage`);
   });
-  if (new Set(keys).size !== keys.length) errors.push("membership: remove duplicate client-platform key; each finite cell must be unique");
-  if (blocks[3].text.trim() !== "#### Compatibility Field Identities") errors.push("field heading: restore exact heading");
-  const fields = tableRows(blocks[4]).slice(2).map((row) => stripCode(row[0] ?? ""));
-  expectedFields.forEach((field, index) => {
-    if (fields[index] !== field) errors.push(`compatibility field row ${index + 1}: restore ${field}; future records need one exact shape`);
-  });
-  if (fields.length !== expectedFields.length) errors.push(`compatibility fields: restore exactly ${expectedFields.length} rows`);
-  for (const row of tableRows(blocks[4]).slice(2)) {
-    if (row.length !== 1 || !/^`[^`]+`$/.test(row[0])) errors.push(`compatibility field row ${row.join(" | ")}: keep one code-spanned identity and no compatibility value`);
-  }
-  if (blocks[5].text.trim() !== "#### Matrix Reference Registry") errors.push("registry heading: restore exact heading");
-  assertExactRows(errors, "registry", tableRows(blocks[6]), [["Reference ID", "Document", "Heading", "Block", "Label", "Destination"], ["---", "---", "---", "---", "---", "---"], ...expectedReferences.map((row) => row.map((cell, index) => index === 3 ? cell : `\`${cell}\``))]);
+  if (new Set(keys).size !== keys.length) errors.push("compatibility matrix: remove duplicate client-platform key; each finite cell must be unique");
+  if (blocks[3].text.trim() !== "#### Matrix Reference Registry") errors.push("registry heading: restore exact heading");
+  assertExactRows(errors, "registry", tableRows(blocks[4]), [["Reference ID", "Document", "Heading", "Block", "Label", "Destination"], ["---", "---", "---", "---", "---", "---"], ...expectedReferences.map((row) => row.map((cell, index) => index === 3 ? cell : `\`${cell}\``))]);
   return errors;
+}
+
+function validateCompatibilityMatrix(errors, rows) {
+  const header = rows[0] ?? [];
+  const separator = rows[1] ?? [];
+  const dataRows = rows.slice(2);
+  const expectedHeader = expectedFields.map((field) => `\`${field}\``);
+  assertExactRows(errors, "compatibility matrix", rows, [expectedHeader, expectedFields.map(() => "---"), ...expectedCellRows.map((row) => row.map((cell) => `\`${cell}\``))]);
+  if (header.length !== expectedFields.length) {
+    errors.push(`compatibility header: restore exactly ${expectedFields.length} fields; each cell must carry every compatibility value`);
+  }
+  expectedFields.forEach((field, index) => {
+    if (stripCode(header[index] ?? "") !== field) {
+      errors.push(`compatibility field ${index + 1}: restore ${field}; lifecycle inventory depends on one exact cell shape`);
+    }
+  });
+  if (separator.length !== expectedFields.length || separator.some((cell) => cell !== "---")) {
+    errors.push("compatibility separator: restore one markdown separator cell for every compatibility field");
+  }
+  if (dataRows.length !== expectedCellRows.length) {
+    errors.push(`compatibility matrix: restore exactly ${expectedCellRows.length} data rows`);
+  }
+  dataRows.forEach((row, rowIndex) => validateCompatibilityRow(errors, row, rowIndex));
+}
+
+function validateCompatibilityRow(errors, row, rowIndex) {
+  if (row.length !== expectedFields.length) {
+    errors.push(`compatibility row ${rowIndex + 1}: restore ${expectedFields.length} cells; lifecycle coverage depends on complete client-platform records`);
+    return;
+  }
+  row.forEach((cell, fieldIndex) => {
+    const field = expectedFields[fieldIndex];
+    const value = stripCode(cell);
+    if (!/^`[^`]+`$/.test(cell)) {
+      errors.push(`compatibility row ${rowIndex + 1} ${field}: use one nonempty code-spanned exact literal so the cell can be checked mechanically`);
+    }
+    if (!isExactLiteral(value)) {
+      errors.push(`compatibility row ${rowIndex + 1} ${field}: replace "${value}" with one exact nonempty literal; ranges, wildcards, placeholders, and catch-all values cannot prove finite lifecycle coverage`);
+    }
+    if (field === "validator-integrity" && !/^[0-9a-f]{64}$/.test(value)) {
+      errors.push(`compatibility row ${rowIndex + 1} validator-integrity: use exactly 64 lowercase hexadecimal digits so validator provenance is pinned`);
+    }
+  });
 }
 
 function validateReferences(docs) {
@@ -460,6 +523,15 @@ function matrixLinks(text) {
 
 function stripCode(value) {
   return value.replace(/^`|`$/g, "");
+}
+
+function isExactLiteral(value) {
+  if (value.trim() === "") return false;
+  if (/[*?]/.test(value)) return false;
+  if (/\b(all|any|placeholder|supported|tbd|todo|future)\b/i.test(value)) return false;
+  if (/^x+$|^n\/a$/i.test(value)) return false;
+  if (/\.\.|<|>|\[[^\]]+\]|\{[^}]+\}/.test(value)) return false;
+  return true;
 }
 
 function parseRawDiff(output) {

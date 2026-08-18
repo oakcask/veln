@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
+  expectedCellRows,
   inspectPhaseInText,
   shouldRunRangeGuard,
   validateDocuments,
@@ -46,24 +47,50 @@ test("L and K cases reject moved matrix and nonliteral membership", () => {
   );
   assert.match(
     validateDocuments({ ...docs, "agent-language-services.md": docs["agent-language-services.md"].replace("`codex` | `x86_64-unknown-linux-gnu`", "`codex` | `*`") }).join("\n"),
-    /membership row 1/,
+    /compatibility row 1/,
   );
   assert.match(
-    validateDocuments({ ...docs, "agent-language-services.md": docs["agent-language-services.md"].replace("| `claude-code` | `x86_64-unknown-linux-gnu` |\n", "") }).join("\n"),
-    /membership/,
+    validateDocuments({ ...docs, "agent-language-services.md": docs["agent-language-services.md"].replace("| `claude-code` | `x86_64-unknown-linux-gnu` | `x86_64-unknown-linux-gnu` | `agent-language-services-v1` | `agent-platform-matrix-validator-v1` | `b512373bba9ba13ea2ce3d12ec7c3eca81c50ad85f39d60ca61d58585ea5f44d` | `veln-toolchain-contract-v1` | `mcp-tool-contract-v1` | `lsp-adapter-contract-v1` | `language-service-contract-v1` | `reference-schema-contract-v1` |\n", "") }).join("\n"),
+    /compatibility matrix/,
   );
 });
 
-test("F cases reject reordered, missing, and value-bearing compatibility fields", () => {
+test("F cases reject missing fields and invalid compatibility values", () => {
   const docs = repositoryDocs();
   assert.match(
-    validateDocuments({ ...docs, "agent-language-services.md": docs["agent-language-services.md"].replace("| `host-build` |\n", "") }).join("\n"),
-    /compatibility field/,
+    validateDocuments({ ...docs, "agent-language-services.md": docs["agent-language-services.md"].replace(" | `host-build`", "") }).join("\n"),
+    /compatibility field|compatibility header/,
   );
   assert.match(
-    validateDocuments({ ...docs, "agent-language-services.md": docs["agent-language-services.md"].replace("| `client` |", "| `client` | `1` |") }).join("\n"),
-    /compatibility field row/,
+    validateDocuments({ ...docs, "agent-language-services.md": docs["agent-language-services.md"].replace("`x86_64-unknown-linux-gnu` | `agent-language-services-v1`", "`` | `agent-language-services-v1`") }).join("\n"),
+    /nonempty|exact literal/,
   );
+  assert.match(
+    mutateMatrixValue(docs, 0, 2, ">=1.0").join("\n"),
+    /ranges/,
+  );
+  assert.match(
+    mutateMatrixValue(docs, 0, 3, "*").join("\n"),
+    /wildcards/,
+  );
+  assert.match(
+    mutateMatrixValue(docs, 0, 4, "TBD").join("\n"),
+    /placeholders/,
+  );
+  assert.match(
+    mutateMatrixValue(docs, 0, 5, "ABC").join("\n"),
+    /validator-integrity/,
+  );
+});
+
+test("K cases reject empty, duplicate, ranged, wildcard, placeholder, and catch-all keys", () => {
+  const docs = repositoryDocs();
+  assert.match(mutateMatrixValue(docs, 0, 0, "").join("\n"), /compatibility row 1 client/);
+  assert.match(mutateMatrixValue(docs, 1, 0, "codex").join("\n"), /duplicate/);
+  assert.match(mutateMatrixValue(docs, 0, 0, "codex..claude").join("\n"), /ranges/);
+  assert.match(mutateMatrixValue(docs, 0, 1, "*").join("\n"), /wildcards/);
+  assert.match(mutateMatrixValue(docs, 0, 0, "placeholder").join("\n"), /placeholders/);
+  assert.match(mutateMatrixValue(docs, 0, 0, "all").join("\n"), /catch-all/);
 });
 
 test("R and P cases reject missing, duplicate, moved, and coordinated unregistered references", () => {
@@ -124,6 +151,8 @@ test("T cases enforce exact closure operations and retire after closure", () => 
   assert.deepEqual(validateRawOperations(exact), []);
   assert.match(validateRawOperations(exact.slice(1)).join("\n"), /workflow--test-scripts/);
   assert.match(validateRawOperations([...exact, op("M", "100644", "100644", "docs/README.md")]).join("\n"), /docs\/README.md/);
+  assert.match(validateRawOperations([op("R", "100644", "100644", ".github/workflows/workflow--test-scripts.yaml"), ...exact.slice(1)]).join("\n"), /restore the permitted path operation/);
+  assert.match(validateRawOperations([op("D", "100644", "000000", ".github/workflows/workflow--test-scripts.yaml"), ...exact.slice(1), op("A", "000000", "100644", ".github/workflows/workflow--test-scripts-renamed.yaml")]).join("\n"), /workflow--test-scripts-renamed/);
   assert.match(validateRawOperations([op("M", "120000", "100644", ".github/workflows/workflow--test-scripts.yaml"), ...exact.slice(1)]).join("\n"), /100644->100644/);
   assert.equal(shouldRunRangeGuard("present", "present"), false);
 });
@@ -199,6 +228,21 @@ function repositoryFilesystemSubset() {
   const entries = {};
   for (const file of files) entries[file] = fs.readFileSync(path.resolve(file), "utf8");
   return entries;
+}
+
+function mutateMatrixValue(docs, rowIndex, fieldIndex, value) {
+  const targetRow = docs["agent-language-services.md"].split("\n").find((line) => line.startsWith(`| \`${expectedCellRows[rowIndex][0]}\``));
+  const mutatedRow = replaceCell(targetRow, fieldIndex, value);
+  return validateDocuments({
+    ...docs,
+    "agent-language-services.md": docs["agent-language-services.md"].replace(targetRow, mutatedRow),
+  });
+}
+
+function replaceCell(row, fieldIndex, value) {
+  const cells = row.slice(1, -1).split("|").map((cell) => cell.trim());
+  cells[fieldIndex] = `\`${value}\``;
+  return `| ${cells.join(" | ")} |`;
 }
 
 function minimalAgentDoc(withPhase) {
