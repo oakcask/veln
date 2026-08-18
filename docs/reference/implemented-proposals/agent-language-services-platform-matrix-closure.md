@@ -1,7 +1,7 @@
 ---
 role: implementation-record
 authority: supporting
-update-when: The agent-language-services closed client-platform matrix, its documentation validator, or its lifecycle prerequisite evidence is superseded or invalidated.
+update-when: The agent-language-services closed client-platform matrix, documentation validator, documentation-validation workflow evidence, or lifecycle prerequisite evidence is superseded or invalidated.
 ---
 
 # Agent Language Services Platform Matrix Closure
