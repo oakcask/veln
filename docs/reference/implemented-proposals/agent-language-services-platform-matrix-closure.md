@@ -1,5 +1,6 @@
 ---
-role: proposal
+role: implementation-record
+authority: supporting
 update-when: The agent-language-services plugin clients, supported platforms, compatibility field identities, artifact-backed compatibility evidence, or lifecycle-migration source-universe prerequisite changes.
 ---
 
@@ -28,11 +29,10 @@ identity only. Later plugin implementation must derive compatibility values
 from checked client and validator artifacts. That work remains incomplete and
 cannot use this documentation-only closure as evidence that a value is valid.
 
-## Selection State
+## Completion State
 
-This proposal is ready. Complete it before selecting the frozen source
-inventory PR from
-[Agent Language Services Lifecycle Migration](agent-language-services-lifecycle-migration.md).
+This record is complete. It unblocks the frozen source inventory PR from
+[Agent Language Services Lifecycle Migration](../../proposals/agent-language-services-lifecycle-migration.md).
 
 ## Scope
 
