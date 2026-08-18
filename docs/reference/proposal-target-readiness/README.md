@@ -26,7 +26,9 @@ Validate the sidecar before writing or implementing the Markdown target:
 node workflow-scripts/check-proposal-target-readiness.mjs validate prompts/TARGET.json
 ```
 
-The metadata schema is `target.schema.json`. The manifest is the tracked
-authority for Ready and Blocked entries that generated targets may select. The
-base commit is a full commit identity on the declared default branch, and the
-implementation branch must have that exact merge base.
+The metadata schema is `target.schema.json`. Target metadata records the
+proposal path, heading anchor, default branch, full hexadecimal base commit,
+prerequisites, and target kind. The manifest is the tracked authority for Ready
+and Blocked entries that generated targets may select. The base commit is a full
+commit identity on the declared default branch, and the implementation branch
+must have that exact merge base.
