@@ -21,6 +21,7 @@ test("repository lifecycle artifacts validate", () => {
 test("accepts freshly generated artifacts", () => {
   using fixture = tempRepo();
   copyFile(fixture.root, "docs/proposals/agent-language-services.md");
+  copyFile(fixture.root, "docs/proposals/agent-language-services-lifecycle-migration.md");
   copyFile(fixture.root, "docs/specification/mcp.md");
   copyFile(fixture.root, "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md");
   copyFile(fixture.root, "examples/specification/mcp/workspace-lifecycle/case.toml");
@@ -30,6 +31,16 @@ test("accepts freshly generated artifacts", () => {
   const result = validateArtifacts({ repoRoot: fixture.root, ...generated });
 
   assert.equal(result.valid, true, result.errors.join("\n"));
+});
+
+test("rejects target provenance anchors that do not resolve", () => {
+  const artifacts = readRepoArtifacts();
+  artifacts.provenance.proposal_anchor = "#frozen-source-inventory";
+
+  const result = validateArtifacts({ repoRoot: ".", ...artifacts });
+
+  assert.equal(result.valid, false);
+  assert.match(result.errors.join("\n"), /frozen-source-universe section|resolve proposal anchor/);
 });
 
 test("rejects changed digest and missing or duplicate inventory items", () => {
@@ -259,7 +270,28 @@ test("rejects bootstrap paths outside the frozen-inventory scope", () => {
     });
 
     assert.equal(result.valid, false);
-    assert.match(result.errors.join("\n"), /prerequisite must already exist|mixing unrelated paths/);
+    assert.match(result.errors.join("\n"), /prerequisite must already exist|source-decision authority must already exist|mixing unrelated paths/);
+  } finally {
+    restoreEnv("AGENT_LANGUAGE_SERVICES_BASE_SHA", previousBase);
+    restoreEnv("AGENT_LANGUAGE_SERVICES_HEAD_SHA", previousHead);
+  }
+});
+
+test("rejects bootstrap validation when reviewed authority exists only on head", () => {
+  const previousBase = process.env.AGENT_LANGUAGE_SERVICES_BASE_SHA;
+  const previousHead = process.env.AGENT_LANGUAGE_SERVICES_HEAD_SHA;
+  process.env.AGENT_LANGUAGE_SERVICES_BASE_SHA = "a4a3b874928a713f1078a302311bb2b22103e2ee";
+  process.env.AGENT_LANGUAGE_SERVICES_HEAD_SHA = "62ea5beb1a5763bb4db6b62419cdf7204de695ff";
+  try {
+    const result = validateDiffScope({
+      repoRoot: ".",
+      paths: [
+        "docs/reference/agent-language-services-lifecycle/frozen-inventory.json",
+      ],
+    });
+
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join("\n"), /reviewed source-decision authority must already exist on the bootstrap base commit/);
   } finally {
     restoreEnv("AGENT_LANGUAGE_SERVICES_BASE_SHA", previousBase);
     restoreEnv("AGENT_LANGUAGE_SERVICES_HEAD_SHA", previousHead);

@@ -18,6 +18,8 @@ const ledgerSchemaPath = `${lifecycleDir}/migration-ledger.schema.json`;
 const ledgerFixturePath = `${lifecycleDir}/migration-ledger.schema-fixture.json`;
 const provenancePath = `${lifecycleDir}/target-provenance.json`;
 const sourceDecisionsPath = `${reviewDir}/source-decisions.json`;
+const lifecycleProposalPath = "docs/proposals/agent-language-services-lifecycle-migration.md";
+const lifecycleProposalAnchor = "#frozen-source-universe";
 
 const lifecycleValues = new Set(["current", "completed", "planned", "removed"]);
 const protectedAfterBootstrap = new Set([
@@ -169,7 +171,7 @@ export function validateArtifacts({
   validateIdentities({ source, universe, sourceDecisions, errors });
   validateMigrationLedgerSchema({ ledgerSchema, errors });
   validateLedger({ repoRoot, ledger: ledgerFixture, ledgerSchema, inventory, manifest, errors });
-  validateTargetProvenance({ provenance, errors });
+  validateTargetProvenance({ repoRoot, provenance, errors });
 
   return errors.length === 0
     ? success("Agent language-services lifecycle artifacts match the frozen proposal source and ledger schema contract.")
@@ -258,12 +260,16 @@ function validateMigrationLedgerSchema({ ledgerSchema, errors }) {
   }
 }
 
-function validateTargetProvenance({ provenance, errors }) {
-  if (provenance?.proposal_path !== "docs/proposals/agent-language-services-lifecycle-migration.md") {
+function validateTargetProvenance({ repoRoot, provenance, errors }) {
+  if (provenance?.proposal_path !== lifecycleProposalPath) {
     errors.push(`${provenancePath}: bind provenance to the lifecycle migration proposal.`);
   }
-  if (provenance?.proposal_anchor !== "#frozen-source-inventory") {
-    errors.push(`${provenancePath}: bind provenance to the frozen-source-inventory section.`);
+  if (provenance?.proposal_anchor !== lifecycleProposalAnchor) {
+    errors.push(`${provenancePath}: bind provenance to the frozen-source-universe section.`);
+  }
+  validateProvenanceAnchor({ repoRoot, provenance, errors });
+  if (!isFullGitSha(provenance?.base_commit)) {
+    errors.push(`${provenancePath}: record the full bootstrap base commit.`);
   }
   if (provenance?.target_kind !== "proposal-section" || provenance?.default_branch !== "main") {
     errors.push(`${provenancePath}: preserve the bootstrap target kind and default branch.`);
@@ -273,6 +279,21 @@ function validateTargetProvenance({ provenance, errors }) {
     if (!frozenArtifacts.has(required)) {
       errors.push(`${provenancePath}: include ${required} in the frozen artifact set.`);
     }
+  }
+}
+
+function validateProvenanceAnchor({ repoRoot, provenance, errors }) {
+  if (!isRepoMarkdownPath(provenance?.proposal_path)) {
+    return;
+  }
+  const proposalFile = path.resolve(repoRoot, provenance.proposal_path);
+  if (!fs.existsSync(proposalFile)) {
+    errors.push(`${provenancePath}: resolve proposal path ${provenance.proposal_path}.`);
+    return;
+  }
+  const proposal = fs.readFileSync(proposalFile, "utf8");
+  if (!markdownAnchors(proposal).has(provenance.proposal_anchor)) {
+    errors.push(`${provenancePath}: resolve proposal anchor ${provenance.proposal_anchor} in ${provenance.proposal_path}.`);
   }
 }
 
@@ -314,10 +335,11 @@ function diffScopePhase({ repoRoot, provenance }) {
   const base = process.env.AGENT_LANGUAGE_SERVICES_BASE_SHA;
   const head = process.env.AGENT_LANGUAGE_SERVICES_HEAD_SHA;
   const requested = process.env.AGENT_LANGUAGE_SERVICES_BOOTSTRAP === "1";
-  const validProvenance = provenance?.proposal_path === "docs/proposals/agent-language-services-lifecycle-migration.md"
-    && provenance?.proposal_anchor === "#frozen-source-inventory"
+  const validProvenance = provenance?.proposal_path === lifecycleProposalPath
+    && provenance?.proposal_anchor === lifecycleProposalAnchor
     && provenance?.target_kind === "proposal-section"
     && provenance?.default_branch === "main"
+    && isFullGitSha(provenance?.base_commit)
     && Array.isArray(provenance?.frozen_artifact_set);
   if (!validProvenance) {
     errors.push(`${provenancePath}: resolve valid target provenance before applying lifecycle diff-scope rules.`);
@@ -339,12 +361,57 @@ function diffScopePhase({ repoRoot, provenance }) {
       errors.push(`${prerequisite}: prerequisite must already exist on the bootstrap base commit.`);
     }
   }
+  validateBootstrapReviewedAuthority({ repoRoot, base, errors });
   const frozenArtifacts = provenance?.frozen_artifact_set ?? [];
   const baseHasFrozenArtifact = frozenArtifacts.some((artifact) => gitObjectExists(repoRoot, `${base}:${artifact}`));
   if (baseHasFrozenArtifact || provenance?.base_commit !== base) {
     return { bootstrap: false, errors };
   }
   return { bootstrap: errors.length === 0, errors };
+}
+
+function validateBootstrapReviewedAuthority({ repoRoot, base, errors }) {
+  const baseAuthority = readJsonFromGit(repoRoot, `${base}:${sourceDecisionsPath}`);
+  if (baseAuthority === undefined) {
+    errors.push(`${sourceDecisionsPath}: reviewed source-decision authority must already exist on the bootstrap base commit.`);
+    return;
+  }
+  let artifacts;
+  try {
+    artifacts = readArtifacts(repoRoot);
+  } catch (error) {
+    errors.push(`${lifecycleDir}: read committed lifecycle artifacts before comparing bootstrap authority.`);
+    return;
+  }
+  const authorityErrors = [];
+  validateSourceDecisions({
+    sourceDecisions: baseAuthority,
+    universe: artifacts.universe,
+    inventoryLeaves: inventoryLeavesForAuthority(artifacts.inventory),
+    errors: authorityErrors,
+  });
+  validateIdentities({
+    source: fs.readFileSync(path.resolve(repoRoot, sourcePath), "utf8"),
+    universe: artifacts.universe,
+    sourceDecisions: baseAuthority,
+    errors: authorityErrors,
+  });
+  const sourceDigest = artifacts.universe?.source_digest;
+  if (baseAuthority.source_path !== sourcePath || baseAuthority.source_digest !== sourceDigest) {
+    authorityErrors.push(`${sourceDecisionsPath}: keep reviewed source path and digest equal to the frozen source universe.`);
+  }
+  const authorityLeaves = uniqueById(baseAuthority.leaves, "reviewed source-decision leaves", authorityErrors);
+  for (const leaf of artifacts.manifest?.leaves ?? []) {
+    const authorityLeaf = authorityLeaves.get(leaf.id);
+    if (authorityLeaf === undefined) {
+      authorityErrors.push(`${sourceDecisionsPath}: add reviewed lifecycle decision for ${leaf.id}.`);
+    } else if (authorityLeaf.root_id !== leaf.root_id || authorityLeaf.lifecycle !== leaf.lifecycle) {
+      authorityErrors.push(`${sourceDecisionsPath}: keep ${leaf.id} root and lifecycle equal to the frozen manifest.`);
+    }
+  }
+  if (authorityErrors.length > 0) {
+    errors.push(...authorityErrors.map((error) => `${error} Read the reviewed authority from ${base}, not from the head revision.`));
+  }
 }
 
 export function parseMarkdownSource(text) {
@@ -936,8 +1003,8 @@ function targetProvenance(repoRoot) {
   const baseCommit = existing?.base_commit ?? gitOutput(repoRoot, ["rev-parse", "HEAD"]) ?? "0".repeat(40);
   return {
     schema_version: 1,
-    proposal_path: "docs/proposals/agent-language-services-lifecycle-migration.md",
-    proposal_anchor: "#frozen-source-inventory",
+    proposal_path: lifecycleProposalPath,
+    proposal_anchor: lifecycleProposalAnchor,
     target_kind: "proposal-section",
     default_branch: "main",
     base_commit: baseCommit.trim(),
@@ -1008,6 +1075,32 @@ function inventoryLeafIds(inventory) {
     : [root.id]));
 }
 
+function inventoryLeavesForAuthority(inventory) {
+  const leaves = new Map();
+  for (const root of inventory.roots ?? []) {
+    if (root.children?.length > 0) {
+      for (const child of root.children) {
+        leaves.set(child.id, {
+          id: child.id,
+          root_id: root.id,
+          lifecycle: child.lifecycle,
+          spans: child.spans,
+          conformance: true,
+        });
+      }
+    } else {
+      leaves.set(root.id, {
+        id: root.id,
+        root_id: root.id,
+        lifecycle: root.lifecycle,
+        spans: [root.span],
+        conformance: true,
+      });
+    }
+  }
+  return leaves;
+}
+
 function isStableLeafId(value, pattern = /^ALS-S\d{4}(?:\.\d+)?$/) {
   return pattern.test(value ?? "");
 }
@@ -1021,6 +1114,10 @@ function isAllowedEvidencePath(value) {
     && (/^examples\/specification\/.+/.test(value)
       || /^docs\/reference\/agent-language-services-lifecycle\/.+\.json$/.test(value)
       || isRepoMarkdownPath(value));
+}
+
+function isFullGitSha(value) {
+  return typeof value === "string" && /^[0-9a-f]{40}$/.test(value);
 }
 
 function isUsableRegExp(pattern) {
@@ -1222,6 +1319,14 @@ function uniqueById(items, label, errors) {
 
 function readJson(repoRoot, relativePath) {
   return JSON.parse(fs.readFileSync(path.resolve(repoRoot, relativePath), "utf8"));
+}
+
+function readJsonFromGit(repoRoot, objectName) {
+  const result = spawnSync("git", ["show", objectName], { cwd: repoRoot, encoding: "utf8" });
+  if (result.status !== 0) {
+    return undefined;
+  }
+  return JSON.parse(result.stdout);
 }
 
 function writeJson(repoRoot, relativePath, value) {
