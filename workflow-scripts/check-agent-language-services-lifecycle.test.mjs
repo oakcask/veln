@@ -8,6 +8,7 @@ import {
   validateArtifacts,
   validateDiffScope,
   validateLedger,
+  validateLedgerStructure,
   writeGeneratedArtifacts,
 } from "./check-agent-language-services-lifecycle.mjs";
 
@@ -106,13 +107,57 @@ test("rejects direct parent, missing, duplicate, wildcard, and invalid removed l
 
 test("rejects malformed migration ledger schema", () => {
   const artifacts = readRepoArtifacts();
-  artifacts.ledgerSchema.lifecycle_enum = ["current", "planned"];
-  artifacts.ledgerSchema.leaf_id_pattern = "[";
+  artifacts.ledgerSchema.properties.entries.items.properties.lifecycle.enum = ["current", "planned"];
+  artifacts.ledgerSchema.properties.entries.items.properties.leaf_id.pattern = "[";
 
   const result = validateArtifacts({ repoRoot: ".", ...artifacts });
 
   assert.equal(result.valid, false);
   assert.match(result.errors.join("\n"), /migration ledger schema|leaf_id_pattern|lifecycle enum/);
+});
+
+test("runs structural ledger cases through schema and semantic validation", () => {
+  const artifacts = readRepoArtifacts();
+  const valid = structuredClone(artifacts.ledgerFixture);
+  const invalidCases = [
+    ["missing entries", { schema_version: 1 }],
+    ["duplicate evidence", withFirstEntry(valid, (entry) => {
+      entry.destination.evidence = [
+        "docs/proposals/agent-language-services.md",
+        "docs/proposals/agent-language-services.md",
+      ];
+    })],
+    ["wildcard leaf", withFirstEntry(valid, (entry) => {
+      entry.leaf_id = "*";
+    })],
+    ["unsupported field", withFirstEntry(valid, (entry) => {
+      entry.range = "ALS-S0001..ALS-S0004";
+    })],
+    ["invalid destination path", withFirstEntry(valid, (entry) => {
+      entry.destination.path = "tmp/not-a-doc.txt";
+    })],
+  ];
+
+  assert.deepEqual(validateLedgerStructure({ ledger: valid, ledgerSchema: artifacts.ledgerSchema }), []);
+  assert.deepEqual(validateLedger({
+    ledger: valid,
+    inventory: artifacts.inventory,
+    manifest: artifacts.manifest,
+    ledgerSchema: artifacts.ledgerSchema,
+  }), []);
+
+  for (const [name, ledger] of invalidCases) {
+    const schemaErrors = validateLedgerStructure({ ledger, ledgerSchema: artifacts.ledgerSchema });
+    const semanticErrors = validateLedger({
+      ledger,
+      inventory: artifacts.inventory,
+      manifest: artifacts.manifest,
+      ledgerSchema: artifacts.ledgerSchema,
+    });
+
+    assert.notEqual(schemaErrors.length, 0, name);
+    assert.notEqual(semanticErrors.length, 0, name);
+  }
 });
 
 test("rejects unresolved ledger destinations and duplicate evidence", () => {
@@ -146,6 +191,18 @@ test("rejects synchronized finite identity deletion from universe and source dec
   assert.match(result.errors.join("\n"), /preserve the named finite tool identity/);
 });
 
+test("rejects synchronized finite identity occurrence deletion from universe and source decisions", () => {
+  const artifacts = readRepoArtifacts();
+  const deleted = artifacts.universe.identities.find((identity, index, identities) => identities.some((other, otherIndex) => otherIndex !== index && other.kind === identity.kind && other.name === identity.name));
+  artifacts.universe.identities = artifacts.universe.identities.filter((identity) => JSON.stringify(identity) !== JSON.stringify(deleted));
+  artifacts.sourceDecisions.identities = artifacts.sourceDecisions.identities.filter((identity) => JSON.stringify(identity) !== JSON.stringify(deleted));
+
+  const result = validateArtifacts({ repoRoot: ".", ...artifacts });
+
+  assert.equal(result.valid, false);
+  assert.match(result.errors.join("\n"), /source-bound finite identity occurrence/);
+});
+
 test("does not overwrite reviewed source decisions when generating artifacts", () => {
   using fixture = tempRepo();
   copyFile(fixture.root, "docs/proposals/agent-language-services.md");
@@ -158,17 +215,55 @@ test("does not overwrite reviewed source decisions when generating artifacts", (
   assert.equal(fs.readFileSync(reviewPath, "utf8"), "{\"sentinel\":true}\n");
 });
 
-test("rejects bootstrap paths outside the frozen-inventory scope", () => {
-  const result = validateDiffScope({
-    repoRoot: ".",
-    paths: [
-      "docs/reference/agent-language-services-lifecycle/frozen-inventory.json",
-      "examples/specification/mcp/workspace-lifecycle/case.toml",
-    ],
-  });
+test("rejects bootstrap override without checked provenance refs", () => {
+  const previousBootstrap = process.env.AGENT_LANGUAGE_SERVICES_BOOTSTRAP;
+  const previousBase = process.env.AGENT_LANGUAGE_SERVICES_BASE_SHA;
+  const previousHead = process.env.AGENT_LANGUAGE_SERVICES_HEAD_SHA;
+  process.env.AGENT_LANGUAGE_SERVICES_BOOTSTRAP = "1";
+  delete process.env.AGENT_LANGUAGE_SERVICES_BASE_SHA;
+  delete process.env.AGENT_LANGUAGE_SERVICES_HEAD_SHA;
+  try {
+    const result = validateDiffScope({
+      repoRoot: ".",
+      paths: [
+        "docs/reference/agent-language-services-lifecycle/frozen-inventory.json",
+        "examples/specification/mcp/workspace-lifecycle/case.toml",
+      ],
+    });
 
-  assert.equal(result.valid, false);
-  assert.match(result.errors.join("\n"), /mixing unrelated paths/);
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join("\n"), /provide concrete base and head refs/);
+  } finally {
+    if (previousBootstrap === undefined) {
+      delete process.env.AGENT_LANGUAGE_SERVICES_BOOTSTRAP;
+    } else {
+      process.env.AGENT_LANGUAGE_SERVICES_BOOTSTRAP = previousBootstrap;
+    }
+    restoreEnv("AGENT_LANGUAGE_SERVICES_BASE_SHA", previousBase);
+    restoreEnv("AGENT_LANGUAGE_SERVICES_HEAD_SHA", previousHead);
+  }
+});
+
+test("rejects bootstrap paths outside the frozen-inventory scope", () => {
+  const previousBase = process.env.AGENT_LANGUAGE_SERVICES_BASE_SHA;
+  const previousHead = process.env.AGENT_LANGUAGE_SERVICES_HEAD_SHA;
+  process.env.AGENT_LANGUAGE_SERVICES_BASE_SHA = "a4a3b874928a713f1078a302311bb2b22103e2ee";
+  process.env.AGENT_LANGUAGE_SERVICES_HEAD_SHA = "62ea5beb1a5763bb4db6b62419cdf7204de695ff";
+  try {
+    const result = validateDiffScope({
+      repoRoot: ".",
+      paths: [
+        "docs/reference/agent-language-services-lifecycle/frozen-inventory.json",
+        "examples/specification/mcp/workspace-lifecycle/case.toml",
+      ],
+    });
+
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join("\n"), /prerequisite must already exist|mixing unrelated paths/);
+  } finally {
+    restoreEnv("AGENT_LANGUAGE_SERVICES_BASE_SHA", previousBase);
+    restoreEnv("AGENT_LANGUAGE_SERVICES_HEAD_SHA", previousHead);
+  }
 });
 
 test("rejects post-bootstrap frozen lifecycle changes", () => {
@@ -221,6 +316,20 @@ function ledgerEntry(leafId, lifecycle) {
       rationale: "duplicate supporting explanation",
     },
   };
+}
+
+function withFirstEntry(ledger, mutate) {
+  const copy = structuredClone(ledger);
+  mutate(copy.entries[0]);
+  return copy;
+}
+
+function restoreEnv(name, value) {
+  if (value === undefined) {
+    delete process.env[name];
+  } else {
+    process.env[name] = value;
+  }
 }
 
 function readJson(relativePath) {

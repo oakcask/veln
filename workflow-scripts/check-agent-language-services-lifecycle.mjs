@@ -177,16 +177,18 @@ export function validateArtifacts({
 }
 
 export function validateLedger({ repoRoot = ".", ledger, ledgerSchema = migrationLedgerSchema(), inventory, manifest, errors = [] }) {
+  validateLedgerStructure({ ledger, ledgerSchema, errors, label: ledgerFixturePath });
   const leafIds = inventoryLeafIds(inventory);
   const parentIds = new Set(inventory.roots.filter((root) => root.children?.length > 0).map((root) => root.id));
   const manifestById = new Map(manifest.leaves.map((leaf) => [leaf.id, leaf]));
-  const leafIdPattern = isUsableRegExp(ledgerSchema.leaf_id_pattern)
-    ? new RegExp(ledgerSchema.leaf_id_pattern)
+  const leafIdPatternSource = ledgerSchema?.properties?.entries?.items?.properties?.leaf_id?.pattern;
+  const leafIdPattern = isUsableRegExp(leafIdPatternSource)
+    ? new RegExp(leafIdPatternSource)
     : /^$/;
-  const forbiddenLeafIdPatterns = (ledgerSchema.forbidden_leaf_id_patterns ?? [])
+  const forbiddenPatterns = forbiddenLeafIdPatterns(ledgerSchema)
     .filter(isUsableRegExp)
     .map((pattern) => new RegExp(pattern));
-  const lifecycleEnum = new Set(ledgerSchema.lifecycle_enum ?? []);
+  const lifecycleEnum = new Set(ledgerSchema?.properties?.entries?.items?.properties?.lifecycle?.enum ?? []);
   const seen = new Set();
   if (!Array.isArray(ledger.entries)) {
     errors.push(`${ledgerFixturePath}: add an entries array.`);
@@ -195,7 +197,7 @@ export function validateLedger({ repoRoot = ".", ledger, ledgerSchema = migratio
   for (const [index, entry] of ledger.entries.entries()) {
     const label = `${ledgerFixturePath}: entries[${index}]`;
     const leafId = entry.leaf_id;
-    if (!isStableLeafId(leafId, leafIdPattern) || forbiddenLeafIdPatterns.some((pattern) => pattern.test(leafId ?? ""))) {
+    if (!isStableLeafId(leafId, leafIdPattern) || forbiddenPatterns.some((pattern) => pattern.test(leafId ?? ""))) {
       errors.push(`${label}: enumerate one stable leaf_id; ranges, wildcards, and catch-all entries hide migration review gaps.`);
       continue;
     }
@@ -227,27 +229,30 @@ export function validateLedger({ repoRoot = ".", ledger, ledgerSchema = migratio
   return errors;
 }
 
+export function validateLedgerStructure({ ledger, ledgerSchema = migrationLedgerSchema(), errors = [], label = ledgerFixturePath }) {
+  validateJsonSchemaSubset({ schema: ledgerSchema, value: ledger, label, errors });
+  return errors;
+}
+
 function validateMigrationLedgerSchema({ ledgerSchema, errors }) {
   const expected = migrationLedgerSchema();
   if (JSON.stringify(ledgerSchema) !== JSON.stringify(expected)) {
     errors.push(`${ledgerSchemaPath}: keep the checked migration ledger schema equal to the validator contract.`);
   }
-  if (!Array.isArray(ledgerSchema?.required) || !ledgerSchema.required.includes("schema_version") || !ledgerSchema.required.includes("entries")) {
-    errors.push(`${ledgerSchemaPath}: require schema_version and entries.`);
-  }
-  if (!isUsableRegExp(ledgerSchema?.leaf_id_pattern)) {
+  const leafIdPattern = ledgerSchema?.properties?.entries?.items?.properties?.leaf_id?.pattern;
+  if (!isUsableRegExp(leafIdPattern)) {
     errors.push(`${ledgerSchemaPath}: provide a valid leaf_id_pattern.`);
   }
-  for (const pattern of ledgerSchema?.forbidden_leaf_id_patterns ?? []) {
+  for (const pattern of forbiddenLeafIdPatterns(ledgerSchema)) {
     if (!isUsableRegExp(pattern)) {
       errors.push(`${ledgerSchemaPath}: provide valid forbidden leaf_id patterns.`);
     }
   }
   for (const lifecycle of lifecycleValues) {
-    if (!ledgerSchema?.lifecycle_enum?.includes(lifecycle)) {
+    if (!ledgerSchema?.properties?.entries?.items?.properties?.lifecycle?.enum?.includes(lifecycle)) {
       errors.push(`${ledgerSchemaPath}: preserve lifecycle enum value ${lifecycle}.`);
     }
-    if (ledgerSchema?.destination_kinds_by_lifecycle?.[lifecycle] !== expected.destination_kinds_by_lifecycle[lifecycle]) {
+    if (ledgerSchema?.x_veln_semantic?.destination_kinds_by_lifecycle?.[lifecycle] !== expected.x_veln_semantic.destination_kinds_by_lifecycle[lifecycle]) {
       errors.push(`${ledgerSchemaPath}: preserve destination kind for ${lifecycle}.`);
     }
   }
@@ -281,8 +286,9 @@ export function validateDiffScope({ repoRoot, paths }) {
   const provenance = fs.existsSync(path.resolve(repoRoot, provenancePath))
     ? readJson(repoRoot, provenancePath)
     : undefined;
-  const bootstrap = isBootstrapDiff({ provenance });
-  if (!bootstrap) {
+  const phase = diffScopePhase({ repoRoot, provenance });
+  errors.push(...phase.errors);
+  if (!phase.bootstrap) {
     for (const changedPath of changedPaths) {
       if (protectedAfterBootstrap.has(changedPath)) {
         errors.push(`${changedPath}: frozen lifecycle bootstrap files are immutable after the provenance base has merged.`);
@@ -303,15 +309,42 @@ export function validateDiffScope({ repoRoot, paths }) {
     : failure("Restore out-of-scope files or split the change before merging the frozen inventory bootstrap.", errors);
 }
 
-function isBootstrapDiff({ provenance }) {
-  if (process.env.AGENT_LANGUAGE_SERVICES_BOOTSTRAP === "1") {
-    return true;
-  }
+function diffScopePhase({ repoRoot, provenance }) {
+  const errors = [];
   const base = process.env.AGENT_LANGUAGE_SERVICES_BASE_SHA;
-  if (!base) {
-    return true;
+  const head = process.env.AGENT_LANGUAGE_SERVICES_HEAD_SHA;
+  const requested = process.env.AGENT_LANGUAGE_SERVICES_BOOTSTRAP === "1";
+  const validProvenance = provenance?.proposal_path === "docs/proposals/agent-language-services-lifecycle-migration.md"
+    && provenance?.proposal_anchor === "#frozen-source-inventory"
+    && provenance?.target_kind === "proposal-section"
+    && provenance?.default_branch === "main"
+    && Array.isArray(provenance?.frozen_artifact_set);
+  if (!validProvenance) {
+    errors.push(`${provenancePath}: resolve valid target provenance before applying lifecycle diff-scope rules.`);
   }
-  return provenance?.base_commit === base;
+  if (!base || !head || /^0+$/.test(base) || /^0+$/.test(head ?? "")) {
+    if (requested) {
+      errors.push("AGENT_LANGUAGE_SERVICES_BOOTSTRAP: provide concrete base and head refs before allowing the frozen inventory bootstrap scope.");
+    }
+    return { bootstrap: false, errors };
+  }
+  if (!isDefaultBranchBase(repoRoot, base, provenance?.default_branch ?? "main")) {
+    errors.push("AGENT_LANGUAGE_SERVICES_BASE_SHA: resolve a base commit from the configured default branch before allowing bootstrap scope.");
+  }
+  for (const prerequisite of provenance?.prerequisites ?? []) {
+    if (!fs.existsSync(path.resolve(repoRoot, prerequisite))) {
+      errors.push(`${prerequisite}: complete the lifecycle prerequisite before applying bootstrap scope.`);
+    }
+    if (!gitObjectExists(repoRoot, `${base}:${prerequisite}`)) {
+      errors.push(`${prerequisite}: prerequisite must already exist on the bootstrap base commit.`);
+    }
+  }
+  const frozenArtifacts = provenance?.frozen_artifact_set ?? [];
+  const baseHasFrozenArtifact = frozenArtifacts.some((artifact) => gitObjectExists(repoRoot, `${base}:${artifact}`));
+  if (baseHasFrozenArtifact || provenance?.base_commit !== base) {
+    return { bootstrap: false, errors };
+  }
+  return { bootstrap: errors.length === 0, errors };
 }
 
 export function parseMarkdownSource(text) {
@@ -542,10 +575,15 @@ function validateSourceDecisions({ sourceDecisions, universe, inventoryLeaves, e
 
 function validateIdentities({ source, universe, sourceDecisions, errors }) {
   const expectedIdentities = expectedFiniteIdentities(source);
+  const expectedKeys = expectedFiniteIdentityKeys(source);
   const identityKeys = new Set();
   const identityNamesByKind = new Map();
   for (const identity of universe.identities ?? []) {
-    identityKeys.add(`${identity.kind}:${identity.name}:${identity.root_id}:${identity.span?.join("-")}`);
+    const key = finiteIdentityKey(identity);
+    if (identityKeys.has(key)) {
+      errors.push(`${universePath}: remove duplicate finite identity occurrence ${identity.kind}:${identity.name}.`);
+    }
+    identityKeys.add(key);
     const names = identityNamesByKind.get(identity.kind) ?? new Set();
     names.add(identity.name);
     identityNamesByKind.set(identity.kind, names);
@@ -554,9 +592,22 @@ function validateIdentities({ source, universe, sourceDecisions, errors }) {
       errors.push(`${universePath}: bind identity ${identity.name} to its exact source occurrence.`);
     }
   }
+  for (const key of expectedKeys) {
+    if (!identityKeys.has(key)) {
+      errors.push(`${universePath}: preserve the source-bound finite identity occurrence ${key}.`);
+    }
+  }
+  for (const key of identityKeys) {
+    if (!expectedKeys.has(key)) {
+      errors.push(`${universePath}: remove detached finite identity occurrence ${key}.`);
+    }
+  }
   const decisionKeys = new Set();
   for (const identity of sourceDecisions.identities ?? []) {
-    const key = `${identity.kind}:${identity.name}:${identity.root_id}:${identity.span?.join("-")}`;
+    const key = finiteIdentityKey(identity);
+    if (decisionKeys.has(key)) {
+      errors.push(`${sourceDecisionsPath}: remove duplicate finite identity occurrence ${identity.kind}:${identity.name}.`);
+    }
     decisionKeys.add(key);
     if (!identityKeys.has(key)) {
       errors.push(`${sourceDecisionsPath}: keep identity ${identity.name} source-bound and equal to the source universe.`);
@@ -592,6 +643,14 @@ function expectedFiniteIdentities(source) {
   }
   expected.set("evidence-gate", new Set(Array.from({ length: 22 }, (_, index) => `Q${String(index + 1).padStart(2, "0")}`)));
   return expected;
+}
+
+function expectedFiniteIdentityKeys(source) {
+  return new Set(finiteIdentities(parseMarkdownSource(source)).map(finiteIdentityKey));
+}
+
+function finiteIdentityKey(identity) {
+  return `${identity.kind}:${identity.name}:${identity.root_id}:${identity.span?.join("-")}`;
 }
 
 function inventoryRoot(root) {
@@ -718,7 +777,7 @@ function validateDestination({ repoRoot, label, entry, ledgerSchema, errors }) {
     errors.push(`${label}: add a destination object.`);
     return;
   }
-  const expectedKind = ledgerSchema.destination_kinds_by_lifecycle?.[entry.lifecycle];
+  const expectedKind = ledgerSchema.x_veln_semantic?.destination_kinds_by_lifecycle?.[entry.lifecycle];
   if (destination.kind !== expectedKind) {
     errors.push(`${label}: route ${entry.lifecycle} leaves to a ${expectedKind} destination.`);
   }
@@ -785,18 +844,87 @@ function markdownAnchors(markdown) {
 
 function migrationLedgerSchema() {
   return {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
     $id: "https://veln-lang.invalid/schemas/agent-language-services-migration-ledger.schema.json",
-    schema_version: 1,
+    title: "Agent language-services migration ledger",
     description: "Structural contract for the later migration ledger. The semantic validator resolves leaf IDs, lifecycle equality, and destination roles.",
+    type: "object",
+    additionalProperties: false,
     required: ["schema_version", "entries"],
-    leaf_id_pattern: "^ALS-S[0-9]{4}(\\.[0-9]+)?$",
-    forbidden_leaf_id_patterns: ["\\*", "\\.\\.", "^all$", "^remaining$"],
-    lifecycle_enum: ["current", "completed", "planned", "removed"],
-    destination_kinds_by_lifecycle: {
-      current: "specification",
-      completed: "implementation-record",
-      planned: "proposal",
-      removed: "removed",
+    properties: {
+      schema_version: { const: 1 },
+      entries: {
+        type: "array",
+        minItems: 1,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["leaf_id", "lifecycle", "destination"],
+          properties: {
+            leaf_id: {
+              type: "string",
+              pattern: "^ALS-S[0-9]{4}(\\.[0-9]+)?$",
+              not: {
+                anyOf: [
+                  { pattern: "\\*" },
+                  { pattern: "\\.\\." },
+                  { pattern: "^all$" },
+                  { pattern: "^remaining$" },
+                ],
+              },
+            },
+            lifecycle: {
+              type: "string",
+              enum: ["current", "completed", "planned", "removed"],
+            },
+            destination: {
+              type: "object",
+              additionalProperties: false,
+              required: ["kind"],
+              properties: {
+                kind: {
+                  type: "string",
+                  enum: ["specification", "implementation-record", "proposal", "removed"],
+                },
+                path: {
+                  type: "string",
+                  pattern: "^docs/(?:proposals|specification|reference)/.+\\.md$",
+                },
+                anchor: {
+                  type: "string",
+                  pattern: "^#[a-z0-9][a-z0-9-]*$",
+                },
+                evidence: {
+                  type: "array",
+                  minItems: 1,
+                  uniqueItems: true,
+                  items: {
+                    type: "string",
+                    anyOf: [
+                      { pattern: "^examples/specification/.+" },
+                      { pattern: "^docs/reference/agent-language-services-lifecycle/.+\\.json$" },
+                      { pattern: "^docs/(?:proposals|specification|reference)/.+\\.md$" },
+                    ],
+                  },
+                },
+                rationale: {
+                  type: "string",
+                  minLength: 1,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    x_veln_semantic: {
+      forbidden_leaf_id_patterns: ["\\*", "\\.\\.", "^all$", "^remaining$"],
+      destination_kinds_by_lifecycle: {
+        current: "specification",
+        completed: "implementation-record",
+        planned: "proposal",
+        removed: "removed",
+      },
     },
   };
 }
@@ -907,6 +1035,107 @@ function isUsableRegExp(pattern) {
   }
 }
 
+function forbiddenLeafIdPatterns(ledgerSchema) {
+  const notAnyOf = ledgerSchema?.properties?.entries?.items?.properties?.leaf_id?.not?.anyOf ?? [];
+  const structural = notAnyOf.map((schema) => schema.pattern).filter((pattern) => typeof pattern === "string");
+  const semantic = ledgerSchema?.x_veln_semantic?.forbidden_leaf_id_patterns ?? [];
+  return [...new Set([...structural, ...semantic])];
+}
+
+function validateJsonSchemaSubset({ schema, value, label, errors }) {
+  validateJsonSchemaNode({ schema, value, label, errors });
+}
+
+function validateJsonSchemaNode({ schema, value, label, errors }) {
+  if (!schema || typeof schema !== "object") {
+    errors.push(`${label}: schema node must be an object.`);
+    return;
+  }
+  if (schema.anyOf) {
+    const anyValid = schema.anyOf.some((candidate) => {
+      const candidateErrors = [];
+      validateJsonSchemaNode({ schema: candidate, value, label, errors: candidateErrors });
+      return candidateErrors.length === 0;
+    });
+    if (!anyValid) {
+      errors.push(`${label}: match one allowed schema shape.`);
+    }
+  }
+  if (schema.not) {
+    const notErrors = [];
+    validateJsonSchemaNode({ schema: schema.not, value, label, errors: notErrors });
+    if (notErrors.length === 0) {
+      errors.push(`${label}: must not match a forbidden schema shape.`);
+    }
+  }
+  if (schema.const !== undefined && value !== schema.const) {
+    errors.push(`${label}: use ${JSON.stringify(schema.const)}.`);
+  }
+  if (schema.enum && !schema.enum.includes(value)) {
+    errors.push(`${label}: use one of ${schema.enum.join(", ")}.`);
+  }
+  if (schema.pattern) {
+    if (typeof value !== "string") {
+      errors.push(`${label}: use a string matching pattern ${schema.pattern}.`);
+    } else if (isUsableRegExp(schema.pattern) && !new RegExp(schema.pattern).test(value)) {
+      errors.push(`${label}: match pattern ${schema.pattern}.`);
+    }
+  }
+  if (schema.type === "object") {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      errors.push(`${label}: use an object.`);
+      return;
+    }
+    for (const required of schema.required ?? []) {
+      if (!Object.hasOwn(value, required)) {
+        errors.push(`${label}: add required field ${required}.`);
+      }
+    }
+    if (schema.additionalProperties === false) {
+      const allowed = new Set(Object.keys(schema.properties ?? {}));
+      for (const key of Object.keys(value)) {
+        if (!allowed.has(key)) {
+          errors.push(`${label}: remove unsupported field ${key}.`);
+        }
+      }
+    }
+    for (const [key, childSchema] of Object.entries(schema.properties ?? {})) {
+      if (Object.hasOwn(value, key)) {
+        validateJsonSchemaNode({ schema: childSchema, value: value[key], label: `${label}.${key}`, errors });
+      }
+    }
+  } else if (schema.type === "array") {
+    if (!Array.isArray(value)) {
+      errors.push(`${label}: use an array.`);
+      return;
+    }
+    if (Number.isInteger(schema.minItems) && value.length < schema.minItems) {
+      errors.push(`${label}: add at least ${schema.minItems} item.`);
+    }
+    if (schema.uniqueItems) {
+      const seen = new Set();
+      for (const item of value) {
+        const key = JSON.stringify(item);
+        if (seen.has(key)) {
+          errors.push(`${label}: list each item once.`);
+        }
+        seen.add(key);
+      }
+    }
+    for (const [index, item] of value.entries()) {
+      validateJsonSchemaNode({ schema: schema.items ?? {}, value: item, label: `${label}[${index}]`, errors });
+    }
+  } else if (schema.type === "string") {
+    if (typeof value !== "string") {
+      errors.push(`${label}: use a string.`);
+      return;
+    }
+    if (Number.isInteger(schema.minLength) && value.length < schema.minLength) {
+      errors.push(`${label}: use a non-empty string.`);
+    }
+  }
+}
+
 function isBootstrapAllowedPath(value) {
   return value === ".github/workflows/workflow--test-scripts.yaml"
     || value === "docs/reference/README.md"
@@ -931,6 +1160,33 @@ function changedFiles(repoRoot) {
     }
   }
   return [];
+}
+
+function isDefaultBranchBase(repoRoot, base, defaultBranch) {
+  const candidates = [
+    `refs/remotes/origin/${defaultBranch}`,
+    `refs/heads/${defaultBranch}`,
+    defaultBranch,
+  ];
+  for (const candidate of candidates) {
+    const ref = gitOutput(repoRoot, ["rev-parse", "--verify", candidate]);
+    if (ref === undefined) {
+      continue;
+    }
+    if (ref.trim() === base) {
+      return true;
+    }
+    const result = spawnSync("git", ["merge-base", "--is-ancestor", base, candidate], { cwd: repoRoot, encoding: "utf8" });
+    if (result.status === 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function gitObjectExists(repoRoot, objectName) {
+  const result = spawnSync("git", ["cat-file", "-e", objectName], { cwd: repoRoot, encoding: "utf8" });
+  return result.status === 0;
 }
 
 function readArtifacts(repoRoot) {
