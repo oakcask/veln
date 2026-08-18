@@ -21,21 +21,17 @@ also states it.
 - Identifier casing that separates type and constructor names from module,
   function, and value-binding names:
   [identifier-casing.md](identifier-casing.md).
-- Install a base-pinned, PR-visible target receipt guard before another
-  agent-language-services lifecycle transition:
-  [agent-language-services-pr-target-guard.md](agent-language-services-pr-target-guard.md#guard-bootstrap).
+- Close the agent-language-services client-platform set before freezing its
+  conformance universe:
+  [agent-language-services-platform-matrix-closure.md](agent-language-services-platform-matrix-closure.md).
 
 Only proposals and subsections listed in this section are selectable targets.
 
 ## Blocked
 
-- The agent-language-services inventory review gate is blocked until the
-  agent-language-services PR target guard leaves this directory as a completed
-  implementation record:
-  [agent-language-services-inventory-review-gate.md](agent-language-services-inventory-review-gate.md#g0-to-g1-review-gate).
 - The agent-language-services lifecycle migration is blocked until the
-  inventory review gate leaves this directory as a completed implementation
-  record:
+  client-platform matrix closure leaves this directory as a completed
+  implementation record:
   [agent-language-services-lifecycle-migration.md](agent-language-services-lifecycle-migration.md).
 - The agent-language-services slice-closure proposal is blocked until the
   lifecycle-migration proposal leaves this directory as a completed

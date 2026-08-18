@@ -33,9 +33,6 @@ first route is not obvious.
   [specification/mcp.md](specification/mcp.md).
 - Check rationale behind current behavior:
   [specification/source-decisions.md](specification/source-decisions.md).
-- Check proposal target readiness or agent-language-services lifecycle
-  validation artifacts:
-  [reference/README.md](reference/README.md).
 - Check source support or documentation maintenance routes:
   [navigation.md](navigation.md).
 
