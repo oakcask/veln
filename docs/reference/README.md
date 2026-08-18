@@ -1,3 +1,8 @@
+---
+role: routing
+update-when: A reference document is added, moved, reclassified, removed, or changes responsibility.
+---
+
 # Reference
 
 Stable rationale and source-support material lives here. Use
@@ -28,6 +33,8 @@ behavior page needs rationale, source support, or toolchain reference material.
   then [source-decisions/topic-map.md](source-decisions/topic-map.md) when the
   category is unclear.
 - Source support behind rationale: [bibliography/README.md](bibliography/README.md).
+- Agent language-services lifecycle migration frozen source inventory:
+  [agent-language-services-frozen-inventory.md](agent-language-services-frozen-inventory.md).
 
 ## Read When
 
@@ -40,6 +47,9 @@ behavior page needs rationale, source support, or toolchain reference material.
 - Use `source-decisions/` after a language page needs rationale; start with
   its README before opening category pages or records.
 - Use `bibliography/` after a rationale or claim needs source support.
+- Use [agent-language-services-frozen-inventory.md](agent-language-services-frozen-inventory.md)
+  before changing the agent language-services lifecycle-migration inventory,
+  validator, migration-ledger schema, or phase guard.
 
 ## Route Boundaries
 

@@ -1,0 +1,165 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import test from "node:test";
+import {
+  buildAcceptanceLedger,
+  parseSourceUniverse,
+  validateAgentLanguageServicesInventory,
+  validateDiffScope,
+  validateInventory,
+  validateMigrationLedger,
+  validateUniverse,
+  writeArtifacts,
+} from "./check-agent-language-services-inventory.mjs";
+
+const repoRoot = process.cwd();
+
+test("accepts the checked frozen inventory artifacts", () => {
+  const result = validateAgentLanguageServicesInventory({ repoRoot, checkDiffScope: false });
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.valid, true);
+});
+
+test("rejects a changed digest", () => {
+  const fixture = fixtureData();
+  fixture.universe.roots[0].digest = "0".repeat(64);
+  const errors = validateUniverse({ parsed: fixture.parsed, universe: fixture.universe });
+  assert(errors.some((error) => error.includes("wrong digest")));
+});
+
+test("rejects a missing or duplicate inventory item", () => {
+  const fixture = fixtureData();
+  fixture.inventory.roots.pop();
+  assert(validateInventory(fixture).some((error) => error.includes("expected one inventory root")));
+
+  const duplicate = fixtureData();
+  duplicate.inventory.roots[1] = structuredClone(duplicate.inventory.roots[0]);
+  assert(validateInventory(duplicate).some((error) => error.includes("duplicate inventory root")));
+});
+
+test("rejects a missing child", () => {
+  const fixture = fixtureData();
+  const root = fixture.inventory.roots.find((candidate) => candidate.child_count > 1) ?? fixture.inventory.roots[0];
+  root.children.pop();
+  assert(validateInventory(fixture).some((error) => error.includes("child_count does not match children")));
+});
+
+test("rejects span gaps, overlaps, and out-of-range spans", () => {
+  const gap = fixtureData();
+  gap.inventory.roots[0].children[0].spans[0].start += 1;
+  assert(validateInventory(gap).some((error) => error.includes("span gap or overlap")));
+
+  const overlap = fixtureData();
+  overlap.inventory.roots[0].children[0].spans[0].end += 1;
+  assert(validateInventory(overlap).some((error) => error.includes("span gap or overlap")));
+
+  const range = fixtureData();
+  range.inventory.roots[0].children[0].spans[0].end = 1_000_000;
+  assert(validateInventory(range).some((error) => error.includes("out-of-range span")));
+});
+
+test("rejects a wrong lifecycle and a manifest mismatch", () => {
+  const fixture = fixtureData();
+  const child = fixture.inventory.roots[0].children[0];
+  child.lifecycle = child.lifecycle === "planned" ? "current" : "planned";
+  assert(validateInventory(fixture).some((error) => error.includes("lifecycle differs from reviewed manifest")));
+});
+
+test("rejects an uncovered parent lifecycle statement", () => {
+  const fixture = fixtureData();
+  const lastChild = fixture.inventory.roots[0].children.at(-1);
+  const childSpan = lastChild.spans[0];
+  childSpan.end -= 1;
+  fixture.inventory.roots[0].separator_spans = [];
+  assert(validateInventory(fixture).some((error) => error.includes("uncovered source text")));
+});
+
+test("validates the generated acceptance ledger", () => {
+  const fixture = fixtureData();
+  const ledger = buildAcceptanceLedger(fixture);
+  const result = validateMigrationLedger({ repoRoot, ledger, inventory: fixture.inventory, manifest: fixture.manifest });
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.valid, true);
+});
+
+test("rejects direct parent, missing, duplicate, wildcard, and invalid removed ledger leaves", () => {
+  const fixture = fixtureData();
+  const ledger = buildAcceptanceLedger(fixture);
+  const firstLeaf = ledger.entries[0].source_id;
+  const parent = fixture.inventory.roots[0].id;
+
+  const directParent = structuredClone(ledger);
+  directParent.entries[0].source_id = parent;
+  assert(validateMigrationLedger({ repoRoot, ledger: directParent, inventory: fixture.inventory, manifest: fixture.manifest }).errors.some((error) => error.includes("maps a parent")));
+
+  const missing = structuredClone(ledger);
+  missing.entries.pop();
+  assert(validateMigrationLedger({ repoRoot, ledger: missing, inventory: fixture.inventory, manifest: fixture.manifest }).errors.some((error) => error.includes("missing leaf mapping")));
+
+  const duplicate = structuredClone(ledger);
+  duplicate.entries[1].source_id = firstLeaf;
+  assert(validateMigrationLedger({ repoRoot, ledger: duplicate, inventory: fixture.inventory, manifest: fixture.manifest }).errors.some((error) => error.includes("duplicate leaf mapping")));
+
+  const wildcard = structuredClone(ledger);
+  wildcard.entries[0].source_id = "agent-language-services/S*.c01";
+  assert(validateMigrationLedger({ repoRoot, ledger: wildcard, inventory: fixture.inventory, manifest: fixture.manifest }).errors.some((error) => error.includes("wildcard")));
+
+  const removed = structuredClone(ledger);
+  const conformanceEntry = removed.entries.find((entry) => fixture.manifest.leaves.find((leaf) => leaf.source_id === entry.source_id).conformance);
+  conformanceEntry.lifecycle = "removed";
+  conformanceEntry.destination = { kind: "removed", rationale: "Duplicate explanation." };
+  assert(validateMigrationLedger({ repoRoot, ledger: removed, inventory: fixture.inventory, manifest: fixture.manifest }).errors.some((error) => error.includes("cannot be removed")));
+});
+
+test("rejects invalid ledger destination evidence", () => {
+  const fixture = fixtureData();
+  const ledger = buildAcceptanceLedger(fixture);
+  const current = ledger.entries.find((entry) => entry.lifecycle === "current");
+  current.destination.evidence = ["docs/proposals/agent-language-services.md"];
+  assert(validateMigrationLedger({ repoRoot, ledger, inventory: fixture.inventory, manifest: fixture.manifest }).errors.some((error) => error.includes("allowlisted checked route")));
+});
+
+test("enforces the first-pr diff scope guard", () => {
+  assert.deepEqual(validateDiffScope({
+    baseHasFrozen: false,
+    headHasFrozen: true,
+    changes: [
+      { path: "docs/reference/agent-language-services-frozen-inventory.json" },
+      { path: "workflow-scripts/check-agent-language-services-inventory.mjs" },
+    ],
+  }), []);
+
+  assert(validateDiffScope({
+    baseHasFrozen: false,
+    headHasFrozen: true,
+    changes: [{ path: "docs/proposals/agent-language-services.md" }],
+  }).some((error) => error.includes("restore the umbrella proposal")));
+
+  assert(validateDiffScope({
+    baseHasFrozen: false,
+    headHasFrozen: true,
+    changes: [{ path: "crates/veln-mcp/src/lib.rs" }],
+  }).some((error) => error.includes("behavior PR")));
+
+  assert.deepEqual(validateDiffScope({
+    baseHasFrozen: true,
+    headHasFrozen: true,
+    changes: [{ path: "docs/proposals/agent-language-services.md" }],
+  }), []);
+});
+
+function fixtureData() {
+  const proposal = fs.readFileSync(path.join(repoRoot, "docs/proposals/agent-language-services.md"), "utf8");
+  return {
+    repoRoot,
+    parsed: parseSourceUniverse(proposal),
+    universe: readJson("docs/reference/agent-language-services-source-universe.json"),
+    inventory: readJson("docs/reference/agent-language-services-frozen-inventory.json"),
+    manifest: readJson("docs/reference/agent-language-services-lifecycle-manifest.json"),
+  };
+}
+
+function readJson(file) {
+  return JSON.parse(fs.readFileSync(path.join(repoRoot, file), "utf8"));
+}

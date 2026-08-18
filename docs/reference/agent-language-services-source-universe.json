@@ -1,0 +1,3956 @@
+{
+  "schema_version": 1,
+  "source_path": "docs/proposals/agent-language-services.md",
+  "frozen_prefix": "agent-language-services/",
+  "roots": [
+    {
+      "id": "agent-language-services/S0001",
+      "heading": "Summary",
+      "kind": "paragraph",
+      "line": 10,
+      "digest": "e7220c12f308e70d2534ae6fa15e3cda1dc7cd2f1113f0d4fe4bc2dcfafeead9",
+      "conformance": true,
+      "identities": [
+        "veln mcp"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0002",
+      "heading": "Implementation Status",
+      "kind": "paragraph",
+      "line": 16,
+      "digest": "f40307e1207366bd2bd438698f0e9d67b204029d063a13876130bb9cdbda07aa",
+      "conformance": true,
+      "identities": [
+        "check_project",
+        "definition",
+        "refresh_workspace",
+        "veln mcp",
+        "workspace_projects"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0003",
+      "heading": "Implementation Status",
+      "kind": "paragraph",
+      "line": 27,
+      "digest": "8a3a3bf03af25eb8a6a75d244e04a9db6ca5ac5cd7e564121c2361522b8716e3",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0004",
+      "heading": "Implementation Status",
+      "kind": "list-item",
+      "line": 29,
+      "digest": "9d64850b2e83aecb34200634cc15a29f8ceab16d648c026ea8366be5a19e8e03",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0005",
+      "heading": "Implementation Status",
+      "kind": "paragraph",
+      "line": 30,
+      "digest": "06b4e4754d067be6a3d1e762f9054a1e9fbe93be47e33fc9ca3763e6e18e641c",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0006",
+      "heading": "Implementation Status",
+      "kind": "list-item",
+      "line": 31,
+      "digest": "051b8c854a623a24b67ac201ff86cf711e410c66220c8e5f235f255750a342ed",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0007",
+      "heading": "Implementation Status",
+      "kind": "list-item",
+      "line": 32,
+      "digest": "6a2b0007bd84bcd85aa2dc0a22b91eadb3adedc3243b1aea526e6e00ffaa62f9",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0008",
+      "heading": "Implementation Status",
+      "kind": "list-item",
+      "line": 33,
+      "digest": "b3d05520faf94160111fbee264828f36a88c11bb0fc90c6e6bbbe1a671285e81",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0009",
+      "heading": "Implementation Status",
+      "kind": "list-item",
+      "line": 34,
+      "digest": "e84cbbf222159aae01bf47d0ed87794a6da43819bf3002795ff2ddc0dd90d54b",
+      "conformance": true,
+      "identities": [
+        "Claude Code",
+        "Codex"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0010",
+      "heading": "Language-Semantics Prerequisite",
+      "kind": "paragraph",
+      "line": 38,
+      "digest": "c26f648dcdfb4a4e688f78ef6c19149f9ac9443bfcc0b8576e9abd134271ec0c",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0011",
+      "heading": "Language-Semantics Prerequisite",
+      "kind": "paragraph",
+      "line": 42,
+      "digest": "0d4717539e79be2bcb8a6ac66350bda77a8b69b48994ee9ccf2f5a1315f583c1",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0012",
+      "heading": "Slice-Closure Prerequisite",
+      "kind": "paragraph",
+      "line": 49,
+      "digest": "29e5e87e4ced41b986c439062c0ba4b511cd8b9acdf905e6af4b1f2d1a5b9058",
+      "conformance": true,
+      "identities": [
+        "Q01",
+        "Q22"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0013",
+      "heading": "Next Slice: Saved Workspace Function References",
+      "kind": "paragraph",
+      "line": 62,
+      "digest": "9f2ff97da2001200755cae56be7f1628cad499fd2f55d4a3c5f4315c376caa32",
+      "conformance": false,
+      "identities": [
+        "references",
+        "veln mcp"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0014",
+      "heading": "Next Slice: Saved Workspace Function References",
+      "kind": "paragraph",
+      "line": 67,
+      "digest": "77427e11b3c37abc64c3ef1f61cfc8360f1a86b902b6a7971ad0e74efe6779b7",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0015",
+      "heading": "Next Slice: Saved Workspace Function References",
+      "kind": "table-row",
+      "line": 69,
+      "digest": "4c7920985e511f2fd09ce24b23f590d82a2666b08832e043f0fc2921b702b407",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0016",
+      "heading": "Next Slice: Saved Workspace Function References",
+      "kind": "table-row",
+      "line": 71,
+      "digest": "61a06624395173943a6f00c0f2ab35fa2a9978463fa8bd73fbce027c3b773173",
+      "conformance": false,
+      "identities": [
+        "column",
+        "include_declaration",
+        "line",
+        "references",
+        "source"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0017",
+      "heading": "Next Slice: Saved Workspace Function References",
+      "kind": "table-row",
+      "line": 72,
+      "digest": "dce3d66c63f02c5cf1bfd6aa4b696d6ae701089964d0a6840c801f0b36169296",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0018",
+      "heading": "Next Slice: Saved Workspace Function References",
+      "kind": "table-row",
+      "line": 73,
+      "digest": "bfc47d5ff5e69ac0ad5e2630fc289d7c9b21fd85ef3477c6fa93a63fe0f95c59",
+      "conformance": false,
+      "identities": [
+        "file:"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0019",
+      "heading": "Next Slice: Saved Workspace Function References",
+      "kind": "table-row",
+      "line": 74,
+      "digest": "7e201db083c5c6203a7f928197253a694c454e92b88a1ece8bc98ebbcccd8741",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0020",
+      "heading": "Next Slice: Saved Workspace Function References",
+      "kind": "table-row",
+      "line": 75,
+      "digest": "5b850de614081de2956e218030d9a2fc9297136e8dcd4f00b161bc62a62e06b8",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0021",
+      "heading": "Next Slice: Saved Workspace Function References",
+      "kind": "table-row",
+      "line": 76,
+      "digest": "da2156b59845be574b498ccec70560c8ce83b1e7449c40e5bf023f9977bc2089",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0022",
+      "heading": "Next Slice: Saved Workspace Function References",
+      "kind": "paragraph",
+      "line": 78,
+      "digest": "921e66f0246d253e856ea679bd1ba0804d3cefdd835640c78f2a238755358f4c",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0023",
+      "heading": "Next Slice: Saved Workspace Function References",
+      "kind": "table-row",
+      "line": 84,
+      "digest": "be8e8063c0ed78e5e96bb78c7e81e8d25c8d9b231462c8f35a5d925e7e1e6f01",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0024",
+      "heading": "Next Slice: Saved Workspace Function References",
+      "kind": "table-row",
+      "line": 86,
+      "digest": "d08a958d0b51cf2d96a6264d63c343d8648d26ee2388c54dea151e1841ec2792",
+      "conformance": true,
+      "identities": [
+        "file:"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0025",
+      "heading": "Next Slice: Saved Workspace Function References",
+      "kind": "table-row",
+      "line": 87,
+      "digest": "27536cd66036e11a0ccfe3667d9adb2ddff06d989291155e92a89644c15bd2ad",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0026",
+      "heading": "Next Slice: Saved Workspace Function References",
+      "kind": "table-row",
+      "line": 88,
+      "digest": "1478eb88d7f6ed16c89a1b8cbcc95d411aeb602d40b5b8886025dcfda96f14dd",
+      "conformance": true,
+      "identities": [
+        "project_wide: false"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0027",
+      "heading": "Next Slice: Saved Workspace Function References",
+      "kind": "table-row",
+      "line": 89,
+      "digest": "3cbaefc11fcb202d701f1e4d84871e0325b6e87a3d2b3b6a7303ca7ef844d05e",
+      "conformance": true,
+      "identities": [
+        "invalid_position"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0028",
+      "heading": "Next Slice: Saved Workspace Function References",
+      "kind": "table-row",
+      "line": 90,
+      "digest": "d23ec3d57f1768547f08d4ecdfe308a16e42f9f40dc1a2f51b2bfb7f1f678abe",
+      "conformance": true,
+      "identities": [
+        "references",
+        "snapshot_changed"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0029",
+      "heading": "Next Slice: Saved Workspace Function References",
+      "kind": "table-row",
+      "line": 91,
+      "digest": "be6e45b9160e4e0a59fcd400345fffa2e86b1870e04258f21f653a392c8a2e1f",
+      "conformance": true,
+      "identities": [
+        "references"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0030",
+      "heading": "Next Slice: Saved Workspace Function References",
+      "kind": "paragraph",
+      "line": 93,
+      "digest": "c4db56addf3c0f287696f895243fcf2d8ed45f857dad6ca76f50dea3aa3b2eef",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0031",
+      "heading": "Next Slice: Saved Workspace Function References",
+      "kind": "paragraph",
+      "line": 101,
+      "digest": "724d5224e6d6ec4cc3fdc63b92b1397ba2bd09c975b33bd8f13e57f530a1b32a",
+      "conformance": false,
+      "identities": [
+        "veln lsp",
+        "veln mcp"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0032",
+      "heading": "Motivation",
+      "kind": "paragraph",
+      "line": 107,
+      "digest": "4218c3197abecd6c4bfdaefe938e6be08c3c1346bfd0d4172d1ee545e2fcfadc",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0033",
+      "heading": "Motivation",
+      "kind": "paragraph",
+      "line": 113,
+      "digest": "7e2bc0af558c8cc6b3f5a8b35bc8bf1aeb2cdf2c21d985d7e5cda671bb957af1",
+      "conformance": true,
+      "identities": [
+        "../specification/"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0034",
+      "heading": "Motivation",
+      "kind": "paragraph",
+      "line": 120,
+      "digest": "1d71211df24df64b91177948a76fbdb343eb63dca4c14fb3284d5427d0f2e0ae",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0035",
+      "heading": "Goals",
+      "kind": "list-item",
+      "line": 128,
+      "digest": "a8cbd79903488d62c6c27c6c5a62c4c23822a12b37cb90743f0b010694329298",
+      "conformance": false,
+      "identities": [
+        "veln",
+        "veln mcp"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0036",
+      "heading": "Goals",
+      "kind": "list-item",
+      "line": 129,
+      "digest": "a843c90e2ff50bd9b109eb61496d3dc58ea7e2b84495b301e881dc41ce6cc76e",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0037",
+      "heading": "Goals",
+      "kind": "list-item",
+      "line": 130,
+      "digest": "50c5163415c0b0b9a4128320871e972e1717861fcca87541ec837bed61500b44",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0038",
+      "heading": "Goals",
+      "kind": "paragraph",
+      "line": 131,
+      "digest": "c0e323d1e548ec50250db7534409629a2a82bfa42ea2c7ed54a779759ea42b6a",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0039",
+      "heading": "Goals",
+      "kind": "list-item",
+      "line": 132,
+      "digest": "0d3e155f99fa1e94715f6e86e2b2763cec6e4f0783bfcdcaa5aacb12e5e87757",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0040",
+      "heading": "Goals",
+      "kind": "paragraph",
+      "line": 133,
+      "digest": "444a8f2bf55eac64e789bab691daffdc58bbab93f57c8287ebe956e8721f50f2",
+      "conformance": false,
+      "identities": [
+        "veln lsp"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0041",
+      "heading": "Goals",
+      "kind": "list-item",
+      "line": 134,
+      "digest": "abc2e7e22c1274118a219efe0154f98356a54a7d36687e2a831946daa2d331c7",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0042",
+      "heading": "Goals",
+      "kind": "list-item",
+      "line": 135,
+      "digest": "005d6e276f95b21c33eb37d34f2fd1fba8e5bb0297ed4686aa44dad32b0ef143",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0043",
+      "heading": "Goals",
+      "kind": "paragraph",
+      "line": 136,
+      "digest": "41a079d510d638867f7ae38ad5075489710f31a5ae0c57e718ad882f3055427d",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0044",
+      "heading": "Goals",
+      "kind": "list-item",
+      "line": 137,
+      "digest": "19c695dd7834c09ced7cd5dd3184609cc07ff6d0a56bd084e79aad4245efb1c0",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0045",
+      "heading": "Goals",
+      "kind": "paragraph",
+      "line": 138,
+      "digest": "c0e323d1e548ec50250db7534409629a2a82bfa42ea2c7ed54a779759ea42b6a",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0046",
+      "heading": "Goals",
+      "kind": "list-item",
+      "line": 139,
+      "digest": "846235d88ec91f523e0e0d9e9db7619a4368dd08c537b90f1e6bf69a52a012fb",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0047",
+      "heading": "Goals",
+      "kind": "paragraph",
+      "line": 140,
+      "digest": "80d76ae4929045b714171ad2f6ec5ae1950e1c29a94e475c46b1ef45ad2951e8",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0048",
+      "heading": "Goals",
+      "kind": "list-item",
+      "line": 141,
+      "digest": "0724d7c2c7cbe6fa5d7438fc5721a2201bcb51b2dd5681b5c27d58c8cf08cbb5",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0049",
+      "heading": "Goals",
+      "kind": "list-item",
+      "line": 142,
+      "digest": "7beb4f01f3bad6e2fa4341cebb8eed76b382a6b940be4324352c32d57e2461ac",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0050",
+      "heading": "Goals",
+      "kind": "list-item",
+      "line": 143,
+      "digest": "a2db31e97dc3598394406c857308f77b0f631d2f3cbd251f66c3c02da737604a",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0051",
+      "heading": "Non-Goals",
+      "kind": "list-item",
+      "line": 147,
+      "digest": "4ad987b3b65d88eb5f16c2a746765aa47c6565e27f11961db96149442ab1179b",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0052",
+      "heading": "Non-Goals",
+      "kind": "list-item",
+      "line": 148,
+      "digest": "9b92f7397f4cf0ec9e48850d12c397c05a1fa5eb5ad4ede9a6f225c38e2ad16e",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0053",
+      "heading": "Non-Goals",
+      "kind": "list-item",
+      "line": 149,
+      "digest": "c239cff2a2f94a7ef665e4ec8db797ca90dec85e21ca864e557e62a7bfea4819",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0054",
+      "heading": "Non-Goals",
+      "kind": "list-item",
+      "line": 150,
+      "digest": "3a99c9c75ba35229db41162fa17dba64c3760ec9596a4c2ecdbcf3c99a248e57",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0055",
+      "heading": "Non-Goals",
+      "kind": "list-item",
+      "line": 151,
+      "digest": "40314be2e5f3028e438e26f28af517e6b0c80b82b911af79d3784caf498d23a5",
+      "conformance": false,
+      "identities": [
+        "veln lsp"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0056",
+      "heading": "Non-Goals",
+      "kind": "list-item",
+      "line": 152,
+      "digest": "873f6046741b1eb20ace01feee96aa7787d81bf613ae5b083514eb270d9f14b2",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0057",
+      "heading": "Non-Goals",
+      "kind": "paragraph",
+      "line": 153,
+      "digest": "918f10484dbb6e6e44fc6bfde99d82be35700586064933a92fe4b4cee89cb2ed",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0058",
+      "heading": "Non-Goals",
+      "kind": "list-item",
+      "line": 154,
+      "digest": "1dae8706273976581c27ae48fc53baaf70eeefade90780df215e52fadf140d77",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0059",
+      "heading": "Non-Goals",
+      "kind": "paragraph",
+      "line": 155,
+      "digest": "daedadf70ffab4151ad1036d4c6aaab6aa0969c4d7a84154a2baf3161c7ac439",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0060",
+      "heading": "Non-Goals",
+      "kind": "list-item",
+      "line": 156,
+      "digest": "6e59727664f8afa4f4c2d95cdf2feee25f138671a60f87dfb2bd707e52cf5ba9",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0061",
+      "heading": "Non-Goals",
+      "kind": "list-item",
+      "line": 157,
+      "digest": "f1294ef769c10f6a511212ea851e491a8406e8e158d3304ad2527e143415ab39",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0062",
+      "heading": "Non-Goals",
+      "kind": "paragraph",
+      "line": 158,
+      "digest": "6e53031eee726d7cca43df85791d695b5ac33c5c9336eaa8d3942a2d4d98a926",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0063",
+      "heading": "Non-Goals",
+      "kind": "list-item",
+      "line": 159,
+      "digest": "f0021f2ab7fa1d8722becb6a3a2a4de943eaac8217910123fd2848e9d966ec7d",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0064",
+      "heading": "Non-Goals",
+      "kind": "list-item",
+      "line": 160,
+      "digest": "bce47b654638d9ea61e052c06208336cb31fcb4822c3a90383208a3253b1f17b",
+      "conformance": true,
+      "identities": [
+        "Claude Code",
+        "Codex",
+        "veln mcp"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0065",
+      "heading": "Non-Goals",
+      "kind": "paragraph",
+      "line": 161,
+      "digest": "70e963d1f703ac5d6b46189761a70bb27885b8066fab80f8bac4d08962db2e6c",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0066",
+      "heading": "Terminology",
+      "kind": "list-item",
+      "line": 165,
+      "digest": "33dc1b7bc86a696b9ca309eed4c58a3d1eddf400d30dc141b89aeade903d5b9c",
+      "conformance": false,
+      "identities": [
+        "veln mcp"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0067",
+      "heading": "Terminology",
+      "kind": "list-item",
+      "line": 166,
+      "digest": "49600be4dde9d8c5b1a8586f3ccf53994f49d579f3e6b08b15f1544ff973b9a6",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0068",
+      "heading": "Terminology",
+      "kind": "paragraph",
+      "line": 167,
+      "digest": "a174090c3d0b558267dc3fae34d48674754c24759e60b83a8d804225c16b15f0",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0069",
+      "heading": "Terminology",
+      "kind": "list-item",
+      "line": 168,
+      "digest": "29142565b370d69f2159b4d640f68fafdb19cfbf5997e4e3bdc36561280250e0",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0070",
+      "heading": "Terminology",
+      "kind": "list-item",
+      "line": 169,
+      "digest": "8e12ae7549447c4921d36ac66a4c1db084c6405c0cac0a3df9e2c339eb6635da",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0071",
+      "heading": "Terminology",
+      "kind": "paragraph",
+      "line": 170,
+      "digest": "fa2e99207450115ea2d809cbf83516037751c85a22a10181965c58eeb0565c9d",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0072",
+      "heading": "Terminology",
+      "kind": "list-item",
+      "line": 171,
+      "digest": "3d06e19af5e24809c90893944c243365c66317fc3fa4f35d3115624fa5453103",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0073",
+      "heading": "Terminology",
+      "kind": "paragraph",
+      "line": 172,
+      "digest": "9e22402308fef088403ea6f4ea7a8bc1ebf17952c343b955e564d3b04c1408c3",
+      "conformance": false,
+      "identities": [
+        "std"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0074",
+      "heading": "Terminology",
+      "kind": "list-item",
+      "line": 173,
+      "digest": "e8191e3b4a98473a79ee5fa4ed396456e98d26ffcf8f397b4ad1753aa84d2caa",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0075",
+      "heading": "Terminology",
+      "kind": "list-item",
+      "line": 174,
+      "digest": "f4903be682e1ee370bae2a0d605118ea96955722b880155b5c67ae92535b0610",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0076",
+      "heading": "Terminology",
+      "kind": "paragraph",
+      "line": 175,
+      "digest": "a480fce2a1443468314c047414588111791e5a65b216dae54c1f5406b4327d3c",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0077",
+      "heading": "Terminology",
+      "kind": "list-item",
+      "line": 176,
+      "digest": "cd150e5b1b7058cf84e8d0041c717b642c985262595f330f618e6b77bfda642c",
+      "conformance": true,
+      "identities": [
+        "veln-pkg:"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0078",
+      "heading": "Terminology",
+      "kind": "paragraph",
+      "line": 177,
+      "digest": "655f1c77e929518e7241ec691e8299faa6e965c79413af38f5f2e128030e7409",
+      "conformance": true,
+      "identities": [
+        "file:"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0079",
+      "heading": "Terminology",
+      "kind": "list-item",
+      "line": 178,
+      "digest": "886c150013978c2fb26aff55a9a39f6411f3efd538b0c874be82714cb1b781ab",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0080",
+      "heading": "Terminology",
+      "kind": "paragraph",
+      "line": 179,
+      "digest": "9d9021f38e2a840c4fd5045b0b0cb804ca736db7f6bd840e5349a9514c9c1ca8",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0081",
+      "heading": "Ownership Boundary",
+      "kind": "paragraph",
+      "line": 183,
+      "digest": "2c9143b88217f1e3594c97eac447de456b4d83c107d3c7dc3b6ae8a6f640df61",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0082",
+      "heading": "Ownership Boundary",
+      "kind": "table-row",
+      "line": 185,
+      "digest": "f633d36a11df4709fc9822013de209f66d4f2c52664318ce78337a814b86ee8d",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0083",
+      "heading": "Ownership Boundary",
+      "kind": "table-row",
+      "line": 187,
+      "digest": "c4ebbf3279899e69bd310913a46a39b4ad6a98df710c5df36e21c1f5bf9bf7a4",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0084",
+      "heading": "Ownership Boundary",
+      "kind": "table-row",
+      "line": 188,
+      "digest": "369ae5328be8334fcedbc4fa17c952d74c1660e6f4a41a043d939380163e15ca",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0085",
+      "heading": "Ownership Boundary",
+      "kind": "table-row",
+      "line": 189,
+      "digest": "003d92d60ccb8b80581245f0ce3cfc427379e03a48b30657ce62a9b31bea5747",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0086",
+      "heading": "Ownership Boundary",
+      "kind": "table-row",
+      "line": 190,
+      "digest": "9770bc3837a6858bc77fcabd6c6339c1497fd6ffc411c465b87d692d2530b83a",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0087",
+      "heading": "Ownership Boundary",
+      "kind": "table-row",
+      "line": 191,
+      "digest": "8bf46084fd1bfb6191df3ea2679490cbc2dac822abb6cfd721521066ce944ce9",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0088",
+      "heading": "Ownership Boundary",
+      "kind": "table-row",
+      "line": 192,
+      "digest": "f228b4a28d042e1ff3ea6c10f170273d77a449db6c04dff9d0e9bbb03dddcdff",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0089",
+      "heading": "Ownership Boundary",
+      "kind": "paragraph",
+      "line": 194,
+      "digest": "eecd8ae4ed726173f4ea01f9a174ca052773359c8d4a7f5b1ce8c4a5d9c55118",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0090",
+      "heading": "Ownership Boundary",
+      "kind": "table-row",
+      "line": 196,
+      "digest": "0e4309e8c3b32a8754b7801d3adefff7dd02a6721596c68a4d1668615b2f7589",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0091",
+      "heading": "Ownership Boundary",
+      "kind": "table-row",
+      "line": 198,
+      "digest": "6e9dbf72a1131436d0a9a009d8caa19adc59281ed44f406e63351bb1394a8b1d",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0092",
+      "heading": "Ownership Boundary",
+      "kind": "table-row",
+      "line": 199,
+      "digest": "07c5e24a031b5ef77d683fc40826bd7bdde169abe72661ef52f5d4f1cdb5019b",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0093",
+      "heading": "Ownership Boundary",
+      "kind": "table-row",
+      "line": 200,
+      "digest": "3f9a25afbd4d460c295557c59a007ef8d43f8758936c332ec77fd9c4cb49e868",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0094",
+      "heading": "Ownership Boundary",
+      "kind": "table-row",
+      "line": 201,
+      "digest": "9b0e72f93cb0bb95fd8828f9077d472882c87f9c9b455b6d0ca0e1f86a2d0ec7",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0095",
+      "heading": "Ownership Boundary",
+      "kind": "table-row",
+      "line": 202,
+      "digest": "83be03271328194bc74fa488b1dab1677588e2992bf044f80c266039dbd1ec75",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0096",
+      "heading": "Ownership Boundary",
+      "kind": "table-row",
+      "line": 203,
+      "digest": "95db7cc9c62a29506e8caa8eed7af499f17e08de6a255c65fc90476e46319757",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0097",
+      "heading": "Ownership Boundary",
+      "kind": "table-row",
+      "line": 204,
+      "digest": "41f5caee8008fefb96ade858be1fe24b9af12a1129b615fd882c15e6da487548",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0098",
+      "heading": "Ownership Boundary",
+      "kind": "table-row",
+      "line": 205,
+      "digest": "429f4120df7a0e6ea8fc7dd57cf697d4275b632398a3660b4640c73a476f8886",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0099",
+      "heading": "Ownership Boundary",
+      "kind": "paragraph",
+      "line": 207,
+      "digest": "c25519e935f71023e79b692533c70d4ec0f6cee4e250d6c9c50b5caa4e151ed2",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0100",
+      "heading": "Command And Transport",
+      "kind": "paragraph",
+      "line": 215,
+      "digest": "844a68ddd15523acb58961e2a2aec0656dbbb2537bd0bbd646119b2346536c7f",
+      "conformance": true,
+      "identities": [
+        "veln mcp"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0101",
+      "heading": "Command And Transport",
+      "kind": "paragraph",
+      "line": 220,
+      "digest": "9b0b38f0ac933751df42234a7aec156ff506acf3628d3f5b843085e40b68b3b9",
+      "conformance": true,
+      "identities": [
+        "roots/list"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0102",
+      "heading": "Project Selection",
+      "kind": "paragraph",
+      "line": 226,
+      "digest": "f31d631bec956b66a98cbe345fe4d053f0d9acedd19221e9b70f177a9adeb6cc",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0103",
+      "heading": "Project Selection",
+      "kind": "table-row",
+      "line": 229,
+      "digest": "8c64320a2f11cf30dbb4ddff920e15f7934b94c7c2b66c0c781a5309c989ea94",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0104",
+      "heading": "Project Selection",
+      "kind": "table-row",
+      "line": 231,
+      "digest": "8334cc72f480913477b7b2b5151ae9b182c917d0713d032ca80fad0a03cb4c4a",
+      "conformance": false,
+      "identities": [
+        "veln.toml"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0105",
+      "heading": "Project Selection",
+      "kind": "table-row",
+      "line": 232,
+      "digest": "63574de0b65644069112fb7348d3eaae5eac846e3261838a7b44e4d4d75bef85",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0106",
+      "heading": "Project Selection",
+      "kind": "table-row",
+      "line": 233,
+      "digest": "90df2a71005ff931f6de38cd2196cfae20ac858103d9da689b1fa3e8b669053d",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0107",
+      "heading": "Project Selection",
+      "kind": "paragraph",
+      "line": 235,
+      "digest": "34440ebdea7b2f2faa5b33716d427fc995e8263cb169d8611d6ebc8f614778dc",
+      "conformance": false,
+      "identities": [
+        ".git",
+        "target"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0108",
+      "heading": "Project Selection",
+      "kind": "paragraph",
+      "line": 239,
+      "digest": "5bb717f4f1139dc808a22950e7561ac7066848ea0708f520d8d6e3d49e20c304",
+      "conformance": true,
+      "identities": [
+        "/"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0109",
+      "heading": "Project Selection",
+      "kind": "paragraph",
+      "line": 242,
+      "digest": "a01ed1bcd6307486c337d080f78f3d23eb3732d68cea2f228d087a2b7cbeeb7c",
+      "conformance": true,
+      "identities": [
+        "file:",
+        "snapshot_changed"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0110",
+      "heading": "Project Selection",
+      "kind": "paragraph",
+      "line": 252,
+      "digest": "c1a537e1d9699472fe9d550c8090a0f4cc59053b5085c7b896b1d5b7d78de2a1",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0111",
+      "heading": "Project Selection",
+      "kind": "table-row",
+      "line": 254,
+      "digest": "3ecd6d632d500db5eeb17871de38c39ab93ea8da07b5b869fb6f26103a6a8c4e",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0112",
+      "heading": "Project Selection",
+      "kind": "table-row",
+      "line": 256,
+      "digest": "cbb56597a09bb7b3578d495ac940ec5a3abb0e65a6d6f65bec2a1ee5b9cd3907",
+      "conformance": true,
+      "identities": [
+        "check_project",
+        "source"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0113",
+      "heading": "Project Selection",
+      "kind": "table-row",
+      "line": 257,
+      "digest": "2f0507f3a996c4f1be40274c5acbaa8155e7c8bf8dc82aa9b4a55fa55b07eb3d",
+      "conformance": true,
+      "identities": [
+        ".",
+        ".veln",
+        "check_project",
+        "project",
+        "source"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0114",
+      "heading": "Project Selection",
+      "kind": "table-row",
+      "line": 258,
+      "digest": "0bb0c1ab0b7b5ec1560e05a5234349e694fa961f6c5f2ba736fc38e47bef751c",
+      "conformance": false,
+      "identities": [
+        "check_project"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0115",
+      "heading": "Project Selection",
+      "kind": "table-row",
+      "line": 259,
+      "digest": "15bd9f50faaeb890e7a19d2f944da98ef1214942c1da38852c59c7b138913ea0",
+      "conformance": true,
+      "identities": [
+        "check_project"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0116",
+      "heading": "Project Selection",
+      "kind": "table-row",
+      "line": 260,
+      "digest": "726e53559d6e8f46d9278e20f81b03cc51d214ea92a967f7eab73fe3ffd2e219",
+      "conformance": false,
+      "identities": [
+        "definition",
+        "references"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0117",
+      "heading": "Project Selection",
+      "kind": "table-row",
+      "line": 261,
+      "digest": "aaf9fa04da6278fee52a97906ac82f0728b103d6d11a46bc30638376e480b364",
+      "conformance": true,
+      "identities": [
+        "definition",
+        "references"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0118",
+      "heading": "Project Selection",
+      "kind": "paragraph",
+      "line": 263,
+      "digest": "4cd9b9effc5cdae6b6b751464dd54f85eb847f839c06314d606886b9aef0211f",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0119",
+      "heading": "Project Selection",
+      "kind": "paragraph",
+      "line": 267,
+      "digest": "907b00a2b9917a4548a5415e8da62df77e21d455428cb397eff463c394880839",
+      "conformance": true,
+      "identities": [
+        "refresh_workspace"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0120",
+      "heading": "Coordinates",
+      "kind": "paragraph",
+      "line": 277,
+      "digest": "7bb9af6db47a0f844c21be334ce6f3c734b669c6f2dc6643cd6b7792cb40fcea",
+      "conformance": true,
+      "identities": [
+        "(1, 1)",
+        "N",
+        "N + 1"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0121",
+      "heading": "Coordinates",
+      "kind": "paragraph",
+      "line": 284,
+      "digest": "d1d2a0c3ef9a2108c2a35137929676742ca1d73d6ccf7f600494820f4df447bc",
+      "conformance": false,
+      "identities": [
+        "general.positionEncodings"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0122",
+      "heading": "Coordinates",
+      "kind": "paragraph",
+      "line": 292,
+      "digest": "85d3b09fa36a029c1a7bf1d66cf241a110634ae57dc9038ccd6a057cfa13f7e6",
+      "conformance": true,
+      "identities": [
+        "invalid_position"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0123",
+      "heading": "Tools",
+      "kind": "paragraph",
+      "line": 298,
+      "digest": "86d1c917776e1e257fa8b5f3f1f88d6b1f6ec7ec5945dc8d134cc3e00d0d69d6",
+      "conformance": true,
+      "identities": [
+        "check_project",
+        "definition",
+        "mcp/v1",
+        "null",
+        "{code, message, details}"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0124",
+      "heading": "Tools",
+      "kind": "paragraph",
+      "line": 307,
+      "digest": "774bec16d7f9247b4daa15419d9117f8b23c0215bbb3d5882bc76fc4705d6e95",
+      "conformance": true,
+      "identities": [
+        ".",
+        "generation_failed",
+        "incompatible_version",
+        "invalid_cursor",
+        "invalid_path",
+        "invalid_position",
+        "invalid_query",
+        "project_ambiguous",
+        "project_not_selected",
+        "resource_capacity",
+        "resource_not_found",
+        "snapshot_changed",
+        "source_required",
+        "stale_snapshot"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0125",
+      "heading": "Tools",
+      "kind": "paragraph",
+      "line": 316,
+      "digest": "abf5efc765a9346c49be791d94d7843ef068e3ec7d0d82cc259446e16198867d",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0126",
+      "heading": "Tools",
+      "kind": "table-row",
+      "line": 318,
+      "digest": "099b2ea195bf8064203acfcd7149037e648bf077a6c409f2f6c97fde5b3ddf18",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0127",
+      "heading": "Tools",
+      "kind": "table-row",
+      "line": 320,
+      "digest": "b48666f8ac4d09414c97f81120b75f322ebb7524ef256e2821c6341a1497025a",
+      "conformance": true,
+      "identities": [
+        "check_project"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0128",
+      "heading": "Tools",
+      "kind": "table-row",
+      "line": 321,
+      "digest": "eb56703390ea12076981a720c16ebbd2a2ce18c29ea60477477fd5cf1a5e2187",
+      "conformance": true,
+      "identities": [
+        "definition"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0129",
+      "heading": "Tools",
+      "kind": "table-row",
+      "line": 322,
+      "digest": "1d90f8d9b3f1277f5c407311047247fd629d52e193c90e9e1d804ec7e73e4720",
+      "conformance": true,
+      "identities": [
+        "references"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0130",
+      "heading": "Tools",
+      "kind": "table-row",
+      "line": 323,
+      "digest": "d5a143c61896cf6d3e25fef4d5351cb71faaf0964e72a0fb8b3a66e3e4a661e5",
+      "conformance": true,
+      "identities": [
+        "search_docs"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0131",
+      "heading": "Tools",
+      "kind": "table-row",
+      "line": 324,
+      "digest": "636c1ccdc7b193a08359bc6c443d3a7c81a4a88e744003f14d134415206f84ba",
+      "conformance": true,
+      "identities": [
+        "read_doc"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0132",
+      "heading": "Tools",
+      "kind": "table-row",
+      "line": 325,
+      "digest": "764b9e32f8b9ea16db7d7bffbfa8b6b8b41f33ade73417ce6f516536fa561c5b",
+      "conformance": true,
+      "identities": [
+        "workspace_projects"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0133",
+      "heading": "Tools",
+      "kind": "table-row",
+      "line": 326,
+      "digest": "b9f4ab9df13b8448114bc3af3f264571872de70092fdcfa84a094e557c2465ef",
+      "conformance": true,
+      "identities": [
+        "refresh_workspace"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0134",
+      "heading": "Tools",
+      "kind": "paragraph",
+      "line": 328,
+      "digest": "33a2a87d64077a3449a973a283e6d183d7b2fc8210a8e2c38794a5d529d7bd8e",
+      "conformance": true,
+      "identities": [
+        "check_project"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0135",
+      "heading": "Tools",
+      "kind": "paragraph",
+      "line": 337,
+      "digest": "d493512deb2c584f69ec48af3512c0cad62d6e5e51ed1b1e74d12db567869114",
+      "conformance": true,
+      "identities": [
+        "definition"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0136",
+      "heading": "Tools",
+      "kind": "paragraph",
+      "line": 342,
+      "digest": "99686250b44c205278a2fb3b69f7d12e50808241b5b484b8ea86f8afe2071daf",
+      "conformance": true,
+      "identities": [
+        "cursor",
+        "include_declaration",
+        "references"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0137",
+      "heading": "Tools",
+      "kind": "paragraph",
+      "line": 350,
+      "digest": "0cdd9d7a28d77b4622639e8c313e830758f5b9b914bc8e95f4685d49beacf081",
+      "conformance": true,
+      "identities": [
+        "all",
+        "language",
+        "package",
+        "search_docs",
+        "stdlib"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0138",
+      "heading": "Tools",
+      "kind": "paragraph",
+      "line": 356,
+      "digest": "5f009d4f0c865dd997c91a343dc4b5e70da1192c83d813f33ab3a62d57ba83ce",
+      "conformance": true,
+      "identities": [
+        "read_doc",
+        "veln-doc:"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0139",
+      "heading": "Resources",
+      "kind": "paragraph",
+      "line": 363,
+      "digest": "81a9d0a2f7ee3dff92ff18ca9ba3093a5a922a97a7cd5800c6cf57f52f1906c7",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0140",
+      "heading": "Resources",
+      "kind": "list-item",
+      "line": 365,
+      "digest": "769e62a56675a97e0bdaac0f7aa1d2da52b3d69accc2d8d7b1496b610ae1d7a7",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0141",
+      "heading": "Resources",
+      "kind": "list-item",
+      "line": 366,
+      "digest": "171f7cfffa48ee162fb00e8371dbbc1aca28c462bf6cef937dcad1f63db35344",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0142",
+      "heading": "Resources",
+      "kind": "paragraph",
+      "line": 367,
+      "digest": "463a4c80a9c40050958e80316b38540fb2729d72268a596c49898dfc485cf4bd",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0143",
+      "heading": "Resources",
+      "kind": "list-item",
+      "line": 368,
+      "digest": "db26cc6239948b538d06c83744f4ca5b13cff0e5aecf3281261dd8b997fd74db",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0144",
+      "heading": "Resources",
+      "kind": "list-item",
+      "line": 369,
+      "digest": "ad7f6e395075b20b2e28796b1d946048b43299d103935c2f8473cb0d2154e4fb",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0145",
+      "heading": "Resources",
+      "kind": "paragraph",
+      "line": 371,
+      "digest": "b506b51e80637bd877a5923cc2822dae40998daf349d19d3035ad6bedb5cd051",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0146",
+      "heading": "Resources",
+      "kind": "paragraph",
+      "line": 375,
+      "digest": "c2bc4e0d25c1b2dd4c2ae3bf886d7bc7ca7d9bb0644c5ccce955fc456be96556",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0147",
+      "heading": "Definition And Reference Coverage",
+      "kind": "paragraph",
+      "line": 385,
+      "digest": "6aef40f4fb17905bb1df70ca8b3e124beea1121c5d413e1e4115987681d1d75c",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0148",
+      "heading": "Definition And Reference Coverage",
+      "kind": "list-item",
+      "line": 388,
+      "digest": "19f14024e0410c6c4e891b1bcfe787cce48402545d0a1bae717832fc61ce289b",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0149",
+      "heading": "Definition And Reference Coverage",
+      "kind": "list-item",
+      "line": 389,
+      "digest": "eb94bf0c613b0fc6c6286ca5d94f352cb52370c9ac6409ff708be215d578c7e9",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0150",
+      "heading": "Definition And Reference Coverage",
+      "kind": "list-item",
+      "line": 390,
+      "digest": "039c3a6c84dfc2b7cf59fb49797de4f394b9fb6b1f867c01efcbd27ff9f86217",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0151",
+      "heading": "Definition And Reference Coverage",
+      "kind": "list-item",
+      "line": 391,
+      "digest": "c12f5282473a5f23d969dfc96f5ccef85ec5e28d146b6fc73464d344b3f93e2d",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0152",
+      "heading": "Definition And Reference Coverage",
+      "kind": "list-item",
+      "line": 392,
+      "digest": "c44bf85be1236bb2c5d3e9c84215b900ba97357253f57ee98c221f7c990beff5",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0153",
+      "heading": "Definition And Reference Coverage",
+      "kind": "list-item",
+      "line": 393,
+      "digest": "8424e01dca222d6f6e1e2111841f1512fe4e36291ccb17ec541acb9c660b6b79",
+      "conformance": false,
+      "identities": [
+        "let"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0154",
+      "heading": "Definition And Reference Coverage",
+      "kind": "list-item",
+      "line": 394,
+      "digest": "9982a27b8f4b640069a27df40eb7c938ee32e49ce3b1cad9af58fab1ddb0f66b",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0155",
+      "heading": "Definition And Reference Coverage",
+      "kind": "list-item",
+      "line": 395,
+      "digest": "1ff49ebb453cb8e7750439d11d0abd660bf44e4621a20b520771be34205df670",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0156",
+      "heading": "Definition And Reference Coverage",
+      "kind": "list-item",
+      "line": 396,
+      "digest": "e9aa0ace644d93a83a6c9508e07f7410d83d45aaed326da3b0ee28a781fd9bfb",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0157",
+      "heading": "Definition And Reference Coverage",
+      "kind": "list-item",
+      "line": 397,
+      "digest": "d446bf0e850c9e27ce5d04cae9d69af48ee09e137d719f85bee03a982126cae3",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0158",
+      "heading": "Definition And Reference Coverage",
+      "kind": "list-item",
+      "line": 398,
+      "digest": "067ae09cf737d8cc8e29edfe325bf1c00157aabc2f7a068c298edc1f71874b28",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0159",
+      "heading": "Definition And Reference Coverage",
+      "kind": "paragraph",
+      "line": 400,
+      "digest": "2faff1f00b9fd433f1ea50a96b3040a1e9bd79238152a1f2e78b55c6ef046aa2",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0160",
+      "heading": "Definition And Reference Coverage",
+      "kind": "paragraph",
+      "line": 411,
+      "digest": "50355e3a5491c74033f15d8469dfcc875d6bdbd3174c236876b9140479b7b6bb",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0161",
+      "heading": "Definition And Reference Coverage",
+      "kind": "paragraph",
+      "line": 416,
+      "digest": "9f9292ff4c00d79b86832585f362d35f17f85c268f6a5bce6ff52d17156bf02b",
+      "conformance": false,
+      "identities": [
+        "project",
+        "scope",
+        "single_file"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0162",
+      "heading": "Definition And Reference Coverage",
+      "kind": "paragraph",
+      "line": 427,
+      "digest": "dd3849f50d4b706eeeb5de96fe8baba3207fcab1778ad776ea639a87569aab9f",
+      "conformance": true,
+      "identities": [
+        "invalid_cursor",
+        "stale_snapshot"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0163",
+      "heading": "Semantic Locations",
+      "kind": "paragraph",
+      "line": 439,
+      "digest": "d2d23042efbd077e3fba1fd8d2fb069bcb10621ba4921784b8f4819c5fdccd8b",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0164",
+      "heading": "Semantic Locations",
+      "kind": "table-row",
+      "line": 442,
+      "digest": "7124b46c039a7df54709ad90b17a429cc68bc9bb4423e4c26a2bcfc3fffdab66",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0165",
+      "heading": "Semantic Locations",
+      "kind": "table-row",
+      "line": 444,
+      "digest": "e3d44bcf8a9d07ae48e39465a8899f1c9b28410c24a40e35a54df8fcbcacd39a",
+      "conformance": false,
+      "identities": [
+        "file:"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0166",
+      "heading": "Semantic Locations",
+      "kind": "table-row",
+      "line": 445,
+      "digest": "2fd6579dbbb230bad853e0b643c958303c6e443c45010b3a5e83db661fef2878",
+      "conformance": false,
+      "identities": [
+        "file:"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0167",
+      "heading": "Semantic Locations",
+      "kind": "table-row",
+      "line": 446,
+      "digest": "1c3a4d5eb688db877976b3620445844e8341c9ce6a69f3f5de651402bba27f86",
+      "conformance": false,
+      "identities": [
+        "veln-pkg:"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0168",
+      "heading": "Semantic Locations",
+      "kind": "table-row",
+      "line": 447,
+      "digest": "925474234a29774507d2a569f0c42f2829df22f764c2405ef07e1ae83e165470",
+      "conformance": false,
+      "identities": [
+        "veln-pkg:"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0169",
+      "heading": "Semantic Locations",
+      "kind": "table-row",
+      "line": 448,
+      "digest": "877c642f497697c5c6ec8f39b23bde753428b520f50b8e0799230c6c93fa7efb",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0170",
+      "heading": "Package Source URI",
+      "kind": "paragraph",
+      "line": 452,
+      "digest": "57ecb2ffec0390c32ef1ba63721f9279c54c5bbcb8410d0b0e9877a4eff8f249",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0171",
+      "heading": "Package Source URI",
+      "kind": "fenced-line",
+      "line": 455,
+      "digest": "ff06b5c49b12d75b90d4ec2303c67c56b72b8e2d7da59bd4f2927b72805e4d89",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0172",
+      "heading": "Package Source URI",
+      "kind": "paragraph",
+      "line": 458,
+      "digest": "652744a2ab28954bbafd780fd76c15c2bd557594532f907f10ead1989727af95",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0173",
+      "heading": "Package Source URI",
+      "kind": "fenced-line",
+      "line": 461,
+      "digest": "4d7a2858203ce06132946f334e39a7e387bd31652ef04dc552743b68c3411a92",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0174",
+      "heading": "Package Source URI",
+      "kind": "fenced-line",
+      "line": 462,
+      "digest": "36d7caee3dcbd4ce1cd6dce4ec738d62f4175b82e1a52210c0ac9c7bc9514053",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0175",
+      "heading": "Package Source URI",
+      "kind": "paragraph",
+      "line": 465,
+      "digest": "5516bcb86e264f5d074d458da5676d32ba5bf84a9892398a58aebd330819d7a7",
+      "conformance": true,
+      "identities": [
+        ".",
+        "..",
+        "/",
+        "digest",
+        "package-segment",
+        "source-path"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0176",
+      "heading": "Package Source URI",
+      "kind": "paragraph",
+      "line": 473,
+      "digest": "ad4e3e4b654ce95ed0ea17458558017e0979a8fdda0aec4b5b6c4ecb089aae89",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0177",
+      "heading": "Package Documentation URI",
+      "kind": "paragraph",
+      "line": 479,
+      "digest": "e47518c8a93a58b3a99105faefd36eda91ae24dd077ac86e480762d63bf01e34",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0178",
+      "heading": "Package Documentation URI",
+      "kind": "fenced-line",
+      "line": 483,
+      "digest": "bdfeb3b9e00d1cfcfecc2b647e80cfa3c87fa2f3fbfbbe4b428fdfe0741ce24c",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0179",
+      "heading": "Package Documentation URI",
+      "kind": "fenced-line",
+      "line": 484,
+      "digest": "643fb40aae58e09ce06f0bb1d0d92e6854806fafa63fced28ebc0d72194c0e17",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0180",
+      "heading": "Package Documentation URI",
+      "kind": "fenced-line",
+      "line": 485,
+      "digest": "3a8a9eff610b21a9c1a102b0b1c68f2df47b7d29f466b31201a9f2e27bf0e3a9",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0181",
+      "heading": "Package Documentation URI",
+      "kind": "fenced-line",
+      "line": 486,
+      "digest": "9c81a11b041b701b41e225fd1fafc180f2a4f6c264c649113a843af8196ab8ab",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0182",
+      "heading": "Package Documentation URI",
+      "kind": "paragraph",
+      "line": 489,
+      "digest": "ae271fe7caf6473ce8aa850334127b778bc38201eef20ef5457f239af4310c77",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0183",
+      "heading": "Resolution And Failure",
+      "kind": "paragraph",
+      "line": 495,
+      "digest": "3432abd5d0da954d332c43cb6b3ae5b1a675cc457621ca1e915d6a3c3f1233e5",
+      "conformance": true,
+      "identities": [
+        "resource_not_found"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0184",
+      "heading": "Resolution And Failure",
+      "kind": "paragraph",
+      "line": 501,
+      "digest": "b9db09362d60cb2e8a18307d93f4dd6182df0b45f6a71d0a67a28eadc1c6e086",
+      "conformance": true,
+      "identities": [
+        "resource_not_found"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0185",
+      "heading": "Resolution And Failure",
+      "kind": "paragraph",
+      "line": 510,
+      "digest": "f9e23fb7954640c1d1e62dbbe5f07da745001094ac026f3b0db29e915627cae9",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0186",
+      "heading": "Saved Snapshot Capture",
+      "kind": "paragraph",
+      "line": 517,
+      "digest": "668d3739b44e0ed8ba8d24fafd10cb1d2e5669cead2dabe4f31bee60693345e7",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0187",
+      "heading": "Saved Snapshot Capture",
+      "kind": "paragraph",
+      "line": 525,
+      "digest": "63f297aef47c6cd486ccc32b465a2609d31dcdaf55daf577d4212f05420e357e",
+      "conformance": true,
+      "identities": [
+        "snapshot_changed"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0188",
+      "heading": "Package Snapshots",
+      "kind": "paragraph",
+      "line": 536,
+      "digest": "cb279d77f334392dfb08bdf2a15c6796ff0bef65b9bfcb35285ed4133e494688",
+      "conformance": true,
+      "identities": [
+        "PackageIdentity",
+        "Q11",
+        "Q12",
+        "Q13",
+        "veln-doc:",
+        "veln-project"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0189",
+      "heading": "Package Snapshots",
+      "kind": "paragraph",
+      "line": 571,
+      "digest": "86a20d670e54039d3f22bce1a2a2f12dc49c5799a6392ae5a3bc517aa787ecc3",
+      "conformance": false,
+      "identities": [
+        "*_test.veln",
+        ".git",
+        ".test.veln",
+        ".veln",
+        "target",
+        "veln.toml"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0190",
+      "heading": "Package Snapshots",
+      "kind": "paragraph",
+      "line": 580,
+      "digest": "9dc6d0126ef8be532d801232dd05aa58fb1933ee3c525a63571ce05a2d408ad0",
+      "conformance": true,
+      "identities": [
+        ".",
+        "..",
+        "/",
+        ":",
+        "\\",
+        "std"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0191",
+      "heading": "Package Snapshots",
+      "kind": "paragraph",
+      "line": 592,
+      "digest": "a06dec7c9e3881a2763bdf74eecf7f9fefdce876d04fc224333fb26d947f1d7a",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0192",
+      "heading": "Package Snapshots",
+      "kind": "paragraph",
+      "line": 596,
+      "digest": "200ffebedcee45853e55e5edd83e749e1c87391b007f0748bc88d0cb9e047fae",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0193",
+      "heading": "Generated Package Documentation",
+      "kind": "paragraph",
+      "line": 603,
+      "digest": "af2fdc579cf1e5a6c9cd94f8c5eda7608243f0e68cd447edc79c11f576e70ecf",
+      "conformance": false,
+      "identities": [
+        "veln doc [path ...]"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0194",
+      "heading": "Generated Package Documentation",
+      "kind": "paragraph",
+      "line": 606,
+      "digest": "48d39698b039d1ff65921bc2254a4d0d52afca3922446eb094b567a7e5961fef",
+      "conformance": true,
+      "identities": [
+        "doc-digest",
+        "veln-package-doc-catalog/v1\\0"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0195",
+      "heading": "Generated Package Documentation",
+      "kind": "paragraph",
+      "line": 616,
+      "digest": "9bb1db512ace979a3c19f58b5ac789d3af85f107e0ecf80ca31e8c272c2deae0",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0196",
+      "heading": "Generated Package Documentation",
+      "kind": "paragraph",
+      "line": 622,
+      "digest": "0debf107e4e01cd2c8c11e04cc397b793f75b4480006c28909442dd9e26b940c",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0197",
+      "heading": "Generated Package Documentation",
+      "kind": "list-item",
+      "line": 624,
+      "digest": "6fc4347d067754ba5f9eb90bf483a4baa552b24e449810aa896af3cb3846d82e",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0198",
+      "heading": "Generated Package Documentation",
+      "kind": "list-item",
+      "line": 625,
+      "digest": "f61ecfc3e8039c5cefdfb8795e3fe5638474777abb4a423fc61e72cf8ea98806",
+      "conformance": false,
+      "identities": [
+        "[lib].exports"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0199",
+      "heading": "Generated Package Documentation",
+      "kind": "list-item",
+      "line": 626,
+      "digest": "3ca7672ac5ac7b4c3f8260030b2608e426dfbf44d67bc2049d1a89c8a8b57140",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0200",
+      "heading": "Generated Package Documentation",
+      "kind": "list-item",
+      "line": 627,
+      "digest": "3db6745e730e74147413415608cfaa1ebf754155c236cc3e3541bfb9a1641cfd",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0201",
+      "heading": "Generated Package Documentation",
+      "kind": "list-item",
+      "line": 628,
+      "digest": "c12f5282473a5f23d969dfc96f5ccef85ec5e28d146b6fc73464d344b3f93e2d",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0202",
+      "heading": "Generated Package Documentation",
+      "kind": "list-item",
+      "line": 629,
+      "digest": "4f32de3c4b7c1898c16077ce8b0360870ae01011a762a1d672c64bf15b97047d",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0203",
+      "heading": "Generated Package Documentation",
+      "kind": "list-item",
+      "line": 630,
+      "digest": "463c53738c4fb07f9db25d2e8dd1f7eabee9ec5f8c876aaec3fd264209fbbb05",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0204",
+      "heading": "Generated Package Documentation",
+      "kind": "list-item",
+      "line": 631,
+      "digest": "72b656216c1fbe3b027ea76cb55ed0cc96697e5be30180e0d7b85a2ec8b61687",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0205",
+      "heading": "Generated Package Documentation",
+      "kind": "list-item",
+      "line": 632,
+      "digest": "500ef6b9cbd272e2ade7b3d82930422b16662f686449460c0f7567ef22e798b8",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0206",
+      "heading": "Generated Package Documentation",
+      "kind": "list-item",
+      "line": 633,
+      "digest": "816e81101352df4cfb0fbdab959d2065520d750c0e729e782a76a8689953ca15",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0207",
+      "heading": "Generated Package Documentation",
+      "kind": "paragraph",
+      "line": 635,
+      "digest": "2259b45fa4107732e2a95623f5baff74c7763e43d2b7dbbc3e4f9292cae92243",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0208",
+      "heading": "Generated Package Documentation",
+      "kind": "list-item",
+      "line": 637,
+      "digest": "55e500f7253354a72d46c56a08d9c0fc7074f4e145ef97e10115d3592f531d20",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0209",
+      "heading": "Generated Package Documentation",
+      "kind": "list-item",
+      "line": 638,
+      "digest": "693c5e7cecd917c098e88f2634d93eecf102aaf25d4a78b5f5dc21ffdbc61b74",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0210",
+      "heading": "Generated Package Documentation",
+      "kind": "list-item",
+      "line": 639,
+      "digest": "2b71573d1854a2e6a21661de8827150451098d98fa44599e63e58fd3391c52d5",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0211",
+      "heading": "Generated Package Documentation",
+      "kind": "list-item",
+      "line": 640,
+      "digest": "4c97b946171bbd4459b5c755fb76b4e70f1b018bfe5042dcb2a1832632ccefb9",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0212",
+      "heading": "Generated Package Documentation",
+      "kind": "list-item",
+      "line": 641,
+      "digest": "2c6a4570668c555660df25376b54bced9d08afc48cb360a86ffffb879424e81d",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0213",
+      "heading": "Generated Package Documentation",
+      "kind": "list-item",
+      "line": 642,
+      "digest": "648a702983087f08db22c145a53ffffde53784883770e92cb07992e74039c7f1",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0214",
+      "heading": "Generated Package Documentation",
+      "kind": "paragraph",
+      "line": 644,
+      "digest": "e6aeb726454de5120bc5f52a3dc0809a742b8cead7aae9e082696789ce091e77",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0215",
+      "heading": "Generated Package Documentation",
+      "kind": "paragraph",
+      "line": 653,
+      "digest": "acb2df993b328dc0b63e6414fbdfff307880e02e4c72a49a645568baaa6a29c1",
+      "conformance": true,
+      "identities": [
+        "use"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0216",
+      "heading": "Generated Package Documentation",
+      "kind": "paragraph",
+      "line": 666,
+      "digest": "38f2c4c991febf9a6cf4c8f805d3d0cf7b47d3723545a3c6d230c83e39cc5bb7",
+      "conformance": true,
+      "identities": [
+        "veln fail"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0217",
+      "heading": "Authority And Inputs",
+      "kind": "paragraph",
+      "line": 681,
+      "digest": "8c39f6a6541c87f64c33c851d699da38cf4e905fee847b69f792ffe650a179b6",
+      "conformance": true,
+      "identities": [
+        "../specification/"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0218",
+      "heading": "Authority And Inputs",
+      "kind": "paragraph",
+      "line": 684,
+      "digest": "7baba6a75f9e65b67b55b5bd5e56e6e127ab3561869cba3fd67baf587f2321af",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0219",
+      "heading": "Authority And Inputs",
+      "kind": "list-item",
+      "line": 686,
+      "digest": "a5ea8fafacfb9d3f69deb6ef2601e53b57a0a03c872852d84edbb47bd93d20b1",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0220",
+      "heading": "Authority And Inputs",
+      "kind": "list-item",
+      "line": 687,
+      "digest": "cf44efac43bc129f5e15b4f1d1c0ba216c762aee04bd007e69b466e2ad3a08fe",
+      "conformance": false,
+      "identities": [
+        "../../examples/specification/"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0221",
+      "heading": "Authority And Inputs",
+      "kind": "list-item",
+      "line": 688,
+      "digest": "2cae6e9d51db72a7a85c14f46e8c519f4ca09ae8c4ae8e1c0ff98bbe6fd046e2",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0222",
+      "heading": "Authority And Inputs",
+      "kind": "list-item",
+      "line": 689,
+      "digest": "c819d18bfefa6b7273778d8c9b27afaaa1e80ddf0e2db92b2020c9fa12aebf37",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0223",
+      "heading": "Authority And Inputs",
+      "kind": "paragraph",
+      "line": 690,
+      "digest": "9d90ff79bf68405467c81a0c434c7321e127908ae4d206f8e8fae5d80f9c8a60",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0224",
+      "heading": "Authority And Inputs",
+      "kind": "paragraph",
+      "line": 692,
+      "digest": "b624823d97d41f520c66d8a5a4a06a810affedcc553d702d8c64b67bac7bea4a",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0225",
+      "heading": "Topic Catalog",
+      "kind": "paragraph",
+      "line": 699,
+      "digest": "5bd8833d4c09786cff0ccea7be8bac1dfda7dfa1d88cbb8a8b27bf0ba6001094",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0226",
+      "heading": "Topic Catalog",
+      "kind": "paragraph",
+      "line": 704,
+      "digest": "49304d09bc7d211fbe06fdf86ecad9874338691d3982b9b488ba7776e5d5c9c3",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0227",
+      "heading": "Topic Catalog",
+      "kind": "list-item",
+      "line": 706,
+      "digest": "ebeec49125122b900b358b2071f8519f8ebdadde509eacb6eed3dc2c8128cb08",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0228",
+      "heading": "Topic Catalog",
+      "kind": "list-item",
+      "line": 707,
+      "digest": "eb53df58f7173ccbc2bfef29a53a51c69d0e886ce1b34b9dcce4db7495e55598",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0229",
+      "heading": "Topic Catalog",
+      "kind": "list-item",
+      "line": 708,
+      "digest": "60656c75bd6fc5f9b3681069335110a2f18f331947e666253a84747ca33bf929",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0230",
+      "heading": "Topic Catalog",
+      "kind": "list-item",
+      "line": 709,
+      "digest": "6105b5f92f1eda6f58c4bfad7fcb8e2542df6517d2f8ac6cb5d2be7480c95237",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0231",
+      "heading": "Topic Catalog",
+      "kind": "list-item",
+      "line": 710,
+      "digest": "6348260669defb12e7ced9473bc1e084487fa12960e7a44afe5b4d2095d1ddf3",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0232",
+      "heading": "Topic Catalog",
+      "kind": "list-item",
+      "line": 711,
+      "digest": "50e27bc439de4f012abe736bc590039c63904cc923c7e49abe1302a566ceea1a",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0233",
+      "heading": "Topic Catalog",
+      "kind": "list-item",
+      "line": 712,
+      "digest": "005616790ca7659c814b12728c79b8b157ac19a57d5c211174f85128e759f772",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0234",
+      "heading": "Topic Catalog",
+      "kind": "list-item",
+      "line": 713,
+      "digest": "039c3a6c84dfc2b7cf59fb49797de4f394b9fb6b1f867c01efcbd27ff9f86217",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0235",
+      "heading": "Topic Catalog",
+      "kind": "list-item",
+      "line": 714,
+      "digest": "5a6331fec26c0c0090b120bb9f46a67fe14d1b3bc5c245548a90eb6820445284",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0236",
+      "heading": "Topic Catalog",
+      "kind": "list-item",
+      "line": 715,
+      "digest": "f53d3e72b4d6dacbcda413ed364b48a642c906981b3ef0ced102db86ac596270",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0237",
+      "heading": "Topic Catalog",
+      "kind": "paragraph",
+      "line": 717,
+      "digest": "386716a24536ecda460c074871b2714d878fc6b6b5bf2f813e26804d36f7e109",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0238",
+      "heading": "Topic Catalog",
+      "kind": "fenced-line",
+      "line": 720,
+      "digest": "5848a7d34169a5ab1a11e1cc34ada62d4dca19127bd2ee7e677247726e469a53",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0239",
+      "heading": "Topic Catalog",
+      "kind": "fenced-line",
+      "line": 721,
+      "digest": "c7ba2d30b94fdfb34890be1f7aca9c70098e5c1ddf12a4895a7ab25ce80561f7",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0240",
+      "heading": "Topic Catalog",
+      "kind": "paragraph",
+      "line": 724,
+      "digest": "9281ee37ff9d6a7a3cf474a0f7ba95c76c1ea2e9ad6b38a488a1ab8cb32631b8",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0241",
+      "heading": "Executable Grammar",
+      "kind": "paragraph",
+      "line": 729,
+      "digest": "19200e7fb29a7ecdcd398aea96a58fed135f1a32ed6a70e6dc49185bf9e8ed3c",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0242",
+      "heading": "Executable Grammar",
+      "kind": "paragraph",
+      "line": 734,
+      "digest": "85fc2ecf82485a4308d19d44cf57203a84453f180a4b39ec529ce54a48391ffb",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0243",
+      "heading": "Checked Examples",
+      "kind": "paragraph",
+      "line": 739,
+      "digest": "2032fff397f94da5b8334e6b713f2ebde4bdff100ed774b1fb5e08239d3903f0",
+      "conformance": true,
+      "identities": [
+        "../../examples/specification/"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0244",
+      "heading": "Checked Examples",
+      "kind": "paragraph",
+      "line": 745,
+      "digest": "4020f30217f587b0d7ed689b04363b274c7c380678ef8aa7c8cc8e32378a2b53",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0245",
+      "heading": "Compiler-Owned Tables",
+      "kind": "paragraph",
+      "line": 752,
+      "digest": "b582ad518b15812383e5c15ae3d3bb6c4387db57b5106ef4a46d5958711bf886",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0246",
+      "heading": "Reference Snapshot",
+      "kind": "paragraph",
+      "line": 759,
+      "digest": "b422546905e0d66e19855d62ab345f6a8a7ea562f14a73e223b388924344a9be",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0247",
+      "heading": "Reference Snapshot",
+      "kind": "paragraph",
+      "line": 766,
+      "digest": "da47775e1a99681e3f31d1f8d28fe199f797689cd1410c9aeb8be6d52e71bc6e",
+      "conformance": false,
+      "identities": [
+        "veln-language-reference/v1\\0"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0248",
+      "heading": "Reference Snapshot",
+      "kind": "paragraph",
+      "line": 773,
+      "digest": "00337675132c2fbe27460fc28a6869702c6a91df54d2b93baefc0a10cbd8e194",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0249",
+      "heading": "Documentation Search And Reads",
+      "kind": "paragraph",
+      "line": 784,
+      "digest": "5e8ddc1e35c6ea8681e3b1d04164bd5a50b51e0fad49b9f295b5150dd29d0122",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0250",
+      "heading": "Documentation Search And Reads",
+      "kind": "paragraph",
+      "line": 792,
+      "digest": "a5fa5cf0a8e4bc7fd77f6a8354ae3ab7286b4fd6d6088c1fbd0fda0dd65f2d07",
+      "conformance": false,
+      "identities": [
+        "all",
+        "language",
+        "package",
+        "stdlib"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0251",
+      "heading": "Documentation Search And Reads",
+      "kind": "paragraph",
+      "line": 798,
+      "digest": "934520e1737cc57fc7d227ad6d94765db2936e589ed2dfde45cbcb4b98880012",
+      "conformance": true,
+      "identities": [
+        "read_doc"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0252",
+      "heading": "LSP Integration",
+      "kind": "paragraph",
+      "line": 805,
+      "digest": "3d046f0f16ea061b7b29154633b4605ed852fd682ccb8727c1fa1a985697811e",
+      "conformance": false,
+      "identities": [
+        "veln lsp"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0253",
+      "heading": "LSP Integration",
+      "kind": "list-item",
+      "line": 807,
+      "digest": "659aa7d8526d6b768190117ce387e5f14d03d4730532f92dddf4ae65375858a9",
+      "conformance": false,
+      "identities": [
+        "rootUri"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0254",
+      "heading": "LSP Integration",
+      "kind": "list-item",
+      "line": 808,
+      "digest": "1d0021726910d96f77bff34ba8ef5a6c77722a8fd949f8c5c4411f048da617cb",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0255",
+      "heading": "LSP Integration",
+      "kind": "list-item",
+      "line": 809,
+      "digest": "20d10afd9ecd8d189595b791189370202540e5b672e8da616e0ed5c75368d40a",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0256",
+      "heading": "LSP Integration",
+      "kind": "list-item",
+      "line": 810,
+      "digest": "1870e6581dd8115949b096aba78747868e190f19da9ccfa491d423c50cfc5ba5",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0257",
+      "heading": "LSP Integration",
+      "kind": "paragraph",
+      "line": 812,
+      "digest": "9cfdcd931afc8d3bcde6acde090c22fab6decce8db852ab0be120fea398e0002",
+      "conformance": true,
+      "identities": [
+        "veln-pkg:"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0258",
+      "heading": "LSP Integration",
+      "kind": "paragraph",
+      "line": 816,
+      "digest": "27c867216d70b2fb7110b128145ac4c40161a962203af5a968bff76d2845a28e",
+      "conformance": true,
+      "identities": [
+        "veln-pkg:",
+        "veln/virtualDocument"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0259",
+      "heading": "Agent Plugin",
+      "kind": "paragraph",
+      "line": 825,
+      "digest": "0fd0961feb672fe4f38f785aae2b6c1daa90cc27949a9bac322192750e742092",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0260",
+      "heading": "Agent Plugin",
+      "kind": "fenced-line",
+      "line": 828,
+      "digest": "e5aa0a2f77a51e4acd737b5e393a4da1a55f23ab90506dedfe67ba0d75f67749",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0261",
+      "heading": "Agent Plugin",
+      "kind": "fenced-line",
+      "line": 829,
+      "digest": "3ba7bf5012c18e69a5e20b3f58235d53398c6f633fd4359347d8d8976672814a",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0262",
+      "heading": "Agent Plugin",
+      "kind": "fenced-line",
+      "line": 830,
+      "digest": "9c0c404d27117d39d8c22c5d1ff935a79af1099b39c169b9ea0b6394cbcd931a",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0263",
+      "heading": "Agent Plugin",
+      "kind": "fenced-line",
+      "line": 831,
+      "digest": "901be7faa9869af4d6cb11e4fc58e96bb59ede861049a7d214e9d5141afdc865",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0264",
+      "heading": "Agent Plugin",
+      "kind": "fenced-line",
+      "line": 832,
+      "digest": "84ebe150b89c8ebe6801fbddd3d04bb6f11c46b603f457783591534340f8421f",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0265",
+      "heading": "Agent Plugin",
+      "kind": "fenced-line",
+      "line": 833,
+      "digest": "0f99a6b00ea7b8378d6d18f995689c908c56e19353a11b9ee849a3f67267917f",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0266",
+      "heading": "Agent Plugin",
+      "kind": "fenced-line",
+      "line": 834,
+      "digest": "acddc5e4e86a4e15ce7b41f3b105658632a6fee751ec989c00b28f8b3311dc46",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0267",
+      "heading": "Agent Plugin",
+      "kind": "paragraph",
+      "line": 837,
+      "digest": "d6d7fc5e2aa902a4c8aabd4a439e14df450ef3802520ddfd6756c88a383857ad",
+      "conformance": true,
+      "identities": [
+        ".mcp.json",
+        "Claude Code",
+        "Codex",
+        "mcpServers",
+        "veln lsp --client-contract 1",
+        "veln mcp --client-contract 1"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0268",
+      "heading": "Agent Plugin",
+      "kind": "paragraph",
+      "line": 844,
+      "digest": "d32a2c94c4cad2cd9a9ff10e27e38c419f19bc9769a6078f1bbf792561672e70",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0269",
+      "heading": "Agent Plugin",
+      "kind": "paragraph",
+      "line": 852,
+      "digest": "1c30a137a2e1203bb3ad2f0727b202951eaee7cab4ed71440f2044875adf9495",
+      "conformance": true,
+      "identities": [
+        "PATH",
+        "veln"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0270",
+      "heading": "Agent Plugin",
+      "kind": "paragraph",
+      "line": 859,
+      "digest": "160321d6b6f2f35d9f8f7238f4077297d5ead2c0416f34441178eb5e1c104f20",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0271",
+      "heading": "Agent Plugin",
+      "kind": "list-item",
+      "line": 861,
+      "digest": "19811ab13787e39c9bad51763bc52746903613de3897a8e19ffd66a58f3a2b8b",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0272",
+      "heading": "Agent Plugin",
+      "kind": "list-item",
+      "line": 862,
+      "digest": "2d7a63d4c9e5713558c61e761e7f4c22d4d926c0823935c922f8122f77b4ca76",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0273",
+      "heading": "Agent Plugin",
+      "kind": "list-item",
+      "line": 863,
+      "digest": "3f929fa5c0c8ee95712299c46bc47f791b9ef203f77fac693ea26982125aa46a",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0274",
+      "heading": "Agent Plugin",
+      "kind": "list-item",
+      "line": 864,
+      "digest": "36dd51ede5af180bd9569ae368e09a84f32af37a5f5e59e0a2b0d2e47ccf391d",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0275",
+      "heading": "Agent Plugin",
+      "kind": "list-item",
+      "line": 865,
+      "digest": "98682d8326ae72acad40a247fdf9a1dc507201f676bbc6c4accf4e5b096f4a63",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0276",
+      "heading": "Agent Plugin",
+      "kind": "paragraph",
+      "line": 867,
+      "digest": "ad22a755da99b5af24514c78867d14d65ddf4a46766c1aeec37182660ad36824",
+      "conformance": false,
+      "identities": [
+        "veln"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0277",
+      "heading": "Agent Plugin",
+      "kind": "paragraph",
+      "line": 873,
+      "digest": "3b5f11929ea4093f32609e5bd0b803a31798a498f6271d557c44fd97d77162ef",
+      "conformance": true,
+      "identities": [
+        ".lsp.json",
+        ".mcp.json",
+        "Claude Code",
+        "Codex",
+        "compatibility.toml"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0278",
+      "heading": "Agent Plugin",
+      "kind": "paragraph",
+      "line": 883,
+      "digest": "9db20a76d83789a97a06693ce86f66e13fa232ab3d0202194fad624c948d7913",
+      "conformance": true,
+      "identities": [
+        "Claude Code"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0279",
+      "heading": "Safety And Privacy",
+      "kind": "list-item",
+      "line": 891,
+      "digest": "6f610f95c576527eb25b104243b4ea269f3d5e80dae63a2b52c7edb69fd3779b",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0280",
+      "heading": "Safety And Privacy",
+      "kind": "list-item",
+      "line": 892,
+      "digest": "eaac81620963cb927806a986bf4c8d81be3908656ce543e9c9c10893b63b4d7f",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0281",
+      "heading": "Safety And Privacy",
+      "kind": "list-item",
+      "line": 893,
+      "digest": "ec6a86fa37aeb8cf49eeef1de84c52a07511aa3a8fa29b0f0146de5346fc3b89",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0282",
+      "heading": "Safety And Privacy",
+      "kind": "paragraph",
+      "line": 894,
+      "digest": "ea727377bcdb3d8157757ab272ddcc6bc62dc2e34a999e5238fcfb95bf77b676",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0283",
+      "heading": "Safety And Privacy",
+      "kind": "list-item",
+      "line": 895,
+      "digest": "a65c2c44d472e5c524dd5a2e60f04cf4ca320d36145c773a9caa3bc6be4d7ab5",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0284",
+      "heading": "Safety And Privacy",
+      "kind": "paragraph",
+      "line": 896,
+      "digest": "45629091dd6b87070b8ae73cd9a95f892d5a4fe4c89020ccbc10bff6c80082b4",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0285",
+      "heading": "Safety And Privacy",
+      "kind": "list-item",
+      "line": 897,
+      "digest": "e6a887d75dc63deb945156bfc8d7da4c243441166770be07b289fd478c363f5f",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0286",
+      "heading": "Safety And Privacy",
+      "kind": "list-item",
+      "line": 898,
+      "digest": "0c64ecadd46e2f3ea932430239a07bbac584dcbcaf5f2c07cf42b1b2b7ca4285",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0287",
+      "heading": "Safety And Privacy",
+      "kind": "paragraph",
+      "line": 899,
+      "digest": "0a141f874ca0cf77a1658893f0a605d07e2ff94e738cd3ff56ea769d3eeca9cd",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0288",
+      "heading": "Safety And Privacy",
+      "kind": "list-item",
+      "line": 901,
+      "digest": "a02c7fdc201ed14dea8cd36101d4775e870a3ff57c5e959b2dcb552519a31ae5",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0289",
+      "heading": "Safety And Privacy",
+      "kind": "paragraph",
+      "line": 902,
+      "digest": "25418ab2c6c834c006328148a7bcc3a5ec5bc9bb006f014af63496367032eba2",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0290",
+      "heading": "Conformance Contract",
+      "kind": "paragraph",
+      "line": 906,
+      "digest": "a0dacf38ecfe418e6c2054737465e9f2485c9cd7722417592af0b02f53b05d18",
+      "conformance": true,
+      "identities": [
+        "agent-language-services-v1",
+        "tools/",
+        "veln-repo-agent-language-conformance"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0291",
+      "heading": "Conformance Contract",
+      "kind": "paragraph",
+      "line": 914,
+      "digest": "4edc1d4c1e738b7439ff522daf1105e2721d508a9cf1352fa310ed02752fec10",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0292",
+      "heading": "Conformance Contract",
+      "kind": "paragraph",
+      "line": 922,
+      "digest": "b707f597f883802797950365769fad61680507a7d8f3559f4c06592cb873733c",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0293",
+      "heading": "Conformance Contract",
+      "kind": "table-row",
+      "line": 924,
+      "digest": "86dfd9aeac7bbf10fcc2dd6fb364814f9ace8b0fe2505cb20a9d901a96504cf0",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0294",
+      "heading": "Conformance Contract",
+      "kind": "table-row",
+      "line": 926,
+      "digest": "78b0fba9b6e0b288c8e0032508386ee00b0afcde5dd3beeb9d609eac2db9568c",
+      "conformance": true,
+      "identities": [
+        "Q01"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0295",
+      "heading": "Conformance Contract",
+      "kind": "table-row",
+      "line": 927,
+      "digest": "062d4d706ceb97ceffd6dbdf946224449c595ee798ee79d0141587af7ec74acb",
+      "conformance": true,
+      "identities": [
+        "Q02",
+        "definition"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0296",
+      "heading": "Conformance Contract",
+      "kind": "table-row",
+      "line": 928,
+      "digest": "767570a959f96fd7a51ab9820aee420ffcb1e0e7b0577883b633ad7a5783735e",
+      "conformance": true,
+      "identities": [
+        "Q03"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0297",
+      "heading": "Conformance Contract",
+      "kind": "table-row",
+      "line": 929,
+      "digest": "ccaf3442db5e38d9eb39ed16b7a5c33e954fb7f023167b3c86eb5bd82d5a3e54",
+      "conformance": true,
+      "identities": [
+        "Q04"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0298",
+      "heading": "Conformance Contract",
+      "kind": "table-row",
+      "line": 930,
+      "digest": "e041b7c6d9a767f2ac49f781ab7c82de863d3dee7b68a3439f09b8130cc5dfcd",
+      "conformance": true,
+      "identities": [
+        "Q05",
+        "check_project",
+        "definition"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0299",
+      "heading": "Conformance Contract",
+      "kind": "table-row",
+      "line": 931,
+      "digest": "01e5275b291ed2e0e81a1ff403d2b36b9e61e5380698e16df02787ef6866a753",
+      "conformance": true,
+      "identities": [
+        "Q06",
+        "check_project",
+        "definition"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0300",
+      "heading": "Conformance Contract",
+      "kind": "table-row",
+      "line": 932,
+      "digest": "42f3e02a55cde1c3727fcbf963636cc30519bdc47de3d2e01faf169f56e00f23",
+      "conformance": true,
+      "identities": [
+        "Q07"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0301",
+      "heading": "Conformance Contract",
+      "kind": "table-row",
+      "line": 933,
+      "digest": "70d94ffe873816e6295af39d484a1289259957d5a20150241c67b7a837489b7a",
+      "conformance": true,
+      "identities": [
+        "Q08"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0302",
+      "heading": "Conformance Contract",
+      "kind": "table-row",
+      "line": 934,
+      "digest": "d05880ddc0e4e39ade500d7d8e1e5cfbcd725d1d89742a6a993db76517d5fe89",
+      "conformance": true,
+      "identities": [
+        "Q09"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0303",
+      "heading": "Conformance Contract",
+      "kind": "table-row",
+      "line": 935,
+      "digest": "1d008e061b6840bff9a7f66ccdb3dfbb1760618ae33b72ebf133f24b131b6fb8",
+      "conformance": true,
+      "identities": [
+        "Q10"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0304",
+      "heading": "Conformance Contract",
+      "kind": "table-row",
+      "line": 936,
+      "digest": "889f4f9be29402517ee4d8607f894e47ad84fbd4f11508405bec9ed97e8d2f59",
+      "conformance": true,
+      "identities": [
+        "Q11"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0305",
+      "heading": "Conformance Contract",
+      "kind": "table-row",
+      "line": 937,
+      "digest": "2255fd0eba823c243f5ea5636c44728bf97aa0699c1d654b1118f475b8f6f863",
+      "conformance": true,
+      "identities": [
+        "Q12",
+        "target"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0306",
+      "heading": "Conformance Contract",
+      "kind": "table-row",
+      "line": 938,
+      "digest": "5cce6f009a60748150719ec25db569c203eb2d5489eeca0ca3508a052fc70aea",
+      "conformance": true,
+      "identities": [
+        "Q13",
+        "std"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0307",
+      "heading": "Conformance Contract",
+      "kind": "table-row",
+      "line": 939,
+      "digest": "c8f10d8f853ae199cdf4d57fcf87327871de37c73462e214ce585a453e631d97",
+      "conformance": true,
+      "identities": [
+        "Q14",
+        "resource_not_found"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0308",
+      "heading": "Conformance Contract",
+      "kind": "table-row",
+      "line": 940,
+      "digest": "c862e10fbe58b68e71ad06d3a87808a736887985063336f53cc18dc7a44638fc",
+      "conformance": true,
+      "identities": [
+        "Q15"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0309",
+      "heading": "Conformance Contract",
+      "kind": "table-row",
+      "line": 941,
+      "digest": "858baa2a1af372bc5a708be4a3b6df828721d4a84b8ee7c267db6b8cfcdccf85",
+      "conformance": true,
+      "identities": [
+        "Q16"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0310",
+      "heading": "Conformance Contract",
+      "kind": "table-row",
+      "line": 942,
+      "digest": "4c396c1ad2f92f06d72939534793b509d98369d0ed9aea7e58d8a584ce88b1f7",
+      "conformance": true,
+      "identities": [
+        "Q17"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0311",
+      "heading": "Conformance Contract",
+      "kind": "table-row",
+      "line": 943,
+      "digest": "746dac02cfe4585a927138bf89b6d1c52ef62ab771bce47e13c8c6aa1347af26",
+      "conformance": true,
+      "identities": [
+        "Q18"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0312",
+      "heading": "Conformance Contract",
+      "kind": "table-row",
+      "line": 944,
+      "digest": "b601c27e6e2ccc8859c97cb0be2c4f3b9e64fc3dd356dce2df8d4d4c503ad2f9",
+      "conformance": true,
+      "identities": [
+        "Q19"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0313",
+      "heading": "Conformance Contract",
+      "kind": "table-row",
+      "line": 945,
+      "digest": "00eb3c13c64d49d5699d7591175f67e0a47f204e2c8cdf8122bdde8521ff77bd",
+      "conformance": true,
+      "identities": [
+        "Q20"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0314",
+      "heading": "Conformance Contract",
+      "kind": "table-row",
+      "line": 946,
+      "digest": "4a841a21be2a7e210441fed94af8fc85feea07eea68012b9ae3f2f2165da5896",
+      "conformance": true,
+      "identities": [
+        "Q21"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0315",
+      "heading": "Conformance Contract",
+      "kind": "table-row",
+      "line": 947,
+      "digest": "c45ccafc44f5a36220c89e2fc20672fd6369dc64c4a9b9a336bef20d46be02e2",
+      "conformance": true,
+      "identities": [
+        "Q22"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0316",
+      "heading": "Conformance Contract",
+      "kind": "paragraph",
+      "line": 949,
+      "digest": "1de1d78b9ff532b24856c641880e9f5b2b934ce7f684031b764696bcb132a5ed",
+      "conformance": true,
+      "identities": [
+        "Q11",
+        "Q12",
+        "Q13",
+        "Q14",
+        "Q15",
+        "Q22",
+        "veln-language-service",
+        "veln-project"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0317",
+      "heading": "Conformance Contract",
+      "kind": "paragraph",
+      "line": 959,
+      "digest": "6e7105ccc51a52c6f0161da51782c7a8132bd7c987072850cc0b0573bef297cd",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0318",
+      "heading": "Acceptance Model",
+      "kind": "paragraph",
+      "line": 968,
+      "digest": "fd65f4418342c6a057793261fd665f0d451f9c3fdbfb82e57e2b82882a0a13e9",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0319",
+      "heading": "Server And Project Selection",
+      "kind": "table-row",
+      "line": 975,
+      "digest": "52b1e93b4ed7dfe5d19d00a88dcd609b0e362ad0ea809d3eaac194cf84fb9777",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0320",
+      "heading": "Server And Project Selection",
+      "kind": "table-row",
+      "line": 977,
+      "digest": "c61695711b1e9d66283dd3bbb3f21fd7c7b5f6da22ccc3331a37bf42b9f58c2c",
+      "conformance": false,
+      "identities": [
+        ".",
+        "veln mcp",
+        "veln-mcp"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0321",
+      "heading": "Server And Project Selection",
+      "kind": "table-row",
+      "line": 978,
+      "digest": "c7450cc98e9fb4656c8fb3ae9631a162cb7a0136fe5ca32149fdf2184ed06803",
+      "conformance": true,
+      "identities": [
+        "check_project",
+        "veln-mcp"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0322",
+      "heading": "Server And Project Selection",
+      "kind": "table-row",
+      "line": 979,
+      "digest": "6b76f303fd4b116dcaf878ba9e4a030a4154de31ad4f73689203397ea88badda",
+      "conformance": true,
+      "identities": [
+        "check_project",
+        "project: \".\"",
+        "source",
+        "veln-mcp"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0323",
+      "heading": "Server And Project Selection",
+      "kind": "table-row",
+      "line": 980,
+      "digest": "bbecd343ae1aea9ddda7c2a7b182d7694c166307f8a1c12177dc13d9533ee251",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0324",
+      "heading": "Server And Project Selection",
+      "kind": "table-row",
+      "line": 981,
+      "digest": "b39a8c624cd356e40569119884764d372f8c8c9729fe6f90b3d88e173a61425c",
+      "conformance": true,
+      "identities": [
+        "Q03",
+        "refresh_workspace",
+        "veln-mcp"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0325",
+      "heading": "Server And Project Selection",
+      "kind": "table-row",
+      "line": 982,
+      "digest": "7bce5bd00bc41b38f7eccb727d5c6454cd925a36107c4d63c9a61fbe70c6d8d8",
+      "conformance": true,
+      "identities": [
+        "Q04",
+        "file:"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0326",
+      "heading": "Server And Project Selection",
+      "kind": "table-row",
+      "line": 983,
+      "digest": "d3891eb59a87813a21286fc27b67e2643f35f111c2fe461ee40d2bac0c8c3079",
+      "conformance": true,
+      "identities": [
+        "Q04",
+        "veln-mcp"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0327",
+      "heading": "Server And Project Selection",
+      "kind": "table-row",
+      "line": 984,
+      "digest": "bb852db18e62b4fa50d41603b96bff9872a58c022061286dbbcc039a723ba21a",
+      "conformance": true,
+      "identities": [
+        "veln-mcp"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0328",
+      "heading": "Server And Project Selection",
+      "kind": "table-row",
+      "line": 985,
+      "digest": "61e404caa77bc973f4bdd69c53d9d7c33aaa07e53b2a72791efe544f8e3e7071",
+      "conformance": true,
+      "identities": [
+        "check_project",
+        "definition",
+        "snapshot_changed",
+        "veln-mcp"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0329",
+      "heading": "Server And Project Selection",
+      "kind": "table-row",
+      "line": 986,
+      "digest": "7544c191f187b40545e2234e1084d8d608576945a99f13d455ffd11c5fea4d6f",
+      "conformance": true,
+      "identities": [
+        ".",
+        "/",
+        "Q06"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0330",
+      "heading": "Server And Project Selection",
+      "kind": "table-row",
+      "line": 987,
+      "digest": "0fe8a55495c859c982da846cdd3cf404a6482342759c61ca6699006262c4860d",
+      "conformance": true,
+      "identities": [
+        "generation_failed",
+        "veln-mcp"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0331",
+      "heading": "Server And Project Selection",
+      "kind": "table-row",
+      "line": 988,
+      "digest": "2461d7d9b43482a49dbf0ecaa835443011277d0591b674eca4052a98fc7aefe8",
+      "conformance": false,
+      "identities": [
+        "veln-mcp"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0332",
+      "heading": "Diagnostics And Navigation",
+      "kind": "table-row",
+      "line": 992,
+      "digest": "52b1e93b4ed7dfe5d19d00a88dcd609b0e362ad0ea809d3eaac194cf84fb9777",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0333",
+      "heading": "Diagnostics And Navigation",
+      "kind": "table-row",
+      "line": 994,
+      "digest": "ad95cb588d96d7bf53796115b8d3fe45158c9d3b4f0fd6e735c08a1fffa50e25",
+      "conformance": true,
+      "identities": [
+        "check_project",
+        "veln-mcp"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0334",
+      "heading": "Diagnostics And Navigation",
+      "kind": "table-row",
+      "line": 995,
+      "digest": "ee5b10f2bc056a8843b5c91c78976a650298755949d53df3a604ab97c4f35675",
+      "conformance": true,
+      "identities": [
+        "definition",
+        "file:"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0335",
+      "heading": "Diagnostics And Navigation",
+      "kind": "table-row",
+      "line": 996,
+      "digest": "47e276ba1e1938196877c16619897e5a5982ae4ac79d001850d4d7d9f95079c2",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0336",
+      "heading": "Diagnostics And Navigation",
+      "kind": "table-row",
+      "line": 997,
+      "digest": "c6685f8ae90ef0dbdb68b283306940c63f8bd6f19408ecc382004374a81cae8f",
+      "conformance": true,
+      "identities": [
+        "Q08"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0337",
+      "heading": "Diagnostics And Navigation",
+      "kind": "table-row",
+      "line": 998,
+      "digest": "38c41937eed289abdb79dae03deee6c9b0f696419010f0248367fabc24265e12",
+      "conformance": true,
+      "identities": [
+        "Q09"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0338",
+      "heading": "Diagnostics And Navigation",
+      "kind": "table-row",
+      "line": 999,
+      "digest": "5f8afec3bba41f1b8e2329c4197968c06f280b176d7e2f37fbfbe06d78e14129",
+      "conformance": true,
+      "identities": [
+        "Q09",
+        "invalid_cursor",
+        "stale_snapshot"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0339",
+      "heading": "Diagnostics And Navigation",
+      "kind": "table-row",
+      "line": 1000,
+      "digest": "6db0b77c42346b233eca1524cc2faf01208dda1ed9d88855ed48d8f053d28344",
+      "conformance": true,
+      "identities": [
+        "definition",
+        "veln-pkg:"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0340",
+      "heading": "Diagnostics And Navigation",
+      "kind": "table-row",
+      "line": 1001,
+      "digest": "03c1ad524c93666fd02c8626f7912dc5a5813806ecb6fe2cc208939950f84f80",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0341",
+      "heading": "Diagnostics And Navigation",
+      "kind": "table-row",
+      "line": 1002,
+      "digest": "5161283107bf7632461c0c3e5e0cdf752f59f49ed1f0799cede7135390b9dc69",
+      "conformance": true,
+      "identities": [
+        "veln-doc:",
+        "veln-pkg:"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0342",
+      "heading": "Diagnostics And Navigation",
+      "kind": "table-row",
+      "line": 1003,
+      "digest": "60ab731dcfbd6a902fca828a42ed62b0ad16912132d32b8a5c52f8abcacddc80",
+      "conformance": true,
+      "identities": [
+        "Q07",
+        "invalid_position",
+        "u64::MAX"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0343",
+      "heading": "Diagnostics And Navigation",
+      "kind": "table-row",
+      "line": 1004,
+      "digest": "dca3d6f72cf66b469aa0e2db5593841c897555d1087534388ba65809c706cad2",
+      "conformance": true,
+      "identities": [
+        "Q07"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0344",
+      "heading": "Diagnostics And Navigation",
+      "kind": "table-row",
+      "line": 1005,
+      "digest": "9d3b4e3ae8eaa783f0b4d98f0ffbdc3012898fe06cafc0dbd4d008ac9b48a1b0",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0345",
+      "heading": "Virtual Locations And Package Documentation",
+      "kind": "table-row",
+      "line": 1009,
+      "digest": "be8e8063c0ed78e5e96bb78c7e81e8d25c8d9b231462c8f35a5d925e7e1e6f01",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0346",
+      "heading": "Virtual Locations And Package Documentation",
+      "kind": "table-row",
+      "line": 1011,
+      "digest": "949a5e2f721889236c861740642d2d462b7620b5d2f2df1f1fb9c191437bbf37",
+      "conformance": true,
+      "identities": [
+        "veln/virtualDocument"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0347",
+      "heading": "Virtual Locations And Package Documentation",
+      "kind": "table-row",
+      "line": 1012,
+      "digest": "fcb253d270986bb673ee2cdd7c888c9309438576dcf7747065b30755caf41d55",
+      "conformance": true,
+      "identities": [
+        "Q12"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0348",
+      "heading": "Virtual Locations And Package Documentation",
+      "kind": "table-row",
+      "line": 1013,
+      "digest": "ce4fc05a85a0dbac6c3dbc83e3a7f4fb293428b65928689c00a7adbf26577a86",
+      "conformance": true,
+      "identities": [
+        "Q12",
+        "target"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0349",
+      "heading": "Virtual Locations And Package Documentation",
+      "kind": "table-row",
+      "line": 1014,
+      "digest": "caac50aa54ff0334308d545b4c910148e1c74104b592e961f0d7ce2b845e07b3",
+      "conformance": true,
+      "identities": [
+        "Q13"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0350",
+      "heading": "Virtual Locations And Package Documentation",
+      "kind": "table-row",
+      "line": 1015,
+      "digest": "a46a537b133afac7cff2e9f2688b30a24a5a1f11db61ebd921ba489c7d8ff16e",
+      "conformance": true,
+      "identities": [
+        "resource_not_found"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0351",
+      "heading": "Virtual Locations And Package Documentation",
+      "kind": "table-row",
+      "line": 1016,
+      "digest": "6de204485d6fe83e6bc248793cb7e7980b698d772d3d9dd29fe614477977e62e",
+      "conformance": true,
+      "identities": [
+        "Q15"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0352",
+      "heading": "Virtual Locations And Package Documentation",
+      "kind": "table-row",
+      "line": 1017,
+      "digest": "b4c777508411f659e4565bb947e57fc5f9e65fc2522a0ace765b53ae664dc7e7",
+      "conformance": true,
+      "identities": [
+        "Q10"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0353",
+      "heading": "Virtual Locations And Package Documentation",
+      "kind": "table-row",
+      "line": 1018,
+      "digest": "3de372a1216efe502495d55082c091a8dcb55eff4ec3037e98a98cec87ae0889",
+      "conformance": true,
+      "identities": [
+        "doc"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0354",
+      "heading": "Virtual Locations And Package Documentation",
+      "kind": "table-row",
+      "line": 1019,
+      "digest": "ed6712c19f4dce39038cced694837737e91310a545bcea01997bc0735643365c",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0355",
+      "heading": "Virtual Locations And Package Documentation",
+      "kind": "table-row",
+      "line": 1020,
+      "digest": "18bdbdc6e33845c2c7de36bc62efb341e646936f925d5242b33a270f213aee9b",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0356",
+      "heading": "Published Language Reference",
+      "kind": "table-row",
+      "line": 1024,
+      "digest": "be8e8063c0ed78e5e96bb78c7e81e8d25c8d9b231462c8f35a5d925e7e1e6f01",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0357",
+      "heading": "Published Language Reference",
+      "kind": "table-row",
+      "line": 1026,
+      "digest": "0052924e98dc052472d4d24ac1cbcb101bcac7b3fb335461bbe2eda1e14e08f9",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0358",
+      "heading": "Published Language Reference",
+      "kind": "table-row",
+      "line": 1027,
+      "digest": "639783efc52d23cfdb32fdb001b0f79d6b2324340830d85496486926ae6932a8",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0359",
+      "heading": "Published Language Reference",
+      "kind": "table-row",
+      "line": 1028,
+      "digest": "d26a347cc84ac3b7df9988e00d0c5459ec2abed4b5f5bee95efa50c02c12990e",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0360",
+      "heading": "Published Language Reference",
+      "kind": "table-row",
+      "line": 1029,
+      "digest": "6464d0b399086b68386bc71283b73556e2cba24a94d354d8b0be78d06518debe",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0361",
+      "heading": "Published Language Reference",
+      "kind": "table-row",
+      "line": 1030,
+      "digest": "c0c1da136970ba9e20f6976a51b7968abbd8e2f76d3d55f60852fa6d08858f55",
+      "conformance": true,
+      "identities": [
+        "Q17"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0362",
+      "heading": "Published Language Reference",
+      "kind": "table-row",
+      "line": 1031,
+      "digest": "001ca2437029bc908b6987d0fe6e9c04b1791d96699143add78f066950d8791b",
+      "conformance": true,
+      "identities": [
+        "Q19"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0363",
+      "heading": "Published Language Reference",
+      "kind": "table-row",
+      "line": 1032,
+      "digest": "ce6b3bd5f8c4967acede85adccc8ce4d322974bc59265d27ec5d3759f8a2a67f",
+      "conformance": true,
+      "identities": [
+        "Q19"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0364",
+      "heading": "Published Language Reference",
+      "kind": "table-row",
+      "line": 1033,
+      "digest": "29680e76b44f2f20876c524cff47d5ae173976474f5e08746f9d1398c9c8d790",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0365",
+      "heading": "Published Language Reference",
+      "kind": "table-row",
+      "line": 1034,
+      "digest": "f2b69a6e426a7717740dc2d1abcb2b9994c77abc76cd7322c51bceaca652a696",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0366",
+      "heading": "Plugin",
+      "kind": "table-row",
+      "line": 1038,
+      "digest": "be8e8063c0ed78e5e96bb78c7e81e8d25c8d9b231462c8f35a5d925e7e1e6f01",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0367",
+      "heading": "Plugin",
+      "kind": "table-row",
+      "line": 1040,
+      "digest": "f9fdbc0891fa36a9eabe46a57a2226a0dea6d3f26d940a61f72cd8bcaeb3b8aa",
+      "conformance": true,
+      "identities": [
+        "Codex",
+        "Q20",
+        "Q21",
+        "veln mcp"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0368",
+      "heading": "Plugin",
+      "kind": "table-row",
+      "line": 1041,
+      "digest": "5853f96c0fd203e79e8bf0ab9f25076f1b4abba17c09d39f5d4267fc620391ca",
+      "conformance": true,
+      "identities": [
+        "Claude Code",
+        "Q20",
+        "Q21"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0369",
+      "heading": "Plugin",
+      "kind": "table-row",
+      "line": 1042,
+      "digest": "e1ecff2a1620cfbaf0423b5ff894e85daed2af7421f4cd5929d653d85f65af48",
+      "conformance": true,
+      "identities": [
+        "Q20"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0370",
+      "heading": "Plugin",
+      "kind": "table-row",
+      "line": 1043,
+      "digest": "97bd7e85a83abd31bec1db4aa9801e72e7c08480f5b7df5221aeaddcfed9e595",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0371",
+      "heading": "Plugin",
+      "kind": "table-row",
+      "line": 1044,
+      "digest": "26eca36c03a776872732b89aa0d81a06984ca0e7587294cddafdc65ae2f95dcb",
+      "conformance": true,
+      "identities": [
+        "Q22"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0372",
+      "heading": "Implementation Slices",
+      "kind": "paragraph",
+      "line": 1048,
+      "digest": "cfff4a9ef5ac18cca0805623872e2846d00b01d4b2afee36a5cca355ebc63d25",
+      "conformance": true,
+      "identities": [
+        "Q11",
+        "Q12",
+        "Q13",
+        "file:",
+        "subdir"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0373",
+      "heading": "Implementation Slices",
+      "kind": "list-item",
+      "line": 1091,
+      "digest": "30425f5645d22d7299e93ddb6e024b6e2f1c7203857a7a3c83a24742f238c23c",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0374",
+      "heading": "Implementation Slices",
+      "kind": "paragraph",
+      "line": 1092,
+      "digest": "873ec2b3c3370cacc3bdeb1a9a1e9a0686e12a6b228b4a132b8bd57d8bdcdec0",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0375",
+      "heading": "Implementation Slices",
+      "kind": "list-item",
+      "line": 1093,
+      "digest": "aa3c2da2525022bddac62e0d39f41613156d3c19db005ff660048bf7ae409051",
+      "conformance": true,
+      "identities": [
+        "veln mcp"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0376",
+      "heading": "Implementation Slices",
+      "kind": "paragraph",
+      "line": 1094,
+      "digest": "c711cbe590d6a6f2c0c6be8c82d59b3451da2ebe1e2f35534810293b7e09cc5b",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0377",
+      "heading": "Implementation Slices",
+      "kind": "list-item",
+      "line": 1096,
+      "digest": "4ace7b4d468608bd4336b432cf5d87971c0c36a9004ad83c7d753c6e4dd5a854",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0378",
+      "heading": "Implementation Slices",
+      "kind": "paragraph",
+      "line": 1097,
+      "digest": "bb259bedf2479c7af95d9cb7290ce46053c5d5cf6c72831907003fc73ce132b7",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0379",
+      "heading": "Implementation Slices",
+      "kind": "list-item",
+      "line": 1098,
+      "digest": "83e88332d2e3707ca623a719fbf10a8f9cffc4909ca554f4b9157efc7e80ba0b",
+      "conformance": true,
+      "identities": [
+        "Claude Code",
+        "Codex"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0380",
+      "heading": "Implementation Slices",
+      "kind": "paragraph",
+      "line": 1099,
+      "digest": "0eb193ae85cac2f26c163b803a285093d4bd9b94e3071020d5be2d48b0958deb",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0381",
+      "heading": "Deferred Work",
+      "kind": "list-item",
+      "line": 1103,
+      "digest": "d6b6f707efa94d3ccce7c8ca7e2ae7053a1e75906d882acd924aac7ecf20fea4",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0382",
+      "heading": "Deferred Work",
+      "kind": "list-item",
+      "line": 1104,
+      "digest": "3b52a0d88de88cd5ea3fe4d287fa5c0c3d138db91d8866fb2cd89a4d5af4fe1a",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0383",
+      "heading": "Deferred Work",
+      "kind": "list-item",
+      "line": 1105,
+      "digest": "6ad2f18b82fc294a9f4a4c98076040f4bf21ec8bd35275bf444f4e4c0da9830e",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0384",
+      "heading": "Deferred Work",
+      "kind": "list-item",
+      "line": 1106,
+      "digest": "d8af4b4755bd7d605ca8f92e34a36e5cf6a3cc5d517cb8d341e12fb5e7c4bbba",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0385",
+      "heading": "Deferred Work",
+      "kind": "list-item",
+      "line": 1107,
+      "digest": "8b8dd6f02701f880a75696b2dd5cde873dbe2735cdc27e76aec8b10fc65d2df4",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0386",
+      "heading": "Deferred Work",
+      "kind": "list-item",
+      "line": 1108,
+      "digest": "ba12d2a5f896821eb2e9cf857bf4212d67be23a6c95be939c57caebab24b860d",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0387",
+      "heading": "Deferred Work",
+      "kind": "list-item",
+      "line": 1109,
+      "digest": "c6095e4b732b8653c912ce14bd03ff383aa6f79b6f89e144215881b4234933ed",
+      "conformance": false,
+      "identities": [
+        "veln"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0388",
+      "heading": "Deferred Work",
+      "kind": "list-item",
+      "line": 1110,
+      "digest": "7383237d0062f25969eeee6b8957f0c3395fe77d92d422e414f1dcad42a415e8",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0389",
+      "heading": "Deferred Work",
+      "kind": "paragraph",
+      "line": 1111,
+      "digest": "b7723cdb241796e5bcddf78d0732ee8a235f92c956c8b0030c0150c8444581d6",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0390",
+      "heading": "Deferred Work",
+      "kind": "list-item",
+      "line": 1112,
+      "digest": "5601e46adaf848d61a692b57fed407fade101cb88213939002a0775d3e5fc268",
+      "conformance": false,
+      "identities": []
+    }
+  ]
+}

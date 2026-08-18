@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent-language-services-migration-ledger.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "entries"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "lifecycle",
+          "destination"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "pattern": "^agent-language-services/S[0-9]{4}\\.c[0-9]{2}$",
+            "not": {
+              "pattern": "(\\*|\\.\\.|remaining|^all\\b|range)"
+            }
+          },
+          "lifecycle": {
+            "enum": [
+              "current",
+              "completed",
+              "planned",
+              "removed"
+            ]
+          },
+          "destination": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "current",
+                  "completed",
+                  "planned",
+                  "removed"
+                ]
+              },
+              "path": {
+                "type": "string"
+              },
+              "anchor": {
+                "type": "string"
+              },
+              "evidence": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string"
+                }
+              },
+              "rationale": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
