@@ -9864,5 +9864,160 @@
       "lifecycle": "planned",
       "conformance": true
     }
+  ],
+  "identity_sets": [
+    {
+      "kind": "evidence_gate",
+      "names": [
+        "Q01",
+        "Q02",
+        "Q03",
+        "Q04",
+        "Q05",
+        "Q06",
+        "Q07",
+        "Q08",
+        "Q09",
+        "Q10",
+        "Q11",
+        "Q12",
+        "Q13",
+        "Q14",
+        "Q15",
+        "Q16",
+        "Q17",
+        "Q18",
+        "Q19",
+        "Q20",
+        "Q21",
+        "Q22"
+      ]
+    },
+    {
+      "kind": "saved_reference_row",
+      "names": [
+        "saved-reference-row-1",
+        "saved-reference-row-2",
+        "saved-reference-row-3",
+        "saved-reference-row-4",
+        "saved-reference-row-5",
+        "saved-reference-row-6"
+      ]
+    },
+    {
+      "kind": "closed_navigation_matrix_row",
+      "names": [
+        "project-owned-functions",
+        "source-types-and-constructors",
+        "schemas",
+        "public-member-aliases",
+        "function-and-handler-parameters",
+        "local-let-and-pattern-bindings",
+        "handler-operation-clause-bindings",
+        "handler-context-parameters",
+        "test-companion-private-access",
+        "direct-dependency-exports",
+        "standard-library-declarations"
+      ]
+    },
+    {
+      "kind": "closed_topic_matrix_row",
+      "names": [
+        "lexical-structure-and-grammar",
+        "modules-imports-packages-exports-visibility",
+        "declarations-and-aliases",
+        "expressions-operators-patterns",
+        "types-inference-constructors",
+        "effects-and-handlers",
+        "contracts",
+        "schemas",
+        "holes",
+        "tests-doc-comments-doctests"
+      ]
+    },
+    {
+      "kind": "tool_or_resource_kind",
+      "names": [
+        "check_project",
+        "definition",
+        "references",
+        "search_docs",
+        "read_doc",
+        "workspace_projects",
+        "refresh_workspace",
+        "language-reference-index",
+        "language-reference-topic",
+        "package-documentation-index",
+        "package-documentation-module",
+        "package-documentation-declaration",
+        "standard-library-documentation",
+        "virtual-source-file"
+      ]
+    },
+    {
+      "kind": "package_document_declaration_kind",
+      "names": [
+        "contract",
+        "function",
+        "handler",
+        "module",
+        "operation",
+        "schema",
+        "type"
+      ]
+    },
+    {
+      "kind": "lsp_encoding",
+      "names": [
+        "UTF-8",
+        "UTF-16",
+        "UTF-32"
+      ]
+    },
+    {
+      "kind": "plugin_compatibility_cell",
+      "names": [
+        "codex/x86_64-unknown-linux-gnu",
+        "claude-code/x86_64-unknown-linux-gnu"
+      ]
+    },
+    {
+      "kind": "unresolved_acceptance_row",
+      "names": [
+        "unresolved-acceptance-row-01",
+        "unresolved-acceptance-row-02",
+        "unresolved-acceptance-row-03",
+        "unresolved-acceptance-row-04",
+        "unresolved-acceptance-row-05",
+        "unresolved-acceptance-row-06",
+        "unresolved-acceptance-row-07",
+        "unresolved-acceptance-row-08",
+        "unresolved-acceptance-row-09",
+        "unresolved-acceptance-row-10",
+        "unresolved-acceptance-row-11",
+        "unresolved-acceptance-row-12",
+        "unresolved-acceptance-row-13",
+        "unresolved-acceptance-row-14",
+        "unresolved-acceptance-row-15",
+        "unresolved-acceptance-row-16",
+        "unresolved-acceptance-row-17",
+        "unresolved-acceptance-row-18",
+        "unresolved-acceptance-row-19",
+        "unresolved-acceptance-row-20",
+        "unresolved-acceptance-row-21",
+        "unresolved-acceptance-row-22",
+        "unresolved-acceptance-row-23",
+        "unresolved-acceptance-row-24",
+        "unresolved-acceptance-row-25",
+        "unresolved-acceptance-row-26",
+        "unresolved-acceptance-row-27",
+        "unresolved-acceptance-row-28",
+        "unresolved-acceptance-row-29",
+        "unresolved-acceptance-row-30",
+        "unresolved-acceptance-row-31",
+        "unresolved-acceptance-row-32",
+        "unresolved-acceptance-row-33"
+      ]
+    }
   ]
 }

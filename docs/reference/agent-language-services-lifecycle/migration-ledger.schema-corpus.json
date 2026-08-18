@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "name": "current destination with checked evidence",
+      "schema_valid": true,
+      "semantic_valid": true,
+      "mapping": {
+        "source_id": "ALS-S0001",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "current",
+          "specification": "docs/specification/mcp.md",
+          "anchor": "#mcp-server",
+          "evidence": [
+            {
+              "path": "crates/veln-mcp/src/server/tests.rs",
+              "case": "mcp server tests"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "planned destination",
+      "schema_valid": true,
+      "semantic_valid": true,
+      "mapping": {
+        "source_id": "ALS-S0002.01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "planned",
+          "proposal": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      }
+    },
+    {
+      "name": "missing source id",
+      "schema_valid": false,
+      "semantic_valid": false,
+      "mapping": {
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "planned",
+          "proposal": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      }
+    },
+    {
+      "name": "wildcard source id",
+      "schema_valid": false,
+      "semantic_valid": false,
+      "mapping": {
+        "source_id": "ALS-S0001..ALS-S9999",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "planned",
+          "proposal": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      }
+    },
+    {
+      "name": "extra mapping field",
+      "schema_valid": false,
+      "semantic_valid": false,
+      "mapping": {
+        "source_id": "ALS-S0001",
+        "lifecycle": "planned",
+        "unexpected": true,
+        "destination": {
+          "kind": "planned",
+          "proposal": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      }
+    },
+    {
+      "name": "missing destination anchor",
+      "schema_valid": false,
+      "semantic_valid": false,
+      "mapping": {
+        "source_id": "ALS-S0001",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "planned",
+          "proposal": "docs/proposals/agent-language-services.md"
+        }
+      }
+    },
+    {
+      "name": "unexpected destination field",
+      "schema_valid": false,
+      "semantic_valid": false,
+      "mapping": {
+        "source_id": "ALS-S0001",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "planned",
+          "proposal": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services",
+          "unexpected": true
+        }
+      }
+    },
+    {
+      "name": "empty current evidence",
+      "schema_valid": false,
+      "semantic_valid": false,
+      "mapping": {
+        "source_id": "ALS-S0001",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "current",
+          "specification": "docs/specification/mcp.md",
+          "anchor": "#mcp-server",
+          "evidence": []
+        }
+      }
+    },
+    {
+      "name": "removed destination without reason",
+      "schema_valid": false,
+      "semantic_valid": false,
+      "mapping": {
+        "source_id": "ALS-S0001",
+        "lifecycle": "removed",
+        "destination": {
+          "kind": "removed",
+          "duplicate_destination": "docs/proposals/agent-language-services.md"
+        }
+      }
+    }
+  ]
+}

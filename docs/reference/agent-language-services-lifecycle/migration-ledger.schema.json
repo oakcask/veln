@@ -37,7 +37,135 @@
             ]
           },
           "destination": {
-            "type": "object"
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "specification",
+                  "anchor",
+                  "evidence"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "current"
+                  },
+                  "specification": {
+                    "type": "string",
+                    "pattern": "^docs/specification/[^.][^\\n]*\\.md$",
+                    "not": {
+                      "pattern": "(^/|\\.\\.)"
+                    }
+                  },
+                  "anchor": {
+                    "type": "string",
+                    "pattern": "^#[a-z0-9][a-z0-9-]*$"
+                  },
+                  "evidence": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "path",
+                        "case"
+                      ],
+                      "properties": {
+                        "path": {
+                          "type": "string",
+                          "pattern": "^(examples/specification/|crates/|workflow-scripts/|docs/specification/source-surface)[^\\n]+$",
+                          "not": {
+                            "pattern": "(^/|\\.\\.)"
+                          }
+                        },
+                        "case": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "record",
+                  "anchor"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "completed"
+                  },
+                  "record": {
+                    "type": "string",
+                    "pattern": "^docs/reference/implemented-proposals/[^.][^\\n]*\\.md$",
+                    "not": {
+                      "pattern": "(^/|\\.\\.)"
+                    }
+                  },
+                  "anchor": {
+                    "type": "string",
+                    "pattern": "^#[a-z0-9][a-z0-9-]*$"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "proposal",
+                  "anchor"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "planned"
+                  },
+                  "proposal": {
+                    "type": "string",
+                    "pattern": "^docs/proposals/[^.][^\\n]*\\.md$",
+                    "not": {
+                      "pattern": "(^/|\\.\\.)"
+                    }
+                  },
+                  "anchor": {
+                    "type": "string",
+                    "pattern": "^#[a-z0-9][a-z0-9-]*$"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "reason",
+                  "duplicate_destination"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "removed"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "duplicate_destination": {
+                    "type": "string",
+                    "pattern": "^docs/[^.][^\\n]*\\.md$",
+                    "not": {
+                      "pattern": "(^/|\\.\\.)"
+                    }
+                  }
+                }
+              }
+            ]
           }
         }
       }

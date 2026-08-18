@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import {
   parseMarkdownSource,
+  runCommand,
   validateArtifacts,
   validateDiffScope,
   validateLedger,
@@ -34,6 +38,7 @@ function fixtures() {
   const contract = {
     schema_version: 1,
     source: "docs/proposals/agent-language-services.md",
+    identity_sets: identitySets(),
     roots: roots.map((root) => ({
       id: root.id,
       heading: root.heading,
@@ -46,6 +51,7 @@ function fixtures() {
   const inventory = {
     schema_version: 1,
     source: "docs/proposals/agent-language-services.md",
+    identity_sets: identitySets(),
     roots: [
       {
         id: roots[0].id,
@@ -179,6 +185,8 @@ function fixtures() {
       const leaves = root.children?.length > 0 ? root.children : [root];
       return leaves.map((leaf) => ({
         id: leaf.id,
+        span: leaf.span ?? { start: 0, end: [...roots.find((root) => root.id === leaf.id).text].length },
+        reviewed_text_digest: leaf.digest,
         lifecycle: leaf.lifecycle,
         destination: destinationFor(leaf.lifecycle),
       }));
@@ -192,6 +200,7 @@ function fixtures() {
           additionalProperties: false,
           properties: {
             lifecycle: { enum: ["current", "completed", "planned", "removed"] },
+            destination: { oneOf: [{}, {}, {}, {}] },
           },
         },
       },
@@ -263,6 +272,37 @@ test("rejects wrong or mixed lifecycle decisions", () => {
   assert.match(validateArtifacts({ repoRoot: ".", artifacts: mixed }).errors.join("\n"), /removed is only for supporting explanation/);
 });
 
+test("rejects missing reviewed identity sets", () => {
+  const artifacts = fixtures();
+  artifacts.contract.identity_sets.find((set) => set.kind === "plugin_compatibility_cell").names.pop();
+
+  const result = validateArtifacts({ repoRoot: ".", artifacts });
+
+  assert.equal(result.valid, false);
+  assert.match(result.errors.join("\n"), /add missing identity claude-code\/x86_64-unknown-linux-gnu/);
+});
+
+test("rejects mismatched inventory identity sets", () => {
+  const artifacts = fixtures();
+  artifacts.inventory.identity_sets.find((set) => set.kind === "saved_reference_row").names.pop();
+
+  const result = validateArtifacts({ repoRoot: ".", artifacts });
+
+  assert.equal(result.valid, false);
+  assert.match(result.errors.join("\n"), /frozen-inventory.identity_sets/);
+  assert.match(result.errors.join("\n"), /byte-equivalent/);
+});
+
+test("rejects missing manifest span and reviewed text digest", () => {
+  const missingSpan = fixtures();
+  delete missingSpan.manifest.leaves[0].span;
+  const changedDigest = fixtures();
+  changedDigest.manifest.leaves[0].reviewed_text_digest = "0".repeat(64);
+
+  assert.match(validateArtifacts({ repoRoot: ".", artifacts: missingSpan }).errors.join("\n"), /record the reviewed Unicode-scalar span/);
+  assert.match(validateArtifacts({ repoRoot: ".", artifacts: changedDigest }).errors.join("\n"), /reviewed source text digest/);
+});
+
 test("rejects uncovered parent lifecycle statements", () => {
   const artifacts = fixtures();
   artifacts.inventory.roots[3].separator_spans[1] = { start: 21, end: 35 };
@@ -286,12 +326,93 @@ test("rejects invalid ledger mappings", () => {
   const wildcard = { mappings: [{ ...validMappings[0], source_id: "ALS-S0001..ALS-S9999" }, ...validMappings.slice(1)] };
   const directParent = { mappings: [{ ...validMappings[0], source_id: "ALS-S0002" }, ...validMappings.slice(1)] };
   const removed = { mappings: [{ ...validMappings[0], lifecycle: "removed", destination: destinationFor("removed") }, ...validMappings.slice(1)] };
+  const looseDestination = { mappings: [{ ...validMappings[0], destination: { ...validMappings[0].destination, unexpected: true } }, ...validMappings.slice(1)] };
 
   assert.match(validateLedger({ ledger: missing, inventory, manifest }).join("\n"), /add one mapping/);
   assert.match(validateLedger({ ledger: duplicate, inventory, manifest }).join("\n"), /duplicate mapping/);
   assert.match(validateLedger({ ledger: wildcard, inventory, manifest }).join("\n"), /range, wildcard, or catch-all/);
   assert.match(validateLedger({ ledger: directParent, inventory, manifest }).join("\n"), /parent records that declare children cannot be mapped directly/);
   assert.match(validateLedger({ ledger: removed, inventory, manifest }).join("\n"), /removed is only for supporting explanation/);
+  assert.match(validateLedger({ ledger: looseDestination, inventory, manifest }).join("\n"), /unexpected destination field/);
+});
+
+test("writer modes do not overwrite reviewed inputs", () => {
+  const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "als-lifecycle-"));
+  fs.mkdirSync(path.join(repoRoot, "docs/proposals"), { recursive: true });
+  fs.mkdirSync(path.join(repoRoot, "docs/reference/agent-language-services-lifecycle"), { recursive: true });
+  fs.writeFileSync(path.join(repoRoot, "docs/proposals/agent-language-services.md"), fixtures().sourceText);
+  const reviewed = {
+    "source-universe.json": "contract\n",
+    "frozen-inventory.json": "inventory\n",
+    "lifecycle-manifest.json": "manifest\n",
+    "migration-ledger.schema.json": "schema\n",
+  };
+  for (const [file, contents] of Object.entries(reviewed)) {
+    fs.writeFileSync(path.join(repoRoot, "docs/reference/agent-language-services-lifecycle", file), contents);
+  }
+
+  const result = runCommand({ command: "write-artifacts", repoRoot });
+
+  assert.equal(result.valid, true, result.errors.join("\n"));
+  for (const [file, contents] of Object.entries(reviewed)) {
+    assert.equal(fs.readFileSync(path.join(repoRoot, "docs/reference/agent-language-services-lifecycle", file), "utf8"), contents);
+  }
+});
+
+test("rejects blocked frozen bootstrap before allowlisting", () => {
+  assert.deepEqual(validateDiffScope({
+    changedPaths: ["docs/reference/agent-language-services-lifecycle/frozen-inventory.json"],
+    baseHasFrozen: false,
+    headHasFrozen: true,
+    prerequisitesComplete: false,
+  }), [
+    "diff-scope: finish the checked prerequisite records before adding frozen lifecycle artifacts; the bootstrap inventory must start from the closed prerequisite universe",
+  ]);
+});
+
+test("rejects stale and stacked frozen bootstrap bases", () => {
+  assert.match(validateDiffScope({
+    changedPaths: ["docs/reference/agent-language-services-lifecycle/frozen-inventory.json"],
+    baseHasFrozen: false,
+    headHasFrozen: true,
+    prerequisitesComplete: true,
+    baseRef: "feature-base",
+    defaultRef: "main",
+    defaultHasFrozen: false,
+  }).join("\n"), /default branch/);
+
+  assert.match(validateDiffScope({
+    changedPaths: ["docs/reference/agent-language-services-lifecycle/frozen-inventory.json"],
+    baseHasFrozen: false,
+    headHasFrozen: true,
+    prerequisitesComplete: true,
+    baseRef: "main",
+    defaultRef: "main",
+    defaultHasFrozen: true,
+  }).join("\n"), /already exist/);
+});
+
+test("rejects post-bootstrap immutable and type-boundary changes", () => {
+  assert.match(validateDiffScope({
+    changedPaths: ["docs/reference/agent-language-services-lifecycle/source-universe.json"],
+    baseHasFrozen: true,
+    headHasFrozen: true,
+  }).join("\n"), /immutable lifecycle review path/);
+
+  assert.match(validateDiffScope({
+    changedPaths: ["workflow-scripts/check-agent-language-services-lifecycle.mjs"],
+    changedEntries: [{ status: "R100", paths: ["workflow-scripts/check-agent-language-services-lifecycle.mjs", "workflow-scripts/renamed.mjs"] }],
+    baseHasFrozen: true,
+    headHasFrozen: true,
+  }).join("\n"), /renames and Git type changes/);
+
+  assert.match(validateDiffScope({
+    changedPaths: ["crates/veln-mcp/src/server/tests.rs"],
+    changedEntries: [{ status: "T", paths: ["crates/veln-mcp/src/server/tests.rs"] }],
+    baseHasFrozen: false,
+    headHasFrozen: true,
+    prerequisitesComplete: true,
+  }).join("\n"), /renames and Git type changes/);
 });
 
 test("rejects bootstrap changes to protected paths", () => {
@@ -310,15 +431,72 @@ test("rejects bootstrap changes to protected paths", () => {
 
 function destinationFor(lifecycle) {
   if (lifecycle === "current") {
-    return { kind: "current", specification: "docs/specification/mcp.md", evidence: "crates/veln-mcp/src/server/tests.rs" };
+    return { kind: "current", specification: "docs/specification/mcp.md", anchor: "#mcp", evidence: [{ path: "crates/veln-mcp/src/server/tests.rs", case: "server tests" }] };
   }
   if (lifecycle === "completed") {
-    return { kind: "completed", record: "docs/reference/implemented-proposals/agent-language-services.md" };
+    return { kind: "completed", record: "docs/reference/implemented-proposals/agent-language-services.md", anchor: "#agent-language-services" };
   }
   if (lifecycle === "planned") {
-    return { kind: "planned", proposal: "docs/proposals/agent-language-services.md" };
+    return { kind: "planned", proposal: "docs/proposals/agent-language-services.md", anchor: "#agent-language-services" };
   }
   return { kind: "removed", reason: "duplicate", duplicate_destination: "docs/proposals/agent-language-services.md" };
+}
+
+function identitySets() {
+  return [
+    { kind: "evidence_gate", names: range("Q", 1, 22) },
+    { kind: "saved_reference_row", names: range("saved-reference-row-", 1, 6) },
+    { kind: "closed_navigation_matrix_row", names: [
+      "project-owned-functions",
+      "source-types-and-constructors",
+      "schemas",
+      "public-member-aliases",
+      "function-and-handler-parameters",
+      "local-let-and-pattern-bindings",
+      "handler-operation-clause-bindings",
+      "handler-context-parameters",
+      "test-companion-private-access",
+      "direct-dependency-exports",
+      "standard-library-declarations",
+    ] },
+    { kind: "closed_topic_matrix_row", names: [
+      "lexical-structure-and-grammar",
+      "modules-imports-packages-exports-visibility",
+      "declarations-and-aliases",
+      "expressions-operators-patterns",
+      "types-inference-constructors",
+      "effects-and-handlers",
+      "contracts",
+      "schemas",
+      "holes",
+      "tests-doc-comments-doctests",
+    ] },
+    { kind: "tool_or_resource_kind", names: [
+      "check_project",
+      "definition",
+      "references",
+      "search_docs",
+      "read_doc",
+      "workspace_projects",
+      "refresh_workspace",
+      "language-reference-index",
+      "language-reference-topic",
+      "package-documentation-index",
+      "package-documentation-module",
+      "package-documentation-declaration",
+      "standard-library-documentation",
+      "virtual-source-file",
+    ] },
+    { kind: "package_document_declaration_kind", names: ["contract", "function", "handler", "module", "operation", "schema", "type"] },
+    { kind: "lsp_encoding", names: ["UTF-8", "UTF-16", "UTF-32"] },
+    { kind: "plugin_compatibility_cell", names: ["codex/x86_64-unknown-linux-gnu", "claude-code/x86_64-unknown-linux-gnu"] },
+    { kind: "unresolved_acceptance_row", names: range("unresolved-acceptance-row-", 1, 33) },
+  ];
+}
+
+function range(prefix, first, last) {
+  const width = String(last).length;
+  return Array.from({ length: last - first + 1 }, (_, index) => `${prefix}${String(first + index).padStart(width, "0")}`);
 }
 
 function digestOf(text, start, end) {

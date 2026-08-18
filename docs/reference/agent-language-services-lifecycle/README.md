@@ -16,5 +16,15 @@ node workflow-scripts/check-agent-language-services-lifecycle.mjs validate
 ```
 
 The validator checks the source digests, inventory coverage, parent and child
-span partitioning, reviewed lifecycle manifest, migration-ledger schema, and
-the first-PR diff-scope guard.
+span partitioning, reviewed finite identity sets, reviewed lifecycle manifest,
+migration-ledger schema and corpus, and the phase-aware diff-scope guard.
+
+The writer mode is only a parser-shape aid:
+
+```sh
+node workflow-scripts/check-agent-language-services-lifecycle.mjs write-artifacts
+```
+
+It writes `parser-snapshot.generated.json` and does not overwrite the reviewed
+source-universe contract, frozen inventory, lifecycle manifest, or migration
+ledger schema.

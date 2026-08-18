@@ -10,11 +10,13 @@ const contractPath = `${artifactDir}/source-universe.json`;
 const inventoryPath = `${artifactDir}/frozen-inventory.json`;
 const manifestPath = `${artifactDir}/lifecycle-manifest.json`;
 const ledgerSchemaPath = `${artifactDir}/migration-ledger.schema.json`;
+const ledgerSchemaCorpusPath = `${artifactDir}/migration-ledger.schema-corpus.json`;
 const frozenArtifactPaths = new Set([
   contractPath,
   inventoryPath,
   manifestPath,
   ledgerSchemaPath,
+  ledgerSchemaCorpusPath,
 ]);
 const protectedBootstrapPaths = [
   sourcePath,
@@ -25,6 +27,66 @@ const protectedBootstrapPaths = [
   "examples/specification/mcp/",
 ];
 const validLifecycles = new Set(["current", "completed", "planned", "removed"]);
+const reviewedIdentitySets = new Map([
+  ["evidence_gate", rangeNames("Q", 1, 22)],
+  ["saved_reference_row", rangeNames("saved-reference-row-", 1, 6)],
+  ["closed_navigation_matrix_row", [
+    "project-owned-functions",
+    "source-types-and-constructors",
+    "schemas",
+    "public-member-aliases",
+    "function-and-handler-parameters",
+    "local-let-and-pattern-bindings",
+    "handler-operation-clause-bindings",
+    "handler-context-parameters",
+    "test-companion-private-access",
+    "direct-dependency-exports",
+    "standard-library-declarations",
+  ]],
+  ["closed_topic_matrix_row", [
+    "lexical-structure-and-grammar",
+    "modules-imports-packages-exports-visibility",
+    "declarations-and-aliases",
+    "expressions-operators-patterns",
+    "types-inference-constructors",
+    "effects-and-handlers",
+    "contracts",
+    "schemas",
+    "holes",
+    "tests-doc-comments-doctests",
+  ]],
+  ["tool_or_resource_kind", [
+    "check_project",
+    "definition",
+    "references",
+    "search_docs",
+    "read_doc",
+    "workspace_projects",
+    "refresh_workspace",
+    "language-reference-index",
+    "language-reference-topic",
+    "package-documentation-index",
+    "package-documentation-module",
+    "package-documentation-declaration",
+    "standard-library-documentation",
+    "virtual-source-file",
+  ]],
+  ["package_document_declaration_kind", [
+    "contract",
+    "function",
+    "handler",
+    "module",
+    "operation",
+    "schema",
+    "type",
+  ]],
+  ["lsp_encoding", ["UTF-8", "UTF-16", "UTF-32"]],
+  ["plugin_compatibility_cell", [
+    "codex/x86_64-unknown-linux-gnu",
+    "claude-code/x86_64-unknown-linux-gnu",
+  ]],
+  ["unresolved_acceptance_row", rangeNames("unresolved-acceptance-row-", 1, 33)],
+]);
 
 if (isMainModule()) {
   const repoRoot = process.cwd();
@@ -63,41 +125,21 @@ export function runCommand({ command, repoRoot }) {
 export function writeArtifacts({ repoRoot }) {
   const source = fs.readFileSync(path.resolve(repoRoot, sourcePath), "utf8");
   const roots = parseMarkdownSource(source);
-  const contract = {
+  const parserSnapshot = {
     schema_version: 1,
     source: sourcePath,
     roots: roots.map((root) => ({
       id: root.id,
       heading: root.heading,
       kind: root.kind,
-      conformance: true,
       digest: root.digest,
-      identities: identitiesForRoot(root),
     })),
   };
-  const inventory = {
-    schema_version: 1,
-    source: sourcePath,
-    roots: roots.map((root) => inventoryRoot(root)),
-  };
-  const manifest = {
-    schema_version: 1,
-    source: sourcePath,
-    leaves: inventory.roots.flatMap((root) => inventoryLeaves(root).map((leaf) => ({
-      id: leaf.id,
-      lifecycle: leaf.lifecycle,
-      destination: destinationForLifecycle(leaf.lifecycle),
-    }))),
-  };
-  const ledgerSchema = migrationLedgerSchema();
 
   fs.mkdirSync(path.resolve(repoRoot, artifactDir), { recursive: true });
-  writeJson(path.resolve(repoRoot, contractPath), contract);
-  writeJson(path.resolve(repoRoot, inventoryPath), inventory);
-  writeJson(path.resolve(repoRoot, manifestPath), manifest);
-  writeJson(path.resolve(repoRoot, ledgerSchemaPath), ledgerSchema);
+  writeJson(path.resolve(repoRoot, `${artifactDir}/parser-snapshot.generated.json`), parserSnapshot);
 
-  return success(`Wrote frozen lifecycle artifacts for ${roots.length} source item(s).`);
+  return success(`Wrote parser snapshot for ${roots.length} source item(s); reviewed lifecycle artifacts were not overwritten.`);
 }
 
 export function validateArtifacts({ repoRoot, artifacts } = {}) {
@@ -108,11 +150,13 @@ export function validateArtifacts({ repoRoot, artifacts } = {}) {
   const inventory = artifacts?.inventory ?? readJson(path.resolve(repoRoot, inventoryPath));
   const manifest = artifacts?.manifest ?? readJson(path.resolve(repoRoot, manifestPath));
   const ledgerSchema = artifacts?.ledgerSchema ?? readJson(path.resolve(repoRoot, ledgerSchemaPath));
+  const ledgerSchemaCorpus = artifacts?.ledgerSchemaCorpus ?? readJson(path.resolve(repoRoot, ledgerSchemaCorpusPath));
   const errors = [
     ...validateContract({ contract, parsedRoots, parsedById }),
     ...validateInventory({ inventory, contract, parsedById }),
-    ...validateManifest({ manifest, inventory }),
+    ...validateManifest({ manifest, inventory, parsedById }),
     ...validateLedgerSchema(ledgerSchema),
+    ...validateLedgerSchemaCorpus(ledgerSchemaCorpus),
   ];
   return errors.length === 0
     ? success(`Validated ${parsedRoots.length} frozen source item(s).`)
@@ -176,13 +220,46 @@ export function validateLedger({ ledger, inventory, manifest }) {
   return errors;
 }
 
-export function validateDiffScope({ changedPaths, baseHasFrozen, headHasFrozen, prerequisitesComplete = true }) {
+export function validateDiffScope({
+  changedPaths,
+  changedEntries,
+  baseHasFrozen,
+  headHasFrozen,
+  prerequisitesComplete = true,
+  baseRef = "main",
+  defaultRef = "main",
+  defaultHasFrozen = baseHasFrozen,
+}) {
   const errors = [];
+  const entries = changedEntries ?? changedPaths.map((file) => ({ status: "M", paths: [file] }));
   const addsFrozen = !baseHasFrozen && headHasFrozen;
   if (addsFrozen && !prerequisitesComplete) {
     return [
       "diff-scope: finish the checked prerequisite records before adding frozen lifecycle artifacts; the bootstrap inventory must start from the closed prerequisite universe",
     ];
+  }
+  if (addsFrozen && baseRef !== defaultRef) {
+    return [
+      "diff-scope: target the default branch for the frozen lifecycle bootstrap; stacked bases cannot establish the reviewed source universe",
+    ];
+  }
+  if (addsFrozen && defaultHasFrozen) {
+    return [
+      "diff-scope: regenerate the target from the current default branch; the frozen lifecycle artifacts already exist there",
+    ];
+  }
+  for (const entry of entries) {
+    if ((entry.status.startsWith("R") || entry.status.startsWith("T")) && entry.paths.some((changedPath) => isLifecycleGuardPath(changedPath) || isProtectedBootstrapPath(changedPath))) {
+      errors.push(`${entry.paths[0]}: restore this path or move the change to the permitted later PR; renames and Git type changes invalidate the lifecycle diff boundary`);
+    }
+  }
+  if (baseHasFrozen) {
+    for (const changedPath of changedPaths) {
+      if (isImmutablePostBootstrapPath(changedPath)) {
+        errors.push(`${changedPath}: restore this immutable lifecycle review path; post-bootstrap changes would revise the frozen source universe or its validator`);
+      }
+    }
+    return errors;
   }
   if (!addsFrozen) {
     return errors;
@@ -314,6 +391,7 @@ function validateContract({ contract, parsedRoots, parsedById }) {
       errors.push(`source-universe: add missing source item ${parsed.id}`);
     }
   }
+  errors.push(...validateIdentitySets({ owner: "source-universe", artifact: contract }));
   return errors;
 }
 
@@ -359,6 +437,7 @@ function validateInventory({ inventory, contract, parsedById }) {
       errors.push(`frozen-inventory: add missing inventory item ${contractRoot.id}`);
     }
   }
+  errors.push(...validateInventoryIdentitySets({ inventory, contract }));
   return errors;
 }
 
@@ -442,9 +521,9 @@ function validateLeaf({ leaf, label, seenLeaves, expectedText, conformance }) {
   return errors;
 }
 
-function validateManifest({ manifest, inventory }) {
+function validateManifest({ manifest, inventory, parsedById }) {
   const errors = [];
-  const leaves = allInventoryLeaves(inventory);
+  const leaves = allInventoryLeavesWithSource({ inventory, parsedById });
   const leafById = new Map(leaves.map((leaf) => [leaf.id, leaf]));
   const seen = new Set();
   if (!Array.isArray(manifest.leaves)) {
@@ -464,6 +543,14 @@ function validateManifest({ manifest, inventory }) {
     }
     if (leaf.lifecycle !== inventoryLeaf.lifecycle) {
       errors.push(`${leaf.id}: align inventory lifecycle "${inventoryLeaf.lifecycle}" with reviewed manifest lifecycle "${leaf.lifecycle}"`);
+    }
+    if (!validSpan(leaf.span, inventoryLeaf.parentText)) {
+      errors.push(`${label}: record the reviewed Unicode-scalar span for ${leaf.id}`);
+    } else if (leaf.span.start !== inventoryLeaf.sourceSpan.start || leaf.span.end !== inventoryLeaf.sourceSpan.end) {
+      errors.push(`${leaf.id}: keep manifest span equal to the reviewed inventory leaf span`);
+    }
+    if (leaf.reviewed_text_digest !== sha256(inventoryLeaf.sourceText)) {
+      errors.push(`${leaf.id}: record the reviewed source text digest for lifecycle separation`);
     }
     errors.push(...validateDestination({ label, lifecycle: leaf.lifecycle, destination: leaf.destination }));
   }
@@ -489,21 +576,68 @@ function validateLedgerSchema(schema) {
   if (schema?.properties?.mappings?.items?.additionalProperties !== false) {
     errors.push("migration-ledger.schema.json: reject unknown mapping fields so reviewed destinations stay bounded");
   }
+  const destination = schema?.properties?.mappings?.items?.properties?.destination;
+  if (!Array.isArray(destination?.oneOf) || destination.oneOf.length !== 4) {
+    errors.push("migration-ledger.schema.json: define one closed destination shape for each lifecycle");
+  }
+  return errors;
+}
+
+function validateLedgerSchemaCorpus(corpus) {
+  const errors = [];
+  const cases = Array.isArray(corpus?.cases) ? corpus.cases : [];
+  if (cases.length === 0) {
+    return ["migration-ledger.schema-corpus.json: add positive and rejection cases"];
+  }
+  for (const [index, entry] of cases.entries()) {
+    const label = `migration-ledger.schema-corpus.cases[${index}]`;
+    const structureErrors = validateLedgerMappingStructure(entry.mapping);
+    const destinationErrors = entry.mapping && typeof entry.mapping === "object"
+      ? validateDestination({ label, lifecycle: entry.mapping.lifecycle, destination: entry.mapping.destination })
+      : [`${label}: use an object mapping with source_id, lifecycle, and destination`];
+    const schemaErrors = [
+      ...structureErrors,
+      ...destinationErrors,
+    ];
+    const semanticErrors = [
+      ...structureErrors,
+      ...destinationErrors,
+    ];
+    const schemaValid = schemaErrors.length === 0;
+    const semanticValid = schemaValid && semanticErrors.length === 0;
+    if (entry.schema_valid !== schemaValid) {
+      errors.push(`${label}: set schema_valid to ${schemaValid} for the committed ledger schema corpus`);
+    }
+    if (entry.semantic_valid !== semanticValid) {
+      errors.push(`${label}: set semantic_valid to ${semanticValid} for the committed ledger semantic corpus`);
+    }
+    if (schemaValid !== semanticValid && entry.schema_valid === entry.semantic_valid) {
+      errors.push(`${label}: keep schema and semantic validator expectations equivalent for structural ledger cases`);
+    }
+  }
   return errors;
 }
 
 function validateCiDiffScopeFromEnv({ repoRoot }) {
   const baseSha = process.env.ALS_LIFECYCLE_BASE_SHA;
   const headSha = process.env.ALS_LIFECYCLE_HEAD_SHA;
+  const baseRef = process.env.ALS_LIFECYCLE_BASE_REF;
+  const defaultRef = process.env.ALS_LIFECYCLE_DEFAULT_REF;
+  const defaultSha = process.env.ALS_LIFECYCLE_DEFAULT_SHA;
   if (!baseSha || !headSha || /^0+$/.test(baseSha)) {
     return success("No agent language services diff-scope range was provided.");
   }
-  const changedPaths = changedPathNames({ repoRoot, baseSha, headSha });
+  const changedEntries = changedPathEntries({ repoRoot, baseSha, headSha });
+  const changedPaths = changedEntries.flatMap((entry) => entry.paths);
   const errors = validateDiffScope({
     changedPaths,
+    changedEntries,
     baseHasFrozen: gitPathExists({ repoRoot, revision: baseSha, file: inventoryPath }),
     headHasFrozen: gitPathExists({ repoRoot, revision: headSha, file: inventoryPath }),
     prerequisitesComplete: prerequisitesAreComplete({ repoRoot, revision: baseSha }),
+    baseRef: baseRef ?? defaultRef ?? "main",
+    defaultRef: defaultRef ?? baseRef ?? "main",
+    defaultHasFrozen: defaultSha ? gitPathExists({ repoRoot, revision: defaultSha, file: inventoryPath }) : gitPathExists({ repoRoot, revision: baseSha, file: inventoryPath }),
   });
   return errors.length === 0
     ? success(`Diff scope is valid for ${changedPaths.length} changed path(s).`)
@@ -550,6 +684,29 @@ function allInventoryLeaves(inventory) {
   return inventory.roots.flatMap(inventoryLeaves);
 }
 
+function allInventoryLeavesWithSource({ inventory, parsedById }) {
+  return inventory.roots.flatMap((root) => {
+    const parsed = parsedById.get(root.id);
+    if (!parsed) {
+      return [];
+    }
+    if (Array.isArray(root.children) && root.children.length > 0) {
+      return root.children.map((child) => ({
+        ...child,
+        sourceSpan: child.span,
+        parentText: parsed.text,
+        sourceText: validSpan(child.span, parsed.text) ? scalarSlice(parsed.text, child.span.start, child.span.end) : "",
+      }));
+    }
+    return [{
+      ...root,
+      sourceSpan: { start: 0, end: scalarLength(parsed.text) },
+      parentText: parsed.text,
+      sourceText: parsed.text,
+    }];
+  });
+}
+
 function inventoryLeaves(root) {
   return Array.isArray(root.children) && root.children.length > 0 ? root.children : [root];
 }
@@ -580,6 +737,72 @@ function identitiesForRoot(root) {
     }
   }
   return identities;
+}
+
+function validateIdentitySets({ owner, artifact }) {
+  const errors = [];
+  const sets = Array.isArray(artifact.identity_sets) ? artifact.identity_sets : [];
+  const byKind = new Map();
+  for (const [index, set] of sets.entries()) {
+    const label = `${owner}.identity_sets[${index}]`;
+    if (byKind.has(set.kind)) {
+      errors.push(`${label}: remove duplicate identity set ${set.kind}`);
+      continue;
+    }
+    byKind.set(set.kind, set);
+    const expected = reviewedIdentitySets.get(set.kind);
+    if (!expected) {
+      errors.push(`${label}: remove unexpected identity set ${set.kind}`);
+      continue;
+    }
+    const names = Array.isArray(set.names) ? set.names : [];
+    errors.push(...compareExactNames({ label, expected, actual: names }));
+  }
+  for (const [kind] of reviewedIdentitySets) {
+    if (!byKind.has(kind)) {
+      errors.push(`${owner}: add reviewed identity set ${kind}`);
+    }
+  }
+  return errors;
+}
+
+function validateInventoryIdentitySets({ inventory, contract }) {
+  const errors = [
+    ...validateIdentitySets({ owner: "frozen-inventory", artifact: inventory }),
+  ];
+  const contractSets = canonicalIdentitySets(contract.identity_sets);
+  const inventorySets = canonicalIdentitySets(inventory.identity_sets);
+  if (JSON.stringify(contractSets) !== JSON.stringify(inventorySets)) {
+    errors.push("frozen-inventory: keep reviewed identity sets byte-equivalent to source-universe identity sets");
+  }
+  return errors;
+}
+
+function compareExactNames({ label, expected, actual }) {
+  const errors = [];
+  const seen = new Set();
+  for (const name of actual) {
+    if (seen.has(name)) {
+      errors.push(`${label}: remove duplicate identity ${name}`);
+      continue;
+    }
+    seen.add(name);
+    if (!expected.includes(name)) {
+      errors.push(`${label}: remove unexpected identity ${name}`);
+    }
+  }
+  for (const name of expected) {
+    if (!seen.has(name)) {
+      errors.push(`${label}: add missing identity ${name}`);
+    }
+  }
+  return errors;
+}
+
+function canonicalIdentitySets(sets) {
+  return (Array.isArray(sets) ? sets : [])
+    .map((set) => ({ kind: set.kind, names: Array.isArray(set.names) ? [...set.names] : [] }))
+    .sort((left, right) => left.kind.localeCompare(right.kind));
 }
 
 function lifecycleForText(heading, text) {
@@ -649,7 +872,25 @@ function migrationLedgerSchema() {
               enum: [...validLifecycles],
             },
             destination: {
-              type: "object",
+              oneOf: [
+                closedDestinationSchema("current", ["specification", "anchor", "evidence"], {
+                  specification: markdownPathPattern("docs/specification/"),
+                  anchor: anchorSchema(),
+                  evidence: evidenceSchema(),
+                }),
+                closedDestinationSchema("completed", ["record", "anchor"], {
+                  record: markdownPathPattern("docs/reference/implemented-proposals/"),
+                  anchor: anchorSchema(),
+                }),
+                closedDestinationSchema("planned", ["proposal", "anchor"], {
+                  proposal: markdownPathPattern("docs/proposals/"),
+                  anchor: anchorSchema(),
+                }),
+                closedDestinationSchema("removed", ["reason", "duplicate_destination"], {
+                  reason: { type: "string", minLength: 1 },
+                  duplicate_destination: markdownPathPattern("docs/"),
+                }),
+              ],
             },
           },
         },
@@ -658,27 +899,157 @@ function migrationLedgerSchema() {
   };
 }
 
+function closedDestinationSchema(kind, requiredFields, properties) {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["kind", ...requiredFields],
+    properties: {
+      kind: { const: kind },
+      ...properties,
+    },
+  };
+}
+
+function markdownPathPattern(prefix) {
+  return {
+    type: "string",
+    pattern: `^${escapeRegExp(prefix)}[^.][^\\n]*\\.md$`,
+    not: { pattern: "(^/|\\.\\.)" },
+  };
+}
+
+function anchorSchema() {
+  return {
+    type: "string",
+    pattern: "^#[a-z0-9][a-z0-9-]*$",
+  };
+}
+
+function evidenceSchema() {
+  return {
+    type: "array",
+    minItems: 1,
+    uniqueItems: true,
+    items: {
+      type: "object",
+      additionalProperties: false,
+      required: ["path", "case"],
+      properties: {
+        path: {
+          type: "string",
+          pattern: "^(examples/specification/|crates/|workflow-scripts/|docs/specification/source-surface)[^\\n]+$",
+          not: { pattern: "(^/|\\.\\.)" },
+        },
+        case: { type: "string", minLength: 1 },
+      },
+    },
+  };
+}
+
+function validateLedgerMappingStructure(mapping) {
+  const errors = [];
+  if (!mapping || typeof mapping !== "object" || Array.isArray(mapping)) {
+    return ["mapping: use an object"];
+  }
+  const allowed = ["source_id", "lifecycle", "destination"];
+  for (const key of Object.keys(mapping)) {
+    if (!allowed.includes(key)) {
+      errors.push(`mapping: remove unexpected field ${key}`);
+    }
+  }
+  for (const key of allowed) {
+    if (!(key in mapping)) {
+      errors.push(`mapping: add missing field ${key}`);
+    }
+  }
+  if (typeof mapping.source_id !== "string" || !/^ALS-S[0-9]{4}(?:\.[0-9]{2})?$/.test(mapping.source_id) || containsCatchAll(mapping.source_id)) {
+    errors.push("mapping: use one exact source_id");
+  }
+  if (!validLifecycles.has(mapping.lifecycle)) {
+    errors.push("mapping: use a valid lifecycle");
+  }
+  if (!mapping.destination || typeof mapping.destination !== "object" || Array.isArray(mapping.destination)) {
+    errors.push("mapping: use a destination object");
+  }
+  return errors;
+}
+
 function validateDestination({ label, lifecycle, destination }) {
-  if (!destination || typeof destination !== "object" || destination.kind !== lifecycle) {
+  const allowedKeys = {
+    current: ["kind", "specification", "anchor", "evidence"],
+    completed: ["kind", "record", "anchor"],
+    planned: ["kind", "proposal", "anchor"],
+    removed: ["kind", "reason", "duplicate_destination"],
+  };
+  if (!destination || typeof destination !== "object" || Array.isArray(destination) || destination.kind !== lifecycle) {
     return [`${label}: use a ${lifecycle} destination object whose kind matches the lifecycle`];
   }
-  if (lifecycle === "current" && (!isPath(destination.specification, "docs/specification/") || !destination.evidence)) {
+  const unexpected = Object.keys(destination).filter((key) => !allowedKeys[lifecycle].includes(key));
+  if (unexpected.length > 0) {
+    return [`${label}: remove unexpected destination field ${unexpected[0]}`];
+  }
+  if (lifecycle === "current" && (!isMarkdownPath(destination.specification, "docs/specification/") || !validAnchor(destination.anchor) || !validEvidence(destination.evidence))) {
     return [`${label}: link current mappings to a specification path and checked evidence`];
   }
-  if (lifecycle === "completed" && !isPath(destination.record, "docs/reference/")) {
+  if (lifecycle === "completed" && (!isMarkdownPath(destination.record, "docs/reference/implemented-proposals/") || !validAnchor(destination.anchor))) {
     return [`${label}: link completed mappings to a supporting reference or implementation record`];
   }
-  if (lifecycle === "planned" && !isPath(destination.proposal, "docs/proposals/")) {
+  if (lifecycle === "planned" && (!isMarkdownPath(destination.proposal, "docs/proposals/") || !validAnchor(destination.anchor))) {
     return [`${label}: link planned mappings to the active proposal that retains the acceptance condition`];
   }
-  if (lifecycle === "removed" && (!destination.reason || !destination.duplicate_destination)) {
+  if (lifecycle === "removed" && (!nonemptyString(destination.reason) || !isMarkdownPath(destination.duplicate_destination, "docs/"))) {
     return [`${label}: explain removed mappings with a reason and duplicate or superseding destination`];
   }
   return [];
 }
 
-function isPath(value, prefix) {
-  return typeof value === "string" && value.startsWith(prefix);
+function isMarkdownPath(value, prefix) {
+  return typeof value === "string" && value.startsWith(prefix) && value.endsWith(".md") && !path.isAbsolute(value) && !value.includes("..");
+}
+
+function validAnchor(value) {
+  return typeof value === "string" && /^#[a-z0-9][a-z0-9-]*$/.test(value);
+}
+
+function validEvidence(value) {
+  if (!Array.isArray(value) || value.length === 0) {
+    return false;
+  }
+  const seen = new Set();
+  for (const item of value) {
+    const key = `${item?.path}#${item?.case}`;
+    if (!item || typeof item !== "object" || !nonemptyString(item.case) || !isAllowedEvidencePath(item.path) || seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+  }
+  return true;
+}
+
+function isAllowedEvidencePath(value) {
+  return typeof value === "string"
+    && !path.isAbsolute(value)
+    && !value.includes("..")
+    && (
+      value.startsWith("examples/specification/")
+      || value.startsWith("crates/")
+      || value.startsWith("workflow-scripts/")
+      || value.startsWith("docs/specification/source-surface")
+    );
+}
+
+function nonemptyString(value) {
+  return typeof value === "string" && value.length > 0;
+}
+
+function rangeNames(prefix, first, last) {
+  const width = String(last).length;
+  return Array.from({ length: last - first + 1 }, (_, index) => `${prefix}${String(first + index).padStart(width, "0")}`);
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function tableCellSpans(line) {
@@ -797,7 +1168,18 @@ function isProtectedBootstrapPath(changedPath) {
   ));
 }
 
-function changedPathNames({ repoRoot, baseSha, headSha }) {
+function isLifecycleGuardPath(changedPath) {
+  return isImmutablePostBootstrapPath(changedPath) || changedPath === sourcePath;
+}
+
+function isImmutablePostBootstrapPath(changedPath) {
+  return changedPath.startsWith(`${artifactDir}/`)
+    || changedPath === "workflow-scripts/check-agent-language-services-lifecycle.mjs"
+    || changedPath === "workflow-scripts/check-agent-language-services-lifecycle.test.mjs"
+    || changedPath === ".github/workflows/workflow--test-scripts.yaml";
+}
+
+function changedPathEntries({ repoRoot, baseSha, headSha }) {
   const result = spawnSync(
     "git",
     ["diff", "--name-status", "-z", baseSha, headSha],
@@ -807,18 +1189,22 @@ function changedPathNames({ repoRoot, baseSha, headSha }) {
     throw new Error(`Unable to inspect diff scope: ${result.stderr.trim()}`);
   }
   const fields = result.stdout.split("\0").filter(Boolean);
-  const paths = [];
+  const entries = [];
   for (let index = 0; index < fields.length; index += 1) {
     const status = fields[index];
     if (/^R|^C/.test(status)) {
-      paths.push(fields[index + 1], fields[index + 2]);
+      entries.push({ status, paths: [fields[index + 1], fields[index + 2]].filter(Boolean) });
       index += 2;
     } else {
-      paths.push(fields[index + 1]);
+      entries.push({ status, paths: [fields[index + 1]].filter(Boolean) });
       index += 1;
     }
   }
-  return paths.filter(Boolean);
+  return entries;
+}
+
+function changedPathNames({ repoRoot, baseSha, headSha }) {
+  return changedPathEntries({ repoRoot, baseSha, headSha }).flatMap((entry) => entry.paths);
 }
 
 function gitPathExists({ repoRoot, revision, file }) {
