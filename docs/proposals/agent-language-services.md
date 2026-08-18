@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The `veln mcp` tool schemas, navigation acceptance cases, lifecycle-migration or slice-closure evidence gate, virtual-location contract, published-reference inputs, client-plugin boundary, or implementation status changes.
+update-when: The `veln mcp` tool schemas, navigation acceptance cases, slice-closure evidence gate, virtual-location contract, published-reference inputs, client-plugin boundary, or implementation status changes.
 ---
 
 # Agent Language Services
@@ -47,15 +47,12 @@ and selected target for accepted sources.
 ### Slice-Closure Prerequisite
 
 Before implementing the next MCP navigation slice, complete
-[Agent Language Services Lifecycle Migration](agent-language-services-lifecycle-migration.md),
-then [Agent Language Services Slice Closure](agent-language-services-slice-closure.md).
-The first prerequisite separates this active plan from implemented history
-without dropping its closed matrices, Q01 through Q22 gate, or unresolved
-acceptance rows. The second adds response-local assertions for MCP JSONL output
-with dynamic canonical locations and closes the evidence rule for shared
-capture invariants. Reissue the saved workspace function-reference target only
-after both gates pass. The next-slice boundary below remains planning input and
-is not selectable work until both prerequisites are complete.
+[Agent Language Services Slice Closure](agent-language-services-slice-closure.md).
+It adds response-local assertions for MCP JSONL output with dynamic canonical
+locations and closes the evidence rule for shared capture invariants. Reissue
+the saved workspace function-reference target only after that executable
+evidence gate passes. The next-slice boundary below remains planning input and
+is not selectable work until then.
 
 ### Next Slice: Saved Workspace Function References
 
@@ -834,6 +831,18 @@ plugins/veln/
 └── skills/
 ```
 
+The initial plugin validation scope contains these client-platform pairs:
+
+| Client | Platform |
+| --- | --- |
+| Codex | `x86_64-unknown-linux-gnu` |
+| Claude Code | `x86_64-unknown-linux-gnu` |
+
+This table defines planned validation coverage, not current support. A pair is
+complete only when its pinned client-native smoke cases pass. Change this table
+and its smoke evidence together when plugin validation gains or removes a
+client-platform pair.
+
 The checked Codex manifest points `mcpServers` to the root `.mcp.json`, matching
 the current OpenAI plugin contract. The shared MCP configuration starts the
 prerequisite executable as `veln mcp --client-contract 1`. Claude Code
@@ -870,10 +879,10 @@ client-native installation and enablement flows. It does not authorize the
 add an installer after the supported clients expose a sufficiently stable,
 non-interactive installation contract.
 
-`compatibility.toml` is the authoritative client matrix. The v1 matrix pins one
-tested Codex host build and one tested Claude Code build per supported platform,
-their manifest-schema revisions, validator versions and integrity digests, and
-the required Veln, MCP, LSP, language-service, and reference-schema contracts.
+`compatibility.toml` is the authoritative implemented client matrix. For each
+row in the initial validation scope, the v1 matrix pins one tested host build,
+its manifest-schema revision, validator version and integrity digest, and the
+required Veln, MCP, LSP, language-service, and reference-schema contracts.
 Widening a host range requires adding and passing both boundary builds. Shared
 skill content and `.mcp.json` are common authority. Each client manifest and
 Claude Code's `.lsp.json` are authoritative only for that client. Client staging
@@ -903,21 +912,21 @@ virtual-document, shutdown, and exit sequence.
 
 ## Conformance Contract
 
-The versioned `agent-language-services-v1` conformance manifest is the sole
-completion gate. A repository-maintenance package named
+The versioned `agent-language-services-v1` conformance manifest is the
+traceability index for planned and implemented evidence. A
+repository-maintenance package named
 `veln-repo-agent-language-conformance` under `tools/` validates it. The
-manifest contains one requirement ID and at least one planned evidence ID for
-every normative paragraph, acceptance row, schema field, domain error,
-resource template, lifecycle transition, and supported client-platform cell.
-It rejects missing, duplicate, skipped, orphaned, or unimplemented mappings.
+manifest assigns a stable requirement ID to each acceptance row and records
+its executable evidence. It rejects duplicate requirement IDs, missing
+evidence for implemented rows, orphaned evidence routes, and evidence marked
+passing without a successful check. It does not inventory headings,
+explanatory paragraphs, document layout, or other prose structure.
 
-The v1 manifest closes the capability matrices that this proposal previously
-introduced as extensible minimums. It enumerates exactly the symbol kinds under
-Definition And Reference Coverage, the language topics under Topic Catalog,
-the tools and resource kinds under MCP Server Contract, the package-document
-declaration kinds, the LSP encodings, and the plugin compatibility cells.
-Adding a capability requires a new conformance-suite version or an explicit
-backward-compatible extension entry.
+Capability membership comes from the proposal's acceptance tables while it is
+planned and from checked implementation artifacts after it is implemented.
+The manifest references those identities instead of maintaining another copy
+of their membership. Adding a capability updates its authoritative artifact,
+acceptance evidence, and manifest route together.
 
 The resolved-decision evidence groups are:
 
@@ -943,7 +952,7 @@ The resolved-decision evidence groups are:
 | Q18 generation failure | Every generation gate, ordered diagnostics, resource and search absence, source survival, and positive, negative, ignored, invalid, and mismatched doctests. |
 | Q19 search and reads | Query normalization, all scopes and rank tiers, ties, deduplication, bounds, scalar excerpts, truncation flags, size boundary, and route byte equality. |
 | Q20 executable binding | Workspace paths, multi-root startup, inherited or explicit working directory, missing and shadowed executable, every incompatible contract, and matching initialization. |
-| Q21 plugin matrix | Pinned validators, generated-package freshness, every supported client and platform boundary, native install, MCP smoke, Claude LSP smoke, and unknown-file isolation. |
+| Q21 plugin matrix | Pinned validators, generated-package freshness, every initial client-platform row, native install, MCP smoke, Claude LSP smoke, and unknown-file isolation. |
 | Q22 gate totality | Injected missing requirement, duplicate evidence, missing matrix cell, stale artifact, undeclared capability, malformed request class, and plugin mismatch. |
 
 Q11 is implemented by the `veln-project` fixed-vector and transcript-mutation
@@ -960,8 +969,10 @@ The gate also covers resource-template listing and reads, every malformed
 request class, zero/default/maximum/above-maximum bounds, all documentation
 failure classes, digest incompatibility, stdout framing purity, generated
 artifact freshness, and cross-adapter and cross-renderer equivalence. The
-proposal completes only when every declared cell passes and implemented
-behavior has been promoted to specification and executable-example routes.
+proposal completes only when every observable acceptance row has passing
+checked evidence, the manifest has no missing or orphaned mapping, and
+implemented behavior has been promoted to specification and executable-example
+routes.
 
 ## Acceptance Model
 
@@ -1041,7 +1052,7 @@ that the behavior is already implemented.
 | Validate the Claude Code plugin. | Its MCP and LSP configurations bind the active workspace and complete both protocol lifecycles with the pinned client. | Q20/Q21 pinned Claude native smoke. |
 | Start with a missing, shadowed, or incompatible executable. | Startup fails before capability use and names the failed version fact and required action outside MCP stdout. | Q20 executable-binding matrix. |
 | Use the shared skill. | Instructions route agents to reference, package docs, navigation, and diagnostics without claiming proposals as current behavior. | Plugin content review and scenario tests. |
-| Run the proposal completion gate. | Every requirement and evidence mapping, closed capability matrix, generated artifact, and supported client-platform cell passes with no orphan. | Q22 conformance-manifest self-check and gate command. |
+| Validate conformance evidence. | Every requirement maps to passing checked evidence, every closed capability matrix and generated artifact is current, and every initial client-platform row passes with no orphan. | Q22 conformance-manifest integrity cases plus the referenced executable checks. |
 
 ## Implementation Slices
 

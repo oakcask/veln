@@ -11,9 +11,8 @@
   proposals. Do not cite or edit proposal text as current behavior unless the
   matching specification page also states it.
 * Select proposal targets only from the Ready section of
-  `docs/proposals/README.md`. Do not select a blocked proposal or subsection
-  while its named prerequisite remains under `docs/proposals/`. If no ready
-  bounded slice exists, report that there is no target.
+  `docs/proposals/README.md`. If no ready implementation target exists, report
+  that there is no target.
 * When implementing or completing proposal work, use
   `$proposal-implementation-audit` to promote implemented behavior into
   `docs/specification/` and `examples/specification/`, and to remove completed
