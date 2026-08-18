@@ -52,6 +52,7 @@ const closurePaths = new Set([
   "docs/proposals/agent-language-services-lifecycle-migration.md",
   "docs/proposals/agent-language-services-platform-matrix-closure.md",
   umbrellaPath,
+  "docs/reference/README.md",
   "docs/reference/implemented-proposals/README.md",
   "docs/reference/implemented-proposals/agent-language-services-platform-matrix-closure.md",
   "workflow-scripts/check-agent-language-platform-matrix.mjs",
