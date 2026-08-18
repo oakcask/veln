@@ -41,3 +41,5 @@ jobs:
           DOC_FRONTMATTER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           DOC_FRONTMATTER_HEAD_SHA: ${{ github.sha }}
         run: node workflow-scripts/check-doc-frontmatter.mjs
+      - name: Validate proposal target readiness
+        run: node workflow-scripts/check-proposal-target-readiness.mjs validate

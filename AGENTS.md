@@ -14,6 +14,9 @@
   `docs/proposals/README.md`. Do not select a blocked proposal or subsection
   while its named prerequisite remains under `docs/proposals/`. If no ready
   bounded slice exists, report that there is no target.
+* Do not write or implement a generated proposal target unless its
+  `prompts/TARGET.json` sidecar passes the checked target-readiness contract.
+  `prompts/TARGET.md` alone is not an accepted implementation handoff.
 * When implementing or completing proposal work, use
   `$proposal-implementation-audit` to promote implemented behavior into
   `docs/specification/` and `examples/specification/`, and to remove completed

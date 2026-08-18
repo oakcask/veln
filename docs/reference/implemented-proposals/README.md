@@ -78,6 +78,10 @@ under `../../specification/` and its executable example routes.
   [companion-test-modules.md](companion-test-modules.md).
 - Agent module, package, and documentation model:
   [agent-module-package-docs.md](agent-module-package-docs.md).
+- Checked proposal target readiness:
+  [checked-proposal-target-readiness.md](checked-proposal-target-readiness.md).
+- Agent language services platform matrix closure:
+  [agent-language-services-platform-matrix-closure.md](agent-language-services-platform-matrix-closure.md).
 - Self-hosting standard library:
   [self-hosting-standard-library.md](self-hosting-standard-library.md).
 - Standard library package:

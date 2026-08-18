@@ -18,24 +18,17 @@ also states it.
 
 ## Ready
 
-- Check generated proposal targets against the Ready catalog and merged
-  prerequisite state before implementation begins:
-  [checked-proposal-target-readiness.md](checked-proposal-target-readiness.md).
 - Identifier casing that separates type and constructor names from module,
   function, and value-binding names:
   [identifier-casing.md](identifier-casing.md).
-- Close the agent-language-services client-platform set before freezing its
-  conformance universe:
-  [agent-language-services-platform-matrix-closure.md](agent-language-services-platform-matrix-closure.md).
+- Freeze the agent-language-services source universe before splitting
+  implemented history from unresolved work:
+  [agent-language-services-lifecycle-migration.md](agent-language-services-lifecycle-migration.md).
 
 Only proposals and subsections listed in this section are selectable targets.
 
 ## Blocked
 
-- The agent-language-services lifecycle migration is blocked until the
-  client-platform matrix closure and checked target-readiness proposals leave
-  this directory as completed implementation records:
-  [agent-language-services-lifecycle-migration.md](agent-language-services-lifecycle-migration.md).
 - The agent-language-services slice-closure proposal is blocked until the
   lifecycle-migration proposal leaves this directory as a completed
   implementation record:
