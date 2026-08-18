@@ -36,6 +36,11 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - name: Test workflow scripts
         run: node --test workflow-scripts/*.test.mjs
+      - name: Validate the agent language platform matrix
+        env:
+          AGENT_PLATFORM_MATRIX_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          AGENT_PLATFORM_MATRIX_HEAD_SHA: ${{ github.sha }}
+        run: node workflow-scripts/check-agent-language-platform-matrix.mjs
       - name: Validate frontmatter in changed documentation
         env:
           DOC_FRONTMATTER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
