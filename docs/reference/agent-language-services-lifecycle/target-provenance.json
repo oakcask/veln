@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "proposal_path": "docs/proposals/agent-language-services-lifecycle-migration.md",
+  "proposal_anchor": "#frozen-source-universe",
+  "target_kind": "proposal-section",
+  "default_branch": "main",
+  "base_commit": "45d3010f3be5c7935f05b1ac6cfed25ba4af5ef8",
+  "prerequisites": [
+    "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+    "docs/reference/implemented-proposals/agent-language-services-platform-matrix-closure.md",
+    "docs/reference/implemented-proposals/checked-proposal-target-readiness.md"
+  ],
+  "frozen_artifact_set": [
+    "docs/reference/agent-language-services-lifecycle/source-universe.json",
+    "docs/reference/agent-language-services-lifecycle/frozen-inventory.json",
+    "docs/reference/agent-language-services-lifecycle/lifecycle-manifest.json",
+    "docs/reference/agent-language-services-lifecycle/migration-ledger.schema.json",
+    "docs/reference/agent-language-services-lifecycle/migration-ledger.schema-fixture.json"
+  ]
+}
