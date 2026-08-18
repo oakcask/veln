@@ -55,11 +55,11 @@
       "destination": {
         "kind": "current",
         "specification": "docs/specification/mcp.md",
-        "anchor": "#mcp-server",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           {
             "path": "crates/veln-mcp/src/server/tests.rs",
-            "case": "mcp server tests"
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
           }
         ]
       }
@@ -887,11 +887,11 @@
       "destination": {
         "kind": "current",
         "specification": "docs/specification/mcp.md",
-        "anchor": "#mcp-server",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           {
             "path": "crates/veln-mcp/src/server/tests.rs",
-            "case": "mcp server tests"
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
           }
         ]
       }
@@ -1130,8 +1130,8 @@
       "lifecycle": "completed",
       "destination": {
         "kind": "completed",
-        "record": "docs/reference/implemented-proposals/agent-language-services.md",
-        "anchor": "#agent-language-services"
+        "record": "docs/reference/implemented-proposals/agent-module-package-docs.md",
+        "anchor": "#agent-module-package-and-documentation-model"
       }
     },
     {
@@ -1173,11 +1173,11 @@
       "destination": {
         "kind": "current",
         "specification": "docs/specification/mcp.md",
-        "anchor": "#mcp-server",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           {
             "path": "crates/veln-mcp/src/server/tests.rs",
-            "case": "mcp server tests"
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
           }
         ]
       }
@@ -2439,11 +2439,11 @@
       "destination": {
         "kind": "current",
         "specification": "docs/specification/mcp.md",
-        "anchor": "#mcp-server",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           {
             "path": "crates/veln-mcp/src/server/tests.rs",
-            "case": "mcp server tests"
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
           }
         ]
       }
@@ -3201,11 +3201,11 @@
       "destination": {
         "kind": "current",
         "specification": "docs/specification/mcp.md",
-        "anchor": "#mcp-server",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           {
             "path": "crates/veln-mcp/src/server/tests.rs",
-            "case": "mcp server tests"
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
           }
         ]
       }
@@ -3389,11 +3389,11 @@
       "destination": {
         "kind": "current",
         "specification": "docs/specification/mcp.md",
-        "anchor": "#mcp-server",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           {
             "path": "crates/veln-mcp/src/server/tests.rs",
-            "case": "mcp server tests"
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
           }
         ]
       }
@@ -3941,11 +3941,11 @@
       "destination": {
         "kind": "current",
         "specification": "docs/specification/mcp.md",
-        "anchor": "#mcp-server",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           {
             "path": "crates/veln-mcp/src/server/tests.rs",
-            "case": "mcp server tests"
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
           }
         ]
       }
@@ -4675,11 +4675,11 @@
       "destination": {
         "kind": "current",
         "specification": "docs/specification/mcp.md",
-        "anchor": "#mcp-server",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           {
             "path": "crates/veln-mcp/src/server/tests.rs",
-            "case": "mcp server tests"
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
           }
         ]
       }
@@ -6053,11 +6053,11 @@
       "destination": {
         "kind": "current",
         "specification": "docs/specification/mcp.md",
-        "anchor": "#mcp-server",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           {
             "path": "crates/veln-mcp/src/server/tests.rs",
-            "case": "mcp server tests"
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
           }
         ]
       }
@@ -6171,11 +6171,11 @@
       "destination": {
         "kind": "current",
         "specification": "docs/specification/mcp.md",
-        "anchor": "#mcp-server",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           {
             "path": "crates/veln-mcp/src/server/tests.rs",
-            "case": "mcp server tests"
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
           }
         ]
       }
@@ -6219,11 +6219,11 @@
       "destination": {
         "kind": "current",
         "specification": "docs/specification/mcp.md",
-        "anchor": "#mcp-server",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           {
             "path": "crates/veln-mcp/src/server/tests.rs",
-            "case": "mcp server tests"
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
           }
         ]
       }
@@ -6267,11 +6267,11 @@
       "destination": {
         "kind": "current",
         "specification": "docs/specification/mcp.md",
-        "anchor": "#mcp-server",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           {
             "path": "crates/veln-mcp/src/server/tests.rs",
-            "case": "mcp server tests"
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
           }
         ]
       }
@@ -6483,11 +6483,11 @@
       "destination": {
         "kind": "current",
         "specification": "docs/specification/mcp.md",
-        "anchor": "#mcp-server",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           {
             "path": "crates/veln-mcp/src/server/tests.rs",
-            "case": "mcp server tests"
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
           }
         ]
       }
@@ -6615,11 +6615,11 @@
       "destination": {
         "kind": "current",
         "specification": "docs/specification/mcp.md",
-        "anchor": "#mcp-server",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           {
             "path": "crates/veln-mcp/src/server/tests.rs",
-            "case": "mcp server tests"
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
           }
         ]
       }
@@ -6663,11 +6663,11 @@
       "destination": {
         "kind": "current",
         "specification": "docs/specification/mcp.md",
-        "anchor": "#mcp-server",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           {
             "path": "crates/veln-mcp/src/server/tests.rs",
-            "case": "mcp server tests"
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
           }
         ]
       }
@@ -6767,11 +6767,11 @@
       "destination": {
         "kind": "current",
         "specification": "docs/specification/mcp.md",
-        "anchor": "#mcp-server",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           {
             "path": "crates/veln-mcp/src/server/tests.rs",
-            "case": "mcp server tests"
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
           }
         ]
       }
@@ -6815,11 +6815,11 @@
       "destination": {
         "kind": "current",
         "specification": "docs/specification/mcp.md",
-        "anchor": "#mcp-server",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           {
             "path": "crates/veln-mcp/src/server/tests.rs",
-            "case": "mcp server tests"
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
           }
         ]
       }
@@ -7241,11 +7241,11 @@
       "destination": {
         "kind": "current",
         "specification": "docs/specification/mcp.md",
-        "anchor": "#mcp-server",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           {
             "path": "crates/veln-mcp/src/server/tests.rs",
-            "case": "mcp server tests"
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
           }
         ]
       }
@@ -7331,11 +7331,11 @@
       "destination": {
         "kind": "current",
         "specification": "docs/specification/mcp.md",
-        "anchor": "#mcp-server",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           {
             "path": "crates/veln-mcp/src/server/tests.rs",
-            "case": "mcp server tests"
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
           }
         ]
       }
@@ -7505,11 +7505,11 @@
       "destination": {
         "kind": "current",
         "specification": "docs/specification/mcp.md",
-        "anchor": "#mcp-server",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           {
             "path": "crates/veln-mcp/src/server/tests.rs",
-            "case": "mcp server tests"
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
           }
         ]
       }
@@ -8491,11 +8491,11 @@
       "destination": {
         "kind": "current",
         "specification": "docs/specification/mcp.md",
-        "anchor": "#mcp-server",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           {
             "path": "crates/veln-mcp/src/server/tests.rs",
-            "case": "mcp server tests"
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
           }
         ]
       }
@@ -8511,11 +8511,11 @@
       "destination": {
         "kind": "current",
         "specification": "docs/specification/mcp.md",
-        "anchor": "#mcp-server",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           {
             "path": "crates/veln-mcp/src/server/tests.rs",
-            "case": "mcp server tests"
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
           }
         ]
       }

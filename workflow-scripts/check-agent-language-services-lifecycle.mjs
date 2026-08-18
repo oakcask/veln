@@ -24,6 +24,7 @@ const protectedBootstrapPaths = [
   "crates/veln-cli/tests/toolchain_cases/mcp/",
   "crates/veln-cli/tests/toolchain_harness/",
   "crates/veln-cli/tests/toolchain_semantic_baseline/",
+  "crates/veln-cli/tests/toolchain-case-semantics.baseline",
   "examples/specification/mcp/",
 ];
 const validLifecycles = new Set(["current", "completed", "planned", "removed"]);
@@ -154,9 +155,9 @@ export function validateArtifacts({ repoRoot, artifacts } = {}) {
   const errors = [
     ...validateContract({ contract, parsedRoots, parsedById }),
     ...validateInventory({ inventory, contract, parsedById }),
-    ...validateManifest({ manifest, inventory, parsedById }),
+    ...validateManifest({ manifest, inventory, parsedById, repoRoot }),
     ...validateLedgerSchema(ledgerSchema),
-    ...validateLedgerSchemaCorpus(ledgerSchemaCorpus),
+    ...validateLedgerSchemaCorpus({ corpus: ledgerSchemaCorpus, schema: ledgerSchema, repoRoot }),
   ];
   return errors.length === 0
     ? success(`Validated ${parsedRoots.length} frozen source item(s).`)
@@ -518,10 +519,11 @@ function validateLeaf({ leaf, label, seenLeaves, expectedText, conformance }) {
   if (leaf.digest !== digest) {
     errors.push(`${label}: update leaf digest to match its exact source text`);
   }
+  errors.push(...validateLifecycleSeparation({ label, sourceText: expectedText, lifecycle: leaf.lifecycle }));
   return errors;
 }
 
-function validateManifest({ manifest, inventory, parsedById }) {
+function validateManifest({ manifest, inventory, parsedById, repoRoot }) {
   const errors = [];
   const leaves = allInventoryLeavesWithSource({ inventory, parsedById });
   const leafById = new Map(leaves.map((leaf) => [leaf.id, leaf]));
@@ -552,7 +554,7 @@ function validateManifest({ manifest, inventory, parsedById }) {
     if (leaf.reviewed_text_digest !== sha256(inventoryLeaf.sourceText)) {
       errors.push(`${leaf.id}: record the reviewed source text digest for lifecycle separation`);
     }
-    errors.push(...validateDestination({ label, lifecycle: leaf.lifecycle, destination: leaf.destination }));
+    errors.push(...validateDestination({ label, lifecycle: leaf.lifecycle, destination: leaf.destination, repoRoot, requireResolved: true }));
   }
   for (const leaf of leaves) {
     if (!seen.has(leaf.id)) {
@@ -583,7 +585,7 @@ function validateLedgerSchema(schema) {
   return errors;
 }
 
-function validateLedgerSchemaCorpus(corpus) {
+function validateLedgerSchemaCorpus({ corpus, schema, repoRoot }) {
   const errors = [];
   const cases = Array.isArray(corpus?.cases) ? corpus.cases : [];
   if (cases.length === 0) {
@@ -593,12 +595,13 @@ function validateLedgerSchemaCorpus(corpus) {
     const label = `migration-ledger.schema-corpus.cases[${index}]`;
     const structureErrors = validateLedgerMappingStructure(entry.mapping);
     const destinationErrors = entry.mapping && typeof entry.mapping === "object"
-      ? validateDestination({ label, lifecycle: entry.mapping.lifecycle, destination: entry.mapping.destination })
+      ? validateDestination({ label, lifecycle: entry.mapping.lifecycle, destination: entry.mapping.destination, repoRoot, requireResolved: true })
       : [`${label}: use an object mapping with source_id, lifecycle, and destination`];
-    const schemaErrors = [
-      ...structureErrors,
-      ...destinationErrors,
-    ];
+    const schemaErrors = validateJsonSchema({
+      value: { schema_version: 1, mappings: entry.mapping === undefined ? [] : [entry.mapping] },
+      schema,
+      label,
+    });
     const semanticErrors = [
       ...structureErrors,
       ...destinationErrors,
@@ -947,6 +950,110 @@ function evidenceSchema() {
   };
 }
 
+function validateJsonSchema({ value, schema, label }) {
+  return validateJsonSchemaNode({ value, schema, label });
+}
+
+function validateJsonSchemaNode({ value, schema, label }) {
+  if (!schema || typeof schema !== "object") {
+    return [];
+  }
+  const errors = [];
+  if (schema.not) {
+    const notErrors = validateJsonSchemaNode({ value, schema: schema.not, label });
+    if (notErrors.length === 0) {
+      errors.push(`${label}: value must not match the forbidden schema`);
+    }
+  }
+  if (schema.const !== undefined && !jsonEqual(value, schema.const)) {
+    errors.push(`${label}: value must equal ${JSON.stringify(schema.const)}`);
+  }
+  if (Array.isArray(schema.enum) && !schema.enum.some((candidate) => jsonEqual(value, candidate))) {
+    errors.push(`${label}: value must be one of ${schema.enum.map((item) => JSON.stringify(item)).join(", ")}`);
+  }
+  if (schema.type && !jsonTypeMatches(value, schema.type)) {
+    errors.push(`${label}: value must be ${schema.type}`);
+    return errors;
+  }
+  if (typeof value === "string") {
+    if (schema.minLength !== undefined && value.length < schema.minLength) {
+      errors.push(`${label}: string is shorter than ${schema.minLength}`);
+    }
+    if (schema.pattern && !new RegExp(schema.pattern, "u").test(value)) {
+      errors.push(`${label}: string must match ${schema.pattern}`);
+    }
+  }
+  if (Array.isArray(value)) {
+    if (schema.minItems !== undefined && value.length < schema.minItems) {
+      errors.push(`${label}: array must contain at least ${schema.minItems} item(s)`);
+    }
+    if (schema.uniqueItems && new Set(value.map((item) => JSON.stringify(item))).size !== value.length) {
+      errors.push(`${label}: array items must be unique`);
+    }
+    if (schema.items) {
+      for (const [index, item] of value.entries()) {
+        errors.push(...validateJsonSchemaNode({ value: item, schema: schema.items, label: `${label}[${index}]` }));
+      }
+    }
+  }
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const properties = schema.properties ?? {};
+    for (const required of schema.required ?? []) {
+      if (!(required in value)) {
+        errors.push(`${label}: missing required property ${required}`);
+      }
+    }
+    if (schema.additionalProperties === false) {
+      for (const key of Object.keys(value)) {
+        if (!(key in properties)) {
+          errors.push(`${label}: unexpected property ${key}`);
+        }
+      }
+    }
+    for (const [key, propertySchema] of Object.entries(properties)) {
+      if (key in value) {
+        errors.push(...validateJsonSchemaNode({ value: value[key], schema: propertySchema, label: `${label}.${key}` }));
+      }
+    }
+  }
+  if (Array.isArray(schema.oneOf)) {
+    const matches = schema.oneOf.filter((candidate) => validateJsonSchemaNode({ value, schema: candidate, label }).length === 0).length;
+    if (matches !== 1) {
+      errors.push(`${label}: value must match exactly one destination schema`);
+    }
+  }
+  return errors;
+}
+
+function jsonTypeMatches(value, type) {
+  if (type === "array") {
+    return Array.isArray(value);
+  }
+  if (type === "object") {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+  }
+  if (type === "string") {
+    return typeof value === "string";
+  }
+  if (type === "boolean") {
+    return typeof value === "boolean";
+  }
+  if (type === "number") {
+    return typeof value === "number";
+  }
+  if (type === "integer") {
+    return Number.isInteger(value);
+  }
+  if (type === "null") {
+    return value === null;
+  }
+  return false;
+}
+
+function jsonEqual(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
 function validateLedgerMappingStructure(mapping) {
   const errors = [];
   if (!mapping || typeof mapping !== "object" || Array.isArray(mapping)) {
@@ -975,7 +1082,47 @@ function validateLedgerMappingStructure(mapping) {
   return errors;
 }
 
-function validateDestination({ label, lifecycle, destination }) {
+function validateLifecycleSeparation({ label, sourceText, lifecycle }) {
+  const classes = new Set();
+  for (const statement of lifecycleStatements(sourceText)) {
+    const statementText = scalarSlice(sourceText, statement.start, statement.end);
+    const statementClasses = lifecycleClassesForStatement(statementText);
+    if (statementClasses.size > 1) {
+      return [`${label}: split mixed lifecycle statement "${compactStatement(statementText)}" into one-lifecycle child spans`];
+    }
+    for (const statementClass of statementClasses) {
+      classes.add(statementClass);
+    }
+  }
+  if (classes.size > 1) {
+    return [`${label}: split mixed lifecycle statements into separate child spans; found ${[...classes].join(", ")}`];
+  }
+  return [];
+}
+
+function lifecycleClassesForStatement(text) {
+  const normalized = text.toLowerCase();
+  const classes = new Set();
+  if (/\b(current lifecycle|lifecycle:\s*current|current statement)\b/.test(normalized)) {
+    classes.add("current");
+  }
+  if (/\b(completed lifecycle|lifecycle:\s*completed|completed statement)\b/.test(normalized)) {
+    classes.add("completed");
+  }
+  if (/\b(planned lifecycle|lifecycle:\s*planned|planned statement)\b/.test(normalized)) {
+    classes.add("planned");
+  }
+  if (/\b(removed lifecycle|lifecycle:\s*removed|removed statement)\b/.test(normalized)) {
+    classes.add("removed");
+  }
+  return classes;
+}
+
+function compactStatement(text) {
+  return text.replace(/\s+/g, " ").trim().slice(0, 120);
+}
+
+function validateDestination({ label, lifecycle, destination, repoRoot, requireResolved = false }) {
   const allowedKeys = {
     current: ["kind", "specification", "anchor", "evidence"],
     completed: ["kind", "record", "anchor"],
@@ -1000,6 +1147,62 @@ function validateDestination({ label, lifecycle, destination }) {
   }
   if (lifecycle === "removed" && (!nonemptyString(destination.reason) || !isMarkdownPath(destination.duplicate_destination, "docs/"))) {
     return [`${label}: explain removed mappings with a reason and duplicate or superseding destination`];
+  }
+  if (requireResolved) {
+    return validateResolvedDestination({ label, lifecycle, destination, repoRoot });
+  }
+  return [];
+}
+
+function validateResolvedDestination({ label, lifecycle, destination, repoRoot }) {
+  const errors = [];
+  if (!repoRoot) {
+    return errors;
+  }
+  if (lifecycle === "removed") {
+    errors.push(...validateResolvedMarkdownPath({ label, file: destination.duplicate_destination, repoRoot }));
+    return errors;
+  }
+  const field = lifecycle === "current" ? "specification" : lifecycle === "completed" ? "record" : "proposal";
+  const expectedRole = lifecycle === "current" ? "specification" : lifecycle === "completed" ? ["implementation-record", "reference"] : "proposal";
+  const file = destination[field];
+  errors.push(...validateResolvedMarkdownPath({ label, file, anchor: destination.anchor, expectedRole, repoRoot }));
+  if (lifecycle === "current") {
+    for (const [index, item] of destination.evidence.entries()) {
+      errors.push(...validateResolvedEvidence({ label: `${label}.destination.evidence[${index}]`, item, repoRoot }));
+    }
+  }
+  return errors;
+}
+
+function validateResolvedMarkdownPath({ label, file, anchor, expectedRole, repoRoot }) {
+  const errors = [];
+  const resolved = path.resolve(repoRoot, file);
+  if (!resolved.startsWith(path.resolve(repoRoot) + path.sep) || !fs.existsSync(resolved)) {
+    return [`${label}: link to an existing repository Markdown destination ${file}`];
+  }
+  const text = fs.readFileSync(resolved, "utf8");
+  if (expectedRole) {
+    const role = frontmatterField(text, "role");
+    const expectedRoles = Array.isArray(expectedRole) ? expectedRole : [expectedRole];
+    if (!expectedRoles.includes(role)) {
+      errors.push(`${label}: link ${file} to a ${expectedRoles.join(" or ")} document; found role ${role ?? "missing"}`);
+    }
+  }
+  if (anchor && !markdownAnchors(text).has(anchor)) {
+    errors.push(`${label}: link to an existing anchor ${anchor} in ${file}`);
+  }
+  return errors;
+}
+
+function validateResolvedEvidence({ label, item, repoRoot }) {
+  const resolved = path.resolve(repoRoot, item.path);
+  if (!resolved.startsWith(path.resolve(repoRoot) + path.sep) || !fs.existsSync(resolved)) {
+    return [`${label}: link to an existing checked evidence path ${item.path}`];
+  }
+  const text = fs.readFileSync(resolved, "utf8");
+  if (!text.includes(item.case)) {
+    return [`${label}: name an evidence case present in ${item.path}`];
   }
   return [];
 }
@@ -1121,6 +1324,48 @@ function stripFrontmatter(text) {
     return { text };
   }
   return { text: lines.slice(closing + 1).join("\n") };
+}
+
+function frontmatterField(text, field) {
+  const lines = text.split("\n");
+  if (lines[0]?.trim() !== "---") {
+    return undefined;
+  }
+  const pattern = new RegExp(`^${escapeRegExp(field)}:\\s*(.+?)\\s*$`);
+  for (let index = 1; index < lines.length; index += 1) {
+    if (lines[index].trim() === "---") {
+      return undefined;
+    }
+    const match = pattern.exec(lines[index]);
+    if (match) {
+      return match[1].replace(/^["']|["']$/g, "");
+    }
+  }
+  return undefined;
+}
+
+function markdownAnchors(text) {
+  const anchors = new Set();
+  for (const line of text.split("\n")) {
+    const match = /^(#{1,6})\s+(.+?)\s*$/.exec(line);
+    if (match) {
+      anchors.add(`#${githubAnchor(match[2])}`);
+    }
+  }
+  return anchors;
+}
+
+function githubAnchor(heading) {
+  return heading
+    .trim()
+    .toLowerCase()
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&amp;/g, "and")
+    .replace(/[^a-z0-9 -]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 function isTableRow(line) {

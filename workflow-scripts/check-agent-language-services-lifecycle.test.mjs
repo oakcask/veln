@@ -192,21 +192,9 @@ function fixtures() {
       }));
     }),
   };
-  const ledgerSchema = {
-    $id: "https://veln-lang.invalid/schemas/agent-language-services-migration-ledger.schema.json",
-    properties: {
-      mappings: {
-        items: {
-          additionalProperties: false,
-          properties: {
-            lifecycle: { enum: ["current", "completed", "planned", "removed"] },
-            destination: { oneOf: [{}, {}, {}, {}] },
-          },
-        },
-      },
-    },
-  };
-  return { sourceText: source, contract, inventory, manifest, ledgerSchema };
+  const ledgerSchema = JSON.parse(fs.readFileSync("docs/reference/agent-language-services-lifecycle/migration-ledger.schema.json", "utf8"));
+  const ledgerSchemaCorpus = JSON.parse(fs.readFileSync("docs/reference/agent-language-services-lifecycle/migration-ledger.schema-corpus.json", "utf8"));
+  return { sourceText: source, contract, inventory, manifest, ledgerSchema, ledgerSchemaCorpus };
 }
 
 test("accepts matching artifacts", () => {
@@ -266,10 +254,38 @@ test("rejects wrong or mixed lifecycle decisions", () => {
   const wrong = fixtures();
   wrong.inventory.roots[0].lifecycle = "planned";
   const mixed = fixtures();
-  mixed.inventory.roots[3].children[0].lifecycle = "removed";
+  mixed.sourceText = mixed.sourceText.replace("Request references.", "Current lifecycle and planned lifecycle share one statement.");
+  const mixedRoots = parseMarkdownSource(mixed.sourceText);
+  mixed.contract.roots = mixed.contract.roots.map((root, index) => ({ ...root, digest: mixedRoots[index].digest }));
+  mixed.inventory.roots[3].digest = mixedRoots[3].digest;
+  mixed.inventory.roots[3].children[0] = {
+    ...mixed.inventory.roots[3].children[0],
+    span: { start: 2, end: 61 },
+    digest: digestOf(mixedRoots[3].text, 2, 61),
+  };
+  mixed.inventory.roots[3].children[1] = {
+    ...mixed.inventory.roots[3].children[1],
+    span: { start: 64, end: 86 },
+    digest: digestOf(mixedRoots[3].text, 64, 86),
+  };
+  mixed.inventory.roots[3].separator_spans = [
+    { start: 0, end: 2 },
+    { start: 61, end: 64 },
+    { start: 86, end: 88 },
+  ];
+  mixed.manifest.leaves = mixed.inventory.roots.flatMap((root) => {
+    const leaves = root.children?.length > 0 ? root.children : [root];
+    return leaves.map((leaf) => ({
+      id: leaf.id,
+      span: leaf.span ?? { start: 0, end: [...mixedRoots.find((sourceRoot) => sourceRoot.id === leaf.id).text].length },
+      reviewed_text_digest: leaf.digest,
+      lifecycle: leaf.lifecycle,
+      destination: destinationFor(leaf.lifecycle),
+    }));
+  });
 
   assert.match(validateArtifacts({ repoRoot: ".", artifacts: wrong }).errors.join("\n"), /align inventory lifecycle/);
-  assert.match(validateArtifacts({ repoRoot: ".", artifacts: mixed }).errors.join("\n"), /removed is only for supporting explanation/);
+  assert.match(validateArtifacts({ repoRoot: ".", artifacts: mixed }).errors.join("\n"), /mixed lifecycle statement/);
 });
 
 test("rejects missing reviewed identity sets", () => {
@@ -427,14 +443,24 @@ test("rejects bootstrap changes to protected paths", () => {
   }), [
     "crates/veln-mcp/src/server/tests.rs: restore this path or move the change to a later PR; changing it would mix toolchain behavior or reorganize the frozen proposal during the documentation-only inventory bootstrap",
   ]);
+
+  assert.match(validateDiffScope({
+    changedPaths: [
+      "docs/reference/agent-language-services-lifecycle/frozen-inventory.json",
+      "crates/veln-cli/tests/toolchain-case-semantics.baseline",
+    ],
+    baseHasFrozen: false,
+    headHasFrozen: true,
+    prerequisitesComplete: true,
+  }).join("\n"), /toolchain-case-semantics\.baseline/);
 });
 
 function destinationFor(lifecycle) {
   if (lifecycle === "current") {
-    return { kind: "current", specification: "docs/specification/mcp.md", anchor: "#mcp", evidence: [{ path: "crates/veln-mcp/src/server/tests.rs", case: "server tests" }] };
+    return { kind: "current", specification: "docs/specification/mcp.md", anchor: "#mcp-workspace-projects-diagnostics-and-definitions", evidence: [{ path: "crates/veln-mcp/src/server/tests.rs", case: "lifecycle_lists_and_calls_only_implemented_tools" }] };
   }
   if (lifecycle === "completed") {
-    return { kind: "completed", record: "docs/reference/implemented-proposals/agent-language-services.md", anchor: "#agent-language-services" };
+    return { kind: "completed", record: "docs/reference/implemented-proposals/agent-module-package-docs.md", anchor: "#agent-module-package-and-documentation-model" };
   }
   if (lifecycle === "planned") {
     return { kind: "planned", proposal: "docs/proposals/agent-language-services.md", anchor: "#agent-language-services" };
