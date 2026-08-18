@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The agent-language-services plugin clients, supported platforms, compatibility fields, or lifecycle-migration source-universe prerequisite changes.
+update-when: The agent-language-services plugin clients, supported platforms, compatibility field identities, compatibility-value evidence boundary, or lifecycle-migration source-universe prerequisite changes.
 ---
 
 # Agent Language Services Platform Matrix Closure
@@ -25,8 +25,8 @@ inventory PR from
 
 Add one literal client-platform table to
 `agent-language-services.md`. Each data row declares one exact client and
-platform pair. Each row also names the compatibility fields that the future
-`compatibility.toml` entry must pin:
+platform pair. Add a separate closed field table that names the compatibility
+fields that each future `compatibility.toml` entry must pin:
 
 - client identifier;
 - platform identifier;
@@ -45,9 +45,13 @@ the keys, or use a range, wildcard, “all supported platforms,” or an unnamed
 future row. A separate proposal must add another client or platform after this
 closure completes.
 
-Every compatibility field is a nonempty literal. Host builds, schema and
-contract revisions, and validator versions use one exact value, not a range or
-placeholder. An integrity digest is exactly 64 lowercase hexadecimal digits.
+This prerequisite closes membership and field identity, not compatibility
+values. It may not invent a host build, schema revision, validator version,
+contract revision, or integrity digest for an artifact that has not been
+implemented and checked. Exact values remain planned acceptance inputs. The
+plugin implementation records them only from checked client and validator
+artifacts. A patterned example, syntactically valid digest, or unresolvable
+version label is not compatibility evidence.
 
 Update every plugin requirement, Q21 evidence row, Q22 totality row, and
 completion rule that quantifies over client-platform cells so it routes to the
@@ -58,14 +62,15 @@ not introduce another implicit platform set.
 
 Add a documentation validator that extracts the literal table independently
 from the later frozen-source inventory. The validator records the ordered
-client-platform keys and exact row count. It rejects:
+client-platform keys, exact row count, and exact compatibility-field names. It
+rejects:
 
 - a missing or duplicate client-platform key;
 - an empty client or platform identifier;
 - a range, wildcard, placeholder, or catch-all row;
-- a missing compatibility field;
-- an empty, ranged, wildcard, or placeholder compatibility value;
-- an integrity digest that is not exactly 64 lowercase hexadecimal digits;
+- a missing, duplicate, or unexpected compatibility field identity;
+- a closure row that claims an unchecked compatibility value or integrity
+  digest;
 - a plugin, Q21, Q22, or completion reference to an unnamed platform set; and
 - a checked row-count value that differs from the table.
 
@@ -85,7 +90,7 @@ reject a protected-path rename and a Git type change during the closure PR.
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |
 | Enumerate the intended plugin compatibility set. | One literal table contains `codex/x86_64-unknown-linux-gnu` followed by `claude-code/x86_64-unknown-linux-gnu` and no other or implicit membership. | Independent expected-key fixture and exact row count of two. |
-| Preserve one compatibility contract per cell. | Every row contains nonempty exact client, platform, host build, manifest-schema revision, validator version and digest, and all required Veln contract fields. | Per-field missing, empty, range, wildcard, placeholder, and malformed-digest mutations. |
+| Preserve one compatibility contract shape per cell. | The closed field table names host build, manifest-schema revision, validator version and digest, and all required Veln contract fields exactly once without claiming their future values. | Per-field missing, duplicate, unexpected, and value-bearing mutations. |
 | Keep cell identity unique and literal. | Empty, duplicate, ranged, wildcard, placeholder, and catch-all client-platform keys fail. | Injected rejection cases for each invalid key class. |
 | Close all references over the same set. | Plugin prose, Q21, Q22, and the completion rule refer only to the literal table. | Reference scan with one injected unnamed-platform phrase. |
 | Keep the prerequisite documentation-only. | The matrix-addition transition does not add plugin artifacts, executable MCP cases, harness changes, or semantic baselines, and its allowlist retires after merge. | Phase-aware diff-scope cases for the matrix transition, a later unrelated docs change, a protected-path rename, and a Git type change. |
@@ -95,6 +100,8 @@ reject a protected-path rename and a Git type change during the closure PR.
 - Choosing or implementing the future plugin packaging mechanism.
 - Claiming support for a client-platform cell before its pinned validation
   passes.
+- Choosing placeholder compatibility values before the client and validator
+  artifacts exist.
 - Adding `compatibility.toml`, client manifests, MCP or LSP smoke tests, or an
   installer.
 - Freezing the broader agent-language-services source inventory.
