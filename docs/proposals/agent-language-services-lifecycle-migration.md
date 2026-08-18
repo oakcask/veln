@@ -114,10 +114,12 @@ and its completion record is
 
 The migration PR treats the merged source-universe contract, lifecycle
 manifest, inventory, schema, validator, and acceptance corpus as immutable
-input. It must not derive the expected universe from the edited umbrella page,
-edited ledger, or the generator under test. It validates migrated destinations
-against the frozen exact source text and does not compare frozen digests with
-the reorganized umbrella page as source drift.
+input. Authority corrections are allowed only in the frozen-inventory bootstrap
+range that writes those artifacts and validates them as one acceptance corpus.
+The migration PR must not derive the expected universe from the edited umbrella
+page, edited ledger, or the generator under test. It validates migrated
+destinations against the frozen exact source text and does not compare frozen
+digests with the reorganized umbrella page as source drift.
 
 ## Diff-Guard Phases
 

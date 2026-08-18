@@ -39,6 +39,13 @@ const g1ToG2AllowlistPrefixes = [
   frozenDirectory,
 ];
 const g1ToG2AllowlistPaths = new Set([
+  "docs/proposals/README.md",
+  "docs/proposals/agent-language-services-lifecycle-migration.md",
+  "docs/reference/README.md",
+  authorityPath,
+  "docs/reference/implemented-proposals/README.md",
+  "docs/reference/implemented-proposals/agent-language-services-frozen-source-inventory.md",
+  "docs/reference/proposal-target-readiness/manifest.json",
   lifecycleScriptPath,
   lifecycleTestPath,
   workflowPath,
@@ -1087,7 +1094,7 @@ function validateTransition({ repoRoot, base, head, baseState, headState, change
     return errors;
   }
   if (transition === "G1->G2") {
-    errors.push(...rejectChangedImmutablePaths({ repoRoot, base, head, paths: immutableG1Paths, label: "G1 authority" }));
+    errors.push(...rejectChangedImmutablePaths({ repoRoot, base, head, paths: new Set([gateRecordPath]), label: "G1 gate record" }));
     errors.push(...validateTargetProvenance({ repoRoot, base, head }));
     for (const changedPath of changedPaths) {
       if (!isG1ToG2AllowedPath(changedPath)) {

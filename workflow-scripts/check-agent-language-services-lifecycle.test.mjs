@@ -301,6 +301,9 @@ test("accepts a scoped G1 to G2 frozen-inventory bootstrap transition", () => {
   git(fixture.path, ["switch", "--create", "inventory"]);
   const writeResult = runCommand({ repoRoot: fixture.path, command: "write-frozen-artifacts", argv: ["--base-commit", base] });
   assert.equal(writeResult.valid, true, writeResult.errors.join("\n"));
+  writeFile(fixture.path, "docs/reference/README.md", "---\nrole: routing\nupdate-when: Routes change.\n---\n\n# Reference\n\n- [Lifecycle](agent-language-services-lifecycle/README.md).\n");
+  writeFile(fixture.path, "docs/reference/implemented-proposals/README.md", "---\nrole: routing\nupdate-when: Records change.\n---\n\n# Records\n\n- [Frozen](agent-language-services-frozen-source-inventory.md).\n");
+  writeFile(fixture.path, "docs/reference/implemented-proposals/agent-language-services-frozen-source-inventory.md", "---\nrole: implementation-record\nauthority: supporting\nupdate-when: The frozen inventory record is superseded.\n---\n\n# Agent Language Services Frozen Source Inventory\n");
   const head = commitAll(fixture.path, "freeze inventory");
 
   const result = runCommand({
