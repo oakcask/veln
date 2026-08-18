@@ -47,6 +47,10 @@ behavior page needs rationale, source support, or toolchain reference material.
 - Use [proposal-target-readiness/README.md](proposal-target-readiness/README.md)
   before changing generated proposal target validation, readiness metadata, or
   the readiness workflow registration.
+- Use [agent-language-services-lifecycle/README.md](agent-language-services-lifecycle/README.md)
+  before changing agent-language-services lifecycle review artifacts, frozen
+  inventory artifacts, migration-ledger schema fixtures, target provenance, or
+  lifecycle validator registration.
 - Use `implemented-proposals/` only for completed proposal history or
   completion evidence after checking current behavior.
 - Use `source-decisions/` after a language page needs rationale; start with

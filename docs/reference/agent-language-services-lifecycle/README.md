@@ -1,6 +1,6 @@
 ---
 role: routing
-update-when: The agent-language-services lifecycle review artifact, frozen source-universe contract, inventory, lifecycle manifest, migration-ledger schema fixture, frozen-inventory target provenance, or lifecycle validator command changes.
+update-when: The agent-language-services lifecycle reviewed source-decision artifact, frozen source-universe contract, inventory, lifecycle manifest, migration-ledger schema, migration-ledger fixture, frozen-inventory target provenance, or lifecycle validator command changes.
 ---
 
 # Agent Language Services Lifecycle
