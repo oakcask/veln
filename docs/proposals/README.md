@@ -29,8 +29,6 @@ Only proposals and subsections listed in this section are selectable targets.
 
 ## Blocked
 
-- Add a target-snapshot preflight before reissuing another proposal target:
-  [proposal-target-snapshot-preflight.md](proposal-target-snapshot-preflight.md).
 - The agent-language-services slice-closure proposal is blocked until the
   lifecycle-migration proposal leaves this directory as a completed
   implementation record:
