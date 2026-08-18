@@ -102,7 +102,7 @@
       "text": "- definition lookup beyond the implemented workspace symbol set, and\n  reference lookup;",
       "digest": "7b6742a24bbc87234c366c69186487f4e820a2a9c5112d0c4dad89106661c210",
       "source_class": "conformance",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-R0004-L01",
@@ -110,12 +110,29 @@
           "lifecycle": "current",
           "spans": [
             [
+              31,
+              63
+            ]
+          ],
+          "text": "implemented workspace symbol set",
+          "digest": "f1f111ce96f8d7b91474cceb24e6a8f2df294a9d408c7c39d0451193cefa2fc8"
+        },
+        {
+          "id": "ALS-R0004-L02",
+          "heading": "Implementation Status",
+          "lifecycle": "planned",
+          "spans": [
+            [
               0,
+              31
+            ],
+            [
+              63,
               88
             ]
           ],
-          "text": "- definition lookup beyond the implemented workspace symbol set, and\n  reference lookup;",
-          "digest": "7b6742a24bbc87234c366c69186487f4e820a2a9c5112d0c4dad89106661c210"
+          "text": "- definition lookup beyond the , and\n  reference lookup;",
+          "digest": "e62d07a3587a219284853727f64244d1be6be297d73701af699ba51b3c792f8f"
         }
       ]
     },
@@ -2780,20 +2797,37 @@
       "text": "The implemented workspace-project, `check_project`, and workspace `definition`\ninput and result schemas\nare checked JSON Schemas in the `mcp/v1` schema bundle. Their tool declarations\nderive from the same files. The remaining reference, broader definition,\nresource-metadata, and documentation schemas are planned. Schema objects reject\nunknown fields and reject `null` unless a field explicitly permits it. Schema\nor JSON-RPC shape failures map to protocol invalid-params errors. A decoded\ndomain failure is an MCP tool error with `{code, message, details}`.",
       "digest": "86d1c917776e1e257fa8b5f3f1f88d6b1f6ec7ec5945dc8d134cc3e00d0d69d6",
       "source_class": "conformance",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-R0107-L01",
           "heading": "Tools",
-          "lifecycle": "planned",
+          "lifecycle": "current",
           "spans": [
             [
               0,
+              212
+            ],
+            [
+              314,
               559
             ]
           ],
-          "text": "The implemented workspace-project, `check_project`, and workspace `definition`\ninput and result schemas\nare checked JSON Schemas in the `mcp/v1` schema bundle. Their tool declarations\nderive from the same files. The remaining reference, broader definition,\nresource-metadata, and documentation schemas are planned. Schema objects reject\nunknown fields and reject `null` unless a field explicitly permits it. Schema\nor JSON-RPC shape failures map to protocol invalid-params errors. A decoded\ndomain failure is an MCP tool error with `{code, message, details}`.",
-          "digest": "86d1c917776e1e257fa8b5f3f1f88d6b1f6ec7ec5945dc8d134cc3e00d0d69d6"
+          "text": "The implemented workspace-project, `check_project`, and workspace `definition`\ninput and result schemas\nare checked JSON Schemas in the `mcp/v1` schema bundle. Their tool declarations\nderive from the same files.  Schema objects reject\nunknown fields and reject `null` unless a field explicitly permits it. Schema\nor JSON-RPC shape failures map to protocol invalid-params errors. A decoded\ndomain failure is an MCP tool error with `{code, message, details}`.",
+          "digest": "245765122422cf3f6750bcce982bc6d9c67bf7186bb4dc9b0ebbf47af5de5471"
+        },
+        {
+          "id": "ALS-R0107-L02",
+          "heading": "Tools",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              212,
+              314
+            ]
+          ],
+          "text": "The remaining reference, broader definition,\nresource-metadata, and documentation schemas are planned.",
+          "digest": "e7f48a6255ba0ade38f770bfe041069388aba5ebf62399447d08ef825f630ba5"
         }
       ]
     },
@@ -4444,20 +4478,33 @@
       "text": "The transport-independent Q11 digest transcript foundation is implemented in\n`veln-project`. Its current contract and fixed-vector evidence are specified in\n[Package Snapshot Digests](../specification/package-snapshots.md). The same\nspecification defines the implemented filesystem capture, Q12 distribution\nset foundation, portable package identity and capture validation, and Q13\nevidence. The canonical transport-independent virtual-source catalog and exact\nresolver are also implemented and specified in\n[Package Virtual Sources](../specification/package-virtual-sources.md).\nThe direct path, vendor, mirror, and locally available direct git dependency\nLSP definition and virtual-document slices, embedded standard-library LSP\ndefinition and virtual-document slices, plus the VSCode content provider, are\nimplemented and specified in\n[Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).\nThe transport-independent package documentation catalog, status-only failure\nresult, documentation digest, canonical `veln-doc:` URI foundation, same-capture\nmanifest binding, validated `PackageIdentity` API boundary, pointer-width\nindependent identifier digest transcripts, path-derived module identity,\nmanifest package-name and package-identity matching, normalized exported-module\nmetadata, compiler-valid export module identity rejection, exported module and\npublic constructor documentation projection,\nimport-aware schema documentation references, public schema alias reference\nresolution, stream-aware expected-output publication, effect-row-binder\nsignatures, and generated\ndoctest static gate for expression, declaration, nested-expression declaration,\npublic-alias declaration, and mixed declaration-statement doctests, shared\ndoctest metadata diagnostics for catalog expected-output fences,\nsame-snapshot declaration documentation lookup from package virtual-source\nlocations, and rejection of workspace or different-snapshot locations are\nimplemented and specified in\n[Package Documentation Catalogs](../specification/package-documentation.md).\nEmbedded package snapshot capture applies the same test-source distribution\nexclusions as filesystem capture before package documentation generation.\nMCP resources, MCP documentation publication, and snapshot lifetime rules\nremain planned below.",
       "digest": "cb279d77f334392dfb08bdf2a15c6796ff0bef65b9bfcb35285ed4133e494688",
       "source_class": "conformance",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-R0171-L01",
           "heading": "Package Snapshots",
-          "lifecycle": "planned",
+          "lifecycle": "current",
           "spans": [
             [
               0,
+              2237
+            ]
+          ],
+          "text": "The transport-independent Q11 digest transcript foundation is implemented in\n`veln-project`. Its current contract and fixed-vector evidence are specified in\n[Package Snapshot Digests](../specification/package-snapshots.md). The same\nspecification defines the implemented filesystem capture, Q12 distribution\nset foundation, portable package identity and capture validation, and Q13\nevidence. The canonical transport-independent virtual-source catalog and exact\nresolver are also implemented and specified in\n[Package Virtual Sources](../specification/package-virtual-sources.md).\nThe direct path, vendor, mirror, and locally available direct git dependency\nLSP definition and virtual-document slices, embedded standard-library LSP\ndefinition and virtual-document slices, plus the VSCode content provider, are\nimplemented and specified in\n[Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).\nThe transport-independent package documentation catalog, status-only failure\nresult, documentation digest, canonical `veln-doc:` URI foundation, same-capture\nmanifest binding, validated `PackageIdentity` API boundary, pointer-width\nindependent identifier digest transcripts, path-derived module identity,\nmanifest package-name and package-identity matching, normalized exported-module\nmetadata, compiler-valid export module identity rejection, exported module and\npublic constructor documentation projection,\nimport-aware schema documentation references, public schema alias reference\nresolution, stream-aware expected-output publication, effect-row-binder\nsignatures, and generated\ndoctest static gate for expression, declaration, nested-expression declaration,\npublic-alias declaration, and mixed declaration-statement doctests, shared\ndoctest metadata diagnostics for catalog expected-output fences,\nsame-snapshot declaration documentation lookup from package virtual-source\nlocations, and rejection of workspace or different-snapshot locations are\nimplemented and specified in\n[Package Documentation Catalogs](../specification/package-documentation.md).\nEmbedded package snapshot capture applies the same test-source distribution\nexclusions as filesystem capture before package documentation generation.\n",
+          "digest": "f187b2953d08428a8483ec14162dd04b075239fdd25109a5473d7e6c656aee59"
+        },
+        {
+          "id": "ALS-R0171-L02",
+          "heading": "Package Snapshots",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              2237,
               2332
             ]
           ],
-          "text": "The transport-independent Q11 digest transcript foundation is implemented in\n`veln-project`. Its current contract and fixed-vector evidence are specified in\n[Package Snapshot Digests](../specification/package-snapshots.md). The same\nspecification defines the implemented filesystem capture, Q12 distribution\nset foundation, portable package identity and capture validation, and Q13\nevidence. The canonical transport-independent virtual-source catalog and exact\nresolver are also implemented and specified in\n[Package Virtual Sources](../specification/package-virtual-sources.md).\nThe direct path, vendor, mirror, and locally available direct git dependency\nLSP definition and virtual-document slices, embedded standard-library LSP\ndefinition and virtual-document slices, plus the VSCode content provider, are\nimplemented and specified in\n[Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).\nThe transport-independent package documentation catalog, status-only failure\nresult, documentation digest, canonical `veln-doc:` URI foundation, same-capture\nmanifest binding, validated `PackageIdentity` API boundary, pointer-width\nindependent identifier digest transcripts, path-derived module identity,\nmanifest package-name and package-identity matching, normalized exported-module\nmetadata, compiler-valid export module identity rejection, exported module and\npublic constructor documentation projection,\nimport-aware schema documentation references, public schema alias reference\nresolution, stream-aware expected-output publication, effect-row-binder\nsignatures, and generated\ndoctest static gate for expression, declaration, nested-expression declaration,\npublic-alias declaration, and mixed declaration-statement doctests, shared\ndoctest metadata diagnostics for catalog expected-output fences,\nsame-snapshot declaration documentation lookup from package virtual-source\nlocations, and rejection of workspace or different-snapshot locations are\nimplemented and specified in\n[Package Documentation Catalogs](../specification/package-documentation.md).\nEmbedded package snapshot capture applies the same test-source distribution\nexclusions as filesystem capture before package documentation generation.\nMCP resources, MCP documentation publication, and snapshot lifetime rules\nremain planned below.",
-          "digest": "cb279d77f334392dfb08bdf2a15c6796ff0bef65b9bfcb35285ed4133e494688"
+          "text": "MCP resources, MCP documentation publication, and snapshot lifetime rules\nremain planned below.",
+          "digest": "5359f12f12f6c26236f06435a26ec1db4f3bda81c194c390c1a37454d1f7a030"
         }
       ]
     },
@@ -5172,20 +5219,33 @@
       "text": "A passing positive doctest and a `veln fail` doctest whose visible source\nproduces a parse diagnostic can be published when the fence attaches to an\nexported module, exported public declaration, or exported public constructor.\nPrivate declaration doctests, ignored doctests, and hidden setup are not\npublished or checked by package documentation generation. Expected-output\nfences use the shared doctest extractor's pending-state boundary. Doctest\nmetadata, including duplicate or ambiguous output stream attributes, is\nvalidated by the shared doctest extractor, and metadata errors fail the\ncomplete documentation generation. Runtime doctest execution and\nexpected-output comparison remain part of the planned MCP publication slice.",
       "digest": "38f2c4c991febf9a6cf4c8f805d3d0cf7b47d3723545a3c6d230c83e39cc5bb7",
       "source_class": "conformance",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-R0199-L01",
           "heading": "Generated Package Documentation",
-          "lifecycle": "planned",
+          "lifecycle": "current",
           "spans": [
             [
               0,
+              627
+            ]
+          ],
+          "text": "A passing positive doctest and a `veln fail` doctest whose visible source\nproduces a parse diagnostic can be published when the fence attaches to an\nexported module, exported public declaration, or exported public constructor.\nPrivate declaration doctests, ignored doctests, and hidden setup are not\npublished or checked by package documentation generation. Expected-output\nfences use the shared doctest extractor's pending-state boundary. Doctest\nmetadata, including duplicate or ambiguous output stream attributes, is\nvalidated by the shared doctest extractor, and metadata errors fail the\ncomplete documentation generation. ",
+          "digest": "25948b467e0758843173f0098fc84dc39d170c2e7d2a76548b534cac6c56b1b1"
+        },
+        {
+          "id": "ALS-R0199-L02",
+          "heading": "Generated Package Documentation",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              627,
               733
             ]
           ],
-          "text": "A passing positive doctest and a `veln fail` doctest whose visible source\nproduces a parse diagnostic can be published when the fence attaches to an\nexported module, exported public declaration, or exported public constructor.\nPrivate declaration doctests, ignored doctests, and hidden setup are not\npublished or checked by package documentation generation. Expected-output\nfences use the shared doctest extractor's pending-state boundary. Doctest\nmetadata, including duplicate or ambiguous output stream attributes, is\nvalidated by the shared doctest extractor, and metadata errors fail the\ncomplete documentation generation. Runtime doctest execution and\nexpected-output comparison remain part of the planned MCP publication slice.",
-          "digest": "38f2c4c991febf9a6cf4c8f805d3d0cf7b47d3723545a3c6d230c83e39cc5bb7"
+          "text": "Runtime doctest execution and\nexpected-output comparison remain part of the planned MCP publication slice.",
+          "digest": "340f64c48f04f64af739a1fd8f689f2adb3bd307d39ab54c7d40aa3f9fea39a6"
         }
       ]
     },
@@ -7538,20 +7598,33 @@
       "text": "| Q02 descendant ownership | Implemented for workspace `definition` project inference and unselected descendant single-file isolation; outer-reference coverage remains planned. |",
       "digest": "062d4d706ceb97ceffd6dbdf946224449c595ee798ee79d0141587af7ec74acb",
       "source_class": "conformance",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-R0290-L01",
           "heading": "Conformance Contract",
-          "lifecycle": "planned",
+          "lifecycle": "current",
           "spans": [
             [
               2,
+              135
+            ]
+          ],
+          "text": "Q02 descendant ownership | Implemented for workspace `definition` project inference and unselected descendant single-file isolation; ",
+          "digest": "f698553674098aed71c0ee4505ee8f702a028c5725c8a2f8136e5d52e972b547"
+        },
+        {
+          "id": "ALS-R0290-L02",
+          "heading": "Conformance Contract",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              135,
               176
             ]
           ],
-          "text": "Q02 descendant ownership | Implemented for workspace `definition` project inference and unselected descendant single-file isolation; outer-reference coverage remains planned.",
-          "digest": "c43c618eee3436c4695dc6b34cf8a15ebe08cbeab7db413fb6ebb38c1aff8f8e"
+          "text": "outer-reference coverage remains planned.",
+          "digest": "52163b0576c1cbd0c2b64d379b6498f2e0f03eb8a2ed1d5389dfbbf92253fd9b"
         }
       ]
     },
@@ -7616,20 +7689,33 @@
       "text": "| Q05 stable capture | Implemented for `check_project` manifest, source, owned path-set changes, readable dependency input changes and reuse across path, vendor, mirror, and locally materialized git sources, bounded retry, no partial publication, pre-refresh selection preservation, anonymous single-file isolation, anonymous base symlink and regular-directory replacement, selected-root symlink and regular-directory replacement, nested regular manifest marker boundaries, symlinked nested manifest marker exclusion, project-local source symlink exclusion, non-Linux fail-closed saved snapshot capture, and workspace `definition` capture that compares project ownership and anonymous fallback in one stable attempt. Reference navigation captures remain planned. |",
       "digest": "e041b7c6d9a767f2ac49f781ab7c82de863d3dee7b68a3439f09b8130cc5dfcd",
       "source_class": "conformance",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-R0293-L01",
           "heading": "Conformance Contract",
-          "lifecycle": "planned",
+          "lifecycle": "current",
           "spans": [
             [
               2,
+              717
+            ]
+          ],
+          "text": "Q05 stable capture | Implemented for `check_project` manifest, source, owned path-set changes, readable dependency input changes and reuse across path, vendor, mirror, and locally materialized git sources, bounded retry, no partial publication, pre-refresh selection preservation, anonymous single-file isolation, anonymous base symlink and regular-directory replacement, selected-root symlink and regular-directory replacement, nested regular manifest marker boundaries, symlinked nested manifest marker exclusion, project-local source symlink exclusion, non-Linux fail-closed saved snapshot capture, and workspace `definition` capture that compares project ownership and anonymous fallback in one stable attempt. ",
+          "digest": "e97d59e557633cc18255fd3fd98d19689217e87687bb3b58d98e21a16855c2a3"
+        },
+        {
+          "id": "ALS-R0293-L02",
+          "heading": "Conformance Contract",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              717,
               762
             ]
           ],
-          "text": "Q05 stable capture | Implemented for `check_project` manifest, source, owned path-set changes, readable dependency input changes and reuse across path, vendor, mirror, and locally materialized git sources, bounded retry, no partial publication, pre-refresh selection preservation, anonymous single-file isolation, anonymous base symlink and regular-directory replacement, selected-root symlink and regular-directory replacement, nested regular manifest marker boundaries, symlinked nested manifest marker exclusion, project-local source symlink exclusion, non-Linux fail-closed saved snapshot capture, and workspace `definition` capture that compares project ownership and anonymous fallback in one stable attempt. Reference navigation captures remain planned.",
-          "digest": "e329612fc9150b824da35b763abcd019b124cca322f52906d78e523ef0a7e3c0"
+          "text": "Reference navigation captures remain planned.",
+          "digest": "a9a1581521d7c37f327463f9d7797f4cf7d67ab25a77eddb24905e221dd22245"
         }
       ]
     },
@@ -7642,20 +7728,33 @@
       "text": "| Q06 schemas and errors | Implemented for workspace inventory, `check_project`, and workspace `definition` schema freshness, nullable field rejection, unknown fields including related-note fields, exact non-integer coordinate rejection, stable domain codes, and protocol mapping. Reference, broader definition, resource, and documentation schemas remain planned. |",
       "digest": "01e5275b291ed2e0e81a1ff403d2b36b9e61e5380698e16df02787ef6866a753",
       "source_class": "conformance",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-R0294-L01",
           "heading": "Conformance Contract",
-          "lifecycle": "planned",
+          "lifecycle": "current",
           "spans": [
             [
               2,
+              281
+            ]
+          ],
+          "text": "Q06 schemas and errors | Implemented for workspace inventory, `check_project`, and workspace `definition` schema freshness, nullable field rejection, unknown fields including related-note fields, exact non-integer coordinate rejection, stable domain codes, and protocol mapping. ",
+          "digest": "ede02c02b25b0efeed0c36b680e20b844f1ae9e016cf510c304802034419ee79"
+        },
+        {
+          "id": "ALS-R0294-L02",
+          "heading": "Conformance Contract",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              281,
               363
             ]
           ],
-          "text": "Q06 schemas and errors | Implemented for workspace inventory, `check_project`, and workspace `definition` schema freshness, nullable field rejection, unknown fields including related-note fields, exact non-integer coordinate rejection, stable domain codes, and protocol mapping. Reference, broader definition, resource, and documentation schemas remain planned.",
-          "digest": "48d56a1a63d32a28db297847cab64f3264a4bf662ac0789159376f306000b482"
+          "text": "Reference, broader definition, resource, and documentation schemas remain planned.",
+          "digest": "5ceb2b343256e45f853e9790d6dd52aad23f607427d7fef34d1504f10c490d91"
         }
       ]
     },
@@ -7798,20 +7897,33 @@
       "text": "| Q12 distribution set | Filesystem capture covers every inclusion and exclusion, private and non-exported sources, generated and `target` sources, exact-byte digest integration, ordering, and relocation. Digest-analysis-resource set equality remains planned. |",
       "digest": "2255fd0eba823c243f5ea5636c44728bf97aa0699c1d654b1118f475b8f6f863",
       "source_class": "conformance",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-R0300-L01",
           "heading": "Conformance Contract",
-          "lifecycle": "planned",
+          "lifecycle": "current",
           "spans": [
             [
               2,
+              205
+            ]
+          ],
+          "text": "Q12 distribution set | Filesystem capture covers every inclusion and exclusion, private and non-exported sources, generated and `target` sources, exact-byte digest integration, ordering, and relocation. ",
+          "digest": "07d1d2971e1d2ff2d439b856f5af4fef82fd207a17fad3c042aa4fe912173b7c"
+        },
+        {
+          "id": "ALS-R0300-L02",
+          "heading": "Conformance Contract",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              205,
               259
             ]
           ],
-          "text": "Q12 distribution set | Filesystem capture covers every inclusion and exclusion, private and non-exported sources, generated and `target` sources, exact-byte digest integration, ordering, and relocation. Digest-analysis-resource set equality remains planned.",
-          "digest": "057adfa9584a83103cfcef32de5940e5845067203c2dea5adeaedfaa0b7d62bf"
+          "text": "Digest-analysis-resource set equality remains planned.",
+          "digest": "7f73c151b0df764179badb52aa1701e682e5d62b274b6538590b0d4ea73095fa"
         }
       ]
     },
@@ -8084,20 +8196,33 @@
       "text": "Q11 is implemented by the `veln-project` fixed-vector and transcript-mutation\ntests. The Q12 filesystem-capture foundation is implemented by the\n`veln-project` distribution matrix and digest-integration tests. Q13 is\nimplemented by the package-identity, portable source-path, UTF-8 source-text,\ncase-fold collision, and validation-exclusion tests. The Q14\ntransport-independent URI spelling and resolver foundation is implemented by\nthe `veln-language-service` virtual-source tests. Q12 analysis and\nvirtual-resource equality, Q14 MCP resource mapping, and Q15 through Q22\nremain planned evidence for the agent language service.",
       "digest": "1de1d78b9ff532b24856c641880e9f5b2b934ce7f684031b764696bcb132a5ed",
       "source_class": "conformance",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-R0311-L01",
           "heading": "Conformance Contract",
-          "lifecycle": "planned",
+          "lifecycle": "current",
           "spans": [
             [
               0,
+              483
+            ]
+          ],
+          "text": "Q11 is implemented by the `veln-project` fixed-vector and transcript-mutation\ntests. The Q12 filesystem-capture foundation is implemented by the\n`veln-project` distribution matrix and digest-integration tests. Q13 is\nimplemented by the package-identity, portable source-path, UTF-8 source-text,\ncase-fold collision, and validation-exclusion tests. The Q14\ntransport-independent URI spelling and resolver foundation is implemented by\nthe `veln-language-service` virtual-source tests. ",
+          "digest": "13d36d12c99c2db43e6c8858d5abcc431901b0876fe9d6b86a2d2f08fb59e412"
+        },
+        {
+          "id": "ALS-R0311-L02",
+          "heading": "Conformance Contract",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              483,
               628
             ]
           ],
-          "text": "Q11 is implemented by the `veln-project` fixed-vector and transcript-mutation\ntests. The Q12 filesystem-capture foundation is implemented by the\n`veln-project` distribution matrix and digest-integration tests. Q13 is\nimplemented by the package-identity, portable source-path, UTF-8 source-text,\ncase-fold collision, and validation-exclusion tests. The Q14\ntransport-independent URI spelling and resolver foundation is implemented by\nthe `veln-language-service` virtual-source tests. Q12 analysis and\nvirtual-resource equality, Q14 MCP resource mapping, and Q15 through Q22\nremain planned evidence for the agent language service.",
-          "digest": "1de1d78b9ff532b24856c641880e9f5b2b934ce7f684031b764696bcb132a5ed"
+          "text": "Q12 analysis and\nvirtual-resource equality, Q14 MCP resource mapping, and Q15 through Q22\nremain planned evidence for the agent language service.",
+          "digest": "fbf78fdaf8ef0578a016453a45b7d637bcee793bd600f72210b38d0a2e2b4b08"
         }
       ]
     },
@@ -8136,20 +8261,33 @@
       "text": "The workspace inventory, saved diagnostics, and bounded workspace-definition\nrows implemented by the current slice point to current specification and\nexecutable evidence. All other rows describe planned evidence and do not imply\nthat the behavior is already implemented.",
       "digest": "fd65f4418342c6a057793261fd665f0d451f9c3fdbfb82e57e2b82882a0a13e9",
       "source_class": "conformance",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-R0313-L01",
           "heading": "Acceptance Model",
-          "lifecycle": "planned",
+          "lifecycle": "current",
           "spans": [
             [
               0,
+              171
+            ]
+          ],
+          "text": "The workspace inventory, saved diagnostics, and bounded workspace-definition\nrows implemented by the current slice point to current specification and\nexecutable evidence. ",
+          "digest": "01bdb55cdd80faa0430d773d0aedbdda4b200fc84d0669415305e2933b3c47bb"
+        },
+        {
+          "id": "ALS-R0313-L02",
+          "heading": "Acceptance Model",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              171,
               270
             ]
           ],
-          "text": "The workspace inventory, saved diagnostics, and bounded workspace-definition\nrows implemented by the current slice point to current specification and\nexecutable evidence. All other rows describe planned evidence and do not imply\nthat the behavior is already implemented.",
-          "digest": "fd65f4418342c6a057793261fd665f0d451f9c3fdbfb82e57e2b82882a0a13e9"
+          "text": "All other rows describe planned evidence and do not imply\nthat the behavior is already implemented.",
+          "digest": "06d437ee8a15a1452856ef562a0ce31891c71be4e563b774e3d0b2558a22c146"
         }
       ]
     },
@@ -8266,20 +8404,33 @@
       "text": "| Navigate below an unselected descendant manifest. | The outer project does not own the source; navigation reports single-file scope without outer-project references. | Implemented MCP definition descendant-boundary isolation; reference-result scope remains planned. |",
       "digest": "bbecd343ae1aea9ddda7c2a7b182d7694c166307f8a1c12177dc13d9533ee251",
       "source_class": "conformance",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-R0318-L01",
           "heading": "Server And Project Selection",
-          "lifecycle": "planned",
+          "lifecycle": "current",
           "spans": [
             [
               2,
+              228
+            ]
+          ],
+          "text": "Navigate below an unselected descendant manifest. | The outer project does not own the source; navigation reports single-file scope without outer-project references. | Implemented MCP definition descendant-boundary isolation; ",
+          "digest": "89b49efd823519e39862affa6a4aabae524f74e33896200cdd9e358e0fd78e6e"
+        },
+        {
+          "id": "ALS-R0318-L02",
+          "heading": "Server And Project Selection",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              228,
               267
             ]
           ],
-          "text": "Navigate below an unselected descendant manifest. | The outer project does not own the source; navigation reports single-file scope without outer-project references. | Implemented MCP definition descendant-boundary isolation; reference-result scope remains planned.",
-          "digest": "7e0307272d80b38989e2f89c638a70501cf721b9aa2485661b2bcee1f213eaef"
+          "text": "reference-result scope remains planned.",
+          "digest": "8c1f22ff6e3753a0d003af17e36fef21bb07ab9a2249a3c4e7ab1d17e2846434"
         }
       ]
     },
@@ -8292,20 +8443,41 @@
       "text": "| Add, remove, or rename a manifest. | Selection is unchanged until `refresh_workspace`; a successful refresh replaces it atomically. Cursor staleness remains planned. | Implemented `veln-mcp` refresh transition tests; planned Q03 cursor cases. |",
       "digest": "b39a8c624cd356e40569119884764d372f8c8c9729fe6f90b3d88e173a61425c",
       "source_class": "conformance",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-R0319-L01",
           "heading": "Server And Project Selection",
-          "lifecycle": "planned",
+          "lifecycle": "current",
           "spans": [
             [
               2,
+              134
+            ],
+            [
+              170,
+              217
+            ]
+          ],
+          "text": "Add, remove, or rename a manifest. | Selection is unchanged until `refresh_workspace`; a successful refresh replaces it atomically. Implemented `veln-mcp` refresh transition tests",
+          "digest": "3c64f3f7e041516140ca5c5567ee3a7fd8073094c31d5608d12a14aacd5145ca"
+        },
+        {
+          "id": "ALS-R0319-L02",
+          "heading": "Server And Project Selection",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              134,
+              167
+            ],
+            [
+              217,
               244
             ]
           ],
-          "text": "Add, remove, or rename a manifest. | Selection is unchanged until `refresh_workspace`; a successful refresh replaces it atomically. Cursor staleness remains planned. | Implemented `veln-mcp` refresh transition tests; planned Q03 cursor cases.",
-          "digest": "cb4692b4b5df0c8d91c961af894c2c7887a8627189cc47f782754d08da52a3c9"
+          "text": "Cursor staleness remains planned.; planned Q03 cursor cases.",
+          "digest": "30559be6ca16bb1abe818cb61dfb17191fa695b8d9a6cd85c5e18a5368f82b4d"
         }
       ]
     },
@@ -8318,20 +8490,33 @@
       "text": "| Start through a symbolic base alias. | The alias is accepted once and returned `file:` URIs use the resolved identity spelling. | Implemented MCP definition canonical resolved-base URI case; broader Q04 symbolic-base cases remain planned. |",
       "digest": "7bce5bd00bc41b38f7eccb727d5c6454cd925a36107c4d63c9a61fbe70c6d8d8",
       "source_class": "conformance",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-R0320-L01",
           "heading": "Server And Project Selection",
-          "lifecycle": "planned",
+          "lifecycle": "current",
           "spans": [
             [
               2,
+              193
+            ]
+          ],
+          "text": "Start through a symbolic base alias. | The alias is accepted once and returned `file:` URIs use the resolved identity spelling. | Implemented MCP definition canonical resolved-base URI case; ",
+          "digest": "5fbb2d9e2671323bd3deb2c3c3aa21eab60de81766177f4db196852ad912b638"
+        },
+        {
+          "id": "ALS-R0320-L02",
+          "heading": "Server And Project Selection",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              193,
               240
             ]
           ],
-          "text": "Start through a symbolic base alias. | The alias is accepted once and returned `file:` URIs use the resolved identity spelling. | Implemented MCP definition canonical resolved-base URI case; broader Q04 symbolic-base cases remain planned.",
-          "digest": "87e1da38ef1be4b880cfb520d4ad5143f7414aed61ee6e0d4d5d740a66a0e459"
+          "text": "broader Q04 symbolic-base cases remain planned.",
+          "digest": "91ede3dbe73080f57441b1fef982c5604db67c7a397376581071fd8e96805faf"
         }
       ]
     },
@@ -8344,20 +8529,33 @@
       "text": "| Supply a path containing a directory or file symbolic link. | The path is rejected without following the link. | Implemented `veln-mcp` no-follow source-path test; broader Q04 navigation cases remain planned. |",
       "digest": "d3891eb59a87813a21286fc27b67e2643f35f111c2fe461ee40d2bac0c8c3079",
       "source_class": "conformance",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-R0321-L01",
           "heading": "Server And Project Selection",
-          "lifecycle": "planned",
+          "lifecycle": "current",
           "spans": [
             [
               2,
+              166
+            ]
+          ],
+          "text": "Supply a path containing a directory or file symbolic link. | The path is rejected without following the link. | Implemented `veln-mcp` no-follow source-path test; ",
+          "digest": "8231594045daf56182ff06ff2eab5a074fc77286f4d0bc4cec542b28c7a53947"
+        },
+        {
+          "id": "ALS-R0321-L02",
+          "heading": "Server And Project Selection",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              166,
               210
             ]
           ],
-          "text": "Supply a path containing a directory or file symbolic link. | The path is rejected without following the link. | Implemented `veln-mcp` no-follow source-path test; broader Q04 navigation cases remain planned.",
-          "digest": "81948ef838659f6e0e0e8e685430bbee2a1fef25aa9148d1696cc545641c6bfd"
+          "text": "broader Q04 navigation cases remain planned.",
+          "digest": "9b402911be7474c4084597c6b43ab9beb85da456b02d95084837d3f87fd9c60f"
         }
       ]
     },
@@ -8396,20 +8594,33 @@
       "text": "| Change a selected root identity, anonymous base identity, manifest, source, dependency input, or file set during capture. | The complete capture retries at most three times, then returns `snapshot_changed` without partial publication. | Implemented `veln-mcp` stable-capture retry tests for `check_project`, including anonymous base and selected-root symlink and regular-directory replacement, nested regular manifest marker boundaries, symlinked nested manifest marker exclusion, project-local source symlink exclusion, non-Linux fail-closed capture, and dependency snapshot changes; implemented workspace `definition` navigation capture coverage for descendant boundary changes during anonymous fallback; reference navigation captures remain planned. |",
       "digest": "61e404caa77bc973f4bdd69c53d9d7c33aaa07e53b2a72791efe544f8e3e7071",
       "source_class": "conformance",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-R0323-L01",
           "heading": "Server And Project Selection",
-          "lifecycle": "planned",
+          "lifecycle": "current",
           "spans": [
             [
               2,
+              709
+            ]
+          ],
+          "text": "Change a selected root identity, anonymous base identity, manifest, source, dependency input, or file set during capture. | The complete capture retries at most three times, then returns `snapshot_changed` without partial publication. | Implemented `veln-mcp` stable-capture retry tests for `check_project`, including anonymous base and selected-root symlink and regular-directory replacement, nested regular manifest marker boundaries, symlinked nested manifest marker exclusion, project-local source symlink exclusion, non-Linux fail-closed capture, and dependency snapshot changes; implemented workspace `definition` navigation capture coverage for descendant boundary changes during anonymous fallback; ",
+          "digest": "02ef00507c4c3033bafc63fe83076b8bb58c5ee280a16c50e31e1cd9f3a62f8a"
+        },
+        {
+          "id": "ALS-R0323-L02",
+          "heading": "Server And Project Selection",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              709,
               754
             ]
           ],
-          "text": "Change a selected root identity, anonymous base identity, manifest, source, dependency input, or file set during capture. | The complete capture retries at most three times, then returns `snapshot_changed` without partial publication. | Implemented `veln-mcp` stable-capture retry tests for `check_project`, including anonymous base and selected-root symlink and regular-directory replacement, nested regular manifest marker boundaries, symlinked nested manifest marker exclusion, project-local source symlink exclusion, non-Linux fail-closed capture, and dependency snapshot changes; implemented workspace `definition` navigation capture coverage for descendant boundary changes during anonymous fallback; reference navigation captures remain planned.",
-          "digest": "29d22fd82bdc976b632bc5778e577fb527503b7ca7e9066cd6e3ea903c4f4865"
+          "text": "reference navigation captures remain planned.",
+          "digest": "3b237588e9fbd33f9cd8e211c785ef3d9aa07b612718803658be19f87739a374"
         }
       ]
     },
@@ -8422,20 +8633,33 @@
       "text": "| List projects or send malformed inventory-tool input. | Roots use `.` or relative `/` spelling; checked schemas reject unknown fields and invalid shapes as protocol errors. | Implemented MCP workspace lifecycle and schema tests; broader Q06 cases remain planned. |",
       "digest": "7544c191f187b40545e2234e1084d8d608576945a99f13d455ffd11c5fea4d6f",
       "source_class": "conformance",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-R0324-L01",
           "heading": "Server And Project Selection",
-          "lifecycle": "planned",
+          "lifecycle": "current",
           "spans": [
             [
               2,
+              231
+            ]
+          ],
+          "text": "List projects or send malformed inventory-tool input. | Roots use `.` or relative `/` spelling; checked schemas reject unknown fields and invalid shapes as protocol errors. | Implemented MCP workspace lifecycle and schema tests; ",
+          "digest": "fe32540d2e1c4daeba29630be76a21bde21229b181fececba26c9acaa022751e"
+        },
+        {
+          "id": "ALS-R0324-L02",
+          "heading": "Server And Project Selection",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              231,
               264
             ]
           ],
-          "text": "List projects or send malformed inventory-tool input. | Roots use `.` or relative `/` spelling; checked schemas reject unknown fields and invalid shapes as protocol errors. | Implemented MCP workspace lifecycle and schema tests; broader Q06 cases remain planned.",
-          "digest": "ea52005bf24cf7365839b81e7b9dd807824e0e43ecf916558c9443435a3348b6"
+          "text": "broader Q06 cases remain planned.",
+          "digest": "34a198bad75c9b541b5cc6b68c55218602cd0c6ca2e6229bec05af207be915f2"
         }
       ]
     },
@@ -8760,20 +8984,33 @@
       "text": "| Address empty, LF, CRLF, non-BMP, end-of-line, end-of-file, token-end, decimal and exponent integer spellings, non-integer numeric spellings, and oversized positive positions. | Validity and half-open selection follow the scalar-coordinate contract, non-integer numeric coordinates are protocol invalid params, and unaddressable positive coordinates return `invalid_position`. | Implemented workspace-definition MCP coordinate table and stdio regressions for integral decimal and exponent spellings, non-integer decimal and extreme negative exponent spellings, a value above `u64::MAX`, and an extreme positive exponent; broader cross-adapter Q07 matrix remains planned. |",
       "digest": "60ab731dcfbd6a902fca828a42ed62b0ad16912132d32b8a5c52f8abcacddc80",
       "source_class": "conformance",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-R0337-L01",
           "heading": "Diagnostics And Navigation",
-          "lifecycle": "planned",
+          "lifecycle": "current",
           "spans": [
             [
               2,
+              623
+            ]
+          ],
+          "text": "Address empty, LF, CRLF, non-BMP, end-of-line, end-of-file, token-end, decimal and exponent integer spellings, non-integer numeric spellings, and oversized positive positions. | Validity and half-open selection follow the scalar-coordinate contract, non-integer numeric coordinates are protocol invalid params, and unaddressable positive coordinates return `invalid_position`. | Implemented workspace-definition MCP coordinate table and stdio regressions for integral decimal and exponent spellings, non-integer decimal and extreme negative exponent spellings, a value above `u64::MAX`, and an extreme positive exponent; ",
+          "digest": "bd10a884e36f723922d542d50bd78bf2bd1bd4bb2eeb2778232235643b4c6acf"
+        },
+        {
+          "id": "ALS-R0337-L02",
+          "heading": "Diagnostics And Navigation",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              623,
               672
             ]
           ],
-          "text": "Address empty, LF, CRLF, non-BMP, end-of-line, end-of-file, token-end, decimal and exponent integer spellings, non-integer numeric spellings, and oversized positive positions. | Validity and half-open selection follow the scalar-coordinate contract, non-integer numeric coordinates are protocol invalid params, and unaddressable positive coordinates return `invalid_position`. | Implemented workspace-definition MCP coordinate table and stdio regressions for integral decimal and exponent spellings, non-integer decimal and extreme negative exponent spellings, a value above `u64::MAX`, and an extreme positive exponent; broader cross-adapter Q07 matrix remains planned.",
-          "digest": "c1eeb890f76e2b10f81687496c7615bb728f650d8a2c85a7dbfd0fee38f6eab9"
+          "text": "broader cross-adapter Q07 matrix remains planned.",
+          "digest": "c589924d91b08fc650cf212d6f17d2d8b738d1c0739fed54e909a21a215b161f"
         }
       ]
     },
@@ -8890,20 +9127,41 @@
       "text": "| Change an included source or manifest byte in a captured distribution. | Snapshot capture passes the changed exact bytes to the implemented digest API. LSP virtual URI changes are implemented for retained direct path, vendor, mirror, and locally available git project snapshots. MCP virtual-resource changes remain planned. | Implemented Q12 capture digest-integration tests and LSP dependency virtual-URI tests; planned MCP virtual-resource cases. |",
       "digest": "fcb253d270986bb673ee2cdd7c888c9309438576dcf7747065b30755caf41d55",
       "source_class": "conformance",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-R0342-L01",
           "heading": "Virtual Locations And Package Documentation",
-          "lifecycle": "planned",
+          "lifecycle": "current",
           "spans": [
             [
               2,
+              281
+            ],
+            [
+              328,
+              413
+            ]
+          ],
+          "text": "Change an included source or manifest byte in a captured distribution. | Snapshot capture passes the changed exact bytes to the implemented digest API. LSP virtual URI changes are implemented for retained direct path, vendor, mirror, and locally available git project snapshots. Implemented Q12 capture digest-integration tests and LSP dependency virtual-URI tests",
+          "digest": "84fa0d15cca7a61bad74d01097c0a50a0a9d81a23dd96411a72f5ccb048d345e"
+        },
+        {
+          "id": "ALS-R0342-L02",
+          "heading": "Virtual Locations And Package Documentation",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              281,
+              325
+            ],
+            [
+              413,
               450
             ]
           ],
-          "text": "Change an included source or manifest byte in a captured distribution. | Snapshot capture passes the changed exact bytes to the implemented digest API. LSP virtual URI changes are implemented for retained direct path, vendor, mirror, and locally available git project snapshots. MCP virtual-resource changes remain planned. | Implemented Q12 capture digest-integration tests and LSP dependency virtual-URI tests; planned MCP virtual-resource cases.",
-          "digest": "9fa0c78abc62d980c19649d26f271f6a7dcaa6ee4cb0c6d49cf19901e6f0c1c6"
+          "text": "MCP virtual-resource changes remain planned.; planned MCP virtual-resource cases.",
+          "digest": "8641be1c2d9609ea64de7c8447e58087ceff375a777a7637a5799233bc837647"
         }
       ]
     },
@@ -8916,20 +9174,41 @@
       "text": "| Discover private, generated, test, descendant, symlink, non-regular, and `target` sources. | The captured distribution set includes private, non-exported, generated, and ordinary `target` sources, applies every stated exclusion, and errors on represented non-regular distribution sources. Analysis and resource consumers remain planned. | Implemented Q12 distribution-set and filesystem-boundary tests; planned analysis-resource equality cases. |",
       "digest": "ce4fc05a85a0dbac6c3dbc83e3a7f4fb293428b65928689c00a7adbf26577a86",
       "source_class": "conformance",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-R0343-L01",
           "heading": "Virtual Locations And Package Documentation",
-          "lifecycle": "planned",
+          "lifecycle": "current",
           "spans": [
             [
               2,
+              291
+            ],
+            [
+              341,
+              403
+            ]
+          ],
+          "text": "Discover private, generated, test, descendant, symlink, non-regular, and `target` sources. | The captured distribution set includes private, non-exported, generated, and ordinary `target` sources, applies every stated exclusion, and errors on represented non-regular distribution sources. Implemented Q12 distribution-set and filesystem-boundary tests",
+          "digest": "a6c19be3c337dcbd5db85b177eb16ef33b4b17ed9372a2ad7ac245f95acfd49e"
+        },
+        {
+          "id": "ALS-R0343-L02",
+          "heading": "Virtual Locations And Package Documentation",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              291,
+              338
+            ],
+            [
+              403,
               446
             ]
           ],
-          "text": "Discover private, generated, test, descendant, symlink, non-regular, and `target` sources. | The captured distribution set includes private, non-exported, generated, and ordinary `target` sources, applies every stated exclusion, and errors on represented non-regular distribution sources. Analysis and resource consumers remain planned. | Implemented Q12 distribution-set and filesystem-boundary tests; planned analysis-resource equality cases.",
-          "digest": "21dd9495d27607c533b96cae6340ee0880d1b2e101964190b71566134e7275d6"
+          "text": "Analysis and resource consumers remain planned.; planned analysis-resource equality cases.",
+          "digest": "5fcb929a408bafa4fc41132cb7b10e86e9eed6adfa923c752b71a58876c2feda"
         }
       ]
     },
@@ -9046,20 +9325,41 @@
       "text": "| Generate package docs. | The transport-independent catalog contains only exported modules and their public API; attached contracts, visible doctests that can reference the same exported package API, stream-aware expected-output fences, import-aware resolved schema documentation references, public schema alias targets, effect-row-binder signatures, and declaration-location URI lookup are preserved. MCP publication remains planned. | Implemented package-documentation unit tests and readable `doc` examples; planned MCP resource case. |",
       "digest": "3de372a1216efe502495d55082c091a8dcb55eff4ec3037e98a98cec87ae0889",
       "source_class": "conformance",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-R0348-L01",
           "heading": "Virtual Locations And Package Documentation",
-          "lifecycle": "planned",
+          "lifecycle": "current",
           "spans": [
             [
               2,
+              403
+            ],
+            [
+              438,
+              510
+            ]
+          ],
+          "text": "Generate package docs. | The transport-independent catalog contains only exported modules and their public API; attached contracts, visible doctests that can reference the same exported package API, stream-aware expected-output fences, import-aware resolved schema documentation references, public schema alias targets, effect-row-binder signatures, and declaration-location URI lookup are preserved. Implemented package-documentation unit tests and readable `doc` examples",
+          "digest": "a320e36948665ba7bb1f99338c70a68725976f90cf8a333bfe3a44e11a05c06b"
+        },
+        {
+          "id": "ALS-R0348-L02",
+          "heading": "Virtual Locations And Package Documentation",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              403,
+              435
+            ],
+            [
+              510,
               538
             ]
           ],
-          "text": "Generate package docs. | The transport-independent catalog contains only exported modules and their public API; attached contracts, visible doctests that can reference the same exported package API, stream-aware expected-output fences, import-aware resolved schema documentation references, public schema alias targets, effect-row-binder signatures, and declaration-location URI lookup are preserved. MCP publication remains planned. | Implemented package-documentation unit tests and readable `doc` examples; planned MCP resource case.",
-          "digest": "d7960fb2cb38984d6347fc769faf7a08e9b6434baf192840be8f7bcb5429374b"
+          "text": "MCP publication remains planned.; planned MCP resource case.",
+          "digest": "1789d23a583b3bb44c0a79874a643f10314f86f5398e0c77a500030c65826df9"
         }
       ]
     },
@@ -9072,20 +9372,33 @@
       "text": "| Change catalog semantics without changing package bytes. | The package digest stays fixed and the documentation catalog digest and URIs change. | Implemented package-documentation document-identity tests; planned MCP resource case. |",
       "digest": "ed6712c19f4dce39038cced694837737e91310a545bcea01997bc0735643365c",
       "source_class": "conformance",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-R0349-L01",
           "heading": "Virtual Locations And Package Documentation",
-          "lifecycle": "planned",
+          "lifecycle": "current",
           "spans": [
             [
               2,
+              207
+            ]
+          ],
+          "text": "Change catalog semantics without changing package bytes. | The package digest stays fixed and the documentation catalog digest and URIs change. | Implemented package-documentation document-identity tests; ",
+          "digest": "24de0546859ca2bc644817b8e39c6f7c7ed9cbea7893e36f9731cfa4516ba4d2"
+        },
+        {
+          "id": "ALS-R0349-L02",
+          "heading": "Virtual Locations And Package Documentation",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              207,
               233
             ]
           ],
-          "text": "Change catalog semantics without changing package bytes. | The package digest stays fixed and the documentation catalog digest and URIs change. | Implemented package-documentation document-identity tests; planned MCP resource case.",
-          "digest": "a72a2cde9da53850b47d922551b588e3cda283ff86659a2f8f7ff315a8deef33"
+          "text": "planned MCP resource case.",
+          "digest": "6a5d7c7107ed8177058bc91292ac0c9036c51c2e70b76d4ab982daf83852d949"
         }
       ]
     },
@@ -9098,20 +9411,41 @@
       "text": "| Package documentation generation or doctest validation fails. | The transport-independent result contains ordered status diagnostics and no partial module or declaration catalog. Export paths that cannot derive compiler-valid source module identities fail generation. Negative doctests require parse diagnostics rather than semantic-only diagnostics. MCP status-resource publication remains planned. | Implemented atomic-generation-failure and invalid-export unit tests; planned MCP resource case. |",
       "digest": "18bdbdc6e33845c2c7de36bc62efb341e646936f925d5242b33a270f213aee9b",
       "source_class": "conformance",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-R0350-L01",
           "heading": "Virtual Locations And Package Documentation",
-          "lifecycle": "planned",
+          "lifecycle": "current",
           "spans": [
             [
               2,
+              353
+            ],
+            [
+              404,
+              471
+            ]
+          ],
+          "text": "Package documentation generation or doctest validation fails. | The transport-independent result contains ordered status diagnostics and no partial module or declaration catalog. Export paths that cannot derive compiler-valid source module identities fail generation. Negative doctests require parse diagnostics rather than semantic-only diagnostics. Implemented atomic-generation-failure and invalid-export unit tests",
+          "digest": "8337d53934e0d1ac6197feb443dc4a7c7c41a76f78df8f3669a8a60a4642c563"
+        },
+        {
+          "id": "ALS-R0350-L02",
+          "heading": "Virtual Locations And Package Documentation",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              353,
+              401
+            ],
+            [
+              471,
               499
             ]
           ],
-          "text": "Package documentation generation or doctest validation fails. | The transport-independent result contains ordered status diagnostics and no partial module or declaration catalog. Export paths that cannot derive compiler-valid source module identities fail generation. Negative doctests require parse diagnostics rather than semantic-only diagnostics. MCP status-resource publication remains planned. | Implemented atomic-generation-failure and invalid-export unit tests; planned MCP resource case.",
-          "digest": "9a73a6b7da84649f6fc6af9e94fcb6e3856dc3b9a1956c298e977e12c96ba407"
+          "text": "MCP status-resource publication remains planned.; planned MCP resource case.",
+          "digest": "f60c4d6d41c5e17fdcaa62299b5080d23c61c8a3ffc4e9248e5b3f8933421a20"
         }
       ]
     },
@@ -9540,7 +9874,7 @@
       "text": "The shared saved-snapshot definition and reference foundation is implemented\nand specified in\n[Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).\nThe Q11 package-snapshot digest transcript foundation is implemented and\nspecified in [Package Snapshot Digests](../specification/package-snapshots.md).\nThe Q12 filesystem capture and distribution-set foundation is implemented and\nspecified on the same page.\nThe portable package-identity and capture-validation foundation and its Q13\nmatrix are also implemented and specified on the same page.\nThe canonical package virtual-source URI and resolver foundation is implemented\nand specified in\n[Package Virtual Sources](../specification/package-virtual-sources.md).\nThe transport-independent exported package documentation catalog foundation,\nsame-capture manifest binding, path-derived module identity, stream-aware\nexpected-output publication, effect-row-binder signatures, and generated\ndoctest static gate, including same-package public API references, nested\nexpression declarations, public member aliases, shared expected-output\npending-state boundaries, hidden setup exclusion, integration-test source\nexclusion for embedded snapshots, test source export rejection,\noriginal-source remapping for generated doctest static diagnostics, and\nparse-only negative doctest matching, are implemented and specified in\n[Package Documentation Catalogs](../specification/package-documentation.md).\nDirect path, vendor, mirror, and locally available direct git dependency\ndefinition locations, embedded standard-library definition locations, the LSP\nvirtual-document request, and the VSCode content provider are implemented and\nspecified in\n[Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).\nThe implemented LSP direct git path includes local path, local `file:` URL,\nand already materialized remote URL source spellings, package-lock-aligned\nunique selector and `subdir` validation, snapshot-URI independence from\nphysical materialization paths, and retained exact-byte reads.\nThis bounded implementation retains validated workspace, direct-dependency,\nand embedded standard-package captures for the definition-to-read path. It\ndoes not implement dependency reference search or MCP resources.\nThe MCP workspace-definition slice reuses the saved capture boundary and\nreturns `file:` locations for functions, type constructors, handler context\nparameters, handler operation clause parameters, and exact test-companion\naccess to private target functions. Dependency and standard-library locations,\nthe proposal's additional symbol kinds, and all MCP references remain planned.\nThe bounded saved-workspace function-reference slice is defined under\n[Next Slice: Saved Workspace Function References](#next-slice-saved-workspace-function-references).\nThe subsequent slices are:",
       "digest": "cfff4a9ef5ac18cca0805623872e2846d00b01d4b2afee36a5cca355ebc63d25",
       "source_class": "supporting",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-R0367-L01",
@@ -9549,11 +9883,32 @@
           "spans": [
             [
               0,
+              2243
+            ],
+            [
+              2311,
+              2570
+            ]
+          ],
+          "text": "The shared saved-snapshot definition and reference foundation is implemented\nand specified in\n[Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).\nThe Q11 package-snapshot digest transcript foundation is implemented and\nspecified in [Package Snapshot Digests](../specification/package-snapshots.md).\nThe Q12 filesystem capture and distribution-set foundation is implemented and\nspecified on the same page.\nThe portable package-identity and capture-validation foundation and its Q13\nmatrix are also implemented and specified on the same page.\nThe canonical package virtual-source URI and resolver foundation is implemented\nand specified in\n[Package Virtual Sources](../specification/package-virtual-sources.md).\nThe transport-independent exported package documentation catalog foundation,\nsame-capture manifest binding, path-derived module identity, stream-aware\nexpected-output publication, effect-row-binder signatures, and generated\ndoctest static gate, including same-package public API references, nested\nexpression declarations, public member aliases, shared expected-output\npending-state boundaries, hidden setup exclusion, integration-test source\nexclusion for embedded snapshots, test source export rejection,\noriginal-source remapping for generated doctest static diagnostics, and\nparse-only negative doctest matching, are implemented and specified in\n[Package Documentation Catalogs](../specification/package-documentation.md).\nDirect path, vendor, mirror, and locally available direct git dependency\ndefinition locations, embedded standard-library definition locations, the LSP\nvirtual-document request, and the VSCode content provider are implemented and\nspecified in\n[Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).\nThe implemented LSP direct git path includes local path, local `file:` URL,\nand already materialized remote URL source spellings, package-lock-aligned\nunique selector and `subdir` validation, snapshot-URI independence from\nphysical materialization paths, and retained exact-byte reads.\nThis bounded implementation retains validated workspace, direct-dependency,\nand embedded standard-package captures for the definition-to-read path. The MCP workspace-definition slice reuses the saved capture boundary and\nreturns `file:` locations for functions, type constructors, handler context\nparameters, handler operation clause parameters, and exact test-companion\naccess to private target functions. ",
+          "digest": "623ac015e8e5e64b76add3a1e7421341ad59ab7947d0565864aecae95c12af45"
+        },
+        {
+          "id": "ALS-R0367-L02",
+          "heading": "Implementation Slices",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              2243,
+              2310
+            ],
+            [
+              2570,
               2888
             ]
           ],
-          "text": "The shared saved-snapshot definition and reference foundation is implemented\nand specified in\n[Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).\nThe Q11 package-snapshot digest transcript foundation is implemented and\nspecified in [Package Snapshot Digests](../specification/package-snapshots.md).\nThe Q12 filesystem capture and distribution-set foundation is implemented and\nspecified on the same page.\nThe portable package-identity and capture-validation foundation and its Q13\nmatrix are also implemented and specified on the same page.\nThe canonical package virtual-source URI and resolver foundation is implemented\nand specified in\n[Package Virtual Sources](../specification/package-virtual-sources.md).\nThe transport-independent exported package documentation catalog foundation,\nsame-capture manifest binding, path-derived module identity, stream-aware\nexpected-output publication, effect-row-binder signatures, and generated\ndoctest static gate, including same-package public API references, nested\nexpression declarations, public member aliases, shared expected-output\npending-state boundaries, hidden setup exclusion, integration-test source\nexclusion for embedded snapshots, test source export rejection,\noriginal-source remapping for generated doctest static diagnostics, and\nparse-only negative doctest matching, are implemented and specified in\n[Package Documentation Catalogs](../specification/package-documentation.md).\nDirect path, vendor, mirror, and locally available direct git dependency\ndefinition locations, embedded standard-library definition locations, the LSP\nvirtual-document request, and the VSCode content provider are implemented and\nspecified in\n[Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).\nThe implemented LSP direct git path includes local path, local `file:` URL,\nand already materialized remote URL source spellings, package-lock-aligned\nunique selector and `subdir` validation, snapshot-URI independence from\nphysical materialization paths, and retained exact-byte reads.\nThis bounded implementation retains validated workspace, direct-dependency,\nand embedded standard-package captures for the definition-to-read path. It\ndoes not implement dependency reference search or MCP resources.\nThe MCP workspace-definition slice reuses the saved capture boundary and\nreturns `file:` locations for functions, type constructors, handler context\nparameters, handler operation clause parameters, and exact test-companion\naccess to private target functions. Dependency and standard-library locations,\nthe proposal's additional symbol kinds, and all MCP references remain planned.\nThe bounded saved-workspace function-reference slice is defined under\n[Next Slice: Saved Workspace Function References](#next-slice-saved-workspace-function-references).\nThe subsequent slices are:",
-          "digest": "cfff4a9ef5ac18cca0805623872e2846d00b01d4b2afee36a5cca355ebc63d25"
+          "text": "It\ndoes not implement dependency reference search or MCP resources.Dependency and standard-library locations,\nthe proposal's additional symbol kinds, and all MCP references remain planned.\nThe bounded saved-workspace function-reference slice is defined under\n[Next Slice: Saved Workspace Function References](#next-slice-saved-workspace-function-references).\nThe subsequent slices are:",
+          "digest": "5230b8370885d43428405953c7a51f322981996a4da2d8a880d7e45ba34718e5"
         }
       ]
     },

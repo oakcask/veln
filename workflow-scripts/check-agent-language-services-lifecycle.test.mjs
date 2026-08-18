@@ -26,6 +26,7 @@ test("accepts the committed frozen inventory and ledger fixture corpus", () => {
     "catch_all_leaf.json",
     "direct_parent_duplicate_guard.json",
     "duplicate_leaf.json",
+    "invalid_destination_shape.json",
     "invalid_removed_conformance.json",
     "lifecycle_mismatch.json",
     "missing_leaf.json",

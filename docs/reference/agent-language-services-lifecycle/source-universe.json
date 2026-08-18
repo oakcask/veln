@@ -93,7 +93,21 @@
           "source_class": "conformance",
           "spans": [
             [
+              31,
+              63
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0004-L02",
+          "source_class": "conformance",
+          "spans": [
+            [
               0,
+              31
+            ],
+            [
+              63,
               88
             ]
           ]
@@ -2360,7 +2374,21 @@
           "spans": [
             [
               0,
+              212
+            ],
+            [
+              314,
               559
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0107-L02",
+          "source_class": "conformance",
+          "spans": [
+            [
+              212,
+              314
             ]
           ]
         }
@@ -3768,6 +3796,16 @@
           "spans": [
             [
               0,
+              2237
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0171-L02",
+          "source_class": "conformance",
+          "spans": [
+            [
+              2237,
               2332
             ]
           ]
@@ -4384,6 +4422,16 @@
           "spans": [
             [
               0,
+              627
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0199-L02",
+          "source_class": "conformance",
+          "spans": [
+            [
+              627,
               733
             ]
           ]
@@ -6386,6 +6434,16 @@
           "spans": [
             [
               2,
+              135
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0290-L02",
+          "source_class": "conformance",
+          "spans": [
+            [
+              135,
               176
             ]
           ]
@@ -6452,6 +6510,16 @@
           "spans": [
             [
               2,
+              717
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0293-L02",
+          "source_class": "conformance",
+          "spans": [
+            [
+              717,
               762
             ]
           ]
@@ -6474,6 +6542,16 @@
           "spans": [
             [
               2,
+              281
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0294-L02",
+          "source_class": "conformance",
+          "spans": [
+            [
+              281,
               363
             ]
           ]
@@ -6606,6 +6684,16 @@
           "spans": [
             [
               2,
+              205
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0300-L02",
+          "source_class": "conformance",
+          "spans": [
+            [
+              205,
               259
             ]
           ]
@@ -6848,6 +6936,16 @@
           "spans": [
             [
               0,
+              483
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0311-L02",
+          "source_class": "conformance",
+          "spans": [
+            [
+              483,
               628
             ]
           ]
@@ -6892,6 +6990,16 @@
           "spans": [
             [
               0,
+              171
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0313-L02",
+          "source_class": "conformance",
+          "spans": [
+            [
+              171,
               270
             ]
           ]
@@ -7002,6 +7110,16 @@
           "spans": [
             [
               2,
+              228
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0318-L02",
+          "source_class": "conformance",
+          "spans": [
+            [
+              228,
               267
             ]
           ]
@@ -7024,6 +7142,24 @@
           "spans": [
             [
               2,
+              134
+            ],
+            [
+              170,
+              217
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0319-L02",
+          "source_class": "conformance",
+          "spans": [
+            [
+              134,
+              167
+            ],
+            [
+              217,
               244
             ]
           ]
@@ -7046,6 +7182,16 @@
           "spans": [
             [
               2,
+              193
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0320-L02",
+          "source_class": "conformance",
+          "spans": [
+            [
+              193,
               240
             ]
           ]
@@ -7068,6 +7214,16 @@
           "spans": [
             [
               2,
+              166
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0321-L02",
+          "source_class": "conformance",
+          "spans": [
+            [
+              166,
               210
             ]
           ]
@@ -7112,6 +7268,16 @@
           "spans": [
             [
               2,
+              709
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0323-L02",
+          "source_class": "conformance",
+          "spans": [
+            [
+              709,
               754
             ]
           ]
@@ -7134,6 +7300,16 @@
           "spans": [
             [
               2,
+              231
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0324-L02",
+          "source_class": "conformance",
+          "spans": [
+            [
+              231,
               264
             ]
           ]
@@ -7420,6 +7596,16 @@
           "spans": [
             [
               2,
+              623
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0337-L02",
+          "source_class": "conformance",
+          "spans": [
+            [
+              623,
               672
             ]
           ]
@@ -7530,6 +7716,24 @@
           "spans": [
             [
               2,
+              281
+            ],
+            [
+              328,
+              413
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0342-L02",
+          "source_class": "conformance",
+          "spans": [
+            [
+              281,
+              325
+            ],
+            [
+              413,
               450
             ]
           ]
@@ -7552,6 +7756,24 @@
           "spans": [
             [
               2,
+              291
+            ],
+            [
+              341,
+              403
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0343-L02",
+          "source_class": "conformance",
+          "spans": [
+            [
+              291,
+              338
+            ],
+            [
+              403,
               446
             ]
           ]
@@ -7662,6 +7884,24 @@
           "spans": [
             [
               2,
+              403
+            ],
+            [
+              438,
+              510
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0348-L02",
+          "source_class": "conformance",
+          "spans": [
+            [
+              403,
+              435
+            ],
+            [
+              510,
               538
             ]
           ]
@@ -7684,6 +7924,16 @@
           "spans": [
             [
               2,
+              207
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0349-L02",
+          "source_class": "conformance",
+          "spans": [
+            [
+              207,
               233
             ]
           ]
@@ -7706,6 +7956,24 @@
           "spans": [
             [
               2,
+              353
+            ],
+            [
+              404,
+              471
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0350-L02",
+          "source_class": "conformance",
+          "spans": [
+            [
+              353,
+              401
+            ],
+            [
+              471,
               499
             ]
           ]
@@ -8080,6 +8348,24 @@
           "spans": [
             [
               0,
+              2243
+            ],
+            [
+              2311,
+              2570
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0367-L02",
+          "source_class": "supporting",
+          "spans": [
+            [
+              2243,
+              2310
+            ],
+            [
+              2570,
               2888
             ]
           ]

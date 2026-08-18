@@ -1,12 +1,12 @@
 {
-  "expected_error": "lifecycle differs from frozen manifest",
+  "expected_error": "planned destination kind must be proposal",
   "ledger": {
     "schema_version": 1,
     "inventory_path": "docs/reference/agent-language-services-lifecycle/frozen-inventory.json",
     "entries": [
       {
         "source_id": "ALS-R0001-L01",
-        "lifecycle": "planned",
+        "lifecycle": "completed",
         "destination": {
           "kind": "implementation-record",
           "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
@@ -29,9 +29,12 @@
         "source_id": "ALS-R0002-L02",
         "lifecycle": "planned",
         "destination": {
-          "kind": "proposal",
-          "path": "docs/proposals/agent-language-services.md",
-          "anchor": "#agent-language-services"
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
         }
       },
       {

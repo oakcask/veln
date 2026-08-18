@@ -56,6 +56,15 @@
         }
       },
       {
+        "source_id": "ALS-R0004-L02",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
         "source_id": "ALS-R0005-L01",
         "lifecycle": "planned",
         "destination": {
@@ -993,6 +1002,18 @@
       },
       {
         "source_id": "ALS-R0107-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0107-L02",
         "lifecycle": "planned",
         "destination": {
           "kind": "proposal",
@@ -1572,6 +1593,18 @@
       },
       {
         "source_id": "ALS-R0171-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0171-L02",
         "lifecycle": "planned",
         "destination": {
           "kind": "proposal",
@@ -1827,6 +1860,18 @@
       },
       {
         "source_id": "ALS-R0199-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0199-L02",
         "lifecycle": "planned",
         "destination": {
           "kind": "proposal",
@@ -2649,6 +2694,18 @@
       },
       {
         "source_id": "ALS-R0290-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0290-L02",
         "lifecycle": "planned",
         "destination": {
           "kind": "proposal",
@@ -2676,6 +2733,18 @@
       },
       {
         "source_id": "ALS-R0293-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0293-L02",
         "lifecycle": "planned",
         "destination": {
           "kind": "proposal",
@@ -2685,6 +2754,18 @@
       },
       {
         "source_id": "ALS-R0294-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0294-L02",
         "lifecycle": "planned",
         "destination": {
           "kind": "proposal",
@@ -2742,6 +2823,18 @@
       },
       {
         "source_id": "ALS-R0300-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0300-L02",
         "lifecycle": "planned",
         "destination": {
           "kind": "proposal",
@@ -2841,6 +2934,18 @@
       },
       {
         "source_id": "ALS-R0311-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0311-L02",
         "lifecycle": "planned",
         "destination": {
           "kind": "proposal",
@@ -2862,6 +2967,18 @@
       },
       {
         "source_id": "ALS-R0313-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0313-L02",
         "lifecycle": "planned",
         "destination": {
           "kind": "proposal",
@@ -2913,6 +3030,18 @@
       },
       {
         "source_id": "ALS-R0318-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0318-L02",
         "lifecycle": "planned",
         "destination": {
           "kind": "proposal",
@@ -2922,6 +3051,18 @@
       },
       {
         "source_id": "ALS-R0319-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0319-L02",
         "lifecycle": "planned",
         "destination": {
           "kind": "proposal",
@@ -2931,6 +3072,18 @@
       },
       {
         "source_id": "ALS-R0320-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0320-L02",
         "lifecycle": "planned",
         "destination": {
           "kind": "proposal",
@@ -2940,6 +3093,18 @@
       },
       {
         "source_id": "ALS-R0321-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0321-L02",
         "lifecycle": "planned",
         "destination": {
           "kind": "proposal",
@@ -2958,6 +3123,18 @@
       },
       {
         "source_id": "ALS-R0323-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0323-L02",
         "lifecycle": "planned",
         "destination": {
           "kind": "proposal",
@@ -2967,6 +3144,18 @@
       },
       {
         "source_id": "ALS-R0324-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0324-L02",
         "lifecycle": "planned",
         "destination": {
           "kind": "proposal",
@@ -3090,6 +3279,18 @@
       },
       {
         "source_id": "ALS-R0337-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0337-L02",
         "lifecycle": "planned",
         "destination": {
           "kind": "proposal",
@@ -3141,6 +3342,18 @@
       },
       {
         "source_id": "ALS-R0342-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0342-L02",
         "lifecycle": "planned",
         "destination": {
           "kind": "proposal",
@@ -3150,6 +3363,18 @@
       },
       {
         "source_id": "ALS-R0343-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0343-L02",
         "lifecycle": "planned",
         "destination": {
           "kind": "proposal",
@@ -3195,6 +3420,18 @@
       },
       {
         "source_id": "ALS-R0348-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0348-L02",
         "lifecycle": "planned",
         "destination": {
           "kind": "proposal",
@@ -3204,6 +3441,18 @@
       },
       {
         "source_id": "ALS-R0349-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0349-L02",
         "lifecycle": "planned",
         "destination": {
           "kind": "proposal",
@@ -3213,6 +3462,18 @@
       },
       {
         "source_id": "ALS-R0350-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0350-L02",
         "lifecycle": "planned",
         "destination": {
           "kind": "proposal",
@@ -3374,6 +3635,15 @@
           "kind": "implementation-record",
           "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
           "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0367-L02",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
         }
       },
       {

@@ -160,7 +160,7 @@ export function validateFrozenArtifacts({ repoRoot, authority, parsedRoots, sour
   errors.push(...validateSourceUniverse({ sourceUniverse, authority, parsedRoots, sourcePath }));
   errors.push(...validateFrozenInventory({ inventory, authority, parsedRoots, sourcePath }));
   errors.push(...validateLifecycleManifest({ manifest, leafIndex }));
-  errors.push(...validateLedgerSchema({ schema }));
+  errors.push(...validateLedgerSchema({ schema, leafIndex }));
   errors.push(...validateLedgerFixture({ repoRoot, ledger: validLedger, schema, leafIndex, label: validLedgerFixturePath, expectValid: true }));
   for (const file of listJsonFiles(path.resolve(repoRoot, invalidLedgerFixtureDirectory))) {
     const relative = normalizeRepoPath(path.relative(repoRoot, file));
@@ -693,7 +693,7 @@ function validateChildPartition({ root, parsed }) {
   return errors;
 }
 
-function validateLedgerSchema({ schema }) {
+function validateLedgerSchema({ schema, leafIndex }) {
   const errors = [];
   if (schema?.$id !== "https://veln-lang.invalid/schemas/agent-language-services-migration-ledger.schema.json") {
     errors.push(`${ledgerSchemaPath}: keep the stable migration ledger schema $id`);
@@ -710,10 +710,30 @@ function validateLedgerSchema({ schema }) {
   if (sourcePattern !== "^ALS-R[0-9]{4}-L[0-9]{2}$") {
     errors.push(`${ledgerSchemaPath}: source_id must require one concrete leaf id`);
   }
+  const expectedLeafIds = [...leafIndex.keys()];
+  const sourceEnum = schema?.properties?.entries?.items?.properties?.source_id?.enum ?? [];
+  if (JSON.stringify(sourceEnum) !== JSON.stringify(expectedLeafIds)) {
+    errors.push(`${ledgerSchemaPath}: source_id enum must match the frozen leaf set`);
+  }
+  if (schema?.properties?.entries?.minItems !== leafIndex.size || schema?.properties?.entries?.maxItems !== leafIndex.size) {
+    errors.push(`${ledgerSchemaPath}: entries bounds must match the frozen leaf count`);
+  }
+  if (schema?.properties?.entries?.uniqueItems !== true) {
+    errors.push(`${ledgerSchemaPath}: entries must reject byte-identical duplicates`);
+  }
   const lifecycleValues = schema?.properties?.entries?.items?.properties?.lifecycle?.enum ?? [];
   for (const lifecycle of ["current", "completed", "planned", "removed"]) {
     if (!lifecycleValues.includes(lifecycle)) {
       errors.push(`${ledgerSchemaPath}: lifecycle enum must include ${lifecycle}`);
+    }
+  }
+  const variants = schema?.properties?.entries?.items?.allOf ?? [];
+  const variantLifecycles = new Set((variants ?? [])
+    .map((variant) => variant.if?.properties?.lifecycle?.const)
+    .filter((lifecycle) => lifecycle !== undefined));
+  for (const lifecycle of ["current", "completed", "planned", "removed"]) {
+    if (!variantLifecycles.has(lifecycle)) {
+      errors.push(`${ledgerSchemaPath}: destination schema must constrain ${lifecycle} entries`);
     }
   }
   return errors;
@@ -735,8 +755,9 @@ function validateLedgerFixture({ repoRoot, ledger, schema, leafIndex, label, exp
   return [];
 }
 
-function validateLedgerAgainstSchemaShape({ ledger }) {
+function validateLedgerAgainstSchemaShape({ ledger, schema }) {
   const errors = [];
+  const allowedLeafIds = new Set(schema?.properties?.entries?.items?.properties?.source_id?.enum ?? []);
   if (ledger?.schema_version !== 1) {
     errors.push("ledger schema: set schema_version to 1");
   }
@@ -756,12 +777,85 @@ function validateLedgerAgainstSchemaShape({ ledger }) {
     }
     if (!/^ALS-R[0-9]{4}-L[0-9]{2}$/u.test(entry?.source_id ?? "")) {
       errors.push(`${label}: source_id must be one concrete leaf id`);
+    } else if (allowedLeafIds.size !== 0 && !allowedLeafIds.has(entry.source_id)) {
+      errors.push(`${label}: source_id must be one of the frozen inventory leaves`);
     }
     if (!["current", "completed", "planned", "removed"].includes(entry?.lifecycle)) {
       errors.push(`${label}: lifecycle must be current, completed, planned, or removed`);
     }
     if (typeof entry?.destination !== "object" || entry.destination === null || Array.isArray(entry.destination)) {
       errors.push(`${label}: destination must be an object`);
+    } else {
+      errors.push(...validateDestinationSchemaShape({ destination: entry.destination, lifecycle: entry.lifecycle, label }));
+    }
+  }
+  return errors;
+}
+
+function validateDestinationSchemaShape({ destination, lifecycle, label }) {
+  const errors = [];
+  if (lifecycle === "current") {
+    errors.push(...validateObjectKeys({ object: destination, allowed: ["kind", "path", "anchor", "evidence"], required: ["kind", "path", "anchor", "evidence"], label: `${label}.destination` }));
+    if (destination.kind !== "specification") {
+      errors.push(`${label}: current destination kind must be specification`);
+    }
+    if (typeof destination.path !== "string" || !destination.path.startsWith("docs/specification/") || !destination.path.endsWith(".md")) {
+      errors.push(`${label}: current destination path must be a specification Markdown page`);
+    }
+    if (typeof destination.anchor !== "string" || destination.anchor === "") {
+      errors.push(`${label}: current destination anchor is required`);
+    }
+    if (!Array.isArray(destination.evidence) || destination.evidence.length === 0 || !destination.evidence.every((item) => typeof item === "string" && item.startsWith("examples/specification/"))) {
+      errors.push(`${label}: current destination evidence must list checked examples`);
+    }
+  } else if (lifecycle === "completed") {
+    errors.push(...validateObjectKeys({ object: destination, allowed: ["kind", "path", "anchor"], required: ["kind", "path", "anchor"], label: `${label}.destination` }));
+    if (destination.kind !== "implementation-record") {
+      errors.push(`${label}: completed destination kind must be implementation-record`);
+    }
+    if (typeof destination.path !== "string" || !destination.path.startsWith("docs/reference/implemented-proposals/") || !destination.path.endsWith(".md")) {
+      errors.push(`${label}: completed destination path must be an implemented-proposal record`);
+    }
+    if (typeof destination.anchor !== "string" || destination.anchor === "") {
+      errors.push(`${label}: completed destination anchor is required`);
+    }
+  } else if (lifecycle === "planned") {
+    errors.push(...validateObjectKeys({ object: destination, allowed: ["kind", "path", "anchor"], required: ["kind", "path", "anchor"], label: `${label}.destination` }));
+    if (destination.kind !== "proposal") {
+      errors.push(`${label}: planned destination kind must be proposal`);
+    }
+    if (typeof destination.path !== "string" || !destination.path.startsWith("docs/proposals/") || !destination.path.endsWith(".md")) {
+      errors.push(`${label}: planned destination path must be a proposal Markdown page`);
+    }
+    if (typeof destination.anchor !== "string" || destination.anchor === "") {
+      errors.push(`${label}: planned destination anchor is required`);
+    }
+  } else if (lifecycle === "removed") {
+    errors.push(...validateObjectKeys({ object: destination, allowed: ["kind", "rationale", "superseded_by"], required: ["kind", "rationale", "superseded_by"], label: `${label}.destination` }));
+    if (destination.kind !== "removed") {
+      errors.push(`${label}: removed destination kind must be removed`);
+    }
+    if (typeof destination.rationale !== "string" || destination.rationale.trim() === "") {
+      errors.push(`${label}: removed destination rationale is required`);
+    }
+    if (typeof destination.superseded_by !== "string" || destination.superseded_by.trim() === "") {
+      errors.push(`${label}: removed destination superseded_by is required`);
+    }
+  }
+  return errors;
+}
+
+function validateObjectKeys({ object, allowed, required, label }) {
+  const errors = [];
+  const allowedSet = new Set(allowed);
+  for (const key of Object.keys(object ?? {})) {
+    if (!allowedSet.has(key)) {
+      errors.push(`${label}: unknown field ${key}`);
+    }
+  }
+  for (const key of required) {
+    if (!(key in (object ?? {}))) {
+      errors.push(`${label}: missing required field ${key}`);
     }
   }
   return errors;
@@ -940,7 +1034,7 @@ function writeFrozenArtifacts({ repoRoot, authority, baseCommit }) {
       spans: leaf.spans,
     })),
   };
-  const schema = migrationLedgerSchema();
+  const schema = migrationLedgerSchema(leafIndex);
   const validLedger = {
     schema_version: 1,
     inventory_path: frozenInventoryPath,
@@ -1207,7 +1301,8 @@ function spanText(text, spans) {
   return spans.map(([start, end]) => scalars.slice(start, end).join("")).join("");
 }
 
-function migrationLedgerSchema() {
+function migrationLedgerSchema(leafIndex) {
+  const leafIds = [...leafIndex.keys()];
   return {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     $id: "https://veln-lang.invalid/schemas/agent-language-services-migration-ledger.schema.json",
@@ -1219,19 +1314,96 @@ function migrationLedgerSchema() {
       inventory_path: { const: frozenInventoryPath },
       entries: {
         type: "array",
-        minItems: 1,
+        minItems: leafIds.length,
+        maxItems: leafIds.length,
+        uniqueItems: true,
         items: {
           type: "object",
           additionalProperties: false,
           required: ["source_id", "lifecycle", "destination"],
           properties: {
-            source_id: { type: "string", pattern: "^ALS-R[0-9]{4}-L[0-9]{2}$" },
+            source_id: { type: "string", pattern: "^ALS-R[0-9]{4}-L[0-9]{2}$", enum: leafIds },
             lifecycle: { type: "string", enum: ["current", "completed", "planned", "removed"] },
             destination: {
               type: "object",
-              additionalProperties: true,
             },
           },
+          allOf: [
+            {
+              if: { properties: { lifecycle: { const: "current" } }, required: ["lifecycle"] },
+              then: {
+                properties: {
+                  destination: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["kind", "path", "anchor", "evidence"],
+                    properties: {
+                      kind: { const: "specification" },
+                      path: { type: "string", pattern: "^docs/specification/.*\\.md$" },
+                      anchor: { type: "string", minLength: 1 },
+                      evidence: {
+                        type: "array",
+                        minItems: 1,
+                        uniqueItems: true,
+                        items: { type: "string", pattern: "^examples/specification/" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            {
+              if: { properties: { lifecycle: { const: "completed" } }, required: ["lifecycle"] },
+              then: {
+                properties: {
+                  destination: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["kind", "path", "anchor"],
+                    properties: {
+                      kind: { const: "implementation-record" },
+                      path: { type: "string", pattern: "^docs/reference/implemented-proposals/.*\\.md$" },
+                      anchor: { type: "string", minLength: 1 },
+                    },
+                  },
+                },
+              },
+            },
+            {
+              if: { properties: { lifecycle: { const: "planned" } }, required: ["lifecycle"] },
+              then: {
+                properties: {
+                  destination: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["kind", "path", "anchor"],
+                    properties: {
+                      kind: { const: "proposal" },
+                      path: { type: "string", pattern: "^docs/proposals/.*\\.md$" },
+                      anchor: { type: "string", minLength: 1 },
+                    },
+                  },
+                },
+              },
+            },
+            {
+              if: { properties: { lifecycle: { const: "removed" } }, required: ["lifecycle"] },
+              then: {
+                properties: {
+                  destination: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["kind", "rationale", "superseded_by"],
+                    properties: {
+                      kind: { const: "removed" },
+                      rationale: { type: "string", minLength: 1 },
+                      superseded_by: { type: "string", minLength: 1 },
+                    },
+                  },
+                },
+              },
+            },
+          ],
         },
       },
     },
@@ -1306,6 +1478,15 @@ function invalidLedgerFixtures(validLedger, leafIndex) {
   });
   fixtures.direct_parent_duplicate_guard = fixtureFrom(validLedger, "duplicate ledger leaf", (ledger) => {
     ledger.entries[0] = structuredClone(second);
+  });
+  fixtures.invalid_destination_shape = fixtureFrom(validLedger, "planned destination kind must be proposal", (ledger) => {
+    const planned = ledger.entries.find((entry) => entry.lifecycle === "planned") ?? first;
+    planned.destination = {
+      kind: "specification",
+      path: "docs/specification/mcp.md",
+      anchor: "#mcp-workspace-projects-diagnostics-and-definitions",
+      evidence: ["examples/specification/README.md"],
+    };
   });
   return fixtures;
 }
