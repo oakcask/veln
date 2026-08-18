@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The `veln mcp` tool schemas, navigation acceptance cases, lifecycle-migration or slice-closure evidence gate, virtual-location contract, published-reference inputs, client-plugin boundary, or implementation status changes.
+update-when: The `veln mcp` tool schemas, navigation acceptance cases, agent-language-services closed client-platform matrix, compatibility field identities, lifecycle-migration or slice-closure evidence gate, virtual-location contract, published-reference inputs, client-plugin boundary, or implementation status changes.
 ---
 
 # Agent Language Services
