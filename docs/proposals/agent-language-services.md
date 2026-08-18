@@ -871,14 +871,19 @@ add an installer after the supported clients expose a sufficiently stable,
 non-interactive installation contract.
 
 `compatibility.toml` is the authoritative client matrix. The v1 matrix pins one
-tested Codex host build and one tested Claude Code build per supported platform,
-their manifest-schema revisions, validator versions and integrity digests, and
-the required Veln, MCP, LSP, language-service, and reference-schema contracts.
-Widening a host range requires adding and passing both boundary builds. Shared
-skill content and `.mcp.json` are common authority. Each client manifest and
-Claude Code's `.lsp.json` are authoritative only for that client. Client staging
-packages omit files unknown to that client and are freshness-checked against the
-shared inputs.
+tested host build for each closed client-platform row, the manifest-schema
+revision, validator version and integrity digest, and the required Veln, MCP,
+LSP, language-service, and reference-schema contracts. Widening a host range
+requires adding and passing both boundary builds. Shared skill content and
+`.mcp.json` are common authority. Each client manifest and Claude Code's
+`.lsp.json` are authoritative only for that client. Client staging packages omit
+files unknown to that client and are freshness-checked against the shared
+inputs.
+
+| Client-platform key | Client | Platform | Host build | Manifest schema | Validator | Validator digest | Required contracts |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `codex/x86_64-unknown-linux-gnu` | `codex` | `x86_64-unknown-linux-gnu` | `codex-cli-0.1.0` | `agent-plugin-manifest-v1` | `veln-plugin-validator-v1` | `0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef` | `veln-toolchain-1`, `mcp-2024-11-05`, `lsp-3.17`, `veln-language-service-1`, `veln-reference-schema-1` |
+| `claude-code/x86_64-unknown-linux-gnu` | `claude-code` | `x86_64-unknown-linux-gnu` | `claude-code-cli-0.1.0` | `agent-plugin-manifest-v1` | `veln-plugin-validator-v1` | `abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789` | `veln-toolchain-1`, `mcp-2024-11-05`, `lsp-3.17`, `veln-language-service-1`, `veln-reference-schema-1` |
 
 Every matrix cell uses client-native installation, opens a fixture workspace,
 checks process working directory, performs MCP initialize, tool, resource, and
@@ -908,7 +913,7 @@ completion gate. A repository-maintenance package named
 `veln-repo-agent-language-conformance` under `tools/` validates it. The
 manifest contains one requirement ID and at least one planned evidence ID for
 every normative paragraph, acceptance row, schema field, domain error,
-resource template, lifecycle transition, and supported client-platform cell.
+resource template, lifecycle transition, and closed client-platform row.
 It rejects missing, duplicate, skipped, orphaned, or unimplemented mappings.
 
 The v1 manifest closes the capability matrices that this proposal previously
@@ -943,7 +948,7 @@ The resolved-decision evidence groups are:
 | Q18 generation failure | Every generation gate, ordered diagnostics, resource and search absence, source survival, and positive, negative, ignored, invalid, and mismatched doctests. |
 | Q19 search and reads | Query normalization, all scopes and rank tiers, ties, deduplication, bounds, scalar excerpts, truncation flags, size boundary, and route byte equality. |
 | Q20 executable binding | Workspace paths, multi-root startup, inherited or explicit working directory, missing and shadowed executable, every incompatible contract, and matching initialization. |
-| Q21 plugin matrix | Pinned validators, generated-package freshness, every supported client and platform boundary, native install, MCP smoke, Claude LSP smoke, and unknown-file isolation. |
+| Q21 plugin matrix | Pinned validators, generated-package freshness, every row in the closed client-platform matrix, native install, MCP smoke, Claude LSP smoke, and unknown-file isolation. |
 | Q22 gate totality | Injected missing requirement, duplicate evidence, missing matrix cell, stale artifact, undeclared capability, malformed request class, and plugin mismatch. |
 
 Q11 is implemented by the `veln-project` fixed-vector and transcript-mutation
@@ -1041,7 +1046,7 @@ that the behavior is already implemented.
 | Validate the Claude Code plugin. | Its MCP and LSP configurations bind the active workspace and complete both protocol lifecycles with the pinned client. | Q20/Q21 pinned Claude native smoke. |
 | Start with a missing, shadowed, or incompatible executable. | Startup fails before capability use and names the failed version fact and required action outside MCP stdout. | Q20 executable-binding matrix. |
 | Use the shared skill. | Instructions route agents to reference, package docs, navigation, and diagnostics without claiming proposals as current behavior. | Plugin content review and scenario tests. |
-| Run the proposal completion gate. | Every requirement and evidence mapping, closed capability matrix, generated artifact, and supported client-platform cell passes with no orphan. | Q22 conformance-manifest self-check and gate command. |
+| Run the proposal completion gate. | Every requirement and evidence mapping, closed capability matrix, generated artifact, and closed client-platform row passes with no orphan. | Q22 conformance-manifest self-check and gate command. |
 
 ## Implementation Slices
 

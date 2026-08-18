@@ -16,12 +16,24 @@ const validatorPaths = [
 ];
 const frozenPrefix = "agent-language-services/";
 const lifecycleValues = new Set(["current", "completed", "planned", "removed"]);
+const closedClientPlatformMatrix = [
+  {
+    key: "codex/x86_64-unknown-linux-gnu",
+    client: "codex",
+    platform: "x86_64-unknown-linux-gnu",
+  },
+  {
+    key: "claude-code/x86_64-unknown-linux-gnu",
+    client: "claude-code",
+    platform: "x86_64-unknown-linux-gnu",
+  },
+];
 const sourceUniverseContract = {
-  root_count: 390,
+  root_count: 393,
   kind_counts: {
     paragraph: 133,
     "list-item": 110,
-    "table-row": 131,
+    "table-row": 134,
     "fenced-line": 16,
   },
   heading_counts: {
@@ -56,7 +68,7 @@ const sourceUniverseContract = {
     "Reference Snapshot": 3,
     "Documentation Search And Reads": 3,
     "LSP Integration": 7,
-    "Agent Plugin": 20,
+    "Agent Plugin": 23,
     "Safety And Privacy": 11,
     "Conformance Contract": 28,
     "Acceptance Model": 1,
@@ -90,6 +102,7 @@ const sourceUniverseContract = {
     package_document_declarations: ["doc", "doc-digest", "PackageIdentity"],
     lsp_encodings: ["general.positionEncodings", "veln/virtualDocument"],
     plugin_cells: ["Codex", "Claude Code", "compatibility.toml", "mcpServers", ".lsp.json", ".mcp.json"],
+    plugin_client_platform_keys: closedClientPlatformMatrix.map((row) => row.key),
   },
 };
 
@@ -124,12 +137,13 @@ export function validateAgentLanguageServicesInventory({ repoRoot, checkDiffScop
   const schema = readJson(repoRoot, schemaPath);
   const parsed = parseSourceUniverse(proposal);
   const errors = [
+    ...validateAgentLanguageServicesPlatformMatrix(proposal),
     ...validateUniverse({ parsed, universe }),
     ...validateInventory({ inventory, parsed, universe, manifest }),
     ...validateLedgerSchema(schema),
   ];
   const ledger = buildAcceptanceLedger({ repoRoot, inventory, manifest });
-  errors.push(...validateMigrationLedger({ repoRoot, ledger, inventory, manifest }).errors);
+  errors.push(...validateMigrationLedger({ repoRoot, ledger, inventory, manifest, schema }).errors);
   if (checkDiffScope) {
     errors.push(...validateDiffScopeFromGit(repoRoot));
   }
@@ -385,14 +399,55 @@ export function validateInventory({ inventory, parsed, universe, manifest }) {
   return errors;
 }
 
-export function validateMigrationLedger({ repoRoot = process.cwd(), ledger, inventory, manifest }) {
+export function validateAgentLanguageServicesPlatformMatrix(markdown) {
+  const errors = [];
+  const rows = extractClientPlatformRows(markdown);
+  if (rows.length !== closedClientPlatformMatrix.length) {
+    errors.push(`agent-language-services platform matrix: expected ${closedClientPlatformMatrix.length} rows, found ${rows.length}; enumerate the exact closed client-platform cells before freezing the lifecycle source universe.`);
+  }
+  const seen = new Set();
+  for (const [index, expected] of closedClientPlatformMatrix.entries()) {
+    const row = rows[index];
+    if (!row) continue;
+    if (seen.has(row.key)) errors.push(`agent-language-services platform matrix: duplicate client-platform key ${row.key}.`);
+    seen.add(row.key);
+    if (row.key !== expected.key) errors.push(`agent-language-services platform matrix: row ${index + 1} must be ${expected.key}.`);
+    if (row.client !== expected.client) errors.push(`agent-language-services platform matrix: ${row.key} must declare client ${expected.client}.`);
+    if (row.platform !== expected.platform) errors.push(`agent-language-services platform matrix: ${row.key} must declare platform ${expected.platform}.`);
+    for (const field of ["key", "client", "platform", "host_build", "manifest_schema", "validator", "validator_digest", "required_contracts"]) {
+      if (typeof row[field] !== "string" || row[field].trim() === "") {
+        errors.push(`agent-language-services platform matrix: ${row.key || `row ${index + 1}`} has empty ${field}.`);
+      }
+      if (typeof row[field] === "string" && /(?:\*|\.\.|^all\b|supported platforms?|future|tbd|placeholder|range)/i.test(row[field])) {
+        errors.push(`agent-language-services platform matrix: ${row.key || `row ${index + 1}`} ${field} must be an exact literal.`);
+      }
+    }
+    if (!/^[0-9a-f]{64}$/.test(row.validator_digest)) {
+      errors.push(`agent-language-services platform matrix: ${row.key} validator_digest must be exactly 64 lowercase hexadecimal digits.`);
+    }
+  }
+  const forbiddenReferences = [
+    "per supported platform",
+    "every supported client and platform",
+    "supported client-platform cell",
+  ];
+  for (const phrase of forbiddenReferences) {
+    if (markdown.toLowerCase().includes(phrase)) {
+      errors.push(`agent-language-services platform matrix: replace "${phrase}" with a reference to the closed client-platform matrix rows.`);
+    }
+  }
+  return errors;
+}
+
+export function validateMigrationLedger({ repoRoot = process.cwd(), ledger, inventory, manifest, schema = migrationLedgerSchema() }) {
   const errors = [];
   if (!ledger || ledger.schema_version !== 1) errors.push("migration ledger: schema_version must be 1.");
-  errors.push(...validateMigrationLedgerJsonSchema({ ledger, schema: migrationLedgerSchema() }).errors);
+  errors.push(...validateMigrationLedgerJsonSchema({ ledger, schema }).errors);
   if (!Array.isArray(ledger?.entries)) return { valid: false, errors: [...errors, "migration ledger: entries must be an array."] };
   const leaves = new Map((manifest.leaves ?? []).map((leaf) => [leaf.source_id, leaf]));
   const parentIds = new Set((inventory.roots ?? []).filter((root) => root.child_count > 0).map((root) => root.id));
   const seen = new Set();
+  const evidenceSeen = new Set();
   for (const entry of ledger.entries) {
     const id = entry?.source_id;
     if (typeof id !== "string") {
@@ -410,7 +465,7 @@ export function validateMigrationLedger({ repoRoot = process.cwd(), ledger, inve
     }
     if (entry.lifecycle !== leaf.lifecycle) errors.push(`migration ledger: ${id} lifecycle must be ${leaf.lifecycle}.`);
     if (leaf.conformance && entry.lifecycle === "removed") errors.push(`migration ledger: ${id} is conformance content and cannot be removed.`);
-    errors.push(...validateDestination({ repoRoot, entry }));
+    errors.push(...validateDestination({ repoRoot, entry, evidenceSeen }));
   }
   for (const id of leaves.keys()) {
     if (!seen.has(id)) errors.push(`migration ledger: missing leaf mapping ${id}.`);
@@ -443,13 +498,19 @@ export function validateDiffScope({ changes, baseHasFrozen, headHasFrozen }) {
 }
 
 export function buildAcceptanceLedger({ repoRoot, inventory, manifest }) {
-  const destinationFor = (lifecycle) => {
+  const currentEvidence = collectCheckedEvidencePaths(repoRoot);
+  let currentEvidenceIndex = 0;
+  const rootsById = new Map((inventory.roots ?? []).map((root) => [root.id, root]));
+  const destinationFor = (leaf) => {
+    const lifecycle = leaf.lifecycle;
     if (lifecycle === "current") {
+      const evidence = currentEvidence[currentEvidenceIndex];
+      currentEvidenceIndex += 1;
       return {
         kind: "current",
         path: "docs/specification/mcp.md",
         anchor: "mcp-workspace-projects-diagnostics-and-definitions",
-        evidence: ["examples/specification/doc/generated-markdown/case.toml"],
+        evidence: [evidence],
       };
     }
     if (lifecycle === "completed") {
@@ -462,7 +523,7 @@ export function buildAcceptanceLedger({ repoRoot, inventory, manifest }) {
     return {
       kind: "planned",
       path: proposalPath,
-      anchor: "acceptance-model",
+      anchor: slug(rootsById.get(leaf.parent_id)?.heading ?? "acceptance-model"),
     };
   };
   return {
@@ -470,12 +531,12 @@ export function buildAcceptanceLedger({ repoRoot, inventory, manifest }) {
     entries: (manifest.leaves ?? []).map((leaf) => ({
       source_id: leaf.source_id,
       lifecycle: leaf.lifecycle,
-      destination: destinationFor(leaf.lifecycle),
+      destination: destinationFor(leaf),
     })),
   };
 }
 
-function validateDestination({ repoRoot, entry }) {
+function validateDestination({ repoRoot, entry, evidenceSeen = new Set() }) {
   const errors = [];
   const destination = entry.destination;
   if (!destination || destination.kind !== entry.lifecycle) {
@@ -516,11 +577,15 @@ function validateDestination({ repoRoot, entry }) {
       for (const evidence of destination.evidence) {
         if (entryEvidenceSeen.has(evidence)) errors.push(`migration ledger: duplicate checked evidence ${evidence}.`);
         entryEvidenceSeen.add(evidence);
+        if (evidenceSeen.has(evidence)) errors.push(`migration ledger: checked evidence ${evidence} is reused by more than one current leaf.`);
+        evidenceSeen.add(evidence);
         if (!isCheckedEvidencePath(evidence) || !fs.existsSync(path.join(repoRoot, evidence))) {
           errors.push(`migration ledger: ${entry.source_id} evidence ${evidence} must resolve to an allowlisted checked route.`);
         }
       }
     }
+  } else if (entry.lifecycle === "planned" && destination.anchor === "acceptance-model") {
+    errors.push(`migration ledger: ${entry.source_id} planned destination must route to a concrete proposal heading, not the acceptance-model summary.`);
   }
   return errors;
 }
@@ -574,36 +639,10 @@ function validateLedgerSchema(schema) {
 }
 
 export function validateMigrationLedgerJsonSchema({ ledger, schema = migrationLedgerSchema() }) {
-  const errors = [];
   if (schema?.$id !== "agent-language-services-migration-ledger.schema.json") {
-    errors.push("migration ledger schema: unsupported schema.");
+    return { valid: false, errors: ["migration ledger schema: unsupported schema."] };
   }
-  if (!ledger || typeof ledger !== "object" || Array.isArray(ledger)) {
-    return { valid: false, errors: ["migration ledger schema: ledger must be an object."] };
-  }
-  rejectExtraKeys({ errors, label: "migration ledger", value: ledger, allowed: ["schema_version", "entries"] });
-  requireKeys({ errors, label: "migration ledger", value: ledger, keys: ["schema_version", "entries"] });
-  if (ledger.schema_version !== 1) errors.push("migration ledger schema: schema_version must be 1.");
-  if (!Array.isArray(ledger.entries) || ledger.entries.length === 0) {
-    return { valid: false, errors: [...errors, "migration ledger schema: entries must be a nonempty array."] };
-  }
-  for (const [index, entry] of ledger.entries.entries()) {
-    const label = `migration ledger schema: entries[${index}]`;
-    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-      errors.push(`${label} must be an object.`);
-      continue;
-    }
-    rejectExtraKeys({ errors, label, value: entry, allowed: ["source_id", "lifecycle", "destination"] });
-    requireKeys({ errors, label, value: entry, keys: ["source_id", "lifecycle", "destination"] });
-    if (typeof entry.source_id !== "string" || !/^agent-language-services\/S[0-9]{4}\.c[0-9]{2}$/.test(entry.source_id)) {
-      errors.push(`${label}.source_id must be one frozen leaf id.`);
-    }
-    if (typeof entry.source_id === "string" && /[*]|\.\.|^all\b|remaining|range/i.test(entry.source_id)) {
-      errors.push(`${label}.source_id must not be a range, wildcard, or catch-all.`);
-    }
-    if (!lifecycleValues.has(entry.lifecycle)) errors.push(`${label}.lifecycle is invalid.`);
-    validateDestinationShape({ errors, label: `${label}.destination`, lifecycle: entry.lifecycle, destination: entry.destination });
-  }
+  const errors = validateJsonSchemaValue({ schema, value: ledger, label: "migration ledger schema" });
   return { valid: errors.length === 0, errors };
 }
 
@@ -654,6 +693,94 @@ function requireKeys({ errors, label, value, keys }) {
   }
 }
 
+function validateJsonSchemaValue({ schema, value, label }) {
+  const errors = [];
+  visit(schema, value, label);
+  return errors;
+
+  function visit(currentSchema, currentValue, currentLabel) {
+    if (!currentSchema || typeof currentSchema !== "object") return;
+    if (currentSchema.allOf) {
+      for (const [index, childSchema] of currentSchema.allOf.entries()) {
+        visit(childSchema, currentValue, `${currentLabel}.allOf[${index}]`);
+      }
+    }
+    if (currentSchema.if) {
+      const conditionErrors = [];
+      visitWithErrors(currentSchema.if, currentValue, currentLabel, conditionErrors);
+      if (conditionErrors.length === 0 && currentSchema.then) {
+        visit(currentSchema.then, currentValue, currentLabel);
+      }
+    }
+    if (currentSchema.not) {
+      const conditionErrors = [];
+      visitWithErrors(currentSchema.not, currentValue, currentLabel, conditionErrors);
+      if (conditionErrors.length === 0) errors.push(`${currentLabel} must not match forbidden schema.`);
+    }
+    if (currentSchema.type && !matchesJsonType(currentValue, currentSchema.type)) {
+      errors.push(`${currentLabel} must be ${currentSchema.type}.`);
+      return;
+    }
+    if (Object.hasOwn(currentSchema, "const") && currentValue !== currentSchema.const) {
+      errors.push(`${currentLabel} must equal ${JSON.stringify(currentSchema.const)}.`);
+    }
+    if (currentSchema.enum && !currentSchema.enum.includes(currentValue)) {
+      errors.push(`${currentLabel} must be one of ${currentSchema.enum.join(", ")}.`);
+    }
+    if (typeof currentValue === "string") {
+      if (currentSchema.minLength !== undefined && currentValue.length < currentSchema.minLength) {
+        errors.push(`${currentLabel} must have length at least ${currentSchema.minLength}.`);
+      }
+      if (currentSchema.pattern && !new RegExp(currentSchema.pattern, "u").test(currentValue)) {
+        errors.push(`${currentLabel} must match ${currentSchema.pattern}.`);
+      }
+    }
+    if (Array.isArray(currentValue)) {
+      if (currentSchema.minItems !== undefined && currentValue.length < currentSchema.minItems) {
+        errors.push(`${currentLabel} must contain at least ${currentSchema.minItems} item.`);
+      }
+      if (currentSchema.uniqueItems && new Set(currentValue.map((item) => JSON.stringify(item))).size !== currentValue.length) {
+        errors.push(`${currentLabel} must contain unique items.`);
+      }
+      if (currentSchema.items) {
+        for (const [index, item] of currentValue.entries()) {
+          visit(currentSchema.items, item, `${currentLabel}[${index}]`);
+        }
+      }
+    }
+    if (currentValue && typeof currentValue === "object" && !Array.isArray(currentValue)) {
+      for (const key of currentSchema.required ?? []) {
+        if (!Object.hasOwn(currentValue, key)) errors.push(`${currentLabel} missing ${key}.`);
+      }
+      if (currentSchema.additionalProperties === false && currentSchema.properties) {
+        for (const key of Object.keys(currentValue)) {
+          if (!Object.hasOwn(currentSchema.properties, key)) errors.push(`${currentLabel} has unexpected key ${key}.`);
+        }
+      }
+      for (const [key, childSchema] of Object.entries(currentSchema.properties ?? {})) {
+        if (Object.hasOwn(currentValue, key)) visit(childSchema, currentValue[key], `${currentLabel}.${key}`);
+      }
+    }
+  }
+
+  function visitWithErrors(currentSchema, currentValue, currentLabel, targetErrors) {
+    const savedLength = errors.length;
+    visit(currentSchema, currentValue, currentLabel);
+    targetErrors.push(...errors.splice(savedLength));
+  }
+}
+
+function matchesJsonType(value, type) {
+  if (type === "array") return Array.isArray(value);
+  if (type === "object") return value !== null && typeof value === "object" && !Array.isArray(value);
+  if (type === "string") return typeof value === "string";
+  if (type === "number") return typeof value === "number";
+  if (type === "integer") return Number.isInteger(value);
+  if (type === "boolean") return typeof value === "boolean";
+  if (type === "null") return value === null;
+  return true;
+}
+
 function migrationLedgerSchema() {
   return {
     $schema: "https://json-schema.org/draft/2020-12/schema",
@@ -670,6 +797,12 @@ function migrationLedgerSchema() {
           type: "object",
           additionalProperties: false,
           required: ["source_id", "lifecycle", "destination"],
+          allOf: [
+            lifecycleDestinationSchema("current"),
+            lifecycleDestinationSchema("completed"),
+            lifecycleDestinationSchema("planned"),
+            lifecycleDestinationSchema("removed"),
+          ],
           properties: {
             source_id: {
               type: "string",
@@ -722,6 +855,83 @@ function migrationLedgerSchema() {
       },
     },
   };
+}
+
+function lifecycleDestinationSchema(lifecycle) {
+  return {
+    if: {
+      properties: {
+        lifecycle: { const: lifecycle },
+      },
+      required: ["lifecycle"],
+    },
+    then: {
+      properties: {
+        destination: {
+          properties: {
+            kind: { const: lifecycle },
+          },
+          required: ["kind"],
+        },
+      },
+      required: ["destination"],
+    },
+  };
+}
+
+function extractClientPlatformRows(markdown) {
+  const rows = [];
+  const lines = markdown.split("\n");
+  const headerIndex = lines.findIndex((line) => line.includes("| Client-platform key | Client | Platform | Host build |"));
+  if (headerIndex < 0) return rows;
+  for (let index = headerIndex + 2; index < lines.length && isTableRow(lines[index]); index += 1) {
+    const cells = splitMarkdownTableCells(lines[index]);
+    if (cells.length !== 8) continue;
+    rows.push({
+      key: unwrapCode(cells[0]),
+      client: unwrapCode(cells[1]),
+      platform: unwrapCode(cells[2]),
+      host_build: unwrapCode(cells[3]),
+      manifest_schema: unwrapCode(cells[4]),
+      validator: unwrapCode(cells[5]),
+      validator_digest: unwrapCode(cells[6]),
+      required_contracts: cells[7],
+    });
+  }
+  return rows;
+}
+
+function splitMarkdownTableCells(line) {
+  let text = line.trim();
+  if (text.startsWith("|")) text = text.slice(1);
+  if (text.endsWith("|")) text = text.slice(0, -1);
+  return text.split("|").map((cell) => cell.trim());
+}
+
+function unwrapCode(text) {
+  return text.replace(/^`|`$/g, "");
+}
+
+function collectCheckedEvidencePaths(repoRoot) {
+  const roots = ["examples/specification"];
+  const result = [];
+  for (const root of roots) {
+    const fullRoot = path.join(repoRoot, root);
+    if (!fs.existsSync(fullRoot)) continue;
+    walk(fullRoot);
+  }
+  return result.sort();
+
+  function walk(directory) {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const fullPath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        walk(fullPath);
+      } else if (/\.(?:toml|veln|json|jsonl|txt|raw|pl)$/.test(entry.name)) {
+        result.push(path.relative(repoRoot, fullPath).replaceAll(path.sep, "/"));
+      }
+    }
+  }
 }
 
 function splitLeafChildren(root) {

@@ -22,6 +22,124 @@
           "lifecycle",
           "destination"
         ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "lifecycle": {
+                  "const": "current"
+                }
+              },
+              "required": [
+                "lifecycle"
+              ]
+            },
+            "then": {
+              "properties": {
+                "destination": {
+                  "properties": {
+                    "kind": {
+                      "const": "current"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                }
+              },
+              "required": [
+                "destination"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "lifecycle": {
+                  "const": "completed"
+                }
+              },
+              "required": [
+                "lifecycle"
+              ]
+            },
+            "then": {
+              "properties": {
+                "destination": {
+                  "properties": {
+                    "kind": {
+                      "const": "completed"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                }
+              },
+              "required": [
+                "destination"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "lifecycle": {
+                  "const": "planned"
+                }
+              },
+              "required": [
+                "lifecycle"
+              ]
+            },
+            "then": {
+              "properties": {
+                "destination": {
+                  "properties": {
+                    "kind": {
+                      "const": "planned"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                }
+              },
+              "required": [
+                "destination"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "lifecycle": {
+                  "const": "removed"
+                }
+              },
+              "required": [
+                "lifecycle"
+              ]
+            },
+            "then": {
+              "properties": {
+                "destination": {
+                  "properties": {
+                    "kind": {
+                      "const": "removed"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                }
+              },
+              "required": [
+                "destination"
+              ]
+            }
+          }
+        ],
         "properties": {
           "source_id": {
             "type": "string",

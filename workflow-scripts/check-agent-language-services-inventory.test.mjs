@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   buildAcceptanceLedger,
   parseSourceUniverse,
+  validateAgentLanguageServicesPlatformMatrix,
   validateAgentLanguageServicesInventory,
   validateDiffScope,
   validateInventory,
@@ -38,9 +39,45 @@ test("rejects missing independent source-universe contract identities", () => {
   removeIdentity(missingTool.universe, "references");
   assert(validateUniverse({ parsed: missingTool.parsed, universe: missingTool.universe }).some((error) => error.includes("mcp_tools identity references")));
 
+  const missingResource = fixtureData();
+  removeIdentity(missingResource.universe, "veln-pkg:");
+  assert(validateUniverse({ parsed: missingResource.parsed, universe: missingResource.universe }).some((error) => error.includes("mcp_resource_schemes identity veln-pkg:")));
+
+  const missingDeclaration = fixtureData();
+  removeIdentity(missingDeclaration.universe, "PackageIdentity");
+  assert(validateUniverse({ parsed: missingDeclaration.parsed, universe: missingDeclaration.universe }).some((error) => error.includes("package_document_declarations identity PackageIdentity")));
+
+  const missingEncoding = fixtureData();
+  removeIdentity(missingEncoding.universe, "veln/virtualDocument");
+  assert(validateUniverse({ parsed: missingEncoding.parsed, universe: missingEncoding.universe }).some((error) => error.includes("lsp_encodings identity veln/virtualDocument")));
+
   const missingPluginCell = fixtureData();
   removeIdentity(missingPluginCell.universe, "Claude Code");
   assert(validateUniverse({ parsed: missingPluginCell.parsed, universe: missingPluginCell.universe }).some((error) => error.includes("plugin_cells identity Claude Code")));
+
+  const missingClientPlatform = fixtureData();
+  removeIdentity(missingClientPlatform.universe, "claude-code/x86_64-unknown-linux-gnu");
+  assert(validateUniverse({ parsed: missingClientPlatform.parsed, universe: missingClientPlatform.universe }).some((error) => error.includes("plugin_client_platform_keys identity claude-code/x86_64-unknown-linux-gnu")));
+});
+
+test("rejects invalid closed client-platform matrix rows and references", () => {
+  const proposal = fs.readFileSync(path.join(repoRoot, "docs/proposals/agent-language-services.md"), "utf8");
+  assert.deepEqual(validateAgentLanguageServicesPlatformMatrix(proposal), []);
+
+  const missingRow = proposal.replace(/\| `claude-code\/x86_64-unknown-linux-gnu`.+\n/, "");
+  assert(validateAgentLanguageServicesPlatformMatrix(missingRow).some((error) => error.includes("expected 2 rows")));
+
+  const duplicateKey = proposal.replace("`claude-code/x86_64-unknown-linux-gnu`", "`codex/x86_64-unknown-linux-gnu`");
+  assert(validateAgentLanguageServicesPlatformMatrix(duplicateKey).some((error) => error.includes("duplicate client-platform key")));
+
+  const wildcard = proposal.replace("`codex/x86_64-unknown-linux-gnu`", "`codex/*`");
+  assert(validateAgentLanguageServicesPlatformMatrix(wildcard).some((error) => error.includes("exact literal")));
+
+  const badDigest = proposal.replace("`0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef`", "`0123`");
+  assert(validateAgentLanguageServicesPlatformMatrix(badDigest).some((error) => error.includes("64 lowercase hexadecimal")));
+
+  const unnamedReference = `${proposal}\nEvery supported client and platform must pass.\n`;
+  assert(validateAgentLanguageServicesPlatformMatrix(unnamedReference).some((error) => error.includes("closed client-platform matrix rows")));
 });
 
 test("rejects a missing or duplicate inventory item", () => {
@@ -134,6 +171,19 @@ test("rejects invalid ledger destination evidence", () => {
   const current = ledger.entries.find((entry) => entry.lifecycle === "current");
   current.destination.evidence = ["docs/proposals/agent-language-services.md"];
   assert(validateMigrationLedger({ repoRoot, ledger, inventory: fixture.inventory, manifest: fixture.manifest }).errors.some((error) => error.includes("allowlisted checked route")));
+});
+
+test("rejects duplicate current evidence and summary-only planned destinations", () => {
+  const fixture = fixtureData();
+  const duplicateEvidence = buildAcceptanceLedger(fixture);
+  const currentEntries = duplicateEvidence.entries.filter((entry) => entry.lifecycle === "current");
+  currentEntries[1].destination.evidence = [...currentEntries[0].destination.evidence];
+  assert(validateMigrationLedger({ repoRoot, ledger: duplicateEvidence, inventory: fixture.inventory, manifest: fixture.manifest }).errors.some((error) => error.includes("reused by more than one current leaf")));
+
+  const summaryPlanned = buildAcceptanceLedger(fixture);
+  const planned = summaryPlanned.entries.find((entry) => entry.lifecycle === "planned");
+  planned.destination.anchor = "acceptance-model";
+  assert(validateMigrationLedger({ repoRoot, ledger: summaryPlanned, inventory: fixture.inventory, manifest: fixture.manifest }).errors.some((error) => error.includes("not the acceptance-model summary")));
 });
 
 test("validates removed supporting leaves with superseding destinations", () => {

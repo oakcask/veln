@@ -2745,21 +2745,73 @@
       "heading": "Agent Plugin",
       "kind": "paragraph",
       "line": 873,
-      "digest": "3b5f11929ea4093f32609e5bd0b803a31798a498f6271d557c44fd97d77162ef",
+      "digest": "dd386aded43c3d07c4372b21b03a17cadc207ea3ee3649bae00f06ff380e66a7",
       "conformance": true,
       "identities": [
         ".lsp.json",
         ".mcp.json",
         "Claude Code",
-        "Codex",
         "compatibility.toml"
       ]
     },
     {
       "id": "agent-language-services/S0278",
       "heading": "Agent Plugin",
-      "kind": "paragraph",
+      "kind": "table-row",
       "line": 883,
+      "digest": "24789be5c60a5b8b567ab56d66c9c646b99668ff42fd10e53dd2df7825c9f6dd",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0279",
+      "heading": "Agent Plugin",
+      "kind": "table-row",
+      "line": 885,
+      "digest": "cf3b012bc8596ba081a90c7fda346f46ba00ca0af4368ce98192128b05b2250d",
+      "conformance": true,
+      "identities": [
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "agent-plugin-manifest-v1",
+        "codex",
+        "codex-cli-0.1.0",
+        "codex/x86_64-unknown-linux-gnu",
+        "lsp-3.17",
+        "mcp-2024-11-05",
+        "veln-language-service-1",
+        "veln-plugin-validator-v1",
+        "veln-reference-schema-1",
+        "veln-toolchain-1",
+        "x86_64-unknown-linux-gnu"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0280",
+      "heading": "Agent Plugin",
+      "kind": "table-row",
+      "line": 886,
+      "digest": "50d8d08fc6944bc972394dc28d2ee8a20b13483af35c366de3a0b733a05b29e0",
+      "conformance": true,
+      "identities": [
+        "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+        "agent-plugin-manifest-v1",
+        "claude-code",
+        "claude-code-cli-0.1.0",
+        "claude-code/x86_64-unknown-linux-gnu",
+        "lsp-3.17",
+        "mcp-2024-11-05",
+        "veln-language-service-1",
+        "veln-plugin-validator-v1",
+        "veln-reference-schema-1",
+        "veln-toolchain-1",
+        "x86_64-unknown-linux-gnu"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0281",
+      "heading": "Agent Plugin",
+      "kind": "paragraph",
+      "line": 888,
       "digest": "9db20a76d83789a97a06693ce86f66e13fa232ab3d0202194fad624c948d7913",
       "conformance": true,
       "identities": [
@@ -2767,65 +2819,38 @@
       ]
     },
     {
-      "id": "agent-language-services/S0279",
-      "heading": "Safety And Privacy",
-      "kind": "list-item",
-      "line": 891,
-      "digest": "6f610f95c576527eb25b104243b4ea269f3d5e80dae63a2b52c7edb69fd3779b",
-      "conformance": true,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0280",
-      "heading": "Safety And Privacy",
-      "kind": "list-item",
-      "line": 892,
-      "digest": "eaac81620963cb927806a986bf4c8d81be3908656ce543e9c9c10893b63b4d7f",
-      "conformance": true,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0281",
-      "heading": "Safety And Privacy",
-      "kind": "list-item",
-      "line": 893,
-      "digest": "ec6a86fa37aeb8cf49eeef1de84c52a07511aa3a8fa29b0f0146de5346fc3b89",
-      "conformance": false,
-      "identities": []
-    },
-    {
       "id": "agent-language-services/S0282",
       "heading": "Safety And Privacy",
-      "kind": "paragraph",
-      "line": 894,
-      "digest": "ea727377bcdb3d8157757ab272ddcc6bc62dc2e34a999e5238fcfb95bf77b676",
-      "conformance": false,
+      "kind": "list-item",
+      "line": 896,
+      "digest": "6f610f95c576527eb25b104243b4ea269f3d5e80dae63a2b52c7edb69fd3779b",
+      "conformance": true,
       "identities": []
     },
     {
       "id": "agent-language-services/S0283",
       "heading": "Safety And Privacy",
       "kind": "list-item",
-      "line": 895,
-      "digest": "a65c2c44d472e5c524dd5a2e60f04cf4ca320d36145c773a9caa3bc6be4d7ab5",
-      "conformance": false,
+      "line": 897,
+      "digest": "eaac81620963cb927806a986bf4c8d81be3908656ce543e9c9c10893b63b4d7f",
+      "conformance": true,
       "identities": []
     },
     {
       "id": "agent-language-services/S0284",
       "heading": "Safety And Privacy",
-      "kind": "paragraph",
-      "line": 896,
-      "digest": "45629091dd6b87070b8ae73cd9a95f892d5a4fe4c89020ccbc10bff6c80082b4",
+      "kind": "list-item",
+      "line": 898,
+      "digest": "ec6a86fa37aeb8cf49eeef1de84c52a07511aa3a8fa29b0f0146de5346fc3b89",
       "conformance": false,
       "identities": []
     },
     {
       "id": "agent-language-services/S0285",
       "heading": "Safety And Privacy",
-      "kind": "list-item",
-      "line": 897,
-      "digest": "e6a887d75dc63deb945156bfc8d7da4c243441166770be07b289fd478c363f5f",
+      "kind": "paragraph",
+      "line": 899,
+      "digest": "ea727377bcdb3d8157757ab272ddcc6bc62dc2e34a999e5238fcfb95bf77b676",
       "conformance": false,
       "identities": []
     },
@@ -2833,44 +2858,71 @@
       "id": "agent-language-services/S0286",
       "heading": "Safety And Privacy",
       "kind": "list-item",
-      "line": 898,
-      "digest": "0c64ecadd46e2f3ea932430239a07bbac584dcbcaf5f2c07cf42b1b2b7ca4285",
-      "conformance": true,
+      "line": 900,
+      "digest": "a65c2c44d472e5c524dd5a2e60f04cf4ca320d36145c773a9caa3bc6be4d7ab5",
+      "conformance": false,
       "identities": []
     },
     {
       "id": "agent-language-services/S0287",
       "heading": "Safety And Privacy",
       "kind": "paragraph",
-      "line": 899,
-      "digest": "0a141f874ca0cf77a1658893f0a605d07e2ff94e738cd3ff56ea769d3eeca9cd",
-      "conformance": true,
+      "line": 901,
+      "digest": "45629091dd6b87070b8ae73cd9a95f892d5a4fe4c89020ccbc10bff6c80082b4",
+      "conformance": false,
       "identities": []
     },
     {
       "id": "agent-language-services/S0288",
       "heading": "Safety And Privacy",
       "kind": "list-item",
-      "line": 901,
-      "digest": "a02c7fdc201ed14dea8cd36101d4775e870a3ff57c5e959b2dcb552519a31ae5",
+      "line": 902,
+      "digest": "e6a887d75dc63deb945156bfc8d7da4c243441166770be07b289fd478c363f5f",
       "conformance": false,
       "identities": []
     },
     {
       "id": "agent-language-services/S0289",
       "heading": "Safety And Privacy",
+      "kind": "list-item",
+      "line": 903,
+      "digest": "0c64ecadd46e2f3ea932430239a07bbac584dcbcaf5f2c07cf42b1b2b7ca4285",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0290",
+      "heading": "Safety And Privacy",
       "kind": "paragraph",
-      "line": 902,
+      "line": 904,
+      "digest": "0a141f874ca0cf77a1658893f0a605d07e2ff94e738cd3ff56ea769d3eeca9cd",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0291",
+      "heading": "Safety And Privacy",
+      "kind": "list-item",
+      "line": 906,
+      "digest": "a02c7fdc201ed14dea8cd36101d4775e870a3ff57c5e959b2dcb552519a31ae5",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0292",
+      "heading": "Safety And Privacy",
+      "kind": "paragraph",
+      "line": 907,
       "digest": "25418ab2c6c834c006328148a7bcc3a5ec5bc9bb006f014af63496367032eba2",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0290",
+      "id": "agent-language-services/S0293",
       "heading": "Conformance Contract",
       "kind": "paragraph",
-      "line": 906,
-      "digest": "a0dacf38ecfe418e6c2054737465e9f2485c9cd7722417592af0b02f53b05d18",
+      "line": 911,
+      "digest": "2a3220ea93b41a0467df3edb9b2b17b1d5776bb8f2e10167c01515e15dff5c62",
       "conformance": true,
       "identities": [
         "agent-language-services-v1",
@@ -2879,37 +2931,37 @@
       ]
     },
     {
-      "id": "agent-language-services/S0291",
+      "id": "agent-language-services/S0294",
       "heading": "Conformance Contract",
       "kind": "paragraph",
-      "line": 914,
+      "line": 919,
       "digest": "4edc1d4c1e738b7439ff522daf1105e2721d508a9cf1352fa310ed02752fec10",
       "conformance": true,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0292",
+      "id": "agent-language-services/S0295",
       "heading": "Conformance Contract",
       "kind": "paragraph",
-      "line": 922,
+      "line": 927,
       "digest": "b707f597f883802797950365769fad61680507a7d8f3559f4c06592cb873733c",
       "conformance": true,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0293",
+      "id": "agent-language-services/S0296",
       "heading": "Conformance Contract",
       "kind": "table-row",
-      "line": 924,
+      "line": 929,
       "digest": "86dfd9aeac7bbf10fcc2dd6fb364814f9ace8b0fe2505cb20a9d901a96504cf0",
       "conformance": true,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0294",
+      "id": "agent-language-services/S0297",
       "heading": "Conformance Contract",
       "kind": "table-row",
-      "line": 926,
+      "line": 931,
       "digest": "78b0fba9b6e0b288c8e0032508386ee00b0afcde5dd3beeb9d609eac2db9568c",
       "conformance": true,
       "identities": [
@@ -2917,10 +2969,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0295",
+      "id": "agent-language-services/S0298",
       "heading": "Conformance Contract",
       "kind": "table-row",
-      "line": 927,
+      "line": 932,
       "digest": "062d4d706ceb97ceffd6dbdf946224449c595ee798ee79d0141587af7ec74acb",
       "conformance": true,
       "identities": [
@@ -2929,10 +2981,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0296",
+      "id": "agent-language-services/S0299",
       "heading": "Conformance Contract",
       "kind": "table-row",
-      "line": 928,
+      "line": 933,
       "digest": "767570a959f96fd7a51ab9820aee420ffcb1e0e7b0577883b633ad7a5783735e",
       "conformance": true,
       "identities": [
@@ -2940,10 +2992,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0297",
+      "id": "agent-language-services/S0300",
       "heading": "Conformance Contract",
       "kind": "table-row",
-      "line": 929,
+      "line": 934,
       "digest": "ccaf3442db5e38d9eb39ed16b7a5c33e954fb7f023167b3c86eb5bd82d5a3e54",
       "conformance": true,
       "identities": [
@@ -2951,10 +3003,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0298",
+      "id": "agent-language-services/S0301",
       "heading": "Conformance Contract",
       "kind": "table-row",
-      "line": 930,
+      "line": 935,
       "digest": "e041b7c6d9a767f2ac49f781ab7c82de863d3dee7b68a3439f09b8130cc5dfcd",
       "conformance": true,
       "identities": [
@@ -2964,10 +3016,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0299",
+      "id": "agent-language-services/S0302",
       "heading": "Conformance Contract",
       "kind": "table-row",
-      "line": 931,
+      "line": 936,
       "digest": "01e5275b291ed2e0e81a1ff403d2b36b9e61e5380698e16df02787ef6866a753",
       "conformance": true,
       "identities": [
@@ -2977,10 +3029,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0300",
+      "id": "agent-language-services/S0303",
       "heading": "Conformance Contract",
       "kind": "table-row",
-      "line": 932,
+      "line": 937,
       "digest": "42f3e02a55cde1c3727fcbf963636cc30519bdc47de3d2e01faf169f56e00f23",
       "conformance": true,
       "identities": [
@@ -2988,10 +3040,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0301",
+      "id": "agent-language-services/S0304",
       "heading": "Conformance Contract",
       "kind": "table-row",
-      "line": 933,
+      "line": 938,
       "digest": "70d94ffe873816e6295af39d484a1289259957d5a20150241c67b7a837489b7a",
       "conformance": true,
       "identities": [
@@ -2999,10 +3051,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0302",
+      "id": "agent-language-services/S0305",
       "heading": "Conformance Contract",
       "kind": "table-row",
-      "line": 934,
+      "line": 939,
       "digest": "d05880ddc0e4e39ade500d7d8e1e5cfbcd725d1d89742a6a993db76517d5fe89",
       "conformance": true,
       "identities": [
@@ -3010,10 +3062,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0303",
+      "id": "agent-language-services/S0306",
       "heading": "Conformance Contract",
       "kind": "table-row",
-      "line": 935,
+      "line": 940,
       "digest": "1d008e061b6840bff9a7f66ccdb3dfbb1760618ae33b72ebf133f24b131b6fb8",
       "conformance": true,
       "identities": [
@@ -3021,10 +3073,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0304",
+      "id": "agent-language-services/S0307",
       "heading": "Conformance Contract",
       "kind": "table-row",
-      "line": 936,
+      "line": 941,
       "digest": "889f4f9be29402517ee4d8607f894e47ad84fbd4f11508405bec9ed97e8d2f59",
       "conformance": true,
       "identities": [
@@ -3032,10 +3084,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0305",
+      "id": "agent-language-services/S0308",
       "heading": "Conformance Contract",
       "kind": "table-row",
-      "line": 937,
+      "line": 942,
       "digest": "2255fd0eba823c243f5ea5636c44728bf97aa0699c1d654b1118f475b8f6f863",
       "conformance": true,
       "identities": [
@@ -3044,10 +3096,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0306",
+      "id": "agent-language-services/S0309",
       "heading": "Conformance Contract",
       "kind": "table-row",
-      "line": 938,
+      "line": 943,
       "digest": "5cce6f009a60748150719ec25db569c203eb2d5489eeca0ca3508a052fc70aea",
       "conformance": true,
       "identities": [
@@ -3056,10 +3108,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0307",
+      "id": "agent-language-services/S0310",
       "heading": "Conformance Contract",
       "kind": "table-row",
-      "line": 939,
+      "line": 944,
       "digest": "c8f10d8f853ae199cdf4d57fcf87327871de37c73462e214ce585a453e631d97",
       "conformance": true,
       "identities": [
@@ -3068,10 +3120,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0308",
+      "id": "agent-language-services/S0311",
       "heading": "Conformance Contract",
       "kind": "table-row",
-      "line": 940,
+      "line": 945,
       "digest": "c862e10fbe58b68e71ad06d3a87808a736887985063336f53cc18dc7a44638fc",
       "conformance": true,
       "identities": [
@@ -3079,10 +3131,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0309",
+      "id": "agent-language-services/S0312",
       "heading": "Conformance Contract",
       "kind": "table-row",
-      "line": 941,
+      "line": 946,
       "digest": "858baa2a1af372bc5a708be4a3b6df828721d4a84b8ee7c267db6b8cfcdccf85",
       "conformance": true,
       "identities": [
@@ -3090,10 +3142,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0310",
+      "id": "agent-language-services/S0313",
       "heading": "Conformance Contract",
       "kind": "table-row",
-      "line": 942,
+      "line": 947,
       "digest": "4c396c1ad2f92f06d72939534793b509d98369d0ed9aea7e58d8a584ce88b1f7",
       "conformance": true,
       "identities": [
@@ -3101,10 +3153,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0311",
+      "id": "agent-language-services/S0314",
       "heading": "Conformance Contract",
       "kind": "table-row",
-      "line": 943,
+      "line": 948,
       "digest": "746dac02cfe4585a927138bf89b6d1c52ef62ab771bce47e13c8c6aa1347af26",
       "conformance": true,
       "identities": [
@@ -3112,10 +3164,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0312",
+      "id": "agent-language-services/S0315",
       "heading": "Conformance Contract",
       "kind": "table-row",
-      "line": 944,
+      "line": 949,
       "digest": "b601c27e6e2ccc8859c97cb0be2c4f3b9e64fc3dd356dce2df8d4d4c503ad2f9",
       "conformance": true,
       "identities": [
@@ -3123,10 +3175,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0313",
+      "id": "agent-language-services/S0316",
       "heading": "Conformance Contract",
       "kind": "table-row",
-      "line": 945,
+      "line": 950,
       "digest": "00eb3c13c64d49d5699d7591175f67e0a47f204e2c8cdf8122bdde8521ff77bd",
       "conformance": true,
       "identities": [
@@ -3134,21 +3186,21 @@
       ]
     },
     {
-      "id": "agent-language-services/S0314",
+      "id": "agent-language-services/S0317",
       "heading": "Conformance Contract",
       "kind": "table-row",
-      "line": 946,
-      "digest": "4a841a21be2a7e210441fed94af8fc85feea07eea68012b9ae3f2f2165da5896",
+      "line": 951,
+      "digest": "c3515a472e643a8ffd6c414e8e9e74b7f64e595caf85d27a75f01d0473c199d4",
       "conformance": true,
       "identities": [
         "Q21"
       ]
     },
     {
-      "id": "agent-language-services/S0315",
+      "id": "agent-language-services/S0318",
       "heading": "Conformance Contract",
       "kind": "table-row",
-      "line": 947,
+      "line": 952,
       "digest": "c45ccafc44f5a36220c89e2fc20672fd6369dc64c4a9b9a336bef20d46be02e2",
       "conformance": true,
       "identities": [
@@ -3156,10 +3208,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0316",
+      "id": "agent-language-services/S0319",
       "heading": "Conformance Contract",
       "kind": "paragraph",
-      "line": 949,
+      "line": 954,
       "digest": "1de1d78b9ff532b24856c641880e9f5b2b934ce7f684031b764696bcb132a5ed",
       "conformance": true,
       "identities": [
@@ -3174,37 +3226,37 @@
       ]
     },
     {
-      "id": "agent-language-services/S0317",
+      "id": "agent-language-services/S0320",
       "heading": "Conformance Contract",
       "kind": "paragraph",
-      "line": 959,
+      "line": 964,
       "digest": "6e7105ccc51a52c6f0161da51782c7a8132bd7c987072850cc0b0573bef297cd",
       "conformance": true,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0318",
+      "id": "agent-language-services/S0321",
       "heading": "Acceptance Model",
       "kind": "paragraph",
-      "line": 968,
+      "line": 973,
       "digest": "fd65f4418342c6a057793261fd665f0d451f9c3fdbfb82e57e2b82882a0a13e9",
       "conformance": true,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0319",
+      "id": "agent-language-services/S0322",
       "heading": "Server And Project Selection",
       "kind": "table-row",
-      "line": 975,
+      "line": 980,
       "digest": "52b1e93b4ed7dfe5d19d00a88dcd609b0e362ad0ea809d3eaac194cf84fb9777",
       "conformance": true,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0320",
+      "id": "agent-language-services/S0323",
       "heading": "Server And Project Selection",
       "kind": "table-row",
-      "line": 977,
+      "line": 982,
       "digest": "c61695711b1e9d66283dd3bbb3f21fd7c7b5f6da22ccc3331a37bf42b9f58c2c",
       "conformance": false,
       "identities": [
@@ -3214,10 +3266,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0321",
+      "id": "agent-language-services/S0324",
       "heading": "Server And Project Selection",
       "kind": "table-row",
-      "line": 978,
+      "line": 983,
       "digest": "c7450cc98e9fb4656c8fb3ae9631a162cb7a0136fe5ca32149fdf2184ed06803",
       "conformance": true,
       "identities": [
@@ -3226,10 +3278,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0322",
+      "id": "agent-language-services/S0325",
       "heading": "Server And Project Selection",
       "kind": "table-row",
-      "line": 979,
+      "line": 984,
       "digest": "6b76f303fd4b116dcaf878ba9e4a030a4154de31ad4f73689203397ea88badda",
       "conformance": true,
       "identities": [
@@ -3240,19 +3292,19 @@
       ]
     },
     {
-      "id": "agent-language-services/S0323",
+      "id": "agent-language-services/S0326",
       "heading": "Server And Project Selection",
       "kind": "table-row",
-      "line": 980,
+      "line": 985,
       "digest": "bbecd343ae1aea9ddda7c2a7b182d7694c166307f8a1c12177dc13d9533ee251",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0324",
+      "id": "agent-language-services/S0327",
       "heading": "Server And Project Selection",
       "kind": "table-row",
-      "line": 981,
+      "line": 986,
       "digest": "b39a8c624cd356e40569119884764d372f8c8c9729fe6f90b3d88e173a61425c",
       "conformance": true,
       "identities": [
@@ -3262,10 +3314,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0325",
+      "id": "agent-language-services/S0328",
       "heading": "Server And Project Selection",
       "kind": "table-row",
-      "line": 982,
+      "line": 987,
       "digest": "7bce5bd00bc41b38f7eccb727d5c6454cd925a36107c4d63c9a61fbe70c6d8d8",
       "conformance": true,
       "identities": [
@@ -3274,10 +3326,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0326",
+      "id": "agent-language-services/S0329",
       "heading": "Server And Project Selection",
       "kind": "table-row",
-      "line": 983,
+      "line": 988,
       "digest": "d3891eb59a87813a21286fc27b67e2643f35f111c2fe461ee40d2bac0c8c3079",
       "conformance": true,
       "identities": [
@@ -3286,10 +3338,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0327",
+      "id": "agent-language-services/S0330",
       "heading": "Server And Project Selection",
       "kind": "table-row",
-      "line": 984,
+      "line": 989,
       "digest": "bb852db18e62b4fa50d41603b96bff9872a58c022061286dbbcc039a723ba21a",
       "conformance": true,
       "identities": [
@@ -3297,10 +3349,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0328",
+      "id": "agent-language-services/S0331",
       "heading": "Server And Project Selection",
       "kind": "table-row",
-      "line": 985,
+      "line": 990,
       "digest": "61e404caa77bc973f4bdd69c53d9d7c33aaa07e53b2a72791efe544f8e3e7071",
       "conformance": true,
       "identities": [
@@ -3311,10 +3363,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0329",
+      "id": "agent-language-services/S0332",
       "heading": "Server And Project Selection",
       "kind": "table-row",
-      "line": 986,
+      "line": 991,
       "digest": "7544c191f187b40545e2234e1084d8d608576945a99f13d455ffd11c5fea4d6f",
       "conformance": true,
       "identities": [
@@ -3324,10 +3376,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0330",
+      "id": "agent-language-services/S0333",
       "heading": "Server And Project Selection",
       "kind": "table-row",
-      "line": 987,
+      "line": 992,
       "digest": "0fe8a55495c859c982da846cdd3cf404a6482342759c61ca6699006262c4860d",
       "conformance": true,
       "identities": [
@@ -3336,10 +3388,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0331",
+      "id": "agent-language-services/S0334",
       "heading": "Server And Project Selection",
       "kind": "table-row",
-      "line": 988,
+      "line": 993,
       "digest": "2461d7d9b43482a49dbf0ecaa835443011277d0591b674eca4052a98fc7aefe8",
       "conformance": false,
       "identities": [
@@ -3347,19 +3399,19 @@
       ]
     },
     {
-      "id": "agent-language-services/S0332",
+      "id": "agent-language-services/S0335",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
-      "line": 992,
+      "line": 997,
       "digest": "52b1e93b4ed7dfe5d19d00a88dcd609b0e362ad0ea809d3eaac194cf84fb9777",
       "conformance": true,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0333",
+      "id": "agent-language-services/S0336",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
-      "line": 994,
+      "line": 999,
       "digest": "ad95cb588d96d7bf53796115b8d3fe45158c9d3b4f0fd6e735c08a1fffa50e25",
       "conformance": true,
       "identities": [
@@ -3368,10 +3420,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0334",
+      "id": "agent-language-services/S0337",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
-      "line": 995,
+      "line": 1000,
       "digest": "ee5b10f2bc056a8843b5c91c78976a650298755949d53df3a604ab97c4f35675",
       "conformance": true,
       "identities": [
@@ -3380,19 +3432,19 @@
       ]
     },
     {
-      "id": "agent-language-services/S0335",
+      "id": "agent-language-services/S0338",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
-      "line": 996,
+      "line": 1001,
       "digest": "47e276ba1e1938196877c16619897e5a5982ae4ac79d001850d4d7d9f95079c2",
       "conformance": true,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0336",
+      "id": "agent-language-services/S0339",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
-      "line": 997,
+      "line": 1002,
       "digest": "c6685f8ae90ef0dbdb68b283306940c63f8bd6f19408ecc382004374a81cae8f",
       "conformance": true,
       "identities": [
@@ -3400,10 +3452,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0337",
+      "id": "agent-language-services/S0340",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
-      "line": 998,
+      "line": 1003,
       "digest": "38c41937eed289abdb79dae03deee6c9b0f696419010f0248367fabc24265e12",
       "conformance": true,
       "identities": [
@@ -3411,10 +3463,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0338",
+      "id": "agent-language-services/S0341",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
-      "line": 999,
+      "line": 1004,
       "digest": "5f8afec3bba41f1b8e2329c4197968c06f280b176d7e2f37fbfbe06d78e14129",
       "conformance": true,
       "identities": [
@@ -3424,10 +3476,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0339",
+      "id": "agent-language-services/S0342",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
-      "line": 1000,
+      "line": 1005,
       "digest": "6db0b77c42346b233eca1524cc2faf01208dda1ed9d88855ed48d8f053d28344",
       "conformance": true,
       "identities": [
@@ -3436,19 +3488,19 @@
       ]
     },
     {
-      "id": "agent-language-services/S0340",
+      "id": "agent-language-services/S0343",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
-      "line": 1001,
+      "line": 1006,
       "digest": "03c1ad524c93666fd02c8626f7912dc5a5813806ecb6fe2cc208939950f84f80",
       "conformance": true,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0341",
+      "id": "agent-language-services/S0344",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
-      "line": 1002,
+      "line": 1007,
       "digest": "5161283107bf7632461c0c3e5e0cdf752f59f49ed1f0799cede7135390b9dc69",
       "conformance": true,
       "identities": [
@@ -3457,10 +3509,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0342",
+      "id": "agent-language-services/S0345",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
-      "line": 1003,
+      "line": 1008,
       "digest": "60ab731dcfbd6a902fca828a42ed62b0ad16912132d32b8a5c52f8abcacddc80",
       "conformance": true,
       "identities": [
@@ -3470,10 +3522,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0343",
+      "id": "agent-language-services/S0346",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
-      "line": 1004,
+      "line": 1009,
       "digest": "dca3d6f72cf66b469aa0e2db5593841c897555d1087534388ba65809c706cad2",
       "conformance": true,
       "identities": [
@@ -3481,28 +3533,28 @@
       ]
     },
     {
-      "id": "agent-language-services/S0344",
+      "id": "agent-language-services/S0347",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
-      "line": 1005,
+      "line": 1010,
       "digest": "9d3b4e3ae8eaa783f0b4d98f0ffbdc3012898fe06cafc0dbd4d008ac9b48a1b0",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0345",
+      "id": "agent-language-services/S0348",
       "heading": "Virtual Locations And Package Documentation",
       "kind": "table-row",
-      "line": 1009,
+      "line": 1014,
       "digest": "be8e8063c0ed78e5e96bb78c7e81e8d25c8d9b231462c8f35a5d925e7e1e6f01",
       "conformance": true,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0346",
+      "id": "agent-language-services/S0349",
       "heading": "Virtual Locations And Package Documentation",
       "kind": "table-row",
-      "line": 1011,
+      "line": 1016,
       "digest": "949a5e2f721889236c861740642d2d462b7620b5d2f2df1f1fb9c191437bbf37",
       "conformance": true,
       "identities": [
@@ -3510,10 +3562,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0347",
+      "id": "agent-language-services/S0350",
       "heading": "Virtual Locations And Package Documentation",
       "kind": "table-row",
-      "line": 1012,
+      "line": 1017,
       "digest": "fcb253d270986bb673ee2cdd7c888c9309438576dcf7747065b30755caf41d55",
       "conformance": true,
       "identities": [
@@ -3521,10 +3573,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0348",
+      "id": "agent-language-services/S0351",
       "heading": "Virtual Locations And Package Documentation",
       "kind": "table-row",
-      "line": 1013,
+      "line": 1018,
       "digest": "ce4fc05a85a0dbac6c3dbc83e3a7f4fb293428b65928689c00a7adbf26577a86",
       "conformance": true,
       "identities": [
@@ -3533,10 +3585,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0349",
+      "id": "agent-language-services/S0352",
       "heading": "Virtual Locations And Package Documentation",
       "kind": "table-row",
-      "line": 1014,
+      "line": 1019,
       "digest": "caac50aa54ff0334308d545b4c910148e1c74104b592e961f0d7ce2b845e07b3",
       "conformance": true,
       "identities": [
@@ -3544,10 +3596,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0350",
+      "id": "agent-language-services/S0353",
       "heading": "Virtual Locations And Package Documentation",
       "kind": "table-row",
-      "line": 1015,
+      "line": 1020,
       "digest": "a46a537b133afac7cff2e9f2688b30a24a5a1f11db61ebd921ba489c7d8ff16e",
       "conformance": true,
       "identities": [
@@ -3555,10 +3607,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0351",
+      "id": "agent-language-services/S0354",
       "heading": "Virtual Locations And Package Documentation",
       "kind": "table-row",
-      "line": 1016,
+      "line": 1021,
       "digest": "6de204485d6fe83e6bc248793cb7e7980b698d772d3d9dd29fe614477977e62e",
       "conformance": true,
       "identities": [
@@ -3566,10 +3618,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0352",
+      "id": "agent-language-services/S0355",
       "heading": "Virtual Locations And Package Documentation",
       "kind": "table-row",
-      "line": 1017,
+      "line": 1022,
       "digest": "b4c777508411f659e4565bb947e57fc5f9e65fc2522a0ace765b53ae664dc7e7",
       "conformance": true,
       "identities": [
@@ -3577,10 +3629,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0353",
+      "id": "agent-language-services/S0356",
       "heading": "Virtual Locations And Package Documentation",
       "kind": "table-row",
-      "line": 1018,
+      "line": 1023,
       "digest": "3de372a1216efe502495d55082c091a8dcb55eff4ec3037e98a98cec87ae0889",
       "conformance": true,
       "identities": [
@@ -3588,47 +3640,20 @@
       ]
     },
     {
-      "id": "agent-language-services/S0354",
+      "id": "agent-language-services/S0357",
       "heading": "Virtual Locations And Package Documentation",
       "kind": "table-row",
-      "line": 1019,
+      "line": 1024,
       "digest": "ed6712c19f4dce39038cced694837737e91310a545bcea01997bc0735643365c",
       "conformance": true,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0355",
+      "id": "agent-language-services/S0358",
       "heading": "Virtual Locations And Package Documentation",
       "kind": "table-row",
-      "line": 1020,
+      "line": 1025,
       "digest": "18bdbdc6e33845c2c7de36bc62efb341e646936f925d5242b33a270f213aee9b",
-      "conformance": true,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0356",
-      "heading": "Published Language Reference",
-      "kind": "table-row",
-      "line": 1024,
-      "digest": "be8e8063c0ed78e5e96bb78c7e81e8d25c8d9b231462c8f35a5d925e7e1e6f01",
-      "conformance": true,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0357",
-      "heading": "Published Language Reference",
-      "kind": "table-row",
-      "line": 1026,
-      "digest": "0052924e98dc052472d4d24ac1cbcb101bcac7b3fb335461bbe2eda1e14e08f9",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0358",
-      "heading": "Published Language Reference",
-      "kind": "table-row",
-      "line": 1027,
-      "digest": "639783efc52d23cfdb32fdb001b0f79d6b2324340830d85496486926ae6932a8",
       "conformance": true,
       "identities": []
     },
@@ -3636,17 +3661,17 @@
       "id": "agent-language-services/S0359",
       "heading": "Published Language Reference",
       "kind": "table-row",
-      "line": 1028,
-      "digest": "d26a347cc84ac3b7df9988e00d0c5459ec2abed4b5f5bee95efa50c02c12990e",
-      "conformance": false,
+      "line": 1029,
+      "digest": "be8e8063c0ed78e5e96bb78c7e81e8d25c8d9b231462c8f35a5d925e7e1e6f01",
+      "conformance": true,
       "identities": []
     },
     {
       "id": "agent-language-services/S0360",
       "heading": "Published Language Reference",
       "kind": "table-row",
-      "line": 1029,
-      "digest": "6464d0b399086b68386bc71283b73556e2cba24a94d354d8b0be78d06518debe",
+      "line": 1031,
+      "digest": "0052924e98dc052472d4d24ac1cbcb101bcac7b3fb335461bbe2eda1e14e08f9",
       "conformance": false,
       "identities": []
     },
@@ -3654,7 +3679,34 @@
       "id": "agent-language-services/S0361",
       "heading": "Published Language Reference",
       "kind": "table-row",
-      "line": 1030,
+      "line": 1032,
+      "digest": "639783efc52d23cfdb32fdb001b0f79d6b2324340830d85496486926ae6932a8",
+      "conformance": true,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0362",
+      "heading": "Published Language Reference",
+      "kind": "table-row",
+      "line": 1033,
+      "digest": "d26a347cc84ac3b7df9988e00d0c5459ec2abed4b5f5bee95efa50c02c12990e",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0363",
+      "heading": "Published Language Reference",
+      "kind": "table-row",
+      "line": 1034,
+      "digest": "6464d0b399086b68386bc71283b73556e2cba24a94d354d8b0be78d06518debe",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0364",
+      "heading": "Published Language Reference",
+      "kind": "table-row",
+      "line": 1035,
       "digest": "c0c1da136970ba9e20f6976a51b7968abbd8e2f76d3d55f60852fa6d08858f55",
       "conformance": true,
       "identities": [
@@ -3662,10 +3714,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0362",
+      "id": "agent-language-services/S0365",
       "heading": "Published Language Reference",
       "kind": "table-row",
-      "line": 1031,
+      "line": 1036,
       "digest": "001ca2437029bc908b6987d0fe6e9c04b1791d96699143add78f066950d8791b",
       "conformance": true,
       "identities": [
@@ -3673,10 +3725,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0363",
+      "id": "agent-language-services/S0366",
       "heading": "Published Language Reference",
       "kind": "table-row",
-      "line": 1032,
+      "line": 1037,
       "digest": "ce6b3bd5f8c4967acede85adccc8ce4d322974bc59265d27ec5d3759f8a2a67f",
       "conformance": true,
       "identities": [
@@ -3684,37 +3736,37 @@
       ]
     },
     {
-      "id": "agent-language-services/S0364",
+      "id": "agent-language-services/S0367",
       "heading": "Published Language Reference",
       "kind": "table-row",
-      "line": 1033,
+      "line": 1038,
       "digest": "29680e76b44f2f20876c524cff47d5ae173976474f5e08746f9d1398c9c8d790",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0365",
+      "id": "agent-language-services/S0368",
       "heading": "Published Language Reference",
       "kind": "table-row",
-      "line": 1034,
+      "line": 1039,
       "digest": "f2b69a6e426a7717740dc2d1abcb2b9994c77abc76cd7322c51bceaca652a696",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0366",
+      "id": "agent-language-services/S0369",
       "heading": "Plugin",
       "kind": "table-row",
-      "line": 1038,
+      "line": 1043,
       "digest": "be8e8063c0ed78e5e96bb78c7e81e8d25c8d9b231462c8f35a5d925e7e1e6f01",
       "conformance": true,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0367",
+      "id": "agent-language-services/S0370",
       "heading": "Plugin",
       "kind": "table-row",
-      "line": 1040,
+      "line": 1045,
       "digest": "f9fdbc0891fa36a9eabe46a57a2226a0dea6d3f26d940a61f72cd8bcaeb3b8aa",
       "conformance": true,
       "identities": [
@@ -3725,10 +3777,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0368",
+      "id": "agent-language-services/S0371",
       "heading": "Plugin",
       "kind": "table-row",
-      "line": 1041,
+      "line": 1046,
       "digest": "5853f96c0fd203e79e8bf0ab9f25076f1b4abba17c09d39f5d4267fc620391ca",
       "conformance": true,
       "identities": [
@@ -3738,10 +3790,10 @@
       ]
     },
     {
-      "id": "agent-language-services/S0369",
+      "id": "agent-language-services/S0372",
       "heading": "Plugin",
       "kind": "table-row",
-      "line": 1042,
+      "line": 1047,
       "digest": "e1ecff2a1620cfbaf0423b5ff894e85daed2af7421f4cd5929d653d85f65af48",
       "conformance": true,
       "identities": [
@@ -3749,30 +3801,30 @@
       ]
     },
     {
-      "id": "agent-language-services/S0370",
+      "id": "agent-language-services/S0373",
       "heading": "Plugin",
       "kind": "table-row",
-      "line": 1043,
+      "line": 1048,
       "digest": "97bd7e85a83abd31bec1db4aa9801e72e7c08480f5b7df5221aeaddcfed9e595",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0371",
+      "id": "agent-language-services/S0374",
       "heading": "Plugin",
       "kind": "table-row",
-      "line": 1044,
-      "digest": "26eca36c03a776872732b89aa0d81a06984ca0e7587294cddafdc65ae2f95dcb",
+      "line": 1049,
+      "digest": "67058ebf784a0223ad1bd9c8e9db2185df359491b68c0b56986ef26780089fbc",
       "conformance": true,
       "identities": [
         "Q22"
       ]
     },
     {
-      "id": "agent-language-services/S0372",
+      "id": "agent-language-services/S0375",
       "heading": "Implementation Slices",
       "kind": "paragraph",
-      "line": 1048,
+      "line": 1053,
       "digest": "cfff4a9ef5ac18cca0805623872e2846d00b01d4b2afee36a5cca355ebc63d25",
       "conformance": true,
       "identities": [
@@ -3784,28 +3836,28 @@
       ]
     },
     {
-      "id": "agent-language-services/S0373",
+      "id": "agent-language-services/S0376",
       "heading": "Implementation Slices",
       "kind": "list-item",
-      "line": 1091,
+      "line": 1096,
       "digest": "30425f5645d22d7299e93ddb6e024b6e2f1c7203857a7a3c83a24742f238c23c",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0374",
+      "id": "agent-language-services/S0377",
       "heading": "Implementation Slices",
       "kind": "paragraph",
-      "line": 1092,
+      "line": 1097,
       "digest": "873ec2b3c3370cacc3bdeb1a9a1e9a0686e12a6b228b4a132b8bd57d8bdcdec0",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0375",
+      "id": "agent-language-services/S0378",
       "heading": "Implementation Slices",
       "kind": "list-item",
-      "line": 1093,
+      "line": 1098,
       "digest": "aa3c2da2525022bddac62e0d39f41613156d3c19db005ff660048bf7ae409051",
       "conformance": true,
       "identities": [
@@ -3813,37 +3865,37 @@
       ]
     },
     {
-      "id": "agent-language-services/S0376",
+      "id": "agent-language-services/S0379",
       "heading": "Implementation Slices",
       "kind": "paragraph",
-      "line": 1094,
+      "line": 1099,
       "digest": "c711cbe590d6a6f2c0c6be8c82d59b3451da2ebe1e2f35534810293b7e09cc5b",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0377",
+      "id": "agent-language-services/S0380",
       "heading": "Implementation Slices",
       "kind": "list-item",
-      "line": 1096,
+      "line": 1101,
       "digest": "4ace7b4d468608bd4336b432cf5d87971c0c36a9004ad83c7d753c6e4dd5a854",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0378",
+      "id": "agent-language-services/S0381",
       "heading": "Implementation Slices",
       "kind": "paragraph",
-      "line": 1097,
+      "line": 1102,
       "digest": "bb259bedf2479c7af95d9cb7290ce46053c5d5cf6c72831907003fc73ce132b7",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0379",
+      "id": "agent-language-services/S0382",
       "heading": "Implementation Slices",
       "kind": "list-item",
-      "line": 1098,
+      "line": 1103,
       "digest": "83e88332d2e3707ca623a719fbf10a8f9cffc4909ca554f4b9157efc7e80ba0b",
       "conformance": true,
       "identities": [
@@ -3852,38 +3904,11 @@
       ]
     },
     {
-      "id": "agent-language-services/S0380",
+      "id": "agent-language-services/S0383",
       "heading": "Implementation Slices",
       "kind": "paragraph",
-      "line": 1099,
-      "digest": "0eb193ae85cac2f26c163b803a285093d4bd9b94e3071020d5be2d48b0958deb",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0381",
-      "heading": "Deferred Work",
-      "kind": "list-item",
-      "line": 1103,
-      "digest": "d6b6f707efa94d3ccce7c8ca7e2ae7053a1e75906d882acd924aac7ecf20fea4",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0382",
-      "heading": "Deferred Work",
-      "kind": "list-item",
       "line": 1104,
-      "digest": "3b52a0d88de88cd5ea3fe4d287fa5c0c3d138db91d8866fb2cd89a4d5af4fe1a",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0383",
-      "heading": "Deferred Work",
-      "kind": "list-item",
-      "line": 1105,
-      "digest": "6ad2f18b82fc294a9f4a4c98076040f4bf21ec8bd35275bf444f4e4c0da9830e",
+      "digest": "0eb193ae85cac2f26c163b803a285093d4bd9b94e3071020d5be2d48b0958deb",
       "conformance": false,
       "identities": []
     },
@@ -3891,8 +3916,8 @@
       "id": "agent-language-services/S0384",
       "heading": "Deferred Work",
       "kind": "list-item",
-      "line": 1106,
-      "digest": "d8af4b4755bd7d605ca8f92e34a36e5cf6a3cc5d517cb8d341e12fb5e7c4bbba",
+      "line": 1108,
+      "digest": "d6b6f707efa94d3ccce7c8ca7e2ae7053a1e75906d882acd924aac7ecf20fea4",
       "conformance": false,
       "identities": []
     },
@@ -3900,8 +3925,8 @@
       "id": "agent-language-services/S0385",
       "heading": "Deferred Work",
       "kind": "list-item",
-      "line": 1107,
-      "digest": "8b8dd6f02701f880a75696b2dd5cde873dbe2735cdc27e76aec8b10fc65d2df4",
+      "line": 1109,
+      "digest": "3b52a0d88de88cd5ea3fe4d287fa5c0c3d138db91d8866fb2cd89a4d5af4fe1a",
       "conformance": false,
       "identities": []
     },
@@ -3909,8 +3934,8 @@
       "id": "agent-language-services/S0386",
       "heading": "Deferred Work",
       "kind": "list-item",
-      "line": 1108,
-      "digest": "ba12d2a5f896821eb2e9cf857bf4212d67be23a6c95be939c57caebab24b860d",
+      "line": 1110,
+      "digest": "6ad2f18b82fc294a9f4a4c98076040f4bf21ec8bd35275bf444f4e4c0da9830e",
       "conformance": false,
       "identities": []
     },
@@ -3918,28 +3943,26 @@
       "id": "agent-language-services/S0387",
       "heading": "Deferred Work",
       "kind": "list-item",
-      "line": 1109,
-      "digest": "c6095e4b732b8653c912ce14bd03ff383aa6f79b6f89e144215881b4234933ed",
+      "line": 1111,
+      "digest": "d8af4b4755bd7d605ca8f92e34a36e5cf6a3cc5d517cb8d341e12fb5e7c4bbba",
       "conformance": false,
-      "identities": [
-        "veln"
-      ]
+      "identities": []
     },
     {
       "id": "agent-language-services/S0388",
       "heading": "Deferred Work",
       "kind": "list-item",
-      "line": 1110,
-      "digest": "7383237d0062f25969eeee6b8957f0c3395fe77d92d422e414f1dcad42a415e8",
+      "line": 1112,
+      "digest": "8b8dd6f02701f880a75696b2dd5cde873dbe2735cdc27e76aec8b10fc65d2df4",
       "conformance": false,
       "identities": []
     },
     {
       "id": "agent-language-services/S0389",
       "heading": "Deferred Work",
-      "kind": "paragraph",
-      "line": 1111,
-      "digest": "b7723cdb241796e5bcddf78d0732ee8a235f92c956c8b0030c0150c8444581d6",
+      "kind": "list-item",
+      "line": 1113,
+      "digest": "ba12d2a5f896821eb2e9cf857bf4212d67be23a6c95be939c57caebab24b860d",
       "conformance": false,
       "identities": []
     },
@@ -3947,7 +3970,36 @@
       "id": "agent-language-services/S0390",
       "heading": "Deferred Work",
       "kind": "list-item",
-      "line": 1112,
+      "line": 1114,
+      "digest": "c6095e4b732b8653c912ce14bd03ff383aa6f79b6f89e144215881b4234933ed",
+      "conformance": false,
+      "identities": [
+        "veln"
+      ]
+    },
+    {
+      "id": "agent-language-services/S0391",
+      "heading": "Deferred Work",
+      "kind": "list-item",
+      "line": 1115,
+      "digest": "7383237d0062f25969eeee6b8957f0c3395fe77d92d422e414f1dcad42a415e8",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0392",
+      "heading": "Deferred Work",
+      "kind": "paragraph",
+      "line": 1116,
+      "digest": "b7723cdb241796e5bcddf78d0732ee8a235f92c956c8b0030c0150c8444581d6",
+      "conformance": false,
+      "identities": []
+    },
+    {
+      "id": "agent-language-services/S0393",
+      "heading": "Deferred Work",
+      "kind": "list-item",
+      "line": 1117,
       "digest": "5601e46adaf848d61a692b57fed407fade101cb88213939002a0775d3e5fc268",
       "conformance": false,
       "identities": []
