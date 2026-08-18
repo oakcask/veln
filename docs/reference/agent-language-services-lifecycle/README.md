@@ -28,6 +28,7 @@ Run the local check with:
 
 ```text
 node workflow-scripts/check-agent-language-services-lifecycle.mjs validate
+node workflow-scripts/check-agent-language-services-lifecycle.mjs diff-scope
 ```
 
 The workflow script tests also inject invalid digests, inventory membership
