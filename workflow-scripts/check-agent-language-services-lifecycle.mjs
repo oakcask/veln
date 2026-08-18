@@ -1429,9 +1429,11 @@ function changedFiles(repoRoot) {
 function isDefaultBranchBase(repoRoot, base, defaultBranch) {
   const candidates = [
     `refs/remotes/origin/${defaultBranch}`,
+    process.env.GITHUB_BASE_REF ? `refs/remotes/origin/${process.env.GITHUB_BASE_REF}` : undefined,
+    process.env.GITHUB_BASE_REF ? `refs/heads/${process.env.GITHUB_BASE_REF}` : undefined,
     `refs/heads/${defaultBranch}`,
     defaultBranch,
-  ];
+  ].filter(Boolean);
   for (const candidate of candidates) {
     const ref = gitOutput(repoRoot, ["rev-parse", "--verify", candidate]);
     if (ref === undefined) {
