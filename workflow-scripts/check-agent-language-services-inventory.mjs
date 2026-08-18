@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -342,12 +342,16 @@ export function validateDiffScope(changedPaths) {
 }
 
 export function changedPaths(base, head = "HEAD", root = process.cwd()) {
-  const output = execFileSync(
+  const result = spawnSync(
     "git",
     ["diff", "--name-status", "--diff-filter=ACMRD", base, head, "--"],
     { cwd: root, encoding: "utf8" },
   );
-  return parseChangedPathStatus(output);
+  if (result.status !== 0) {
+    const detail = result.stderr.trim() || result.error?.message || "unknown git diff failure";
+    throw new Error(`could not inspect inventory diff scope: ${detail}`);
+  }
+  return parseChangedPathStatus(result.stdout);
 }
 
 export function parseChangedPathStatus(output) {
