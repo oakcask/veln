@@ -72,6 +72,8 @@ under `../../specification/` and its executable example routes.
   [repair-command-confirmation-override.md](repair-command-confirmation-override.md).
 - Agent test selection graph:
   [agent-test-selection-graph.md](agent-test-selection-graph.md).
+- Agent language services platform matrix closure:
+  [agent-language-services-platform-matrix-closure.md](agent-language-services-platform-matrix-closure.md).
 - Parallel test execution:
   [parallel-test-execution.md](parallel-test-execution.md).
 - Companion test modules:

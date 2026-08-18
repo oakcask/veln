@@ -14,17 +14,14 @@ assertion target. It does not change toolchain behavior or executable cases.
 
 ## Selection State
 
-This proposal is blocked by
-[Agent Language Services Platform Matrix Closure](agent-language-services-platform-matrix-closure.md).
-Do not select the frozen-source-inventory PR while that prerequisite remains
-under `docs/proposals/`.
-
-After the prerequisite completes, select only the corrected frozen source
-inventory PR first. That PR must add the source-universe contract, inventory,
-lifecycle review manifest, migration-ledger schema, validator, and rejection
-tests without reorganizing the umbrella proposal. Select the migration PR only
-after the frozen inventory has merged. Neither target may change the MCP
-harness, executable MCP fixtures, or semantic baselines.
+The platform-matrix prerequisite is complete in
+[Agent Language Services Platform Matrix Closure](../reference/implemented-proposals/agent-language-services-platform-matrix-closure.md).
+Select only the corrected frozen source inventory PR first. That PR must add
+the source-universe contract, inventory, lifecycle review manifest,
+migration-ledger schema, validator, and rejection tests without reorganizing
+the umbrella proposal. Select the migration PR only after the frozen inventory
+has merged. Neither target may change the MCP harness, executable MCP fixtures,
+or semantic baselines.
 
 ## Problem
 
@@ -81,9 +78,11 @@ explicitly revises them:
   reference, and plugin acceptance;
 - every normative paragraph, schema field, domain error, resource template,
   lifecycle transition, and literal client-platform cell in the conformance
-  universe after the platform-matrix prerequisite closes that set;
+  universe identified by
+  [Closed Client-Platform Matrix](agent-language-services.md#closed-client-platform-matrix "matrix-ref:lifecycle-conformance-cells");
 - the exact tool and resource kinds, package-document declaration kinds, LSP
-  encodings, and plugin compatibility cells closed by the v1 manifest;
+  encodings, and plugin compatibility cells identified by
+  [Closed Client-Platform Matrix](agent-language-services.md#closed-client-platform-matrix "matrix-ref:lifecycle-compatibility-cells");
 - the final requirement that the conformance gate reject missing, duplicate,
   skipped, orphaned, and undeclared mappings.
 
@@ -224,7 +223,7 @@ for every structural case.
 
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |
-| Close the prerequisite client-platform set. | The platform-matrix proposal is complete and every plugin cell has a literal client-platform identity. | Link to the completed matrix record plus checked exact key list and row count. |
+| Close the prerequisite client-platform set. | The platform-matrix proposal is complete and every plugin cell has a literal client-platform identity. | [Closed Client-Platform Matrix](agent-language-services.md#closed-client-platform-matrix "matrix-ref:lifecycle-prerequisite-acceptance"), the completed matrix record, and checked exact key list and row count. |
 | Freeze the source universe independently. | A first PR records stable IDs, source spans, classifications, and digests for every independently parsed source node without changing the umbrella proposal. The generator is not the expected-universe authority. | Source-parser-to-contract and contract-to-inventory comparisons; injected source-node, contract-node, inventory-node, duplicate, unexpected, and generator-omission cases for each record class. |
 | Preserve named finite inputs. | Q01-Q22, both closed matrices, the six saved-reference rows, every unresolved acceptance row, and every other named conformance item have exact independent identity sets. | One missing-identity mutation for each item class, including tool, resource, declaration, encoding, and plugin cells. |
 | Separate lifecycle semantically. | Every conformance leaf matches the reviewed lifecycle manifest, and mixed parents partition every meaningful Unicode scalar without lifecycle mixing. | Golden ambiguous-word cases plus injected gap, overlap, out-of-range, wrong-lifecycle, hidden-delimiter, and non-BMP boundary failures. |

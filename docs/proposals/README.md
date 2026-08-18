@@ -24,19 +24,14 @@ also states it.
 - Add a target-snapshot preflight before reissuing the agent-language-services
   client-platform closure target:
   [proposal-target-snapshot-preflight.md](proposal-target-snapshot-preflight.md).
+- Add the frozen source inventory for the agent-language-services lifecycle
+  migration:
+  [agent-language-services-lifecycle-migration.md](agent-language-services-lifecycle-migration.md).
 
 Only proposals and subsections listed in this section are selectable targets.
 
 ## Blocked
 
-- The agent-language-services client-platform matrix closure is blocked until
-  the target-snapshot preflight leaves this directory as a completed
-  implementation record:
-  [agent-language-services-platform-matrix-closure.md](agent-language-services-platform-matrix-closure.md).
-- The agent-language-services lifecycle migration is blocked until the
-  client-platform matrix closure leaves this directory as a completed
-  implementation record:
-  [agent-language-services-lifecycle-migration.md](agent-language-services-lifecycle-migration.md).
 - The agent-language-services slice-closure proposal is blocked until the
   lifecycle-migration proposal leaves this directory as a completed
   implementation record:
