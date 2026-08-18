@@ -192,6 +192,13 @@ const sourceUniverseContract = {
 };
 const reviewedLifecycle = new Map([
   ["agent-language-services/S0004.c01", "planned"],
+  ["agent-language-services/S0012.c01", "planned"],
+  ["agent-language-services/S0012.c02", "planned"],
+  ["agent-language-services/S0013.c01", "planned"],
+  ["agent-language-services/S0013.c03", "planned"],
+  ["agent-language-services/S0018.c01", "planned"],
+  ["agent-language-services/S0022.c01", "planned"],
+  ["agent-language-services/S0030.c01", "planned"],
 ]);
 
 if (isMainModule()) {
@@ -499,6 +506,7 @@ export function validateInventory({ inventory, parsed, universe, manifest }) {
         if (manifestLeaf.conformance !== contract?.conformance) errors.push(`${manifestPath}: ${child.id} has wrong conformance flag.`);
       }
       if (digest(spannedText(root.text, child.spans)) !== child.digest) errors.push(`${inventoryPath}: ${child.id} has stale child digest.`);
+      errors.push(...validateLifecycleSeparation({ child, root }));
     }
     const coverage = validateSpanPartition({ rootId: root.id, text: root.text, children: root.children, separatorSpans: root.separator_spans ?? [] });
     errors.push(...coverage.map((error) => `${inventoryPath}: ${error}`));
@@ -1105,28 +1113,39 @@ function collectCheckedEvidencePaths(repoRoot) {
 function splitLeafChildren(root) {
   if (root.kind === "table-row") {
     const cells = tableCellSpans(root.text);
-    if (cells.length > 0) return cells.map((span) => ({ text: scalarSlice(root.text, span.start, span.end), spans: [span] }));
-  }
-  const scalars = [...root.text];
-  const boundaries = [];
-  for (let i = 0; i < scalars.length; i += 1) {
-    if ((scalars[i] === "." || scalars[i] === ";" || scalars[i] === ":") && scalars[i + 1] === " ") {
-      boundaries.push(i + 1);
+    if (cells.length > 0) {
+      return cells.flatMap((cell) => statementSpans(root.text, cell).map((span) => ({
+        text: scalarSlice(root.text, span.start, span.end),
+        spans: [span],
+      })));
     }
   }
-  if (boundaries.length === 0) return [{ text: root.text, spans: [{ start: 0, end: scalars.length }] }];
-  const spans = [];
-  let start = 0;
-  for (const boundary of boundaries) {
-    spans.push({ start, end: boundary });
-    start = boundary;
-    while (scalars[start] === " ") start += 1;
-  }
-  if (start < scalars.length) spans.push({ start, end: scalars.length });
-  return spans.filter((span) => span.end > span.start).map((span) => ({
+  return statementSpans(root.text, { start: 0, end: [...root.text].length }).map((span) => ({
     text: scalarSlice(root.text, span.start, span.end),
     spans: [span],
   }));
+}
+
+function statementSpans(text, sourceSpan) {
+  const scalars = [...text];
+  const boundaries = [];
+  for (let i = sourceSpan.start; i < sourceSpan.end; i += 1) {
+    if (scalars[i] !== "." && scalars[i] !== ";") continue;
+    let boundary = i + 1;
+    while (boundary < sourceSpan.end && /[)\]`'"]/u.test(scalars[boundary])) boundary += 1;
+    if (/\s/u.test(scalars[boundary] ?? "")) {
+      boundaries.push(boundary);
+    }
+  }
+  const spans = [];
+  let start = sourceSpan.start;
+  for (const boundary of boundaries) {
+    spans.push({ start, end: boundary });
+    start = boundary;
+    while (start < sourceSpan.end && /\s/u.test(scalars[start])) start += 1;
+  }
+  if (start < sourceSpan.end) spans.push({ start, end: sourceSpan.end });
+  return spans.filter((span) => span.end > span.start);
 }
 
 function validateSpanPartition({ rootId, text, children, separatorSpans }) {
@@ -1189,6 +1208,24 @@ function classifyLifecycle(text, heading) {
   if (/\bimplemented\b|\bcurrently exposes\b|\balready implemented\b|\bspecified in\b|\bcurrent\b/.test(lower)) return "current";
   if (/\bcompleted\b|\bclosed\b|\bresolved-decision\b/.test(lower)) return "completed";
   return "planned";
+}
+
+function validateLifecycleSeparation({ child, root }) {
+  const errors = [];
+  const text = spannedText(root.text, child.spans).replace(/\s+/gu, " ").trim();
+  const signals = lifecycleSignals(text);
+  if (signals.current && signals.planned) {
+    errors.push(`${inventoryPath}: ${child.id} mixes current/completed and planned lifecycle statements.`);
+  }
+  return errors;
+}
+
+function lifecycleSignals(text) {
+  const lower = text.toLowerCase();
+  return {
+    current: /^\s*implemented\b|\bcurrently exposes\b|\bimplemented and specified\b|\bcurrent specification\b|\bcurrent behavior\b/.test(lower),
+    planned: /\bremain(?:s)? planned\b|\bplanned work\b|\bplanned evidence\b|\bplanned q\d\d\b|\bnext slice\b|\bplanning input\b|\bnot selectable\b|\bbefore implementing\b|\bbroader [^.]+ remain(?:s)? planned\b|\breference[- ](?:result|navigation|resource|coverage)[^.]* remain(?:s)? planned\b/.test(lower),
+  };
 }
 
 function evidenceCaseId(file) {

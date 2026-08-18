@@ -227,17 +227,29 @@
     {
       "source_id": "agent-language-services/S0012.c01",
       "parent_id": "agent-language-services/S0012",
-      "lifecycle": "current",
+      "lifecycle": "planned",
       "conformance": true,
       "spans": [
         {
           "start": 0,
-          "end": 408
+          "end": 242
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0012.c02",
+      "parent_id": "agent-language-services/S0012",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 243,
+          "end": 408
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0012.c03",
       "parent_id": "agent-language-services/S0012",
       "lifecycle": "planned",
       "conformance": true,
@@ -249,7 +261,7 @@
       ]
     },
     {
-      "source_id": "agent-language-services/S0012.c03",
+      "source_id": "agent-language-services/S0012.c04",
       "parent_id": "agent-language-services/S0012",
       "lifecycle": "planned",
       "conformance": true,
@@ -261,7 +273,7 @@
       ]
     },
     {
-      "source_id": "agent-language-services/S0012.c04",
+      "source_id": "agent-language-services/S0012.c05",
       "parent_id": "agent-language-services/S0012",
       "lifecycle": "planned",
       "conformance": true,
@@ -275,7 +287,7 @@
     {
       "source_id": "agent-language-services/S0013.c01",
       "parent_id": "agent-language-services/S0013",
-      "lifecycle": "current",
+      "lifecycle": "planned",
       "conformance": false,
       "spans": [
         {
@@ -299,7 +311,7 @@
     {
       "source_id": "agent-language-services/S0013.c03",
       "parent_id": "agent-language-services/S0013",
-      "lifecycle": "completed",
+      "lifecycle": "planned",
       "conformance": false,
       "spans": [
         {
@@ -395,7 +407,7 @@
     {
       "source_id": "agent-language-services/S0018.c01",
       "parent_id": "agent-language-services/S0018",
-      "lifecycle": "current",
+      "lifecycle": "planned",
       "conformance": false,
       "spans": [
         {
@@ -491,7 +503,7 @@
     {
       "source_id": "agent-language-services/S0022.c01",
       "parent_id": "agent-language-services/S0022",
-      "lifecycle": "current",
+      "lifecycle": "planned",
       "conformance": true,
       "spans": [
         {
@@ -779,7 +791,7 @@
     {
       "source_id": "agent-language-services/S0030.c01",
       "parent_id": "agent-language-services/S0030",
-      "lifecycle": "current",
+      "lifecycle": "planned",
       "conformance": true,
       "spans": [
         {
@@ -832,12 +844,24 @@
       "spans": [
         {
           "start": 0,
-          "end": 163
+          "end": 75
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0031.c02",
+      "parent_id": "agent-language-services/S0031",
+      "lifecycle": "planned",
+      "conformance": false,
+      "spans": [
+        {
+          "start": 76,
+          "end": 163
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0031.c03",
       "parent_id": "agent-language-services/S0031",
       "lifecycle": "planned",
       "conformance": false,
@@ -851,11 +875,23 @@
     {
       "source_id": "agent-language-services/S0032.c01",
       "parent_id": "agent-language-services/S0032",
-      "lifecycle": "current",
+      "lifecycle": "planned",
       "conformance": false,
       "spans": [
         {
           "start": 0,
+          "end": 154
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0032.c02",
+      "parent_id": "agent-language-services/S0032",
+      "lifecycle": "current",
+      "conformance": false,
+      "spans": [
+        {
+          "start": 155,
           "end": 314
         }
       ]
@@ -868,12 +904,24 @@
       "spans": [
         {
           "start": 0,
-          "end": 241
+          "end": 75
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0033.c02",
+      "parent_id": "agent-language-services/S0033",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 76,
+          "end": 241
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0033.c03",
       "parent_id": "agent-language-services/S0033",
       "lifecycle": "planned",
       "conformance": true,
@@ -892,12 +940,24 @@
       "spans": [
         {
           "start": 0,
-          "end": 215
+          "end": 72
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0034.c02",
+      "parent_id": "agent-language-services/S0034",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 73,
+          "end": 215
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0034.c03",
       "parent_id": "agent-language-services/S0034",
       "lifecycle": "planned",
       "conformance": true,
@@ -1283,23 +1343,11 @@
     {
       "source_id": "agent-language-services/S0066.c01",
       "parent_id": "agent-language-services/S0066",
-      "lifecycle": "planned",
-      "conformance": false,
-      "spans": [
-        {
-          "start": 0,
-          "end": 21
-        }
-      ]
-    },
-    {
-      "source_id": "agent-language-services/S0066.c02",
-      "parent_id": "agent-language-services/S0066",
       "lifecycle": "current",
       "conformance": false,
       "spans": [
         {
-          "start": 22,
+          "start": 0,
           "end": 70
         }
       ]
@@ -1312,18 +1360,6 @@
       "spans": [
         {
           "start": 0,
-          "end": 24
-        }
-      ]
-    },
-    {
-      "source_id": "agent-language-services/S0067.c02",
-      "parent_id": "agent-language-services/S0067",
-      "lifecycle": "planned",
-      "conformance": false,
-      "spans": [
-        {
-          "start": 25,
           "end": 80
         }
       ]
@@ -1348,18 +1384,6 @@
       "spans": [
         {
           "start": 0,
-          "end": 21
-        }
-      ]
-    },
-    {
-      "source_id": "agent-language-services/S0069.c02",
-      "parent_id": "agent-language-services/S0069",
-      "lifecycle": "planned",
-      "conformance": false,
-      "spans": [
-        {
-          "start": 22,
           "end": 65
         }
       ]
@@ -1372,18 +1396,6 @@
       "spans": [
         {
           "start": 0,
-          "end": 28
-        }
-      ]
-    },
-    {
-      "source_id": "agent-language-services/S0070.c02",
-      "parent_id": "agent-language-services/S0070",
-      "lifecycle": "planned",
-      "conformance": false,
-      "spans": [
-        {
-          "start": 29,
           "end": 79
         }
       ]
@@ -1408,18 +1420,6 @@
       "spans": [
         {
           "start": 0,
-          "end": 23
-        }
-      ]
-    },
-    {
-      "source_id": "agent-language-services/S0072.c02",
-      "parent_id": "agent-language-services/S0072",
-      "lifecycle": "planned",
-      "conformance": false,
-      "spans": [
-        {
-          "start": 24,
           "end": 75
         }
       ]
@@ -1444,18 +1444,6 @@
       "spans": [
         {
           "start": 0,
-          "end": 23
-        }
-      ]
-    },
-    {
-      "source_id": "agent-language-services/S0074.c02",
-      "parent_id": "agent-language-services/S0074",
-      "lifecycle": "planned",
-      "conformance": false,
-      "spans": [
-        {
-          "start": 24,
           "end": 77
         }
       ]
@@ -1468,18 +1456,6 @@
       "spans": [
         {
           "start": 0,
-          "end": 34
-        }
-      ]
-    },
-    {
-      "source_id": "agent-language-services/S0075.c02",
-      "parent_id": "agent-language-services/S0075",
-      "lifecycle": "planned",
-      "conformance": false,
-      "spans": [
-        {
-          "start": 35,
           "end": 78
         }
       ]
@@ -1504,18 +1480,6 @@
       "spans": [
         {
           "start": 0,
-          "end": 21
-        }
-      ]
-    },
-    {
-      "source_id": "agent-language-services/S0077.c02",
-      "parent_id": "agent-language-services/S0077",
-      "lifecycle": "planned",
-      "conformance": true,
-      "spans": [
-        {
-          "start": 22,
           "end": 72
         }
       ]
@@ -1540,18 +1504,6 @@
       "spans": [
         {
           "start": 0,
-          "end": 26
-        }
-      ]
-    },
-    {
-      "source_id": "agent-language-services/S0079.c02",
-      "parent_id": "agent-language-services/S0079",
-      "lifecycle": "planned",
-      "conformance": false,
-      "spans": [
-        {
-          "start": 27,
           "end": 78
         }
       ]
@@ -2387,17 +2339,29 @@
     {
       "source_id": "agent-language-services/S0107.c01",
       "parent_id": "agent-language-services/S0107",
-      "lifecycle": "current",
+      "lifecycle": "planned",
       "conformance": false,
       "spans": [
         {
           "start": 0,
-          "end": 161
+          "end": 77
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0107.c02",
+      "parent_id": "agent-language-services/S0107",
+      "lifecycle": "current",
+      "conformance": false,
+      "spans": [
+        {
+          "start": 78,
+          "end": 161
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0107.c03",
       "parent_id": "agent-language-services/S0107",
       "lifecycle": "planned",
       "conformance": false,
@@ -2452,12 +2416,24 @@
       "spans": [
         {
           "start": 101,
-          "end": 203
+          "end": 149
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0109.c03",
+      "parent_id": "agent-language-services/S0109",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 150,
+          "end": 203
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0109.c04",
       "parent_id": "agent-language-services/S0109",
       "lifecycle": "planned",
       "conformance": true,
@@ -2469,7 +2445,7 @@
       ]
     },
     {
-      "source_id": "agent-language-services/S0109.c04",
+      "source_id": "agent-language-services/S0109.c05",
       "parent_id": "agent-language-services/S0109",
       "lifecycle": "planned",
       "conformance": true,
@@ -2481,7 +2457,7 @@
       ]
     },
     {
-      "source_id": "agent-language-services/S0109.c05",
+      "source_id": "agent-language-services/S0109.c06",
       "parent_id": "agent-language-services/S0109",
       "lifecycle": "planned",
       "conformance": true,
@@ -2493,13 +2469,25 @@
       ]
     },
     {
-      "source_id": "agent-language-services/S0109.c06",
+      "source_id": "agent-language-services/S0109.c07",
       "parent_id": "agent-language-services/S0109",
       "lifecycle": "planned",
       "conformance": true,
       "spans": [
         {
           "start": 469,
+          "end": 531
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0109.c08",
+      "parent_id": "agent-language-services/S0109",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 532,
           "end": 677
         }
       ]
@@ -2584,6 +2572,30 @@
       "spans": [
         {
           "start": 45,
+          "end": 61
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0113.c03",
+      "parent_id": "agent-language-services/S0113",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 62,
+          "end": 142
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0113.c04",
+      "parent_id": "agent-language-services/S0113",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 143,
           "end": 170
         }
       ]
@@ -2680,6 +2692,18 @@
       "spans": [
         {
           "start": 68,
+          "end": 149
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0117.c03",
+      "parent_id": "agent-language-services/S0117",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 150,
           "end": 216
         }
       ]
@@ -2836,6 +2860,30 @@
       "spans": [
         {
           "start": 270,
+          "end": 313
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0120.c06",
+      "parent_id": "agent-language-services/S0120",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 314,
+          "end": 393
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0120.c07",
+      "parent_id": "agent-language-services/S0120",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 394,
           "end": 457
         }
       ]
@@ -2860,12 +2908,24 @@
       "spans": [
         {
           "start": 22,
-          "end": 163
+          "end": 76
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0121.c03",
+      "parent_id": "agent-language-services/S0121",
+      "lifecycle": "planned",
+      "conformance": false,
+      "spans": [
+        {
+          "start": 77,
+          "end": 163
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0121.c04",
       "parent_id": "agent-language-services/S0121",
       "lifecycle": "planned",
       "conformance": false,
@@ -2877,7 +2937,7 @@
       ]
     },
     {
-      "source_id": "agent-language-services/S0121.c04",
+      "source_id": "agent-language-services/S0121.c05",
       "parent_id": "agent-language-services/S0121",
       "lifecycle": "planned",
       "conformance": false,
@@ -2889,7 +2949,7 @@
       ]
     },
     {
-      "source_id": "agent-language-services/S0121.c05",
+      "source_id": "agent-language-services/S0121.c06",
       "parent_id": "agent-language-services/S0121",
       "lifecycle": "planned",
       "conformance": false,
@@ -3676,6 +3736,18 @@
       "spans": [
         {
           "start": 0,
+          "end": 75
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0147.c02",
+      "parent_id": "agent-language-services/S0147",
+      "lifecycle": "completed",
+      "conformance": false,
+      "spans": [
+        {
+          "start": 76,
           "end": 117
         }
       ]
@@ -3832,12 +3904,24 @@
       "spans": [
         {
           "start": 0,
-          "end": 344
+          "end": 213
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0159.c02",
+      "parent_id": "agent-language-services/S0159",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 214,
+          "end": 344
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0159.c03",
       "parent_id": "agent-language-services/S0159",
       "lifecycle": "planned",
       "conformance": true,
@@ -3849,7 +3933,7 @@
       ]
     },
     {
-      "source_id": "agent-language-services/S0159.c03",
+      "source_id": "agent-language-services/S0159.c04",
       "parent_id": "agent-language-services/S0159",
       "lifecycle": "planned",
       "conformance": true,
@@ -3861,7 +3945,7 @@
       ]
     },
     {
-      "source_id": "agent-language-services/S0159.c04",
+      "source_id": "agent-language-services/S0159.c05",
       "parent_id": "agent-language-services/S0159",
       "lifecycle": "planned",
       "conformance": true,
@@ -4240,6 +4324,18 @@
       "spans": [
         {
           "start": 55,
+          "end": 78
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0169.c03",
+      "parent_id": "agent-language-services/S0169",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 79,
           "end": 135
         }
       ]
@@ -4312,7 +4408,7 @@
       "spans": [
         {
           "start": 0,
-          "end": 145
+          "end": 80
         }
       ]
     },
@@ -4323,13 +4419,37 @@
       "conformance": true,
       "spans": [
         {
-          "start": 146,
-          "end": 295
+          "start": 81,
+          "end": 145
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0175.c03",
+      "parent_id": "agent-language-services/S0175",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 146,
+          "end": 233
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0175.c04",
+      "parent_id": "agent-language-services/S0175",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 234,
+          "end": 295
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0175.c05",
       "parent_id": "agent-language-services/S0175",
       "lifecycle": "planned",
       "conformance": true,
@@ -4341,19 +4461,31 @@
       ]
     },
     {
-      "source_id": "agent-language-services/S0175.c04",
+      "source_id": "agent-language-services/S0175.c06",
       "parent_id": "agent-language-services/S0175",
       "lifecycle": "planned",
       "conformance": true,
       "spans": [
         {
           "start": 320,
+          "end": 340
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0175.c07",
+      "parent_id": "agent-language-services/S0175",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 341,
           "end": 362
         }
       ]
     },
     {
-      "source_id": "agent-language-services/S0175.c05",
+      "source_id": "agent-language-services/S0175.c08",
       "parent_id": "agent-language-services/S0175",
       "lifecycle": "planned",
       "conformance": true,
@@ -4365,7 +4497,7 @@
       ]
     },
     {
-      "source_id": "agent-language-services/S0175.c06",
+      "source_id": "agent-language-services/S0175.c09",
       "parent_id": "agent-language-services/S0175",
       "lifecycle": "planned",
       "conformance": true,
@@ -4576,6 +4708,18 @@
       "spans": [
         {
           "start": 229,
+          "end": 305
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0184.c05",
+      "parent_id": "agent-language-services/S0184",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 306,
           "end": 559
         }
       ]
@@ -4648,6 +4792,18 @@
       "spans": [
         {
           "start": 157,
+          "end": 269
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0186.c03",
+      "parent_id": "agent-language-services/S0186",
+      "lifecycle": "planned",
+      "conformance": false,
+      "spans": [
+        {
+          "start": 270,
           "end": 432
         }
       ]
@@ -4780,6 +4936,54 @@
       "spans": [
         {
           "start": 392,
+          "end": 579
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0188.c05",
+      "parent_id": "agent-language-services/S0188",
+      "lifecycle": "current",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 580,
+          "end": 928
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0188.c06",
+      "parent_id": "agent-language-services/S0188",
+      "lifecycle": "current",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 929,
+          "end": 2086
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0188.c07",
+      "parent_id": "agent-language-services/S0188",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 2087,
+          "end": 2236
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0188.c08",
+      "parent_id": "agent-language-services/S0188",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 2237,
           "end": 2332
         }
       ]
@@ -4840,12 +5044,24 @@
       "spans": [
         {
           "start": 0,
-          "end": 270
+          "end": 75
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0190.c02",
+      "parent_id": "agent-language-services/S0190",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 76,
+          "end": 270
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0190.c03",
       "parent_id": "agent-language-services/S0190",
       "lifecycle": "planned",
       "conformance": true,
@@ -4857,7 +5073,7 @@
       ]
     },
     {
-      "source_id": "agent-language-services/S0190.c03",
+      "source_id": "agent-language-services/S0190.c04",
       "parent_id": "agent-language-services/S0190",
       "lifecycle": "planned",
       "conformance": true,
@@ -4869,7 +5085,7 @@
       ]
     },
     {
-      "source_id": "agent-language-services/S0190.c04",
+      "source_id": "agent-language-services/S0190.c05",
       "parent_id": "agent-language-services/S0190",
       "lifecycle": "planned",
       "conformance": true,
@@ -4881,7 +5097,7 @@
       ]
     },
     {
-      "source_id": "agent-language-services/S0190.c05",
+      "source_id": "agent-language-services/S0190.c06",
       "parent_id": "agent-language-services/S0190",
       "lifecycle": "planned",
       "conformance": true,
@@ -4893,7 +5109,7 @@
       ]
     },
     {
-      "source_id": "agent-language-services/S0190.c06",
+      "source_id": "agent-language-services/S0190.c07",
       "parent_id": "agent-language-services/S0190",
       "lifecycle": "planned",
       "conformance": true,
@@ -4905,7 +5121,7 @@
       ]
     },
     {
-      "source_id": "agent-language-services/S0190.c07",
+      "source_id": "agent-language-services/S0190.c08",
       "parent_id": "agent-language-services/S0190",
       "lifecycle": "planned",
       "conformance": true,
@@ -4917,7 +5133,7 @@
       ]
     },
     {
-      "source_id": "agent-language-services/S0190.c08",
+      "source_id": "agent-language-services/S0190.c09",
       "parent_id": "agent-language-services/S0190",
       "lifecycle": "planned",
       "conformance": true,
@@ -5044,12 +5260,24 @@
       "spans": [
         {
           "start": 344,
-          "end": 499
+          "end": 394
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0194.c05",
+      "parent_id": "agent-language-services/S0194",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 395,
+          "end": 499
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0194.c06",
       "parent_id": "agent-language-services/S0194",
       "lifecycle": "planned",
       "conformance": true,
@@ -5080,12 +5308,24 @@
       "spans": [
         {
           "start": 96,
-          "end": 291
+          "end": 235
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0195.c03",
+      "parent_id": "agent-language-services/S0195",
+      "lifecycle": "planned",
+      "conformance": false,
+      "spans": [
+        {
+          "start": 236,
+          "end": 291
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0195.c04",
       "parent_id": "agent-language-services/S0195",
       "lifecycle": "planned",
       "conformance": false,
@@ -5344,12 +5584,24 @@
       "spans": [
         {
           "start": 0,
-          "end": 236
+          "end": 147
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0214.c02",
+      "parent_id": "agent-language-services/S0214",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 148,
+          "end": 236
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0214.c03",
       "parent_id": "agent-language-services/S0214",
       "lifecycle": "planned",
       "conformance": true,
@@ -5361,7 +5613,7 @@
       ]
     },
     {
-      "source_id": "agent-language-services/S0214.c03",
+      "source_id": "agent-language-services/S0214.c04",
       "parent_id": "agent-language-services/S0214",
       "lifecycle": "planned",
       "conformance": true,
@@ -5452,6 +5704,18 @@
       "spans": [
         {
           "start": 783,
+          "end": 847
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0215.c08",
+      "parent_id": "agent-language-services/S0215",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 848,
           "end": 885
         }
       ]
@@ -5464,12 +5728,24 @@
       "spans": [
         {
           "start": 0,
-          "end": 357
+          "end": 226
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0216.c02",
+      "parent_id": "agent-language-services/S0216",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 227,
+          "end": 357
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0216.c03",
       "parent_id": "agent-language-services/S0216",
       "lifecycle": "planned",
       "conformance": true,
@@ -5481,7 +5757,7 @@
       ]
     },
     {
-      "source_id": "agent-language-services/S0216.c03",
+      "source_id": "agent-language-services/S0216.c04",
       "parent_id": "agent-language-services/S0216",
       "lifecycle": "planned",
       "conformance": true,
@@ -5493,7 +5769,7 @@
       ]
     },
     {
-      "source_id": "agent-language-services/S0216.c04",
+      "source_id": "agent-language-services/S0216.c05",
       "parent_id": "agent-language-services/S0216",
       "lifecycle": "planned",
       "conformance": true,
@@ -6100,12 +6376,24 @@
       "spans": [
         {
           "start": 0,
-          "end": 306
+          "end": 74
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0246.c02",
+      "parent_id": "agent-language-services/S0246",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 75,
+          "end": 306
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0246.c03",
       "parent_id": "agent-language-services/S0246",
       "lifecycle": "planned",
       "conformance": true,
@@ -6117,7 +6405,7 @@
       ]
     },
     {
-      "source_id": "agent-language-services/S0246.c03",
+      "source_id": "agent-language-services/S0246.c04",
       "parent_id": "agent-language-services/S0246",
       "lifecycle": "planned",
       "conformance": true,
@@ -6184,12 +6472,24 @@
       "spans": [
         {
           "start": 69,
-          "end": 294
+          "end": 231
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0248.c03",
+      "parent_id": "agent-language-services/S0248",
+      "lifecycle": "planned",
+      "conformance": false,
+      "spans": [
+        {
+          "start": 232,
+          "end": 294
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0248.c04",
       "parent_id": "agent-language-services/S0248",
       "lifecycle": "planned",
       "conformance": false,
@@ -6201,7 +6501,7 @@
       ]
     },
     {
-      "source_id": "agent-language-services/S0248.c04",
+      "source_id": "agent-language-services/S0248.c05",
       "parent_id": "agent-language-services/S0248",
       "lifecycle": "planned",
       "conformance": false,
@@ -6213,7 +6513,7 @@
       ]
     },
     {
-      "source_id": "agent-language-services/S0248.c05",
+      "source_id": "agent-language-services/S0248.c06",
       "parent_id": "agent-language-services/S0248",
       "lifecycle": "planned",
       "conformance": false,
@@ -6225,7 +6525,7 @@
       ]
     },
     {
-      "source_id": "agent-language-services/S0248.c06",
+      "source_id": "agent-language-services/S0248.c07",
       "parent_id": "agent-language-services/S0248",
       "lifecycle": "planned",
       "conformance": false,
@@ -7300,6 +7600,18 @@
       "spans": [
         {
           "start": 0,
+          "end": 236
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0281.c02",
+      "parent_id": "agent-language-services/S0281",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 237,
           "end": 350
         }
       ]
@@ -7468,6 +7780,18 @@
       "spans": [
         {
           "start": 200,
+          "end": 425
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0293.c04",
+      "parent_id": "agent-language-services/S0293",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 426,
           "end": 502
         }
       ]
@@ -7492,6 +7816,18 @@
       "spans": [
         {
           "start": 112,
+          "end": 383
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0294.c03",
+      "parent_id": "agent-language-services/S0294",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 384,
           "end": 496
         }
       ]
@@ -7576,6 +7912,18 @@
       "spans": [
         {
           "start": 29,
+          "end": 134
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0298.c03",
+      "parent_id": "agent-language-services/S0298",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 135,
           "end": 176
         }
       ]
@@ -7600,6 +7948,42 @@
       "spans": [
         {
           "start": 20,
+          "end": 78
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0299.c03",
+      "parent_id": "agent-language-services/S0299",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 79,
+          "end": 102
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0299.c04",
+      "parent_id": "agent-language-services/S0299",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 103,
+          "end": 123
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0299.c05",
+      "parent_id": "agent-language-services/S0299",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 124,
           "end": 142
         }
       ]
@@ -7648,6 +8032,18 @@
       "spans": [
         {
           "start": 23,
+          "end": 716
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0301.c03",
+      "parent_id": "agent-language-services/S0301",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 717,
           "end": 762
         }
       ]
@@ -7672,6 +8068,18 @@
       "spans": [
         {
           "start": 27,
+          "end": 280
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0302.c03",
+      "parent_id": "agent-language-services/S0302",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 281,
           "end": 363
         }
       ]
@@ -7816,6 +8224,18 @@
       "spans": [
         {
           "start": 25,
+          "end": 204
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0308.c03",
+      "parent_id": "agent-language-services/S0308",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 205,
           "end": 259
         }
       ]
@@ -7864,6 +8284,18 @@
       "spans": [
         {
           "start": 42,
+          "end": 181
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0310.c03",
+      "parent_id": "agent-language-services/S0310",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 182,
           "end": 236
         }
       ]
@@ -8260,18 +8692,54 @@
       "spans": [
         {
           "start": 75,
-          "end": 305
+          "end": 133
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0324.c03",
       "parent_id": "agent-language-services/S0324",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 134,
+          "end": 236
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0324.c04",
+      "parent_id": "agent-language-services/S0324",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 237,
+          "end": 305
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0324.c05",
+      "parent_id": "agent-language-services/S0324",
       "lifecycle": "current",
       "conformance": true,
       "spans": [
         {
           "start": 308,
+          "end": 399
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0324.c06",
+      "parent_id": "agent-language-services/S0324",
+      "lifecycle": "current",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 400,
           "end": 452
         }
       ]
@@ -8296,12 +8764,36 @@
       "spans": [
         {
           "start": 36,
-          "end": 237
+          "end": 82
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0325.c03",
+      "parent_id": "agent-language-services/S0325",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 83,
+          "end": 122
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0325.c04",
+      "parent_id": "agent-language-services/S0325",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 123,
+          "end": 237
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0325.c05",
       "parent_id": "agent-language-services/S0325",
       "lifecycle": "current",
       "conformance": true,
@@ -8332,18 +8824,42 @@
       "spans": [
         {
           "start": 54,
-          "end": 167
+          "end": 96
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0326.c03",
       "parent_id": "agent-language-services/S0326",
+      "lifecycle": "planned",
+      "conformance": false,
+      "spans": [
+        {
+          "start": 97,
+          "end": 167
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0326.c04",
+      "parent_id": "agent-language-services/S0326",
       "lifecycle": "current",
       "conformance": false,
       "spans": [
         {
           "start": 170,
+          "end": 227
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0326.c05",
+      "parent_id": "agent-language-services/S0326",
+      "lifecycle": "planned",
+      "conformance": false,
+      "spans": [
+        {
+          "start": 228,
           "end": 267
         }
       ]
@@ -8368,18 +8884,54 @@
       "spans": [
         {
           "start": 39,
-          "end": 167
+          "end": 88
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0327.c03",
       "parent_id": "agent-language-services/S0327",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 89,
+          "end": 133
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0327.c04",
+      "parent_id": "agent-language-services/S0327",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 134,
+          "end": 167
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0327.c05",
+      "parent_id": "agent-language-services/S0327",
       "lifecycle": "current",
       "conformance": true,
       "spans": [
         {
           "start": 170,
+          "end": 218
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0327.c06",
+      "parent_id": "agent-language-services/S0327",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 219,
           "end": 244
         }
       ]
@@ -8416,6 +8968,18 @@
       "spans": [
         {
           "start": 132,
+          "end": 192
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0328.c04",
+      "parent_id": "agent-language-services/S0328",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 193,
           "end": 240
         }
       ]
@@ -8452,6 +9016,18 @@
       "spans": [
         {
           "start": 115,
+          "end": 165
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0329.c04",
+      "parent_id": "agent-language-services/S0329",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 166,
           "end": 210
         }
       ]
@@ -8524,6 +9100,30 @@
       "spans": [
         {
           "start": 239,
+          "end": 586
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0331.c04",
+      "parent_id": "agent-language-services/S0331",
+      "lifecycle": "current",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 587,
+          "end": 708
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0331.c05",
+      "parent_id": "agent-language-services/S0331",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 709,
           "end": 754
         }
       ]
@@ -8548,18 +9148,54 @@
       "spans": [
         {
           "start": 58,
-          "end": 174
+          "end": 71
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0332.c03",
       "parent_id": "agent-language-services/S0332",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 72,
+          "end": 97
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0332.c04",
+      "parent_id": "agent-language-services/S0332",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 98,
+          "end": 174
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0332.c05",
+      "parent_id": "agent-language-services/S0332",
       "lifecycle": "current",
       "conformance": true,
       "spans": [
         {
           "start": 177,
+          "end": 230
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0332.c06",
+      "parent_id": "agent-language-services/S0332",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 231,
           "end": 264
         }
       ]
@@ -8584,12 +9220,24 @@
       "spans": [
         {
           "start": 84,
-          "end": 229
+          "end": 142
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0333.c03",
+      "parent_id": "agent-language-services/S0333",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 143,
+          "end": 229
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0333.c04",
       "parent_id": "agent-language-services/S0333",
       "lifecycle": "current",
       "conformance": true,
@@ -8776,6 +9424,18 @@
       "spans": [
         {
           "start": 210,
+          "end": 306
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0338.c04",
+      "parent_id": "agent-language-services/S0338",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 307,
           "end": 381
         }
       ]
@@ -8800,12 +9460,24 @@
       "spans": [
         {
           "start": 72,
-          "end": 222
+          "end": 137
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0339.c03",
+      "parent_id": "agent-language-services/S0339",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 138,
+          "end": 222
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0339.c04",
       "parent_id": "agent-language-services/S0339",
       "lifecycle": "planned",
       "conformance": true,
@@ -9028,6 +9700,18 @@
       "spans": [
         {
           "start": 381,
+          "end": 622
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0345.c04",
+      "parent_id": "agent-language-services/S0345",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 623,
           "end": 672
         }
       ]
@@ -9088,12 +9772,24 @@
       "spans": [
         {
           "start": 40,
-          "end": 103
+          "end": 65
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0347.c03",
+      "parent_id": "agent-language-services/S0347",
+      "lifecycle": "planned",
+      "conformance": false,
+      "spans": [
+        {
+          "start": 66,
+          "end": 103
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0347.c04",
       "parent_id": "agent-language-services/S0347",
       "lifecycle": "planned",
       "conformance": false,
@@ -9155,17 +9851,41 @@
     {
       "source_id": "agent-language-services/S0349.c02",
       "parent_id": "agent-language-services/S0349",
-      "lifecycle": "current",
+      "lifecycle": "planned",
       "conformance": true,
       "spans": [
         {
           "start": 52,
-          "end": 514
+          "end": 108
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0349.c03",
+      "parent_id": "agent-language-services/S0349",
+      "lifecycle": "current",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 109,
+          "end": 266
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0349.c04",
+      "parent_id": "agent-language-services/S0349",
+      "lifecycle": "current",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 267,
+          "end": 514
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0349.c05",
       "parent_id": "agent-language-services/S0349",
       "lifecycle": "planned",
       "conformance": true,
@@ -9196,7 +9916,7 @@
       "spans": [
         {
           "start": 75,
-          "end": 325
+          "end": 153
         }
       ]
     },
@@ -9207,7 +9927,43 @@
       "conformance": true,
       "spans": [
         {
+          "start": 154,
+          "end": 280
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0350.c04",
+      "parent_id": "agent-language-services/S0350",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 281,
+          "end": 325
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0350.c05",
+      "parent_id": "agent-language-services/S0350",
+      "lifecycle": "current",
+      "conformance": true,
+      "spans": [
+        {
           "start": 328,
+          "end": 414
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0350.c06",
+      "parent_id": "agent-language-services/S0350",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 415,
           "end": 450
         }
       ]
@@ -9232,18 +9988,42 @@
       "spans": [
         {
           "start": 95,
-          "end": 338
+          "end": 290
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0351.c03",
       "parent_id": "agent-language-services/S0351",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 291,
+          "end": 338
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0351.c04",
+      "parent_id": "agent-language-services/S0351",
       "lifecycle": "current",
       "conformance": true,
       "spans": [
         {
           "start": 341,
+          "end": 404
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0351.c05",
+      "parent_id": "agent-language-services/S0351",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 405,
           "end": 446
         }
       ]
@@ -9299,17 +10079,29 @@
     {
       "source_id": "agent-language-services/S0353.c02",
       "parent_id": "agent-language-services/S0353",
-      "lifecycle": "current",
+      "lifecycle": "planned",
       "conformance": true,
       "spans": [
         {
           "start": 74,
-          "end": 331
+          "end": 168
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0353.c03",
+      "parent_id": "agent-language-services/S0353",
+      "lifecycle": "current",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 169,
+          "end": 331
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0353.c04",
       "parent_id": "agent-language-services/S0353",
       "lifecycle": "planned",
       "conformance": true,
@@ -9335,17 +10127,29 @@
     {
       "source_id": "agent-language-services/S0354.c02",
       "parent_id": "agent-language-services/S0354",
-      "lifecycle": "completed",
+      "lifecycle": "planned",
       "conformance": true,
       "spans": [
         {
           "start": 68,
-          "end": 208
+          "end": 91
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0354.c03",
+      "parent_id": "agent-language-services/S0354",
+      "lifecycle": "completed",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 92,
+          "end": 208
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0354.c04",
       "parent_id": "agent-language-services/S0354",
       "lifecycle": "planned",
       "conformance": true,
@@ -9376,12 +10180,24 @@
       "spans": [
         {
           "start": 71,
-          "end": 172
+          "end": 128
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0355.c03",
+      "parent_id": "agent-language-services/S0355",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 129,
+          "end": 172
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0355.c04",
       "parent_id": "agent-language-services/S0355",
       "lifecycle": "planned",
       "conformance": true,
@@ -9412,18 +10228,54 @@
       "spans": [
         {
           "start": 27,
-          "end": 435
+          "end": 113
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0356.c03",
       "parent_id": "agent-language-services/S0356",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 114,
+          "end": 402
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0356.c04",
+      "parent_id": "agent-language-services/S0356",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 403,
+          "end": 435
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0356.c05",
+      "parent_id": "agent-language-services/S0356",
       "lifecycle": "current",
       "conformance": true,
       "spans": [
         {
           "start": 438,
+          "end": 511
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0356.c06",
+      "parent_id": "agent-language-services/S0356",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 512,
           "end": 538
         }
       ]
@@ -9460,6 +10312,18 @@
       "spans": [
         {
           "start": 148,
+          "end": 206
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0357.c04",
+      "parent_id": "agent-language-services/S0357",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 207,
           "end": 233
         }
       ]
@@ -9484,18 +10348,66 @@
       "spans": [
         {
           "start": 66,
-          "end": 401
+          "end": 180
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0358.c03",
       "parent_id": "agent-language-services/S0358",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 181,
+          "end": 269
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0358.c04",
+      "parent_id": "agent-language-services/S0358",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 270,
+          "end": 352
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0358.c05",
+      "parent_id": "agent-language-services/S0358",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 353,
+          "end": 401
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0358.c06",
+      "parent_id": "agent-language-services/S0358",
       "lifecycle": "current",
       "conformance": true,
       "spans": [
         {
           "start": 404,
+          "end": 472
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0358.c07",
+      "parent_id": "agent-language-services/S0358",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 473,
           "end": 499
         }
       ]
@@ -10084,42 +10996,162 @@
       "spans": [
         {
           "start": 0,
-          "end": 2242
+          "end": 184
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0375.c02",
       "parent_id": "agent-language-services/S0375",
-      "lifecycle": "planned",
+      "lifecycle": "current",
       "conformance": true,
       "spans": [
         {
-          "start": 2243,
-          "end": 2569
+          "start": 185,
+          "end": 337
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0375.c03",
       "parent_id": "agent-language-services/S0375",
-      "lifecycle": "planned",
+      "lifecycle": "current",
       "conformance": true,
       "spans": [
         {
-          "start": 2570,
-          "end": 2774
+          "start": 338,
+          "end": 443
         }
       ]
     },
     {
       "source_id": "agent-language-services/S0375.c04",
       "parent_id": "agent-language-services/S0375",
+      "lifecycle": "current",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 444,
+          "end": 579
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0375.c05",
+      "parent_id": "agent-language-services/S0375",
+      "lifecycle": "current",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 580,
+          "end": 748
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0375.c06",
+      "parent_id": "agent-language-services/S0375",
+      "lifecycle": "current",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 749,
+          "end": 1475
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0375.c07",
+      "parent_id": "agent-language-services/S0375",
+      "lifecycle": "current",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 1476,
+          "end": 1808
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0375.c08",
+      "parent_id": "agent-language-services/S0375",
+      "lifecycle": "current",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 1809,
+          "end": 2094
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0375.c09",
+      "parent_id": "agent-language-services/S0375",
       "lifecycle": "planned",
       "conformance": true,
       "spans": [
         {
-          "start": 2775,
+          "start": 2095,
+          "end": 2242
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0375.c10",
+      "parent_id": "agent-language-services/S0375",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 2243,
+          "end": 2310
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0375.c11",
+      "parent_id": "agent-language-services/S0375",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 2311,
+          "end": 2569
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0375.c12",
+      "parent_id": "agent-language-services/S0375",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 2570,
+          "end": 2691
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0375.c13",
+      "parent_id": "agent-language-services/S0375",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 2692,
+          "end": 2861
+        }
+      ]
+    },
+    {
+      "source_id": "agent-language-services/S0375.c14",
+      "parent_id": "agent-language-services/S0375",
+      "lifecycle": "planned",
+      "conformance": true,
+      "spans": [
+        {
+          "start": 2862,
           "end": 2888
         }
       ]

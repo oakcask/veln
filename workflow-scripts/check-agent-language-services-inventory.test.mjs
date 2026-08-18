@@ -136,6 +136,32 @@ test("rejects a wrong lifecycle and a manifest mismatch", () => {
   assert(validateInventory(fixture).some((error) => error.includes("lifecycle differs from reviewed manifest")));
 });
 
+test("rejects mixed lifecycle wording inside one leaf", () => {
+  const fixture = fixtureData();
+  const root = fixture.inventory.roots.find((candidate) => candidate.id === "agent-language-services/S0298");
+  root.children = [
+    root.children[0],
+    {
+      id: "agent-language-services/S0298.c02",
+      lifecycle: "current",
+      spans: [{ start: 29, end: 176 }],
+      digest: "617fc1d3d154c3c9706d4d51c6d77813316e774b65c55d24a357d4720c35e3a0",
+    },
+  ];
+  root.child_count = 2;
+  root.separator_spans = [
+    { start: 0, end: 2 },
+    { start: 26, end: 29 },
+    { start: 176, end: 178 },
+  ];
+  fixture.manifest.leaves = fixture.manifest.leaves.filter((leaf) => !leaf.source_id.startsWith("agent-language-services/S0298."));
+  fixture.manifest.leaves.push(
+    { source_id: "agent-language-services/S0298.c01", parent_id: "agent-language-services/S0298", lifecycle: "planned", conformance: true, spans: [{ start: 2, end: 26 }] },
+    { source_id: "agent-language-services/S0298.c02", parent_id: "agent-language-services/S0298", lifecycle: "current", conformance: true, spans: [{ start: 29, end: 176 }] },
+  );
+  assert(validateInventory(fixture).some((error) => error.includes("mixes current/completed and planned lifecycle statements")));
+});
+
 test("rejects an uncovered parent lifecycle statement", () => {
   const fixture = fixtureData();
   const lastChild = fixture.inventory.roots[0].children.at(-1);

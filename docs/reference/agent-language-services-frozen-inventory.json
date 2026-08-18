@@ -374,21 +374,32 @@
       "line": 49,
       "digest": "29e5e87e4ced41b986c439062c0ba4b511cd8b9acdf905e6af4b1f2d1a5b9058",
       "text": "Before implementing the next MCP navigation slice, complete\n[Agent Language Services Lifecycle Migration](agent-language-services-lifecycle-migration.md),\nthen [Agent Language Services Slice Closure](agent-language-services-slice-closure.md).\nThe first prerequisite separates this active plan from implemented history\nwithout dropping its closed matrices, Q01 through Q22 gate, or unresolved\nacceptance rows. The second adds response-local assertions for MCP JSONL output\nwith dynamic canonical locations and closes the evidence rule for shared\ncapture invariants. Reissue the saved workspace function-reference target only\nafter both gates pass. The next-slice boundary below remains planning input and\nis not selectable work until both prerequisites are complete.",
-      "child_count": 4,
+      "child_count": 5,
       "children": [
         {
           "id": "agent-language-services/S0012.c01",
-          "lifecycle": "current",
+          "lifecycle": "planned",
           "spans": [
             {
               "start": 0,
-              "end": 408
+              "end": 242
             }
           ],
-          "digest": "1798862abad584a128538137084de2d9261a2ec497f6b007a56f718f5905ee84"
+          "digest": "567113e1f4c5eeb3c1fbc288878089f600f8261a9e5315fea1636988e1bc3ee6"
         },
         {
           "id": "agent-language-services/S0012.c02",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 243,
+              "end": 408
+            }
+          ],
+          "digest": "8558b414b8e121799ee00e14ad006a35d9abf2c00381dab05fdf0401daf122da"
+        },
+        {
+          "id": "agent-language-services/S0012.c03",
           "lifecycle": "planned",
           "spans": [
             {
@@ -399,7 +410,7 @@
           "digest": "d98abebe4959337278cac88a0a79f47bdac20fcbbe9fb2414ac151ec5deeb8b4"
         },
         {
-          "id": "agent-language-services/S0012.c03",
+          "id": "agent-language-services/S0012.c04",
           "lifecycle": "planned",
           "spans": [
             {
@@ -410,7 +421,7 @@
           "digest": "a91f0a84169cf5f0b5faa400519213dccdd45a11584e16a4ffc545d8650146c5"
         },
         {
-          "id": "agent-language-services/S0012.c04",
+          "id": "agent-language-services/S0012.c05",
           "lifecycle": "planned",
           "spans": [
             {
@@ -422,6 +433,10 @@
         }
       ],
       "separator_spans": [
+        {
+          "start": 242,
+          "end": 243
+        },
         {
           "start": 408,
           "end": 409
@@ -447,7 +462,7 @@
       "children": [
         {
           "id": "agent-language-services/S0013.c01",
-          "lifecycle": "current",
+          "lifecycle": "planned",
           "spans": [
             {
               "start": 0,
@@ -469,7 +484,7 @@
         },
         {
           "id": "agent-language-services/S0013.c03",
-          "lifecycle": "completed",
+          "lifecycle": "planned",
           "spans": [
             {
               "start": 207,
@@ -665,7 +680,7 @@
       "children": [
         {
           "id": "agent-language-services/S0018.c01",
-          "lifecycle": "current",
+          "lifecycle": "planned",
           "spans": [
             {
               "start": 2,
@@ -853,7 +868,7 @@
       "children": [
         {
           "id": "agent-language-services/S0022.c01",
-          "lifecycle": "current",
+          "lifecycle": "planned",
           "spans": [
             {
               "start": 0,
@@ -1341,7 +1356,7 @@
       "children": [
         {
           "id": "agent-language-services/S0030.c01",
-          "lifecycle": "current",
+          "lifecycle": "planned",
           "spans": [
             {
               "start": 0,
@@ -1406,7 +1421,7 @@
       "line": 101,
       "digest": "724d5224e6d6ec4cc3fdc63b92b1397ba2bd09c975b33bd8f13e57f530a1b32a",
       "text": "Language semantics belong to an editor- and agent-neutral language service.\n`veln lsp` and `veln mcp` adapt that service to different session and transport\nmodels. The MCP server does not start an LSP subprocess or proxy LSP messages.",
-      "child_count": 2,
+      "child_count": 3,
       "children": [
         {
           "id": "agent-language-services/S0031.c01",
@@ -1414,13 +1429,24 @@
           "spans": [
             {
               "start": 0,
-              "end": 163
+              "end": 75
             }
           ],
-          "digest": "bc62a3212245c6621d88fdbe7e11f12a68f4af760185439b2ceee527d26c2a6f"
+          "digest": "a5466195110aa993830551725b3be260c39099c218fd6f29db6a349a673dec5f"
         },
         {
           "id": "agent-language-services/S0031.c02",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 76,
+              "end": 163
+            }
+          ],
+          "digest": "72eb7d2dbf40c31c011abf58225f5c17f07175a03add09860ea4db62794bb01a"
+        },
+        {
+          "id": "agent-language-services/S0031.c03",
           "lifecycle": "planned",
           "spans": [
             {
@@ -1432,6 +1458,10 @@
         }
       ],
       "separator_spans": [
+        {
+          "start": 75,
+          "end": 76
+        },
         {
           "start": 163,
           "end": 164
@@ -1445,21 +1475,37 @@
       "line": 107,
       "digest": "4218c3197abecd6c4bfdaefe938e6be08c3c1346bfd0d4172d1ee545e2fcfadc",
       "text": "Agents can run Veln commands through a shell, but they do not have a stable,\nstructured route to language rules, package APIs, definitions, or references.\nThe current LSP server supplies some of that information to editors, but its\nwire contract assumes an editor that maintains open-document state and speaks\nLSP.",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "agent-language-services/S0032.c01",
-          "lifecycle": "current",
+          "lifecycle": "planned",
           "spans": [
             {
               "start": 0,
+              "end": 154
+            }
+          ],
+          "digest": "d206db8d94d6bc575522e182d21d4a2a2ee2d83c24ef594ad00a68f722726aa6"
+        },
+        {
+          "id": "agent-language-services/S0032.c02",
+          "lifecycle": "current",
+          "spans": [
+            {
+              "start": 155,
               "end": 314
             }
           ],
-          "digest": "4218c3197abecd6c4bfdaefe938e6be08c3c1346bfd0d4172d1ee545e2fcfadc"
+          "digest": "45c73931371e60a5d3410e788ea2da483bda01cab3790c09035b97c02ee670a2"
         }
       ],
-      "separator_spans": []
+      "separator_spans": [
+        {
+          "start": 154,
+          "end": 155
+        }
+      ]
     },
     {
       "id": "agent-language-services/S0033",
@@ -1468,7 +1514,7 @@
       "line": 113,
       "digest": "7e2bc0af558c8cc6b3f5a8b35bc8bf1aeb2cdf2c21d985d7e5cda671bb957af1",
       "text": "The current pages under `../specification/` are development specifications.\nThey include evidence routes, implementation boundaries, maintenance\ninstructions, and internal organization that are unsuitable as the published\nlanguage reference. The public reference must instead be a deterministic\nprojection of executable grammar, checked examples, compiler-owned public\ntables, and narrowly scoped supporting prose.",
-      "child_count": 2,
+      "child_count": 3,
       "children": [
         {
           "id": "agent-language-services/S0033.c01",
@@ -1476,13 +1522,24 @@
           "spans": [
             {
               "start": 0,
-              "end": 241
+              "end": 75
             }
           ],
-          "digest": "888168360ad7700a4b28d28bfcd6ba2320dda4a7b60bb6eadd9c9c8fd10ba14d"
+          "digest": "547857734533736ce776ed0d583d62ac00ef3a5f05a0a51c235f3501ad1c19a5"
         },
         {
           "id": "agent-language-services/S0033.c02",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 76,
+              "end": 241
+            }
+          ],
+          "digest": "843342cdde372364796d979d829600b56397e6819ed68906151a53547a6f1950"
+        },
+        {
+          "id": "agent-language-services/S0033.c03",
           "lifecycle": "planned",
           "spans": [
             {
@@ -1494,6 +1551,10 @@
         }
       ],
       "separator_spans": [
+        {
+          "start": 75,
+          "end": 76
+        },
         {
           "start": 241,
           "end": 242
@@ -1507,7 +1568,7 @@
       "line": 120,
       "digest": "1d71211df24df64b91177948a76fbdb343eb63dca4c14fb3284d5427d0f2e0ae",
       "text": "Dependencies and the standard library also need stable source locations.\nReturning their materialization paths would expose cache layout, make results\nclient-specific, and fail for embedded standard-library sources. A\ncontent-addressed package snapshot provides one location model for path, vendor,\nmirror, git, and standard packages.",
-      "child_count": 2,
+      "child_count": 3,
       "children": [
         {
           "id": "agent-language-services/S0034.c01",
@@ -1515,13 +1576,24 @@
           "spans": [
             {
               "start": 0,
-              "end": 215
+              "end": 72
             }
           ],
-          "digest": "5c8b982b689a607bb380382a21196a160b39ac9e74eadcd542ab32a35044790e"
+          "digest": "7d98d4c7f2a8219b185b9ca67031f5eeb680d55cb020f37c0afcd2b7a988ed86"
         },
         {
           "id": "agent-language-services/S0034.c02",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 73,
+              "end": 215
+            }
+          ],
+          "digest": "9241b95fd92320b05edba2c6a83d08932a2efd19d7bf97c78cc0ac1241323522"
+        },
+        {
+          "id": "agent-language-services/S0034.c03",
           "lifecycle": "planned",
           "spans": [
             {
@@ -1533,6 +1605,10 @@
         }
       ],
       "separator_spans": [
+        {
+          "start": 72,
+          "end": 73
+        },
         {
           "start": 215,
           "end": 216
@@ -2259,37 +2335,21 @@
       "line": 165,
       "digest": "33dc1b7bc86a696b9ca309eed4c58a3d1eddf400d30dc141b89aeade903d5b9c",
       "text": "- **Workspace base**: the current directory of the `veln mcp` process.",
-      "child_count": 2,
+      "child_count": 1,
       "children": [
         {
           "id": "agent-language-services/S0066.c01",
-          "lifecycle": "planned",
-          "spans": [
-            {
-              "start": 0,
-              "end": 21
-            }
-          ],
-          "digest": "f19217f1536c463f2f27d75201c7c7e7e386f344ea422d98d32d403d0b45c734"
-        },
-        {
-          "id": "agent-language-services/S0066.c02",
           "lifecycle": "current",
           "spans": [
             {
-              "start": 22,
+              "start": 0,
               "end": 70
             }
           ],
-          "digest": "ec83ee052fd63093c4c3e0f7f9d1229ecb686e24a877ca843e518436ce80af0d"
+          "digest": "33dc1b7bc86a696b9ca309eed4c58a3d1eddf400d30dc141b89aeade903d5b9c"
         }
       ],
-      "separator_spans": [
-        {
-          "start": 21,
-          "end": 22
-        }
-      ]
+      "separator_spans": []
     },
     {
       "id": "agent-language-services/S0067",
@@ -2298,7 +2358,7 @@
       "line": 166,
       "digest": "49600be4dde9d8c5b1a8586f3ccf53994f49d579f3e6b08b15f1544ff973b9a6",
       "text": "- **Workspace project**: a Veln package selected below the workspace base, or an",
-      "child_count": 2,
+      "child_count": 1,
       "children": [
         {
           "id": "agent-language-services/S0067.c01",
@@ -2306,29 +2366,13 @@
           "spans": [
             {
               "start": 0,
-              "end": 24
-            }
-          ],
-          "digest": "116826b3cb0761676f489903862bfa11325261fce7114809293bccdc988b200e"
-        },
-        {
-          "id": "agent-language-services/S0067.c02",
-          "lifecycle": "planned",
-          "spans": [
-            {
-              "start": 25,
               "end": 80
             }
           ],
-          "digest": "dd4ca82eddf9781962245ca217857714e5b772944a84f63b1b5397fabe5e39ae"
+          "digest": "49600be4dde9d8c5b1a8586f3ccf53994f49d579f3e6b08b15f1544ff973b9a6"
         }
       ],
-      "separator_spans": [
-        {
-          "start": 24,
-          "end": 25
-        }
-      ]
+      "separator_spans": []
     },
     {
       "id": "agent-language-services/S0068",
@@ -2360,7 +2404,7 @@
       "line": 168,
       "digest": "29142565b370d69f2159b4d640f68fafdb19cfbf5997e4e3bdc36561280250e0",
       "text": "- **Saved snapshot**: files read from disk for one MCP operation.",
-      "child_count": 2,
+      "child_count": 1,
       "children": [
         {
           "id": "agent-language-services/S0069.c01",
@@ -2368,29 +2412,13 @@
           "spans": [
             {
               "start": 0,
-              "end": 21
-            }
-          ],
-          "digest": "9db679802e06719684af6520dd3d3dbd30783868cc1323fe66f0b67b2d0c5182"
-        },
-        {
-          "id": "agent-language-services/S0069.c02",
-          "lifecycle": "planned",
-          "spans": [
-            {
-              "start": 22,
               "end": 65
             }
           ],
-          "digest": "0494c00a457224ce56234c4e868ae0f1cb7c59fe20752b43e5ade02f04de31fa"
+          "digest": "29142565b370d69f2159b4d640f68fafdb19cfbf5997e4e3bdc36561280250e0"
         }
       ],
-      "separator_spans": [
-        {
-          "start": 21,
-          "end": 22
-        }
-      ]
+      "separator_spans": []
     },
     {
       "id": "agent-language-services/S0070",
@@ -2399,7 +2427,7 @@
       "line": 169,
       "digest": "8e12ae7549447c4921d36ac66a4c1db084c6405c0cac0a3df9e2c339eb6635da",
       "text": "- **Open-document overlay**: editor text retained by the LSP server and applied",
-      "child_count": 2,
+      "child_count": 1,
       "children": [
         {
           "id": "agent-language-services/S0070.c01",
@@ -2407,29 +2435,13 @@
           "spans": [
             {
               "start": 0,
-              "end": 28
-            }
-          ],
-          "digest": "cd737dea27ac9f071be551d4effa3dc320913da5f217b7d9915508ba2f28a677"
-        },
-        {
-          "id": "agent-language-services/S0070.c02",
-          "lifecycle": "planned",
-          "spans": [
-            {
-              "start": 29,
               "end": 79
             }
           ],
-          "digest": "c119af9130ede6ad20f70c794778c1a812ad4d0b28bb4a4ff285d9a987f623a4"
+          "digest": "8e12ae7549447c4921d36ac66a4c1db084c6405c0cac0a3df9e2c339eb6635da"
         }
       ],
-      "separator_spans": [
-        {
-          "start": 28,
-          "end": 29
-        }
-      ]
+      "separator_spans": []
     },
     {
       "id": "agent-language-services/S0071",
@@ -2461,7 +2473,7 @@
       "line": 171,
       "digest": "3d06e19af5e24809c90893944c243365c66317fc3fa4f35d3115624fa5453103",
       "text": "- **Package identity**: the dependency table key, manifest package name, or",
-      "child_count": 2,
+      "child_count": 1,
       "children": [
         {
           "id": "agent-language-services/S0072.c01",
@@ -2469,29 +2481,13 @@
           "spans": [
             {
               "start": 0,
-              "end": 23
-            }
-          ],
-          "digest": "b008b52cbc70324576587c4e3442538ff0aee21c5418b22d1e4135da5a65a375"
-        },
-        {
-          "id": "agent-language-services/S0072.c02",
-          "lifecycle": "planned",
-          "spans": [
-            {
-              "start": 24,
               "end": 75
             }
           ],
-          "digest": "2df41632a9524b9f1f576dc747f577a659ddeb9a313647fb190dc5e58954fac3"
+          "digest": "3d06e19af5e24809c90893944c243365c66317fc3fa4f35d3115624fa5453103"
         }
       ],
-      "separator_spans": [
-        {
-          "start": 23,
-          "end": 24
-        }
-      ]
+      "separator_spans": []
     },
     {
       "id": "agent-language-services/S0073",
@@ -2523,7 +2519,7 @@
       "line": 173,
       "digest": "e8191e3b4a98473a79ee5fa4ed396456e98d26ffcf8f397b4ad1753aa84d2caa",
       "text": "- **Package snapshot**: a package manifest and its sorted owned source files.",
-      "child_count": 2,
+      "child_count": 1,
       "children": [
         {
           "id": "agent-language-services/S0074.c01",
@@ -2531,29 +2527,13 @@
           "spans": [
             {
               "start": 0,
-              "end": 23
-            }
-          ],
-          "digest": "fcec51b798ba427444b9310658a3acfb490e8d80c6b259e0db149a7f020e1f5e"
-        },
-        {
-          "id": "agent-language-services/S0074.c02",
-          "lifecycle": "planned",
-          "spans": [
-            {
-              "start": 24,
               "end": 77
             }
           ],
-          "digest": "6a70bbddf7a4e452c2ba000f854b6b27bde5fdf4ea768b8d0330a8251cea9aef"
+          "digest": "e8191e3b4a98473a79ee5fa4ed396456e98d26ffcf8f397b4ad1753aa84d2caa"
         }
       ],
-      "separator_spans": [
-        {
-          "start": 23,
-          "end": 24
-        }
-      ]
+      "separator_spans": []
     },
     {
       "id": "agent-language-services/S0075",
@@ -2562,7 +2542,7 @@
       "line": 174,
       "digest": "f4903be682e1ee370bae2a0d605118ea96955722b880155b5c67ae92535b0610",
       "text": "- **Language-reference snapshot**: the checked inputs used to build one public",
-      "child_count": 2,
+      "child_count": 1,
       "children": [
         {
           "id": "agent-language-services/S0075.c01",
@@ -2570,29 +2550,13 @@
           "spans": [
             {
               "start": 0,
-              "end": 34
-            }
-          ],
-          "digest": "65aa3e80d98fe78565469259d11f7d28e114b957240fa462da49b0894fd25cbe"
-        },
-        {
-          "id": "agent-language-services/S0075.c02",
-          "lifecycle": "planned",
-          "spans": [
-            {
-              "start": 35,
               "end": 78
             }
           ],
-          "digest": "f03ed82c5dd4d72047d6e17c2653f833b54df0e64574b8fe9658e764afa8fae7"
+          "digest": "f4903be682e1ee370bae2a0d605118ea96955722b880155b5c67ae92535b0610"
         }
       ],
-      "separator_spans": [
-        {
-          "start": 34,
-          "end": 35
-        }
-      ]
+      "separator_spans": []
     },
     {
       "id": "agent-language-services/S0076",
@@ -2624,7 +2588,7 @@
       "line": 176,
       "digest": "cd150e5b1b7058cf84e8d0041c717b642c985262595f330f618e6b77bfda642c",
       "text": "- **Virtual source**: source addressed by a `veln-pkg:` URI instead of a",
-      "child_count": 2,
+      "child_count": 1,
       "children": [
         {
           "id": "agent-language-services/S0077.c01",
@@ -2632,29 +2596,13 @@
           "spans": [
             {
               "start": 0,
-              "end": 21
-            }
-          ],
-          "digest": "67d69632e357287cb24afd598983440994dd75cca66235f5cf15212360280089"
-        },
-        {
-          "id": "agent-language-services/S0077.c02",
-          "lifecycle": "planned",
-          "spans": [
-            {
-              "start": 22,
               "end": 72
             }
           ],
-          "digest": "3729099cc5d725bdc4f650cd2458733766b90974af116e2559a703a6017c9011"
+          "digest": "cd150e5b1b7058cf84e8d0041c717b642c985262595f330f618e6b77bfda642c"
         }
       ],
-      "separator_spans": [
-        {
-          "start": 21,
-          "end": 22
-        }
-      ]
+      "separator_spans": []
     },
     {
       "id": "agent-language-services/S0078",
@@ -2686,7 +2634,7 @@
       "line": 178,
       "digest": "886c150013978c2fb26aff55a9a39f6411f3efd538b0c874be82714cb1b781ab",
       "text": "- **Published reference**: the human- and agent-readable projection exposed by",
-      "child_count": 2,
+      "child_count": 1,
       "children": [
         {
           "id": "agent-language-services/S0079.c01",
@@ -2694,29 +2642,13 @@
           "spans": [
             {
               "start": 0,
-              "end": 26
-            }
-          ],
-          "digest": "a70698b709bb8761fd1f2b6d45c8d80f9e5060283ccf85167a74d67f15f3ddc0"
-        },
-        {
-          "id": "agent-language-services/S0079.c02",
-          "lifecycle": "planned",
-          "spans": [
-            {
-              "start": 27,
               "end": 78
             }
           ],
-          "digest": "220f52acf359b506cef779ad6b42430a136d5bf1a10173ab8901c14690e9ccc4"
+          "digest": "886c150013978c2fb26aff55a9a39f6411f3efd538b0c874be82714cb1b781ab"
         }
       ],
-      "separator_spans": [
-        {
-          "start": 26,
-          "end": 27
-        }
-      ]
+      "separator_spans": []
     },
     {
       "id": "agent-language-services/S0080",
@@ -4159,21 +4091,32 @@
       "line": 235,
       "digest": "34440ebdea7b2f2faa5b33716d427fc995e8263cb169d8611d6ebc8f614778dc",
       "text": "Implicit discovery does not follow directory symbolic links and skips `.git`.\nAn ordinary `target` directory is discoverable, matching current project\ndiscovery. Selected filesystem identities are sorted and deduplicated.",
-      "child_count": 2,
+      "child_count": 3,
       "children": [
         {
           "id": "agent-language-services/S0107.c01",
-          "lifecycle": "current",
+          "lifecycle": "planned",
           "spans": [
             {
               "start": 0,
-              "end": 161
+              "end": 77
             }
           ],
-          "digest": "08831fb171963736ebc77dd44d1f0d1cf93b1d6ff2dad4a0e3106e1e9488513c"
+          "digest": "a4b120873ab1ea81895fea4e1f9326f5d6667a61586b5b5db8cbf767ea944d7b"
         },
         {
           "id": "agent-language-services/S0107.c02",
+          "lifecycle": "current",
+          "spans": [
+            {
+              "start": 78,
+              "end": 161
+            }
+          ],
+          "digest": "aef44be63d22e9cefbfe86cf05e0e80086e2d992253061f82c9e531f4e4070f1"
+        },
+        {
+          "id": "agent-language-services/S0107.c03",
           "lifecycle": "planned",
           "spans": [
             {
@@ -4185,6 +4128,10 @@
         }
       ],
       "separator_spans": [
+        {
+          "start": 77,
+          "end": 78
+        },
         {
           "start": 161,
           "end": 162
@@ -4237,7 +4184,7 @@
       "line": 242,
       "digest": "a01ed1bcd6307486c337d080f78f3d23eb3732d68cea2f228d087a2b7cbeeb7c",
       "text": "At startup, the server resolves the workspace base once to an existing\ncanonical directory identity. The startup spelling may contain symbolic links.\nDiscovery does not traverse directory symbolic links. Every component below\nthe resolved base in a tool path is opened without following links; directory\nlinks, file links, nonexistent leaves, and non-regular source files are\nrejected. Returned `file:` URIs use the resolved base identity and normalized\nrelative path. An accepted startup alias therefore produces one URI spelling.\nIf an opened identity or path set changes during capture, the operation fails\nwith `snapshot_changed` instead of reading through the replacement.",
-      "child_count": 6,
+      "child_count": 8,
       "children": [
         {
           "id": "agent-language-services/S0109.c01",
@@ -4256,13 +4203,24 @@
           "spans": [
             {
               "start": 101,
-              "end": 203
+              "end": 149
             }
           ],
-          "digest": "248d385d79d22c4eb8b5d4ab1c1c2d95d4d63107061ff32ab403c1dc4123c0d0"
+          "digest": "ed3474cd0567ab4c797559ccc7752f93d37d6a93bf3da03ca5aa5822f24be763"
         },
         {
           "id": "agent-language-services/S0109.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 150,
+              "end": 203
+            }
+          ],
+          "digest": "c460bd7bfe362a7a130c4f47ff3df90c093ea138ac19d0141b8680c9b49c6568"
+        },
+        {
+          "id": "agent-language-services/S0109.c04",
           "lifecycle": "planned",
           "spans": [
             {
@@ -4273,7 +4231,7 @@
           "digest": "bac87bd4e275ab92a861c576b7164c3719649544c39fa075e7de074d8218bb28"
         },
         {
-          "id": "agent-language-services/S0109.c04",
+          "id": "agent-language-services/S0109.c05",
           "lifecycle": "planned",
           "spans": [
             {
@@ -4284,7 +4242,7 @@
           "digest": "0c26a458cf1b6f91e0d1d2826dfe0318ea9ca16c285bad401f899d5a4d1f00f8"
         },
         {
-          "id": "agent-language-services/S0109.c05",
+          "id": "agent-language-services/S0109.c06",
           "lifecycle": "planned",
           "spans": [
             {
@@ -4295,21 +4253,36 @@
           "digest": "233240840e80bf28d11129e91e95e422c9146ba1a8910fe48d068cdead3bcbcf"
         },
         {
-          "id": "agent-language-services/S0109.c06",
+          "id": "agent-language-services/S0109.c07",
           "lifecycle": "planned",
           "spans": [
             {
               "start": 469,
+              "end": 531
+            }
+          ],
+          "digest": "ed0085c17fc9e22d702b784c338abc884098ae8b8e65be073110dc1ec7d146f3"
+        },
+        {
+          "id": "agent-language-services/S0109.c08",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 532,
               "end": 677
             }
           ],
-          "digest": "fdc824099974fc204291e3698daf5abdf8652699a7eeef3b4d5205556a1f680c"
+          "digest": "4ce4e9a5108b443d9057d3ecbf7c1cbae2b088f3515bcdd6adeef718ec2082c7"
         }
       ],
       "separator_spans": [
         {
           "start": 100,
           "end": 101
+        },
+        {
+          "start": 149,
+          "end": 150
         },
         {
           "start": 203,
@@ -4326,6 +4299,10 @@
         {
           "start": 468,
           "end": 469
+        },
+        {
+          "start": 531,
+          "end": 532
         }
       ]
     },
@@ -4453,7 +4430,7 @@
       "line": 257,
       "digest": "2f0507f3a996c4f1be40274c5acbaa8155e7c8bf8dc82aa9b4a55fa55b07eb3d",
       "text": "| `check_project` for an anonymous project | `project` is `.` and `source` must name exactly one accepted regular `.veln` file below the base. Only that file is analyzed. |",
-      "child_count": 2,
+      "child_count": 4,
       "children": [
         {
           "id": "agent-language-services/S0113.c01",
@@ -4472,10 +4449,32 @@
           "spans": [
             {
               "start": 45,
+              "end": 61
+            }
+          ],
+          "digest": "c6295007aaa0c70aa61c59ae2a1cdcf11bbdf4426a7d93232ec4099b9099c1f6"
+        },
+        {
+          "id": "agent-language-services/S0113.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 62,
+              "end": 142
+            }
+          ],
+          "digest": "6baf63e05b00afddfbb34b2247d0d7aff6069602593943219fa1a551ed19b05a"
+        },
+        {
+          "id": "agent-language-services/S0113.c04",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 143,
               "end": 170
             }
           ],
-          "digest": "89fd84804c3a2697e24185ff15dd3ecfee866e3dc91d1e4e9be1e9f625d4a129"
+          "digest": "0abba340c6c5001aaaf02fc9a78d1115e2f480fbd3d85521b917813281e3924e"
         }
       ],
       "separator_spans": [
@@ -4486,6 +4485,14 @@
         {
           "start": 42,
           "end": 45
+        },
+        {
+          "start": 61,
+          "end": 62
+        },
+        {
+          "start": 142,
+          "end": 143
         },
         {
           "start": 170,
@@ -4641,7 +4648,7 @@
       "line": 261,
       "digest": "aaf9fa04da6278fee52a97906ac82f0728b103d6d11a46bc30638376e480b364",
       "text": "| `definition` or `references` for any other accepted source path | Perform anonymous single-file analysis and do not return project-wide references. This includes a source owned by an unselected descendant manifest. |",
-      "child_count": 2,
+      "child_count": 3,
       "children": [
         {
           "id": "agent-language-services/S0117.c01",
@@ -4660,10 +4667,21 @@
           "spans": [
             {
               "start": 68,
+              "end": 149
+            }
+          ],
+          "digest": "695318fc2179667553987f11432c993921c9726b9840324132b09e6da674fff3"
+        },
+        {
+          "id": "agent-language-services/S0117.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 150,
               "end": 216
             }
           ],
-          "digest": "22044287bc370e47f2cdc4bd559c4995ddb330513c0e1b955c012745b6489324"
+          "digest": "bd7f7b0bd3dbc873bd9364541ad265bff37576b9ca8591b60356ff9fab8691b5"
         }
       ],
       "separator_spans": [
@@ -4674,6 +4692,10 @@
         {
           "start": 65,
           "end": 68
+        },
+        {
+          "start": 149,
+          "end": 150
         },
         {
           "start": 216,
@@ -4826,7 +4848,7 @@
       "line": 277,
       "digest": "7bb9af6db47a0f844c21be334ce6f3c734b669c6f2dc6643cd6b7792cb40fcea",
       "text": "MCP inputs and results use one-based line and one-based Unicode scalar column\ncoordinates. LF and CRLF each end one logical line; CRLF is one terminator and\nneither terminator byte is addressable. A line containing `N` Unicode scalars\naccepts columns 1 through `N + 1`. The last column is its end insertion point.\nA terminal line ending creates a final empty line whose only valid column is 1.\nAn empty file therefore has the single valid position `(1, 1)`.",
-      "child_count": 5,
+      "child_count": 7,
       "children": [
         {
           "id": "agent-language-services/S0120.c01",
@@ -4878,10 +4900,32 @@
           "spans": [
             {
               "start": 270,
+              "end": 313
+            }
+          ],
+          "digest": "3baf876a97282aadcc504e9c43cb05e2318bed281884fa4f9bce464c2d1c3c71"
+        },
+        {
+          "id": "agent-language-services/S0120.c06",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 314,
+              "end": 393
+            }
+          ],
+          "digest": "702f90f379174e424d87fe54080780e766a637919884558c887219a0a83224f0"
+        },
+        {
+          "id": "agent-language-services/S0120.c07",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 394,
               "end": 457
             }
           ],
-          "digest": "e7c63db46255c04eff34a6a3a0193e33c82362459912b29b932f81cdcb485572"
+          "digest": "6f731c46c22e061be7d60d4e44e1672ab3667b4e3ab10577c7147bfa9db63808"
         }
       ],
       "separator_spans": [
@@ -4900,6 +4944,14 @@
         {
           "start": 269,
           "end": 270
+        },
+        {
+          "start": 313,
+          "end": 314
+        },
+        {
+          "start": 393,
+          "end": 394
         }
       ]
     },
@@ -4910,7 +4962,7 @@
       "line": 284,
       "digest": "d1d2a0c3ef9a2108c2a35137929676742ca1d73d6ccf7f600494820f4df447bc",
       "text": "A range is half-open. A position at a token's end does not select the token.\nAn end-of-line or end-of-file insertion point is valid but normally selects no\nsymbol. Adapters convert between this form and LSP positions. LSP advertises\nUTF-8, UTF-16, and UTF-32 support, selects the client's first supported\n`general.positionEncodings` entry, and uses the LSP default UTF-16 when the\nclient does not negotiate an encoding. A position inside a multi-unit encoding\nof one scalar is invalid.",
-      "child_count": 5,
+      "child_count": 6,
       "children": [
         {
           "id": "agent-language-services/S0121.c01",
@@ -4929,13 +4981,24 @@
           "spans": [
             {
               "start": 22,
-              "end": 163
+              "end": 76
             }
           ],
-          "digest": "c17341dce1e29d50458f98e6dd77ae1669f9e21a31e05f1060ba3509f5ee62e8"
+          "digest": "4805a61992374823b6513b6494450ae1964298f2d051be8fcbb597dbc877466b"
         },
         {
           "id": "agent-language-services/S0121.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 77,
+              "end": 163
+            }
+          ],
+          "digest": "89f777bb6ff52e9b58dd6bd4222526bba79d9c119e20a30afad84c85c4eef94c"
+        },
+        {
+          "id": "agent-language-services/S0121.c04",
           "lifecycle": "planned",
           "spans": [
             {
@@ -4946,7 +5009,7 @@
           "digest": "f747a766457c2fe762d4aa588a7c3bd72fe4f12b987486a941ddfe2583ca0620"
         },
         {
-          "id": "agent-language-services/S0121.c04",
+          "id": "agent-language-services/S0121.c05",
           "lifecycle": "planned",
           "spans": [
             {
@@ -4957,7 +5020,7 @@
           "digest": "a552c47da65aa09b049cb1602a29b01f90e7497d133af94f07700c90488cc351"
         },
         {
-          "id": "agent-language-services/S0121.c05",
+          "id": "agent-language-services/S0121.c06",
           "lifecycle": "planned",
           "spans": [
             {
@@ -4972,6 +5035,10 @@
         {
           "start": 21,
           "end": 22
+        },
+        {
+          "start": 76,
+          "end": 77
         },
         {
           "start": 163,
@@ -6236,7 +6303,7 @@
       "line": 385,
       "digest": "6aef40f4fb17905bb1df70ca8b3e124beea1121c5d413e1e4115987681d1d75c",
       "text": "The initial capability generalizes navigation beyond the current LSP cases.\nThe closed v1 navigation matrix contains:",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "agent-language-services/S0147.c01",
@@ -6244,13 +6311,29 @@
           "spans": [
             {
               "start": 0,
+              "end": 75
+            }
+          ],
+          "digest": "37655883e9c922853d67813d94c7b3681210fa2b6b7a51eaa1b75bb858cdce97"
+        },
+        {
+          "id": "agent-language-services/S0147.c02",
+          "lifecycle": "completed",
+          "spans": [
+            {
+              "start": 76,
               "end": 117
             }
           ],
-          "digest": "6aef40f4fb17905bb1df70ca8b3e124beea1121c5d413e1e4115987681d1d75c"
+          "digest": "5832253b887633fa4104f7216bc1d566f3c77fc7c5da4c54de29892df5ff788d"
         }
       ],
-      "separator_spans": []
+      "separator_spans": [
+        {
+          "start": 75,
+          "end": 76
+        }
+      ]
     },
     {
       "id": "agent-language-services/S0148",
@@ -6528,7 +6611,7 @@
       "line": 400,
       "digest": "2faff1f00b9fd433f1ea50a96b3040a1e9bd79238152a1f2e78b55c6ef046aa2",
       "text": "The completed v1 capability follows the implemented visibility and shadowing\nrules specified under\n[LSP Navigation, Formatting, And Rename](../specification/editor-support.md#lsp-navigation-formatting-and-rename).\nA same-spelled field, local binding, declaration, comment, or string is not a\nreference unless it resolves to the selected symbol. This final-capability rule\ndoes not widen an intermediate slice beyond its explicit symbol and case\nmatrix. Private dependency declarations do not become navigable merely because\ntheir source snapshot is loaded. A dependency must be initialized as a\nseparate workspace project to provide editor operations over its private\ndeclarations.",
-      "child_count": 4,
+      "child_count": 5,
       "children": [
         {
           "id": "agent-language-services/S0159.c01",
@@ -6536,13 +6619,24 @@
           "spans": [
             {
               "start": 0,
-              "end": 344
+              "end": 213
             }
           ],
-          "digest": "e40ba7a72a07302d9deec543cd6e409a4778ddfbdf739a9ff695e80c251eabd6"
+          "digest": "661d48c45fa12e4cda691813920a8d30644e230bda0fa6b17d0bf3de97faaae0"
         },
         {
           "id": "agent-language-services/S0159.c02",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 214,
+              "end": 344
+            }
+          ],
+          "digest": "9fc8ef7d897fe9594c5d006abf817db6087fe552d5f44be494f3ddc2d0da4054"
+        },
+        {
+          "id": "agent-language-services/S0159.c03",
           "lifecycle": "planned",
           "spans": [
             {
@@ -6553,7 +6647,7 @@
           "digest": "0f3743cbbd354e78f4bdbbef02c7f33d2782d60e273bc7c49203b80ef5ebcc60"
         },
         {
-          "id": "agent-language-services/S0159.c03",
+          "id": "agent-language-services/S0159.c04",
           "lifecycle": "planned",
           "spans": [
             {
@@ -6564,7 +6658,7 @@
           "digest": "64f49543e20f692c58e31a03eda5cf72abb6a676e29f5037f32bc89cfb737e1b"
         },
         {
-          "id": "agent-language-services/S0159.c04",
+          "id": "agent-language-services/S0159.c05",
           "lifecycle": "planned",
           "spans": [
             {
@@ -6576,6 +6670,10 @@
         }
       ],
       "separator_spans": [
+        {
+          "start": 213,
+          "end": 214
+        },
         {
           "start": 344,
           "end": 345
@@ -7152,7 +7250,7 @@
       "line": 448,
       "digest": "877c642f497697c5c6ec8f39b23bde753428b520f50b8e0799230c6c93fa7efb",
       "text": "| A compiler-known symbol with no source declaration | No definition location; return a related language-reference URI when one exists. |",
-      "child_count": 2,
+      "child_count": 3,
       "children": [
         {
           "id": "agent-language-services/S0169.c01",
@@ -7171,10 +7269,21 @@
           "spans": [
             {
               "start": 55,
+              "end": 78
+            }
+          ],
+          "digest": "2c19ca71cbec5a1de9a226b78a002949ca1a2aa1ed811bf1e73c9a22366c8b9d"
+        },
+        {
+          "id": "agent-language-services/S0169.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 79,
               "end": 135
             }
           ],
-          "digest": "fc4741b457eaa5566838b6a6514b3871833986554b00a70d4c3cbfa13a0f1b8b"
+          "digest": "a78b66374321b384c54946e66d825667af4d06c713c62c79fe45b2e268b19337"
         }
       ],
       "separator_spans": [
@@ -7185,6 +7294,10 @@
         {
           "start": 52,
           "end": 55
+        },
+        {
+          "start": 78,
+          "end": 79
         },
         {
           "start": 135,
@@ -7314,7 +7427,7 @@
       "line": 465,
       "digest": "5516bcb86e264f5d074d458da5676d32ba5bf84a9892398a58aebd330819d7a7",
       "text": "`package-segment` is the UTF-8 package identity encoded as one URI path segment.\n`/` in the identity is encoded and does not delimit the segment. `digest` is\nthe lowercase hexadecimal SHA-256 package-snapshot digest without a prefix.\n`source-path` is the normalized package-relative source path. Its separators\nare `/`; empty, `.`, and `..` segments are invalid. Each path segment is\npercent-encoded separately. URI percent encoding uses uppercase hexadecimal\ndigits and UTF-8 bytes.",
-      "child_count": 6,
+      "child_count": 9,
       "children": [
         {
           "id": "agent-language-services/S0175.c01",
@@ -7322,24 +7435,46 @@
           "spans": [
             {
               "start": 0,
-              "end": 145
+              "end": 80
             }
           ],
-          "digest": "1383b267588f477e9711d1f0eaccc181a082209e494473d7c28aa51f64467634"
+          "digest": "b0bcf88f42c306f155f8ebbedebfdeffdd8057dcb9fe495b4313ba7878f5fd94"
         },
         {
           "id": "agent-language-services/S0175.c02",
           "lifecycle": "planned",
           "spans": [
             {
-              "start": 146,
-              "end": 295
+              "start": 81,
+              "end": 145
             }
           ],
-          "digest": "34231b6c6e25631b77acaa34cfa75a5d91dace18164b3cde16b50386ead71f08"
+          "digest": "f65bffc18a49277614de34db3b924b82fbf9306c41ff1bd5a3e4e86c79e21445"
         },
         {
           "id": "agent-language-services/S0175.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 146,
+              "end": 233
+            }
+          ],
+          "digest": "8d3c586ad9bc4f6a38db4234be71d0ab38afc1344649c0124fdafffa144c9f19"
+        },
+        {
+          "id": "agent-language-services/S0175.c04",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 234,
+              "end": 295
+            }
+          ],
+          "digest": "a23d4e51409432e9d51571170837d83388b14bbfbe9ff4c7eda47202c5b9a56f"
+        },
+        {
+          "id": "agent-language-services/S0175.c05",
           "lifecycle": "planned",
           "spans": [
             {
@@ -7350,18 +7485,29 @@
           "digest": "4cd116b6b2683923692c2eb92aa45fe533f8cdd0447742ca0032721aa312103b"
         },
         {
-          "id": "agent-language-services/S0175.c04",
+          "id": "agent-language-services/S0175.c06",
           "lifecycle": "planned",
           "spans": [
             {
               "start": 320,
+              "end": 340
+            }
+          ],
+          "digest": "bd61d8fe2cb32712e66f36a5dabb737ca3401a69e57ff69a824e6fdf7cc287c5"
+        },
+        {
+          "id": "agent-language-services/S0175.c07",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 341,
               "end": 362
             }
           ],
-          "digest": "82ac1fa4eb48c42f0bc61d674241bd3e83d3dd327b3c41497ed2b14a897a3a6d"
+          "digest": "fa7d98addb55998292a52c662b52df021f285e6b94b3144675d0a1318a99305a"
         },
         {
-          "id": "agent-language-services/S0175.c05",
+          "id": "agent-language-services/S0175.c08",
           "lifecycle": "planned",
           "spans": [
             {
@@ -7372,7 +7518,7 @@
           "digest": "8645f0ccb0d9bb0b66ae44fd2774f043872ca412713feba3425ac70471411b48"
         },
         {
-          "id": "agent-language-services/S0175.c06",
+          "id": "agent-language-services/S0175.c09",
           "lifecycle": "planned",
           "spans": [
             {
@@ -7385,8 +7531,16 @@
       ],
       "separator_spans": [
         {
+          "start": 80,
+          "end": 81
+        },
+        {
           "start": 145,
           "end": 146
+        },
+        {
+          "start": 233,
+          "end": 234
         },
         {
           "start": 295,
@@ -7395,6 +7549,10 @@
         {
           "start": 319,
           "end": 320
+        },
+        {
+          "start": 340,
+          "end": 341
         },
         {
           "start": 362,
@@ -7675,7 +7833,7 @@
       "line": 501,
       "digest": "b9db09362d60cb2e8a18307d93f4dd6182df0b45f6a71d0a67a28eadc1c6e086",
       "text": "The resolver accepts canonical URI spellings only and never normalizes before\nlookup. The scheme is lowercase, the authority is empty, and query, fragment,\nuserinfo, host, and port are absent. ASCII unreserved bytes are literal. Every\nother UTF-8 byte is percent-encoded with uppercase hexadecimal digits.\nPercent-encoded unreserved bytes, decoded separators, empty or dot segments,\nlowercase escape digits, malformed UTF-8, and a digest not consisting of\nexactly 64 lowercase hexadecimal digits are rejected as `resource_not_found`\nwithout filesystem access.",
-      "child_count": 4,
+      "child_count": 5,
       "children": [
         {
           "id": "agent-language-services/S0184.c01",
@@ -7716,10 +7874,21 @@
           "spans": [
             {
               "start": 229,
+              "end": 305
+            }
+          ],
+          "digest": "9cc5f4b950a2462ee0eeb017edfe27e28aed8988369cbd81eeaa5e63fc8c9c54"
+        },
+        {
+          "id": "agent-language-services/S0184.c05",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 306,
               "end": 559
             }
           ],
-          "digest": "6e01281d1ddfd7585616eff96b3f8cedfd6c9337c949af090cf89070c7b1b4db"
+          "digest": "cfadb3e9b8db5d846bc14e2ba3382ba4b90e57e5c7db7106001821f00a469186"
         }
       ],
       "separator_spans": [
@@ -7734,6 +7903,10 @@
         {
           "start": 228,
           "end": 229
+        },
+        {
+          "start": 305,
+          "end": 306
         }
       ]
     },
@@ -7813,7 +7986,7 @@
       "line": 517,
       "digest": "668d3739b44e0ed8ba8d24fafd10cb1d2e5669cead2dabe4f31bee60693345e7",
       "text": "One operation uses one immutable capture containing project selection, the\ncomplete owned path sets, manifest bytes, source bytes, and dependency\nsnapshots. Discovery, hashing, analysis, documentation generation, and the\noperation's responses consume only that capture.\nManifest-project diagnostics exclude project-local file and directory symbolic\nlinks from the captured owned source set and do not read source bytes through\nthem.",
-      "child_count": 2,
+      "child_count": 3,
       "children": [
         {
           "id": "agent-language-services/S0186.c01",
@@ -7832,16 +8005,31 @@
           "spans": [
             {
               "start": 157,
+              "end": 269
+            }
+          ],
+          "digest": "ba0e0817f91f079145217a97a79171c460d821c91fef5c510a2d83c8e63d6ba5"
+        },
+        {
+          "id": "agent-language-services/S0186.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 270,
               "end": 432
             }
           ],
-          "digest": "6041fcc66edf2d8894822fbf8bcda1b25958b3fd7ebe0b597d70af45eebdebd4"
+          "digest": "cdc8b8b4f0e1c06d92925a14bcb5b776d628ee838bab97d964b08a721c628174"
         }
       ],
       "separator_spans": [
         {
           "start": 156,
           "end": 157
+        },
+        {
+          "start": 269,
+          "end": 270
         }
       ]
     },
@@ -7966,7 +8154,7 @@
       "line": 536,
       "digest": "cb279d77f334392dfb08bdf2a15c6796ff0bef65b9bfcb35285ed4133e494688",
       "text": "The transport-independent Q11 digest transcript foundation is implemented in\n`veln-project`. Its current contract and fixed-vector evidence are specified in\n[Package Snapshot Digests](../specification/package-snapshots.md). The same\nspecification defines the implemented filesystem capture, Q12 distribution\nset foundation, portable package identity and capture validation, and Q13\nevidence. The canonical transport-independent virtual-source catalog and exact\nresolver are also implemented and specified in\n[Package Virtual Sources](../specification/package-virtual-sources.md).\nThe direct path, vendor, mirror, and locally available direct git dependency\nLSP definition and virtual-document slices, embedded standard-library LSP\ndefinition and virtual-document slices, plus the VSCode content provider, are\nimplemented and specified in\n[Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).\nThe transport-independent package documentation catalog, status-only failure\nresult, documentation digest, canonical `veln-doc:` URI foundation, same-capture\nmanifest binding, validated `PackageIdentity` API boundary, pointer-width\nindependent identifier digest transcripts, path-derived module identity,\nmanifest package-name and package-identity matching, normalized exported-module\nmetadata, compiler-valid export module identity rejection, exported module and\npublic constructor documentation projection,\nimport-aware schema documentation references, public schema alias reference\nresolution, stream-aware expected-output publication, effect-row-binder\nsignatures, and generated\ndoctest static gate for expression, declaration, nested-expression declaration,\npublic-alias declaration, and mixed declaration-statement doctests, shared\ndoctest metadata diagnostics for catalog expected-output fences,\nsame-snapshot declaration documentation lookup from package virtual-source\nlocations, and rejection of workspace or different-snapshot locations are\nimplemented and specified in\n[Package Documentation Catalogs](../specification/package-documentation.md).\nEmbedded package snapshot capture applies the same test-source distribution\nexclusions as filesystem capture before package documentation generation.\nMCP resources, MCP documentation publication, and snapshot lifetime rules\nremain planned below.",
-      "child_count": 4,
+      "child_count": 8,
       "children": [
         {
           "id": "agent-language-services/S0188.c01",
@@ -8007,10 +8195,54 @@
           "spans": [
             {
               "start": 392,
+              "end": 579
+            }
+          ],
+          "digest": "4c796d1d26c451c4735cefaa26f11baf9a8b4a98c5bac6d389620356b6a09dd8"
+        },
+        {
+          "id": "agent-language-services/S0188.c05",
+          "lifecycle": "current",
+          "spans": [
+            {
+              "start": 580,
+              "end": 928
+            }
+          ],
+          "digest": "4254f9a2d2e563d1514ce66faed5b31a8556f7fa6f49d4d51e53b22c27a9a00b"
+        },
+        {
+          "id": "agent-language-services/S0188.c06",
+          "lifecycle": "current",
+          "spans": [
+            {
+              "start": 929,
+              "end": 2086
+            }
+          ],
+          "digest": "3c221ad870d4f8bf520b41832079f4cdb845810dad8b20a3fdb77b91454c7d2c"
+        },
+        {
+          "id": "agent-language-services/S0188.c07",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 2087,
+              "end": 2236
+            }
+          ],
+          "digest": "056b3b3db2f70ee5cafa90b06016d40edf7309bee239fdf8ead7bae85d63be65"
+        },
+        {
+          "id": "agent-language-services/S0188.c08",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 2237,
               "end": 2332
             }
           ],
-          "digest": "a1bdc126a4081e707901d160800c5e4fed973cedf6d55c67608601e2c6aba52f"
+          "digest": "5359f12f12f6c26236f06435a26ec1db4f3bda81c194c390c1a37454d1f7a030"
         }
       ],
       "separator_spans": [
@@ -8025,6 +8257,22 @@
         {
           "start": 391,
           "end": 392
+        },
+        {
+          "start": 579,
+          "end": 580
+        },
+        {
+          "start": 928,
+          "end": 929
+        },
+        {
+          "start": 2086,
+          "end": 2087
+        },
+        {
+          "start": 2236,
+          "end": 2237
         }
       ]
     },
@@ -8104,7 +8352,7 @@
       "line": 580,
       "digest": "9dc6d0126ef8be532d801232dd05aa58fb1933ee3c525a63571ce05a2d408ad0",
       "text": "Every virtualized path and package identity is valid UTF-8 and Unicode NFC.\nPath segments are nonempty, relative, `/`-separated, and cannot be `.`, `..`,\ncontrol-bearing, NUL-bearing, contain `\\` or `:`, end in a space or `.`, or use\na platform-reserved device spelling. A name that the host cannot represent is\nrejected instead of lossily converted. A package identity is the\ndependency-table key, or the manifest package name for a root package. It has\n1 through 255 Unicode scalars, has no empty or whitespace-bearing segment, and\ncannot be `std`; only the embedded package owns that identity. A package is\nrejected when two paths collide after Unicode default case folding. The v1\nschema pins the Unicode data version. Source text must also be valid UTF-8,\nwhile accepted bytes and line endings are hashed without normalization.",
-      "child_count": 8,
+      "child_count": 9,
       "children": [
         {
           "id": "agent-language-services/S0190.c01",
@@ -8112,13 +8360,24 @@
           "spans": [
             {
               "start": 0,
-              "end": 270
+              "end": 75
             }
           ],
-          "digest": "04b512f1dc72508347b82a4b952ad6c64306523063cab3427c9cbfeecd52e509"
+          "digest": "b454210f41b1f2441ed1f420d9ab14dd68cd34a80e2f0f312ba2fdd16a73f71b"
         },
         {
           "id": "agent-language-services/S0190.c02",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 76,
+              "end": 270
+            }
+          ],
+          "digest": "94597a1c504a30fa46f39c12bec7e0a0abe383ff3e39a7343a95c3efd3da4aa7"
+        },
+        {
+          "id": "agent-language-services/S0190.c03",
           "lifecycle": "planned",
           "spans": [
             {
@@ -8129,7 +8388,7 @@
           "digest": "c26a7922908dbb1f2273b328271714eb0c44374537d913ed7d54091bb251394d"
         },
         {
-          "id": "agent-language-services/S0190.c03",
+          "id": "agent-language-services/S0190.c04",
           "lifecycle": "planned",
           "spans": [
             {
@@ -8140,7 +8399,7 @@
           "digest": "f82da8cb96a8c8892e64d948a8ba02a9e3fab4f3b26e469521059cef5c069918"
         },
         {
-          "id": "agent-language-services/S0190.c04",
+          "id": "agent-language-services/S0190.c05",
           "lifecycle": "planned",
           "spans": [
             {
@@ -8151,7 +8410,7 @@
           "digest": "9934364733aac225f81328c4705fb9f033144de8eb8864a8cefc5e5f705d1cf7"
         },
         {
-          "id": "agent-language-services/S0190.c05",
+          "id": "agent-language-services/S0190.c06",
           "lifecycle": "planned",
           "spans": [
             {
@@ -8162,7 +8421,7 @@
           "digest": "a456f93a8dff1f9197e17ebf1d324926de11ae6d4f8ea1b60421c099200cbeab"
         },
         {
-          "id": "agent-language-services/S0190.c06",
+          "id": "agent-language-services/S0190.c07",
           "lifecycle": "planned",
           "spans": [
             {
@@ -8173,7 +8432,7 @@
           "digest": "2f210f759132692c1bd3ce306d1a5e20be863671a196419602f0fe4a3097d0e9"
         },
         {
-          "id": "agent-language-services/S0190.c07",
+          "id": "agent-language-services/S0190.c08",
           "lifecycle": "planned",
           "spans": [
             {
@@ -8184,7 +8443,7 @@
           "digest": "4055c3871d8487b779db8c3f264a56e6a39e2ee7a35b8e89380bde01d79f87cb"
         },
         {
-          "id": "agent-language-services/S0190.c08",
+          "id": "agent-language-services/S0190.c09",
           "lifecycle": "planned",
           "spans": [
             {
@@ -8196,6 +8455,10 @@
         }
       ],
       "separator_spans": [
+        {
+          "start": 75,
+          "end": 76
+        },
         {
           "start": 270,
           "end": 271
@@ -8349,7 +8612,7 @@
       "line": 606,
       "digest": "48d39698b039d1ff65921bc2254a4d0d52afca3922446eb094b567a7e5961fef",
       "text": "Its `doc-digest` is SHA-256 over the ASCII domain\n`veln-package-doc-catalog/v1\\0`, the canonical catalog byte length as u64-BE,\nand the canonical documentation-result bytes. A result contains either the\ncomplete successful catalog or the complete ordered failure diagnostics. It\nalso contains its schema version and generator-contract version. It does not\ncontain a toolchain marketing version.\nA renderer-only implementation change preserves the URI only when it preserves\nthe exposed result bytes. A semantic, schema, or generator-contract change\nchanges the documentation-result digest.",
-      "child_count": 5,
+      "child_count": 6,
       "children": [
         {
           "id": "agent-language-services/S0194.c01",
@@ -8390,13 +8653,24 @@
           "spans": [
             {
               "start": 344,
-              "end": 499
+              "end": 394
             }
           ],
-          "digest": "26395df91e210c410ff51b8a8da00aa77d2ab05149f5f4f747ce42e150d881a3"
+          "digest": "3c51476080b274d5cbd2b010950be1be9ed650412c8511403dfea31d27bcce61"
         },
         {
           "id": "agent-language-services/S0194.c05",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 395,
+              "end": 499
+            }
+          ],
+          "digest": "606afbc1fb8e6a1eb852e9b4873579d23a6df8f8cbff4f274f79030ead355fda"
+        },
+        {
+          "id": "agent-language-services/S0194.c06",
           "lifecycle": "planned",
           "spans": [
             {
@@ -8421,6 +8695,10 @@
           "end": 344
         },
         {
+          "start": 394,
+          "end": 395
+        },
+        {
           "start": 499,
           "end": 500
         }
@@ -8433,7 +8711,7 @@
       "line": 616,
       "digest": "9bb1db512ace979a3c19f58b5ac789d3af85f107e0ecf80ca31e8c272c2deae0",
       "text": "Module identifiers are full lowercase SHA-256 digests of a versioned canonical\nmodule identity. Declaration identifiers use a separate domain over declaration\nkind, fully qualified semantic name, and canonical disambiguating signature.\nThey do not depend on traversal order or source ranges. A duplicate semantic\nidentity or detected identifier collision fails the complete generation.",
-      "child_count": 3,
+      "child_count": 4,
       "children": [
         {
           "id": "agent-language-services/S0195.c01",
@@ -8452,13 +8730,24 @@
           "spans": [
             {
               "start": 96,
-              "end": 291
+              "end": 235
             }
           ],
-          "digest": "d341ab2a45fa4308a3af1687b882ddd062a704b3a8eb92c9866205e77fecf2ed"
+          "digest": "d1baff1a4de1a828eb5b1e7a8584ccdff2b34c25c157c32d14fb28bf7423a442"
         },
         {
           "id": "agent-language-services/S0195.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 236,
+              "end": 291
+            }
+          ],
+          "digest": "e0186637689a6604d73aab705d29fa5fd2897811bddf6348035d4944b8c874b7"
+        },
+        {
+          "id": "agent-language-services/S0195.c04",
           "lifecycle": "planned",
           "spans": [
             {
@@ -8473,6 +8762,10 @@
         {
           "start": 95,
           "end": 96
+        },
+        {
+          "start": 235,
+          "end": 236
         },
         {
           "start": 291,
@@ -8933,7 +9226,7 @@
       "line": 644,
       "digest": "e6aeb726454de5120bc5f52a3dc0809a742b8cead7aae9e082696789ce091e77",
       "text": "All distribution sources in a loaded snapshot are listable through bounded\nsource indexes and readable, including private and non-exported modules.\nSemantic visibility still controls whether consumer navigation can select a\ndeclaration. Published package metadata is limited to package identity,\nmanifest package name, version, description, license, authors, keywords, and\nexported module names. It excludes raw manifests, local paths, dependency\ndeclarations and selectors, repository and homepage URLs, tool metadata,\nenvironment-derived values, and unknown fields.",
-      "child_count": 3,
+      "child_count": 4,
       "children": [
         {
           "id": "agent-language-services/S0214.c01",
@@ -8941,13 +9234,24 @@
           "spans": [
             {
               "start": 0,
-              "end": 236
+              "end": 147
             }
           ],
-          "digest": "93ded215fb19e0bf65a125f4d6c3edf478e1f509fbac0d2ed541442e32a333df"
+          "digest": "079ee260e1dbdc806e1e54bec6d45269223c446b5235f7c76137048b69a386d5"
         },
         {
           "id": "agent-language-services/S0214.c02",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 148,
+              "end": 236
+            }
+          ],
+          "digest": "9b512efd252cac8b150647647cd6d3a90b8eb2d9b0be631ca9d16bc6595a2d42"
+        },
+        {
+          "id": "agent-language-services/S0214.c03",
           "lifecycle": "planned",
           "spans": [
             {
@@ -8958,7 +9262,7 @@
           "digest": "880573e5d037dc340cf8ee7bb9df2617886b3604a9a54e1bf48c27ee42f6031a"
         },
         {
-          "id": "agent-language-services/S0214.c03",
+          "id": "agent-language-services/S0214.c04",
           "lifecycle": "planned",
           "spans": [
             {
@@ -8970,6 +9274,10 @@
         }
       ],
       "separator_spans": [
+        {
+          "start": 147,
+          "end": 148
+        },
         {
           "start": 236,
           "end": 237
@@ -8987,7 +9295,7 @@
       "line": 653,
       "digest": "acb2df993b328dc0b63e6414fbdfff307880e02e4c72a49a645568baaa6a29c1",
       "text": "Documentation generation has a parse, manifest, export, documentation-reference,\nand doctest gate. The manifest gate rejects unsupported manifest sections,\ninvalid export paths, test source exports, duplicate exported module\nidentities, invalid direct git selector cardinality, a missing package name,\nand a package name that differs from the supplied package identity. Qualified\ndocumentation schema references require a written package-local `use` path in\nthe referencing module, and public schema aliases resolve to their public\nschema target. Generation is package-atomic. On failure, the status resource is\nlistable and contains diagnostics sorted by source URI, start range, diagnostic\ncode, and message. Module and declaration resources are not listed, searched,\nor readable. The loaded-package index returns the exact immutable status URI.\nThe source snapshot remains readable.",
-      "child_count": 7,
+      "child_count": 8,
       "children": [
         {
           "id": "agent-language-services/S0215.c01",
@@ -9061,10 +9369,21 @@
           "spans": [
             {
               "start": 783,
+              "end": 847
+            }
+          ],
+          "digest": "6adb52a3295c33604f26c5f95e6bb9075e63814767ad65fe66582fe871318058"
+        },
+        {
+          "id": "agent-language-services/S0215.c08",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 848,
               "end": 885
             }
           ],
-          "digest": "434577f50dc8be143d731241b4c2e08a8b19f76e6f218aaf39c426abc4e2b65b"
+          "digest": "df96248feae0d36279add5b6e5c573c73b6b9b7e57508d1963eda6ac54a60ec9"
         }
       ],
       "separator_spans": [
@@ -9091,6 +9410,10 @@
         {
           "start": 782,
           "end": 783
+        },
+        {
+          "start": 847,
+          "end": 848
         }
       ]
     },
@@ -9101,7 +9424,7 @@
       "line": 666,
       "digest": "38f2c4c991febf9a6cf4c8f805d3d0cf7b47d3723545a3c6d230c83e39cc5bb7",
       "text": "A passing positive doctest and a `veln fail` doctest whose visible source\nproduces a parse diagnostic can be published when the fence attaches to an\nexported module, exported public declaration, or exported public constructor.\nPrivate declaration doctests, ignored doctests, and hidden setup are not\npublished or checked by package documentation generation. Expected-output\nfences use the shared doctest extractor's pending-state boundary. Doctest\nmetadata, including duplicate or ambiguous output stream attributes, is\nvalidated by the shared doctest extractor, and metadata errors fail the\ncomplete documentation generation. Runtime doctest execution and\nexpected-output comparison remain part of the planned MCP publication slice.",
-      "child_count": 4,
+      "child_count": 5,
       "children": [
         {
           "id": "agent-language-services/S0216.c01",
@@ -9109,13 +9432,24 @@
           "spans": [
             {
               "start": 0,
-              "end": 357
+              "end": 226
             }
           ],
-          "digest": "f5024c34217ff7c55d747c01ccc650649b87b6998d5378d2a3b9582ca72f4474"
+          "digest": "fea0954ace6e457ffd0e3345f3320c7053d284690b1cdedc3cc557bf098589a7"
         },
         {
           "id": "agent-language-services/S0216.c02",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 227,
+              "end": 357
+            }
+          ],
+          "digest": "b73badb936e6e0d8a121751dc50ce1acf367d643e2b06dc015e1e98c083179d5"
+        },
+        {
+          "id": "agent-language-services/S0216.c03",
           "lifecycle": "planned",
           "spans": [
             {
@@ -9126,7 +9460,7 @@
           "digest": "9af1ec92024adbc5d60e8e0b6bc623104ba8ea82397c06aa038b0d996639e1f0"
         },
         {
-          "id": "agent-language-services/S0216.c03",
+          "id": "agent-language-services/S0216.c04",
           "lifecycle": "planned",
           "spans": [
             {
@@ -9137,7 +9471,7 @@
           "digest": "4fbf3d7f3fc827395ce6533bb1faeeb0ac5f50fb5b4f91838b422b0de4c4bebf"
         },
         {
-          "id": "agent-language-services/S0216.c04",
+          "id": "agent-language-services/S0216.c05",
           "lifecycle": "planned",
           "spans": [
             {
@@ -9149,6 +9483,10 @@
         }
       ],
       "separator_spans": [
+        {
+          "start": 226,
+          "end": 227
+        },
         {
           "start": 357,
           "end": 358
@@ -10151,7 +10489,7 @@
       "line": 759,
       "digest": "b422546905e0d66e19855d62ab345f6a8a7ea562f14a73e223b388924344a9be",
       "text": "The authoritative language-reference artifact is canonical schema-v1 JSON.\nObject keys are lexicographically sorted, insignificant whitespace is absent,\ncatalog-owned text is NFC with LF line endings, and source and expected-output\nblocks preserve their selected scalar content after CRLF-to-LF conversion. The\nartifact contains its schema version and generator-contract version. It does\nnot contain build paths, timestamps, or a compiler binary version.",
-      "child_count": 3,
+      "child_count": 4,
       "children": [
         {
           "id": "agent-language-services/S0246.c01",
@@ -10159,13 +10497,24 @@
           "spans": [
             {
               "start": 0,
-              "end": 306
+              "end": 74
             }
           ],
-          "digest": "b308600f36be923c34b8e3dddf27910eaa46bf5ccb4a761436342d1671a3b91a"
+          "digest": "e366cfb8f27283be4b6b6d0ae3b0e5fc84bda5864dea402540b7e9254bf23396"
         },
         {
           "id": "agent-language-services/S0246.c02",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 75,
+              "end": 306
+            }
+          ],
+          "digest": "c806ec2ee0445beee3fd5d73a0d550a4980f9e3d01cd83ca471a2e522ace4bb2"
+        },
+        {
+          "id": "agent-language-services/S0246.c03",
           "lifecycle": "planned",
           "spans": [
             {
@@ -10176,7 +10525,7 @@
           "digest": "8b138b297a4eff2a80d6a7025b56cd0493b32960899e204fefa335b62c9ce39c"
         },
         {
-          "id": "agent-language-services/S0246.c03",
+          "id": "agent-language-services/S0246.c04",
           "lifecycle": "planned",
           "spans": [
             {
@@ -10188,6 +10537,10 @@
         }
       ],
       "separator_spans": [
+        {
+          "start": 74,
+          "end": 75
+        },
         {
           "start": 306,
           "end": 307
@@ -10259,7 +10612,7 @@
       "line": 773,
       "digest": "00337675132c2fbe27460fc28a6869702c6a91df54d2b93baefc0a10cbd8e194",
       "text": "MCP and offline Markdown are pure renderings of the parsed artifact. Their\nconformance comparison checks topic identifiers, titles, summaries, keywords,\nrelations, ordered semantic blocks, source snippets, and expected-result text;\nrenderer navigation and decoration are outside the comparison. Topic IDs are\nunique lowercase ASCII descriptor IDs. An invalid or duplicate topic ID fails\ncatalog generation. The same catalog feeds MCP, offline Markdown, and a future\nweb renderer. Agent instructions may differ by plugin, but agents and humans\nread the same language reference content.",
-      "child_count": 6,
+      "child_count": 7,
       "children": [
         {
           "id": "agent-language-services/S0248.c01",
@@ -10278,13 +10631,24 @@
           "spans": [
             {
               "start": 69,
-              "end": 294
+              "end": 231
             }
           ],
-          "digest": "249dee04be548d73d4ccacbf8035c91504cbb7e0859142a7a3d8d3ed0781ae14"
+          "digest": "8aecf36525e9e5844028b95184f7a22d891afe469a1c06f59e6a56c2f5c6da66"
         },
         {
           "id": "agent-language-services/S0248.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 232,
+              "end": 294
+            }
+          ],
+          "digest": "d8ac2891692eb949dba86bf8b7084fe1a3b97a2abd0ac2e85a3a7db644e272b0"
+        },
+        {
+          "id": "agent-language-services/S0248.c04",
           "lifecycle": "planned",
           "spans": [
             {
@@ -10295,7 +10659,7 @@
           "digest": "2975c1033a4b7416ec2f5dc728a52dd92627a3338ae5d73e1b9a4dce6dbbc952"
         },
         {
-          "id": "agent-language-services/S0248.c04",
+          "id": "agent-language-services/S0248.c05",
           "lifecycle": "planned",
           "spans": [
             {
@@ -10306,7 +10670,7 @@
           "digest": "113f8476ac6a6c1ba3a17fc62c0b800b40fe413298b95f0ed43ff392afd93e1e"
         },
         {
-          "id": "agent-language-services/S0248.c05",
+          "id": "agent-language-services/S0248.c06",
           "lifecycle": "planned",
           "spans": [
             {
@@ -10317,7 +10681,7 @@
           "digest": "ebf9e111e724591e1985696fc090dd5e77c366b3d9b5d5cd5f61009efaa76481"
         },
         {
-          "id": "agent-language-services/S0248.c06",
+          "id": "agent-language-services/S0248.c07",
           "lifecycle": "planned",
           "spans": [
             {
@@ -10332,6 +10696,10 @@
         {
           "start": 68,
           "end": 69
+        },
+        {
+          "start": 231,
+          "end": 232
         },
         {
           "start": 294,
@@ -11973,7 +12341,7 @@
       "line": 888,
       "digest": "9db20a76d83789a97a06693ce86f66e13fa232ab3d0202194fad624c948d7913",
       "text": "Every matrix cell uses client-native installation, opens a fixture workspace,\nchecks process working directory, performs MCP initialize, tool, resource, and\ntemplate listing, resource reads, every tool, one domain failure, and shutdown.\nClaude Code additionally performs the LSP initialize, initialized,\nvirtual-document, shutdown, and exit sequence.",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "agent-language-services/S0281.c01",
@@ -11981,13 +12349,29 @@
           "spans": [
             {
               "start": 0,
+              "end": 236
+            }
+          ],
+          "digest": "c181693026c4345f99230f966ff10fb7e04056706a0edd2d271d630788c47f01"
+        },
+        {
+          "id": "agent-language-services/S0281.c02",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 237,
               "end": 350
             }
           ],
-          "digest": "9db20a76d83789a97a06693ce86f66e13fa232ab3d0202194fad624c948d7913"
+          "digest": "496ba8a3fc6c7c2193df86e2f45f79e3f1b4cdafe19cb2e435a2688a7725383a"
         }
       ],
-      "separator_spans": []
+      "separator_spans": [
+        {
+          "start": 236,
+          "end": 237
+        }
+      ]
     },
     {
       "id": "agent-language-services/S0282",
@@ -12249,7 +12633,7 @@
       "line": 911,
       "digest": "2a3220ea93b41a0467df3edb9b2b17b1d5776bb8f2e10167c01515e15dff5c62",
       "text": "The versioned `agent-language-services-v1` conformance manifest is the sole\ncompletion gate. A repository-maintenance package named\n`veln-repo-agent-language-conformance` under `tools/` validates it. The\nmanifest contains one requirement ID and at least one planned evidence ID for\nevery normative paragraph, acceptance row, schema field, domain error,\nresource template, lifecycle transition, and closed client-platform row.\nIt rejects missing, duplicate, skipped, orphaned, or unimplemented mappings.",
-      "child_count": 3,
+      "child_count": 4,
       "children": [
         {
           "id": "agent-language-services/S0293.c01",
@@ -12279,10 +12663,21 @@
           "spans": [
             {
               "start": 200,
+              "end": 425
+            }
+          ],
+          "digest": "62508fd72ca0f92b9d2706151dd7ec0febd7cf203a519167cbdd6914b9f7f5f6"
+        },
+        {
+          "id": "agent-language-services/S0293.c04",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 426,
               "end": 502
             }
           ],
-          "digest": "174f05444745cf305630013ed1795a6ebfd766218496ecf0a5cbe4b9b3f14e80"
+          "digest": "7d3a14ac981ccf9cc71a53b559e383b8ebb56cc41220d982d14d8022e6210c95"
         }
       ],
       "separator_spans": [
@@ -12293,6 +12688,10 @@
         {
           "start": 199,
           "end": 200
+        },
+        {
+          "start": 425,
+          "end": 426
         }
       ]
     },
@@ -12303,7 +12702,7 @@
       "line": 919,
       "digest": "4edc1d4c1e738b7439ff522daf1105e2721d508a9cf1352fa310ed02752fec10",
       "text": "The v1 manifest closes the capability matrices that this proposal previously\nintroduced as extensible minimums. It enumerates exactly the symbol kinds under\nDefinition And Reference Coverage, the language topics under Topic Catalog,\nthe tools and resource kinds under MCP Server Contract, the package-document\ndeclaration kinds, the LSP encodings, and the plugin compatibility cells.\nAdding a capability requires a new conformance-suite version or an explicit\nbackward-compatible extension entry.",
-      "child_count": 2,
+      "child_count": 3,
       "children": [
         {
           "id": "agent-language-services/S0294.c01",
@@ -12322,16 +12721,31 @@
           "spans": [
             {
               "start": 112,
+              "end": 383
+            }
+          ],
+          "digest": "31a53b40a2e22d56ca1d75a6ab5f629b198941c9cdf94f5c0735be1c06cee7f2"
+        },
+        {
+          "id": "agent-language-services/S0294.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 384,
               "end": 496
             }
           ],
-          "digest": "bbe45a8c859c0546c73777d08174603d8ccede2f0457015dc57f1f1b0e21435a"
+          "digest": "4f05bef43b858b9c93636d910cd2fe7a60ccf05ad780324408ec734516462817"
         }
       ],
       "separator_spans": [
         {
           "start": 111,
           "end": 112
+        },
+        {
+          "start": 383,
+          "end": 384
         }
       ]
     },
@@ -12459,7 +12873,7 @@
       "line": 932,
       "digest": "062d4d706ceb97ceffd6dbdf946224449c595ee798ee79d0141587af7ec74acb",
       "text": "| Q02 descendant ownership | Implemented for workspace `definition` project inference and unselected descendant single-file isolation; outer-reference coverage remains planned. |",
-      "child_count": 2,
+      "child_count": 3,
       "children": [
         {
           "id": "agent-language-services/S0298.c01",
@@ -12478,10 +12892,21 @@
           "spans": [
             {
               "start": 29,
+              "end": 134
+            }
+          ],
+          "digest": "bc2305ec5ce282501ba6b3bb774967bcaf525ed24d0568b38a5770864c29889f"
+        },
+        {
+          "id": "agent-language-services/S0298.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 135,
               "end": 176
             }
           ],
-          "digest": "617fc1d3d154c3c9706d4d51c6d77813316e774b65c55d24a357d4720c35e3a0"
+          "digest": "52163b0576c1cbd0c2b64d379b6498f2e0f03eb8a2ed1d5389dfbbf92253fd9b"
         }
       ],
       "separator_spans": [
@@ -12492,6 +12917,10 @@
         {
           "start": 26,
           "end": 29
+        },
+        {
+          "start": 134,
+          "end": 135
         },
         {
           "start": 176,
@@ -12506,7 +12935,7 @@
       "line": 933,
       "digest": "767570a959f96fd7a51ab9820aee420ffcb1e0e7b0577883b633ad7a5783735e",
       "text": "| Q03 rediscovery | Manifest add, remove, and rename before and after refresh; atomic refresh failure; cursor invalidation; resource survival. |",
-      "child_count": 2,
+      "child_count": 5,
       "children": [
         {
           "id": "agent-language-services/S0299.c01",
@@ -12525,10 +12954,43 @@
           "spans": [
             {
               "start": 20,
+              "end": 78
+            }
+          ],
+          "digest": "63225f5453e8671986f049860342c8be6d8eccdd61cb0e374ce8b1c2780f7689"
+        },
+        {
+          "id": "agent-language-services/S0299.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 79,
+              "end": 102
+            }
+          ],
+          "digest": "29b91ac1e0852297ebb41dd73b96afe53643fe6b5d26163c6e4755e4de20f805"
+        },
+        {
+          "id": "agent-language-services/S0299.c04",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 103,
+              "end": 123
+            }
+          ],
+          "digest": "278f81fc82e082d89c56cb1de7a8e1e836f58aaba74abfa229db62809dcc4aa1"
+        },
+        {
+          "id": "agent-language-services/S0299.c05",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 124,
               "end": 142
             }
           ],
-          "digest": "cfeea6f596f1636661456512c99e21ba126abc81afc55a1a13d3bfb93c74ed39"
+          "digest": "0ba267df4fc1ea15d085715697729138c1a16a2d8b092052cc39d8188ecce6b3"
         }
       ],
       "separator_spans": [
@@ -12539,6 +13001,18 @@
         {
           "start": 17,
           "end": 20
+        },
+        {
+          "start": 78,
+          "end": 79
+        },
+        {
+          "start": 102,
+          "end": 103
+        },
+        {
+          "start": 123,
+          "end": 124
         },
         {
           "start": 142,
@@ -12600,7 +13074,7 @@
       "line": 935,
       "digest": "e041b7c6d9a767f2ac49f781ab7c82de863d3dee7b68a3439f09b8130cc5dfcd",
       "text": "| Q05 stable capture | Implemented for `check_project` manifest, source, owned path-set changes, readable dependency input changes and reuse across path, vendor, mirror, and locally materialized git sources, bounded retry, no partial publication, pre-refresh selection preservation, anonymous single-file isolation, anonymous base symlink and regular-directory replacement, selected-root symlink and regular-directory replacement, nested regular manifest marker boundaries, symlinked nested manifest marker exclusion, project-local source symlink exclusion, non-Linux fail-closed saved snapshot capture, and workspace `definition` capture that compares project ownership and anonymous fallback in one stable attempt. Reference navigation captures remain planned. |",
-      "child_count": 2,
+      "child_count": 3,
       "children": [
         {
           "id": "agent-language-services/S0301.c01",
@@ -12619,10 +13093,21 @@
           "spans": [
             {
               "start": 23,
+              "end": 716
+            }
+          ],
+          "digest": "bdcadf661275c5348a4c55e4bd00f7735dfe6bf57b18eb2c52eaeb39cabbc909"
+        },
+        {
+          "id": "agent-language-services/S0301.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 717,
               "end": 762
             }
           ],
-          "digest": "bcc98f085a9ff414574f906decb27e1bdae9a458bb8a056def2a6df79fbb5b6c"
+          "digest": "a9a1581521d7c37f327463f9d7797f4cf7d67ab25a77eddb24905e221dd22245"
         }
       ],
       "separator_spans": [
@@ -12633,6 +13118,10 @@
         {
           "start": 20,
           "end": 23
+        },
+        {
+          "start": 716,
+          "end": 717
         },
         {
           "start": 762,
@@ -12647,7 +13136,7 @@
       "line": 936,
       "digest": "01e5275b291ed2e0e81a1ff403d2b36b9e61e5380698e16df02787ef6866a753",
       "text": "| Q06 schemas and errors | Implemented for workspace inventory, `check_project`, and workspace `definition` schema freshness, nullable field rejection, unknown fields including related-note fields, exact non-integer coordinate rejection, stable domain codes, and protocol mapping. Reference, broader definition, resource, and documentation schemas remain planned. |",
-      "child_count": 2,
+      "child_count": 3,
       "children": [
         {
           "id": "agent-language-services/S0302.c01",
@@ -12666,10 +13155,21 @@
           "spans": [
             {
               "start": 27,
+              "end": 280
+            }
+          ],
+          "digest": "690d2ecbafd6b1f662aec3f0f4aced000f8738b5439374dc23df5eb187cb65be"
+        },
+        {
+          "id": "agent-language-services/S0302.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 281,
               "end": 363
             }
           ],
-          "digest": "ee52098f8b634f029e88c50af62e6893a786ad6b885a36a7841700eb0dcc3d9f"
+          "digest": "5ceb2b343256e45f853e9790d6dd52aad23f607427d7fef34d1504f10c490d91"
         }
       ],
       "separator_spans": [
@@ -12680,6 +13180,10 @@
         {
           "start": 24,
           "end": 27
+        },
+        {
+          "start": 280,
+          "end": 281
         },
         {
           "start": 363,
@@ -12929,7 +13433,7 @@
       "line": 942,
       "digest": "2255fd0eba823c243f5ea5636c44728bf97aa0699c1d654b1118f475b8f6f863",
       "text": "| Q12 distribution set | Filesystem capture covers every inclusion and exclusion, private and non-exported sources, generated and `target` sources, exact-byte digest integration, ordering, and relocation. Digest-analysis-resource set equality remains planned. |",
-      "child_count": 2,
+      "child_count": 3,
       "children": [
         {
           "id": "agent-language-services/S0308.c01",
@@ -12948,10 +13452,21 @@
           "spans": [
             {
               "start": 25,
+              "end": 204
+            }
+          ],
+          "digest": "30c5a8f28d544f19f8f20114ef18107e1962c126c09ab3903ae860fcec1f360c"
+        },
+        {
+          "id": "agent-language-services/S0308.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 205,
               "end": 259
             }
           ],
-          "digest": "fe7b0710be0e2175b24eb846ae4a107ebfef03624fce86b22a409b18382951ff"
+          "digest": "7f73c151b0df764179badb52aa1701e682e5d62b274b6538590b0d4ea73095fa"
         }
       ],
       "separator_spans": [
@@ -12962,6 +13477,10 @@
         {
           "start": 22,
           "end": 25
+        },
+        {
+          "start": 204,
+          "end": 205
         },
         {
           "start": 259,
@@ -13023,7 +13542,7 @@
       "line": 944,
       "digest": "c8f10d8f853ae199cdf4d57fcf87327871de37c73462e214ce585a453e631d97",
       "text": "| Q14 URI spelling and resolver mapping | Canonical round trip and rejection of percent aliases, encoded separators and dots, authority, query, fragment, and malformed digest forms; MCP mapping of catalog misses to `resource_not_found`. |",
-      "child_count": 2,
+      "child_count": 3,
       "children": [
         {
           "id": "agent-language-services/S0310.c01",
@@ -13042,10 +13561,21 @@
           "spans": [
             {
               "start": 42,
+              "end": 181
+            }
+          ],
+          "digest": "5d6c8c51319d687f0a9c4104460a9ef22ac82d133d3d32ebf510a1ba65967e27"
+        },
+        {
+          "id": "agent-language-services/S0310.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 182,
               "end": 236
             }
           ],
-          "digest": "46d89372fd8e9f5f93fde8fbe0f404030b7339c32c6f9b12ce97b5341ea92f8d"
+          "digest": "4a0a2c2a6a994c7b84e417154921ab211f99cd9f16fb68dc51e8ffd3dd896bc3"
         }
       ],
       "separator_spans": [
@@ -13056,6 +13586,10 @@
         {
           "start": 39,
           "end": 42
+        },
+        {
+          "start": 181,
+          "end": 182
         },
         {
           "start": 236,
@@ -13732,7 +14266,7 @@
       "line": 983,
       "digest": "c7450cc98e9fb4656c8fb3ae9631a162cb7a0136fe5ca32149fdf2184ed06803",
       "text": "| Start above two package branches and complete the inventory lifecycle. | Both first manifest roots are listed after initialization. The server rejects inventory requests before initialization and rejects a second valid initialization. `check_project` reports ambiguity when its project input is omitted. | Implemented MCP workspace lifecycle case for inventory and initialization phase boundaries; implemented `veln-mcp` multi-project ambiguity test. |",
-      "child_count": 3,
+      "child_count": 6,
       "children": [
         {
           "id": "agent-language-services/S0324.c01",
@@ -13751,21 +14285,54 @@
           "spans": [
             {
               "start": 75,
-              "end": 305
+              "end": 133
             }
           ],
-          "digest": "5755e5271409e67fa1517ccc07825efcbda3df61615e5c735b2c633f0d81184d"
+          "digest": "ad3d0496bd0475cfcfeae1ff50a844449a9776498f2d0c1eac27e299a693f551"
         },
         {
           "id": "agent-language-services/S0324.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 134,
+              "end": 236
+            }
+          ],
+          "digest": "11e4da7b6dc6defe6f2820256f5808f5d06c20127d477cfa6d070ec1fabe9af5"
+        },
+        {
+          "id": "agent-language-services/S0324.c04",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 237,
+              "end": 305
+            }
+          ],
+          "digest": "4d8ee9485ed7d53a53b7b7cc58c6c3c9837a10f0c641180a087dbe793e78a7eb"
+        },
+        {
+          "id": "agent-language-services/S0324.c05",
           "lifecycle": "current",
           "spans": [
             {
               "start": 308,
+              "end": 399
+            }
+          ],
+          "digest": "2fda34c04adfdd61330e0babfbd0b63a77937b86262911d2121d7faffa95212e"
+        },
+        {
+          "id": "agent-language-services/S0324.c06",
+          "lifecycle": "current",
+          "spans": [
+            {
+              "start": 400,
               "end": 452
             }
           ],
-          "digest": "581c1fec0403fbe9b5e5e3c0161118d05751e6b8d9269362f98ab4783d412369"
+          "digest": "2464be779afaa6b88e9545e3ebdf708aeac6f6a2d3ece1070a02a0249b68c352"
         }
       ],
       "separator_spans": [
@@ -13778,8 +14345,20 @@
           "end": 75
         },
         {
+          "start": 133,
+          "end": 134
+        },
+        {
+          "start": 236,
+          "end": 237
+        },
+        {
           "start": 305,
           "end": 308
+        },
+        {
+          "start": 399,
+          "end": 400
         },
         {
           "start": 452,
@@ -13794,7 +14373,7 @@
       "line": 984,
       "digest": "6b76f303fd4b116dcaf878ba9e4a030a4154de31ad4f73689203397ea88badda",
       "text": "| Start where no manifest exists. | The base is selected as one anonymous project. `check_project` requires `project: \".\"` and `source`, and analyzes exactly that source until refresh even if a manifest or companion target appears later. | Implemented MCP anonymous single-file executable case plus `veln-mcp` selection table, pre-refresh manifest addition, and companion-shaped source tests. |",
-      "child_count": 3,
+      "child_count": 5,
       "children": [
         {
           "id": "agent-language-services/S0325.c01",
@@ -13813,13 +14392,35 @@
           "spans": [
             {
               "start": 36,
-              "end": 237
+              "end": 82
             }
           ],
-          "digest": "ff86197fb363ab42bf8360a4104c1a2afd4698b8e2473e89d194bd1c0450b626"
+          "digest": "9b1ecc67a9af779209054a0a7725a12113184ae547db663055e83d6d40aa0f0f"
         },
         {
           "id": "agent-language-services/S0325.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 83,
+              "end": 122
+            }
+          ],
+          "digest": "96bf7513a7a560f052cdb3820d9e6e521d55caac58e5d5a5c7df78b61fd61fdf"
+        },
+        {
+          "id": "agent-language-services/S0325.c04",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 123,
+              "end": 237
+            }
+          ],
+          "digest": "757582a8803d34108b3df645daa208dad9f405a278264088fab9433874bdcbac"
+        },
+        {
+          "id": "agent-language-services/S0325.c05",
           "lifecycle": "current",
           "spans": [
             {
@@ -13840,6 +14441,14 @@
           "end": 36
         },
         {
+          "start": 82,
+          "end": 83
+        },
+        {
+          "start": 122,
+          "end": 123
+        },
+        {
           "start": 237,
           "end": 240
         },
@@ -13856,7 +14465,7 @@
       "line": 985,
       "digest": "bbecd343ae1aea9ddda7c2a7b182d7694c166307f8a1c12177dc13d9533ee251",
       "text": "| Navigate below an unselected descendant manifest. | The outer project does not own the source; navigation reports single-file scope without outer-project references. | Implemented MCP definition descendant-boundary isolation; reference-result scope remains planned. |",
-      "child_count": 3,
+      "child_count": 5,
       "children": [
         {
           "id": "agent-language-services/S0326.c01",
@@ -13875,21 +14484,43 @@
           "spans": [
             {
               "start": 54,
-              "end": 167
+              "end": 96
             }
           ],
-          "digest": "79a7823216fb4482cc7400f18e204bdec844af5b531832764d838339840fbd32"
+          "digest": "706458ac1baf88daa275cbd5c9fced714b2c64f61a623cf4343d8d6ee3eb1162"
         },
         {
           "id": "agent-language-services/S0326.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 97,
+              "end": 167
+            }
+          ],
+          "digest": "d32fc6131d5bcfa6309ca3b3067ff538b91afb5fa0f4eff3b089005d4b086f04"
+        },
+        {
+          "id": "agent-language-services/S0326.c04",
           "lifecycle": "current",
           "spans": [
             {
               "start": 170,
+              "end": 227
+            }
+          ],
+          "digest": "0b4a98d81c1011c24522fee47ed888bc6d3874c6b0926312f959bff0ccfe3bc7"
+        },
+        {
+          "id": "agent-language-services/S0326.c05",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 228,
               "end": 267
             }
           ],
-          "digest": "bb9b79cb7fc7d0dc0fa2fc68175ce9dbb1685adf51105411b1202b17b14c9c6b"
+          "digest": "8c1f22ff6e3753a0d003af17e36fef21bb07ab9a2249a3c4e7ab1d17e2846434"
         }
       ],
       "separator_spans": [
@@ -13902,8 +14533,16 @@
           "end": 54
         },
         {
+          "start": 96,
+          "end": 97
+        },
+        {
           "start": 167,
           "end": 170
+        },
+        {
+          "start": 227,
+          "end": 228
         },
         {
           "start": 267,
@@ -13918,7 +14557,7 @@
       "line": 986,
       "digest": "b39a8c624cd356e40569119884764d372f8c8c9729fe6f90b3d88e173a61425c",
       "text": "| Add, remove, or rename a manifest. | Selection is unchanged until `refresh_workspace`; a successful refresh replaces it atomically. Cursor staleness remains planned. | Implemented `veln-mcp` refresh transition tests; planned Q03 cursor cases. |",
-      "child_count": 3,
+      "child_count": 6,
       "children": [
         {
           "id": "agent-language-services/S0327.c01",
@@ -13937,21 +14576,54 @@
           "spans": [
             {
               "start": 39,
-              "end": 167
+              "end": 88
             }
           ],
-          "digest": "435b41a62bd0d5564496e5b5c2dad8ef7629d2b34c3a940ee532eac7c2f15d66"
+          "digest": "d2ef0af1a95a188d06ebee1ee562c9e5ae38cd3ee728de925b6f85e4ba2257e3"
         },
         {
           "id": "agent-language-services/S0327.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 89,
+              "end": 133
+            }
+          ],
+          "digest": "9419bd7e980d84fd6cd17c6551297958ac71e03440a70416f57de3bd2f9a6698"
+        },
+        {
+          "id": "agent-language-services/S0327.c04",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 134,
+              "end": 167
+            }
+          ],
+          "digest": "986f2d4cf2942fcd84658a9cbd9bc9ba40f58b3ee3d3a02d3e2990308ebc3d76"
+        },
+        {
+          "id": "agent-language-services/S0327.c05",
           "lifecycle": "current",
           "spans": [
             {
               "start": 170,
+              "end": 218
+            }
+          ],
+          "digest": "51a77eaa8d6c50069dd035148a3497309722a49d63c49ed4842922325c45811c"
+        },
+        {
+          "id": "agent-language-services/S0327.c06",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 219,
               "end": 244
             }
           ],
-          "digest": "14b3c0b90723b3dd2b75aa4ee92e436e4eed7a9ec07a5565935e12b518639e4f"
+          "digest": "bfd3c90cd741a65ad3f15fe22b9d8895354060cdeb9472183a695a231ea009a1"
         }
       ],
       "separator_spans": [
@@ -13964,8 +14636,20 @@
           "end": 39
         },
         {
+          "start": 88,
+          "end": 89
+        },
+        {
+          "start": 133,
+          "end": 134
+        },
+        {
           "start": 167,
           "end": 170
+        },
+        {
+          "start": 218,
+          "end": 219
         },
         {
           "start": 244,
@@ -13980,7 +14664,7 @@
       "line": 987,
       "digest": "7bce5bd00bc41b38f7eccb727d5c6454cd925a36107c4d63c9a61fbe70c6d8d8",
       "text": "| Start through a symbolic base alias. | The alias is accepted once and returned `file:` URIs use the resolved identity spelling. | Implemented MCP definition canonical resolved-base URI case; broader Q04 symbolic-base cases remain planned. |",
-      "child_count": 3,
+      "child_count": 4,
       "children": [
         {
           "id": "agent-language-services/S0328.c01",
@@ -14010,10 +14694,21 @@
           "spans": [
             {
               "start": 132,
+              "end": 192
+            }
+          ],
+          "digest": "0fc840242fb37c4af93f2eff80dded5b5b2cc35eff2b20154e72989bd955b15c"
+        },
+        {
+          "id": "agent-language-services/S0328.c04",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 193,
               "end": 240
             }
           ],
-          "digest": "90f5b824ab22582dd1680b7e36e6ed4207590b0aa0d4e2733b46b347a8710b98"
+          "digest": "91ede3dbe73080f57441b1fef982c5604db67c7a397376581071fd8e96805faf"
         }
       ],
       "separator_spans": [
@@ -14030,6 +14725,10 @@
           "end": 132
         },
         {
+          "start": 192,
+          "end": 193
+        },
+        {
           "start": 240,
           "end": 242
         }
@@ -14042,7 +14741,7 @@
       "line": 988,
       "digest": "d3891eb59a87813a21286fc27b67e2643f35f111c2fe461ee40d2bac0c8c3079",
       "text": "| Supply a path containing a directory or file symbolic link. | The path is rejected without following the link. | Implemented `veln-mcp` no-follow source-path test; broader Q04 navigation cases remain planned. |",
-      "child_count": 3,
+      "child_count": 4,
       "children": [
         {
           "id": "agent-language-services/S0329.c01",
@@ -14072,10 +14771,21 @@
           "spans": [
             {
               "start": 115,
+              "end": 165
+            }
+          ],
+          "digest": "c5ade47d0b1c7b6003efb3d4363812ef794316a9f2af7dcf69c78551fabcc0a0"
+        },
+        {
+          "id": "agent-language-services/S0329.c04",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 166,
               "end": 210
             }
           ],
-          "digest": "dc4a26550c528ae43e261b810cd628b9956978c3a6164703bcc86b892231d291"
+          "digest": "9b402911be7474c4084597c6b43ab9beb85da456b02d95084837d3f87fd9c60f"
         }
       ],
       "separator_spans": [
@@ -14090,6 +14800,10 @@
         {
           "start": 112,
           "end": 115
+        },
+        {
+          "start": 165,
+          "end": 166
         },
         {
           "start": 210,
@@ -14166,7 +14880,7 @@
       "line": 990,
       "digest": "61e404caa77bc973f4bdd69c53d9d7c33aaa07e53b2a72791efe544f8e3e7071",
       "text": "| Change a selected root identity, anonymous base identity, manifest, source, dependency input, or file set during capture. | The complete capture retries at most three times, then returns `snapshot_changed` without partial publication. | Implemented `veln-mcp` stable-capture retry tests for `check_project`, including anonymous base and selected-root symlink and regular-directory replacement, nested regular manifest marker boundaries, symlinked nested manifest marker exclusion, project-local source symlink exclusion, non-Linux fail-closed capture, and dependency snapshot changes; implemented workspace `definition` navigation capture coverage for descendant boundary changes during anonymous fallback; reference navigation captures remain planned. |",
-      "child_count": 3,
+      "child_count": 5,
       "children": [
         {
           "id": "agent-language-services/S0331.c01",
@@ -14196,10 +14910,32 @@
           "spans": [
             {
               "start": 239,
+              "end": 586
+            }
+          ],
+          "digest": "b567377b280a1b2b371b771794fbe8c612bc2366ac1edc8aa25506893d28d827"
+        },
+        {
+          "id": "agent-language-services/S0331.c04",
+          "lifecycle": "current",
+          "spans": [
+            {
+              "start": 587,
+              "end": 708
+            }
+          ],
+          "digest": "74de1dcba49ca4fb040cc13a1d7049f0641f3ee6b5c3181d55bc1fe0aff3b273"
+        },
+        {
+          "id": "agent-language-services/S0331.c05",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 709,
               "end": 754
             }
           ],
-          "digest": "2afb535b5835fe5066b1039c282c6d621145d446ed20d86568dc03498aa1a6d3"
+          "digest": "3b237588e9fbd33f9cd8e211c785ef3d9aa07b612718803658be19f87739a374"
         }
       ],
       "separator_spans": [
@@ -14216,6 +14952,14 @@
           "end": 239
         },
         {
+          "start": 586,
+          "end": 587
+        },
+        {
+          "start": 708,
+          "end": 709
+        },
+        {
           "start": 754,
           "end": 756
         }
@@ -14228,7 +14972,7 @@
       "line": 991,
       "digest": "7544c191f187b40545e2234e1084d8d608576945a99f13d455ffd11c5fea4d6f",
       "text": "| List projects or send malformed inventory-tool input. | Roots use `.` or relative `/` spelling; checked schemas reject unknown fields and invalid shapes as protocol errors. | Implemented MCP workspace lifecycle and schema tests; broader Q06 cases remain planned. |",
-      "child_count": 3,
+      "child_count": 6,
       "children": [
         {
           "id": "agent-language-services/S0332.c01",
@@ -14247,21 +14991,54 @@
           "spans": [
             {
               "start": 58,
-              "end": 174
+              "end": 71
             }
           ],
-          "digest": "6403a88c40a7a72b331a5c688698eb7009ac97f007d88612d2cf7b987d204939"
+          "digest": "b82ea0b97e2f045776819c57aff47e30ab63059600295d099b258a5c578b9ba2"
         },
         {
           "id": "agent-language-services/S0332.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 72,
+              "end": 97
+            }
+          ],
+          "digest": "95bba5a39579bc456b5c4fa79d6bbcd09a869a714ba000e6e6a3d6fa20178aff"
+        },
+        {
+          "id": "agent-language-services/S0332.c04",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 98,
+              "end": 174
+            }
+          ],
+          "digest": "f4d09359c0c5ac963cd39bc87288eb6024a205188079dd43fa56a1c605cc0fe9"
+        },
+        {
+          "id": "agent-language-services/S0332.c05",
           "lifecycle": "current",
           "spans": [
             {
               "start": 177,
+              "end": 230
+            }
+          ],
+          "digest": "64f1b62c09dfaf2c0a6d88d7b714e0be3280d95eba3273c636e85f2aa3823eaa"
+        },
+        {
+          "id": "agent-language-services/S0332.c06",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 231,
               "end": 264
             }
           ],
-          "digest": "9504f2846fcf4499ff2f6547717535eb491dd79efea61a3a7c3bbe237e8fa987"
+          "digest": "34a198bad75c9b541b5cc6b68c55218602cd0c6ca2e6229bec05af207be915f2"
         }
       ],
       "separator_spans": [
@@ -14274,8 +15051,20 @@
           "end": 58
         },
         {
+          "start": 71,
+          "end": 72
+        },
+        {
+          "start": 97,
+          "end": 98
+        },
+        {
           "start": 174,
           "end": 177
+        },
+        {
+          "start": 230,
+          "end": 231
         },
         {
           "start": 264,
@@ -14290,7 +15079,7 @@
       "line": 992,
       "digest": "0fe8a55495c859c982da846cdd3cf404a6482342759c61ca6699006262c4860d",
       "text": "| Discover a manifest root whose relative spelling is not representable as UTF-8. | Discovery fails instead of returning a lossy project root. A refresh reports `generation_failed` and preserves the previous roots and generation. | Implemented `veln-mcp` unrepresentable-root discovery and refresh tests. |",
-      "child_count": 3,
+      "child_count": 4,
       "children": [
         {
           "id": "agent-language-services/S0333.c01",
@@ -14309,13 +15098,24 @@
           "spans": [
             {
               "start": 84,
-              "end": 229
+              "end": 142
             }
           ],
-          "digest": "97b811cd74d248584e1929091d9d5a41df7a3b148bd938f7614a9615c71682e4"
+          "digest": "7a24d6e8de2446e8f007386428ee70a448b9860ce1978945094e92a97a83a313"
         },
         {
           "id": "agent-language-services/S0333.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 143,
+              "end": 229
+            }
+          ],
+          "digest": "7f144ed15b4ee755f2f1c97f87adf2aef78ce3cae0838ab5039d3ffb9074c6a7"
+        },
+        {
+          "id": "agent-language-services/S0333.c04",
           "lifecycle": "current",
           "spans": [
             {
@@ -14334,6 +15134,10 @@
         {
           "start": 81,
           "end": 84
+        },
+        {
+          "start": 142,
+          "end": 143
         },
         {
           "start": 229,
@@ -14600,7 +15404,7 @@
       "line": 1001,
       "digest": "47e276ba1e1938196877c16619897e5a5982ae4ac79d001850d4d7d9f95079c2",
       "text": "| Resolve references for every symbol in the closed v1 navigation matrix, including shadowing and same-spelled fields. | Only references with the selected symbol identity are returned in deterministic order. | Planned table-driven cases covering each matrix symbol kind and its declared collision boundary; the bounded saved-workspace function slice above is only the first subset. |",
-      "child_count": 3,
+      "child_count": 4,
       "children": [
         {
           "id": "agent-language-services/S0338.c01",
@@ -14630,10 +15434,21 @@
           "spans": [
             {
               "start": 210,
+              "end": 306
+            }
+          ],
+          "digest": "6db882018f4f39e584a3051df6198140622b3a302a7e24c51c330cd5cfdfc281"
+        },
+        {
+          "id": "agent-language-services/S0338.c04",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 307,
               "end": 381
             }
           ],
-          "digest": "599b90f9b3108d9ae419f0993d920bd5de968ab6d8a41cbc5a88e5b655aca032"
+          "digest": "4da382ea8501a74ed93106b978394be22a6e77b766bbc0b1d84a3c9b355902aa"
         }
       ],
       "separator_spans": [
@@ -14650,6 +15465,10 @@
           "end": 210
         },
         {
+          "start": 306,
+          "end": 307
+        },
+        {
           "start": 381,
           "end": 383
         }
@@ -14662,7 +15481,7 @@
       "line": 1002,
       "digest": "c6685f8ae90ef0dbdb68b283306940c63f8bd6f19408ecc382004374a81cae8f",
       "text": "| Search references to a dependency symbol from one selected project. | Consumer uses and the optional exported declaration are returned; other projects and dependency-internal uses are excluded, and the scope is explicit. | Q08 reference-universe cases. |",
-      "child_count": 3,
+      "child_count": 4,
       "children": [
         {
           "id": "agent-language-services/S0339.c01",
@@ -14681,13 +15500,24 @@
           "spans": [
             {
               "start": 72,
-              "end": 222
+              "end": 137
             }
           ],
-          "digest": "f61c50e2350dde808c848f66bce7c35fa28aff03c00b613a8f37030663a3f91c"
+          "digest": "133a2246fdec8639d36ce71e5faf8f8a628df5e4156b90182f46c4728cb11cdb"
         },
         {
           "id": "agent-language-services/S0339.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 138,
+              "end": 222
+            }
+          ],
+          "digest": "acb81c7c27c88c912b631b52daf99ac5b22962cfb0fd6a6f61da0fda37f5bd76"
+        },
+        {
+          "id": "agent-language-services/S0339.c04",
           "lifecycle": "planned",
           "spans": [
             {
@@ -14706,6 +15536,10 @@
         {
           "start": 69,
           "end": 72
+        },
+        {
+          "start": 137,
+          "end": 138
         },
         {
           "start": 222,
@@ -15034,7 +15868,7 @@
       "line": 1008,
       "digest": "60ab731dcfbd6a902fca828a42ed62b0ad16912132d32b8a5c52f8abcacddc80",
       "text": "| Address empty, LF, CRLF, non-BMP, end-of-line, end-of-file, token-end, decimal and exponent integer spellings, non-integer numeric spellings, and oversized positive positions. | Validity and half-open selection follow the scalar-coordinate contract, non-integer numeric coordinates are protocol invalid params, and unaddressable positive coordinates return `invalid_position`. | Implemented workspace-definition MCP coordinate table and stdio regressions for integral decimal and exponent spellings, non-integer decimal and extreme negative exponent spellings, a value above `u64::MAX`, and an extreme positive exponent; broader cross-adapter Q07 matrix remains planned. |",
-      "child_count": 3,
+      "child_count": 4,
       "children": [
         {
           "id": "agent-language-services/S0345.c01",
@@ -15064,10 +15898,21 @@
           "spans": [
             {
               "start": 381,
+              "end": 622
+            }
+          ],
+          "digest": "3f6a01811419eb207f04d8cea86e567237d068699c185deb460d3970f297e652"
+        },
+        {
+          "id": "agent-language-services/S0345.c04",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 623,
               "end": 672
             }
           ],
-          "digest": "7f85f5278f3151644be0e99ad8692819dde24871970f8cb86a68205fda781613"
+          "digest": "c589924d91b08fc650cf212d6f17d2d8b738d1c0739fed54e909a21a215b161f"
         }
       ],
       "separator_spans": [
@@ -15082,6 +15927,10 @@
         {
           "start": 378,
           "end": 381
+        },
+        {
+          "start": 622,
+          "end": 623
         },
         {
           "start": 672,
@@ -15158,7 +16007,7 @@
       "line": 1010,
       "digest": "9d3b4e3ae8eaa783f0b4d98f0ffbdc3012898fe06cafc0dbd4d008ac9b48a1b0",
       "text": "| Apply an LSP open-document overlay. | LSP reflects the overlay; MCP continues to reflect saved files. | Existing LSP overlay cases plus MCP comparison. |",
-      "child_count": 3,
+      "child_count": 4,
       "children": [
         {
           "id": "agent-language-services/S0347.c01",
@@ -15177,13 +16026,24 @@
           "spans": [
             {
               "start": 40,
-              "end": 103
+              "end": 65
             }
           ],
-          "digest": "9b3a46955ab77f2413ef1c717b61318ad3e7f283fecbfd11a54dc8bbd4bdddc5"
+          "digest": "1eb0cff7000ab73eb5f28d3d86a004bf80356739f42af665840d6ccc953f2a0f"
         },
         {
           "id": "agent-language-services/S0347.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 66,
+              "end": 103
+            }
+          ],
+          "digest": "5e2105779c963dd1c127953c683f6b88288dd6cc00fdd511477fe449e2292390"
+        },
+        {
+          "id": "agent-language-services/S0347.c04",
           "lifecycle": "planned",
           "spans": [
             {
@@ -15202,6 +16062,10 @@
         {
           "start": 37,
           "end": 40
+        },
+        {
+          "start": 65,
+          "end": 66
         },
         {
           "start": 103,
@@ -15282,7 +16146,7 @@
       "line": 1016,
       "digest": "949a5e2f721889236c861740642d2d462b7620b5d2f2df1f1fb9c191437bbf37",
       "text": "| Read a returned virtual source URI through MCP. | Resource text equals the source bytes used for analysis. The transport-independent exact-byte resolver is already implemented and specified in [Package Virtual Sources](../specification/package-virtual-sources.md). LSP `veln/virtualDocument` reads for direct path, vendor, mirror, locally available git, and embedded standard-library URIs are implemented and specified in [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename). | MCP resource round-trip case using a source URI returned by analysis. |",
-      "child_count": 3,
+      "child_count": 5,
       "children": [
         {
           "id": "agent-language-services/S0349.c01",
@@ -15297,17 +16161,39 @@
         },
         {
           "id": "agent-language-services/S0349.c02",
-          "lifecycle": "current",
+          "lifecycle": "planned",
           "spans": [
             {
               "start": 52,
-              "end": 514
+              "end": 108
             }
           ],
-          "digest": "3d4f9768ee9e19dbf98bd00696b9bd28613c5e71d8bfa5d29ac84fe4d3ece551"
+          "digest": "9545ebafbbed5ed252502e5fe8e096e1b735f3a914bdd651c4049a664f0a289b"
         },
         {
           "id": "agent-language-services/S0349.c03",
+          "lifecycle": "current",
+          "spans": [
+            {
+              "start": 109,
+              "end": 266
+            }
+          ],
+          "digest": "6af5ff0d2d1d05e0d2838ba5637087258827d81d2c70dce61c727be4e9495ef3"
+        },
+        {
+          "id": "agent-language-services/S0349.c04",
+          "lifecycle": "current",
+          "spans": [
+            {
+              "start": 267,
+              "end": 514
+            }
+          ],
+          "digest": "247dd0532d6d1cc09f6f94da06daa46bf16dc6b9e0bff4cbc79c468442ae7f8a"
+        },
+        {
+          "id": "agent-language-services/S0349.c05",
           "lifecycle": "planned",
           "spans": [
             {
@@ -15328,6 +16214,14 @@
           "end": 52
         },
         {
+          "start": 108,
+          "end": 109
+        },
+        {
+          "start": 266,
+          "end": 267
+        },
+        {
           "start": 514,
           "end": 517
         },
@@ -15344,7 +16238,7 @@
       "line": 1017,
       "digest": "fcb253d270986bb673ee2cdd7c888c9309438576dcf7747065b30755caf41d55",
       "text": "| Change an included source or manifest byte in a captured distribution. | Snapshot capture passes the changed exact bytes to the implemented digest API. LSP virtual URI changes are implemented for retained direct path, vendor, mirror, and locally available git project snapshots. MCP virtual-resource changes remain planned. | Implemented Q12 capture digest-integration tests and LSP dependency virtual-URI tests; planned MCP virtual-resource cases. |",
-      "child_count": 3,
+      "child_count": 6,
       "children": [
         {
           "id": "agent-language-services/S0350.c01",
@@ -15363,21 +16257,54 @@
           "spans": [
             {
               "start": 75,
-              "end": 325
+              "end": 153
             }
           ],
-          "digest": "4a643860f4c7938c8d0e6c3a5fb3b2e0b1510ca8b6339aeab5852eb2adb44e82"
+          "digest": "e36f7f1fd3ea4ca952f57ae38d6ba91b815c39b0afe07fc563bb23d7385f7bda"
         },
         {
           "id": "agent-language-services/S0350.c03",
           "lifecycle": "current",
           "spans": [
             {
+              "start": 154,
+              "end": 280
+            }
+          ],
+          "digest": "2314bca750f56e91e5e75907ec8415c96cd1ba51f387f48b89d925cb8de62572"
+        },
+        {
+          "id": "agent-language-services/S0350.c04",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 281,
+              "end": 325
+            }
+          ],
+          "digest": "06db891fedfbdbddd02e81e335136ce1247fbdbc5957fa934049f5e02af9c5f8"
+        },
+        {
+          "id": "agent-language-services/S0350.c05",
+          "lifecycle": "current",
+          "spans": [
+            {
               "start": 328,
+              "end": 414
+            }
+          ],
+          "digest": "18b6e01593264d2770b6f24cd42c3cf8399a3545c30a935cfacc8f62d8c99765"
+        },
+        {
+          "id": "agent-language-services/S0350.c06",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 415,
               "end": 450
             }
           ],
-          "digest": "4865a8731243e04c58466ca0d3c23edb81a487f6baa77303e953624733952675"
+          "digest": "bfbbec783d9491b4d2fa20304440c141f1ae37cfa7a3febd1d542c07018325ea"
         }
       ],
       "separator_spans": [
@@ -15390,8 +16317,20 @@
           "end": 75
         },
         {
+          "start": 153,
+          "end": 154
+        },
+        {
+          "start": 280,
+          "end": 281
+        },
+        {
           "start": 325,
           "end": 328
+        },
+        {
+          "start": 414,
+          "end": 415
         },
         {
           "start": 450,
@@ -15406,7 +16345,7 @@
       "line": 1018,
       "digest": "ce4fc05a85a0dbac6c3dbc83e3a7f4fb293428b65928689c00a7adbf26577a86",
       "text": "| Discover private, generated, test, descendant, symlink, non-regular, and `target` sources. | The captured distribution set includes private, non-exported, generated, and ordinary `target` sources, applies every stated exclusion, and errors on represented non-regular distribution sources. Analysis and resource consumers remain planned. | Implemented Q12 distribution-set and filesystem-boundary tests; planned analysis-resource equality cases. |",
-      "child_count": 3,
+      "child_count": 5,
       "children": [
         {
           "id": "agent-language-services/S0351.c01",
@@ -15425,21 +16364,43 @@
           "spans": [
             {
               "start": 95,
-              "end": 338
+              "end": 290
             }
           ],
-          "digest": "01ed035af6f9a73f028032c2dfa05de83cfa254bd91ff8c273193511225f9207"
+          "digest": "5698d74bb30830432b15d852dccd8322bb43aab3f61c2089d0f04267b6b08ba2"
         },
         {
           "id": "agent-language-services/S0351.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 291,
+              "end": 338
+            }
+          ],
+          "digest": "27f542ce152b509ac3868810c86e5357a78f93a978f5933b95abf6766159eea5"
+        },
+        {
+          "id": "agent-language-services/S0351.c04",
           "lifecycle": "current",
           "spans": [
             {
               "start": 341,
+              "end": 404
+            }
+          ],
+          "digest": "9f8d2b34c78e3cf193b1772511fe76ed8bfb7b4b512320cb6bc15cd207aa68af"
+        },
+        {
+          "id": "agent-language-services/S0351.c05",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 405,
               "end": 446
             }
           ],
-          "digest": "5bfc66c394ff90ef855ef6f881268c5b6e591cb751a562184a33c4525706d8e2"
+          "digest": "613d7cb538618ba9430039cb788ed0e2886a240b3fd4cf2ee407f7c938871f5d"
         }
       ],
       "separator_spans": [
@@ -15452,8 +16413,16 @@
           "end": 95
         },
         {
+          "start": 290,
+          "end": 291
+        },
+        {
           "start": 338,
           "end": 341
+        },
+        {
+          "start": 404,
+          "end": 405
         },
         {
           "start": 446,
@@ -15530,7 +16499,7 @@
       "line": 1020,
       "digest": "a46a537b133afac7cff2e9f2688b30a24a5a1f11db61ebd921ba489c7d8ff16e",
       "text": "| Read a noncanonical, unknown, or mismatched snapshot URI through MCP. | The server returns `resource_not_found` without normalization, fallback, or filesystem access. The transport-independent resolver rejection table is already implemented and specified in [Package Virtual Sources](../specification/package-virtual-sources.md). | MCP adapter case mapping a catalog miss to `resource_not_found`. |",
-      "child_count": 3,
+      "child_count": 4,
       "children": [
         {
           "id": "agent-language-services/S0353.c01",
@@ -15545,17 +16514,28 @@
         },
         {
           "id": "agent-language-services/S0353.c02",
-          "lifecycle": "current",
+          "lifecycle": "planned",
           "spans": [
             {
               "start": 74,
-              "end": 331
+              "end": 168
             }
           ],
-          "digest": "eb992382b85a35c8702e9bdb5a2741a2f755afcf359900a3f43f09bcf778152f"
+          "digest": "82805ae490cc43e8fd3e742b0555ca5af8f949edc7e7a08d8fb5da11e3e2ac6a"
         },
         {
           "id": "agent-language-services/S0353.c03",
+          "lifecycle": "current",
+          "spans": [
+            {
+              "start": 169,
+              "end": 331
+            }
+          ],
+          "digest": "4c6244fb37dc2e0242d840b36e166a038ba350c6a6a41174756ad33b9beb0efb"
+        },
+        {
+          "id": "agent-language-services/S0353.c04",
           "lifecycle": "planned",
           "spans": [
             {
@@ -15576,6 +16556,10 @@
           "end": 74
         },
         {
+          "start": 168,
+          "end": 169
+        },
+        {
           "start": 331,
           "end": 334
         },
@@ -15592,7 +16576,7 @@
       "line": 1021,
       "digest": "6de204485d6fe83e6bc248793cb7e7980b698d772d3d9dd29fe614477977e62e",
       "text": "| Read a private distribution source or inspect package metadata. | The source is readable; metadata contains only the closed public allowlist and no dependency, URL, tool, path, or credential-bearing fields. | Q15 disclosure-policy cases. |",
-      "child_count": 3,
+      "child_count": 4,
       "children": [
         {
           "id": "agent-language-services/S0354.c01",
@@ -15607,17 +16591,28 @@
         },
         {
           "id": "agent-language-services/S0354.c02",
-          "lifecycle": "completed",
+          "lifecycle": "planned",
           "spans": [
             {
               "start": 68,
-              "end": 208
+              "end": 91
             }
           ],
-          "digest": "0e77ed453fa98a925a0327523b8dc5d98b937172250b5fd01301da274ee2508d"
+          "digest": "2cfb3a9dd599a3307212bf525f280c4772528ff8b2938cd8433fcc2e56434c37"
         },
         {
           "id": "agent-language-services/S0354.c03",
+          "lifecycle": "completed",
+          "spans": [
+            {
+              "start": 92,
+              "end": 208
+            }
+          ],
+          "digest": "6dc9ec54ac16d93cf3805a9d2e09349a3c1d56d232fd5d5ed7e8de06de38cd07"
+        },
+        {
+          "id": "agent-language-services/S0354.c04",
           "lifecycle": "planned",
           "spans": [
             {
@@ -15638,6 +16633,10 @@
           "end": 68
         },
         {
+          "start": 91,
+          "end": 92
+        },
+        {
           "start": 208,
           "end": 211
         },
@@ -15654,7 +16653,7 @@
       "line": 1022,
       "digest": "b4c777508411f659e4565bb947e57fc5f9e65fc2522a0ace765b53ae664dc7e7",
       "text": "| Keep returned dependency URIs while projects refresh or disappear. | Every published snapshot remains readable until shutdown; capacity failure never evicts an older URI. | Q10 resource-lifetime cases. |",
-      "child_count": 3,
+      "child_count": 4,
       "children": [
         {
           "id": "agent-language-services/S0355.c01",
@@ -15673,13 +16672,24 @@
           "spans": [
             {
               "start": 71,
-              "end": 172
+              "end": 128
             }
           ],
-          "digest": "bc849e46225d01f2bebd6aea78d1111c48a60f7159923c323c35ea1aec62ed65"
+          "digest": "5ea9c436b7b913f3a0230fe6113095409293a824821dc8a76b3e0382cfcee92a"
         },
         {
           "id": "agent-language-services/S0355.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 129,
+              "end": 172
+            }
+          ],
+          "digest": "bbed2316b16db30b0e94454dc8ca4c048724533d6db50eb672a877a02370420f"
+        },
+        {
+          "id": "agent-language-services/S0355.c04",
           "lifecycle": "planned",
           "spans": [
             {
@@ -15700,6 +16710,10 @@
           "end": 71
         },
         {
+          "start": 128,
+          "end": 129
+        },
+        {
           "start": 172,
           "end": 175
         },
@@ -15716,7 +16730,7 @@
       "line": 1023,
       "digest": "3de372a1216efe502495d55082c091a8dcb55eff4ec3037e98a98cec87ae0889",
       "text": "| Generate package docs. | The transport-independent catalog contains only exported modules and their public API; attached contracts, visible doctests that can reference the same exported package API, stream-aware expected-output fences, import-aware resolved schema documentation references, public schema alias targets, effect-row-binder signatures, and declaration-location URI lookup are preserved. MCP publication remains planned. | Implemented package-documentation unit tests and readable `doc` examples; planned MCP resource case. |",
-      "child_count": 3,
+      "child_count": 6,
       "children": [
         {
           "id": "agent-language-services/S0356.c01",
@@ -15735,21 +16749,54 @@
           "spans": [
             {
               "start": 27,
-              "end": 435
+              "end": 113
             }
           ],
-          "digest": "26f7f88498a9ee458b67aae3b0fb69b211e4f168744806c3628fda21bb4e2f21"
+          "digest": "98b182bf7a9e3a9771d2beb719556a1baf462594dd2410e84d3dd5137c814688"
         },
         {
           "id": "agent-language-services/S0356.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 114,
+              "end": 402
+            }
+          ],
+          "digest": "0dc686a746d8cf4affa48c291ad709ddf26aca11bfae2b960cfb67545c8dd720"
+        },
+        {
+          "id": "agent-language-services/S0356.c04",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 403,
+              "end": 435
+            }
+          ],
+          "digest": "ca481258f7a81aeb74e4d38554c980ea61d24d7f0a60c560da493e99370fcc6d"
+        },
+        {
+          "id": "agent-language-services/S0356.c05",
           "lifecycle": "current",
           "spans": [
             {
               "start": 438,
+              "end": 511
+            }
+          ],
+          "digest": "64a3495363e7b9702c66bd7b4c77f815f7827eaa5e557c4bc447a18bdcc95d74"
+        },
+        {
+          "id": "agent-language-services/S0356.c06",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 512,
               "end": 538
             }
           ],
-          "digest": "cfe81dd8e2364e877e42db19ee6a35f810de5fa18f4410930e917270e90a922c"
+          "digest": "6a5d7c7107ed8177058bc91292ac0c9036c51c2e70b76d4ab982daf83852d949"
         }
       ],
       "separator_spans": [
@@ -15762,8 +16809,20 @@
           "end": 27
         },
         {
+          "start": 113,
+          "end": 114
+        },
+        {
+          "start": 402,
+          "end": 403
+        },
+        {
           "start": 435,
           "end": 438
+        },
+        {
+          "start": 511,
+          "end": 512
         },
         {
           "start": 538,
@@ -15778,7 +16837,7 @@
       "line": 1024,
       "digest": "ed6712c19f4dce39038cced694837737e91310a545bcea01997bc0735643365c",
       "text": "| Change catalog semantics without changing package bytes. | The package digest stays fixed and the documentation catalog digest and URIs change. | Implemented package-documentation document-identity tests; planned MCP resource case. |",
-      "child_count": 3,
+      "child_count": 4,
       "children": [
         {
           "id": "agent-language-services/S0357.c01",
@@ -15808,10 +16867,21 @@
           "spans": [
             {
               "start": 148,
+              "end": 206
+            }
+          ],
+          "digest": "f3a0717bc974557fcc93155f7464a1bdadf6e5bca21c37e17d2d063f0cf6fa23"
+        },
+        {
+          "id": "agent-language-services/S0357.c04",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 207,
               "end": 233
             }
           ],
-          "digest": "abbac9122149f4641333b3ec8465e88400f07bec07948ad673d82f73f3ac29e7"
+          "digest": "6a5d7c7107ed8177058bc91292ac0c9036c51c2e70b76d4ab982daf83852d949"
         }
       ],
       "separator_spans": [
@@ -15828,6 +16898,10 @@
           "end": 148
         },
         {
+          "start": 206,
+          "end": 207
+        },
+        {
           "start": 233,
           "end": 235
         }
@@ -15840,7 +16914,7 @@
       "line": 1025,
       "digest": "18bdbdc6e33845c2c7de36bc62efb341e646936f925d5242b33a270f213aee9b",
       "text": "| Package documentation generation or doctest validation fails. | The transport-independent result contains ordered status diagnostics and no partial module or declaration catalog. Export paths that cannot derive compiler-valid source module identities fail generation. Negative doctests require parse diagnostics rather than semantic-only diagnostics. MCP status-resource publication remains planned. | Implemented atomic-generation-failure and invalid-export unit tests; planned MCP resource case. |",
-      "child_count": 3,
+      "child_count": 7,
       "children": [
         {
           "id": "agent-language-services/S0358.c01",
@@ -15859,21 +16933,65 @@
           "spans": [
             {
               "start": 66,
-              "end": 401
+              "end": 180
             }
           ],
-          "digest": "f96b8b7f62bbfdcd5cf942e0c1729c1150361c40ba28acfcb1571c4afbd01eb9"
+          "digest": "de092bbe667048bcfaef7e6bc6079ed7bc90c631a641d82c36a217cb2182cd15"
         },
         {
           "id": "agent-language-services/S0358.c03",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 181,
+              "end": 269
+            }
+          ],
+          "digest": "49e2647f97e8be7de858ce8f50c54cfe5b8eda87d0fa5f322cacb6146f1f2e5a"
+        },
+        {
+          "id": "agent-language-services/S0358.c04",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 270,
+              "end": 352
+            }
+          ],
+          "digest": "144a713dad356080f38316e98032bcbc53dae19fa5c6fedd2b2365dbac236d37"
+        },
+        {
+          "id": "agent-language-services/S0358.c05",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 353,
+              "end": 401
+            }
+          ],
+          "digest": "2c30a99a0aa6eed62dd401f89679e17e60d16306767f4fdc523d3022cf747e9e"
+        },
+        {
+          "id": "agent-language-services/S0358.c06",
           "lifecycle": "current",
           "spans": [
             {
               "start": 404,
+              "end": 472
+            }
+          ],
+          "digest": "40746d7e8a302cada5abdafcd4ae594a6b1577f06d0a8d4c291e0255c24018c8"
+        },
+        {
+          "id": "agent-language-services/S0358.c07",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 473,
               "end": 499
             }
           ],
-          "digest": "3f758c4127d29f63d1d4639c43cff9aab6e408d6a132bf22d347f11bc75d5204"
+          "digest": "6a5d7c7107ed8177058bc91292ac0c9036c51c2e70b76d4ab982daf83852d949"
         }
       ],
       "separator_spans": [
@@ -15886,8 +17004,24 @@
           "end": 66
         },
         {
+          "start": 180,
+          "end": 181
+        },
+        {
+          "start": 269,
+          "end": 270
+        },
+        {
+          "start": 352,
+          "end": 353
+        },
+        {
           "start": 401,
           "end": 404
+        },
+        {
+          "start": 472,
+          "end": 473
         },
         {
           "start": 499,
@@ -16894,7 +18028,7 @@
       "line": 1053,
       "digest": "cfff4a9ef5ac18cca0805623872e2846d00b01d4b2afee36a5cca355ebc63d25",
       "text": "The shared saved-snapshot definition and reference foundation is implemented\nand specified in\n[Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).\nThe Q11 package-snapshot digest transcript foundation is implemented and\nspecified in [Package Snapshot Digests](../specification/package-snapshots.md).\nThe Q12 filesystem capture and distribution-set foundation is implemented and\nspecified on the same page.\nThe portable package-identity and capture-validation foundation and its Q13\nmatrix are also implemented and specified on the same page.\nThe canonical package virtual-source URI and resolver foundation is implemented\nand specified in\n[Package Virtual Sources](../specification/package-virtual-sources.md).\nThe transport-independent exported package documentation catalog foundation,\nsame-capture manifest binding, path-derived module identity, stream-aware\nexpected-output publication, effect-row-binder signatures, and generated\ndoctest static gate, including same-package public API references, nested\nexpression declarations, public member aliases, shared expected-output\npending-state boundaries, hidden setup exclusion, integration-test source\nexclusion for embedded snapshots, test source export rejection,\noriginal-source remapping for generated doctest static diagnostics, and\nparse-only negative doctest matching, are implemented and specified in\n[Package Documentation Catalogs](../specification/package-documentation.md).\nDirect path, vendor, mirror, and locally available direct git dependency\ndefinition locations, embedded standard-library definition locations, the LSP\nvirtual-document request, and the VSCode content provider are implemented and\nspecified in\n[Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename).\nThe implemented LSP direct git path includes local path, local `file:` URL,\nand already materialized remote URL source spellings, package-lock-aligned\nunique selector and `subdir` validation, snapshot-URI independence from\nphysical materialization paths, and retained exact-byte reads.\nThis bounded implementation retains validated workspace, direct-dependency,\nand embedded standard-package captures for the definition-to-read path. It\ndoes not implement dependency reference search or MCP resources.\nThe MCP workspace-definition slice reuses the saved capture boundary and\nreturns `file:` locations for functions, type constructors, handler context\nparameters, handler operation clause parameters, and exact test-companion\naccess to private target functions. Dependency and standard-library locations,\nthe proposal's additional symbol kinds, and all MCP references remain planned.\nThe bounded saved-workspace function-reference slice is defined under\n[Next Slice: Saved Workspace Function References](#next-slice-saved-workspace-function-references).\nThe subsequent slices are:",
-      "child_count": 4,
+      "child_count": 14,
       "children": [
         {
           "id": "agent-language-services/S0375.c01",
@@ -16902,57 +18036,207 @@
           "spans": [
             {
               "start": 0,
-              "end": 2242
+              "end": 184
             }
           ],
-          "digest": "667f5070822afb22562e6cee26578ba493d22c4f7742e327df3ec03c817f6549"
+          "digest": "1c9c4c510459703c9024c76dbd15e9c70d6e0ce738d0d4a4466136cebe31d8c8"
         },
         {
           "id": "agent-language-services/S0375.c02",
+          "lifecycle": "current",
+          "spans": [
+            {
+              "start": 185,
+              "end": 337
+            }
+          ],
+          "digest": "40039bb6298c3394b1fb913fbe019c58d43541baf8e2c8932442a7c0fd74e587"
+        },
+        {
+          "id": "agent-language-services/S0375.c03",
+          "lifecycle": "current",
+          "spans": [
+            {
+              "start": 338,
+              "end": 443
+            }
+          ],
+          "digest": "1a35acce1e10cfff9b912094cb1a36f229bcb7155c15eb1153389b4ac0f68fb2"
+        },
+        {
+          "id": "agent-language-services/S0375.c04",
+          "lifecycle": "current",
+          "spans": [
+            {
+              "start": 444,
+              "end": 579
+            }
+          ],
+          "digest": "7f6707ef9551f066901eb112b67853d9691e28dcce213b43cdd303e7a7640390"
+        },
+        {
+          "id": "agent-language-services/S0375.c05",
+          "lifecycle": "current",
+          "spans": [
+            {
+              "start": 580,
+              "end": 748
+            }
+          ],
+          "digest": "41afb6771cacb38531c00df0c27817184e959b2877f5fceb4a005e919a180666"
+        },
+        {
+          "id": "agent-language-services/S0375.c06",
+          "lifecycle": "current",
+          "spans": [
+            {
+              "start": 749,
+              "end": 1475
+            }
+          ],
+          "digest": "c2b7e78858307aae2d14daa8e4c564ad22c75080a1364e8189e2fdc98fa7c217"
+        },
+        {
+          "id": "agent-language-services/S0375.c07",
+          "lifecycle": "current",
+          "spans": [
+            {
+              "start": 1476,
+              "end": 1808
+            }
+          ],
+          "digest": "c492dc2a797f90e9f857e53cbdd82f63bfc515bd3e9cc4aa6d3b9aca96f055a3"
+        },
+        {
+          "id": "agent-language-services/S0375.c08",
+          "lifecycle": "current",
+          "spans": [
+            {
+              "start": 1809,
+              "end": 2094
+            }
+          ],
+          "digest": "7a28089ceb164147c036bf8d4c3c6568e89c403f0a0705a1a5fac2269fa58db6"
+        },
+        {
+          "id": "agent-language-services/S0375.c09",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 2095,
+              "end": 2242
+            }
+          ],
+          "digest": "c3640c9f8fd228456c231440a2f53b36a4ea51c7ba4a9c3592c50434dbca43d1"
+        },
+        {
+          "id": "agent-language-services/S0375.c10",
           "lifecycle": "planned",
           "spans": [
             {
               "start": 2243,
+              "end": 2310
+            }
+          ],
+          "digest": "999fc9e449e5c3dcb6899e4efc065cd711e7489a7d807ec49cc9321c79915b75"
+        },
+        {
+          "id": "agent-language-services/S0375.c11",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 2311,
               "end": 2569
             }
           ],
-          "digest": "10e725890d58e3c3b3c65e7ad277fa25ffffb26bea6e332d31152882f049d1e8"
+          "digest": "3e31f1285ed517f92e3bdfbe186d52ef97fada2baa82cea5b6a72f93ee690e9f"
         },
         {
-          "id": "agent-language-services/S0375.c03",
+          "id": "agent-language-services/S0375.c12",
           "lifecycle": "planned",
           "spans": [
             {
               "start": 2570,
-              "end": 2774
+              "end": 2691
             }
           ],
-          "digest": "ecb01dc3a707c735aea624090d2b56609f75544dbb1573990f29f3c29e1c78d7"
+          "digest": "3b30aa928507df55377e7eaeff96d967259acd1ecddaa71a37149473aafaa1db"
         },
         {
-          "id": "agent-language-services/S0375.c04",
+          "id": "agent-language-services/S0375.c13",
           "lifecycle": "planned",
           "spans": [
             {
-              "start": 2775,
+              "start": 2692,
+              "end": 2861
+            }
+          ],
+          "digest": "94bd7e2997eb54febca99073c1708bdb3143243d3d5c0427e09d0b7b38a815d4"
+        },
+        {
+          "id": "agent-language-services/S0375.c14",
+          "lifecycle": "planned",
+          "spans": [
+            {
+              "start": 2862,
               "end": 2888
             }
           ],
-          "digest": "860158528caa93ba47d569bf14e57e6d1f06e458ed09c3b8573e16b620cf9fe8"
+          "digest": "075c00cadbf7d6c9dc48f576b22c2082fc80efaeb538366a6323156747535151"
         }
       ],
       "separator_spans": [
         {
+          "start": 184,
+          "end": 185
+        },
+        {
+          "start": 337,
+          "end": 338
+        },
+        {
+          "start": 443,
+          "end": 444
+        },
+        {
+          "start": 579,
+          "end": 580
+        },
+        {
+          "start": 748,
+          "end": 749
+        },
+        {
+          "start": 1475,
+          "end": 1476
+        },
+        {
+          "start": 1808,
+          "end": 1809
+        },
+        {
+          "start": 2094,
+          "end": 2095
+        },
+        {
           "start": 2242,
           "end": 2243
+        },
+        {
+          "start": 2310,
+          "end": 2311
         },
         {
           "start": 2569,
           "end": 2570
         },
         {
-          "start": 2774,
-          "end": 2775
+          "start": 2691,
+          "end": 2692
+        },
+        {
+          "start": 2861,
+          "end": 2862
         }
       ]
     },
