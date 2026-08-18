@@ -37,20 +37,33 @@
       "text": "The workspace-project inventory, saved project diagnostics, and bounded\nworkspace-definition slices are\nimplemented and specified in\n[MCP Workspace Projects, Diagnostics, And Definitions](../specification/mcp.md). `veln mcp`\ncurrently exposes `workspace_projects`, `refresh_workspace`, and\n`check_project`, plus workspace-only `definition` for the language service's\ncurrent function, constructor, and handler-binding symbol set. Broader\ndefinition and reference navigation, documentation resources and search,\npagination, snapshot resource lifetime, conformance completion, and client\nplugin work in this proposal remain planned.",
       "digest": "f40307e1207366bd2bd438698f0e9d67b204029d063a13876130bb9cdbda07aa",
       "source_class": "conformance",
-      "child_count": 1,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-R0002-L01",
           "heading": "Implementation Status",
-          "lifecycle": "planned",
+          "lifecycle": "current",
           "spans": [
             [
               0,
+              430
+            ]
+          ],
+          "text": "The workspace-project inventory, saved project diagnostics, and bounded\nworkspace-definition slices are\nimplemented and specified in\n[MCP Workspace Projects, Diagnostics, And Definitions](../specification/mcp.md). `veln mcp`\ncurrently exposes `workspace_projects`, `refresh_workspace`, and\n`check_project`, plus workspace-only `definition` for the language service's\ncurrent function, constructor, and handler-binding symbol set. ",
+          "digest": "e51db2d9894fb65e0e822a271a71a5c07fa832cfee725824459503f2eb222d63"
+        },
+        {
+          "id": "ALS-R0002-L02",
+          "heading": "Implementation Status",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              430,
               630
             ]
           ],
-          "text": "The workspace-project inventory, saved project diagnostics, and bounded\nworkspace-definition slices are\nimplemented and specified in\n[MCP Workspace Projects, Diagnostics, And Definitions](../specification/mcp.md). `veln mcp`\ncurrently exposes `workspace_projects`, `refresh_workspace`, and\n`check_project`, plus workspace-only `definition` for the language service's\ncurrent function, constructor, and handler-binding symbol set. Broader\ndefinition and reference navigation, documentation resources and search,\npagination, snapshot resource lifetime, conformance completion, and client\nplugin work in this proposal remain planned.",
-          "digest": "f40307e1207366bd2bd438698f0e9d67b204029d063a13876130bb9cdbda07aa"
+          "text": "Broader\ndefinition and reference navigation, documentation resources and search,\npagination, snapshot resource lifetime, conformance completion, and client\nplugin work in this proposal remain planned.",
+          "digest": "9cbd9c71da7c0a0d6a212df8a6fdd6fe80987449182011ae31aa38b97dd22e09"
         }
       ]
     },

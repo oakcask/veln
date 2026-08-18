@@ -36,10 +36,20 @@
       "leaves": [
         {
           "id": "ALS-R0002-L01",
-          "lifecycle": "planned",
+          "lifecycle": "current",
           "spans": [
             [
               0,
+              430
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0002-L02",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              430,
               630
             ]
           ]

@@ -40,6 +40,16 @@
           "spans": [
             [
               0,
+              430
+            ]
+          ]
+        },
+        {
+          "id": "ALS-R0002-L02",
+          "source_class": "conformance",
+          "spans": [
+            [
+              430,
               630
             ]
           ]

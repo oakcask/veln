@@ -15,6 +15,18 @@
       },
       {
         "source_id": "ALS-R0002-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0002-L02",
         "lifecycle": "planned",
         "destination": {
           "kind": "proposal",

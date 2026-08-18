@@ -18,10 +18,22 @@
       "id": "ALS-R0002-L01",
       "root": "ALS-R0002",
       "source_class": "conformance",
-      "lifecycle": "planned",
+      "lifecycle": "current",
       "spans": [
         [
           0,
+          430
+        ]
+      ]
+    },
+    {
+      "id": "ALS-R0002-L02",
+      "root": "ALS-R0002",
+      "source_class": "conformance",
+      "lifecycle": "planned",
+      "spans": [
+        [
+          430,
           630
         ]
       ]
