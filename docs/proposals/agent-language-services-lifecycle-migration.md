@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The agent-language-services proposal structure, inventory review gate, target provenance, frozen source-universe contract, lifecycle review authority, migration-ledger schema, bootstrap branch topology, diff-guard phase boundary, or lifecycle destinations change.
+update-when: The agent-language-services proposal structure, G0-G1-G2 review-state transition, target provenance, frozen source-universe contract, lifecycle review authority, migration-ledger schema, bootstrap branch topology, diff-guard phase boundary, or lifecycle destinations change.
 ---
 
 # Agent Language Services Lifecycle Migration
@@ -20,10 +20,9 @@ The client-platform prerequisite is complete and recorded under
 [Agent Language Services Platform Matrix Closure](../reference/implemented-proposals/agent-language-services-platform-matrix-closure.md).
 
 Do not select this proposal while
-[Agent Language Services Inventory Review Gate](agent-language-services-inventory-review-gate.md)
-remains under `docs/proposals/`. That gate must establish PR-visible target
-provenance and an immutable reviewed source-decision authority before another
-inventory implementation begins.
+[Agent Language Services Inventory Review Gate](agent-language-services-inventory-review-gate.md#g0-to-g1-review-gate)
+remains under `docs/proposals/`. That gate must complete the finite `G0` to
+`G1` transition before another inventory implementation begins.
 
 After the gate completes, select only the corrected frozen source inventory PR
 first. Its base is the default branch revision that contains all completed
@@ -39,6 +38,11 @@ Generate the inventory target only after the gate completion is present on the
 default branch. Discard any earlier Markdown target and sidecar. A commit inside
 the inventory branch, including one exposed through a temporary pull-request
 base branch, cannot substitute for the post-gate default-branch base.
+
+The frozen-inventory PR is the `G1` to `G2` transition defined by the gate
+proposal. CI must invoke its range-aware validator with the PR base, head,
+event base branch, and independently resolved default branch. Content-only
+artifact validation is not evidence that the transition is permitted.
 
 ## Problem
 

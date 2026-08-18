@@ -1,95 +1,181 @@
 ---
 role: proposal
-update-when: The agent-language-services target provenance, reviewed source-decision authority, frozen-inventory bootstrap contract, or lifecycle validator acceptance evidence changes.
+update-when: The agent-language-services review-state transition, target provenance, reviewed source-decision authority, frozen-inventory bootstrap allowlist, or lifecycle range-validation evidence changes.
 ---
 
 # Agent Language Services Inventory Review Gate
 
 ## Summary
 
-Establish review authorities that a later frozen-inventory implementation can
-consume but cannot create or revise. This documentation and repository-policy
-gate is the only selectable agent-language-services lifecycle work until it
-completes.
+Establish the reviewed authority and range-aware PR check that must exist on
+the default branch before a frozen inventory is created. The only selectable
+target in this proposal is the `G0` to `G1` transition below.
 
 ## Problem
 
-Repeated frozen-inventory attempts passed their own validators while preserving
-incorrect lifecycle decisions. The attempts created source classification,
-inventory leaves, lifecycle expectations, and mutation tests in one change.
-Agreement between those outputs therefore proved only that the same decision
-was copied consistently.
+Repeated frozen-inventory attempts passed validators that generated source
+classification, lifecycle decisions, inventory leaves, and expected results
+together. Agreement between those outputs proved only that one decision was
+copied consistently. It did not prove that the decision matched the source.
 
-The checked target-readiness policy also relies on ignored files under
-`prompts/`. CI can validate a sidecar when a caller supplies its path, but the
-pull request does not expose whether the sidecar existed or passed before
-implementation. A Markdown-only handoff can therefore reach review even though
-repository instructions reject it.
+The attempts also treated an ignored Markdown handoff as sufficient
+authorization. Its adjacent checked target sidecar was absent or stale, and the
+pull request did not expose that failure. A later attempt added the review gate
+and the frozen inventory in one branch, so neither the reviewed authority nor
+the target base preceded its consumer.
 
-The next inventory attempt needs two authorities that exist before its branch:
-a pull-request-visible target provenance contract and a reviewed source-decision
-artifact. The inventory implementation may consume those authorities. It may
-not generate, replace, or reinterpret them.
+A content-only `validate` command cannot detect that history. The repository
+needs one finite state transition contract whose inputs include the PR base,
+head, event base branch, and independently resolved default branch.
 
-A commit inside the inventory branch is not a pre-branch authority. Retargeting
-the pull request to that commit through a temporary base branch does not make it
-the repository default branch. A guard that treats the pull-request base name as
-another candidate default branch can therefore accept the exact same
-self-authored authority that this gate exists to prevent.
+## Review State Transition
 
-A target handoff also becomes stale when its proposal anchor, readiness state,
-prerequisite set, or default-branch base changes. The inventory implementation
-must start from a newly checked handoff after this gate merges. An older
-Markdown target, with or without a branch-local replacement for its ignored
-sidecar, cannot authorize the bootstrap.
+The validator recognizes exactly these repository states:
 
-## Scope
+| State | Required default-branch contents | Forbidden contents |
+| --- | --- | --- |
+| `G0` | This active gate proposal is Ready. | A completed gate record, reviewed source-decision authority, or frozen lifecycle artifact. |
+| `G1` | The completed gate record, reviewed source-decision authority, range validator, and the lifecycle proposal's `#frozen-source-universe` Ready route. | This active gate proposal or any frozen lifecycle artifact. |
+| `G2` | Every `G1` authority plus tracked inventory-target provenance and the complete frozen artifact set. | A change from the `G1` bytes of the completed gate record or reviewed source-decision authority. |
 
-This proposal adds a checked gate for the later frozen-inventory bootstrap. It
-does not add the frozen inventory, migration ledger schema, production ledger,
-or migrated proposal destinations.
+The only permitted transitions are:
 
-The gate defines:
+| Base | Head | Result |
+| --- | --- | --- |
+| `G0` | `G0` | Accept ordinary changes that do not stage a `G1` authority, inventory-target provenance, or a frozen lifecycle artifact. |
+| `G0` | `G1` | Accept only the review-gate PR described below. |
+| `G1` | `G2` | Accept only a later frozen-inventory PR whose target was issued from that exact `G1` commit. |
+| `G0` | `G2` | Reject the combined gate-and-inventory history regardless of commit order. |
+| `G1` | `G1` | Apply the immutable-authority guard when the changed paths select this workflow. |
+| `G2` | `G2` | Apply the post-bootstrap immutable-artifact guard. |
+| Any other pair | Any other pair | Reject the unrecognized lifecycle transition. |
 
-- a tracked target-provenance format that binds an implementation PR to its
-  proposal path, heading, target kind, exact default-branch base, and exact
-  prerequisite set;
-- a PR check that requires and validates that provenance whenever the frozen
-  lifecycle artifact set is first added, and compares it with the repository
-  default branch and pull-request event without deriving either identity from
-  the other;
-- a reviewed source-decision artifact for the unchanged
-  `agent-language-services.md` source at the path shown below;
-- a structural parser that checks source-node and Unicode-scalar coverage but
-  cannot emit conformance, identity, lifecycle, or destination decisions; and
-- a finite mutation matrix that proves the reviewed decisions are connected to
-  exact source spans and cannot be replaced by detached name lists.
+For pull requests, `--event-base-ref` is the pull-request base branch name and
+`--default-ref` resolves the repository default branch. The names must match,
+and the event base commit, `--base`, and resolved default-branch commit must be
+identical. A branch-local ancestor, local branch with the same name, or
+temporary stacked base is not equivalent.
 
-The tracked target provenance remains with the frozen review artifacts after
-merge. It is not a transient `prompts/` file. The later bootstrap guard treats
-it and the reviewed source-decision artifact as immutable inputs.
+For a push, `--event-base-ref` is the pushed branch name. It must equal the
+repository default-branch name resolved independently through `--default-ref`.
+The `--base` input is the event's pre-push revision, `--head` is the new
+revision, and the resolved default ref at validation time must equal `--head`.
+The validator must not use the new revision as both base and head.
 
-For a pull request, the event base branch name must equal the repository default
-branch name. The event base commit must equal the provenance base commit. The
-guard resolves the repository default branch independently and verifies the
-same commit there. An ancestor of the head, a local branch named like the
-default branch, or the tip of a non-default pull-request base branch is not an
-equivalent authority. Push validation uses the pre-push default revision as its
-base and does not reuse the new head as the old state.
+The CI entry point is:
 
-The reviewed source-decision path is:
+```text
+node workflow-scripts/check-agent-language-services-lifecycle.mjs validate-range --base <base-sha> --head <head-sha> --event-base-ref <base-name> --default-ref <default-ref>
+```
+
+All four range inputs are required. An absent, empty, or all-zero revision is
+an error. The content-only `validate` command may support local artifact review,
+but CI must not use it as the PR or push transition check.
+
+## G0 To G1 Review Gate
+
+This subsection is the complete next target. The PR starts from `G0` and ends
+at `G1`. It does not add inventory-target provenance, the source-universe
+contract, frozen inventory, lifecycle manifest, migration-ledger schema, or
+migration-ledger fixture.
+
+The reviewed source-decision authority is stored at:
 
 ```text
 docs/reference/agent-language-services-lifecycle-review/source-decisions.json
 ```
 
-It becomes immutable when this gate merges, before a frozen inventory exists.
-Every PR and default-branch push that changes that artifact runs the lifecycle
-workflow. A later proposal may supersede the
-authority only by replacing this lifecycle migration plan; an ordinary
-correction PR may not rewrite the inventory input.
+The authority enumerates every non-frontmatter paragraph, complete CommonMark
+list item including continuation lines, table row, and nonempty fenced line.
+Each root records exact source text and digest plus one reviewed class of
+`conformance` or `supporting`. Each semantic leaf records exact Unicode-scalar
+spans and one reviewed lifecycle. Conformance leaves use `current`,
+`completed`, or `planned`; supporting leaves may also use `removed`.
 
-The frozen-inventory bootstrap allowlist contains only:
+Every finite identity records its kind, literal name, root, leaf, and exact
+span. The checked identity sets include Q01 through Q22, exactly six saved
+workspace function-reference rows, every row and named cell of both closed
+matrices, every unresolved acceptance row, tool and resource kinds,
+package-document declaration kinds, LSP encodings, and literal plugin
+compatibility cells.
+
+The structural parser may emit only source structure, text, spans, and digests.
+No repository command may generate or overwrite `source_class`, finite
+identities, lifecycle, or destination fields. A skeleton writer may emit only
+the structural fields and must write to a path other than the reviewed
+authority. Semantic decisions are reviewed data, not source-vocabulary output.
+
+The review includes explicit goldens for these easily misclassified shapes:
+
+| Source shape | Required decision |
+| --- | --- |
+| The implementation-status paragraph names exposed tools and remaining work. | Split current and planned clauses. |
+| A continued list item extends definition and reference lookup beyond the implemented workspace symbol set. | Parse one complete list item and classify the extension as planned. |
+| A planned clause mentions an implemented boundary. | Keep the planned requirement separate from the boundary statement. |
+| A source-index requirement says that some cases are currently implemented. | Classify the generalization requirement as planned. |
+| An implemented acceptance row contains case, result, and evidence cells. | Bind all current cells to the checked case that supports them. |
+| An evidence cell contains implemented and planned evidence. | Split it into lifecycle-homogeneous leaves. |
+| A future capability sentence uses the word `completed`. | Classify the requirement as planned. |
+
+The `G0` to `G1` changed-path allowlist is closed:
+
+```text
+.github/workflows/workflow--test-scripts.yaml
+docs/proposals/README.md
+docs/proposals/agent-language-services-inventory-review-gate.md
+docs/proposals/agent-language-services-lifecycle-migration.md
+docs/reference/README.md
+docs/reference/agent-language-services-lifecycle-review/source-decisions.json
+docs/reference/implemented-proposals/README.md
+docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md
+docs/reference/proposal-target-readiness/manifest.json
+workflow-scripts/check-agent-language-services-lifecycle.mjs
+workflow-scripts/check-agent-language-services-lifecycle.test.mjs
+```
+
+A rename, copy, deletion, or Git type change is a change to both the source and
+destination paths. No frozen artifact path belongs to this allowlist.
+
+### Acceptance Model
+
+| Case | Expected result | Planned evidence |
+| --- | --- | --- |
+| Invoke transition validation without every range input. | Reject before content validation and name the missing input. | Missing, empty, and all-zero argument cases. |
+| Change ordinary documentation while the gate remains active. | Accept `G0 -> G0` only when the head adds no completed gate record, reviewed authority, target provenance, or frozen artifact. | Unrelated-document control plus one protected-path mutation for each later-state artifact family. |
+| Validate an exact `G0` base and gate-only `G1` head. | Accept the gate transition and report `G0 -> G1`. | Temporary Git history with the default branch at the event base. |
+| Complete the gate and add any frozen artifact in one branch. | Reject `G0 -> G2` regardless of commit ordering. | Combined-history fixture and one direct forbidden-path assertion per frozen artifact family. |
+| Retarget the gate PR to a non-default or stacked branch. | Reject even when that branch name or commit matches another supplied input. | Distinct event-base and independently resolved default-ref fixtures. |
+| Parse the unchanged umbrella proposal. | Cover every complete source root and meaningful Unicode scalar without semantic fields. | Parser result-shape, CommonMark continuation, separator, and non-BMP assertions. |
+| Run every repository writer. | Preserve the reviewed authority byte-for-byte and emit no semantic field from a structural writer. | Writer non-mutation and output-shape assertions. |
+| Review known mixed and ambiguous source shapes. | Match every golden decision in the table above without keyword inference. | One positive golden and one wrong or joined lifecycle mutation per row. |
+| Remove or detach reviewed source data. | Reject a missing root, semantic leaf, supporting classification, identity occurrence, or span even when a consumer copy changes to match. | Independent mutation per record class and finite identity kind. |
+| Change an unrelated or frozen path in the gate PR. | Reject the closed `G0 -> G1` allowlist and name the path. | Add, modify, copy, rename, delete, and Git-type-change fixtures. |
+| Run the documentation workflow for a gate path. | Invoke `validate-range` with event and default-branch inputs. | Workflow registration assertion plus authority-only JSON path-filter case. |
+| Simulate a later exact `G1 -> G2` transition. | Accept only when tracked provenance, event base, and default-branch commit all equal the exact `G1` commit. | Accepted temporary Git history with a separately merged `G1`. |
+| Omit or stale the later handoff. | Reject a missing checked `TARGET.json` before implementation and reject missing, stale, blocked, wrong-anchor, or wrong-prerequisite tracked provenance in the PR. | Target-readiness cases plus one range fixture per provenance field. |
+| Change the `G1` authority together with a frozen consumer. | Reject the synchronized mutation using bytes read from the exact base commit. | Temporary Git history that changes both reviewed and generated copies. |
+| Validate a merge push to the default branch. | Use the event's pre-push revision as `--base`, the new revision as `--head`, and accept valid `G0 -> G1` and `G1 -> G2` pushes without reclassifying either as state preservation. | Accepted push-event fixture for each transition plus wrong-branch, wrong-pre-push-base, and reused-head rejection fixtures. |
+
+Each rejection fixture changes one required fact unless the case explicitly
+tests a synchronized mutation. A fixture with multiple unrelated invalid fields
+does not prove which invariant rejected the input.
+
+### Completion Rule
+
+The gate completes only when all fifteen acceptance rows pass. Move this page
+to the implemented-proposal records, remove it from the proposal catalog, and
+move only `agent-language-services-lifecycle-migration.md#frozen-source-universe`
+to Ready. `G1` must be merged to the default branch before a new inventory
+target and sidecar are issued.
+
+## G1 To G2 Inventory Handoff
+
+The later frozen-inventory PR consumes `G1`; it does not revise it. Its tracked
+provenance names the exact `G1` default-branch commit, proposal subsection, and
+prerequisite set. The event base commit, provenance base commit, and
+independently resolved default-branch commit must be identical.
+
+The inventory bootstrap allowlist contains only:
 
 ```text
 .github/workflows/workflow--test-scripts.yaml
@@ -99,89 +185,14 @@ workflow-scripts/check-agent-language-services-lifecycle.mjs
 workflow-scripts/check-agent-language-services-lifecycle.test.mjs
 ```
 
-The lifecycle reference family includes the tracked target provenance and its
-short route page.
-
-The reviewed source-decision artifact is not in that allowlist. Neither are
-proposal pages, implementation records, toolchain sources, executable cases,
-semantic baselines, or unrelated documentation.
-
-## Reviewed Source Decisions
-
-The source-decision artifact enumerates every non-frontmatter paragraph,
-complete CommonMark list item including continuation lines, table row, and
-nonempty fenced line. Each root records its exact source digest and one of
-`conformance` or `supporting`.
-
-Every conformance root enumerates its semantic leaves. Every leaf records exact
-Unicode-scalar spans and one lifecycle from `current`, `completed`, or
-`planned`. Supporting leaves may additionally use `removed`. Separator spans
-contain only whitespace or parser-identified Markdown table punctuation.
-
-Every named finite identity records its kind, name, source root, leaf, and exact
-span. This includes Q01 through Q22, the six saved-reference rows, both closed
-matrices, every unresolved acceptance row, tool and resource kinds,
-package-document declaration kinds, LSP encodings, and literal plugin
-compatibility cells. A top-level list of names without source occurrences is
-not an identity authority.
-
-Semantic lifecycle decisions are reviewed data. The parser and artifact writer
-must not infer them from words such as `implemented`, `current`, `planned`,
-`future`, or `remaining`. The validator checks completeness, span ownership,
-digest binding, and agreement with the reviewed data. It does not claim to
-derive meaning from prose.
-
-The review must explicitly cover these known mixed or easily misclassified
-source shapes:
-
-| Source shape | Required decision |
-| --- | --- |
-| The implementation-status paragraph that names exposed tools and work that remains planned. | Split current and planned clauses into separate leaves. |
-| The continued list item for definition and reference lookup beyond the implemented workspace symbol set. | Parse the continuation as one list item and classify the remaining work as planned. |
-| A planned clause that mentions an implemented boundary. | Keep the planned requirement separate from the implemented boundary statement. |
-| The requirement to generalize source indexes beyond cases that are currently implemented. | Classify the generalization requirement as planned; the phrase `currently implemented` describes only its boundary. |
-| An acceptance row with an implemented case, result, and evidence. | Classify all implemented cells as current and bind each evidence claim to its matching checked case. |
-| An acceptance row whose evidence cell contains both implemented and planned evidence. | Split the evidence cell into lifecycle-homogeneous leaves. |
-| A future capability sentence that uses the word `completed`. | Classify by the requirement's lifecycle, not by the isolated word. |
-
-## Acceptance Model
-
-| Case | Expected result | Planned evidence |
-| --- | --- | --- |
-| Open a frozen-inventory bootstrap PR without tracked target provenance. | Reject the PR before artifact validation and name the missing provenance artifact. | PR-event fixture with the complete frozen artifact addition and no provenance. |
-| Supply malformed, blocked, stale, stacked, wrong-base, wrong-heading, or wrong-prerequisite provenance. | Reject the PR and name the mismatched readiness fact. | One rejection fixture for each provenance field and base relation. |
-| Supply valid provenance from the exact default-branch base after this gate completes. | Accept provenance and make the reviewed source-decision artifact available as an immutable input. | Accepted temporary Git history with the completed gate record on the merge base. |
-| Retarget the inventory PR to a non-default branch whose tip equals the provenance base. | Reject the PR because the event base branch is not the repository default branch, even when that branch contains the gate record and reviewed authority. | PR-event fixture with distinct repository-default and pull-request-base names plus matching provenance and event base commits. |
-| Point provenance at an earlier commit in the inventory PR that creates the gate record and reviewed authority. | Reject the PR because the event base commit differs from provenance and the authority did not precede the branch. | Temporary Git history that stages authority, removes generated artifacts, then restores them later in the same head history. |
-| Reuse a target handoff issued before this gate merged or before the frozen-source subsection became Ready. | Reject the handoff before implementation because its base, proposal anchor, readiness state, or prerequisites differ from the post-gate default branch. | Checked target-readiness fixtures for a missing sidecar, the obsolete umbrella anchor, the pre-gate base, and a branch-local replacement sidecar. |
-| Parse the unchanged umbrella proposal. | Cover every complete source root and every meaningful Unicode scalar exactly once without emitting semantic fields. | Parser result-shape assertion plus root and scalar coverage checks. |
-| Generate reviewed conformance or lifecycle decisions from parser output, source vocabulary, or inventory output. | Reject the authority because reviewed decisions must precede and remain independent from their consumer. The authority contains both conformance and supporting roots, and the inventory writer cannot create or replace it. | Writer non-mutation assertion, parser result-shape assertion, explicit supporting-root goldens, and ambiguous-word lifecycle goldens including the source-index generalization requirement. |
-| Remove a source root, a semantic leaf, a supporting classification, or an identity occurrence from the reviewed authority. | Reject the artifact even when another reviewed file is changed to match. | Independent mutations for each record class. |
-| Delete or detach one identity from each finite identity kind. | Reject the artifact and name the missing source-bound occurrence. | One mutation per identity kind, including both matrix kinds and unresolved rows. |
-| Join lifecycle-different clauses or split a complete list item at a continuation line. | Reject the source-decision artifact. | The six required source-shape cases plus gap, overlap, out-of-range, non-BMP, and continuation-line mutations. |
-| Change a reviewed lifecycle and copy the same change into a consumer artifact. | Reject the consumer because the immutable pre-branch authority differs. | Temporary Git history whose base has the reviewed decision and whose head changes both copies. |
-| Change the reviewed source-decision authority after this gate merges but before an inventory exists. | Run the workflow and reject the immutable authority change. | Gate-complete, pre-inventory PR and push range fixtures plus an authority-only path-filter fixture. |
-| Change only a frozen JSON artifact after bootstrap. | Run the workflow and reject the immutable-path change. | JSON-only path-filter fixture and post-bootstrap range test. |
-| Merge the bootstrap to the default branch. | Validate the pre-push base against the new head without treating the new head as the old default state. | Push-event fixture for the bootstrap transition. |
-| Add an unrelated source, workflow, documentation, or toolchain path to the bootstrap PR. | Reject every path outside the explicit bootstrap allowlist. | Add, copy, rename, delete, and Git-type-change fixtures inside and outside the allowlist. |
-| Complete this gate and add frozen artifacts in one pull-request history. | Reject the bootstrap regardless of commit ordering; the gate record, reviewed source decisions, proposal catalog, and readiness manifest are outside the bootstrap allowlist and absent from its event base. | Combined-gate-and-bootstrap history plus per-path rejection assertions for every gate-only path family. |
-| Change only the lifecycle validator, its tests, or workflow registration after bootstrap. | Reject the protected-path change even when no lifecycle JSON path changes. | One post-bootstrap range fixture for each protected non-JSON path and one permitted unrelated-document control. |
-| Run diff-scope validation without a concrete event or explicit base/head range. | Reject the invocation with the missing range facts instead of reporting that no protected files changed. | Local-command fixture with absent, empty, and all-zero base or head values. |
-
-Each rejection fixture changes one required fact unless the row explicitly
-tests synchronized mutation. A fixture with multiple unrelated invalid fields
-does not prove which invariant rejected the input.
-
-## Completion Rule
-
-This gate completes only when all nineteen acceptance rows pass. Move its
-completed record out of `docs/proposals/` before returning the lifecycle
-migration to Ready. The completed record must link the immutable reviewed
-source-decision artifact and the checked target-provenance route.
+The reviewed source-decision authority, active proposals, completed gate
+record, MCP harness, executable MCP fixtures, semantic baselines, and unrelated
+documentation are outside this allowlist. The lifecycle migration proposal
+owns the frozen artifacts and their content acceptance model.
 
 ## Non-Goals
 
-- Generating lifecycle labels from source vocabulary.
-- Adding or accepting the frozen inventory in the same PR as this gate.
+- Generating lifecycle labels or finite identities from source vocabulary.
+- Adding or accepting frozen lifecycle artifacts in the `G0` to `G1` PR.
 - Migrating `agent-language-services.md` content.
 - Changing Veln language, MCP, LSP, compiler, or runtime behavior.

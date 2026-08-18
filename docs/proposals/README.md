@@ -23,7 +23,7 @@ also states it.
   [identifier-casing.md](identifier-casing.md).
 - Establish PR-visible target provenance and an independent reviewed source
   authority before another agent-language-services inventory attempt:
-  [agent-language-services-inventory-review-gate.md](agent-language-services-inventory-review-gate.md).
+  [agent-language-services-inventory-review-gate.md](agent-language-services-inventory-review-gate.md#g0-to-g1-review-gate).
 
 Only proposals and subsections listed in this section are selectable targets.
 
