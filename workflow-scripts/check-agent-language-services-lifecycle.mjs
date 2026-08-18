@@ -131,7 +131,21 @@ export function generateArtifacts({ repoRoot }) {
 
 export function validateRepository({ repoRoot }) {
   const artifacts = readArtifacts(repoRoot);
-  return validateArtifacts({ repoRoot, ...artifacts });
+  const baseAuthorityErrors = [];
+  const baseAuthority = reviewedSourceDecisionsForValidation({
+    repoRoot,
+    provenance: artifacts.provenance,
+    errors: baseAuthorityErrors,
+  });
+  const result = validateArtifacts({
+    repoRoot,
+    ...artifacts,
+    sourceDecisions: baseAuthority ?? artifacts.sourceDecisions,
+  });
+  if (baseAuthorityErrors.length === 0) {
+    return result;
+  }
+  return failure(result.summary, [...baseAuthorityErrors, ...result.errors]);
 }
 
 export function validateArtifacts({
@@ -407,6 +421,24 @@ function validateBootstrapReviewedAuthority({ repoRoot, base, errors }) {
   if (authorityErrors.length > 0) {
     errors.push(...authorityErrors.map((error) => `${error} Read the reviewed authority from ${base}, not from the head revision.`));
   }
+}
+
+function reviewedSourceDecisionsForValidation({ repoRoot, provenance, errors }) {
+  const base = process.env.AGENT_LANGUAGE_SERVICES_BASE_SHA;
+  const head = process.env.AGENT_LANGUAGE_SERVICES_HEAD_SHA;
+  if (!base || !head || /^0+$/.test(base) || /^0+$/.test(head)) {
+    return undefined;
+  }
+  if (provenance?.base_commit !== base) {
+    errors.push(`${provenancePath}: base_commit must equal AGENT_LANGUAGE_SERVICES_BASE_SHA before validating reviewed source decisions from the merge base.`);
+    return undefined;
+  }
+  const baseAuthority = readJsonFromGit(repoRoot, `${base}:${sourceDecisionsPath}`);
+  if (baseAuthority === undefined) {
+    errors.push(`${sourceDecisionsPath}: reviewed source-decision authority must already exist on the validation base commit.`);
+    return undefined;
+  }
+  return baseAuthority;
 }
 
 export function parseMarkdownSource(text) {

@@ -10,6 +10,7 @@ import {
   validateDiffScope,
   validateLedger,
   validateLedgerStructure,
+  validateRepository,
   writeGeneratedArtifacts,
 } from "./check-agent-language-services-lifecycle.mjs";
 
@@ -337,6 +338,22 @@ test("rejects bootstrap validation when reviewed authority exists only on head",
 
     assert.equal(result.valid, false);
     assert.match(result.errors.join("\n"), /reviewed source-decision authority must already exist on the bootstrap base commit/);
+  } finally {
+    restoreEnv("AGENT_LANGUAGE_SERVICES_BASE_SHA", previousBase);
+    restoreEnv("AGENT_LANGUAGE_SERVICES_HEAD_SHA", previousHead);
+  }
+});
+
+test("repository validation reads reviewed authority from the declared base", () => {
+  const previousBase = process.env.AGENT_LANGUAGE_SERVICES_BASE_SHA;
+  const previousHead = process.env.AGENT_LANGUAGE_SERVICES_HEAD_SHA;
+  process.env.AGENT_LANGUAGE_SERVICES_BASE_SHA = "a4a3b874928a713f1078a302311bb2b22103e2ee";
+  process.env.AGENT_LANGUAGE_SERVICES_HEAD_SHA = "62ea5beb1a5763bb4db6b62419cdf7204de695ff";
+  try {
+    const result = validateRepository({ repoRoot: "." });
+
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join("\n"), /reviewed source-decision authority must already exist on the validation base commit/);
   } finally {
     restoreEnv("AGENT_LANGUAGE_SERVICES_BASE_SHA", previousBase);
     restoreEnv("AGENT_LANGUAGE_SERVICES_HEAD_SHA", previousHead);
