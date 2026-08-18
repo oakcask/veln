@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -70,6 +71,50 @@ test("rejects missing child and span gap overlap or out of range", () => {
   assert.equal(result.valid, false);
   assert.match(result.errors.join("\n"), /child_count|contiguous child ID/);
   assert.match(result.errors.join("\n"), /inside|overlaps|uncovered/);
+});
+
+test("rejects uncovered non-markdown punctuation inside child spans", () => {
+  const artifacts = readRepoArtifacts();
+  const root = artifacts.inventory.roots.find((candidate) => candidate.children?.some((child) => child.spans.some((span) => childSourceText(rootSourceText(candidate), candidate, span).includes("workspace-project"))));
+  const child = root.children.find((candidate) => candidate.spans.some((span) => childSourceText(rootSourceText(root), root, span).includes("workspace-project")));
+  const span = child.spans.find((candidate) => childSourceText(rootSourceText(root), root, candidate).includes("workspace-project"));
+  const text = childSourceText(rootSourceText(root), root, span);
+  const hyphen = Array.from(text).indexOf("-");
+  child.spans = [
+    [span[0], span[0] + hyphen],
+    [span[0] + hyphen + 1, span[1]],
+  ];
+  child.digest = digestSpans(rootSourceText(root), root, child.spans);
+
+  const result = validateArtifacts({ repoRoot: ".", ...artifacts });
+
+  assert.equal(result.valid, false);
+  assert.match(result.errors.join("\n"), /leaves scalar .* uncovered by a child span/);
+});
+
+test("rejects child heading and digest drift", () => {
+  const artifacts = readRepoArtifacts();
+  const child = firstParent(artifacts.inventory).children[0];
+  child.heading = "Wrong Heading";
+  child.digest = "0".repeat(64);
+
+  const result = validateArtifacts({ repoRoot: ".", ...artifacts });
+
+  assert.equal(result.valid, false);
+  assert.match(result.errors.join("\n"), /bind .* heading/);
+  assert.match(result.errors.join("\n"), /exact child source span text/);
+});
+
+test("rejects reviewed source-decision leaf metadata drift", () => {
+  const artifacts = readRepoArtifacts();
+  const leaf = artifacts.sourceDecisions.leaves.find((candidate) => candidate.id.includes("."));
+  leaf.heading = "Wrong Heading";
+  leaf.digest = "0".repeat(64);
+
+  const result = validateArtifacts({ repoRoot: ".", ...artifacts });
+
+  assert.equal(result.valid, false);
+  assert.match(result.errors.join("\n"), /heading, digest, span, root, and lifecycle/);
 });
 
 test("rejects wrong or mixed lifecycle inventory leaves", () => {
@@ -334,6 +379,23 @@ function readRepoArtifacts() {
 
 function firstParent(inventory) {
   return inventory.roots.find((root) => root.children?.length > 1);
+}
+
+function rootSourceText(root) {
+  const source = fs.readFileSync("docs/proposals/agent-language-services.md", "utf8");
+  return Array.from(source).slice(root.span[0], root.span[1]).join("");
+}
+
+function childSourceText(rootText, root, span) {
+  return Array.from(rootText).slice(span[0] - root.span[0], span[1] - root.span[0]).join("");
+}
+
+function digestSpans(rootText, root, spans) {
+  return sha256(spans.map((span) => childSourceText(rootText, root, span)).join(""));
+}
+
+function sha256(text) {
+  return crypto.createHash("sha256").update(text, "utf8").digest("hex");
 }
 
 function ledgerEntry(leafId, lifecycle) {

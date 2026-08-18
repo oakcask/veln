@@ -22,43 +22,23 @@
         1181
       ],
       "digest": "bbc158b0376204a3990bb531026ede7a3cd2edc57c42589b2abaebd2fcf82511",
-      "child_count": 5,
+      "child_count": 3,
       "children": [
         {
           "id": "ALS-S0002.1",
+          "heading": "Implementation Status",
           "lifecycle": "current",
           "spans": [
             [
               550,
-              739
-            ]
-          ],
-          "digest": "30d7a4920decadfa71d70c311a0a343ba286fbb7eb4dee82c184d5de5981d804"
-        },
-        {
-          "id": "ALS-S0002.2",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              740,
-              759
-            ]
-          ],
-          "digest": "224d16c4492b7794ec077768526d20574c1a2629972e662b579332dd6ea6880a"
-        },
-        {
-          "id": "ALS-S0002.3",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              759,
               763
             ]
           ],
-          "digest": "19fff6e1f12de0faf4acf37a58a222d9800d79bcda49e7737a0efebc85266201"
+          "digest": "4fb1d2b4cefa35bf6bc899986aeef1540a0d67abf6c2567ca172b00b5747f617"
         },
         {
-          "id": "ALS-S0002.4",
+          "id": "ALS-S0002.2",
+          "heading": "Implementation Status",
           "lifecycle": "current",
           "spans": [
             [
@@ -69,7 +49,8 @@
           "digest": "35bab3ecfd0f2da5f26025c3b7c9da35022b805124329ab9ff77c6537c0a3882"
         },
         {
-          "id": "ALS-S0002.5",
+          "id": "ALS-S0002.3",
+          "heading": "Implementation Status",
           "lifecycle": "planned",
           "spans": [
             [
@@ -178,43 +159,23 @@
         2871
       ],
       "digest": "17ccc94132a201f11dccc0668fb743b964ab0e63c8aa108e3757b01040955fca",
-      "child_count": 7,
+      "child_count": 5,
       "children": [
         {
           "id": "ALS-S0011.1",
+          "heading": "Slice-Closure Prerequisite",
           "lifecycle": "planned",
           "spans": [
             [
               2105,
-              2255
-            ]
-          ],
-          "digest": "7b1a50c5998909c93dc88facfa9737b43614922d088c5f5ed17d132bc8735343"
-        },
-        {
-          "id": "ALS-S0011.2",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              2255,
-              2343
-            ]
-          ],
-          "digest": "8db7e1f3c7e1667018b3890c01bc27ef5e74244bc072cfd67cfa21fef2b76065"
-        },
-        {
-          "id": "ALS-S0011.3",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              2343,
               2347
             ]
           ],
-          "digest": "19fff6e1f12de0faf4acf37a58a222d9800d79bcda49e7737a0efebc85266201"
+          "digest": "567113e1f4c5eeb3c1fbc288878089f600f8261a9e5315fea1636988e1bc3ee6"
         },
         {
-          "id": "ALS-S0011.4",
+          "id": "ALS-S0011.2",
+          "heading": "Slice-Closure Prerequisite",
           "lifecycle": "completed",
           "spans": [
             [
@@ -225,7 +186,8 @@
           "digest": "dce25ee367193019cc6c2bb4dfba9b6631ad245b51804f0fde73ef9ceeab207e"
         },
         {
-          "id": "ALS-S0011.5",
+          "id": "ALS-S0011.3",
+          "heading": "Slice-Closure Prerequisite",
           "lifecycle": "planned",
           "spans": [
             [
@@ -236,7 +198,8 @@
           "digest": "7a5d7faadea1559a3c026bf2d2c52bbd709600ab67c61eb23d718b80248fd0aa"
         },
         {
-          "id": "ALS-S0011.6",
+          "id": "ALS-S0011.4",
+          "heading": "Slice-Closure Prerequisite",
           "lifecycle": "planned",
           "spans": [
             [
@@ -247,7 +210,8 @@
           "digest": "e569c853e16c670311fbeae17ca9c500ac6a3e0fc3915c33960f5f792b71e5a9"
         },
         {
-          "id": "ALS-S0011.7",
+          "id": "ALS-S0011.5",
+          "heading": "Slice-Closure Prerequisite",
           "lifecycle": "planned",
           "spans": [
             [
@@ -272,6 +236,7 @@
       "children": [
         {
           "id": "ALS-S0012.1",
+          "heading": "Next Slice: Saved Workspace Function References",
           "lifecycle": "planned",
           "spans": [
             [
@@ -283,6 +248,7 @@
         },
         {
           "id": "ALS-S0012.2",
+          "heading": "Next Slice: Saved Workspace Function References",
           "lifecycle": "planned",
           "spans": [
             [
@@ -294,6 +260,7 @@
         },
         {
           "id": "ALS-S0012.3",
+          "heading": "Next Slice: Saved Workspace Function References",
           "lifecycle": "completed",
           "spans": [
             [
@@ -362,6 +329,7 @@
       "children": [
         {
           "id": "ALS-S0017.1",
+          "heading": "Next Slice: Saved Workspace Function References",
           "lifecycle": "current",
           "spans": [
             [
@@ -373,6 +341,7 @@
         },
         {
           "id": "ALS-S0017.2",
+          "heading": "Next Slice: Saved Workspace Function References",
           "lifecycle": "planned",
           "spans": [
             [
@@ -430,6 +399,7 @@
       "children": [
         {
           "id": "ALS-S0021.1",
+          "heading": "Next Slice: Saved Workspace Function References",
           "lifecycle": "current",
           "spans": [
             [
@@ -441,6 +411,7 @@
         },
         {
           "id": "ALS-S0021.2",
+          "heading": "Next Slice: Saved Workspace Function References",
           "lifecycle": "current",
           "spans": [
             [
@@ -452,6 +423,7 @@
         },
         {
           "id": "ALS-S0021.3",
+          "heading": "Next Slice: Saved Workspace Function References",
           "lifecycle": "planned",
           "spans": [
             [
@@ -549,10 +521,11 @@
         6684
       ],
       "digest": "2dbf3a13a0879e2e708847b9184b9722d2e5fe96df95cda03a0674624bb5880c",
-      "child_count": 5,
+      "child_count": 4,
       "children": [
         {
           "id": "ALS-S0029.1",
+          "heading": "Next Slice: Saved Workspace Function References",
           "lifecycle": "completed",
           "spans": [
             [
@@ -564,28 +537,19 @@
         },
         {
           "id": "ALS-S0029.2",
+          "heading": "Next Slice: Saved Workspace Function References",
           "lifecycle": "planned",
           "spans": [
             [
               6328,
-              6439
-            ]
-          ],
-          "digest": "af89d24ceba0629fa55d738a6ecaa50682f927127945946f4efddde58e9fa40b"
-        },
-        {
-          "id": "ALS-S0029.3",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              6439,
               6477
             ]
           ],
-          "digest": "ac5f6c7cff5300600f582cee9e2303820d19afa260f207410b841d68657f5f0e"
+          "digest": "7b444d5134d6414f38d4fe9b71dd0063cde5c19396e5d008434a5ef7dbdcf028"
         },
         {
-          "id": "ALS-S0029.4",
+          "id": "ALS-S0029.3",
+          "heading": "Next Slice: Saved Workspace Function References",
           "lifecycle": "planned",
           "spans": [
             [
@@ -596,7 +560,8 @@
           "digest": "6b01eb74f5730f5f028fea35e8e8dd1d3fbcbc8a860001756206eb162d2fa2a6"
         },
         {
-          "id": "ALS-S0029.5",
+          "id": "ALS-S0029.4",
+          "heading": "Next Slice: Saved Workspace Function References",
           "lifecycle": "planned",
           "spans": [
             [
@@ -632,6 +597,7 @@
       "children": [
         {
           "id": "ALS-S0031.1",
+          "heading": "Motivation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -643,6 +609,7 @@
         },
         {
           "id": "ALS-S0031.2",
+          "heading": "Motivation",
           "lifecycle": "current",
           "spans": [
             [
@@ -663,32 +630,23 @@
         7667
       ],
       "digest": "65105152009e371995009ec89bc80302ed41d3c4f8dd7588d0124391fdb1eae2",
-      "child_count": 4,
+      "child_count": 3,
       "children": [
         {
           "id": "ALS-S0032.1",
+          "heading": "Motivation",
           "lifecycle": "current",
           "spans": [
             [
               7252,
-              7278
-            ]
-          ],
-          "digest": "d6cd9443240d9221e681346a8709f7637af152eec25ac622b376052909c74c28"
-        },
-        {
-          "id": "ALS-S0032.2",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              7279,
               7327
             ]
           ],
-          "digest": "54690f5d106727c8093d5cf9de3162873c51114af9de8fc97d3b6e63dd23d61f"
+          "digest": "547857734533736ce776ed0d583d62ac00ef3a5f05a0a51c235f3501ad1c19a5"
         },
         {
-          "id": "ALS-S0032.3",
+          "id": "ALS-S0032.2",
+          "heading": "Motivation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -699,7 +657,8 @@
           "digest": "86c010884f63691430b6a56fe45ea6837d4d123e5709c217121966ff7e0eba5a"
         },
         {
-          "id": "ALS-S0032.4",
+          "id": "ALS-S0032.3",
+          "heading": "Motivation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -1358,32 +1317,23 @@
         13356
       ],
       "digest": "cdfa1c216a20f709df24381ea6fcfd5ec529d7644f550f866e459c41ca61401e",
-      "child_count": 4,
+      "child_count": 3,
       "children": [
         {
           "id": "ALS-S0091.1",
+          "heading": "Project Selection",
           "lifecycle": "planned",
           "spans": [
             [
               13134,
-              13206
-            ]
-          ],
-          "digest": "812c9524300b14f61cfff58d306906bee37556e17cfcaa69973750642125ae7e"
-        },
-        {
-          "id": "ALS-S0091.2",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              13206,
               13211
             ]
           ],
-          "digest": "408991ee99ee36c5555ac6c64aeb94b32b057a24f5706bd8733eaf555637e9a9"
+          "digest": "a4b120873ab1ea81895fea4e1f9326f5d6667a61586b5b5db8cbf767ea944d7b"
         },
         {
-          "id": "ALS-S0091.3",
+          "id": "ALS-S0091.2",
+          "heading": "Project Selection",
           "lifecycle": "current",
           "spans": [
             [
@@ -1394,7 +1344,8 @@
           "digest": "e9d17fa27018ba334944a746d7ef31bfd23ded3183c42b7b3bd9c9ce5db57b52"
         },
         {
-          "id": "ALS-S0091.4",
+          "id": "ALS-S0091.3",
+          "heading": "Project Selection",
           "lifecycle": "planned",
           "spans": [
             [
@@ -1540,6 +1491,7 @@
       "children": [
         {
           "id": "ALS-S0103.1",
+          "heading": "Project Selection",
           "lifecycle": "planned",
           "spans": [
             [
@@ -1551,6 +1503,7 @@
         },
         {
           "id": "ALS-S0103.2",
+          "heading": "Project Selection",
           "lifecycle": "planned",
           "spans": [
             [
@@ -1562,6 +1515,7 @@
         },
         {
           "id": "ALS-S0103.3",
+          "heading": "Project Selection",
           "lifecycle": "completed",
           "spans": [
             [
@@ -1573,6 +1527,7 @@
         },
         {
           "id": "ALS-S0103.4",
+          "heading": "Project Selection",
           "lifecycle": "planned",
           "spans": [
             [
@@ -1584,6 +1539,7 @@
         },
         {
           "id": "ALS-S0103.5",
+          "heading": "Project Selection",
           "lifecycle": "planned",
           "spans": [
             [
@@ -1595,6 +1551,7 @@
         },
         {
           "id": "ALS-S0103.6",
+          "heading": "Project Selection",
           "lifecycle": "planned",
           "spans": [
             [
@@ -1652,6 +1609,7 @@
       "children": [
         {
           "id": "ALS-S0107.1",
+          "heading": "Tools",
           "lifecycle": "current",
           "spans": [
             [
@@ -1663,6 +1621,7 @@
         },
         {
           "id": "ALS-S0107.2",
+          "heading": "Tools",
           "lifecycle": "planned",
           "spans": [
             [
@@ -1674,6 +1633,7 @@
         },
         {
           "id": "ALS-S0107.3",
+          "heading": "Tools",
           "lifecycle": "planned",
           "spans": [
             [
@@ -1685,6 +1645,7 @@
         },
         {
           "id": "ALS-S0107.4",
+          "heading": "Tools",
           "lifecycle": "planned",
           "spans": [
             [
@@ -1696,6 +1657,7 @@
         },
         {
           "id": "ALS-S0107.5",
+          "heading": "Tools",
           "lifecycle": "planned",
           "spans": [
             [
@@ -1707,6 +1669,7 @@
         },
         {
           "id": "ALS-S0107.6",
+          "heading": "Tools",
           "lifecycle": "planned",
           "spans": [
             [
@@ -1973,6 +1936,7 @@
       "children": [
         {
           "id": "ALS-S0130.1",
+          "heading": "Definition And Reference Coverage",
           "lifecycle": "current",
           "spans": [
             [
@@ -1984,6 +1948,7 @@
         },
         {
           "id": "ALS-S0130.2",
+          "heading": "Definition And Reference Coverage",
           "lifecycle": "completed",
           "spans": [
             [
@@ -2125,43 +2090,23 @@
         23143
       ],
       "digest": "4b0d921f38decf2ed503e6710247cd90684af1672b0edbdcb8e2459a2f1c0a5c",
-      "child_count": 7,
+      "child_count": 5,
       "children": [
         {
           "id": "ALS-S0142.1",
+          "heading": "Definition And Reference Coverage",
           "lifecycle": "completed",
           "spans": [
             [
               22461,
-              22602
-            ]
-          ],
-          "digest": "d6ae7e3d9c4575c102267c3dc85ee9b079350a554df156e3bff26f482db3e5e3"
-        },
-        {
-          "id": "ALS-S0142.2",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              22603,
-              22633
-            ]
-          ],
-          "digest": "a7334718d6b12dacd32bf6052441949887988d551c80041032a9de0640f45e2f"
-        },
-        {
-          "id": "ALS-S0142.3",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              22633,
               22674
             ]
           ],
-          "digest": "a67c502187fd01e2d15fced74a117c6783debf87aadede674d1f5a5f3f4bedf9"
+          "digest": "661d48c45fa12e4cda691813920a8d30644e230bda0fa6b17d0bf3de97faaae0"
         },
         {
-          "id": "ALS-S0142.4",
+          "id": "ALS-S0142.2",
+          "heading": "Definition And Reference Coverage",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2172,7 +2117,8 @@
           "digest": "8dec8263f84e8e0d77858ed1720f5cc45dec5128d318c187f8854eef47187043"
         },
         {
-          "id": "ALS-S0142.5",
+          "id": "ALS-S0142.3",
+          "heading": "Definition And Reference Coverage",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2183,7 +2129,8 @@
           "digest": "bccec1537f92eb33cb0f449ec16c473eb22c3eadc4b03627a7f073c11f4b1390"
         },
         {
-          "id": "ALS-S0142.6",
+          "id": "ALS-S0142.4",
+          "heading": "Definition And Reference Coverage",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2194,7 +2141,8 @@
           "digest": "23e5e9be0ec0fdc5b2b954f1169bf22ba3e84913c522c52b45c044ad240ef7cb"
         },
         {
-          "id": "ALS-S0142.7",
+          "id": "ALS-S0142.5",
+          "heading": "Definition And Reference Coverage",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2219,6 +2167,7 @@
       "children": [
         {
           "id": "ALS-S0143.1",
+          "heading": "Definition And Reference Coverage",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2230,6 +2179,7 @@
         },
         {
           "id": "ALS-S0143.2",
+          "heading": "Definition And Reference Coverage",
           "lifecycle": "current",
           "spans": [
             [
@@ -2241,6 +2191,7 @@
         },
         {
           "id": "ALS-S0143.3",
+          "heading": "Definition And Reference Coverage",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2265,6 +2216,7 @@
       "children": [
         {
           "id": "ALS-S0144.1",
+          "heading": "Definition And Reference Coverage",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2276,6 +2228,7 @@
         },
         {
           "id": "ALS-S0144.2",
+          "heading": "Definition And Reference Coverage",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2287,6 +2240,7 @@
         },
         {
           "id": "ALS-S0144.3",
+          "heading": "Definition And Reference Coverage",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2298,6 +2252,7 @@
         },
         {
           "id": "ALS-S0144.4",
+          "heading": "Definition And Reference Coverage",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2309,6 +2264,7 @@
         },
         {
           "id": "ALS-S0144.5",
+          "heading": "Definition And Reference Coverage",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2320,6 +2276,7 @@
         },
         {
           "id": "ALS-S0144.6",
+          "heading": "Definition And Reference Coverage",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2331,6 +2288,7 @@
         },
         {
           "id": "ALS-S0144.7",
+          "heading": "Definition And Reference Coverage",
           "lifecycle": "completed",
           "spans": [
             [
@@ -2586,6 +2544,7 @@
       "children": [
         {
           "id": "ALS-S0166.1",
+          "heading": "Resolution And Failure",
           "lifecycle": "current",
           "spans": [
             [
@@ -2597,6 +2556,7 @@
         },
         {
           "id": "ALS-S0166.2",
+          "heading": "Resolution And Failure",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2608,6 +2568,7 @@
         },
         {
           "id": "ALS-S0166.3",
+          "heading": "Resolution And Failure",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2654,6 +2615,7 @@
       "children": [
         {
           "id": "ALS-S0169.1",
+          "heading": "Saved Snapshot Capture",
           "lifecycle": "completed",
           "spans": [
             [
@@ -2665,6 +2627,7 @@
         },
         {
           "id": "ALS-S0169.2",
+          "heading": "Saved Snapshot Capture",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2676,6 +2639,7 @@
         },
         {
           "id": "ALS-S0169.3",
+          "heading": "Saved Snapshot Capture",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2700,6 +2664,7 @@
       "children": [
         {
           "id": "ALS-S0170.1",
+          "heading": "Saved Snapshot Capture",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2711,6 +2676,7 @@
         },
         {
           "id": "ALS-S0170.2",
+          "heading": "Saved Snapshot Capture",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2722,6 +2688,7 @@
         },
         {
           "id": "ALS-S0170.3",
+          "heading": "Saved Snapshot Capture",
           "lifecycle": "completed",
           "spans": [
             [
@@ -2733,6 +2700,7 @@
         },
         {
           "id": "ALS-S0170.4",
+          "heading": "Saved Snapshot Capture",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2744,6 +2712,7 @@
         },
         {
           "id": "ALS-S0170.5",
+          "heading": "Saved Snapshot Capture",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2755,6 +2724,7 @@
         },
         {
           "id": "ALS-S0170.6",
+          "heading": "Saved Snapshot Capture",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2775,10 +2745,11 @@
         31720
       ],
       "digest": "bd14bc53dfb07a239ac0ad6664171a4d7072e3e87c7632562f6c35883e200bc5",
-      "child_count": 16,
+      "child_count": 8,
       "children": [
         {
           "id": "ALS-S0171.1",
+          "heading": "Package Snapshots",
           "lifecycle": "current",
           "spans": [
             [
@@ -2790,39 +2761,19 @@
         },
         {
           "id": "ALS-S0171.2",
+          "heading": "Package Snapshots",
           "lifecycle": "current",
           "spans": [
             [
               29479,
-              29572
-            ]
-          ],
-          "digest": "5d069ef0620577073ae225a44b7bfdbd879cbba89264c3f504c5ef55481ef52f"
-        },
-        {
-          "id": "ALS-S0171.3",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              29573,
-              29606
-            ]
-          ],
-          "digest": "9c85f0dbb518a798414ba3f9e6667054a16e88b2e88284f6f0b4ccd4374819d7"
-        },
-        {
-          "id": "ALS-S0171.4",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              29606,
               29610
             ]
           ],
-          "digest": "19fff6e1f12de0faf4acf37a58a222d9800d79bcda49e7737a0efebc85266201"
+          "digest": "98dfa76c5d5c052e38323553dce7468f85e0274054d3657c8d47a741234da3c4"
         },
         {
-          "id": "ALS-S0171.5",
+          "id": "ALS-S0171.3",
+          "heading": "Package Snapshots",
           "lifecycle": "current",
           "spans": [
             [
@@ -2833,106 +2784,44 @@
           "digest": "212b12ec582535f165b5042102ffeb605dfef4daa0582dbaa85ebd3b49a3975d"
         },
         {
-          "id": "ALS-S0171.6",
+          "id": "ALS-S0171.4",
+          "heading": "Package Snapshots",
           "lifecycle": "current",
           "spans": [
             [
               29778,
-              29922
-            ]
-          ],
-          "digest": "cb6b79f09252e9fe087cde8891b0afaf1999a96a06dcd6f149c507587a148e7b"
-        },
-        {
-          "id": "ALS-S0171.7",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              29923,
-              29962
-            ]
-          ],
-          "digest": "7bbb4e6c69e8422a9b7c7aa3483f41d5d38eed6aacf0d5eec381d9c7fbfd5a6a"
-        },
-        {
-          "id": "ALS-S0171.8",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              29962,
               29966
             ]
           ],
-          "digest": "19fff6e1f12de0faf4acf37a58a222d9800d79bcda49e7737a0efebc85266201"
+          "digest": "3ca8864824794eb8df2ba9769b54107bbe121843d0e3f532351572c17b76ee09"
         },
         {
-          "id": "ALS-S0171.9",
+          "id": "ALS-S0171.5",
+          "heading": "Package Snapshots",
           "lifecycle": "current",
           "spans": [
             [
               29966,
-              30243
-            ]
-          ],
-          "digest": "3104863e7d9d582e74b9894b4c43720a35ff72e544466874c7e72f6ddb6506c0"
-        },
-        {
-          "id": "ALS-S0171.10",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              30244,
-              30274
-            ]
-          ],
-          "digest": "a7334718d6b12dacd32bf6052441949887988d551c80041032a9de0640f45e2f"
-        },
-        {
-          "id": "ALS-S0171.11",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              30274,
               30315
             ]
           ],
-          "digest": "a67c502187fd01e2d15fced74a117c6783debf87aadede674d1f5a5f3f4bedf9"
+          "digest": "f409b2b55bee62383a479cddcba9c3618e8358ae81c7eec5a28594d51e56cf7e"
         },
         {
-          "id": "ALS-S0171.12",
+          "id": "ALS-S0171.6",
+          "heading": "Package Snapshots",
           "lifecycle": "current",
           "spans": [
             [
               30315,
-              31431
-            ]
-          ],
-          "digest": "e3dda2bc07857a0f1182a405c9d359489293df0d9ca66c540f3b8ecae563d93f"
-        },
-        {
-          "id": "ALS-S0171.13",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              31432,
-              31469
-            ]
-          ],
-          "digest": "e2be9b9d1bfec10f4f20d5514441fccf7044de8b680f291f903ab497504311ac"
-        },
-        {
-          "id": "ALS-S0171.14",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              31469,
               31473
             ]
           ],
-          "digest": "19fff6e1f12de0faf4acf37a58a222d9800d79bcda49e7737a0efebc85266201"
+          "digest": "ab5186869f2de4e74d07756fb5e63bdabf7ad5060264053162413a7bbd8a2d41"
         },
         {
-          "id": "ALS-S0171.15",
+          "id": "ALS-S0171.7",
+          "heading": "Package Snapshots",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2943,7 +2832,8 @@
           "digest": "7294a9b01daba8449a25f227295719ab49ab3a150e69e75b426a889dbb3610a6"
         },
         {
-          "id": "ALS-S0171.16",
+          "id": "ALS-S0171.8",
+          "heading": "Package Snapshots",
           "lifecycle": "planned",
           "spans": [
             [
@@ -3023,6 +2913,7 @@
       "children": [
         {
           "id": "ALS-S0177.1",
+          "heading": "Generated Package Documentation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -3034,6 +2925,7 @@
         },
         {
           "id": "ALS-S0177.2",
+          "heading": "Generated Package Documentation",
           "lifecycle": "completed",
           "spans": [
             [
@@ -3045,6 +2937,7 @@
         },
         {
           "id": "ALS-S0177.3",
+          "heading": "Generated Package Documentation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -3056,6 +2949,7 @@
         },
         {
           "id": "ALS-S0177.4",
+          "heading": "Generated Package Documentation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -3067,6 +2961,7 @@
         },
         {
           "id": "ALS-S0177.5",
+          "heading": "Generated Package Documentation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -3078,6 +2973,7 @@
         },
         {
           "id": "ALS-S0177.6",
+          "heading": "Generated Package Documentation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -3102,6 +2998,7 @@
       "children": [
         {
           "id": "ALS-S0178.1",
+          "heading": "Generated Package Documentation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -3113,6 +3010,7 @@
         },
         {
           "id": "ALS-S0178.2",
+          "heading": "Generated Package Documentation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -3124,6 +3022,7 @@
         },
         {
           "id": "ALS-S0178.3",
+          "heading": "Generated Package Documentation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -3135,6 +3034,7 @@
         },
         {
           "id": "ALS-S0178.4",
+          "heading": "Generated Package Documentation",
           "lifecycle": "completed",
           "spans": [
             [
@@ -3379,6 +3279,7 @@
       "children": [
         {
           "id": "ALS-S0199.1",
+          "heading": "Generated Package Documentation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -3390,6 +3291,7 @@
         },
         {
           "id": "ALS-S0199.2",
+          "heading": "Generated Package Documentation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -3401,6 +3303,7 @@
         },
         {
           "id": "ALS-S0199.3",
+          "heading": "Generated Package Documentation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -3412,6 +3315,7 @@
         },
         {
           "id": "ALS-S0199.4",
+          "heading": "Generated Package Documentation",
           "lifecycle": "completed",
           "spans": [
             [
@@ -3423,6 +3327,7 @@
         },
         {
           "id": "ALS-S0199.5",
+          "heading": "Generated Package Documentation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -3810,6 +3715,7 @@
       "children": [
         {
           "id": "ALS-S0233.1",
+          "heading": "Documentation Search And Reads",
           "lifecycle": "planned",
           "spans": [
             [
@@ -3821,6 +3727,7 @@
         },
         {
           "id": "ALS-S0233.2",
+          "heading": "Documentation Search And Reads",
           "lifecycle": "planned",
           "spans": [
             [
@@ -3832,6 +3739,7 @@
         },
         {
           "id": "ALS-S0233.3",
+          "heading": "Documentation Search And Reads",
           "lifecycle": "completed",
           "spans": [
             [
@@ -3843,6 +3751,7 @@
         },
         {
           "id": "ALS-S0233.4",
+          "heading": "Documentation Search And Reads",
           "lifecycle": "planned",
           "spans": [
             [
@@ -4028,43 +3937,23 @@
         44851
       ],
       "digest": "381c0fec8b895884a6bdc8709a074c1dc24f749e9cc9261fdf94df5163ac27a5",
-      "child_count": 7,
+      "child_count": 5,
       "children": [
         {
           "id": "ALS-S0249.1",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              44440,
-              44501
-            ]
-          ],
-          "digest": "eae5f0badd19f44fdc9a686b21c53678c7916bc10cba6c728e8668e20e62e6fd"
-        },
-        {
-          "id": "ALS-S0249.2",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              44501,
-              44505
-            ]
-          ],
-          "digest": "487a1ed026bad63ba061243da837601ff4e15af4c97567a40456b7a5590af2ec"
-        },
-        {
-          "id": "ALS-S0249.3",
+          "heading": "Agent Plugin",
           "lifecycle": "current",
           "spans": [
             [
-              44505,
+              44440,
               44556
             ]
           ],
-          "digest": "9c66749562a6260f4afa5fbba5731d4c4cd3ef6700be27a6417a63a5b133a147"
+          "digest": "299577de9f29072ef7331677929fa5532604c6808509e0f4a743e512fa63afb3"
         },
         {
-          "id": "ALS-S0249.4",
+          "id": "ALS-S0249.2",
+          "heading": "Agent Plugin",
           "lifecycle": "planned",
           "spans": [
             [
@@ -4075,7 +3964,8 @@
           "digest": "805a0c5b79dd9b7714619ed96d6e1c932d3e51512253028a4e1fb3c63959dce0"
         },
         {
-          "id": "ALS-S0249.5",
+          "id": "ALS-S0249.3",
+          "heading": "Agent Plugin",
           "lifecycle": "planned",
           "spans": [
             [
@@ -4086,7 +3976,8 @@
           "digest": "a8f310a93856ae2cf25c9205b4df313fdd173ea0dcf3b16b06eb6eec85c71019"
         },
         {
-          "id": "ALS-S0249.6",
+          "id": "ALS-S0249.4",
+          "heading": "Agent Plugin",
           "lifecycle": "planned",
           "spans": [
             [
@@ -4097,7 +3988,8 @@
           "digest": "ce64ac08fa1501006e0aee6ab4b18f99f85b74ac52dca177df870a62651ce085"
         },
         {
-          "id": "ALS-S0249.7",
+          "id": "ALS-S0249.5",
+          "heading": "Agent Plugin",
           "lifecycle": "planned",
           "spans": [
             [
@@ -4595,6 +4487,7 @@
       "children": [
         {
           "id": "ALS-S0293.1",
+          "heading": "Conformance Contract",
           "lifecycle": "completed",
           "spans": [
             [
@@ -4606,6 +4499,7 @@
         },
         {
           "id": "ALS-S0293.2",
+          "heading": "Conformance Contract",
           "lifecycle": "planned",
           "spans": [
             [
@@ -4630,6 +4524,7 @@
       "children": [
         {
           "id": "ALS-S0294.1",
+          "heading": "Conformance Contract",
           "lifecycle": "current",
           "spans": [
             [
@@ -4641,6 +4536,7 @@
         },
         {
           "id": "ALS-S0294.2",
+          "heading": "Conformance Contract",
           "lifecycle": "planned",
           "spans": [
             [
@@ -4841,6 +4737,7 @@
       "children": [
         {
           "id": "ALS-S0311.1",
+          "heading": "Conformance Contract",
           "lifecycle": "current",
           "spans": [
             [
@@ -4852,6 +4749,7 @@
         },
         {
           "id": "ALS-S0311.2",
+          "heading": "Conformance Contract",
           "lifecycle": "current",
           "spans": [
             [
@@ -4863,6 +4761,7 @@
         },
         {
           "id": "ALS-S0311.3",
+          "heading": "Conformance Contract",
           "lifecycle": "current",
           "spans": [
             [
@@ -4874,6 +4773,7 @@
         },
         {
           "id": "ALS-S0311.4",
+          "heading": "Conformance Contract",
           "lifecycle": "current",
           "spans": [
             [
@@ -4885,6 +4785,7 @@
         },
         {
           "id": "ALS-S0311.5",
+          "heading": "Conformance Contract",
           "lifecycle": "planned",
           "spans": [
             [
@@ -4909,6 +4810,7 @@
       "children": [
         {
           "id": "ALS-S0312.1",
+          "heading": "Conformance Contract",
           "lifecycle": "planned",
           "spans": [
             [
@@ -4920,6 +4822,7 @@
         },
         {
           "id": "ALS-S0312.2",
+          "heading": "Conformance Contract",
           "lifecycle": "current",
           "spans": [
             [
@@ -4944,6 +4847,7 @@
       "children": [
         {
           "id": "ALS-S0313.1",
+          "heading": "Acceptance Model",
           "lifecycle": "current",
           "spans": [
             [
@@ -4955,6 +4859,7 @@
         },
         {
           "id": "ALS-S0313.2",
+          "heading": "Acceptance Model",
           "lifecycle": "planned",
           "spans": [
             [
@@ -4990,6 +4895,7 @@
       "children": [
         {
           "id": "ALS-S0315.1",
+          "heading": "Server And Project Selection",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5001,17 +4907,19 @@
         },
         {
           "id": "ALS-S0315.2",
+          "heading": "Server And Project Selection",
           "lifecycle": "planned",
           "spans": [
             [
               56389,
-              56421
+              56423
             ]
           ],
-          "digest": "4e45fede2e370457cc0ef8ebdc8584eecb7779a229121df767f5dbb5e5d85b0f"
+          "digest": "34a801e08cfa2fb69ef8e6f200fc0d2e6eb232e0da20cd08a695b40d3e6431f9"
         },
         {
           "id": "ALS-S0315.3",
+          "heading": "Server And Project Selection",
           "lifecycle": "current",
           "spans": [
             [
@@ -5036,6 +4944,7 @@
       "children": [
         {
           "id": "ALS-S0316.1",
+          "heading": "Server And Project Selection",
           "lifecycle": "completed",
           "spans": [
             [
@@ -5047,6 +4956,7 @@
         },
         {
           "id": "ALS-S0316.2",
+          "heading": "Server And Project Selection",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5058,6 +4968,7 @@
         },
         {
           "id": "ALS-S0316.3",
+          "heading": "Server And Project Selection",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5069,6 +4980,7 @@
         },
         {
           "id": "ALS-S0316.4",
+          "heading": "Server And Project Selection",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5080,6 +4992,7 @@
         },
         {
           "id": "ALS-S0316.5",
+          "heading": "Server And Project Selection",
           "lifecycle": "current",
           "spans": [
             [
@@ -5100,10 +5013,11 @@
         57324
       ],
       "digest": "60056380573bbba6b717f10d6fc000d8a5778e58aab2134c124369c3432b90ef",
-      "child_count": 5,
+      "child_count": 4,
       "children": [
         {
           "id": "ALS-S0317.1",
+          "heading": "Server And Project Selection",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5115,6 +5029,7 @@
         },
         {
           "id": "ALS-S0317.2",
+          "heading": "Server And Project Selection",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5126,28 +5041,19 @@
         },
         {
           "id": "ALS-S0317.3",
+          "heading": "Server And Project Selection",
           "lifecycle": "planned",
           "spans": [
             [
               57011,
-              57049
-            ]
-          ],
-          "digest": "b09deed93008779d397e9f9e8505ecbfb2b4d7d1dbf4d4eb73d2d2c296469c07"
-        },
-        {
-          "id": "ALS-S0317.4",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              57049,
               57166
             ]
           ],
-          "digest": "1bb76f79a7810dce4243115f09f5f767dc1551b564ea678b63ed840f5464b63f"
+          "digest": "bb08a3b42d40748b7ab9bb6b16124cb29983d0f1031606624ba10a407b0f6014"
         },
         {
-          "id": "ALS-S0317.5",
+          "id": "ALS-S0317.4",
+          "heading": "Server And Project Selection",
           "lifecycle": "current",
           "spans": [
             [
@@ -5216,6 +5122,7 @@
       "children": [
         {
           "id": "ALS-S0322.1",
+          "heading": "Server And Project Selection",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5227,6 +5134,7 @@
         },
         {
           "id": "ALS-S0322.2",
+          "heading": "Server And Project Selection",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5238,6 +5146,7 @@
         },
         {
           "id": "ALS-S0322.3",
+          "heading": "Server And Project Selection",
           "lifecycle": "current",
           "spans": [
             [
@@ -5262,6 +5171,7 @@
       "children": [
         {
           "id": "ALS-S0323.1",
+          "heading": "Server And Project Selection",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5273,6 +5183,7 @@
         },
         {
           "id": "ALS-S0323.2",
+          "heading": "Server And Project Selection",
           "lifecycle": "completed",
           "spans": [
             [
@@ -5284,6 +5195,7 @@
         },
         {
           "id": "ALS-S0323.3",
+          "heading": "Server And Project Selection",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5319,6 +5231,7 @@
       "children": [
         {
           "id": "ALS-S0325.1",
+          "heading": "Server And Project Selection",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5330,6 +5243,7 @@
         },
         {
           "id": "ALS-S0325.2",
+          "heading": "Server And Project Selection",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5341,6 +5255,7 @@
         },
         {
           "id": "ALS-S0325.3",
+          "heading": "Server And Project Selection",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5352,6 +5267,7 @@
         },
         {
           "id": "ALS-S0325.4",
+          "heading": "Server And Project Selection",
           "lifecycle": "current",
           "spans": [
             [
@@ -5376,6 +5292,7 @@
       "children": [
         {
           "id": "ALS-S0326.1",
+          "heading": "Server And Project Selection",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5387,6 +5304,7 @@
         },
         {
           "id": "ALS-S0326.2",
+          "heading": "Server And Project Selection",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5398,6 +5316,7 @@
         },
         {
           "id": "ALS-S0326.3",
+          "heading": "Server And Project Selection",
           "lifecycle": "current",
           "spans": [
             [
@@ -5433,6 +5352,7 @@
       "children": [
         {
           "id": "ALS-S0328.1",
+          "heading": "Diagnostics And Navigation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5444,6 +5364,7 @@
         },
         {
           "id": "ALS-S0328.2",
+          "heading": "Diagnostics And Navigation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5455,6 +5376,7 @@
         },
         {
           "id": "ALS-S0328.3",
+          "heading": "Diagnostics And Navigation",
           "lifecycle": "current",
           "spans": [
             [
@@ -5479,6 +5401,7 @@
       "children": [
         {
           "id": "ALS-S0329.1",
+          "heading": "Diagnostics And Navigation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5490,6 +5413,7 @@
         },
         {
           "id": "ALS-S0329.2",
+          "heading": "Diagnostics And Navigation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5501,6 +5425,7 @@
         },
         {
           "id": "ALS-S0329.3",
+          "heading": "Diagnostics And Navigation",
           "lifecycle": "current",
           "spans": [
             [
@@ -5525,6 +5450,7 @@
       "children": [
         {
           "id": "ALS-S0330.1",
+          "heading": "Diagnostics And Navigation",
           "lifecycle": "completed",
           "spans": [
             [
@@ -5536,6 +5462,7 @@
         },
         {
           "id": "ALS-S0330.2",
+          "heading": "Diagnostics And Navigation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5547,6 +5474,7 @@
         },
         {
           "id": "ALS-S0330.3",
+          "heading": "Diagnostics And Navigation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5593,6 +5521,7 @@
       "children": [
         {
           "id": "ALS-S0333.1",
+          "heading": "Diagnostics And Navigation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5604,6 +5533,7 @@
         },
         {
           "id": "ALS-S0333.2",
+          "heading": "Diagnostics And Navigation",
           "lifecycle": "current",
           "spans": [
             [
@@ -5615,6 +5545,7 @@
         },
         {
           "id": "ALS-S0333.3",
+          "heading": "Diagnostics And Navigation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5712,10 +5643,11 @@
         63774
       ],
       "digest": "9d7412502b32e1ed5e3bbc3471a3c4d48de409905085a6476438bc503fd16064",
-      "child_count": 9,
+      "child_count": 5,
       "children": [
         {
           "id": "ALS-S0341.1",
+          "heading": "Virtual Locations And Package Documentation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5727,6 +5659,7 @@
         },
         {
           "id": "ALS-S0341.2",
+          "heading": "Virtual Locations And Package Documentation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5738,72 +5671,31 @@
         },
         {
           "id": "ALS-S0341.3",
+          "heading": "Virtual Locations And Package Documentation",
           "lifecycle": "current",
           "spans": [
             [
               63293,
-              63407
-            ]
-          ],
-          "digest": "c0ee06b09ae4861800f764c0b6f4944167bbc802522dcae034a15e93e9b93a37"
-        },
-        {
-          "id": "ALS-S0341.4",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              63408,
-              63447
-            ]
-          ],
-          "digest": "7bbb4e6c69e8422a9b7c7aa3483f41d5d38eed6aacf0d5eec381d9c7fbfd5a6a"
-        },
-        {
-          "id": "ALS-S0341.5",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              63447,
               63451
             ]
           ],
-          "digest": "19fff6e1f12de0faf4acf37a58a222d9800d79bcda49e7737a0efebc85266201"
+          "digest": "3327795f8d6c89a1c233a13314d8a2692ee51ed6f470fe92e67f7d0b6c909601"
         },
         {
-          "id": "ALS-S0341.6",
+          "id": "ALS-S0341.4",
+          "heading": "Virtual Locations And Package Documentation",
           "lifecycle": "current",
           "spans": [
             [
               63451,
-              63627
-            ]
-          ],
-          "digest": "a50e925da4dad8962ceae8b1e9e5b12c4e96dff79a04849b20796e2b9b5371d5"
-        },
-        {
-          "id": "ALS-S0341.7",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              63628,
-              63658
-            ]
-          ],
-          "digest": "a7334718d6b12dacd32bf6052441949887988d551c80041032a9de0640f45e2f"
-        },
-        {
-          "id": "ALS-S0341.8",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              63658,
               63699
             ]
           ],
-          "digest": "a67c502187fd01e2d15fced74a117c6783debf87aadede674d1f5a5f3f4bedf9"
+          "digest": "87783a683c578c3b08ee187655f09b51bf089ac446d513343391c0d1722e7ec2"
         },
         {
-          "id": "ALS-S0341.9",
+          "id": "ALS-S0341.5",
+          "heading": "Virtual Locations And Package Documentation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5828,6 +5720,7 @@
       "children": [
         {
           "id": "ALS-S0342.1",
+          "heading": "Virtual Locations And Package Documentation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5839,6 +5732,7 @@
         },
         {
           "id": "ALS-S0342.2",
+          "heading": "Virtual Locations And Package Documentation",
           "lifecycle": "current",
           "spans": [
             [
@@ -5850,6 +5744,7 @@
         },
         {
           "id": "ALS-S0342.3",
+          "heading": "Virtual Locations And Package Documentation",
           "lifecycle": "current",
           "spans": [
             [
@@ -5861,6 +5756,7 @@
         },
         {
           "id": "ALS-S0342.4",
+          "heading": "Virtual Locations And Package Documentation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5872,6 +5768,7 @@
         },
         {
           "id": "ALS-S0342.5",
+          "heading": "Virtual Locations And Package Documentation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5914,10 +5811,11 @@
         65288
       ],
       "digest": "6f824c4cc0712460419abcfdee4d637d23a613bf269b5fe1949c92ffb2d7dd66",
-      "child_count": 6,
+      "child_count": 4,
       "children": [
         {
           "id": "ALS-S0345.1",
+          "heading": "Virtual Locations And Package Documentation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5929,6 +5827,7 @@
         },
         {
           "id": "ALS-S0345.2",
+          "heading": "Virtual Locations And Package Documentation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5940,39 +5839,19 @@
         },
         {
           "id": "ALS-S0345.3",
+          "heading": "Virtual Locations And Package Documentation",
           "lifecycle": "current",
           "spans": [
             [
               65055,
-              65174
-            ]
-          ],
-          "digest": "9c30fa3bf1377cc62d6769987cd6d641eab8898fc62acc2cf5008b0d0a3311b9"
-        },
-        {
-          "id": "ALS-S0345.4",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              65175,
-              65214
-            ]
-          ],
-          "digest": "7bbb4e6c69e8422a9b7c7aa3483f41d5d38eed6aacf0d5eec381d9c7fbfd5a6a"
-        },
-        {
-          "id": "ALS-S0345.5",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              65214,
               65218
             ]
           ],
-          "digest": "19fff6e1f12de0faf4acf37a58a222d9800d79bcda49e7737a0efebc85266201"
+          "digest": "b2df3eff8a475b0990e1a8218f0b41cf062b3f27c4f71dd0c3b79cdec73423a7"
         },
         {
-          "id": "ALS-S0345.6",
+          "id": "ALS-S0345.4",
+          "heading": "Virtual Locations And Package Documentation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -5997,6 +5876,7 @@
       "children": [
         {
           "id": "ALS-S0346.1",
+          "heading": "Virtual Locations And Package Documentation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6008,6 +5888,7 @@
         },
         {
           "id": "ALS-S0346.2",
+          "heading": "Virtual Locations And Package Documentation",
           "lifecycle": "completed",
           "spans": [
             [
@@ -6019,6 +5900,7 @@
         },
         {
           "id": "ALS-S0346.3",
+          "heading": "Virtual Locations And Package Documentation",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6142,6 +6024,7 @@
       "children": [
         {
           "id": "ALS-S0356.1",
+          "heading": "Published Language Reference",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6153,6 +6036,7 @@
         },
         {
           "id": "ALS-S0356.2",
+          "heading": "Published Language Reference",
           "lifecycle": "current",
           "spans": [
             [
@@ -6164,6 +6048,7 @@
         },
         {
           "id": "ALS-S0356.3",
+          "heading": "Published Language Reference",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6188,6 +6073,7 @@
       "children": [
         {
           "id": "ALS-S0357.1",
+          "heading": "Published Language Reference",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6199,6 +6085,7 @@
         },
         {
           "id": "ALS-S0357.2",
+          "heading": "Published Language Reference",
           "lifecycle": "completed",
           "spans": [
             [
@@ -6210,6 +6097,7 @@
         },
         {
           "id": "ALS-S0357.3",
+          "heading": "Published Language Reference",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6234,6 +6122,7 @@
       "children": [
         {
           "id": "ALS-S0358.1",
+          "heading": "Published Language Reference",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6245,6 +6134,7 @@
         },
         {
           "id": "ALS-S0358.2",
+          "heading": "Published Language Reference",
           "lifecycle": "completed",
           "spans": [
             [
@@ -6256,6 +6146,7 @@
         },
         {
           "id": "ALS-S0358.3",
+          "heading": "Published Language Reference",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6324,6 +6215,7 @@
       "children": [
         {
           "id": "ALS-S0363.1",
+          "heading": "Plugin",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6335,6 +6227,7 @@
         },
         {
           "id": "ALS-S0363.2",
+          "heading": "Plugin",
           "lifecycle": "completed",
           "spans": [
             [
@@ -6346,6 +6239,7 @@
         },
         {
           "id": "ALS-S0363.3",
+          "heading": "Plugin",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6381,6 +6275,7 @@
       "children": [
         {
           "id": "ALS-S0365.1",
+          "heading": "Plugin",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6392,6 +6287,7 @@
         },
         {
           "id": "ALS-S0365.2",
+          "heading": "Plugin",
           "lifecycle": "current",
           "spans": [
             [
@@ -6403,6 +6299,7 @@
         },
         {
           "id": "ALS-S0365.3",
+          "heading": "Plugin",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6427,6 +6324,7 @@
       "children": [
         {
           "id": "ALS-S0366.1",
+          "heading": "Plugin",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6438,6 +6336,7 @@
         },
         {
           "id": "ALS-S0366.2",
+          "heading": "Plugin",
           "lifecycle": "completed",
           "spans": [
             [
@@ -6449,6 +6348,7 @@
         },
         {
           "id": "ALS-S0366.3",
+          "heading": "Plugin",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6469,76 +6369,35 @@
         72629
       ],
       "digest": "2cab82f1ef2d076cc9df968bfec73a089f6e2a013bb933c1c6d9da707b5fbe20",
-      "child_count": 24,
+      "child_count": 14,
       "children": [
         {
           "id": "ALS-S0367.1",
+          "heading": "Implementation Slices",
           "lifecycle": "current",
           "spans": [
             [
               69740,
-              69852
-            ]
-          ],
-          "digest": "179eab87c1462d8b11e5d09615b6a27a35aa03ecd79453894a663cc49ea3ac20"
-        },
-        {
-          "id": "ALS-S0367.2",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              69853,
-              69883
-            ]
-          ],
-          "digest": "a7334718d6b12dacd32bf6052441949887988d551c80041032a9de0640f45e2f"
-        },
-        {
-          "id": "ALS-S0367.3",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              69883,
               69924
             ]
           ],
-          "digest": "a67c502187fd01e2d15fced74a117c6783debf87aadede674d1f5a5f3f4bedf9"
+          "digest": "1c9c4c510459703c9024c76dbd15e9c70d6e0ce738d0d4a4466136cebe31d8c8"
         },
         {
-          "id": "ALS-S0367.4",
+          "id": "ALS-S0367.2",
+          "heading": "Implementation Slices",
           "lifecycle": "current",
           "spans": [
             [
               69924,
-              70039
-            ]
-          ],
-          "digest": "3c3e86ee8dd6d6877e4e33ac4590b934b0bfc85da8dfe1722d416c92575b2f20"
-        },
-        {
-          "id": "ALS-S0367.5",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              70040,
-              70073
-            ]
-          ],
-          "digest": "9c85f0dbb518a798414ba3f9e6667054a16e88b2e88284f6f0b4ccd4374819d7"
-        },
-        {
-          "id": "ALS-S0367.6",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              70073,
               70077
             ]
           ],
-          "digest": "19fff6e1f12de0faf4acf37a58a222d9800d79bcda49e7737a0efebc85266201"
+          "digest": "0472533ad2d0222547122b67be2cc95ac0b430520c266cd19bfd2e4a24a808d7"
         },
         {
-          "id": "ALS-S0367.7",
+          "id": "ALS-S0367.3",
+          "heading": "Implementation Slices",
           "lifecycle": "current",
           "spans": [
             [
@@ -6549,7 +6408,8 @@
           "digest": "f1bcb4513fe5206bfd43b5eb7d0746219978ac93d4e15e69d1c01c90ea1ba9c4"
         },
         {
-          "id": "ALS-S0367.8",
+          "id": "ALS-S0367.4",
+          "heading": "Implementation Slices",
           "lifecycle": "current",
           "spans": [
             [
@@ -6560,106 +6420,44 @@
           "digest": "c133f05288175f993e413e0866619fc07f80aca698233b72f5f0b98f40164fed"
         },
         {
-          "id": "ALS-S0367.9",
+          "id": "ALS-S0367.5",
+          "heading": "Implementation Slices",
           "lifecycle": "current",
           "spans": [
             [
               70319,
-              70444
-            ]
-          ],
-          "digest": "cb5cebab46bf20c24c837392b16cdfc5073b97409229086b31a7073680fe1e76"
-        },
-        {
-          "id": "ALS-S0367.10",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              70445,
-              70484
-            ]
-          ],
-          "digest": "7bbb4e6c69e8422a9b7c7aa3483f41d5d38eed6aacf0d5eec381d9c7fbfd5a6a"
-        },
-        {
-          "id": "ALS-S0367.11",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              70484,
               70488
             ]
           ],
-          "digest": "19fff6e1f12de0faf4acf37a58a222d9800d79bcda49e7737a0efebc85266201"
+          "digest": "747a16f37ffb772742dc8ae7e897c9407fb3112137b9c14964c8642ca7d093c1"
         },
         {
-          "id": "ALS-S0367.12",
+          "id": "ALS-S0367.6",
+          "heading": "Implementation Slices",
           "lifecycle": "current",
           "spans": [
             [
               70488,
-              71173
-            ]
-          ],
-          "digest": "cb5c9296020748b01ea45ce2d4a50564752812e5afec747e600de19bcfb87255"
-        },
-        {
-          "id": "ALS-S0367.13",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              71174,
-              71211
-            ]
-          ],
-          "digest": "e2be9b9d1bfec10f4f20d5514441fccf7044de8b680f291f903ab497504311ac"
-        },
-        {
-          "id": "ALS-S0367.14",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              71211,
               71215
             ]
           ],
-          "digest": "19fff6e1f12de0faf4acf37a58a222d9800d79bcda49e7737a0efebc85266201"
+          "digest": "5d8c5807908f069d37b61278501c8a93d880add47ed438eb10b42ca9eebca66a"
         },
         {
-          "id": "ALS-S0367.15",
+          "id": "ALS-S0367.7",
+          "heading": "Implementation Slices",
           "lifecycle": "current",
           "spans": [
             [
               71215,
-              71476
-            ]
-          ],
-          "digest": "b7052b16a1331713b37acb759e799a9d099c4401f63d02a3139e5f5007790e3c"
-        },
-        {
-          "id": "ALS-S0367.16",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              71477,
-              71507
-            ]
-          ],
-          "digest": "a7334718d6b12dacd32bf6052441949887988d551c80041032a9de0640f45e2f"
-        },
-        {
-          "id": "ALS-S0367.17",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              71507,
               71548
             ]
           ],
-          "digest": "a67c502187fd01e2d15fced74a117c6783debf87aadede674d1f5a5f3f4bedf9"
+          "digest": "b23fc2cadad331c8ed37693eab3980b8e166870c40dd72cd94a0c82921b3aea2"
         },
         {
-          "id": "ALS-S0367.18",
+          "id": "ALS-S0367.8",
+          "heading": "Implementation Slices",
           "lifecycle": "current",
           "spans": [
             [
@@ -6670,7 +6468,8 @@
           "digest": "ae35df3bb6577a82ae3a51cedd3ff7c6c627e46728a42b13542aca2d25a940ba"
         },
         {
-          "id": "ALS-S0367.19",
+          "id": "ALS-S0367.9",
+          "heading": "Implementation Slices",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6681,7 +6480,8 @@
           "digest": "60552087a7dde3e41d72d37b4eff657d44f76c167835f60560ea2fd9233d01a8"
         },
         {
-          "id": "ALS-S0367.20",
+          "id": "ALS-S0367.10",
+          "heading": "Implementation Slices",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6692,7 +6492,8 @@
           "digest": "e2abe68c8cb1b9d374fe5a1c879110c24713df3a9c73661c806c1ca174a24abc"
         },
         {
-          "id": "ALS-S0367.21",
+          "id": "ALS-S0367.11",
+          "heading": "Implementation Slices",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6703,7 +6504,8 @@
           "digest": "945ccc6183d820ca1a75170fb39176d1d543ae1951c8b8d283e31bf10e7bc9f8"
         },
         {
-          "id": "ALS-S0367.22",
+          "id": "ALS-S0367.12",
+          "heading": "Implementation Slices",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6714,7 +6516,8 @@
           "digest": "cef912c869fb82e7f8f222c81f913dcc5db4e9c57dfc9420700a43c291e6a852"
         },
         {
-          "id": "ALS-S0367.23",
+          "id": "ALS-S0367.13",
+          "heading": "Implementation Slices",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6725,7 +6528,8 @@
           "digest": "4a0cf76e3a0ad9823382076532120911562cabc3b460bffab428fd0032040dfe"
         },
         {
-          "id": "ALS-S0367.24",
+          "id": "ALS-S0367.14",
+          "heading": "Implementation Slices",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6761,6 +6565,7 @@
       "children": [
         {
           "id": "ALS-S0369.1",
+          "heading": "Implementation Slices",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6772,6 +6577,7 @@
         },
         {
           "id": "ALS-S0369.2",
+          "heading": "Implementation Slices",
           "lifecycle": "current",
           "spans": [
             [

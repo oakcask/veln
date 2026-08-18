@@ -84,7 +84,7 @@ export function generateArtifacts({ repoRoot }) {
   const inventoryRoots = roots.map((root) => inventoryRoot(root));
   const leaves = inventoryRoots.flatMap((root) => root.children?.length > 0
     ? root.children.map((child) => ({ ...child, root_id: root.id, conformance: true }))
-    : [{ id: root.id, root_id: root.id, lifecycle: root.lifecycle, spans: [root.span], conformance: true }]);
+    : [{ id: root.id, root_id: root.id, heading: root.heading, lifecycle: root.lifecycle, spans: [root.span], digest: root.digest, conformance: true }]);
   const identities = finiteIdentities(roots);
   return {
     universe: {
@@ -123,12 +123,7 @@ export function generateArtifacts({ repoRoot }) {
         digest: root.digest,
         conformance: root.conformance,
       })),
-      leaves: leaves.map((leaf) => ({
-        id: leaf.id,
-        root_id: leaf.root_id,
-        lifecycle: leaf.lifecycle,
-        spans: leaf.spans,
-      })),
+      leaves: leaves.map((leaf) => reviewedLeafDecision(leaf)),
       identities,
     },
   };
@@ -533,7 +528,15 @@ function validateInventory({ inventory, parsedById, sourceDecisionLeaves, errors
       validateChildren({ root, parsed, sourceDecisionLeaves, leaves, errors });
     } else {
       validateLeafLifecycle({ label: root.id, lifecycle: root.lifecycle, text: parsed.text, errors });
-      leaves.set(root.id, { id: root.id, root_id: root.id, lifecycle: root.lifecycle, conformance: true });
+      leaves.set(root.id, {
+        id: root.id,
+        root_id: root.id,
+        heading: root.heading,
+        lifecycle: root.lifecycle,
+        spans: [root.span],
+        digest: root.digest,
+        conformance: true,
+      });
     }
   }
   return leaves;
@@ -547,11 +550,17 @@ function validateChildren({ root, parsed, sourceDecisionLeaves, leaves, errors }
     if (child.id !== expectedId) {
       errors.push(`${inventoryPath}: use contiguous child ID ${expectedId} for ${root.id}.`);
     }
+    if (child.heading !== root.heading) {
+      errors.push(`${inventoryPath}: bind ${child.id} heading to parent source heading ${JSON.stringify(root.heading)}.`);
+    }
     if (!Array.isArray(child.spans) || child.spans.length === 0) {
       errors.push(`${inventoryPath}: ${child.id} needs at least one Unicode-scalar span.`);
       continue;
     }
     const text = child.spans.map((span) => sliceScalars(parsed.text, span[0] - parsed.span[0], span[1] - parsed.span[0])).join("");
+    if (child.digest !== sha256(text)) {
+      errors.push(`${inventoryPath}: update ${child.id} digest from its exact child source span text.`);
+    }
     validateLeafLifecycle({ label: child.id, lifecycle: child.lifecycle, text, errors });
     for (const span of child.spans) {
       if (span[0] < parsed.span[0] || span[1] > parsed.span[1] || span[0] >= span[1]) {
@@ -565,11 +574,19 @@ function validateChildren({ root, parsed, sourceDecisionLeaves, leaves, errors }
         seenScalars.add(scalar);
       }
     }
-    leaves.set(child.id, { id: child.id, root_id: root.id, lifecycle: child.lifecycle, conformance: true });
+    leaves.set(child.id, {
+      id: child.id,
+      root_id: root.id,
+      heading: child.heading,
+      lifecycle: child.lifecycle,
+      spans: child.spans,
+      digest: child.digest,
+      conformance: true,
+    });
   }
   for (let scalar = parsed.span[0]; scalar < parsed.span[1]; scalar += 1) {
     const value = sliceScalars(parsed.text, scalar - parsed.span[0], scalar - parsed.span[0] + 1);
-    if (!seenScalars.has(scalar) && !isSeparatorScalar(value)) {
+    if (!seenScalars.has(scalar) && !isChildSpanIgnorableScalar(parsed.text, scalar - parsed.span[0])) {
       errors.push(`${inventoryPath}: ${root.id} leaves scalar ${scalar} uncovered by a child span.`);
       break;
     }
@@ -634,8 +651,8 @@ function validateSourceDecisions({ sourceDecisions, universe, inventoryLeaves, e
     const decision = decisionLeaves.get(leafId);
     if (decision === undefined) {
       errors.push(`${sourceDecisionsPath}: add reviewed lifecycle decision for ${leafId}.`);
-    } else if (decision.lifecycle !== leaf.lifecycle) {
-      errors.push(`${sourceDecisionsPath}: keep ${leafId} lifecycle equal to the frozen inventory.`);
+    } else if (JSON.stringify(reviewedLeafDecision(decision)) !== JSON.stringify(reviewedLeafDecision(leaf))) {
+      errors.push(`${sourceDecisionsPath}: keep ${leafId} heading, digest, span, root, and lifecycle equal to the frozen inventory leaf.`);
     }
   }
 }
@@ -732,6 +749,7 @@ function inventoryRoot(root) {
       child_count: segments.length,
       children: segments.map((segment, index) => ({
         id: `${root.id}.${index + 1}`,
+        heading: root.heading,
         lifecycle: segment.lifecycle,
         spans: [[root.span[0] + segment.start, root.span[0] + segment.end]],
         digest: sha256(segment.text),
@@ -753,7 +771,7 @@ function lifecycleSegments(root) {
   const sentenceRanges = [];
   let start = 0;
   for (let index = 0; index < scalars.length; index += 1) {
-    if (/[.!?。]/u.test(scalars[index])) {
+    if (isSentenceTerminatorAt(root.text, index)) {
       sentenceRanges.push([start, index + 1]);
       start = index + 1;
     }
@@ -774,6 +792,25 @@ function lifecycleSegments(root) {
     text: root.text,
     lifecycle: primaryLifecycle(root.text),
   }];
+}
+
+function isSentenceTerminatorAt(text, index) {
+  const scalar = Array.from(text)[index];
+  return /[.!?。]/u.test(scalar)
+    && !isInsideCodeSpan(text, index)
+    && !isInsideMarkdownLinkDestination(text, index);
+}
+
+function isInsideCodeSpan(text, index) {
+  const scalars = Array.from(text);
+  const lineStart = lineStartBefore(scalars, index);
+  let backtickCount = 0;
+  for (let cursor = lineStart; cursor < index; cursor += 1) {
+    if (scalars[cursor] === "`") {
+      backtickCount += 1;
+    }
+  }
+  return backtickCount % 2 === 1;
 }
 
 function primaryLifecycle(text) {
@@ -1065,6 +1102,89 @@ function hasStatementScalar(text) {
   return Array.from(text).some((scalar) => !isSeparatorScalar(scalar));
 }
 
+function isChildSpanIgnorableScalar(text, index) {
+  const scalar = Array.from(text)[index];
+  if (/\s/.test(scalar)) {
+    return true;
+  }
+  if (scalar === "`") {
+    return true;
+  }
+  if (scalar === "|" && isInsideTableRow(text, index)) {
+    return true;
+  }
+  if (isInsideMarkdownLinkDestination(text, index)) {
+    return true;
+  }
+  if ((scalar === "-" || scalar === "*" || /^\d$/u.test(scalar)) && isListMarkerScalar(text, index)) {
+    return true;
+  }
+  return false;
+}
+
+function isInsideTableRow(text, index) {
+  const scalars = Array.from(text);
+  const lineStart = lineStartBefore(scalars, index);
+  const lineEnd = lineEndAfter(scalars, index);
+  const line = scalars.slice(lineStart, lineEnd === -1 ? scalars.length : lineEnd).join("");
+  return isTableRow(line);
+}
+
+function isListMarkerScalar(text, index) {
+  const scalars = Array.from(text);
+  const lineStart = lineStartBefore(scalars, index);
+  const prefix = scalars.slice(lineStart, index + 1).join("");
+  const line = scalars.slice(lineStart).join("");
+  if (/^\s*[-*]$/.test(prefix) && /^\s*[-*]\s+/.test(line)) {
+    return true;
+  }
+  return /^\s*\d+$/.test(prefix) && /^\s*\d+\.\s+/.test(line);
+}
+
+function isInsideMarkdownLinkDestination(text, index) {
+  const scalars = Array.from(text);
+  let open = -1;
+  for (let cursor = index; cursor >= 1; cursor -= 1) {
+    if (scalars[cursor - 1] === "]" && scalars[cursor] === "(") {
+      open = cursor;
+      break;
+    }
+    if (scalars[cursor] === "\n") {
+      break;
+    }
+  }
+  if (open === -1) {
+    return false;
+  }
+  for (let cursor = open + 1; cursor < scalars.length; cursor += 1) {
+    if (scalars[cursor] === ")") {
+      return index < cursor;
+    }
+    if (scalars[cursor] === "\n") {
+      return false;
+    }
+  }
+  return false;
+}
+
+function lineStartBefore(scalars, index) {
+  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+    if (scalars[cursor] === "\n") {
+      return cursor + 1;
+    }
+  }
+  return 0;
+}
+
+function lineEndAfter(scalars, index) {
+  for (let cursor = index; cursor < scalars.length; cursor += 1) {
+    if (scalars[cursor] === "\n") {
+      return cursor;
+    }
+  }
+  return -1;
+}
+
 function sliceScalars(text, start, end) {
   return Array.from(text).slice(start, end).join("");
 }
@@ -1083,8 +1203,10 @@ function inventoryLeavesForAuthority(inventory) {
         leaves.set(child.id, {
           id: child.id,
           root_id: root.id,
+          heading: child.heading,
           lifecycle: child.lifecycle,
           spans: child.spans,
+          digest: child.digest,
           conformance: true,
         });
       }
@@ -1092,13 +1214,26 @@ function inventoryLeavesForAuthority(inventory) {
       leaves.set(root.id, {
         id: root.id,
         root_id: root.id,
+        heading: root.heading,
         lifecycle: root.lifecycle,
         spans: [root.span],
+        digest: root.digest,
         conformance: true,
       });
     }
   }
   return leaves;
+}
+
+function reviewedLeafDecision(leaf) {
+  return {
+    id: leaf.id,
+    root_id: leaf.root_id,
+    heading: leaf.heading,
+    lifecycle: leaf.lifecycle,
+    spans: leaf.spans,
+    digest: leaf.digest,
+  };
 }
 
 function isStableLeafId(value, pattern = /^ALS-S\d{4}(?:\.\d+)?$/) {

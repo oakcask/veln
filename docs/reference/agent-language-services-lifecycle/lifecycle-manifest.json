@@ -16,23 +16,11 @@
     {
       "id": "ALS-S0002.2",
       "root_id": "ALS-S0002",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0002.3",
-      "root_id": "ALS-S0002",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0002.4",
-      "root_id": "ALS-S0002",
       "lifecycle": "current",
       "conformance": true
     },
     {
-      "id": "ALS-S0002.5",
+      "id": "ALS-S0002.3",
       "root_id": "ALS-S0002",
       "lifecycle": "planned",
       "conformance": true
@@ -94,7 +82,7 @@
     {
       "id": "ALS-S0011.2",
       "root_id": "ALS-S0011",
-      "lifecycle": "planned",
+      "lifecycle": "completed",
       "conformance": true
     },
     {
@@ -106,23 +94,11 @@
     {
       "id": "ALS-S0011.4",
       "root_id": "ALS-S0011",
-      "lifecycle": "completed",
+      "lifecycle": "planned",
       "conformance": true
     },
     {
       "id": "ALS-S0011.5",
-      "root_id": "ALS-S0011",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0011.6",
-      "root_id": "ALS-S0011",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0011.7",
       "root_id": "ALS-S0011",
       "lifecycle": "planned",
       "conformance": true
@@ -284,12 +260,6 @@
       "conformance": true
     },
     {
-      "id": "ALS-S0029.5",
-      "root_id": "ALS-S0029",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
       "id": "ALS-S0030",
       "root_id": "ALS-S0030",
       "lifecycle": "planned",
@@ -321,12 +291,6 @@
     },
     {
       "id": "ALS-S0032.3",
-      "root_id": "ALS-S0032",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0032.4",
       "root_id": "ALS-S0032",
       "lifecycle": "planned",
       "conformance": true
@@ -688,17 +652,11 @@
     {
       "id": "ALS-S0091.2",
       "root_id": "ALS-S0091",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0091.3",
-      "root_id": "ALS-S0091",
       "lifecycle": "current",
       "conformance": true
     },
     {
-      "id": "ALS-S0091.4",
+      "id": "ALS-S0091.3",
       "root_id": "ALS-S0091",
       "lifecycle": "planned",
       "conformance": true
@@ -1100,18 +1058,6 @@
       "conformance": true
     },
     {
-      "id": "ALS-S0142.6",
-      "root_id": "ALS-S0142",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0142.7",
-      "root_id": "ALS-S0142",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
       "id": "ALS-S0143.1",
       "root_id": "ALS-S0143",
       "lifecycle": "planned",
@@ -1396,13 +1342,13 @@
     {
       "id": "ALS-S0171.3",
       "root_id": "ALS-S0171",
-      "lifecycle": "planned",
+      "lifecycle": "current",
       "conformance": true
     },
     {
       "id": "ALS-S0171.4",
       "root_id": "ALS-S0171",
-      "lifecycle": "planned",
+      "lifecycle": "current",
       "conformance": true
     },
     {
@@ -1425,54 +1371,6 @@
     },
     {
       "id": "ALS-S0171.8",
-      "root_id": "ALS-S0171",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0171.9",
-      "root_id": "ALS-S0171",
-      "lifecycle": "current",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0171.10",
-      "root_id": "ALS-S0171",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0171.11",
-      "root_id": "ALS-S0171",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0171.12",
-      "root_id": "ALS-S0171",
-      "lifecycle": "current",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0171.13",
-      "root_id": "ALS-S0171",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0171.14",
-      "root_id": "ALS-S0171",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0171.15",
-      "root_id": "ALS-S0171",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0171.16",
       "root_id": "ALS-S0171",
       "lifecycle": "planned",
       "conformance": true
@@ -2032,7 +1930,7 @@
     {
       "id": "ALS-S0249.1",
       "root_id": "ALS-S0249",
-      "lifecycle": "planned",
+      "lifecycle": "current",
       "conformance": true
     },
     {
@@ -2044,7 +1942,7 @@
     {
       "id": "ALS-S0249.3",
       "root_id": "ALS-S0249",
-      "lifecycle": "current",
+      "lifecycle": "planned",
       "conformance": true
     },
     {
@@ -2055,18 +1953,6 @@
     },
     {
       "id": "ALS-S0249.5",
-      "root_id": "ALS-S0249",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0249.6",
-      "root_id": "ALS-S0249",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0249.7",
       "root_id": "ALS-S0249",
       "lifecycle": "planned",
       "conformance": true
@@ -2578,12 +2464,6 @@
     {
       "id": "ALS-S0317.4",
       "root_id": "ALS-S0317",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0317.5",
-      "root_id": "ALS-S0317",
       "lifecycle": "current",
       "conformance": true
     },
@@ -2848,35 +2728,11 @@
     {
       "id": "ALS-S0341.4",
       "root_id": "ALS-S0341",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0341.5",
-      "root_id": "ALS-S0341",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0341.6",
-      "root_id": "ALS-S0341",
       "lifecycle": "current",
       "conformance": true
     },
     {
-      "id": "ALS-S0341.7",
-      "root_id": "ALS-S0341",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0341.8",
-      "root_id": "ALS-S0341",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0341.9",
+      "id": "ALS-S0341.5",
       "root_id": "ALS-S0341",
       "lifecycle": "planned",
       "conformance": true
@@ -2943,18 +2799,6 @@
     },
     {
       "id": "ALS-S0345.4",
-      "root_id": "ALS-S0345",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0345.5",
-      "root_id": "ALS-S0345",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0345.6",
       "root_id": "ALS-S0345",
       "lifecycle": "planned",
       "conformance": true
@@ -3178,13 +3022,13 @@
     {
       "id": "ALS-S0367.2",
       "root_id": "ALS-S0367",
-      "lifecycle": "planned",
+      "lifecycle": "current",
       "conformance": true
     },
     {
       "id": "ALS-S0367.3",
       "root_id": "ALS-S0367",
-      "lifecycle": "planned",
+      "lifecycle": "current",
       "conformance": true
     },
     {
@@ -3196,13 +3040,13 @@
     {
       "id": "ALS-S0367.5",
       "root_id": "ALS-S0367",
-      "lifecycle": "planned",
+      "lifecycle": "current",
       "conformance": true
     },
     {
       "id": "ALS-S0367.6",
       "root_id": "ALS-S0367",
-      "lifecycle": "planned",
+      "lifecycle": "current",
       "conformance": true
     },
     {
@@ -3220,7 +3064,7 @@
     {
       "id": "ALS-S0367.9",
       "root_id": "ALS-S0367",
-      "lifecycle": "current",
+      "lifecycle": "planned",
       "conformance": true
     },
     {
@@ -3238,7 +3082,7 @@
     {
       "id": "ALS-S0367.12",
       "root_id": "ALS-S0367",
-      "lifecycle": "current",
+      "lifecycle": "planned",
       "conformance": true
     },
     {
@@ -3249,66 +3093,6 @@
     },
     {
       "id": "ALS-S0367.14",
-      "root_id": "ALS-S0367",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0367.15",
-      "root_id": "ALS-S0367",
-      "lifecycle": "current",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0367.16",
-      "root_id": "ALS-S0367",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0367.17",
-      "root_id": "ALS-S0367",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0367.18",
-      "root_id": "ALS-S0367",
-      "lifecycle": "current",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0367.19",
-      "root_id": "ALS-S0367",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0367.20",
-      "root_id": "ALS-S0367",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0367.21",
-      "root_id": "ALS-S0367",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0367.22",
-      "root_id": "ALS-S0367",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0367.23",
-      "root_id": "ALS-S0367",
-      "lifecycle": "planned",
-      "conformance": true
-    },
-    {
-      "id": "ALS-S0367.24",
       "root_id": "ALS-S0367",
       "lifecycle": "planned",
       "conformance": true
