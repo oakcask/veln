@@ -21,6 +21,9 @@ also states it.
 - Identifier casing that separates type and constructor names from module,
   function, and value-binding names:
   [identifier-casing.md](identifier-casing.md).
+- Add a target-snapshot preflight before reissuing the agent-language-services
+  client-platform closure target:
+  [proposal-target-snapshot-preflight.md](proposal-target-snapshot-preflight.md).
 - Add the frozen source inventory for the agent-language-services lifecycle
   migration:
   [agent-language-services-lifecycle-migration.md](agent-language-services-lifecycle-migration.md).
