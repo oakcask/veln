@@ -14,23 +14,21 @@ assertion target. It does not change toolchain behavior or executable cases.
 
 ## Selection State
 
-This proposal is blocked by
-[Agent Language Services Platform Matrix Closure](agent-language-services-platform-matrix-closure.md)
-and
-[Checked Proposal Target Readiness](checked-proposal-target-readiness.md).
-Do not select the frozen-source-inventory PR while either prerequisite remains
-under `docs/proposals/`.
+The checked target-readiness prerequisite is complete and recorded under
+[Checked Proposal Target Readiness](../reference/implemented-proposals/checked-proposal-target-readiness.md).
+The client-platform prerequisite is complete and recorded under
+[Agent Language Services Platform Matrix Closure](../reference/implemented-proposals/agent-language-services-platform-matrix-closure.md).
 
-After both prerequisites complete, select only the corrected frozen source
-inventory PR first. Its base is the default branch revision that contains both
-completed prerequisite records and does not contain a frozen inventory. Keep
-all corrections on that same default-branch-targeting PR. Do not put a
-correction PR on a branch that already contains any frozen artifact. The PR
-must add the source-universe contract, inventory, lifecycle review manifest,
-migration-ledger schema, validator, and rejection tests without reorganizing
-the umbrella proposal. Select the migration PR only after the frozen inventory
-has merged. Neither target may change the MCP harness, executable MCP fixtures,
-or semantic baselines.
+Select only the corrected frozen source inventory PR first. Its base is the
+default branch revision that contains both completed prerequisite records and
+does not contain a frozen inventory. Keep all corrections on that same
+default-branch-targeting PR. Do not put a correction PR on a branch that
+already contains any frozen artifact. The PR must add the source-universe
+contract, inventory, lifecycle review manifest, migration-ledger schema,
+validator, and rejection tests without reorganizing the umbrella proposal.
+This branch supplies that frozen artifact set. Select the migration PR only
+after the frozen inventory has merged. Neither target may change the MCP
+harness, executable MCP fixtures, or semantic baselines.
 
 ## Problem
 

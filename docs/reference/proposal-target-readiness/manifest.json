@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "proposal_path": "docs/proposals/identifier-casing.md",
+      "proposal_anchor": "#identifier-casing",
+      "state": "ready",
+      "prerequisites": []
+    },
+    {
+      "proposal_path": "docs/proposals/agent-language-services-lifecycle-migration.md",
+      "proposal_anchor": "#agent-language-services-lifecycle-migration",
+      "state": "ready",
+      "prerequisites": [
+        "docs/proposals/agent-language-services-platform-matrix-closure.md"
+      ]
+    },
+    {
+      "proposal_path": "docs/proposals/agent-language-services-slice-closure.md",
+      "proposal_anchor": "#agent-language-services-slice-closure",
+      "state": "blocked",
+      "prerequisites": [
+        "docs/proposals/agent-language-services-lifecycle-migration.md"
+      ]
+    },
+    {
+      "proposal_path": "docs/proposals/agent-language-services.md",
+      "proposal_anchor": "#agent-language-services",
+      "state": "blocked",
+      "prerequisites": [
+        "docs/proposals/identifier-casing.md",
+        "docs/proposals/agent-language-services-slice-closure.md"
+      ]
+    }
+  ]
+}

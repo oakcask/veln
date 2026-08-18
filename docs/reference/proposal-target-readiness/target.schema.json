@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://veln-lang.invalid/schemas/proposal-target-readiness-target.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "proposal_path",
+    "proposal_anchor",
+    "default_branch",
+    "base_commit",
+    "prerequisites",
+    "target_kind"
+  ],
+  "properties": {
+    "proposal_path": {
+      "type": "string",
+      "pattern": "^docs/proposals/[^.][^\\n]*\\.md$",
+      "not": { "pattern": "(^/|\\.\\.)" }
+    },
+    "proposal_anchor": {
+      "type": "string",
+      "pattern": "^#[a-z0-9][a-z0-9-]*$"
+    },
+    "default_branch": {
+      "type": "string",
+      "minLength": 1
+    },
+    "base_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,40}$"
+    },
+    "prerequisites": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^docs/proposals/[^.][^\\n]*\\.md$",
+        "not": { "pattern": "(^/|\\.\\.)" }
+      }
+    },
+    "target_kind": {
+      "type": "string",
+      "enum": ["proposal", "proposal-section", "no-target"]
+    }
+  }
+}
