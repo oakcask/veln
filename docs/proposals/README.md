@@ -21,14 +21,18 @@ also states it.
 - Identifier casing that separates type and constructor names from module,
   function, and value-binding names:
   [identifier-casing.md](identifier-casing.md).
-- Lossless lifecycle migration for the agent-language-services proposal. Select
-  its frozen-source-inventory PR before its migration PR:
-  [agent-language-services-lifecycle-migration.md](agent-language-services-lifecycle-migration.md).
+- Close the agent-language-services client-platform set before freezing its
+  conformance universe:
+  [agent-language-services-platform-matrix-closure.md](agent-language-services-platform-matrix-closure.md).
 
 Only proposals and subsections listed in this section are selectable targets.
 
 ## Blocked
 
+- The agent-language-services lifecycle migration is blocked until the
+  client-platform matrix closure leaves this directory as a completed
+  implementation record:
+  [agent-language-services-lifecycle-migration.md](agent-language-services-lifecycle-migration.md).
 - The agent-language-services slice-closure proposal is blocked until the
   lifecycle-migration proposal leaves this directory as a completed
   implementation record:
