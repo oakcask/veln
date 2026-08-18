@@ -1,6 +1,6 @@
 ---
 role: routing
-update-when: A reference route is added, moved, reclassified, removed, or no longer answers the routed task.
+update-when: A reference document is added, moved, reclassified, or removed.
 ---
 
 # Reference
@@ -25,8 +25,6 @@ behavior page needs rationale, source support, or toolchain reference material.
   [specification/json-output.md](../specification/json-output.md).
 - CLI integration test harness:
   [toolchain-test-harness.md](toolchain-test-harness.md).
-- Proposal target readiness validation artifacts:
-  [proposal-target-readiness/README.md](proposal-target-readiness/README.md).
 - HTTP/2 public symbol migration and residual-name classification:
   [http2-standard-module-migration.md](http2-standard-module-migration.md).
 - Implemented proposal records:
@@ -42,9 +40,6 @@ behavior page needs rationale, source support, or toolchain reference material.
   diagnostics, commands, JSON output, runtime behavior, or examples.
 - Use [toolchain-test-harness.md](toolchain-test-harness.md) before changing
   CLI integration case layout or assertion policy.
-- Use [proposal-target-readiness/README.md](proposal-target-readiness/README.md)
-  before changing generated proposal target validation, readiness metadata, or
-  the readiness workflow registration.
 - Use `implemented-proposals/` only for completed proposal history or
   completion evidence after checking current behavior.
 - Use `source-decisions/` after a language page needs rationale; start with
