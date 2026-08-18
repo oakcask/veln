@@ -36,7 +36,7 @@ The validator recognizes exactly these repository states:
 | --- | --- | --- |
 | `G0` | This active gate proposal is Ready. | A completed gate record, reviewed source-decision authority, or frozen lifecycle artifact. |
 | `G1` | The completed gate record, reviewed source-decision authority, range validator, and the lifecycle proposal's `#frozen-source-universe` Ready route. | This active gate proposal or any frozen lifecycle artifact. |
-| `G2` | Every `G1` authority plus tracked inventory-target provenance and the complete frozen artifact set. | A change from the `G1` bytes of the completed gate record. |
+| `G2` | Every `G1` authority plus tracked inventory-target provenance and the complete frozen artifact set. | A change from the `G1` bytes of the completed gate record or reviewed source-decision authority. |
 
 The only permitted transitions are:
 
@@ -44,7 +44,7 @@ The only permitted transitions are:
 | --- | --- | --- |
 | `G0` | `G0` | Accept ordinary changes that do not stage a `G1` authority, inventory-target provenance, or a frozen lifecycle artifact. |
 | `G0` | `G1` | Accept only the review-gate PR described below. |
-| `G1` | `G2` | Accept only a later frozen-inventory PR whose target was issued from that exact `G1` commit and whose authority corrections are frozen in the same artifact set. |
+| `G1` | `G2` | Accept only a later frozen-inventory PR whose target was issued from that exact `G1` commit. |
 | `G0` | `G2` | Reject the combined gate-and-inventory history regardless of commit order. |
 | `G1` | `G1` | Apply the immutable-authority guard when the changed paths select this workflow. |
 | `G2` | `G2` | Apply the post-bootstrap immutable-artifact guard. |
@@ -185,20 +185,14 @@ The inventory bootstrap allowlist contains only:
 .github/workflows/workflow--test-scripts.yaml
 docs/reference/README.md
 docs/reference/agent-language-services-lifecycle/**
-docs/reference/agent-language-services-lifecycle-review/source-decisions.json
-docs/reference/implemented-proposals/README.md
-docs/reference/implemented-proposals/agent-language-services-frozen-source-inventory.md
-docs/proposals/README.md
-docs/proposals/agent-language-services-lifecycle-migration.md
-docs/reference/proposal-target-readiness/manifest.json
 workflow-scripts/check-agent-language-services-lifecycle.mjs
 workflow-scripts/check-agent-language-services-lifecycle.test.mjs
 ```
 
-The completed gate record, MCP harness, executable MCP fixtures, semantic
-baselines, and unrelated documentation are outside this allowlist. The
-lifecycle migration proposal owns the frozen artifacts and their content
-acceptance model.
+The reviewed source-decision authority, active proposals, completed gate
+record, MCP harness, executable MCP fixtures, semantic baselines, and unrelated
+documentation are outside this allowlist. The lifecycle migration proposal
+owns the frozen artifacts and their content acceptance model.
 
 ## Non-Goals
 

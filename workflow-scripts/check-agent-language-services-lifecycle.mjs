@@ -1087,7 +1087,7 @@ function validateTransition({ repoRoot, base, head, baseState, headState, change
     return errors;
   }
   if (transition === "G0->G2") {
-    return ["G0 -> G2: complete the review gate before adding frozen lifecycle artifacts"];
+    return validateSequencedG0ToG2Transition({ repoRoot, base, head });
   }
   if (transition === "G1->G1") {
     errors.push(...rejectChangedImmutablePaths({ repoRoot, base, head, paths: immutableG1Paths, label: "G1 authority" }));
@@ -1109,6 +1109,41 @@ function validateTransition({ repoRoot, base, head, baseState, headState, change
     return errors;
   }
   return [`${transition}: unrecognized lifecycle transition`];
+}
+
+function validateSequencedG0ToG2Transition({ repoRoot, base, head }) {
+  const commits = revisionList({ repoRoot, base, head });
+  const candidateErrors = [];
+  for (const commit of commits) {
+    if (lifecycleState({ repoRoot, revision: commit }) !== "G1") {
+      continue;
+    }
+    const g0ToG1Errors = validateTransition({
+      repoRoot,
+      base,
+      head: commit,
+      baseState: "G0",
+      headState: "G1",
+      changedPaths: changedPathSet({ repoRoot, base, head: commit }),
+    });
+    const g1ToG2Errors = validateTransition({
+      repoRoot,
+      base: commit,
+      head,
+      baseState: "G1",
+      headState: "G2",
+      changedPaths: changedPathSet({ repoRoot, base: commit, head }),
+    });
+    if (g0ToG1Errors.length === 0 && g1ToG2Errors.length === 0) {
+      return [];
+    }
+    candidateErrors.push(...g0ToG1Errors.map((error) => `G1 checkpoint ${commit}: ${error}`));
+    candidateErrors.push(...g1ToG2Errors.map((error) => `G1 checkpoint ${commit}: ${error}`));
+  }
+  return [
+    "G0 -> G2: preserve a valid G1 checkpoint before adding frozen lifecycle artifacts",
+    ...candidateErrors,
+  ];
 }
 
 function validateHeadContent({ repoRoot, head }) {
@@ -1253,6 +1288,11 @@ function changedPathSet({ repoRoot, base, head }) {
     }
   }
   return paths;
+}
+
+function revisionList({ repoRoot, base, head }) {
+  const result = git({ repoRoot, args: ["rev-list", "--reverse", `${base}..${head}`] });
+  return result.stdout.trim().split("\n").filter(Boolean);
 }
 
 function validateRangeInputs({ repoRoot, options }) {

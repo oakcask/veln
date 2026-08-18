@@ -237,7 +237,31 @@ test("accepts an exact G0 to G1 review-gate transition", () => {
   assert.match(result.summary, /G0 -> G1/);
 });
 
-test("rejects combined G0 to G2 history and direct forbidden frozen paths", () => {
+test("accepts sequenced G0 to G2 history with a valid G1 checkpoint", () => {
+  using fixture = tempRepo("als-g0-g2-sequenced");
+  const base = writeG0(fixture.path);
+  git(fixture.path, ["switch", "--create", "combined"]);
+  writeG1(fixture.path);
+  writeFrozenDestinationFiles(fixture.path);
+  const g1 = commitAll(fixture.path, "complete review gate");
+  const writeResult = runCommand({ repoRoot: fixture.path, command: "write-frozen-artifacts", argv: ["--base-commit", g1] });
+  assert.equal(writeResult.valid, true, writeResult.errors.join("\n"));
+  writeFile(fixture.path, "docs/reference/README.md", "---\nrole: routing\nupdate-when: Routes change.\n---\n\n# Reference\n\n- [Lifecycle](agent-language-services-lifecycle/README.md).\n");
+  writeFile(fixture.path, "docs/reference/implemented-proposals/README.md", "---\nrole: routing\nupdate-when: Records change.\n---\n\n# Records\n\n- [Frozen](agent-language-services-frozen-source-inventory.md).\n");
+  writeFile(fixture.path, "docs/reference/implemented-proposals/agent-language-services-frozen-source-inventory.md", "---\nrole: implementation-record\nauthority: supporting\nupdate-when: The frozen inventory record is superseded.\n---\n\n# Agent Language Services Frozen Source Inventory\n");
+  const head = commitAll(fixture.path, "freeze inventory");
+
+  const result = runCommand({
+    repoRoot: fixture.path,
+    command: "validate-range",
+    argv: ["--base", base, "--head", head, "--event-base-ref", "main", "--default-ref", "main"],
+  });
+
+  assert.equal(result.valid, true, result.errors.join("\n"));
+  assert.match(result.summary, /G0 -> G2/);
+});
+
+test("rejects unsequenced G0 to G2 history and direct forbidden frozen paths", () => {
   using fixture = tempRepo("als-g0-g2");
   const base = writeG0(fixture.path);
   git(fixture.path, ["switch", "--create", "combined"]);
@@ -252,7 +276,7 @@ test("rejects combined G0 to G2 history and direct forbidden frozen paths", () =
   });
 
   assert.equal(result.valid, false);
-  assert.match(result.errors.join("\n"), /G0 -> G2/);
+  assert.match(result.errors.join("\n"), /valid G1 checkpoint/);
 });
 
 test("rejects non-default or stacked event base names", () => {
@@ -394,6 +418,8 @@ function writeG0(repoRoot) {
   writeFile(repoRoot, "docs/proposals/agent-language-services-inventory-review-gate.md", "---\nrole: proposal\nupdate-when: The gate changes.\n---\n\n# Gate\n");
   writeFile(repoRoot, "docs/proposals/README.md", "# Proposals\n\n## Ready\n\n- [Gate](agent-language-services-inventory-review-gate.md#g0-to-g1-review-gate).\n");
   writeFile(repoRoot, "docs/proposals/agent-language-services-lifecycle-migration.md", "---\nrole: proposal\nupdate-when: The lifecycle migration changes.\n---\n\n# Lifecycle\n");
+  writeFile(repoRoot, "docs/specification/mcp.md", "---\nrole: specification\nauthority: normative\nupdate-when: The MCP specification changes.\n---\n\n# MCP Workspace Projects, Diagnostics, And Definitions\n");
+  writeFile(repoRoot, "examples/specification/README.md", "# Specification Examples\n");
   writeFile(repoRoot, ".github/workflows/workflow--test-scripts.yaml", "name: workflow / test scripts\n");
   writeFile(repoRoot, "docs/reference/implemented-proposals/README.md", "---\nrole: routing\nupdate-when: Records change.\n---\n\n# Records\n");
   writeFile(repoRoot, "docs/reference/README.md", "---\nrole: routing\nupdate-when: Routes change.\n---\n\n# Reference\n");

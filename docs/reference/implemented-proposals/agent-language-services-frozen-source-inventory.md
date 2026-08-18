@@ -35,7 +35,10 @@ node --test workflow-scripts/check-agent-language-services-lifecycle.test.mjs
 ```
 
 - The documentation-validation workflow invokes the range-aware lifecycle
-  guard for pull requests and pushes.
+  guard for pull requests and pushes. When a pull request contains both the
+  review-gate and frozen-inventory commits, the guard accepts it only if the
+  commit history preserves a valid `G1` checkpoint before the frozen artifact
+  bootstrap.
 
 ## Boundary
 
