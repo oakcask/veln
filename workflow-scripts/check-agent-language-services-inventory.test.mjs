@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import path from "node:path";
 import test from "node:test";
 import {
   buildInventory,
   INVENTORY_PATH,
+  parseChangedPathStatus,
   SOURCE_PATH,
   validateDiffScope,
   validateInventory,
@@ -63,6 +63,36 @@ test("inventory retains the closed matrices and named conformance inputs", () =>
     "compatibility.toml",
   ]) {
     assert.equal(text.includes(identity), true, `missing named input ${identity}`);
+  }
+});
+
+test("inventory assigns stable leaf IDs to each domain error", () => {
+  const domainParent = frozen.items.find((item) =>
+    item.text.startsWith("The stable v1 domain codes are "),
+  );
+  assert.ok(domainParent);
+  assert.equal(domainParent.lifecycle, undefined);
+  assert.equal(domainParent.child_count, domainParent.children.length);
+
+  for (const identity of [
+    "invalid_path",
+    "invalid_position",
+    "invalid_query",
+    "source_required",
+    "project_not_selected",
+    "project_ambiguous",
+    "snapshot_changed",
+    "invalid_cursor",
+    "stale_snapshot",
+    "resource_not_found",
+    "generation_failed",
+    "resource_capacity",
+    "incompatible_version",
+  ]) {
+    const leaves = inventoryLeaves(domainParent).filter((leaf) =>
+      leaf.identity.includes(identity) && leaf.text === `\`${identity}\``,
+    );
+    assert.equal(leaves.length, 1, `missing stable leaf for ${identity}`);
   }
 });
 
@@ -191,6 +221,22 @@ test("diff guard permits inventory work and rejects frozen or executable scopes"
   ]).join("\n");
   assert.match(errors, /changes frozen umbrella proposal/u);
   assert.match(errors, /changes protected MCP or semantic evidence/u);
+});
+
+test("diff guard sees deletions and both sides of renames", () => {
+  const paths = parseChangedPathStatus(
+    [
+      "D\tcrates/veln-mcp/src/server.rs",
+      `R100\t${SOURCE_PATH}\tdocs/proposals/agent-language-services-renamed.md`,
+      "",
+    ].join("\n"),
+  );
+  assert.ok(paths.includes("crates/veln-mcp/src/server.rs"));
+  assert.ok(paths.includes(SOURCE_PATH));
+  assert.ok(paths.includes("docs/proposals/agent-language-services-renamed.md"));
+  const errors = validateDiffScope(paths).join("\n");
+  assert.match(errors, /changes protected MCP or semantic evidence/u);
+  assert.match(errors, /changes frozen umbrella proposal/u);
 });
 
 test("inventory construction is deterministic", () => {

@@ -79,6 +79,11 @@ export function buildInventory(source) {
       digest: digest(record.text),
       text: record.text,
     };
+    if (isStableDomainCodeRecord(record.text)) {
+      const children = splitStableDomainCodeRecord(id, record.heading, record.text);
+      items.push({ ...base, child_count: children.length, children });
+      continue;
+    }
     if (record.parts !== undefined) {
       const children = record.parts.map((part, childIndex) => {
         const child = childRecord(
@@ -339,10 +344,17 @@ export function validateDiffScope(changedPaths) {
 export function changedPaths(base, head = "HEAD", root = process.cwd()) {
   const output = execFileSync(
     "git",
-    ["diff", "--name-only", "--diff-filter=ACMR", base, head, "--"],
+    ["diff", "--name-status", "--diff-filter=ACMRD", base, head, "--"],
     { cwd: root, encoding: "utf8" },
   );
-  return output.split("\n").filter(Boolean);
+  return parseChangedPathStatus(output);
+}
+
+export function parseChangedPathStatus(output) {
+  return output
+    .split("\n")
+    .filter(Boolean)
+    .flatMap((line) => line.split("\t").slice(1));
 }
 
 function extractRecords(source) {
@@ -460,6 +472,27 @@ function splitMixedRecord(id, heading, text, classes) {
   );
 }
 
+function splitStableDomainCodeRecord(id, heading, text) {
+  const prefixEnd = text.indexOf(". The request spelling");
+  const domainText = prefixEnd === -1 ? text : text.slice(0, prefixEnd);
+  const codeSpans = [...domainText.matchAll(/`([^`]+)`/gu)].map((match) => [
+    codeUnitToScalarIndex(text, match.index),
+    codeUnitToScalarIndex(text, match.index + match[0].length),
+  ]);
+  const scalars = [...text];
+  const parts = [];
+  let start = 0;
+  for (const [codeStart, codeEnd] of codeSpans) {
+    if (start < codeStart) parts.push([[start, codeStart]]);
+    parts.push([[codeStart, codeEnd]]);
+    start = codeEnd;
+  }
+  if (start < scalars.length) parts.push([[start, scalars.length]]);
+  return parts.map((spans, index) =>
+    childRecord(`${id}.${index + 1}`, heading, text, spans, "planned"),
+  );
+}
+
 function childRecord(id, heading, parentText, spans, lifecycle) {
   const scalars = [...parentText];
   const text = spans.map(([start, end]) => scalars.slice(start, end).join("")).join("");
@@ -472,6 +505,10 @@ function childRecord(id, heading, parentText, spans, lifecycle) {
     lifecycle: lifecycle ?? first(statedLifecycles(text)) ?? "planned",
     spans,
   };
+}
+
+function isStableDomainCodeRecord(text) {
+  return text.startsWith("The stable v1 domain codes are ");
 }
 
 function statedLifecycles(text) {

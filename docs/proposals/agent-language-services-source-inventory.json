@@ -2980,7 +2980,416 @@
       ],
       "digest": "774bec16d7f9247b4daa15419d9117f8b23c0215bbb3d5882bc76fc4705d6e95",
       "text": "The stable v1 domain codes are `invalid_path`, `invalid_position`,\n`invalid_query`, `source_required`, `project_not_selected`,\n`project_ambiguous`, `snapshot_changed`, `invalid_cursor`, `stale_snapshot`,\n`resource_not_found`, `generation_failed`, `resource_capacity`, and\n`incompatible_version`. The request spelling of the\nworkspace base is `.`. Numeric values outside JSON schema ranges are rejected\nand are never clamped. Positive coordinate values that pass schema validation\nbut do not address a selected source position return `invalid_position`.",
-      "lifecycle": "planned"
+      "child_count": 27,
+      "children": [
+        {
+          "id": "ALS-0108.1",
+          "heading": "Tools",
+          "identity": [],
+          "digest": "77f513bbff3efff3f62fce5cbda7c1281d176d15e3ca7a9b6b5ac6b31cb485e6",
+          "text": "The stable v1 domain codes are ",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              0,
+              31
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.2",
+          "heading": "Tools",
+          "identity": [
+            "invalid_path"
+          ],
+          "digest": "8d0a7a501bb348b2e2a55110b02bb6b9dc0827d24b36074fb9e5648d65794c13",
+          "text": "`invalid_path`",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              31,
+              45
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.3",
+          "heading": "Tools",
+          "identity": [],
+          "digest": "0a07f659461970d8d8dcefe4fff96a1745599810dc7d47391e95c803b7b2072c",
+          "text": ", ",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              45,
+              47
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.4",
+          "heading": "Tools",
+          "identity": [
+            "invalid_position"
+          ],
+          "digest": "f1bcb4371c25109cc0c9f564e4d68880fe6135c7bfecf37bdf4a127bdfc73c1a",
+          "text": "`invalid_position`",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              47,
+              65
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.5",
+          "heading": "Tools",
+          "identity": [],
+          "digest": "beadba836315747fc95ae304452514b72fe122a6e345974638d70c4e8ebace6a",
+          "text": ",\n",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              65,
+              67
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.6",
+          "heading": "Tools",
+          "identity": [
+            "invalid_query"
+          ],
+          "digest": "4293a8e500be74727f5ba32b9c313028c1bf490cd2d61a46614ba36571e7cd8d",
+          "text": "`invalid_query`",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              67,
+              82
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.7",
+          "heading": "Tools",
+          "identity": [],
+          "digest": "0a07f659461970d8d8dcefe4fff96a1745599810dc7d47391e95c803b7b2072c",
+          "text": ", ",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              82,
+              84
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.8",
+          "heading": "Tools",
+          "identity": [
+            "source_required"
+          ],
+          "digest": "09002d93467e74e3745d8c65e9925e310249819a3bafe047406fe0a98851cd44",
+          "text": "`source_required`",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              84,
+              101
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.9",
+          "heading": "Tools",
+          "identity": [],
+          "digest": "0a07f659461970d8d8dcefe4fff96a1745599810dc7d47391e95c803b7b2072c",
+          "text": ", ",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              101,
+              103
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.10",
+          "heading": "Tools",
+          "identity": [
+            "project_not_selected"
+          ],
+          "digest": "8d9cc52fb4dc5214d629d58e8b148a74b1ee17b98c5738eaf1901b10c2783253",
+          "text": "`project_not_selected`",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              103,
+              125
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.11",
+          "heading": "Tools",
+          "identity": [],
+          "digest": "beadba836315747fc95ae304452514b72fe122a6e345974638d70c4e8ebace6a",
+          "text": ",\n",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              125,
+              127
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.12",
+          "heading": "Tools",
+          "identity": [
+            "project_ambiguous"
+          ],
+          "digest": "90b38df4b2b612df5d194635aa8a0dab94f5752485e923b1ab8ccaf5f0b7e34f",
+          "text": "`project_ambiguous`",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              127,
+              146
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.13",
+          "heading": "Tools",
+          "identity": [],
+          "digest": "0a07f659461970d8d8dcefe4fff96a1745599810dc7d47391e95c803b7b2072c",
+          "text": ", ",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              146,
+              148
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.14",
+          "heading": "Tools",
+          "identity": [
+            "snapshot_changed"
+          ],
+          "digest": "0b874865348984322b960dc49afd731fb3229ff55902e7d241bc78713bcb0174",
+          "text": "`snapshot_changed`",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              148,
+              166
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.15",
+          "heading": "Tools",
+          "identity": [],
+          "digest": "0a07f659461970d8d8dcefe4fff96a1745599810dc7d47391e95c803b7b2072c",
+          "text": ", ",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              166,
+              168
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.16",
+          "heading": "Tools",
+          "identity": [
+            "invalid_cursor"
+          ],
+          "digest": "ad859aad227fc9ce908e3220ab097dde0aa71c8296d4253c06f03aba86c972f9",
+          "text": "`invalid_cursor`",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              168,
+              184
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.17",
+          "heading": "Tools",
+          "identity": [],
+          "digest": "0a07f659461970d8d8dcefe4fff96a1745599810dc7d47391e95c803b7b2072c",
+          "text": ", ",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              184,
+              186
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.18",
+          "heading": "Tools",
+          "identity": [
+            "stale_snapshot"
+          ],
+          "digest": "c225baf9c78fde8fcab01d79ed3d627041106cc436877166cff41ad9771f75e3",
+          "text": "`stale_snapshot`",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              186,
+              202
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.19",
+          "heading": "Tools",
+          "identity": [],
+          "digest": "beadba836315747fc95ae304452514b72fe122a6e345974638d70c4e8ebace6a",
+          "text": ",\n",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              202,
+              204
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.20",
+          "heading": "Tools",
+          "identity": [
+            "resource_not_found"
+          ],
+          "digest": "14c944da6df8eaf96b77c357d925839e808922592f607f8aea3bfd37f1ab52d3",
+          "text": "`resource_not_found`",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              204,
+              224
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.21",
+          "heading": "Tools",
+          "identity": [],
+          "digest": "0a07f659461970d8d8dcefe4fff96a1745599810dc7d47391e95c803b7b2072c",
+          "text": ", ",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              224,
+              226
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.22",
+          "heading": "Tools",
+          "identity": [
+            "generation_failed"
+          ],
+          "digest": "7aeb045661c0354fcbc80c2a1a9eb449933b908b11246c53eda5581d66dc0034",
+          "text": "`generation_failed`",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              226,
+              245
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.23",
+          "heading": "Tools",
+          "identity": [],
+          "digest": "0a07f659461970d8d8dcefe4fff96a1745599810dc7d47391e95c803b7b2072c",
+          "text": ", ",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              245,
+              247
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.24",
+          "heading": "Tools",
+          "identity": [
+            "resource_capacity"
+          ],
+          "digest": "4c356e00f4c29ff3196b9aaa7844ab890300584848bb6cc6b6f7de31e40bf4d4",
+          "text": "`resource_capacity`",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              247,
+              266
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.25",
+          "heading": "Tools",
+          "identity": [],
+          "digest": "f7b6aa42187ed228c830d15ec272ce755a83aa4ef76667cbbd6c07e7b2372891",
+          "text": ", and\n",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              266,
+              272
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.26",
+          "heading": "Tools",
+          "identity": [
+            "incompatible_version"
+          ],
+          "digest": "f6da28d010b15f0b98c1b07c3a87f3f7b6795b36fa7313e8b2a099a0502c65b4",
+          "text": "`incompatible_version`",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              272,
+              294
+            ]
+          ]
+        },
+        {
+          "id": "ALS-0108.27",
+          "heading": "Tools",
+          "identity": [
+            ".",
+            "invalid_position"
+          ],
+          "digest": "5971353e692a145b6546f2fc9e1b21ce396d4f37c59e5237ea2f59e61202d7d0",
+          "text": ". The request spelling of the\nworkspace base is `.`. Numeric values outside JSON schema ranges are rejected\nand are never clamped. Positive coordinate values that pass schema validation\nbut do not address a selected source position return `invalid_position`.",
+          "lifecycle": "planned",
+          "spans": [
+            [
+              294,
+              552
+            ]
+          ]
+        }
+      ]
     },
     {
       "id": "ALS-0109",
