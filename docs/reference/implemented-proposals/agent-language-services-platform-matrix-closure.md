@@ -28,23 +28,24 @@ identity only. Later plugin implementation must derive compatibility values
 from checked client and validator artifacts. That work remains incomplete and
 cannot use this documentation-only closure as evidence that a value is valid.
 
-## Selection State
+## Completion State
 
-This proposal is ready. Complete it before selecting the frozen source
+This documentation-contract prerequisite is complete. The frozen source
 inventory PR from
-[Agent Language Services Lifecycle Migration](../../proposals/agent-language-services-lifecycle-migration.md).
+[Agent Language Services Lifecycle Migration](../../proposals/agent-language-services-lifecycle-migration.md)
+is now selectable.
 
 ## Scope
 
-Add one literal client-platform membership table under the unique visible
-heading `### Closed Client-Platform Matrix` in `## Agent Plugin` of
+The completed closure adds one literal client-platform membership table under
+the unique visible heading `### Closed Client-Platform Matrix` in
 `agent-language-services.md`. The table has exactly the columns `Client` and
 `Platform`. Each data row declares one exact client and platform pair.
 
-Add one separate table immediately under the unique visible heading
-`#### Compatibility Field Identities` within that matrix section. It names the
-fields that every future `compatibility.toml` record selected by a membership
-row must contain:
+It also adds one separate table immediately under the unique visible heading
+`#### Compatibility Field Identities` within that matrix section. The table
+names the fields that every future `compatibility.toml` record selected by a
+membership row must contain:
 
 1. `client`
 2. `platform`
@@ -63,19 +64,18 @@ The initial table contains exactly these two ordered client-platform keys:
 1. `codex/x86_64-unknown-linux-gnu`
 2. `claude-code/x86_64-unknown-linux-gnu`
 
-The closure PR may not select a different platform, add a third row, reorder
-the keys, or use a range, wildcard, “all supported platforms,” or an unnamed
+The closure did not select a different platform, add a third row, reorder the
+keys, or use a range, wildcard, “all supported platforms,” or an unnamed
 future row. A separate proposal must add another client or platform after this
-closure completes.
+closure.
 
-The compatibility-field table contains field identities only. This closure
-must not choose a host build, schema revision, validator version, contract
-revision, or integrity digest. Later plugin work records each exact value only
-after an authoritative client or validator artifact and its validation result
-exist.
+The compatibility-field table contains field identities only. This closure did
+not choose a host build, schema revision, validator version, contract revision,
+or integrity digest. Later plugin work records each exact value only after an
+authoritative client or validator artifact and its validation result exist.
 
-Update these exact semantic locations so each quantifier over client-platform
-cells routes to the literal table:
+The closure updated these exact semantic locations so each quantifier over
+client-platform cells routes to the literal table:
 
 | Reference ID | Section | Source claim |
 | --- | --- | --- |
@@ -110,10 +110,10 @@ does not attempt to classify arbitrary natural-language synonyms.
 
 ## Checked Matrix Contract
 
-Add a documentation validator that extracts the membership and field-identity
-tables independently from the later frozen-source inventory. The validator
-records the ordered client-platform keys, exact row count, and ordered field
-identities. It rejects:
+The closure adds a documentation validator that extracts the membership and
+field-identity tables independently from the later frozen-source inventory.
+The validator records the ordered client-platform keys, exact row count, and
+ordered field identities. It rejects:
 
 - a missing or duplicate client-platform key;
 - a membership or field-identity table hidden in an excluded Markdown context,
@@ -183,8 +183,8 @@ operation, and a regular file changed to another Git type.
 
 ## Completion Rule
 
-This proposal completes only when all five acceptance rows pass and all ten
+This proposal completed because all five acceptance rows pass and all ten
 registered locations contain their exact titled matrix links. The
-implementation record preserves the Correction Boundary rationale. Move the
-completed record out of `docs/proposals/` before selecting the lifecycle
-migration's frozen-source-inventory PR.
+implementation record preserves the Correction Boundary rationale. The
+completed record now lives outside `docs/proposals/`, so the lifecycle
+migration's frozen-source-inventory PR can be selected.
