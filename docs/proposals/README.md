@@ -18,6 +18,9 @@ also states it.
 
 ## Ready
 
+- Check generated proposal targets against the Ready catalog and merged
+  prerequisite state before implementation begins:
+  [checked-proposal-target-readiness.md](checked-proposal-target-readiness.md).
 - Identifier casing that separates type and constructor names from module,
   function, and value-binding names:
   [identifier-casing.md](identifier-casing.md).
@@ -30,8 +33,8 @@ Only proposals and subsections listed in this section are selectable targets.
 ## Blocked
 
 - The agent-language-services lifecycle migration is blocked until the
-  client-platform matrix closure leaves this directory as a completed
-  implementation record:
+  client-platform matrix closure and checked target-readiness proposals leave
+  this directory as completed implementation records:
   [agent-language-services-lifecycle-migration.md](agent-language-services-lifecycle-migration.md).
 - The agent-language-services slice-closure proposal is blocked until the
   lifecycle-migration proposal leaves this directory as a completed
