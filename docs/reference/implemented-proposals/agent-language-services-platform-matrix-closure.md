@@ -1,7 +1,7 @@
 ---
 role: implementation-record
 authority: supporting
-update-when: The agent-language-services closed client-platform matrix, compatibility field identities, or lifecycle source-universe prerequisite is superseded.
+update-when: The agent-language-services closed client-platform matrix, compatibility field identities, lifecycle source-universe prerequisite, or validation evidence is superseded.
 ---
 
 # Agent Language Services Platform Matrix Closure
@@ -19,6 +19,14 @@ membership needed before the lifecycle source universe can be frozen.
   `compatibility.toml` rows must pin: client, platform, host build,
   manifest-schema revision, validator version, validator digest, and the
   required Veln, MCP, LSP, language-service, and reference-schema contracts.
+- `docs/reference/agent-language-services-lifecycle/source-universe.json` and
+  `docs/reference/agent-language-services-lifecycle/frozen-inventory.json`
+  preserve the closed plugin compatibility cells as reviewed identity sets.
+- `workflow-scripts/check-agent-language-services-lifecycle.mjs validate`
+  checks the frozen identity set, source digests, inventory coverage, lifecycle
+  manifest, migration-ledger schema corpus, and diff-scope prerequisite gate.
+- `workflow-scripts/check-agent-language-services-lifecycle.test.mjs` rejects a
+  missing plugin compatibility cell.
 
 ## Boundary
 

@@ -5150,9 +5150,9 @@
       "id": "ALS-S0285",
       "span": {
         "start": 0,
-        "end": 651
+        "end": 115
       },
-      "reviewed_text_digest": "3b5f11929ea4093f32609e5bd0b803a31798a498f6271d557c44fd97d77162ef",
+      "reviewed_text_digest": "d3f7cbe333a526390667c8a55bed91fb505b6ac4cd0ea53dec43f8c13527eafe",
       "lifecycle": "planned",
       "destination": {
         "kind": "planned",
@@ -5161,12 +5161,40 @@
       }
     },
     {
-      "id": "ALS-S0286",
+      "id": "ALS-S0286.01",
       "span": {
-        "start": 0,
-        "end": 350
+        "start": 2,
+        "end": 8
       },
-      "reviewed_text_digest": "9db20a76d83789a97a06693ce86f66e13fa232ab3d0202194fad624c948d7913",
+      "reviewed_text_digest": "0c77fe09ab336a3e57cc2b6804a9bac65e19a27782b5a9c815d585e894c3b7f2",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0286.02",
+      "span": {
+        "start": 11,
+        "end": 19
+      },
+      "reviewed_text_digest": "c78ffe19571018fbc93a78873969046fe1a80c3d21e5d20fbb2ca17c7c53a144",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0286.03",
+      "span": {
+        "start": 22,
+        "end": 41
+      },
+      "reviewed_text_digest": "894432cbb1bc216a4bd4b2f8c71cf8eeca3810b00b9ea47e0aed04ab2e85d68b",
       "lifecycle": "planned",
       "destination": {
         "kind": "planned",
@@ -5178,9 +5206,9 @@
       "id": "ALS-S0287",
       "span": {
         "start": 0,
-        "end": 57
+        "end": 19
       },
-      "reviewed_text_digest": "6f610f95c576527eb25b104243b4ea269f3d5e80dae63a2b52c7edb69fd3779b",
+      "reviewed_text_digest": "b8ec48555607bc6202126c5db642f11cf898151fb6f2aa19d2e28aea19d7e532",
       "lifecycle": "planned",
       "destination": {
         "kind": "planned",
@@ -5189,12 +5217,12 @@
       }
     },
     {
-      "id": "ALS-S0288",
+      "id": "ALS-S0288.01",
       "span": {
-        "start": 0,
-        "end": 46
+        "start": 2,
+        "end": 9
       },
-      "reviewed_text_digest": "eaac81620963cb927806a986bf4c8d81be3908656ce543e9c9c10893b63b4d7f",
+      "reviewed_text_digest": "eb742577832a7c131c903e710b58052b5d673822b6157612315286090cbc2ce5",
       "lifecycle": "planned",
       "destination": {
         "kind": "planned",
@@ -5203,12 +5231,68 @@
       }
     },
     {
-      "id": "ALS-S0289",
+      "id": "ALS-S0288.02",
       "span": {
-        "start": 0,
-        "end": 78
+        "start": 12,
+        "end": 38
       },
-      "reviewed_text_digest": "ec6a86fa37aeb8cf49eeef1de84c52a07511aa3a8fa29b0f0146de5346fc3b89",
+      "reviewed_text_digest": "ec6b8f4259e1bf530990244ed25419b7ce6716dc0044e15ce427d980050a4da4",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0288.03",
+      "span": {
+        "start": 41,
+        "end": 73
+      },
+      "reviewed_text_digest": "309b3e9532c2979a536e95f8c4867230a6989162f1e9597038c9f27b3b412657",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0289.01",
+      "span": {
+        "start": 2,
+        "end": 15
+      },
+      "reviewed_text_digest": "2da4467d985a977627d1cdfc395ef77baa95be0d79a4f291c6a31348a0fec1b9",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0289.02",
+      "span": {
+        "start": 18,
+        "end": 44
+      },
+      "reviewed_text_digest": "ec6b8f4259e1bf530990244ed25419b7ce6716dc0044e15ce427d980050a4da4",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0289.03",
+      "span": {
+        "start": 47,
+        "end": 85
+      },
+      "reviewed_text_digest": "d1845031707d44423015a05fade8f98a6f30f86691b5a0087ce50bc1245fe54c",
       "lifecycle": "planned",
       "destination": {
         "kind": "planned",
@@ -5220,9 +5304,9 @@
       "id": "ALS-S0290",
       "span": {
         "start": 0,
-        "end": 30
+        "end": 54
       },
-      "reviewed_text_digest": "ea727377bcdb3d8157757ab272ddcc6bc62dc2e34a999e5238fcfb95bf77b676",
+      "reviewed_text_digest": "3b21c024575ab22eb470ead144977c017ead093a1d65565988c114817d677685",
       "lifecycle": "planned",
       "destination": {
         "kind": "planned",
@@ -5231,12 +5315,26 @@
       }
     },
     {
-      "id": "ALS-S0291",
+      "id": "ALS-S0291.01",
       "span": {
-        "start": 0,
-        "end": 77
+        "start": 2,
+        "end": 7
       },
-      "reviewed_text_digest": "a65c2c44d472e5c524dd5a2e60f04cf4ca320d36145c773a9caa3bc6be4d7ab5",
+      "reviewed_text_digest": "f45fc1dfdc96db2761a434542f105c04d1e15cf96f410656460051efd33ea5b6",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0291.02",
+      "span": {
+        "start": 10,
+        "end": 32
+      },
+      "reviewed_text_digest": "c6c6bc27bec6a0eb9bd21b4b7452daf34037a606923a18866be0bb631d57bbaf",
       "lifecycle": "planned",
       "destination": {
         "kind": "planned",
@@ -5246,160 +5344,6 @@
     },
     {
       "id": "ALS-S0292",
-      "span": {
-        "start": 0,
-        "end": 56
-      },
-      "reviewed_text_digest": "45629091dd6b87070b8ae73cd9a95f892d5a4fe4c89020ccbc10bff6c80082b4",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "planned",
-        "proposal": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services"
-      }
-    },
-    {
-      "id": "ALS-S0293",
-      "span": {
-        "start": 0,
-        "end": 50
-      },
-      "reviewed_text_digest": "e6a887d75dc63deb945156bfc8d7da4c243441166770be07b289fd478c363f5f",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "planned",
-        "proposal": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services"
-      }
-    },
-    {
-      "id": "ALS-S0294",
-      "span": {
-        "start": 0,
-        "end": 75
-      },
-      "reviewed_text_digest": "0c64ecadd46e2f3ea932430239a07bbac584dcbcaf5f2c07cf42b1b2b7ca4285",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "planned",
-        "proposal": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services"
-      }
-    },
-    {
-      "id": "ALS-S0295",
-      "span": {
-        "start": 0,
-        "end": 87
-      },
-      "reviewed_text_digest": "0a141f874ca0cf77a1658893f0a605d07e2ff94e738cd3ff56ea769d3eeca9cd",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "planned",
-        "proposal": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services"
-      }
-    },
-    {
-      "id": "ALS-S0296",
-      "span": {
-        "start": 0,
-        "end": 71
-      },
-      "reviewed_text_digest": "a02c7fdc201ed14dea8cd36101d4775e870a3ff57c5e959b2dcb552519a31ae5",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "planned",
-        "proposal": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services"
-      }
-    },
-    {
-      "id": "ALS-S0297",
-      "span": {
-        "start": 0,
-        "end": 21
-      },
-      "reviewed_text_digest": "25418ab2c6c834c006328148a7bcc3a5ec5bc9bb006f014af63496367032eba2",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "planned",
-        "proposal": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services"
-      }
-    },
-    {
-      "id": "ALS-S0298",
-      "span": {
-        "start": 0,
-        "end": 506
-      },
-      "reviewed_text_digest": "a0dacf38ecfe418e6c2054737465e9f2485c9cd7722417592af0b02f53b05d18",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "planned",
-        "proposal": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services"
-      }
-    },
-    {
-      "id": "ALS-S0299",
-      "span": {
-        "start": 0,
-        "end": 496
-      },
-      "reviewed_text_digest": "4edc1d4c1e738b7439ff522daf1105e2721d508a9cf1352fa310ed02752fec10",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "planned",
-        "proposal": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services"
-      }
-    },
-    {
-      "id": "ALS-S0300",
-      "span": {
-        "start": 0,
-        "end": 42
-      },
-      "reviewed_text_digest": "b707f597f883802797950365769fad61680507a7d8f3559f4c06592cb873733c",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "planned",
-        "proposal": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services"
-      }
-    },
-    {
-      "id": "ALS-S0301.01",
-      "span": {
-        "start": 2,
-        "end": 10
-      },
-      "reviewed_text_digest": "640ae4baf96061fee1798e9181e2b7a5145585233df2c27a501623afb0096ec1",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "planned",
-        "proposal": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services"
-      }
-    },
-    {
-      "id": "ALS-S0301.02",
-      "span": {
-        "start": 13,
-        "end": 30
-      },
-      "reviewed_text_digest": "74ebc824364c469f64e727c8f0d96374b085e6afca6ee28cf1e9266c098d79bf",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "planned",
-        "proposal": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services"
-      }
-    },
-    {
-      "id": "ALS-S0302",
       "span": {
         "start": 0,
         "end": 13
@@ -5413,7 +5357,593 @@
       }
     },
     {
+      "id": "ALS-S0293.01",
+      "span": {
+        "start": 2,
+        "end": 10
+      },
+      "reviewed_text_digest": "53ae1379aeab28c5993e712d4cf436b646fc931dc3f460c32aa29ee2b0bdf0f6",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0293.02",
+      "span": {
+        "start": 13,
+        "end": 75
+      },
+      "reviewed_text_digest": "07821bab87bb4f41a784a10425dd3bf48252dea1ef810670f4a27995c00ea5b4",
+      "lifecycle": "current",
+      "destination": {
+        "kind": "current",
+        "specification": "docs/specification/mcp.md",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+        "evidence": [
+          {
+            "path": "crates/veln-mcp/src/server/tests.rs",
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ALS-S0294.01",
+      "span": {
+        "start": 2,
+        "end": 12
+      },
+      "reviewed_text_digest": "518b055732b62314d09500fc10cc0206a8c4abe84a0f9606d6003cde183bdbca",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0294.02",
+      "span": {
+        "start": 15,
+        "end": 79
+      },
+      "reviewed_text_digest": "31398b73fe338db4b233529269004b33f0b108e886d64159e3e38095229406dc",
+      "lifecycle": "current",
+      "destination": {
+        "kind": "current",
+        "specification": "docs/specification/mcp.md",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+        "evidence": [
+          {
+            "path": "crates/veln-mcp/src/server/tests.rs",
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ALS-S0295.01",
+      "span": {
+        "start": 2,
+        "end": 14
+      },
+      "reviewed_text_digest": "64fabcaeecd7b8021667659af2cff09149416e10469627a12d72ebf590e73f7c",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0295.02",
+      "span": {
+        "start": 17,
+        "end": 43
+      },
+      "reviewed_text_digest": "8cf7a07f2e2f3e3da74d0a580fe0f50c835e13715827b3272e1528dd630d2dbd",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0296.01",
+      "span": {
+        "start": 2,
+        "end": 28
+      },
+      "reviewed_text_digest": "00c3fce189b0ba39dfa4238881b4571445f741a26f30d13f116e748e4cb71aa8",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0296.02",
+      "span": {
+        "start": 31,
+        "end": 71
+      },
+      "reviewed_text_digest": "5e58a7b7a9eccb4d853c2f2c2256f43b8389b4e5e1755313b0dc894d48dfc720",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0297.01",
+      "span": {
+        "start": 2,
+        "end": 21
+      },
+      "reviewed_text_digest": "1e6f112a792db8181b8b68d4921c97a42cfc3d5d38bf407bec5343874a5c63fd",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0297.02",
+      "span": {
+        "start": 24,
+        "end": 64
+      },
+      "reviewed_text_digest": "48d689df7980f2f5546528de085b98dc845b4443964141fc6291a17ec5457b80",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0298.01",
+      "span": {
+        "start": 2,
+        "end": 20
+      },
+      "reviewed_text_digest": "1fc7626dece33e09ff60c67806b62c736a97b07a1005461cd2ffad973e792c6c",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0298.02",
+      "span": {
+        "start": 23,
+        "end": 72
+      },
+      "reviewed_text_digest": "a8522e038dea78c01dcd4eca3b8147babeb82979a3bcf8f8ee1a2cd8bfe117fe",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0299.01",
+      "span": {
+        "start": 2,
+        "end": 17
+      },
+      "reviewed_text_digest": "9a9a65fe21407375f21bd5aa791eb9bd3b755e1958a1e4ede95b38af79d1e0be",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0299.02",
+      "span": {
+        "start": 20,
+        "end": 53
+      },
+      "reviewed_text_digest": "dde1822cada9d653527aee1deb279b2e9e77145bea245ad15f51aabbd414de90",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0300.01",
+      "span": {
+        "start": 2,
+        "end": 16
+      },
+      "reviewed_text_digest": "c56b7948e6ae79d757ef69c8bafcdc9459b9d3e45fd3b0ea2e5f7ea69d77cc5c",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0300.02",
+      "span": {
+        "start": 19,
+        "end": 41
+      },
+      "reviewed_text_digest": "d703c6acd625324a6759263489ddac39eeadd59cf1d2625dacfa95642d5a4b97",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0301.01",
+      "span": {
+        "start": 2,
+        "end": 16
+      },
+      "reviewed_text_digest": "ce8154a598695dcd6a05b14f93eaeab5d47f07f23d8c946fb4358bde8d4a2fe7",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0301.02",
+      "span": {
+        "start": 19,
+        "end": 41
+      },
+      "reviewed_text_digest": "80994c3492d1f56287f12e0a3b771f11ce20cfa2095ad4bf7e35439d56a01594",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0302.01",
+      "span": {
+        "start": 2,
+        "end": 29
+      },
+      "reviewed_text_digest": "8d15516b918785237473f6d174e991d320dac8a4f0dc8709e310758a6aa1ec15",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0302.02",
+      "span": {
+        "start": 32,
+        "end": 71
+      },
+      "reviewed_text_digest": "3721840ad9bc66a16f3a82241f97ea176c9b107679f1a518f93a6e8926fd9107",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
       "id": "ALS-S0303.01",
+      "span": {
+        "start": 2,
+        "end": 29
+      },
+      "reviewed_text_digest": "8a32b8afb70547f38bba4ff7cb4d74933c348e4c69fda559629a9a0ef6cc4865",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0303.02",
+      "span": {
+        "start": 32,
+        "end": 77
+      },
+      "reviewed_text_digest": "5cfc84eddb2e7248369309ab374ec23750fca78dee13aa167475ea80adbb4894",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0304",
+      "span": {
+        "start": 0,
+        "end": 448
+      },
+      "reviewed_text_digest": "708340eb1734061c2744aa5d9c2b421a664ca898d8d7d379520d89f03d52b791",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0305",
+      "span": {
+        "start": 0,
+        "end": 350
+      },
+      "reviewed_text_digest": "9db20a76d83789a97a06693ce86f66e13fa232ab3d0202194fad624c948d7913",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0306",
+      "span": {
+        "start": 0,
+        "end": 57
+      },
+      "reviewed_text_digest": "6f610f95c576527eb25b104243b4ea269f3d5e80dae63a2b52c7edb69fd3779b",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0307",
+      "span": {
+        "start": 0,
+        "end": 46
+      },
+      "reviewed_text_digest": "eaac81620963cb927806a986bf4c8d81be3908656ce543e9c9c10893b63b4d7f",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0308",
+      "span": {
+        "start": 0,
+        "end": 78
+      },
+      "reviewed_text_digest": "ec6a86fa37aeb8cf49eeef1de84c52a07511aa3a8fa29b0f0146de5346fc3b89",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0309",
+      "span": {
+        "start": 0,
+        "end": 30
+      },
+      "reviewed_text_digest": "ea727377bcdb3d8157757ab272ddcc6bc62dc2e34a999e5238fcfb95bf77b676",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0310",
+      "span": {
+        "start": 0,
+        "end": 77
+      },
+      "reviewed_text_digest": "a65c2c44d472e5c524dd5a2e60f04cf4ca320d36145c773a9caa3bc6be4d7ab5",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0311",
+      "span": {
+        "start": 0,
+        "end": 56
+      },
+      "reviewed_text_digest": "45629091dd6b87070b8ae73cd9a95f892d5a4fe4c89020ccbc10bff6c80082b4",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0312",
+      "span": {
+        "start": 0,
+        "end": 50
+      },
+      "reviewed_text_digest": "e6a887d75dc63deb945156bfc8d7da4c243441166770be07b289fd478c363f5f",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0313",
+      "span": {
+        "start": 0,
+        "end": 75
+      },
+      "reviewed_text_digest": "0c64ecadd46e2f3ea932430239a07bbac584dcbcaf5f2c07cf42b1b2b7ca4285",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0314",
+      "span": {
+        "start": 0,
+        "end": 87
+      },
+      "reviewed_text_digest": "0a141f874ca0cf77a1658893f0a605d07e2ff94e738cd3ff56ea769d3eeca9cd",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0315",
+      "span": {
+        "start": 0,
+        "end": 71
+      },
+      "reviewed_text_digest": "a02c7fdc201ed14dea8cd36101d4775e870a3ff57c5e959b2dcb552519a31ae5",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0316",
+      "span": {
+        "start": 0,
+        "end": 21
+      },
+      "reviewed_text_digest": "25418ab2c6c834c006328148a7bcc3a5ec5bc9bb006f014af63496367032eba2",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0317",
+      "span": {
+        "start": 0,
+        "end": 502
+      },
+      "reviewed_text_digest": "2a3220ea93b41a0467df3edb9b2b17b1d5776bb8f2e10167c01515e15dff5c62",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0318",
+      "span": {
+        "start": 0,
+        "end": 496
+      },
+      "reviewed_text_digest": "4edc1d4c1e738b7439ff522daf1105e2721d508a9cf1352fa310ed02752fec10",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0319",
+      "span": {
+        "start": 0,
+        "end": 42
+      },
+      "reviewed_text_digest": "b707f597f883802797950365769fad61680507a7d8f3559f4c06592cb873733c",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0320.01",
+      "span": {
+        "start": 2,
+        "end": 10
+      },
+      "reviewed_text_digest": "640ae4baf96061fee1798e9181e2b7a5145585233df2c27a501623afb0096ec1",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0320.02",
+      "span": {
+        "start": 13,
+        "end": 30
+      },
+      "reviewed_text_digest": "74ebc824364c469f64e727c8f0d96374b085e6afca6ee28cf1e9266c098d79bf",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0321",
+      "span": {
+        "start": 0,
+        "end": 13
+      },
+      "reviewed_text_digest": "831f11e7d7026bc2402e464ae6714a93218f622321805bfb5339d48bd550dfde",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "planned",
+        "proposal": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services"
+      }
+    },
+    {
+      "id": "ALS-S0322.01",
       "span": {
         "start": 2,
         "end": 27
@@ -5427,7 +5957,7 @@
       }
     },
     {
-      "id": "ALS-S0303.02",
+      "id": "ALS-S0322.02",
       "span": {
         "start": 30,
         "end": 122
@@ -5441,7 +5971,7 @@
       }
     },
     {
-      "id": "ALS-S0304.01",
+      "id": "ALS-S0323.01",
       "span": {
         "start": 2,
         "end": 26
@@ -5455,7 +5985,7 @@
       }
     },
     {
-      "id": "ALS-S0304.02",
+      "id": "ALS-S0323.02",
       "span": {
         "start": 29,
         "end": 176
@@ -5469,7 +5999,7 @@
       }
     },
     {
-      "id": "ALS-S0305.01",
+      "id": "ALS-S0324.01",
       "span": {
         "start": 2,
         "end": 17
@@ -5483,7 +6013,7 @@
       }
     },
     {
-      "id": "ALS-S0305.02",
+      "id": "ALS-S0324.02",
       "span": {
         "start": 20,
         "end": 142
@@ -5497,7 +6027,7 @@
       }
     },
     {
-      "id": "ALS-S0306.01",
+      "id": "ALS-S0325.01",
       "span": {
         "start": 2,
         "end": 25
@@ -5511,7 +6041,7 @@
       }
     },
     {
-      "id": "ALS-S0306.02",
+      "id": "ALS-S0325.02",
       "span": {
         "start": 28,
         "end": 151
@@ -5525,7 +6055,7 @@
       }
     },
     {
-      "id": "ALS-S0307.01",
+      "id": "ALS-S0326.01",
       "span": {
         "start": 2,
         "end": 20
@@ -5539,7 +6069,7 @@
       }
     },
     {
-      "id": "ALS-S0307.02",
+      "id": "ALS-S0326.02",
       "span": {
         "start": 23,
         "end": 762
@@ -5553,7 +6083,7 @@
       }
     },
     {
-      "id": "ALS-S0308.01",
+      "id": "ALS-S0327.01",
       "span": {
         "start": 2,
         "end": 24
@@ -5567,7 +6097,7 @@
       }
     },
     {
-      "id": "ALS-S0308.02",
+      "id": "ALS-S0327.02",
       "span": {
         "start": 27,
         "end": 363
@@ -5581,7 +6111,7 @@
       }
     },
     {
-      "id": "ALS-S0309.01",
+      "id": "ALS-S0328.01",
       "span": {
         "start": 2,
         "end": 17
@@ -5595,7 +6125,7 @@
       }
     },
     {
-      "id": "ALS-S0309.02",
+      "id": "ALS-S0328.02",
       "span": {
         "start": 20,
         "end": 161
@@ -5609,7 +6139,7 @@
       }
     },
     {
-      "id": "ALS-S0310.01",
+      "id": "ALS-S0329.01",
       "span": {
         "start": 2,
         "end": 24
@@ -5623,7 +6153,7 @@
       }
     },
     {
-      "id": "ALS-S0310.02",
+      "id": "ALS-S0329.02",
       "span": {
         "start": 27,
         "end": 181
@@ -5637,7 +6167,7 @@
       }
     },
     {
-      "id": "ALS-S0311.01",
+      "id": "ALS-S0330.01",
       "span": {
         "start": 2,
         "end": 13
@@ -5651,7 +6181,7 @@
       }
     },
     {
-      "id": "ALS-S0311.02",
+      "id": "ALS-S0330.02",
       "span": {
         "start": 16,
         "end": 159
@@ -5665,7 +6195,7 @@
       }
     },
     {
-      "id": "ALS-S0312.01",
+      "id": "ALS-S0331.01",
       "span": {
         "start": 2,
         "end": 23
@@ -5679,7 +6209,7 @@
       }
     },
     {
-      "id": "ALS-S0312.02",
+      "id": "ALS-S0331.02",
       "span": {
         "start": 26,
         "end": 138
@@ -5693,7 +6223,7 @@
       }
     },
     {
-      "id": "ALS-S0313.01",
+      "id": "ALS-S0332.01",
       "span": {
         "start": 2,
         "end": 20
@@ -5707,7 +6237,7 @@
       }
     },
     {
-      "id": "ALS-S0313.02",
+      "id": "ALS-S0332.02",
       "span": {
         "start": 23,
         "end": 120
@@ -5721,7 +6251,7 @@
       }
     },
     {
-      "id": "ALS-S0314.01",
+      "id": "ALS-S0333.01",
       "span": {
         "start": 2,
         "end": 22
@@ -5735,7 +6265,7 @@
       }
     },
     {
-      "id": "ALS-S0314.02",
+      "id": "ALS-S0333.02",
       "span": {
         "start": 25,
         "end": 259
@@ -5749,7 +6279,7 @@
       }
     },
     {
-      "id": "ALS-S0315.01",
+      "id": "ALS-S0334.01",
       "span": {
         "start": 2,
         "end": 22
@@ -5763,7 +6293,7 @@
       }
     },
     {
-      "id": "ALS-S0315.02",
+      "id": "ALS-S0334.02",
       "span": {
         "start": 25,
         "end": 156
@@ -5777,7 +6307,7 @@
       }
     },
     {
-      "id": "ALS-S0316.01",
+      "id": "ALS-S0335.01",
       "span": {
         "start": 2,
         "end": 39
@@ -5791,7 +6321,7 @@
       }
     },
     {
-      "id": "ALS-S0316.02",
+      "id": "ALS-S0335.02",
       "span": {
         "start": 42,
         "end": 236
@@ -5805,7 +6335,7 @@
       }
     },
     {
-      "id": "ALS-S0317.01",
+      "id": "ALS-S0336.01",
       "span": {
         "start": 2,
         "end": 16
@@ -5819,7 +6349,7 @@
       }
     },
     {
-      "id": "ALS-S0317.02",
+      "id": "ALS-S0336.02",
       "span": {
         "start": 19,
         "end": 171
@@ -5833,7 +6363,7 @@
       }
     },
     {
-      "id": "ALS-S0318.01",
+      "id": "ALS-S0337.01",
       "span": {
         "start": 2,
         "end": 23
@@ -5847,7 +6377,7 @@
       }
     },
     {
-      "id": "ALS-S0318.02",
+      "id": "ALS-S0337.02",
       "span": {
         "start": 26,
         "end": 171
@@ -5861,7 +6391,7 @@
       }
     },
     {
-      "id": "ALS-S0319.01",
+      "id": "ALS-S0338.01",
       "span": {
         "start": 2,
         "end": 22
@@ -5875,7 +6405,7 @@
       }
     },
     {
-      "id": "ALS-S0319.02",
+      "id": "ALS-S0338.02",
       "span": {
         "start": 25,
         "end": 183
@@ -5889,7 +6419,7 @@
       }
     },
     {
-      "id": "ALS-S0320.01",
+      "id": "ALS-S0339.01",
       "span": {
         "start": 2,
         "end": 24
@@ -5903,7 +6433,7 @@
       }
     },
     {
-      "id": "ALS-S0320.02",
+      "id": "ALS-S0339.02",
       "span": {
         "start": 27,
         "end": 183
@@ -5917,7 +6447,7 @@
       }
     },
     {
-      "id": "ALS-S0321.01",
+      "id": "ALS-S0340.01",
       "span": {
         "start": 2,
         "end": 22
@@ -5931,7 +6461,7 @@
       }
     },
     {
-      "id": "ALS-S0321.02",
+      "id": "ALS-S0340.02",
       "span": {
         "start": 25,
         "end": 176
@@ -5945,7 +6475,7 @@
       }
     },
     {
-      "id": "ALS-S0322.01",
+      "id": "ALS-S0341.01",
       "span": {
         "start": 2,
         "end": 24
@@ -5959,7 +6489,7 @@
       }
     },
     {
-      "id": "ALS-S0322.02",
+      "id": "ALS-S0341.02",
       "span": {
         "start": 27,
         "end": 195
@@ -5973,7 +6503,7 @@
       }
     },
     {
-      "id": "ALS-S0323.01",
+      "id": "ALS-S0342.01",
       "span": {
         "start": 2,
         "end": 19
@@ -5987,21 +6517,27 @@
       }
     },
     {
-      "id": "ALS-S0323.02",
+      "id": "ALS-S0342.02",
       "span": {
         "start": 22,
-        "end": 188
+        "end": 176
       },
-      "reviewed_text_digest": "9b31e1c11d40fe32f0bc5357d03b2541e218aa7b3153f8416498712ebec2b580",
-      "lifecycle": "planned",
+      "reviewed_text_digest": "1fdfccd22b804f74895deb1b1853d0f2f7c509eac1427d9a909607607ac762ce",
+      "lifecycle": "current",
       "destination": {
-        "kind": "planned",
-        "proposal": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services"
+        "kind": "current",
+        "specification": "docs/specification/mcp.md",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+        "evidence": [
+          {
+            "path": "crates/veln-mcp/src/server/tests.rs",
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
+          }
+        ]
       }
     },
     {
-      "id": "ALS-S0324.01",
+      "id": "ALS-S0343.01",
       "span": {
         "start": 2,
         "end": 19
@@ -6015,21 +6551,27 @@
       }
     },
     {
-      "id": "ALS-S0324.02",
+      "id": "ALS-S0343.02",
       "span": {
         "start": 22,
-        "end": 177
+        "end": 192
       },
-      "reviewed_text_digest": "b2a72e98162e946bdb86e5783ad7e868a05b3352a40138ae297426ad367866d0",
-      "lifecycle": "planned",
+      "reviewed_text_digest": "ba6de78baebd630a8cababc22bb7ba9261386896a826f4d06b518fe56ee03121",
+      "lifecycle": "current",
       "destination": {
-        "kind": "planned",
-        "proposal": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services"
+        "kind": "current",
+        "specification": "docs/specification/mcp.md",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+        "evidence": [
+          {
+            "path": "crates/veln-mcp/src/server/tests.rs",
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
+          }
+        ]
       }
     },
     {
-      "id": "ALS-S0325",
+      "id": "ALS-S0344",
       "span": {
         "start": 0,
         "end": 628
@@ -6043,7 +6585,7 @@
       }
     },
     {
-      "id": "ALS-S0326",
+      "id": "ALS-S0345",
       "span": {
         "start": 0,
         "end": 444
@@ -6063,7 +6605,7 @@
       }
     },
     {
-      "id": "ALS-S0327",
+      "id": "ALS-S0346",
       "span": {
         "start": 0,
         "end": 270
@@ -6077,7 +6619,7 @@
       }
     },
     {
-      "id": "ALS-S0328.01",
+      "id": "ALS-S0347.01",
       "span": {
         "start": 2,
         "end": 6
@@ -6091,7 +6633,7 @@
       }
     },
     {
-      "id": "ALS-S0328.02",
+      "id": "ALS-S0347.02",
       "span": {
         "start": 9,
         "end": 24
@@ -6105,7 +6647,7 @@
       }
     },
     {
-      "id": "ALS-S0328.03",
+      "id": "ALS-S0347.03",
       "span": {
         "start": 27,
         "end": 35
@@ -6119,7 +6661,7 @@
       }
     },
     {
-      "id": "ALS-S0329",
+      "id": "ALS-S0348",
       "span": {
         "start": 0,
         "end": 19
@@ -6133,7 +6675,7 @@
       }
     },
     {
-      "id": "ALS-S0330.01",
+      "id": "ALS-S0349.01",
       "span": {
         "start": 2,
         "end": 44
@@ -6147,7 +6689,7 @@
       }
     },
     {
-      "id": "ALS-S0330.02",
+      "id": "ALS-S0349.02",
       "span": {
         "start": 47,
         "end": 78
@@ -6161,7 +6703,7 @@
       }
     },
     {
-      "id": "ALS-S0330.03",
+      "id": "ALS-S0349.03",
       "span": {
         "start": 81,
         "end": 126
@@ -6181,7 +6723,7 @@
       }
     },
     {
-      "id": "ALS-S0331.01",
+      "id": "ALS-S0350.01",
       "span": {
         "start": 2,
         "end": 72
@@ -6195,7 +6737,7 @@
       }
     },
     {
-      "id": "ALS-S0331.02",
+      "id": "ALS-S0350.02",
       "span": {
         "start": 75,
         "end": 305
@@ -6209,7 +6751,7 @@
       }
     },
     {
-      "id": "ALS-S0331.03",
+      "id": "ALS-S0350.03",
       "span": {
         "start": 308,
         "end": 452
@@ -6229,7 +6771,7 @@
       }
     },
     {
-      "id": "ALS-S0332.01",
+      "id": "ALS-S0351.01",
       "span": {
         "start": 2,
         "end": 33
@@ -6243,7 +6785,7 @@
       }
     },
     {
-      "id": "ALS-S0332.02",
+      "id": "ALS-S0351.02",
       "span": {
         "start": 36,
         "end": 237
@@ -6257,7 +6799,7 @@
       }
     },
     {
-      "id": "ALS-S0332.03",
+      "id": "ALS-S0351.03",
       "span": {
         "start": 240,
         "end": 392
@@ -6277,7 +6819,7 @@
       }
     },
     {
-      "id": "ALS-S0333.01",
+      "id": "ALS-S0352.01",
       "span": {
         "start": 2,
         "end": 51
@@ -6291,7 +6833,7 @@
       }
     },
     {
-      "id": "ALS-S0333.02",
+      "id": "ALS-S0352.02",
       "span": {
         "start": 54,
         "end": 167
@@ -6305,7 +6847,7 @@
       }
     },
     {
-      "id": "ALS-S0333.03",
+      "id": "ALS-S0352.03",
       "span": {
         "start": 170,
         "end": 267
@@ -6319,7 +6861,7 @@
       }
     },
     {
-      "id": "ALS-S0334.01",
+      "id": "ALS-S0353.01",
       "span": {
         "start": 2,
         "end": 36
@@ -6333,7 +6875,7 @@
       }
     },
     {
-      "id": "ALS-S0334.02",
+      "id": "ALS-S0353.02",
       "span": {
         "start": 39,
         "end": 167
@@ -6347,7 +6889,7 @@
       }
     },
     {
-      "id": "ALS-S0334.03",
+      "id": "ALS-S0353.03",
       "span": {
         "start": 170,
         "end": 244
@@ -6361,7 +6903,7 @@
       }
     },
     {
-      "id": "ALS-S0335.01",
+      "id": "ALS-S0354.01",
       "span": {
         "start": 2,
         "end": 38
@@ -6375,7 +6917,7 @@
       }
     },
     {
-      "id": "ALS-S0335.02",
+      "id": "ALS-S0354.02",
       "span": {
         "start": 41,
         "end": 129
@@ -6389,7 +6931,7 @@
       }
     },
     {
-      "id": "ALS-S0335.03",
+      "id": "ALS-S0354.03",
       "span": {
         "start": 132,
         "end": 240
@@ -6403,7 +6945,7 @@
       }
     },
     {
-      "id": "ALS-S0336.01",
+      "id": "ALS-S0355.01",
       "span": {
         "start": 2,
         "end": 61
@@ -6417,7 +6959,7 @@
       }
     },
     {
-      "id": "ALS-S0336.02",
+      "id": "ALS-S0355.02",
       "span": {
         "start": 64,
         "end": 112
@@ -6431,7 +6973,7 @@
       }
     },
     {
-      "id": "ALS-S0336.03",
+      "id": "ALS-S0355.03",
       "span": {
         "start": 115,
         "end": 210
@@ -6445,7 +6987,7 @@
       }
     },
     {
-      "id": "ALS-S0337.01",
+      "id": "ALS-S0356.01",
       "span": {
         "start": 2,
         "end": 52
@@ -6459,7 +7001,7 @@
       }
     },
     {
-      "id": "ALS-S0337.02",
+      "id": "ALS-S0356.02",
       "span": {
         "start": 55,
         "end": 108
@@ -6473,7 +7015,7 @@
       }
     },
     {
-      "id": "ALS-S0337.03",
+      "id": "ALS-S0356.03",
       "span": {
         "start": 111,
         "end": 161
@@ -6493,7 +7035,7 @@
       }
     },
     {
-      "id": "ALS-S0338.01",
+      "id": "ALS-S0357.01",
       "span": {
         "start": 2,
         "end": 123
@@ -6507,7 +7049,7 @@
       }
     },
     {
-      "id": "ALS-S0338.02",
+      "id": "ALS-S0357.02",
       "span": {
         "start": 126,
         "end": 236
@@ -6521,7 +7063,7 @@
       }
     },
     {
-      "id": "ALS-S0338.03",
+      "id": "ALS-S0357.03",
       "span": {
         "start": 239,
         "end": 754
@@ -6535,7 +7077,7 @@
       }
     },
     {
-      "id": "ALS-S0339.01",
+      "id": "ALS-S0358.01",
       "span": {
         "start": 2,
         "end": 55
@@ -6549,7 +7091,7 @@
       }
     },
     {
-      "id": "ALS-S0339.02",
+      "id": "ALS-S0358.02",
       "span": {
         "start": 58,
         "end": 174
@@ -6563,7 +7105,7 @@
       }
     },
     {
-      "id": "ALS-S0339.03",
+      "id": "ALS-S0358.03",
       "span": {
         "start": 177,
         "end": 264
@@ -6577,7 +7119,7 @@
       }
     },
     {
-      "id": "ALS-S0340.01",
+      "id": "ALS-S0359.01",
       "span": {
         "start": 2,
         "end": 81
@@ -6591,7 +7133,7 @@
       }
     },
     {
-      "id": "ALS-S0340.02",
+      "id": "ALS-S0359.02",
       "span": {
         "start": 84,
         "end": 229
@@ -6605,7 +7147,7 @@
       }
     },
     {
-      "id": "ALS-S0340.03",
+      "id": "ALS-S0359.03",
       "span": {
         "start": 232,
         "end": 304
@@ -6625,7 +7167,7 @@
       }
     },
     {
-      "id": "ALS-S0341.01",
+      "id": "ALS-S0360.01",
       "span": {
         "start": 2,
         "end": 48
@@ -6639,7 +7181,7 @@
       }
     },
     {
-      "id": "ALS-S0341.02",
+      "id": "ALS-S0360.02",
       "span": {
         "start": 51,
         "end": 82
@@ -6653,7 +7195,7 @@
       }
     },
     {
-      "id": "ALS-S0341.03",
+      "id": "ALS-S0360.03",
       "span": {
         "start": 85,
         "end": 137
@@ -6673,7 +7215,7 @@
       }
     },
     {
-      "id": "ALS-S0342.01",
+      "id": "ALS-S0361.01",
       "span": {
         "start": 2,
         "end": 6
@@ -6687,7 +7229,7 @@
       }
     },
     {
-      "id": "ALS-S0342.02",
+      "id": "ALS-S0361.02",
       "span": {
         "start": 9,
         "end": 24
@@ -6701,7 +7243,7 @@
       }
     },
     {
-      "id": "ALS-S0342.03",
+      "id": "ALS-S0361.03",
       "span": {
         "start": 27,
         "end": 35
@@ -6715,7 +7257,7 @@
       }
     },
     {
-      "id": "ALS-S0343",
+      "id": "ALS-S0362",
       "span": {
         "start": 0,
         "end": 19
@@ -6729,7 +7271,7 @@
       }
     },
     {
-      "id": "ALS-S0344.01",
+      "id": "ALS-S0363.01",
       "span": {
         "start": 2,
         "end": 38
@@ -6743,7 +7285,7 @@
       }
     },
     {
-      "id": "ALS-S0344.02",
+      "id": "ALS-S0363.02",
       "span": {
         "start": 41,
         "end": 183
@@ -6757,7 +7299,7 @@
       }
     },
     {
-      "id": "ALS-S0344.03",
+      "id": "ALS-S0363.03",
       "span": {
         "start": 186,
         "end": 264
@@ -6777,7 +7319,7 @@
       }
     },
     {
-      "id": "ALS-S0345.01",
+      "id": "ALS-S0364.01",
       "span": {
         "start": 2,
         "end": 34
@@ -6791,7 +7333,7 @@
       }
     },
     {
-      "id": "ALS-S0345.02",
+      "id": "ALS-S0364.02",
       "span": {
         "start": 37,
         "end": 98
@@ -6805,7 +7347,7 @@
       }
     },
     {
-      "id": "ALS-S0345.03",
+      "id": "ALS-S0364.03",
       "span": {
         "start": 101,
         "end": 235
@@ -6825,7 +7367,7 @@
       }
     },
     {
-      "id": "ALS-S0346.01",
+      "id": "ALS-S0365.01",
       "span": {
         "start": 2,
         "end": 118
@@ -6839,7 +7381,7 @@
       }
     },
     {
-      "id": "ALS-S0346.02",
+      "id": "ALS-S0365.02",
       "span": {
         "start": 121,
         "end": 207
@@ -6853,7 +7395,7 @@
       }
     },
     {
-      "id": "ALS-S0346.03",
+      "id": "ALS-S0365.03",
       "span": {
         "start": 210,
         "end": 381
@@ -6867,7 +7409,7 @@
       }
     },
     {
-      "id": "ALS-S0347.01",
+      "id": "ALS-S0366.01",
       "span": {
         "start": 2,
         "end": 69
@@ -6881,7 +7423,7 @@
       }
     },
     {
-      "id": "ALS-S0347.02",
+      "id": "ALS-S0366.02",
       "span": {
         "start": 72,
         "end": 222
@@ -6895,7 +7437,7 @@
       }
     },
     {
-      "id": "ALS-S0347.03",
+      "id": "ALS-S0366.03",
       "span": {
         "start": 225,
         "end": 254
@@ -6909,7 +7451,7 @@
       }
     },
     {
-      "id": "ALS-S0348.01",
+      "id": "ALS-S0367.01",
       "span": {
         "start": 2,
         "end": 36
@@ -6923,7 +7465,7 @@
       }
     },
     {
-      "id": "ALS-S0348.02",
+      "id": "ALS-S0367.02",
       "span": {
         "start": 39,
         "end": 137
@@ -6937,7 +7479,7 @@
       }
     },
     {
-      "id": "ALS-S0348.03",
+      "id": "ALS-S0367.03",
       "span": {
         "start": 140,
         "end": 171
@@ -6951,7 +7493,7 @@
       }
     },
     {
-      "id": "ALS-S0349.01",
+      "id": "ALS-S0368.01",
       "span": {
         "start": 2,
         "end": 74
@@ -6965,7 +7507,7 @@
       }
     },
     {
-      "id": "ALS-S0349.02",
+      "id": "ALS-S0368.02",
       "span": {
         "start": 77,
         "end": 190
@@ -6979,7 +7521,7 @@
       }
     },
     {
-      "id": "ALS-S0349.03",
+      "id": "ALS-S0368.03",
       "span": {
         "start": 193,
         "end": 220
@@ -6993,7 +7535,7 @@
       }
     },
     {
-      "id": "ALS-S0350.01",
+      "id": "ALS-S0369.01",
       "span": {
         "start": 2,
         "end": 45
@@ -7007,7 +7549,7 @@
       }
     },
     {
-      "id": "ALS-S0350.02",
+      "id": "ALS-S0369.02",
       "span": {
         "start": 48,
         "end": 115
@@ -7021,7 +7563,7 @@
       }
     },
     {
-      "id": "ALS-S0350.03",
+      "id": "ALS-S0369.03",
       "span": {
         "start": 118,
         "end": 143
@@ -7035,7 +7577,7 @@
       }
     },
     {
-      "id": "ALS-S0351.01",
+      "id": "ALS-S0370.01",
       "span": {
         "start": 2,
         "end": 59
@@ -7049,7 +7591,7 @@
       }
     },
     {
-      "id": "ALS-S0351.02",
+      "id": "ALS-S0370.02",
       "span": {
         "start": 62,
         "end": 88
@@ -7063,7 +7605,7 @@
       }
     },
     {
-      "id": "ALS-S0351.03",
+      "id": "ALS-S0370.03",
       "span": {
         "start": 91,
         "end": 118
@@ -7077,7 +7619,7 @@
       }
     },
     {
-      "id": "ALS-S0352.01",
+      "id": "ALS-S0371.01",
       "span": {
         "start": 2,
         "end": 41
@@ -7091,7 +7633,7 @@
       }
     },
     {
-      "id": "ALS-S0352.02",
+      "id": "ALS-S0371.02",
       "span": {
         "start": 44,
         "end": 133
@@ -7105,7 +7647,7 @@
       }
     },
     {
-      "id": "ALS-S0352.03",
+      "id": "ALS-S0371.03",
       "span": {
         "start": 136,
         "end": 167
@@ -7119,7 +7661,7 @@
       }
     },
     {
-      "id": "ALS-S0353.01",
+      "id": "ALS-S0372.01",
       "span": {
         "start": 2,
         "end": 177
@@ -7133,7 +7675,7 @@
       }
     },
     {
-      "id": "ALS-S0353.02",
+      "id": "ALS-S0372.02",
       "span": {
         "start": 180,
         "end": 378
@@ -7147,7 +7689,7 @@
       }
     },
     {
-      "id": "ALS-S0353.03",
+      "id": "ALS-S0372.03",
       "span": {
         "start": 381,
         "end": 672
@@ -7161,7 +7703,7 @@
       }
     },
     {
-      "id": "ALS-S0354.01",
+      "id": "ALS-S0373.01",
       "span": {
         "start": 2,
         "end": 61
@@ -7175,7 +7717,7 @@
       }
     },
     {
-      "id": "ALS-S0354.02",
+      "id": "ALS-S0373.02",
       "span": {
         "start": 64,
         "end": 195
@@ -7189,7 +7731,7 @@
       }
     },
     {
-      "id": "ALS-S0354.03",
+      "id": "ALS-S0373.03",
       "span": {
         "start": 198,
         "end": 232
@@ -7203,7 +7745,7 @@
       }
     },
     {
-      "id": "ALS-S0355.01",
+      "id": "ALS-S0374.01",
       "span": {
         "start": 2,
         "end": 37
@@ -7217,7 +7759,7 @@
       }
     },
     {
-      "id": "ALS-S0355.02",
+      "id": "ALS-S0374.02",
       "span": {
         "start": 40,
         "end": 103
@@ -7231,7 +7773,7 @@
       }
     },
     {
-      "id": "ALS-S0355.03",
+      "id": "ALS-S0374.03",
       "span": {
         "start": 106,
         "end": 153
@@ -7251,7 +7793,7 @@
       }
     },
     {
-      "id": "ALS-S0356.01",
+      "id": "ALS-S0375.01",
       "span": {
         "start": 2,
         "end": 6
@@ -7265,7 +7807,7 @@
       }
     },
     {
-      "id": "ALS-S0356.02",
+      "id": "ALS-S0375.02",
       "span": {
         "start": 9,
         "end": 24
@@ -7279,7 +7821,7 @@
       }
     },
     {
-      "id": "ALS-S0356.03",
+      "id": "ALS-S0375.03",
       "span": {
         "start": 27,
         "end": 43
@@ -7293,7 +7835,7 @@
       }
     },
     {
-      "id": "ALS-S0357",
+      "id": "ALS-S0376",
       "span": {
         "start": 0,
         "end": 19
@@ -7307,7 +7849,7 @@
       }
     },
     {
-      "id": "ALS-S0358.01",
+      "id": "ALS-S0377.01",
       "span": {
         "start": 2,
         "end": 49
@@ -7321,7 +7863,7 @@
       }
     },
     {
-      "id": "ALS-S0358.02",
+      "id": "ALS-S0377.02",
       "span": {
         "start": 52,
         "end": 514
@@ -7341,7 +7883,7 @@
       }
     },
     {
-      "id": "ALS-S0358.03",
+      "id": "ALS-S0377.03",
       "span": {
         "start": 517,
         "end": 586
@@ -7355,7 +7897,7 @@
       }
     },
     {
-      "id": "ALS-S0359.01",
+      "id": "ALS-S0378.01",
       "span": {
         "start": 2,
         "end": 72
@@ -7369,7 +7911,7 @@
       }
     },
     {
-      "id": "ALS-S0359.02",
+      "id": "ALS-S0378.02",
       "span": {
         "start": 75,
         "end": 325
@@ -7383,7 +7925,7 @@
       }
     },
     {
-      "id": "ALS-S0359.03",
+      "id": "ALS-S0378.03",
       "span": {
         "start": 328,
         "end": 450
@@ -7397,7 +7939,7 @@
       }
     },
     {
-      "id": "ALS-S0360.01",
+      "id": "ALS-S0379.01",
       "span": {
         "start": 2,
         "end": 92
@@ -7411,7 +7953,7 @@
       }
     },
     {
-      "id": "ALS-S0360.02",
+      "id": "ALS-S0379.02",
       "span": {
         "start": 95,
         "end": 338
@@ -7425,7 +7967,7 @@
       }
     },
     {
-      "id": "ALS-S0360.03",
+      "id": "ALS-S0379.03",
       "span": {
         "start": 341,
         "end": 446
@@ -7439,7 +7981,7 @@
       }
     },
     {
-      "id": "ALS-S0361.01",
+      "id": "ALS-S0380.01",
       "span": {
         "start": 2,
         "end": 44
@@ -7453,7 +7995,7 @@
       }
     },
     {
-      "id": "ALS-S0361.02",
+      "id": "ALS-S0380.02",
       "span": {
         "start": 47,
         "end": 178
@@ -7467,7 +8009,7 @@
       }
     },
     {
-      "id": "ALS-S0361.03",
+      "id": "ALS-S0380.03",
       "span": {
         "start": 181,
         "end": 208
@@ -7481,7 +8023,7 @@
       }
     },
     {
-      "id": "ALS-S0362.01",
+      "id": "ALS-S0381.01",
       "span": {
         "start": 2,
         "end": 71
@@ -7495,7 +8037,7 @@
       }
     },
     {
-      "id": "ALS-S0362.02",
+      "id": "ALS-S0381.02",
       "span": {
         "start": 74,
         "end": 331
@@ -7515,7 +8057,7 @@
       }
     },
     {
-      "id": "ALS-S0362.03",
+      "id": "ALS-S0381.03",
       "span": {
         "start": 334,
         "end": 398
@@ -7529,7 +8071,7 @@
       }
     },
     {
-      "id": "ALS-S0363.01",
+      "id": "ALS-S0382.01",
       "span": {
         "start": 2,
         "end": 65
@@ -7543,7 +8085,7 @@
       }
     },
     {
-      "id": "ALS-S0363.02",
+      "id": "ALS-S0382.02",
       "span": {
         "start": 68,
         "end": 208
@@ -7557,7 +8099,7 @@
       }
     },
     {
-      "id": "ALS-S0363.03",
+      "id": "ALS-S0382.03",
       "span": {
         "start": 211,
         "end": 239
@@ -7571,7 +8113,7 @@
       }
     },
     {
-      "id": "ALS-S0364.01",
+      "id": "ALS-S0383.01",
       "span": {
         "start": 2,
         "end": 68
@@ -7585,7 +8127,7 @@
       }
     },
     {
-      "id": "ALS-S0364.02",
+      "id": "ALS-S0383.02",
       "span": {
         "start": 71,
         "end": 172
@@ -7599,7 +8141,7 @@
       }
     },
     {
-      "id": "ALS-S0364.03",
+      "id": "ALS-S0383.03",
       "span": {
         "start": 175,
         "end": 203
@@ -7613,7 +8155,7 @@
       }
     },
     {
-      "id": "ALS-S0365.01",
+      "id": "ALS-S0384.01",
       "span": {
         "start": 2,
         "end": 24
@@ -7627,7 +8169,7 @@
       }
     },
     {
-      "id": "ALS-S0365.02",
+      "id": "ALS-S0384.02",
       "span": {
         "start": 27,
         "end": 435
@@ -7641,7 +8183,7 @@
       }
     },
     {
-      "id": "ALS-S0365.03",
+      "id": "ALS-S0384.03",
       "span": {
         "start": 438,
         "end": 538
@@ -7655,7 +8197,7 @@
       }
     },
     {
-      "id": "ALS-S0366.01",
+      "id": "ALS-S0385.01",
       "span": {
         "start": 2,
         "end": 58
@@ -7669,7 +8211,7 @@
       }
     },
     {
-      "id": "ALS-S0366.02",
+      "id": "ALS-S0385.02",
       "span": {
         "start": 61,
         "end": 145
@@ -7683,7 +8225,7 @@
       }
     },
     {
-      "id": "ALS-S0366.03",
+      "id": "ALS-S0385.03",
       "span": {
         "start": 148,
         "end": 233
@@ -7697,7 +8239,7 @@
       }
     },
     {
-      "id": "ALS-S0367.01",
+      "id": "ALS-S0386.01",
       "span": {
         "start": 2,
         "end": 63
@@ -7711,7 +8253,7 @@
       }
     },
     {
-      "id": "ALS-S0367.02",
+      "id": "ALS-S0386.02",
       "span": {
         "start": 66,
         "end": 401
@@ -7725,7 +8267,7 @@
       }
     },
     {
-      "id": "ALS-S0367.03",
+      "id": "ALS-S0386.03",
       "span": {
         "start": 404,
         "end": 499
@@ -7739,7 +8281,7 @@
       }
     },
     {
-      "id": "ALS-S0368.01",
+      "id": "ALS-S0387.01",
       "span": {
         "start": 2,
         "end": 6
@@ -7753,7 +8295,7 @@
       }
     },
     {
-      "id": "ALS-S0368.02",
+      "id": "ALS-S0387.02",
       "span": {
         "start": 9,
         "end": 24
@@ -7767,7 +8309,7 @@
       }
     },
     {
-      "id": "ALS-S0368.03",
+      "id": "ALS-S0387.03",
       "span": {
         "start": 27,
         "end": 43
@@ -7781,7 +8323,7 @@
       }
     },
     {
-      "id": "ALS-S0369",
+      "id": "ALS-S0388",
       "span": {
         "start": 0,
         "end": 19
@@ -7795,7 +8337,7 @@
       }
     },
     {
-      "id": "ALS-S0370.01",
+      "id": "ALS-S0389.01",
       "span": {
         "start": 2,
         "end": 32
@@ -7809,7 +8351,7 @@
       }
     },
     {
-      "id": "ALS-S0370.02",
+      "id": "ALS-S0389.02",
       "span": {
         "start": 35,
         "end": 95
@@ -7823,7 +8365,7 @@
       }
     },
     {
-      "id": "ALS-S0370.03",
+      "id": "ALS-S0389.03",
       "span": {
         "start": 98,
         "end": 122
@@ -7837,7 +8379,7 @@
       }
     },
     {
-      "id": "ALS-S0371.01",
+      "id": "ALS-S0390.01",
       "span": {
         "start": 2,
         "end": 29
@@ -7851,7 +8393,7 @@
       }
     },
     {
-      "id": "ALS-S0371.02",
+      "id": "ALS-S0390.02",
       "span": {
         "start": 32,
         "end": 107
@@ -7865,7 +8407,7 @@
       }
     },
     {
-      "id": "ALS-S0371.03",
+      "id": "ALS-S0390.03",
       "span": {
         "start": 110,
         "end": 138
@@ -7879,7 +8421,7 @@
       }
     },
     {
-      "id": "ALS-S0372.01",
+      "id": "ALS-S0391.01",
       "span": {
         "start": 2,
         "end": 53
@@ -7893,7 +8435,7 @@
       }
     },
     {
-      "id": "ALS-S0372.02",
+      "id": "ALS-S0391.02",
       "span": {
         "start": 56,
         "end": 108
@@ -7907,7 +8449,7 @@
       }
     },
     {
-      "id": "ALS-S0372.03",
+      "id": "ALS-S0391.03",
       "span": {
         "start": 111,
         "end": 136
@@ -7921,7 +8463,7 @@
       }
     },
     {
-      "id": "ALS-S0373.01",
+      "id": "ALS-S0392.01",
       "span": {
         "start": 2,
         "end": 40
@@ -7935,7 +8477,7 @@
       }
     },
     {
-      "id": "ALS-S0373.02",
+      "id": "ALS-S0392.02",
       "span": {
         "start": 43,
         "end": 100
@@ -7949,7 +8491,7 @@
       }
     },
     {
-      "id": "ALS-S0373.03",
+      "id": "ALS-S0392.03",
       "span": {
         "start": 103,
         "end": 123
@@ -7963,7 +8505,7 @@
       }
     },
     {
-      "id": "ALS-S0374.01",
+      "id": "ALS-S0393.01",
       "span": {
         "start": 2,
         "end": 82
@@ -7977,7 +8519,7 @@
       }
     },
     {
-      "id": "ALS-S0374.02",
+      "id": "ALS-S0393.02",
       "span": {
         "start": 85,
         "end": 177
@@ -7991,7 +8533,7 @@
       }
     },
     {
-      "id": "ALS-S0374.03",
+      "id": "ALS-S0393.03",
       "span": {
         "start": 180,
         "end": 210
@@ -8005,7 +8547,7 @@
       }
     },
     {
-      "id": "ALS-S0375.01",
+      "id": "ALS-S0394.01",
       "span": {
         "start": 2,
         "end": 34
@@ -8019,7 +8561,7 @@
       }
     },
     {
-      "id": "ALS-S0375.02",
+      "id": "ALS-S0394.02",
       "span": {
         "start": 37,
         "end": 174
@@ -8033,7 +8575,7 @@
       }
     },
     {
-      "id": "ALS-S0375.03",
+      "id": "ALS-S0394.03",
       "span": {
         "start": 177,
         "end": 195
@@ -8047,7 +8589,7 @@
       }
     },
     {
-      "id": "ALS-S0376.01",
+      "id": "ALS-S0395.01",
       "span": {
         "start": 2,
         "end": 52
@@ -8061,7 +8603,7 @@
       }
     },
     {
-      "id": "ALS-S0376.02",
+      "id": "ALS-S0395.02",
       "span": {
         "start": 55,
         "end": 171
@@ -8075,7 +8617,7 @@
       }
     },
     {
-      "id": "ALS-S0376.03",
+      "id": "ALS-S0395.03",
       "span": {
         "start": 174,
         "end": 206
@@ -8089,7 +8631,7 @@
       }
     },
     {
-      "id": "ALS-S0377.01",
+      "id": "ALS-S0396.01",
       "span": {
         "start": 2,
         "end": 32
@@ -8103,7 +8645,7 @@
       }
     },
     {
-      "id": "ALS-S0377.02",
+      "id": "ALS-S0396.02",
       "span": {
         "start": 35,
         "end": 103
@@ -8117,7 +8659,7 @@
       }
     },
     {
-      "id": "ALS-S0377.03",
+      "id": "ALS-S0396.03",
       "span": {
         "start": 106,
         "end": 134
@@ -8131,7 +8673,7 @@
       }
     },
     {
-      "id": "ALS-S0378.01",
+      "id": "ALS-S0397.01",
       "span": {
         "start": 2,
         "end": 42
@@ -8145,7 +8687,7 @@
       }
     },
     {
-      "id": "ALS-S0378.02",
+      "id": "ALS-S0397.02",
       "span": {
         "start": 45,
         "end": 156
@@ -8159,7 +8701,7 @@
       }
     },
     {
-      "id": "ALS-S0378.03",
+      "id": "ALS-S0397.03",
       "span": {
         "start": 159,
         "end": 194
@@ -8173,7 +8715,7 @@
       }
     },
     {
-      "id": "ALS-S0379.01",
+      "id": "ALS-S0398.01",
       "span": {
         "start": 2,
         "end": 6
@@ -8187,7 +8729,7 @@
       }
     },
     {
-      "id": "ALS-S0379.02",
+      "id": "ALS-S0398.02",
       "span": {
         "start": 9,
         "end": 24
@@ -8201,7 +8743,7 @@
       }
     },
     {
-      "id": "ALS-S0379.03",
+      "id": "ALS-S0398.03",
       "span": {
         "start": 27,
         "end": 43
@@ -8215,7 +8757,7 @@
       }
     },
     {
-      "id": "ALS-S0380",
+      "id": "ALS-S0399",
       "span": {
         "start": 0,
         "end": 19
@@ -8229,7 +8771,7 @@
       }
     },
     {
-      "id": "ALS-S0381.01",
+      "id": "ALS-S0400.01",
       "span": {
         "start": 2,
         "end": 28
@@ -8243,7 +8785,7 @@
       }
     },
     {
-      "id": "ALS-S0381.02",
+      "id": "ALS-S0400.02",
       "span": {
         "start": 31,
         "end": 150
@@ -8257,7 +8799,7 @@
       }
     },
     {
-      "id": "ALS-S0381.03",
+      "id": "ALS-S0400.03",
       "span": {
         "start": 153,
         "end": 187
@@ -8271,7 +8813,7 @@
       }
     },
     {
-      "id": "ALS-S0382.01",
+      "id": "ALS-S0401.01",
       "span": {
         "start": 2,
         "end": 34
@@ -8285,7 +8827,7 @@
       }
     },
     {
-      "id": "ALS-S0382.02",
+      "id": "ALS-S0401.02",
       "span": {
         "start": 37,
         "end": 155
@@ -8299,7 +8841,7 @@
       }
     },
     {
-      "id": "ALS-S0382.03",
+      "id": "ALS-S0401.03",
       "span": {
         "start": 158,
         "end": 193
@@ -8313,7 +8855,7 @@
       }
     },
     {
-      "id": "ALS-S0383.01",
+      "id": "ALS-S0402.01",
       "span": {
         "start": 2,
         "end": 61
@@ -8327,7 +8869,7 @@
       }
     },
     {
-      "id": "ALS-S0383.02",
+      "id": "ALS-S0402.02",
       "span": {
         "start": 64,
         "end": 173
@@ -8341,7 +8883,7 @@
       }
     },
     {
-      "id": "ALS-S0383.03",
+      "id": "ALS-S0402.03",
       "span": {
         "start": 176,
         "end": 206
@@ -8355,7 +8897,7 @@
       }
     },
     {
-      "id": "ALS-S0384.01",
+      "id": "ALS-S0403.01",
       "span": {
         "start": 2,
         "end": 23
@@ -8369,7 +8911,7 @@
       }
     },
     {
-      "id": "ALS-S0384.02",
+      "id": "ALS-S0403.02",
       "span": {
         "start": 26,
         "end": 155
@@ -8383,7 +8925,7 @@
       }
     },
     {
-      "id": "ALS-S0384.03",
+      "id": "ALS-S0403.03",
       "span": {
         "start": 158,
         "end": 199
@@ -8397,7 +8939,7 @@
       }
     },
     {
-      "id": "ALS-S0385.01",
+      "id": "ALS-S0404.01",
       "span": {
         "start": 2,
         "end": 35
@@ -8411,24 +8953,30 @@
       }
     },
     {
-      "id": "ALS-S0385.02",
+      "id": "ALS-S0404.02",
       "span": {
         "start": 38,
-        "end": 181
+        "end": 177
       },
-      "reviewed_text_digest": "171ab6ae85da01c1d52187319520e061dfa6ad0722731bc1beffef982d14f389",
-      "lifecycle": "planned",
+      "reviewed_text_digest": "d5e686a0365efcb047187fccdb1c70cea7f4293ec316e50fb9df6461bba74a17",
+      "lifecycle": "current",
       "destination": {
-        "kind": "planned",
-        "proposal": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services"
+        "kind": "current",
+        "specification": "docs/specification/mcp.md",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+        "evidence": [
+          {
+            "path": "crates/veln-mcp/src/server/tests.rs",
+            "case": "lifecycle_lists_and_calls_only_implemented_tools"
+          }
+        ]
       }
     },
     {
-      "id": "ALS-S0385.03",
+      "id": "ALS-S0404.03",
       "span": {
-        "start": 184,
-        "end": 237
+        "start": 180,
+        "end": 233
       },
       "reviewed_text_digest": "dd9a4e7eb62bcd742bcb10bb15f644f109a8e34e808d571fa012e41ac5fbc43e",
       "lifecycle": "planned",
@@ -8439,7 +8987,7 @@
       }
     },
     {
-      "id": "ALS-S0386",
+      "id": "ALS-S0405",
       "span": {
         "start": 0,
         "end": 2888
@@ -8453,7 +9001,7 @@
       }
     },
     {
-      "id": "ALS-S0387",
+      "id": "ALS-S0406",
       "span": {
         "start": 0,
         "end": 73
@@ -8467,7 +9015,7 @@
       }
     },
     {
-      "id": "ALS-S0388",
+      "id": "ALS-S0407",
       "span": {
         "start": 0,
         "end": 78
@@ -8481,7 +9029,7 @@
       }
     },
     {
-      "id": "ALS-S0389",
+      "id": "ALS-S0408",
       "span": {
         "start": 0,
         "end": 77
@@ -8501,7 +9049,7 @@
       }
     },
     {
-      "id": "ALS-S0390",
+      "id": "ALS-S0409",
       "span": {
         "start": 0,
         "end": 127
@@ -8521,7 +9069,7 @@
       }
     },
     {
-      "id": "ALS-S0391",
+      "id": "ALS-S0410",
       "span": {
         "start": 0,
         "end": 77
@@ -8535,7 +9083,7 @@
       }
     },
     {
-      "id": "ALS-S0392",
+      "id": "ALS-S0411",
       "span": {
         "start": 0,
         "end": 21
@@ -8549,7 +9097,7 @@
       }
     },
     {
-      "id": "ALS-S0393",
+      "id": "ALS-S0412",
       "span": {
         "start": 0,
         "end": 72
@@ -8563,7 +9111,7 @@
       }
     },
     {
-      "id": "ALS-S0394",
+      "id": "ALS-S0413",
       "span": {
         "start": 0,
         "end": 36
@@ -8577,7 +9125,7 @@
       }
     },
     {
-      "id": "ALS-S0395",
+      "id": "ALS-S0414",
       "span": {
         "start": 0,
         "end": 23
@@ -8591,7 +9139,7 @@
       }
     },
     {
-      "id": "ALS-S0396",
+      "id": "ALS-S0415",
       "span": {
         "start": 0,
         "end": 45
@@ -8605,7 +9153,7 @@
       }
     },
     {
-      "id": "ALS-S0397",
+      "id": "ALS-S0416",
       "span": {
         "start": 0,
         "end": 60
@@ -8619,7 +9167,7 @@
       }
     },
     {
-      "id": "ALS-S0398",
+      "id": "ALS-S0417",
       "span": {
         "start": 0,
         "end": 38
@@ -8633,7 +9181,7 @@
       }
     },
     {
-      "id": "ALS-S0399",
+      "id": "ALS-S0418",
       "span": {
         "start": 0,
         "end": 49
@@ -8647,7 +9195,7 @@
       }
     },
     {
-      "id": "ALS-S0400",
+      "id": "ALS-S0419",
       "span": {
         "start": 0,
         "end": 44
@@ -8661,7 +9209,7 @@
       }
     },
     {
-      "id": "ALS-S0401",
+      "id": "ALS-S0420",
       "span": {
         "start": 0,
         "end": 52
@@ -8675,7 +9223,7 @@
       }
     },
     {
-      "id": "ALS-S0402",
+      "id": "ALS-S0421",
       "span": {
         "start": 0,
         "end": 74
@@ -8689,7 +9237,7 @@
       }
     },
     {
-      "id": "ALS-S0403",
+      "id": "ALS-S0422",
       "span": {
         "start": 0,
         "end": 14
@@ -8703,7 +9251,7 @@
       }
     },
     {
-      "id": "ALS-S0404",
+      "id": "ALS-S0423",
       "span": {
         "start": 0,
         "end": 64
