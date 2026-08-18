@@ -9,7 +9,7 @@
     },
     {
       "proposal_path": "docs/proposals/agent-language-services-inventory-review-gate.md",
-      "proposal_anchor": "#agent-language-services-inventory-review-gate",
+      "proposal_anchor": "#g0-to-g1-review-gate",
       "state": "ready",
       "prerequisites": [
         "docs/proposals/agent-language-services-platform-matrix-closure.md",
