@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The agent-language-services plugin clients, supported platforms, compatibility field identities, matrix-reference registry, closure phase boundary, or lifecycle-migration source-universe prerequisite changes.
+update-when: The proposal target-snapshot preflight, agent-language-services plugin clients, supported platforms, compatibility field identities, matrix-reference registry, parser totality, closure phase boundary, implementation-record evidence, or lifecycle-migration source-universe prerequisite changes.
 ---
 
 # Agent Language Services Platform Matrix Closure
@@ -28,10 +28,22 @@ cannot close those defects. This proposal now separates finite planning
 identity from later compatibility evidence. It also gives matrix references,
 the closure phase, and permitted path transitions exact structural identities.
 
+A later attempt implemented this corrected value boundary but still passed its
+own focused checks while accepting hidden references, misplaced matrix and
+phase nodes, and malformed input that never terminates. It also omitted named
+range cases, preserved active-proposal wording in the implementation record,
+and started from a target snapshot that predated this correction. These are
+one authority problem: broad rejection-class prose allowed the implementation,
+test corpus, PR description, and lifecycle record to agree without a finite
+case manifest tied to the target base.
+
 ## Selection State
 
-This proposal is ready. Complete it before selecting the frozen source
-inventory PR from
+This proposal is blocked until
+[Proposal Target Snapshot Preflight](proposal-target-snapshot-preflight.md)
+leaves `docs/proposals/` as a completed implementation record. Reissue this
+proposal's target from that merged default-branch state. After this proposal
+completes, select the frozen source inventory PR from
 [Agent Language Services Lifecycle Migration](agent-language-services-lifecycle-migration.md).
 
 ## Scope
@@ -54,7 +66,9 @@ The section is the final level-three subsection under `## Agent Plugin` and
 ends at `## Safety And Privacy`. No other table or phase paragraph appears in
 that interval. The later-installer sentence becomes its own paragraph before
 the matrix section. All four registered `Agent Plugin` paragraphs occur before
-the matrix heading.
+the matrix heading. Validation must reject the same exact matrix bytes under
+any other level-two owner, before a different endpoint, or as a non-final
+level-three subsection.
 
 Add a separate top-level compatibility-field table. It contains exactly these
 ordered field identities and no values:
@@ -144,12 +158,20 @@ reference.
 ## Closed Source Grammar
 
 The validator recognizes only column-zero Markdown blocks in the two scoped
-documents. A lexical pass excludes fenced and indented code blocks, HTML blocks
-and comments, block quotes, image text, link destinations, and link titles from
-ordinary visible text. The grammar recognizes ATX headings, paragraphs, list
-items, pipe tables with delimiter rows, inline code, and inline links only in
-the exact forms required by this proposal. It does not use a raw substring or
-regular-expression presence match as evidence that a block exists.
+documents. A lexical pass classifies fenced and indented code blocks, HTML
+blocks and comments, block quotes, image text, link destinations, and link
+titles so none can become ordinary visible evidence. The grammar recognizes
+ATX headings, paragraphs, list items, pipe tables with delimiter rows, inline
+code, and inline links only in the exact forms required by this proposal. It
+does not use a raw substring or regular-expression presence match as evidence
+that a block exists.
+
+Every nonempty input line either advances the scanner or produces an error at
+that line. A malformed table opener, unclosed construct, unsupported leading
+whitespace, or other rejected line cannot leave the scanner at the same byte or
+line offset. Production entry-point tests enforce a two-second wall-clock
+deadline for each malformed-input fixture. A timeout, signal, or zero exit
+without the expected rejection diagnostic fails the test.
 
 The scanner normalizes CRLF to LF and uses these states and productions:
 
@@ -160,7 +182,9 @@ The scanner normalizes CRLF to LF and uses these states and productions:
   HTML tag starts an HTML block that ends at the next blank line. HTML contents
   do not create blocks. An unclosed comment or HTML block fails.
 - A line with four leading spaces is indented code. A line whose first
-  non-space character is `>` is a block quote. Neither creates a target block.
+  non-space character is `>` is a block quote. Neither creates an evidence
+  block. Either construct inside the matrix interval or a registered target
+  block is an unexpected classified block and fails.
 - A paragraph is a maximal run of nonblank column-zero text lines that are not
   another recognized block. A list item starts with exact column-zero `- ` and
   owns its following two-space continuation lines. Other indentation fails in
@@ -174,11 +198,11 @@ The scanner normalizes CRLF to LF and uses these states and productions:
   link must be an ordinary link outside code and image syntax, with the exact
   unescaped label, destination, and quoted title from its registry tuple.
 
-Any unknown construct in the matrix interval or in a registered target block
-fails closed. The negative corpus covers fenced and indented code, HTML blocks
-and comments, block quotes, paragraph and list continuation, escaped and
-code-span pipes, code spans, image alt text, link destinations and titles,
-backslash escapes, entities, and unclosed constructs.
+Any excluded, unknown, or extra construct in the matrix interval or in a
+registered target block fails closed. The scanner must retain enough location
+and classification information for layout validation to reject it. Silently
+discarding the construct is invalid. The finite negative corpus is defined in
+Evidence Manifest below.
 
 The matrix interval starts after the unique exact level-three heading and ends
 before the next heading of level three or less. The interval contains only the
@@ -223,19 +247,46 @@ valid documents. A separate integration case validates the repository
 documents. Paired mutations that delete or replace both a registry row and its
 target block must fail.
 
+The parser and repository entry point are total over every fixture in the
+Evidence Manifest. The test runner invokes the production entry point in a
+child process for malformed-input cases so a non-advancing parser fails within
+the two-second deadline.
+
 The validator runs through the existing documentation-validation workflow.
 Its failure output names the invalid row or reference, tells the maintainer to
 enumerate or restore the exact cell, and explains that the lifecycle inventory
 cannot prove finite coverage otherwise.
 
-Phase presence is true only when the exact phase paragraph occurs at its
-specified top-level location in the closed source grammar. The closure diff
-guard is active exactly when phase presence is false in the base revision and
-true in the head revision. This predicate is independent of matrix and
-reference validity. An active guard runs even when head contract validation
-also fails. When both revisions contain the phase paragraph, the guard is
-inactive. A later reference repair or separately proposed membership revision
-therefore does not reactivate it.
+Phase inspection returns exactly one of `absent`, `present`, or `invalid`.
+`present` means that the exact paragraph occurs once at the second canonical
+block of the matrix owned by `## Agent Plugin`. A duplicate, displaced, hidden,
+or malformed phase node is `invalid`, not `present` or `absent`. A parse error
+outside the phase node does not change a structurally present phase to
+`absent`.
+
+The closure transition is only base `absent` and head `present`. The
+nine-operation range guard runs for that transition, every phase removal, and
+every row containing an `invalid` state. Only stable `absent` to `absent` and
+stable `present` to `present` skip the range guard. The guard still runs when
+another head contract check fails. An `invalid` phase state is always an error
+and never retires or bypasses the guard. A later reference repair or separately
+proposed membership revision keeps stable `present` state and does not
+reactivate it.
+
+The range guard follows this complete decision table. Contract validation runs
+independently in every row.
+
+| Base phase | Head phase | Phase result | Run nine-operation guard |
+| --- | --- | --- | --- |
+| `absent` | `absent` | no transition error | no |
+| `absent` | `present` | closure transition | yes |
+| `absent` | `invalid` | reject invalid head phase | yes |
+| `present` | `absent` | reject phase removal | yes |
+| `present` | `present` | closed state retained | no |
+| `present` | `invalid` | reject invalid head phase | yes |
+| `invalid` | `absent` | reject invalid base phase | yes |
+| `invalid` | `present` | reject invalid base phase | yes |
+| `invalid` | `invalid` | reject both invalid phase states | yes |
 
 During the closure transition, the guard permits exactly this path-operation
 manifest. It derives the canonical tree delta from
@@ -296,18 +347,109 @@ production validator. A temporary-Git integration case invokes the production
 entry point with base and head environment values and proves that the active
 guard rejects an extra path in the actual revision range.
 
+Workflow validation parses the job and step structure. The exact step must be
+under `jobs.test-workflow-scripts.steps`. The workflow handles `pull_request`
+and pushes to `main`, and its path filters include `docs/**/*.md`,
+`workflow-scripts/**/*.mjs`, and its own workflow path. The named step has
+exactly one `run` command and the two exact environment expressions. Neither
+the job nor step may use `if`, `continue-on-error`, `needs`, a custom `shell`,
+or a `working-directory`. The pull-request trigger has no restrictive event
+types. A matching substring in a comment, quoted scalar, block scalar, another
+step, or another job is not registration evidence.
+
+## Evidence Manifest
+
+The test file contains one frozen literal array of all expected case IDs and a
+separate generator declaration for the following axes. Tests compare generated
+case IDs with the literal array in both directions. The literal array is not
+derived from the generator, production exports, or repository documents. A
+duplicate, missing, or unexpected ID fails.
+
+The seven matrix blocks are `B01` row count, `B02` phase, `B03` membership,
+`B04` field heading, `B05` field table, `B06` registry heading, and `B07`
+registry table. The eight insertion gaps are `G00` before `B01`, `G01` through
+`G06` between adjacent blocks, and `G07` after `B07`.
+
+| Axis | Literal members |
+| --- | --- |
+| Matrix insertions `I` | `I01` backtick fence; `I02` indented code; `I03` inline HTML comment block; `I04` HTML tag block; `I05` block quote; `I06` paragraph; `I07` list item; `I08` complete table; `I09` table opener without terminal `|`; `I10` unsupported indentation; `I11` paragraph continuation; `I12` list continuation; `I13` escaped table pipe; `I14` code-span table pipe. |
+| Unclosed forms `U` | `U01` backtick fence; `U02` tilde fence; `U03` HTML comment; `U04` HTML block; `U05` single-backtick span; `U06` multi-backtick span; `U07` link label; `U08` link destination. |
+| Hidden block forms `H` | Target kinds `H01` matrix membership, `H02` field table, `H03` registry, and `H04` phase, each crossed with `C01` fence, `C02` indentation, `C03` HTML comment, `C04` HTML block, `C05` block quote, `C06` image text, `C07` link destination, and `C08` link title. Each case removes the visible target and adds only the hidden form. |
+| Key mutations `K` | `K01` missing first; `K02` missing second; `K03` duplicate first; `K04` duplicate second; `K05` swap; `K06` empty client first; `K07` empty client second; `K08` empty platform first; `K09` empty platform second; `K10` range first; `K11` range second; `K12` wildcard first; `K13` wildcard second; `K14` placeholder first; `K15` placeholder second; `K16` catch-all first; `K17` catch-all second; `K18` unexpected literal first; `K19` unexpected literal second; `K20` malformed code span first; `K21` malformed code span second. |
+| Field mutations `F` | For each ordered field `01` through `11`: `M` missing, `D` duplicate, `U` unexpected replacement, `V` value-bearing, and `C` malformed code span; plus `FREV` for full reversal. |
+| Reference mutations `R` | For each registry tuple `01` through `13`: `M01` remove; `M02` duplicate; `M03` move to `## Wrong Owner`; `M04` map paragraph to list, list to paragraph, and table row to paragraph; `M05` add one preceding block of the expected kind; `M06` fenced; `M07` indented; `M08` inline HTML comment; `M09` HTML block; `M10` block quote; `M11` code span; `M12` image; `M13` backslash escape; `M14` entity label; `M15` wrong label; `M16` wrong destination; `M17` title `matrix-ref:wrong`; `M18` additional unregistered titled link; `M19` additional destination-only link; `M20` swap the title with the next tuple, wrapping `13` to `01`. |
+| Paired reference mutations `P` | For each registry tuple `01` through `13`: `P01` delete registry row and target; `P02` replace registry row and target with a coordinated unregistered tuple. |
+| Phase fixtures `S` | `S00` absent; `S01` canonical present; `S02` displaced; `S03` duplicate; `S04` hidden in inline HTML comment; `S05` malformed phase paragraph; `S06` canonical present with an unrelated invalid reference. |
+| Tree cases `T` | `T00` exact nine operations; `T01` through `T09` omit each ordered operation; `T10` extra modified file; `T11` extra added file; `T12` extra deleted file; `T13` through `T21` give each ordered operation the wrong status (`M` becomes `A`, `A` becomes `M`, `D` becomes `M`); `T22` high-similarity move; `T23` low-similarity move; `T24` copy addition; `T25` protected-path move; `T26` regular file to symbolic link; `T27` executable-bit change; `T28` unrelated post-closure documentation change. |
+| Workflow and entry cases `W` | `W00` exact workflow; `W01` missing step; `W02` duplicate step; `W03` wrong job; `W04` comment coincidence; `W05` quoted-scalar coincidence; `W06` block-scalar coincidence; `W07` wrong command; `W08` missing base env; `W09` wrong base env; `W10` missing head env; `W11` wrong head env; `W12` step `if`; `W13` step `continue-on-error`; `W14` job `if`; `W15` custom shell; `W16` working directory; `W17` missing pull-request trigger; `W18` missing main push trigger; `W19` docs path excluded; `W20` scripts path excluded; `W21` workflow path excluded; `W22` missing range input; `W23` all-zero range; `W24` unreadable base; `W25` unreadable head; `W26` production valid range; `W27` production extra path; `W28` job `needs`; `W29` restrictive pull-request event types. |
+
+`S00` has phase state `absent`. `S01` and `S06` have phase state
+`present`; `S06` also has an independent contract error. `S02` through `S05`
+have phase state `invalid`.
+
+Every ordered phase pair uses the `T10` extra-operation tree. A decision-table
+row with guard `yes` must include the exact `T10` unexpected-path diagnostic.
+A row with guard `no` must not include that diagnostic. Phase diagnostics are
+asserted separately, so a phase rejection cannot substitute for proof that the
+range guard ran.
+
+The expected family counts are exact: 21 layout cases (`L00` through `L20`),
+112 interval cases (`I01` through `I14` crossed with `G00` through `G07`), 122
+termination cases (`X-` plus each interval ID, `X-U01` through `X-U08`,
+`X-CRLF`, and `X-PIPE`), 32 hidden-block cases, 21 `K` cases, 56 `F` cases,
+260 `R` cases, 26 `P` cases, 49 ordered `S` pairs, 29 `T` cases, and 30 `W`
+cases. The frozen array stores all 758 resulting IDs and expected pass or
+rejection outcomes; generation code cannot create or edit that array.
+
+`L00` through `L20` are, in order: the valid layout; matrix moved under
+`## Safety And Privacy`, `## Conformance Contract`, or `## Acceptance Model`;
+a level-three sibling after the matrix; endpoint replaced by each of the other
+two headings; each `B01` through `B07` removed; and each `B01` through `B07`
+duplicated. The 49 phase-pair outcomes follow the complete decision table above.
+
+Every termination case runs in a child process with the two-second deadline.
+`X-CRLF` succeeds. Every other termination case must exit nonzero with its
+named rejection diagnostic; timeout, signal, or zero exit fails the test.
+
+Repository-document integration invokes `validateRepository` on the checked
+documents and invokes the executable entry point on the actual base/head range.
+Unit calls to parser helpers do not substitute for either integration case.
+Their fixed IDs are `E01` for repository validation and `E02` for production
+range validation; both must pass. Lifecycle evidence uses `D01` for structural
+record validation, `D02` for catalog, frontmatter, and link validation, and
+`D03` for an accepting independent adversarial review.
+
+## Implementation Record Contract
+
+The moved record has `role: implementation-record`, `authority: supporting`,
+and one concrete `update-when:` trigger. Its level-two headings are exactly
+`Summary`, `Completed Contract`, `Evidence`, and `Consequences` in that order.
+It has no `Selection State`, `Scope`, `Acceptance Model`, `Completion Rule`, or
+`Non-Goals` heading and no `Planned evidence` label.
+
+The `Evidence` section contains one table with exactly the columns `Acceptance
+ID`, `Checked case IDs`, and `Command`. It has the ordered rows `A01` through
+`A10` exactly once. Each checked-case cell names literal IDs from the 758-case
+manifest or `E01`, `E02`, and `D01` through `D03`. Each command cell contains a
+command that was run successfully for that row. A structural record validator
+checks this shape. Independent adversarial review checks that the summary,
+completed contract, and consequences describe completed facts rather than
+selection instructions or unfinished conditions.
+
 ## Acceptance Model
 
-| Case | Expected result | Planned evidence |
-| --- | --- | --- |
-| Enumerate the intended plugin compatibility set. | One top-level table contains `codex/x86_64-unknown-linux-gnu` followed by `claude-code/x86_64-unknown-linux-gnu` and no other membership. | Independent expected-key fixture, exact row count of two, duplicate-table mutation, and comment, fence, indented-code, block-quote, and malformed-delimiter mutations. |
-| Preserve one compatibility contract shape per cell. | The closed field table contains the eleven ordered field identities exactly once and no compatibility values. Every future record selected by a membership row uses that exact shape. | Missing, duplicate, reordered, unexpected, and value-bearing field mutations. |
-| Keep cell identity unique and literal. | A row is valid only when its complete client-platform key equals the expected key at its expected index. Every other key fails as unexpected. | Empty, duplicate, reordered, ranged, wildcard, placeholder, catch-all, and other unexpected-key mutations are representative negative fixtures. |
-| Close all references over the same set. | The thirteen registered target blocks each carry their expected link title, structural ordinal, and destination, and the registry has no missing or additional tuple. | Per-location missing, duplicate, displaced, hidden, wrong-section, wrong-block, wrong-title, wrong-target, and same-kind title-swap mutations; missing, reordered, and unexpected registry rows; and paired registry-and-target deletion or replacement. |
-| Keep validation independent of raw source coincidences. | Excluded or malformed source blocks cannot supply a matrix, registry, phase identity, or target reference. | Paired top-level and excluded-context cases for every block kind in the closed source grammar. |
-| Retire the closure phase exactly once. | Only absence-to-presence of the exact phase node activates the closure guard, independently of contract validity. A later reference repair or separately proposed membership revision does not reactivate it. | Base/head phase table covering absent, closed-valid, closed-invalid-reference, invalid-head, and later-revision states. |
-| Keep the prerequisite documentation-only. | The closure range has exactly the nine path operations and mode pairs in the path-operation manifest. No plugin artifact, executable MCP case, harness change, or semantic baseline enters the range. | Temporary-Git tree-delta cases for missing, extra, wrong-operation, moved, copied, symbolic-link, executable-bit, and post-closure documentation changes. |
-| Run the guard on the authoritative CI range. | The registered workflow step supplies the pull-request base or push-before commit and checked head to the production validator. Missing or unreadable range inputs fail. | Independent workflow-step fixture and temporary-Git entry-point cases for a valid range, an extra path, missing inputs, an all-zero base, and unreadable revisions. |
+| ID | Case | Expected result | Planned evidence |
+| --- | --- | --- | --- |
+| `A01` | Enumerate the intended plugin compatibility set. | One top-level table contains `codex/x86_64-unknown-linux-gnu` followed by `claude-code/x86_64-unknown-linux-gnu` and no other membership. | `L`, `I`, and `E01`. |
+| `A02` | Preserve one compatibility contract shape per cell. | The closed field table contains the eleven ordered field identities exactly once and no compatibility values. Every future record selected by a membership row uses that exact shape. | All 56 `F` cases. |
+| `A03` | Keep cell identity unique and literal. | A row is valid only when its complete client-platform key equals the expected key at its expected index. Every other key fails as unexpected. | All 21 `K` cases. |
+| `A04` | Close all references over the same set. | The thirteen registered target blocks each carry their expected link title, structural ordinal, and destination, and the registry has no missing or additional tuple. | All 260 `R` and 26 `P` cases. |
+| `A05` | Keep validation independent of raw source coincidences. | Excluded or malformed source blocks cannot supply a matrix, registry, phase identity, or target reference. | All 112 `I`, 32 `H`, 260 `R`, and 49 phase-pair cases. |
+| `A06` | Keep validation total. | Every input line advances or fails, and every malformed-input fixture returns a diagnostic before the two-second child-process deadline. | All 122 termination cases. |
+| `A07` | Retire the closure phase exactly once. | The nine-row phase decision table determines diagnostics and range-guard execution independently of other contract validity. | All 49 ordered phase-fixture pairs. |
+| `A08` | Keep the prerequisite documentation-only. | The closure range has exactly the nine path operations and mode pairs in the path-operation manifest. No plugin artifact, executable MCP case, harness change, or semantic baseline enters the range. | All 29 `T` cases. |
+| `A09` | Run the guard on the authoritative CI range. | The executable workflow step supplies the pull-request base or push-before commit and checked head to the production validator. Missing, disabled, soft-failing, or unreadable range inputs fail. | All 30 `W` cases and `E02`. |
+| `A10` | Close the proposal lifecycle. | The implementation record matches the structural record contract and an independent semantic review finds no active proposal instruction. | `D01`, `D02`, and `D03`. |
 
 ## Non-Goals
 
@@ -320,12 +462,17 @@ guard rejects an extra path in the actual revision range.
   installer.
 - Freezing the broader agent-language-services source inventory.
 - Adding another client or platform after the exact two-cell set closes.
+- Treating an ignored target prompt, sidecar, or receipt as repository merge
+  authority.
 
 ## Completion Rule
 
-This proposal completes only when all eight acceptance rows pass. The umbrella
+This proposal completes only when the target-snapshot preflight prerequisite
+is an implementation record and all ten acceptance rows pass. The umbrella
 proposal must contain the one top-level membership table, the one field table,
 the one reference registry, the one phase identity, and exactly the thirteen
 registered target references. The closure range must match the path-operation
-manifest. Move the completed record out of `docs/proposals/` before selecting
+manifest. The Evidence Manifest must report every generated case exactly once.
+Move this page to `docs/reference/implemented-proposals/` and rewrite selection,
+scope, evidence, and completion sections as a completed record before selecting
 the lifecycle migration's frozen-source-inventory PR.
