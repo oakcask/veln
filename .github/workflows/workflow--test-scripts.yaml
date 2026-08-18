@@ -43,3 +43,5 @@ jobs:
         run: node workflow-scripts/check-doc-frontmatter.mjs
       - name: Validate proposal target readiness
         run: node workflow-scripts/check-proposal-target-readiness.mjs validate
+      - name: Validate agent language-services lifecycle review
+        run: node workflow-scripts/check-agent-language-services-lifecycle.mjs validate

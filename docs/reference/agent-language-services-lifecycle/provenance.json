@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "target_kind": "proposal-section",
+  "proposal_path": "docs/proposals/agent-language-services-lifecycle-migration.md",
+  "proposal_anchor": "#frozen-source-universe",
+  "default_branch": "main",
+  "base_commit": "dcbca38781b32b8141716345a3c2cd4ef461d3b2",
+  "prerequisites": [
+    "docs/proposals/agent-language-services-inventory-review-gate.md",
+    "docs/proposals/agent-language-services-platform-matrix-closure.md",
+    "docs/proposals/checked-proposal-target-readiness.md"
+  ]
+}
