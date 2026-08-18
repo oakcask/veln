@@ -35,6 +35,11 @@ that already contains any frozen artifact. Select the migration PR only after
 the frozen inventory has merged. Neither target may change the MCP harness,
 executable MCP fixtures, or semantic baselines.
 
+Generate the inventory target only after the gate completion is present on the
+default branch. Discard any earlier Markdown target and sidecar. A commit inside
+the inventory branch, including one exposed through a temporary pull-request
+base branch, cannot substitute for the post-gate default-branch base.
+
 ## Problem
 
 The active agent-language-services proposal mixes implemented history with
@@ -160,6 +165,9 @@ digest for every source ID. Each parent scalar belongs exactly once to a child
 span or a separator span. A separator span may contain only whitespace or
 parser-identified table punctuation. Backticks, link text, link destinations,
 hyphens in content, words, numbers, and code spans must belong to a child.
+Every source-universe and inventory root carries its frozen exact text. Every
+lifecycle-manifest leaf carries its exact span set. Omitting those fields while
+retaining only a digest does not satisfy the frozen review contract.
 
 When one source paragraph or row mixes completed and planned behavior, split
 it into observable subrequirements in the inventory. The parent source ID
@@ -217,6 +225,13 @@ tracked target provenance for that exact base. A stacked base that contains a
 frozen artifact is post-bootstrap even when the default branch does not contain
 one. It cannot be used to revise the frozen artifacts or validator.
 
+The pull-request event base name is input to this check, not another candidate
+for the repository default branch. The event base name must equal the
+independently resolved default-branch name, and the event base commit,
+provenance base commit, and resolved default-branch commit must be identical.
+The check rejects a branch-local ancestor and a temporary non-default base even
+when either contains the prerequisite records and reviewed authority.
+
 After bootstrap, a separate immutability guard rejects changes to the frozen
 source-universe contract, lifecycle manifest, inventory, schema, and acceptance
 corpus. It also rejects changes to the validator implementation, its tests, and
@@ -230,10 +245,16 @@ regular file changed to a symbolic link.
 Workflow path filters include every immutable JSON and provenance path. Push
 validation receives the pre-push default revision separately from the new head;
 it does not use the new head as both states of the bootstrap transition.
+Diff-scope validation examines every protected artifact, validator, test, and
+workflow-registration path in the selected range. It does not return early
+because no lifecycle JSON path changed. A local invocation without a concrete
+base and head rejects the invocation instead of treating an empty discovered
+path set as success.
 
 | Base state | Head state | Required result |
 | --- | --- | --- |
 | A prerequisite remains active. | A frozen artifact is added. | Reject the blocked target before diff allowlisting. |
+| A branch-local commit completes the prerequisite and adds the reviewed authority. | A later commit adds the frozen artifacts and declares the earlier commit as its base. | Reject the self-authored base even when a temporary pull-request base ref points to it. |
 | The default branch has both completed prerequisites and no frozen artifact. | The first complete artifact set is added. | Apply the bootstrap allowlist. |
 | A non-default stacked base already has a frozen artifact. | A frozen artifact or validator changes. | Reject the stack as a post-bootstrap mutation. |
 | The default branch has the merged frozen artifact set. | Only permitted migration paths change. | Apply the post-bootstrap immutability guard and accept. |
@@ -285,6 +306,13 @@ kind, path, anchor, evidence requirement, removal rationale, and format field.
 The schema and semantic validator must make the same accept-or-reject decision
 for every structural case.
 
+The schema makes every structurally unconditional destination field required.
+Its lifecycle-specific branches require `path`, `anchor`, checked `evidence`,
+and removal `rationale` wherever the semantic contract requires them. Each
+structural rejection case changes one field or one closed-object boundary. A
+case with multiple invalid fields does not demonstrate schema and semantic
+equivalence for any one of them.
+
 The corpus may not declare schema and semantic disagreement as an expected
 success. Production ledger validation resolves destinations, roles, anchors,
 and checked evidence against the repository. A corpus source ID must be an
@@ -308,7 +336,7 @@ parent IDs.
 | Move completed history. | Every `completed` entry links to a supporting implementation record, and active proposal pages contain no implemented status ledger. | Stale implemented-row search and frontmatter validation. |
 | Remove only supporting explanation. | Conformance leaves reject `removed`; supporting leaves accept it only with a rationale and existing superseding destination. | Paired conformance rejection and supporting-explanation acceptance fixtures. |
 | Keep the completion gate finite. | Active proposal pages contain every planned leaf from the frozen inventory, including the closed matrices and Q01-Q22 identities, or link to focused proposal pages that contain them. No completion row depends on an undefined future matrix or capability list. | Frozen-inventory-to-proposal validation and injected missing-entry failure tests for each item class. |
-| Bound the diff guard to its phase. | The bootstrap allowlist runs only on one default-branch-targeting PR whose base contains all completed prerequisite records, checked tracked provenance, reviewed source decisions, and no frozen artifact. A stacked base with any frozen artifact is post-bootstrap. Later docs work passes while frozen artifacts, validator registration, and protected executable evidence remain immutable. | Base-ref and default-ref assertions plus the complete base/head and PR/push event table, including missing-provenance, blocked-target, stacked-base, JSON-only, type-change, copy, rename, unrelated-source, unrelated-doc, migration-path, frozen-edit, validator-edit, and workflow-registration cases. |
+| Bound the diff guard to its phase. | The bootstrap allowlist runs only on one default-branch-targeting PR whose event base commit equals its provenance base and independently resolved default-branch commit. A branch-local staged authority and any non-default or frozen stacked base are rejected. Later docs work passes while frozen artifacts, validator registration, and protected executable evidence remain immutable. | Base-ref and default-ref assertions plus the complete base/head and PR/push event table, including missing-provenance, blocked-target, branch-local-authority, retargeted-non-default-base, stacked-base, JSON-only, type-change, copy, rename, unrelated-source, unrelated-doc, migration-path, frozen-edit, validator-edit, and workflow-registration cases. |
 | Complete the migration independently. | The PR changes documentation and its documentation validators only. It does not change harness code, executable MCP fixtures, or semantic baselines. | Phase-aware diff-scope check with actionable failure output. |
 
 ## Non-Goals
