@@ -21,12 +21,16 @@ node workflow-scripts/check-proposal-target-readiness.mjs validate
 
 - Generated target metadata can be checked by passing its JSON path to the
   same command.
+- `AGENTS.md` rejects Markdown-only target handoffs. Generated targets require
+  a checked `TARGET.json` sidecar before implementation begins.
 - The documentation-validation workflow runs the readiness manifest check.
-- The readiness tests cover accepted Ready targets and rejected blocked,
-  unlisted, malformed, duplicate, no-target, and catalog-drift cases.
+- The readiness tests use temporary Git histories. They cover an accepted
+  Ready base and reject blocked, unlisted, malformed, duplicate, no-target,
+  catalog-drift, nonexistent-base, stale-merge-base, and working-tree-only
+  prerequisite completion cases.
 
 ## Boundary
 
-The validator checks selection readiness. It does not decide whether the
-selected proposal's implementation evidence passes after the implementation
-branch is complete.
+The validator checks selection readiness against the declared base commit. It
+does not decide whether the selected proposal's implementation evidence passes
+after the implementation branch is complete.

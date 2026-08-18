@@ -8,7 +8,10 @@ update-when: The proposal Ready and Blocked catalog, proposal target metadata sc
 
 Generated proposal targets are valid only when the selected proposal or
 heading is listed under Ready in `docs/proposals/README.md` and the readiness
-manifest names the same state.
+manifest names the same state at the declared base commit. The validator reads
+the catalog, proposal frontmatter, prerequisite pages, and completed records
+from that commit. Later changes in the implementation branch cannot complete a
+prerequisite retroactively.
 
 Run the local check with:
 
@@ -16,11 +19,14 @@ Run the local check with:
 node workflow-scripts/check-proposal-target-readiness.mjs validate
 ```
 
-To validate a generated target handoff, pass its JSON metadata path:
+Every generated `TARGET.md` handoff has an adjacent `TARGET.json` sidecar.
+Validate the sidecar before writing or implementing the Markdown target:
 
 ```sh
-node workflow-scripts/check-proposal-target-readiness.mjs validate path/to/target.json
+node workflow-scripts/check-proposal-target-readiness.mjs validate prompts/TARGET.json
 ```
 
 The metadata schema is `target.schema.json`. The manifest is the tracked
-authority for Ready and Blocked entries that generated targets may select.
+authority for Ready and Blocked entries that generated targets may select. The
+base commit is a full commit identity on the declared default branch, and the
+implementation branch must have that exact merge base.

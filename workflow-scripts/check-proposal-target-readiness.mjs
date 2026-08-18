@@ -44,10 +44,11 @@ export function runCommand({ repoRoot, command, metadataPath }) {
 
   if (metadataPath !== undefined) {
     const metadata = readJson(path.resolve(repoRoot, metadataPath));
-    errors.push(
-      ...validateTargetShape({ metadata, schema: targetSchema }),
-      ...validateTargetReadiness({ repoRoot, manifest, metadata }),
-    );
+    const targetShapeErrors = validateTargetShape({ metadata, schema: targetSchema });
+    errors.push(...targetShapeErrors);
+    if (targetShapeErrors.length === 0) {
+      errors.push(...validateTargetReadiness({ repoRoot, metadata, manifestSchema }));
+    }
   }
 
   return errors.length === 0
@@ -103,8 +104,8 @@ export function validateTargetShape({ metadata, schema }) {
   if (!nonemptyString(metadata.default_branch)) {
     errors.push("target metadata: name the default branch used to issue the handoff");
   }
-  if (!/^[0-9a-f]{7,40}$/.test(metadata.base_commit ?? "")) {
-    errors.push("target metadata: use the exact hexadecimal base commit");
+  if (!/^[0-9a-f]{40}$/.test(metadata.base_commit ?? "")) {
+    errors.push("target metadata: use the exact 40-character hexadecimal base commit");
   }
   if (!Array.isArray(metadata.prerequisites)) {
     errors.push("target metadata: add a prerequisites array");
@@ -123,27 +124,54 @@ export function validateTargetShape({ metadata, schema }) {
   return errors;
 }
 
-export function validateCatalogCoverage({ repoRoot, manifest }) {
-  const catalogText = fs.readFileSync(path.resolve(repoRoot, "docs/proposals/README.md"), "utf8");
-  const catalogEntries = proposalCatalogEntries({ catalogText, repoRoot });
+export function validateCatalogCoverage({ repoRoot, manifest, revision }) {
+  const catalogPath = "docs/proposals/README.md";
+  const catalogText = revision === undefined
+    ? fs.readFileSync(path.resolve(repoRoot, catalogPath), "utf8")
+    : gitFileAtRevision({ repoRoot, revision, file: catalogPath });
+  if (catalogText === undefined) {
+    return [`${catalogPath}: restore the proposal catalog at ${revision}; target readiness needs the declared base catalog`];
+  }
+  const catalog = proposalCatalogEntries({ catalogText, repoRoot, revision });
   const manifestEntries = Array.isArray(manifest?.entries) ? manifest.entries : [];
-  return compareCatalogAndManifest({ catalogEntries, manifestEntries });
+  return [...catalog.errors, ...compareCatalogAndManifest({ catalogEntries: catalog.entries, manifestEntries })];
 }
 
-export function validateTargetReadiness({ repoRoot, manifest, metadata }) {
-  if (metadata?.target_kind === "no-target") {
-    const ready = manifest.entries.filter((entry) => entry.state === "ready");
-    return ready.length === 0
-      ? []
-      : [`target metadata: remove no-target handoff; Ready still contains ${ready[0].proposal_path}${ready[0].proposal_anchor}`];
+export function validateTargetReadiness({ repoRoot, metadata, manifestSchema }) {
+  const targetKey = `${metadata.proposal_path}${metadata.proposal_anchor}`;
+  if (!hasGitCommit({ repoRoot, revision: metadata.base_commit })) {
+    return [`${targetKey}: regenerate the target with an existing full base commit; readiness must be checked against a committed default-branch state`];
   }
 
-  const targetKey = `${metadata?.proposal_path}${metadata?.proposal_anchor}`;
+  const manifestText = gitFileAtRevision({ repoRoot, revision: metadata.base_commit, file: manifestPath });
+  if (manifestText === undefined) {
+    return [`${targetKey}: regenerate the target from a base that contains ${manifestPath}; a working-tree manifest cannot establish target readiness`];
+  }
+  let manifest;
+  try {
+    manifest = JSON.parse(manifestText);
+  } catch {
+    return [`${targetKey}: repair ${manifestPath} at ${metadata.base_commit}; target readiness requires valid JSON at the declared base`];
+  }
+
+  const effectiveManifestSchema = manifestSchema ?? readJson(path.resolve(repoRoot, manifestSchemaPath));
+  const errors = [
+    ...validateManifestShape({ manifest, schema: effectiveManifestSchema }),
+    ...validateCatalogCoverage({ repoRoot, manifest, revision: metadata.base_commit }),
+  ];
+  if (metadata?.target_kind === "no-target") {
+    const ready = manifest.entries.filter((entry) => entry.state === "ready");
+    if (ready.length !== 0) {
+      errors.push(`target metadata: remove no-target handoff; Ready at the declared base still contains ${ready[0].proposal_path}${ready[0].proposal_anchor}`);
+    }
+    return errors;
+  }
+
   const entry = manifest.entries.find((candidate) => `${candidate.proposal_path}${candidate.proposal_anchor}` === targetKey);
   if (entry === undefined) {
-    return [`target metadata: select a proposal listed under Ready; ${targetKey} is absent from the readiness manifest`];
+    errors.push(`target metadata: select a proposal listed under Ready at the declared base; ${targetKey} is absent from its readiness manifest`);
+    return errors;
   }
-  const errors = [];
   if (entry.state !== "ready") {
     errors.push(`${targetKey}: select a Ready prerequisite before this blocked target`);
   }
@@ -153,22 +181,32 @@ export function validateTargetReadiness({ repoRoot, manifest, metadata }) {
     errors.push(`${targetKey}: set prerequisites to the manifest entry exactly`);
   }
   for (const prerequisite of entry.prerequisites) {
-    if (fs.existsSync(path.resolve(repoRoot, prerequisite))) {
-      errors.push(`${targetKey}: complete ${prerequisite} before issuing this target`);
+    if (gitPathExists({ repoRoot, revision: metadata.base_commit, file: prerequisite })) {
+      errors.push(`${targetKey}: complete ${prerequisite} on the declared base before issuing this target; later working-tree removal cannot satisfy the prerequisite`);
     }
     const record = `docs/reference/implemented-proposals/${path.basename(prerequisite)}`;
-    if (!fs.existsSync(path.resolve(repoRoot, record))) {
-      errors.push(`${targetKey}: link the completed implementation record for ${prerequisite}`);
+    if (!gitPathExists({ repoRoot, revision: metadata.base_commit, file: record })) {
+      errors.push(`${targetKey}: add ${record} on the declared base before issuing this target; the record proves the prerequisite completed before the target branch`);
     }
   }
-  if (hasGitObject({ repoRoot, revision: metadata.base_commit })) {
-    if (!isAncestor({ repoRoot, ancestor: metadata.base_commit, descendant: metadata.default_branch })) {
-      errors.push(`${targetKey}: regenerate the target from ${metadata.default_branch}; the declared base is not on that branch`);
-    }
-    const mergeBase = gitOutput({ repoRoot, args: ["merge-base", "HEAD", metadata.default_branch] });
-    if (mergeBase !== undefined && mergeBase.trim() !== metadata.base_commit) {
-      errors.push(`${targetKey}: regenerate the target; the working branch merge base is ${mergeBase.trim()}`);
-    }
+
+  const defaultBranchRef = resolveDefaultBranchRef({ repoRoot, name: metadata.default_branch });
+  if (defaultBranchRef === undefined) {
+    errors.push(`${targetKey}: fetch or create the declared default branch ${metadata.default_branch} before validation; its history must contain the target base`);
+    return errors;
+  }
+  const configuredDefault = configuredDefaultBranch({ repoRoot });
+  if (configuredDefault !== undefined && configuredDefault !== metadata.default_branch) {
+    errors.push(`${targetKey}: set default_branch to ${configuredDefault}; target metadata must name the repository default branch`);
+  }
+  if (!isAncestor({ repoRoot, ancestor: metadata.base_commit, descendant: defaultBranchRef })) {
+    errors.push(`${targetKey}: regenerate the target from ${metadata.default_branch}; the declared base is not on that branch`);
+  }
+  const mergeBase = gitOutput({ repoRoot, args: ["merge-base", "HEAD", defaultBranchRef] });
+  if (mergeBase === undefined) {
+    errors.push(`${targetKey}: fetch ${metadata.default_branch} and retry; the working branch merge base must match the declared base`);
+  } else if (mergeBase.trim() !== metadata.base_commit) {
+    errors.push(`${targetKey}: regenerate the target; the working branch merge base is ${mergeBase.trim()}, not the declared base`);
   }
   return errors;
 }
@@ -237,19 +275,31 @@ function compareCatalogAndManifest({ catalogEntries, manifestEntries }) {
   return errors;
 }
 
-function proposalCatalogEntries({ catalogText, repoRoot }) {
+function proposalCatalogEntries({ catalogText, repoRoot, revision }) {
   const sections = { ready: sectionText(catalogText, "Ready"), blocked: sectionText(catalogText, "Blocked") };
-  return Object.entries(sections).flatMap(([state, text]) => markdownLinks(text).map((link) => {
+  const errors = [];
+  const entries = Object.entries(sections).flatMap(([state, text]) => markdownLinks(text).map((link) => {
     const [file, rawAnchor = ""] = link.split("#", 2);
     const proposalPath = `docs/proposals/${file}`;
-    const proposalText = fs.readFileSync(path.resolve(repoRoot, proposalPath), "utf8");
+    const proposalText = revision === undefined
+      ? readWorkingTreeFile({ repoRoot, file: proposalPath })
+      : gitFileAtRevision({ repoRoot, revision, file: proposalPath });
+    if (proposalText === undefined) {
+      errors.push(`${proposalPath}: restore the ${state} proposal page; the catalog cannot select a missing target`);
+      return { proposal_path: proposalPath, proposal_anchor: rawAnchor === "" ? "#missing" : `#${rawAnchor}`, state, prerequisites: [] };
+    }
     const frontmatter = markdownFrontmatter(proposalText);
     const role = frontmatter === undefined ? undefined : frontmatterField(frontmatter, "role")[0]?.parsed.value;
     if (role !== "proposal") {
-      return { proposal_path: proposalPath, proposal_anchor: rawAnchor === "" ? firstHeadingAnchor(proposalText) : `#${rawAnchor}`, state, prerequisites: [] };
+      errors.push(`${proposalPath}: set role to proposal or remove it from ${state}; only active proposals can be selected`);
     }
-    return { proposal_path: proposalPath, proposal_anchor: rawAnchor === "" ? firstHeadingAnchor(proposalText) : `#${rawAnchor}`, state, prerequisites: [] };
+    const proposalAnchor = rawAnchor === "" ? firstHeadingAnchor(proposalText) : `#${rawAnchor}`;
+    if (!headingAnchors(proposalText).has(proposalAnchor)) {
+      errors.push(`${proposalPath}${proposalAnchor}: restore the linked heading or update the catalog; readiness must bind an existing proposal section`);
+    }
+    return { proposal_path: proposalPath, proposal_anchor: proposalAnchor, state, prerequisites: [] };
   }));
+  return { entries, errors };
 }
 
 function sectionText(text, heading) {
@@ -272,6 +322,32 @@ function firstHeadingAnchor(text) {
   const body = stripFrontmatter(text);
   const heading = /^#\s+(.+?)\s*$/m.exec(body)?.[1] ?? "";
   return `#${slug(heading)}`;
+}
+
+function headingAnchors(text) {
+  const anchors = new Set();
+  const counts = new Map();
+  let fence;
+  for (const line of stripFrontmatter(text).split("\n")) {
+    const fenceMatch = /^\s*(`{3,}|~{3,})/.exec(line);
+    if (fenceMatch !== null) {
+      const marker = fenceMatch[1][0];
+      fence = fence === undefined ? marker : fence === marker ? undefined : fence;
+      continue;
+    }
+    if (fence !== undefined) {
+      continue;
+    }
+    const heading = /^#{1,6}\s+(.+?)\s*#*\s*$/.exec(line)?.[1];
+    if (heading === undefined) {
+      continue;
+    }
+    const base = slug(heading);
+    const count = counts.get(base) ?? 0;
+    counts.set(base, count + 1);
+    anchors.add(`#${count === 0 ? base : `${base}-${count}`}`);
+  }
+  return anchors;
 }
 
 function stripFrontmatter(text) {
@@ -298,8 +374,8 @@ function nonemptyString(value) {
   return typeof value === "string" && value.length > 0;
 }
 
-function hasGitObject({ repoRoot, revision }) {
-  return spawnSync("git", ["cat-file", "-e", revision], { cwd: repoRoot }).status === 0;
+function hasGitCommit({ repoRoot, revision }) {
+  return spawnSync("git", ["cat-file", "-e", `${revision}^{commit}`], { cwd: repoRoot }).status === 0;
 }
 
 function isAncestor({ repoRoot, ancestor, descendant }) {
@@ -309,6 +385,36 @@ function isAncestor({ repoRoot, ancestor, descendant }) {
 function gitOutput({ repoRoot, args }) {
   const result = spawnSync("git", args, { cwd: repoRoot, encoding: "utf8" });
   return result.status === 0 ? result.stdout : undefined;
+}
+
+function gitFileAtRevision({ repoRoot, revision, file }) {
+  return gitOutput({ repoRoot, args: ["show", `${revision}:${file}`] });
+}
+
+function gitPathExists({ repoRoot, revision, file }) {
+  return spawnSync("git", ["cat-file", "-e", `${revision}:${file}`], { cwd: repoRoot }).status === 0;
+}
+
+function readWorkingTreeFile({ repoRoot, file }) {
+  try {
+    return fs.readFileSync(path.resolve(repoRoot, file), "utf8");
+  } catch {
+    return undefined;
+  }
+}
+
+function resolveDefaultBranchRef({ repoRoot, name }) {
+  for (const candidate of [`refs/heads/${name}`, `refs/remotes/origin/${name}`]) {
+    if (hasGitCommit({ repoRoot, revision: candidate })) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
+
+function configuredDefaultBranch({ repoRoot }) {
+  const symbolic = gitOutput({ repoRoot, args: ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"] })?.trim();
+  return symbolic?.startsWith("origin/") ? symbolic.slice("origin/".length) : undefined;
 }
 
 function readJson(file) {
