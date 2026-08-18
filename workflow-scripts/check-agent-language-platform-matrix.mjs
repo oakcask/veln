@@ -47,6 +47,7 @@ const requiredReferences = new Map([
   ["plugin acceptance completion", "row in the Closed Client-Platform Matrix passes with no orphan"],
 ]);
 const closurePaths = new Set([
+  ".github/workflows/workflow--actionlint.yaml",
   ".github/workflows/workflow--test-scripts.yaml",
   "docs/proposals/README.md",
   "docs/proposals/agent-language-services-lifecycle-migration.md",

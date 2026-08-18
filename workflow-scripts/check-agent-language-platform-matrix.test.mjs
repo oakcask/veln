@@ -121,8 +121,12 @@ test("rejects every required reference when it becomes unbound", () => {
 test("activates only for matrix addition and retires for later documentation", () => {
   const preClosure = replace(validDocument, "### Closed Client-Platform Matrix", "### Planned Client Matrix");
   const allowed = [{ oldMode: "100644", newMode: "100644", status: "M", path: umbrellaPath }];
+  const allowedWorkflowWarningFix = [{ oldMode: "100644", newMode: "100644", status: "M", path: ".github/workflows/workflow--actionlint.yaml" }];
   const allowedReferenceRoute = [{ oldMode: "100644", newMode: "100644", status: "M", path: "docs/reference/README.md" }];
   assert.deepEqual(validateClosureTransition({ baseText: preClosure, headText: validDocument, changes: allowed }), {
+    active: true, errors: [], valid: true,
+  });
+  assert.deepEqual(validateClosureTransition({ baseText: preClosure, headText: validDocument, changes: allowedWorkflowWarningFix }), {
     active: true, errors: [], valid: true,
   });
   assert.deepEqual(validateClosureTransition({ baseText: preClosure, headText: validDocument, changes: allowedReferenceRoute }), {
