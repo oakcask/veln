@@ -29,6 +29,8 @@ behavior page needs rationale, source support, or toolchain reference material.
   [http2-standard-module-migration.md](http2-standard-module-migration.md).
 - Implemented proposal records:
   [implemented-proposals/README.md](implemented-proposals/README.md).
+- Agent language services completed prerequisites:
+  [implemented-proposals/agent-language-services-platform-matrix-closure.md](implemented-proposals/agent-language-services-platform-matrix-closure.md).
 - Implemented rationale: [source-decisions/README.md](source-decisions/README.md),
   then [source-decisions/topic-map.md](source-decisions/topic-map.md) when the
   category is unclear.
