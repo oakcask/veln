@@ -29,29 +29,29 @@ const closedClientPlatformMatrix = [
   },
 ];
 const sourceUniverseContract = {
-  root_count: 393,
+  root_count: 366,
   kind_counts: {
-    paragraph: 133,
+    paragraph: 106,
     "list-item": 110,
     "table-row": 134,
     "fenced-line": 16,
   },
   heading_counts: {
     Summary: 1,
-    "Implementation Status": 8,
+    "Implementation Status": 7,
     "Language-Semantics Prerequisite": 2,
     "Slice-Closure Prerequisite": 1,
     "Next Slice: Saved Workspace Function References": 19,
     Motivation: 3,
-    Goals: 16,
-    "Non-Goals": 15,
-    Terminology: 15,
+    Goals: 11,
+    "Non-Goals": 11,
+    Terminology: 9,
     "Ownership Boundary": 19,
     "Command And Transport": 2,
     "Project Selection": 18,
     Coordinates: 3,
     Tools: 16,
-    Resources: 8,
+    Resources: 7,
     "Definition And Reference Coverage": 16,
     "Semantic Locations": 7,
     "Package Source URI": 7,
@@ -60,7 +60,7 @@ const sourceUniverseContract = {
     "Saved Snapshot Capture": 2,
     "Package Snapshots": 5,
     "Generated Package Documentation": 24,
-    "Authority And Inputs": 8,
+    "Authority And Inputs": 7,
     "Topic Catalog": 16,
     "Executable Grammar": 2,
     "Checked Examples": 2,
@@ -69,7 +69,7 @@ const sourceUniverseContract = {
     "Documentation Search And Reads": 3,
     "LSP Integration": 7,
     "Agent Plugin": 23,
-    "Safety And Privacy": 11,
+    "Safety And Privacy": 7,
     "Conformance Contract": 28,
     "Acceptance Model": 1,
     "Server And Project Selection": 13,
@@ -77,8 +77,8 @@ const sourceUniverseContract = {
     "Virtual Locations And Package Documentation": 11,
     "Published Language Reference": 10,
     Plugin: 6,
-    "Implementation Slices": 9,
-    "Deferred Work": 10,
+    "Implementation Slices": 5,
+    "Deferred Work": 9,
   },
   identity_sets: {
     evidence_gate: Array.from({ length: 22 }, (_, index) => `Q${String(index + 1).padStart(2, "0")}`),
@@ -106,87 +106,87 @@ const sourceUniverseContract = {
   },
   named_source_sets: {
     saved_reference_boundary_rows: [
-      ["agent-language-services/S0016", "A checked `references` input with `source`, `line`, and `column`."],
-      ["agent-language-services/S0017", "Selected-project and anonymous single-file capture using the existing navigation selection rules."],
-      ["agent-language-services/S0018", "Canonical `file:` locations for the current shared language service's project-owned function reference sites, in deterministic order."],
-      ["agent-language-services/S0019", "Explicit project or single-file scope metadata, including whether the result is project-wide."],
-      ["agent-language-services/S0020", "Empty success for a valid position with no supported function reference search."],
-      ["agent-language-services/S0021", "Existing path, coordinate, schema, and stable-capture failure behavior."],
+      ["agent-language-services/S0015", "A checked `references` input with `source`, `line`, and `column`."],
+      ["agent-language-services/S0016", "Selected-project and anonymous single-file capture using the existing navigation selection rules."],
+      ["agent-language-services/S0017", "Canonical `file:` locations for the current shared language service's project-owned function reference sites, in deterministic order."],
+      ["agent-language-services/S0018", "Explicit project or single-file scope metadata, including whether the result is project-wide."],
+      ["agent-language-services/S0019", "Empty success for a valid position with no supported function reference search."],
+      ["agent-language-services/S0020", "Existing path, coordinate, schema, and stable-capture failure behavior."],
     ],
     saved_reference_acceptance_rows: [
-      ["agent-language-services/S0024", "Request references at a project-owned function call in a selected project."],
-      ["agent-language-services/S0025", "Request references at the unrelated ambiguous constructor call in that case."],
-      ["agent-language-services/S0026", "Request references for an accepted source outside a selected project's owned-source set."],
-      ["agent-language-services/S0027", "Supply an invalid position or a schema-invalid coordinate."],
-      ["agent-language-services/S0028", "Replace a captured source identity or bytes during the operation."],
-      ["agent-language-services/S0029", "List MCP tools after initialization."],
+      ["agent-language-services/S0023", "Request references at a project-owned function call in a selected project."],
+      ["agent-language-services/S0024", "Request references at the unrelated ambiguous constructor call in that case."],
+      ["agent-language-services/S0025", "Request references for an accepted source outside a selected project's owned-source set."],
+      ["agent-language-services/S0026", "Supply an invalid position or a schema-invalid coordinate."],
+      ["agent-language-services/S0027", "Replace a captured source identity or bytes during the operation."],
+      ["agent-language-services/S0028", "List MCP tools after initialization."],
     ],
     closed_navigation_matrix_rows: [
-      ["agent-language-services/S0148", "project-owned public and private functions"],
-      ["agent-language-services/S0149", "source types and their constructors"],
-      ["agent-language-services/S0150", "schemas"],
-      ["agent-language-services/S0151", "public member aliases"],
-      ["agent-language-services/S0152", "function and handler parameters"],
-      ["agent-language-services/S0153", "local `let` and pattern bindings"],
-      ["agent-language-services/S0154", "handler operation clause bindings"],
-      ["agent-language-services/S0155", "handler context parameters"],
-      ["agent-language-services/S0156", "exact test-companion access to target-private declarations"],
-      ["agent-language-services/S0157", "visible declarations in direct dependency exports"],
-      ["agent-language-services/S0158", "visible standard-library declarations"],
+      ["agent-language-services/S0131", "project-owned public and private functions"],
+      ["agent-language-services/S0132", "source types and their constructors"],
+      ["agent-language-services/S0133", "schemas"],
+      ["agent-language-services/S0134", "public member aliases"],
+      ["agent-language-services/S0135", "function and handler parameters"],
+      ["agent-language-services/S0136", "local `let` and pattern bindings"],
+      ["agent-language-services/S0137", "handler operation clause bindings"],
+      ["agent-language-services/S0138", "handler context parameters"],
+      ["agent-language-services/S0139", "exact test-companion access to target-private declarations"],
+      ["agent-language-services/S0140", "visible declarations in direct dependency exports"],
+      ["agent-language-services/S0141", "visible standard-library declarations"],
     ],
     closed_topic_matrix_rows: [
-      ["agent-language-services/S0227", "lexical structure and the complete executable grammar"],
-      ["agent-language-services/S0228", "modules, imports, packages, exports, and visibility"],
-      ["agent-language-services/S0229", "declarations and aliases"],
-      ["agent-language-services/S0230", "expressions, operators, and patterns"],
-      ["agent-language-services/S0231", "types, inference, and constructors"],
-      ["agent-language-services/S0232", "effects and handlers"],
-      ["agent-language-services/S0233", "contracts"],
-      ["agent-language-services/S0234", "schemas"],
-      ["agent-language-services/S0235", "holes"],
-      ["agent-language-services/S0236", "tests, documentation comments, and doctests"],
+      ["agent-language-services/S0209", "lexical structure and the complete executable grammar"],
+      ["agent-language-services/S0210", "modules, imports, packages, exports, and visibility"],
+      ["agent-language-services/S0211", "declarations and aliases"],
+      ["agent-language-services/S0212", "expressions, operators, and patterns"],
+      ["agent-language-services/S0213", "types, inference, and constructors"],
+      ["agent-language-services/S0214", "effects and handlers"],
+      ["agent-language-services/S0215", "contracts"],
+      ["agent-language-services/S0216", "schemas"],
+      ["agent-language-services/S0217", "holes"],
+      ["agent-language-services/S0218", "tests, documentation comments, and doctests"],
     ],
     unresolved_acceptance_rows: [
-      ["agent-language-services/S0326", "Navigate below an unselected descendant manifest."],
-      ["agent-language-services/S0327", "Add, remove, or rename a manifest."],
-      ["agent-language-services/S0328", "Start through a symbolic base alias."],
-      ["agent-language-services/S0329", "Supply a path containing a directory or file symbolic link."],
-      ["agent-language-services/S0331", "Change a selected root identity, anonymous base identity, manifest, source, dependency input, or file set during capture."],
-      ["agent-language-services/S0332", "List projects or send malformed inventory-tool input."],
-      ["agent-language-services/S0338", "Resolve references for every symbol in the closed v1 navigation matrix, including shadowing and same-spelled fields."],
-      ["agent-language-services/S0339", "Search references to a dependency symbol from one selected project."],
-      ["agent-language-services/S0340", "Continue a paged reference result."],
-      ["agent-language-services/S0341", "Use a tampered, cross-server, restarted, evicted, or pre-refresh cursor."],
-      ["agent-language-services/S0342", "Resolve an exported dependency declaration."],
-      ["agent-language-services/S0343", "Resolve a private dependency declaration from a consumer."],
-      ["agent-language-services/S0344", "Resolve a standard-library declaration."],
-      ["agent-language-services/S0345", "Address empty, LF, CRLF, non-BMP, end-of-line, end-of-file, token-end, decimal and exponent integer spellings, non-integer numeric spellings, and oversized positive positions."],
-      ["agent-language-services/S0346", "Run LSP and MCP on the same saved project without overlays."],
-      ["agent-language-services/S0347", "Apply an LSP open-document overlay."],
-      ["agent-language-services/S0349", "Read a returned virtual source URI through MCP."],
-      ["agent-language-services/S0350", "Change an included source or manifest byte in a captured distribution."],
-      ["agent-language-services/S0351", "Discover private, generated, test, descendant, symlink, non-regular, and `target` sources."],
-      ["agent-language-services/S0352", "Load nonportable names or colliding paths."],
-      ["agent-language-services/S0353", "Read a noncanonical, unknown, or mismatched snapshot URI through MCP."],
-      ["agent-language-services/S0354", "Read a private distribution source or inspect package metadata."],
-      ["agent-language-services/S0355", "Keep returned dependency URIs while projects refresh or disappear."],
-      ["agent-language-services/S0356", "Generate package docs."],
-      ["agent-language-services/S0357", "Change catalog semantics without changing package bytes."],
-      ["agent-language-services/S0358", "Package documentation generation or doctest validation fails."],
-      ["agent-language-services/S0360", "Generate the syntax reference."],
-      ["agent-language-services/S0361", "Select a reference example."],
-      ["agent-language-services/S0362", "Change a selected example or public table fragment."],
-      ["agent-language-services/S0363", "Change only development documentation."],
-      ["agent-language-services/S0364", "Reorder equivalent catalog input or vary catalog-owned Unicode and line endings."],
-      ["agent-language-services/S0365", "Search a known language concept."],
-      ["agent-language-services/S0366", "Read a documentation resource through both routes."],
-      ["agent-language-services/S0367", "Inspect the published catalog."],
-      ["agent-language-services/S0368", "Generate MCP and offline Markdown views."],
-      ["agent-language-services/S0370", "Validate the Codex plugin."],
-      ["agent-language-services/S0371", "Validate the Claude Code plugin."],
-      ["agent-language-services/S0372", "Start with a missing, shadowed, or incompatible executable."],
-      ["agent-language-services/S0373", "Use the shared skill."],
-      ["agent-language-services/S0374", "Run the proposal completion gate."],
+      ["agent-language-services/S0304", "Navigate below an unselected descendant manifest."],
+      ["agent-language-services/S0305", "Add, remove, or rename a manifest."],
+      ["agent-language-services/S0306", "Start through a symbolic base alias."],
+      ["agent-language-services/S0307", "Supply a path containing a directory or file symbolic link."],
+      ["agent-language-services/S0309", "Change a selected root identity, anonymous base identity, manifest, source, dependency input, or file set during capture."],
+      ["agent-language-services/S0310", "List projects or send malformed inventory-tool input."],
+      ["agent-language-services/S0316", "Resolve references for every symbol in the closed v1 navigation matrix, including shadowing and same-spelled fields."],
+      ["agent-language-services/S0317", "Search references to a dependency symbol from one selected project."],
+      ["agent-language-services/S0318", "Continue a paged reference result."],
+      ["agent-language-services/S0319", "Use a tampered, cross-server, restarted, evicted, or pre-refresh cursor."],
+      ["agent-language-services/S0320", "Resolve an exported dependency declaration."],
+      ["agent-language-services/S0321", "Resolve a private dependency declaration from a consumer."],
+      ["agent-language-services/S0322", "Resolve a standard-library declaration."],
+      ["agent-language-services/S0323", "Address empty, LF, CRLF, non-BMP, end-of-line, end-of-file, token-end, decimal and exponent integer spellings, non-integer numeric spellings, and oversized positive positions."],
+      ["agent-language-services/S0324", "Run LSP and MCP on the same saved project without overlays."],
+      ["agent-language-services/S0325", "Apply an LSP open-document overlay."],
+      ["agent-language-services/S0327", "Read a returned virtual source URI through MCP."],
+      ["agent-language-services/S0328", "Change an included source or manifest byte in a captured distribution."],
+      ["agent-language-services/S0329", "Discover private, generated, test, descendant, symlink, non-regular, and `target` sources."],
+      ["agent-language-services/S0330", "Load nonportable names or colliding paths."],
+      ["agent-language-services/S0331", "Read a noncanonical, unknown, or mismatched snapshot URI through MCP."],
+      ["agent-language-services/S0332", "Read a private distribution source or inspect package metadata."],
+      ["agent-language-services/S0333", "Keep returned dependency URIs while projects refresh or disappear."],
+      ["agent-language-services/S0334", "Generate package docs."],
+      ["agent-language-services/S0335", "Change catalog semantics without changing package bytes."],
+      ["agent-language-services/S0336", "Package documentation generation or doctest validation fails."],
+      ["agent-language-services/S0338", "Generate the syntax reference."],
+      ["agent-language-services/S0339", "Select a reference example."],
+      ["agent-language-services/S0340", "Change a selected example or public table fragment."],
+      ["agent-language-services/S0341", "Change only development documentation."],
+      ["agent-language-services/S0342", "Reorder equivalent catalog input or vary catalog-owned Unicode and line endings."],
+      ["agent-language-services/S0343", "Search a known language concept."],
+      ["agent-language-services/S0344", "Read a documentation resource through both routes."],
+      ["agent-language-services/S0345", "Inspect the published catalog."],
+      ["agent-language-services/S0346", "Generate MCP and offline Markdown views."],
+      ["agent-language-services/S0348", "Validate the Codex plugin."],
+      ["agent-language-services/S0349", "Validate the Claude Code plugin."],
+      ["agent-language-services/S0350", "Start with a missing, shadowed, or incompatible executable."],
+      ["agent-language-services/S0351", "Use the shared skill."],
+      ["agent-language-services/S0352", "Run the proposal completion gate."],
     ],
   },
 };
@@ -351,9 +351,18 @@ export function parseSourceUniverse(markdown) {
       }
       continue;
     }
-    if (/^\s*(?:[-*+]|\d+\.)\s+/.test(line)) {
-      roots.push(sourceRecord({ kind: "list-item", heading, line: index + 1, text: line }));
+    if (isListItemStart(line)) {
+      const itemLines = [line];
+      const startLine = index + 1;
       index += 1;
+      while (
+        index < lines.length
+        && isListItemContinuation(lines[index])
+      ) {
+        itemLines.push(lines[index]);
+        index += 1;
+      }
+      roots.push(sourceRecord({ kind: "list-item", heading, line: startLine, text: itemLines.join("\n") }));
       continue;
     }
     const paragraphLines = [];
@@ -364,7 +373,7 @@ export function parseSourceUniverse(markdown) {
       && !/^#{1,6}\s+/.test(lines[index])
       && !lines[index].startsWith("```")
       && !isTableRow(lines[index])
-      && !/^\s*(?:[-*+]|\d+\.)\s+/.test(lines[index])
+      && !isListItemStart(lines[index])
     ) {
       paragraphLines.push(lines[index]);
       index += 1;
@@ -387,6 +396,19 @@ export function parseSourceUniverse(markdown) {
       identities: identities(text),
     };
   }
+}
+
+function isListItemStart(line) {
+  return /^\s*(?:[-*+]|\d+\.)\s+/.test(line);
+}
+
+function isListItemContinuation(line) {
+  return line.trim() !== ""
+    && !/^#{1,6}\s+/.test(line)
+    && !line.startsWith("```")
+    && !isTableRow(line)
+    && !isListItemStart(line)
+    && /^\s+/.test(line);
 }
 
 export function validateUniverse({ parsed, universe }) {

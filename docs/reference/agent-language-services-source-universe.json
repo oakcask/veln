@@ -43,21 +43,12 @@
       "heading": "Implementation Status",
       "kind": "list-item",
       "line": 29,
-      "digest": "9d64850b2e83aecb34200634cc15a29f8ceab16d648c026ea8366be5a19e8e03",
+      "digest": "7b6742a24bbc87234c366c69186487f4e820a2a9c5112d0c4dad89106661c210",
       "conformance": false,
       "identities": []
     },
     {
       "id": "agent-language-services/S0005",
-      "heading": "Implementation Status",
-      "kind": "paragraph",
-      "line": 30,
-      "digest": "06b4e4754d067be6a3d1e762f9054a1e9fbe93be47e33fc9ca3763e6e18e641c",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0006",
       "heading": "Implementation Status",
       "kind": "list-item",
       "line": 31,
@@ -66,7 +57,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0007",
+      "id": "agent-language-services/S0006",
       "heading": "Implementation Status",
       "kind": "list-item",
       "line": 32,
@@ -75,7 +66,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0008",
+      "id": "agent-language-services/S0007",
       "heading": "Implementation Status",
       "kind": "list-item",
       "line": 33,
@@ -84,7 +75,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0009",
+      "id": "agent-language-services/S0008",
       "heading": "Implementation Status",
       "kind": "list-item",
       "line": 34,
@@ -96,7 +87,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0010",
+      "id": "agent-language-services/S0009",
       "heading": "Language-Semantics Prerequisite",
       "kind": "paragraph",
       "line": 38,
@@ -105,7 +96,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0011",
+      "id": "agent-language-services/S0010",
       "heading": "Language-Semantics Prerequisite",
       "kind": "paragraph",
       "line": 42,
@@ -114,7 +105,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0012",
+      "id": "agent-language-services/S0011",
       "heading": "Slice-Closure Prerequisite",
       "kind": "paragraph",
       "line": 49,
@@ -126,7 +117,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0013",
+      "id": "agent-language-services/S0012",
       "heading": "Next Slice: Saved Workspace Function References",
       "kind": "paragraph",
       "line": 62,
@@ -138,7 +129,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0014",
+      "id": "agent-language-services/S0013",
       "heading": "Next Slice: Saved Workspace Function References",
       "kind": "paragraph",
       "line": 67,
@@ -147,7 +138,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0015",
+      "id": "agent-language-services/S0014",
       "heading": "Next Slice: Saved Workspace Function References",
       "kind": "table-row",
       "line": 69,
@@ -156,7 +147,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0016",
+      "id": "agent-language-services/S0015",
       "heading": "Next Slice: Saved Workspace Function References",
       "kind": "table-row",
       "line": 71,
@@ -171,7 +162,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0017",
+      "id": "agent-language-services/S0016",
       "heading": "Next Slice: Saved Workspace Function References",
       "kind": "table-row",
       "line": 72,
@@ -180,7 +171,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0018",
+      "id": "agent-language-services/S0017",
       "heading": "Next Slice: Saved Workspace Function References",
       "kind": "table-row",
       "line": 73,
@@ -191,7 +182,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0019",
+      "id": "agent-language-services/S0018",
       "heading": "Next Slice: Saved Workspace Function References",
       "kind": "table-row",
       "line": 74,
@@ -200,7 +191,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0020",
+      "id": "agent-language-services/S0019",
       "heading": "Next Slice: Saved Workspace Function References",
       "kind": "table-row",
       "line": 75,
@@ -209,7 +200,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0021",
+      "id": "agent-language-services/S0020",
       "heading": "Next Slice: Saved Workspace Function References",
       "kind": "table-row",
       "line": 76,
@@ -218,7 +209,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0022",
+      "id": "agent-language-services/S0021",
       "heading": "Next Slice: Saved Workspace Function References",
       "kind": "paragraph",
       "line": 78,
@@ -227,7 +218,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0023",
+      "id": "agent-language-services/S0022",
       "heading": "Next Slice: Saved Workspace Function References",
       "kind": "table-row",
       "line": 84,
@@ -236,7 +227,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0024",
+      "id": "agent-language-services/S0023",
       "heading": "Next Slice: Saved Workspace Function References",
       "kind": "table-row",
       "line": 86,
@@ -247,7 +238,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0025",
+      "id": "agent-language-services/S0024",
       "heading": "Next Slice: Saved Workspace Function References",
       "kind": "table-row",
       "line": 87,
@@ -256,7 +247,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0026",
+      "id": "agent-language-services/S0025",
       "heading": "Next Slice: Saved Workspace Function References",
       "kind": "table-row",
       "line": 88,
@@ -267,7 +258,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0027",
+      "id": "agent-language-services/S0026",
       "heading": "Next Slice: Saved Workspace Function References",
       "kind": "table-row",
       "line": 89,
@@ -278,7 +269,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0028",
+      "id": "agent-language-services/S0027",
       "heading": "Next Slice: Saved Workspace Function References",
       "kind": "table-row",
       "line": 90,
@@ -290,7 +281,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0029",
+      "id": "agent-language-services/S0028",
       "heading": "Next Slice: Saved Workspace Function References",
       "kind": "table-row",
       "line": 91,
@@ -301,7 +292,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0030",
+      "id": "agent-language-services/S0029",
       "heading": "Next Slice: Saved Workspace Function References",
       "kind": "paragraph",
       "line": 93,
@@ -310,7 +301,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0031",
+      "id": "agent-language-services/S0030",
       "heading": "Next Slice: Saved Workspace Function References",
       "kind": "paragraph",
       "line": 101,
@@ -322,7 +313,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0032",
+      "id": "agent-language-services/S0031",
       "heading": "Motivation",
       "kind": "paragraph",
       "line": 107,
@@ -331,7 +322,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0033",
+      "id": "agent-language-services/S0032",
       "heading": "Motivation",
       "kind": "paragraph",
       "line": 113,
@@ -342,7 +333,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0034",
+      "id": "agent-language-services/S0033",
       "heading": "Motivation",
       "kind": "paragraph",
       "line": 120,
@@ -351,7 +342,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0035",
+      "id": "agent-language-services/S0034",
       "heading": "Goals",
       "kind": "list-item",
       "line": 128,
@@ -363,7 +354,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0036",
+      "id": "agent-language-services/S0035",
       "heading": "Goals",
       "kind": "list-item",
       "line": 129,
@@ -372,45 +363,27 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0037",
+      "id": "agent-language-services/S0036",
       "heading": "Goals",
       "kind": "list-item",
       "line": 130,
-      "digest": "50c5163415c0b0b9a4128320871e972e1717861fcca87541ec837bed61500b44",
+      "digest": "dd67516c3efce1cad245cdccb8b82dc3aac1dd1321afacd7864ab8836eb9df1b",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0038",
-      "heading": "Goals",
-      "kind": "paragraph",
-      "line": 131,
-      "digest": "c0e323d1e548ec50250db7534409629a2a82bfa42ea2c7ed54a779759ea42b6a",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0039",
+      "id": "agent-language-services/S0037",
       "heading": "Goals",
       "kind": "list-item",
       "line": 132,
-      "digest": "0d3e155f99fa1e94715f6e86e2b2763cec6e4f0783bfcdcaa5aacb12e5e87757",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0040",
-      "heading": "Goals",
-      "kind": "paragraph",
-      "line": 133,
-      "digest": "444a8f2bf55eac64e789bab691daffdc58bbab93f57c8287ebe956e8721f50f2",
+      "digest": "9c04bb9492563d4711bbae522b0bf3a0d0b4c7459068a5c32887d72e98531ae3",
       "conformance": false,
       "identities": [
         "veln lsp"
       ]
     },
     {
-      "id": "agent-language-services/S0041",
+      "id": "agent-language-services/S0038",
       "heading": "Goals",
       "kind": "list-item",
       "line": 134,
@@ -419,61 +392,34 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0042",
+      "id": "agent-language-services/S0039",
       "heading": "Goals",
       "kind": "list-item",
       "line": 135,
-      "digest": "005d6e276f95b21c33eb37d34f2fd1fba8e5bb0297ed4686aa44dad32b0ef143",
+      "digest": "4040a32b0a89e8402381f3e855348f77ff5124620899da39f3161b5770048c22",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0043",
-      "heading": "Goals",
-      "kind": "paragraph",
-      "line": 136,
-      "digest": "41a079d510d638867f7ae38ad5075489710f31a5ae0c57e718ad882f3055427d",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0044",
+      "id": "agent-language-services/S0040",
       "heading": "Goals",
       "kind": "list-item",
       "line": 137,
-      "digest": "19c695dd7834c09ced7cd5dd3184609cc07ff6d0a56bd084e79aad4245efb1c0",
+      "digest": "bfa0e3cd6ae83ceb84c719de0273b157de1b61867f0215bbeca06c1c726ee135",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0045",
-      "heading": "Goals",
-      "kind": "paragraph",
-      "line": 138,
-      "digest": "c0e323d1e548ec50250db7534409629a2a82bfa42ea2c7ed54a779759ea42b6a",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0046",
+      "id": "agent-language-services/S0041",
       "heading": "Goals",
       "kind": "list-item",
       "line": 139,
-      "digest": "846235d88ec91f523e0e0d9e9db7619a4368dd08c537b90f1e6bf69a52a012fb",
+      "digest": "902f7055d8bf177fc88b4a237055b8ae52789106bfa607f3b6fdfdff11c93f1c",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0047",
-      "heading": "Goals",
-      "kind": "paragraph",
-      "line": 140,
-      "digest": "80d76ae4929045b714171ad2f6ec5ae1950e1c29a94e475c46b1ef45ad2951e8",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0048",
+      "id": "agent-language-services/S0042",
       "heading": "Goals",
       "kind": "list-item",
       "line": 141,
@@ -482,7 +428,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0049",
+      "id": "agent-language-services/S0043",
       "heading": "Goals",
       "kind": "list-item",
       "line": 142,
@@ -491,7 +437,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0050",
+      "id": "agent-language-services/S0044",
       "heading": "Goals",
       "kind": "list-item",
       "line": 143,
@@ -500,7 +446,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0051",
+      "id": "agent-language-services/S0045",
       "heading": "Non-Goals",
       "kind": "list-item",
       "line": 147,
@@ -509,7 +455,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0052",
+      "id": "agent-language-services/S0046",
       "heading": "Non-Goals",
       "kind": "list-item",
       "line": 148,
@@ -518,7 +464,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0053",
+      "id": "agent-language-services/S0047",
       "heading": "Non-Goals",
       "kind": "list-item",
       "line": 149,
@@ -527,7 +473,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0054",
+      "id": "agent-language-services/S0048",
       "heading": "Non-Goals",
       "kind": "list-item",
       "line": 150,
@@ -536,7 +482,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0055",
+      "id": "agent-language-services/S0049",
       "heading": "Non-Goals",
       "kind": "list-item",
       "line": 151,
@@ -547,43 +493,25 @@
       ]
     },
     {
-      "id": "agent-language-services/S0056",
+      "id": "agent-language-services/S0050",
       "heading": "Non-Goals",
       "kind": "list-item",
       "line": 152,
-      "digest": "873f6046741b1eb20ace01feee96aa7787d81bf613ae5b083514eb270d9f14b2",
+      "digest": "daf99a1ae6a1301e4eb5d2a6975ddbcdc644932897678792a24177bdaffd5ea2",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0057",
-      "heading": "Non-Goals",
-      "kind": "paragraph",
-      "line": 153,
-      "digest": "918f10484dbb6e6e44fc6bfde99d82be35700586064933a92fe4b4cee89cb2ed",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0058",
+      "id": "agent-language-services/S0051",
       "heading": "Non-Goals",
       "kind": "list-item",
       "line": 154,
-      "digest": "1dae8706273976581c27ae48fc53baaf70eeefade90780df215e52fadf140d77",
+      "digest": "be280930b0c0327f6f4c897f5dca468afc65fb594f93cb5905f29a122780c3d1",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0059",
-      "heading": "Non-Goals",
-      "kind": "paragraph",
-      "line": 155,
-      "digest": "daedadf70ffab4151ad1036d4c6aaab6aa0969c4d7a84154a2baf3161c7ac439",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0060",
+      "id": "agent-language-services/S0052",
       "heading": "Non-Goals",
       "kind": "list-item",
       "line": 156,
@@ -592,25 +520,16 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0061",
+      "id": "agent-language-services/S0053",
       "heading": "Non-Goals",
       "kind": "list-item",
       "line": 157,
-      "digest": "f1294ef769c10f6a511212ea851e491a8406e8e158d3304ad2527e143415ab39",
+      "digest": "abe47f64a29d3533c235b43b5ebd7335ec5999e59aa042f3ec8a9a517f2a1383",
       "conformance": true,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0062",
-      "heading": "Non-Goals",
-      "kind": "paragraph",
-      "line": 158,
-      "digest": "6e53031eee726d7cca43df85791d695b5ac33c5c9336eaa8d3942a2d4d98a926",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0063",
+      "id": "agent-language-services/S0054",
       "heading": "Non-Goals",
       "kind": "list-item",
       "line": 159,
@@ -619,11 +538,11 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0064",
+      "id": "agent-language-services/S0055",
       "heading": "Non-Goals",
       "kind": "list-item",
       "line": 160,
-      "digest": "bce47b654638d9ea61e052c06208336cb31fcb4822c3a90383208a3253b1f17b",
+      "digest": "4c2c275674a589b819bb0106fb4c6734dd104bf103113cecaa6010aface295d9",
       "conformance": true,
       "identities": [
         "Claude Code",
@@ -632,16 +551,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0065",
-      "heading": "Non-Goals",
-      "kind": "paragraph",
-      "line": 161,
-      "digest": "70e963d1f703ac5d6b46189761a70bb27885b8066fab80f8bac4d08962db2e6c",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0066",
+      "id": "agent-language-services/S0056",
       "heading": "Terminology",
       "kind": "list-item",
       "line": 165,
@@ -652,25 +562,16 @@
       ]
     },
     {
-      "id": "agent-language-services/S0067",
+      "id": "agent-language-services/S0057",
       "heading": "Terminology",
       "kind": "list-item",
       "line": 166,
-      "digest": "49600be4dde9d8c5b1a8586f3ccf53994f49d579f3e6b08b15f1544ff973b9a6",
+      "digest": "f2ff7e54389f9eada0bfc5795b9a8347a86d99fe21236c823ab6e9da93cd3b1f",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0068",
-      "heading": "Terminology",
-      "kind": "paragraph",
-      "line": 167,
-      "digest": "a174090c3d0b558267dc3fae34d48674754c24759e60b83a8d804225c16b15f0",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0069",
+      "id": "agent-language-services/S0058",
       "heading": "Terminology",
       "kind": "list-item",
       "line": 168,
@@ -679,45 +580,27 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0070",
+      "id": "agent-language-services/S0059",
       "heading": "Terminology",
       "kind": "list-item",
       "line": 169,
-      "digest": "8e12ae7549447c4921d36ac66a4c1db084c6405c0cac0a3df9e2c339eb6635da",
+      "digest": "396d5fc9f9c8f3ee6511b3ca8d25e50ab2dde8a42402d7e164536945bdfa0a5c",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0071",
-      "heading": "Terminology",
-      "kind": "paragraph",
-      "line": 170,
-      "digest": "fa2e99207450115ea2d809cbf83516037751c85a22a10181965c58eeb0565c9d",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0072",
+      "id": "agent-language-services/S0060",
       "heading": "Terminology",
       "kind": "list-item",
       "line": 171,
-      "digest": "3d06e19af5e24809c90893944c243365c66317fc3fa4f35d3115624fa5453103",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0073",
-      "heading": "Terminology",
-      "kind": "paragraph",
-      "line": 172,
-      "digest": "9e22402308fef088403ea6f4ea7a8bc1ebf17952c343b955e564d3b04c1408c3",
+      "digest": "b9781310d1788cea15335ad67a40de6b289bd4d058fe52411bd86aeb454e5ca5",
       "conformance": false,
       "identities": [
         "std"
       ]
     },
     {
-      "id": "agent-language-services/S0074",
+      "id": "agent-language-services/S0061",
       "heading": "Terminology",
       "kind": "list-item",
       "line": 173,
@@ -726,65 +609,37 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0075",
+      "id": "agent-language-services/S0062",
       "heading": "Terminology",
       "kind": "list-item",
       "line": 174,
-      "digest": "f4903be682e1ee370bae2a0d605118ea96955722b880155b5c67ae92535b0610",
+      "digest": "06de65588cef7ecfb1716f8078f1aa296a20dba74a59137948388b16622ac7f1",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0076",
-      "heading": "Terminology",
-      "kind": "paragraph",
-      "line": 175,
-      "digest": "a480fce2a1443468314c047414588111791e5a65b216dae54c1f5406b4327d3c",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0077",
+      "id": "agent-language-services/S0063",
       "heading": "Terminology",
       "kind": "list-item",
       "line": 176,
-      "digest": "cd150e5b1b7058cf84e8d0041c717b642c985262595f330f618e6b77bfda642c",
+      "digest": "ed231e11c536488a57df9799fcd20a397a0da0f3536659703f41bc68a487d598",
       "conformance": true,
       "identities": [
+        "file:",
         "veln-pkg:"
       ]
     },
     {
-      "id": "agent-language-services/S0078",
-      "heading": "Terminology",
-      "kind": "paragraph",
-      "line": 177,
-      "digest": "655f1c77e929518e7241ec691e8299faa6e965c79413af38f5f2e128030e7409",
-      "conformance": true,
-      "identities": [
-        "file:"
-      ]
-    },
-    {
-      "id": "agent-language-services/S0079",
+      "id": "agent-language-services/S0064",
       "heading": "Terminology",
       "kind": "list-item",
       "line": 178,
-      "digest": "886c150013978c2fb26aff55a9a39f6411f3efd538b0c874be82714cb1b781ab",
+      "digest": "5630df3c3ea5cb65aba8f9daa070a31ca10f4f8252f823e467db8497847b9475",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0080",
-      "heading": "Terminology",
-      "kind": "paragraph",
-      "line": 179,
-      "digest": "9d9021f38e2a840c4fd5045b0b0cb804ca736db7f6bd840e5349a9514c9c1ca8",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0081",
+      "id": "agent-language-services/S0065",
       "heading": "Ownership Boundary",
       "kind": "paragraph",
       "line": 183,
@@ -793,7 +648,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0082",
+      "id": "agent-language-services/S0066",
       "heading": "Ownership Boundary",
       "kind": "table-row",
       "line": 185,
@@ -802,7 +657,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0083",
+      "id": "agent-language-services/S0067",
       "heading": "Ownership Boundary",
       "kind": "table-row",
       "line": 187,
@@ -811,7 +666,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0084",
+      "id": "agent-language-services/S0068",
       "heading": "Ownership Boundary",
       "kind": "table-row",
       "line": 188,
@@ -820,7 +675,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0085",
+      "id": "agent-language-services/S0069",
       "heading": "Ownership Boundary",
       "kind": "table-row",
       "line": 189,
@@ -829,7 +684,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0086",
+      "id": "agent-language-services/S0070",
       "heading": "Ownership Boundary",
       "kind": "table-row",
       "line": 190,
@@ -838,7 +693,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0087",
+      "id": "agent-language-services/S0071",
       "heading": "Ownership Boundary",
       "kind": "table-row",
       "line": 191,
@@ -847,7 +702,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0088",
+      "id": "agent-language-services/S0072",
       "heading": "Ownership Boundary",
       "kind": "table-row",
       "line": 192,
@@ -856,7 +711,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0089",
+      "id": "agent-language-services/S0073",
       "heading": "Ownership Boundary",
       "kind": "paragraph",
       "line": 194,
@@ -865,7 +720,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0090",
+      "id": "agent-language-services/S0074",
       "heading": "Ownership Boundary",
       "kind": "table-row",
       "line": 196,
@@ -874,7 +729,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0091",
+      "id": "agent-language-services/S0075",
       "heading": "Ownership Boundary",
       "kind": "table-row",
       "line": 198,
@@ -883,7 +738,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0092",
+      "id": "agent-language-services/S0076",
       "heading": "Ownership Boundary",
       "kind": "table-row",
       "line": 199,
@@ -892,7 +747,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0093",
+      "id": "agent-language-services/S0077",
       "heading": "Ownership Boundary",
       "kind": "table-row",
       "line": 200,
@@ -901,7 +756,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0094",
+      "id": "agent-language-services/S0078",
       "heading": "Ownership Boundary",
       "kind": "table-row",
       "line": 201,
@@ -910,7 +765,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0095",
+      "id": "agent-language-services/S0079",
       "heading": "Ownership Boundary",
       "kind": "table-row",
       "line": 202,
@@ -919,7 +774,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0096",
+      "id": "agent-language-services/S0080",
       "heading": "Ownership Boundary",
       "kind": "table-row",
       "line": 203,
@@ -928,7 +783,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0097",
+      "id": "agent-language-services/S0081",
       "heading": "Ownership Boundary",
       "kind": "table-row",
       "line": 204,
@@ -937,7 +792,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0098",
+      "id": "agent-language-services/S0082",
       "heading": "Ownership Boundary",
       "kind": "table-row",
       "line": 205,
@@ -946,7 +801,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0099",
+      "id": "agent-language-services/S0083",
       "heading": "Ownership Boundary",
       "kind": "paragraph",
       "line": 207,
@@ -955,7 +810,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0100",
+      "id": "agent-language-services/S0084",
       "heading": "Command And Transport",
       "kind": "paragraph",
       "line": 215,
@@ -966,7 +821,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0101",
+      "id": "agent-language-services/S0085",
       "heading": "Command And Transport",
       "kind": "paragraph",
       "line": 220,
@@ -977,7 +832,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0102",
+      "id": "agent-language-services/S0086",
       "heading": "Project Selection",
       "kind": "paragraph",
       "line": 226,
@@ -986,7 +841,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0103",
+      "id": "agent-language-services/S0087",
       "heading": "Project Selection",
       "kind": "table-row",
       "line": 229,
@@ -995,7 +850,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0104",
+      "id": "agent-language-services/S0088",
       "heading": "Project Selection",
       "kind": "table-row",
       "line": 231,
@@ -1006,7 +861,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0105",
+      "id": "agent-language-services/S0089",
       "heading": "Project Selection",
       "kind": "table-row",
       "line": 232,
@@ -1015,7 +870,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0106",
+      "id": "agent-language-services/S0090",
       "heading": "Project Selection",
       "kind": "table-row",
       "line": 233,
@@ -1024,7 +879,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0107",
+      "id": "agent-language-services/S0091",
       "heading": "Project Selection",
       "kind": "paragraph",
       "line": 235,
@@ -1036,7 +891,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0108",
+      "id": "agent-language-services/S0092",
       "heading": "Project Selection",
       "kind": "paragraph",
       "line": 239,
@@ -1047,7 +902,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0109",
+      "id": "agent-language-services/S0093",
       "heading": "Project Selection",
       "kind": "paragraph",
       "line": 242,
@@ -1059,7 +914,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0110",
+      "id": "agent-language-services/S0094",
       "heading": "Project Selection",
       "kind": "paragraph",
       "line": 252,
@@ -1068,7 +923,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0111",
+      "id": "agent-language-services/S0095",
       "heading": "Project Selection",
       "kind": "table-row",
       "line": 254,
@@ -1077,7 +932,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0112",
+      "id": "agent-language-services/S0096",
       "heading": "Project Selection",
       "kind": "table-row",
       "line": 256,
@@ -1089,7 +944,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0113",
+      "id": "agent-language-services/S0097",
       "heading": "Project Selection",
       "kind": "table-row",
       "line": 257,
@@ -1104,7 +959,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0114",
+      "id": "agent-language-services/S0098",
       "heading": "Project Selection",
       "kind": "table-row",
       "line": 258,
@@ -1115,7 +970,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0115",
+      "id": "agent-language-services/S0099",
       "heading": "Project Selection",
       "kind": "table-row",
       "line": 259,
@@ -1126,7 +981,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0116",
+      "id": "agent-language-services/S0100",
       "heading": "Project Selection",
       "kind": "table-row",
       "line": 260,
@@ -1138,7 +993,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0117",
+      "id": "agent-language-services/S0101",
       "heading": "Project Selection",
       "kind": "table-row",
       "line": 261,
@@ -1150,7 +1005,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0118",
+      "id": "agent-language-services/S0102",
       "heading": "Project Selection",
       "kind": "paragraph",
       "line": 263,
@@ -1159,7 +1014,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0119",
+      "id": "agent-language-services/S0103",
       "heading": "Project Selection",
       "kind": "paragraph",
       "line": 267,
@@ -1170,7 +1025,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0120",
+      "id": "agent-language-services/S0104",
       "heading": "Coordinates",
       "kind": "paragraph",
       "line": 277,
@@ -1183,7 +1038,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0121",
+      "id": "agent-language-services/S0105",
       "heading": "Coordinates",
       "kind": "paragraph",
       "line": 284,
@@ -1194,7 +1049,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0122",
+      "id": "agent-language-services/S0106",
       "heading": "Coordinates",
       "kind": "paragraph",
       "line": 292,
@@ -1205,7 +1060,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0123",
+      "id": "agent-language-services/S0107",
       "heading": "Tools",
       "kind": "paragraph",
       "line": 298,
@@ -1220,7 +1075,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0124",
+      "id": "agent-language-services/S0108",
       "heading": "Tools",
       "kind": "paragraph",
       "line": 307,
@@ -1244,7 +1099,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0125",
+      "id": "agent-language-services/S0109",
       "heading": "Tools",
       "kind": "paragraph",
       "line": 316,
@@ -1253,7 +1108,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0126",
+      "id": "agent-language-services/S0110",
       "heading": "Tools",
       "kind": "table-row",
       "line": 318,
@@ -1262,7 +1117,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0127",
+      "id": "agent-language-services/S0111",
       "heading": "Tools",
       "kind": "table-row",
       "line": 320,
@@ -1273,7 +1128,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0128",
+      "id": "agent-language-services/S0112",
       "heading": "Tools",
       "kind": "table-row",
       "line": 321,
@@ -1284,7 +1139,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0129",
+      "id": "agent-language-services/S0113",
       "heading": "Tools",
       "kind": "table-row",
       "line": 322,
@@ -1295,7 +1150,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0130",
+      "id": "agent-language-services/S0114",
       "heading": "Tools",
       "kind": "table-row",
       "line": 323,
@@ -1306,7 +1161,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0131",
+      "id": "agent-language-services/S0115",
       "heading": "Tools",
       "kind": "table-row",
       "line": 324,
@@ -1317,7 +1172,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0132",
+      "id": "agent-language-services/S0116",
       "heading": "Tools",
       "kind": "table-row",
       "line": 325,
@@ -1328,7 +1183,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0133",
+      "id": "agent-language-services/S0117",
       "heading": "Tools",
       "kind": "table-row",
       "line": 326,
@@ -1339,7 +1194,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0134",
+      "id": "agent-language-services/S0118",
       "heading": "Tools",
       "kind": "paragraph",
       "line": 328,
@@ -1350,7 +1205,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0135",
+      "id": "agent-language-services/S0119",
       "heading": "Tools",
       "kind": "paragraph",
       "line": 337,
@@ -1361,7 +1216,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0136",
+      "id": "agent-language-services/S0120",
       "heading": "Tools",
       "kind": "paragraph",
       "line": 342,
@@ -1374,7 +1229,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0137",
+      "id": "agent-language-services/S0121",
       "heading": "Tools",
       "kind": "paragraph",
       "line": 350,
@@ -1389,7 +1244,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0138",
+      "id": "agent-language-services/S0122",
       "heading": "Tools",
       "kind": "paragraph",
       "line": 356,
@@ -1401,7 +1256,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0139",
+      "id": "agent-language-services/S0123",
       "heading": "Resources",
       "kind": "paragraph",
       "line": 363,
@@ -1410,7 +1265,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0140",
+      "id": "agent-language-services/S0124",
       "heading": "Resources",
       "kind": "list-item",
       "line": 365,
@@ -1419,25 +1274,16 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0141",
+      "id": "agent-language-services/S0125",
       "heading": "Resources",
       "kind": "list-item",
       "line": 366,
-      "digest": "171f7cfffa48ee162fb00e8371dbbc1aca28c462bf6cef937dcad1f63db35344",
+      "digest": "e019a84c90017d95162fd7e241bb9450695fe8fc3c77d6fabde38b717787386f",
       "conformance": true,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0142",
-      "heading": "Resources",
-      "kind": "paragraph",
-      "line": 367,
-      "digest": "463a4c80a9c40050958e80316b38540fb2729d72268a596c49898dfc485cf4bd",
-      "conformance": true,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0143",
+      "id": "agent-language-services/S0126",
       "heading": "Resources",
       "kind": "list-item",
       "line": 368,
@@ -1446,7 +1292,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0144",
+      "id": "agent-language-services/S0127",
       "heading": "Resources",
       "kind": "list-item",
       "line": 369,
@@ -1455,7 +1301,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0145",
+      "id": "agent-language-services/S0128",
       "heading": "Resources",
       "kind": "paragraph",
       "line": 371,
@@ -1464,7 +1310,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0146",
+      "id": "agent-language-services/S0129",
       "heading": "Resources",
       "kind": "paragraph",
       "line": 375,
@@ -1473,7 +1319,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0147",
+      "id": "agent-language-services/S0130",
       "heading": "Definition And Reference Coverage",
       "kind": "paragraph",
       "line": 385,
@@ -1482,7 +1328,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0148",
+      "id": "agent-language-services/S0131",
       "heading": "Definition And Reference Coverage",
       "kind": "list-item",
       "line": 388,
@@ -1491,7 +1337,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0149",
+      "id": "agent-language-services/S0132",
       "heading": "Definition And Reference Coverage",
       "kind": "list-item",
       "line": 389,
@@ -1500,7 +1346,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0150",
+      "id": "agent-language-services/S0133",
       "heading": "Definition And Reference Coverage",
       "kind": "list-item",
       "line": 390,
@@ -1509,7 +1355,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0151",
+      "id": "agent-language-services/S0134",
       "heading": "Definition And Reference Coverage",
       "kind": "list-item",
       "line": 391,
@@ -1518,7 +1364,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0152",
+      "id": "agent-language-services/S0135",
       "heading": "Definition And Reference Coverage",
       "kind": "list-item",
       "line": 392,
@@ -1527,7 +1373,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0153",
+      "id": "agent-language-services/S0136",
       "heading": "Definition And Reference Coverage",
       "kind": "list-item",
       "line": 393,
@@ -1538,7 +1384,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0154",
+      "id": "agent-language-services/S0137",
       "heading": "Definition And Reference Coverage",
       "kind": "list-item",
       "line": 394,
@@ -1547,7 +1393,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0155",
+      "id": "agent-language-services/S0138",
       "heading": "Definition And Reference Coverage",
       "kind": "list-item",
       "line": 395,
@@ -1556,7 +1402,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0156",
+      "id": "agent-language-services/S0139",
       "heading": "Definition And Reference Coverage",
       "kind": "list-item",
       "line": 396,
@@ -1565,7 +1411,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0157",
+      "id": "agent-language-services/S0140",
       "heading": "Definition And Reference Coverage",
       "kind": "list-item",
       "line": 397,
@@ -1574,7 +1420,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0158",
+      "id": "agent-language-services/S0141",
       "heading": "Definition And Reference Coverage",
       "kind": "list-item",
       "line": 398,
@@ -1583,7 +1429,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0159",
+      "id": "agent-language-services/S0142",
       "heading": "Definition And Reference Coverage",
       "kind": "paragraph",
       "line": 400,
@@ -1592,7 +1438,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0160",
+      "id": "agent-language-services/S0143",
       "heading": "Definition And Reference Coverage",
       "kind": "paragraph",
       "line": 411,
@@ -1601,7 +1447,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0161",
+      "id": "agent-language-services/S0144",
       "heading": "Definition And Reference Coverage",
       "kind": "paragraph",
       "line": 416,
@@ -1614,7 +1460,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0162",
+      "id": "agent-language-services/S0145",
       "heading": "Definition And Reference Coverage",
       "kind": "paragraph",
       "line": 427,
@@ -1626,7 +1472,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0163",
+      "id": "agent-language-services/S0146",
       "heading": "Semantic Locations",
       "kind": "paragraph",
       "line": 439,
@@ -1635,7 +1481,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0164",
+      "id": "agent-language-services/S0147",
       "heading": "Semantic Locations",
       "kind": "table-row",
       "line": 442,
@@ -1644,7 +1490,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0165",
+      "id": "agent-language-services/S0148",
       "heading": "Semantic Locations",
       "kind": "table-row",
       "line": 444,
@@ -1655,7 +1501,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0166",
+      "id": "agent-language-services/S0149",
       "heading": "Semantic Locations",
       "kind": "table-row",
       "line": 445,
@@ -1666,7 +1512,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0167",
+      "id": "agent-language-services/S0150",
       "heading": "Semantic Locations",
       "kind": "table-row",
       "line": 446,
@@ -1677,7 +1523,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0168",
+      "id": "agent-language-services/S0151",
       "heading": "Semantic Locations",
       "kind": "table-row",
       "line": 447,
@@ -1688,7 +1534,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0169",
+      "id": "agent-language-services/S0152",
       "heading": "Semantic Locations",
       "kind": "table-row",
       "line": 448,
@@ -1697,7 +1543,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0170",
+      "id": "agent-language-services/S0153",
       "heading": "Package Source URI",
       "kind": "paragraph",
       "line": 452,
@@ -1706,7 +1552,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0171",
+      "id": "agent-language-services/S0154",
       "heading": "Package Source URI",
       "kind": "fenced-line",
       "line": 455,
@@ -1715,7 +1561,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0172",
+      "id": "agent-language-services/S0155",
       "heading": "Package Source URI",
       "kind": "paragraph",
       "line": 458,
@@ -1724,7 +1570,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0173",
+      "id": "agent-language-services/S0156",
       "heading": "Package Source URI",
       "kind": "fenced-line",
       "line": 461,
@@ -1733,7 +1579,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0174",
+      "id": "agent-language-services/S0157",
       "heading": "Package Source URI",
       "kind": "fenced-line",
       "line": 462,
@@ -1742,7 +1588,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0175",
+      "id": "agent-language-services/S0158",
       "heading": "Package Source URI",
       "kind": "paragraph",
       "line": 465,
@@ -1758,7 +1604,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0176",
+      "id": "agent-language-services/S0159",
       "heading": "Package Source URI",
       "kind": "paragraph",
       "line": 473,
@@ -1767,7 +1613,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0177",
+      "id": "agent-language-services/S0160",
       "heading": "Package Documentation URI",
       "kind": "paragraph",
       "line": 479,
@@ -1776,7 +1622,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0178",
+      "id": "agent-language-services/S0161",
       "heading": "Package Documentation URI",
       "kind": "fenced-line",
       "line": 483,
@@ -1785,7 +1631,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0179",
+      "id": "agent-language-services/S0162",
       "heading": "Package Documentation URI",
       "kind": "fenced-line",
       "line": 484,
@@ -1794,7 +1640,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0180",
+      "id": "agent-language-services/S0163",
       "heading": "Package Documentation URI",
       "kind": "fenced-line",
       "line": 485,
@@ -1803,7 +1649,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0181",
+      "id": "agent-language-services/S0164",
       "heading": "Package Documentation URI",
       "kind": "fenced-line",
       "line": 486,
@@ -1812,7 +1658,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0182",
+      "id": "agent-language-services/S0165",
       "heading": "Package Documentation URI",
       "kind": "paragraph",
       "line": 489,
@@ -1821,7 +1667,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0183",
+      "id": "agent-language-services/S0166",
       "heading": "Resolution And Failure",
       "kind": "paragraph",
       "line": 495,
@@ -1832,7 +1678,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0184",
+      "id": "agent-language-services/S0167",
       "heading": "Resolution And Failure",
       "kind": "paragraph",
       "line": 501,
@@ -1843,7 +1689,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0185",
+      "id": "agent-language-services/S0168",
       "heading": "Resolution And Failure",
       "kind": "paragraph",
       "line": 510,
@@ -1852,7 +1698,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0186",
+      "id": "agent-language-services/S0169",
       "heading": "Saved Snapshot Capture",
       "kind": "paragraph",
       "line": 517,
@@ -1861,7 +1707,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0187",
+      "id": "agent-language-services/S0170",
       "heading": "Saved Snapshot Capture",
       "kind": "paragraph",
       "line": 525,
@@ -1872,7 +1718,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0188",
+      "id": "agent-language-services/S0171",
       "heading": "Package Snapshots",
       "kind": "paragraph",
       "line": 536,
@@ -1888,7 +1734,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0189",
+      "id": "agent-language-services/S0172",
       "heading": "Package Snapshots",
       "kind": "paragraph",
       "line": 571,
@@ -1904,7 +1750,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0190",
+      "id": "agent-language-services/S0173",
       "heading": "Package Snapshots",
       "kind": "paragraph",
       "line": 580,
@@ -1920,7 +1766,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0191",
+      "id": "agent-language-services/S0174",
       "heading": "Package Snapshots",
       "kind": "paragraph",
       "line": 592,
@@ -1929,7 +1775,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0192",
+      "id": "agent-language-services/S0175",
       "heading": "Package Snapshots",
       "kind": "paragraph",
       "line": 596,
@@ -1938,7 +1784,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0193",
+      "id": "agent-language-services/S0176",
       "heading": "Generated Package Documentation",
       "kind": "paragraph",
       "line": 603,
@@ -1949,7 +1795,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0194",
+      "id": "agent-language-services/S0177",
       "heading": "Generated Package Documentation",
       "kind": "paragraph",
       "line": 606,
@@ -1961,7 +1807,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0195",
+      "id": "agent-language-services/S0178",
       "heading": "Generated Package Documentation",
       "kind": "paragraph",
       "line": 616,
@@ -1970,7 +1816,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0196",
+      "id": "agent-language-services/S0179",
       "heading": "Generated Package Documentation",
       "kind": "paragraph",
       "line": 622,
@@ -1979,7 +1825,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0197",
+      "id": "agent-language-services/S0180",
       "heading": "Generated Package Documentation",
       "kind": "list-item",
       "line": 624,
@@ -1988,7 +1834,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0198",
+      "id": "agent-language-services/S0181",
       "heading": "Generated Package Documentation",
       "kind": "list-item",
       "line": 625,
@@ -1999,7 +1845,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0199",
+      "id": "agent-language-services/S0182",
       "heading": "Generated Package Documentation",
       "kind": "list-item",
       "line": 626,
@@ -2008,7 +1854,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0200",
+      "id": "agent-language-services/S0183",
       "heading": "Generated Package Documentation",
       "kind": "list-item",
       "line": 627,
@@ -2017,7 +1863,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0201",
+      "id": "agent-language-services/S0184",
       "heading": "Generated Package Documentation",
       "kind": "list-item",
       "line": 628,
@@ -2026,7 +1872,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0202",
+      "id": "agent-language-services/S0185",
       "heading": "Generated Package Documentation",
       "kind": "list-item",
       "line": 629,
@@ -2035,7 +1881,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0203",
+      "id": "agent-language-services/S0186",
       "heading": "Generated Package Documentation",
       "kind": "list-item",
       "line": 630,
@@ -2044,7 +1890,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0204",
+      "id": "agent-language-services/S0187",
       "heading": "Generated Package Documentation",
       "kind": "list-item",
       "line": 631,
@@ -2053,7 +1899,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0205",
+      "id": "agent-language-services/S0188",
       "heading": "Generated Package Documentation",
       "kind": "list-item",
       "line": 632,
@@ -2062,7 +1908,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0206",
+      "id": "agent-language-services/S0189",
       "heading": "Generated Package Documentation",
       "kind": "list-item",
       "line": 633,
@@ -2071,7 +1917,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0207",
+      "id": "agent-language-services/S0190",
       "heading": "Generated Package Documentation",
       "kind": "paragraph",
       "line": 635,
@@ -2080,7 +1926,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0208",
+      "id": "agent-language-services/S0191",
       "heading": "Generated Package Documentation",
       "kind": "list-item",
       "line": 637,
@@ -2089,7 +1935,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0209",
+      "id": "agent-language-services/S0192",
       "heading": "Generated Package Documentation",
       "kind": "list-item",
       "line": 638,
@@ -2098,7 +1944,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0210",
+      "id": "agent-language-services/S0193",
       "heading": "Generated Package Documentation",
       "kind": "list-item",
       "line": 639,
@@ -2107,7 +1953,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0211",
+      "id": "agent-language-services/S0194",
       "heading": "Generated Package Documentation",
       "kind": "list-item",
       "line": 640,
@@ -2116,7 +1962,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0212",
+      "id": "agent-language-services/S0195",
       "heading": "Generated Package Documentation",
       "kind": "list-item",
       "line": 641,
@@ -2125,7 +1971,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0213",
+      "id": "agent-language-services/S0196",
       "heading": "Generated Package Documentation",
       "kind": "list-item",
       "line": 642,
@@ -2134,7 +1980,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0214",
+      "id": "agent-language-services/S0197",
       "heading": "Generated Package Documentation",
       "kind": "paragraph",
       "line": 644,
@@ -2143,7 +1989,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0215",
+      "id": "agent-language-services/S0198",
       "heading": "Generated Package Documentation",
       "kind": "paragraph",
       "line": 653,
@@ -2154,7 +2000,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0216",
+      "id": "agent-language-services/S0199",
       "heading": "Generated Package Documentation",
       "kind": "paragraph",
       "line": 666,
@@ -2165,7 +2011,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0217",
+      "id": "agent-language-services/S0200",
       "heading": "Authority And Inputs",
       "kind": "paragraph",
       "line": 681,
@@ -2176,7 +2022,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0218",
+      "id": "agent-language-services/S0201",
       "heading": "Authority And Inputs",
       "kind": "paragraph",
       "line": 684,
@@ -2185,7 +2031,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0219",
+      "id": "agent-language-services/S0202",
       "heading": "Authority And Inputs",
       "kind": "list-item",
       "line": 686,
@@ -2194,7 +2040,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0220",
+      "id": "agent-language-services/S0203",
       "heading": "Authority And Inputs",
       "kind": "list-item",
       "line": 687,
@@ -2205,7 +2051,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0221",
+      "id": "agent-language-services/S0204",
       "heading": "Authority And Inputs",
       "kind": "list-item",
       "line": 688,
@@ -2214,25 +2060,16 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0222",
+      "id": "agent-language-services/S0205",
       "heading": "Authority And Inputs",
       "kind": "list-item",
       "line": 689,
-      "digest": "c819d18bfefa6b7273778d8c9b27afaaa1e80ddf0e2db92b2020c9fa12aebf37",
+      "digest": "eb4d7249e3046ee2bfd4b928417a5e36f3eb0843d70ac239b1a55bdae4badb9a",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0223",
-      "heading": "Authority And Inputs",
-      "kind": "paragraph",
-      "line": 690,
-      "digest": "9d90ff79bf68405467c81a0c434c7321e127908ae4d206f8e8fae5d80f9c8a60",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0224",
+      "id": "agent-language-services/S0206",
       "heading": "Authority And Inputs",
       "kind": "paragraph",
       "line": 692,
@@ -2241,7 +2078,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0225",
+      "id": "agent-language-services/S0207",
       "heading": "Topic Catalog",
       "kind": "paragraph",
       "line": 699,
@@ -2250,7 +2087,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0226",
+      "id": "agent-language-services/S0208",
       "heading": "Topic Catalog",
       "kind": "paragraph",
       "line": 704,
@@ -2259,7 +2096,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0227",
+      "id": "agent-language-services/S0209",
       "heading": "Topic Catalog",
       "kind": "list-item",
       "line": 706,
@@ -2268,7 +2105,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0228",
+      "id": "agent-language-services/S0210",
       "heading": "Topic Catalog",
       "kind": "list-item",
       "line": 707,
@@ -2277,7 +2114,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0229",
+      "id": "agent-language-services/S0211",
       "heading": "Topic Catalog",
       "kind": "list-item",
       "line": 708,
@@ -2286,7 +2123,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0230",
+      "id": "agent-language-services/S0212",
       "heading": "Topic Catalog",
       "kind": "list-item",
       "line": 709,
@@ -2295,7 +2132,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0231",
+      "id": "agent-language-services/S0213",
       "heading": "Topic Catalog",
       "kind": "list-item",
       "line": 710,
@@ -2304,7 +2141,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0232",
+      "id": "agent-language-services/S0214",
       "heading": "Topic Catalog",
       "kind": "list-item",
       "line": 711,
@@ -2313,7 +2150,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0233",
+      "id": "agent-language-services/S0215",
       "heading": "Topic Catalog",
       "kind": "list-item",
       "line": 712,
@@ -2322,7 +2159,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0234",
+      "id": "agent-language-services/S0216",
       "heading": "Topic Catalog",
       "kind": "list-item",
       "line": 713,
@@ -2331,7 +2168,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0235",
+      "id": "agent-language-services/S0217",
       "heading": "Topic Catalog",
       "kind": "list-item",
       "line": 714,
@@ -2340,7 +2177,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0236",
+      "id": "agent-language-services/S0218",
       "heading": "Topic Catalog",
       "kind": "list-item",
       "line": 715,
@@ -2349,7 +2186,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0237",
+      "id": "agent-language-services/S0219",
       "heading": "Topic Catalog",
       "kind": "paragraph",
       "line": 717,
@@ -2358,7 +2195,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0238",
+      "id": "agent-language-services/S0220",
       "heading": "Topic Catalog",
       "kind": "fenced-line",
       "line": 720,
@@ -2367,7 +2204,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0239",
+      "id": "agent-language-services/S0221",
       "heading": "Topic Catalog",
       "kind": "fenced-line",
       "line": 721,
@@ -2376,7 +2213,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0240",
+      "id": "agent-language-services/S0222",
       "heading": "Topic Catalog",
       "kind": "paragraph",
       "line": 724,
@@ -2385,7 +2222,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0241",
+      "id": "agent-language-services/S0223",
       "heading": "Executable Grammar",
       "kind": "paragraph",
       "line": 729,
@@ -2394,7 +2231,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0242",
+      "id": "agent-language-services/S0224",
       "heading": "Executable Grammar",
       "kind": "paragraph",
       "line": 734,
@@ -2403,7 +2240,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0243",
+      "id": "agent-language-services/S0225",
       "heading": "Checked Examples",
       "kind": "paragraph",
       "line": 739,
@@ -2414,7 +2251,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0244",
+      "id": "agent-language-services/S0226",
       "heading": "Checked Examples",
       "kind": "paragraph",
       "line": 745,
@@ -2423,7 +2260,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0245",
+      "id": "agent-language-services/S0227",
       "heading": "Compiler-Owned Tables",
       "kind": "paragraph",
       "line": 752,
@@ -2432,7 +2269,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0246",
+      "id": "agent-language-services/S0228",
       "heading": "Reference Snapshot",
       "kind": "paragraph",
       "line": 759,
@@ -2441,7 +2278,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0247",
+      "id": "agent-language-services/S0229",
       "heading": "Reference Snapshot",
       "kind": "paragraph",
       "line": 766,
@@ -2452,7 +2289,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0248",
+      "id": "agent-language-services/S0230",
       "heading": "Reference Snapshot",
       "kind": "paragraph",
       "line": 773,
@@ -2461,7 +2298,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0249",
+      "id": "agent-language-services/S0231",
       "heading": "Documentation Search And Reads",
       "kind": "paragraph",
       "line": 784,
@@ -2470,7 +2307,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0250",
+      "id": "agent-language-services/S0232",
       "heading": "Documentation Search And Reads",
       "kind": "paragraph",
       "line": 792,
@@ -2484,7 +2321,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0251",
+      "id": "agent-language-services/S0233",
       "heading": "Documentation Search And Reads",
       "kind": "paragraph",
       "line": 798,
@@ -2495,7 +2332,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0252",
+      "id": "agent-language-services/S0234",
       "heading": "LSP Integration",
       "kind": "paragraph",
       "line": 805,
@@ -2506,7 +2343,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0253",
+      "id": "agent-language-services/S0235",
       "heading": "LSP Integration",
       "kind": "list-item",
       "line": 807,
@@ -2517,7 +2354,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0254",
+      "id": "agent-language-services/S0236",
       "heading": "LSP Integration",
       "kind": "list-item",
       "line": 808,
@@ -2526,7 +2363,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0255",
+      "id": "agent-language-services/S0237",
       "heading": "LSP Integration",
       "kind": "list-item",
       "line": 809,
@@ -2535,7 +2372,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0256",
+      "id": "agent-language-services/S0238",
       "heading": "LSP Integration",
       "kind": "list-item",
       "line": 810,
@@ -2544,7 +2381,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0257",
+      "id": "agent-language-services/S0239",
       "heading": "LSP Integration",
       "kind": "paragraph",
       "line": 812,
@@ -2555,7 +2392,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0258",
+      "id": "agent-language-services/S0240",
       "heading": "LSP Integration",
       "kind": "paragraph",
       "line": 816,
@@ -2567,7 +2404,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0259",
+      "id": "agent-language-services/S0241",
       "heading": "Agent Plugin",
       "kind": "paragraph",
       "line": 825,
@@ -2576,7 +2413,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0260",
+      "id": "agent-language-services/S0242",
       "heading": "Agent Plugin",
       "kind": "fenced-line",
       "line": 828,
@@ -2585,7 +2422,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0261",
+      "id": "agent-language-services/S0243",
       "heading": "Agent Plugin",
       "kind": "fenced-line",
       "line": 829,
@@ -2594,7 +2431,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0262",
+      "id": "agent-language-services/S0244",
       "heading": "Agent Plugin",
       "kind": "fenced-line",
       "line": 830,
@@ -2603,7 +2440,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0263",
+      "id": "agent-language-services/S0245",
       "heading": "Agent Plugin",
       "kind": "fenced-line",
       "line": 831,
@@ -2612,7 +2449,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0264",
+      "id": "agent-language-services/S0246",
       "heading": "Agent Plugin",
       "kind": "fenced-line",
       "line": 832,
@@ -2621,7 +2458,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0265",
+      "id": "agent-language-services/S0247",
       "heading": "Agent Plugin",
       "kind": "fenced-line",
       "line": 833,
@@ -2630,7 +2467,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0266",
+      "id": "agent-language-services/S0248",
       "heading": "Agent Plugin",
       "kind": "fenced-line",
       "line": 834,
@@ -2639,7 +2476,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0267",
+      "id": "agent-language-services/S0249",
       "heading": "Agent Plugin",
       "kind": "paragraph",
       "line": 837,
@@ -2655,7 +2492,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0268",
+      "id": "agent-language-services/S0250",
       "heading": "Agent Plugin",
       "kind": "paragraph",
       "line": 844,
@@ -2664,7 +2501,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0269",
+      "id": "agent-language-services/S0251",
       "heading": "Agent Plugin",
       "kind": "paragraph",
       "line": 852,
@@ -2676,7 +2513,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0270",
+      "id": "agent-language-services/S0252",
       "heading": "Agent Plugin",
       "kind": "paragraph",
       "line": 859,
@@ -2685,7 +2522,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0271",
+      "id": "agent-language-services/S0253",
       "heading": "Agent Plugin",
       "kind": "list-item",
       "line": 861,
@@ -2694,7 +2531,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0272",
+      "id": "agent-language-services/S0254",
       "heading": "Agent Plugin",
       "kind": "list-item",
       "line": 862,
@@ -2703,7 +2540,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0273",
+      "id": "agent-language-services/S0255",
       "heading": "Agent Plugin",
       "kind": "list-item",
       "line": 863,
@@ -2712,7 +2549,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0274",
+      "id": "agent-language-services/S0256",
       "heading": "Agent Plugin",
       "kind": "list-item",
       "line": 864,
@@ -2721,7 +2558,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0275",
+      "id": "agent-language-services/S0257",
       "heading": "Agent Plugin",
       "kind": "list-item",
       "line": 865,
@@ -2730,7 +2567,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0276",
+      "id": "agent-language-services/S0258",
       "heading": "Agent Plugin",
       "kind": "paragraph",
       "line": 867,
@@ -2741,7 +2578,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0277",
+      "id": "agent-language-services/S0259",
       "heading": "Agent Plugin",
       "kind": "paragraph",
       "line": 873,
@@ -2755,7 +2592,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0278",
+      "id": "agent-language-services/S0260",
       "heading": "Agent Plugin",
       "kind": "table-row",
       "line": 883,
@@ -2764,7 +2601,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0279",
+      "id": "agent-language-services/S0261",
       "heading": "Agent Plugin",
       "kind": "table-row",
       "line": 885,
@@ -2786,7 +2623,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0280",
+      "id": "agent-language-services/S0262",
       "heading": "Agent Plugin",
       "kind": "table-row",
       "line": 886,
@@ -2808,7 +2645,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0281",
+      "id": "agent-language-services/S0263",
       "heading": "Agent Plugin",
       "kind": "paragraph",
       "line": 888,
@@ -2819,7 +2656,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0282",
+      "id": "agent-language-services/S0264",
       "heading": "Safety And Privacy",
       "kind": "list-item",
       "line": 896,
@@ -2828,7 +2665,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0283",
+      "id": "agent-language-services/S0265",
       "heading": "Safety And Privacy",
       "kind": "list-item",
       "line": 897,
@@ -2837,43 +2674,25 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0284",
+      "id": "agent-language-services/S0266",
       "heading": "Safety And Privacy",
       "kind": "list-item",
       "line": 898,
-      "digest": "ec6a86fa37aeb8cf49eeef1de84c52a07511aa3a8fa29b0f0146de5346fc3b89",
+      "digest": "97de3d6ba8914ed1bc9dc23b819b23dfb646c98380df5c06679d61962dc342dc",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0285",
-      "heading": "Safety And Privacy",
-      "kind": "paragraph",
-      "line": 899,
-      "digest": "ea727377bcdb3d8157757ab272ddcc6bc62dc2e34a999e5238fcfb95bf77b676",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0286",
+      "id": "agent-language-services/S0267",
       "heading": "Safety And Privacy",
       "kind": "list-item",
       "line": 900,
-      "digest": "a65c2c44d472e5c524dd5a2e60f04cf4ca320d36145c773a9caa3bc6be4d7ab5",
+      "digest": "14cff6bd7603066756a7b42183b37bd6b6e32aff3d8b4898587c1d81d61eb1a7",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0287",
-      "heading": "Safety And Privacy",
-      "kind": "paragraph",
-      "line": 901,
-      "digest": "45629091dd6b87070b8ae73cd9a95f892d5a4fe4c89020ccbc10bff6c80082b4",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0288",
+      "id": "agent-language-services/S0268",
       "heading": "Safety And Privacy",
       "kind": "list-item",
       "line": 902,
@@ -2882,43 +2701,25 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0289",
+      "id": "agent-language-services/S0269",
       "heading": "Safety And Privacy",
       "kind": "list-item",
       "line": 903,
-      "digest": "0c64ecadd46e2f3ea932430239a07bbac584dcbcaf5f2c07cf42b1b2b7ca4285",
+      "digest": "473747c7499bcdf13a6b9c057ab01399488c2cc02900c83c73f933abca0827ba",
       "conformance": true,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0290",
-      "heading": "Safety And Privacy",
-      "kind": "paragraph",
-      "line": 904,
-      "digest": "0a141f874ca0cf77a1658893f0a605d07e2ff94e738cd3ff56ea769d3eeca9cd",
-      "conformance": true,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0291",
+      "id": "agent-language-services/S0270",
       "heading": "Safety And Privacy",
       "kind": "list-item",
       "line": 906,
-      "digest": "a02c7fdc201ed14dea8cd36101d4775e870a3ff57c5e959b2dcb552519a31ae5",
+      "digest": "88726b7f6c5294c19108c9a96f207ebf9622f46bd2a3215e4c21a72f50368beb",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0292",
-      "heading": "Safety And Privacy",
-      "kind": "paragraph",
-      "line": 907,
-      "digest": "25418ab2c6c834c006328148a7bcc3a5ec5bc9bb006f014af63496367032eba2",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0293",
+      "id": "agent-language-services/S0271",
       "heading": "Conformance Contract",
       "kind": "paragraph",
       "line": 911,
@@ -2931,7 +2732,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0294",
+      "id": "agent-language-services/S0272",
       "heading": "Conformance Contract",
       "kind": "paragraph",
       "line": 919,
@@ -2940,7 +2741,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0295",
+      "id": "agent-language-services/S0273",
       "heading": "Conformance Contract",
       "kind": "paragraph",
       "line": 927,
@@ -2949,7 +2750,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0296",
+      "id": "agent-language-services/S0274",
       "heading": "Conformance Contract",
       "kind": "table-row",
       "line": 929,
@@ -2958,7 +2759,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0297",
+      "id": "agent-language-services/S0275",
       "heading": "Conformance Contract",
       "kind": "table-row",
       "line": 931,
@@ -2969,7 +2770,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0298",
+      "id": "agent-language-services/S0276",
       "heading": "Conformance Contract",
       "kind": "table-row",
       "line": 932,
@@ -2981,7 +2782,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0299",
+      "id": "agent-language-services/S0277",
       "heading": "Conformance Contract",
       "kind": "table-row",
       "line": 933,
@@ -2992,7 +2793,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0300",
+      "id": "agent-language-services/S0278",
       "heading": "Conformance Contract",
       "kind": "table-row",
       "line": 934,
@@ -3003,7 +2804,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0301",
+      "id": "agent-language-services/S0279",
       "heading": "Conformance Contract",
       "kind": "table-row",
       "line": 935,
@@ -3016,7 +2817,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0302",
+      "id": "agent-language-services/S0280",
       "heading": "Conformance Contract",
       "kind": "table-row",
       "line": 936,
@@ -3029,7 +2830,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0303",
+      "id": "agent-language-services/S0281",
       "heading": "Conformance Contract",
       "kind": "table-row",
       "line": 937,
@@ -3040,7 +2841,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0304",
+      "id": "agent-language-services/S0282",
       "heading": "Conformance Contract",
       "kind": "table-row",
       "line": 938,
@@ -3051,7 +2852,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0305",
+      "id": "agent-language-services/S0283",
       "heading": "Conformance Contract",
       "kind": "table-row",
       "line": 939,
@@ -3062,7 +2863,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0306",
+      "id": "agent-language-services/S0284",
       "heading": "Conformance Contract",
       "kind": "table-row",
       "line": 940,
@@ -3073,7 +2874,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0307",
+      "id": "agent-language-services/S0285",
       "heading": "Conformance Contract",
       "kind": "table-row",
       "line": 941,
@@ -3084,7 +2885,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0308",
+      "id": "agent-language-services/S0286",
       "heading": "Conformance Contract",
       "kind": "table-row",
       "line": 942,
@@ -3096,7 +2897,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0309",
+      "id": "agent-language-services/S0287",
       "heading": "Conformance Contract",
       "kind": "table-row",
       "line": 943,
@@ -3108,7 +2909,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0310",
+      "id": "agent-language-services/S0288",
       "heading": "Conformance Contract",
       "kind": "table-row",
       "line": 944,
@@ -3120,7 +2921,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0311",
+      "id": "agent-language-services/S0289",
       "heading": "Conformance Contract",
       "kind": "table-row",
       "line": 945,
@@ -3131,7 +2932,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0312",
+      "id": "agent-language-services/S0290",
       "heading": "Conformance Contract",
       "kind": "table-row",
       "line": 946,
@@ -3142,7 +2943,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0313",
+      "id": "agent-language-services/S0291",
       "heading": "Conformance Contract",
       "kind": "table-row",
       "line": 947,
@@ -3153,7 +2954,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0314",
+      "id": "agent-language-services/S0292",
       "heading": "Conformance Contract",
       "kind": "table-row",
       "line": 948,
@@ -3164,7 +2965,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0315",
+      "id": "agent-language-services/S0293",
       "heading": "Conformance Contract",
       "kind": "table-row",
       "line": 949,
@@ -3175,7 +2976,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0316",
+      "id": "agent-language-services/S0294",
       "heading": "Conformance Contract",
       "kind": "table-row",
       "line": 950,
@@ -3186,7 +2987,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0317",
+      "id": "agent-language-services/S0295",
       "heading": "Conformance Contract",
       "kind": "table-row",
       "line": 951,
@@ -3197,7 +2998,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0318",
+      "id": "agent-language-services/S0296",
       "heading": "Conformance Contract",
       "kind": "table-row",
       "line": 952,
@@ -3208,7 +3009,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0319",
+      "id": "agent-language-services/S0297",
       "heading": "Conformance Contract",
       "kind": "paragraph",
       "line": 954,
@@ -3226,7 +3027,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0320",
+      "id": "agent-language-services/S0298",
       "heading": "Conformance Contract",
       "kind": "paragraph",
       "line": 964,
@@ -3235,7 +3036,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0321",
+      "id": "agent-language-services/S0299",
       "heading": "Acceptance Model",
       "kind": "paragraph",
       "line": 973,
@@ -3244,7 +3045,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0322",
+      "id": "agent-language-services/S0300",
       "heading": "Server And Project Selection",
       "kind": "table-row",
       "line": 980,
@@ -3253,7 +3054,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0323",
+      "id": "agent-language-services/S0301",
       "heading": "Server And Project Selection",
       "kind": "table-row",
       "line": 982,
@@ -3266,7 +3067,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0324",
+      "id": "agent-language-services/S0302",
       "heading": "Server And Project Selection",
       "kind": "table-row",
       "line": 983,
@@ -3278,7 +3079,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0325",
+      "id": "agent-language-services/S0303",
       "heading": "Server And Project Selection",
       "kind": "table-row",
       "line": 984,
@@ -3292,7 +3093,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0326",
+      "id": "agent-language-services/S0304",
       "heading": "Server And Project Selection",
       "kind": "table-row",
       "line": 985,
@@ -3301,7 +3102,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0327",
+      "id": "agent-language-services/S0305",
       "heading": "Server And Project Selection",
       "kind": "table-row",
       "line": 986,
@@ -3314,7 +3115,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0328",
+      "id": "agent-language-services/S0306",
       "heading": "Server And Project Selection",
       "kind": "table-row",
       "line": 987,
@@ -3326,7 +3127,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0329",
+      "id": "agent-language-services/S0307",
       "heading": "Server And Project Selection",
       "kind": "table-row",
       "line": 988,
@@ -3338,7 +3139,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0330",
+      "id": "agent-language-services/S0308",
       "heading": "Server And Project Selection",
       "kind": "table-row",
       "line": 989,
@@ -3349,7 +3150,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0331",
+      "id": "agent-language-services/S0309",
       "heading": "Server And Project Selection",
       "kind": "table-row",
       "line": 990,
@@ -3363,7 +3164,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0332",
+      "id": "agent-language-services/S0310",
       "heading": "Server And Project Selection",
       "kind": "table-row",
       "line": 991,
@@ -3376,7 +3177,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0333",
+      "id": "agent-language-services/S0311",
       "heading": "Server And Project Selection",
       "kind": "table-row",
       "line": 992,
@@ -3388,7 +3189,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0334",
+      "id": "agent-language-services/S0312",
       "heading": "Server And Project Selection",
       "kind": "table-row",
       "line": 993,
@@ -3399,7 +3200,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0335",
+      "id": "agent-language-services/S0313",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
       "line": 997,
@@ -3408,7 +3209,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0336",
+      "id": "agent-language-services/S0314",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
       "line": 999,
@@ -3420,7 +3221,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0337",
+      "id": "agent-language-services/S0315",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
       "line": 1000,
@@ -3432,7 +3233,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0338",
+      "id": "agent-language-services/S0316",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
       "line": 1001,
@@ -3441,7 +3242,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0339",
+      "id": "agent-language-services/S0317",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
       "line": 1002,
@@ -3452,7 +3253,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0340",
+      "id": "agent-language-services/S0318",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
       "line": 1003,
@@ -3463,7 +3264,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0341",
+      "id": "agent-language-services/S0319",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
       "line": 1004,
@@ -3476,7 +3277,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0342",
+      "id": "agent-language-services/S0320",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
       "line": 1005,
@@ -3488,7 +3289,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0343",
+      "id": "agent-language-services/S0321",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
       "line": 1006,
@@ -3497,7 +3298,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0344",
+      "id": "agent-language-services/S0322",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
       "line": 1007,
@@ -3509,7 +3310,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0345",
+      "id": "agent-language-services/S0323",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
       "line": 1008,
@@ -3522,7 +3323,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0346",
+      "id": "agent-language-services/S0324",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
       "line": 1009,
@@ -3533,7 +3334,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0347",
+      "id": "agent-language-services/S0325",
       "heading": "Diagnostics And Navigation",
       "kind": "table-row",
       "line": 1010,
@@ -3542,7 +3343,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0348",
+      "id": "agent-language-services/S0326",
       "heading": "Virtual Locations And Package Documentation",
       "kind": "table-row",
       "line": 1014,
@@ -3551,7 +3352,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0349",
+      "id": "agent-language-services/S0327",
       "heading": "Virtual Locations And Package Documentation",
       "kind": "table-row",
       "line": 1016,
@@ -3562,7 +3363,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0350",
+      "id": "agent-language-services/S0328",
       "heading": "Virtual Locations And Package Documentation",
       "kind": "table-row",
       "line": 1017,
@@ -3573,7 +3374,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0351",
+      "id": "agent-language-services/S0329",
       "heading": "Virtual Locations And Package Documentation",
       "kind": "table-row",
       "line": 1018,
@@ -3585,7 +3386,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0352",
+      "id": "agent-language-services/S0330",
       "heading": "Virtual Locations And Package Documentation",
       "kind": "table-row",
       "line": 1019,
@@ -3596,7 +3397,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0353",
+      "id": "agent-language-services/S0331",
       "heading": "Virtual Locations And Package Documentation",
       "kind": "table-row",
       "line": 1020,
@@ -3607,7 +3408,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0354",
+      "id": "agent-language-services/S0332",
       "heading": "Virtual Locations And Package Documentation",
       "kind": "table-row",
       "line": 1021,
@@ -3618,7 +3419,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0355",
+      "id": "agent-language-services/S0333",
       "heading": "Virtual Locations And Package Documentation",
       "kind": "table-row",
       "line": 1022,
@@ -3629,7 +3430,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0356",
+      "id": "agent-language-services/S0334",
       "heading": "Virtual Locations And Package Documentation",
       "kind": "table-row",
       "line": 1023,
@@ -3640,7 +3441,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0357",
+      "id": "agent-language-services/S0335",
       "heading": "Virtual Locations And Package Documentation",
       "kind": "table-row",
       "line": 1024,
@@ -3649,7 +3450,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0358",
+      "id": "agent-language-services/S0336",
       "heading": "Virtual Locations And Package Documentation",
       "kind": "table-row",
       "line": 1025,
@@ -3658,7 +3459,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0359",
+      "id": "agent-language-services/S0337",
       "heading": "Published Language Reference",
       "kind": "table-row",
       "line": 1029,
@@ -3667,7 +3468,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0360",
+      "id": "agent-language-services/S0338",
       "heading": "Published Language Reference",
       "kind": "table-row",
       "line": 1031,
@@ -3676,7 +3477,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0361",
+      "id": "agent-language-services/S0339",
       "heading": "Published Language Reference",
       "kind": "table-row",
       "line": 1032,
@@ -3685,7 +3486,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0362",
+      "id": "agent-language-services/S0340",
       "heading": "Published Language Reference",
       "kind": "table-row",
       "line": 1033,
@@ -3694,7 +3495,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0363",
+      "id": "agent-language-services/S0341",
       "heading": "Published Language Reference",
       "kind": "table-row",
       "line": 1034,
@@ -3703,7 +3504,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0364",
+      "id": "agent-language-services/S0342",
       "heading": "Published Language Reference",
       "kind": "table-row",
       "line": 1035,
@@ -3714,7 +3515,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0365",
+      "id": "agent-language-services/S0343",
       "heading": "Published Language Reference",
       "kind": "table-row",
       "line": 1036,
@@ -3725,7 +3526,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0366",
+      "id": "agent-language-services/S0344",
       "heading": "Published Language Reference",
       "kind": "table-row",
       "line": 1037,
@@ -3736,7 +3537,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0367",
+      "id": "agent-language-services/S0345",
       "heading": "Published Language Reference",
       "kind": "table-row",
       "line": 1038,
@@ -3745,7 +3546,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0368",
+      "id": "agent-language-services/S0346",
       "heading": "Published Language Reference",
       "kind": "table-row",
       "line": 1039,
@@ -3754,7 +3555,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0369",
+      "id": "agent-language-services/S0347",
       "heading": "Plugin",
       "kind": "table-row",
       "line": 1043,
@@ -3763,7 +3564,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0370",
+      "id": "agent-language-services/S0348",
       "heading": "Plugin",
       "kind": "table-row",
       "line": 1045,
@@ -3777,7 +3578,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0371",
+      "id": "agent-language-services/S0349",
       "heading": "Plugin",
       "kind": "table-row",
       "line": 1046,
@@ -3790,7 +3591,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0372",
+      "id": "agent-language-services/S0350",
       "heading": "Plugin",
       "kind": "table-row",
       "line": 1047,
@@ -3801,7 +3602,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0373",
+      "id": "agent-language-services/S0351",
       "heading": "Plugin",
       "kind": "table-row",
       "line": 1048,
@@ -3810,7 +3611,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0374",
+      "id": "agent-language-services/S0352",
       "heading": "Plugin",
       "kind": "table-row",
       "line": 1049,
@@ -3821,7 +3622,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0375",
+      "id": "agent-language-services/S0353",
       "heading": "Implementation Slices",
       "kind": "paragraph",
       "line": 1053,
@@ -3836,67 +3637,40 @@
       ]
     },
     {
-      "id": "agent-language-services/S0376",
+      "id": "agent-language-services/S0354",
       "heading": "Implementation Slices",
       "kind": "list-item",
       "line": 1096,
-      "digest": "30425f5645d22d7299e93ddb6e024b6e2f1c7203857a7a3c83a24742f238c23c",
+      "digest": "818ab465c3bc0a33bb8211ba96ec4b60a47e494fd61078d6cdcf357985ea631a",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0377",
-      "heading": "Implementation Slices",
-      "kind": "paragraph",
-      "line": 1097,
-      "digest": "873ec2b3c3370cacc3bdeb1a9a1e9a0686e12a6b228b4a132b8bd57d8bdcdec0",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0378",
+      "id": "agent-language-services/S0355",
       "heading": "Implementation Slices",
       "kind": "list-item",
       "line": 1098,
-      "digest": "aa3c2da2525022bddac62e0d39f41613156d3c19db005ff660048bf7ae409051",
+      "digest": "5aec9f836562a168741f6493d654d551951562eabf69e7ffbe0578163e5a2ad1",
       "conformance": true,
       "identities": [
         "veln mcp"
       ]
     },
     {
-      "id": "agent-language-services/S0379",
-      "heading": "Implementation Slices",
-      "kind": "paragraph",
-      "line": 1099,
-      "digest": "c711cbe590d6a6f2c0c6be8c82d59b3451da2ebe1e2f35534810293b7e09cc5b",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0380",
+      "id": "agent-language-services/S0356",
       "heading": "Implementation Slices",
       "kind": "list-item",
       "line": 1101,
-      "digest": "4ace7b4d468608bd4336b432cf5d87971c0c36a9004ad83c7d753c6e4dd5a854",
+      "digest": "210a2120d505b49dce4e5d7c65ce3b61ce8035a9cc11c94d17b73588d2002485",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0381",
-      "heading": "Implementation Slices",
-      "kind": "paragraph",
-      "line": 1102,
-      "digest": "bb259bedf2479c7af95d9cb7290ce46053c5d5cf6c72831907003fc73ce132b7",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0382",
+      "id": "agent-language-services/S0357",
       "heading": "Implementation Slices",
       "kind": "list-item",
       "line": 1103,
-      "digest": "83e88332d2e3707ca623a719fbf10a8f9cffc4909ca554f4b9157efc7e80ba0b",
+      "digest": "a5f66d1cc7086d9f1ee732938671eaba6811737daeaad9ecefba14eb07cca7c9",
       "conformance": true,
       "identities": [
         "Claude Code",
@@ -3904,16 +3678,7 @@
       ]
     },
     {
-      "id": "agent-language-services/S0383",
-      "heading": "Implementation Slices",
-      "kind": "paragraph",
-      "line": 1104,
-      "digest": "0eb193ae85cac2f26c163b803a285093d4bd9b94e3071020d5be2d48b0958deb",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0384",
+      "id": "agent-language-services/S0358",
       "heading": "Deferred Work",
       "kind": "list-item",
       "line": 1108,
@@ -3922,7 +3687,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0385",
+      "id": "agent-language-services/S0359",
       "heading": "Deferred Work",
       "kind": "list-item",
       "line": 1109,
@@ -3931,7 +3696,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0386",
+      "id": "agent-language-services/S0360",
       "heading": "Deferred Work",
       "kind": "list-item",
       "line": 1110,
@@ -3940,7 +3705,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0387",
+      "id": "agent-language-services/S0361",
       "heading": "Deferred Work",
       "kind": "list-item",
       "line": 1111,
@@ -3949,7 +3714,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0388",
+      "id": "agent-language-services/S0362",
       "heading": "Deferred Work",
       "kind": "list-item",
       "line": 1112,
@@ -3958,7 +3723,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0389",
+      "id": "agent-language-services/S0363",
       "heading": "Deferred Work",
       "kind": "list-item",
       "line": 1113,
@@ -3967,7 +3732,7 @@
       "identities": []
     },
     {
-      "id": "agent-language-services/S0390",
+      "id": "agent-language-services/S0364",
       "heading": "Deferred Work",
       "kind": "list-item",
       "line": 1114,
@@ -3978,25 +3743,16 @@
       ]
     },
     {
-      "id": "agent-language-services/S0391",
+      "id": "agent-language-services/S0365",
       "heading": "Deferred Work",
       "kind": "list-item",
       "line": 1115,
-      "digest": "7383237d0062f25969eeee6b8957f0c3395fe77d92d422e414f1dcad42a415e8",
+      "digest": "28df4bc1a7156a16117f26abf343b7c2eb2704864c3d768354b5037c594b98e4",
       "conformance": false,
       "identities": []
     },
     {
-      "id": "agent-language-services/S0392",
-      "heading": "Deferred Work",
-      "kind": "paragraph",
-      "line": 1116,
-      "digest": "b7723cdb241796e5bcddf78d0732ee8a235f92c956c8b0030c0150c8444581d6",
-      "conformance": false,
-      "identities": []
-    },
-    {
-      "id": "agent-language-services/S0393",
+      "id": "agent-language-services/S0366",
       "heading": "Deferred Work",
       "kind": "list-item",
       "line": 1117,

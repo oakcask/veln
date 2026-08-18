@@ -30,6 +30,22 @@ test("rejects a changed digest", () => {
   assert(errors.some((error) => error.includes("wrong digest")));
 });
 
+test("keeps indented list continuation lines in the parent source item", () => {
+  const parsed = parseSourceUniverse("# Sample\n\n- first line\n  continuation line\n- next item\n");
+  assert.equal(parsed.length, 2);
+  assert.equal(parsed[0].kind, "list-item");
+  assert.equal(parsed[0].text, "- first line\n  continuation line");
+
+  const fixture = fixtureData();
+  const proposal = fs.readFileSync(path.join(repoRoot, "docs/proposals/agent-language-services.md"), "utf8");
+
+  const missingContinuation = parseSourceUniverse(proposal.replace("  reference lookup;\n", ""));
+  assert(validateUniverse({ parsed: missingContinuation, universe: fixture.universe }).some((error) => error.includes("wrong digest")));
+
+  const splitContinuation = parseSourceUniverse(proposal.replace("  reference lookup;\n", "reference lookup;\n"));
+  assert(validateUniverse({ parsed: splitContinuation, universe: fixture.universe }).some((error) => error.includes("root source records")));
+});
+
 test("rejects missing independent source-universe contract identities", () => {
   const fixture = fixtureData();
   removeIdentity(fixture.universe, "Q21");
@@ -62,20 +78,20 @@ test("rejects missing independent source-universe contract identities", () => {
 
 test("rejects missing independent finite source-universe sets", () => {
   const savedReference = fixtureData();
-  savedReference.universe.roots.find((root) => root.id === "agent-language-services/S0029").id = "agent-language-services/S9999";
-  assert(validateUniverse({ parsed: savedReference.parsed, universe: savedReference.universe }).some((error) => error.includes("saved_reference_acceptance_rows source agent-language-services/S0029")));
+  savedReference.universe.roots.find((root) => root.id === "agent-language-services/S0028").id = "agent-language-services/S9999";
+  assert(validateUniverse({ parsed: savedReference.parsed, universe: savedReference.universe }).some((error) => error.includes("saved_reference_acceptance_rows source agent-language-services/S0028")));
 
   const navigation = fixtureData();
-  navigation.universe.roots.find((root) => root.id === "agent-language-services/S0158").id = "agent-language-services/S9998";
-  assert(validateUniverse({ parsed: navigation.parsed, universe: navigation.universe }).some((error) => error.includes("closed_navigation_matrix_rows source agent-language-services/S0158")));
+  navigation.universe.roots.find((root) => root.id === "agent-language-services/S0141").id = "agent-language-services/S9998";
+  assert(validateUniverse({ parsed: navigation.parsed, universe: navigation.universe }).some((error) => error.includes("closed_navigation_matrix_rows source agent-language-services/S0141")));
 
   const topic = fixtureData();
-  topic.universe.roots.find((root) => root.id === "agent-language-services/S0236").id = "agent-language-services/S9997";
-  assert(validateUniverse({ parsed: topic.parsed, universe: topic.universe }).some((error) => error.includes("closed_topic_matrix_rows source agent-language-services/S0236")));
+  topic.universe.roots.find((root) => root.id === "agent-language-services/S0218").id = "agent-language-services/S9997";
+  assert(validateUniverse({ parsed: topic.parsed, universe: topic.universe }).some((error) => error.includes("closed_topic_matrix_rows source agent-language-services/S0218")));
 
   const unresolved = fixtureData();
-  unresolved.universe.roots.find((root) => root.id === "agent-language-services/S0374").id = "agent-language-services/S9996";
-  assert(validateUniverse({ parsed: unresolved.parsed, universe: unresolved.universe }).some((error) => error.includes("unresolved_acceptance_rows source agent-language-services/S0374")));
+  unresolved.universe.roots.find((root) => root.id === "agent-language-services/S0352").id = "agent-language-services/S9996";
+  assert(validateUniverse({ parsed: unresolved.parsed, universe: unresolved.universe }).some((error) => error.includes("unresolved_acceptance_rows source agent-language-services/S0352")));
 });
 
 test("rejects invalid closed client-platform matrix rows and references", () => {
@@ -138,26 +154,21 @@ test("rejects a wrong lifecycle and a manifest mismatch", () => {
 
 test("rejects mixed lifecycle wording inside one leaf", () => {
   const fixture = fixtureData();
-  const root = fixture.inventory.roots.find((candidate) => candidate.id === "agent-language-services/S0298");
+  const root = fixture.inventory.roots.find((candidate) => candidate.id === "agent-language-services/S0002");
+  const rootLength = [...root.text].length;
   root.children = [
-    root.children[0],
     {
-      id: "agent-language-services/S0298.c02",
+      id: "agent-language-services/S0002.c01",
       lifecycle: "current",
-      spans: [{ start: 29, end: 176 }],
-      digest: "617fc1d3d154c3c9706d4d51c6d77813316e774b65c55d24a357d4720c35e3a0",
+      spans: [{ start: 0, end: rootLength }],
+      digest: root.digest,
     },
   ];
-  root.child_count = 2;
-  root.separator_spans = [
-    { start: 0, end: 2 },
-    { start: 26, end: 29 },
-    { start: 176, end: 178 },
-  ];
-  fixture.manifest.leaves = fixture.manifest.leaves.filter((leaf) => !leaf.source_id.startsWith("agent-language-services/S0298."));
+  root.child_count = 1;
+  root.separator_spans = [];
+  fixture.manifest.leaves = fixture.manifest.leaves.filter((leaf) => !leaf.source_id.startsWith("agent-language-services/S0002."));
   fixture.manifest.leaves.push(
-    { source_id: "agent-language-services/S0298.c01", parent_id: "agent-language-services/S0298", lifecycle: "planned", conformance: true, spans: [{ start: 2, end: 26 }] },
-    { source_id: "agent-language-services/S0298.c02", parent_id: "agent-language-services/S0298", lifecycle: "current", conformance: true, spans: [{ start: 29, end: 176 }] },
+    { source_id: "agent-language-services/S0002.c01", parent_id: "agent-language-services/S0002", lifecycle: "current", conformance: true, spans: [{ start: 0, end: rootLength }] },
   );
   assert(validateInventory(fixture).some((error) => error.includes("mixes current/completed and planned lifecycle statements")));
 });
