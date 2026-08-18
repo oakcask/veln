@@ -70,8 +70,77 @@
               "rationale": {
                 "type": "string",
                 "minLength": 1
+              },
+              "supersedes": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "anchor"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "anchor": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
               }
-            }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "current"
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "path",
+                    "anchor",
+                    "evidence"
+                  ]
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "completed",
+                        "planned"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "path",
+                    "anchor"
+                  ]
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "removed"
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "rationale",
+                    "supersedes"
+                  ]
+                }
+              }
+            ]
           }
         }
       }

@@ -16,6 +16,82 @@ const validatorPaths = [
 ];
 const frozenPrefix = "agent-language-services/";
 const lifecycleValues = new Set(["current", "completed", "planned", "removed"]);
+const sourceUniverseContract = {
+  root_count: 390,
+  kind_counts: {
+    paragraph: 133,
+    "list-item": 110,
+    "table-row": 131,
+    "fenced-line": 16,
+  },
+  heading_counts: {
+    Summary: 1,
+    "Implementation Status": 8,
+    "Language-Semantics Prerequisite": 2,
+    "Slice-Closure Prerequisite": 1,
+    "Next Slice: Saved Workspace Function References": 19,
+    Motivation: 3,
+    Goals: 16,
+    "Non-Goals": 15,
+    Terminology: 15,
+    "Ownership Boundary": 19,
+    "Command And Transport": 2,
+    "Project Selection": 18,
+    Coordinates: 3,
+    Tools: 16,
+    Resources: 8,
+    "Definition And Reference Coverage": 16,
+    "Semantic Locations": 7,
+    "Package Source URI": 7,
+    "Package Documentation URI": 6,
+    "Resolution And Failure": 3,
+    "Saved Snapshot Capture": 2,
+    "Package Snapshots": 5,
+    "Generated Package Documentation": 24,
+    "Authority And Inputs": 8,
+    "Topic Catalog": 16,
+    "Executable Grammar": 2,
+    "Checked Examples": 2,
+    "Compiler-Owned Tables": 1,
+    "Reference Snapshot": 3,
+    "Documentation Search And Reads": 3,
+    "LSP Integration": 7,
+    "Agent Plugin": 20,
+    "Safety And Privacy": 11,
+    "Conformance Contract": 28,
+    "Acceptance Model": 1,
+    "Server And Project Selection": 13,
+    "Diagnostics And Navigation": 13,
+    "Virtual Locations And Package Documentation": 11,
+    "Published Language Reference": 10,
+    Plugin: 6,
+    "Implementation Slices": 9,
+    "Deferred Work": 10,
+  },
+  identity_sets: {
+    evidence_gate: Array.from({ length: 22 }, (_, index) => `Q${String(index + 1).padStart(2, "0")}`),
+    mcp_tools: ["check_project", "definition", "read_doc", "references", "refresh_workspace", "search_docs", "workspace_projects"],
+    mcp_resource_schemes: ["veln-doc:", "veln-pkg:"],
+    domain_errors: [
+      "generation_failed",
+      "incompatible_version",
+      "invalid_cursor",
+      "invalid_path",
+      "invalid_position",
+      "invalid_query",
+      "project_ambiguous",
+      "project_not_selected",
+      "resource_capacity",
+      "resource_not_found",
+      "snapshot_changed",
+      "source_required",
+      "stale_snapshot",
+    ],
+    package_document_declarations: ["doc", "doc-digest", "PackageIdentity"],
+    lsp_encodings: ["general.positionEncodings", "veln/virtualDocument"],
+    plugin_cells: ["Codex", "Claude Code", "compatibility.toml", "mcpServers", ".lsp.json", ".mcp.json"],
+  },
+};
 
 if (isMainModule()) {
   const repoRoot = process.cwd();
@@ -210,6 +286,7 @@ export function validateUniverse({ parsed, universe }) {
   if (universe.source_path !== proposalPath) errors.push(`${universePath}: source_path must be ${proposalPath}.`);
   const seen = new Set();
   if (!Array.isArray(universe.roots)) return [`${universePath}: roots must be an array.`];
+  errors.push(...validateSourceUniverseContract(universe));
   if (universe.roots.length !== parsed.length) {
     errors.push(`${universePath}: expected ${parsed.length} root source records, found ${universe.roots.length}.`);
   }
@@ -225,10 +302,28 @@ export function validateUniverse({ parsed, universe }) {
       errors.push(`${universePath}: ${actual.id} has stale named identities.`);
     }
   }
-  const qIds = new Set(universe.roots.flatMap((root) => root.identities ?? []).filter((id) => /^Q\d\d$/.test(id)));
-  for (let q = 1; q <= 22; q += 1) {
-    const id = `Q${String(q).padStart(2, "0")}`;
-    if (!qIds.has(id)) errors.push(`${universePath}: missing preserved evidence identity ${id}.`);
+  return errors;
+}
+
+function validateSourceUniverseContract(universe) {
+  const errors = [];
+  const roots = universe.roots ?? [];
+  if (roots.length !== sourceUniverseContract.root_count) {
+    errors.push(`${universePath}: source-universe contract expects ${sourceUniverseContract.root_count} root records.`);
+  }
+  for (const [kind, count] of Object.entries(sourceUniverseContract.kind_counts)) {
+    const actual = roots.filter((root) => root.kind === kind).length;
+    if (actual !== count) errors.push(`${universePath}: source-universe contract expects ${count} ${kind} records, found ${actual}.`);
+  }
+  for (const [heading, count] of Object.entries(sourceUniverseContract.heading_counts)) {
+    const actual = roots.filter((root) => root.heading === heading).length;
+    if (actual !== count) errors.push(`${universePath}: source-universe contract expects ${count} records under ${heading}, found ${actual}.`);
+  }
+  const identities = new Set(roots.flatMap((root) => root.identities ?? []));
+  for (const [name, expected] of Object.entries(sourceUniverseContract.identity_sets)) {
+    for (const identity of expected) {
+      if (!identities.has(identity)) errors.push(`${universePath}: source-universe contract missing ${name} identity ${identity}.`);
+    }
   }
   return errors;
 }
@@ -293,6 +388,7 @@ export function validateInventory({ inventory, parsed, universe, manifest }) {
 export function validateMigrationLedger({ repoRoot = process.cwd(), ledger, inventory, manifest }) {
   const errors = [];
   if (!ledger || ledger.schema_version !== 1) errors.push("migration ledger: schema_version must be 1.");
+  errors.push(...validateMigrationLedgerJsonSchema({ ledger, schema: migrationLedgerSchema() }).errors);
   if (!Array.isArray(ledger?.entries)) return { valid: false, errors: [...errors, "migration ledger: entries must be an array."] };
   const leaves = new Map((manifest.leaves ?? []).map((leaf) => [leaf.source_id, leaf]));
   const parentIds = new Set((inventory.roots ?? []).filter((root) => root.child_count > 0).map((root) => root.id));
@@ -389,17 +485,29 @@ function validateDestination({ repoRoot, entry }) {
     if (typeof destination.rationale !== "string" || destination.rationale.trim() === "") {
       errors.push(`migration ledger: ${entry.source_id} removed destination needs a rationale.`);
     }
+    if (!destination.supersedes || typeof destination.supersedes.path !== "string" || typeof destination.supersedes.anchor !== "string") {
+      errors.push(`migration ledger: ${entry.source_id} removed destination needs a superseding destination.`);
+    } else {
+      errors.push(...validateMarkdownDestination({
+        repoRoot,
+        sourceId: entry.source_id,
+        lifecycle: "removed",
+        pathValue: destination.supersedes.path,
+        anchor: destination.supersedes.anchor,
+      }));
+    }
     return errors;
   }
   if (typeof destination.path !== "string" || typeof destination.anchor !== "string") {
     return [`migration ledger: ${entry.source_id} destination needs path and anchor.`];
   }
-  const fullPath = path.join(repoRoot, destination.path);
-  if (!fs.existsSync(fullPath)) {
-    errors.push(`migration ledger: ${entry.source_id} destination path ${destination.path} does not exist.`);
-  } else if (!markdownHasAnchor(fs.readFileSync(fullPath, "utf8"), destination.anchor)) {
-    errors.push(`migration ledger: ${entry.source_id} destination anchor ${destination.anchor} does not exist in ${destination.path}.`);
-  }
+  errors.push(...validateMarkdownDestination({
+    repoRoot,
+    sourceId: entry.source_id,
+    lifecycle: entry.lifecycle,
+    pathValue: destination.path,
+    anchor: destination.anchor,
+  }));
   if (entry.lifecycle === "current") {
     if (!Array.isArray(destination.evidence) || destination.evidence.length === 0) {
       errors.push(`migration ledger: ${entry.source_id} current destination needs checked evidence.`);
@@ -417,6 +525,34 @@ function validateDestination({ repoRoot, entry }) {
   return errors;
 }
 
+function validateMarkdownDestination({ repoRoot, sourceId, lifecycle, pathValue, anchor }) {
+  const errors = [];
+  const fullPath = path.join(repoRoot, pathValue);
+  if (!fs.existsSync(fullPath)) {
+    return [`migration ledger: ${sourceId} destination path ${pathValue} does not exist.`];
+  }
+  const markdown = fs.readFileSync(fullPath, "utf8");
+  if (!markdownHasAnchor(markdown, anchor)) {
+    errors.push(`migration ledger: ${sourceId} destination anchor ${anchor} does not exist in ${pathValue}.`);
+  }
+  const frontmatter = parseMarkdownFrontmatter(markdown);
+  const role = frontmatter.role;
+  const authority = frontmatter.authority;
+  if (lifecycle === "current" && (role !== "specification" || authority !== "normative")) {
+    errors.push(`migration ledger: ${sourceId} current destination must be a normative specification.`);
+  }
+  if (lifecycle === "completed" && role !== "implementation-record") {
+    errors.push(`migration ledger: ${sourceId} completed destination must be an implementation record.`);
+  }
+  if (lifecycle === "planned" && role !== "proposal") {
+    errors.push(`migration ledger: ${sourceId} planned destination must be an active proposal.`);
+  }
+  if (lifecycle === "removed" && role === "proposal") {
+    errors.push(`migration ledger: ${sourceId} removed superseding destination must not be an active proposal.`);
+  }
+  return errors;
+}
+
 function validateLedgerSchema(schema) {
   const errors = [];
   if (schema?.$id !== "agent-language-services-migration-ledger.schema.json") errors.push(`${schemaPath}: $id is wrong.`);
@@ -427,7 +563,95 @@ function validateLedgerSchema(schema) {
   if (!entries?.items?.properties?.source_id?.pattern?.includes("agent-language-services")) {
     errors.push(`${schemaPath}: source_id pattern must be bounded to the frozen source namespace.`);
   }
+  const destination = entries?.items?.properties?.destination;
+  if (destination?.properties?.supersedes?.additionalProperties !== false) {
+    errors.push(`${schemaPath}: removed superseding destinations must be closed objects.`);
+  }
+  if (!destination?.allOf?.length) {
+    errors.push(`${schemaPath}: destination schema must encode lifecycle-specific requirements.`);
+  }
   return errors;
+}
+
+export function validateMigrationLedgerJsonSchema({ ledger, schema = migrationLedgerSchema() }) {
+  const errors = [];
+  if (schema?.$id !== "agent-language-services-migration-ledger.schema.json") {
+    errors.push("migration ledger schema: unsupported schema.");
+  }
+  if (!ledger || typeof ledger !== "object" || Array.isArray(ledger)) {
+    return { valid: false, errors: ["migration ledger schema: ledger must be an object."] };
+  }
+  rejectExtraKeys({ errors, label: "migration ledger", value: ledger, allowed: ["schema_version", "entries"] });
+  requireKeys({ errors, label: "migration ledger", value: ledger, keys: ["schema_version", "entries"] });
+  if (ledger.schema_version !== 1) errors.push("migration ledger schema: schema_version must be 1.");
+  if (!Array.isArray(ledger.entries) || ledger.entries.length === 0) {
+    return { valid: false, errors: [...errors, "migration ledger schema: entries must be a nonempty array."] };
+  }
+  for (const [index, entry] of ledger.entries.entries()) {
+    const label = `migration ledger schema: entries[${index}]`;
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      errors.push(`${label} must be an object.`);
+      continue;
+    }
+    rejectExtraKeys({ errors, label, value: entry, allowed: ["source_id", "lifecycle", "destination"] });
+    requireKeys({ errors, label, value: entry, keys: ["source_id", "lifecycle", "destination"] });
+    if (typeof entry.source_id !== "string" || !/^agent-language-services\/S[0-9]{4}\.c[0-9]{2}$/.test(entry.source_id)) {
+      errors.push(`${label}.source_id must be one frozen leaf id.`);
+    }
+    if (typeof entry.source_id === "string" && /[*]|\.\.|^all\b|remaining|range/i.test(entry.source_id)) {
+      errors.push(`${label}.source_id must not be a range, wildcard, or catch-all.`);
+    }
+    if (!lifecycleValues.has(entry.lifecycle)) errors.push(`${label}.lifecycle is invalid.`);
+    validateDestinationShape({ errors, label: `${label}.destination`, lifecycle: entry.lifecycle, destination: entry.destination });
+  }
+  return { valid: errors.length === 0, errors };
+}
+
+function validateDestinationShape({ errors, label, lifecycle, destination }) {
+  if (!destination || typeof destination !== "object" || Array.isArray(destination)) {
+    errors.push(`${label} must be an object.`);
+    return;
+  }
+  rejectExtraKeys({ errors, label, value: destination, allowed: ["kind", "path", "anchor", "evidence", "rationale", "supersedes"] });
+  requireKeys({ errors, label, value: destination, keys: ["kind"] });
+  if (!lifecycleValues.has(destination.kind)) errors.push(`${label}.kind is invalid.`);
+  if (destination.kind !== lifecycle) errors.push(`${label}.kind must equal lifecycle.`);
+  if (lifecycle === "removed") {
+    requireKeys({ errors, label, value: destination, keys: ["rationale", "supersedes"] });
+    if (typeof destination.rationale !== "string" || destination.rationale.trim() === "") errors.push(`${label}.rationale must be nonempty.`);
+    if (!destination.supersedes || typeof destination.supersedes !== "object" || Array.isArray(destination.supersedes)) {
+      errors.push(`${label}.supersedes must be an object.`);
+    } else {
+      rejectExtraKeys({ errors, label: `${label}.supersedes`, value: destination.supersedes, allowed: ["path", "anchor"] });
+      requireKeys({ errors, label: `${label}.supersedes`, value: destination.supersedes, keys: ["path", "anchor"] });
+      if (typeof destination.supersedes.path !== "string" || destination.supersedes.path.trim() === "") errors.push(`${label}.supersedes.path must be nonempty.`);
+      if (typeof destination.supersedes.anchor !== "string" || destination.supersedes.anchor.trim() === "") errors.push(`${label}.supersedes.anchor must be nonempty.`);
+    }
+    return;
+  }
+  requireKeys({ errors, label, value: destination, keys: ["path", "anchor"] });
+  if (typeof destination.path !== "string" || destination.path.trim() === "") errors.push(`${label}.path must be nonempty.`);
+  if (typeof destination.anchor !== "string" || destination.anchor.trim() === "") errors.push(`${label}.anchor must be nonempty.`);
+  if (lifecycle === "current") {
+    if (!Array.isArray(destination.evidence) || destination.evidence.length === 0) {
+      errors.push(`${label}.evidence must be a nonempty array.`);
+    } else if (new Set(destination.evidence).size !== destination.evidence.length) {
+      errors.push(`${label}.evidence must be unique.`);
+    }
+  }
+}
+
+function rejectExtraKeys({ errors, label, value, allowed }) {
+  const allowedSet = new Set(allowed);
+  for (const key of Object.keys(value ?? {})) {
+    if (!allowedSet.has(key)) errors.push(`${label} has unexpected key ${key}.`);
+  }
+}
+
+function requireKeys({ errors, label, value, keys }) {
+  for (const key of keys) {
+    if (!Object.hasOwn(value ?? {}, key)) errors.push(`${label} missing ${key}.`);
+  }
 }
 
 function migrationLedgerSchema() {
@@ -468,7 +692,30 @@ function migrationLedgerSchema() {
                   items: { type: "string" },
                 },
                 rationale: { type: "string", minLength: 1 },
+                supersedes: {
+                  type: "object",
+                  additionalProperties: false,
+                  required: ["path", "anchor"],
+                  properties: {
+                    path: { type: "string", minLength: 1 },
+                    anchor: { type: "string", minLength: 1 },
+                  },
+                },
               },
+              allOf: [
+                {
+                  if: { properties: { kind: { const: "current" } } },
+                  then: { required: ["path", "anchor", "evidence"] },
+                },
+                {
+                  if: { properties: { kind: { enum: ["completed", "planned"] } } },
+                  then: { required: ["path", "anchor"] },
+                },
+                {
+                  if: { properties: { kind: { const: "removed" } } },
+                  then: { required: ["rationale", "supersedes"] },
+                },
+              ],
             },
           },
         },
@@ -643,6 +890,17 @@ function isCheckedEvidencePath(file) {
 
 function readJson(repoRoot, file) {
   return JSON.parse(fs.readFileSync(path.join(repoRoot, file), "utf8"));
+}
+
+function parseMarkdownFrontmatter(markdown) {
+  const lines = markdown.split("\n");
+  if (lines[0] !== "---") return {};
+  const result = {};
+  for (let index = 1; index < lines.length && lines[index] !== "---"; index += 1) {
+    const match = lines[index].match(/^([A-Za-z0-9_-]+):\s*(.*?)\s*$/);
+    if (match) result[match[1]] = match[2].replace(/^["']|["']$/g, "");
+  }
+  return result;
 }
 
 function digest(text) {

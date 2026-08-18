@@ -8,6 +8,7 @@ import {
   validateAgentLanguageServicesInventory,
   validateDiffScope,
   validateInventory,
+  validateMigrationLedgerJsonSchema,
   validateMigrationLedger,
   validateUniverse,
   writeArtifacts,
@@ -26,6 +27,20 @@ test("rejects a changed digest", () => {
   fixture.universe.roots[0].digest = "0".repeat(64);
   const errors = validateUniverse({ parsed: fixture.parsed, universe: fixture.universe });
   assert(errors.some((error) => error.includes("wrong digest")));
+});
+
+test("rejects missing independent source-universe contract identities", () => {
+  const fixture = fixtureData();
+  removeIdentity(fixture.universe, "Q21");
+  assert(validateUniverse({ parsed: fixture.parsed, universe: fixture.universe }).some((error) => error.includes("evidence_gate identity Q21")));
+
+  const missingTool = fixtureData();
+  removeIdentity(missingTool.universe, "references");
+  assert(validateUniverse({ parsed: missingTool.parsed, universe: missingTool.universe }).some((error) => error.includes("mcp_tools identity references")));
+
+  const missingPluginCell = fixtureData();
+  removeIdentity(missingPluginCell.universe, "Claude Code");
+  assert(validateUniverse({ parsed: missingPluginCell.parsed, universe: missingPluginCell.universe }).some((error) => error.includes("plugin_cells identity Claude Code")));
 });
 
 test("rejects a missing or duplicate inventory item", () => {
@@ -78,6 +93,7 @@ test("rejects an uncovered parent lifecycle statement", () => {
 test("validates the generated acceptance ledger", () => {
   const fixture = fixtureData();
   const ledger = buildAcceptanceLedger(fixture);
+  assert.deepEqual(validateMigrationLedgerJsonSchema({ ledger }).errors, []);
   const result = validateMigrationLedger({ repoRoot, ledger, inventory: fixture.inventory, manifest: fixture.manifest });
   assert.deepEqual(result.errors, []);
   assert.equal(result.valid, true);
@@ -120,6 +136,81 @@ test("rejects invalid ledger destination evidence", () => {
   assert(validateMigrationLedger({ repoRoot, ledger, inventory: fixture.inventory, manifest: fixture.manifest }).errors.some((error) => error.includes("allowlisted checked route")));
 });
 
+test("validates removed supporting leaves with superseding destinations", () => {
+  const sourceId = "agent-language-services/S9999.c01";
+  const inventory = {
+    roots: [{ id: "agent-language-services/S9999", child_count: 1 }],
+  };
+  const manifest = {
+    leaves: [{ source_id: sourceId, parent_id: "agent-language-services/S9999", lifecycle: "removed", conformance: false }],
+  };
+  const ledger = {
+    schema_version: 1,
+    entries: [{
+      source_id: sourceId,
+      lifecycle: "removed",
+      destination: {
+        kind: "removed",
+        rationale: "Duplicate supporting explanation.",
+        supersedes: {
+          path: "docs/reference/agent-language-services-frozen-inventory.md",
+          anchor: "agent-language-services-frozen-inventory",
+        },
+      },
+    }],
+  };
+  assert.deepEqual(validateMigrationLedgerJsonSchema({ ledger }).errors, []);
+  assert.deepEqual(validateMigrationLedger({ repoRoot, ledger, inventory, manifest }).errors, []);
+});
+
+test("keeps ledger schema and semantic validator aligned for structural cases", () => {
+  const fixture = fixtureData();
+  const base = buildAcceptanceLedger(fixture);
+  const cases = [
+    (ledger) => delete ledger.schema_version,
+    (ledger) => { ledger.extra = true; },
+    (ledger) => delete ledger.entries[0].destination,
+    (ledger) => { ledger.entries[0].extra = true; },
+    (ledger) => { ledger.entries[0].source_id = "agent-language-services/S*.c01"; },
+    (ledger) => { ledger.entries[0].lifecycle = "later"; },
+    (ledger) => { ledger.entries.find((entry) => entry.lifecycle === "current").destination.kind = "planned"; },
+    (ledger) => { delete ledger.entries.find((entry) => entry.lifecycle === "current").destination.evidence; },
+    (ledger) => {
+      const current = ledger.entries.find((entry) => entry.lifecycle === "current");
+      current.destination.evidence = [current.destination.evidence[0], current.destination.evidence[0]];
+    },
+  ];
+  for (const mutate of cases) {
+    const ledger = structuredClone(base);
+    mutate(ledger);
+    const schemaValid = validateMigrationLedgerJsonSchema({ ledger }).valid;
+    const semanticValid = validateMigrationLedger({ repoRoot, ledger, inventory: fixture.inventory, manifest: fixture.manifest }).valid;
+    assert.equal(schemaValid, semanticValid);
+    assert.equal(schemaValid, false);
+  }
+});
+
+test("rejects destinations with lifecycle-incompatible markdown roles", () => {
+  const fixture = fixtureData();
+  const plannedAsSpec = buildAcceptanceLedger(fixture);
+  const planned = plannedAsSpec.entries.find((entry) => entry.lifecycle === "planned");
+  planned.destination.path = "docs/specification/mcp.md";
+  planned.destination.anchor = "mcp-workspace-projects-diagnostics-and-definitions";
+  assert(validateMigrationLedger({ repoRoot, ledger: plannedAsSpec, inventory: fixture.inventory, manifest: fixture.manifest }).errors.some((error) => error.includes("planned destination must be an active proposal")));
+
+  const completedAsProposal = buildAcceptanceLedger(fixture);
+  const completed = completedAsProposal.entries.find((entry) => entry.lifecycle === "completed");
+  completed.destination.path = "docs/proposals/agent-language-services.md";
+  completed.destination.anchor = "acceptance-model";
+  assert(validateMigrationLedger({ repoRoot, ledger: completedAsProposal, inventory: fixture.inventory, manifest: fixture.manifest }).errors.some((error) => error.includes("completed destination must be an implementation record")));
+
+  const currentAsProposal = buildAcceptanceLedger(fixture);
+  const current = currentAsProposal.entries.find((entry) => entry.lifecycle === "current");
+  current.destination.path = "docs/proposals/agent-language-services.md";
+  current.destination.anchor = "acceptance-model";
+  assert(validateMigrationLedger({ repoRoot, ledger: currentAsProposal, inventory: fixture.inventory, manifest: fixture.manifest }).errors.some((error) => error.includes("current destination must be a normative specification")));
+});
+
 test("enforces the first-pr diff scope guard", () => {
   assert.deepEqual(validateDiffScope({
     baseHasFrozen: false,
@@ -158,6 +249,12 @@ function fixtureData() {
     inventory: readJson("docs/reference/agent-language-services-frozen-inventory.json"),
     manifest: readJson("docs/reference/agent-language-services-lifecycle-manifest.json"),
   };
+}
+
+function removeIdentity(universe, identity) {
+  for (const root of universe.roots) {
+    root.identities = (root.identities ?? []).filter((candidate) => candidate !== identity);
+  }
 }
 
 function readJson(file) {
