@@ -43,3 +43,15 @@ jobs:
         run: node workflow-scripts/check-doc-frontmatter.mjs
       - name: Validate proposal target readiness
         run: node workflow-scripts/check-proposal-target-readiness.mjs validate
+      - name: Validate agent language-services lifecycle transition
+        env:
+          AGENT_LANGUAGE_SERVICES_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          AGENT_LANGUAGE_SERVICES_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          AGENT_LANGUAGE_SERVICES_EVENT_BASE_REF: ${{ github.event.pull_request.base.ref || github.ref_name }}
+          AGENT_LANGUAGE_SERVICES_DEFAULT_REF: ${{ github.event.repository.default_branch }}
+        run: >
+          node workflow-scripts/check-agent-language-services-lifecycle.mjs validate-range
+          --base "$AGENT_LANGUAGE_SERVICES_BASE_SHA"
+          --head "$AGENT_LANGUAGE_SERVICES_HEAD_SHA"
+          --event-base-ref "$AGENT_LANGUAGE_SERVICES_EVENT_BASE_REF"
+          --default-ref "$AGENT_LANGUAGE_SERVICES_DEFAULT_REF"

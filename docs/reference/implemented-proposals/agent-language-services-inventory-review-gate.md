@@ -1,5 +1,6 @@
 ---
-role: proposal
+role: implementation-record
+authority: supporting
 update-when: The agent-language-services review-state transition, target provenance, reviewed source-decision authority, frozen-inventory bootstrap allowlist, or lifecycle range-validation evidence changes.
 ---
 
@@ -7,9 +8,8 @@ update-when: The agent-language-services review-state transition, target provena
 
 ## Summary
 
-Establish the reviewed authority and range-aware PR check that must exist on
-the default branch before a frozen inventory is created. The only selectable
-target in this proposal is the `G0` to `G1` transition below.
+This record completed the reviewed authority and range-aware PR check that
+must exist on the default branch before a frozen inventory is created.
 
 ## Problem
 
@@ -72,10 +72,10 @@ All four range inputs are required. An absent, empty, or all-zero revision is
 an error. The content-only `validate` command may support local artifact review,
 but CI must not use it as the PR or push transition check.
 
-## G0 To G1 Review Gate
+## Completed G0 To G1 Review Gate
 
-This subsection is the complete next target. The PR starts from `G0` and ends
-at `G1`. It does not add inventory-target provenance, the source-universe
+This implementation starts from `G0` and ends at `G1`. It does not add
+inventory-target provenance, the source-universe
 contract, frozen inventory, lifecycle manifest, migration-ledger schema, or
 migration-ledger fixture.
 
@@ -160,13 +160,17 @@ Each rejection fixture changes one required fact unless the case explicitly
 tests a synchronized mutation. A fixture with multiple unrelated invalid fields
 does not prove which invariant rejected the input.
 
-### Completion Rule
+### Completion Evidence
 
-The gate completes only when all fifteen acceptance rows pass. Move this page
-to the implemented-proposal records, remove it from the proposal catalog, and
-move only `agent-language-services-lifecycle-migration.md#frozen-source-universe`
-to Ready. `G1` must be merged to the default branch before a new inventory
-target and sidecar are issued.
+The gate is complete when the documentation workflow runs
+`check-agent-language-services-lifecycle.mjs validate-range`, the local
+`node --test workflow-scripts/check-agent-language-services-lifecycle.test.mjs`
+corpus passes, and the checked source-decision authority at
+`../agent-language-services-lifecycle-review/source-decisions.json` validates
+against the unchanged umbrella proposal. Only
+`agent-language-services-lifecycle-migration.md#frozen-source-universe` becomes
+Ready from this record. `G1` must be merged to the default branch before a new
+inventory target and sidecar are issued.
 
 ## G1 To G2 Inventory Handoff
 

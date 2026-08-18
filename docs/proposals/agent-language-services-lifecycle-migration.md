@@ -18,20 +18,18 @@ The checked target-readiness prerequisite is recorded under
 [Checked Proposal Target Readiness](../reference/implemented-proposals/checked-proposal-target-readiness.md).
 The client-platform prerequisite is complete and recorded under
 [Agent Language Services Platform Matrix Closure](../reference/implemented-proposals/agent-language-services-platform-matrix-closure.md).
+The reviewed source-decision authority prerequisite is complete and recorded
+under
+[Agent Language Services Inventory Review Gate](../reference/implemented-proposals/agent-language-services-inventory-review-gate.md).
 
-Do not select this proposal while
-[Agent Language Services Inventory Review Gate](agent-language-services-inventory-review-gate.md#g0-to-g1-review-gate)
-remains under `docs/proposals/`. That gate must complete the finite `G0` to
-`G1` transition before another inventory implementation begins.
-
-After the gate completes, select only the corrected frozen source inventory PR
-first. Its base is the default branch revision that contains all completed
-prerequisite records, the reviewed source-decision authority, and no frozen
-inventory. The PR must carry checked tracked target provenance. It may consume
-the reviewed source decisions but may not revise them. Keep all corrections on
-that same default-branch-targeting PR. Do not put a correction PR on a branch
-that already contains any frozen artifact. Select the migration PR only after
-the frozen inventory has merged. Neither target may change the MCP harness,
+Select only the corrected frozen source inventory PR first. Its base is the
+default branch revision that contains all completed prerequisite records, the
+reviewed source-decision authority, and no frozen inventory. The PR must carry
+checked tracked target provenance. It may consume the reviewed source decisions
+but may not revise them. Keep all corrections on that same
+default-branch-targeting PR. Do not put a correction PR on a branch that
+already contains any frozen artifact. Select the migration PR only after the
+frozen inventory has merged. Neither target may change the MCP harness,
 executable MCP fixtures, or semantic baselines.
 
 Generate the inventory target only after the gate completion is present on the

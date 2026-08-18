@@ -27,6 +27,8 @@ behavior page needs rationale, source support, or toolchain reference material.
   [toolchain-test-harness.md](toolchain-test-harness.md).
 - Proposal target readiness validation artifacts:
   [proposal-target-readiness/README.md](proposal-target-readiness/README.md).
+- Agent language-services lifecycle review authority:
+  [agent-language-services-lifecycle-review/source-decisions.json](agent-language-services-lifecycle-review/source-decisions.json).
 - HTTP/2 public symbol migration and residual-name classification:
   [http2-standard-module-migration.md](http2-standard-module-migration.md).
 - Implemented proposal records:

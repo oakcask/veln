@@ -8,20 +8,10 @@
       "prerequisites": []
     },
     {
-      "proposal_path": "docs/proposals/agent-language-services-inventory-review-gate.md",
-      "proposal_anchor": "#g0-to-g1-review-gate",
+      "proposal_path": "docs/proposals/agent-language-services-lifecycle-migration.md",
+      "proposal_anchor": "#frozen-source-universe",
       "state": "ready",
       "prerequisites": [
-        "docs/proposals/agent-language-services-platform-matrix-closure.md",
-        "docs/proposals/checked-proposal-target-readiness.md"
-      ]
-    },
-    {
-      "proposal_path": "docs/proposals/agent-language-services-lifecycle-migration.md",
-      "proposal_anchor": "#agent-language-services-lifecycle-migration",
-      "state": "blocked",
-      "prerequisites": [
-        "docs/proposals/agent-language-services-inventory-review-gate.md",
         "docs/proposals/agent-language-services-platform-matrix-closure.md",
         "docs/proposals/checked-proposal-target-readiness.md"
       ]
