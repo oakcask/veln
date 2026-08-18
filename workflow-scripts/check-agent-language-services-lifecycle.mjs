@@ -6,6 +6,12 @@ import { fileURLToPath } from "node:url";
 const sourcePath = "docs/proposals/agent-language-services.md";
 const decisionPath = "docs/reference/agent-language-services-lifecycle-review/source-decisions.json";
 const provenancePath = "docs/reference/agent-language-services-lifecycle/provenance.json";
+const lifecycleDirectory = "docs/reference/agent-language-services-lifecycle";
+const sourceUniversePath = `${lifecycleDirectory}/source-universe.json`;
+const inventoryPath = `${lifecycleDirectory}/inventory.json`;
+const lifecycleManifestPath = `${lifecycleDirectory}/lifecycle-manifest.json`;
+const ledgerSchemaPath = `${lifecycleDirectory}/migration-ledger.schema.json`;
+const ledgerFixturePath = `${lifecycleDirectory}/migration-ledger.fixture.json`;
 const validClasses = new Set(["conformance", "supporting"]);
 const validLifecycles = new Set(["current", "completed", "planned", "removed"]);
 
@@ -41,10 +47,28 @@ export function runCommand({ repoRoot, command, outputPath }) {
     }
     return success("Wrote reviewed source-decision artifact.");
   }
-  return failure("Use `validate` or `print-source-decisions [path]`.", [`unknown command: ${command}`]);
+  if (command === "write-frozen-artifacts") {
+    writeFrozenArtifacts({ repoRoot });
+    return success("Wrote frozen agent language-services lifecycle artifacts.");
+  }
+  return failure("Use `validate`, `print-source-decisions [path]`, or `write-frozen-artifacts`.", [`unknown command: ${command}`]);
 }
 
-export function validateRepository({ repoRoot, artifact = readJson(path.resolve(repoRoot, decisionPath)) }) {
+export function validateRepository({
+  repoRoot,
+  artifact,
+  sourceUniverse,
+  inventory,
+  lifecycleManifest,
+  ledgerSchema,
+  ledgerFixture,
+} = {}) {
+  artifact ??= readJson(path.resolve(repoRoot, decisionPath));
+  sourceUniverse ??= readJson(path.resolve(repoRoot, sourceUniversePath));
+  inventory ??= readJson(path.resolve(repoRoot, inventoryPath));
+  lifecycleManifest ??= readJson(path.resolve(repoRoot, lifecycleManifestPath));
+  ledgerSchema ??= readJson(path.resolve(repoRoot, ledgerSchemaPath));
+  ledgerFixture ??= readJson(path.resolve(repoRoot, ledgerFixturePath));
   const parsed = parseUmbrellaProposal({ repoRoot });
   const errors = [
     ...validateArtifactShape({ artifact }),
@@ -55,6 +79,17 @@ export function validateRepository({ repoRoot, artifact = readJson(path.resolve(
   }
   errors.push(...validateArtifactAgainstSource({ artifact, parsed }));
   errors.push(...validateSemanticDecisions({ artifact }));
+  if (errors.length === 0) {
+    errors.push(...validateFrozenArtifacts({
+      artifact,
+      parsed,
+      sourceUniverse,
+      inventory,
+      lifecycleManifest,
+      ledgerSchema,
+      ledgerFixture,
+    }));
+  }
   return errors;
 }
 
@@ -81,6 +116,84 @@ export function buildSourceDecisionArtifact({ repoRoot }) {
       };
     }),
   };
+}
+
+export function buildFrozenArtifacts({ repoRoot }) {
+  const artifact = readJson(path.resolve(repoRoot, decisionPath));
+  const sourceUniverse = {
+    schema_version: 1,
+    source_path: artifact.source_path,
+    source_digest: artifact.source_digest,
+    roots: artifact.roots.map((root) => ({
+      id: root.id,
+      kind: root.kind,
+      source_heading: root.source_heading,
+      start_scalar: root.start_scalar,
+      end_scalar: root.end_scalar,
+      digest: root.digest,
+      text: root.text,
+      source_class: root.source_class,
+      leaf_count: root.leaf_count,
+      identities: structuredClone(root.identities),
+    })),
+  };
+  const inventory = {
+    schema_version: 1,
+    source_path: artifact.source_path,
+    source_digest: artifact.source_digest,
+    roots: artifact.roots.map((root) => ({
+      id: root.id,
+      kind: root.kind,
+      source_heading: root.source_heading,
+      start_scalar: root.start_scalar,
+      end_scalar: root.end_scalar,
+      digest: root.digest,
+      text: root.text,
+      source_class: root.source_class,
+      child_count: root.leaf_count,
+      children: structuredClone(root.leaves),
+      identities: structuredClone(root.identities),
+    })),
+  };
+  const leaves = artifact.roots.flatMap((root) => root.leaves.map((leaf) => ({
+    id: leaf.id,
+    root_id: root.id,
+    source_class: root.source_class,
+    lifecycle: leaf.lifecycle,
+    spans: structuredClone(leaf.spans),
+    text: leaf.text,
+    digest: leaf.digest,
+  })));
+  const lifecycleManifest = {
+    schema_version: 1,
+    source_path: artifact.source_path,
+    source_digest: artifact.source_digest,
+    leaves,
+  };
+  const ledgerSchema = buildLedgerSchema();
+  const ledgerFixture = {
+    schema_version: 1,
+    source_inventory: inventoryPath,
+    entries: leaves.map((leaf) => ({
+      source_id: leaf.id,
+      lifecycle: leaf.lifecycle,
+      destination: destinationForLifecycle(leaf),
+    })),
+  };
+  return { sourceUniverse, inventory, lifecycleManifest, ledgerSchema, ledgerFixture };
+}
+
+function writeFrozenArtifacts({ repoRoot }) {
+  const artifacts = buildFrozenArtifacts({ repoRoot });
+  for (const [relativePath, value] of [
+    [sourceUniversePath, artifacts.sourceUniverse],
+    [inventoryPath, artifacts.inventory],
+    [lifecycleManifestPath, artifacts.lifecycleManifest],
+    [ledgerSchemaPath, artifacts.ledgerSchema],
+    [ledgerFixturePath, artifacts.ledgerFixture],
+  ]) {
+    fs.writeFileSync(path.resolve(repoRoot, relativePath), `${JSON.stringify(value, null, 2)}\n`);
+  }
 }
 
 export function parseUmbrellaProposal({ repoRoot, sourceText = fs.readFileSync(path.resolve(repoRoot, sourcePath), "utf8") }) {
@@ -157,23 +270,463 @@ export function validateDiffScope({ changedPaths, hasFrozenArtifact, isBootstrap
   const allowedBootstrap = [
     ".github/workflows/workflow--test-scripts.yaml",
     "docs/reference/README.md",
+    "docs/reference/proposal-target-readiness/manifest.json",
+    "docs/proposals/README.md",
     "workflow-scripts/check-agent-language-services-lifecycle.mjs",
     "workflow-scripts/check-agent-language-services-lifecycle.test.mjs",
   ];
   const allowedPrefix = "docs/reference/agent-language-services-lifecycle/";
+  const protectedPostBootstrap = [
+    ".github/workflows/workflow--test-scripts.yaml",
+    "workflow-scripts/check-agent-language-services-lifecycle.mjs",
+    "workflow-scripts/check-agent-language-services-lifecycle.test.mjs",
+  ];
+  const protectedPrefix = "docs/reference/agent-language-services-lifecycle/";
   const errors = [];
   if (isBootstrap && !hasFrozenArtifact) {
     errors.push("diff scope: bootstrap validation requires the frozen lifecycle artifact addition");
   }
   for (const changedPath of changedPaths) {
+    if (isForbiddenToolchainScope(changedPath)) {
+      errors.push(`${changedPath}: remove this toolchain or MCP behavior change from the frozen-inventory PR; the migration must not alter harness code, executable MCP fixtures, or semantic baselines`);
+      continue;
+    }
     if (isBootstrap && (allowedBootstrap.includes(changedPath) || changedPath.startsWith(allowedPrefix))) {
       continue;
     }
     if (isBootstrap) {
       errors.push(`${changedPath}: remove this path from the frozen-inventory bootstrap PR; it is outside the reviewed allowlist`);
+      continue;
+    }
+    if (changedPath.startsWith(protectedPrefix) || protectedPostBootstrap.includes(changedPath)) {
+      errors.push(`${changedPath}: restore this immutable frozen lifecycle artifact or validator registration; post-bootstrap changes belong in a separately reviewed migration path`);
     }
   }
   return errors;
+}
+
+export function validateMigrationLedger({ ledger, lifecycleManifest, inventory }) {
+  const schemaErrors = validateLedgerShape({ ledger });
+  if (schemaErrors.length !== 0) {
+    return schemaErrors;
+  }
+  const errors = [];
+  const leaves = new Map((lifecycleManifest.leaves ?? []).map((leaf) => [leaf.id, leaf]));
+  const parentIds = new Set((inventory.roots ?? []).filter((root) => root.child_count > 0).map((root) => root.id));
+  const seen = new Set();
+  const seenEvidence = new Set();
+  for (const [index, entry] of ledger.entries.entries()) {
+    const label = `migration ledger entries[${index}] ${entry.source_id ?? ""}`.trim();
+    if (hasRangeWildcardOrCatchAll(entry.source_id)) {
+      errors.push(`${label}: enumerate one exact inventory leaf; ranges, wildcards, and catch-all entries are rejected`);
+      continue;
+    }
+    if (parentIds.has(entry.source_id)) {
+      errors.push(`${label}: map child leaves, not a parent inventory source`);
+      continue;
+    }
+    if (seen.has(entry.source_id)) {
+      errors.push(`${label}: remove duplicate ledger mapping`);
+    }
+    seen.add(entry.source_id);
+    const leaf = leaves.get(entry.source_id);
+    if (leaf === undefined) {
+      errors.push(`${label}: remove unknown ledger leaf`);
+      continue;
+    }
+    if (entry.lifecycle !== leaf.lifecycle) {
+      errors.push(`${label}: restore lifecycle ${leaf.lifecycle} from the frozen lifecycle manifest`);
+    }
+    if (leaf.source_class === "conformance" && entry.lifecycle === "removed") {
+      errors.push(`${label}: conformance leaves may not use removed ledger mappings`);
+    }
+    errors.push(...validateDestination({ label, entry, leaf, seenEvidence }));
+  }
+  for (const leafId of leaves.keys()) {
+    if (!seen.has(leafId)) {
+      errors.push(`${leafId}: add missing ledger mapping`);
+    }
+  }
+  return errors;
+}
+
+function validateFrozenArtifacts({
+  artifact,
+  parsed,
+  sourceUniverse,
+  inventory,
+  lifecycleManifest,
+  ledgerSchema,
+  ledgerFixture,
+}) {
+  const errors = [
+    ...validateSourceUniverse({ artifact, parsed, sourceUniverse }),
+    ...validateInventory({ artifact, parsed, sourceUniverse, inventory }),
+    ...validateLifecycleManifest({ inventory, lifecycleManifest }),
+    ...validateLedgerSchemaShape({ schema: ledgerSchema }),
+  ];
+  if (errors.length === 0) {
+    errors.push(...validateMigrationLedger({ ledger: ledgerFixture, lifecycleManifest, inventory }));
+  }
+  return errors;
+}
+
+function validateSourceUniverse({ artifact, parsed, sourceUniverse }) {
+  const errors = [];
+  if (sourceUniverse?.schema_version !== 1) {
+    errors.push(`${sourceUniversePath}: set schema_version to 1`);
+  }
+  if (sourceUniverse?.source_path !== sourcePath) {
+    errors.push(`${sourceUniversePath}: set source_path to ${sourcePath}`);
+  }
+  if (sourceUniverse?.source_digest !== parsed.sourceDigest || sourceUniverse?.source_digest !== artifact.source_digest) {
+    errors.push(`${sourceUniversePath}: restore the frozen source digest from the umbrella proposal`);
+  }
+  if (!Array.isArray(sourceUniverse?.roots)) {
+    return [...errors, `${sourceUniversePath}: add roots array`];
+  }
+  const artifactRoots = new Map(artifact.roots.map((root) => [root.id, root]));
+  const parsedRoots = new Map(parsed.roots.map((root) => [root.id, root]));
+  const seen = new Set();
+  for (const [index, root] of sourceUniverse.roots.entries()) {
+    const label = `${sourceUniversePath} roots[${index}] ${root?.id ?? ""}`.trim();
+    if (seen.has(root?.id)) {
+      errors.push(`${label}: remove duplicate source-universe root`);
+    }
+    seen.add(root?.id);
+    const reviewed = artifactRoots.get(root?.id);
+    const parsedRoot = parsedRoots.get(root?.id);
+    if (reviewed === undefined || parsedRoot === undefined) {
+      errors.push(`${label}: remove unknown source-universe root`);
+      continue;
+    }
+    for (const field of ["kind", "source_heading", "start_scalar", "end_scalar", "digest", "text", "source_class", "leaf_count"]) {
+      if (root[field] !== reviewed[field]) {
+        errors.push(`${root.id}: restore ${field} from reviewed source decisions`);
+      }
+    }
+    if (root.digest !== parsedRoot.digest || root.text !== parsedRoot.text) {
+      errors.push(`${root.id}: restore source-universe text and digest from the umbrella proposal`);
+    }
+    if (JSON.stringify(root.identities ?? []) !== JSON.stringify(reviewed.identities ?? [])) {
+      errors.push(`${root.id}: restore finite identities from reviewed source decisions`);
+    }
+  }
+  for (const root of artifact.roots) {
+    if (!seen.has(root.id)) {
+      errors.push(`${root.id}: add missing source-universe root`);
+    }
+  }
+  return errors;
+}
+
+function validateInventory({ artifact, parsed, sourceUniverse, inventory }) {
+  const errors = [];
+  if (inventory?.schema_version !== 1) {
+    errors.push(`${inventoryPath}: set schema_version to 1`);
+  }
+  if (inventory?.source_path !== sourcePath || inventory?.source_digest !== artifact.source_digest) {
+    errors.push(`${inventoryPath}: restore source path and digest from the reviewed source decisions`);
+  }
+  if (!Array.isArray(inventory?.roots)) {
+    return [...errors, `${inventoryPath}: add roots array`];
+  }
+  const reviewedRoots = new Map(artifact.roots.map((root) => [root.id, root]));
+  const universeRoots = new Map((sourceUniverse.roots ?? []).map((root) => [root.id, root]));
+  const parsedRoots = new Map(parsed.roots.map((root) => [root.id, root]));
+  const seen = new Set();
+  for (const [index, root] of inventory.roots.entries()) {
+    const label = `${inventoryPath} roots[${index}] ${root?.id ?? ""}`.trim();
+    if (seen.has(root?.id)) {
+      errors.push(`${label}: remove duplicate inventory item`);
+    }
+    seen.add(root?.id);
+    const reviewed = reviewedRoots.get(root?.id);
+    const universe = universeRoots.get(root?.id);
+    const parsedRoot = parsedRoots.get(root?.id);
+    if (reviewed === undefined || universe === undefined || parsedRoot === undefined) {
+      errors.push(`${label}: remove unknown inventory item`);
+      continue;
+    }
+    for (const field of ["kind", "source_heading", "start_scalar", "end_scalar", "digest", "text", "source_class"]) {
+      if (root[field] !== reviewed[field] || root[field] !== universe[field]) {
+        errors.push(`${root.id}: restore ${field} from the frozen source universe`);
+      }
+    }
+    if (root.child_count !== reviewed.leaf_count) {
+      errors.push(`${root.id}: set child_count to the exact reviewed child count`);
+    }
+    errors.push(...validateInventoryChildren({ root, reviewed, parsedRoot }));
+  }
+  for (const root of artifact.roots) {
+    if (!seen.has(root.id)) {
+      errors.push(`${root.id}: add missing inventory item`);
+    }
+  }
+  return errors;
+}
+
+function validateInventoryChildren({ root, reviewed, parsedRoot }) {
+  const adapted = {
+    ...reviewed,
+    leaf_count: root.child_count,
+    leaves: root.children,
+  };
+  const errors = validateLeaves({ root: adapted, parsedRoot }).map((error) =>
+    error.replace("leaf", "child").replace("leaves", "children")
+  );
+  if (JSON.stringify(root.children ?? []) !== JSON.stringify(reviewed.leaves ?? [])) {
+    errors.push(`${root.id}: restore inventory children from reviewed source decisions`);
+  }
+  if (JSON.stringify(root.identities ?? []) !== JSON.stringify(reviewed.identities ?? [])) {
+    errors.push(`${root.id}: restore inventory identities from reviewed source decisions`);
+  }
+  return errors;
+}
+
+function validateLifecycleManifest({ inventory, lifecycleManifest }) {
+  const errors = [];
+  if (lifecycleManifest?.schema_version !== 1) {
+    errors.push(`${lifecycleManifestPath}: set schema_version to 1`);
+  }
+  if (lifecycleManifest?.source_path !== sourcePath || lifecycleManifest?.source_digest !== inventory?.source_digest) {
+    errors.push(`${lifecycleManifestPath}: restore source path and digest from the inventory`);
+  }
+  if (!Array.isArray(lifecycleManifest?.leaves)) {
+    return [...errors, `${lifecycleManifestPath}: add leaves array`];
+  }
+  const expected = new Map((inventory.roots ?? []).flatMap((root) => (root.children ?? []).map((child) => [child.id, {
+    id: child.id,
+    root_id: root.id,
+    source_class: root.source_class,
+    lifecycle: child.lifecycle,
+    spans: child.spans,
+    text: child.text,
+    digest: child.digest,
+  }])));
+  const seen = new Set();
+  for (const [index, leaf] of lifecycleManifest.leaves.entries()) {
+    const label = `${lifecycleManifestPath} leaves[${index}] ${leaf?.id ?? ""}`.trim();
+    if (seen.has(leaf?.id)) {
+      errors.push(`${label}: remove duplicate lifecycle leaf`);
+    }
+    seen.add(leaf?.id);
+    const expectedLeaf = expected.get(leaf?.id);
+    if (expectedLeaf === undefined) {
+      errors.push(`${label}: remove unknown lifecycle leaf`);
+      continue;
+    }
+    if (JSON.stringify(leaf) !== JSON.stringify(expectedLeaf)) {
+      errors.push(`${leaf.id}: restore lifecycle manifest leaf from the inventory`);
+    }
+  }
+  for (const leafId of expected.keys()) {
+    if (!seen.has(leafId)) {
+      errors.push(`${leafId}: add missing lifecycle manifest leaf`);
+    }
+  }
+  return errors;
+}
+
+function buildLedgerSchema() {
+  return {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    $id: "https://veln-lang.invalid/schemas/agent-language-services-migration-ledger.schema.json",
+    type: "object",
+    additionalProperties: false,
+    required: ["schema_version", "source_inventory", "entries"],
+    properties: {
+      schema_version: { const: 1 },
+      source_inventory: { const: inventoryPath },
+      entries: {
+        type: "array",
+        minItems: 1,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["source_id", "lifecycle", "destination"],
+          properties: {
+            source_id: {
+              type: "string",
+              pattern: "^ALS-R[0-9]{4}-L[0-9]{2}$",
+            },
+            lifecycle: {
+              enum: ["current", "completed", "planned", "removed"],
+            },
+            destination: {
+              type: "object",
+              additionalProperties: false,
+              required: ["kind"],
+              properties: {
+                kind: { enum: ["specification", "implementation-record", "proposal", "removed"] },
+                path: { type: "string" },
+                anchor: { type: "string" },
+                evidence: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+                rationale: { type: "string" },
+                superseded_by: { type: "string" },
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+}
+
+function validateLedgerSchemaShape({ schema }) {
+  const errors = [];
+  if (schema?.$id !== "https://veln-lang.invalid/schemas/agent-language-services-migration-ledger.schema.json") {
+    errors.push(`${ledgerSchemaPath}: keep the stable migration-ledger schema $id`);
+  }
+  if (schema?.additionalProperties !== false) {
+    errors.push(`${ledgerSchemaPath}: reject unknown top-level ledger fields`);
+  }
+  const entry = schema?.properties?.entries?.items;
+  if (entry?.additionalProperties !== false) {
+    errors.push(`${ledgerSchemaPath}: reject unknown ledger entry fields`);
+  }
+  const sourcePattern = entry?.properties?.source_id?.pattern;
+  if (sourcePattern !== "^ALS-R[0-9]{4}-L[0-9]{2}$") {
+    errors.push(`${ledgerSchemaPath}: require exact inventory leaf source IDs`);
+  }
+  for (const lifecycle of validLifecycles) {
+    if (!(entry?.properties?.lifecycle?.enum ?? []).includes(lifecycle)) {
+      errors.push(`${ledgerSchemaPath}: include lifecycle ${lifecycle}`);
+    }
+  }
+  return errors;
+}
+
+function validateLedgerShape({ ledger }) {
+  const errors = [];
+  if (ledger?.schema_version !== 1) {
+    errors.push(`${ledgerFixturePath}: set schema_version to 1`);
+  }
+  if (ledger?.source_inventory !== inventoryPath) {
+    errors.push(`${ledgerFixturePath}: bind source_inventory to ${inventoryPath}`);
+  }
+  if (!Array.isArray(ledger?.entries)) {
+    errors.push(`${ledgerFixturePath}: add entries array`);
+  }
+  return errors;
+}
+
+function validateDestination({ label, entry, leaf, seenEvidence }) {
+  const errors = [];
+  const destination = entry.destination;
+  if (!destination || typeof destination !== "object" || Array.isArray(destination)) {
+    return [`${label}: add destination object`];
+  }
+  const expectedKind = {
+    current: "specification",
+    completed: "implementation-record",
+    planned: "proposal",
+    removed: "removed",
+  }[entry.lifecycle];
+  if (destination.kind !== expectedKind) {
+    errors.push(`${label}: use ${expectedKind} destination for ${entry.lifecycle} lifecycle`);
+  }
+  if (entry.lifecycle === "removed") {
+    if (leaf.source_class === "conformance") {
+      errors.push(`${label}: conformance leaves may not use removed ledger mappings`);
+    }
+    if (!nonemptyString(destination.rationale) || !nonemptyString(destination.superseded_by)) {
+      errors.push(`${label}: removed mappings require rationale and superseded_by`);
+    }
+    return errors;
+  }
+  if (!isRepoRelativeMarkdown(destination.path, lifecycleDestinationPrefix(entry.lifecycle))) {
+    errors.push(`${label}: use a valid repository-relative ${entry.lifecycle} destination path`);
+  }
+  if (!validAnchor(destination.anchor)) {
+    errors.push(`${label}: use a nonempty destination anchor`);
+  }
+  if (entry.lifecycle === "current") {
+    if (!Array.isArray(destination.evidence) || destination.evidence.length === 0) {
+      errors.push(`${label}: current mappings require checked evidence`);
+    } else {
+      const seen = new Set();
+      for (const evidence of destination.evidence) {
+        if (seen.has(evidence)) {
+          errors.push(`${label}: current mapping evidence entries must be unique`);
+        }
+        seen.add(evidence);
+        if (seenEvidence.has(evidence)) {
+          errors.push(`${label}: current mapping evidence must be unique across the ledger`);
+        }
+        seenEvidence.add(evidence);
+        if (!isCheckedEvidencePath(evidence)) {
+          errors.push(`${label}: current mapping evidence must point to checked executable evidence`);
+        }
+      }
+    }
+  }
+  return errors;
+}
+
+function lifecycleDestinationPrefix(lifecycle) {
+  return {
+    current: "docs/specification/",
+    completed: "docs/reference/implemented-proposals/",
+    planned: "docs/proposals/",
+  }[lifecycle] ?? "";
+}
+
+function destinationForLifecycle(leaf) {
+  const lifecycle = leaf.lifecycle;
+  if (lifecycle === "current") {
+    return {
+      kind: "specification",
+      path: "docs/specification/mcp.md",
+      anchor: "#mcp-workspace-projects-diagnostics-and-definitions",
+      evidence: [`examples/specification/mcp/workspace-lifecycle/case.toml#${leaf.id}`],
+    };
+  }
+  if (lifecycle === "completed") {
+    return {
+      kind: "implementation-record",
+      path: "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+      anchor: "#agent-language-services-inventory-review-gate",
+    };
+  }
+  if (lifecycle === "planned") {
+    return {
+      kind: "proposal",
+      path: "docs/proposals/agent-language-services.md",
+      anchor: "#agent-language-services",
+    };
+  }
+  return {
+    kind: "removed",
+    rationale: "Supporting explanation is duplicated by the retained destination.",
+    superseded_by: "docs/proposals/agent-language-services.md#agent-language-services",
+  };
+}
+
+function hasRangeWildcardOrCatchAll(sourceId) {
+  return !nonemptyString(sourceId)
+    || sourceId.includes("*")
+    || sourceId.includes("..")
+    || /\ball\b|\bremaining\b|\bcatch/i.test(sourceId);
+}
+
+function isCheckedEvidencePath(value) {
+  return nonemptyString(value) && (
+    value.startsWith("examples/specification/")
+    || value.startsWith("crates/veln-cli/tests/")
+    || value.startsWith("docs/specification/source-surface-executable.pl")
+  );
+}
+
+function isForbiddenToolchainScope(changedPath) {
+  return changedPath.startsWith("crates/veln-mcp/")
+    || changedPath.startsWith("examples/specification/mcp/")
+    || changedPath === "crates/veln-cli/tests/toolchain-case-semantics.baseline"
+    || changedPath.startsWith("crates/veln-cli/tests/toolchain_semantic_baseline/")
+    || changedPath.startsWith("crates/veln-cli/tests/toolchain_harness");
 }
 
 function validateArtifactShape({ artifact }) {
@@ -611,6 +1164,22 @@ function digest(text) {
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, "utf8"));
+}
+
+function nonemptyString(value) {
+  return typeof value === "string" && value.trim() !== "";
+}
+
+function validAnchor(value) {
+  return typeof value === "string" && /^#[a-z0-9][a-z0-9-]*$/.test(value);
+}
+
+function isRepoRelativeMarkdown(value, prefix) {
+  return typeof value === "string"
+    && value.startsWith(prefix)
+    && value.endsWith(".md")
+    && !value.startsWith("/")
+    && !value.includes("..");
 }
 
 function success(summary) {

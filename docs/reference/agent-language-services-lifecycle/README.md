@@ -1,6 +1,6 @@
 ---
 role: routing
-update-when: The agent-language-services lifecycle review artifact, frozen-inventory target provenance, or lifecycle validator command changes.
+update-when: The agent-language-services lifecycle review artifact, frozen source-universe contract, inventory, lifecycle manifest, migration-ledger schema fixture, frozen-inventory target provenance, or lifecycle validator command changes.
 ---
 
 # Agent Language Services Lifecycle
@@ -14,6 +14,15 @@ frozen-inventory bootstrap.
   [../agent-language-services-lifecycle-review/source-decisions.json](../agent-language-services-lifecycle-review/source-decisions.json).
 - Frozen-inventory target provenance:
   [provenance.json](provenance.json).
+- Frozen source-universe contract:
+  [source-universe.json](source-universe.json).
+- Frozen inventory:
+  [inventory.json](inventory.json).
+- Lifecycle manifest:
+  [lifecycle-manifest.json](lifecycle-manifest.json).
+- Migration-ledger schema and positive fixture:
+  [migration-ledger.schema.json](migration-ledger.schema.json) and
+  [migration-ledger.fixture.json](migration-ledger.fixture.json).
 - Local validator:
 
 ```text

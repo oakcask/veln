@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://veln-lang.invalid/schemas/agent-language-services-migration-ledger.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "source_inventory",
+    "entries"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "source_inventory": {
+      "const": "docs/reference/agent-language-services-lifecycle/inventory.json"
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "lifecycle",
+          "destination"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "pattern": "^ALS-R[0-9]{4}-L[0-9]{2}$"
+          },
+          "lifecycle": {
+            "enum": [
+              "current",
+              "completed",
+              "planned",
+              "removed"
+            ]
+          },
+          "destination": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "specification",
+                  "implementation-record",
+                  "proposal",
+                  "removed"
+                ]
+              },
+              "path": {
+                "type": "string"
+              },
+              "anchor": {
+                "type": "string"
+              },
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "rationale": {
+                "type": "string"
+              },
+              "superseded_by": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

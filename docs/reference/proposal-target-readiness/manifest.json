@@ -9,7 +9,7 @@
     },
     {
       "proposal_path": "docs/proposals/agent-language-services-lifecycle-migration.md",
-      "proposal_anchor": "#agent-language-services-lifecycle-migration",
+      "proposal_anchor": "#frozen-source-universe",
       "state": "ready",
       "prerequisites": [
         "docs/proposals/agent-language-services-inventory-review-gate.md",

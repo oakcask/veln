@@ -4,14 +4,29 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
+  buildFrozenArtifacts,
   buildSourceDecisionArtifact,
   parseUmbrellaProposal,
   validateDiffScope,
+  validateMigrationLedger,
   validateRepository,
 } from "./check-agent-language-services-lifecycle.mjs";
 
 test("repository reviewed source decisions match the umbrella proposal", () => {
   assert.deepEqual(validateRepository({ repoRoot: "." }), []);
+});
+
+test("committed frozen artifacts match generated lifecycle artifacts", () => {
+  const generated = buildFrozenArtifacts({ repoRoot: "." });
+  const actual = {
+    sourceUniverse: readJson("docs/reference/agent-language-services-lifecycle/source-universe.json"),
+    inventory: readJson("docs/reference/agent-language-services-lifecycle/inventory.json"),
+    lifecycleManifest: readJson("docs/reference/agent-language-services-lifecycle/lifecycle-manifest.json"),
+    ledgerSchema: readJson("docs/reference/agent-language-services-lifecycle/migration-ledger.schema.json"),
+    ledgerFixture: readJson("docs/reference/agent-language-services-lifecycle/migration-ledger.fixture.json"),
+  };
+
+  assert.deepEqual(actual, generated);
 });
 
 test("structural parser covers source roots without semantic decision fields", () => {
@@ -84,13 +99,74 @@ test("rejects uncovered parent lifecycle statement", () => {
 });
 
 test("rejects direct parent ledger mapping shape in bootstrap diff scope", () => {
+  const { inventory, lifecycleManifest, ledgerFixture } = buildFrozenArtifacts({ repoRoot: "." });
+  const parentMapping = structuredClone(ledgerFixture);
+  parentMapping.entries[0].source_id = inventory.roots[0].id;
+
+  assert.match(validateMigrationLedger({ ledger: parentMapping, lifecycleManifest, inventory }).join("\n"), /map child leaves, not a parent/);
+});
+
+test("rejects missing, duplicate, wildcard, range, catch-all, and invalidly removed ledger leaves", () => {
+  const { inventory, lifecycleManifest, ledgerFixture } = buildFrozenArtifacts({ repoRoot: "." });
+  const missing = structuredClone(ledgerFixture);
+  const removed = missing.entries.pop();
+  const duplicate = structuredClone(ledgerFixture);
+  duplicate.entries.push(structuredClone(duplicate.entries[0]));
+  const wildcard = structuredClone(ledgerFixture);
+  wildcard.entries[0].source_id = "ALS-R0001-*";
+  const range = structuredClone(ledgerFixture);
+  range.entries[0].source_id = "ALS-R0001-L01..ALS-R0002-L01";
+  const catchAll = structuredClone(ledgerFixture);
+  catchAll.entries[0].source_id = "all remaining leaves";
+  const invalidRemoved = structuredClone(ledgerFixture);
+  const conformanceLeaf = lifecycleManifest.leaves.find((leaf) => leaf.source_class === "conformance");
+  invalidRemoved.entries.find((entry) => entry.source_id === conformanceLeaf.id).lifecycle = "removed";
+
+  assert.match(validateMigrationLedger({ ledger: missing, lifecycleManifest, inventory }).join("\n"), new RegExp(`${removed.source_id}: add missing ledger mapping`));
+  assert.match(validateMigrationLedger({ ledger: duplicate, lifecycleManifest, inventory }).join("\n"), /remove duplicate ledger mapping/);
+  assert.match(validateMigrationLedger({ ledger: wildcard, lifecycleManifest, inventory }).join("\n"), /ranges, wildcards, and catch-all entries are rejected/);
+  assert.match(validateMigrationLedger({ ledger: range, lifecycleManifest, inventory }).join("\n"), /ranges, wildcards, and catch-all entries are rejected/);
+  assert.match(validateMigrationLedger({ ledger: catchAll, lifecycleManifest, inventory }).join("\n"), /ranges, wildcards, and catch-all entries are rejected/);
+  assert.match(validateMigrationLedger({ ledger: invalidRemoved, lifecycleManifest, inventory }).join("\n"), /conformance leaves may not use removed ledger mappings/);
+});
+
+test("rejects lifecycle-manifest disagreement and source-universe omission", () => {
+  const generated = buildFrozenArtifacts({ repoRoot: "." });
+  const wrongLifecycle = structuredClone(generated.lifecycleManifest);
+  wrongLifecycle.leaves[0].lifecycle = wrongLifecycle.leaves[0].lifecycle === "planned" ? "current" : "planned";
+  const missingUniverse = structuredClone(generated.sourceUniverse);
+  const removed = missingUniverse.roots.pop();
+
+  assert.match(validateRepository({ repoRoot: ".", ...generated, lifecycleManifest: wrongLifecycle }).join("\n"), /restore lifecycle manifest leaf from the inventory/);
+  assert.match(validateRepository({ repoRoot: ".", ...generated, sourceUniverse: missingUniverse }).join("\n"), new RegExp(`${removed.id}: add missing source-universe root`));
+});
+
+test("rejects bootstrap changes to MCP harness, executable fixtures, and semantic baselines", () => {
   const errors = validateDiffScope({
-    changedPaths: ["docs/proposals/agent-language-services.md"],
+    changedPaths: [
+      "crates/veln-mcp/src/server.rs",
+      "examples/specification/mcp/workspace-lifecycle/case.toml",
+      "crates/veln-cli/tests/toolchain-case-semantics.baseline",
+    ],
     hasFrozenArtifact: true,
     isBootstrap: true,
   });
 
-  assert.match(errors.join("\n"), /outside the reviewed allowlist/);
+  assert.match(errors.join("\n"), /must not alter harness code, executable MCP fixtures, or semantic baselines/);
+});
+
+test("rejects post-bootstrap frozen artifact and validator registration edits", () => {
+  const errors = validateDiffScope({
+    changedPaths: [
+      "docs/reference/agent-language-services-lifecycle/inventory.json",
+      "workflow-scripts/check-agent-language-services-lifecycle.mjs",
+      ".github/workflows/workflow--test-scripts.yaml",
+    ],
+    hasFrozenArtifact: true,
+    isBootstrap: false,
+  });
+
+  assert.match(errors.join("\n"), /immutable frozen lifecycle artifact/);
 });
 
 test("rejects missing, duplicate, wildcard, and detached finite identities", () => {
@@ -114,9 +190,14 @@ test("requires tracked provenance for the frozen-inventory bootstrap", () => {
   fs.mkdirSync(path.join(fixture.root, "docs/proposals"), { recursive: true });
   fs.cpSync("docs/proposals/agent-language-services.md", path.join(fixture.root, "docs/proposals/agent-language-services.md"));
   const artifact = buildSourceDecisionArtifact({ repoRoot: fixture.root });
+  const frozen = buildFrozenArtifacts({ repoRoot: "." });
 
-  assert.match(validateRepository({ repoRoot: fixture.root, artifact }).join("\n"), /add tracked target provenance/);
+  assert.match(validateRepository({ repoRoot: fixture.root, artifact, ...frozen }).join("\n"), /add tracked target provenance/);
 });
+
+function readJson(file) {
+  return JSON.parse(fs.readFileSync(file, "utf8"));
+}
 
 function tempRepo() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "als-lifecycle-"));

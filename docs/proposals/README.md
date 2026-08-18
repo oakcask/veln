@@ -23,7 +23,7 @@ also states it.
   [identifier-casing.md](identifier-casing.md).
 - The agent-language-services lifecycle migration, starting with the corrected
   frozen source inventory:
-  [agent-language-services-lifecycle-migration.md](agent-language-services-lifecycle-migration.md).
+  [agent-language-services-lifecycle-migration.md](agent-language-services-lifecycle-migration.md#frozen-source-universe).
 
 Only proposals and subsections listed in this section are selectable targets.
 
