@@ -1933,24 +1933,13 @@
       "lifecycle": "planned",
       "spans": [
         [
-          739,
-          740
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0002.3",
-      "root_id": "ALS-S0002",
-      "lifecycle": "planned",
-      "spans": [
-        [
           740,
           759
         ]
       ]
     },
     {
-      "id": "ALS-S0002.4",
+      "id": "ALS-S0002.3",
       "root_id": "ALS-S0002",
       "lifecycle": "planned",
       "spans": [
@@ -1961,7 +1950,7 @@
       ]
     },
     {
-      "id": "ALS-S0002.5",
+      "id": "ALS-S0002.4",
       "root_id": "ALS-S0002",
       "lifecycle": "current",
       "spans": [
@@ -1972,7 +1961,7 @@
       ]
     },
     {
-      "id": "ALS-S0002.6",
+      "id": "ALS-S0002.5",
       "root_id": "ALS-S0002",
       "lifecycle": "planned",
       "spans": [
@@ -2247,17 +2236,6 @@
       ]
     },
     {
-      "id": "ALS-S0017.3",
-      "root_id": "ALS-S0017",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          3782,
-          3785
-        ]
-      ]
-    },
-    {
       "id": "ALS-S0018",
       "root_id": "ALS-S0018",
       "lifecycle": "planned",
@@ -2505,24 +2483,13 @@
       "lifecycle": "planned",
       "spans": [
         [
-          7278,
-          7279
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0032.3",
-      "root_id": "ALS-S0032",
-      "lifecycle": "planned",
-      "spans": [
-        [
           7279,
           7327
         ]
       ]
     },
     {
-      "id": "ALS-S0032.4",
+      "id": "ALS-S0032.3",
       "root_id": "ALS-S0032",
       "lifecycle": "planned",
       "spans": [
@@ -2533,7 +2500,7 @@
       ]
     },
     {
-      "id": "ALS-S0032.5",
+      "id": "ALS-S0032.4",
       "root_id": "ALS-S0032",
       "lifecycle": "planned",
       "spans": [
@@ -3600,23 +3567,12 @@
       ]
     },
     {
-      "id": "ALS-S0116.1",
+      "id": "ALS-S0116",
       "root_id": "ALS-S0116",
       "lifecycle": "current",
       "spans": [
         [
           18706,
-          18796
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0116.2",
-      "root_id": "ALS-S0116",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          18796,
           18799
         ]
       ]
@@ -3924,24 +3880,13 @@
       "lifecycle": "planned",
       "spans": [
         [
-          22602,
-          22603
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0142.3",
-      "root_id": "ALS-S0142",
-      "lifecycle": "planned",
-      "spans": [
-        [
           22603,
           22633
         ]
       ]
     },
     {
-      "id": "ALS-S0142.4",
+      "id": "ALS-S0142.3",
       "root_id": "ALS-S0142",
       "lifecycle": "planned",
       "spans": [
@@ -3952,7 +3897,7 @@
       ]
     },
     {
-      "id": "ALS-S0142.5",
+      "id": "ALS-S0142.4",
       "root_id": "ALS-S0142",
       "lifecycle": "planned",
       "spans": [
@@ -3963,7 +3908,7 @@
       ]
     },
     {
-      "id": "ALS-S0142.6",
+      "id": "ALS-S0142.5",
       "root_id": "ALS-S0142",
       "lifecycle": "planned",
       "spans": [
@@ -3974,7 +3919,7 @@
       ]
     },
     {
-      "id": "ALS-S0142.7",
+      "id": "ALS-S0142.6",
       "root_id": "ALS-S0142",
       "lifecycle": "planned",
       "spans": [
@@ -3985,7 +3930,7 @@
       ]
     },
     {
-      "id": "ALS-S0142.8",
+      "id": "ALS-S0142.7",
       "root_id": "ALS-S0142",
       "lifecycle": "planned",
       "spans": [
@@ -4518,24 +4463,13 @@
       "lifecycle": "planned",
       "spans": [
         [
-          29572,
-          29573
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0171.4",
-      "root_id": "ALS-S0171",
-      "lifecycle": "planned",
-      "spans": [
-        [
           29573,
           29606
         ]
       ]
     },
     {
-      "id": "ALS-S0171.5",
+      "id": "ALS-S0171.4",
       "root_id": "ALS-S0171",
       "lifecycle": "planned",
       "spans": [
@@ -4546,7 +4480,7 @@
       ]
     },
     {
-      "id": "ALS-S0171.6",
+      "id": "ALS-S0171.5",
       "root_id": "ALS-S0171",
       "lifecycle": "current",
       "spans": [
@@ -4557,7 +4491,7 @@
       ]
     },
     {
-      "id": "ALS-S0171.7",
+      "id": "ALS-S0171.6",
       "root_id": "ALS-S0171",
       "lifecycle": "current",
       "spans": [
@@ -4568,18 +4502,7 @@
       ]
     },
     {
-      "id": "ALS-S0171.8",
-      "root_id": "ALS-S0171",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          29922,
-          29923
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0171.9",
+      "id": "ALS-S0171.7",
       "root_id": "ALS-S0171",
       "lifecycle": "planned",
       "spans": [
@@ -4590,7 +4513,7 @@
       ]
     },
     {
-      "id": "ALS-S0171.10",
+      "id": "ALS-S0171.8",
       "root_id": "ALS-S0171",
       "lifecycle": "planned",
       "spans": [
@@ -4601,7 +4524,7 @@
       ]
     },
     {
-      "id": "ALS-S0171.11",
+      "id": "ALS-S0171.9",
       "root_id": "ALS-S0171",
       "lifecycle": "current",
       "spans": [
@@ -4612,18 +4535,7 @@
       ]
     },
     {
-      "id": "ALS-S0171.12",
-      "root_id": "ALS-S0171",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          30243,
-          30244
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0171.13",
+      "id": "ALS-S0171.10",
       "root_id": "ALS-S0171",
       "lifecycle": "planned",
       "spans": [
@@ -4634,7 +4546,7 @@
       ]
     },
     {
-      "id": "ALS-S0171.14",
+      "id": "ALS-S0171.11",
       "root_id": "ALS-S0171",
       "lifecycle": "planned",
       "spans": [
@@ -4645,7 +4557,7 @@
       ]
     },
     {
-      "id": "ALS-S0171.15",
+      "id": "ALS-S0171.12",
       "root_id": "ALS-S0171",
       "lifecycle": "current",
       "spans": [
@@ -4656,18 +4568,7 @@
       ]
     },
     {
-      "id": "ALS-S0171.16",
-      "root_id": "ALS-S0171",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          31431,
-          31432
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0171.17",
+      "id": "ALS-S0171.13",
       "root_id": "ALS-S0171",
       "lifecycle": "planned",
       "spans": [
@@ -4678,7 +4579,7 @@
       ]
     },
     {
-      "id": "ALS-S0171.18",
+      "id": "ALS-S0171.14",
       "root_id": "ALS-S0171",
       "lifecycle": "planned",
       "spans": [
@@ -4689,7 +4590,7 @@
       ]
     },
     {
-      "id": "ALS-S0171.19",
+      "id": "ALS-S0171.15",
       "root_id": "ALS-S0171",
       "lifecycle": "planned",
       "spans": [
@@ -4700,7 +4601,7 @@
       ]
     },
     {
-      "id": "ALS-S0171.20",
+      "id": "ALS-S0171.16",
       "root_id": "ALS-S0171",
       "lifecycle": "planned",
       "spans": [
@@ -5965,45 +5866,23 @@
       ]
     },
     {
-      "id": "ALS-S0265.1",
+      "id": "ALS-S0265",
       "root_id": "ALS-S0265",
       "lifecycle": "completed",
       "spans": [
         [
           46920,
-          46995
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0265.2",
-      "root_id": "ALS-S0265",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          46995,
           46998
         ]
       ]
     },
     {
-      "id": "ALS-S0266.1",
+      "id": "ALS-S0266",
       "root_id": "ALS-S0266",
       "lifecycle": "completed",
       "spans": [
         [
           46998,
-          47077
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0266.2",
-      "root_id": "ALS-S0266",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          47077,
           47080
         ]
       ]
@@ -6317,17 +6196,6 @@
       ]
     },
     {
-      "id": "ALS-S0293.3",
-      "root_id": "ALS-S0293",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          51609,
-          51612
-        ]
-      ]
-    },
-    {
       "id": "ALS-S0294.1",
       "root_id": "ALS-S0294",
       "lifecycle": "current",
@@ -6346,17 +6214,6 @@
         [
           51892,
           51975
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0294.3",
-      "root_id": "ALS-S0294",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          51975,
-          51978
         ]
       ]
     },
@@ -6449,23 +6306,12 @@
       ]
     },
     {
-      "id": "ALS-S0303.1",
+      "id": "ALS-S0303",
       "root_id": "ALS-S0303",
       "lifecycle": "completed",
       "spans": [
         [
           53412,
-          53583
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0303.2",
-      "root_id": "ALS-S0303",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          53583,
           53586
         ]
       ]
@@ -6526,45 +6372,23 @@
       ]
     },
     {
-      "id": "ALS-S0309.1",
+      "id": "ALS-S0309",
       "root_id": "ALS-S0309",
       "lifecycle": "completed",
       "spans": [
         [
           54509,
-          54685
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0309.2",
-      "root_id": "ALS-S0309",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          54685,
           54688
         ]
       ]
     },
     {
-      "id": "ALS-S0310.1",
+      "id": "ALS-S0310",
       "root_id": "ALS-S0310",
       "lifecycle": "completed",
       "spans": [
         [
           54688,
-          54880
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0310.2",
-      "root_id": "ALS-S0310",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          54880,
           54883
         ]
       ]
@@ -6704,33 +6528,11 @@
     {
       "id": "ALS-S0315.3",
       "root_id": "ALS-S0315",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          56421,
-          56423
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0315.4",
-      "root_id": "ALS-S0315",
       "lifecycle": "current",
       "spans": [
         [
           56423,
           56471
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0315.5",
-      "root_id": "ALS-S0315",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          56471,
-          56474
         ]
       ]
     },
@@ -6790,17 +6592,6 @@
       ]
     },
     {
-      "id": "ALS-S0316.6",
-      "root_id": "ALS-S0316",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          56926,
-          56929
-        ]
-      ]
-    },
-    {
       "id": "ALS-S0317.1",
       "root_id": "ALS-S0317",
       "lifecycle": "planned",
@@ -6852,17 +6643,6 @@
         [
           57166,
           57321
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0317.6",
-      "root_id": "ALS-S0317",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          57321,
-          57324
         ]
       ]
     },
@@ -6944,17 +6724,6 @@
       ]
     },
     {
-      "id": "ALS-S0322.4",
-      "root_id": "ALS-S0322",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          58458,
-          58461
-        ]
-      ]
-    },
-    {
       "id": "ALS-S0323.1",
       "root_id": "ALS-S0323",
       "lifecycle": "planned",
@@ -6984,17 +6753,6 @@
         [
           58697,
           59215
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0323.4",
-      "root_id": "ALS-S0323",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          59215,
-          59218
         ]
       ]
     },
@@ -7054,17 +6812,6 @@
       ]
     },
     {
-      "id": "ALS-S0325.5",
-      "root_id": "ALS-S0325",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          59789,
-          59792
-        ]
-      ]
-    },
-    {
       "id": "ALS-S0326.1",
       "root_id": "ALS-S0326",
       "lifecycle": "planned",
@@ -7094,17 +6841,6 @@
         [
           59874,
           59929
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0326.4",
-      "root_id": "ALS-S0326",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          59929,
-          59932
         ]
       ]
     },
@@ -7153,17 +6889,6 @@
       ]
     },
     {
-      "id": "ALS-S0328.4",
-      "root_id": "ALS-S0328",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          60287,
-          60290
-        ]
-      ]
-    },
-    {
       "id": "ALS-S0329.1",
       "root_id": "ALS-S0329",
       "lifecycle": "planned",
@@ -7197,17 +6922,6 @@
       ]
     },
     {
-      "id": "ALS-S0329.4",
-      "root_id": "ALS-S0329",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          60525,
-          60528
-        ]
-      ]
-    },
-    {
       "id": "ALS-S0330.1",
       "root_id": "ALS-S0330",
       "lifecycle": "completed",
@@ -7237,17 +6951,6 @@
         [
           60735,
           60909
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0330.4",
-      "root_id": "ALS-S0330",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          60909,
-          60912
         ]
       ]
     },
@@ -7303,17 +7006,6 @@
         [
           61533,
           61563
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0333.4",
-      "root_id": "ALS-S0333",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          61563,
-          61566
         ]
       ]
     },
@@ -7433,24 +7125,13 @@
       "lifecycle": "planned",
       "spans": [
         [
-          63407,
-          63408
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0341.5",
-      "root_id": "ALS-S0341",
-      "lifecycle": "planned",
-      "spans": [
-        [
           63408,
           63447
         ]
       ]
     },
     {
-      "id": "ALS-S0341.6",
+      "id": "ALS-S0341.5",
       "root_id": "ALS-S0341",
       "lifecycle": "planned",
       "spans": [
@@ -7461,7 +7142,7 @@
       ]
     },
     {
-      "id": "ALS-S0341.7",
+      "id": "ALS-S0341.6",
       "root_id": "ALS-S0341",
       "lifecycle": "current",
       "spans": [
@@ -7472,18 +7153,7 @@
       ]
     },
     {
-      "id": "ALS-S0341.8",
-      "root_id": "ALS-S0341",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          63627,
-          63628
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0341.9",
+      "id": "ALS-S0341.7",
       "root_id": "ALS-S0341",
       "lifecycle": "planned",
       "spans": [
@@ -7494,7 +7164,7 @@
       ]
     },
     {
-      "id": "ALS-S0341.10",
+      "id": "ALS-S0341.8",
       "root_id": "ALS-S0341",
       "lifecycle": "planned",
       "spans": [
@@ -7505,24 +7175,13 @@
       ]
     },
     {
-      "id": "ALS-S0341.11",
+      "id": "ALS-S0341.9",
       "root_id": "ALS-S0341",
       "lifecycle": "planned",
       "spans": [
         [
           63699,
           63771
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0341.12",
-      "root_id": "ALS-S0341",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          63771,
-          63774
         ]
       ]
     },
@@ -7578,17 +7237,6 @@
         [
           64099,
           64224
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0342.6",
-      "root_id": "ALS-S0342",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          64224,
-          64227
         ]
       ]
     },
@@ -7653,24 +7301,13 @@
       "lifecycle": "planned",
       "spans": [
         [
-          65174,
-          65175
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0345.5",
-      "root_id": "ALS-S0345",
-      "lifecycle": "planned",
-      "spans": [
-        [
           65175,
           65214
         ]
       ]
     },
     {
-      "id": "ALS-S0345.6",
+      "id": "ALS-S0345.5",
       "root_id": "ALS-S0345",
       "lifecycle": "planned",
       "spans": [
@@ -7681,24 +7318,13 @@
       ]
     },
     {
-      "id": "ALS-S0345.7",
+      "id": "ALS-S0345.6",
       "root_id": "ALS-S0345",
       "lifecycle": "planned",
       "spans": [
         [
           65218,
           65285
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0345.8",
-      "root_id": "ALS-S0345",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          65285,
-          65288
         ]
       ]
     },
@@ -7732,17 +7358,6 @@
         [
           65496,
           65527
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0346.4",
-      "root_id": "ALS-S0346",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          65527,
-          65530
         ]
       ]
     },
@@ -7879,17 +7494,6 @@
       ]
     },
     {
-      "id": "ALS-S0356.4",
-      "root_id": "ALS-S0356",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          67857,
-          67860
-        ]
-      ]
-    },
-    {
       "id": "ALS-S0357.1",
       "root_id": "ALS-S0357",
       "lifecycle": "planned",
@@ -7923,17 +7527,6 @@
       ]
     },
     {
-      "id": "ALS-S0357.4",
-      "root_id": "ALS-S0357",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          68055,
-          68058
-        ]
-      ]
-    },
-    {
       "id": "ALS-S0358.1",
       "root_id": "ALS-S0358",
       "lifecycle": "planned",
@@ -7963,17 +7556,6 @@
         [
           68229,
           68264
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0358.4",
-      "root_id": "ALS-S0358",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          68264,
-          68267
         ]
       ]
     },
@@ -8055,17 +7637,6 @@
       ]
     },
     {
-      "id": "ALS-S0363.4",
-      "root_id": "ALS-S0363",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          69063,
-          69066
-        ]
-      ]
-    },
-    {
       "id": "ALS-S0364",
       "root_id": "ALS-S0364",
       "lifecycle": "planned",
@@ -8110,17 +7681,6 @@
       ]
     },
     {
-      "id": "ALS-S0365.4",
-      "root_id": "ALS-S0365",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          69474,
-          69477
-        ]
-      ]
-    },
-    {
       "id": "ALS-S0366.1",
       "root_id": "ALS-S0366",
       "lifecycle": "planned",
@@ -8154,17 +7714,6 @@
       ]
     },
     {
-      "id": "ALS-S0366.4",
-      "root_id": "ALS-S0366",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          69710,
-          69713
-        ]
-      ]
-    },
-    {
       "id": "ALS-S0367.1",
       "root_id": "ALS-S0367",
       "lifecycle": "current",
@@ -8181,24 +7730,13 @@
       "lifecycle": "planned",
       "spans": [
         [
-          69852,
-          69853
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0367.3",
-      "root_id": "ALS-S0367",
-      "lifecycle": "planned",
-      "spans": [
-        [
           69853,
           69883
         ]
       ]
     },
     {
-      "id": "ALS-S0367.4",
+      "id": "ALS-S0367.3",
       "root_id": "ALS-S0367",
       "lifecycle": "planned",
       "spans": [
@@ -8209,7 +7747,7 @@
       ]
     },
     {
-      "id": "ALS-S0367.5",
+      "id": "ALS-S0367.4",
       "root_id": "ALS-S0367",
       "lifecycle": "current",
       "spans": [
@@ -8220,18 +7758,7 @@
       ]
     },
     {
-      "id": "ALS-S0367.6",
-      "root_id": "ALS-S0367",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          70039,
-          70040
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0367.7",
+      "id": "ALS-S0367.5",
       "root_id": "ALS-S0367",
       "lifecycle": "planned",
       "spans": [
@@ -8242,7 +7769,7 @@
       ]
     },
     {
-      "id": "ALS-S0367.8",
+      "id": "ALS-S0367.6",
       "root_id": "ALS-S0367",
       "lifecycle": "planned",
       "spans": [
@@ -8253,7 +7780,7 @@
       ]
     },
     {
-      "id": "ALS-S0367.9",
+      "id": "ALS-S0367.7",
       "root_id": "ALS-S0367",
       "lifecycle": "current",
       "spans": [
@@ -8264,7 +7791,7 @@
       ]
     },
     {
-      "id": "ALS-S0367.10",
+      "id": "ALS-S0367.8",
       "root_id": "ALS-S0367",
       "lifecycle": "current",
       "spans": [
@@ -8275,7 +7802,7 @@
       ]
     },
     {
-      "id": "ALS-S0367.11",
+      "id": "ALS-S0367.9",
       "root_id": "ALS-S0367",
       "lifecycle": "current",
       "spans": [
@@ -8286,18 +7813,7 @@
       ]
     },
     {
-      "id": "ALS-S0367.12",
-      "root_id": "ALS-S0367",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          70444,
-          70445
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0367.13",
+      "id": "ALS-S0367.10",
       "root_id": "ALS-S0367",
       "lifecycle": "planned",
       "spans": [
@@ -8308,7 +7824,7 @@
       ]
     },
     {
-      "id": "ALS-S0367.14",
+      "id": "ALS-S0367.11",
       "root_id": "ALS-S0367",
       "lifecycle": "planned",
       "spans": [
@@ -8319,7 +7835,7 @@
       ]
     },
     {
-      "id": "ALS-S0367.15",
+      "id": "ALS-S0367.12",
       "root_id": "ALS-S0367",
       "lifecycle": "current",
       "spans": [
@@ -8330,18 +7846,7 @@
       ]
     },
     {
-      "id": "ALS-S0367.16",
-      "root_id": "ALS-S0367",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          71173,
-          71174
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0367.17",
+      "id": "ALS-S0367.13",
       "root_id": "ALS-S0367",
       "lifecycle": "planned",
       "spans": [
@@ -8352,7 +7857,7 @@
       ]
     },
     {
-      "id": "ALS-S0367.18",
+      "id": "ALS-S0367.14",
       "root_id": "ALS-S0367",
       "lifecycle": "planned",
       "spans": [
@@ -8363,7 +7868,7 @@
       ]
     },
     {
-      "id": "ALS-S0367.19",
+      "id": "ALS-S0367.15",
       "root_id": "ALS-S0367",
       "lifecycle": "current",
       "spans": [
@@ -8374,18 +7879,7 @@
       ]
     },
     {
-      "id": "ALS-S0367.20",
-      "root_id": "ALS-S0367",
-      "lifecycle": "planned",
-      "spans": [
-        [
-          71476,
-          71477
-        ]
-      ]
-    },
-    {
-      "id": "ALS-S0367.21",
+      "id": "ALS-S0367.16",
       "root_id": "ALS-S0367",
       "lifecycle": "planned",
       "spans": [
@@ -8396,7 +7890,7 @@
       ]
     },
     {
-      "id": "ALS-S0367.22",
+      "id": "ALS-S0367.17",
       "root_id": "ALS-S0367",
       "lifecycle": "planned",
       "spans": [
@@ -8407,7 +7901,7 @@
       ]
     },
     {
-      "id": "ALS-S0367.23",
+      "id": "ALS-S0367.18",
       "root_id": "ALS-S0367",
       "lifecycle": "current",
       "spans": [
@@ -8418,7 +7912,7 @@
       ]
     },
     {
-      "id": "ALS-S0367.24",
+      "id": "ALS-S0367.19",
       "root_id": "ALS-S0367",
       "lifecycle": "planned",
       "spans": [
@@ -8429,7 +7923,7 @@
       ]
     },
     {
-      "id": "ALS-S0367.25",
+      "id": "ALS-S0367.20",
       "root_id": "ALS-S0367",
       "lifecycle": "planned",
       "spans": [
@@ -8440,7 +7934,7 @@
       ]
     },
     {
-      "id": "ALS-S0367.26",
+      "id": "ALS-S0367.21",
       "root_id": "ALS-S0367",
       "lifecycle": "planned",
       "spans": [
@@ -8451,7 +7945,7 @@
       ]
     },
     {
-      "id": "ALS-S0367.27",
+      "id": "ALS-S0367.22",
       "root_id": "ALS-S0367",
       "lifecycle": "planned",
       "spans": [
@@ -8462,7 +7956,7 @@
       ]
     },
     {
-      "id": "ALS-S0367.28",
+      "id": "ALS-S0367.23",
       "root_id": "ALS-S0367",
       "lifecycle": "planned",
       "spans": [
@@ -8473,7 +7967,7 @@
       ]
     },
     {
-      "id": "ALS-S0367.29",
+      "id": "ALS-S0367.24",
       "root_id": "ALS-S0367",
       "lifecycle": "planned",
       "spans": [
@@ -8673,6 +8167,15 @@
       "span": [
         878,
         888
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "standard-library documentation",
+      "root_id": "ALS-S0006",
+      "span": [
+        1384,
+        1414
       ]
     },
     {
@@ -9135,6 +8638,69 @@
       ]
     },
     {
+      "kind": "resource-kind",
+      "name": "language-reference index",
+      "root_id": "ALS-S0124",
+      "span": [
+        20888,
+        20912
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "individual language topics",
+      "root_id": "ALS-S0124",
+      "span": [
+        20917,
+        20943
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "package-documentation indexes",
+      "root_id": "ALS-S0125",
+      "span": [
+        20947,
+        20976
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "modules",
+      "root_id": "ALS-S0125",
+      "span": [
+        20978,
+        20985
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "public declarations",
+      "root_id": "ALS-S0125",
+      "span": [
+        20991,
+        21010
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "standard-library documentation",
+      "root_id": "ALS-S0126",
+      "span": [
+        21048,
+        21078
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "virtual source files",
+      "root_id": "ALS-S0127",
+      "span": [
+        21126,
+        21146
+      ]
+    },
+    {
       "kind": "domain-error",
       "name": "invalid_cursor",
       "root_id": "ALS-S0145",
@@ -9261,6 +8827,60 @@
       ]
     },
     {
+      "kind": "resource-kind",
+      "name": "modules",
+      "root_id": "ALS-S0181",
+      "span": [
+        34839,
+        34846
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "modules",
+      "root_id": "ALS-S0182",
+      "span": [
+        34922,
+        34929
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "modules",
+      "root_id": "ALS-S0191",
+      "span": [
+        35175,
+        35182
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "modules",
+      "root_id": "ALS-S0193",
+      "span": [
+        35253,
+        35260
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "modules",
+      "root_id": "ALS-S0197",
+      "span": [
+        35484,
+        35491
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "modules",
+      "root_id": "ALS-S0210",
+      "span": [
+        38714,
+        38721
+      ]
+    },
+    {
       "kind": "encoding",
       "name": "UTF-8",
       "root_id": "ALS-S0231",
@@ -9288,6 +8908,33 @@
       ]
     },
     {
+      "kind": "lsp-field",
+      "name": "rootUri",
+      "root_id": "ALS-S0235",
+      "span": [
+        43433,
+        43440
+      ]
+    },
+    {
+      "kind": "lsp-field",
+      "name": "veln/virtualDocument",
+      "root_id": "ALS-S0240",
+      "span": [
+        43858,
+        43878
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "standard-library documentation",
+      "root_id": "ALS-S0254",
+      "span": [
+        45914,
+        45944
+      ]
+    },
+    {
       "kind": "client-platform",
       "name": "codex/x86_64-unknown-linux-gnu",
       "root_id": "ALS-S0261",
@@ -9303,6 +8950,105 @@
       "span": [
         46774,
         46810
+      ]
+    },
+    {
+      "kind": "plugin-compatibility-cell",
+      "name": "client",
+      "root_id": "ALS-S0265",
+      "span": [
+        46923,
+        46929
+      ]
+    },
+    {
+      "kind": "plugin-compatibility-cell",
+      "name": "platform",
+      "root_id": "ALS-S0266",
+      "span": [
+        47001,
+        47009
+      ]
+    },
+    {
+      "kind": "plugin-compatibility-cell",
+      "name": "host_build",
+      "root_id": "ALS-S0267",
+      "span": [
+        47083,
+        47093
+      ]
+    },
+    {
+      "kind": "plugin-compatibility-cell",
+      "name": "manifest_schema_revision",
+      "root_id": "ALS-S0268",
+      "span": [
+        47129,
+        47153
+      ]
+    },
+    {
+      "kind": "plugin-compatibility-cell",
+      "name": "validator_version",
+      "root_id": "ALS-S0269",
+      "span": [
+        47203,
+        47220
+      ]
+    },
+    {
+      "kind": "plugin-compatibility-cell",
+      "name": "validator_digest",
+      "root_id": "ALS-S0270",
+      "span": [
+        47270,
+        47286
+      ]
+    },
+    {
+      "kind": "plugin-compatibility-cell",
+      "name": "veln_contract",
+      "root_id": "ALS-S0271",
+      "span": [
+        47345,
+        47358
+      ]
+    },
+    {
+      "kind": "plugin-compatibility-cell",
+      "name": "mcp_contract",
+      "root_id": "ALS-S0272",
+      "span": [
+        47401,
+        47413
+      ]
+    },
+    {
+      "kind": "plugin-compatibility-cell",
+      "name": "lsp_contract",
+      "root_id": "ALS-S0273",
+      "span": [
+        47445,
+        47457
+      ]
+    },
+    {
+      "kind": "plugin-compatibility-cell",
+      "name": "language_service_contract",
+      "root_id": "ALS-S0274",
+      "span": [
+        47489,
+        47514
+      ]
+    },
+    {
+      "kind": "plugin-compatibility-cell",
+      "name": "reference_schema_contract",
+      "root_id": "ALS-S0275",
+      "span": [
+        47563,
+        47588
       ]
     },
     {
@@ -9855,6 +9601,15 @@
       ]
     },
     {
+      "kind": "lsp-field",
+      "name": "veln/virtualDocument",
+      "root_id": "ALS-S0341",
+      "span": [
+        63457,
+        63477
+      ]
+    },
+    {
       "kind": "evidence-gate",
       "name": "Q12",
       "root_id": "ALS-S0342",
@@ -9924,6 +9679,15 @@
       "span": [
         65705,
         65708
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "modules",
+      "root_id": "ALS-S0348",
+      "span": [
+        65820,
+        65827
       ]
     },
     {

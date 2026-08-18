@@ -4602,6 +4602,15 @@
       ]
     },
     {
+      "kind": "resource-kind",
+      "name": "standard-library documentation",
+      "root_id": "ALS-S0006",
+      "span": [
+        1384,
+        1414
+      ]
+    },
+    {
       "kind": "evidence-gate",
       "name": "Q01",
       "root_id": "ALS-S0011",
@@ -5061,6 +5070,69 @@
       ]
     },
     {
+      "kind": "resource-kind",
+      "name": "language-reference index",
+      "root_id": "ALS-S0124",
+      "span": [
+        20888,
+        20912
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "individual language topics",
+      "root_id": "ALS-S0124",
+      "span": [
+        20917,
+        20943
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "package-documentation indexes",
+      "root_id": "ALS-S0125",
+      "span": [
+        20947,
+        20976
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "modules",
+      "root_id": "ALS-S0125",
+      "span": [
+        20978,
+        20985
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "public declarations",
+      "root_id": "ALS-S0125",
+      "span": [
+        20991,
+        21010
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "standard-library documentation",
+      "root_id": "ALS-S0126",
+      "span": [
+        21048,
+        21078
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "virtual source files",
+      "root_id": "ALS-S0127",
+      "span": [
+        21126,
+        21146
+      ]
+    },
+    {
       "kind": "domain-error",
       "name": "invalid_cursor",
       "root_id": "ALS-S0145",
@@ -5187,6 +5259,60 @@
       ]
     },
     {
+      "kind": "resource-kind",
+      "name": "modules",
+      "root_id": "ALS-S0181",
+      "span": [
+        34839,
+        34846
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "modules",
+      "root_id": "ALS-S0182",
+      "span": [
+        34922,
+        34929
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "modules",
+      "root_id": "ALS-S0191",
+      "span": [
+        35175,
+        35182
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "modules",
+      "root_id": "ALS-S0193",
+      "span": [
+        35253,
+        35260
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "modules",
+      "root_id": "ALS-S0197",
+      "span": [
+        35484,
+        35491
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "modules",
+      "root_id": "ALS-S0210",
+      "span": [
+        38714,
+        38721
+      ]
+    },
+    {
       "kind": "encoding",
       "name": "UTF-8",
       "root_id": "ALS-S0231",
@@ -5214,6 +5340,33 @@
       ]
     },
     {
+      "kind": "lsp-field",
+      "name": "rootUri",
+      "root_id": "ALS-S0235",
+      "span": [
+        43433,
+        43440
+      ]
+    },
+    {
+      "kind": "lsp-field",
+      "name": "veln/virtualDocument",
+      "root_id": "ALS-S0240",
+      "span": [
+        43858,
+        43878
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "standard-library documentation",
+      "root_id": "ALS-S0254",
+      "span": [
+        45914,
+        45944
+      ]
+    },
+    {
       "kind": "client-platform",
       "name": "codex/x86_64-unknown-linux-gnu",
       "root_id": "ALS-S0261",
@@ -5229,6 +5382,105 @@
       "span": [
         46774,
         46810
+      ]
+    },
+    {
+      "kind": "plugin-compatibility-cell",
+      "name": "client",
+      "root_id": "ALS-S0265",
+      "span": [
+        46923,
+        46929
+      ]
+    },
+    {
+      "kind": "plugin-compatibility-cell",
+      "name": "platform",
+      "root_id": "ALS-S0266",
+      "span": [
+        47001,
+        47009
+      ]
+    },
+    {
+      "kind": "plugin-compatibility-cell",
+      "name": "host_build",
+      "root_id": "ALS-S0267",
+      "span": [
+        47083,
+        47093
+      ]
+    },
+    {
+      "kind": "plugin-compatibility-cell",
+      "name": "manifest_schema_revision",
+      "root_id": "ALS-S0268",
+      "span": [
+        47129,
+        47153
+      ]
+    },
+    {
+      "kind": "plugin-compatibility-cell",
+      "name": "validator_version",
+      "root_id": "ALS-S0269",
+      "span": [
+        47203,
+        47220
+      ]
+    },
+    {
+      "kind": "plugin-compatibility-cell",
+      "name": "validator_digest",
+      "root_id": "ALS-S0270",
+      "span": [
+        47270,
+        47286
+      ]
+    },
+    {
+      "kind": "plugin-compatibility-cell",
+      "name": "veln_contract",
+      "root_id": "ALS-S0271",
+      "span": [
+        47345,
+        47358
+      ]
+    },
+    {
+      "kind": "plugin-compatibility-cell",
+      "name": "mcp_contract",
+      "root_id": "ALS-S0272",
+      "span": [
+        47401,
+        47413
+      ]
+    },
+    {
+      "kind": "plugin-compatibility-cell",
+      "name": "lsp_contract",
+      "root_id": "ALS-S0273",
+      "span": [
+        47445,
+        47457
+      ]
+    },
+    {
+      "kind": "plugin-compatibility-cell",
+      "name": "language_service_contract",
+      "root_id": "ALS-S0274",
+      "span": [
+        47489,
+        47514
+      ]
+    },
+    {
+      "kind": "plugin-compatibility-cell",
+      "name": "reference_schema_contract",
+      "root_id": "ALS-S0275",
+      "span": [
+        47563,
+        47588
       ]
     },
     {
@@ -5781,6 +6033,15 @@
       ]
     },
     {
+      "kind": "lsp-field",
+      "name": "veln/virtualDocument",
+      "root_id": "ALS-S0341",
+      "span": [
+        63457,
+        63477
+      ]
+    },
+    {
       "kind": "evidence-gate",
       "name": "Q12",
       "root_id": "ALS-S0342",
@@ -5850,6 +6111,15 @@
       "span": [
         65705,
         65708
+      ]
+    },
+    {
+      "kind": "resource-kind",
+      "name": "modules",
+      "root_id": "ALS-S0348",
+      "span": [
+        65820,
+        65827
       ]
     },
     {

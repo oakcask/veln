@@ -51,18 +51,6 @@
     },
     {
       "leaf_id": "ALS-S0002.4",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0002.5",
       "lifecycle": "current",
       "destination": {
         "kind": "specification",
@@ -74,7 +62,7 @@
       }
     },
     {
-      "leaf_id": "ALS-S0002.6",
+      "leaf_id": "ALS-S0002.5",
       "lifecycle": "planned",
       "destination": {
         "kind": "proposal",
@@ -363,18 +351,6 @@
     },
     {
       "leaf_id": "ALS-S0017.2",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0017.3",
       "lifecycle": "planned",
       "destination": {
         "kind": "proposal",
@@ -675,18 +651,6 @@
     },
     {
       "leaf_id": "ALS-S0032.4",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0032.5",
       "lifecycle": "planned",
       "destination": {
         "kind": "proposal",
@@ -1850,7 +1814,7 @@
       }
     },
     {
-      "leaf_id": "ALS-S0116.1",
+      "leaf_id": "ALS-S0116",
       "lifecycle": "current",
       "destination": {
         "kind": "specification",
@@ -1858,18 +1822,6 @@
         "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           "examples/specification/mcp/workspace-lifecycle/case.toml"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0116.2",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
         ]
       }
     },
@@ -2259,18 +2211,6 @@
     },
     {
       "leaf_id": "ALS-S0142.7",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0142.8",
       "lifecycle": "planned",
       "destination": {
         "kind": "proposal",
@@ -2871,13 +2811,13 @@
     },
     {
       "leaf_id": "ALS-S0171.5",
-      "lifecycle": "planned",
+      "lifecycle": "current",
       "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
+        "kind": "specification",
+        "path": "docs/specification/mcp.md",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
-          "docs/proposals/agent-language-services.md"
+          "examples/specification/mcp/workspace-lifecycle/case.toml"
         ]
       }
     },
@@ -2895,13 +2835,13 @@
     },
     {
       "leaf_id": "ALS-S0171.7",
-      "lifecycle": "current",
+      "lifecycle": "planned",
       "destination": {
-        "kind": "specification",
-        "path": "docs/specification/mcp.md",
-        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+        "kind": "proposal",
+        "path": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services",
         "evidence": [
-          "examples/specification/mcp/workspace-lifecycle/case.toml"
+          "docs/proposals/agent-language-services.md"
         ]
       }
     },
@@ -2919,13 +2859,13 @@
     },
     {
       "leaf_id": "ALS-S0171.9",
-      "lifecycle": "planned",
+      "lifecycle": "current",
       "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
+        "kind": "specification",
+        "path": "docs/specification/mcp.md",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
-          "docs/proposals/agent-language-services.md"
+          "examples/specification/mcp/workspace-lifecycle/case.toml"
         ]
       }
     },
@@ -2943,18 +2883,6 @@
     },
     {
       "leaf_id": "ALS-S0171.11",
-      "lifecycle": "current",
-      "destination": {
-        "kind": "specification",
-        "path": "docs/specification/mcp.md",
-        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
-        "evidence": [
-          "examples/specification/mcp/workspace-lifecycle/case.toml"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0171.12",
       "lifecycle": "planned",
       "destination": {
         "kind": "proposal",
@@ -2962,6 +2890,18 @@
         "anchor": "#agent-language-services",
         "evidence": [
           "docs/proposals/agent-language-services.md"
+        ]
+      }
+    },
+    {
+      "leaf_id": "ALS-S0171.12",
+      "lifecycle": "current",
+      "destination": {
+        "kind": "specification",
+        "path": "docs/specification/mcp.md",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+        "evidence": [
+          "examples/specification/mcp/workspace-lifecycle/case.toml"
         ]
       }
     },
@@ -2991,66 +2931,18 @@
     },
     {
       "leaf_id": "ALS-S0171.15",
-      "lifecycle": "current",
+      "lifecycle": "planned",
       "destination": {
-        "kind": "specification",
-        "path": "docs/specification/mcp.md",
-        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+        "kind": "proposal",
+        "path": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services",
         "evidence": [
-          "examples/specification/mcp/workspace-lifecycle/case.toml"
+          "docs/proposals/agent-language-services.md"
         ]
       }
     },
     {
       "leaf_id": "ALS-S0171.16",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0171.17",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0171.18",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0171.19",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0171.20",
       "lifecycle": "planned",
       "destination": {
         "kind": "proposal",
@@ -4430,7 +4322,7 @@
       }
     },
     {
-      "leaf_id": "ALS-S0265.1",
+      "leaf_id": "ALS-S0265",
       "lifecycle": "completed",
       "destination": {
         "kind": "implementation-record",
@@ -4442,19 +4334,7 @@
       }
     },
     {
-      "leaf_id": "ALS-S0265.2",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0266.1",
+      "leaf_id": "ALS-S0266",
       "lifecycle": "completed",
       "destination": {
         "kind": "implementation-record",
@@ -4462,18 +4342,6 @@
         "anchor": "#agent-language-services-inventory-review-gate",
         "evidence": [
           "docs/reference/agent-language-services-lifecycle/source-universe.json"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0266.2",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
         ]
       }
     },
@@ -4814,18 +4682,6 @@
       }
     },
     {
-      "leaf_id": "ALS-S0293.3",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
       "leaf_id": "ALS-S0294.1",
       "lifecycle": "current",
       "destination": {
@@ -4839,18 +4695,6 @@
     },
     {
       "leaf_id": "ALS-S0294.2",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0294.3",
       "lifecycle": "planned",
       "destination": {
         "kind": "proposal",
@@ -4958,7 +4802,7 @@
       }
     },
     {
-      "leaf_id": "ALS-S0303.1",
+      "leaf_id": "ALS-S0303",
       "lifecycle": "completed",
       "destination": {
         "kind": "implementation-record",
@@ -4966,18 +4810,6 @@
         "anchor": "#agent-language-services-inventory-review-gate",
         "evidence": [
           "docs/reference/agent-language-services-lifecycle/source-universe.json"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0303.2",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
         ]
       }
     },
@@ -5042,7 +4874,7 @@
       }
     },
     {
-      "leaf_id": "ALS-S0309.1",
+      "leaf_id": "ALS-S0309",
       "lifecycle": "completed",
       "destination": {
         "kind": "implementation-record",
@@ -5054,19 +4886,7 @@
       }
     },
     {
-      "leaf_id": "ALS-S0309.2",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0310.1",
+      "leaf_id": "ALS-S0310",
       "lifecycle": "completed",
       "destination": {
         "kind": "implementation-record",
@@ -5074,18 +4894,6 @@
         "anchor": "#agent-language-services-inventory-review-gate",
         "evidence": [
           "docs/reference/agent-language-services-lifecycle/source-universe.json"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0310.2",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
         ]
       }
     },
@@ -5235,18 +5043,6 @@
     },
     {
       "leaf_id": "ALS-S0315.3",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0315.4",
       "lifecycle": "current",
       "destination": {
         "kind": "specification",
@@ -5254,18 +5050,6 @@
         "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           "examples/specification/mcp/workspace-lifecycle/case.toml"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0315.5",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
         ]
       }
     },
@@ -5330,18 +5114,6 @@
       }
     },
     {
-      "leaf_id": "ALS-S0316.6",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
       "leaf_id": "ALS-S0317.1",
       "lifecycle": "planned",
       "destination": {
@@ -5398,18 +5170,6 @@
         "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           "examples/specification/mcp/workspace-lifecycle/case.toml"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0317.6",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
         ]
       }
     },
@@ -5498,18 +5258,6 @@
       }
     },
     {
-      "leaf_id": "ALS-S0322.4",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
       "leaf_id": "ALS-S0323.1",
       "lifecycle": "planned",
       "destination": {
@@ -5535,18 +5283,6 @@
     },
     {
       "leaf_id": "ALS-S0323.3",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0323.4",
       "lifecycle": "planned",
       "destination": {
         "kind": "proposal",
@@ -5618,18 +5354,6 @@
       }
     },
     {
-      "leaf_id": "ALS-S0325.5",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
       "leaf_id": "ALS-S0326.1",
       "lifecycle": "planned",
       "destination": {
@@ -5662,18 +5386,6 @@
         "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           "examples/specification/mcp/workspace-lifecycle/case.toml"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0326.4",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
         ]
       }
     },
@@ -5726,18 +5438,6 @@
       }
     },
     {
-      "leaf_id": "ALS-S0328.4",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
       "leaf_id": "ALS-S0329.1",
       "lifecycle": "planned",
       "destination": {
@@ -5774,18 +5474,6 @@
       }
     },
     {
-      "leaf_id": "ALS-S0329.4",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
       "leaf_id": "ALS-S0330.1",
       "lifecycle": "completed",
       "destination": {
@@ -5811,18 +5499,6 @@
     },
     {
       "leaf_id": "ALS-S0330.3",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0330.4",
       "lifecycle": "planned",
       "destination": {
         "kind": "proposal",
@@ -5883,18 +5559,6 @@
     },
     {
       "leaf_id": "ALS-S0333.3",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0333.4",
       "lifecycle": "planned",
       "destination": {
         "kind": "proposal",
@@ -6051,18 +5715,6 @@
     },
     {
       "leaf_id": "ALS-S0341.6",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0341.7",
       "lifecycle": "current",
       "destination": {
         "kind": "specification",
@@ -6070,6 +5722,18 @@
         "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           "examples/specification/mcp/workspace-lifecycle/case.toml"
+        ]
+      }
+    },
+    {
+      "leaf_id": "ALS-S0341.7",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "proposal",
+        "path": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services",
+        "evidence": [
+          "docs/proposals/agent-language-services.md"
         ]
       }
     },
@@ -6087,42 +5751,6 @@
     },
     {
       "leaf_id": "ALS-S0341.9",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0341.10",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0341.11",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0341.12",
       "lifecycle": "planned",
       "destination": {
         "kind": "proposal",
@@ -6183,18 +5811,6 @@
     },
     {
       "leaf_id": "ALS-S0342.5",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0342.6",
       "lifecycle": "planned",
       "destination": {
         "kind": "proposal",
@@ -6302,30 +5918,6 @@
       }
     },
     {
-      "leaf_id": "ALS-S0345.7",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0345.8",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
       "leaf_id": "ALS-S0346.1",
       "lifecycle": "planned",
       "destination": {
@@ -6351,18 +5943,6 @@
     },
     {
       "leaf_id": "ALS-S0346.3",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0346.4",
       "lifecycle": "planned",
       "destination": {
         "kind": "proposal",
@@ -6518,18 +6098,6 @@
       }
     },
     {
-      "leaf_id": "ALS-S0356.4",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
       "leaf_id": "ALS-S0357.1",
       "lifecycle": "planned",
       "destination": {
@@ -6566,18 +6134,6 @@
       }
     },
     {
-      "leaf_id": "ALS-S0357.4",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
       "leaf_id": "ALS-S0358.1",
       "lifecycle": "planned",
       "destination": {
@@ -6603,18 +6159,6 @@
     },
     {
       "leaf_id": "ALS-S0358.3",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0358.4",
       "lifecycle": "planned",
       "destination": {
         "kind": "proposal",
@@ -6710,18 +6254,6 @@
       }
     },
     {
-      "leaf_id": "ALS-S0363.4",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
       "leaf_id": "ALS-S0364",
       "lifecycle": "planned",
       "destination": {
@@ -6770,18 +6302,6 @@
       }
     },
     {
-      "leaf_id": "ALS-S0365.4",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
       "leaf_id": "ALS-S0366.1",
       "lifecycle": "planned",
       "destination": {
@@ -6807,18 +6327,6 @@
     },
     {
       "leaf_id": "ALS-S0366.3",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0366.4",
       "lifecycle": "planned",
       "destination": {
         "kind": "proposal",
@@ -6867,18 +6375,6 @@
     },
     {
       "leaf_id": "ALS-S0367.4",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0367.5",
       "lifecycle": "current",
       "destination": {
         "kind": "specification",
@@ -6886,6 +6382,18 @@
         "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           "examples/specification/mcp/workspace-lifecycle/case.toml"
+        ]
+      }
+    },
+    {
+      "leaf_id": "ALS-S0367.5",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "proposal",
+        "path": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services",
+        "evidence": [
+          "docs/proposals/agent-language-services.md"
         ]
       }
     },
@@ -6903,25 +6411,25 @@
     },
     {
       "leaf_id": "ALS-S0367.7",
-      "lifecycle": "planned",
+      "lifecycle": "current",
       "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
+        "kind": "specification",
+        "path": "docs/specification/mcp.md",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
-          "docs/proposals/agent-language-services.md"
+          "examples/specification/mcp/workspace-lifecycle/case.toml"
         ]
       }
     },
     {
       "leaf_id": "ALS-S0367.8",
-      "lifecycle": "planned",
+      "lifecycle": "current",
       "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
+        "kind": "specification",
+        "path": "docs/specification/mcp.md",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
-          "docs/proposals/agent-language-services.md"
+          "examples/specification/mcp/workspace-lifecycle/case.toml"
         ]
       }
     },
@@ -6939,30 +6447,6 @@
     },
     {
       "leaf_id": "ALS-S0367.10",
-      "lifecycle": "current",
-      "destination": {
-        "kind": "specification",
-        "path": "docs/specification/mcp.md",
-        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
-        "evidence": [
-          "examples/specification/mcp/workspace-lifecycle/case.toml"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0367.11",
-      "lifecycle": "current",
-      "destination": {
-        "kind": "specification",
-        "path": "docs/specification/mcp.md",
-        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
-        "evidence": [
-          "examples/specification/mcp/workspace-lifecycle/case.toml"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0367.12",
       "lifecycle": "planned",
       "destination": {
         "kind": "proposal",
@@ -6970,6 +6454,30 @@
         "anchor": "#agent-language-services",
         "evidence": [
           "docs/proposals/agent-language-services.md"
+        ]
+      }
+    },
+    {
+      "leaf_id": "ALS-S0367.11",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "proposal",
+        "path": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services",
+        "evidence": [
+          "docs/proposals/agent-language-services.md"
+        ]
+      }
+    },
+    {
+      "leaf_id": "ALS-S0367.12",
+      "lifecycle": "current",
+      "destination": {
+        "kind": "specification",
+        "path": "docs/specification/mcp.md",
+        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+        "evidence": [
+          "examples/specification/mcp/workspace-lifecycle/case.toml"
         ]
       }
     },
@@ -7035,18 +6543,6 @@
     },
     {
       "leaf_id": "ALS-S0367.18",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0367.19",
       "lifecycle": "current",
       "destination": {
         "kind": "specification",
@@ -7054,6 +6550,18 @@
         "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
         "evidence": [
           "examples/specification/mcp/workspace-lifecycle/case.toml"
+        ]
+      }
+    },
+    {
+      "leaf_id": "ALS-S0367.19",
+      "lifecycle": "planned",
+      "destination": {
+        "kind": "proposal",
+        "path": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services",
+        "evidence": [
+          "docs/proposals/agent-language-services.md"
         ]
       }
     },
@@ -7095,78 +6603,18 @@
     },
     {
       "leaf_id": "ALS-S0367.23",
-      "lifecycle": "current",
+      "lifecycle": "planned",
       "destination": {
-        "kind": "specification",
-        "path": "docs/specification/mcp.md",
-        "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+        "kind": "proposal",
+        "path": "docs/proposals/agent-language-services.md",
+        "anchor": "#agent-language-services",
         "evidence": [
-          "examples/specification/mcp/workspace-lifecycle/case.toml"
+          "docs/proposals/agent-language-services.md"
         ]
       }
     },
     {
       "leaf_id": "ALS-S0367.24",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0367.25",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0367.26",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0367.27",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0367.28",
-      "lifecycle": "planned",
-      "destination": {
-        "kind": "proposal",
-        "path": "docs/proposals/agent-language-services.md",
-        "anchor": "#agent-language-services",
-        "evidence": [
-          "docs/proposals/agent-language-services.md"
-        ]
-      }
-    },
-    {
-      "leaf_id": "ALS-S0367.29",
       "lifecycle": "planned",
       "destination": {
         "kind": "proposal",

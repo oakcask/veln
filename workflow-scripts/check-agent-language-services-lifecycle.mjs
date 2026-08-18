@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import {
+  frontmatterField,
   markdownFrontmatter,
 } from "./check-doc-frontmatter.mjs";
 
@@ -57,7 +58,6 @@ if (isMainModule()) {
 
 export function writeGeneratedArtifacts(repoRoot) {
   fs.mkdirSync(path.resolve(repoRoot, lifecycleDir), { recursive: true });
-  fs.mkdirSync(path.resolve(repoRoot, reviewDir), { recursive: true });
   const generated = generateArtifacts({ repoRoot });
   writeJson(repoRoot, universePath, generated.universe);
   writeJson(repoRoot, inventoryPath, generated.inventory);
@@ -65,7 +65,6 @@ export function writeGeneratedArtifacts(repoRoot) {
   writeJson(repoRoot, ledgerSchemaPath, generated.ledgerSchema);
   writeJson(repoRoot, ledgerFixturePath, generated.ledgerFixture);
   writeJson(repoRoot, provenancePath, generated.provenance);
-  writeJson(repoRoot, sourceDecisionsPath, generated.sourceDecisions);
 }
 
 export function generateArtifacts({ repoRoot }) {
@@ -143,7 +142,9 @@ export function validateArtifacts({
   universe,
   inventory,
   manifest,
+  ledgerSchema,
   ledgerFixture,
+  provenance,
   sourceDecisions,
 }) {
   const errors = [];
@@ -166,17 +167,26 @@ export function validateArtifacts({
   validateManifest({ manifest, inventoryLeaves, errors });
   validateSourceDecisions({ sourceDecisions, universe, inventoryLeaves, errors });
   validateIdentities({ source, universe, sourceDecisions, errors });
-  validateLedger({ ledger: ledgerFixture, inventory, manifest, errors });
+  validateMigrationLedgerSchema({ ledgerSchema, errors });
+  validateLedger({ repoRoot, ledger: ledgerFixture, ledgerSchema, inventory, manifest, errors });
+  validateTargetProvenance({ provenance, errors });
 
   return errors.length === 0
     ? success("Agent language-services lifecycle artifacts match the frozen proposal source and ledger schema contract.")
     : failure("Update the agent language-services lifecycle artifacts before merging; the frozen source universe and ledger schema must stay reviewable.", errors);
 }
 
-export function validateLedger({ ledger, inventory, manifest, errors = [] }) {
+export function validateLedger({ repoRoot = ".", ledger, ledgerSchema = migrationLedgerSchema(), inventory, manifest, errors = [] }) {
   const leafIds = inventoryLeafIds(inventory);
   const parentIds = new Set(inventory.roots.filter((root) => root.children?.length > 0).map((root) => root.id));
   const manifestById = new Map(manifest.leaves.map((leaf) => [leaf.id, leaf]));
+  const leafIdPattern = isUsableRegExp(ledgerSchema.leaf_id_pattern)
+    ? new RegExp(ledgerSchema.leaf_id_pattern)
+    : /^$/;
+  const forbiddenLeafIdPatterns = (ledgerSchema.forbidden_leaf_id_patterns ?? [])
+    .filter(isUsableRegExp)
+    .map((pattern) => new RegExp(pattern));
+  const lifecycleEnum = new Set(ledgerSchema.lifecycle_enum ?? []);
   const seen = new Set();
   if (!Array.isArray(ledger.entries)) {
     errors.push(`${ledgerFixturePath}: add an entries array.`);
@@ -185,7 +195,7 @@ export function validateLedger({ ledger, inventory, manifest, errors = [] }) {
   for (const [index, entry] of ledger.entries.entries()) {
     const label = `${ledgerFixturePath}: entries[${index}]`;
     const leafId = entry.leaf_id;
-    if (!isStableLeafId(leafId)) {
+    if (!isStableLeafId(leafId, leafIdPattern) || forbiddenLeafIdPatterns.some((pattern) => pattern.test(leafId ?? ""))) {
       errors.push(`${label}: enumerate one stable leaf_id; ranges, wildcards, and catch-all entries hide migration review gaps.`);
       continue;
     }
@@ -199,7 +209,7 @@ export function validateLedger({ ledger, inventory, manifest, errors = [] }) {
       errors.push(`${label}: remove the duplicate mapping for ${leafId}.`);
     }
     seen.add(leafId);
-    if (!lifecycleValues.has(entry.lifecycle)) {
+    if (!lifecycleEnum.has(entry.lifecycle)) {
       errors.push(`${label}: set lifecycle to current, completed, planned, or removed.`);
     } else if (manifestById.get(leafId)?.lifecycle !== entry.lifecycle) {
       errors.push(`${label}: keep the ledger lifecycle equal to the frozen lifecycle manifest.`);
@@ -207,7 +217,7 @@ export function validateLedger({ ledger, inventory, manifest, errors = [] }) {
     if (entry.lifecycle === "removed" && manifestById.get(leafId)?.conformance !== false) {
       errors.push(`${label}: do not remove a leaf from the frozen conformance universe.`);
     }
-    validateDestination(label, entry, errors);
+    validateDestination({ repoRoot, label, entry, ledgerSchema, errors });
   }
   for (const leafId of leafIds) {
     if (!seen.has(leafId)) {
@@ -217,12 +227,70 @@ export function validateLedger({ ledger, inventory, manifest, errors = [] }) {
   return errors;
 }
 
+function validateMigrationLedgerSchema({ ledgerSchema, errors }) {
+  const expected = migrationLedgerSchema();
+  if (JSON.stringify(ledgerSchema) !== JSON.stringify(expected)) {
+    errors.push(`${ledgerSchemaPath}: keep the checked migration ledger schema equal to the validator contract.`);
+  }
+  if (!Array.isArray(ledgerSchema?.required) || !ledgerSchema.required.includes("schema_version") || !ledgerSchema.required.includes("entries")) {
+    errors.push(`${ledgerSchemaPath}: require schema_version and entries.`);
+  }
+  if (!isUsableRegExp(ledgerSchema?.leaf_id_pattern)) {
+    errors.push(`${ledgerSchemaPath}: provide a valid leaf_id_pattern.`);
+  }
+  for (const pattern of ledgerSchema?.forbidden_leaf_id_patterns ?? []) {
+    if (!isUsableRegExp(pattern)) {
+      errors.push(`${ledgerSchemaPath}: provide valid forbidden leaf_id patterns.`);
+    }
+  }
+  for (const lifecycle of lifecycleValues) {
+    if (!ledgerSchema?.lifecycle_enum?.includes(lifecycle)) {
+      errors.push(`${ledgerSchemaPath}: preserve lifecycle enum value ${lifecycle}.`);
+    }
+    if (ledgerSchema?.destination_kinds_by_lifecycle?.[lifecycle] !== expected.destination_kinds_by_lifecycle[lifecycle]) {
+      errors.push(`${ledgerSchemaPath}: preserve destination kind for ${lifecycle}.`);
+    }
+  }
+}
+
+function validateTargetProvenance({ provenance, errors }) {
+  if (provenance?.proposal_path !== "docs/proposals/agent-language-services-lifecycle-migration.md") {
+    errors.push(`${provenancePath}: bind provenance to the lifecycle migration proposal.`);
+  }
+  if (provenance?.proposal_anchor !== "#frozen-source-inventory") {
+    errors.push(`${provenancePath}: bind provenance to the frozen-source-inventory section.`);
+  }
+  if (provenance?.target_kind !== "proposal-section" || provenance?.default_branch !== "main") {
+    errors.push(`${provenancePath}: preserve the bootstrap target kind and default branch.`);
+  }
+  const frozenArtifacts = new Set(provenance?.frozen_artifact_set ?? []);
+  for (const required of [universePath, inventoryPath, manifestPath, ledgerSchemaPath, ledgerFixturePath]) {
+    if (!frozenArtifacts.has(required)) {
+      errors.push(`${provenancePath}: include ${required} in the frozen artifact set.`);
+    }
+  }
+}
+
 export function validateDiffScope({ repoRoot, paths }) {
   const changedPaths = paths.length > 0 ? paths : changedFiles(repoRoot);
   const errors = [];
   const frozenTouched = changedPaths.some((changedPath) => changedPath.startsWith(`${lifecycleDir}/`));
   if (!frozenTouched) {
     return success("No frozen lifecycle artifact changes require bootstrap diff-scope validation.");
+  }
+  const provenance = fs.existsSync(path.resolve(repoRoot, provenancePath))
+    ? readJson(repoRoot, provenancePath)
+    : undefined;
+  const bootstrap = isBootstrapDiff({ provenance });
+  if (!bootstrap) {
+    for (const changedPath of changedPaths) {
+      if (protectedAfterBootstrap.has(changedPath)) {
+        errors.push(`${changedPath}: frozen lifecycle bootstrap files are immutable after the provenance base has merged.`);
+      }
+    }
+    return errors.length === 0
+      ? success("No post-bootstrap immutable lifecycle files changed.")
+      : failure("Restore frozen lifecycle bootstrap files or start a new reviewed migration target.", errors);
   }
   for (const changedPath of changedPaths) {
     if (isBootstrapAllowedPath(changedPath)) {
@@ -233,6 +301,17 @@ export function validateDiffScope({ repoRoot, paths }) {
   return errors.length === 0
     ? success("Frozen inventory bootstrap diff scope contains only lifecycle artifact, validator, and workflow-registration paths.")
     : failure("Restore out-of-scope files or split the change before merging the frozen inventory bootstrap.", errors);
+}
+
+function isBootstrapDiff({ provenance }) {
+  if (process.env.AGENT_LANGUAGE_SERVICES_BOOTSTRAP === "1") {
+    return true;
+  }
+  const base = process.env.AGENT_LANGUAGE_SERVICES_BASE_SHA;
+  if (!base) {
+    return true;
+  }
+  return provenance?.base_commit === base;
 }
 
 export function parseMarkdownSource(text) {
@@ -408,6 +487,9 @@ function validateLeafLifecycle({ label, lifecycle, text, errors }) {
     return;
   }
   const inferred = inferredLifecycles(text);
+  if (!hasStatementScalar(text)) {
+    errors.push(`${inventoryPath}: ${label} must contain a lifecycle statement, not only separators.`);
+  }
   if (inferred.size > 1) {
     errors.push(`${inventoryPath}: ${label} mixes lifecycle statements; split it into lifecycle-homogeneous children.`);
   }
@@ -435,6 +517,9 @@ function validateManifest({ manifest, inventoryLeaves, errors }) {
 
 function validateSourceDecisions({ sourceDecisions, universe, inventoryLeaves, errors }) {
   const decisionRoots = uniqueById(sourceDecisions.roots, "reviewed source-decision roots", errors);
+  if (decisionRoots.size !== universe.roots.length) {
+    errors.push(`${sourceDecisionsPath}: keep one reviewed root decision for every frozen source-universe root.`);
+  }
   for (const root of universe.roots) {
     const decision = decisionRoots.get(root.id);
     if (decision === undefined || decision.digest !== root.digest || decision.conformance !== root.conformance) {
@@ -442,6 +527,9 @@ function validateSourceDecisions({ sourceDecisions, universe, inventoryLeaves, e
     }
   }
   const decisionLeaves = uniqueById(sourceDecisions.leaves, "reviewed source-decision leaves", errors);
+  if (decisionLeaves.size !== inventoryLeaves.size) {
+    errors.push(`${sourceDecisionsPath}: keep one reviewed lifecycle decision for every inventory leaf.`);
+  }
   for (const [leafId, leaf] of inventoryLeaves) {
     const decision = decisionLeaves.get(leafId);
     if (decision === undefined) {
@@ -453,25 +541,57 @@ function validateSourceDecisions({ sourceDecisions, universe, inventoryLeaves, e
 }
 
 function validateIdentities({ source, universe, sourceDecisions, errors }) {
-  const requiredQ = new Set(Array.from({ length: 22 }, (_, index) => `Q${String(index + 1).padStart(2, "0")}`));
+  const expectedIdentities = expectedFiniteIdentities(source);
   const identityKeys = new Set();
+  const identityNamesByKind = new Map();
   for (const identity of universe.identities ?? []) {
     identityKeys.add(`${identity.kind}:${identity.name}:${identity.root_id}:${identity.span?.join("-")}`);
+    const names = identityNamesByKind.get(identity.kind) ?? new Set();
+    names.add(identity.name);
+    identityNamesByKind.set(identity.kind, names);
     const text = sliceScalars(source, identity.span?.[0] ?? 0, identity.span?.[1] ?? 0);
     if (text !== identity.name) {
       errors.push(`${universePath}: bind identity ${identity.name} to its exact source occurrence.`);
     }
-    requiredQ.delete(identity.name);
   }
+  const decisionKeys = new Set();
   for (const identity of sourceDecisions.identities ?? []) {
     const key = `${identity.kind}:${identity.name}:${identity.root_id}:${identity.span?.join("-")}`;
+    decisionKeys.add(key);
     if (!identityKeys.has(key)) {
       errors.push(`${sourceDecisionsPath}: keep identity ${identity.name} source-bound and equal to the source universe.`);
     }
   }
-  for (const missing of requiredQ) {
-    errors.push(`${universePath}: preserve the named finite evidence identity ${missing}.`);
+  for (const key of identityKeys) {
+    if (!decisionKeys.has(key)) {
+      errors.push(`${sourceDecisionsPath}: keep the reviewed identity set equal to the source universe.`);
+    }
   }
+  for (const [kind, expectedNames] of expectedIdentities) {
+    const actualNames = identityNamesByKind.get(kind) ?? new Set();
+    for (const missing of expectedNames) {
+      if (!actualNames.has(missing)) {
+        errors.push(`${universePath}: preserve the named finite ${kind} identity ${missing}.`);
+      }
+    }
+    for (const extra of actualNames) {
+      if (!expectedNames.has(extra)) {
+        errors.push(`${universePath}: remove unexpected finite ${kind} identity ${extra}.`);
+      }
+    }
+  }
+}
+
+function expectedFiniteIdentities(source) {
+  const parsed = finiteIdentities(parseMarkdownSource(source));
+  const expected = new Map();
+  for (const identity of parsed) {
+    const names = expected.get(identity.kind) ?? new Set();
+    names.add(identity.name);
+    expected.set(identity.kind, names);
+  }
+  expected.set("evidence-gate", new Set(Array.from({ length: 22 }, (_, index) => `Q${String(index + 1).padStart(2, "0")}`)));
+  return expected;
 }
 
 function inventoryRoot(root) {
@@ -520,7 +640,7 @@ function lifecycleSegments(root) {
       const text = scalars.slice(segmentStart, segmentEnd).join("");
       return { start: segmentStart, end: segmentEnd, text, lifecycle: primaryLifecycle(text) };
     })
-    .filter((segment) => segment.text.trim() !== "");
+    .filter((segment) => hasStatementScalar(segment.text));
   const lifecycles = new Set(segments.map((segment) => segment.lifecycle));
   return lifecycles.size > 1 ? segments : [{
     start: 0,
@@ -557,8 +677,12 @@ function finiteIdentities(roots) {
     ["evidence-gate", /\bQ\d{2}\b/g],
     ["tool", /`(?:check_project|definition|references|search_docs|read_doc|workspace_projects|refresh_workspace)`/g],
     ["domain-error", /`(?:invalid_path|invalid_position|invalid_query|source_required|project_not_selected|project_ambiguous|snapshot_changed|invalid_cursor|stale_snapshot|resource_not_found|generation_failed|resource_capacity|incompatible_version)`/g],
+    ["resource-kind", /\b(?:language-reference index|individual language topics|package-documentation indexes|modules|public declarations|standard-library documentation|virtual source files)\b/g],
+    ["package-document-declaration-kind", /`(?:index|module|declaration|status|module-id|declaration-id)`/g],
     ["encoding", /UTF-(?:8|16|32)/g],
     ["client-platform", /`(?:codex|claude-code)\/x86_64-unknown-linux-gnu`/g],
+    ["plugin-compatibility-cell", /`(?:client|platform|host_build|manifest_schema_revision|validator_version|validator_digest|veln_contract|mcp_contract|lsp_contract|language_service_contract|reference_schema_contract)`/g],
+    ["lsp-field", /`(?:rootUri|veln\/virtualDocument)`/g],
   ];
   for (const root of roots) {
     for (const [kind, pattern] of patterns) {
@@ -588,35 +712,75 @@ function ledgerEntryForLeaf(leaf) {
   return { leaf_id: leaf.id, lifecycle: leaf.lifecycle, destination };
 }
 
-function validateDestination(label, entry, errors) {
+function validateDestination({ repoRoot, label, entry, ledgerSchema, errors }) {
   const destination = entry.destination;
   if (!destination || typeof destination !== "object") {
     errors.push(`${label}: add a destination object.`);
     return;
   }
-  const expectedKind = entry.lifecycle === "current"
-    ? "specification"
-    : entry.lifecycle === "completed"
-      ? "implementation-record"
-      : entry.lifecycle === "planned"
-        ? "proposal"
-        : "removed";
+  const expectedKind = ledgerSchema.destination_kinds_by_lifecycle?.[entry.lifecycle];
   if (destination.kind !== expectedKind) {
     errors.push(`${label}: route ${entry.lifecycle} leaves to a ${expectedKind} destination.`);
   }
   if (entry.lifecycle !== "removed") {
     if (!isRepoMarkdownPath(destination.path)) {
       errors.push(`${label}: use a repository-relative Markdown destination path.`);
+    } else {
+      const destinationPath = path.resolve(repoRoot, destination.path);
+      if (!fs.existsSync(destinationPath)) {
+        errors.push(`${label}: resolve destination path ${destination.path}.`);
+      } else {
+        const markdown = fs.readFileSync(destinationPath, "utf8");
+        validateDestinationRole({ label, lifecycle: entry.lifecycle, destination, markdown, errors });
+        if (!markdownAnchors(markdown).has(destination.anchor)) {
+          errors.push(`${label}: resolve destination anchor ${destination.anchor} in ${destination.path}.`);
+        }
+      }
     }
     if (!/^#[a-z0-9][a-z0-9-]*$/.test(destination.anchor ?? "")) {
       errors.push(`${label}: use a concrete Markdown heading anchor.`);
     }
     if (!Array.isArray(destination.evidence) || destination.evidence.length === 0) {
       errors.push(`${label}: list checked evidence for the destination.`);
+    } else {
+      const evidenceSeen = new Set();
+      for (const evidence of destination.evidence) {
+        if (evidenceSeen.has(evidence)) {
+          errors.push(`${label}: list each checked evidence path once.`);
+        }
+        evidenceSeen.add(evidence);
+        if (!isAllowedEvidencePath(evidence) || !fs.existsSync(path.resolve(repoRoot, evidence))) {
+          errors.push(`${label}: resolve checked evidence ${evidence}.`);
+        }
+      }
     }
   } else if (typeof destination.rationale !== "string" || destination.rationale.trim() === "") {
     errors.push(`${label}: removed supporting leaves need a rationale.`);
   }
+}
+
+function validateDestinationRole({ label, lifecycle, destination, markdown, errors }) {
+  const frontmatter = markdownFrontmatter(markdown);
+  const role = frontmatter?.closed ? frontmatterField(frontmatter, "role")[0]?.parsed?.value : undefined;
+  const expectedRole = lifecycle === "current"
+    ? "specification"
+    : lifecycle === "completed"
+      ? "implementation-record"
+      : "proposal";
+  if (role !== expectedRole) {
+    errors.push(`${label}: route ${lifecycle} leaves to a ${expectedRole} document.`);
+  }
+}
+
+function markdownAnchors(markdown) {
+  const anchors = new Set();
+  for (const line of markdown.split(/\r?\n/)) {
+    const match = /^(#{1,6})\s+(.+?)\s*$/.exec(line);
+    if (match) {
+      anchors.add(`#${match[2].replace(/\s+#+$/, "").toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-")}`);
+    }
+  }
+  return anchors;
 }
 
 function migrationLedgerSchema() {
@@ -638,14 +802,17 @@ function migrationLedgerSchema() {
 }
 
 function targetProvenance(repoRoot) {
-  const head = gitOutput(repoRoot, ["rev-parse", "HEAD"]) ?? "0".repeat(40);
+  const existing = fs.existsSync(path.resolve(repoRoot, provenancePath))
+    ? readJson(repoRoot, provenancePath)
+    : undefined;
+  const baseCommit = existing?.base_commit ?? gitOutput(repoRoot, ["rev-parse", "HEAD"]) ?? "0".repeat(40);
   return {
     schema_version: 1,
     proposal_path: "docs/proposals/agent-language-services-lifecycle-migration.md",
-    proposal_anchor: "#frozen-source-universe",
+    proposal_anchor: "#frozen-source-inventory",
     target_kind: "proposal-section",
     default_branch: "main",
-    base_commit: head.trim(),
+    base_commit: baseCommit.trim(),
     prerequisites: [
       "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
       "docs/reference/implemented-proposals/agent-language-services-platform-matrix-closure.md",
@@ -696,7 +863,11 @@ function isTableDelimiter(text) {
 }
 
 function isSeparatorScalar(value) {
-  return /\s/.test(value) || value === "|" || value === "-";
+  return /\s/.test(value) || "|-`[]().,:;!?".includes(value);
+}
+
+function hasStatementScalar(text) {
+  return Array.from(text).some((scalar) => !isSeparatorScalar(scalar));
 }
 
 function sliceScalars(text, start, end) {
@@ -709,12 +880,31 @@ function inventoryLeafIds(inventory) {
     : [root.id]));
 }
 
-function isStableLeafId(value) {
-  return /^ALS-S\d{4}(?:\.\d+)?$/.test(value ?? "");
+function isStableLeafId(value, pattern = /^ALS-S\d{4}(?:\.\d+)?$/) {
+  return pattern.test(value ?? "");
 }
 
 function isRepoMarkdownPath(value) {
   return typeof value === "string" && /^docs\/(?:proposals|specification|reference)\/.+\.md$/.test(value);
+}
+
+function isAllowedEvidencePath(value) {
+  return typeof value === "string"
+    && (/^examples\/specification\/.+/.test(value)
+      || /^docs\/reference\/agent-language-services-lifecycle\/.+\.json$/.test(value)
+      || isRepoMarkdownPath(value));
+}
+
+function isUsableRegExp(pattern) {
+  if (typeof pattern !== "string" || pattern === "") {
+    return false;
+  }
+  try {
+    new RegExp(pattern);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function isBootstrapAllowedPath(value) {

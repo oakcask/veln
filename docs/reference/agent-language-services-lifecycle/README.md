@@ -31,5 +31,6 @@ node workflow-scripts/check-agent-language-services-lifecycle.mjs validate
 ```
 
 The workflow script tests also inject invalid digests, inventory membership
-errors, child-span errors, lifecycle errors, ledger mapping errors, and
-bootstrap diff-scope errors.
+errors, child-span errors, lifecycle errors, ledger schema and destination
+errors, reviewed-authority mutation, ledger mapping errors, and bootstrap or
+post-bootstrap diff-scope errors.

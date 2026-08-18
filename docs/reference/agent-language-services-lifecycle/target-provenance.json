@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "proposal_path": "docs/proposals/agent-language-services-lifecycle-migration.md",
-  "proposal_anchor": "#frozen-source-universe",
+  "proposal_anchor": "#frozen-source-inventory",
   "target_kind": "proposal-section",
   "default_branch": "main",
   "base_commit": "a4a3b874928a713f1078a302311bb2b22103e2ee",

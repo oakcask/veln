@@ -22,7 +22,7 @@
         1181
       ],
       "digest": "bbc158b0376204a3990bb531026ede7a3cd2edc57c42589b2abaebd2fcf82511",
-      "child_count": 6,
+      "child_count": 5,
       "children": [
         {
           "id": "ALS-S0002.1",
@@ -40,17 +40,6 @@
           "lifecycle": "planned",
           "spans": [
             [
-              739,
-              740
-            ]
-          ],
-          "digest": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8"
-        },
-        {
-          "id": "ALS-S0002.3",
-          "lifecycle": "planned",
-          "spans": [
-            [
               740,
               759
             ]
@@ -58,7 +47,7 @@
           "digest": "224d16c4492b7794ec077768526d20574c1a2629972e662b579332dd6ea6880a"
         },
         {
-          "id": "ALS-S0002.4",
+          "id": "ALS-S0002.3",
           "lifecycle": "planned",
           "spans": [
             [
@@ -69,7 +58,7 @@
           "digest": "19fff6e1f12de0faf4acf37a58a222d9800d79bcda49e7737a0efebc85266201"
         },
         {
-          "id": "ALS-S0002.5",
+          "id": "ALS-S0002.4",
           "lifecycle": "current",
           "spans": [
             [
@@ -80,7 +69,7 @@
           "digest": "35bab3ecfd0f2da5f26025c3b7c9da35022b805124329ab9ff77c6537c0a3882"
         },
         {
-          "id": "ALS-S0002.6",
+          "id": "ALS-S0002.5",
           "lifecycle": "planned",
           "spans": [
             [
@@ -369,7 +358,7 @@
         3785
       ],
       "digest": "e2964dd283d61419ed9444c8e0f5fc9aa6046539a3bb6fe2f2a643e0ed6c7e38",
-      "child_count": 3,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-S0017.1",
@@ -392,17 +381,6 @@
             ]
           ],
           "digest": "81b66506bcecb3a94198d4c56aead98b2ccdca9fe955c8d8f586c4d713a8c90c"
-        },
-        {
-          "id": "ALS-S0017.3",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              3782,
-              3785
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
         }
       ]
     },
@@ -685,7 +663,7 @@
         7667
       ],
       "digest": "65105152009e371995009ec89bc80302ed41d3c4f8dd7588d0124391fdb1eae2",
-      "child_count": 5,
+      "child_count": 4,
       "children": [
         {
           "id": "ALS-S0032.1",
@@ -703,17 +681,6 @@
           "lifecycle": "planned",
           "spans": [
             [
-              7278,
-              7279
-            ]
-          ],
-          "digest": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8"
-        },
-        {
-          "id": "ALS-S0032.3",
-          "lifecycle": "planned",
-          "spans": [
-            [
               7279,
               7327
             ]
@@ -721,7 +688,7 @@
           "digest": "54690f5d106727c8093d5cf9de3162873c51114af9de8fc97d3b6e63dd23d61f"
         },
         {
-          "id": "ALS-S0032.4",
+          "id": "ALS-S0032.3",
           "lifecycle": "planned",
           "spans": [
             [
@@ -732,7 +699,7 @@
           "digest": "86c010884f63691430b6a56fe45ea6837d4d123e5709c217121966ff7e0eba5a"
         },
         {
-          "id": "ALS-S0032.5",
+          "id": "ALS-S0032.4",
           "lifecycle": "planned",
           "spans": [
             [
@@ -1848,31 +1815,7 @@
         18799
       ],
       "digest": "b31241949664b95510eb2c84e3c43f41c21b593e2669efe886c41dc570a4a9cd",
-      "child_count": 2,
-      "children": [
-        {
-          "id": "ALS-S0116.1",
-          "lifecycle": "current",
-          "spans": [
-            [
-              18706,
-              18796
-            ]
-          ],
-          "digest": "9a89b38a7bed575c93518b963078e93e28f3d83ca59339a8cfed085d4f56dd42"
-        },
-        {
-          "id": "ALS-S0116.2",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              18796,
-              18799
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
-        }
-      ]
+      "lifecycle": "current"
     },
     {
       "id": "ALS-S0117",
@@ -2182,7 +2125,7 @@
         23143
       ],
       "digest": "4b0d921f38decf2ed503e6710247cd90684af1672b0edbdcb8e2459a2f1c0a5c",
-      "child_count": 8,
+      "child_count": 7,
       "children": [
         {
           "id": "ALS-S0142.1",
@@ -2200,17 +2143,6 @@
           "lifecycle": "planned",
           "spans": [
             [
-              22602,
-              22603
-            ]
-          ],
-          "digest": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8"
-        },
-        {
-          "id": "ALS-S0142.3",
-          "lifecycle": "planned",
-          "spans": [
-            [
               22603,
               22633
             ]
@@ -2218,7 +2150,7 @@
           "digest": "a7334718d6b12dacd32bf6052441949887988d551c80041032a9de0640f45e2f"
         },
         {
-          "id": "ALS-S0142.4",
+          "id": "ALS-S0142.3",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2229,7 +2161,7 @@
           "digest": "a67c502187fd01e2d15fced74a117c6783debf87aadede674d1f5a5f3f4bedf9"
         },
         {
-          "id": "ALS-S0142.5",
+          "id": "ALS-S0142.4",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2240,7 +2172,7 @@
           "digest": "8dec8263f84e8e0d77858ed1720f5cc45dec5128d318c187f8854eef47187043"
         },
         {
-          "id": "ALS-S0142.6",
+          "id": "ALS-S0142.5",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2251,7 +2183,7 @@
           "digest": "bccec1537f92eb33cb0f449ec16c473eb22c3eadc4b03627a7f073c11f4b1390"
         },
         {
-          "id": "ALS-S0142.7",
+          "id": "ALS-S0142.6",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2262,7 +2194,7 @@
           "digest": "23e5e9be0ec0fdc5b2b954f1169bf22ba3e84913c522c52b45c044ad240ef7cb"
         },
         {
-          "id": "ALS-S0142.8",
+          "id": "ALS-S0142.7",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2843,7 +2775,7 @@
         31720
       ],
       "digest": "bd14bc53dfb07a239ac0ad6664171a4d7072e3e87c7632562f6c35883e200bc5",
-      "child_count": 20,
+      "child_count": 16,
       "children": [
         {
           "id": "ALS-S0171.1",
@@ -2872,17 +2804,6 @@
           "lifecycle": "planned",
           "spans": [
             [
-              29572,
-              29573
-            ]
-          ],
-          "digest": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8"
-        },
-        {
-          "id": "ALS-S0171.4",
-          "lifecycle": "planned",
-          "spans": [
-            [
               29573,
               29606
             ]
@@ -2890,7 +2811,7 @@
           "digest": "9c85f0dbb518a798414ba3f9e6667054a16e88b2e88284f6f0b4ccd4374819d7"
         },
         {
-          "id": "ALS-S0171.5",
+          "id": "ALS-S0171.4",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2901,7 +2822,7 @@
           "digest": "19fff6e1f12de0faf4acf37a58a222d9800d79bcda49e7737a0efebc85266201"
         },
         {
-          "id": "ALS-S0171.6",
+          "id": "ALS-S0171.5",
           "lifecycle": "current",
           "spans": [
             [
@@ -2912,7 +2833,7 @@
           "digest": "212b12ec582535f165b5042102ffeb605dfef4daa0582dbaa85ebd3b49a3975d"
         },
         {
-          "id": "ALS-S0171.7",
+          "id": "ALS-S0171.6",
           "lifecycle": "current",
           "spans": [
             [
@@ -2923,18 +2844,7 @@
           "digest": "cb6b79f09252e9fe087cde8891b0afaf1999a96a06dcd6f149c507587a148e7b"
         },
         {
-          "id": "ALS-S0171.8",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              29922,
-              29923
-            ]
-          ],
-          "digest": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8"
-        },
-        {
-          "id": "ALS-S0171.9",
+          "id": "ALS-S0171.7",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2945,7 +2855,7 @@
           "digest": "7bbb4e6c69e8422a9b7c7aa3483f41d5d38eed6aacf0d5eec381d9c7fbfd5a6a"
         },
         {
-          "id": "ALS-S0171.10",
+          "id": "ALS-S0171.8",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2956,7 +2866,7 @@
           "digest": "19fff6e1f12de0faf4acf37a58a222d9800d79bcda49e7737a0efebc85266201"
         },
         {
-          "id": "ALS-S0171.11",
+          "id": "ALS-S0171.9",
           "lifecycle": "current",
           "spans": [
             [
@@ -2967,18 +2877,7 @@
           "digest": "3104863e7d9d582e74b9894b4c43720a35ff72e544466874c7e72f6ddb6506c0"
         },
         {
-          "id": "ALS-S0171.12",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              30243,
-              30244
-            ]
-          ],
-          "digest": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8"
-        },
-        {
-          "id": "ALS-S0171.13",
+          "id": "ALS-S0171.10",
           "lifecycle": "planned",
           "spans": [
             [
@@ -2989,7 +2888,7 @@
           "digest": "a7334718d6b12dacd32bf6052441949887988d551c80041032a9de0640f45e2f"
         },
         {
-          "id": "ALS-S0171.14",
+          "id": "ALS-S0171.11",
           "lifecycle": "planned",
           "spans": [
             [
@@ -3000,7 +2899,7 @@
           "digest": "a67c502187fd01e2d15fced74a117c6783debf87aadede674d1f5a5f3f4bedf9"
         },
         {
-          "id": "ALS-S0171.15",
+          "id": "ALS-S0171.12",
           "lifecycle": "current",
           "spans": [
             [
@@ -3011,18 +2910,7 @@
           "digest": "e3dda2bc07857a0f1182a405c9d359489293df0d9ca66c540f3b8ecae563d93f"
         },
         {
-          "id": "ALS-S0171.16",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              31431,
-              31432
-            ]
-          ],
-          "digest": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8"
-        },
-        {
-          "id": "ALS-S0171.17",
+          "id": "ALS-S0171.13",
           "lifecycle": "planned",
           "spans": [
             [
@@ -3033,7 +2921,7 @@
           "digest": "e2be9b9d1bfec10f4f20d5514441fccf7044de8b680f291f903ab497504311ac"
         },
         {
-          "id": "ALS-S0171.18",
+          "id": "ALS-S0171.14",
           "lifecycle": "planned",
           "spans": [
             [
@@ -3044,7 +2932,7 @@
           "digest": "19fff6e1f12de0faf4acf37a58a222d9800d79bcda49e7737a0efebc85266201"
         },
         {
-          "id": "ALS-S0171.19",
+          "id": "ALS-S0171.15",
           "lifecycle": "planned",
           "spans": [
             [
@@ -3055,7 +2943,7 @@
           "digest": "7294a9b01daba8449a25f227295719ab49ab3a150e69e75b426a889dbb3610a6"
         },
         {
-          "id": "ALS-S0171.20",
+          "id": "ALS-S0171.16",
           "lifecycle": "planned",
           "spans": [
             [
@@ -4395,31 +4283,7 @@
         46998
       ],
       "digest": "7a0ba799139a873ff246ffb2f7440a2375ca210ba28112aa1cfbadc0adb212ae",
-      "child_count": 2,
-      "children": [
-        {
-          "id": "ALS-S0265.1",
-          "lifecycle": "completed",
-          "spans": [
-            [
-              46920,
-              46995
-            ]
-          ],
-          "digest": "45819c28c2c1809ac7a2ad5842deb97ca21fd8b4b4bffa9b9fae33847a9d3355"
-        },
-        {
-          "id": "ALS-S0265.2",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              46995,
-              46998
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
-        }
-      ]
+      "lifecycle": "completed"
     },
     {
       "id": "ALS-S0266",
@@ -4430,31 +4294,7 @@
         47080
       ],
       "digest": "a4fa7ef58b5001ae133cb9edf9d6a23f6ecda0d32aa7d273f98bf64a5f026ffe",
-      "child_count": 2,
-      "children": [
-        {
-          "id": "ALS-S0266.1",
-          "lifecycle": "completed",
-          "spans": [
-            [
-              46998,
-              47077
-            ]
-          ],
-          "digest": "9f2dbf0e40e0aef700845e08cd9d1bd161f91ab13d54982625428b93de560ba6"
-        },
-        {
-          "id": "ALS-S0266.2",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              47077,
-              47080
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
-        }
-      ]
+      "lifecycle": "completed"
     },
     {
       "id": "ALS-S0267",
@@ -4751,7 +4591,7 @@
         51612
       ],
       "digest": "026b011ba82aa5d3d64f1364cf0088159a2a66554b4f776f951454725406aad6",
-      "child_count": 3,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-S0293.1",
@@ -4774,17 +4614,6 @@
             ]
           ],
           "digest": "53e7daf02f83262570ab6c47d4bbbbbca08ea631726414c0606399f6e55c2e08"
-        },
-        {
-          "id": "ALS-S0293.3",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              51609,
-              51612
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
         }
       ]
     },
@@ -4797,7 +4626,7 @@
         51978
       ],
       "digest": "7d0130c8636bebbd66269c06e8fa66b0a0eabb7e4b8956270b3d09b32896055f",
-      "child_count": 3,
+      "child_count": 2,
       "children": [
         {
           "id": "ALS-S0294.1",
@@ -4820,17 +4649,6 @@
             ]
           ],
           "digest": "140e0111d64cc843f6dfc657b297f3312fe80afc684379a63e4a07a4abad87ec"
-        },
-        {
-          "id": "ALS-S0294.3",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              51975,
-              51978
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
         }
       ]
     },
@@ -4931,31 +4749,7 @@
         53586
       ],
       "digest": "13a8c5fc02572caa7ba96031e22905a20074ec2e1d096b25a91ff48960337e03",
-      "child_count": 2,
-      "children": [
-        {
-          "id": "ALS-S0303.1",
-          "lifecycle": "completed",
-          "spans": [
-            [
-              53412,
-              53583
-            ]
-          ],
-          "digest": "74bab35d9aff5511c8831c92e00b2092988045e6066f2472d9b9c89f9d856379"
-        },
-        {
-          "id": "ALS-S0303.2",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              53583,
-              53586
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
-        }
-      ]
+      "lifecycle": "completed"
     },
     {
       "id": "ALS-S0304",
@@ -5021,31 +4815,7 @@
         54688
       ],
       "digest": "7ba5595a19450a77cb90018ca21578caf63df36a3a17a95083a38e1d44770fa5",
-      "child_count": 2,
-      "children": [
-        {
-          "id": "ALS-S0309.1",
-          "lifecycle": "completed",
-          "spans": [
-            [
-              54509,
-              54685
-            ]
-          ],
-          "digest": "06868f455ce792830c16940b61665aa5d2ebb627c456a007604ea7258d5b5b09"
-        },
-        {
-          "id": "ALS-S0309.2",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              54685,
-              54688
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
-        }
-      ]
+      "lifecycle": "completed"
     },
     {
       "id": "ALS-S0310",
@@ -5056,31 +4826,7 @@
         54883
       ],
       "digest": "9cde4ac6da9b9db6b7f778ae56f98e9104134afd12ba55cf5c8e3cfe6be3ae15",
-      "child_count": 2,
-      "children": [
-        {
-          "id": "ALS-S0310.1",
-          "lifecycle": "completed",
-          "spans": [
-            [
-              54688,
-              54880
-            ]
-          ],
-          "digest": "063dd8e1afbf7f49330d991e5e3dbad6aca70df7688c83d4ac8b1f6579c40b3a"
-        },
-        {
-          "id": "ALS-S0310.2",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              54880,
-              54883
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
-        }
-      ]
+      "lifecycle": "completed"
     },
     {
       "id": "ALS-S0311",
@@ -5240,7 +4986,7 @@
         56474
       ],
       "digest": "d7068dd955ad0a93f3c008a3860c0b53f62413a30d26a1e41ebecb4e609e9011",
-      "child_count": 5,
+      "child_count": 3,
       "children": [
         {
           "id": "ALS-S0315.1",
@@ -5266,17 +5012,6 @@
         },
         {
           "id": "ALS-S0315.3",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              56421,
-              56423
-            ]
-          ],
-          "digest": "c351cefdbeee2b2feebc8fd2144739504a5c2687d9d6c49c72eae15c006b6a6d"
-        },
-        {
-          "id": "ALS-S0315.4",
           "lifecycle": "current",
           "spans": [
             [
@@ -5285,17 +5020,6 @@
             ]
           ],
           "digest": "8175d48aaa2d48bbe4d76691acb4e0d37ab61565985c1f33ec5f0e18396d4148"
-        },
-        {
-          "id": "ALS-S0315.5",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              56471,
-              56474
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
         }
       ]
     },
@@ -5308,7 +5032,7 @@
         56929
       ],
       "digest": "cdd49f089bc2e23d0959443cc6081e999e2da478c75c6f3cd75d7596263d5647",
-      "child_count": 6,
+      "child_count": 5,
       "children": [
         {
           "id": "ALS-S0316.1",
@@ -5364,17 +5088,6 @@
             ]
           ],
           "digest": "b4befaa306e03fdce69e3d86616e5ba6c5b5e930d8daa4394640305f014c5899"
-        },
-        {
-          "id": "ALS-S0316.6",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              56926,
-              56929
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
         }
       ]
     },
@@ -5387,7 +5100,7 @@
         57324
       ],
       "digest": "60056380573bbba6b717f10d6fc000d8a5778e58aab2134c124369c3432b90ef",
-      "child_count": 6,
+      "child_count": 5,
       "children": [
         {
           "id": "ALS-S0317.1",
@@ -5443,17 +5156,6 @@
             ]
           ],
           "digest": "d3a24be2f1988c01d924ea4e64b1e4924da2387237b57d851c9c3e514b557402"
-        },
-        {
-          "id": "ALS-S0317.6",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              57321,
-              57324
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
         }
       ]
     },
@@ -5510,7 +5212,7 @@
         58461
       ],
       "digest": "8cf7c71e581de20a7047a022ac76cf9bed81b108db69bab47a65bf42c6c2208f",
-      "child_count": 4,
+      "child_count": 3,
       "children": [
         {
           "id": "ALS-S0322.1",
@@ -5544,17 +5246,6 @@
             ]
           ],
           "digest": "031376c002649961510fd77c11ce4f841245e7c11d214898e135a9fbfb70e38a"
-        },
-        {
-          "id": "ALS-S0322.4",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              58458,
-              58461
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
         }
       ]
     },
@@ -5567,7 +5258,7 @@
         59218
       ],
       "digest": "39d83995da0de4909e1fbf28263027694fc321699eb0ce406b5e4eb16d6a4a23",
-      "child_count": 4,
+      "child_count": 3,
       "children": [
         {
           "id": "ALS-S0323.1",
@@ -5601,17 +5292,6 @@
             ]
           ],
           "digest": "f283da562cbc814d9a7b2a1cdd8461b61eb45fbd1487bf5c5edbe906bbd24e4f"
-        },
-        {
-          "id": "ALS-S0323.4",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              59215,
-              59218
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
         }
       ]
     },
@@ -5635,7 +5315,7 @@
         59792
       ],
       "digest": "3d06be89b079c171284f4af7c547a2a93a571bcff3e22cf94b56334709951c89",
-      "child_count": 5,
+      "child_count": 4,
       "children": [
         {
           "id": "ALS-S0325.1",
@@ -5680,17 +5360,6 @@
             ]
           ],
           "digest": "3eb56e053294ae7e91d2ef49c019b082c6caebaee4a530256451f64dcd5983e1"
-        },
-        {
-          "id": "ALS-S0325.5",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              59789,
-              59792
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
         }
       ]
     },
@@ -5703,7 +5372,7 @@
         59932
       ],
       "digest": "c92c48ad418baf8a88c1ec5dbd7113ce5a95327ac059f3ccf820d74ca6ce85b5",
-      "child_count": 4,
+      "child_count": 3,
       "children": [
         {
           "id": "ALS-S0326.1",
@@ -5737,17 +5406,6 @@
             ]
           ],
           "digest": "2bf04063d214a5041d69e8903ee9d684c796c69ad5dcb0a013cbc0a1c90a0ee0"
-        },
-        {
-          "id": "ALS-S0326.4",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              59929,
-              59932
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
         }
       ]
     },
@@ -5771,7 +5429,7 @@
         60290
       ],
       "digest": "8a518da3f7b73c265d8777d5ec23985c0201f12741b49394343fe6d1c8de02ab",
-      "child_count": 4,
+      "child_count": 3,
       "children": [
         {
           "id": "ALS-S0328.1",
@@ -5805,17 +5463,6 @@
             ]
           ],
           "digest": "28ce09beace8e92ab07d5664aa463ed6ead8110445307da3186b080a9a9f60aa"
-        },
-        {
-          "id": "ALS-S0328.4",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              60287,
-              60290
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
         }
       ]
     },
@@ -5828,7 +5475,7 @@
         60528
       ],
       "digest": "b8a7693a8f3ac3cf8f5602998667e6a3909752ae2a1a5520333e7def62374602",
-      "child_count": 4,
+      "child_count": 3,
       "children": [
         {
           "id": "ALS-S0329.1",
@@ -5862,17 +5509,6 @@
             ]
           ],
           "digest": "5360d9a396399e527358e959085bdad8605289aaa49e215bd0c7fc516767bd4d"
-        },
-        {
-          "id": "ALS-S0329.4",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              60525,
-              60528
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
         }
       ]
     },
@@ -5885,7 +5521,7 @@
         60912
       ],
       "digest": "45e0d2225dfb0dd0308f9803573795fe0e60261d636c42b64b4971b89ff3692b",
-      "child_count": 4,
+      "child_count": 3,
       "children": [
         {
           "id": "ALS-S0330.1",
@@ -5919,17 +5555,6 @@
             ]
           ],
           "digest": "31bc17d32e78df4d999f1baeb8449d14367c160351c424e44208d6d1f15923a1"
-        },
-        {
-          "id": "ALS-S0330.4",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              60909,
-              60912
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
         }
       ]
     },
@@ -5964,7 +5589,7 @@
         61566
       ],
       "digest": "5e326d2160a6e752a6628a0b97d757881485766206ef557b1a64c51b82c54adf",
-      "child_count": 4,
+      "child_count": 3,
       "children": [
         {
           "id": "ALS-S0333.1",
@@ -5998,17 +5623,6 @@
             ]
           ],
           "digest": "99b85cb7462700ab9905fdddd7d1f8bf9a54cc266710cf58aca2b414b6dac0c9"
-        },
-        {
-          "id": "ALS-S0333.4",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              61563,
-              61566
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
         }
       ]
     },
@@ -6098,7 +5712,7 @@
         63774
       ],
       "digest": "9d7412502b32e1ed5e3bbc3471a3c4d48de409905085a6476438bc503fd16064",
-      "child_count": 12,
+      "child_count": 9,
       "children": [
         {
           "id": "ALS-S0341.1",
@@ -6138,17 +5752,6 @@
           "lifecycle": "planned",
           "spans": [
             [
-              63407,
-              63408
-            ]
-          ],
-          "digest": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8"
-        },
-        {
-          "id": "ALS-S0341.5",
-          "lifecycle": "planned",
-          "spans": [
-            [
               63408,
               63447
             ]
@@ -6156,7 +5759,7 @@
           "digest": "7bbb4e6c69e8422a9b7c7aa3483f41d5d38eed6aacf0d5eec381d9c7fbfd5a6a"
         },
         {
-          "id": "ALS-S0341.6",
+          "id": "ALS-S0341.5",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6167,7 +5770,7 @@
           "digest": "19fff6e1f12de0faf4acf37a58a222d9800d79bcda49e7737a0efebc85266201"
         },
         {
-          "id": "ALS-S0341.7",
+          "id": "ALS-S0341.6",
           "lifecycle": "current",
           "spans": [
             [
@@ -6178,18 +5781,7 @@
           "digest": "a50e925da4dad8962ceae8b1e9e5b12c4e96dff79a04849b20796e2b9b5371d5"
         },
         {
-          "id": "ALS-S0341.8",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              63627,
-              63628
-            ]
-          ],
-          "digest": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8"
-        },
-        {
-          "id": "ALS-S0341.9",
+          "id": "ALS-S0341.7",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6200,7 +5792,7 @@
           "digest": "a7334718d6b12dacd32bf6052441949887988d551c80041032a9de0640f45e2f"
         },
         {
-          "id": "ALS-S0341.10",
+          "id": "ALS-S0341.8",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6211,7 +5803,7 @@
           "digest": "a67c502187fd01e2d15fced74a117c6783debf87aadede674d1f5a5f3f4bedf9"
         },
         {
-          "id": "ALS-S0341.11",
+          "id": "ALS-S0341.9",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6220,17 +5812,6 @@
             ]
           ],
           "digest": "2535d7a9260875d3068ea12012ff4ce6d014f608b0d1512fc3a17ab2ed5dab5e"
-        },
-        {
-          "id": "ALS-S0341.12",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              63771,
-              63774
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
         }
       ]
     },
@@ -6243,7 +5824,7 @@
         64227
       ],
       "digest": "b00322c7317295eeb4d4a6ab425e508d34f217d9564aa3f6c6a9d80842c4e2f4",
-      "child_count": 6,
+      "child_count": 5,
       "children": [
         {
           "id": "ALS-S0342.1",
@@ -6299,17 +5880,6 @@
             ]
           ],
           "digest": "1193e5202180f168158bc2c2963f253b520a499dde440977e16d7e5edecb6d6a"
-        },
-        {
-          "id": "ALS-S0342.6",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              64224,
-              64227
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
         }
       ]
     },
@@ -6344,7 +5914,7 @@
         65288
       ],
       "digest": "6f824c4cc0712460419abcfdee4d637d23a613bf269b5fe1949c92ffb2d7dd66",
-      "child_count": 8,
+      "child_count": 6,
       "children": [
         {
           "id": "ALS-S0345.1",
@@ -6384,17 +5954,6 @@
           "lifecycle": "planned",
           "spans": [
             [
-              65174,
-              65175
-            ]
-          ],
-          "digest": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8"
-        },
-        {
-          "id": "ALS-S0345.5",
-          "lifecycle": "planned",
-          "spans": [
-            [
               65175,
               65214
             ]
@@ -6402,7 +5961,7 @@
           "digest": "7bbb4e6c69e8422a9b7c7aa3483f41d5d38eed6aacf0d5eec381d9c7fbfd5a6a"
         },
         {
-          "id": "ALS-S0345.6",
+          "id": "ALS-S0345.5",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6413,7 +5972,7 @@
           "digest": "19fff6e1f12de0faf4acf37a58a222d9800d79bcda49e7737a0efebc85266201"
         },
         {
-          "id": "ALS-S0345.7",
+          "id": "ALS-S0345.6",
           "lifecycle": "planned",
           "spans": [
             [
@@ -6422,17 +5981,6 @@
             ]
           ],
           "digest": "65f63a8ac8a0c24342f7801be76386631d4262869ff96c3371889cbd4cf9339d"
-        },
-        {
-          "id": "ALS-S0345.8",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              65285,
-              65288
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
         }
       ]
     },
@@ -6445,7 +5993,7 @@
         65530
       ],
       "digest": "274f14413f2d7bfa5d1703263baba198e112b8a9dc26b9280b072e91d8385681",
-      "child_count": 4,
+      "child_count": 3,
       "children": [
         {
           "id": "ALS-S0346.1",
@@ -6479,17 +6027,6 @@
             ]
           ],
           "digest": "9ecc8635676a246f55a50efe1566afe12a8568d067d4417c6a754f616bbf9faf"
-        },
-        {
-          "id": "ALS-S0346.4",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              65527,
-              65530
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
         }
       ]
     },
@@ -6601,7 +6138,7 @@
         67860
       ],
       "digest": "bff2ba81051f4a258b948eaa2c3917568c28f07a3e2870e64bdcc0ff8416381f",
-      "child_count": 4,
+      "child_count": 3,
       "children": [
         {
           "id": "ALS-S0356.1",
@@ -6635,17 +6172,6 @@
             ]
           ],
           "digest": "5d75674b1db34a831887bb3c208dcb55cc189e7f1537acf3ee76e0b3ab89b029"
-        },
-        {
-          "id": "ALS-S0356.4",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              67857,
-              67860
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
         }
       ]
     },
@@ -6658,7 +6184,7 @@
         68058
       ],
       "digest": "c66239a7c180120598b087660957f81a8629f8673426570f13975b5e465df1c2",
-      "child_count": 4,
+      "child_count": 3,
       "children": [
         {
           "id": "ALS-S0357.1",
@@ -6692,17 +6218,6 @@
             ]
           ],
           "digest": "5de473567c6d4f8bb3faa09d8bcc13acc0c9147e1003356f18921944ae4ea49e"
-        },
-        {
-          "id": "ALS-S0357.4",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              68055,
-              68058
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
         }
       ]
     },
@@ -6715,7 +6230,7 @@
         68267
       ],
       "digest": "460d1e937c41b049942a21ee151a21422f2bcd787c6e563938a98c215874b0c4",
-      "child_count": 4,
+      "child_count": 3,
       "children": [
         {
           "id": "ALS-S0358.1",
@@ -6749,17 +6264,6 @@
             ]
           ],
           "digest": "27e69b5e32da7639feaabd81d191c32fa9fe0abedf2822e27fce7651ac59c4f0"
-        },
-        {
-          "id": "ALS-S0358.4",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              68264,
-              68267
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
         }
       ]
     },
@@ -6816,7 +6320,7 @@
         69066
       ],
       "digest": "bd5fcffc22853fe89a7a8fc13d85af42c6f16defa8a97a6d10522044a9037585",
-      "child_count": 4,
+      "child_count": 3,
       "children": [
         {
           "id": "ALS-S0363.1",
@@ -6850,17 +6354,6 @@
             ]
           ],
           "digest": "d834e531e27d9cb6728c4fcc370ff9371325ebddf6221f164f56c07533f886fe"
-        },
-        {
-          "id": "ALS-S0363.4",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              69063,
-              69066
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
         }
       ]
     },
@@ -6884,7 +6377,7 @@
         69477
       ],
       "digest": "5d5bc8cf5be9a93adfb47ed73c987e3c4fad5411fab5e905c750c953a8a1633b",
-      "child_count": 4,
+      "child_count": 3,
       "children": [
         {
           "id": "ALS-S0365.1",
@@ -6918,17 +6411,6 @@
             ]
           ],
           "digest": "9122e7596d667f054e056a0c50f5d0db6c0f5eb1e6438251aaf3f58c0ac792d7"
-        },
-        {
-          "id": "ALS-S0365.4",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              69474,
-              69477
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
         }
       ]
     },
@@ -6941,7 +6423,7 @@
         69713
       ],
       "digest": "ab9e8aa7177ac6176c061de119412a91f3251461229616e4eb2d9554a0658281",
-      "child_count": 4,
+      "child_count": 3,
       "children": [
         {
           "id": "ALS-S0366.1",
@@ -6975,17 +6457,6 @@
             ]
           ],
           "digest": "7d82787a23c3bf331d9bc2cf39b7905c7e7bfe4a07d02b49834ec5edf22f3211"
-        },
-        {
-          "id": "ALS-S0366.4",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              69710,
-              69713
-            ]
-          ],
-          "digest": "553cfb51bdedcb3983ce8cc805875ab9eece598dca2c4e076ec1b2d6743de052"
         }
       ]
     },
@@ -6998,7 +6469,7 @@
         72629
       ],
       "digest": "2cab82f1ef2d076cc9df968bfec73a089f6e2a013bb933c1c6d9da707b5fbe20",
-      "child_count": 29,
+      "child_count": 24,
       "children": [
         {
           "id": "ALS-S0367.1",
@@ -7016,17 +6487,6 @@
           "lifecycle": "planned",
           "spans": [
             [
-              69852,
-              69853
-            ]
-          ],
-          "digest": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8"
-        },
-        {
-          "id": "ALS-S0367.3",
-          "lifecycle": "planned",
-          "spans": [
-            [
               69853,
               69883
             ]
@@ -7034,7 +6494,7 @@
           "digest": "a7334718d6b12dacd32bf6052441949887988d551c80041032a9de0640f45e2f"
         },
         {
-          "id": "ALS-S0367.4",
+          "id": "ALS-S0367.3",
           "lifecycle": "planned",
           "spans": [
             [
@@ -7045,7 +6505,7 @@
           "digest": "a67c502187fd01e2d15fced74a117c6783debf87aadede674d1f5a5f3f4bedf9"
         },
         {
-          "id": "ALS-S0367.5",
+          "id": "ALS-S0367.4",
           "lifecycle": "current",
           "spans": [
             [
@@ -7056,18 +6516,7 @@
           "digest": "3c3e86ee8dd6d6877e4e33ac4590b934b0bfc85da8dfe1722d416c92575b2f20"
         },
         {
-          "id": "ALS-S0367.6",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              70039,
-              70040
-            ]
-          ],
-          "digest": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8"
-        },
-        {
-          "id": "ALS-S0367.7",
+          "id": "ALS-S0367.5",
           "lifecycle": "planned",
           "spans": [
             [
@@ -7078,7 +6527,7 @@
           "digest": "9c85f0dbb518a798414ba3f9e6667054a16e88b2e88284f6f0b4ccd4374819d7"
         },
         {
-          "id": "ALS-S0367.8",
+          "id": "ALS-S0367.6",
           "lifecycle": "planned",
           "spans": [
             [
@@ -7089,7 +6538,7 @@
           "digest": "19fff6e1f12de0faf4acf37a58a222d9800d79bcda49e7737a0efebc85266201"
         },
         {
-          "id": "ALS-S0367.9",
+          "id": "ALS-S0367.7",
           "lifecycle": "current",
           "spans": [
             [
@@ -7100,7 +6549,7 @@
           "digest": "f1bcb4513fe5206bfd43b5eb7d0746219978ac93d4e15e69d1c01c90ea1ba9c4"
         },
         {
-          "id": "ALS-S0367.10",
+          "id": "ALS-S0367.8",
           "lifecycle": "current",
           "spans": [
             [
@@ -7111,7 +6560,7 @@
           "digest": "c133f05288175f993e413e0866619fc07f80aca698233b72f5f0b98f40164fed"
         },
         {
-          "id": "ALS-S0367.11",
+          "id": "ALS-S0367.9",
           "lifecycle": "current",
           "spans": [
             [
@@ -7122,18 +6571,7 @@
           "digest": "cb5cebab46bf20c24c837392b16cdfc5073b97409229086b31a7073680fe1e76"
         },
         {
-          "id": "ALS-S0367.12",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              70444,
-              70445
-            ]
-          ],
-          "digest": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8"
-        },
-        {
-          "id": "ALS-S0367.13",
+          "id": "ALS-S0367.10",
           "lifecycle": "planned",
           "spans": [
             [
@@ -7144,7 +6582,7 @@
           "digest": "7bbb4e6c69e8422a9b7c7aa3483f41d5d38eed6aacf0d5eec381d9c7fbfd5a6a"
         },
         {
-          "id": "ALS-S0367.14",
+          "id": "ALS-S0367.11",
           "lifecycle": "planned",
           "spans": [
             [
@@ -7155,7 +6593,7 @@
           "digest": "19fff6e1f12de0faf4acf37a58a222d9800d79bcda49e7737a0efebc85266201"
         },
         {
-          "id": "ALS-S0367.15",
+          "id": "ALS-S0367.12",
           "lifecycle": "current",
           "spans": [
             [
@@ -7166,18 +6604,7 @@
           "digest": "cb5c9296020748b01ea45ce2d4a50564752812e5afec747e600de19bcfb87255"
         },
         {
-          "id": "ALS-S0367.16",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              71173,
-              71174
-            ]
-          ],
-          "digest": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8"
-        },
-        {
-          "id": "ALS-S0367.17",
+          "id": "ALS-S0367.13",
           "lifecycle": "planned",
           "spans": [
             [
@@ -7188,7 +6615,7 @@
           "digest": "e2be9b9d1bfec10f4f20d5514441fccf7044de8b680f291f903ab497504311ac"
         },
         {
-          "id": "ALS-S0367.18",
+          "id": "ALS-S0367.14",
           "lifecycle": "planned",
           "spans": [
             [
@@ -7199,7 +6626,7 @@
           "digest": "19fff6e1f12de0faf4acf37a58a222d9800d79bcda49e7737a0efebc85266201"
         },
         {
-          "id": "ALS-S0367.19",
+          "id": "ALS-S0367.15",
           "lifecycle": "current",
           "spans": [
             [
@@ -7210,18 +6637,7 @@
           "digest": "b7052b16a1331713b37acb759e799a9d099c4401f63d02a3139e5f5007790e3c"
         },
         {
-          "id": "ALS-S0367.20",
-          "lifecycle": "planned",
-          "spans": [
-            [
-              71476,
-              71477
-            ]
-          ],
-          "digest": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8"
-        },
-        {
-          "id": "ALS-S0367.21",
+          "id": "ALS-S0367.16",
           "lifecycle": "planned",
           "spans": [
             [
@@ -7232,7 +6648,7 @@
           "digest": "a7334718d6b12dacd32bf6052441949887988d551c80041032a9de0640f45e2f"
         },
         {
-          "id": "ALS-S0367.22",
+          "id": "ALS-S0367.17",
           "lifecycle": "planned",
           "spans": [
             [
@@ -7243,7 +6659,7 @@
           "digest": "a67c502187fd01e2d15fced74a117c6783debf87aadede674d1f5a5f3f4bedf9"
         },
         {
-          "id": "ALS-S0367.23",
+          "id": "ALS-S0367.18",
           "lifecycle": "current",
           "spans": [
             [
@@ -7254,7 +6670,7 @@
           "digest": "ae35df3bb6577a82ae3a51cedd3ff7c6c627e46728a42b13542aca2d25a940ba"
         },
         {
-          "id": "ALS-S0367.24",
+          "id": "ALS-S0367.19",
           "lifecycle": "planned",
           "spans": [
             [
@@ -7265,7 +6681,7 @@
           "digest": "60552087a7dde3e41d72d37b4eff657d44f76c167835f60560ea2fd9233d01a8"
         },
         {
-          "id": "ALS-S0367.25",
+          "id": "ALS-S0367.20",
           "lifecycle": "planned",
           "spans": [
             [
@@ -7276,7 +6692,7 @@
           "digest": "e2abe68c8cb1b9d374fe5a1c879110c24713df3a9c73661c806c1ca174a24abc"
         },
         {
-          "id": "ALS-S0367.26",
+          "id": "ALS-S0367.21",
           "lifecycle": "planned",
           "spans": [
             [
@@ -7287,7 +6703,7 @@
           "digest": "945ccc6183d820ca1a75170fb39176d1d543ae1951c8b8d283e31bf10e7bc9f8"
         },
         {
-          "id": "ALS-S0367.27",
+          "id": "ALS-S0367.22",
           "lifecycle": "planned",
           "spans": [
             [
@@ -7298,7 +6714,7 @@
           "digest": "cef912c869fb82e7f8f222c81f913dcc5db4e9c57dfc9420700a43c291e6a852"
         },
         {
-          "id": "ALS-S0367.28",
+          "id": "ALS-S0367.23",
           "lifecycle": "planned",
           "spans": [
             [
@@ -7309,7 +6725,7 @@
           "digest": "4a0cf76e3a0ad9823382076532120911562cabc3b460bffab428fd0032040dfe"
         },
         {
-          "id": "ALS-S0367.29",
+          "id": "ALS-S0367.24",
           "lifecycle": "planned",
           "spans": [
             [
