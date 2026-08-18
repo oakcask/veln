@@ -143,6 +143,9 @@ D docs/proposals/agent-language-services-platform-matrix-closure.md
 M docs/proposals/agent-language-services.md
 M docs/reference/implemented-proposals/README.md
 A docs/reference/implemented-proposals/agent-language-services-platform-matrix-closure.md
+M docs/specification/README.md
+M docs/specification/mcp.md
+M docs/specification/topic-map.md
 A workflow-scripts/check-agent-language-platform-matrix.mjs
 A workflow-scripts/check-agent-language-platform-matrix.test.mjs
 ```

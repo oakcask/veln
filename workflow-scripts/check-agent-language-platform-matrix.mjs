@@ -49,6 +49,9 @@ const transitionManifest = [
   { status: "M", path: "docs/proposals/agent-language-services.md" },
   { status: "M", path: "docs/reference/implemented-proposals/README.md" },
   { status: "A", path: "docs/reference/implemented-proposals/agent-language-services-platform-matrix-closure.md" },
+  { status: "M", path: "docs/specification/README.md" },
+  { status: "M", path: "docs/specification/mcp.md" },
+  { status: "M", path: "docs/specification/topic-map.md" },
   { status: "A", path: "workflow-scripts/check-agent-language-platform-matrix.mjs" },
   { status: "A", path: "workflow-scripts/check-agent-language-platform-matrix.test.mjs" },
 ];
