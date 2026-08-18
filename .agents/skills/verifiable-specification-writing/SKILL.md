@@ -23,20 +23,29 @@ and explanation are not normative unless they also make behavioral claims.
 
 ## Workflow
 
-1. Identify each normative claim and the external observation that would prove
+1. Validate the proposed requirement before making it normative. Identify the
+   user, product, interoperability, safety, or maintenance outcome at risk.
+   Treat a review finding, hypothetical bypass, rejected implementation, or
+   one-time migration concern as evidence to assess, not as a requirement by
+   itself. Prefer removing or simplifying a suspect requirement when that
+   resolves the underlying risk.
+2. Identify each normative claim and the external observation that would prove
    or disprove it. Separate internal design explanation, rationale, scope, and
    non-goals from those claims.
-2. Choose the strongest practical primary medium using the selection guide
+3. Identify an authority independent of the implementation being checked.
+   Do not treat constants copied among prose, a validator, and its tests as
+   independent confirmation of their meaning or correctness.
+4. Choose the strongest practical primary medium using the selection guide
    below. Prefer an existing repository harness or artifact format.
-3. Write or update the primary artifact before expanding prose when practical.
-4. Cover success, boundary, failure, and state-preservation behavior that is
+5. Write or update the primary artifact before expanding prose when practical.
+6. Cover success, boundary, failure, and state-preservation behavior that is
    material to the claim. Do not rely on one happy-path example to specify a
    general rule.
-5. Route nearby prose to the primary artifact. Summarize its meaning without
+7. Route nearby prose to the primary artifact. Summarize its meaning without
    duplicating all of its cases as a second source of truth.
-6. Record how the artifact is checked locally or by CI. If it is not checked,
+8. Record how the artifact is checked locally or by CI. If it is not checked,
    label its authority accurately and state what will verify it.
-7. If only prose is practical, state the reason briefly and make the prose
+9. If only prose is practical, state the reason briefly and make the prose
    falsifiable with explicit inputs, outcomes, boundaries, or invariants.
 
 ## Declarative Boundary
@@ -46,6 +55,9 @@ and explanation are not normative unless they also make behavioral claims.
   transitions.
 - Do not turn the current implementation algorithm into a normative
   requirement.
+- Do not make document layout, paragraph order, test organization, workflow
+  step names, or a particular change path normative unless an external
+  compatibility or safety constraint depends on that exact structure.
 - Include an internal algorithm, data structure, or operation order only when
   it is needed to explain the design or when compatibility, safety,
   performance, or another explicit constraint makes it significant.
@@ -99,6 +111,11 @@ tests, fixtures, doctests, benchmarks, or executable specification that will
 verify implementation. Do not imply that planned evidence is already running
 or passing.
 
+Do not invent exact versions, digests, compatibility values, or expected
+outputs merely to make a planned contract finite. If no authoritative artifact
+or observation can establish a value yet, specify the evidence that must
+produce it or keep the work explicitly incomplete.
+
 For current behavior, add or update checked evidence when practical. Keep
 planned examples out of current specification routes until implementation and
 verification agree.
@@ -107,6 +124,9 @@ verification agree.
 
 - Name the authoritative artifact when prose, tables, diagrams, generated
   pages, and tests describe the same behavior.
+- Require semantic independence where evidence is claimed to corroborate an
+  authority. Copies of the same expected values can detect drift, but they
+  cannot establish that the values are valid.
 - Prefer generating secondary views from the authoritative artifact.
 - Update all affected representations together when generation is impractical.
 - Treat disagreement as a defect; do not resolve it by silently declaring the
@@ -117,6 +137,10 @@ verification agree.
 ## Review Checklist
 
 - Every normative claim has an observable acceptance condition.
+- Every new normative claim addresses a durable risk rather than merely
+  preserving the shape of one review, rejected attempt, or migration diff.
+- The strength and maintenance cost of the requirement are proportional to the
+  consequence of violation; deletion or simplification was considered first.
 - The chosen medium is more directly verifiable than practical alternatives.
 - State tables include failures and unchanged-state outcomes where relevant.
 - Benchmarks identify workload, metric, comparison, and noise handling.
@@ -125,6 +149,10 @@ verification agree.
   accidental implementation strategy.
 - Any normative internal constraint explains why the detail must be
   constrained.
+- One-time transition evidence has an explicit retirement path and is not
+  presented as a permanent product contract.
+- Evidence described as independent does not derive its authority from the
+  implementation, generator, validator, or copied constants it checks.
 - Internal algorithm and procedure sections are distinguishable from
   behavioral requirements.
 - Algorithm and procedure prose follows Simplified Technical English style.
