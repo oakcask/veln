@@ -14,17 +14,14 @@ assertion target. It does not change toolchain behavior or executable cases.
 
 ## Selection State
 
-This proposal is blocked by
-[Agent Language Services Platform Matrix Closure](agent-language-services-platform-matrix-closure.md).
-Do not select the frozen-source-inventory PR while that prerequisite remains
-under `docs/proposals/`.
-
-After the prerequisite completes, select only the corrected frozen source
-inventory PR first. That PR must add the source-universe contract, inventory,
-lifecycle review manifest, migration-ledger schema, validator, and rejection
-tests without reorganizing the umbrella proposal. Select the migration PR only
-after the frozen inventory has merged. Neither target may change the MCP
-harness, executable MCP fixtures, or semantic baselines.
+The client-platform matrix prerequisite is complete and archived as
+[Agent Language Services Platform Matrix Closure](../reference/implemented-proposals/agent-language-services-platform-matrix-closure.md).
+Select only the corrected frozen source inventory PR first. That PR must add
+the source-universe contract, inventory, lifecycle review manifest,
+migration-ledger schema, validator, and rejection tests without reorganizing
+the umbrella proposal. Select the migration PR only after the frozen inventory
+has merged. Neither target may change the MCP harness, executable MCP
+fixtures, or semantic baselines.
 
 ## Problem
 
@@ -83,7 +80,7 @@ explicitly revises them:
   lifecycle transition, and literal client-platform cell in the conformance
   universe after the platform-matrix prerequisite closes that set;
 - the exact tool and resource kinds, package-document declaration kinds, LSP
-  encodings, and plugin compatibility cells closed by the v1 manifest;
+  encodings, and plugin compatibility rows closed by the v1 manifest;
 - the final requirement that the conformance gate reject missing, duplicate,
   skipped, orphaned, and undeclared mappings.
 

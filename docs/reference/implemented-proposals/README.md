@@ -48,6 +48,8 @@ under `../../specification/` and its executable example routes.
   [toolchain-user-cache.md](toolchain-user-cache.md).
 - Shared project analysis:
   [project-analysis-pipeline.md](project-analysis-pipeline.md).
+- Agent language services platform matrix closure:
+  [agent-language-services-platform-matrix-closure.md](agent-language-services-platform-matrix-closure.md).
 - Manifest package boundaries:
   [manifest-package-boundaries.md](manifest-package-boundaries.md).
 - Bounded toolchain analysis:

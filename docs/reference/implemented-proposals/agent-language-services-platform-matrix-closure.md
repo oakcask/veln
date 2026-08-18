@@ -1,5 +1,5 @@
 ---
-role: proposal
+role: implementation-record
 update-when: The agent-language-services plugin clients, supported platforms, compatibility field identities, artifact-backed compatibility evidence, or lifecycle-migration source-universe prerequisite changes.
 ---
 
@@ -32,7 +32,7 @@ cannot use this documentation-only closure as evidence that a value is valid.
 
 This proposal is ready. Complete it before selecting the frozen source
 inventory PR from
-[Agent Language Services Lifecycle Migration](agent-language-services-lifecycle-migration.md).
+[Agent Language Services Lifecycle Migration](../../proposals/agent-language-services-lifecycle-migration.md).
 
 ## Scope
 
