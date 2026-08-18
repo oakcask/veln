@@ -34,6 +34,8 @@ under `../../specification/` and its executable example routes.
 
 ## Records
 
+- Agent language services client-platform matrix closure:
+  [agent-language-services-platform-matrix-closure.md](agent-language-services-platform-matrix-closure.md).
 - Schema declaration composition surface:
   [schema-declaration-surface.md](schema-declaration-surface.md).
 - Integer bitwise operators:
