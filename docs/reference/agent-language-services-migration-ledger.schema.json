@@ -172,17 +172,82 @@
                 ]
               },
               "path": {
-                "type": "string"
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\.md$"
               },
               "anchor": {
-                "type": "string"
+                "type": "string",
+                "minLength": 1,
+                "enum": [
+                  "acceptance-model",
+                  "agent-language-services-frozen-inventory",
+                  "agent-module-package-and-documentation-model",
+                  "agent-plugin",
+                  "authority-and-inputs",
+                  "checked-examples",
+                  "command-and-transport",
+                  "compiler-owned-tables",
+                  "conformance-contract",
+                  "coordinates",
+                  "deferred-work",
+                  "definition-and-reference-coverage",
+                  "diagnostics-and-navigation",
+                  "documentation-search-and-reads",
+                  "executable-grammar",
+                  "generated-package-documentation",
+                  "goals",
+                  "implementation-slices",
+                  "implementation-status",
+                  "language-semantics-prerequisite",
+                  "lsp-integration",
+                  "mcp-workspace-projects-diagnostics-and-definitions",
+                  "motivation",
+                  "next-slice-saved-workspace-function-references",
+                  "non-goals",
+                  "ownership-boundary",
+                  "package-documentation-uri",
+                  "package-snapshots",
+                  "package-source-uri",
+                  "plugin",
+                  "project-selection",
+                  "published-language-reference",
+                  "reference-snapshot",
+                  "resolution-and-failure",
+                  "resources",
+                  "safety-and-privacy",
+                  "saved-snapshot-capture",
+                  "semantic-locations",
+                  "server-and-project-selection",
+                  "slice-closure-prerequisite",
+                  "summary",
+                  "terminology",
+                  "tools",
+                  "topic-catalog",
+                  "virtual-locations-and-package-documentation"
+                ]
               },
               "evidence": {
                 "type": "array",
                 "minItems": 1,
                 "uniqueItems": true,
                 "items": {
-                  "type": "string"
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "path",
+                    "case_id"
+                  ],
+                  "properties": {
+                    "path": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "case_id": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
                 }
               },
               "rationale": {
@@ -199,11 +264,59 @@
                 "properties": {
                   "path": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "pattern": "\\.md$"
                   },
                   "anchor": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "enum": [
+                      "acceptance-model",
+                      "agent-language-services-frozen-inventory",
+                      "agent-module-package-and-documentation-model",
+                      "agent-plugin",
+                      "authority-and-inputs",
+                      "checked-examples",
+                      "command-and-transport",
+                      "compiler-owned-tables",
+                      "conformance-contract",
+                      "coordinates",
+                      "deferred-work",
+                      "definition-and-reference-coverage",
+                      "diagnostics-and-navigation",
+                      "documentation-search-and-reads",
+                      "executable-grammar",
+                      "generated-package-documentation",
+                      "goals",
+                      "implementation-slices",
+                      "implementation-status",
+                      "language-semantics-prerequisite",
+                      "lsp-integration",
+                      "mcp-workspace-projects-diagnostics-and-definitions",
+                      "motivation",
+                      "next-slice-saved-workspace-function-references",
+                      "non-goals",
+                      "ownership-boundary",
+                      "package-documentation-uri",
+                      "package-snapshots",
+                      "package-source-uri",
+                      "plugin",
+                      "project-selection",
+                      "published-language-reference",
+                      "reference-snapshot",
+                      "resolution-and-failure",
+                      "resources",
+                      "safety-and-privacy",
+                      "saved-snapshot-capture",
+                      "semantic-locations",
+                      "server-and-project-selection",
+                      "slice-closure-prerequisite",
+                      "summary",
+                      "terminology",
+                      "tools",
+                      "topic-catalog",
+                      "virtual-locations-and-package-documentation"
+                    ]
                   }
                 }
               }

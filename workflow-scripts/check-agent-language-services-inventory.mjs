@@ -104,7 +104,95 @@ const sourceUniverseContract = {
     plugin_cells: ["Codex", "Claude Code", "compatibility.toml", "mcpServers", ".lsp.json", ".mcp.json"],
     plugin_client_platform_keys: closedClientPlatformMatrix.map((row) => row.key),
   },
+  named_source_sets: {
+    saved_reference_boundary_rows: [
+      ["agent-language-services/S0016", "A checked `references` input with `source`, `line`, and `column`."],
+      ["agent-language-services/S0017", "Selected-project and anonymous single-file capture using the existing navigation selection rules."],
+      ["agent-language-services/S0018", "Canonical `file:` locations for the current shared language service's project-owned function reference sites, in deterministic order."],
+      ["agent-language-services/S0019", "Explicit project or single-file scope metadata, including whether the result is project-wide."],
+      ["agent-language-services/S0020", "Empty success for a valid position with no supported function reference search."],
+      ["agent-language-services/S0021", "Existing path, coordinate, schema, and stable-capture failure behavior."],
+    ],
+    saved_reference_acceptance_rows: [
+      ["agent-language-services/S0024", "Request references at a project-owned function call in a selected project."],
+      ["agent-language-services/S0025", "Request references at the unrelated ambiguous constructor call in that case."],
+      ["agent-language-services/S0026", "Request references for an accepted source outside a selected project's owned-source set."],
+      ["agent-language-services/S0027", "Supply an invalid position or a schema-invalid coordinate."],
+      ["agent-language-services/S0028", "Replace a captured source identity or bytes during the operation."],
+      ["agent-language-services/S0029", "List MCP tools after initialization."],
+    ],
+    closed_navigation_matrix_rows: [
+      ["agent-language-services/S0148", "project-owned public and private functions"],
+      ["agent-language-services/S0149", "source types and their constructors"],
+      ["agent-language-services/S0150", "schemas"],
+      ["agent-language-services/S0151", "public member aliases"],
+      ["agent-language-services/S0152", "function and handler parameters"],
+      ["agent-language-services/S0153", "local `let` and pattern bindings"],
+      ["agent-language-services/S0154", "handler operation clause bindings"],
+      ["agent-language-services/S0155", "handler context parameters"],
+      ["agent-language-services/S0156", "exact test-companion access to target-private declarations"],
+      ["agent-language-services/S0157", "visible declarations in direct dependency exports"],
+      ["agent-language-services/S0158", "visible standard-library declarations"],
+    ],
+    closed_topic_matrix_rows: [
+      ["agent-language-services/S0227", "lexical structure and the complete executable grammar"],
+      ["agent-language-services/S0228", "modules, imports, packages, exports, and visibility"],
+      ["agent-language-services/S0229", "declarations and aliases"],
+      ["agent-language-services/S0230", "expressions, operators, and patterns"],
+      ["agent-language-services/S0231", "types, inference, and constructors"],
+      ["agent-language-services/S0232", "effects and handlers"],
+      ["agent-language-services/S0233", "contracts"],
+      ["agent-language-services/S0234", "schemas"],
+      ["agent-language-services/S0235", "holes"],
+      ["agent-language-services/S0236", "tests, documentation comments, and doctests"],
+    ],
+    unresolved_acceptance_rows: [
+      ["agent-language-services/S0326", "Navigate below an unselected descendant manifest."],
+      ["agent-language-services/S0327", "Add, remove, or rename a manifest."],
+      ["agent-language-services/S0328", "Start through a symbolic base alias."],
+      ["agent-language-services/S0329", "Supply a path containing a directory or file symbolic link."],
+      ["agent-language-services/S0331", "Change a selected root identity, anonymous base identity, manifest, source, dependency input, or file set during capture."],
+      ["agent-language-services/S0332", "List projects or send malformed inventory-tool input."],
+      ["agent-language-services/S0338", "Resolve references for every symbol in the closed v1 navigation matrix, including shadowing and same-spelled fields."],
+      ["agent-language-services/S0339", "Search references to a dependency symbol from one selected project."],
+      ["agent-language-services/S0340", "Continue a paged reference result."],
+      ["agent-language-services/S0341", "Use a tampered, cross-server, restarted, evicted, or pre-refresh cursor."],
+      ["agent-language-services/S0342", "Resolve an exported dependency declaration."],
+      ["agent-language-services/S0343", "Resolve a private dependency declaration from a consumer."],
+      ["agent-language-services/S0344", "Resolve a standard-library declaration."],
+      ["agent-language-services/S0345", "Address empty, LF, CRLF, non-BMP, end-of-line, end-of-file, token-end, decimal and exponent integer spellings, non-integer numeric spellings, and oversized positive positions."],
+      ["agent-language-services/S0346", "Run LSP and MCP on the same saved project without overlays."],
+      ["agent-language-services/S0347", "Apply an LSP open-document overlay."],
+      ["agent-language-services/S0349", "Read a returned virtual source URI through MCP."],
+      ["agent-language-services/S0350", "Change an included source or manifest byte in a captured distribution."],
+      ["agent-language-services/S0351", "Discover private, generated, test, descendant, symlink, non-regular, and `target` sources."],
+      ["agent-language-services/S0352", "Load nonportable names or colliding paths."],
+      ["agent-language-services/S0353", "Read a noncanonical, unknown, or mismatched snapshot URI through MCP."],
+      ["agent-language-services/S0354", "Read a private distribution source or inspect package metadata."],
+      ["agent-language-services/S0355", "Keep returned dependency URIs while projects refresh or disappear."],
+      ["agent-language-services/S0356", "Generate package docs."],
+      ["agent-language-services/S0357", "Change catalog semantics without changing package bytes."],
+      ["agent-language-services/S0358", "Package documentation generation or doctest validation fails."],
+      ["agent-language-services/S0360", "Generate the syntax reference."],
+      ["agent-language-services/S0361", "Select a reference example."],
+      ["agent-language-services/S0362", "Change a selected example or public table fragment."],
+      ["agent-language-services/S0363", "Change only development documentation."],
+      ["agent-language-services/S0364", "Reorder equivalent catalog input or vary catalog-owned Unicode and line endings."],
+      ["agent-language-services/S0365", "Search a known language concept."],
+      ["agent-language-services/S0366", "Read a documentation resource through both routes."],
+      ["agent-language-services/S0367", "Inspect the published catalog."],
+      ["agent-language-services/S0368", "Generate MCP and offline Markdown views."],
+      ["agent-language-services/S0370", "Validate the Codex plugin."],
+      ["agent-language-services/S0371", "Validate the Claude Code plugin."],
+      ["agent-language-services/S0372", "Start with a missing, shadowed, or incompatible executable."],
+      ["agent-language-services/S0373", "Use the shared skill."],
+      ["agent-language-services/S0374", "Run the proposal completion gate."],
+    ],
+  },
 };
+const reviewedLifecycle = new Map([
+  ["agent-language-services/S0004.c01", "planned"],
+]);
 
 if (isMainModule()) {
   const repoRoot = process.cwd();
@@ -170,7 +258,7 @@ export function writeArtifacts(repoRoot) {
   const inventoryRoots = roots.map((root) => {
     const children = splitLeafChildren(root).map((child, index, children) => ({
       id: `${root.id}.c${String(index + 1).padStart(2, "0")}`,
-      lifecycle: classifyLifecycle(child.text, root.heading),
+      lifecycle: reviewedLifecycle.get(`${root.id}.c${String(index + 1).padStart(2, "0")}`) ?? classifyLifecycle(child.text, root.heading),
       spans: child.spans,
       digest: digest(child.text),
     }));
@@ -300,7 +388,7 @@ export function validateUniverse({ parsed, universe }) {
   if (universe.source_path !== proposalPath) errors.push(`${universePath}: source_path must be ${proposalPath}.`);
   const seen = new Set();
   if (!Array.isArray(universe.roots)) return [`${universePath}: roots must be an array.`];
-  errors.push(...validateSourceUniverseContract(universe));
+  errors.push(...validateSourceUniverseContract({ parsed, universe }));
   if (universe.roots.length !== parsed.length) {
     errors.push(`${universePath}: expected ${parsed.length} root source records, found ${universe.roots.length}.`);
   }
@@ -319,7 +407,7 @@ export function validateUniverse({ parsed, universe }) {
   return errors;
 }
 
-function validateSourceUniverseContract(universe) {
+function validateSourceUniverseContract({ parsed, universe }) {
   const errors = [];
   const roots = universe.roots ?? [];
   if (roots.length !== sourceUniverseContract.root_count) {
@@ -337,6 +425,31 @@ function validateSourceUniverseContract(universe) {
   for (const [name, expected] of Object.entries(sourceUniverseContract.identity_sets)) {
     for (const identity of expected) {
       if (!identities.has(identity)) errors.push(`${universePath}: source-universe contract missing ${name} identity ${identity}.`);
+    }
+  }
+  const rootsById = new Map(roots.map((root) => [root.id, root]));
+  const parsedById = new Map(parsed.map((root) => [root.id, root]));
+  for (const [name, expectedPairs] of Object.entries(sourceUniverseContract.named_source_sets)) {
+    const expected = new Map(expectedPairs);
+    for (const [id, identity] of expected) {
+      const root = rootsById.get(id);
+      const parsedRoot = parsedById.get(id);
+      if (!root || !parsedRoot) {
+        errors.push(`${universePath}: source-universe contract missing ${name} source ${id} (${identity}).`);
+        continue;
+      }
+      const actualIdentity = sourceSetIdentity(parsedRoot);
+      if (actualIdentity !== identity) {
+        errors.push(`${universePath}: source-universe contract ${name} source ${id} identity must be ${identity}.`);
+      }
+    }
+    const matchingRoots = roots.filter((root) => expected.has(root.id));
+    if (matchingRoots.length !== expected.size) {
+      errors.push(`${universePath}: source-universe contract ${name} expects ${expected.size} sources, found ${matchingRoots.length}.`);
+    }
+    const duplicateIds = duplicates(matchingRoots.map((root) => root.id));
+    for (const id of duplicateIds) {
+      errors.push(`${universePath}: source-universe contract ${name} has duplicate source ${id}.`);
     }
   }
   return errors;
@@ -510,7 +623,10 @@ export function buildAcceptanceLedger({ repoRoot, inventory, manifest }) {
         kind: "current",
         path: "docs/specification/mcp.md",
         anchor: "mcp-workspace-projects-diagnostics-and-definitions",
-        evidence: [evidence],
+        evidence: [{
+          path: evidence,
+          case_id: evidenceCaseId(evidence),
+        }],
       };
     }
     if (lifecycle === "completed") {
@@ -575,12 +691,20 @@ function validateDestination({ repoRoot, entry, evidenceSeen = new Set() }) {
     } else {
       const entryEvidenceSeen = new Set();
       for (const evidence of destination.evidence) {
-        if (entryEvidenceSeen.has(evidence)) errors.push(`migration ledger: duplicate checked evidence ${evidence}.`);
-        entryEvidenceSeen.add(evidence);
-        if (evidenceSeen.has(evidence)) errors.push(`migration ledger: checked evidence ${evidence} is reused by more than one current leaf.`);
-        evidenceSeen.add(evidence);
-        if (!isCheckedEvidencePath(evidence) || !fs.existsSync(path.join(repoRoot, evidence))) {
-          errors.push(`migration ledger: ${entry.source_id} evidence ${evidence} must resolve to an allowlisted checked route.`);
+        if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) {
+          errors.push(`migration ledger: ${entry.source_id} evidence must name a checked path and case_id.`);
+          continue;
+        }
+        const evidenceKey = `${evidence.path}#${evidence.case_id}`;
+        if (entryEvidenceSeen.has(evidenceKey)) errors.push(`migration ledger: duplicate checked evidence ${evidenceKey}.`);
+        entryEvidenceSeen.add(evidenceKey);
+        if (evidenceSeen.has(evidenceKey)) errors.push(`migration ledger: checked evidence ${evidenceKey} is reused by more than one current leaf.`);
+        evidenceSeen.add(evidenceKey);
+        if (typeof evidence.case_id !== "string" || evidence.case_id.trim() === "") {
+          errors.push(`migration ledger: ${entry.source_id} evidence case_id must be nonempty.`);
+        }
+        if (typeof evidence.path !== "string" || !isCheckedEvidencePath(evidence.path) || !fs.existsSync(path.join(repoRoot, evidence.path))) {
+          errors.push(`migration ledger: ${entry.source_id} evidence ${evidence.path} must resolve to an allowlisted checked route.`);
         }
       }
     }
@@ -592,9 +716,18 @@ function validateDestination({ repoRoot, entry, evidenceSeen = new Set() }) {
 
 function validateMarkdownDestination({ repoRoot, sourceId, lifecycle, pathValue, anchor }) {
   const errors = [];
+  if (typeof pathValue !== "string" || pathValue.trim() === "") {
+    return [`migration ledger: ${sourceId} destination path must be nonempty.`];
+  }
+  if (typeof anchor !== "string" || anchor.trim() === "") {
+    return [`migration ledger: ${sourceId} destination anchor must be nonempty.`];
+  }
   const fullPath = path.join(repoRoot, pathValue);
   if (!fs.existsSync(fullPath)) {
     return [`migration ledger: ${sourceId} destination path ${pathValue} does not exist.`];
+  }
+  if (!fs.statSync(fullPath).isFile()) {
+    return [`migration ledger: ${sourceId} destination path ${pathValue} must be a Markdown file.`];
   }
   const markdown = fs.readFileSync(fullPath, "utf8");
   if (!markdownHasAnchor(markdown, anchor)) {
@@ -816,13 +949,21 @@ function migrationLedgerSchema() {
               required: ["kind"],
               properties: {
                 kind: { enum: ["current", "completed", "planned", "removed"] },
-                path: { type: "string" },
-                anchor: { type: "string" },
+                path: { type: "string", minLength: 1, pattern: "\\.md$" },
+                anchor: { type: "string", minLength: 1, enum: allowedLedgerDestinationAnchors() },
                 evidence: {
                   type: "array",
                   minItems: 1,
                   uniqueItems: true,
-                  items: { type: "string" },
+                  items: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["path", "case_id"],
+                    properties: {
+                      path: { type: "string", minLength: 1 },
+                      case_id: { type: "string", minLength: 1 },
+                    },
+                  },
                 },
                 rationale: { type: "string", minLength: 1 },
                 supersedes: {
@@ -830,8 +971,8 @@ function migrationLedgerSchema() {
                   additionalProperties: false,
                   required: ["path", "anchor"],
                   properties: {
-                    path: { type: "string", minLength: 1 },
-                    anchor: { type: "string", minLength: 1 },
+                    path: { type: "string", minLength: 1, pattern: "\\.md$" },
+                    anchor: { type: "string", minLength: 1, enum: allowedLedgerDestinationAnchors() },
                   },
                 },
               },
@@ -879,6 +1020,15 @@ function lifecycleDestinationSchema(lifecycle) {
   };
 }
 
+function allowedLedgerDestinationAnchors() {
+  return [
+    "agent-language-services-frozen-inventory",
+    "agent-module-package-and-documentation-model",
+    "mcp-workspace-projects-diagnostics-and-definitions",
+    ...Object.keys(sourceUniverseContract.heading_counts).map(slug),
+  ].sort();
+}
+
 function extractClientPlatformRows(markdown) {
   const rows = [];
   const lines = markdown.split("\n");
@@ -910,6 +1060,24 @@ function splitMarkdownTableCells(line) {
 
 function unwrapCode(text) {
   return text.replace(/^`|`$/g, "");
+}
+
+function sourceSetIdentity(root) {
+  if (root.kind === "table-row") return splitMarkdownTableCells(root.text)[0];
+  if (root.kind === "list-item") {
+    return root.text.replace(/^\s*[-*+]\s+/, "").replace(/[.;]\s*(?:and)?\s*$/u, "").trim();
+  }
+  return root.text.trim();
+}
+
+function duplicates(values) {
+  const seen = new Set();
+  const result = new Set();
+  for (const value of values) {
+    if (seen.has(value)) result.add(value);
+    seen.add(value);
+  }
+  return [...result];
 }
 
 function collectCheckedEvidencePaths(repoRoot) {
@@ -1021,6 +1189,15 @@ function classifyLifecycle(text, heading) {
   if (/\bimplemented\b|\bcurrently exposes\b|\balready implemented\b|\bspecified in\b|\bcurrent\b/.test(lower)) return "current";
   if (/\bcompleted\b|\bclosed\b|\bresolved-decision\b/.test(lower)) return "completed";
   return "planned";
+}
+
+function evidenceCaseId(file) {
+  const parts = file.split("/");
+  const specificationIndex = parts.indexOf("specification");
+  if (specificationIndex >= 0 && parts[specificationIndex + 1] && parts[specificationIndex + 2]) {
+    return `${parts[specificationIndex + 1]}/${parts[specificationIndex + 2]}`;
+  }
+  return file.replace(/\.[^.]+$/u, "");
 }
 
 function isConformanceSource({ heading, text }) {

@@ -60,6 +60,24 @@ test("rejects missing independent source-universe contract identities", () => {
   assert(validateUniverse({ parsed: missingClientPlatform.parsed, universe: missingClientPlatform.universe }).some((error) => error.includes("plugin_client_platform_keys identity claude-code/x86_64-unknown-linux-gnu")));
 });
 
+test("rejects missing independent finite source-universe sets", () => {
+  const savedReference = fixtureData();
+  savedReference.universe.roots.find((root) => root.id === "agent-language-services/S0029").id = "agent-language-services/S9999";
+  assert(validateUniverse({ parsed: savedReference.parsed, universe: savedReference.universe }).some((error) => error.includes("saved_reference_acceptance_rows source agent-language-services/S0029")));
+
+  const navigation = fixtureData();
+  navigation.universe.roots.find((root) => root.id === "agent-language-services/S0158").id = "agent-language-services/S9998";
+  assert(validateUniverse({ parsed: navigation.parsed, universe: navigation.universe }).some((error) => error.includes("closed_navigation_matrix_rows source agent-language-services/S0158")));
+
+  const topic = fixtureData();
+  topic.universe.roots.find((root) => root.id === "agent-language-services/S0236").id = "agent-language-services/S9997";
+  assert(validateUniverse({ parsed: topic.parsed, universe: topic.universe }).some((error) => error.includes("closed_topic_matrix_rows source agent-language-services/S0236")));
+
+  const unresolved = fixtureData();
+  unresolved.universe.roots.find((root) => root.id === "agent-language-services/S0374").id = "agent-language-services/S9996";
+  assert(validateUniverse({ parsed: unresolved.parsed, universe: unresolved.universe }).some((error) => error.includes("unresolved_acceptance_rows source agent-language-services/S0374")));
+});
+
 test("rejects invalid closed client-platform matrix rows and references", () => {
   const proposal = fs.readFileSync(path.join(repoRoot, "docs/proposals/agent-language-services.md"), "utf8");
   assert.deepEqual(validateAgentLanguageServicesPlatformMatrix(proposal), []);
@@ -169,16 +187,20 @@ test("rejects invalid ledger destination evidence", () => {
   const fixture = fixtureData();
   const ledger = buildAcceptanceLedger(fixture);
   const current = ledger.entries.find((entry) => entry.lifecycle === "current");
-  current.destination.evidence = ["docs/proposals/agent-language-services.md"];
+  current.destination.evidence = [{ path: "docs/proposals/agent-language-services.md", case_id: "proposal" }];
   assert(validateMigrationLedger({ repoRoot, ledger, inventory: fixture.inventory, manifest: fixture.manifest }).errors.some((error) => error.includes("allowlisted checked route")));
 });
 
-test("rejects duplicate current evidence and summary-only planned destinations", () => {
+test("rejects duplicate current evidence, missing case IDs, and summary-only planned destinations", () => {
   const fixture = fixtureData();
   const duplicateEvidence = buildAcceptanceLedger(fixture);
   const currentEntries = duplicateEvidence.entries.filter((entry) => entry.lifecycle === "current");
   currentEntries[1].destination.evidence = [...currentEntries[0].destination.evidence];
   assert(validateMigrationLedger({ repoRoot, ledger: duplicateEvidence, inventory: fixture.inventory, manifest: fixture.manifest }).errors.some((error) => error.includes("reused by more than one current leaf")));
+
+  const missingCase = buildAcceptanceLedger(fixture);
+  delete missingCase.entries.find((entry) => entry.lifecycle === "current").destination.evidence[0].case_id;
+  assert(validateMigrationLedger({ repoRoot, ledger: missingCase, inventory: fixture.inventory, manifest: fixture.manifest }).errors.some((error) => error.includes("case_id must be nonempty")));
 
   const summaryPlanned = buildAcceptanceLedger(fixture);
   const planned = summaryPlanned.entries.find((entry) => entry.lifecycle === "planned");
@@ -225,6 +247,15 @@ test("keeps ledger schema and semantic validator aligned for structural cases", 
     (ledger) => { ledger.entries[0].lifecycle = "later"; },
     (ledger) => { ledger.entries.find((entry) => entry.lifecycle === "current").destination.kind = "planned"; },
     (ledger) => { delete ledger.entries.find((entry) => entry.lifecycle === "current").destination.evidence; },
+    (ledger) => { ledger.entries.find((entry) => entry.lifecycle === "current").destination.path = ""; },
+    (ledger) => { ledger.entries.find((entry) => entry.lifecycle === "current").destination.path = "docs/specification"; },
+    (ledger) => { ledger.entries.find((entry) => entry.lifecycle === "current").destination.anchor = "missing-anchor"; },
+    (ledger) => { ledger.entries.find((entry) => entry.lifecycle === "current").destination.format = "markdown"; },
+    (ledger) => {
+      const evidence = ledger.entries.find((entry) => entry.lifecycle === "current").destination.evidence;
+      evidence[0] = { ...evidence[0], extra: true };
+    },
+    (ledger) => { delete ledger.entries.find((entry) => entry.lifecycle === "current").destination.evidence[0].case_id; },
     (ledger) => {
       const current = ledger.entries.find((entry) => entry.lifecycle === "current");
       current.destination.evidence = [current.destination.evidence[0], current.destination.evidence[0]];
