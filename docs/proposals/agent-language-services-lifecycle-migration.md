@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The agent-language-services proposal structure, client-platform matrix, checked target-readiness prerequisite, frozen source-universe contract, lifecycle review manifest, migration-ledger schema, bootstrap branch topology, diff-guard phase boundary, or lifecycle destinations change.
+update-when: The agent-language-services proposal structure, inventory review gate, target provenance, frozen source-universe contract, lifecycle review authority, migration-ledger schema, bootstrap branch topology, diff-guard phase boundary, or lifecycle destinations change.
 ---
 
 # Agent Language Services Lifecycle Migration
@@ -14,21 +14,26 @@ assertion target. It does not change toolchain behavior or executable cases.
 
 ## Selection State
 
-The checked target-readiness prerequisite is complete and recorded under
+The checked target-readiness prerequisite is recorded under
 [Checked Proposal Target Readiness](../reference/implemented-proposals/checked-proposal-target-readiness.md).
 The client-platform prerequisite is complete and recorded under
 [Agent Language Services Platform Matrix Closure](../reference/implemented-proposals/agent-language-services-platform-matrix-closure.md).
 
-Select only the corrected frozen source inventory PR first. Its base is the
-default branch revision that contains both completed prerequisite records and
-does not contain a frozen inventory. Keep all corrections on that same
-default-branch-targeting PR. Do not put a correction PR on a branch that
-already contains any frozen artifact. The PR must add the source-universe
-contract, inventory, lifecycle review manifest, migration-ledger schema,
-validator, and rejection tests without reorganizing the umbrella proposal.
-This branch supplies that frozen artifact set. Select the migration PR only
-after the frozen inventory has merged. Neither target may change the MCP
-harness, executable MCP fixtures, or semantic baselines.
+Do not select this proposal while
+[Agent Language Services Inventory Review Gate](agent-language-services-inventory-review-gate.md)
+remains under `docs/proposals/`. That gate must establish PR-visible target
+provenance and an immutable reviewed source-decision authority before another
+inventory implementation begins.
+
+After the gate completes, select only the corrected frozen source inventory PR
+first. Its base is the default branch revision that contains all completed
+prerequisite records, the reviewed source-decision authority, and no frozen
+inventory. The PR must carry checked tracked target provenance. It may consume
+the reviewed source decisions but may not revise them. Keep all corrections on
+that same default-branch-targeting PR. Do not put a correction PR on a branch
+that already contains any frozen artifact. Select the migration PR only after
+the frozen inventory has merged. Neither target may change the MCP harness,
+executable MCP fixtures, or semantic baselines.
 
 ## Problem
 
@@ -52,6 +57,14 @@ classification became self-validating. Finally, the first-PR diff guard had no
 activation or retirement fact and would have rejected ordinary documentation
 changes after merge. Repeating the generator or adding more same-shaped
 mutation tests cannot correct those missing authorities.
+
+Later attempts exposed the remaining authority defect. A checked sidecar under
+ignored `prompts/` was not visible to the PR check. The inventory PR then
+created its reviewed source classifications and their validator together.
+Detached identity name lists, keyword-derived lifecycle labels, incomplete
+CommonMark list items, and schema-versus-semantic disagreement all passed when
+both sides copied the same error. The inventory review gate separates those
+authorities from their later consumer.
 
 ## Scope
 
@@ -103,17 +116,20 @@ migration-ledger schema, and their validator. It does not reorganize or remove
 umbrella proposal content. The second PR performs the lifecycle migration and
 may not modify the frozen artifacts or weaken the validator.
 
-The source-universe contract is independent of the inventory generator. Its
-root records enumerate every non-frontmatter Markdown paragraph, list item,
-table row, and nonempty fenced line in `agent-language-services.md`. Table
-cells and semantic clauses are child records. Every record has a stable source
-ID and states whether it is conformance content or supporting explanation.
+The source-universe contract is derived from the immutable reviewed
+source-decision authority established by the inventory review gate. Its root
+records enumerate every non-frontmatter Markdown paragraph, complete CommonMark
+list item including continuation lines, table row, and nonempty fenced line in
+`agent-language-services.md`. Table cells and semantic clauses are child
+records. Every record has a stable source ID and states whether it is
+conformance content or supporting explanation.
 Conformance children identify each normative paragraph, schema field, domain
 error, resource template, lifecycle transition, capability-matrix row,
 evidence-gate item, and client-platform cell. Supporting children remain
 covered and identified but may not masquerade as conformance leaves.
 
-The contract records the exact expected identities for Q01 through Q22, the
+Each contract identity records an exact source root, leaf, and Unicode-scalar
+span. The contract records the exact expected identities for Q01 through Q22, the
 six saved-reference rows, every row and named cell of both closed matrices,
 every unresolved acceptance row, tool and resource kinds, package-document
 declaration kinds, LSP encodings, and every literal plugin compatibility cell.
@@ -126,12 +142,18 @@ inventory, in both directions. Deleting one source node from both the contract
 and inventory must therefore fail. A generator may propose records, spans, or
 digests, but generator output is not the completeness or lifecycle authority.
 
+A detached top-level identity list is not sufficient evidence. Removing an
+identity occurrence or changing a conformance record to supporting must fail
+even when the inventory is changed to agree. A parser that turns one continued
+list item into multiple source roots is invalid.
+
 The structural parser result contains only source structure, text, spans, and
 digests. It does not contain conformance, named-identity, or lifecycle fields.
-The authoritative source-universe contract and lifecycle manifest are reviewed
-inputs. The artifact writer does not create or overwrite either input. A test
-invokes every writer mode and verifies that both reviewed inputs remain
-byte-identical.
+The authoritative source-decision artifact precedes the inventory branch. The
+source-universe contract and lifecycle manifest must equal that immutable input
+where their fields overlap. The artifact writer does not create or overwrite
+any reviewed input. A test invokes every writer mode and verifies that each
+reviewed input remains byte-identical.
 
 The inventory records the source heading, Unicode-scalar spans, exact text, and
 digest for every source ID. Each parent scalar belongs exactly once to a child
@@ -148,11 +170,11 @@ gap or overlap. The validator rejects a missing, duplicate, overlapping, or
 out-of-range child, an invalid separator span, any uncovered source scalar, and
 a parent mapped directly when it declares children.
 
-Each leaf declares one lifecycle from an independently reviewed manifest. A
-leaf may not combine implemented or current behavior with planned or remaining
-behavior. The manifest records every conformance and supporting leaf ID and
-span; it does not infer lifecycle from words such as `current`, `implemented`,
-`completed`, `must`, or `exposes`. It also records which supporting leaves are
+Each leaf declares one lifecycle from the pre-branch reviewed source-decision
+authority. A leaf may not combine implemented or current behavior with planned
+or remaining behavior. The manifest records every conformance and supporting
+leaf ID and span. It does not infer lifecycle from words such as `current`,
+`implemented`, `completed`, `must`, or `exposes`. It also records which supporting leaves are
 obsolete or duplicated and therefore use `removed`. Required golden decisions
 include a planned clause that mentions an implemented boundary, a planned
 prerequisite that mentions implemented history, a future completed capability,
@@ -160,12 +182,21 @@ and an implemented acceptance row whose case, result, and evidence share one
 current lifecycle. The validator rejects any inventory or ledger lifecycle
 that differs from the reviewed manifest.
 
+Changing the reviewed authority and its consumer together in the inventory PR
+must fail. The validator uses the authority from the declared merge base, not
+the head revision, when it validates the bootstrap transition.
+
 The inventory validator compares every recorded source digest with the
 pre-migration umbrella source in the first PR. The migration validator in the
 second PR treats the merged source-universe contract, lifecycle manifest,
 inventory, schema, and validator acceptance corpus as immutable input. It does
 not derive the expected universe from the edited umbrella page, edited ledger,
 or the generator under test.
+
+The immutable input includes the frozen exact source text or an equivalent
+base-revision source snapshot. The second PR validates migrated destinations
+against that input. It must not compare frozen digests with the reorganized
+umbrella page and report the intended migration as source drift.
 
 ## Diff-Guard Phases
 
@@ -175,12 +206,16 @@ bootstrap transition merges, the allowlist retires automatically. An unrelated
 documentation PR and the second migration PR must not inherit the bootstrap
 allowlist.
 
+The inventory review gate defines the complete bootstrap allowlist. The
+inventory implementation may not add another path or path family to that set.
+
 The guard also receives the pull-request base ref and the default-branch ref.
 The bootstrap transition is valid only when both refs name the default branch,
-the base contains both completed prerequisite records, and the base does not
-contain a frozen artifact. A stacked base that contains a frozen artifact is
-post-bootstrap even when the default branch does not contain one. It cannot be
-used to revise the frozen artifacts or validator.
+the base contains all completed prerequisite records, the reviewed
+source-decision authority, and no frozen artifact. The head also contains valid
+tracked target provenance for that exact base. A stacked base that contains a
+frozen artifact is post-bootstrap even when the default branch does not contain
+one. It cannot be used to revise the frozen artifacts or validator.
 
 After bootstrap, a separate immutability guard rejects changes to the frozen
 source-universe contract, lifecycle manifest, inventory, schema, and acceptance
@@ -191,6 +226,10 @@ Range tests cover the bootstrap transition, an unrelated documentation change
 after bootstrap, the permitted second migration paths, a frozen-artifact edit,
 a validator or workflow-registration edit, a protected-path rename, and a
 regular file changed to a symbolic link.
+
+Workflow path filters include every immutable JSON and provenance path. Push
+validation receives the pre-push default revision separately from the new head;
+it does not use the new head as both states of the bootstrap transition.
 
 | Base state | Head state | Required result |
 | --- | --- | --- |
@@ -246,14 +285,21 @@ kind, path, anchor, evidence requirement, removal rationale, and format field.
 The schema and semantic validator must make the same accept-or-reject decision
 for every structural case.
 
+The corpus may not declare schema and semantic disagreement as an expected
+success. Production ledger validation resolves destinations, roles, anchors,
+and checked evidence against the repository. A corpus source ID must be an
+actual leaf from the reviewed inventory; positive cases may not use unknown or
+parent IDs.
+
 ## Acceptance Model
 
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |
+| Complete the inventory review gate. | The default branch contains checked target provenance policy and an immutable reviewed source-decision authority before the inventory branch starts. | Completed gate record plus missing-provenance and synchronized-authority-mutation rejection fixtures. |
 | Check target readiness before implementation. | The generated frozen-inventory target is accepted only after both prerequisites leave `docs/proposals/` and its declared default-branch base has no frozen artifact. | Accepted handoff from the checked target-readiness command plus blocked-prerequisite, stale-base, and stacked-base rejection fixtures. |
 | Close the prerequisite client-platform set. | The platform-matrix proposal is complete and every plugin cell has a literal client-platform identity. | Link to the completed matrix record plus checked exact key list and row count. |
-| Freeze the source universe independently. | A first PR records stable IDs, source spans, classifications, and digests for every independently parsed source node without changing the umbrella proposal. The structural parser exposes no semantic classification, and no writer creates or overwrites the reviewed source-universe contract or lifecycle manifest. | Source-parser result-shape assertion; writer non-mutation assertion; source-parser-to-contract and contract-to-inventory comparisons; injected source-node, contract-node, inventory-node, duplicate, unexpected, and generator-omission cases for each record class. |
-| Preserve named finite inputs. | Q01-Q22, both closed matrices, the six saved-reference rows, every unresolved acceptance row, and every other named conformance item have exact independent identity sets. | One missing-identity mutation for each item class, including tool, resource, declaration, encoding, and plugin cells. |
+| Freeze the source universe independently. | A first PR records stable IDs, source spans, classifications, and digests for every independently parsed complete source node without changing the umbrella proposal or the pre-branch source-decision authority. The structural parser exposes no semantic classification, and no writer creates or overwrites reviewed inputs. | Source-parser result-shape assertion; CommonMark continuation fixture; writer non-mutation assertion; base-authority-to-contract and contract-to-inventory comparisons; injected source-node, contract-node, inventory-node, duplicate, unexpected, synchronized-mutation, and generator-omission cases for each record class. |
+| Preserve named finite inputs. | Q01-Q22, both closed matrices, the six saved-reference rows, every unresolved acceptance row, and every other named conformance item have exact source-bound identity occurrences. | One missing and one detached source-occurrence mutation for each item class, including tool, resource, declaration, encoding, and plugin cells. |
 | Separate lifecycle semantically. | Every conformance leaf matches the reviewed lifecycle manifest, and mixed parents partition every meaningful Unicode scalar without lifecycle mixing. | Golden ambiguous-word cases plus injected gap, overlap, out-of-range, wrong-lifecycle, hidden-delimiter, and non-BMP boundary failures. |
 | Keep the ledger schema and validator equivalent. | Both validators reject the same invalid structural ledger cases and accept the same valid corpus. | Per-keyword schema weakening and closedness mutation corpus. |
 | Inventory the finite inputs. | The migration ledger contains exactly one entry for every frozen leaf ID and its lifecycle equals the frozen lifecycle. | Missing, duplicate, parent, wildcard, range, catch-all, unknown-leaf, and lifecycle-mismatch rejection cases. |
@@ -262,7 +308,7 @@ for every structural case.
 | Move completed history. | Every `completed` entry links to a supporting implementation record, and active proposal pages contain no implemented status ledger. | Stale implemented-row search and frontmatter validation. |
 | Remove only supporting explanation. | Conformance leaves reject `removed`; supporting leaves accept it only with a rationale and existing superseding destination. | Paired conformance rejection and supporting-explanation acceptance fixtures. |
 | Keep the completion gate finite. | Active proposal pages contain every planned leaf from the frozen inventory, including the closed matrices and Q01-Q22 identities, or link to focused proposal pages that contain them. No completion row depends on an undefined future matrix or capability list. | Frozen-inventory-to-proposal validation and injected missing-entry failure tests for each item class. |
-| Bound the diff guard to its phase. | The bootstrap allowlist runs only on one default-branch-targeting PR whose base contains both completed prerequisites and no frozen artifact. A stacked base with any frozen artifact is post-bootstrap. Later docs work passes while frozen artifacts, validator registration, and protected executable evidence remain immutable. | Base-ref and default-ref assertions plus the complete base/head state table, including blocked-target, stacked-base, type-change, rename, unrelated-doc, migration-path, frozen-edit, validator-edit, and workflow-registration cases. |
+| Bound the diff guard to its phase. | The bootstrap allowlist runs only on one default-branch-targeting PR whose base contains all completed prerequisite records, checked tracked provenance, reviewed source decisions, and no frozen artifact. A stacked base with any frozen artifact is post-bootstrap. Later docs work passes while frozen artifacts, validator registration, and protected executable evidence remain immutable. | Base-ref and default-ref assertions plus the complete base/head and PR/push event table, including missing-provenance, blocked-target, stacked-base, JSON-only, type-change, copy, rename, unrelated-source, unrelated-doc, migration-path, frozen-edit, validator-edit, and workflow-registration cases. |
 | Complete the migration independently. | The PR changes documentation and its documentation validators only. It does not change harness code, executable MCP fixtures, or semantic baselines. | Phase-aware diff-scope check with actionable failure output. |
 
 ## Non-Goals
@@ -275,7 +321,7 @@ for every structural case.
 
 ## Completion Rule
 
-This proposal completes only when all fourteen acceptance rows pass. Move the
+This proposal completes only when all fifteen acceptance rows pass. Move the
 completed proposal record out of `docs/proposals/` before selecting the MCP
 JSONL assertion target. Later capability work may revise a closed set only
 through a separate proposal that states the old and new finite membership.
