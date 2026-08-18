@@ -21,43 +21,29 @@ also states it.
 - Identifier casing that separates type and constructor names from module,
   function, and value-binding names:
   [identifier-casing.md](identifier-casing.md).
-- Close the agent-language-services client-platform set before freezing its
-  conformance universe:
-  [agent-language-services-platform-matrix-closure.md](agent-language-services-platform-matrix-closure.md).
+- Add response-local MCP JSONL assertions and checked definition evidence:
+  [agent-language-services-slice-closure.md](agent-language-services-slice-closure.md).
 
 Only proposals and subsections listed in this section are selectable targets.
 
 ## Blocked
 
-- The agent-language-services lifecycle migration is blocked until the
-  client-platform matrix closure leaves this directory as a completed
-  implementation record:
-  [agent-language-services-lifecycle-migration.md](agent-language-services-lifecycle-migration.md).
-- The agent-language-services slice-closure proposal is blocked until the
-  lifecycle-migration proposal leaves this directory as a completed
-  implementation record:
-  [agent-language-services-slice-closure.md](agent-language-services-slice-closure.md).
 - The agent-language-services umbrella is a planning inventory. Its next saved
   workspace function-reference slice is blocked by identifier casing and slice
-  closure. Move another independently ready bounded slice into the Ready
-  section before selecting it:
+  closure. Move that implementation target into the Ready section after those
+  dependencies pass:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule
 
 Before implementing a proposal slice, compare it with the matching
 specification page and executable cases. Select only a proposal or subsection
-listed under Ready. A named prerequisite that still lives in this directory is
-incomplete, so do not issue or implement a target for its dependent proposal.
-Move the dependent proposal to Ready only after the prerequisite leaves this
-directory and its completed implementation record is linked. If Ready contains
-no suitable bounded slice, report that there is no target instead of selecting
-work from Blocked.
+listed under Ready. If Ready contains no suitable implementation target, report
+that there is no target instead of selecting work from Blocked.
 
 Do not select work that is already covered by the current specification or
 only extends a numbered, width-based, arity-based, route-count, or diagnostic-id
-sequence. Such work needs a concrete new capability and a bounded stopping
-condition.
+sequence. Such work needs a concrete new capability.
 
 ## Proposal Shape
 

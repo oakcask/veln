@@ -41,24 +41,18 @@ grammar.
    explanation of the executable specification.
 7. Audit `docs/proposals/README.md` and the implemented proposal page:
    completed behavior must not remain cataloged as planned or future work.
-8. When proposal text or indexes describe remaining work as a numbered,
-   arity-based, count-based, width-based, or otherwise repeatable sequence,
-   review whether the next step would merely extend the sequence. Treat that
-   as a design signal, not an implicit implementation target. Add a cap,
-   non-goal, stopping condition, or intended abstraction when the proposal
-   should not keep growing by the same pattern.
-9. For fully completed proposals, move the historical record to
+8. For fully completed proposals, move the historical record to
    `docs/reference/implemented-proposals/` and update that directory's
    `README.md`. Remove it from the proposals catalog.
-10. For rejected, superseded, or otherwise closed proposals, remove the page
+9. For rejected, superseded, or otherwise closed proposals, remove the page
     from `docs/proposals/` and its catalog. Preserve useful rationale in the
     matching `docs/reference/` area instead of keeping a closed proposal route.
-11. For partially completed proposals, keep only the unimplemented remainder in
-   `docs/proposals/`; rewrite the page and catalog entry so they clearly name
-   the remaining planned work.
-12. Before finishing, search for stale proposal-only wording around the changed
-   feature and make sure current-behavior claims point to `docs/specification/`
-   or checked examples instead of proposal text.
+10. For partially completed proposals, keep only the unimplemented remainder in
+    `docs/proposals/`; rewrite the page and catalog entry so they clearly name
+    the remaining planned work.
+11. Before finishing, search for stale proposal-only wording around the changed
+    feature and make sure current-behavior claims point to `docs/specification/`
+    or checked examples instead of proposal text.
 
 ## Specification Update Routes
 
@@ -97,11 +91,6 @@ grammar.
 - Rejected, superseded, and otherwise closed proposal pages do not remain under
   `docs/proposals/`.
 - Any proposal text left behind describes only unimplemented follow-up work.
-- Repeated slices are not left in a form that implies automatic continuation,
-  such as adding the next numbered helper, route count, arity, primitive width,
-  or fixture variant. If repeated slices remain necessary, the proposal states
-  why the sequence is bounded, what stops it, or what broader abstraction is
-  expected instead of another same-shaped slice.
 - The final response names the specification and example updates, or explicitly
   states why none were needed.
 
@@ -120,7 +109,3 @@ grammar.
 - Do not treat natural-language specification prose as the primary artifact
   when the behavior can reasonably be expressed as executable specification
   evidence.
-- Do not treat "next narrow slice" wording, implemented-slice inventories, or
-  proposal indexes as permission to extend an unbounded numbered sequence.
-  First ask whether the next slice is a real language capability or evidence
-  that the proposal needs a scalable API, data model, cap, or non-goal.
