@@ -44,6 +44,25 @@ Ready identity must pass before pull-request-local validators, tests, routing,
 or lifecycle records can count as conformance evidence. A green check cannot
 override an identity failure or make a Blocked proposal selectable.
 
+## Recovery And Termination Boundary
+
+A target-base mismatch or non-Ready selection is terminal for that target and
+its implementation pull request. Close or abandon the invalid pull request
+when authorized. Do not repair its branch-local validator, tests, description,
+or lifecycle record, because those artifacts cannot establish repository
+authority after identity fails.
+
+The eight rows in the Acceptance Model are the complete implementation target
+for this preflight. Another stale target whose base predates a candidate base,
+or whose proposal is Blocked at that candidate base, belongs to the existing
+self-consistent stale-loop row. It does not add another acceptance row,
+mutation family, guard proposal, or matrix-closure correction.
+
+After such a rejection, the only agent-language-services recovery target is
+the complete preflight in this proposal. Independent Ready proposals remain
+selectable. Do not reissue the matrix-closure target until the preflight has
+merged and the matrix proposal is Ready at the new default-branch commit.
+
 ## Scope
 
 Add a `proposal-target-snapshot-audit` repository skill. Its checker uses this
@@ -171,7 +190,7 @@ Ready review. Otherwise close it and reissue a target from the intended base.
 | Bind the target to Ready selection. | Accept only one structurally valid `role: proposal` page and one top-level Ready link at the target commit. | Ready control plus fenced, commented, quoted, nested, Blocked, unlisted, non-proposal, duplicate-Ready, and missing-frontmatter cases. |
 | Bind implementation and review to one base. | Require the branch merge base to equal the freshly advertised default tip and the pull-request merge base to equal `baseRefOid`; use that tip as the target equality candidate. | Equal control plus older-target, newer-target, default advanced without branch rebase, PR base advanced without head rebase, rebased branch, retargeted PR, missing or ambiguous remote, missing default ref, changed advertisement, missing object, shallow history, zero merge bases, and multiple merge bases. |
 | Compare all three semantic edges. | Treat target-to-proposal and PR-to-proposal conflicts as blocking before using target-to-PR agreement as supporting review input. | Skill walkthroughs for exact match, same-base value-versus-identity reversal, omitted acceptance row, extra scope, misleading PR description, and repository-correct PR with an invalid target. |
-| Reject a self-consistent stale implementation loop. | When the target names an ancestor where the selected proposal was Ready, but the candidate base blocks or revises that proposal, fail on target/base identity before green pull-request-local checks can count as conformance evidence. | One temporary-history fixture with an ancestor five-row value-bearing proposal, a candidate-base Blocked ten-row value-free proposal, a pull request that restores the ancestor contract, and an accepting sentinel test result that must not affect rejection. |
+| Reject a self-consistent stale implementation loop. | When the target names an ancestor where the selected proposal was Ready, but the candidate base blocks or revises that proposal, fail on target/base identity before green pull-request-local checks can count as conformance evidence. Every recurrence with that state relation maps to this row instead of expanding the proposal. | One temporary-history fixture with an ancestor five-row value-bearing proposal, a candidate-base Blocked ten-row value-free proposal, a pull request that restores the ancestor contract, and an accepting sentinel test result that must not affect rejection. |
 | Keep repository authority separate. | Do not track target prompts or receipts, register the checker in CI, or claim that the preflight authorizes merge. | Path assertions, workflow non-registration check, ignored-target control, and skill text assertions. |
 | Transfer Ready routing after completion. | Move this page to implemented records, index it, make matrix closure Ready in the catalog and its Selection State, and leave no target prompt or receipt in the range. | Exact documentation range plus missing record, missing index, catalog-only Ready, proposal-only Ready, and tracked-target mutations. |
 
@@ -183,7 +202,8 @@ local-only trust boundary. Move this page to implemented-proposal records,
 update the implementation-record index, restore Agent Language Services
 Platform Matrix Closure to Ready in both routing surfaces, and merge that PR.
 Only then reissue the external matrix target from the resulting default-branch
-commit.
+commit. Do not add a ninth acceptance row for another mismatch already covered
+by the state model.
 
 ## Non-Goals
 
@@ -195,3 +215,5 @@ commit.
   from hashes alone.
 - Implementing the platform matrix, lifecycle inventory, MCP, LSP, plugin, or
   Veln language behavior.
+- Expanding this proposal for another stale-target recurrence that has the same
+  target-base or Ready-selection state already covered by the Acceptance Model.
