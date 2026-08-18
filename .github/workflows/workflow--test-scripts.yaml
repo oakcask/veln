@@ -43,3 +43,8 @@ jobs:
         run: node workflow-scripts/check-doc-frontmatter.mjs
       - name: Validate proposal target readiness
         run: node workflow-scripts/check-proposal-target-readiness.mjs validate
+      - name: Validate agent language services lifecycle artifacts
+        env:
+          ALS_LIFECYCLE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          ALS_LIFECYCLE_HEAD_SHA: ${{ github.sha }}
+        run: node workflow-scripts/check-agent-language-services-lifecycle.mjs validate
