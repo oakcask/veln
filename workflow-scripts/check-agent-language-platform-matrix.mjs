@@ -27,6 +27,35 @@ const expectedFields = [
   "reference-schema-contract",
 ];
 
+const expectedRows = [
+  [
+    "codex",
+    "x86_64-unknown-linux-gnu",
+    "linux-x86_64-host-contract-v1",
+    "codex-plugin-manifest-v1",
+    "agent-platform-matrix-validator-v1",
+    "2f5c36e1d4a9b8c7e0f123456789abcd2f5c36e1d4a9b8c7e0f123456789abcd",
+    "veln-toolchain-contract-v1",
+    "mcp-contract-v1",
+    "codex-lsp-disabled-contract-v1",
+    "language-service-contract-v1",
+    "reference-schema-contract-v1",
+  ],
+  [
+    "claude-code",
+    "x86_64-unknown-linux-gnu",
+    "linux-x86_64-host-contract-v1",
+    "claude-code-plugin-manifest-v1",
+    "agent-platform-matrix-validator-v1",
+    "7a4e29c0b1d3f85690abcdef123456787a4e29c0b1d3f85690abcdef12345678",
+    "veln-toolchain-contract-v1",
+    "mcp-contract-v1",
+    "lsp-contract-v1",
+    "language-service-contract-v1",
+    "reference-schema-contract-v1",
+  ],
+];
+
 const expectedRegistry = [
   ["agent-plugin-server-lifecycle", "agent-language-services.md", "## Agent Plugin", "paragraph 3", "Closed Client-Platform Matrix", "#closed-client-platform-matrix"],
   ["agent-plugin-installer-boundary", "agent-language-services.md", "## Agent Plugin", "paragraph 7", "Closed Client-Platform Matrix", "#closed-client-platform-matrix"],
@@ -109,6 +138,10 @@ export function validateDocuments(documents) {
   errors.push(...parsedAgent.errors, ...parsedLifecycle.errors);
   errors.push(...validateMatrix(parsedAgent));
   errors.push(...validateReferences(new Map([
+    ["agent-language-services.md", parsedAgent],
+    ["agent-language-services-lifecycle-migration.md", parsedLifecycle],
+  ])));
+  errors.push(...validateNoUnboundPlatformUniverse(new Map([
     ["agent-language-services.md", parsedAgent],
     ["agent-language-services-lifecycle-migration.md", parsedLifecycle],
   ])));
@@ -225,9 +258,9 @@ function validateMatrix(parsed) {
     return errors;
   }
   const blocks = matrix.blocks;
-  const expectedKinds = ["paragraph", "paragraph", "table", "heading", "table", "heading", "table"];
+  const expectedKinds = ["paragraph", "paragraph", "table", "heading", "table"];
   if (blocks.length !== expectedKinds.length) {
-    errors.push(`agent-language-services.md#closed-client-platform-matrix: restore exactly seven matrix blocks so lifecycle inventory coverage remains finite.`);
+    errors.push(`agent-language-services.md#closed-client-platform-matrix: restore exactly five matrix blocks so lifecycle inventory coverage remains finite.`);
   }
   for (const [index, kind] of expectedKinds.entries()) {
     if (blocks[index]?.kind !== kind) {
@@ -240,15 +273,11 @@ function validateMatrix(parsed) {
   if (inspectPhase(parsed.text) !== "present") {
     errors.push("matrix phase: restore the canonical phase paragraph as block B02 so the closure guard can retire after this transition.");
   }
-  validateMembership(blocks[2], errors);
-  if (blocks[3]?.text !== "#### Compatibility Field Identities") {
-    errors.push("matrix field heading: restore `#### Compatibility Field Identities` before the field table.");
-  }
-  validateFieldTable(blocks[4], errors);
-  if (blocks[5]?.text !== "#### Matrix Reference Registry") {
+  validateCompatibilityTable(blocks[2], errors);
+  if (blocks[3]?.text !== "#### Matrix Reference Registry") {
     errors.push("matrix registry heading: restore `#### Matrix Reference Registry` before the registry table.");
   }
-  validateRegistryTable(blocks[6], errors);
+  validateRegistryTable(blocks[4], errors);
   return errors;
 }
 
@@ -283,58 +312,46 @@ function matrixBlocks(parsed, errors) {
   }
   for (const block of interval) {
     if (!["paragraph", "table", "heading"].includes(block.kind) || (block.kind === "heading" && block.level !== 4)) {
-      errors?.push(`${block.file}:${block.line}: remove unexpected ${block.kind} from the matrix interval; finite lifecycle coverage depends on the seven canonical blocks.`);
+      errors?.push(`${block.file}:${block.line}: remove unexpected ${block.kind} from the matrix interval; finite lifecycle coverage depends on the five canonical blocks.`);
       return { state: "invalid", blocks: interval };
     }
   }
   return { state: "present", blocks: interval };
 }
 
-function validateMembership(block, errors) {
-  const rows = tableRows(block, ["Client", "Platform"], "| --- | --- |", "membership table", errors);
+function validateCompatibilityTable(block, errors) {
+  const rows = tableRows(block, expectedFields, "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |", "compatibility table", errors);
   if (rows.length !== expectedKeys.length) {
-    errors.push(`membership table: restore exactly ${expectedKeys.length} rows so lifecycle inventory coverage can prove every client-platform cell.`);
+    errors.push(`compatibility table: restore exactly ${expectedKeys.length} rows so lifecycle inventory coverage can prove every client-platform cell.`);
   }
   const seen = new Set();
   rows.forEach((row, index) => {
     const values = row.map(codeValue);
-    const key = values.join("/");
-    if (values.some((value) => value === undefined || value === "")) {
-      errors.push(`membership row ${index + 1}: enumerate nonempty exact client and platform literals; empty or malformed cells break finite coverage.`);
+    if (values.some((value) => value === undefined)) {
+      errors.push(`compatibility row ${index + 1}: use exact inline-code cells for every compatibility field so finite coverage is machine-checkable.`);
       return;
     }
+    const key = `${values[0]}/${values[1]}`;
     if (seen.has(key)) {
-      errors.push(`membership row ${index + 1}: remove duplicate ${key}; lifecycle coverage needs each closed cell once.`);
+      errors.push(`compatibility row ${index + 1}: remove duplicate ${key}; lifecycle coverage needs each closed cell once.`);
     }
     seen.add(key);
     if (key !== expectedKeys[index]) {
-      errors.push(`membership row ${index + 1}: restore ${expectedKeys[index]}; ranges, wildcards, placeholders, catch-alls, and unexpected literals cannot prove finite coverage.`);
+      errors.push(`compatibility row ${index + 1}: restore ${expectedKeys[index]}; ranges, wildcards, placeholders, catch-alls, and unexpected literals cannot prove finite coverage.`);
     }
-  });
-}
-
-function validateFieldTable(block, errors) {
-  const rows = tableRows(block, ["Compatibility field"], "| --- |", "field table", errors);
-  if (rows.length !== expectedFields.length) {
-    errors.push(`field table: restore ${expectedFields.length} compatibility field identities so each future cell has the same shape.`);
-  }
-  const seen = new Set();
-  rows.forEach((row, index) => {
-    const value = codeValue(row[0]);
-    if (value === undefined || value === "") {
-      errors.push(`field row ${index + 1}: use one exact inline-code field identity with no compatibility value.`);
-      return;
-    }
-    if (row[0].includes("=") || row[0].includes(":")) {
-      errors.push(`field row ${index + 1}: remove compatibility values; this closure records field identity only.`);
-    }
-    if (seen.has(value)) {
-      errors.push(`field row ${index + 1}: remove duplicate ${value}; each future compatibility record needs one copy of each field.`);
-    }
-    seen.add(value);
-    if (value !== expectedFields[index]) {
-      errors.push(`field row ${index + 1}: restore ${expectedFields[index]} at this position so compatibility record shape is stable.`);
-    }
+    values.forEach((value, fieldIndex) => {
+      const field = expectedFields[fieldIndex] ?? `column ${fieldIndex + 1}`;
+      if (value === "") {
+        errors.push(`compatibility row ${index + 1} field ${field}: enumerate a nonempty exact literal; empty values break finite lifecycle coverage.`);
+      } else if (field === "validator-integrity" && !/^[0-9a-f]{64}$/.test(value)) {
+        errors.push(`compatibility row ${index + 1} field validator-integrity: restore exactly 64 lowercase hexadecimal digits so validator evidence has a stable digest identity.`);
+      } else if (field !== "validator-integrity" && !isExactLiteral(value)) {
+        errors.push(`compatibility row ${index + 1} field ${field}: replace ${value} with the expected exact literal; ranges, wildcards, placeholders, and catch-alls cannot prove finite coverage.`);
+      }
+      if (expectedRows[index]?.[fieldIndex] !== undefined && value !== expectedRows[index][fieldIndex]) {
+        errors.push(`compatibility row ${index + 1} field ${field}: restore ${expectedRows[index][fieldIndex]} so the closed matrix remains one authoritative literal table.`);
+      }
+    });
   });
 }
 
@@ -389,6 +406,19 @@ function validateReferences(documents) {
   for (const occurrence of occurrences) {
     if (!expectedIds.has(occurrence.id) || !expectedDestinations.has(occurrence.destination)) {
       errors.push(`reference ${occurrence.id}: remove unregistered matrix link at ${occurrence.doc}:${occurrence.block.line}; add a registry tuple first so finite coverage remains closed.`);
+    }
+  }
+  return errors;
+}
+
+function validateNoUnboundPlatformUniverse(documents) {
+  const errors = [];
+  const forbidden = /\b(?:all supported platforms|supported-platform|supported platforms|unnamed platform set|implicit platform set|future platform row)\b/i;
+  for (const [doc, parsed] of documents) {
+    for (const block of parsed.blocks) {
+      if (forbidden.test(block.text)) {
+        errors.push(`${doc}:${block.line}: remove the unbound supported-platform phrase and route the requirement to the Closed Client-Platform Matrix; lifecycle coverage depends on one finite platform universe.`);
+      }
     }
   }
   return errors;
@@ -571,7 +601,13 @@ function tableRows(block, expectedHeader, expectedDelimiter, label, errors) {
   if (header.join("\0") !== expectedHeader.join("\0")) {
     errors.push(`${label}: restore headers ${expectedHeader.join(", ")} so row meaning is unambiguous.`);
   }
-  return lines.slice(2).map(splitTableLine);
+  return lines.slice(2).map((line, index) => {
+    const row = splitTableLine(line);
+    if (row.length !== expectedHeader.length) {
+      errors.push(`${label} row ${index + 1}: restore ${expectedHeader.length} cells so every declared column has exactly one value.`);
+    }
+    return row;
+  });
 }
 
 function splitTableLine(line) {
@@ -579,12 +615,16 @@ function splitTableLine(line) {
 }
 
 function codeValue(cell) {
-  const match = /^`([^`]+)`$/.exec(cell ?? "");
+  const match = /^`([^`]*)`$/.exec(cell ?? "");
   return match?.[1];
 }
 
 function cellValue(cell) {
   return codeValue(cell) ?? cell;
+}
+
+function isExactLiteral(value) {
+  return !/(?:\*|\.{2}|<|>|^all$|^any$|^latest$|^current$|^future$|^tbd$|^todo$|placeholder|supported)/i.test(value);
 }
 
 function matrixLinks(text) {

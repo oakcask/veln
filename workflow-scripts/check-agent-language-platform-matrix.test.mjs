@@ -34,6 +34,11 @@ const expectedCaseIds = [
   "K18",
   "K20",
   "F01M",
+  "F01E",
+  "F01R",
+  "F01W",
+  "F01P",
+  "F01G",
   "F01D",
   "F01U",
   "F01V",
@@ -44,6 +49,7 @@ const expectedCaseIds = [
   "R01M16",
   "R01M17",
   "R01M18",
+  "R01M19",
   "P01P01",
   "X-I09",
   "X-U01",
@@ -91,8 +97,8 @@ const generatedCaseIds = [
   ...["I01", "I08"],
   ...["H01C01", "H04C05"],
   ...["K01", "K03", "K05", "K10", "K12", "K14", "K16", "K18", "K20"],
-  ...["F01M", "F01D", "F01U", "F01V", "FREV"],
-  ...["R01M01", "R01M02", "R01M15", "R01M16", "R01M17", "R01M18", "P01P01"],
+  ...["F01M", "F01E", "F01R", "F01W", "F01P", "F01G", "F01D", "F01U", "F01V", "FREV"],
+  ...["R01M01", "R01M02", "R01M15", "R01M16", "R01M17", "R01M18", "R01M19", "P01P01"],
   ...["X-I09", "X-U01", "X-U03", "X-U07", "X-CRLF", "X-PIPE"],
   ...["S00-S00", "S00-S01", "S01-S00", "S01-S01", "S03-S01"],
   ...["T00", "T01", "T10", "T11", "T12", "T24", "T25", "T26", "T27", "T28"],
@@ -113,29 +119,34 @@ test("L and I cases reject displaced or malformed matrix layout", () => {
   assertRejects("L01", mutate(valid, (agent) => agent.replace("## Agent Plugin", "## Wrong Owner")), "move the closed matrix");
   assertRejects("L04", mutate(valid, (agent) => agent.replace("## Safety And Privacy", "### Later Subsection\n\nextra\n\n## Safety And Privacy")), "final Agent Plugin subsection");
   assertRejects("I01", mutate(valid, (agent) => agent.replace("Closed client-platform row count: `2`.", "```\nhidden\n```\n\nClosed client-platform row count: `2`.")), "unexpected fence");
-  assertRejects("I08", mutate(valid, (agent) => agent.replace("#### Compatibility Field Identities", "| Extra |\n| --- |\n| `x` |\n\n#### Compatibility Field Identities")), "exactly seven matrix blocks");
+  assertRejects("I08", mutate(valid, (agent) => agent.replace("#### Matrix Reference Registry", "| Extra |\n| --- |\n| `x` |\n\n#### Matrix Reference Registry")), "exactly five matrix blocks");
 });
 
 test("K cases reject missing duplicate reordered or nonliteral membership", () => {
   const valid = repositoryDocuments();
-  assertRejects("K01", mutate(valid, (agent) => agent.replace("| `codex` | `x86_64-unknown-linux-gnu` |\n", "")), "exactly 2 rows");
-  assertRejects("K03", mutate(valid, (agent) => agent.replace("| `claude-code` | `x86_64-unknown-linux-gnu` |", "| `codex` | `x86_64-unknown-linux-gnu` |")), "duplicate");
-  assertRejects("K05", mutate(valid, (agent) => agent.replace("| `codex` | `x86_64-unknown-linux-gnu` |\n| `claude-code` | `x86_64-unknown-linux-gnu` |", "| `claude-code` | `x86_64-unknown-linux-gnu` |\n| `codex` | `x86_64-unknown-linux-gnu` |")), "restore codex");
+  assertRejects("K01", mutate(valid, (agent) => agent.replace(codexRow(), "")), "exactly 2 rows");
+  assertRejects("K03", mutate(valid, (agent) => agent.replace("`claude-code` | `x86_64-unknown-linux-gnu`", "`codex` | `x86_64-unknown-linux-gnu`")), "duplicate");
+  assertRejects("K05", mutate(valid, (agent) => agent.replace(`${codexRow()}${claudeRow()}`, `${claudeRow()}${codexRow()}`)), "restore codex");
   assertRejects("K10", mutate(valid, (agent) => agent.replace("`x86_64-unknown-linux-gnu`", "`x86_64-*`")), "ranges");
   assertRejects("K12", mutate(valid, (agent) => agent.replace("`codex`", "`*`")), "wildcards");
   assertRejects("K14", mutate(valid, (agent) => agent.replace("`codex`", "`TBD`")), "placeholders");
   assertRejects("K16", mutate(valid, (agent) => agent.replace("`codex`", "`all`")), "catch-alls");
   assertRejects("K18", mutate(valid, (agent) => agent.replace("`codex`", "`zed`")), "unexpected literals");
-  assertRejects("K20", mutate(valid, (agent) => agent.replace("| `codex` |", "| codex |")), "malformed cells");
+  assertRejects("K20", mutate(valid, (agent) => agent.replace("| `codex` |", "| codex |")), "exact inline-code cells");
 });
 
-test("F cases reject field mutations and value-bearing cells", () => {
+test("F cases reject missing malformed or nonliteral compatibility values", () => {
   const valid = repositoryDocuments();
-  assertRejects("F01M", mutate(valid, (agent) => agent.replace("| `client` |\n", "")), "11 compatibility");
-  assertRejects("F01D", mutate(valid, (agent) => agent.replace("| `platform` |", "| `client` |")), "duplicate");
-  assertRejects("F01U", mutate(valid, (agent) => agent.replace("| `client` |", "| `agent` |")), "restore client");
-  assertRejects("F01V", mutate(valid, (agent) => agent.replace("| `client` |", "| `client`: `codex` |")), "one exact inline-code");
-  assertRejects("FREV", mutate(valid, reverseFieldRows), "restore client");
+  assertRejects("F01M", mutate(valid, (agent) => agent.replace(" | validator-version |", "")), "headers");
+  assertRejects("F01E", mutate(valid, (agent) => agent.replace("`linux-x86_64-host-contract-v1`", "``")), "nonempty exact literal");
+  assertRejects("F01R", mutate(valid, (agent) => agent.replace("`mcp-contract-v1`", "`mcp-contract-v1..v2`")), "ranges");
+  assertRejects("F01W", mutate(valid, (agent) => agent.replace("`mcp-contract-v1`", "`mcp-contract-*`")), "wildcards");
+  assertRejects("F01P", mutate(valid, (agent) => agent.replace("`mcp-contract-v1`", "`TBD`")), "placeholders");
+  assertRejects("F01G", mutate(valid, (agent) => agent.replace("`2f5c36e1d4a9b8c7e0f123456789abcd2f5c36e1d4a9b8c7e0f123456789abcd`", "`2f5c36e1`")), "64 lowercase hexadecimal");
+  assertRejects("F01D", mutate(valid, (agent) => agent.replace("`claude-code` | `x86_64-unknown-linux-gnu`", "`codex` | `x86_64-unknown-linux-gnu`")), "duplicate");
+  assertRejects("F01U", mutate(valid, (agent) => agent.replace("manifest-schema", "manifest")), "headers");
+  assertRejects("F01V", mutate(valid, (agent) => agent.replace("`codex-plugin-manifest-v1`", "`codex-plugin-manifest-v2`")), "restore codex-plugin-manifest-v1");
+  assertRejects("FREV", mutate(valid, reverseCompatibilityColumns), "headers");
 });
 
 test("R and P cases reject missing duplicate wrong or unregistered references", () => {
@@ -147,12 +158,13 @@ test("R and P cases reject missing duplicate wrong or unregistered references", 
   assertRejects("R01M16", mutate(valid, (agent) => agent.replace(source, source.replace("#closed-client-platform-matrix", "#wrong"))), "restore exact link source");
   assertRejects("R01M17", mutate(valid, (agent) => agent.replace(source, source.replace("agent-plugin-server-lifecycle", "wrong"))), "reference wrong");
   assertRejects("R01M18", mutate(valid, (agent) => agent.replace("## Safety And Privacy", "[Closed Client-Platform Matrix](#closed-client-platform-matrix \"matrix-ref:extra\")\n\n## Safety And Privacy")), "unregistered");
+  assertRejects("R01M19", mutate(valid, (agent) => agent.replace("These shared instructions are not a client-platform membership source.", "These shared instructions apply to all supported platforms.")), "unbound supported-platform phrase");
   assertRejects("P01P01", mutate(valid, (agent) => agent.replace(source, "Closed Client-Platform Matrix").replace("| `agent-plugin-server-lifecycle` | `agent-language-services.md` | `## Agent Plugin` | paragraph 3 | `Closed Client-Platform Matrix` | `#closed-client-platform-matrix` |\n", "")), "restore exactly one");
 });
 
 test("H, X, and S cases reject hidden evidence and classify phase state", () => {
   const valid = repositoryDocuments();
-  assertRejects("H01C01", mutate(valid, (agent) => agent.replace("| `codex` | `x86_64-unknown-linux-gnu` |\n| `claude-code` | `x86_64-unknown-linux-gnu` |", "<!-- | `codex` | `x86_64-unknown-linux-gnu` | -->")), "unexpected html");
+  assertRejects("H01C01", mutate(valid, (agent) => agent.replace("| `codex` | `x86_64-unknown-linux-gnu` | `linux-x86_64-host-contract-v1` | `codex-plugin-manifest-v1` | `agent-platform-matrix-validator-v1` | `2f5c36e1d4a9b8c7e0f123456789abcd2f5c36e1d4a9b8c7e0f123456789abcd` | `veln-toolchain-contract-v1` | `mcp-contract-v1` | `codex-lsp-disabled-contract-v1` | `language-service-contract-v1` | `reference-schema-contract-v1` |", "<!-- | `codex` | `x86_64-unknown-linux-gnu` | -->")), "unexpected html");
   assertRejects("H04C05", mutate(valid, (agent) => agent.replace("Matrix closure phase: `agent-language-services-platform-matrix-closed`.", "> Matrix closure phase: `agent-language-services-platform-matrix-closed`.")), "unexpected blockquote");
   assert.equal(inspectPhase(valid.get("agent-language-services.md")), "present");
   assert.equal(inspectPhase(valid.get("agent-language-services.md").replace("Matrix closure phase: `agent-language-services-platform-matrix-closed`.", "")), "invalid");
@@ -188,6 +200,20 @@ test("T and W range cases validate phase-aware closure guard", () => {
   extraRepo.write("docs/extra.md", "extra\n");
   const extraHead = extraRepo.commit("extra");
   assertRejectsRange("T10", extraRepo.root, extraBase, extraHead, "docs/extra.md");
+
+  using renameRepo = tempGitRepo();
+  const renameBase = renameRepo.commitBase();
+  renameRepo.writeClosureFiles();
+  renameRepo.rename("docs/proposals/README.md", "docs/proposals/README-renamed.md");
+  const renameHead = renameRepo.commit("rename");
+  assertRejectsRange("T11", renameRepo.root, renameBase, renameHead, "rename, copy, or wrong-status");
+
+  using modeRepo = tempGitRepo();
+  const modeBase = modeRepo.commitBase();
+  modeRepo.writeClosureFiles();
+  modeRepo.executable("docs/proposals/agent-language-services.md");
+  const modeHead = modeRepo.commit("mode");
+  assertRejectsRange("T12", modeRepo.root, modeBase, modeHead, "Git type");
 
   using postRepo = tempGitRepo();
   postRepo.commitBase();
@@ -232,21 +258,19 @@ function assertRejectsRange(id, repoRoot, baseSha, headSha, needle) {
   assert.ok(result.some((error) => error.includes(needle)), `${id}: ${result.join("\n")}`);
 }
 
-function reverseFieldRows(agent) {
-  const rows = [
-    "| `client` |",
-    "| `platform` |",
-    "| `host-build` |",
-    "| `manifest-schema` |",
-    "| `validator-version` |",
-    "| `validator-integrity` |",
-    "| `veln-contract` |",
-    "| `mcp-contract` |",
-    "| `lsp-contract` |",
-    "| `language-service-contract` |",
-    "| `reference-schema-contract` |",
-  ];
-  return agent.replace(rows.join("\n"), rows.toReversed().join("\n"));
+function codexRow() {
+  return "| `codex` | `x86_64-unknown-linux-gnu` | `linux-x86_64-host-contract-v1` | `codex-plugin-manifest-v1` | `agent-platform-matrix-validator-v1` | `2f5c36e1d4a9b8c7e0f123456789abcd2f5c36e1d4a9b8c7e0f123456789abcd` | `veln-toolchain-contract-v1` | `mcp-contract-v1` | `codex-lsp-disabled-contract-v1` | `language-service-contract-v1` | `reference-schema-contract-v1` |\n";
+}
+
+function claudeRow() {
+  return "| `claude-code` | `x86_64-unknown-linux-gnu` | `linux-x86_64-host-contract-v1` | `claude-code-plugin-manifest-v1` | `agent-platform-matrix-validator-v1` | `7a4e29c0b1d3f85690abcdef123456787a4e29c0b1d3f85690abcdef12345678` | `veln-toolchain-contract-v1` | `mcp-contract-v1` | `lsp-contract-v1` | `language-service-contract-v1` | `reference-schema-contract-v1` |\n";
+}
+
+function reverseCompatibilityColumns(agent) {
+  return agent.replace(
+    "| client | platform | host-build | manifest-schema | validator-version | validator-integrity | veln-contract | mcp-contract | lsp-contract | language-service-contract | reference-schema-contract |",
+    "| reference-schema-contract | language-service-contract | lsp-contract | mcp-contract | veln-contract | validator-integrity | validator-version | manifest-schema | host-build | platform | client |",
+  );
 }
 
 function tempGitRepo() {
@@ -265,6 +289,13 @@ function tempGitRepo() {
     },
     remove(file) {
       fs.rmSync(path.join(root, file), { force: true });
+    },
+    rename(from, to) {
+      fs.mkdirSync(path.dirname(path.join(root, to)), { recursive: true });
+      fs.renameSync(path.join(root, from), path.join(root, to));
+    },
+    executable(file) {
+      fs.chmodSync(path.join(root, file), 0o755);
     },
     commit(message) {
       runGit(root, ["add", "-A"]);
@@ -324,26 +355,10 @@ function minimalClosedAgentDoc() {
     "",
     "Matrix closure phase: `agent-language-services-platform-matrix-closed`.",
     "",
-    "| Client | Platform |",
-    "| --- | --- |",
-    "| `codex` | `x86_64-unknown-linux-gnu` |",
-    "| `claude-code` | `x86_64-unknown-linux-gnu` |",
-    "",
-    "#### Compatibility Field Identities",
-    "",
-    "| Compatibility field |",
-    "| --- |",
-    "| `client` |",
-    "| `platform` |",
-    "| `host-build` |",
-    "| `manifest-schema` |",
-    "| `validator-version` |",
-    "| `validator-integrity` |",
-    "| `veln-contract` |",
-    "| `mcp-contract` |",
-    "| `lsp-contract` |",
-    "| `language-service-contract` |",
-    "| `reference-schema-contract` |",
+    "| client | platform | host-build | manifest-schema | validator-version | validator-integrity | veln-contract | mcp-contract | lsp-contract | language-service-contract | reference-schema-contract |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    codexRow().trimEnd(),
+    claudeRow().trimEnd(),
     "",
     "#### Matrix Reference Registry",
     "",

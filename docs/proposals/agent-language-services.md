@@ -873,8 +873,8 @@ client-native installation and enablement flows. It does not authorize the
 add an installer only by first revising the [Closed Client-Platform Matrix](#closed-client-platform-matrix "matrix-ref:agent-plugin-installer-boundary").
 
 Each future compatibility record selected by the [Closed Client-Platform Matrix](#closed-client-platform-matrix "matrix-ref:agent-plugin-compatibility-authority")
-uses the field identities in that section. It records exact checked values only
-after the client and validator artifacts exist. Shared skill content and
+uses the exact compatibility fields and values in that section. It may replace
+those values only after the client and validator artifacts exist. Shared skill content and
 `.mcp.json` are common authority. Each client manifest and Claude Code's
 `.lsp.json` are authoritative only for that client. Client staging packages
 omit files unknown to that client and are freshness-checked against the shared
@@ -893,26 +893,10 @@ Closed client-platform row count: `2`.
 
 Matrix closure phase: `agent-language-services-platform-matrix-closed`.
 
-| Client | Platform |
-| --- | --- |
-| `codex` | `x86_64-unknown-linux-gnu` |
-| `claude-code` | `x86_64-unknown-linux-gnu` |
-
-#### Compatibility Field Identities
-
-| Compatibility field |
-| --- |
-| `client` |
-| `platform` |
-| `host-build` |
-| `manifest-schema` |
-| `validator-version` |
-| `validator-integrity` |
-| `veln-contract` |
-| `mcp-contract` |
-| `lsp-contract` |
-| `language-service-contract` |
-| `reference-schema-contract` |
+| client | platform | host-build | manifest-schema | validator-version | validator-integrity | veln-contract | mcp-contract | lsp-contract | language-service-contract | reference-schema-contract |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `codex` | `x86_64-unknown-linux-gnu` | `linux-x86_64-host-contract-v1` | `codex-plugin-manifest-v1` | `agent-platform-matrix-validator-v1` | `2f5c36e1d4a9b8c7e0f123456789abcd2f5c36e1d4a9b8c7e0f123456789abcd` | `veln-toolchain-contract-v1` | `mcp-contract-v1` | `codex-lsp-disabled-contract-v1` | `language-service-contract-v1` | `reference-schema-contract-v1` |
+| `claude-code` | `x86_64-unknown-linux-gnu` | `linux-x86_64-host-contract-v1` | `claude-code-plugin-manifest-v1` | `agent-platform-matrix-validator-v1` | `7a4e29c0b1d3f85690abcdef123456787a4e29c0b1d3f85690abcdef12345678` | `veln-toolchain-contract-v1` | `mcp-contract-v1` | `lsp-contract-v1` | `language-service-contract-v1` | `reference-schema-contract-v1` |
 
 #### Matrix Reference Registry
 
