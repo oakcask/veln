@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://veln-lang.invalid/schemas/agent-language-services-migration-ledger.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "inventory_path",
+    "entries"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "inventory_path": {
+      "const": "docs/reference/agent-language-services-lifecycle/frozen-inventory.json"
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "lifecycle",
+          "destination"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "pattern": "^ALS-R[0-9]{4}-L[0-9]{2}$"
+          },
+          "lifecycle": {
+            "type": "string",
+            "enum": [
+              "current",
+              "completed",
+              "planned",
+              "removed"
+            ]
+          },
+          "destination": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  }
+}

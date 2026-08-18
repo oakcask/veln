@@ -17,6 +17,94 @@ test("accepts the committed reviewed authority", () => {
   assert.equal(result.valid, true, result.errors.join("\n"));
 });
 
+test("accepts the committed frozen inventory and ledger fixture corpus", () => {
+  const result = runCommand({ repoRoot: ".", command: "validate" });
+  const invalidFixtures = fs.readdirSync("docs/reference/agent-language-services-lifecycle/ledger-fixtures/invalid").sort();
+
+  assert.equal(result.valid, true, result.errors.join("\n"));
+  assert.deepEqual(invalidFixtures, [
+    "catch_all_leaf.json",
+    "direct_parent_duplicate_guard.json",
+    "duplicate_leaf.json",
+    "invalid_removed_conformance.json",
+    "lifecycle_mismatch.json",
+    "missing_leaf.json",
+    "parent_mapping.json",
+    "range_leaf.json",
+    "unknown_leaf.json",
+    "wildcard_leaf.json",
+  ]);
+});
+
+test("rejects frozen source drift and inventory root omissions or duplicates", () => {
+  using fixture = frozenFixture("als-frozen-roots");
+  const universe = readJsonFile(fixture.path, "docs/reference/agent-language-services-lifecycle/source-universe.json");
+  universe.roots[0].digest = "0".repeat(64);
+  writeJsonFile(fixture.path, "docs/reference/agent-language-services-lifecycle/source-universe.json", universe);
+  assert.match(runCommand({ repoRoot: fixture.path, command: "validate" }).errors.join("\n"), /digest changed/);
+
+  using missing = frozenFixture("als-frozen-missing-root");
+  const missingInventory = readJsonFile(missing.path, "docs/reference/agent-language-services-lifecycle/frozen-inventory.json");
+  missingInventory.roots.shift();
+  writeJsonFile(missing.path, "docs/reference/agent-language-services-lifecycle/frozen-inventory.json", missingInventory);
+  assert.match(runCommand({ repoRoot: missing.path, command: "validate" }).errors.join("\n"), /missing inventory root|expected .* roots/);
+
+  using duplicate = frozenFixture("als-frozen-duplicate-root");
+  const duplicateInventory = readJsonFile(duplicate.path, "docs/reference/agent-language-services-lifecycle/frozen-inventory.json");
+  duplicateInventory.roots[1] = structuredClone(duplicateInventory.roots[0]);
+  writeJsonFile(duplicate.path, "docs/reference/agent-language-services-lifecycle/frozen-inventory.json", duplicateInventory);
+  assert.match(runCommand({ repoRoot: duplicate.path, command: "validate" }).errors.join("\n"), /duplicate inventory root/);
+});
+
+test("rejects missing children, bad child spans, and wrong frozen lifecycle", () => {
+  using missingChild = frozenFixture("als-frozen-missing-child");
+  const missingChildInventory = readJsonFile(missingChild.path, "docs/reference/agent-language-services-lifecycle/frozen-inventory.json");
+  missingChildInventory.roots[0].children = [];
+  writeJsonFile(missingChild.path, "docs/reference/agent-language-services-lifecycle/frozen-inventory.json", missingChildInventory);
+  assert.match(runCommand({ repoRoot: missingChild.path, command: "validate" }).errors.join("\n"), /children must match reviewed leaves|uncovered lifecycle statement/);
+
+  using gap = frozenFixture("als-frozen-gap");
+  const gapInventory = readJsonFile(gap.path, "docs/reference/agent-language-services-lifecycle/frozen-inventory.json");
+  gapInventory.roots[0].children[0].spans = [[1, 2]];
+  writeJsonFile(gap.path, "docs/reference/agent-language-services-lifecycle/frozen-inventory.json", gapInventory);
+  assert.match(runCommand({ repoRoot: gap.path, command: "validate" }).errors.join("\n"), /uncovered lifecycle statement/);
+
+  using overlap = frozenFixture("als-frozen-overlap");
+  const overlapInventory = readJsonFile(overlap.path, "docs/reference/agent-language-services-lifecycle/frozen-inventory.json");
+  const child = structuredClone(overlapInventory.roots[0].children[0]);
+  child.id = `${overlapInventory.roots[0].id}-L02`;
+  overlapInventory.roots[0].child_count = 2;
+  overlapInventory.roots[0].children.push(child);
+  writeJsonFile(overlap.path, "docs/reference/agent-language-services-lifecycle/frozen-inventory.json", overlapInventory);
+  assert.match(runCommand({ repoRoot: overlap.path, command: "validate" }).errors.join("\n"), /overlaps another child/);
+
+  using outOfRange = frozenFixture("als-frozen-out-of-range");
+  const outOfRangeInventory = readJsonFile(outOfRange.path, "docs/reference/agent-language-services-lifecycle/frozen-inventory.json");
+  outOfRangeInventory.roots[0].children[0].spans = [[0, [...outOfRangeInventory.roots[0].text].length + 1]];
+  writeJsonFile(outOfRange.path, "docs/reference/agent-language-services-lifecycle/frozen-inventory.json", outOfRangeInventory);
+  assert.match(runCommand({ repoRoot: outOfRange.path, command: "validate" }).errors.join("\n"), /out of range/);
+
+  using wrongLifecycle = frozenFixture("als-frozen-wrong-lifecycle");
+  const wrongInventory = readJsonFile(wrongLifecycle.path, "docs/reference/agent-language-services-lifecycle/frozen-inventory.json");
+  wrongInventory.roots[0].children[0].lifecycle = wrongInventory.roots[0].children[0].lifecycle === "planned" ? "current" : "planned";
+  writeJsonFile(wrongLifecycle.path, "docs/reference/agent-language-services-lifecycle/frozen-inventory.json", wrongInventory);
+  assert.match(runCommand({ repoRoot: wrongLifecycle.path, command: "validate" }).errors.join("\n"), /lifecycle differs from reviewed authority/);
+});
+
+test("rejects required migration ledger schema fixture mutations", () => {
+  using fixture = frozenFixture("als-ledger-invalid");
+  const invalidDirectory = path.join(fixture.path, "docs/reference/agent-language-services-lifecycle/ledger-fixtures/invalid");
+  for (const file of fs.readdirSync(invalidDirectory)) {
+    const fixtureJson = readJsonFile(fixture.path, `docs/reference/agent-language-services-lifecycle/ledger-fixtures/invalid/${file}`);
+    const validLedger = readJsonFile(fixture.path, "docs/reference/agent-language-services-lifecycle/ledger-fixtures/valid-ledger.json");
+    writeJsonFile(fixture.path, "docs/reference/agent-language-services-lifecycle/ledger-fixtures/valid-ledger.json", fixtureJson.ledger);
+    const result = runCommand({ repoRoot: fixture.path, command: "validate" });
+    assert.equal(result.valid, false, file);
+    assert.match(result.errors.join("\n"), new RegExp(escapeRegExp(fixtureJson.expected_error)), file);
+    writeJsonFile(fixture.path, "docs/reference/agent-language-services-lifecycle/ledger-fixtures/valid-ledger.json", validLedger);
+  }
+});
+
 test("rejects changed digests and missing or duplicate inventory roots", () => {
   const authority = repositoryAuthority();
   const parsedRoots = repositoryRoots();
@@ -201,12 +289,87 @@ test("rejects paths outside the G0 to G1 allowlist", () => {
   assert.match(result.errors.join("\n"), /outside the closed review-gate allowlist/);
 });
 
+test("accepts a scoped G1 to G2 frozen-inventory bootstrap transition", () => {
+  using fixture = tempRepo("als-g1-g2");
+  writeG0(fixture.path);
+  git(fixture.path, ["switch", "--create", "gate"]);
+  writeG1(fixture.path);
+  writeFrozenDestinationFiles(fixture.path);
+  const base = commitAll(fixture.path, "complete review gate");
+  git(fixture.path, ["branch", "--force", "main", base]);
+  git(fixture.path, ["switch", "--create", "inventory"]);
+  const writeResult = runCommand({ repoRoot: fixture.path, command: "write-frozen-artifacts", argv: ["--base-commit", base] });
+  assert.equal(writeResult.valid, true, writeResult.errors.join("\n"));
+  const head = commitAll(fixture.path, "freeze inventory");
+
+  const result = runCommand({
+    repoRoot: fixture.path,
+    command: "validate-range",
+    argv: ["--base", base, "--head", head, "--event-base-ref", "main", "--default-ref", "main"],
+  });
+
+  assert.equal(result.valid, true, result.errors.join("\n"));
+  assert.match(result.summary, /G1 -> G2/);
+});
+
+test("rejects G1 to G2 bootstrap changes outside the frozen allowlist", () => {
+  using fixture = tempRepo("als-g1-g2-extra");
+  writeG0(fixture.path);
+  git(fixture.path, ["switch", "--create", "gate"]);
+  writeG1(fixture.path);
+  writeFrozenDestinationFiles(fixture.path);
+  const base = commitAll(fixture.path, "complete review gate");
+  git(fixture.path, ["branch", "--force", "main", base]);
+  git(fixture.path, ["switch", "--create", "inventory"]);
+  runCommand({ repoRoot: fixture.path, command: "write-frozen-artifacts", argv: ["--base-commit", base] });
+  writeFile(fixture.path, "docs/proposals/agent-language-services.md", `${sampleUmbrella()}\nExtra reorganization.\n`);
+  const head = commitAll(fixture.path, "freeze inventory with source edit");
+
+  const result = runCommand({
+    repoRoot: fixture.path,
+    command: "validate-range",
+    argv: ["--base", base, "--head", head, "--event-base-ref", "main", "--default-ref", "main"],
+  });
+
+  assert.equal(result.valid, false);
+  assert.match(result.errors.join("\n"), /outside the frozen-inventory bootstrap allowlist/);
+});
+
+test("rejects frozen artifact and workflow registration edits after G2", () => {
+  using frozenEdit = g2Fixture("als-g2-frozen-edit");
+  git(frozenEdit.path, ["switch", "--create", "docs-change"]);
+  const inventory = readJsonFile(frozenEdit.path, "docs/reference/agent-language-services-lifecycle/frozen-inventory.json");
+  inventory.roots[0].digest = "0".repeat(64);
+  writeJsonFile(frozenEdit.path, "docs/reference/agent-language-services-lifecycle/frozen-inventory.json", inventory);
+  const frozenHead = commitAll(frozenEdit.path, "edit frozen inventory");
+  const frozenResult = runCommand({
+    repoRoot: frozenEdit.path,
+    command: "validate-range",
+    argv: ["--base", frozenEdit.base, "--head", frozenHead, "--event-base-ref", "main", "--default-ref", "main"],
+  });
+  assert.equal(frozenResult.valid, false);
+  assert.match(frozenResult.errors.join("\n"), /immutable after bootstrap/);
+
+  using workflowEdit = g2Fixture("als-g2-workflow-edit");
+  git(workflowEdit.path, ["switch", "--create", "workflow-change"]);
+  writeFile(workflowEdit.path, ".github/workflows/workflow--test-scripts.yaml", "name: changed lifecycle registration\n");
+  const workflowHead = commitAll(workflowEdit.path, "edit workflow registration");
+  const workflowResult = runCommand({
+    repoRoot: workflowEdit.path,
+    command: "validate-range",
+    argv: ["--base", workflowEdit.base, "--head", workflowHead, "--event-base-ref", "main", "--default-ref", "main"],
+  });
+  assert.equal(workflowResult.valid, false);
+  assert.match(workflowResult.errors.join("\n"), /immutable after bootstrap/);
+});
+
 test("workflow registers lifecycle validation for documentation checks", () => {
   const workflow = fs.readFileSync(".github/workflows/workflow--test-scripts.yaml", "utf8");
 
   assert.equal(workflow.includes("check-agent-language-services-lifecycle.mjs validate-range"), true);
   assert.match(workflow, /AGENT_LANGUAGE_SERVICES_BASE_SHA/);
   assert.equal(workflow.includes("github.event.pull_request.base.ref"), true);
+  assert.equal(workflow.includes("docs/**/*.json"), true);
 });
 
 function repositoryAuthority() {
@@ -242,6 +405,34 @@ function writeG1(repoRoot) {
   const source = fs.readFileSync(path.join(repoRoot, "docs/proposals/agent-language-services.md"), "utf8");
   const parsedRoots = parseMarkdownSource({ source });
   writeFile(repoRoot, "docs/reference/agent-language-services-lifecycle-review/source-decisions.json", `${JSON.stringify(sampleAuthority(parsedRoots), null, 2)}\n`);
+}
+
+function writeFrozenDestinationFiles(repoRoot) {
+  writeFile(repoRoot, "docs/specification/mcp.md", "---\nrole: specification\nauthority: normative\nupdate-when: The MCP specification changes.\n---\n\n# MCP Workspace Projects, Diagnostics, And Definitions\n");
+  writeFile(repoRoot, "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md", "---\nrole: implementation-record\nauthority: supporting\nupdate-when: The gate completion evidence is superseded.\n---\n\n# Agent Language Services Inventory Review Gate\n");
+  writeFile(repoRoot, "examples/specification/README.md", "# Specification Examples\n");
+}
+
+function g2Fixture(name) {
+  const fixture = tempRepo(name);
+  writeG0(fixture.path);
+  git(fixture.path, ["switch", "--create", "gate"]);
+  writeG1(fixture.path);
+  writeFrozenDestinationFiles(fixture.path);
+  const g1 = commitAll(fixture.path, "complete review gate");
+  git(fixture.path, ["branch", "--force", "main", g1]);
+  git(fixture.path, ["switch", "--create", "inventory"]);
+  const writeResult = runCommand({ repoRoot: fixture.path, command: "write-frozen-artifacts", argv: ["--base-commit", g1] });
+  assert.equal(writeResult.valid, true, writeResult.errors.join("\n"));
+  const g2 = commitAll(fixture.path, "freeze inventory");
+  git(fixture.path, ["branch", "--force", "main", g2]);
+  return {
+    path: fixture.path,
+    base: g2,
+    [Symbol.dispose]() {
+      fixture[Symbol.dispose]();
+    },
+  };
 }
 
 function sampleUmbrella() {
@@ -337,6 +528,34 @@ function tempDirectory(name) {
 function copyFile(source, destination) {
   fs.mkdirSync(path.dirname(destination), { recursive: true });
   fs.copyFileSync(source, destination);
+}
+
+function copyDirectory(source, destination) {
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
+  fs.cpSync(source, destination, { recursive: true });
+}
+
+function frozenFixture(name) {
+  const fixture = tempDirectory(name);
+  copyFile("docs/proposals/agent-language-services.md", path.join(fixture.path, "docs/proposals/agent-language-services.md"));
+  copyFile("docs/reference/agent-language-services-lifecycle-review/source-decisions.json", path.join(fixture.path, "docs/reference/agent-language-services-lifecycle-review/source-decisions.json"));
+  copyDirectory("docs/reference/agent-language-services-lifecycle", path.join(fixture.path, "docs/reference/agent-language-services-lifecycle"));
+  copyFile("docs/specification/mcp.md", path.join(fixture.path, "docs/specification/mcp.md"));
+  copyFile("docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md", path.join(fixture.path, "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md"));
+  copyFile("examples/specification/README.md", path.join(fixture.path, "examples/specification/README.md"));
+  return fixture;
+}
+
+function readJsonFile(repoRoot, file) {
+  return JSON.parse(fs.readFileSync(path.join(repoRoot, file), "utf8"));
+}
+
+function writeJsonFile(repoRoot, file, value) {
+  writeFile(repoRoot, file, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
 function writeFile(repoRoot, file, content) {

@@ -1,0 +1,3486 @@
+{
+  "expected_error": "unknown ledger leaf",
+  "ledger": {
+    "schema_version": 1,
+    "inventory_path": "docs/reference/agent-language-services-lifecycle/frozen-inventory.json",
+    "entries": [
+      {
+        "source_id": "ALS-R9999-L99",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0002-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0003-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0004-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0005-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0006-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0007-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0008-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0009-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0010-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0011-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0012-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0013-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0014-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0015-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0016-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0017-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0018-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0019-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0020-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0021-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0022-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0023-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0024-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0025-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0026-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0027-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0028-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0029-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0030-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0031-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0032-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0033-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0034-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0035-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0036-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0037-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0038-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0039-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0040-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0041-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0042-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0043-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0044-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0045-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0046-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0047-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0048-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0049-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0050-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0051-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0052-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0053-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0054-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0055-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0056-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0057-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0058-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0059-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0060-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0061-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0062-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0063-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0064-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0065-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0066-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0067-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0068-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0069-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0070-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0071-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0072-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0073-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0074-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0075-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0076-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0077-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0078-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0079-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0080-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0081-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0082-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0083-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0084-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0085-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0086-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0087-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0088-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0089-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0090-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0091-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0092-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0093-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0094-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0095-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0096-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0097-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0098-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0099-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0100-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0101-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0102-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0103-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0104-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0105-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0106-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0107-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0108-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0109-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0110-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0111-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0112-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0113-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0114-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0115-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0116-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0117-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0118-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0119-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0120-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0121-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0122-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0123-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0124-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0125-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0126-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0127-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0128-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0129-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0130-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0131-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0132-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0133-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0134-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0135-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0136-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0137-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0138-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0139-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0140-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0141-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0142-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0143-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0144-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0145-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0146-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0147-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0148-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0149-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0150-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0151-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0152-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0153-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0154-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0155-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0156-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0157-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0158-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0159-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0160-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0161-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0162-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0163-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0164-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0165-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0166-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0167-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0168-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0169-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0170-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0171-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0172-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0173-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0174-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0175-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0176-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0177-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0178-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0179-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0180-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0181-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0182-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0183-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0184-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0185-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0186-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0187-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0188-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0189-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0190-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0191-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0192-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0193-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0194-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0195-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0196-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0197-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0198-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0199-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0200-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0201-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0202-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0203-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0204-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0205-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0206-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0207-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0208-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0209-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0210-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0211-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0212-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0213-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0214-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0215-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0216-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0217-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0218-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0219-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0220-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0221-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0222-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0223-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0224-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0225-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0226-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0227-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0228-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0229-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0230-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0231-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0232-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0233-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0234-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0235-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0236-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0237-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0238-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0239-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0240-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0241-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0242-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0243-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0244-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0245-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0246-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0247-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0248-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0249-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0250-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0251-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0252-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0253-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0254-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0255-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0256-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0257-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0258-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0259-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0260-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0261-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0262-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0263-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0264-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0265-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0266-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0267-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0268-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0269-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0270-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0271-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0272-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0273-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0274-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0275-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0276-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0277-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0278-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0279-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0280-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0281-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0282-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0283-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0284-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0285-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0286-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0287-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0288-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0289-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0290-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0291-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0292-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0293-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0294-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0295-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0296-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0297-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0298-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0299-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0300-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0301-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0302-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0303-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0304-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0305-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0306-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0307-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0308-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0309-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0310-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0311-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0312-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0313-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0314-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0315-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0316-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0317-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0318-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0319-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0320-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0321-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0322-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0323-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0324-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0325-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0326-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0327-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0328-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0329-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0330-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0331-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0332-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0333-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0334-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0335-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0336-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0337-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0338-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0339-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0340-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0341-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0342-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0343-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0344-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0345-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0346-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0347-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0348-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0349-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0350-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0351-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0352-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0353-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0354-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0355-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0356-L01",
+        "lifecycle": "current",
+        "destination": {
+          "kind": "specification",
+          "path": "docs/specification/mcp.md",
+          "anchor": "#mcp-workspace-projects-diagnostics-and-definitions",
+          "evidence": [
+            "examples/specification/README.md"
+          ]
+        }
+      },
+      {
+        "source_id": "ALS-R0357-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0358-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0359-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0360-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0361-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0362-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0363-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0364-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0365-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0366-L01",
+        "lifecycle": "planned",
+        "destination": {
+          "kind": "proposal",
+          "path": "docs/proposals/agent-language-services.md",
+          "anchor": "#agent-language-services"
+        }
+      },
+      {
+        "source_id": "ALS-R0367-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0368-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0369-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0370-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0371-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0372-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0373-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0374-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0375-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0376-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0377-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0378-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0379-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      },
+      {
+        "source_id": "ALS-R0380-L01",
+        "lifecycle": "completed",
+        "destination": {
+          "kind": "implementation-record",
+          "path": "docs/reference/implemented-proposals/agent-language-services-inventory-review-gate.md",
+          "anchor": "#agent-language-services-inventory-review-gate"
+        }
+      }
+    ]
+  }
+}

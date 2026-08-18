@@ -8,6 +8,7 @@ on:
       - .agents/skills/docs-progressive-disclosure/SKILL.md
       - .github/workflows/workflow--test-scripts.yaml
       - AGENTS.md
+      - docs/**/*.json
       - docs/**/*.md
       - workflow-scripts/**/*.mjs
   pull_request:
@@ -15,6 +16,7 @@ on:
       - .agents/skills/docs-progressive-disclosure/SKILL.md
       - .github/workflows/workflow--test-scripts.yaml
       - AGENTS.md
+      - docs/**/*.json
       - docs/**/*.md
       - workflow-scripts/**/*.mjs
 
