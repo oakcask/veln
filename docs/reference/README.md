@@ -27,6 +27,8 @@ behavior page needs rationale, source support, or toolchain reference material.
   [toolchain-test-harness.md](toolchain-test-harness.md).
 - Proposal target readiness validation artifacts:
   [proposal-target-readiness/README.md](proposal-target-readiness/README.md).
+- Agent language services lifecycle validation artifacts:
+  [agent-language-services-lifecycle/README.md](agent-language-services-lifecycle/README.md).
 - HTTP/2 public symbol migration and residual-name classification:
   [http2-standard-module-migration.md](http2-standard-module-migration.md).
 - Implemented proposal records:
@@ -45,6 +47,10 @@ behavior page needs rationale, source support, or toolchain reference material.
 - Use [proposal-target-readiness/README.md](proposal-target-readiness/README.md)
   before changing generated proposal target validation, readiness metadata, or
   the readiness workflow registration.
+- Use
+  [agent-language-services-lifecycle/README.md](agent-language-services-lifecycle/README.md)
+  before changing the frozen lifecycle artifacts, migration-ledger schema, or
+  lifecycle validator workflow registration.
 - Use `implemented-proposals/` only for completed proposal history or
   completion evidence after checking current behavior.
 - Use `source-decisions/` after a language page needs rationale; start with
