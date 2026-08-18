@@ -46,17 +46,20 @@ override an identity failure or make a Blocked proposal selectable.
 
 ## Recovery And Termination Boundary
 
-A target-base mismatch or non-Ready selection is terminal for that target and
-its implementation pull request. Close or abandon the invalid pull request
-when authorized. Do not repair its branch-local validator, tests, description,
-or lifecycle record, because those artifacts cannot establish repository
-authority after identity fails.
+A target-base mismatch or non-Ready selection is terminal for the
+target-driven claim and for work justified only by that claim. Close or abandon
+an invalid pull request when authorized. Repository-correct work may be
+re-scoped under normal Ready review only with separate user authorization. Do
+not repair a branch-local validator, tests, description, or lifecycle record
+to establish repository authority after identity fails.
 
 The eight rows in the Acceptance Model are the complete implementation target
-for this preflight. Another stale target whose base predates a candidate base,
-or whose proposal is Blocked at that candidate base, belongs to the existing
-self-consistent stale-loop row. It does not add another acceptance row,
-mutation family, guard proposal, or matrix-closure correction.
+for this preflight. A target whose base predates the candidate base maps to
+`Bind implementation and review to one base`. A non-Ready selection maps to
+`Bind the target to Ready selection`. A recurrence that combines an ancestor
+Ready target with a candidate base that blocks or revises the proposal maps to
+`Reject a self-consistent stale implementation loop`. None adds another
+acceptance row, mutation family, guard proposal, or matrix-closure correction.
 
 After such a rejection, the only agent-language-services recovery target is
 the complete preflight in this proposal. Independent Ready proposals remain
