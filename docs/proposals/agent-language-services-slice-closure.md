@@ -22,7 +22,7 @@ This proposal is blocked. Do not select the MCP JSONL assertion contract or any
 other subsection while
 [Agent Language Services Lifecycle Migration](agent-language-services-lifecycle-migration.md)
 remains in `docs/proposals/`. The lifecycle migration becomes complete only
-when its seven acceptance rows pass and its completed record replaces the
+when its thirteen acceptance rows pass and its completed record replaces the
 active proposal. The PR that performs that lifecycle transition moves this
 proposal into the Ready catalog; prose that merely names the prerequisite does
 not make a dependent subsection selectable.
