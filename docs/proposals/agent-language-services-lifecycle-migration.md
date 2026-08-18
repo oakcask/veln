@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The agent-language-services proposal structure, closed capability matrices, Q01-Q22 evidence gate, acceptance rows, or lifecycle destinations change.
+update-when: The agent-language-services proposal structure, frozen source inventory, migration-ledger schema, inventory validator, closed capability matrices, Q01-Q22 evidence gate, acceptance rows, or lifecycle destinations change.
 ---
 
 # Agent Language Services Lifecycle Migration
