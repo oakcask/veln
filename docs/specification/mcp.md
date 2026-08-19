@@ -161,7 +161,9 @@ The `definition-workspace` MCP specification case checks the advertised
 `definition` declaration plus representative definition, no-definition,
 decimal and exponent integer coordinate spellings, and invalid-position
 results plus non-integer decimal and negative-exponent coordinate schema
-rejection over stdio.
+rejection over stdio. Its checked response-local assertions bind IDs 3 through
+11 to the required definition locations, ranges, cardinality, success flags,
+domain failures, protocol errors, and absent success-only payloads.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous
@@ -171,11 +173,12 @@ selected-root symlink and regular-directory replacement, and structured
 language diagnostics with spanless related notes and closed related-note
 schemas. They also check definition schema rejection, project inference,
 anonymous and descendant-manifest isolation, every implemented symbol kind,
-canonical URI spelling, path rejection, stable-capture failure, no-symbol
-success, invalid positions including oversized positive integers, half-open
-ranges, LF, CRLF, terminal-newline, empty-file, non-BMP scalar coordinates,
-extreme positive and negative exponent coordinates, and non-integer numeric
-coordinate schema rejection.
+canonical URI spelling, path rejection, the adapter route through the shared
+stable-capture boundary, `snapshot_changed` with no partial success payload,
+no-symbol success, invalid positions including oversized positive integers,
+half-open ranges, LF, CRLF, terminal-newline, empty-file, non-BMP scalar
+coordinates, extreme positive and negative exponent coordinates, and
+non-integer numeric coordinate schema rejection.
 Unix-only `veln-mcp` tests also
 check canonical resolved-base URI spelling, definition path symlink rejection,
 anonymous workspace-base symlink replacement, and that selected

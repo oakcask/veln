@@ -46,13 +46,12 @@ and selected target for accepted sources.
 
 ### Slice-Closure Prerequisite
 
-Before implementing the next MCP navigation slice, complete
-[Agent Language Services Slice Closure](agent-language-services-slice-closure.md).
-It adds response-local assertions for MCP JSONL output with dynamic canonical
-locations and closes the evidence rule for shared capture invariants. Reissue
-the saved workspace function-reference target only after that executable
-evidence gate passes. The next-slice boundary below remains planning input and
-is not selectable work until then.
+The response-local MCP JSONL assertion surface and shared capture evidence
+rule are complete. The completed record is
+[Agent Language Services Slice Closure](../reference/implemented-proposals/agent-language-services-slice-closure.md).
+The next-slice boundary below remains planning input and is not selectable work
+until the language-semantics prerequisite is complete and the saved workspace
+function-reference target is reissued.
 
 ### Next Slice: Saved Workspace Function References
 

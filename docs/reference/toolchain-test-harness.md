@@ -237,6 +237,42 @@ values, non-empty and cleared diagnostic notifications, complete semantic
 token data, and shutdown responses. Raw LSP cases remain only where protocol
 framing or an as-yet-unmigrated representation is still part of the fixture.
 
+Use repeatable `[[mcp_assert]]` sections to check newline-delimited JSON-RPC
+objects from `veln mcp` stdout. Each section selects exactly one response by a
+string or integer `id`. Selection fails when no response has the selected ID or
+when more than one JSON object has it. The stdout decoder parses every
+nonempty line as one JSON object, and decoded MCP assertions reject malformed
+JSON lines and non-object lines before evaluating individual assertions.
+
+Each MCP assertion selects a value with an RFC 6901 JSON Pointer in `path`,
+including the empty pointer for the complete response. Pointer syntax is
+validated while the manifest loads. Each assertion declares exactly one of
+`equals`, `length`, `missing = true`, or `equals_workspace_uri`. `equals`
+compares a complete JSON value, ignoring object member order and preserving
+array order and length. Integer, string, boolean, and null values compare by
+decoded value, while non-integer numbers compare by their JSON spelling.
+`length` requires the selected value to be an array and compares its exact
+element count. A missing path can satisfy `missing = true` only after its
+response exists.
+
+`equals_workspace_uri` requires the selected value to be a string. The operand
+is one workspace-relative regular file path from the copied case workspace.
+The harness rejects absolute paths, empty segments, `.`, `..`, backslashes,
+missing entries, link-like entries, directories, and non-regular files before
+it constructs the canonical `file:` URI. URI construction follows the MCP
+workspace-file URI spelling used by `definition`.
+
+The `manifest_mcp_assertions_*`, `mcp_jsonl_assertions_*`, and
+`mcp_workspace_uri_assertion_*` tests in `toolchain_harness.rs` are the
+executable evidence for selector validation, JSON Pointer validation, stream
+decoding, equality, ordered arrays, array length, missing values, rejection
+cases, and workspace URI construction. The
+`../../examples/specification/mcp/definition-workspace/` case is the
+executable MCP stdout evidence that binds IDs 3 through 11 to their response
+local definition, error, cardinality, range, coordinate, and workspace URI
+observations. The semantic baseline records each MCP assertion selector, path,
+operation, and operand so migrated cases stay reviewable.
+
 Use `[[json_assert]]`, `[[result_value_assert]]`, and `[[diagnostics]]` for
 semantic checks inside JSON stdout. JSON and result-value assertions accept
 `equals`, `equals_file`, `equals_json_file`, or `missing = true`.

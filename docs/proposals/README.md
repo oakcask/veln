@@ -21,17 +21,15 @@ also states it.
 - Identifier casing that separates type and constructor names from module,
   function, and value-binding names:
   [identifier-casing.md](identifier-casing.md).
-- Add response-local MCP JSONL assertions and checked definition evidence:
-  [agent-language-services-slice-closure.md](agent-language-services-slice-closure.md).
 
 Only proposals and subsections listed in this section are selectable targets.
 
 ## Blocked
 
 - The agent-language-services umbrella is a planning inventory. Its next saved
-  workspace function-reference slice is blocked by identifier casing and slice
-  closure. Move that implementation target into the Ready section after those
-  dependencies pass:
+  workspace function-reference slice is blocked by identifier casing. Move
+  that implementation target into the Ready section after that dependency
+  passes:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule
