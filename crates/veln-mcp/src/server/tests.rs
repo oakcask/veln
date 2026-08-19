@@ -285,10 +285,9 @@ fn definition_infers_project_and_isolates_other_sources_and_descendant_manifests
 }
 
 #[test]
-fn definition_distinguishes_no_symbol_from_invalid_positions_and_uses_canonical_uri() {
+fn definition_uses_canonical_uri_and_range() {
     let workspace = TempWorkspace::new("definition coordinates and uri");
-    workspace.write("veln.toml", "");
-    workspace.write("main.veln", "fn helper() -> Int\r\n  1\r\nend\r\n\r\nfn main() -> Int\r\n  \"😀\" + helper()\r\nend\r\n");
+    write_definition_coordinate_fixture(&workspace);
 
     let found = definition_result(&workspace, "main.veln", 6, 9);
     let uri = found["structuredContent"]["definition"]["uri"]
@@ -307,6 +306,12 @@ fn definition_distinguishes_no_symbol_from_invalid_positions_and_uses_canonical_
         found["structuredContent"]["definition"]["range"]["end"],
         json!({"line": 1, "column": 10})
     );
+}
+
+#[test]
+fn definition_returns_null_when_no_symbol_is_selected() {
+    let workspace = TempWorkspace::new("definition-no-symbol");
+    write_definition_coordinate_fixture(&workspace);
 
     for column in [8, 15] {
         let no_symbol = definition_result(&workspace, "main.veln", 6, column);
@@ -317,11 +322,42 @@ fn definition_distinguishes_no_symbol_from_invalid_positions_and_uses_canonical_
             "{column}"
         );
     }
+}
+
+#[test]
+fn definition_rejects_invalid_positions() {
+    let workspace = TempWorkspace::new("definition-invalid-position");
+    write_definition_coordinate_fixture(&workspace);
+
     for (line, column) in [(9, 1), (1, 20)] {
         let invalid = definition_result(&workspace, "main.veln", line, column);
         assert_eq!(invalid["isError"], true, "{line}:{column} {invalid:#}");
         assert_eq!(invalid["structuredContent"]["code"], "invalid_position");
     }
+    assert_invalid_definition_position(
+        &workspace,
+        json!({
+            "source": "main.veln",
+            "line": u64::MAX,
+            "column": 1
+        }),
+    );
+    let above_u64_arguments =
+        serde_json::from_str(r#"{"source":"main.veln","line":18446744073709551616,"column":1}"#)
+            .unwrap();
+    assert_invalid_definition_position(&workspace, above_u64_arguments);
+
+    let huge_positive_exponent_arguments =
+        serde_json::from_str(r#"{"source":"main.veln","line":1e9223372036854775807,"column":1}"#)
+            .unwrap();
+    assert_invalid_definition_position(&workspace, huge_positive_exponent_arguments);
+}
+
+#[test]
+fn definition_accepts_integral_coordinate_spelling() {
+    let workspace = TempWorkspace::new("definition-integral-spelling");
+    write_definition_coordinate_fixture(&workspace);
+
     for arguments in [
         json!({"source": "main.veln", "line": 6.0, "column": 9}),
         json!({"source": "main.veln", "line": 6, "column": 9e0}),
@@ -333,36 +369,12 @@ fn definition_distinguishes_no_symbol_from_invalid_positions_and_uses_canonical_
             json!({"line": 1, "column": 4})
         );
     }
-    let huge_position = initialized_server(&workspace).definition_tool(&json!({
-        "source": "main.veln",
-        "line": u64::MAX,
-        "column": 1
-    }));
-    assert_eq!(huge_position["isError"], true, "{huge_position:#}");
-    assert_eq!(
-        huge_position["structuredContent"]["code"],
-        "invalid_position"
-    );
-    let above_u64_arguments =
-        serde_json::from_str(r#"{"source":"main.veln","line":18446744073709551616,"column":1}"#)
-            .unwrap();
-    let above_u64 = initialized_server(&workspace).definition_tool(&above_u64_arguments);
-    assert_eq!(above_u64["isError"], true, "{above_u64:#}");
-    assert_eq!(above_u64["structuredContent"]["code"], "invalid_position");
+}
 
-    let huge_positive_exponent_arguments =
-        serde_json::from_str(r#"{"source":"main.veln","line":1e9223372036854775807,"column":1}"#)
-            .unwrap();
-    let huge_positive_exponent =
-        initialized_server(&workspace).definition_tool(&huge_positive_exponent_arguments);
-    assert_eq!(
-        huge_positive_exponent["isError"], true,
-        "{huge_positive_exponent:#}"
-    );
-    assert_eq!(
-        huge_positive_exponent["structuredContent"]["code"],
-        "invalid_position"
-    );
+#[test]
+fn definition_rejects_non_integer_coordinate_spelling() {
+    let workspace = TempWorkspace::new("definition-non-integer-spelling");
+    write_definition_coordinate_fixture(&workspace);
 
     let non_integer_request = serde_json::from_str(
         r#"{
@@ -408,6 +420,17 @@ fn definition_distinguishes_no_symbol_from_invalid_positions_and_uses_canonical_
         huge_negative_exponent["error"]["code"], -32602,
         "{huge_negative_exponent:#}"
     );
+}
+
+fn write_definition_coordinate_fixture(workspace: &TempWorkspace) {
+    workspace.write("veln.toml", "");
+    workspace.write("main.veln", "fn helper() -> Int\r\n  1\r\nend\r\n\r\nfn main() -> Int\r\n  \"😀\" + helper()\r\nend\r\n");
+}
+
+fn assert_invalid_definition_position(workspace: &TempWorkspace, arguments: Value) {
+    let result = initialized_server(workspace).definition_tool(&arguments);
+    assert_eq!(result["isError"], true, "{result:#}");
+    assert_eq!(result["structuredContent"]["code"], "invalid_position");
 }
 
 #[test]
