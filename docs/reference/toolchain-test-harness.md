@@ -237,6 +237,34 @@ values, non-empty and cleared diagnostic notifications, complete semantic
 token data, and shutdown responses. Raw LSP cases remain only where protocol
 framing or an as-yet-unmigrated representation is still part of the fixture.
 
+Use repeatable `[[mcp_assert]]` sections to check newline-delimited JSON-RPC
+messages from `veln mcp` stdout. Each section selects exactly one response by
+string or integer `id`, then selects a value with an RFC 6901 JSON Pointer in
+`path`, including the empty pointer for the complete response. The assertion
+fails when the selected id has no matching response or more than one matching
+response. Other response ids and notifications remain valid stream input.
+
+Each MCP assertion declares exactly one of `equals`, `array_len`,
+`workspace_uri`, or `missing = true`. `equals` compares a complete JSON value.
+Object member order is ignored. Array order and length remain part of the
+value. Strings, booleans, null, and integers compare by decoded value. Other
+numbers compare by their preserved JSON spelling. `array_len` requires the
+selected value to be an array with the exact length. A missing path can satisfy
+`missing = true` only after the selected response exists.
+
+`workspace_uri` requires the selected value to be a string equal to the
+canonical `file:` URI for one existing regular file in the copied case
+workspace. The manifest operand is a workspace-relative file path. It rejects
+absolute paths, empty path segments, `.`, `..`, backslashes, trailing-dot path
+segments, symbolic-link traversal, and non-regular final files.
+
+MCP assertion decoding treats each nonempty stdout line as one JSON object.
+Malformed JSON and non-object lines fail decoded MCP assertions for that
+invocation. Raw stdout checks still run independently. The `decoded_mcp_*` and
+`manifest_mcp_*` tests in `toolchain_harness.rs` cover the JSONL decoder,
+selector, pointer, equality, array length, missing-value, workspace-URI, and
+failure boundaries.
+
 Use `[[json_assert]]`, `[[result_value_assert]]`, and `[[diagnostics]]` for
 semantic checks inside JSON stdout. JSON and result-value assertions accept
 `equals`, `equals_file`, `equals_json_file`, or `missing = true`.
@@ -335,8 +363,9 @@ explicit logical field, byte length, and SHA-256 digest. Binary values record
 their byte length and SHA-256 digest. JSON object members are key-sorted
 because object member order is not part of an assertion value; arrays and all
 manifest assertion sequences retain their order. The baseline includes MCP
-stdio specification cases that use `stdin_file` JSON lines and stream
-fragments to pin advertised tool declarations and representative tool results.
+stdio specification cases that use `stdin_file` JSON lines, stream fragments,
+and response-local `[[mcp_assert]]` selectors to pin advertised tool
+declarations and representative tool results.
 
 The normal `toolchain_harness` target runs
 `checked_in_semantic_baseline_matches_authoritative_cases`. The test reads the
