@@ -26,9 +26,11 @@ Only proposals and subsections listed in this section are selectable targets.
 ## Blocked
 
 - The agent-language-services umbrella is a planning inventory. Its next saved
-  workspace function-reference slice is blocked by identifier casing and slice
-  closure. Move that implementation target into the Ready section after those
-  dependencies pass:
+  workspace function-reference slice is blocked by identifier casing. The
+  completed slice closure is recorded in
+  [implemented proposal history](../reference/implemented-proposals/agent-language-services-slice-closure.md);
+  move the function-reference implementation target into the Ready section
+  after identifier casing passes:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule
