@@ -1,7 +1,7 @@
 ---
 role: implementation-record
 authority: supporting
-update-when: The MCP JSONL assertion contract, definition-workspace executable case, shared navigation capture evidence, or saved-reference slice boundary is superseded.
+update-when: The MCP JSONL assertion contract, definition-workspace executable MCP case, shared navigation capture evidence, or saved workspace references slice boundary is superseded.
 ---
 
 # Agent Language Services Slice Closure
