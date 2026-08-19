@@ -7572,13 +7572,11 @@ fn decoded_mcp_jsonl_assertions_cover_ids_pointers_equality_arrays_and_workspace
     fs::write(root.join("main.veln"), "fn main() -> Int\n  1\nend\n")
         .expect("workspace file should be written");
     let expected_uri = path_to_file_uri(&fs::canonicalize(root.join("main.veln")).unwrap());
+    let expected_uri_json = JsonValue::String(expected_uri).to_compact_string();
     let stdout = format!(
-        "\n{}\n{}\n{}\n",
+        "\n{}\n{{\"jsonrpc\":\"2.0\",\"id\":\"workspace\",\"result\":{{\"uri\":{}}}}}\n{}\n",
         r#"{"jsonrpc":"2.0","id":3,"result":{"object":{"b":2,"a":1},"array":["first","second"],"missing":null,"escaped":{"a/b":"slash","m~n":"tilde"}}}"#,
-        format!(
-            r#"{{"jsonrpc":"2.0","id":"workspace","result":{{"uri":{}}}}}"#,
-            JsonValue::String(expected_uri).to_compact_string()
-        ),
+        expected_uri_json,
         r#"{"jsonrpc":"2.0","id":4,"result":null}"#,
     );
     let assertions = parsed_mcp_assertions(
