@@ -9802,6 +9802,15 @@ fn evaluate_mcp_assertion(
     project_root: &Path,
 ) -> Result<(), String> {
     let id = assertion.id.as_ref().expect("validated MCP id");
+    let selected = select_mcp_response(messages, id)?;
+    let result = json_pointer(selected, &assertion.pointer_tokens);
+    evaluate_mcp_pointer_result(result, assertion, project_root)
+}
+
+fn select_mcp_response<'a>(
+    messages: &'a [JsonValue],
+    id: &JsonValue,
+) -> Result<&'a JsonValue, String> {
     let matches = messages
         .iter()
         .filter(|message| {
@@ -9822,8 +9831,15 @@ fn evaluate_mcp_assertion(
             ));
         }
     };
+    Ok(selected)
+}
 
-    match json_pointer(selected, &assertion.pointer_tokens) {
+fn evaluate_mcp_pointer_result(
+    result: JsonPointerResult<'_>,
+    assertion: &McpAssertion,
+    project_root: &Path,
+) -> Result<(), String> {
+    match result {
         JsonPointerResult::Missing => {
             if matches!(
                 assertion.operation,
@@ -9835,53 +9851,73 @@ fn evaluate_mcp_assertion(
             }
         }
         JsonPointerResult::Invalid(reason) => Err(format!("invalid traversal: {reason}")),
-        JsonPointerResult::Found(actual) => match assertion
-            .operation
-            .as_ref()
-            .expect("validated MCP assertion operation")
-        {
-            McpAssertionOperation::Equals(expected) => {
-                if json_values_equal(actual, expected) {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "value mismatch: expected {}, got {}",
-                        expected.to_compact_string(),
-                        actual.to_compact_string()
-                    ))
-                }
-            }
-            McpAssertionOperation::Length(expected) => {
-                let actual = actual
-                    .as_array()
-                    .ok_or_else(|| "length requires a selected JSON array".to_string())?;
-                if actual.len() == *expected {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "array length mismatch: expected {expected}, got {}",
-                        actual.len()
-                    ))
-                }
-            }
-            McpAssertionOperation::Missing(true) => {
-                Err("selected JSON path exists but should be missing".to_string())
-            }
-            McpAssertionOperation::WorkspaceFileUri(relative) => {
-                let expected = workspace_file_uri(project_root, relative)?;
-                let actual = actual.as_str().ok_or_else(|| {
-                    "workspace_file_uri requires a selected JSON string".to_string()
-                })?;
-                if actual == expected {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "workspace URI mismatch: expected {expected}, got {actual}"
-                    ))
-                }
-            }
-            McpAssertionOperation::Missing(false) => unreachable!("validated missing operation"),
-        },
+        JsonPointerResult::Found(actual) => evaluate_mcp_operation(actual, assertion, project_root),
+    }
+}
+
+fn evaluate_mcp_operation(
+    actual: &JsonValue,
+    assertion: &McpAssertion,
+    project_root: &Path,
+) -> Result<(), String> {
+    match assertion
+        .operation
+        .as_ref()
+        .expect("validated MCP assertion operation")
+    {
+        McpAssertionOperation::Equals(expected) => expect_mcp_json_value(actual, expected),
+        McpAssertionOperation::Length(expected) => expect_mcp_array_length(actual, *expected),
+        McpAssertionOperation::Missing(true) => {
+            Err("selected JSON path exists but should be missing".to_string())
+        }
+        McpAssertionOperation::WorkspaceFileUri(relative) => {
+            expect_mcp_workspace_file_uri(actual, project_root, relative)
+        }
+        McpAssertionOperation::Missing(false) => unreachable!("validated missing operation"),
+    }
+}
+
+fn expect_mcp_json_value(actual: &JsonValue, expected: &JsonValue) -> Result<(), String> {
+    if json_values_equal(actual, expected) {
+        Ok(())
+    } else {
+        Err(format!(
+            "value mismatch: expected {}, got {}",
+            expected.to_compact_string(),
+            actual.to_compact_string()
+        ))
+    }
+}
+
+fn expect_mcp_array_length(actual: &JsonValue, expected: usize) -> Result<(), String> {
+    let actual = actual
+        .as_array()
+        .ok_or_else(|| "length requires a selected JSON array".to_string())?;
+    if actual.len() == expected {
+        Ok(())
+    } else {
+        Err(format!(
+            "array length mismatch: expected {expected}, got {}",
+            actual.len()
+        ))
+    }
+}
+
+fn expect_mcp_workspace_file_uri(
+    actual: &JsonValue,
+    project_root: &Path,
+    relative: &str,
+) -> Result<(), String> {
+    let expected = workspace_file_uri(project_root, relative)?;
+    let actual = actual
+        .as_str()
+        .ok_or_else(|| "workspace_file_uri requires a selected JSON string".to_string())?;
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(format!(
+            "workspace URI mismatch: expected {expected}, got {actual}"
+        ))
     }
 }
 
