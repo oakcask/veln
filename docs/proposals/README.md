@@ -21,6 +21,7 @@ also states it.
 - Identifier casing that separates type and constructor names from module,
   function, and value-binding names:
   [identifier-casing.md](identifier-casing.md).
+
 Only proposals and subsections listed in this section are selectable targets.
 
 ## Blocked
