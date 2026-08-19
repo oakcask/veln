@@ -159,9 +159,10 @@ case checks anonymous `check_project` analysis over only the requested source
 when another saved source in the same workspace contains a language error.
 The `definition-workspace` MCP specification case checks the advertised
 `definition` declaration over stdio. It uses response-local MCP JSONL
-assertions for representative definition, no-definition, decimal and exponent
-integer coordinate spellings, invalid-position results, and non-integer
-decimal and negative-exponent coordinate schema rejection.
+assertions for representative definition, no-definition, canonical workspace
+file URI spelling, decimal and exponent integer coordinate spellings,
+invalid-position results, and non-integer decimal and negative-exponent
+coordinate schema rejection.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous
