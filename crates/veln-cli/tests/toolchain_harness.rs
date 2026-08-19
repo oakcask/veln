@@ -7634,6 +7634,8 @@ fn mcp_workspace_uri_assertion_uses_safe_workspace_relative_files() {
     fs::create_dir_all(root.join("src")).expect("source directory should be created");
     fs::write(root.join("src/main.veln"), "fn main() -> Int\n  1\nend\n")
         .expect("source should be written");
+    fs::create_dir_all(root.join("src/directory.veln"))
+        .expect("directory entry should be created");
     let assertion = parsed_mcp_assertions(
         r#"command = ["mcp"]
 exit = 0
@@ -7661,9 +7663,27 @@ equals_workspace_uri = "src/main.veln"
         "src/../main.veln",
         "src\\main.veln",
         "src/missing.veln",
+        "src/directory.veln",
     ] {
         let error = workspace_file_uri(&root, relative).expect_err("invalid path should fail");
         assert!(!error.is_empty());
+    }
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::symlink;
+        use std::os::unix::net::UnixListener;
+
+        let socket = UnixListener::bind(root.join("src/socket.veln"))
+            .expect("socket entry should be created");
+        symlink("main.veln", root.join("src/link.veln")).expect("link entry should be created");
+
+        for relative in ["src/socket.veln", "src/link.veln"] {
+            let error = workspace_file_uri(&root, relative).expect_err("invalid path should fail");
+            assert!(!error.is_empty());
+        }
+
+        drop(socket);
     }
     fs::remove_dir_all(root).expect("test root should be removed");
 }
