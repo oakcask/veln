@@ -433,6 +433,12 @@ fn definition_rejects_paths_and_changed_workspace_identity() {
     };
     let result = server.definition_tool(&json!({"source":"main.veln","line":2,"column":4}));
     assert_eq!(result["structuredContent"]["code"], "snapshot_changed");
+    assert!(
+        !result["structuredContent"]
+            .as_object()
+            .unwrap()
+            .contains_key("definition")
+    );
 }
 
 #[cfg(unix)]

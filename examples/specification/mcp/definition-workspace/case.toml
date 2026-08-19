@@ -7,17 +7,142 @@ contains = [
   "\"description\":\"Resolve a supported symbol in one saved workspace source\"",
   "\"name\":\"definition\",\"outputSchema\"",
   "\"required\":[\"source\",\"line\",\"column\"]",
-  "\"range\":{\"end\":{\"column\":10,\"line\":1},\"start\":{\"column\":4,\"line\":1}}",
-  "\"structuredContent\":{\"definition\":null}",
-  "\"isError\":true,\"structuredContent\":{\"code\":\"invalid_position\"",
-  "\"id\":6,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"definition\\\"",
-  "\"id\":7,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"definition\\\"",
-  "\"id\":8,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"code\\\":\\\"invalid_position\\\"",
-  "\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":9",
-  "\"id\":10,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"code\\\":\\\"invalid_position\\\"",
-  "\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":11",
 ]
-not_contains = ["veln-pkg:", "target/debug"]
 
 [stderr]
 format = "empty"
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/definition/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/definition/range"
+equals = {"start":{"line":1,"column":4},"end":{"line":1,"column":10}}
+
+[[mcp_assert]]
+id = 3
+path = "/result/content"
+array_len = 1
+
+[[mcp_assert]]
+id = 3
+path = "/result/content/0/type"
+equals = "text"
+
+[[mcp_assert]]
+id = 3
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 3
+path = "/error"
+missing = true
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/definition"
+equals = null
+
+[[mcp_assert]]
+id = 4
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 4
+path = "/error"
+missing = true
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/code"
+equals = "invalid_position"
+
+[[mcp_assert]]
+id = 5
+path = "/result/isError"
+equals = true
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/definition"
+missing = true
+
+[[mcp_assert]]
+id = 5
+path = "/error"
+missing = true
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/definition/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/definition/range"
+equals = {"start":{"line":1,"column":4},"end":{"line":1,"column":10}}
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/definition/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/definition/range"
+equals = {"start":{"line":1,"column":4},"end":{"line":1,"column":10}}
+
+[[mcp_assert]]
+id = 8
+path = "/result/structuredContent/code"
+equals = "invalid_position"
+
+[[mcp_assert]]
+id = 8
+path = "/result/isError"
+equals = true
+
+[[mcp_assert]]
+id = 9
+path = "/error/code"
+equals = -32602
+
+[[mcp_assert]]
+id = 9
+path = "/error/message"
+equals = "Tool input does not match its schema"
+
+[[mcp_assert]]
+id = 9
+path = "/result"
+missing = true
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/code"
+equals = "invalid_position"
+
+[[mcp_assert]]
+id = 10
+path = "/result/isError"
+equals = true
+
+[[mcp_assert]]
+id = 11
+path = "/error/code"
+equals = -32602
+
+[[mcp_assert]]
+id = 11
+path = "/error/message"
+equals = "Tool input does not match its schema"
+
+[[mcp_assert]]
+id = 11
+path = "/result"
+missing = true

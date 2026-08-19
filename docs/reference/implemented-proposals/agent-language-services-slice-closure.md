@@ -1,26 +1,47 @@
 ---
-role: proposal
-update-when: The MCP JSONL assertion contract, executable definition-fixture response set, shared-capture evidence boundary, or saved-reference slice status changes.
+role: implementation-record
+authority: supporting
+update-when: The MCP JSONL assertion contract, executable definition-fixture response set, shared-capture evidence boundary, implemented slice evidence, or current harness reference route changes.
 ---
 
 # Agent Language Services Slice Closure
 
+## Current Behavior Route
+
+Use [../toolchain-test-harness.md](../toolchain-test-harness.md) for the
+current MCP JSONL assertion contract. Use
+[../../specification/mcp.md](../../specification/mcp.md) for the current
+`veln mcp` tool behavior and executable MCP case routes.
+
+This record is historical completion evidence. It is not the source for
+current harness or MCP behavior.
+
 ## Summary
 
-Establish the executable-evidence boundary for agent-language-service slices
-before retrying saved workspace function references. Add response-local MCP
-JSONL assertions and state when shared invariant evidence can be composed with
-adapter evidence.
+This slice established the executable-evidence boundary for agent language
+service slices before saved workspace function references. It added
+response-local MCP JSONL assertions and documented when shared invariant
+evidence can compose with adapter evidence.
 
-The saved-reference adapter is not implemented by this proposal. A later
-target may reintroduce that bounded slice only after this proposal's closure
-gate passes.
+The saved-reference adapter was not implemented by this slice.
 
 ## Selection State
 
-This proposal is ready. Implement the JSONL assertion surface and convert the
-definition fixture as one bounded evidence change. The saved-reference adapter
-remains separate work.
+This record is complete. The saved-reference adapter remains separate work.
+
+## Completion Evidence
+
+- `../../../examples/specification/mcp/definition-workspace/case.toml`
+  uses `[[mcp_assert]]` for response IDs 3 through 11.
+- `../../../crates/veln-cli/tests/toolchain_harness.rs` contains the
+  `manifest_mcp_*` and `decoded_mcp_*` harness tests.
+- `../../../crates/veln-cli/tests/toolchain-case-semantics.baseline`
+  records the response-local MCP assertion contract inventory.
+- `../../../crates/veln-mcp/src/check_project.rs` contains the shared stable
+  capture mutation and identity-change evidence.
+- `../../../crates/veln-mcp/src/server/tests.rs` checks that the definition
+  adapter reports `snapshot_changed` with no success-only `definition`
+  payload when the shared capture boundary fails.
 
 ## Problem
 
