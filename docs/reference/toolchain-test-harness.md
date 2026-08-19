@@ -273,7 +273,8 @@ independently. The `manifest_mcp_*`, `decoded_mcp_*`, and
 `mcp_workspace_uri_*` tests in `toolchain_harness.rs` cover manifest
 validation, JSONL decoding, response selection, JSON Pointer behavior,
 equality, array length, missing values, duplicate selected IDs, and safe
-workspace URI validation. The `definition-workspace` MCP case in
+workspace URI validation, including rejection of a workspace-relative path
+through a symlinked component. The `definition-workspace` MCP case in
 `examples/specification/mcp/definition-workspace/` covers response-local
 definition observations for IDs 3 through 11 with a checked semantic baseline.
 

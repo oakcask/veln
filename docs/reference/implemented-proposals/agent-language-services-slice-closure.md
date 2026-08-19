@@ -41,7 +41,8 @@ payload.
 - `toolchain_harness.rs`: `manifest_mcp_*`, `decoded_mcp_*`, and
   `mcp_workspace_uri_*` tests cover the assertion syntax, JSONL decoder,
   response selector, JSON Pointer matrix, equality, array length, missing
-  values, duplicate selected IDs, and workspace URI rejection matrix.
+  values, duplicate selected IDs, workspace URI rejection matrix, and direct
+  rejection for workspace-relative paths that traverse a symlinked component.
 - `examples/specification/mcp/definition-workspace/`: checked executable MCP
   case for response IDs 3 through 11.
 - `toolchain-case-semantics.baseline`: checked semantic inventory for the

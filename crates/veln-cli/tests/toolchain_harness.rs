@@ -7713,6 +7713,20 @@ fn mcp_workspace_uri_rejects_unsafe_relative_paths() {
             "expected `{expected}` in `{error}`"
         );
     }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::symlink;
+
+        fs::create_dir(root.join("real")).expect("real directory should be written");
+        fs::write(root.join("real/main.veln"), "").expect("linked file should be written");
+        symlink("real", root.join("linked")).expect("workspace symlink should be created");
+        let error = workspace_file_uri(&root, "linked/main.veln")
+            .expect_err("path through link-like entry should be rejected");
+        assert!(
+            error.contains("crosses a link-like entry"),
+            "expected link-like rejection in `{error}`"
+        );
+    }
     fs::remove_dir_all(root).expect("test root should be removed");
 }
 
