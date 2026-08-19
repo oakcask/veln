@@ -171,6 +171,38 @@ the behavior under test is the newline-delimited stdio protocol itself. Keep
 those fixtures as ordinary `case-text/` files when LF-normalized JSON lines are
 the intended observable bytes.
 
+Use repeatable `[[mcp_assert]]` sections to check decoded newline-delimited
+JSON-RPC responses from `veln mcp` stdout. Each nonempty stdout line must be a
+complete JSON object. Malformed JSON and non-object lines fail decoded MCP
+assertions for that invocation. Each assertion selects exactly one response by
+`id`, where the selector can be a JSON string or integer. Missing and duplicate
+selected response identifiers fail the assertion. Other response identifiers
+remain valid input.
+
+Each MCP assertion selects a value with an RFC 6901 JSON Pointer in `path`,
+including the empty pointer for the complete response. Pointer syntax is
+validated while the manifest loads. The assertion declares exactly one of
+`equals`, `length`, `workspace_uri`, or `missing = true`. `equals` compares a
+complete JSON value. Object member order is ignored. Array order and length
+remain significant. Integers compare by decoded value, and non-integer numbers
+compare by their preserved JSON spelling. `length` requires the selected value
+to be an array with the exact element count. `missing = true` succeeds only
+when the selected response exists and the pointer does not resolve.
+`workspace_uri` requires the selected value to be the canonical `file:` URI for
+one existing regular workspace fixture file named by a safe case-relative path.
+The path must use portable relative components and must not be absolute, empty,
+contain `.`, `..`, backslashes, link traversal, or `case-text`.
+
+Raw MCP stdout fragments remain available for incidental initialization,
+discovery, and protocol text. They are not sufficient evidence for
+response-local locations, order, cardinality, or failure payloads. The
+`decoded_mcp_*` and `manifest_mcp_*` tests in `toolchain_harness.rs` cover the
+MCP JSONL transport, selector, pointer, operation, array-order, missing-value,
+and workspace-URI boundaries. The
+`examples/specification/mcp/definition-workspace/` case is the executable
+definition evidence for response-local MCP assertions, and the checked
+semantic baseline records each selector, path, operation, and operand.
+
 Use `stdin_jsonrpc_file` for an ordered UTF-8 JSON array of JSON-RPC requests
 and notifications. It is mutually exclusive with `stdin` and `stdin_file`.
 Each array element must be an object. Its `jsonrpc` member must be `"2.0"`.
