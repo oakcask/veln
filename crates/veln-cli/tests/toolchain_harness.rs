@@ -3,6 +3,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::Write;
 #[cfg(unix)]
+use std::os::unix::ffi::OsStrExt;
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Output, Stdio};
@@ -109,7 +111,9 @@ fn run_case_with_guard_and_after_invocation(
                 let evidence = CommandSourceDiagnosticEvidence::read(&context, artifact_path);
                 manifest.assert_no_unexpected_command_source_errors(&context, &evidence);
             }
-            manifest.expectations.assert_matches(&context, &output);
+            manifest
+                .expectations
+                .assert_matches(&context, &output, &project.root);
             manifest
                 .expectations
                 .assert_files_match(&context, &project.root);
@@ -1466,6 +1470,7 @@ struct CaseExpectations {
     json_assertions: Vec<JsonAssertion>,
     result_value_assertions: Vec<ResultValueAssertion>,
     lsp_assertions: Vec<LspAssertion>,
+    mcp_assertions: Vec<McpAssertion>,
     file_assertions: Vec<FileAssertion>,
     diagnostics: Vec<DiagnosticExpectation>,
     binary_fixtures: Vec<BinaryFixtureExpectation>,
@@ -1503,6 +1508,11 @@ impl CaseManifest {
             && self.invocation.command.first().map(String::as_str) != Some("lsp")
         {
             manifest_error(path, 0, "lsp_assert requires `command = [\"lsp\", ...]`");
+        }
+        if !self.expectations.mcp_assertions.is_empty()
+            && self.invocation.command.first().map(String::as_str) != Some("mcp")
+        {
+            manifest_error(path, 0, "mcp_assert requires `command = [\"mcp\", ...]`");
         }
         if let Some(expectation) = &self.manifest_error
             && !expectation.has_assertion()
@@ -1775,6 +1785,9 @@ impl CaseExpectations {
         for (index, assertion) in self.lsp_assertions.iter().enumerate() {
             assertion.validate(path, index);
         }
+        for (index, assertion) in self.mcp_assertions.iter().enumerate() {
+            assertion.validate(path, index);
+        }
         if let Some(help) = &self.help
             && !help.has_assertion()
         {
@@ -1794,7 +1807,12 @@ impl CaseExpectations {
         }
     }
 
-    fn assert_matches(&self, context: &CaseRunContext<'_>, output: &CapturedOutput) {
+    fn assert_matches(
+        &self,
+        context: &CaseRunContext<'_>,
+        output: &CapturedOutput,
+        project_root: &Path,
+    ) {
         let mut independent_failures = Vec::new();
         if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             assert_eq!(
@@ -1822,6 +1840,11 @@ impl CaseExpectations {
         }
         if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             assert_lsp_assertions(context, &output.stdout, &self.lsp_assertions)
+        })) {
+            independent_failures.push(panic_message(panic));
+        }
+        if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            assert_mcp_assertions(context, &output.stdout, &self.mcp_assertions, project_root)
         })) {
             independent_failures.push(panic_message(panic));
         }
@@ -2092,6 +2115,24 @@ enum LspAssertionOperation {
     Missing(bool),
 }
 
+#[derive(Debug)]
+struct McpAssertion {
+    id: Option<JsonValue>,
+    path: String,
+    path_present: bool,
+    pointer_tokens: Vec<String>,
+    operation: Option<McpAssertionOperation>,
+    operation_count: usize,
+}
+
+#[derive(Debug)]
+enum McpAssertionOperation {
+    Equals(JsonValue),
+    ArrayLen(usize),
+    Missing(bool),
+    WorkspaceUri(String),
+}
+
 impl LspAssertion {
     fn validate(&self, path: &Path, index: usize) {
         if self.id.is_some() == self.method.is_some() {
@@ -2139,6 +2180,49 @@ impl LspAssertion {
                 self.occurrence.unwrap_or(0)
             )
         }
+    }
+}
+
+impl McpAssertion {
+    fn validate(&self, path: &Path, index: usize) {
+        match &self.id {
+            Some(JsonValue::Number(_) | JsonValue::String(_)) => {}
+            Some(_) => manifest_error(
+                path,
+                0,
+                format!("mcp_assert {index} `id` must be a JSON string or integer"),
+            ),
+            None => manifest_error(path, 0, format!("mcp_assert {index} is missing `id`")),
+        }
+        if !self.path_present {
+            manifest_error(path, 0, format!("mcp_assert {index} is missing `path`"));
+        }
+        if matches!(self.operation, Some(McpAssertionOperation::Missing(false))) {
+            manifest_error(
+                path,
+                0,
+                format!("mcp_assert {index} `missing` must be true when present"),
+            );
+        }
+        if self.operation_count != 1 {
+            manifest_error(
+                path,
+                0,
+                format!(
+                    "mcp_assert {index} needs exactly one of `equals`, `array_len`, `workspace_uri`, or `missing = true`"
+                ),
+            );
+        }
+    }
+
+    fn selector(&self) -> String {
+        format!(
+            "response id {}",
+            self.id
+                .as_ref()
+                .expect("validated MCP assertion id")
+                .to_compact_string()
+        )
     }
 }
 
@@ -2507,6 +2591,7 @@ enum Section {
     JsonAssert(usize),
     ResultValueAssert(usize),
     LspAssert(usize),
+    McpAssert(usize),
     FileAssert(usize),
     Diagnostic(usize),
     DiagnosticSpan(usize),
@@ -2543,6 +2628,7 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
     let mut json_operations = Vec::<AssertionOperationPreflight>::new();
     let mut result_value_operations = Vec::<AssertionOperationPreflight>::new();
     let mut lsp_operations = Vec::<AssertionOperationPreflight>::new();
+    let mut mcp_operations = Vec::<AssertionOperationPreflight>::new();
     let mut file_assert_operations = Vec::<usize>::new();
 
     for statement in statements {
@@ -2567,6 +2653,10 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                     "[[lsp_assert]]" => {
                         lsp_operations.push(AssertionOperationPreflight::default());
                         Section::LspAssert(lsp_operations.len() - 1)
+                    }
+                    "[[mcp_assert]]" => {
+                        mcp_operations.push(AssertionOperationPreflight::default());
+                        Section::McpAssert(mcp_operations.len() - 1)
                     }
                     "[[file_assert]]" => {
                         file_assert_operations.push(0);
@@ -2622,6 +2712,11 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                         if matches!(*key, "equals" | "equals_file" | "contains" | "missing") =>
                     {
                         lsp_operations[index].record(path, key, value);
+                    }
+                    Section::McpAssert(index)
+                        if matches!(*key, "equals" | "array_len" | "workspace_uri" | "missing") =>
+                    {
+                        mcp_operations[index].record(path, key, value);
                     }
                     Section::FileAssert(index) if matches!(*key, "equals" | "equals_file") => {
                         file_assert_operations[index] += 1;
@@ -2693,6 +2788,24 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
             );
         }
     }
+    for (index, operation) in mcp_operations.iter().enumerate() {
+        if operation.missing_false {
+            manifest_error(
+                path,
+                0,
+                format!("mcp_assert {index} `missing` must be true when present"),
+            );
+        }
+        if operation.count != 1 {
+            manifest_error(
+                path,
+                0,
+                format!(
+                    "mcp_assert {index} needs exactly one of `equals`, `array_len`, `workspace_uri`, or `missing = true`"
+                ),
+            );
+        }
+    }
     for (index, count) in file_assert_operations.iter().enumerate() {
         if *count != 1 {
             manifest_error(
@@ -2735,6 +2848,7 @@ struct ManifestParser<'a> {
     json_assertions: Vec<JsonAssertion>,
     result_value_assertions: Vec<ResultValueAssertion>,
     lsp_assertions: Vec<LspAssertion>,
+    mcp_assertions: Vec<McpAssertion>,
     file_assertions: Vec<FileAssertion>,
     diagnostics: Vec<DiagnosticExpectation>,
     manifest_error: Option<ManifestErrorExpectation>,
@@ -2767,6 +2881,7 @@ impl<'a> ManifestParser<'a> {
             json_assertions: Vec::new(),
             result_value_assertions: Vec::new(),
             lsp_assertions: Vec::new(),
+            mcp_assertions: Vec::new(),
             file_assertions: Vec::new(),
             diagnostics: Vec::new(),
             manifest_error: None,
@@ -2794,6 +2909,7 @@ impl<'a> ManifestParser<'a> {
             "[[json_assert]]" => self.parse_json_assert_header(),
             "[[result_value_assert]]" => self.parse_result_value_assert_header(),
             "[[lsp_assert]]" => self.parse_lsp_assert_header(),
+            "[[mcp_assert]]" => self.parse_mcp_assert_header(),
             "[[file_assert]]" => self.parse_file_assert_header(),
             "[[diagnostics]]" => self.parse_diagnostic_header(),
             "[diagnostics.span]" => self.parse_diagnostic_span_header(line_number),
@@ -2854,6 +2970,18 @@ impl<'a> ManifestParser<'a> {
             operation_count: 0,
         });
         Section::LspAssert(self.lsp_assertions.len() - 1)
+    }
+
+    fn parse_mcp_assert_header(&mut self) -> Section {
+        self.mcp_assertions.push(McpAssertion {
+            id: None,
+            path: String::new(),
+            path_present: false,
+            pointer_tokens: Vec::new(),
+            operation: None,
+            operation_count: 0,
+        });
+        Section::McpAssert(self.mcp_assertions.len() - 1)
     }
 
     fn parse_diagnostic_header(&mut self) -> Section {
@@ -2954,6 +3082,7 @@ impl<'a> ManifestParser<'a> {
                 self.parse_result_value_assert_key(index, line_number, key, value)
             }
             Section::LspAssert(index) => self.parse_lsp_assert_key(index, line_number, key, value),
+            Section::McpAssert(index) => self.parse_mcp_assert_key(index, line_number, key, value),
             Section::FileAssert(index) => {
                 self.parse_file_assert_key(index, line_number, key, value)
             }
@@ -3167,8 +3296,13 @@ impl<'a> ManifestParser<'a> {
             "path" => {
                 assertion.path = parse_string(self.path, value);
                 assertion.path_present = true;
-                assertion.pointer_tokens =
-                    parse_json_pointer(self.path, line_number, index, &assertion.path);
+                assertion.pointer_tokens = parse_json_pointer(
+                    self.path,
+                    line_number,
+                    "lsp_assert",
+                    index,
+                    &assertion.path,
+                );
             }
             "equals" => {
                 assertion.operation_count += 1;
@@ -3197,6 +3331,68 @@ impl<'a> ManifestParser<'a> {
                 self.path,
                 line_number,
                 format!("unknown lsp_assert key `{key}`"),
+            ),
+        }
+    }
+
+    fn parse_mcp_assert_key(
+        &mut self,
+        index: usize,
+        line_number: usize,
+        key: &str,
+        value: &ManifestValue<'_>,
+    ) {
+        let assertion = &mut self.mcp_assertions[index];
+        match key {
+            "id" => {
+                let id = parse_manifest_json_value(self.path, value);
+                if !matches!(id, JsonValue::Number(_) | JsonValue::String(_)) {
+                    manifest_error(
+                        self.path,
+                        line_number,
+                        "mcp_assert `id` must be a JSON string or integer",
+                    );
+                }
+                assertion.id = Some(id);
+            }
+            "path" => {
+                assertion.path = parse_string(self.path, value);
+                assertion.path_present = true;
+                assertion.pointer_tokens = parse_json_pointer(
+                    self.path,
+                    line_number,
+                    "mcp_assert",
+                    index,
+                    &assertion.path,
+                );
+            }
+            "equals" => {
+                assertion.operation_count += 1;
+                assertion.operation = Some(McpAssertionOperation::Equals(
+                    parse_manifest_json_value(self.path, value),
+                ));
+            }
+            "array_len" => {
+                assertion.operation_count += 1;
+                assertion.operation = Some(McpAssertionOperation::ArrayLen(
+                    parse_nonnegative_usize(self.path, value),
+                ));
+            }
+            "missing" => {
+                assertion.operation_count += 1;
+                assertion.operation =
+                    Some(McpAssertionOperation::Missing(parse_bool(self.path, value)));
+            }
+            "workspace_uri" => {
+                assertion.operation_count += 1;
+                assertion.operation = Some(McpAssertionOperation::WorkspaceUri(parse_string(
+                    self.path, value,
+                )));
+            }
+            _ => manifest_error(
+                self.path,
+                line_number,
+                format!("unknown mcp_assert key `{key}`"),
             ),
         }
     }
@@ -3424,6 +3620,7 @@ impl<'a> ManifestParser<'a> {
                 json_assertions: self.json_assertions,
                 result_value_assertions: self.result_value_assertions,
                 lsp_assertions: self.lsp_assertions,
+                mcp_assertions: self.mcp_assertions,
                 file_assertions: self.file_assertions,
                 diagnostics: self.diagnostics,
                 binary_fixtures: self.binary_fixtures,
@@ -7286,6 +7483,12 @@ fn parsed_lsp_assertions(source: &str) -> Vec<LspAssertion> {
         .lsp_assertions
 }
 
+fn parsed_mcp_assertions(source: &str) -> Vec<McpAssertion> {
+    parse_manifest(Path::new("case.toml"), source)
+        .expectations
+        .mcp_assertions
+}
+
 #[test]
 fn manifest_lsp_assertions_validate_selector_operation_and_pointer_contracts() {
     for (fields, expected) in [
@@ -7326,6 +7529,193 @@ fn manifest_lsp_assertions_validate_selector_operation_and_pointer_contracts() {
             "JSON Pointer",
         );
     }
+}
+
+#[test]
+fn manifest_mcp_assertions_validate_selector_operation_and_pointer_contracts() {
+    for (fields, expected) in [
+        ("path = \"\"\nequals = null\n", "is missing `id`"),
+        (
+            "id = null\npath = \"\"\nequals = null\n",
+            "must be a JSON string or integer",
+        ),
+        ("id = 1\npath = \"\"\n", "needs exactly one"),
+        (
+            "id = 1\npath = \"\"\nequals = null\narray_len = 0\n",
+            "needs exactly one",
+        ),
+        (
+            "id = 1\npath = \"\"\nmissing = false\n",
+            "missing` must be true",
+        ),
+        ("id = 1\nequals = null\n", "is missing `path`"),
+    ] {
+        assert_manifest_parse_error(
+            &format!("command = [\"mcp\"]\nexit = 0\n[[mcp_assert]]\n{fields}"),
+            expected,
+        );
+    }
+
+    for pointer in ["value", "#fragment", "/~", "/~2", "/a~x"] {
+        assert_manifest_parse_error(
+            &format!(
+                "command = [\"mcp\"]\nexit = 0\n[[mcp_assert]]\nid = 1\npath = {pointer:?}\nequals = null\n"
+            ),
+            "JSON Pointer",
+        );
+    }
+}
+
+#[test]
+fn decoded_mcp_jsonl_assertions_cover_ids_pointers_equality_arrays_and_workspace_uris() {
+    let root = test_temp_root("mcp-jsonl");
+    fs::write(root.join("main.veln"), "fn main() -> Int\n  1\nend\n")
+        .expect("workspace file should be written");
+    let expected_uri = path_to_file_uri(&fs::canonicalize(root.join("main.veln")).unwrap());
+    let stdout = format!(
+        "\n{}\n{}\n{}\n",
+        r#"{"jsonrpc":"2.0","id":3,"result":{"object":{"b":2,"a":1},"array":["first","second"],"missing":null,"escaped":{"a/b":"slash","m~n":"tilde"}}}"#,
+        format!(
+            r#"{{"jsonrpc":"2.0","id":"workspace","result":{{"uri":{}}}}}"#,
+            JsonValue::String(expected_uri).to_compact_string()
+        ),
+        r#"{"jsonrpc":"2.0","id":4,"result":null}"#,
+    );
+    let assertions = parsed_mcp_assertions(
+        r#"command = ["mcp"]
+exit = 0
+[[mcp_assert]]
+id = 3
+path = "/result/object"
+equals = {"a":1,"b":2}
+[[mcp_assert]]
+id = 3
+path = "/result/array"
+equals = ["first","second"]
+[[mcp_assert]]
+id = 3
+path = "/result/array"
+array_len = 2
+[[mcp_assert]]
+id = 3
+path = "/result/escaped/a~1b"
+equals = "slash"
+[[mcp_assert]]
+id = 3
+path = "/result/escaped/m~0n"
+equals = "tilde"
+[[mcp_assert]]
+id = 3
+path = "/result/absent"
+missing = true
+[[mcp_assert]]
+id = "workspace"
+path = "/result/uri"
+workspace_uri = "main.veln"
+"#,
+    );
+    let context = CaseRunContext {
+        case_dir: Path::new("decoded-mcp"),
+        run_number: 1,
+    };
+    assert_mcp_assertions(&context, &stdout, &assertions, &root);
+
+    let reversed = parsed_mcp_assertions(
+        r#"command = ["mcp"]
+exit = 0
+[[mcp_assert]]
+id = 3
+path = "/result/array"
+equals = ["second","first"]
+"#,
+    );
+    let messages = decode_mcp_jsonl_stdout(&stdout).expect("JSONL should decode");
+    let error = evaluate_mcp_assertion(&messages, &reversed[0], &root)
+        .expect_err("reversed order should fail equality");
+    assert!(error.contains("value mismatch"));
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn decoded_mcp_jsonl_rejection_matrix_reports_actionable_failures() {
+    for (stdout, expected) in [
+        ("{".to_string(), "invalid JSON"),
+        ("[]\n".to_string(), "not a JSON object"),
+    ] {
+        let error = decode_mcp_jsonl_stdout(&stdout).expect_err("JSONL should fail");
+        assert!(
+            error.contains(expected),
+            "expected `{expected}` in `{error}`"
+        );
+    }
+
+    let messages = decode_mcp_jsonl_stdout(
+        r#"{"jsonrpc":"2.0","id":1,"result":{"array":["first","second"],"text":"value"}}"#,
+    )
+    .expect("JSONL should decode");
+    for (fields, expected) in [
+        (
+            "id = 9\npath = \"/result\"\nmissing = true",
+            "selected response was not found",
+        ),
+        (
+            "id = 1\npath = \"/result/text/value\"\nmissing = true",
+            "invalid traversal",
+        ),
+        (
+            "id = 1\npath = \"/result/text\"\narray_len = 1",
+            "requires a selected JSON array",
+        ),
+        (
+            "id = 1\npath = \"/result/text\"\nmissing = true",
+            "exists but should be missing",
+        ),
+    ] {
+        let assertion = parsed_mcp_assertions(&format!(
+            "command = [\"mcp\"]\nexit = 0\n[[mcp_assert]]\n{fields}\n"
+        ))
+        .remove(0);
+        let error = evaluate_mcp_assertion(&messages, &assertion, Path::new("."))
+            .expect_err("assertion should report its failure");
+        assert!(
+            error.contains(expected),
+            "expected `{expected}` in `{error}`"
+        );
+    }
+
+    let duplicate = decode_mcp_jsonl_stdout(
+        "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":null}\n{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":null}\n",
+    )
+    .expect("duplicate IDs are rejected by selected assertion, not stream decode");
+    let assertion = parsed_mcp_assertions(
+        "command = [\"mcp\"]\nexit = 0\n[[mcp_assert]]\nid = 1\npath = \"/result\"\nequals = null\n",
+    )
+    .remove(0);
+    let error = evaluate_mcp_assertion(&duplicate, &assertion, Path::new("."))
+        .expect_err("duplicate selected ID should fail");
+    assert!(error.contains("not unique"));
+}
+
+#[test]
+fn mcp_workspace_uri_rejects_unsafe_relative_paths() {
+    let root = test_temp_root("mcp-workspace-uri");
+    fs::write(root.join("main.veln"), "").expect("workspace file should be written");
+    fs::create_dir(root.join("dir")).expect("workspace directory should be written");
+    for (relative, expected) in [
+        ("", "nonempty workspace-relative"),
+        ("/main.veln", "nonempty workspace-relative"),
+        ("dir/../main.veln", "nonempty workspace-relative"),
+        ("dir//main.veln", "nonempty workspace-relative"),
+        ("dir\\.veln", "nonempty workspace-relative"),
+        ("dir", "not a regular file"),
+    ] {
+        let error = workspace_file_uri(&root, relative).expect_err("path should be rejected");
+        assert!(
+            error.contains(expected),
+            "expected `{expected}` in `{error}`"
+        );
+    }
+    fs::remove_dir_all(root).expect("test root should be removed");
 }
 
 #[test]
@@ -7609,9 +7999,12 @@ equals = "expected"
         stdout: lsp_frame(r#"{"jsonrpc":"2.0","id":1,"result":"actual"}"#),
         stderr: String::new(),
     };
-    let panic =
-        std::panic::catch_unwind(|| manifest.expectations.assert_matches(&context, &output))
-            .expect_err("both assertions should fail");
+    let panic = std::panic::catch_unwind(|| {
+        manifest
+            .expectations
+            .assert_matches(&context, &output, Path::new("."))
+    })
+    .expect_err("both assertions should fail");
     let message = panic_message(panic);
     assert!(message.contains("raw marker"));
     assert!(message.contains("value mismatch"));
@@ -7624,7 +8017,7 @@ equals = "expected"
     let panic = std::panic::catch_unwind(|| {
         manifest
             .expectations
-            .assert_matches(&context, &transport_output)
+            .assert_matches(&context, &transport_output, Path::new("."))
     })
     .expect_err("raw and transport assertions should fail");
     let message = panic_message(panic);
@@ -7673,7 +8066,9 @@ equals = "second expected"
             run_number: index + 1,
         };
         collect_run_failure(&mut failures, || {
-            manifest.expectations.assert_matches(&context, output)
+            manifest
+                .expectations
+                .assert_matches(&context, output, Path::new("."))
         });
     }
     assert_eq!(failures.len(), 2);
@@ -9071,6 +9466,7 @@ fn fake_tool_path(root: &Path, name: &str) -> PathBuf {
 fn parse_json_pointer(
     path: &Path,
     line_number: usize,
+    assertion_kind: &str,
     assertion_index: usize,
     pointer: &str,
 ) -> Vec<String> {
@@ -9082,7 +9478,7 @@ fn parse_json_pointer(
             path,
             line_number,
             format!(
-                "lsp_assert {assertion_index} path `{pointer}` is not a JSON Pointer; nonempty pointers must start with `/`"
+                "{assertion_kind} {assertion_index} path `{pointer}` is not a JSON Pointer; nonempty pointers must start with `/`"
             ),
         );
     }
@@ -9103,14 +9499,14 @@ fn parse_json_pointer(
                         path,
                         line_number,
                         format!(
-                            "lsp_assert {assertion_index} path `{pointer}` has invalid JSON Pointer escape `~{escape}`"
+                            "{assertion_kind} {assertion_index} path `{pointer}` has invalid JSON Pointer escape `~{escape}`"
                         ),
                     ),
                     None => manifest_error(
                         path,
                         line_number,
                         format!(
-                            "lsp_assert {assertion_index} path `{pointer}` has an incomplete JSON Pointer escape"
+                            "{assertion_kind} {assertion_index} path `{pointer}` has an incomplete JSON Pointer escape"
                         ),
                     ),
                 }
@@ -9335,6 +9731,202 @@ fn evaluate_lsp_assertion(messages: &[JsonValue], assertion: &LspAssertion) -> R
             LspAssertionOperation::Missing(false) => unreachable!("validated missing operation"),
         },
     }
+}
+
+fn assert_mcp_assertions(
+    context: &CaseRunContext<'_>,
+    stdout: &str,
+    assertions: &[McpAssertion],
+    project_root: &Path,
+) {
+    if assertions.is_empty() {
+        return;
+    }
+    let messages = decode_mcp_jsonl_stdout(stdout).unwrap_or_else(|error| {
+        let selectors = assertions
+            .iter()
+            .map(McpAssertion::selector)
+            .collect::<Vec<_>>()
+            .join(", ");
+        panic!(
+            "{}: decoded MCP JSONL stream failed for {selectors}: {error}",
+            context.label()
+        )
+    });
+    let mut failures = Vec::new();
+    for assertion in assertions {
+        if let Err(error) = evaluate_mcp_assertion(&messages, assertion, project_root) {
+            failures.push(format!(
+                "{}: {} path {:?}: {error}",
+                context.label(),
+                assertion.selector(),
+                assertion.path
+            ));
+        }
+    }
+    if !failures.is_empty() {
+        panic!("{}", failures.join("\n"));
+    }
+}
+
+fn decode_mcp_jsonl_stdout(stdout: &str) -> Result<Vec<JsonValue>, String> {
+    let mut messages = Vec::new();
+    for (line_index, line) in stdout.lines().enumerate() {
+        if line.is_empty() {
+            continue;
+        }
+        let message = parse_json(line).map_err(|error| {
+            format!(
+                "line {} is invalid JSON at byte {}: {error}",
+                line_index + 1,
+                error.offset
+            )
+        })?;
+        if !matches!(message, JsonValue::Object(_)) {
+            return Err(format!("line {} is not a JSON object", line_index + 1));
+        }
+        messages.push(message);
+    }
+    Ok(messages)
+}
+
+fn evaluate_mcp_assertion(
+    messages: &[JsonValue],
+    assertion: &McpAssertion,
+    project_root: &Path,
+) -> Result<(), String> {
+    let id = assertion.id.as_ref().expect("validated MCP assertion id");
+    let matches = messages
+        .iter()
+        .filter(|message| message.object_field("id") == Some(id))
+        .collect::<Vec<_>>();
+    let selected = match matches.as_slice() {
+        [selected] => *selected,
+        [] => return Err("selected response was not found".to_string()),
+        _ => return Err("selected response id is not unique".to_string()),
+    };
+
+    match json_pointer(selected, &assertion.pointer_tokens) {
+        JsonPointerResult::Missing => {
+            if matches!(
+                assertion.operation,
+                Some(McpAssertionOperation::Missing(true))
+            ) {
+                Ok(())
+            } else {
+                Err("selected JSON path was not found".to_string())
+            }
+        }
+        JsonPointerResult::Invalid(reason) => Err(format!("invalid traversal: {reason}")),
+        JsonPointerResult::Found(actual) => match assertion
+            .operation
+            .as_ref()
+            .expect("validated MCP assertion operation")
+        {
+            McpAssertionOperation::Equals(expected) => {
+                if actual == expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "value mismatch: expected {}, got {}",
+                        expected.to_compact_string(),
+                        actual.to_compact_string()
+                    ))
+                }
+            }
+            McpAssertionOperation::ArrayLen(expected) => {
+                let values = actual
+                    .as_array()
+                    .ok_or_else(|| "array_len requires a selected JSON array".to_string())?;
+                if values.len() == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "array length mismatch: expected {expected}, got {}",
+                        values.len()
+                    ))
+                }
+            }
+            McpAssertionOperation::Missing(true) => {
+                Err("selected JSON path exists but should be missing".to_string())
+            }
+            McpAssertionOperation::Missing(false) => unreachable!("validated missing operation"),
+            McpAssertionOperation::WorkspaceUri(relative) => {
+                let actual = actual
+                    .as_str()
+                    .ok_or_else(|| "workspace_uri requires a selected JSON string".to_string())?;
+                let expected = workspace_file_uri(project_root, relative)?;
+                if actual == expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "workspace URI mismatch: expected {expected:?}, got {actual:?}"
+                    ))
+                }
+            }
+        },
+    }
+}
+
+fn workspace_file_uri(project_root: &Path, relative: &str) -> Result<String, String> {
+    let relative_path = validate_workspace_relative_file_path(relative)?;
+    let path = project_root.join(&relative_path);
+    let mut current = project_root.to_path_buf();
+    for component in relative_path.components() {
+        current.push(component.as_os_str());
+        let metadata = fs::symlink_metadata(&current)
+            .map_err(|error| format!("workspace_uri path `{relative}` is not readable: {error}"))?;
+        if metadata.file_type().is_symlink() {
+            return Err(format!(
+                "workspace_uri path `{relative}` crosses a link-like entry"
+            ));
+        }
+    }
+    let metadata = fs::metadata(&path)
+        .map_err(|error| format!("workspace_uri path `{relative}` is not readable: {error}"))?;
+    if !metadata.is_file() {
+        return Err(format!(
+            "workspace_uri path `{relative}` is not a regular file"
+        ));
+    }
+    let canonical = fs::canonicalize(&path).map_err(|error| {
+        format!("workspace_uri path `{relative}` cannot be canonicalized: {error}")
+    })?;
+    Ok(path_to_file_uri(&canonical))
+}
+
+fn validate_workspace_relative_file_path(relative: &str) -> Result<PathBuf, String> {
+    if relative.is_empty()
+        || relative.starts_with('/')
+        || relative.contains('\\')
+        || relative
+            .split('/')
+            .any(|segment| segment.is_empty() || segment == "." || segment == "..")
+    {
+        return Err(format!(
+            "workspace_uri path `{relative}` must be a nonempty workspace-relative file path without empty, `.`, `..`, absolute, or backslash segments"
+        ));
+    }
+    Ok(PathBuf::from(relative))
+}
+
+fn path_to_file_uri(path: &Path) -> String {
+    #[cfg(unix)]
+    let bytes = path.as_os_str().as_bytes();
+    #[cfg(not(unix))]
+    let path_text = path.to_string_lossy();
+    #[cfg(not(unix))]
+    let bytes = path_text.as_bytes();
+    let mut encoded = String::new();
+    for &byte in bytes {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' | b'/' => {
+                encoded.push(byte as char);
+            }
+            byte => encoded.push_str(&format!("%{byte:02X}")),
+        }
+    }
+    format!("file://{encoded}")
 }
 
 enum JsonPointerResult<'a> {
@@ -10278,7 +10870,7 @@ fn result_value_object(constructor: &str, fields: Vec<(&str, JsonValue)>) -> Jso
     JsonValue::Object(entries)
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 enum JsonValue {
     Null,
     Bool(bool),
@@ -10287,6 +10879,33 @@ enum JsonValue {
     String(String),
     Array(Vec<JsonValue>),
     Object(Vec<(String, JsonValue)>),
+}
+
+impl PartialEq for JsonValue {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Null, Self::Null) => true,
+            (Self::Bool(left), Self::Bool(right)) => left == right,
+            (Self::Number(left), Self::Number(right)) => left == right,
+            (Self::Decimal(left), Self::Decimal(right)) => left == right,
+            (Self::String(left), Self::String(right)) => left == right,
+            (Self::Array(left), Self::Array(right)) => left == right,
+            (Self::Object(left), Self::Object(right)) => json_object_entries_eq(left, right),
+            _ => false,
+        }
+    }
+}
+
+impl Eq for JsonValue {}
+
+fn json_object_entries_eq(left: &[(String, JsonValue)], right: &[(String, JsonValue)]) -> bool {
+    left.len() == right.len()
+        && left.iter().all(|(left_key, left_value)| {
+            right
+                .iter()
+                .find(|(right_key, _)| right_key == left_key)
+                .is_some_and(|(_, right_value)| left_value == right_value)
+        })
 }
 
 impl JsonValue {

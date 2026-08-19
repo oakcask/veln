@@ -44,15 +44,14 @@ that violate the casing rules must be rejected by the shared language
 semantics. Navigation, lowering, LSP, and MCP must consume the same name class
 and selected target for accepted sources.
 
-### Slice-Closure Prerequisite
+### Slice-Closure Evidence
 
-Before implementing the next MCP navigation slice, complete
-[Agent Language Services Slice Closure](agent-language-services-slice-closure.md).
-It adds response-local assertions for MCP JSONL output with dynamic canonical
-locations and closes the evidence rule for shared capture invariants. Reissue
-the saved workspace function-reference target only after that executable
-evidence gate passes. The next-slice boundary below remains planning input and
-is not selectable work until then.
+The completed
+[Agent Language Services Slice Closure](../reference/implemented-proposals/agent-language-services-slice-closure.md)
+record adds response-local assertions for MCP JSONL output with dynamic
+canonical locations and closes the evidence rule for shared capture
+invariants. The next-slice boundary below remains planning input. Move it to
+the Ready catalog only after the identifier-casing prerequisite passes.
 
 ### Next Slice: Saved Workspace Function References
 

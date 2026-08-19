@@ -166,10 +166,12 @@ Use `stdin_file` when command input is easier to review as a case text file.
 Use a `.raw` sidecar for `stdin_file` when the input protocol includes bytes
 whose framing must survive repository checkout exactly, such as LSP JSON-RPC
 headers and their CRLF separators.
-MCP cases use `stdin_file` with stream fragments or `equals_file` sidecars when
-the behavior under test is the newline-delimited stdio protocol itself. Keep
-those fixtures as ordinary `case-text/` files when LF-normalized JSON lines are
-the intended observable bytes.
+MCP cases use `stdin_file` with stream fragments, `equals_file` sidecars, or
+response-local JSONL assertions. Keep JSONL fixtures as ordinary `case-text/`
+files when LF-normalized JSON lines are the intended observable bytes. Use raw
+stream fragments for initialization text, tool discovery text, malformed
+protocol bytes, or incidental checks that do not claim a specific response
+shape.
 
 Use `stdin_jsonrpc_file` for an ordered UTF-8 JSON array of JSON-RPC requests
 and notifications. It is mutually exclusive with `stdin` and `stdin_file`.
@@ -236,6 +238,44 @@ case-text sidecars. Their decoded assertions cover initialization capability
 values, non-empty and cleared diagnostic notifications, complete semantic
 token data, and shutdown responses. Raw LSP cases remain only where protocol
 framing or an as-yet-unmigrated representation is still part of the fixture.
+
+Use repeatable `[[mcp_assert]]` sections to check newline-delimited JSON-RPC
+messages from `veln mcp` stdout. Each section selects exactly one JSON object
+by `id`, where the selector is a JSON string or integer. A missing selected ID
+or more than one selected object with the selected ID fails that assertion.
+Other IDs remain valid input for other assertions.
+
+Each MCP assertion selects a value with an RFC 6901 JSON Pointer in `path`,
+including the empty pointer for the complete selected object. Pointer syntax is
+validated while the manifest loads. Pointer traversal distinguishes a missing
+member or array element from an invalid traversal through a scalar or a
+non-canonical array index.
+
+Each MCP assertion declares exactly one of `equals`, `array_len`,
+`workspace_uri`, or `missing = true`. `equals` compares a complete decoded JSON
+value. Object member order is ignored. Array order and array length are part of
+equality. Strings, booleans, null, and integers compare by decoded value.
+Other numbers compare by their preserved JSON spelling. `array_len` requires a
+selected JSON array and checks its exact length. `missing = true` succeeds only
+when the selected response exists and the pointer does not resolve.
+
+`workspace_uri` compares the selected JSON string with the canonical `file:`
+URI for one existing regular file in the copied case workspace. The operand is
+a portable workspace-relative path. It must not be empty or absolute. It must
+not contain empty, `.`, `..`, or backslash segments. The path must not cross a
+link-like entry, and the final target must be a regular file. The URI encoding
+uses the same workspace-file `file:` contract as `veln mcp` definition results.
+
+When MCP assertions are present, the harness decodes every nonempty stdout line
+as one JSON object before evaluating assertions. Malformed JSON and non-object
+lines fail decoded assertions for that invocation. Raw stdout checks still run
+independently. The `manifest_mcp_*`, `decoded_mcp_*`, and
+`mcp_workspace_uri_*` tests in `toolchain_harness.rs` cover manifest
+validation, JSONL decoding, response selection, JSON Pointer behavior,
+equality, array length, missing values, duplicate selected IDs, and safe
+workspace URI validation. The `definition-workspace` MCP case in
+`examples/specification/mcp/definition-workspace/` covers response-local
+definition observations for IDs 3 through 11 with a checked semantic baseline.
 
 Use `[[json_assert]]`, `[[result_value_assert]]`, and `[[diagnostics]]` for
 semantic checks inside JSON stdout. JSON and result-value assertions accept
@@ -336,7 +376,8 @@ their byte length and SHA-256 digest. JSON object members are key-sorted
 because object member order is not part of an assertion value; arrays and all
 manifest assertion sequences retain their order. The baseline includes MCP
 stdio specification cases that use `stdin_file` JSON lines and stream
-fragments to pin advertised tool declarations and representative tool results.
+fragments, plus response-local MCP assertions, to pin advertised tool
+declarations and representative tool results.
 
 The normal `toolchain_harness` target runs
 `checked_in_semantic_baseline_matches_authoritative_cases`. The test reads the

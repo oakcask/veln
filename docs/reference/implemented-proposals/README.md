@@ -58,6 +58,8 @@ under `../../specification/` and its executable example routes.
   [built-in-code-metrics.md](built-in-code-metrics.md).
 - Readable toolchain case streams:
   [readable-toolchain-case-streams.md](readable-toolchain-case-streams.md).
+- Agent language-services slice closure:
+  [agent-language-services-slice-closure.md](agent-language-services-slice-closure.md).
 - Formatter stabilization:
   [formatter-stabilization.md](formatter-stabilization.md).
 - Hash line comments:
