@@ -503,8 +503,7 @@ fn describe_lsp_assertions(fields: &mut BTreeMap<String, String>, manifest: &Cas
 fn describe_mcp_assertions(fields: &mut BTreeMap<String, String>, manifest: &CaseManifest) {
     for (index, assertion) in manifest.expectations.mcp_assertions.iter().enumerate() {
         let base = format!("expectations.mcp_assertions[{index}]");
-        let id = assertion.id.as_ref().expect("validated MCP assertion id");
-        fields.insert(format!("{base}.id"), canonical_json(id, &format!("{base}.id")));
+        fields.insert(format!("{base}.id"), canonical_json(&assertion.id, &format!("{base}.id")));
         text(fields, &format!("{base}.path"), &assertion.path);
         match assertion
             .operation
@@ -518,17 +517,19 @@ fn describe_mcp_assertions(fields: &mut BTreeMap<String, String>, manifest: &Cas
                     canonical_json(value, &format!("{base}.equals")),
                 );
             }
-            McpAssertionOperation::ArrayLen(value) => {
-                enum_value(fields, &format!("{base}.operation"), "array_len");
-                scalar(fields, &format!("{base}.array_len"), value);
+            McpAssertionOperation::Length(value) => {
+                enum_value(fields, &format!("{base}.operation"), "length");
+                scalar(fields, &format!("{base}.length"), *value);
             }
             McpAssertionOperation::Missing(true) => {
                 enum_value(fields, &format!("{base}.operation"), "missing");
             }
-            McpAssertionOperation::Missing(false) => unreachable!("validated missing operation"),
-            McpAssertionOperation::WorkspaceUri(relative) => {
-                enum_value(fields, &format!("{base}.operation"), "workspace_uri");
-                text(fields, &format!("{base}.workspace_uri"), relative);
+            McpAssertionOperation::Missing(false) => {
+                unreachable!("validated MCP missing operation")
+            }
+            McpAssertionOperation::EqualsWorkspaceUri(value) => {
+                enum_value(fields, &format!("{base}.operation"), "equals_workspace_uri");
+                text(fields, &format!("{base}.equals_workspace_uri"), value);
             }
         }
     }

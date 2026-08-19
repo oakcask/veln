@@ -341,6 +341,7 @@ fn field_accepts_json_array_root(field: &str) -> bool {
     matches!(
         field,
         "[[json_assert]].equals"
+            | "[[mcp_assert]].equals"
             | "[[result_value_assert]].equals"
             | "[[binary_fixture]].field_path"
     )

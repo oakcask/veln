@@ -411,7 +411,7 @@ fn definition_distinguishes_no_symbol_from_invalid_positions_and_uses_canonical_
 }
 
 #[test]
-fn definition_rejects_paths_and_changed_workspace_identity() {
+fn definition_route_reports_snapshot_changed_without_partial_payload() {
     let workspace = TempWorkspace::new("definition-boundaries");
     workspace.write("main.veln", "fn main() -> Int\n  main()\nend\n");
     for source in ["../main.veln", "missing.veln", "main.txt"] {
@@ -432,7 +432,9 @@ fn definition_rejects_paths_and_changed_workspace_identity() {
         initialized: true,
     };
     let result = server.definition_tool(&json!({"source":"main.veln","line":2,"column":4}));
+    assert_eq!(result["isError"], true);
     assert_eq!(result["structuredContent"]["code"], "snapshot_changed");
+    assert!(result["structuredContent"].get("definition").is_none());
 }
 
 #[cfg(unix)]

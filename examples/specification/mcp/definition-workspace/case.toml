@@ -15,18 +15,18 @@ format = "empty"
 
 [[mcp_assert]]
 id = 3
-path = "/result/structuredContent/definition/uri"
-workspace_uri = "main.veln"
+path = "/error"
+missing = true
 
 [[mcp_assert]]
 id = 3
-path = "/result/structuredContent/definition/range"
-equals = {"start":{"line":1,"column":4},"end":{"line":1,"column":10}}
+path = "/result/isError"
+equals = false
 
 [[mcp_assert]]
 id = 3
 path = "/result/content"
-array_len = 1
+length = 1
 
 [[mcp_assert]]
 id = 3
@@ -35,13 +35,23 @@ equals = "text"
 
 [[mcp_assert]]
 id = 3
-path = "/result/isError"
-equals = false
+path = "/result/structuredContent/definition/uri"
+equals_workspace_uri = "main.veln"
 
 [[mcp_assert]]
 id = 3
+path = "/result/structuredContent/definition/range"
+equals = {"start": {"line": 1, "column": 4}, "end": {"line": 1, "column": 10}}
+
+[[mcp_assert]]
+id = 4
 path = "/error"
 missing = true
+
+[[mcp_assert]]
+id = 4
+path = "/result/isError"
+equals = false
 
 [[mcp_assert]]
 id = 4
@@ -49,24 +59,19 @@ path = "/result/structuredContent/definition"
 equals = null
 
 [[mcp_assert]]
-id = 4
-path = "/result/isError"
-equals = false
-
-[[mcp_assert]]
-id = 4
+id = 5
 path = "/error"
 missing = true
 
 [[mcp_assert]]
 id = 5
-path = "/result/structuredContent/code"
-equals = "invalid_position"
+path = "/result/isError"
+equals = true
 
 [[mcp_assert]]
 id = 5
-path = "/result/isError"
-equals = true
+path = "/result/structuredContent/code"
+equals = "invalid_position"
 
 [[mcp_assert]]
 id = 5
@@ -74,34 +79,49 @@ path = "/result/structuredContent/definition"
 missing = true
 
 [[mcp_assert]]
-id = 5
+id = 6
 path = "/error"
 missing = true
 
 [[mcp_assert]]
 id = 6
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 6
 path = "/result/structuredContent/definition/uri"
-workspace_uri = "main.veln"
+equals_workspace_uri = "main.veln"
 
 [[mcp_assert]]
 id = 6
 path = "/result/structuredContent/definition/range"
-equals = {"start":{"line":1,"column":4},"end":{"line":1,"column":10}}
+equals = {"start": {"line": 1, "column": 4}, "end": {"line": 1, "column": 10}}
+
+[[mcp_assert]]
+id = 7
+path = "/error"
+missing = true
+
+[[mcp_assert]]
+id = 7
+path = "/result/isError"
+equals = false
 
 [[mcp_assert]]
 id = 7
 path = "/result/structuredContent/definition/uri"
-workspace_uri = "main.veln"
+equals_workspace_uri = "main.veln"
 
 [[mcp_assert]]
 id = 7
 path = "/result/structuredContent/definition/range"
-equals = {"start":{"line":1,"column":4},"end":{"line":1,"column":10}}
+equals = {"start": {"line": 1, "column": 4}, "end": {"line": 1, "column": 10}}
 
 [[mcp_assert]]
 id = 8
-path = "/result/structuredContent/code"
-equals = "invalid_position"
+path = "/error"
+missing = true
 
 [[mcp_assert]]
 id = 8
@@ -109,9 +129,9 @@ path = "/result/isError"
 equals = true
 
 [[mcp_assert]]
-id = 9
-path = "/error/code"
-equals = -32602
+id = 8
+path = "/result/structuredContent/code"
+equals = "invalid_position"
 
 [[mcp_assert]]
 id = 9
@@ -119,9 +139,14 @@ path = "/result"
 missing = true
 
 [[mcp_assert]]
+id = 9
+path = "/error/code"
+equals = -32602
+
+[[mcp_assert]]
 id = 10
-path = "/result/structuredContent/code"
-equals = "invalid_position"
+path = "/error"
+missing = true
 
 [[mcp_assert]]
 id = 10
@@ -129,11 +154,16 @@ path = "/result/isError"
 equals = true
 
 [[mcp_assert]]
-id = 11
-path = "/error/code"
-equals = -32602
+id = 10
+path = "/result/structuredContent/code"
+equals = "invalid_position"
 
 [[mcp_assert]]
 id = 11
 path = "/result"
 missing = true
+
+[[mcp_assert]]
+id = 11
+path = "/error/code"
+equals = -32602
