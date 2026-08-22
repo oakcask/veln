@@ -1022,6 +1022,72 @@ fn semantic_export_hashes_large_typed_json_strings_with_logical_fields() {
 }
 
 #[test]
+fn semantic_export_records_common_json_assertion_equality_boundaries() {
+    let lsp_manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"command = ["lsp"]
+exit = 0
+[[json_assert]]
+path = "value"
+equals = {"b": [1.0, 1e0], "a": 1}
+[[result_value_assert]]
+value_path = "value"
+path = "value"
+equals = {"b": [1.0, 1e0], "a": 1}
+[[lsp_assert]]
+id = 1
+path = "/result"
+equals = {"b": [1.0, 1e0], "a": 1}
+"#,
+    );
+    let mcp_manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"command = ["mcp"]
+exit = 0
+[[mcp_assert]]
+id = 1
+path = "/result"
+equals = {"b": [1.0, 1e0], "a": 1}
+"#,
+    );
+    let lsp_fields = describe(&lsp_manifest);
+    let mcp_fields = describe(&mcp_manifest);
+    let expected = r#"{"a":1,"b":[1.0,1e0]}"#;
+    assert_eq!(
+        lsp_fields["expectations.json_assertions[0].equals"],
+        expected
+    );
+    assert_eq!(
+        lsp_fields["expectations.result_value_assertions[0].equals"],
+        expected
+    );
+    assert_eq!(
+        lsp_fields["expectations.lsp_assertions[0].equals"],
+        expected
+    );
+    assert_eq!(
+        mcp_fields["expectations.mcp_assertions[0].equals"],
+        expected
+    );
+    assert_eq!(
+        lsp_fields["expectations.json_assertions[0].operation"],
+        json_string("equals")
+    );
+    assert_eq!(
+        lsp_fields["expectations.result_value_assertions[0].operation"],
+        json_string("equals")
+    );
+    assert_eq!(
+        lsp_fields["expectations.lsp_assertions[0].operation"],
+        json_string("equals")
+    );
+    assert_eq!(
+        mcp_fields["expectations.mcp_assertions[0].operation"],
+        json_string("equals")
+    );
+}
+
+#[test]
 fn checked_in_semantic_baseline_matches_authoritative_cases() {
     let expected =
         Inventory::parse(BASELINE).expect("checked-in semantic baseline should be valid");

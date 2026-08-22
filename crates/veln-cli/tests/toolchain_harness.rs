@@ -7799,7 +7799,7 @@ equals = {"nested": 1e0}
 }
 
 #[test]
-fn manifest_mcp_assertions_preserve_scalar_decimal_json_spelling() {
+fn manifest_mcp_assertions_preserve_decimal_json_spelling() {
     let manifest = parse_manifest(
         Path::new("case.toml"),
         r#"command = ["mcp"]
@@ -7812,6 +7812,10 @@ equals = 1.0
 id = 1
 path = "/result/exponent"
 equals = 1e0
+[[mcp_assert]]
+id = 1
+path = "/result/nested"
+equals = {"nested": [1.0, 1e0]}
 "#,
     );
     assert_eq!(
@@ -7825,6 +7829,16 @@ equals = 1e0
         Some(McpAssertionOperation::Equals(JsonValue::Decimal(
             "1e0".to_string()
         )))
+    );
+    assert_eq!(
+        manifest.expectations.mcp_assertions[2].operation,
+        Some(McpAssertionOperation::Equals(JsonValue::Object(vec![(
+            "nested".to_string(),
+            JsonValue::Array(vec![
+                JsonValue::Decimal("1.0".to_string()),
+                JsonValue::Decimal("1e0".to_string())
+            ])
+        )])))
     );
 }
 
