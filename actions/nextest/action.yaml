@@ -25,36 +25,20 @@ runs:
       with:
         path: ~/.cargo/bin/cargo-nextest
         key: cargo-nextest-${{ runner.os }}-${{ inputs.nextest-version }}
-    - name: Restore Cargo dependency cache
-      id: cargo-dependency-cache
-      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+    - name: Prepare Cargo dependencies
+      uses: ./actions/cargo-dependencies
       with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-        key: cargo-dependencies-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+        save-cache: ${{ inputs.save-cache }}
     - name: Install cargo-nextest
       uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2
       with:
         tool: cargo-nextest@${{ inputs.nextest-version }}
-    - name: Fetch locked Cargo dependencies
-      if: inputs.save-cache == 'true'
-      shell: bash
-      run: cargo fetch --locked
     - name: Save cargo-nextest cache
       if: inputs.save-cache == 'true' && steps.cargo-nextest-cache.outputs.cache-hit != 'true'
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: ~/.cargo/bin/cargo-nextest
         key: cargo-nextest-${{ runner.os }}-${{ inputs.nextest-version }}
-    - name: Save Cargo dependency cache
-      if: inputs.save-cache == 'true' && steps.cargo-dependency-cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-        key: cargo-dependencies-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
     - name: Run Rust tests
       if: inputs.shard != ''
       shell: bash
