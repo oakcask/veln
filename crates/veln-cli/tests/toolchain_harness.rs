@@ -7999,6 +7999,34 @@ fn json_number_spelling_matrix_runs_through_every_assertion_adapter() {
 }
 
 #[test]
+fn diagnostic_assertions_use_common_json_equality_for_integer_tokens() {
+    let context = CaseRunContext {
+        case_dir: Path::new("diagnostic-json-equality"),
+        run_number: 1,
+    };
+    let json = parse_json(
+        r#"{"diagnostics":[{"id":"type.mismatch","severity":"error","kind":"type","message":"expected `Int`, but found `String`","span":{"file":"main.veln","start":{"line":2,"column":3,"offset":23},"end":{"line":2,"column":7,"offset":27}}}]}"#,
+    )
+    .expect("diagnostic JSON should parse");
+
+    assert_diagnostic(
+        &context,
+        &json,
+        &DiagnosticExpectation {
+            id: "type.mismatch".to_string(),
+            severity: Some("error".to_string()),
+            kind: Some("type".to_string()),
+            message: Some("expected `Int`, but found `String`".to_string()),
+            span: Some(SpanExpectation {
+                file: Some("main.veln".to_string()),
+                line: Some(2),
+                column: Some(3),
+            }),
+        },
+    );
+}
+
+#[test]
 fn reordered_json_objects_compare_equal_through_every_assertion_adapter() {
     let context = CaseRunContext {
         case_dir: Path::new("json-equality-adapters"),
@@ -11041,7 +11069,7 @@ fn assert_diagnostic(
                 .as_ref()
                 .and_then(|span| span.line)
                 .is_none_or(|line| {
-                    json_path(diagnostic, "span.start.line") == Some(&JsonValue::Number(line))
+                    json_path_equals(diagnostic, "span.start.line", &JsonValue::Number(line))
                 })
         });
 
@@ -11138,16 +11166,20 @@ fn assert_json_equals(
             json
         )
     });
-    assert_eq!(
-        actual,
-        expected,
-        "{}: diagnostic `{id}` JSON path `{path}` mismatch",
-        context.label()
-    );
+    expect_json_value(actual, expected).unwrap_or_else(|error| {
+        panic!(
+            "{}: diagnostic `{id}` JSON path `{path}` mismatch: {error}",
+            context.label()
+        )
+    });
 }
 
 fn diagnostic_field<'a>(diagnostic: &'a JsonValue, field: &str) -> Option<&'a str> {
     json_path(diagnostic, field).and_then(JsonValue::as_str)
+}
+
+fn json_path_equals(json: &JsonValue, path: &str, expected: &JsonValue) -> bool {
+    json_path(json, path).is_some_and(|actual| json_values_equal(actual, expected))
 }
 
 fn json_path<'a>(mut value: &'a JsonValue, path: &str) -> Option<&'a JsonValue> {
