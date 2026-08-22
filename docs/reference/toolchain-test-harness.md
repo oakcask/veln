@@ -382,9 +382,13 @@ text values, including nested strings inside typed JSON assertions, record an
 explicit logical field, byte length, and SHA-256 digest. Binary values record
 their byte length and SHA-256 digest. JSON object members are key-sorted
 because object member order is not part of an assertion value; arrays and all
-manifest assertion sequences retain their order. The baseline includes MCP
-stdio specification cases that use `stdin_file` JSON lines and stream
-fragments to pin advertised tool declarations and representative tool results.
+manifest assertion sequences retain their order. JSON number tokens retain
+their complete spelling, including integer, decimal, exponent, and negative
+zero forms. The baseline records file-backed JSON assertion operands under the
+operation that supplied them, so `equals_file` and `equals_json_file` remain
+reviewable as distinct assertion contracts. The baseline includes MCP stdio
+specification cases that use `stdin_file` JSON lines and stream fragments to
+pin advertised tool declarations and representative tool results.
 
 The normal `toolchain_harness` target runs
 `checked_in_semantic_baseline_matches_authoritative_cases`. The test reads the

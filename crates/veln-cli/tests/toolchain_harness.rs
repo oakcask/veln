@@ -2092,6 +2092,7 @@ struct JsonAssertion {
     path: String,
     equals: Option<JsonValue>,
     missing: Option<bool>,
+    operation: Option<&'static str>,
     operation_count: usize,
 }
 
@@ -2250,6 +2251,7 @@ struct ResultValueAssertion {
     path: String,
     equals: Option<JsonValue>,
     missing: Option<bool>,
+    operation: Option<&'static str>,
     operation_count: usize,
 }
 
@@ -2930,6 +2932,7 @@ impl<'a> ManifestParser<'a> {
             path: String::new(),
             equals: None,
             missing: None,
+            operation: None,
             operation_count: 0,
         });
         Section::JsonAssert(self.json_assertions.len() - 1)
@@ -2950,6 +2953,7 @@ impl<'a> ManifestParser<'a> {
             path: String::new(),
             equals: None,
             missing: None,
+            operation: None,
             operation_count: 0,
         });
         Section::ResultValueAssert(self.result_value_assertions.len() - 1)
@@ -3185,17 +3189,20 @@ impl<'a> ManifestParser<'a> {
             "path" => self.json_assertions[index].path = parse_string(self.path, value),
             "equals" => {
                 self.json_assertions[index].operation_count += 1;
+                self.json_assertions[index].operation = Some("equals");
                 self.json_assertions[index].equals =
                     Some(parse_manifest_json_value(self.path, value))
             }
             "equals_file" => {
                 self.json_assertions[index].operation_count += 1;
+                self.json_assertions[index].operation = Some("equals_file");
                 self.json_assertions[index].equals = Some(JsonValue::String(
                     self.case_text_cache.read(self.path, value),
                 ))
             }
             "equals_json_file" => {
                 self.json_assertions[index].operation_count += 1;
+                self.json_assertions[index].operation = Some("equals_json_file");
                 let text = self.case_text_cache.read(self.path, value);
                 self.json_assertions[index].equals =
                     Some(parse_json(&text).unwrap_or_else(|error| {
@@ -3208,6 +3215,7 @@ impl<'a> ManifestParser<'a> {
             }
             "missing" => {
                 self.json_assertions[index].operation_count += 1;
+                self.json_assertions[index].operation = Some("missing");
                 self.json_assertions[index].missing = Some(parse_bool(self.path, value));
             }
             _ => manifest_error(
@@ -3232,17 +3240,20 @@ impl<'a> ManifestParser<'a> {
             "path" => self.result_value_assertions[index].path = parse_string(self.path, value),
             "equals" => {
                 self.result_value_assertions[index].operation_count += 1;
+                self.result_value_assertions[index].operation = Some("equals");
                 self.result_value_assertions[index].equals =
                     Some(parse_manifest_json_value(self.path, value))
             }
             "equals_file" => {
                 self.result_value_assertions[index].operation_count += 1;
+                self.result_value_assertions[index].operation = Some("equals_file");
                 self.result_value_assertions[index].equals = Some(JsonValue::String(
                     self.case_text_cache.read(self.path, value),
                 ))
             }
             "equals_json_file" => {
                 self.result_value_assertions[index].operation_count += 1;
+                self.result_value_assertions[index].operation = Some("equals_json_file");
                 let text = self.case_text_cache.read(self.path, value);
                 self.result_value_assertions[index].equals =
                     Some(parse_json(&text).unwrap_or_else(|error| {
@@ -3255,6 +3266,7 @@ impl<'a> ManifestParser<'a> {
             }
             "missing" => {
                 self.result_value_assertions[index].operation_count += 1;
+                self.result_value_assertions[index].operation = Some("missing");
                 self.result_value_assertions[index].missing = Some(parse_bool(self.path, value));
             }
             _ => manifest_error(
@@ -3279,6 +3291,9 @@ impl<'a> ManifestParser<'a> {
                 if !matches!(
                     id,
                     JsonValue::Null | JsonValue::Number(_) | JsonValue::String(_)
+                ) && !matches!(
+                    &id,
+                    JsonValue::Decimal(raw) if is_json_integer_token(raw)
                 ) {
                     manifest_error(
                         self.path,
@@ -6662,7 +6677,7 @@ equals_json_file = "case-text/expected.json"
         Some(JsonValue::Object(vec![(
             "nested".to_string(),
             JsonValue::Array(vec![
-                JsonValue::Number(1),
+                JsonValue::Decimal("1".to_string()),
                 JsonValue::Bool(true),
                 JsonValue::Null
             ])
@@ -6697,7 +6712,7 @@ equals_json_file = "case-text/expected.json"
         manifest.expectations.result_value_assertions[0].equals,
         Some(JsonValue::Array(vec![
             JsonValue::String("ok".to_string()),
-            JsonValue::Number(2)
+            JsonValue::Decimal("2".to_string())
         ]))
     );
     fs::remove_dir_all(root).expect("test root should be removed");
@@ -7855,6 +7870,7 @@ fn json_equality_preserves_object_array_kind_and_number_boundaries() {
         (r#"[1,2]"#, r#"[1,2,3]"#, false),
         ("1", "1.0", false),
         ("1", "1e0", false),
+        ("0", "-0", false),
         ("1.0", "1e0", false),
         (r#"{"nested":1}"#, r#"{"nested":2}"#, false),
         ("true", r#""true""#, false),
@@ -7883,6 +7899,7 @@ fn reordered_json_objects_compare_equal_through_every_assertion_adapter() {
                     .expect("JSON adapter expectation should parse"),
             ),
             missing: None,
+            operation: Some("equals"),
             operation_count: 1,
         },
     );
@@ -7900,6 +7917,7 @@ fn reordered_json_objects_compare_equal_through_every_assertion_adapter() {
                     .expect("result-value adapter expectation should parse"),
             ),
             missing: None,
+            operation: Some("equals"),
             operation_count: 1,
         },
     );
@@ -7951,6 +7969,7 @@ fn reordered_json_arrays_fail_through_every_assertion_adapter() {
         path: "selected".to_string(),
         equals: Some(parse_json("[2,1]").expect("JSON adapter expectation should parse")),
         missing: None,
+        operation: Some("equals"),
         operation_count: 1,
     };
     let panic = std::panic::catch_unwind(|| assert_json_path(&context, &actual, &json_assertion))
@@ -7964,6 +7983,7 @@ fn reordered_json_arrays_fail_through_every_assertion_adapter() {
         path: "value".to_string(),
         equals: Some(parse_json("[2,1]").expect("result-value expectation should parse")),
         missing: None,
+        operation: Some("equals"),
         operation_count: 1,
     };
     let panic = std::panic::catch_unwind(|| {
@@ -10365,6 +10385,8 @@ fn json_values_equal(left: &JsonValue, right: &JsonValue) -> bool {
         (JsonValue::Null, JsonValue::Null) => true,
         (JsonValue::Bool(left), JsonValue::Bool(right)) => left == right,
         (JsonValue::Number(left), JsonValue::Number(right)) => left == right,
+        (JsonValue::Number(left), JsonValue::Decimal(right))
+        | (JsonValue::Decimal(right), JsonValue::Number(left)) => left.to_string() == *right,
         (JsonValue::Decimal(left), JsonValue::Decimal(right)) => left == right,
         (JsonValue::String(left), JsonValue::String(right)) => left == right,
         (JsonValue::Array(left), JsonValue::Array(right)) => {
@@ -11520,6 +11542,7 @@ impl JsonValue {
     fn as_i64(&self) -> Option<i64> {
         match self {
             Self::Number(value) => Some(*value),
+            Self::Decimal(value) if is_json_integer_token(value) => value.parse().ok(),
             _ => None,
         }
     }
@@ -11854,10 +11877,7 @@ impl JsonParser<'_> {
             }
         }
         let raw = &self.text[start..self.offset];
-        Ok(raw
-            .parse::<i64>()
-            .map(JsonValue::Number)
-            .unwrap_or_else(|_| JsonValue::Decimal(raw.to_string())))
+        Ok(JsonValue::Decimal(raw.to_string()))
     }
 
     fn expect_literal(&mut self, literal: &str) -> Result<(), JsonParseError> {

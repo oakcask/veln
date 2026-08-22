@@ -280,7 +280,11 @@ fn collect_saved_repair_candidates(value: &JsonValue, candidates: &mut Vec<Repai
                 }
             }
         }
-        JsonValue::Null | JsonValue::Bool(_) | JsonValue::Number(_) | JsonValue::String(_) => {}
+        JsonValue::Null
+        | JsonValue::Bool(_)
+        | JsonValue::Number(_)
+        | JsonValue::Decimal(_)
+        | JsonValue::String(_) => {}
     }
 }
 

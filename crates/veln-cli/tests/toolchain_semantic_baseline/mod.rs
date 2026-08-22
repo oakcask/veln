@@ -429,6 +429,7 @@ fn describe_json_assertions(fields: &mut BTreeMap<String, String>, manifest: &Ca
         assertion_operation(
             fields,
             &base,
+            assertion.operation,
             assertion.equals.as_ref(),
             assertion.missing == Some(true),
         );
@@ -451,6 +452,7 @@ fn describe_result_value_assertions(
         assertion_operation(
             fields,
             &base,
+            assertion.operation,
             assertion.equals.as_ref(),
             assertion.missing == Some(true),
         );
@@ -660,14 +662,22 @@ fn optional_help(fields: &mut BTreeMap<String, String>, help: Option<&HelpExpect
 fn assertion_operation(
     fields: &mut BTreeMap<String, String>,
     base: &str,
+    operation: Option<&'static str>,
     equals: Option<&JsonValue>,
     missing: bool,
 ) {
     if missing {
         enum_value(fields, &format!("{base}.operation"), "missing");
     } else {
-        enum_value(fields, &format!("{base}.operation"), "equals");
-        let path = format!("{base}.equals");
+        let operation = operation.expect("validated assertion should have operation");
+        enum_value(fields, &format!("{base}.operation"), operation);
+        let operand = match operation {
+            "equals" => "equals",
+            "equals_file" => "equals_file",
+            "equals_json_file" => "equals_json_file",
+            _ => unreachable!("validated JSON assertion operation"),
+        };
+        let path = format!("{base}.{operand}");
         fields.insert(
             path.clone(),
             canonical_json(
@@ -1085,6 +1095,48 @@ equals = {"b": [1.0, 1e0], "a": 1}
         mcp_fields["expectations.mcp_assertions[0].operation"],
         json_string("equals")
     );
+}
+
+#[test]
+fn semantic_export_distinguishes_equals_json_file_operands() {
+    let root = test_temp_root("semantic-equals-json-file");
+    let case_dir = root.join("case");
+    let text_dir = case_dir.join("case-text");
+    fs::create_dir_all(&text_dir).expect("case text directory should be created");
+    fs::write(text_dir.join("expected.json"), r#"{"b":1,"a":-0}"#)
+        .expect("expected JSON sidecar should be written");
+    let manifest = parse_manifest(
+        &case_dir.join("case.toml"),
+        r#"command = ["run", "--json", "main", "main.veln"]
+exit = 0
+[[json_assert]]
+path = "value"
+equals_json_file = "case-text/expected.json"
+[[result_value_assert]]
+value_path = "value"
+path = "value"
+equals_json_file = "case-text/expected.json"
+"#,
+    );
+    let fields = describe(&manifest);
+    let expected = r#"{"a":-0,"b":1}"#;
+    assert_eq!(
+        fields["expectations.json_assertions[0].operation"],
+        json_string("equals_json_file")
+    );
+    assert_eq!(
+        fields["expectations.json_assertions[0].equals_json_file"],
+        expected
+    );
+    assert_eq!(
+        fields["expectations.result_value_assertions[0].operation"],
+        json_string("equals_json_file")
+    );
+    assert_eq!(
+        fields["expectations.result_value_assertions[0].equals_json_file"],
+        expected
+    );
+    fs::remove_dir_all(root).expect("case root should be removed");
 }
 
 #[test]

@@ -3,6 +3,7 @@ pub enum JsonValue {
     Null,
     Bool(bool),
     Number(i64),
+    Decimal(String),
     String(String),
     Array(Vec<JsonValue>),
     Object(Vec<(String, JsonValue)>),
@@ -52,6 +53,7 @@ impl JsonValue {
             Self::Null => out.push_str("null"),
             Self::Bool(value) => out.push_str(if *value { "true" } else { "false" }),
             Self::Number(value) => out.push_str(&value.to_string()),
+            Self::Decimal(value) => out.push_str(value),
             Self::String(value) => write_json_string(out, value),
             Self::Array(values) => {
                 out.push('[');
@@ -98,7 +100,7 @@ impl<'a> JsonParser<'a> {
             Some(b'"') => self.parse_string().map(JsonValue::String),
             Some(b'[') => self.parse_array(),
             Some(b'{') => self.parse_object(),
-            Some(b'-' | b'0'..=b'9') => self.parse_number().map(JsonValue::Number),
+            Some(b'-' | b'0'..=b'9') => self.parse_number().map(JsonValue::Decimal),
             Some(_) => Err("unexpected JSON token".to_string()),
             None => Err("expected JSON value".to_string()),
         }
@@ -203,12 +205,15 @@ impl<'a> JsonParser<'a> {
         Ok(JsonValue::Object(entries))
     }
 
-    fn parse_number(&mut self) -> Result<i64, String> {
+    fn parse_number(&mut self) -> Result<String, String> {
         let start = self.offset;
         self.consume_byte(b'-');
         match self.peek_byte() {
             Some(b'0') => {
                 self.offset += 1;
+                if matches!(self.peek_byte(), Some(b'0'..=b'9')) {
+                    return Err("invalid JSON number".to_string());
+                }
             }
             Some(b'1'..=b'9') => {
                 while matches!(self.peek_byte(), Some(b'0'..=b'9')) {
@@ -217,12 +222,29 @@ impl<'a> JsonParser<'a> {
             }
             _ => return Err("invalid JSON number".to_string()),
         }
-        if matches!(self.peek_byte(), Some(b'.' | b'e' | b'E')) {
-            return Err("JSON numbers must be integers".to_string());
+        if self.consume_byte(b'.') {
+            let fraction_start = self.offset;
+            while matches!(self.peek_byte(), Some(b'0'..=b'9')) {
+                self.offset += 1;
+            }
+            if self.offset == fraction_start {
+                return Err("invalid JSON number".to_string());
+            }
         }
-        self.source[start..self.offset]
-            .parse()
-            .map_err(|_| "JSON number is outside the supported range".to_string())
+        if matches!(self.peek_byte(), Some(b'e' | b'E')) {
+            self.offset += 1;
+            if matches!(self.peek_byte(), Some(b'+' | b'-')) {
+                self.offset += 1;
+            }
+            let exponent_start = self.offset;
+            while matches!(self.peek_byte(), Some(b'0'..=b'9')) {
+                self.offset += 1;
+            }
+            if self.offset == exponent_start {
+                return Err("invalid JSON number".to_string());
+            }
+        }
+        Ok(self.source[start..self.offset].to_string())
     }
 
     fn skip_whitespace(&mut self) {
@@ -363,7 +385,7 @@ mod tests {
                 (
                     "items",
                     JsonValue::array([
-                        JsonValue::Number(1),
+                        JsonValue::Decimal("1".to_string()),
                         JsonValue::Null,
                         JsonValue::object([("path", JsonValue::string("a\\b"))]),
                     ]),
