@@ -11766,10 +11766,10 @@ fn parse_veln_number_atom(text: &str) -> Option<JsonValue> {
     let JsonValue::Decimal(raw) = parse_json(text).ok()? else {
         return None;
     };
-    if let Ok(value) = raw.parse::<i64>() {
-        if value.to_string() == raw {
-            return Some(JsonValue::Number(value));
-        }
+    if let Ok(value) = raw.parse::<i64>()
+        && value.to_string() == raw
+    {
+        return Some(JsonValue::Number(value));
     }
     Some(JsonValue::Decimal(raw))
 }
