@@ -356,7 +356,6 @@ fn validate_name(
 
 #[cfg(test)]
 mod tests {
-    use veln_project::Project;
     use veln_source::SourceFile;
     use veln_syntax::{ExprKind, SyntaxItem, parse};
 
@@ -616,27 +615,5 @@ mod tests {
         assert_eq!(span.start.offset, 9);
         assert_eq!(span.end.offset, 14);
         assert_eq!(&source.text()[span.start.offset..span.end.offset], "Build");
-    }
-
-    #[test]
-    fn invalid_names_do_not_enter_the_checked_surface() {
-        let project = Project {
-            root: ".".into(),
-            files: vec![SourceFile::new(
-                "main.veln",
-                "pub fn Build() -> Int\n  1\nend\n",
-            )],
-            manifest: None,
-        };
-        let (module, diagnostics) = crate::surface::load_surface_module(&project);
-
-        assert_eq!(diagnostics.len(), 1);
-        assert_eq!(diagnostics[0].id, "name.invalid_case");
-        assert!(
-            module
-                .functions
-                .iter()
-                .all(|function| function.name.as_deref() != Some("Build"))
-        );
     }
 }

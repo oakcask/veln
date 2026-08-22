@@ -3198,6 +3198,28 @@ mod tests {
         assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     }
 
+    #[test]
+    fn invalid_identifier_casing_does_not_enter_the_checked_surface() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                "pub fn Build() -> Int\n  1\nend\n",
+            )],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].id, "name.invalid_case");
+        assert!(
+            module
+                .functions
+                .iter()
+                .all(|function| function.name.as_deref() != Some("Build"))
+        );
+    }
+
     #[cfg(unix)]
     #[test]
     fn external_path_dependency_without_direct_manifest_does_not_read_sources() {
