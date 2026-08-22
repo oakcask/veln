@@ -133,70 +133,33 @@ pub(crate) fn build_lossless_root(
 ) -> SyntaxNode {
     let mut children = Vec::new();
     let mut cursor = 0;
-    let mut top_level = Vec::new();
 
-    if let Some(module) = module {
-        top_level.push(TopLevelNode::Module(span_range(&module.span)));
-    }
-    top_level.extend(
-        uses.iter()
-            .map(|use_decl| TopLevelNode::Use(span_range(&use_decl.span))),
-    );
-    top_level.extend(items.iter().map(|item| match item {
-        SyntaxItem::Function(function) => TopLevelNode::Function(function),
-        SyntaxItem::Effect(effect) => TopLevelNode::Effect(effect),
-        SyntaxItem::Handler(handler) => TopLevelNode::Handler(handler),
-        SyntaxItem::Type(type_decl) => TopLevelNode::Type(type_decl),
-        SyntaxItem::Schema(schema) => TopLevelNode::Schema(schema),
-        SyntaxItem::Codec(codec) => TopLevelNode::Codec(codec),
-        SyntaxItem::PublicAlias(alias) => TopLevelNode::PublicAlias(alias),
-    }));
-    top_level.sort_by_key(|node| node.range().start);
-
-    for node in top_level {
+    for node in collect_top_level_nodes(module, uses, items) {
         push_tokens_before(&tokens, &mut cursor, node.range().start, &mut children);
         let node_tokens = take_tokens_in_range(&tokens, &mut cursor, node.range());
-        children.push(SyntaxElement::Node(match node {
-            TopLevelNode::Module(range) => {
-                token_node(SyntaxNodeKind::ModuleDecl, range, node_tokens)
-            }
-            TopLevelNode::Use(range) => token_node(SyntaxNodeKind::UseDecl, range, node_tokens),
-            TopLevelNode::Function(function) => build_lossless_function(function, node_tokens),
-            TopLevelNode::Effect(effect) => token_node(
-                SyntaxNodeKind::EffectDecl,
-                span_range(&effect.span),
-                node_tokens,
-            ),
-            TopLevelNode::Handler(handler) => token_node(
-                SyntaxNodeKind::HandlerDecl,
-                span_range(&handler.span),
-                node_tokens,
-            ),
-            TopLevelNode::Type(type_decl) => token_node(
-                SyntaxNodeKind::TypeDecl,
-                span_range(&type_decl.span),
-                node_tokens,
-            ),
-            TopLevelNode::Schema(schema) => token_node(
-                SyntaxNodeKind::SchemaDecl,
-                span_range(&schema.span),
-                node_tokens,
-            ),
-            TopLevelNode::Codec(codec) => token_node(
-                SyntaxNodeKind::CodecDecl,
-                span_range(&codec.span),
-                node_tokens,
-            ),
-            TopLevelNode::PublicAlias(alias) => token_node(
-                SyntaxNodeKind::PublicAliasDecl,
-                span_range(&alias.span),
-                node_tokens,
-            ),
-        }));
+        children.push(SyntaxElement::Node(node.into_syntax_node(node_tokens)));
     }
 
     push_remaining_tokens(&tokens, &mut cursor, &mut children);
     SyntaxNode::root(children, source_len)
+}
+
+fn collect_top_level_nodes<'a>(
+    module: Option<&ModuleDecl>,
+    uses: &[UseDecl],
+    items: &'a [SyntaxItem],
+) -> Vec<TopLevelNode<'a>> {
+    let mut nodes = Vec::new();
+    if let Some(module) = module {
+        nodes.push(TopLevelNode::Module(span_range(&module.span)));
+    }
+    nodes.extend(
+        uses.iter()
+            .map(|use_decl| TopLevelNode::Use(span_range(&use_decl.span))),
+    );
+    nodes.extend(items.iter().map(TopLevelNode::from));
+    nodes.sort_by_key(|node| node.range().start);
+    nodes
 }
 
 enum TopLevelNode<'a> {
@@ -211,6 +174,20 @@ enum TopLevelNode<'a> {
     PublicAlias(&'a PublicAliasDecl),
 }
 
+impl<'a> From<&'a SyntaxItem> for TopLevelNode<'a> {
+    fn from(item: &'a SyntaxItem) -> Self {
+        match item {
+            SyntaxItem::Function(function) => Self::Function(function),
+            SyntaxItem::Effect(effect) => Self::Effect(effect),
+            SyntaxItem::Handler(handler) => Self::Handler(handler),
+            SyntaxItem::Type(type_decl) => Self::Type(type_decl),
+            SyntaxItem::Schema(schema) => Self::Schema(schema),
+            SyntaxItem::Codec(codec) => Self::Codec(codec),
+            SyntaxItem::PublicAlias(alias) => Self::PublicAlias(alias),
+        }
+    }
+}
+
 impl TopLevelNode<'_> {
     fn range(&self) -> TextRange {
         match self {
@@ -222,6 +199,21 @@ impl TopLevelNode<'_> {
             Self::Schema(schema) => span_range(&schema.span),
             Self::Codec(codec) => span_range(&codec.span),
             Self::PublicAlias(alias) => span_range(&alias.span),
+        }
+    }
+
+    fn into_syntax_node(self, tokens: Vec<Token>) -> SyntaxNode {
+        let range = self.range();
+        match self {
+            Self::Module(_) => token_node(SyntaxNodeKind::ModuleDecl, range, tokens),
+            Self::Use(_) => token_node(SyntaxNodeKind::UseDecl, range, tokens),
+            Self::Function(function) => build_lossless_function(function, tokens),
+            Self::Effect(_) => token_node(SyntaxNodeKind::EffectDecl, range, tokens),
+            Self::Handler(_) => token_node(SyntaxNodeKind::HandlerDecl, range, tokens),
+            Self::Type(_) => token_node(SyntaxNodeKind::TypeDecl, range, tokens),
+            Self::Schema(_) => token_node(SyntaxNodeKind::SchemaDecl, range, tokens),
+            Self::Codec(_) => token_node(SyntaxNodeKind::CodecDecl, range, tokens),
+            Self::PublicAlias(_) => token_node(SyntaxNodeKind::PublicAliasDecl, range, tokens),
         }
     }
 }
