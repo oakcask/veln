@@ -7,7 +7,7 @@ on:
     paths:
       - .github/workflows/test--rust.yaml
       - .config/nextest.toml
-      - actions/nextest/action.yaml
+      - actions/**/*.yaml
       - Cargo.lock
       - Cargo.toml
       - crates/**/Cargo.toml
@@ -18,7 +18,7 @@ on:
     paths:
       - .github/workflows/test--rust.yaml
       - .config/nextest.toml
-      - actions/nextest/action.yaml
+      - actions/**/*.yaml
       - Cargo.lock
       - Cargo.toml
       - crates/**/Cargo.toml
@@ -68,12 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-      - name: Restore Cargo dependency cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: cargo-dependencies-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+      - name: Prepare Cargo dependencies
+        uses: ./actions/cargo-dependencies
       - name: Run Rust doctests
         run: cargo test --locked --workspace --doc
