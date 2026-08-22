@@ -92,6 +92,9 @@ This page routes implemented JSON output for `veln test --json`.
   `../../examples/specification/run/runtime-diagnostic-payload-hpack-huffman-eos-json/`,
   and
   `../../examples/specification/run/runtime-diagnostic-payload-hpack-dynamic-index-json/`.
+  Large nested expected values in those executable cases may live in
+  `case-text/` JSON sidecars; that placement is harness evidence and does not
+  change the `veln test --json` field shape.
   `RuntimeDiagnostic(...)` HTTP/2 protocol payload projection assertions are
   checked by
   `../../examples/specification/run/http2-protocol-core-ping-length-json/`,

@@ -282,7 +282,9 @@ without making manual `Content-Length` framing part of the behavior under
 test. The `publish-diagnostics`, `semantic-tokens`, and
 `semantic-tokens-unsaved-change` examples use decoded `[[lsp_assert]]`
 selectors for initialize capabilities, diagnostic notifications,
-semantic-token data, and shutdown responses.
+semantic-token data, and shutdown responses. When an assertion compares a
+complete JSON-RPC response object, member order belongs to the harness JSON
+equality model rather than to the LSP server contract.
 
 LSP executable examples still use ordered stdout fragments when JSON-RPC
 responses are interleaved with file-backed virtual-document text. Those
