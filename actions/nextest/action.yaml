@@ -1,0 +1,43 @@
+name: Run nextest shard
+description: Restore Rust test caches, run one nextest shard, and upload its JUnit report.
+
+inputs:
+  nextest-version:
+    description: Version of cargo-nextest to install.
+    required: true
+  shard:
+    description: One-based shard number to run.
+    required: true
+  shard-count:
+    description: Total number of nextest shards.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Restore cargo-nextest cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: ~/.cargo/bin/cargo-nextest
+        key: cargo-nextest-${{ runner.os }}-${{ inputs.nextest-version }}
+    - name: Restore Cargo dependency cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: cargo-dependencies-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+    - name: Install cargo-nextest
+      uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2
+      with:
+        tool: cargo-nextest@${{ inputs.nextest-version }}
+    - name: Run Rust tests
+      shell: bash
+      run: cargo nextest run --locked --workspace --profile ci --partition count:${{ inputs.shard }}/${{ inputs.shard-count }}
+    - name: Upload nextest JUnit report
+      if: always()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      with:
+        name: nextest-junit-${{ inputs.shard }}
+        path: target/nextest/ci/junit.xml
+        if-no-files-found: error
