@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: normative
-update-when: The CLI integration harness discovery inventory, manifest grammar, structured JSON-RPC input validation, decoded MCP JSONL output assertion model, fixture diagnostics, semantic case baseline, manifest authoring policy, case-text fixture sidecar convention, or source-error guard evidence changes.
+update-when: The CLI integration harness discovery inventory, manifest grammar, common JSON equality model, structured JSON-RPC input validation, decoded MCP JSONL output assertion model, fixture diagnostics, semantic case baseline, manifest authoring policy, case-text fixture sidecar convention, or source-error guard evidence changes.
 ---
 
 # Toolchain Test Harness
@@ -189,12 +189,9 @@ path can satisfy only `missing = true`; invalid traversal through a scalar or
 noncanonical array index fails.
 
 Each MCP assertion declares exactly one of `equals`, `length`,
-`workspace_file_uri`, or `missing = true`. `equals` compares the complete
-selected JSON value. Object member order is ignored. Array order and length
-are significant. Strings, booleans, null, and integers compare by decoded
-value. Other numbers compare by their JSON spelling, so `1` is distinct from
-`1.0`. `length` requires a JSON array at the selected path and checks its
-exact element count.
+`workspace_file_uri`, or `missing = true`. `equals` uses the common JSON
+equality rules below. `length` requires a JSON array at the selected path and
+checks its exact element count.
 `workspace_file_uri` requires a JSON string at the selected path and compares
 it with the canonical `file:` URI for one existing regular
 workspace-relative file in the copied case project. The URI spelling matches
@@ -247,9 +244,10 @@ defaults to zero. It then selects a value with an RFC 6901 JSON Pointer in
 validated while the manifest loads.
 
 Each LSP assertion declares exactly one of `equals`, `equals_file`, `contains`,
-or `missing = true`. `equals` compares JSON values. `equals_file` and
-`contains` require the selected value to be a JSON string. A missing path can
-satisfy `missing = true` only after its response or notification exists.
+or `missing = true`. `equals` uses the common JSON equality rules below.
+`equals_file` and `contains` require the selected value to be a JSON string. A
+missing path can satisfy `missing = true` only after its response or
+notification exists.
 
 The harness requires stdout to be a complete ordered sequence of
 `Content-Length` frames before it evaluates LSP assertions. Malformed or
@@ -282,12 +280,27 @@ semantic checks inside JSON stdout. JSON and result-value assertions accept
 `equals`, `equals_file`, `equals_json_file`, or `missing = true`.
 `equals_file` compares the selected JSON value as a string and never reparses
 the sidecar as JSON. `equals_json_file` parses the sidecar as JSON before the
-comparison.
-Inline scalar JSON number values in `equals` for non-MCP JSON assertions must
-use integer number tokens. Decimal or exponent number tokens are rejected when
-the complete inline value is that scalar number. Decimal and exponent number
-tokens inside inline JSON arrays or objects are preserved by their JSON
-spelling.
+comparison and uses the common JSON equality rules.
+
+The `equals` operation in `[[json_assert]]`, `[[result_value_assert]]`,
+`[[lsp_assert]]`, and `[[mcp_assert]]` compares JSON values recursively. Null,
+boolean, and string values require the same JSON kind and decoded value. JSON
+numbers require the same complete spelling, so `1`, `1.0`, and `1e0` are
+distinct. Every affected section accepts those forms as a complete inline
+`equals` value. Arrays require the same length and equal values at each index.
+Objects require the same member names and recursively equal member values, but
+member order does not affect equality. Existing `equals_json_file` operations
+use these same rules.
+The shared JSON parser stores parsed JSON numbers with their complete source
+spelling. Veln-produced integer values remain integer JSON values when command
+outputs, diagnostics, repair results, metrics baselines, or parsed
+result-value assertions construct them directly. When `[[result_value_assert]]`
+parses a rendered result value, integer atoms that fit the harness integer
+storage remain integer JSON values, while decimal and exponent JSON number
+atoms keep their complete spelling. A parsed JSON integer token compares equal
+to a directly constructed integer only when the decimal spelling is identical.
+Parsed decimal and exponent tokens remain distinct JSON numbers and do not
+become integer-compatible values for non-harness consumers.
 `[[result_value_assert]]` reads a rendered result-failure value string from
 `value_path`, wraps it as the outer `Err`, and then checks a parsed value path.
 Each JSON or result-value assertion must declare exactly one operation.
@@ -379,9 +392,13 @@ text values, including nested strings inside typed JSON assertions, record an
 explicit logical field, byte length, and SHA-256 digest. Binary values record
 their byte length and SHA-256 digest. JSON object members are key-sorted
 because object member order is not part of an assertion value; arrays and all
-manifest assertion sequences retain their order. The baseline includes MCP
-stdio specification cases that use `stdin_file` JSON lines and stream
-fragments to pin advertised tool declarations and representative tool results.
+manifest assertion sequences retain their order. JSON number tokens retain
+their complete spelling, including integer, decimal, exponent, and negative
+zero forms. The baseline records file-backed JSON assertion operands under the
+operation that supplied them, so `equals_file` and `equals_json_file` remain
+reviewable as distinct assertion contracts. The baseline includes MCP stdio
+specification cases that use `stdin_file` JSON lines and stream fragments to
+pin advertised tool declarations and representative tool results.
 
 The normal `toolchain_harness` target runs
 `checked_in_semantic_baseline_matches_authoritative_cases`. The test reads the

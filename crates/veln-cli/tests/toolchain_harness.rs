@@ -2092,6 +2092,7 @@ struct JsonAssertion {
     path: String,
     equals: Option<JsonValue>,
     missing: Option<bool>,
+    operation: Option<&'static str>,
     operation_count: usize,
 }
 
@@ -2250,6 +2251,7 @@ struct ResultValueAssertion {
     path: String,
     equals: Option<JsonValue>,
     missing: Option<bool>,
+    operation: Option<&'static str>,
     operation_count: usize,
 }
 
@@ -2930,6 +2932,7 @@ impl<'a> ManifestParser<'a> {
             path: String::new(),
             equals: None,
             missing: None,
+            operation: None,
             operation_count: 0,
         });
         Section::JsonAssert(self.json_assertions.len() - 1)
@@ -2950,6 +2953,7 @@ impl<'a> ManifestParser<'a> {
             path: String::new(),
             equals: None,
             missing: None,
+            operation: None,
             operation_count: 0,
         });
         Section::ResultValueAssert(self.result_value_assertions.len() - 1)
@@ -3185,17 +3189,20 @@ impl<'a> ManifestParser<'a> {
             "path" => self.json_assertions[index].path = parse_string(self.path, value),
             "equals" => {
                 self.json_assertions[index].operation_count += 1;
+                self.json_assertions[index].operation = Some("equals");
                 self.json_assertions[index].equals =
                     Some(parse_manifest_json_value(self.path, value))
             }
             "equals_file" => {
                 self.json_assertions[index].operation_count += 1;
+                self.json_assertions[index].operation = Some("equals_file");
                 self.json_assertions[index].equals = Some(JsonValue::String(
                     self.case_text_cache.read(self.path, value),
                 ))
             }
             "equals_json_file" => {
                 self.json_assertions[index].operation_count += 1;
+                self.json_assertions[index].operation = Some("equals_json_file");
                 let text = self.case_text_cache.read(self.path, value);
                 self.json_assertions[index].equals =
                     Some(parse_json(&text).unwrap_or_else(|error| {
@@ -3208,6 +3215,7 @@ impl<'a> ManifestParser<'a> {
             }
             "missing" => {
                 self.json_assertions[index].operation_count += 1;
+                self.json_assertions[index].operation = Some("missing");
                 self.json_assertions[index].missing = Some(parse_bool(self.path, value));
             }
             _ => manifest_error(
@@ -3232,17 +3240,20 @@ impl<'a> ManifestParser<'a> {
             "path" => self.result_value_assertions[index].path = parse_string(self.path, value),
             "equals" => {
                 self.result_value_assertions[index].operation_count += 1;
+                self.result_value_assertions[index].operation = Some("equals");
                 self.result_value_assertions[index].equals =
                     Some(parse_manifest_json_value(self.path, value))
             }
             "equals_file" => {
                 self.result_value_assertions[index].operation_count += 1;
+                self.result_value_assertions[index].operation = Some("equals_file");
                 self.result_value_assertions[index].equals = Some(JsonValue::String(
                     self.case_text_cache.read(self.path, value),
                 ))
             }
             "equals_json_file" => {
                 self.result_value_assertions[index].operation_count += 1;
+                self.result_value_assertions[index].operation = Some("equals_json_file");
                 let text = self.case_text_cache.read(self.path, value);
                 self.result_value_assertions[index].equals =
                     Some(parse_json(&text).unwrap_or_else(|error| {
@@ -3255,6 +3266,7 @@ impl<'a> ManifestParser<'a> {
             }
             "missing" => {
                 self.result_value_assertions[index].operation_count += 1;
+                self.result_value_assertions[index].operation = Some("missing");
                 self.result_value_assertions[index].missing = Some(parse_bool(self.path, value));
             }
             _ => manifest_error(
@@ -3279,6 +3291,9 @@ impl<'a> ManifestParser<'a> {
                 if !matches!(
                     id,
                     JsonValue::Null | JsonValue::Number(_) | JsonValue::String(_)
+                ) && !matches!(
+                    &id,
+                    JsonValue::Decimal(raw) if is_json_integer_token(raw)
                 ) {
                     manifest_error(
                         self.path,
@@ -4609,10 +4624,7 @@ fn is_link_like_metadata(_metadata: &fs::Metadata) -> bool {
 }
 
 fn parse_manifest_json_value(path: &Path, value: &ManifestValue<'_>) -> JsonValue {
-    let line_number = value.line();
-    let parsed = parse_manifest_json_value_allow_decimal(path, value);
-    reject_scalar_decimal_json_number(path, line_number, &parsed);
-    parsed
+    parse_manifest_json_value_allow_decimal(path, value)
 }
 
 fn parse_manifest_mcp_json_value(path: &Path, value: &ManifestValue<'_>) -> JsonValue {
@@ -4665,16 +4677,6 @@ fn is_json_integer_token(raw: &str) -> bool {
         _ => return false,
     }
     index == bytes.len()
-}
-
-fn reject_scalar_decimal_json_number(path: &Path, line_number: usize, value: &JsonValue) {
-    if let JsonValue::Decimal(number) = value {
-        manifest_error(
-            path,
-            line_number,
-            format!("expected integer JSON number, got `{number}`"),
-        );
-    }
 }
 
 fn parse_binary_fixture_hex(path: &Path, value: &ManifestValue<'_>) -> BinaryFixtureBytes {
@@ -6675,7 +6677,7 @@ equals_json_file = "case-text/expected.json"
         Some(JsonValue::Object(vec![(
             "nested".to_string(),
             JsonValue::Array(vec![
-                JsonValue::Number(1),
+                JsonValue::Decimal("1".to_string()),
                 JsonValue::Bool(true),
                 JsonValue::Null
             ])
@@ -6710,7 +6712,7 @@ equals_json_file = "case-text/expected.json"
         manifest.expectations.result_value_assertions[0].equals,
         Some(JsonValue::Array(vec![
             JsonValue::String("ok".to_string()),
-            JsonValue::Number(2)
+            JsonValue::Decimal("2".to_string())
         ]))
     );
     fs::remove_dir_all(root).expect("test root should be removed");
@@ -7732,20 +7734,38 @@ fn workspace_file_uri_percent_encodes_native_non_unix_separators() {
 }
 
 #[test]
-fn manifest_non_mcp_assertions_reject_scalar_decimal_json_spelling() {
-    for (section, fields) in [
-        ("json_assert", "path = \"value\"\nequals = 1.0\n"),
-        (
-            "result_value_assert",
-            "value_path = \"value\"\npath = \"value\"\nequals = 1e0\n",
-        ),
-        ("lsp_assert", "id = 1\npath = \"/value\"\nequals = 1.0\n"),
-    ] {
-        assert_manifest_parse_error(
-            &format!("command = [\"lsp\"]\nexit = 0\n[[{section}]]\n{fields}"),
-            "expected integer JSON number",
-        );
-    }
+fn manifest_json_assertions_preserve_scalar_decimal_json_spelling() {
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"command = ["lsp"]
+exit = 0
+[[json_assert]]
+path = "value"
+equals = 1.0
+[[result_value_assert]]
+value_path = "value"
+path = "value"
+equals = 1e0
+[[lsp_assert]]
+id = 1
+path = "/value"
+equals = 1.0
+"#,
+    );
+    assert_eq!(
+        manifest.expectations.json_assertions[0].equals,
+        Some(JsonValue::Decimal("1.0".to_string()))
+    );
+    assert_eq!(
+        manifest.expectations.result_value_assertions[0].equals,
+        Some(JsonValue::Decimal("1e0".to_string()))
+    );
+    assert_eq!(
+        manifest.expectations.lsp_assertions[0].operation,
+        Some(LspAssertionOperation::Equals(JsonValue::Decimal(
+            "1.0".to_string()
+        )))
+    );
 }
 
 #[test]
@@ -7794,7 +7814,7 @@ equals = {"nested": 1e0}
 }
 
 #[test]
-fn manifest_mcp_assertions_preserve_scalar_decimal_json_spelling() {
+fn manifest_mcp_assertions_preserve_decimal_json_spelling() {
     let manifest = parse_manifest(
         Path::new("case.toml"),
         r#"command = ["mcp"]
@@ -7807,6 +7827,10 @@ equals = 1.0
 id = 1
 path = "/result/exponent"
 equals = 1e0
+[[mcp_assert]]
+id = 1
+path = "/result/nested"
+equals = {"nested": [1.0, 1e0]}
 "#,
     );
     assert_eq!(
@@ -7821,6 +7845,550 @@ equals = 1e0
             "1e0".to_string()
         )))
     );
+    assert_eq!(
+        manifest.expectations.mcp_assertions[2].operation,
+        Some(McpAssertionOperation::Equals(JsonValue::Object(vec![(
+            "nested".to_string(),
+            JsonValue::Array(vec![
+                JsonValue::Decimal("1.0".to_string()),
+                JsonValue::Decimal("1e0".to_string())
+            ])
+        )])))
+    );
+}
+
+#[test]
+fn json_equality_preserves_object_array_kind_and_number_boundaries() {
+    for (left, right, equal) in [
+        (
+            r#"{"outer":{"a":1,"b":[true,null]}}"#,
+            r#"{"outer":{"b":[true,null],"a":1}}"#,
+            true,
+        ),
+        (r#"[1,2]"#, r#"[1,2]"#, true),
+        (r#"[1,2]"#, r#"[2,1]"#, false),
+        (r#"[1,2]"#, r#"[1,2,3]"#, false),
+        ("1", "1.0", false),
+        ("1", "1e0", false),
+        ("0", "-0", false),
+        ("1.0", "1e0", false),
+        (r#"{"nested":1}"#, r#"{"nested":2}"#, false),
+        ("true", r#""true""#, false),
+    ] {
+        let left = parse_json(left).expect("left matrix value should parse");
+        let right = parse_json(right).expect("right matrix value should parse");
+        assert_eq!(json_values_equal(&left, &right), equal);
+    }
+}
+
+#[test]
+fn json_number_spelling_matrix_runs_through_every_assertion_adapter() {
+    let context = CaseRunContext {
+        case_dir: Path::new("json-number-spelling-adapters"),
+        run_number: 1,
+    };
+
+    for spelling in ["1", "1.0", "1e0"] {
+        let actual = parse_json(&format!(r#"{{"selected":{spelling}}}"#))
+            .expect("JSON adapter input should parse");
+        assert_json_path(
+            &context,
+            &actual,
+            &JsonAssertion {
+                path: "selected".to_string(),
+                equals: Some(parse_json(spelling).expect("JSON expectation should parse")),
+                missing: None,
+                operation: Some("equals"),
+                operation_count: 1,
+            },
+        );
+
+        let lsp_stdout = lsp_frame(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"result":{spelling}}}"#
+        ));
+        let lsp_assertion = parsed_lsp_assertions(&format!(
+            "command = [\"lsp\"]\nexit = 0\n[[lsp_assert]]\nid = 1\npath = \"/result\"\nequals = {spelling}\n"
+        ));
+        assert_lsp_assertions(&context, &lsp_stdout, &lsp_assertion);
+
+        let mcp_stdout = format!(r#"{{"jsonrpc":"2.0","id":1,"result":{spelling}}}"#) + "\n";
+        let mcp_assertion = parsed_mcp_assertions(&format!(
+            "command = [\"mcp\"]\nexit = 0\n[[mcp_assert]]\nid = 1\npath = \"/result\"\nequals = {spelling}\n"
+        ));
+        assert_mcp_assertions(&context, &mcp_stdout, &mcp_assertion, Path::new("."));
+
+        let rendered = parse_json(&format!(r#"{{"rendered":"{spelling}"}}"#))
+            .expect("result-value adapter input should parse");
+        assert_result_value_path(
+            &context,
+            &rendered,
+            &ResultValueAssertion {
+                value_path: "rendered".to_string(),
+                path: "value".to_string(),
+                equals: Some(parse_json(spelling).expect("result-value expectation should parse")),
+                missing: None,
+                operation: Some("equals"),
+                operation_count: 1,
+            },
+        );
+    }
+
+    for (actual, expected) in [
+        ("1", "1.0"),
+        ("1", "1e0"),
+        ("1.0", "1"),
+        ("1.0", "1e0"),
+        ("1e0", "1"),
+        ("1e0", "1.0"),
+    ] {
+        let actual_json = parse_json(&format!(r#"{{"selected":{actual}}}"#))
+            .expect("JSON adapter input should parse");
+        let json_assertion = JsonAssertion {
+            path: "selected".to_string(),
+            equals: Some(parse_json(expected).expect("JSON expectation should parse")),
+            missing: None,
+            operation: Some("equals"),
+            operation_count: 1,
+        };
+        let panic =
+            std::panic::catch_unwind(|| assert_json_path(&context, &actual_json, &json_assertion))
+                .expect_err("JSON adapter should preserve number spelling");
+        assert!(panic_message(panic).contains("JSON path `selected` mismatch"));
+
+        let lsp_stdout = lsp_frame(&format!(r#"{{"jsonrpc":"2.0","id":1,"result":{actual}}}"#));
+        let lsp_assertion = parsed_lsp_assertions(&format!(
+            "command = [\"lsp\"]\nexit = 0\n[[lsp_assert]]\nid = 1\npath = \"/result\"\nequals = {expected}\n"
+        ));
+        let panic = std::panic::catch_unwind(|| {
+            assert_lsp_assertions(&context, &lsp_stdout, &lsp_assertion)
+        })
+        .expect_err("LSP adapter should preserve number spelling");
+        let message = panic_message(panic);
+        assert!(message.contains("response id 1 path \"/result\""));
+        assert!(message.contains("value mismatch"));
+
+        let mcp_stdout = format!(r#"{{"jsonrpc":"2.0","id":1,"result":{actual}}}"#) + "\n";
+        let mcp_assertion = parsed_mcp_assertions(&format!(
+            "command = [\"mcp\"]\nexit = 0\n[[mcp_assert]]\nid = 1\npath = \"/result\"\nequals = {expected}\n"
+        ));
+        let panic = std::panic::catch_unwind(|| {
+            assert_mcp_assertions(&context, &mcp_stdout, &mcp_assertion, Path::new("."))
+        })
+        .expect_err("MCP adapter should preserve number spelling");
+        let message = panic_message(panic);
+        assert!(message.contains("response id 1 path \"/result\""));
+        assert!(message.contains("value mismatch"));
+
+        let rendered = parse_json(&format!(r#"{{"rendered":"{actual}"}}"#))
+            .expect("result-value adapter input should parse");
+        let assertion = ResultValueAssertion {
+            value_path: "rendered".to_string(),
+            path: "value".to_string(),
+            equals: Some(parse_json(expected).expect("result-value expectation should parse")),
+            missing: None,
+            operation: Some("equals"),
+            operation_count: 1,
+        };
+        let panic =
+            std::panic::catch_unwind(|| assert_result_value_path(&context, &rendered, &assertion))
+                .expect_err("result-value adapter should reject different number spelling");
+        let message = panic_message(panic);
+        assert!(message.contains("result value path `value` mismatch"));
+        assert!(message.contains("value mismatch"));
+    }
+}
+
+#[test]
+fn diagnostic_assertions_use_common_json_equality_for_integer_tokens() {
+    let context = CaseRunContext {
+        case_dir: Path::new("diagnostic-json-equality"),
+        run_number: 1,
+    };
+    let json = parse_json(
+        r#"{"diagnostics":[{"id":"type.mismatch","severity":"error","kind":"type","message":"expected `Int`, but found `String`","span":{"file":"main.veln","start":{"line":2,"column":3,"offset":23},"end":{"line":2,"column":7,"offset":27}}}]}"#,
+    )
+    .expect("diagnostic JSON should parse");
+
+    assert_diagnostic(
+        &context,
+        &json,
+        &DiagnosticExpectation {
+            id: "type.mismatch".to_string(),
+            severity: Some("error".to_string()),
+            kind: Some("type".to_string()),
+            message: Some("expected `Int`, but found `String`".to_string()),
+            span: Some(SpanExpectation {
+                file: Some("main.veln".to_string()),
+                line: Some(2),
+                column: Some(3),
+            }),
+        },
+    );
+}
+
+#[test]
+fn reordered_json_objects_compare_equal_through_every_assertion_adapter() {
+    let context = CaseRunContext {
+        case_dir: Path::new("json-equality-adapters"),
+        run_number: 1,
+    };
+    let actual = parse_json(r#"{"selected":{"outer":{"a":1,"b":2}}}"#)
+        .expect("JSON adapter input should parse");
+    assert_json_path(
+        &context,
+        &actual,
+        &JsonAssertion {
+            path: "selected".to_string(),
+            equals: Some(
+                parse_json(r#"{"outer":{"b":2,"a":1}}"#)
+                    .expect("JSON adapter expectation should parse"),
+            ),
+            missing: None,
+            operation: Some("equals"),
+            operation_count: 1,
+        },
+    );
+
+    let rendered = parse_json(r#"{"rendered":"ByteOffset(2)"}"#)
+        .expect("result-value adapter input should parse");
+    assert_result_value_path(
+        &context,
+        &rendered,
+        &ResultValueAssertion {
+            value_path: "rendered".to_string(),
+            path: "value".to_string(),
+            equals: Some(
+                parse_json(r#"{"value":2,"constructor":"ByteOffset"}"#)
+                    .expect("result-value adapter expectation should parse"),
+            ),
+            missing: None,
+            operation: Some("equals"),
+            operation_count: 1,
+        },
+    );
+
+    let lsp_messages = decode_lsp_stdout(&lsp_frame(
+        r#"{"jsonrpc":"2.0","id":1,"result":{"outer":{"a":1,"b":2}}}"#,
+    ))
+    .expect("LSP adapter input should decode");
+    let lsp_assertion = parsed_lsp_assertions(
+        r#"command = ["lsp"]
+exit = 0
+[[lsp_assert]]
+id = 1
+path = "/result"
+equals = {"outer":{"b":2,"a":1}}
+"#,
+    )
+    .remove(0);
+    evaluate_lsp_assertion(&lsp_messages, &lsp_assertion)
+        .expect("LSP adapter should ignore object member order");
+
+    let mcp_messages = decode_mcp_stdout(
+        r#"{"jsonrpc":"2.0","id":1,"result":{"outer":{"a":1,"b":2}}}
+"#,
+    )
+    .expect("MCP adapter input should decode");
+    let mcp_assertion = parsed_mcp_assertions(
+        r#"command = ["mcp"]
+exit = 0
+[[mcp_assert]]
+id = 1
+path = "/result"
+equals = {"outer":{"b":2,"a":1}}
+"#,
+    )
+    .remove(0);
+    evaluate_mcp_assertion(&mcp_messages, &mcp_assertion, Path::new("."))
+        .expect("MCP adapter should ignore object member order");
+}
+
+#[test]
+fn reordered_json_arrays_fail_through_every_assertion_adapter() {
+    let context = CaseRunContext {
+        case_dir: Path::new("json-array-order-adapters"),
+        run_number: 1,
+    };
+    let actual = parse_json(r#"{"selected":[1,2]}"#).expect("JSON adapter input should parse");
+    let json_assertion = JsonAssertion {
+        path: "selected".to_string(),
+        equals: Some(parse_json("[2,1]").expect("JSON adapter expectation should parse")),
+        missing: None,
+        operation: Some("equals"),
+        operation_count: 1,
+    };
+    let panic = std::panic::catch_unwind(|| assert_json_path(&context, &actual, &json_assertion))
+        .expect_err("JSON adapter should retain array order");
+    assert!(panic_message(panic).contains("JSON path `selected` mismatch"));
+
+    let rendered = parse_json(r#"{"rendered":"Cons(1, Cons(2, Nil))"}"#)
+        .expect("result-value adapter input should parse");
+    let result_assertion = ResultValueAssertion {
+        value_path: "rendered".to_string(),
+        path: "value".to_string(),
+        equals: Some(parse_json("[2,1]").expect("result-value expectation should parse")),
+        missing: None,
+        operation: Some("equals"),
+        operation_count: 1,
+    };
+    let panic = std::panic::catch_unwind(|| {
+        assert_result_value_path(&context, &rendered, &result_assertion)
+    })
+    .expect_err("result-value adapter should retain array order");
+    assert!(panic_message(panic).contains("result value path `value` mismatch"));
+
+    let lsp_messages = decode_lsp_stdout(&lsp_frame(r#"{"jsonrpc":"2.0","id":1,"result":[1,2]}"#))
+        .expect("LSP adapter input should decode");
+    let lsp_assertion = parsed_lsp_assertions(
+        r#"command = ["lsp"]
+exit = 0
+[[lsp_assert]]
+id = 1
+path = "/result"
+equals = [2,1]
+"#,
+    )
+    .remove(0);
+    let error = evaluate_lsp_assertion(&lsp_messages, &lsp_assertion)
+        .expect_err("LSP adapter should retain array order");
+    assert!(error.contains("value mismatch"));
+
+    let mcp_messages = decode_mcp_stdout(
+        r#"{"jsonrpc":"2.0","id":1,"result":[1,2]}
+"#,
+    )
+    .expect("MCP adapter input should decode");
+    let mcp_assertion = parsed_mcp_assertions(
+        r#"command = ["mcp"]
+exit = 0
+[[mcp_assert]]
+id = 1
+path = "/result"
+equals = [2,1]
+"#,
+    )
+    .remove(0);
+    let error = evaluate_mcp_assertion(&mcp_messages, &mcp_assertion, Path::new("."))
+        .expect_err("MCP adapter should retain array order");
+    assert!(error.contains("value mismatch"));
+}
+
+#[test]
+fn ordered_json_arrays_succeed_and_length_mismatches_retain_adapter_context() {
+    let context = CaseRunContext {
+        case_dir: Path::new("json-array-length-adapters"),
+        run_number: 1,
+    };
+
+    let actual = parse_json(r#"{"selected":[1,2]}"#).expect("JSON adapter input should parse");
+    assert_json_path(
+        &context,
+        &actual,
+        &JsonAssertion {
+            path: "selected".to_string(),
+            equals: Some(parse_json("[1,2]").expect("JSON success expectation should parse")),
+            missing: None,
+            operation: Some("equals"),
+            operation_count: 1,
+        },
+    );
+    let panic = std::panic::catch_unwind(|| {
+        assert_json_path(
+            &context,
+            &actual,
+            &JsonAssertion {
+                path: "selected".to_string(),
+                equals: Some(parse_json("[1,2,3]").expect("JSON failure expectation should parse")),
+                missing: None,
+                operation: Some("equals"),
+                operation_count: 1,
+            },
+        )
+    })
+    .expect_err("JSON adapter should reject array length mismatch");
+    assert!(panic_message(panic).contains("JSON path `selected` mismatch"));
+
+    let rendered = parse_json(r#"{"rendered":"Cons(1, Cons(2, Nil))"}"#)
+        .expect("result-value adapter input should parse");
+    assert_result_value_path(
+        &context,
+        &rendered,
+        &ResultValueAssertion {
+            value_path: "rendered".to_string(),
+            path: "value".to_string(),
+            equals: Some(
+                parse_json("[1,2]").expect("result-value success expectation should parse"),
+            ),
+            missing: None,
+            operation: Some("equals"),
+            operation_count: 1,
+        },
+    );
+    let panic = std::panic::catch_unwind(|| {
+        assert_result_value_path(
+            &context,
+            &rendered,
+            &ResultValueAssertion {
+                value_path: "rendered".to_string(),
+                path: "value".to_string(),
+                equals: Some(
+                    parse_json("[1,2,3]").expect("result-value failure expectation should parse"),
+                ),
+                missing: None,
+                operation: Some("equals"),
+                operation_count: 1,
+            },
+        )
+    })
+    .expect_err("result-value adapter should reject array length mismatch");
+    assert!(panic_message(panic).contains("result value path `value` mismatch"));
+
+    let lsp_stdout = lsp_frame(r#"{"jsonrpc":"2.0","id":1,"result":[1,2]}"#);
+    let lsp_success = parsed_lsp_assertions(
+        r#"command = ["lsp"]
+exit = 0
+[[lsp_assert]]
+id = 1
+path = "/result"
+equals = [1,2]
+"#,
+    );
+    assert_lsp_assertions(&context, &lsp_stdout, &lsp_success);
+    let lsp_failure = parsed_lsp_assertions(
+        r#"command = ["lsp"]
+exit = 0
+[[lsp_assert]]
+id = 1
+path = "/result"
+equals = [1,2,3]
+"#,
+    );
+    let panic =
+        std::panic::catch_unwind(|| assert_lsp_assertions(&context, &lsp_stdout, &lsp_failure))
+            .expect_err("LSP adapter should reject array length mismatch");
+    let message = panic_message(panic);
+    assert!(message.contains("response id 1 path \"/result\""));
+    assert!(message.contains("value mismatch"));
+
+    let mcp_stdout = r#"{"jsonrpc":"2.0","id":1,"result":[1,2]}
+"#;
+    let mcp_success = parsed_mcp_assertions(
+        r#"command = ["mcp"]
+exit = 0
+[[mcp_assert]]
+id = 1
+path = "/result"
+equals = [1,2]
+"#,
+    );
+    assert_mcp_assertions(&context, mcp_stdout, &mcp_success, Path::new("."));
+    let mcp_failure = parsed_mcp_assertions(
+        r#"command = ["mcp"]
+exit = 0
+[[mcp_assert]]
+id = 1
+path = "/result"
+equals = [1,2,3]
+"#,
+    );
+    let panic = std::panic::catch_unwind(|| {
+        assert_mcp_assertions(&context, mcp_stdout, &mcp_failure, Path::new("."))
+    })
+    .expect_err("MCP adapter should reject array length mismatch");
+    let message = panic_message(panic);
+    assert!(message.contains("response id 1 path \"/result\""));
+    assert!(message.contains("value mismatch"));
+}
+
+#[test]
+fn kind_and_nested_json_mismatches_retain_adapter_context() {
+    let context = CaseRunContext {
+        case_dir: Path::new("json-kind-nested-adapters"),
+        run_number: 1,
+    };
+
+    let actual = parse_json(r#"{"selected":{"outer":{"nested":1}}}"#)
+        .expect("JSON adapter input should parse");
+    for expected in [r#""object""#, r#"{"outer":{"nested":2}}"#] {
+        let assertion = JsonAssertion {
+            path: "selected".to_string(),
+            equals: Some(parse_json(expected).expect("JSON expectation should parse")),
+            missing: None,
+            operation: Some("equals"),
+            operation_count: 1,
+        };
+        let panic = std::panic::catch_unwind(|| assert_json_path(&context, &actual, &assertion))
+            .expect_err("JSON adapter should reject mismatched value");
+        let message = panic_message(panic);
+        assert!(message.contains("JSON path `selected` mismatch"));
+        assert!(message.contains("value mismatch"));
+    }
+
+    let rendered = parse_json(r#"{"rendered":"ByteOffset(2)"}"#)
+        .expect("result-value adapter input should parse");
+    for expected in [
+        r#""ByteOffset""#,
+        r#"{"constructor":"ByteOffset","value":3}"#,
+    ] {
+        let assertion = ResultValueAssertion {
+            value_path: "rendered".to_string(),
+            path: "value".to_string(),
+            equals: Some(parse_json(expected).expect("result-value expectation should parse")),
+            missing: None,
+            operation: Some("equals"),
+            operation_count: 1,
+        };
+        let panic =
+            std::panic::catch_unwind(|| assert_result_value_path(&context, &rendered, &assertion))
+                .expect_err("result-value adapter should reject mismatched value");
+        let message = panic_message(panic);
+        assert!(message.contains("result value path `value` mismatch"));
+        assert!(message.contains("value mismatch"));
+    }
+
+    let lsp_stdout = lsp_frame(r#"{"jsonrpc":"2.0","id":1,"result":{"outer":{"nested":1}}}"#);
+    let lsp_failures = parsed_lsp_assertions(
+        r#"command = ["lsp"]
+exit = 0
+[[lsp_assert]]
+id = 1
+path = "/result"
+equals = "object"
+[[lsp_assert]]
+id = 1
+path = "/result"
+equals = {"outer":{"nested":2}}
+"#,
+    );
+    let panic =
+        std::panic::catch_unwind(|| assert_lsp_assertions(&context, &lsp_stdout, &lsp_failures))
+            .expect_err("LSP adapter should reject mismatched values");
+    let message = panic_message(panic);
+    assert!(message.contains("response id 1 path \"/result\""));
+    assert!(message.matches("value mismatch").count() >= 2);
+
+    let mcp_stdout = r#"{"jsonrpc":"2.0","id":1,"result":{"outer":{"nested":1}}}
+"#;
+    let mcp_failures = parsed_mcp_assertions(
+        r#"command = ["mcp"]
+exit = 0
+[[mcp_assert]]
+id = 1
+path = "/result"
+equals = "object"
+[[mcp_assert]]
+id = 1
+path = "/result"
+equals = {"outer":{"nested":2}}
+"#,
+    );
+    let panic = std::panic::catch_unwind(|| {
+        assert_mcp_assertions(&context, mcp_stdout, &mcp_failures, Path::new("."))
+    })
+    .expect_err("MCP adapter should reject mismatched values");
+    let message = panic_message(panic);
+    assert!(message.contains("response id 1 path \"/result\""));
+    assert!(message.matches("value mismatch").count() >= 2);
 }
 
 #[test]
@@ -10021,17 +10589,7 @@ fn evaluate_lsp_assertion(messages: &[JsonValue], assertion: &LspAssertion) -> R
             .as_ref()
             .expect("validated LSP assertion operation")
         {
-            LspAssertionOperation::Equals(expected) => {
-                if actual == expected {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "value mismatch: expected {}, got {}",
-                        expected.to_compact_string(),
-                        actual.to_compact_string()
-                    ))
-                }
-            }
+            LspAssertionOperation::Equals(expected) => expect_json_value(actual, expected),
             LspAssertionOperation::EqualsFile(expected) => {
                 let actual = actual
                     .as_str()
@@ -10129,7 +10687,7 @@ fn evaluate_mcp_operation(
         .as_ref()
         .expect("validated MCP assertion operation")
     {
-        McpAssertionOperation::Equals(expected) => expect_mcp_json_value(actual, expected),
+        McpAssertionOperation::Equals(expected) => expect_json_value(actual, expected),
         McpAssertionOperation::Length(expected) => expect_mcp_array_length(actual, *expected),
         McpAssertionOperation::Missing(true) => {
             Err("selected JSON path exists but should be missing".to_string())
@@ -10141,7 +10699,7 @@ fn evaluate_mcp_operation(
     }
 }
 
-fn expect_mcp_json_value(actual: &JsonValue, expected: &JsonValue) -> Result<(), String> {
+fn expect_json_value(actual: &JsonValue, expected: &JsonValue) -> Result<(), String> {
     if json_values_equal(actual, expected) {
         Ok(())
     } else {
@@ -10190,6 +10748,8 @@ fn json_values_equal(left: &JsonValue, right: &JsonValue) -> bool {
         (JsonValue::Null, JsonValue::Null) => true,
         (JsonValue::Bool(left), JsonValue::Bool(right)) => left == right,
         (JsonValue::Number(left), JsonValue::Number(right)) => left == right,
+        (JsonValue::Number(left), JsonValue::Decimal(right))
+        | (JsonValue::Decimal(right), JsonValue::Number(left)) => left.to_string() == *right,
         (JsonValue::Decimal(left), JsonValue::Decimal(right)) => left == right,
         (JsonValue::String(left), JsonValue::String(right)) => left == right,
         (JsonValue::Array(left), JsonValue::Array(right)) => {
@@ -10408,16 +10968,17 @@ fn assert_json_path(context: &CaseRunContext<'_>, json: &JsonValue, assertion: &
             json
         )
     });
-    assert_eq!(
-        actual,
-        assertion
-            .equals
-            .as_ref()
-            .expect("non-missing json assertion should have expected value"),
-        "{}: JSON path `{}` mismatch",
-        context.label(),
-        assertion.path
-    );
+    let expected = assertion
+        .equals
+        .as_ref()
+        .expect("non-missing json assertion should have expected value");
+    expect_json_value(actual, expected).unwrap_or_else(|error| {
+        panic!(
+            "{}: JSON path `{}` mismatch: {error}",
+            context.label(),
+            assertion.path
+        )
+    });
 }
 
 fn assert_result_value_path(
@@ -10462,16 +11023,17 @@ fn assert_result_value_path(
             parsed
         )
     });
-    assert_eq!(
-        actual,
-        assertion
-            .equals
-            .as_ref()
-            .expect("non-missing result value assertion should have expected value"),
-        "{}: result value path `{}` mismatch",
-        context.label(),
-        assertion.path
-    );
+    let expected = assertion
+        .equals
+        .as_ref()
+        .expect("non-missing result value assertion should have expected value");
+    expect_json_value(actual, expected).unwrap_or_else(|error| {
+        panic!(
+            "{}: result value path `{}` mismatch: {error}",
+            context.label(),
+            assertion.path
+        )
+    });
 }
 
 fn assert_diagnostic(
@@ -10507,7 +11069,7 @@ fn assert_diagnostic(
                 .as_ref()
                 .and_then(|span| span.line)
                 .is_none_or(|line| {
-                    json_path(diagnostic, "span.start.line") == Some(&JsonValue::Number(line))
+                    json_path_equals(diagnostic, "span.start.line", &JsonValue::Number(line))
                 })
         });
 
@@ -10604,16 +11166,20 @@ fn assert_json_equals(
             json
         )
     });
-    assert_eq!(
-        actual,
-        expected,
-        "{}: diagnostic `{id}` JSON path `{path}` mismatch",
-        context.label()
-    );
+    expect_json_value(actual, expected).unwrap_or_else(|error| {
+        panic!(
+            "{}: diagnostic `{id}` JSON path `{path}` mismatch: {error}",
+            context.label()
+        )
+    });
 }
 
 fn diagnostic_field<'a>(diagnostic: &'a JsonValue, field: &str) -> Option<&'a str> {
     json_path(diagnostic, field).and_then(JsonValue::as_str)
+}
+
+fn json_path_equals(json: &JsonValue, path: &str, expected: &JsonValue) -> bool {
+    json_path(json, path).is_some_and(|actual| json_values_equal(actual, expected))
 }
 
 fn json_path<'a>(mut value: &'a JsonValue, path: &str) -> Option<&'a JsonValue> {
@@ -11192,11 +11758,20 @@ fn parse_veln_atom(text: &str) -> JsonValue {
     match text {
         "true" => JsonValue::Bool(true),
         "false" => JsonValue::Bool(false),
-        _ => text
-            .parse::<i64>()
-            .map(JsonValue::Number)
-            .unwrap_or_else(|_| JsonValue::String(text.to_string())),
+        _ => parse_veln_number_atom(text).unwrap_or_else(|| JsonValue::String(text.to_string())),
     }
+}
+
+fn parse_veln_number_atom(text: &str) -> Option<JsonValue> {
+    let JsonValue::Decimal(raw) = parse_json(text).ok()? else {
+        return None;
+    };
+    if let Ok(value) = raw.parse::<i64>()
+        && value.to_string() == raw
+    {
+        return Some(JsonValue::Number(value));
+    }
+    Some(JsonValue::Decimal(raw))
 }
 
 fn parse_veln_nonnegative_integer(name: &str, text: &str) -> Result<JsonValue, String> {
@@ -11343,6 +11918,7 @@ impl JsonValue {
     fn as_i64(&self) -> Option<i64> {
         match self {
             Self::Number(value) => Some(*value),
+            Self::Decimal(value) if is_json_integer_token(value) => value.parse().ok(),
             _ => None,
         }
     }
@@ -11677,10 +12253,7 @@ impl JsonParser<'_> {
             }
         }
         let raw = &self.text[start..self.offset];
-        Ok(raw
-            .parse::<i64>()
-            .map(JsonValue::Number)
-            .unwrap_or_else(|_| JsonValue::Decimal(raw.to_string())))
+        Ok(JsonValue::Decimal(raw.to_string()))
     }
 
     fn expect_literal(&mut self, literal: &str) -> Result<(), JsonParseError> {

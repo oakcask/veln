@@ -280,7 +280,11 @@ fn collect_saved_repair_candidates(value: &JsonValue, candidates: &mut Vec<Repai
                 }
             }
         }
-        JsonValue::Null | JsonValue::Bool(_) | JsonValue::Number(_) | JsonValue::String(_) => {}
+        JsonValue::Null
+        | JsonValue::Bool(_)
+        | JsonValue::Number(_)
+        | JsonValue::Decimal(_)
+        | JsonValue::String(_) => {}
     }
 }
 
@@ -447,8 +451,32 @@ fn object_string<'a>(value: &'a JsonValue, key: &str) -> Option<&'a str> {
 fn object_number(value: &JsonValue, key: &str) -> Option<i64> {
     match object_value(value, key)? {
         JsonValue::Number(value) => Some(*value),
+        JsonValue::Decimal(value) => json_integer_token_value(value),
         _ => None,
     }
+}
+
+fn json_integer_token_value(value: &str) -> Option<i64> {
+    let bytes = value.as_bytes();
+    let mut index = 0;
+    if matches!(bytes.first(), Some(b'-')) {
+        index = 1;
+    }
+    let first = bytes.get(index)?;
+    match first {
+        b'0' => index += 1,
+        b'1'..=b'9' => {
+            index += 1;
+            while matches!(bytes.get(index), Some(b'0'..=b'9')) {
+                index += 1;
+            }
+        }
+        _ => return None,
+    }
+    if index != bytes.len() {
+        return None;
+    }
+    value.parse().ok()
 }
 
 #[cfg(test)]
@@ -594,5 +622,110 @@ mod tests {
         assert!(candidate.matches_id("repair-7"));
         assert!(candidate.requires_current_match);
         assert_eq!(candidate.edits.len(), 1);
+    }
+
+    #[test]
+    fn saved_command_candidate_accepts_decimal_integer_span_tokens() {
+        let saved = JsonValue::object([
+            ("repair_id", JsonValue::string("repair-7")),
+            ("source_candidate_id", JsonValue::string("symbol-1")),
+            ("name", JsonValue::string("value")),
+            (
+                "application_policy",
+                JsonValue::string(APPLICATION_POLICY_SAFE_REPAIR_CANDIDATE),
+            ),
+            (
+                "application_status",
+                JsonValue::string(APPLICATION_STATUS_UNAPPLIED),
+            ),
+            (
+                "edit",
+                JsonValue::object([
+                    ("kind", JsonValue::string("replace")),
+                    (
+                        "span",
+                        JsonValue::object([
+                            ("file", JsonValue::string("main.veln")),
+                            (
+                                "start",
+                                JsonValue::object([
+                                    ("line", JsonValue::Decimal("2".to_string())),
+                                    ("column", JsonValue::Decimal("3".to_string())),
+                                    ("offset", JsonValue::Decimal("27".to_string())),
+                                ]),
+                            ),
+                            (
+                                "end",
+                                JsonValue::object([
+                                    ("line", JsonValue::Decimal("2".to_string())),
+                                    ("column", JsonValue::Decimal("9".to_string())),
+                                    ("offset", JsonValue::Decimal("33".to_string())),
+                                ]),
+                            ),
+                        ]),
+                    ),
+                    ("replacement", JsonValue::string("value")),
+                ]),
+            ),
+        ]);
+
+        let candidate = RepairCandidate::from_saved_command(0, &saved)
+            .expect("saved command candidate should load");
+
+        assert_eq!(candidate.edits[0].start.offset, 27);
+        assert_eq!(candidate.edits[0].end.offset, 33);
+    }
+
+    #[test]
+    fn saved_command_candidate_rejects_non_integer_decimal_span_tokens() {
+        for token in ["1.0", "1e0"] {
+            let saved = JsonValue::object([
+                ("repair_id", JsonValue::string("repair-7")),
+                ("source_candidate_id", JsonValue::string("symbol-1")),
+                ("name", JsonValue::string("value")),
+                (
+                    "application_policy",
+                    JsonValue::string(APPLICATION_POLICY_SAFE_REPAIR_CANDIDATE),
+                ),
+                (
+                    "application_status",
+                    JsonValue::string(APPLICATION_STATUS_UNAPPLIED),
+                ),
+                (
+                    "edit",
+                    JsonValue::object([
+                        ("kind", JsonValue::string("replace")),
+                        (
+                            "span",
+                            JsonValue::object([
+                                ("file", JsonValue::string("main.veln")),
+                                (
+                                    "start",
+                                    JsonValue::object([
+                                        ("line", JsonValue::Decimal(token.to_string())),
+                                        ("column", JsonValue::Decimal("3".to_string())),
+                                        ("offset", JsonValue::Decimal("27".to_string())),
+                                    ]),
+                                ),
+                                (
+                                    "end",
+                                    JsonValue::object([
+                                        ("line", JsonValue::Decimal("2".to_string())),
+                                        ("column", JsonValue::Decimal("9".to_string())),
+                                        ("offset", JsonValue::Decimal("33".to_string())),
+                                    ]),
+                                ),
+                            ]),
+                        ),
+                        ("replacement", JsonValue::string("value")),
+                    ]),
+                ),
+            ]);
+
+            assert!(
+                RepairCandidate::from_saved_command(0, &saved).is_none(),
+                "non-integer decimal token {token} should not load"
+            );
+        }
     }
 }

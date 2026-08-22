@@ -24,5 +24,5 @@ equals = []
 
 [[lsp_assert]]
 id = 2
-path = "/result"
-equals = null
+path = ""
+equals = {"result":null,"id":2,"jsonrpc":"2.0"}

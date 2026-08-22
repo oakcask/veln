@@ -165,7 +165,8 @@ decimal and exponent integer coordinate spellings, and invalid-position
 results plus non-integer decimal and negative-exponent coordinate schema
 rejection over stdio. Its response-local assertions bind response IDs 3
 through 11 to the expected JSON-RPC result, error, location, cardinality, and
-absence observations.
+absence observations. Object member order inside those expected result objects
+is harness equality evidence, not an MCP output ordering contract.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous
