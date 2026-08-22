@@ -291,6 +291,13 @@ distinct. Every affected section accepts those forms as a complete inline
 Objects require the same member names and recursively equal member values, but
 member order does not affect equality. Existing `equals_json_file` operations
 use these same rules.
+The shared JSON parser stores parsed JSON numbers with their complete source
+spelling. Veln-produced integer values remain integer JSON values when command
+outputs, diagnostics, repair results, metrics baselines, or parsed
+result-value assertions construct them directly. A parsed JSON integer token
+compares equal to a directly constructed integer only when the decimal spelling
+is identical. Parsed decimal and exponent tokens remain distinct JSON numbers
+and do not become integer-compatible values for non-harness consumers.
 `[[result_value_assert]]` reads a rendered result-failure value string from
 `value_path`, wraps it as the outer `Err`, and then checks a parsed value path.
 Each JSON or result-value assertion must declare exactly one operation.
