@@ -8,4 +8,52 @@ if [ "$#" -eq 0 ]; then
   set -- --locked --workspace
 fi
 
-exec bash scripts/agent-run cargo test "$@"
+original_args=("$@")
+cargo_args=()
+test_args=()
+filters=()
+
+while [ "$#" -gt 0 ]; do
+  argument="$1"
+  shift
+
+  if [ "$argument" = "--" ]; then
+    test_args=("$@")
+    break
+  fi
+
+  case "$argument" in
+    --message-format|--color|--config|-Z|--exclude|--features|-F|--jobs|-j|--profile|--target-dir|--manifest-path|-m)
+      cargo_args+=("$argument")
+      if [ "$#" -gt 0 ]; then
+        cargo_args+=("$1")
+        shift
+      fi
+      ;;
+    --package|-p|--bin|--example|--test|--bench|--target)
+      cargo_args+=("$argument")
+      if [ "$#" -gt 0 ] && [[ "$1" != -* ]]; then
+        cargo_args+=("$1")
+        shift
+      fi
+      ;;
+    -*)
+      cargo_args+=("$argument")
+      ;;
+    *)
+      filters+=("$argument")
+      ;;
+  esac
+done
+
+if [ "${#filters[@]}" -le 1 ]; then
+  exec bash scripts/agent-run cargo test "${original_args[@]}"
+fi
+
+for filter in "${filters[@]}"; do
+  command=(bash scripts/agent-run cargo test "${cargo_args[@]}" "$filter")
+  if [ "${#test_args[@]}" -gt 0 ]; then
+    command+=(-- "${test_args[@]}")
+  fi
+  "${command[@]}"
+done
