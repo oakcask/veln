@@ -35,6 +35,9 @@ This page routes implemented JSON output for `veln test --json`.
   `RuntimeDiagnostic(...)` payloads in `cases.*.failure.details.value` and
   project contained byte and value payload fields into the same structured
   diagnostic details used by `run --json`.
+  Result-value containment assertions in the executable payload cases are
+  harness evidence over existing string fields and do not add a separate
+  `veln test --json` field shape.
 - `test --json` keeps `cases`, captured `events`, `summary`, top-level
   `status`, diagnostics, and failures in discovered-case order for serial
   `--jobs 1`, explicit bounded `--jobs <JOBS>`, and automatic job modes.

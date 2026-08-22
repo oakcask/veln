@@ -80,6 +80,9 @@ diagnostic ADT remain ordinary result failures with no
 `details.byte_diagnostic`. Generated binary schema decode fixed-field
 mismatches return this `RuntimeDiagnostic(...)` payload while preserving the
 same `schema.fixed_field_mismatch` byte diagnostic shape.
+Result-value containment assertions in executable run JSON payload cases are
+harness evidence over these existing rendered string fields and do not add a
+separate `veln run --json` field shape.
 
 When the returned error value is
 `RuntimeDiagnostic(id, message, RuntimeValueDiagnostic(...))` for a generated
