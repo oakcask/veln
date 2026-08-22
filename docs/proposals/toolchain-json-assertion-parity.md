@@ -56,8 +56,17 @@ order, assertion order, and JSON number spelling.
 
 The implemented `equals`, `contains`, and `missing = true` contracts are
 specified by [Toolchain Test Harness](../reference/toolchain-test-harness.md).
-The remaining work adds the operations in this table to each affected section
-that does not yet support them.
+The remaining work adds only the section and operation pairs in this matrix.
+
+| Section | Remaining operations |
+| --- | --- |
+| `[[json_assert]]` | `length`, `workspace_file_uri` |
+| `[[result_value_assert]]` | `length`, `workspace_file_uri` |
+| `[[lsp_assert]]` | `equals_json_file`, `length`, `workspace_file_uri` |
+| `[[mcp_assert]]` | `equals_file`, `equals_json_file` |
+
+Each listed operation uses the operand and selected-value contract in this
+table.
 
 | Operation | Operand | Required selected value | Required result |
 | --- | --- | --- | --- |
