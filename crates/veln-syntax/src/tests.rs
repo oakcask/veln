@@ -1721,6 +1721,54 @@ fn lossless_tree_groups_declarations_for_formatting() {
 }
 
 #[test]
+fn lossless_tree_preserves_mixed_top_level_declaration_order() {
+    let text = concat!(
+        "mod app\n",
+        "use stdio\n",
+        "type State\n  Ready\nend\n",
+        "effect Notify\n  send() -> ()\nend\n",
+        "schema Packet\n  format binary\n  value: UInt8\nend\n",
+        "fn main() -> ()\n  ()\nend\n",
+        "handler notify() handles Notify\n  send() => ()\nend\n",
+        "pub fn exported = main\n",
+    );
+    let source = SourceFile::new("main.veln", text);
+
+    let output = parse(&source);
+    let top_level_kinds = output
+        .tree
+        .root
+        .children
+        .iter()
+        .filter_map(|child| match child {
+            SyntaxElement::Node(node) => Some(node.kind),
+            SyntaxElement::Token(_) => None,
+        })
+        .collect::<Vec<_>>();
+    let rendered = output
+        .tree
+        .lossless_tokens()
+        .map(|token| token.text.as_str())
+        .collect::<String>();
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(rendered, text);
+    assert_eq!(
+        top_level_kinds,
+        [
+            SyntaxNodeKind::ModuleDecl,
+            SyntaxNodeKind::UseDecl,
+            SyntaxNodeKind::TypeDecl,
+            SyntaxNodeKind::EffectDecl,
+            SyntaxNodeKind::SchemaDecl,
+            SyntaxNodeKind::FunctionDecl,
+            SyntaxNodeKind::HandlerDecl,
+            SyntaxNodeKind::PublicAliasDecl,
+        ]
+    );
+}
+
+#[test]
 fn parses_structured_calls_and_holes() {
     let source = SourceFile::new(
         "main.veln",
