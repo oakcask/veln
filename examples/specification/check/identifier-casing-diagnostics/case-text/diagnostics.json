@@ -1,0 +1,437 @@
+[
+  {
+    "id": "name.invalid_case",
+    "severity": "error",
+    "kind": "name",
+    "message": "type name must start with an ASCII uppercase letter",
+    "span": {
+      "file": "main.veln",
+      "start": {
+        "line": 2,
+        "column": 6,
+        "offset": 62
+      },
+      "end": {
+        "line": 2,
+        "column": 12,
+        "offset": 68
+      }
+    },
+    "details": {
+      "phase": "name",
+      "origin": "source",
+      "occurrence": "declaration",
+      "name": "option",
+      "name_class": "type",
+      "required_initial": "ascii_uppercase",
+      "observed_initial": "ascii_lowercase"
+    },
+    "related": []
+  },
+  {
+    "id": "name.invalid_case",
+    "severity": "error",
+    "kind": "name",
+    "message": "constructor name must start with an ASCII uppercase letter",
+    "span": {
+      "file": "main.veln",
+      "start": {
+        "line": 3,
+        "column": 3,
+        "offset": 71
+      },
+      "end": {
+        "line": 3,
+        "column": 7,
+        "offset": 75
+      }
+    },
+    "details": {
+      "phase": "name",
+      "origin": "source",
+      "occurrence": "declaration",
+      "name": "some",
+      "name_class": "constructor",
+      "required_initial": "ascii_uppercase",
+      "observed_initial": "ascii_lowercase"
+    },
+    "related": []
+  },
+  {
+    "id": "name.invalid_case",
+    "severity": "error",
+    "kind": "name",
+    "message": "type name must start with an ASCII uppercase letter",
+    "span": {
+      "file": "main.veln",
+      "start": {
+        "line": 5,
+        "column": 10,
+        "offset": 89
+      },
+      "end": {
+        "line": 5,
+        "column": 15,
+        "offset": 94
+      }
+    },
+    "details": {
+      "phase": "name",
+      "origin": "source",
+      "occurrence": "declaration",
+      "name": "alias",
+      "name_class": "type",
+      "required_initial": "ascii_uppercase",
+      "observed_initial": "ascii_lowercase"
+    },
+    "related": []
+  },
+  {
+    "id": "name.invalid_case",
+    "severity": "error",
+    "kind": "name",
+    "message": "function name must start with an ASCII lowercase letter",
+    "span": {
+      "file": "main.veln",
+      "start": {
+        "line": 6,
+        "column": 8,
+        "offset": 111
+      },
+      "end": {
+        "line": 6,
+        "column": 14,
+        "offset": 117
+      }
+    },
+    "details": {
+      "phase": "name",
+      "origin": "source",
+      "occurrence": "declaration",
+      "name": "Export",
+      "name_class": "function",
+      "required_initial": "ascii_lowercase",
+      "observed_initial": "ascii_uppercase"
+    },
+    "related": []
+  },
+  {
+    "id": "name.invalid_case",
+    "severity": "error",
+    "kind": "name",
+    "message": "function name must start with an ASCII lowercase letter",
+    "span": {
+      "file": "main.veln",
+      "start": {
+        "line": 7,
+        "column": 4,
+        "offset": 132
+      },
+      "end": {
+        "line": 7,
+        "column": 9,
+        "offset": 137
+      }
+    },
+    "details": {
+      "phase": "name",
+      "origin": "source",
+      "occurrence": "declaration",
+      "name": "Build",
+      "name_class": "function",
+      "required_initial": "ascii_lowercase",
+      "observed_initial": "ascii_uppercase"
+    },
+    "related": []
+  },
+  {
+    "id": "name.invalid_case",
+    "severity": "error",
+    "kind": "name",
+    "message": "binding name must start with an ASCII lowercase letter",
+    "span": {
+      "file": "main.veln",
+      "start": {
+        "line": 7,
+        "column": 10,
+        "offset": 138
+      },
+      "end": {
+        "line": 7,
+        "column": 18,
+        "offset": 146
+      }
+    },
+    "details": {
+      "phase": "name",
+      "origin": "source",
+      "occurrence": "binding",
+      "name": "Argument",
+      "name_class": "value_binding",
+      "required_initial": "ascii_lowercase",
+      "observed_initial": "ascii_uppercase"
+    },
+    "related": []
+  },
+  {
+    "id": "name.invalid_case",
+    "severity": "error",
+    "kind": "name",
+    "message": "binding name must start with an ASCII lowercase letter",
+    "span": {
+      "file": "main.veln",
+      "start": {
+        "line": 7,
+        "column": 28,
+        "offset": 156
+      },
+      "end": {
+        "line": 7,
+        "column": 34,
+        "offset": 162
+      }
+    },
+    "details": {
+      "phase": "name",
+      "origin": "source",
+      "occurrence": "binding",
+      "name": "Result",
+      "name_class": "value_binding",
+      "required_initial": "ascii_lowercase",
+      "observed_initial": "ascii_uppercase"
+    },
+    "related": []
+  },
+  {
+    "id": "name.invalid_case",
+    "severity": "error",
+    "kind": "name",
+    "message": "binding name must start with an ASCII lowercase letter",
+    "span": {
+      "file": "main.veln",
+      "start": {
+        "line": 8,
+        "column": 7,
+        "offset": 174
+      },
+      "end": {
+        "line": 8,
+        "column": 13,
+        "offset": 180
+      }
+    },
+    "details": {
+      "phase": "name",
+      "origin": "source",
+      "occurrence": "binding",
+      "name": "_Local",
+      "name_class": "value_binding",
+      "required_initial": "ascii_lowercase",
+      "observed_initial": "underscore"
+    },
+    "related": []
+  },
+  {
+    "id": "name.invalid_case",
+    "severity": "error",
+    "kind": "name",
+    "message": "binding name must start with an ASCII lowercase letter",
+    "span": {
+      "file": "main.veln",
+      "start": {
+        "line": 9,
+        "column": 14,
+        "offset": 205
+      },
+      "end": {
+        "line": 9,
+        "column": 21,
+        "offset": 212
+      }
+    },
+    "details": {
+      "phase": "name",
+      "origin": "source",
+      "occurrence": "binding",
+      "name": "_nested",
+      "name_class": "value_binding",
+      "required_initial": "ascii_lowercase",
+      "observed_initial": "underscore"
+    },
+    "related": []
+  },
+  {
+    "id": "name.invalid_case",
+    "severity": "error",
+    "kind": "name",
+    "message": "binding name must start with an ASCII lowercase letter",
+    "span": {
+      "file": "main.veln",
+      "start": {
+        "line": 11,
+        "column": 5,
+        "offset": 254
+      },
+      "end": {
+        "line": 11,
+        "column": 9,
+        "offset": 258
+      }
+    },
+    "details": {
+      "phase": "name",
+      "origin": "source",
+      "occurrence": "binding",
+      "name": "_arm",
+      "name_class": "value_binding",
+      "required_initial": "ascii_lowercase",
+      "observed_initial": "underscore"
+    },
+    "related": []
+  },
+  {
+    "id": "name.invalid_case",
+    "severity": "error",
+    "kind": "name",
+    "message": "binding name must start with an ASCII lowercase letter",
+    "span": {
+      "file": "main.veln",
+      "start": {
+        "line": 13,
+        "column": 17,
+        "offset": 293
+      },
+      "end": {
+        "line": 13,
+        "column": 26,
+        "offset": 302
+      }
+    },
+    "details": {
+      "phase": "name",
+      "origin": "source",
+      "occurrence": "binding",
+      "name": "Candidate",
+      "name_class": "value_binding",
+      "required_initial": "ascii_lowercase",
+      "observed_initial": "ascii_uppercase"
+    },
+    "related": []
+  },
+  {
+    "id": "name.invalid_case",
+    "severity": "error",
+    "kind": "name",
+    "message": "function name must start with an ASCII lowercase letter",
+    "span": {
+      "file": "main.veln",
+      "start": {
+        "line": 15,
+        "column": 6,
+        "offset": 320
+      },
+      "end": {
+        "line": 15,
+        "column": 11,
+        "offset": 325
+      }
+    },
+    "details": {
+      "phase": "name",
+      "origin": "source",
+      "occurrence": "declaration",
+      "name": "Check",
+      "name_class": "function",
+      "required_initial": "ascii_lowercase",
+      "observed_initial": "ascii_uppercase"
+    },
+    "related": []
+  },
+  {
+    "id": "name.invalid_case",
+    "severity": "error",
+    "kind": "name",
+    "message": "binding name must start with an ASCII lowercase letter",
+    "span": {
+      "file": "main.veln",
+      "start": {
+        "line": 15,
+        "column": 12,
+        "offset": 326
+      },
+      "end": {
+        "line": 15,
+        "column": 24,
+        "offset": 338
+      }
+    },
+    "details": {
+      "phase": "name",
+      "origin": "source",
+      "occurrence": "binding",
+      "name": "TestArgument",
+      "name_class": "value_binding",
+      "required_initial": "ascii_lowercase",
+      "observed_initial": "ascii_uppercase"
+    },
+    "related": []
+  },
+  {
+    "id": "name.invalid_case",
+    "severity": "error",
+    "kind": "name",
+    "message": "binding name must start with an ASCII lowercase letter",
+    "span": {
+      "file": "main.veln",
+      "start": {
+        "line": 21,
+        "column": 13,
+        "offset": 418
+      },
+      "end": {
+        "line": 21,
+        "column": 20,
+        "offset": 425
+      }
+    },
+    "details": {
+      "phase": "name",
+      "origin": "source",
+      "occurrence": "binding",
+      "name": "Context",
+      "name_class": "value_binding",
+      "required_initial": "ascii_lowercase",
+      "observed_initial": "ascii_uppercase"
+    },
+    "related": []
+  },
+  {
+    "id": "name.invalid_case",
+    "severity": "error",
+    "kind": "name",
+    "message": "binding name must start with an ASCII lowercase letter",
+    "span": {
+      "file": "main.veln",
+      "start": {
+        "line": 22,
+        "column": 9,
+        "offset": 452
+      },
+      "end": {
+        "line": 22,
+        "column": 26,
+        "offset": 469
+      }
+    },
+    "details": {
+      "phase": "name",
+      "origin": "source",
+      "occurrence": "binding",
+      "name": "OperationArgument",
+      "name_class": "value_binding",
+      "required_initial": "ascii_lowercase",
+      "observed_initial": "ascii_uppercase"
+    },
+    "related": []
+  }
+]

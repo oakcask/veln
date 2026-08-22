@@ -1,0 +1,48 @@
+command = ["check", "--json", "case-text/source.raw"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0"
+equals = {
+  "id": "name.invalid_case",
+  "severity": "error",
+  "kind": "name",
+  "message": "function name must start with an ASCII lowercase letter",
+  "span": {
+    "file": "case-text/source.raw",
+    "start": {
+      "line": 2,
+      "column": 4,
+      "offset": 9
+    },
+    "end": {
+      "line": 2,
+      "column": 9,
+      "offset": 14
+    }
+  },
+  "details": {
+    "phase": "name",
+    "origin": "source",
+    "occurrence": "declaration",
+    "name": "Build",
+    "name_class": "function",
+    "required_initial": "ascii_lowercase",
+    "observed_initial": "ascii_uppercase"
+  },
+  "related": []
+}

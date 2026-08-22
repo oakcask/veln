@@ -4,7 +4,20 @@ type option
 end
 pub type alias = Option
 pub fn Export = identity
-fn Build(_argument: Int) -> Result: Int
-  let _local = _argument
+fn Build(Argument: Int) -> Result: Int
+  let _Local = Argument
+  let {item: _nested} = {item: Argument}
+  match Argument
+    _arm => Argument
+  end
   _hole satisfy Candidate => true
+end
+test Check(TestArgument: Int)
+  TestArgument
+end
+effect Ask
+  value(input: Int) -> Int
+end
+handler ask(Context: Int) handles Ask
+  value(OperationArgument) => OperationArgument
 end
