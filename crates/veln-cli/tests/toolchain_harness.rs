@@ -3366,7 +3366,7 @@ impl<'a> ManifestParser<'a> {
             "equals" => {
                 assertion.operation_count += 1;
                 assertion.operation = Some(McpAssertionOperation::Equals(
-                    parse_manifest_json_value(self.path, value),
+                    parse_manifest_mcp_json_value(self.path, value),
                 ));
             }
             "length" => {
@@ -4604,6 +4604,17 @@ fn is_link_like_metadata(_metadata: &fs::Metadata) -> bool {
 }
 
 fn parse_manifest_json_value(path: &Path, value: &ManifestValue<'_>) -> JsonValue {
+    let line_number = value.line();
+    let parsed = parse_manifest_json_value_allow_decimal(path, value);
+    reject_decimal_json_numbers(path, line_number, &parsed);
+    parsed
+}
+
+fn parse_manifest_mcp_json_value(path: &Path, value: &ManifestValue<'_>) -> JsonValue {
+    parse_manifest_json_value_allow_decimal(path, value)
+}
+
+fn parse_manifest_json_value_allow_decimal(path: &Path, value: &ManifestValue<'_>) -> JsonValue {
     if value.is_string() {
         JsonValue::String(parse_string(path, value))
     } else if value.raw() == "true" {
@@ -4626,6 +4637,27 @@ fn parse_manifest_json_value(path: &Path, value: &ManifestValue<'_>) -> JsonValu
     } else {
         parse_json(value.raw())
             .unwrap_or_else(|_| manifest_error(path, value.line(), "expected JSON value"))
+    }
+}
+
+fn reject_decimal_json_numbers(path: &Path, line_number: usize, value: &JsonValue) {
+    match value {
+        JsonValue::Decimal(number) => manifest_error(
+            path,
+            line_number,
+            format!("expected integer JSON number, got `{number}`"),
+        ),
+        JsonValue::Array(values) => {
+            for value in values {
+                reject_decimal_json_numbers(path, line_number, value);
+            }
+        }
+        JsonValue::Object(entries) => {
+            for (_, value) in entries {
+                reject_decimal_json_numbers(path, line_number, value);
+            }
+        }
+        JsonValue::Null | JsonValue::Bool(_) | JsonValue::Number(_) | JsonValue::String(_) => {}
     }
 }
 
@@ -7597,7 +7629,54 @@ fn manifest_mcp_assertions_validate_selector_operation_pointer_and_uri_contracts
             "unexpected error for {relative:?}"
         );
     }
+
+    #[cfg(unix)]
+    {
+        fs::create_dir(root.join("target-dir")).expect("target dir should be created");
+        fs::write(root.join("target-dir").join("linked.veln"), "")
+            .expect("target file should be written");
+        std::os::unix::fs::symlink(
+            root.join("target-dir").join("linked.veln"),
+            root.join("link.veln"),
+        )
+        .expect("symlink file should be created");
+        std::os::unix::fs::symlink(root.join("target-dir"), root.join("link-dir"))
+            .expect("symlink directory should be created");
+
+        for relative in ["link.veln", "link-dir/linked.veln"] {
+            let error = std::panic::catch_unwind(|| {
+                parse_manifest(
+                    &manifest_path,
+                    &format!(
+                        "command = [\"mcp\"]\nexit = 0\n[[mcp_assert]]\nid = 1\npath = \"/result/uri\"\nworkspace_file_uri = {relative:?}\n"
+                    ),
+                );
+            })
+            .expect_err("link-like workspace_file_uri traversal should fail");
+            assert!(
+                panic_message(error).contains("link-like"),
+                "unexpected error for {relative:?}"
+            );
+        }
+    }
     fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn manifest_non_mcp_assertions_reject_scalar_decimal_json_spelling() {
+    for (section, fields) in [
+        ("json_assert", "path = \"value\"\nequals = 1.0\n"),
+        (
+            "result_value_assert",
+            "value_path = \"value\"\npath = \"value\"\nequals = 1e0\n",
+        ),
+        ("lsp_assert", "id = 1\npath = \"/value\"\nequals = 1.0\n"),
+    ] {
+        assert_manifest_parse_error(
+            &format!("command = [\"lsp\"]\nexit = 0\n[[{section}]]\n{fields}"),
+            "expected integer JSON number",
+        );
+    }
 }
 
 #[test]
