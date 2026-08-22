@@ -2125,7 +2125,7 @@ struct McpAssertion {
     operation_count: usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 enum McpAssertionOperation {
     Equals(JsonValue),
     Length(usize),
@@ -4624,7 +4624,8 @@ fn parse_manifest_json_value(path: &Path, value: &ManifestValue<'_>) -> JsonValu
             )
         })
     } else {
-        JsonValue::Number(parse_i64(path, value))
+        parse_json(value.raw())
+            .unwrap_or_else(|_| manifest_error(path, value.line(), "expected JSON value"))
     }
 }
 
@@ -7578,6 +7579,8 @@ fn manifest_mcp_assertions_validate_selector_operation_pointer_and_uri_contracts
         "/abs.veln",
         "nested/../main.veln",
         "./main.veln",
+        "nested//main.veln",
+        "nested/./main.veln",
         "bad\\path",
     ] {
         let error = std::panic::catch_unwind(|| {
@@ -7598,12 +7601,42 @@ fn manifest_mcp_assertions_validate_selector_operation_pointer_and_uri_contracts
 }
 
 #[test]
+fn manifest_mcp_assertions_preserve_scalar_decimal_json_spelling() {
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"command = ["mcp"]
+exit = 0
+[[mcp_assert]]
+id = 1
+path = "/result/decimal"
+equals = 1.0
+[[mcp_assert]]
+id = 1
+path = "/result/exponent"
+equals = 1e0
+"#,
+    );
+    assert_eq!(
+        manifest.expectations.mcp_assertions[0].operation,
+        Some(McpAssertionOperation::Equals(JsonValue::Decimal(
+            "1.0".to_string()
+        )))
+    );
+    assert_eq!(
+        manifest.expectations.mcp_assertions[1].operation,
+        Some(McpAssertionOperation::Equals(JsonValue::Decimal(
+            "1e0".to_string()
+        )))
+    );
+}
+
+#[test]
 fn decoded_mcp_jsonl_assertions_cover_success_matrix() {
     let root = test_temp_root("mcp-jsonl");
     fs::write(root.join("main file.veln"), "").expect("workspace file should be written");
     let uri = path_to_file_uri(&root.join("main file.veln").canonicalize().unwrap());
     let stdout = format!(
-        "{{\"jsonrpc\":\"2.0\",\"id\":\"alpha\",\"result\":{{\"value\":{{\"a/b\":\"slash\",\"m~n\":\"tilde\"}},\"items\":[\"first\",\"second\"],\"uri\":\"{uri}\"}}}}\n{{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{{\"object\":{{\"z\":1,\"a\":2}}}}}}\n"
+        "{{\"jsonrpc\":\"2.0\",\"id\":\"alpha\",\"result\":{{\"value\":{{\"a/b\":\"slash\",\"m~n\":\"tilde\"}},\"items\":[\"first\",\"second\"],\"uri\":\"{uri}\",\"decimal\":1.0,\"exponent\":1e0}}}}\n{{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{{\"object\":{{\"z\":1,\"a\":2}}}}}}\n"
     );
     let source = r#"command = ["mcp"]
 exit = 0
@@ -7632,6 +7665,14 @@ id = "alpha"
 path = "/result/uri"
 workspace_file_uri = "main file.veln"
 [[mcp_assert]]
+id = "alpha"
+path = "/result/decimal"
+equals = 1.0
+[[mcp_assert]]
+id = "alpha"
+path = "/result/exponent"
+equals = 1e0
+[[mcp_assert]]
 id = 2
 path = "/result/object"
 equals = {"a":2,"z":1}
@@ -7658,6 +7699,20 @@ equals = ["second", "first"]
     let messages = decode_mcp_stdout(&stdout).expect("stream should decode");
     let error = evaluate_mcp_assertion(&messages, &reversed, &root)
         .expect_err("reversed array should fail equality");
+    assert!(error.contains("value mismatch"));
+
+    let integer_decimal = parsed_mcp_assertions(
+        r#"command = ["mcp"]
+exit = 0
+[[mcp_assert]]
+id = "alpha"
+path = "/result/decimal"
+equals = 1
+"#,
+    )
+    .remove(0);
+    let error = evaluate_mcp_assertion(&messages, &integer_decimal, &root)
+        .expect_err("integer spelling should not equal decimal spelling");
     assert!(error.contains("value mismatch"));
     fs::remove_dir_all(root).expect("test root should be removed");
 }
@@ -10008,6 +10063,14 @@ fn validate_workspace_relative_file(base: &Path, relative: &str) -> Result<(), S
     if relative.is_empty() || path.is_absolute() || relative.contains('\\') {
         return Err(format!(
             "workspace_file_uri `{relative}` must be a nonempty workspace-relative path"
+        ));
+    }
+    if relative
+        .split('/')
+        .any(|segment| segment.is_empty() || segment == "." || segment == "..")
+    {
+        return Err(format!(
+            "workspace_file_uri `{relative}` must not contain `.`, `..`, empty, root, or prefix segments"
         ));
     }
     for component in path.components() {

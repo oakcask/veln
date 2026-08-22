@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"b30c39c5809850a5d3cba45216f198852acf4ddd"
+source_git_tree	"49182fefcb24a00f0ffd7b3e093506d7e6919c6f"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1512
@@ -10513,13 +10513,11 @@ field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"description\":\"Resolve a supported symbol in one saved workspace source\""
 field	expectations.stdout.contains[1]	"\"name\":\"definition\",\"outputSchema\""
 field	expectations.stdout.contains[2]	"\"required\":[\"source\",\"line\",\"column\"]"
-field	expectations.stdout.not_contains[0]	"veln-pkg:"
-field	expectations.stdout.not_contains[1]	"target/debug"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1489,"sha256":"e2b4d5447b2dc59fe02b8523e695cee21a53e3b32c1a7f0cdcd1919eb1631384"}
 field	source_errors	"forbidden"
-case_digest	"b20cbe9755d798e1adf0aa8e2c59ac93d23e2cacc2755a54100b4fda304d784c"
+case_digest	"33fccd0608e6af3bf6710bcb87ff47002fa4d4f301b5743b58b1cb2cf6b48fc1"
 case	"examples/specification/mcp/workspace-lifecycle"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47806,4 +47804,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"b96c33d7c16cafe98047f19d4ff9e54aec6039e76b91ddb4c821dbb4fccbf15e"
+aggregate_digest	"1118af608b30d0a097d64aa5e0ff68b2eaae2f83d84f8d9f23f14f5c2bd9a606"

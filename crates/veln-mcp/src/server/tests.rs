@@ -457,7 +457,13 @@ fn definition_rejects_paths_and_changed_workspace_identity() {
     let result = server.definition_tool(&json!({"source":"main.veln","line":2,"column":4}));
     assert_eq!(result["isError"], true);
     assert_eq!(result["structuredContent"]["code"], "snapshot_changed");
-    assert!(result["structuredContent"]["definition"].is_null());
+    assert!(
+        result["structuredContent"]
+            .as_object()
+            .unwrap()
+            .get("definition")
+            .is_none()
+    );
 }
 
 #[cfg(unix)]

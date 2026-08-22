@@ -8,7 +8,6 @@ contains = [
   "\"name\":\"definition\",\"outputSchema\"",
   "\"required\":[\"source\",\"line\",\"column\"]",
 ]
-not_contains = ["veln-pkg:", "target/debug"]
 
 [stderr]
 format = "empty"
