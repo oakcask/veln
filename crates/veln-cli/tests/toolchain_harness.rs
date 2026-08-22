@@ -7829,7 +7829,7 @@ fn decoded_mcp_jsonl_assertions_cover_success_matrix() {
     fs::write(root.join("main file.veln"), "").expect("workspace file should be written");
     let uri = path_to_file_uri(&root.join("main file.veln").canonicalize().unwrap());
     let stdout = format!(
-        "{{\"jsonrpc\":\"2.0\",\"id\":\"alpha\",\"result\":{{\"value\":{{\"a/b\":\"slash\",\"m~n\":\"tilde\"}},\"items\":[\"first\",\"second\"],\"uri\":\"{uri}\",\"decimal\":1.0,\"exponent\":1e0}}}}\n{{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{{\"object\":{{\"z\":1,\"a\":2}}}}}}\n"
+        "{{\"jsonrpc\":\"2.0\",\"id\":\"alpha\",\"result\":{{\"value\":{{\"a/b\":\"slash\",\"m~n\":\"tilde\"}},\"items\":[\"first\",\"second\"],\"uri\":\"{uri}\",\"decimal\":1.0,\"exponent\":1e0}}}}\n{{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{{\"object\":{{\"z\":1,\"a\":2}}}}}}\n{{\"jsonrpc\":\"2.0\",\"id\":9223372036854775808,\"result\":{{\"selected\":\"wide\"}}}}\n"
     );
     let source = r#"command = ["mcp"]
 exit = 0
@@ -7869,6 +7869,10 @@ equals = 1e0
 id = 2
 path = "/result/object"
 equals = {"a":2,"z":1}
+[[mcp_assert]]
+id = 9223372036854775808
+path = "/result/selected"
+equals = "wide"
 "#;
     let assertions = parse_manifest(&root.join("case.toml"), source)
         .expectations
