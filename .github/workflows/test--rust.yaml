@@ -15,6 +15,7 @@ on:
       - crates/**/*.rs
       - tools/**/Cargo.toml
       - tools/**/*.rs
+      - workflow-scripts/plan-nextest-shards.mjs
   pull_request:
     paths:
       - .github/workflows/test--rust.yaml
@@ -27,8 +28,10 @@ on:
       - crates/**/*.rs
       - tools/**/Cargo.toml
       - tools/**/*.rs
+      - workflow-scripts/plan-nextest-shards.mjs
 
 permissions:
+  actions: read
   contents: read
 
 env:
@@ -36,9 +39,25 @@ env:
   CARGO_INCREMENTAL: "0"
   # renovate: datasource=github-releases depName=nextest-rs/nextest versioning=semver extractVersion=^cargo-nextest-(?<version>.*)$
   NEXTEST_VERSION: "0.9.140"
-  NEXTEST_SHARDS: "4"
+  # Keep test execution near twice the clean-build cost so extra shards still repay their build overhead.
+  NEXTEST_TARGET_SECONDS: "90"
+  NEXTEST_FALLBACK_SHARDS: "4"
+  NEXTEST_MAX_SHARDS: "16"
 
 jobs:
+  plan-test-shards:
+    runs-on: ubuntu-latest
+    outputs:
+      shard_count: ${{ steps.plan.outputs.shard_count }}
+      shards: ${{ steps.plan.outputs.shards }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Plan Rust test shards
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node workflow-scripts/plan-nextest-shards.mjs
+
   seed-cache:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -52,11 +71,12 @@ jobs:
 
   test:
     name: test shard ${{ matrix.shard }}
+    needs: plan-test-shards
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: ${{ fromJSON(needs.plan-test-shards.outputs.shards) }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - name: Run Rust tests
@@ -64,7 +84,7 @@ jobs:
         with:
           nextest-version: ${{ env.NEXTEST_VERSION }}
           shard: ${{ matrix.shard }}
-          shard-count: ${{ env.NEXTEST_SHARDS }}
+          shard-count: ${{ needs.plan-test-shards.outputs.shard_count }}
 
   doc-test:
     runs-on: ubuntu-latest

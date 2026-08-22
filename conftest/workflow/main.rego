@@ -147,3 +147,16 @@ deny contains msg if {
     event_name,
   ])
 }
+
+deny contains msg if {
+  some job_name
+  job := input.jobs[job_name]
+  some step_index, step in object.get(job, "steps", [])
+  script := object.get(step, "run", "")
+  regex.match(`(?m)^[\t ]*(if|for|while|until|case|select|foreach|switch)([\t (]|$)`, script)
+  step_name := object.get(step, "name", sprintf("#%d", [step_index + 1]))
+  msg := sprintf("move shell control flow from step %q in job %q into a tested repository script so branch and loop behavior is covered by tests", [
+    step_name,
+    job_name,
+  ])
+}

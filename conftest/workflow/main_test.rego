@@ -14,6 +14,21 @@ workflow_with(paths, uses) := {
   },
 }
 
+workflow_with_run(run) := {
+  "name": "test / inline shell",
+  "on": {"pull_request": {}},
+  "permissions": {"contents": "read"},
+  "jobs": {
+    "test": {
+      "runs-on": "ubuntu-latest",
+      "steps": [{
+        "name": "Prepare reports",
+        "run": run,
+      }],
+    },
+  },
+}
+
 test_accepts_exact_local_action_manifest_in_filtered_trigger if {
   violations := deny with input as workflow_with(
     [".github/workflows/test--local-action.yaml", "actions/example/action.yaml"],
@@ -86,4 +101,26 @@ test_accepts_local_action_without_path_filter if {
   }
   violations := deny with input as unfiltered
   count(violations) == 0
+}
+
+test_accepts_multiline_commands_without_shell_control_flow if {
+  violations := deny with input as workflow_with_run(`set -euo pipefail
+cargo run --locked -p veln-repo-metrics -- \
+  --format json \
+  crates tools`)
+  count(violations) == 0
+}
+
+test_rejects_inline_shell_branch if {
+  violations := deny with input as workflow_with_run(`if gh run list; then
+  echo "history available"
+fi`)
+  violations["move shell control flow from step \"Prepare reports\" in job \"test\" into a tested repository script so branch and loop behavior is covered by tests"]
+}
+
+test_rejects_inline_shell_loop if {
+  violations := deny with input as workflow_with_run(`for shard in 1 2 3 4; do
+  echo "${shard}"
+done`)
+  violations["move shell control flow from step \"Prepare reports\" in job \"test\" into a tested repository script so branch and loop behavior is covered by tests"]
 }
