@@ -3219,9 +3219,7 @@ impl<'a> ManifestParser<'a> {
                     }))
             }
             "contains" => {
-                self.json_assertions[index].operation_count += 1;
-                self.json_assertions[index].operation = Some("contains");
-                self.json_assertions[index].contains = Some(parse_string(self.path, value));
+                record_json_contains_assertion(&mut self.json_assertions[index], self.path, value);
             }
             "missing" => {
                 self.json_assertions[index].operation_count += 1;
@@ -3275,9 +3273,11 @@ impl<'a> ManifestParser<'a> {
                     }))
             }
             "contains" => {
-                self.result_value_assertions[index].operation_count += 1;
-                self.result_value_assertions[index].operation = Some("contains");
-                self.result_value_assertions[index].contains = Some(parse_string(self.path, value));
+                record_result_value_contains_assertion(
+                    &mut self.result_value_assertions[index],
+                    self.path,
+                    value,
+                );
             }
             "missing" => {
                 self.result_value_assertions[index].operation_count += 1;
@@ -3405,10 +3405,7 @@ impl<'a> ManifestParser<'a> {
                 ));
             }
             "contains" => {
-                assertion.operation_count += 1;
-                assertion.operation = Some(McpAssertionOperation::Contains(parse_string(
-                    self.path, value,
-                )));
+                record_mcp_contains_assertion(assertion, self.path, value);
             }
             "length" => {
                 assertion.operation_count += 1;
@@ -4093,6 +4090,35 @@ fn parse_stream_key(
             .extend(case_text_cache.read_many(path, value)),
         _ => manifest_error(path, line_number, format!("unknown stream key `{key}`")),
     }
+}
+
+fn record_json_contains_assertion(
+    assertion: &mut JsonAssertion,
+    path: &Path,
+    value: &ManifestValue<'_>,
+) {
+    assertion.operation_count += 1;
+    assertion.operation = Some("contains");
+    assertion.contains = Some(parse_string(path, value));
+}
+
+fn record_result_value_contains_assertion(
+    assertion: &mut ResultValueAssertion,
+    path: &Path,
+    value: &ManifestValue<'_>,
+) {
+    assertion.operation_count += 1;
+    assertion.operation = Some("contains");
+    assertion.contains = Some(parse_string(path, value));
+}
+
+fn record_mcp_contains_assertion(
+    assertion: &mut McpAssertion,
+    path: &Path,
+    value: &ManifestValue<'_>,
+) {
+    assertion.operation_count += 1;
+    assertion.operation = Some(McpAssertionOperation::Contains(parse_string(path, value)));
 }
 
 #[derive(Debug, Default)]
@@ -7654,13 +7680,16 @@ contains = "needle"
     }
 }
 
-#[test]
-fn contains_evaluation_covers_success_and_failures_through_every_adapter() {
-    let context = CaseRunContext {
+fn contains_adapter_context() -> CaseRunContext<'static> {
+    CaseRunContext {
         case_dir: Path::new("contains-adapters"),
         run_number: 1,
-    };
+    }
+}
 
+#[test]
+fn json_contains_evaluation_covers_success_and_failure_classes() {
+    let context = contains_adapter_context();
     let json =
         parse_json(r#"{"text":"alpha beta","number":1}"#).expect("JSON adapter input should parse");
     let json_manifest = parse_manifest(
@@ -7701,7 +7730,11 @@ contains = "x"
         .expect_err("JSON contains assertion should fail");
         assert!(panic_message(panic).contains(expected));
     }
+}
 
+#[test]
+fn result_value_contains_evaluation_covers_success_and_failure_classes() {
+    let context = contains_adapter_context();
     let rendered = parse_json(r#"{"rendered":"ByteOffset(2)"}"#)
         .expect("result-value adapter input should parse");
     let result_manifest = parse_manifest(
@@ -7746,7 +7779,10 @@ contains = "x"
         .expect_err("result-value contains assertion should fail");
         assert!(panic_message(panic).contains(expected));
     }
+}
 
+#[test]
+fn lsp_contains_evaluation_covers_success_and_failure_classes() {
     let lsp_messages = decode_lsp_stdout(&lsp_frame(
         r#"{"jsonrpc":"2.0","id":1,"result":{"text":"alpha beta","number":1}}"#,
     ))
@@ -7783,7 +7819,10 @@ contains = "x"
             .expect_err("LSP contains assertion should fail");
         assert!(error.contains(expected));
     }
+}
 
+#[test]
+fn mcp_contains_evaluation_covers_success_and_failure_classes() {
     let mcp_messages = decode_mcp_stdout(
         r#"{"jsonrpc":"2.0","id":1,"result":{"text":"alpha beta","number":1}}
 "#,
