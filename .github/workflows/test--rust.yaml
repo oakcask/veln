@@ -7,7 +7,8 @@ on:
     paths:
       - .github/workflows/test--rust.yaml
       - .config/nextest.toml
-      - actions/**/*.yaml
+      - actions/cargo-dependencies/action.yaml
+      - actions/nextest/action.yaml
       - Cargo.lock
       - Cargo.toml
       - crates/**/Cargo.toml
@@ -18,7 +19,8 @@ on:
     paths:
       - .github/workflows/test--rust.yaml
       - .config/nextest.toml
-      - actions/**/*.yaml
+      - actions/cargo-dependencies/action.yaml
+      - actions/nextest/action.yaml
       - Cargo.lock
       - Cargo.toml
       - crates/**/Cargo.toml
