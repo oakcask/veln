@@ -10,6 +10,7 @@ on:
       - AGENTS.md
       - docs/**/*.md
       - scripts/agent-test
+      - .github/workflows/test--rust.yaml
       - workflow-scripts/**/*.mjs
   pull_request:
     paths:
@@ -18,6 +19,7 @@ on:
       - AGENTS.md
       - docs/**/*.md
       - scripts/agent-test
+      - .github/workflows/test--rust.yaml
       - workflow-scripts/**/*.mjs
 
 permissions:
