@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/test--rust.yaml
       - .config/nextest.toml
+      - actions/nextest/action.yaml
       - Cargo.lock
       - Cargo.toml
       - crates/**/Cargo.toml
@@ -17,6 +18,7 @@ on:
     paths:
       - .github/workflows/test--rust.yaml
       - .config/nextest.toml
+      - actions/nextest/action.yaml
       - Cargo.lock
       - Cargo.toml
       - crates/**/Cargo.toml
@@ -84,31 +86,12 @@ jobs:
         shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-      - name: Restore cargo-nextest cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: ~/.cargo/bin/cargo-nextest
-          key: cargo-nextest-${{ runner.os }}-${{ env.NEXTEST_VERSION }}
-      - name: Restore Cargo dependency cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: cargo-dependencies-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
-      - name: Install cargo-nextest
-        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2
-        with:
-          tool: cargo-nextest@${{ env.NEXTEST_VERSION }}
       - name: Run Rust tests
-        run: cargo nextest run --locked --workspace --profile ci --partition count:${{ matrix.shard }}/${{ env.NEXTEST_SHARDS }}
-      - name: Upload nextest JUnit report
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: ./actions/nextest
         with:
-          name: nextest-junit-${{ matrix.shard }}
-          path: target/nextest/ci/junit.xml
-          if-no-files-found: error
+          nextest-version: ${{ env.NEXTEST_VERSION }}
+          shard: ${{ matrix.shard }}
+          shard-count: ${{ env.NEXTEST_SHARDS }}
 
   doc-test:
     runs-on: ubuntu-latest
