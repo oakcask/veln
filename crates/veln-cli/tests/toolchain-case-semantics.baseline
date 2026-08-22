@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"49182fefcb24a00f0ffd7b3e093506d7e6919c6f"
+source_git_tree	"1266c7cbc754864fb33716276f106ef195e6221d"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1512
@@ -10249,17 +10249,17 @@ field	expectations.lsp_assertions[2].method	"textDocument/publishDiagnostics"
 field	expectations.lsp_assertions[2].occurrence	1
 field	expectations.lsp_assertions[2].operation	"equals"
 field	expectations.lsp_assertions[2].path	"/params/diagnostics"
-field	expectations.lsp_assertions[3].equals	null
+field	expectations.lsp_assertions[3].equals	{"id":2,"jsonrpc":"2.0","result":null}
 field	expectations.lsp_assertions[3].id	2
 field	expectations.lsp_assertions[3].operation	"equals"
-field	expectations.lsp_assertions[3].path	"/result"
+field	expectations.lsp_assertions[3].path	""
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":571,"sha256":"9a65346dfa3bd9006f05f199db8f8ef63481720dd25b4563b457afea51f2a917"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"forbidden"
-case_digest	"ca69c6756b2f0e3806c292ee55e0de5878dad8e764ef73729f139c082649e366"
+case_digest	"643b4650558955aa37d3794c10854cf747dcf9c4d205993d26ee2759b7bd05c0"
 case	"examples/specification/lsp/reexported-constructor-bare-prelude-definition"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47651,9 +47651,9 @@ field	expectations.result_value_assertions[3].equals	"RuntimeByteDiagnostic"
 field	expectations.result_value_assertions[3].operation	"equals"
 field	expectations.result_value_assertions[3].path	"value.detail.constructor"
 field	expectations.result_value_assertions[3].value_path	"cases.0.failure.details.value"
-field	expectations.result_value_assertions[4].equals	2
+field	expectations.result_value_assertions[4].equals	{"constructor":"ByteOffset","value":2}
 field	expectations.result_value_assertions[4].operation	"equals"
-field	expectations.result_value_assertions[4].path	"value.detail.byte_offset.value"
+field	expectations.result_value_assertions[4].path	"value.detail.byte_offset"
 field	expectations.result_value_assertions[4].value_path	"cases.0.failure.details.value"
 field	expectations.result_value_assertions[5].equals	"schema"
 field	expectations.result_value_assertions[5].operation	"equals"
@@ -47682,7 +47682,7 @@ field	invocation.command[1]	"--json"
 field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
-case_digest	"4d24677ef8073d63ebbd5a841fa20aa3757058b253da54036c867ab5550f69c4"
+case_digest	"26163f04e73151e89592f95bd8fbc4f53db49d5fc9c6885bf7fb8aeb6783bbdc"
 case	"examples/specification/test/source-to-test-convention"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -47846,4 +47846,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"7ca96d32a2ffdee0466bd58e1008b3a1c5e826ecc596738a9d6e91c80856ae32"
+aggregate_digest	"17b8de3c6384bef6115a7e6f162f88bc9536b5dd0221b4b7591bc40588e18982"

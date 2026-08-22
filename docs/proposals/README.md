@@ -18,8 +18,8 @@ also states it.
 
 ## Ready
 
-- Common JSON assertion operations and equality semantics across the toolchain
-  harness:
+- Remaining common JSON assertion operations across the toolchain harness,
+  building on the implemented shared equality semantics:
   [toolchain-json-assertion-parity.md](toolchain-json-assertion-parity.md).
 - Recovery-aware casing for source-written declarations and bindings, including
   the existing `run` reachability boundary:

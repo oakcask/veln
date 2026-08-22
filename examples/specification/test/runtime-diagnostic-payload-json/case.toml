@@ -76,7 +76,7 @@ equals = 2
 
 [[json_assert]]
 path = "cases.0.failure.details.byte_diagnostic.field_path"
-equals = [{"kind":"schema","name":"Payload"},{"kind":"field","name":"body"}]
+equals_json_file = "case-text/field-path.json"
 
 [[json_assert]]
 path = "cases.0.failure.details.byte_diagnostic.expected_count"
@@ -132,8 +132,8 @@ equals = "RuntimeByteDiagnostic"
 
 [[result_value_assert]]
 value_path = "cases.0.failure.details.value"
-path = "value.detail.byte_offset.value"
-equals = 2
+path = "value.detail.byte_offset"
+equals = {"value":2,"constructor":"ByteOffset"}
 
 [[result_value_assert]]
 value_path = "cases.0.failure.details.value"
