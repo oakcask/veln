@@ -189,8 +189,9 @@ Each MCP assertion declares exactly one of `equals`, `length`,
 `workspace_file_uri`, or `missing = true`. `equals` compares the complete
 selected JSON value. Object member order is ignored. Array order and length
 are significant. Strings, booleans, null, and integers compare by decoded
-value. Other numbers compare by their JSON spelling. `length` requires a JSON
-array at the selected path and checks its exact element count.
+value. Other numbers compare by their JSON spelling, so `1` is distinct from
+`1.0`. `length` requires a JSON array at the selected path and checks its
+exact element count.
 `workspace_file_uri` requires a JSON string at the selected path and compares
 it with the canonical `file:` URI for one existing regular
 workspace-relative file in the copied case project. The operand rejects
@@ -276,6 +277,9 @@ semantic checks inside JSON stdout. JSON and result-value assertions accept
 `equals_file` compares the selected JSON value as a string and never reparses
 the sidecar as JSON. `equals_json_file` parses the sidecar as JSON before the
 comparison.
+Inline JSON values in `equals` for non-MCP JSON assertions must use integer
+number tokens. Decimal or exponent number tokens are rejected anywhere in the
+inline value.
 `[[result_value_assert]]` reads a rendered result-failure value string from
 `value_path`, wraps it as the outer `Err`, and then checks a parsed value path.
 Each JSON or result-value assertion must declare exactly one operation.

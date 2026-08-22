@@ -144,6 +144,8 @@ workspace-base identity checks, stable double capture, bounded retry, and
 lookup falls back from a selected outer project to anonymous single-file scope
 for a source below a descendant manifest, the ownership decision and the
 anonymous source bytes belong to the same stable capture attempt.
+`snapshot_changed` definition failures publish no success-only `definition`
+member.
 
 ## Executable Evidence
 
