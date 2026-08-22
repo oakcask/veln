@@ -42,8 +42,12 @@ The executable evidence is:
   declaration and binding classes;
 - `examples/specification/check/identifier-casing-diagnostics/` for exact
   spans and structured JSON; and
+- `examples/specification/check/identifier-casing-underscore-recovery/` for
+  underscore-led recovery without missing-name cascades;
 - `examples/specification/check/identifier-casing-human/` for primary human
-  diagnostics.
+  diagnostics; and
+- `examples/specification/run/identifier-casing-artifact-gate/` for the run
+  command gate before backend execution.
 
 Module names, use-site classification, alias target leaves, recovery
 navigation, rename, and source-less lookup descriptors are outside this

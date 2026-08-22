@@ -1,0 +1,26 @@
+type _option
+  _Some
+end
+
+pub type _alias = Option
+pub fn _Export = identity
+fn _build(_Argument: Int) -> _Result: Int
+  let _Local = _Argument
+  let {item: _nested} = {item: _Argument}
+  match _Argument
+    _arm => _Argument
+  end
+  _hole satisfy _Candidate => true
+end
+
+test _Check(_TestArgument: Int)
+  _TestArgument
+end
+
+effect Ask
+  value(input: Int) -> Int
+end
+
+handler ask(_Context: Int) handles Ask
+  value(_OperationArgument) => _OperationArgument
+end

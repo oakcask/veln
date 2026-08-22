@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"49182fefcb24a00f0ffd7b3e093506d7e6919c6f"
+source_git_tree	"e76d1f072d36d5fcdc352e970ed8d39d59ce07c6"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1516
+case_count	1518
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -5411,13 +5411,14 @@ case_digest	"af45c8120f1ed02128418f1ddaff7189a0b2f187e6ba6fcc14afe6797cddd434"
 case	"examples/specification/check/identifier-casing-accepted"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
-field	expectations.stdout.contains[0]	"ok"
+field	expectations.stdout.contains[0]	"hint[hole.unfilled]"
 field	expectations.stdout.format	"text"
+field	expectations.stdout.not_contains[0]	"name.invalid_case"
 field	invocation.command[0]	"check"
 field	invocation.command[1]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
-case_digest	"fe3707cad83f44bd160dc4d2b2cd781df5fd7148bab62860c8ee22fa864e46fe"
+case_digest	"5919c3841cd29176e4d11669ca30aa9966f6515d685f85e12f47119f397007d2"
 case	"examples/specification/check/identifier-casing-crlf-unicode"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"error"
@@ -5470,6 +5471,29 @@ field	invocation.command[1]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"b67b0bc0eb8797694583dfbb5a899866f49264c2ee13fab2ce67d4d155e1364c"
+case	"examples/specification/check/identifier-casing-underscore-recovery"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	15
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.json_assertions[2].equals	"name.invalid_case"
+field	expectations.json_assertions[2].operation	"equals"
+field	expectations.json_assertions[2].path	"diagnostics.0.id"
+field	expectations.json_assertions[3].equals	"name.invalid_case"
+field	expectations.json_assertions[3].operation	"equals"
+field	expectations.json_assertions[3].path	"diagnostics.14.id"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"parser.expected_name"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"91d3cd219ccceb85b275cea96a0254e09b2fbff6c5416f3886dffed72d7e1c88"
 case	"examples/specification/check/if-branch-callback-inference"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -37519,6 +37543,18 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"8c98ea54a0ab83b25e7dcc72838a368d5aef174441a204ab50d7976cde669b51"
+case	"examples/specification/run/identifier-casing-artifact-gate"
+field	expectations.exit	1
+field	expectations.stderr.contains[0]	"main.veln:1:4: error[name.invalid_case]: function name must start with an ASCII lowercase letter"
+field	expectations.stderr.format	"text"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"Main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+field	tools.java	"fake_success"
+case_digest	"c963bff5858a204371ea6e43c492d94d9fd71d7c0cc8150c640e000a9c2c7508"
 case	"examples/specification/run/implicit-prelude-imports"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -47908,4 +47944,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"f30f8f2008d9fea7e91f76d2af48af5936cb5e0233e16277fa96ef4e75fca229"
+aggregate_digest	"016b1ff9522589925237bf026d69b2ce5c53997ea36b9d9ef5ba930c98978318"

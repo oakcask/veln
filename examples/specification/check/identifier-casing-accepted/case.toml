@@ -3,7 +3,8 @@ exit = 0
 
 [stdout]
 format = "text"
-contains = ["ok"]
+contains = ["hint[hole.unfilled]"]
+not_contains = ["name.invalid_case"]
 
 [stderr]
 format = "empty"

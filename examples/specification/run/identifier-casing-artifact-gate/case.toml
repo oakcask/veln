@@ -1,0 +1,13 @@
+command = ["run", "Main", "main.veln"]
+exit = 1
+source_errors = "expected"
+
+[tools]
+java = "fake-success"
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["main.veln:1:4: error[name.invalid_case]: function name must start with an ASCII lowercase letter"]
