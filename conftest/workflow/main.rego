@@ -2,6 +2,15 @@ package main
 
 workflow_trigger := object.get(input, "on", object.get(input, "true", null))
 
+local_action_paths contains action_path if {
+  some job_name
+  job := input.jobs[job_name]
+  some step in object.get(job, "steps", [])
+  uses := object.get(step, "uses", "")
+  startswith(uses, "./actions/")
+  action_path := trim_prefix(uses, "./")
+}
+
 workflow_name_parts(name) := parts if {
   regex.match(`^[^/]+ / [^/]+$`, name)
   parts := split(name, " / ")
@@ -100,10 +109,41 @@ deny contains msg if {
 deny contains msg if {
   push := object.get(workflow_trigger, "push", null)
   pull_request := object.get(workflow_trigger, "pull_request", null)
+  push != null
+  pull_request != null
   push_paths := object.get(push, "paths", null)
   pull_request_paths := object.get(pull_request, "paths", null)
   push_paths != null
   pull_request_paths != null
   push_paths != pull_request_paths
   msg := "workflow push.paths and pull_request.paths must match"
+}
+
+deny contains msg if {
+  some event_name, event in workflow_trigger
+  paths := object.get(event, "paths", null)
+  paths != null
+  some action_path in local_action_paths
+  required_path := sprintf("%s/action.yaml", [action_path])
+  not required_path in paths
+  msg := sprintf("add %q to on.%s.paths because this workflow uses local action %q", [
+    required_path,
+    event_name,
+    sprintf("./%s", [action_path]),
+  ])
+}
+
+deny contains msg if {
+  count(local_action_paths) > 0
+  some event_name, event in workflow_trigger
+  paths := object.get(event, "paths", null)
+  paths != null
+  some path in paths
+  normalized_path := trim_prefix(path, "!")
+  startswith(normalized_path, "actions/")
+  contains(normalized_path, "*")
+  msg := sprintf("replace wildcard path %q in on.%s.paths with each exact local action.yaml path; wildcard custom-action trigger paths are not allowed", [
+    path,
+    event_name,
+  ])
 }
