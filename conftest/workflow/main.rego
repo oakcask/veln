@@ -109,6 +109,8 @@ deny contains msg if {
 deny contains msg if {
   push := object.get(workflow_trigger, "push", null)
   pull_request := object.get(workflow_trigger, "pull_request", null)
+  push != null
+  pull_request != null
   push_paths := object.get(push, "paths", null)
   pull_request_paths := object.get(pull_request, "paths", null)
   push_paths != null
