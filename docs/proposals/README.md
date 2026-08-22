@@ -18,6 +18,9 @@ also states it.
 
 ## Ready
 
+- Common JSON assertion operations and equality semantics across the toolchain
+  harness:
+  [toolchain-json-assertion-parity.md](toolchain-json-assertion-parity.md).
 - Identifier casing that separates type and constructor names from module,
   function, and value-binding names:
   [identifier-casing.md](identifier-casing.md).
