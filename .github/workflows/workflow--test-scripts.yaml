@@ -9,6 +9,7 @@ on:
       - .github/workflows/workflow--test-scripts.yaml
       - AGENTS.md
       - docs/**/*.md
+      - scripts/agent-test
       - workflow-scripts/**/*.mjs
   pull_request:
     paths:
@@ -16,6 +17,7 @@ on:
       - .github/workflows/workflow--test-scripts.yaml
       - AGENTS.md
       - docs/**/*.md
+      - scripts/agent-test
       - workflow-scripts/**/*.mjs
 
 permissions:
