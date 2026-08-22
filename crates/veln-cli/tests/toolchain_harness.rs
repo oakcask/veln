@@ -8029,6 +8029,224 @@ equals = [2,1]
 }
 
 #[test]
+fn ordered_json_arrays_succeed_and_length_mismatches_retain_adapter_context() {
+    let context = CaseRunContext {
+        case_dir: Path::new("json-array-length-adapters"),
+        run_number: 1,
+    };
+
+    let actual = parse_json(r#"{"selected":[1,2]}"#).expect("JSON adapter input should parse");
+    assert_json_path(
+        &context,
+        &actual,
+        &JsonAssertion {
+            path: "selected".to_string(),
+            equals: Some(parse_json("[1,2]").expect("JSON success expectation should parse")),
+            missing: None,
+            operation: Some("equals"),
+            operation_count: 1,
+        },
+    );
+    let panic = std::panic::catch_unwind(|| {
+        assert_json_path(
+            &context,
+            &actual,
+            &JsonAssertion {
+                path: "selected".to_string(),
+                equals: Some(parse_json("[1,2,3]").expect("JSON failure expectation should parse")),
+                missing: None,
+                operation: Some("equals"),
+                operation_count: 1,
+            },
+        )
+    })
+    .expect_err("JSON adapter should reject array length mismatch");
+    assert!(panic_message(panic).contains("JSON path `selected` mismatch"));
+
+    let rendered = parse_json(r#"{"rendered":"Cons(1, Cons(2, Nil))"}"#)
+        .expect("result-value adapter input should parse");
+    assert_result_value_path(
+        &context,
+        &rendered,
+        &ResultValueAssertion {
+            value_path: "rendered".to_string(),
+            path: "value".to_string(),
+            equals: Some(
+                parse_json("[1,2]").expect("result-value success expectation should parse"),
+            ),
+            missing: None,
+            operation: Some("equals"),
+            operation_count: 1,
+        },
+    );
+    let panic = std::panic::catch_unwind(|| {
+        assert_result_value_path(
+            &context,
+            &rendered,
+            &ResultValueAssertion {
+                value_path: "rendered".to_string(),
+                path: "value".to_string(),
+                equals: Some(
+                    parse_json("[1,2,3]").expect("result-value failure expectation should parse"),
+                ),
+                missing: None,
+                operation: Some("equals"),
+                operation_count: 1,
+            },
+        )
+    })
+    .expect_err("result-value adapter should reject array length mismatch");
+    assert!(panic_message(panic).contains("result value path `value` mismatch"));
+
+    let lsp_stdout = lsp_frame(r#"{"jsonrpc":"2.0","id":1,"result":[1,2]}"#);
+    let lsp_success = parsed_lsp_assertions(
+        r#"command = ["lsp"]
+exit = 0
+[[lsp_assert]]
+id = 1
+path = "/result"
+equals = [1,2]
+"#,
+    );
+    assert_lsp_assertions(&context, &lsp_stdout, &lsp_success);
+    let lsp_failure = parsed_lsp_assertions(
+        r#"command = ["lsp"]
+exit = 0
+[[lsp_assert]]
+id = 1
+path = "/result"
+equals = [1,2,3]
+"#,
+    );
+    let panic =
+        std::panic::catch_unwind(|| assert_lsp_assertions(&context, &lsp_stdout, &lsp_failure))
+            .expect_err("LSP adapter should reject array length mismatch");
+    let message = panic_message(panic);
+    assert!(message.contains("response id 1 path \"/result\""));
+    assert!(message.contains("value mismatch"));
+
+    let mcp_stdout = r#"{"jsonrpc":"2.0","id":1,"result":[1,2]}
+"#;
+    let mcp_success = parsed_mcp_assertions(
+        r#"command = ["mcp"]
+exit = 0
+[[mcp_assert]]
+id = 1
+path = "/result"
+equals = [1,2]
+"#,
+    );
+    assert_mcp_assertions(&context, mcp_stdout, &mcp_success, Path::new("."));
+    let mcp_failure = parsed_mcp_assertions(
+        r#"command = ["mcp"]
+exit = 0
+[[mcp_assert]]
+id = 1
+path = "/result"
+equals = [1,2,3]
+"#,
+    );
+    let panic = std::panic::catch_unwind(|| {
+        assert_mcp_assertions(&context, mcp_stdout, &mcp_failure, Path::new("."))
+    })
+    .expect_err("MCP adapter should reject array length mismatch");
+    let message = panic_message(panic);
+    assert!(message.contains("response id 1 path \"/result\""));
+    assert!(message.contains("value mismatch"));
+}
+
+#[test]
+fn kind_and_nested_json_mismatches_retain_adapter_context() {
+    let context = CaseRunContext {
+        case_dir: Path::new("json-kind-nested-adapters"),
+        run_number: 1,
+    };
+
+    let actual = parse_json(r#"{"selected":{"outer":{"nested":1}}}"#)
+        .expect("JSON adapter input should parse");
+    for expected in [r#""object""#, r#"{"outer":{"nested":2}}"#] {
+        let assertion = JsonAssertion {
+            path: "selected".to_string(),
+            equals: Some(parse_json(expected).expect("JSON expectation should parse")),
+            missing: None,
+            operation: Some("equals"),
+            operation_count: 1,
+        };
+        let panic = std::panic::catch_unwind(|| assert_json_path(&context, &actual, &assertion))
+            .expect_err("JSON adapter should reject mismatched value");
+        let message = panic_message(panic);
+        assert!(message.contains("JSON path `selected` mismatch"));
+        assert!(message.contains("value mismatch"));
+    }
+
+    let rendered = parse_json(r#"{"rendered":"ByteOffset(2)"}"#)
+        .expect("result-value adapter input should parse");
+    for expected in [
+        r#""ByteOffset""#,
+        r#"{"constructor":"ByteOffset","value":3}"#,
+    ] {
+        let assertion = ResultValueAssertion {
+            value_path: "rendered".to_string(),
+            path: "value".to_string(),
+            equals: Some(parse_json(expected).expect("result-value expectation should parse")),
+            missing: None,
+            operation: Some("equals"),
+            operation_count: 1,
+        };
+        let panic =
+            std::panic::catch_unwind(|| assert_result_value_path(&context, &rendered, &assertion))
+                .expect_err("result-value adapter should reject mismatched value");
+        let message = panic_message(panic);
+        assert!(message.contains("result value path `value` mismatch"));
+        assert!(message.contains("value mismatch"));
+    }
+
+    let lsp_stdout = lsp_frame(r#"{"jsonrpc":"2.0","id":1,"result":{"outer":{"nested":1}}}"#);
+    let lsp_failures = parsed_lsp_assertions(
+        r#"command = ["lsp"]
+exit = 0
+[[lsp_assert]]
+id = 1
+path = "/result"
+equals = "object"
+[[lsp_assert]]
+id = 1
+path = "/result"
+equals = {"outer":{"nested":2}}
+"#,
+    );
+    let panic =
+        std::panic::catch_unwind(|| assert_lsp_assertions(&context, &lsp_stdout, &lsp_failures))
+            .expect_err("LSP adapter should reject mismatched values");
+    let message = panic_message(panic);
+    assert!(message.contains("response id 1 path \"/result\""));
+    assert!(message.matches("value mismatch").count() >= 2);
+
+    let mcp_stdout = r#"{"jsonrpc":"2.0","id":1,"result":{"outer":{"nested":1}}}
+"#;
+    let mcp_failures = parsed_mcp_assertions(
+        r#"command = ["mcp"]
+exit = 0
+[[mcp_assert]]
+id = 1
+path = "/result"
+equals = "object"
+[[mcp_assert]]
+id = 1
+path = "/result"
+equals = {"outer":{"nested":2}}
+"#,
+    );
+    let panic = std::panic::catch_unwind(|| {
+        assert_mcp_assertions(&context, mcp_stdout, &mcp_failures, Path::new("."))
+    })
+    .expect_err("MCP adapter should reject mismatched values");
+    let message = panic_message(panic);
+    assert!(message.contains("response id 1 path \"/result\""));
+    assert!(message.matches("value mismatch").count() >= 2);
+}
+
+#[test]
 fn decoded_mcp_jsonl_assertions_cover_success_matrix() {
     let root = test_temp_root("mcp-jsonl");
     fs::write(root.join("main file.veln"), "").expect("workspace file should be written");
