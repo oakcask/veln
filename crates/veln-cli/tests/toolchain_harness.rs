@@ -7916,22 +7916,22 @@ fn json_number_spelling_matrix_runs_through_every_assertion_adapter() {
             "command = [\"mcp\"]\nexit = 0\n[[mcp_assert]]\nid = 1\npath = \"/result\"\nequals = {spelling}\n"
         ));
         assert_mcp_assertions(&context, &mcp_stdout, &mcp_assertion, Path::new("."));
-    }
 
-    let rendered =
-        parse_json(r#"{"rendered":"1"}"#).expect("result-value adapter input should parse");
-    assert_result_value_path(
-        &context,
-        &rendered,
-        &ResultValueAssertion {
-            value_path: "rendered".to_string(),
-            path: "value".to_string(),
-            equals: Some(parse_json("1").expect("result-value integer expectation should parse")),
-            missing: None,
-            operation: Some("equals"),
-            operation_count: 1,
-        },
-    );
+        let rendered = parse_json(&format!(r#"{{"rendered":"{spelling}"}}"#))
+            .expect("result-value adapter input should parse");
+        assert_result_value_path(
+            &context,
+            &rendered,
+            &ResultValueAssertion {
+                value_path: "rendered".to_string(),
+                path: "value".to_string(),
+                equals: Some(parse_json(spelling).expect("result-value expectation should parse")),
+                missing: None,
+                operation: Some("equals"),
+                operation_count: 1,
+            },
+        );
+    }
 
     for (actual, expected) in [
         ("1", "1.0"),
@@ -7978,9 +7978,9 @@ fn json_number_spelling_matrix_runs_through_every_assertion_adapter() {
         let message = panic_message(panic);
         assert!(message.contains("response id 1 path \"/result\""));
         assert!(message.contains("value mismatch"));
-    }
 
-    for expected in ["1.0", "1e0"] {
+        let rendered = parse_json(&format!(r#"{{"rendered":"{actual}"}}"#))
+            .expect("result-value adapter input should parse");
         let assertion = ResultValueAssertion {
             value_path: "rendered".to_string(),
             path: "value".to_string(),
@@ -11758,11 +11758,20 @@ fn parse_veln_atom(text: &str) -> JsonValue {
     match text {
         "true" => JsonValue::Bool(true),
         "false" => JsonValue::Bool(false),
-        _ => text
-            .parse::<i64>()
-            .map(JsonValue::Number)
-            .unwrap_or_else(|_| JsonValue::String(text.to_string())),
+        _ => parse_veln_number_atom(text).unwrap_or_else(|| JsonValue::String(text.to_string())),
     }
+}
+
+fn parse_veln_number_atom(text: &str) -> Option<JsonValue> {
+    let JsonValue::Decimal(raw) = parse_json(text).ok()? else {
+        return None;
+    };
+    if let Ok(value) = raw.parse::<i64>() {
+        if value.to_string() == raw {
+            return Some(JsonValue::Number(value));
+        }
+    }
+    Some(JsonValue::Decimal(raw))
 }
 
 fn parse_veln_nonnegative_integer(name: &str, text: &str) -> Result<JsonValue, String> {
