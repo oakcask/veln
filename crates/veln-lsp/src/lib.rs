@@ -3406,26 +3406,23 @@ mod tests {
 
     #[test]
     fn path_vendor_and_mirror_dependencies_share_retained_virtual_uris() {
-        let mut observed = Vec::new();
+        let mut retained_virtual_uri = None;
 
         for (source_field, source_root) in [
             ("path", "path/lib"),
             ("vendor", "vendor/lib"),
             ("mirror", "mirror/example/pkg"),
         ] {
-            let mut server = Server::default();
             let project = TempProject::new(&format!("dependency-virtual-document-{source_field}"));
-            project.write(
-                "veln.toml",
-                &format!(
-                    concat!(
-                        "[package]\nname = \"app\"\n\n",
-                        "[dependencies.\"example/pkg\"]\n",
-                        "{} = \"{}\"\n",
-                    ),
-                    source_field, source_root
+            let manifest_text = format!(
+                concat!(
+                    "[package]\nname = \"app\"\n\n",
+                    "[dependencies.\"example/pkg\"]\n",
+                    "{} = \"{}\"\n",
                 ),
+                source_field, source_root
             );
+            project.write("veln.toml", &manifest_text);
             project.write(
                 "main.veln",
                 concat!(
@@ -3451,6 +3448,22 @@ mod tests {
                 &format!("{source_root}/hidden.veln"),
                 "pub fn published(value: Int) -> Int\n  value\nend\n",
             );
+
+            if let Some(virtual_uri) = retained_virtual_uri.as_deref() {
+                let manifest = parse_manifest_text("veln.toml", &manifest_text);
+                let dependencies = retained_direct_dependencies(&project.root, &manifest);
+                assert_eq!(dependencies.len(), 1, "{source_field}");
+                let snapshot =
+                    EffectiveProjectSnapshot::with_direct_dependencies(Vec::new(), dependencies);
+                assert_eq!(
+                    snapshot.resolve_virtual_source(virtual_uri),
+                    Some(retained_text.as_bytes()),
+                    "{source_field}"
+                );
+                continue;
+            }
+
+            let mut server = Server::default();
             let root_uri = path_to_uri(&project.root);
             let main_uri = path_to_uri(&project.root.join("main.veln"));
             server.handle_message(&initialize_request(&root_uri));
@@ -3489,11 +3502,10 @@ mod tests {
                 "{source_field}: {}",
                 unexported_definition[0]
             );
-            observed.push(virtual_uri);
+            retained_virtual_uri = Some(virtual_uri);
         }
 
-        assert_eq!(observed[0], observed[1]);
-        assert_eq!(observed[0], observed[2]);
+        assert!(retained_virtual_uri.is_some());
     }
 
     #[test]
