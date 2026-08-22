@@ -283,9 +283,11 @@ semantic checks inside JSON stdout. JSON and result-value assertions accept
 `equals_file` compares the selected JSON value as a string and never reparses
 the sidecar as JSON. `equals_json_file` parses the sidecar as JSON before the
 comparison.
-Inline JSON values in `equals` for non-MCP JSON assertions must use integer
-number tokens. Decimal or exponent number tokens are rejected anywhere in the
-inline value.
+Inline scalar JSON number values in `equals` for non-MCP JSON assertions must
+use integer number tokens. Decimal or exponent number tokens are rejected when
+the complete inline value is that scalar number. Decimal and exponent number
+tokens inside inline JSON arrays or objects are preserved by their JSON
+spelling.
 `[[result_value_assert]]` reads a rendered result-failure value string from
 `value_path`, wraps it as the outer `Err`, and then checks a parsed value path.
 Each JSON or result-value assertion must declare exactly one operation.
