@@ -144,6 +144,8 @@ workspace-base identity checks, stable double capture, bounded retry, and
 lookup falls back from a selected outer project to anonymous single-file scope
 for a source below a descendant manifest, the ownership decision and the
 anonymous source bytes belong to the same stable capture attempt.
+`snapshot_changed` definition failures publish no success-only `definition`
+member.
 
 ## Executable Evidence
 
@@ -161,7 +163,9 @@ The `definition-workspace` MCP specification case checks the advertised
 `definition` declaration plus representative definition, no-definition,
 decimal and exponent integer coordinate spellings, and invalid-position
 results plus non-integer decimal and negative-exponent coordinate schema
-rejection over stdio.
+rejection over stdio. Its response-local assertions bind response IDs 3
+through 11 to the expected JSON-RPC result, error, location, cardinality, and
+absence observations.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous

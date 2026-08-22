@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: normative
-update-when: The CLI integration harness discovery inventory, manifest grammar, structured JSON-RPC input validation or fixture diagnostics, assertion model, semantic case baseline, manifest authoring policy, case-text fixture sidecar convention, or source-error guard evidence changes.
+update-when: The CLI integration harness discovery inventory, manifest grammar, structured JSON-RPC input validation, decoded MCP JSONL output assertion model, fixture diagnostics, semantic case baseline, manifest authoring policy, case-text fixture sidecar convention, or source-error guard evidence changes.
 ---
 
 # Toolchain Test Harness
@@ -77,7 +77,7 @@ assertions, diagnostic selectors, and file content assertions.
   `[skip]`.
 - Observable command results: `exit`, `[stdout]`, `[stderr]`,
   `[help]`, `[[json_assert]]`, `[[result_value_assert]]`,
-  `[[lsp_assert]]`, `[[diagnostics]]`, `[[file_assert]]`,
+  `[[lsp_assert]]`, `[[mcp_assert]]`, `[[diagnostics]]`, `[[file_assert]]`,
   `[[binary_fixture]]`, and `[[output_chunk_list]]`.
 - Manifest-failure checks: `[manifest_error]`.
 - External tool setup: `[tools] java = "missing"`, `"fake-success"`, or
@@ -171,6 +171,39 @@ the behavior under test is the newline-delimited stdio protocol itself. Keep
 those fixtures as ordinary `case-text/` files when LF-normalized JSON lines are
 the intended observable bytes.
 
+Use repeatable `[[mcp_assert]]` sections to check decoded newline-delimited
+JSON-RPC responses from `veln mcp` stdout. Each nonempty stdout line must
+decode as one JSON object. Malformed JSON and non-object lines fail decoded MCP
+assertions before any response-local assertion runs. Each assertion selects
+exactly one response by `id`, where the manifest value must be a JSON string or
+syntactically integer JSON number. Integer selector IDs are accepted even when
+their token is outside the harness `i64` storage range. Non-integer decimal and
+exponent number tokens are not selector IDs. A missing selected ID fails. More
+than one response with the selected ID fails. Other response IDs can be present
+in the same stream.
+
+Each MCP assertion declares `path` as an RFC 6901 JSON Pointer. The empty
+pointer selects the complete response. A nonempty pointer must start with `/`.
+The pointer escape sequences `~0` and `~1` decode to `~` and `/`. A missing
+path can satisfy only `missing = true`; invalid traversal through a scalar or
+noncanonical array index fails.
+
+Each MCP assertion declares exactly one of `equals`, `length`,
+`workspace_file_uri`, or `missing = true`. `equals` compares the complete
+selected JSON value. Object member order is ignored. Array order and length
+are significant. Strings, booleans, null, and integers compare by decoded
+value. Other numbers compare by their JSON spelling, so `1` is distinct from
+`1.0`. `length` requires a JSON array at the selected path and checks its
+exact element count.
+`workspace_file_uri` requires a JSON string at the selected path and compares
+it with the canonical `file:` URI for one existing regular
+workspace-relative file in the copied case project. The URI spelling matches
+the `definition` MCP producer, including percent-encoding native non-Unix path
+separators instead of normalizing them to `/`. The operand rejects absolute
+paths, empty paths, `.`, `..`, empty segments, backslashes, symbolic links,
+Windows reparse points and other link-like path components, non-file entries,
+and canonical paths that leave the workspace root.
+
 Use `stdin_jsonrpc_file` for an ordered UTF-8 JSON array of JSON-RPC requests
 and notifications. It is mutually exclusive with `stdin` and `stdin_file`.
 Each array element must be an object. Its `jsonrpc` member must be `"2.0"`.
@@ -237,12 +270,24 @@ values, non-empty and cleared diagnostic notifications, complete semantic
 token data, and shutdown responses. Raw LSP cases remain only where protocol
 framing or an as-yet-unmigrated representation is still part of the fixture.
 
+The `decoded_mcp_jsonl_*` and `manifest_mcp_assertions_*` tests in
+`toolchain_harness.rs` cover MCP JSONL decoding, ID selection, pointer
+escaping, equality, ordered arrays, length, missing paths, dynamic workspace
+URIs, and rejection boundaries. The `definition-workspace` MCP specification
+case uses decoded MCP assertions for response IDs 3 through 11 and keeps raw
+stdout fragments only for incidental initialization and tool discovery text.
+
 Use `[[json_assert]]`, `[[result_value_assert]]`, and `[[diagnostics]]` for
 semantic checks inside JSON stdout. JSON and result-value assertions accept
 `equals`, `equals_file`, `equals_json_file`, or `missing = true`.
 `equals_file` compares the selected JSON value as a string and never reparses
 the sidecar as JSON. `equals_json_file` parses the sidecar as JSON before the
 comparison.
+Inline scalar JSON number values in `equals` for non-MCP JSON assertions must
+use integer number tokens. Decimal or exponent number tokens are rejected when
+the complete inline value is that scalar number. Decimal and exponent number
+tokens inside inline JSON arrays or objects are preserved by their JSON
+spelling.
 `[[result_value_assert]]` reads a rendered result-failure value string from
 `value_path`, wraps it as the outer `Err`, and then checks a parsed value path.
 Each JSON or result-value assertion must declare exactly one operation.

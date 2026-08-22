@@ -78,6 +78,8 @@ under `../../specification/` and its executable example routes.
   [companion-test-modules.md](companion-test-modules.md).
 - Agent module, package, and documentation model:
   [agent-module-package-docs.md](agent-module-package-docs.md).
+- Agent language services slice closure:
+  [agent-language-services-slice-closure.md](agent-language-services-slice-closure.md).
 - Self-hosting standard library:
   [self-hosting-standard-library.md](self-hosting-standard-library.md).
 - Standard library package:

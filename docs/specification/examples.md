@@ -167,5 +167,6 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   workspace sources:
   `../../examples/specification/mcp/anonymous-single-file-isolation/`.
 - MCP saved workspace `definition` tool schema advertising, declaration
-  location, no-definition, and invalid-position results:
+  location, no-definition, numeric coordinate spellings, invalid-position and
+  schema-rejection results, and response-local assertion coverage:
   `../../examples/specification/mcp/definition-workspace/`.

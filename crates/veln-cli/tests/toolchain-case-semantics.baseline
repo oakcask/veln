@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"b30c39c5809850a5d3cba45216f198852acf4ddd"
+source_git_tree	"49182fefcb24a00f0ffd7b3e093506d7e6919c6f"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1512
@@ -10407,26 +10407,159 @@ field	source_errors	"forbidden"
 case_digest	"eb78983618a2e68fb34c7ef35a89977a4162f2ec83efbdc5208538932580725d"
 case	"examples/specification/mcp/definition-workspace"
 field	expectations.exit	0
+field	expectations.mcp_assertions[0].id	3
+field	expectations.mcp_assertions[0].operation	"workspace_file_uri"
+field	expectations.mcp_assertions[0].path	"/result/structuredContent/definition/uri"
+field	expectations.mcp_assertions[0].workspace_file_uri	"main.veln"
+field	expectations.mcp_assertions[10].equals	true
+field	expectations.mcp_assertions[10].id	5
+field	expectations.mcp_assertions[10].operation	"equals"
+field	expectations.mcp_assertions[10].path	"/result/isError"
+field	expectations.mcp_assertions[11].id	5
+field	expectations.mcp_assertions[11].operation	"missing"
+field	expectations.mcp_assertions[11].path	"/result/structuredContent/definition"
+field	expectations.mcp_assertions[12].id	5
+field	expectations.mcp_assertions[12].operation	"missing"
+field	expectations.mcp_assertions[12].path	"/error"
+field	expectations.mcp_assertions[13].id	6
+field	expectations.mcp_assertions[13].operation	"workspace_file_uri"
+field	expectations.mcp_assertions[13].path	"/result/structuredContent/definition/uri"
+field	expectations.mcp_assertions[13].workspace_file_uri	"main.veln"
+field	expectations.mcp_assertions[14].equals	{"end":{"column":10,"line":1},"start":{"column":4,"line":1}}
+field	expectations.mcp_assertions[14].id	6
+field	expectations.mcp_assertions[14].operation	"equals"
+field	expectations.mcp_assertions[14].path	"/result/structuredContent/definition/range"
+field	expectations.mcp_assertions[15].id	6
+field	expectations.mcp_assertions[15].length	1
+field	expectations.mcp_assertions[15].operation	"length"
+field	expectations.mcp_assertions[15].path	"/result/content"
+field	expectations.mcp_assertions[16].equals	"text"
+field	expectations.mcp_assertions[16].id	6
+field	expectations.mcp_assertions[16].operation	"equals"
+field	expectations.mcp_assertions[16].path	"/result/content/0/type"
+field	expectations.mcp_assertions[17].equals	false
+field	expectations.mcp_assertions[17].id	6
+field	expectations.mcp_assertions[17].operation	"equals"
+field	expectations.mcp_assertions[17].path	"/result/isError"
+field	expectations.mcp_assertions[18].id	6
+field	expectations.mcp_assertions[18].operation	"missing"
+field	expectations.mcp_assertions[18].path	"/error"
+field	expectations.mcp_assertions[19].id	7
+field	expectations.mcp_assertions[19].operation	"workspace_file_uri"
+field	expectations.mcp_assertions[19].path	"/result/structuredContent/definition/uri"
+field	expectations.mcp_assertions[19].workspace_file_uri	"main.veln"
+field	expectations.mcp_assertions[1].equals	{"end":{"column":10,"line":1},"start":{"column":4,"line":1}}
+field	expectations.mcp_assertions[1].id	3
+field	expectations.mcp_assertions[1].operation	"equals"
+field	expectations.mcp_assertions[1].path	"/result/structuredContent/definition/range"
+field	expectations.mcp_assertions[20].equals	{"end":{"column":10,"line":1},"start":{"column":4,"line":1}}
+field	expectations.mcp_assertions[20].id	7
+field	expectations.mcp_assertions[20].operation	"equals"
+field	expectations.mcp_assertions[20].path	"/result/structuredContent/definition/range"
+field	expectations.mcp_assertions[21].id	7
+field	expectations.mcp_assertions[21].length	1
+field	expectations.mcp_assertions[21].operation	"length"
+field	expectations.mcp_assertions[21].path	"/result/content"
+field	expectations.mcp_assertions[22].equals	"text"
+field	expectations.mcp_assertions[22].id	7
+field	expectations.mcp_assertions[22].operation	"equals"
+field	expectations.mcp_assertions[22].path	"/result/content/0/type"
+field	expectations.mcp_assertions[23].equals	false
+field	expectations.mcp_assertions[23].id	7
+field	expectations.mcp_assertions[23].operation	"equals"
+field	expectations.mcp_assertions[23].path	"/result/isError"
+field	expectations.mcp_assertions[24].id	7
+field	expectations.mcp_assertions[24].operation	"missing"
+field	expectations.mcp_assertions[24].path	"/error"
+field	expectations.mcp_assertions[25].equals	"invalid_position"
+field	expectations.mcp_assertions[25].id	8
+field	expectations.mcp_assertions[25].operation	"equals"
+field	expectations.mcp_assertions[25].path	"/result/structuredContent/code"
+field	expectations.mcp_assertions[26].equals	true
+field	expectations.mcp_assertions[26].id	8
+field	expectations.mcp_assertions[26].operation	"equals"
+field	expectations.mcp_assertions[26].path	"/result/isError"
+field	expectations.mcp_assertions[27].id	8
+field	expectations.mcp_assertions[27].operation	"missing"
+field	expectations.mcp_assertions[27].path	"/result/structuredContent/definition"
+field	expectations.mcp_assertions[28].id	8
+field	expectations.mcp_assertions[28].operation	"missing"
+field	expectations.mcp_assertions[28].path	"/error"
+field	expectations.mcp_assertions[29].equals	-32602
+field	expectations.mcp_assertions[29].id	9
+field	expectations.mcp_assertions[29].operation	"equals"
+field	expectations.mcp_assertions[29].path	"/error/code"
+field	expectations.mcp_assertions[2].id	3
+field	expectations.mcp_assertions[2].length	1
+field	expectations.mcp_assertions[2].operation	"length"
+field	expectations.mcp_assertions[2].path	"/result/content"
+field	expectations.mcp_assertions[30].equals	"Tool input does not match its schema"
+field	expectations.mcp_assertions[30].id	9
+field	expectations.mcp_assertions[30].operation	"equals"
+field	expectations.mcp_assertions[30].path	"/error/message"
+field	expectations.mcp_assertions[31].id	9
+field	expectations.mcp_assertions[31].operation	"missing"
+field	expectations.mcp_assertions[31].path	"/result"
+field	expectations.mcp_assertions[32].equals	"invalid_position"
+field	expectations.mcp_assertions[32].id	10
+field	expectations.mcp_assertions[32].operation	"equals"
+field	expectations.mcp_assertions[32].path	"/result/structuredContent/code"
+field	expectations.mcp_assertions[33].equals	true
+field	expectations.mcp_assertions[33].id	10
+field	expectations.mcp_assertions[33].operation	"equals"
+field	expectations.mcp_assertions[33].path	"/result/isError"
+field	expectations.mcp_assertions[34].id	10
+field	expectations.mcp_assertions[34].operation	"missing"
+field	expectations.mcp_assertions[34].path	"/result/structuredContent/definition"
+field	expectations.mcp_assertions[35].id	10
+field	expectations.mcp_assertions[35].operation	"missing"
+field	expectations.mcp_assertions[35].path	"/error"
+field	expectations.mcp_assertions[36].equals	-32602
+field	expectations.mcp_assertions[36].id	11
+field	expectations.mcp_assertions[36].operation	"equals"
+field	expectations.mcp_assertions[36].path	"/error/code"
+field	expectations.mcp_assertions[37].equals	"Tool input does not match its schema"
+field	expectations.mcp_assertions[37].id	11
+field	expectations.mcp_assertions[37].operation	"equals"
+field	expectations.mcp_assertions[37].path	"/error/message"
+field	expectations.mcp_assertions[38].id	11
+field	expectations.mcp_assertions[38].operation	"missing"
+field	expectations.mcp_assertions[38].path	"/result"
+field	expectations.mcp_assertions[3].equals	"text"
+field	expectations.mcp_assertions[3].id	3
+field	expectations.mcp_assertions[3].operation	"equals"
+field	expectations.mcp_assertions[3].path	"/result/content/0/type"
+field	expectations.mcp_assertions[4].equals	false
+field	expectations.mcp_assertions[4].id	3
+field	expectations.mcp_assertions[4].operation	"equals"
+field	expectations.mcp_assertions[4].path	"/result/isError"
+field	expectations.mcp_assertions[5].id	3
+field	expectations.mcp_assertions[5].operation	"missing"
+field	expectations.mcp_assertions[5].path	"/error"
+field	expectations.mcp_assertions[6].equals	null
+field	expectations.mcp_assertions[6].id	4
+field	expectations.mcp_assertions[6].operation	"equals"
+field	expectations.mcp_assertions[6].path	"/result/structuredContent/definition"
+field	expectations.mcp_assertions[7].equals	false
+field	expectations.mcp_assertions[7].id	4
+field	expectations.mcp_assertions[7].operation	"equals"
+field	expectations.mcp_assertions[7].path	"/result/isError"
+field	expectations.mcp_assertions[8].id	4
+field	expectations.mcp_assertions[8].operation	"missing"
+field	expectations.mcp_assertions[8].path	"/error"
+field	expectations.mcp_assertions[9].equals	"invalid_position"
+field	expectations.mcp_assertions[9].id	5
+field	expectations.mcp_assertions[9].operation	"equals"
+field	expectations.mcp_assertions[9].path	"/result/structuredContent/code"
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"description\":\"Resolve a supported symbol in one saved workspace source\""
-field	expectations.stdout.contains[10]	"\"id\":10,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"code\\\":\\\"invalid_position\\\""
-field	expectations.stdout.contains[11]	"\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":11"
 field	expectations.stdout.contains[1]	"\"name\":\"definition\",\"outputSchema\""
 field	expectations.stdout.contains[2]	"\"required\":[\"source\",\"line\",\"column\"]"
-field	expectations.stdout.contains[3]	"\"range\":{\"end\":{\"column\":10,\"line\":1},\"start\":{\"column\":4,\"line\":1}}"
-field	expectations.stdout.contains[4]	"\"structuredContent\":{\"definition\":null}"
-field	expectations.stdout.contains[5]	"\"isError\":true,\"structuredContent\":{\"code\":\"invalid_position\""
-field	expectations.stdout.contains[6]	"\"id\":6,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"definition\\\""
-field	expectations.stdout.contains[7]	"\"id\":7,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"definition\\\""
-field	expectations.stdout.contains[8]	"\"id\":8,\"jsonrpc\":\"2.0\",\"result\":{\"content\":[{\"text\":\"{\\\"code\\\":\\\"invalid_position\\\""
-field	expectations.stdout.contains[9]	"\"error\":{\"code\":-32602,\"message\":\"Tool input does not match its schema\"},\"id\":9"
-field	expectations.stdout.not_contains[0]	"veln-pkg:"
-field	expectations.stdout.not_contains[1]	"target/debug"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1489,"sha256":"e2b4d5447b2dc59fe02b8523e695cee21a53e3b32c1a7f0cdcd1919eb1631384"}
 field	source_errors	"forbidden"
-case_digest	"d50ea8d804bad9b7aab8e92b1e97db5c1e8fbbea00d421c2cba265a943b2fd1c"
+case_digest	"ba8c618d117cd7947f2bf19e4fb498600c4a68b0d0be0ff4190496e27d40d7c8"
 case	"examples/specification/mcp/workspace-lifecycle"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47713,4 +47846,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"8d43bc7068a9c3c8a586ad656884ade1a9f022bc17cd933fd0d7e37e1f7e9234"
+aggregate_digest	"7ca96d32a2ffdee0466bd58e1008b3a1c5e826ecc596738a9d6e91c80856ae32"
