@@ -176,8 +176,11 @@ JSON-RPC responses from `veln mcp` stdout. Each nonempty stdout line must
 decode as one JSON object. Malformed JSON and non-object lines fail decoded MCP
 assertions before any response-local assertion runs. Each assertion selects
 exactly one response by `id`, where the manifest value must be a JSON string or
-integer. A missing selected ID fails. More than one response with the selected
-ID fails. Other response IDs can be present in the same stream.
+syntactically integer JSON number. Integer selector IDs are accepted even when
+their token is outside the harness `i64` storage range. Non-integer decimal and
+exponent number tokens are not selector IDs. A missing selected ID fails. More
+than one response with the selected ID fails. Other response IDs can be present
+in the same stream.
 
 Each MCP assertion declares `path` as an RFC 6901 JSON Pointer. The empty
 pointer selects the complete response. A nonempty pointer must start with `/`.
@@ -194,9 +197,12 @@ value. Other numbers compare by their JSON spelling, so `1` is distinct from
 exact element count.
 `workspace_file_uri` requires a JSON string at the selected path and compares
 it with the canonical `file:` URI for one existing regular
-workspace-relative file in the copied case project. The operand rejects
-absolute paths, empty paths, `.`, `..`, empty segments, backslashes, symbolic
-links, non-file entries, and canonical paths that leave the workspace root.
+workspace-relative file in the copied case project. The URI spelling matches
+the `definition` MCP producer, including percent-encoding native non-Unix path
+separators instead of normalizing them to `/`. The operand rejects absolute
+paths, empty paths, `.`, `..`, empty segments, backslashes, symbolic links,
+Windows reparse points and other link-like path components, non-file entries,
+and canonical paths that leave the workspace root.
 
 Use `stdin_jsonrpc_file` for an ordered UTF-8 JSON array of JSON-RPC requests
 and notifications. It is mutually exclusive with `stdin` and `stdin_file`.

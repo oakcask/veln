@@ -2107,7 +2107,7 @@ struct LspAssertion {
     operation_count: usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 enum LspAssertionOperation {
     Equals(JsonValue),
     EqualsFile(String),
@@ -3342,8 +3342,13 @@ impl<'a> ManifestParser<'a> {
         let assertion = &mut self.mcp_assertions[index];
         match key {
             "id" => {
-                let id = parse_manifest_json_value(self.path, value);
-                if !matches!(id, JsonValue::Number(_) | JsonValue::String(_)) {
+                let id = parse_manifest_json_value_allow_decimal(self.path, value);
+                if !matches!(id, JsonValue::Number(_) | JsonValue::String(_))
+                    && !matches!(
+                        &id,
+                        JsonValue::Decimal(raw) if is_json_integer_token(raw)
+                    )
+                {
                     manifest_error(
                         self.path,
                         line_number,
@@ -4606,7 +4611,7 @@ fn is_link_like_metadata(_metadata: &fs::Metadata) -> bool {
 fn parse_manifest_json_value(path: &Path, value: &ManifestValue<'_>) -> JsonValue {
     let line_number = value.line();
     let parsed = parse_manifest_json_value_allow_decimal(path, value);
-    reject_decimal_json_numbers(path, line_number, &parsed);
+    reject_scalar_decimal_json_number(path, line_number, &parsed);
     parsed
 }
 
@@ -4640,24 +4645,35 @@ fn parse_manifest_json_value_allow_decimal(path: &Path, value: &ManifestValue<'_
     }
 }
 
-fn reject_decimal_json_numbers(path: &Path, line_number: usize, value: &JsonValue) {
-    match value {
-        JsonValue::Decimal(number) => manifest_error(
+fn is_json_integer_token(raw: &str) -> bool {
+    let bytes = raw.as_bytes();
+    let mut index = 0;
+    if matches!(bytes.first(), Some(b'-')) {
+        index = 1;
+    }
+    let Some(first) = bytes.get(index) else {
+        return false;
+    };
+    match first {
+        b'0' => index += 1,
+        b'1'..=b'9' => {
+            index += 1;
+            while matches!(bytes.get(index), Some(b'0'..=b'9')) {
+                index += 1;
+            }
+        }
+        _ => return false,
+    }
+    index == bytes.len()
+}
+
+fn reject_scalar_decimal_json_number(path: &Path, line_number: usize, value: &JsonValue) {
+    if let JsonValue::Decimal(number) = value {
+        manifest_error(
             path,
             line_number,
             format!("expected integer JSON number, got `{number}`"),
-        ),
-        JsonValue::Array(values) => {
-            for value in values {
-                reject_decimal_json_numbers(path, line_number, value);
-            }
-        }
-        JsonValue::Object(entries) => {
-            for (_, value) in entries {
-                reject_decimal_json_numbers(path, line_number, value);
-            }
-        }
-        JsonValue::Null | JsonValue::Bool(_) | JsonValue::Number(_) | JsonValue::String(_) => {}
+        );
     }
 }
 
@@ -7573,6 +7589,14 @@ fn manifest_mcp_assertions_validate_selector_operation_pointer_and_uri_contracts
             "id = []\npath = \"\"\nequals = null\n",
             "JSON string or integer",
         ),
+        (
+            "id = 1.0\npath = \"\"\nequals = null\n",
+            "JSON string or integer",
+        ),
+        (
+            "id = 1e0\npath = \"\"\nequals = null\n",
+            "JSON string or integer",
+        ),
         ("id = 1\nequals = null\n", "is missing `path`"),
         ("id = 1\npath = \"\"\n", "needs exactly one"),
         (
@@ -7606,6 +7630,10 @@ fn manifest_mcp_assertions_validate_selector_operation_pointer_and_uri_contracts
         &manifest_path,
         "command = [\"mcp\"]\nexit = 0\n[[mcp_assert]]\nid = 1\npath = \"/result/uri\"\nworkspace_file_uri = \"main.veln\"\n",
     );
+    parse_manifest(
+        &manifest_path,
+        "command = [\"mcp\"]\nexit = 0\n[[mcp_assert]]\nid = 9223372036854775808\npath = \"/result/uri\"\nworkspace_file_uri = \"main.veln\"\n",
+    );
     for relative in [
         "",
         "/abs.veln",
@@ -7614,6 +7642,7 @@ fn manifest_mcp_assertions_validate_selector_operation_pointer_and_uri_contracts
         "nested//main.veln",
         "nested/./main.veln",
         "bad\\path",
+        "missing.veln",
     ] {
         let error = std::panic::catch_unwind(|| {
             parse_manifest(
@@ -7629,6 +7658,15 @@ fn manifest_mcp_assertions_validate_selector_operation_pointer_and_uri_contracts
             "unexpected error for {relative:?}"
         );
     }
+    fs::create_dir(root.join("directory.veln")).expect("directory should be created");
+    let error = std::panic::catch_unwind(|| {
+        parse_manifest(
+            &manifest_path,
+            "command = [\"mcp\"]\nexit = 0\n[[mcp_assert]]\nid = 1\npath = \"/result/uri\"\nworkspace_file_uri = \"directory.veln\"\n",
+        );
+    })
+    .expect_err("directory workspace_file_uri should fail");
+    assert!(panic_message(error).contains("existing regular file"));
 
     #[cfg(unix)]
     {
@@ -7659,7 +7697,38 @@ fn manifest_mcp_assertions_validate_selector_operation_pointer_and_uri_contracts
             );
         }
     }
+    #[cfg(windows)]
+    {
+        fs::write(root.join("target-file.veln"), "").expect("target file should be written");
+        match std::os::windows::fs::symlink_file(
+            root.join("target-file.veln"),
+            root.join("link.veln"),
+        ) {
+            Ok(()) => {
+                let error = std::panic::catch_unwind(|| {
+                    parse_manifest(
+                        &manifest_path,
+                        "command = [\"mcp\"]\nexit = 0\n[[mcp_assert]]\nid = 1\npath = \"/result/uri\"\nworkspace_file_uri = \"link.veln\"\n",
+                    );
+                })
+                .expect_err("Windows link-like workspace_file_uri traversal should fail");
+                assert!(panic_message(error).contains("link-like"));
+            }
+            Err(error) => {
+                eprintln!("skipping Windows link-like workspace_file_uri evidence: {error}");
+            }
+        }
+    }
     fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[cfg(not(unix))]
+#[test]
+fn workspace_file_uri_percent_encodes_native_non_unix_separators() {
+    assert_eq!(
+        path_to_file_uri(Path::new("workspace\\main.veln")),
+        "file://workspace%5Cmain.veln"
+    );
 }
 
 #[test]
@@ -7677,6 +7746,51 @@ fn manifest_non_mcp_assertions_reject_scalar_decimal_json_spelling() {
             "expected integer JSON number",
         );
     }
+}
+
+#[test]
+fn manifest_non_mcp_assertions_preserve_container_decimal_json_spelling() {
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"command = ["lsp"]
+exit = 0
+[[json_assert]]
+path = "value"
+equals = [1.0, {"nested": 1e0}]
+[[result_value_assert]]
+value_path = "value"
+path = "value"
+equals = {"nested": [1.0]}
+[[lsp_assert]]
+id = 1
+path = "/value"
+equals = {"nested": 1e0}
+"#,
+    );
+    assert_eq!(
+        manifest.expectations.json_assertions[0].equals,
+        Some(JsonValue::Array(vec![
+            JsonValue::Decimal("1.0".to_string()),
+            JsonValue::Object(vec![(
+                "nested".to_string(),
+                JsonValue::Decimal("1e0".to_string())
+            )])
+        ]))
+    );
+    assert_eq!(
+        manifest.expectations.result_value_assertions[0].equals,
+        Some(JsonValue::Object(vec![(
+            "nested".to_string(),
+            JsonValue::Array(vec![JsonValue::Decimal("1.0".to_string())])
+        )]))
+    );
+    assert_eq!(
+        manifest.expectations.lsp_assertions[0].operation,
+        Some(LspAssertionOperation::Equals(JsonValue::Object(vec![(
+            "nested".to_string(),
+            JsonValue::Decimal("1e0".to_string())
+        )])))
+    );
 }
 
 #[test]
@@ -7826,12 +7940,24 @@ fn decoded_mcp_jsonl_rejection_matrix_reports_actionable_failures() {
             "selected response was not found",
         ),
         (
+            "id = 1\npath = \"/result/missing\"\nequals = null",
+            "selected JSON path was not found",
+        ),
+        (
+            "id = 1\npath = \"/result/missing\"\nlength = 0",
+            "selected JSON path was not found",
+        ),
+        (
             "id = 1\npath = \"/result/text/value\"\nmissing = true",
             "invalid traversal",
         ),
         (
             "id = 1\npath = \"/result/text\"\nlength = 1",
             "requires a selected JSON array",
+        ),
+        (
+            "id = 1\npath = \"/result/items\"\nlength = 1",
+            "array length mismatch",
         ),
         (
             "id = 1\npath = \"/result/text\"\nmissing = true",
@@ -10105,19 +10231,23 @@ fn validate_workspace_file_uri_operand(path: &Path, line_number: usize, relative
 fn workspace_file_uri(project_root: &Path, relative: &str) -> Result<String, String> {
     validate_workspace_relative_file(project_root, relative)?;
     let path = project_root.join(relative);
-    if path
-        .symlink_metadata()
-        .map_err(|error| format!("workspace file `{relative}` is not available: {error}"))?
-        .file_type()
-        .is_symlink()
-    {
+    if is_link_like_metadata(
+        &path
+            .symlink_metadata()
+            .map_err(|error| format!("workspace file `{relative}` is not available: {error}"))?,
+    ) {
         return Err(format!(
-            "workspace file `{relative}` must not be a symbolic link"
+            "workspace file `{relative}` must not be a link-like entry"
         ));
     }
     let metadata = path
-        .metadata()
+        .symlink_metadata()
         .map_err(|error| format!("workspace file `{relative}` is not available: {error}"))?;
+    if is_link_like_metadata(&metadata) {
+        return Err(format!(
+            "workspace file `{relative}` must not be a link-like entry"
+        ));
+    }
     if !metadata.is_file() {
         return Err(format!(
             "workspace file `{relative}` must be a regular file"
@@ -10165,16 +10295,10 @@ fn validate_workspace_relative_file(base: &Path, relative: &str) -> Result<(), S
     let mut full = base.to_path_buf();
     for component in path.components() {
         full.push(component);
-        if full
-            .symlink_metadata()
-            .map_err(|error| {
-                format!(
-                    "workspace_file_uri `{relative}` must name an existing regular file: {error}"
-                )
-            })?
-            .file_type()
-            .is_symlink()
-        {
+        let metadata = full.symlink_metadata().map_err(|error| {
+            format!("workspace_file_uri `{relative}` must name an existing regular file: {error}")
+        })?;
+        if is_link_like_metadata(&metadata) {
             return Err(format!(
                 "workspace_file_uri `{relative}` must not name a link-like entry"
             ));
@@ -10198,7 +10322,7 @@ fn path_to_file_uri(path: &Path) -> String {
     #[cfg(unix)]
     let bytes = path.as_os_str().as_bytes();
     #[cfg(not(unix))]
-    let path_text = path.to_string_lossy().replace('\\', "/");
+    let path_text = path.to_string_lossy();
     #[cfg(not(unix))]
     let bytes = path_text.as_bytes();
     let mut encoded = String::new();
