@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/test--rust.yaml
       - .config/nextest.toml
+      - actions/cargo-dependencies/action.yaml
       - actions/nextest/action.yaml
       - Cargo.lock
       - Cargo.toml
@@ -18,6 +19,7 @@ on:
     paths:
       - .github/workflows/test--rust.yaml
       - .config/nextest.toml
+      - actions/cargo-dependencies/action.yaml
       - actions/nextest/action.yaml
       - Cargo.lock
       - Cargo.toml
@@ -42,40 +44,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-      - name: Restore cargo-nextest cache
-        id: cargo-nextest-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      - name: Seed Rust test caches
+        uses: ./actions/nextest
         with:
-          path: ~/.cargo/bin/cargo-nextest
-          key: cargo-nextest-${{ runner.os }}-${{ env.NEXTEST_VERSION }}
-      - name: Restore Cargo dependency cache
-        id: cargo-dependency-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: cargo-dependencies-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
-      - name: Install cargo-nextest
-        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2
-        with:
-          tool: cargo-nextest@${{ env.NEXTEST_VERSION }}
-      - name: Fetch locked Cargo dependencies
-        run: cargo fetch --locked
-      - name: Save cargo-nextest cache
-        if: steps.cargo-nextest-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: ~/.cargo/bin/cargo-nextest
-          key: cargo-nextest-${{ runner.os }}-${{ env.NEXTEST_VERSION }}
-      - name: Save Cargo dependency cache
-        if: steps.cargo-dependency-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: cargo-dependencies-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          nextest-version: ${{ env.NEXTEST_VERSION }}
+          save-cache: true
 
   test:
     name: test shard ${{ matrix.shard }}
@@ -97,12 +70,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-      - name: Restore Cargo dependency cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: cargo-dependencies-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+      - name: Prepare Cargo dependencies
+        uses: ./actions/cargo-dependencies
       - name: Run Rust doctests
         run: cargo test --locked --workspace --doc

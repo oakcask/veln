@@ -1,0 +1,32 @@
+name: Prepare Cargo dependencies
+description: Restore locked Cargo dependencies and optionally seed cache misses.
+
+inputs:
+  save-cache:
+    description: Whether to fetch locked dependencies and save a cache miss.
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Restore Cargo dependency cache
+      id: cargo-dependency-cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: cargo-dependencies-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+    - name: Fetch locked Cargo dependencies
+      if: inputs.save-cache == 'true'
+      shell: bash
+      run: cargo fetch --locked
+    - name: Save Cargo dependency cache
+      if: inputs.save-cache == 'true' && steps.cargo-dependency-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: cargo-dependencies-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
