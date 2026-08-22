@@ -21,6 +21,13 @@ and reference matrix in
 [Agent Language Services](agent-language-services.md). It is independent of
 MCP and LSP transport behavior.
 
+Implementation starts with
+[Recovery-Aware Source Identifier Casing](identifier-casing-source-recovery.md).
+That foundation combines declaration and binding diagnostics with quarantined
+recovery and command reachability. The remaining work in this proposal is
+blocked until the foundation is implemented and promoted to the current
+specification.
+
 ## Current Boundary
 
 The lexer distinguishes identifier text but does not assign a type-name or
