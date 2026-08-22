@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -60,12 +61,67 @@ function appendOutput(file, name, value) {
   fs.appendFileSync(file, `${name}=${value}\n`);
 }
 
-function main() {
-  const reportRoot = process.argv[2];
-  if (!reportRoot) {
-    throw new Error("Pass the downloaded nextest report directory so shard planning can read prior timings.");
+function runGh(args) {
+  return spawnSync("gh", args, {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "inherit"],
+  });
+}
+
+export function downloadPriorNextestReports({ runnerTemp, runCommand = runGh, notice = console.log }) {
+  const query = runCommand([
+    "run",
+    "list",
+    "--workflow",
+    "test--rust.yaml",
+    "--status",
+    "success",
+    "--limit",
+    "1",
+    "--json",
+    "databaseId",
+    "--jq",
+    ".[0].databaseId",
+  ]);
+  if (query.error || query.status !== 0) {
+    notice(
+      "::notice::Using fallback Rust test shards because workflow history could not be queried; rerun if shard planning repeatedly cannot access prior reports.",
+    );
+    return null;
   }
 
+  const runId = query.stdout.trim();
+  if (runId === "" || runId === "null") {
+    return null;
+  }
+
+  const downloadRoot = fs.mkdtempSync(path.join(runnerTemp, "nextest-history-download-"));
+  const reportRoot = path.join(runnerTemp, "nextest-history");
+  try {
+    const download = runCommand([
+      "run",
+      "download",
+      runId,
+      "--pattern",
+      "nextest-junit-*",
+      "--dir",
+      downloadRoot,
+    ]);
+    if (download.error || download.status !== 0) {
+      notice(
+        "::notice::Using fallback Rust test shards because prior timing reports could not be downloaded; the next successful run will provide fresh reports.",
+      );
+      return null;
+    }
+
+    fs.renameSync(downloadRoot, reportRoot);
+    return reportRoot;
+  } finally {
+    fs.rmSync(downloadRoot, { recursive: true, force: true });
+  }
+}
+
+function main() {
   const targetSeconds = parsePositiveInteger(
     process.env.NEXTEST_TARGET_SECONDS,
     "NEXTEST_TARGET_SECONDS",
@@ -75,13 +131,20 @@ function main() {
     "NEXTEST_FALLBACK_SHARDS",
   );
   const maxShards = parsePositiveInteger(process.env.NEXTEST_MAX_SHARDS, "NEXTEST_MAX_SHARDS");
+  if (!process.env.RUNNER_TEMP) {
+    throw new Error("Run shard planning on a GitHub Actions runner so prior reports have a workspace.");
+  }
+  if (!process.env.GITHUB_OUTPUT) {
+    throw new Error("Run shard planning as a GitHub Actions step so its matrix outputs can be published.");
+  }
+
+  const reportRoot =
+    downloadPriorNextestReports({ runnerTemp: process.env.RUNNER_TEMP }) ??
+    path.join(process.env.RUNNER_TEMP, "nextest-history");
   const elapsedSeconds = readNextestElapsedSeconds(reportRoot);
   const plan = planShards(elapsedSeconds, { targetSeconds, fallbackShards, maxShards });
   const shards = Array.from({ length: plan.shardCount }, (_, index) => index + 1);
 
-  if (!process.env.GITHUB_OUTPUT) {
-    throw new Error("Run shard planning as a GitHub Actions step so its matrix outputs can be published.");
-  }
   appendOutput(process.env.GITHUB_OUTPUT, "shard_count", plan.shardCount);
   appendOutput(process.env.GITHUB_OUTPUT, "shards", JSON.stringify(shards));
 

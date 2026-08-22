@@ -52,28 +52,11 @@ jobs:
       shards: ${{ steps.plan.outputs.shards }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-      - name: Download prior nextest timing reports
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          report_dir="${RUNNER_TEMP}/nextest-history"
-          download_dir="${RUNNER_TEMP}/nextest-history-download"
-          mkdir -p "$download_dir"
-          if ! run_id="$(gh run list --workflow test--rust.yaml --status success --limit 1 --json databaseId --jq '.[0].databaseId')"; then
-            echo "::notice::Using fallback Rust test shards because workflow history could not be queried; rerun if shard planning repeatedly cannot access prior reports."
-            exit 0
-          fi
-          if [[ -z "$run_id" || "$run_id" == "null" ]]; then
-            exit 0
-          fi
-          if ! gh run download "$run_id" --pattern 'nextest-junit-*' --dir "$download_dir"; then
-            echo "::notice::Using fallback Rust test shards because prior timing reports could not be downloaded; the next successful run will provide fresh reports."
-            exit 0
-          fi
-          mv "$download_dir" "$report_dir"
       - name: Plan Rust test shards
         id: plan
-        run: node workflow-scripts/plan-nextest-shards.mjs "${RUNNER_TEMP}/nextest-history"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node workflow-scripts/plan-nextest-shards.mjs
 
   seed-cache:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
