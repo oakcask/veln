@@ -18,8 +18,9 @@ also states it.
 
 ## Ready
 
-- Identifier casing that separates type and constructor names from module,
-  function, and value-binding names:
+- Remaining identifier casing for modules, use sites, recovery navigation,
+  rename, and source-less symbols, building on implemented declaration and
+  binding validation:
   [identifier-casing.md](identifier-casing.md).
 
 Only proposals and subsections listed in this section are selectable targets.

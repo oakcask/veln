@@ -12,6 +12,8 @@ is not enough.
 
 ## Read First
 
+- Source-written type, constructor, function, and value-binding name casing:
+  [identifier-casing.md](identifier-casing.md).
 - Source path derived local module identity, local and external package
   imports, `.test.veln` test companion source classification, functions with optional `<effect E>` row binders, tests, source ADT type declarations, schema
   declarations, nominal effect operation declarations, lexical handler

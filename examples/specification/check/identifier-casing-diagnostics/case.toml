@@ -1,0 +1,92 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 9
+
+[[json_assert]]
+path = "diagnostics.0.details.phase"
+equals = "name"
+
+[[json_assert]]
+path = "diagnostics.0.details.origin"
+equals = "source"
+
+[[json_assert]]
+path = "diagnostics.0.details.occurrence"
+equals = "declaration"
+
+[[json_assert]]
+path = "diagnostics.0.details.name"
+equals = "option"
+
+[[json_assert]]
+path = "diagnostics.0.details.name_class"
+equals = "type"
+
+[[json_assert]]
+path = "diagnostics.0.details.required_initial"
+equals = "ascii_uppercase"
+
+[[json_assert]]
+path = "diagnostics.0.details.observed_initial"
+equals = "ascii_lowercase"
+
+[[json_assert]]
+path = "diagnostics.0.message"
+equals = "type name must start with an ASCII uppercase letter"
+
+[[json_assert]]
+path = "diagnostics.0.span.start.offset"
+equals = 62
+
+[[json_assert]]
+path = "diagnostics.0.span.end.offset"
+equals = 68
+
+[[json_assert]]
+path = "diagnostics.5.details.observed_initial"
+equals = "underscore"
+
+[[json_assert]]
+path = "diagnostics.8.details.name"
+equals = "Candidate"
+
+[[json_assert]]
+path = "diagnostics.8.details.occurrence"
+equals = "binding"
+
+[[json_assert]]
+path = "diagnostics.8.details.name_class"
+equals = "value_binding"
+
+[[json_assert]]
+path = "diagnostics.8.details.required_initial"
+equals = "ascii_lowercase"
+
+[[json_assert]]
+path = "diagnostics.8.details.observed_initial"
+equals = "ascii_uppercase"
+
+[[json_assert]]
+path = "diagnostics.8.message"
+equals = "binding name must start with an ASCII lowercase letter"
+
+[[json_assert]]
+path = "diagnostics.8.span.start.offset"
+equals = 210
+
+[[json_assert]]
+path = "diagnostics.8.span.end.offset"
+equals = 219

@@ -2,6 +2,7 @@
 
 mod analysis;
 mod diagnostics;
+mod name_casing;
 mod surface;
 
 pub use analysis::{

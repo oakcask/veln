@@ -18,6 +18,7 @@ use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{TokenKind, lex, parse};
 
 use crate::diagnostics::parse_diagnostic_to_envelope;
+use crate::name_casing::validate_identifier_casing;
 
 mod source_module_path;
 
@@ -271,6 +272,12 @@ fn load_project_sources(
         let parsed = parse(source);
         diagnostics.extend(parsed.diagnostics.iter().map(parse_diagnostic_to_envelope));
         if !parsed.diagnostics.is_empty() {
+            continue;
+        }
+        let casing_diagnostics = validate_identifier_casing(&parsed.tree);
+        let has_casing_errors = !casing_diagnostics.is_empty();
+        diagnostics.extend(casing_diagnostics);
+        if has_casing_errors {
             continue;
         }
         process_parsed_source(source, &parsed.tree, diagnostics, parts, package);

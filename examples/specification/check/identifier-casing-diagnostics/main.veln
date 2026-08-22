@@ -1,0 +1,10 @@
+# λ keeps byte offsets distinct from character columns.
+type option
+  some
+end
+pub type alias = Option
+pub fn Export = identity
+fn Build(_argument: Int) -> Result: Int
+  let _local = _argument
+  _hole satisfy Candidate => true
+end

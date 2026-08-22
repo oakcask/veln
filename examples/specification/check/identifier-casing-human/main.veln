@@ -1,0 +1,4 @@
+fn Build(_argument: Int) -> Result: Int
+  let _local = _argument
+  _hole satisfy Candidate => true
+end

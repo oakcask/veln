@@ -1,0 +1,24 @@
+type Option
+  None
+  Some(value: Int)
+end
+
+pub type ExportedOption = Option
+
+fn identity(value: Int) -> result: Int
+  value
+end
+
+pub fn exported_identity = identity
+
+test identity_test() -> ()
+  ()
+end
+
+effect Ask
+  value(input: Int) -> Int
+end
+
+handler ask(context: Int) handles Ask
+  value(operation_value) => operation_value
+end
