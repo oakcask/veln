@@ -7881,6 +7881,125 @@ fn json_equality_preserves_object_array_kind_and_number_boundaries() {
     }
 }
 
+fn assert_number_spelling_adapter_result(
+    result: Result<(), Box<dyn std::any::Any + Send>>,
+    should_match: bool,
+    adapter: &str,
+    mismatch_context: &str,
+) {
+    if should_match {
+        if let Err(panic) = result {
+            std::panic::resume_unwind(panic);
+        }
+        return;
+    }
+
+    let panic = match result {
+        Ok(()) => panic!("{adapter} adapter should preserve number spelling"),
+        Err(panic) => panic,
+    };
+    let message = panic_message(panic);
+    assert!(message.contains(mismatch_context));
+    assert!(message.contains("value mismatch"));
+}
+
+fn assert_json_number_spelling_adapter(
+    context: &CaseRunContext<'_>,
+    actual: &str,
+    expected: &str,
+    should_match: bool,
+) {
+    let actual = parse_json(&format!(r#"{{"selected":{actual}}}"#))
+        .expect("JSON adapter input should parse");
+    let assertion = JsonAssertion {
+        path: "selected".to_string(),
+        equals: Some(parse_json(expected).expect("JSON expectation should parse")),
+        missing: None,
+        operation: Some("equals"),
+        operation_count: 1,
+    };
+    assert_number_spelling_adapter_result(
+        std::panic::catch_unwind(|| assert_json_path(context, &actual, &assertion)),
+        should_match,
+        "JSON",
+        "JSON path `selected` mismatch",
+    );
+}
+
+fn assert_lsp_number_spelling_adapter(
+    context: &CaseRunContext<'_>,
+    actual: &str,
+    expected: &str,
+    should_match: bool,
+) {
+    let stdout = lsp_frame(&format!(r#"{{"jsonrpc":"2.0","id":1,"result":{actual}}}"#));
+    let assertions = parsed_lsp_assertions(&format!(
+        "command = [\"lsp\"]\nexit = 0\n[[lsp_assert]]\nid = 1\npath = \"/result\"\nequals = {expected}\n"
+    ));
+    assert_number_spelling_adapter_result(
+        std::panic::catch_unwind(|| assert_lsp_assertions(context, &stdout, &assertions)),
+        should_match,
+        "LSP",
+        "response id 1 path \"/result\"",
+    );
+}
+
+fn assert_mcp_number_spelling_adapter(
+    context: &CaseRunContext<'_>,
+    actual: &str,
+    expected: &str,
+    should_match: bool,
+) {
+    let stdout = format!(r#"{{"jsonrpc":"2.0","id":1,"result":{actual}}}"#) + "\n";
+    let assertions = parsed_mcp_assertions(&format!(
+        "command = [\"mcp\"]\nexit = 0\n[[mcp_assert]]\nid = 1\npath = \"/result\"\nequals = {expected}\n"
+    ));
+    assert_number_spelling_adapter_result(
+        std::panic::catch_unwind(|| {
+            assert_mcp_assertions(context, &stdout, &assertions, Path::new("."))
+        }),
+        should_match,
+        "MCP",
+        "response id 1 path \"/result\"",
+    );
+}
+
+fn assert_result_value_number_spelling_adapter(
+    context: &CaseRunContext<'_>,
+    actual: &str,
+    expected: &str,
+    should_match: bool,
+) {
+    let rendered = parse_json(&format!(r#"{{"rendered":"{actual}"}}"#))
+        .expect("result-value adapter input should parse");
+    let assertion = ResultValueAssertion {
+        value_path: "rendered".to_string(),
+        path: "value".to_string(),
+        equals: Some(parse_json(expected).expect("result-value expectation should parse")),
+        missing: None,
+        operation: Some("equals"),
+        operation_count: 1,
+    };
+    assert_number_spelling_adapter_result(
+        std::panic::catch_unwind(|| assert_result_value_path(context, &rendered, &assertion)),
+        should_match,
+        "result-value",
+        "result value path `value` mismatch",
+    );
+}
+
+fn assert_number_spelling_through_every_adapter(
+    context: &CaseRunContext<'_>,
+    actual: &str,
+    expected: &str,
+    should_match: bool,
+) {
+    assert_json_number_spelling_adapter(context, actual, expected, should_match);
+    assert_lsp_number_spelling_adapter(context, actual, expected, should_match);
+    assert_mcp_number_spelling_adapter(context, actual, expected, should_match);
+    assert_result_value_number_spelling_adapter(context, actual, expected, should_match);
+}
+
 #[test]
 fn json_number_spelling_matrix_runs_through_every_assertion_adapter() {
     let context = CaseRunContext {
@@ -7888,113 +8007,18 @@ fn json_number_spelling_matrix_runs_through_every_assertion_adapter() {
         run_number: 1,
     };
 
-    for spelling in ["1", "1.0", "1e0"] {
-        let actual = parse_json(&format!(r#"{{"selected":{spelling}}}"#))
-            .expect("JSON adapter input should parse");
-        assert_json_path(
-            &context,
-            &actual,
-            &JsonAssertion {
-                path: "selected".to_string(),
-                equals: Some(parse_json(spelling).expect("JSON expectation should parse")),
-                missing: None,
-                operation: Some("equals"),
-                operation_count: 1,
-            },
-        );
-
-        let lsp_stdout = lsp_frame(&format!(
-            r#"{{"jsonrpc":"2.0","id":1,"result":{spelling}}}"#
-        ));
-        let lsp_assertion = parsed_lsp_assertions(&format!(
-            "command = [\"lsp\"]\nexit = 0\n[[lsp_assert]]\nid = 1\npath = \"/result\"\nequals = {spelling}\n"
-        ));
-        assert_lsp_assertions(&context, &lsp_stdout, &lsp_assertion);
-
-        let mcp_stdout = format!(r#"{{"jsonrpc":"2.0","id":1,"result":{spelling}}}"#) + "\n";
-        let mcp_assertion = parsed_mcp_assertions(&format!(
-            "command = [\"mcp\"]\nexit = 0\n[[mcp_assert]]\nid = 1\npath = \"/result\"\nequals = {spelling}\n"
-        ));
-        assert_mcp_assertions(&context, &mcp_stdout, &mcp_assertion, Path::new("."));
-
-        let rendered = parse_json(&format!(r#"{{"rendered":"{spelling}"}}"#))
-            .expect("result-value adapter input should parse");
-        assert_result_value_path(
-            &context,
-            &rendered,
-            &ResultValueAssertion {
-                value_path: "rendered".to_string(),
-                path: "value".to_string(),
-                equals: Some(parse_json(spelling).expect("result-value expectation should parse")),
-                missing: None,
-                operation: Some("equals"),
-                operation_count: 1,
-            },
-        );
-    }
-
-    for (actual, expected) in [
-        ("1", "1.0"),
-        ("1", "1e0"),
-        ("1.0", "1"),
-        ("1.0", "1e0"),
-        ("1e0", "1"),
-        ("1e0", "1.0"),
+    for (actual, expected, should_match) in [
+        ("1", "1", true),
+        ("1.0", "1.0", true),
+        ("1e0", "1e0", true),
+        ("1", "1.0", false),
+        ("1", "1e0", false),
+        ("1.0", "1", false),
+        ("1.0", "1e0", false),
+        ("1e0", "1", false),
+        ("1e0", "1.0", false),
     ] {
-        let actual_json = parse_json(&format!(r#"{{"selected":{actual}}}"#))
-            .expect("JSON adapter input should parse");
-        let json_assertion = JsonAssertion {
-            path: "selected".to_string(),
-            equals: Some(parse_json(expected).expect("JSON expectation should parse")),
-            missing: None,
-            operation: Some("equals"),
-            operation_count: 1,
-        };
-        let panic =
-            std::panic::catch_unwind(|| assert_json_path(&context, &actual_json, &json_assertion))
-                .expect_err("JSON adapter should preserve number spelling");
-        assert!(panic_message(panic).contains("JSON path `selected` mismatch"));
-
-        let lsp_stdout = lsp_frame(&format!(r#"{{"jsonrpc":"2.0","id":1,"result":{actual}}}"#));
-        let lsp_assertion = parsed_lsp_assertions(&format!(
-            "command = [\"lsp\"]\nexit = 0\n[[lsp_assert]]\nid = 1\npath = \"/result\"\nequals = {expected}\n"
-        ));
-        let panic = std::panic::catch_unwind(|| {
-            assert_lsp_assertions(&context, &lsp_stdout, &lsp_assertion)
-        })
-        .expect_err("LSP adapter should preserve number spelling");
-        let message = panic_message(panic);
-        assert!(message.contains("response id 1 path \"/result\""));
-        assert!(message.contains("value mismatch"));
-
-        let mcp_stdout = format!(r#"{{"jsonrpc":"2.0","id":1,"result":{actual}}}"#) + "\n";
-        let mcp_assertion = parsed_mcp_assertions(&format!(
-            "command = [\"mcp\"]\nexit = 0\n[[mcp_assert]]\nid = 1\npath = \"/result\"\nequals = {expected}\n"
-        ));
-        let panic = std::panic::catch_unwind(|| {
-            assert_mcp_assertions(&context, &mcp_stdout, &mcp_assertion, Path::new("."))
-        })
-        .expect_err("MCP adapter should preserve number spelling");
-        let message = panic_message(panic);
-        assert!(message.contains("response id 1 path \"/result\""));
-        assert!(message.contains("value mismatch"));
-
-        let rendered = parse_json(&format!(r#"{{"rendered":"{actual}"}}"#))
-            .expect("result-value adapter input should parse");
-        let assertion = ResultValueAssertion {
-            value_path: "rendered".to_string(),
-            path: "value".to_string(),
-            equals: Some(parse_json(expected).expect("result-value expectation should parse")),
-            missing: None,
-            operation: Some("equals"),
-            operation_count: 1,
-        };
-        let panic =
-            std::panic::catch_unwind(|| assert_result_value_path(&context, &rendered, &assertion))
-                .expect_err("result-value adapter should reject different number spelling");
-        let message = panic_message(panic);
-        assert!(message.contains("result value path `value` mismatch"));
-        assert!(message.contains("value mismatch"));
+        assert_number_spelling_through_every_adapter(&context, actual, expected, should_match);
     }
 }
 
