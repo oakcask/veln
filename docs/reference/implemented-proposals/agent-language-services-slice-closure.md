@@ -1,7 +1,7 @@
 ---
 role: implementation-record
 authority: supporting
-update-when: The recorded MCP JSONL equality, length, missing-path, workspace URI, definition-workspace executable MCP case, shared navigation capture evidence, or saved workspace references slice boundary is invalidated or superseded.
+update-when: The recorded MCP JSONL equality, string containment, length, missing-path, workspace URI, definition-workspace executable MCP case, shared navigation capture evidence, or saved workspace references slice boundary is invalidated or superseded.
 ---
 
 # Agent Language Services Slice Closure
@@ -16,8 +16,9 @@ examples.
 
 - The toolchain harness accepts `[[mcp_assert]]` for newline-delimited MCP
   JSON-RPC stdout. It selects one response by string or integer ID and checks
-  RFC 6901 JSON Pointer paths with complete JSON equality, array length,
-  missing-path assertions, and canonical workspace-file URI assertions.
+  RFC 6901 JSON Pointer paths with complete JSON equality, string containment,
+  array length, missing-path assertions, and canonical workspace-file URI
+  assertions.
 - The `../../../examples/specification/mcp/definition-workspace/` case uses
   response-local assertions for response IDs 3 through 11. Raw stdout fragments
   remain only for initialization and tool discovery text.
@@ -33,7 +34,7 @@ examples.
 
 | Claim | Checked evidence |
 | --- | --- |
-| MCP JSONL assertions reject malformed and non-object lines, missing and duplicate IDs, invalid pointers, non-array length targets, and unsafe workspace URI operands. | `decoded_mcp_jsonl_*` and `manifest_mcp_assertions_*` tests in `toolchain_harness.rs` |
+| MCP JSONL assertions reject malformed and non-object lines, missing and duplicate IDs, invalid pointers, non-string containment targets, non-array length targets, and unsafe workspace URI operands. | `decoded_mcp_jsonl_*` and `manifest_mcp_assertions_*` tests in `toolchain_harness.rs` |
 | MCP JSONL assertions compare reordered objects as equal and ordered arrays as ordered values. | `decoded_mcp_jsonl_assertions_cover_success_matrix` |
 | The definition executable case binds each required response observation to its response ID. | `examples/specification/mcp/definition-workspace/case.toml` |
 | Stable capture retries deterministic source, manifest, identity, and descendant-boundary changes without accepting an unstable snapshot. | `stable_capture_retries_manifest_source_and_path_set_changes_only_three_times` and `navigation_capture_retries_descendant_boundary_changes_as_one_attempt` |

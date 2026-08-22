@@ -1,7 +1,7 @@
 ---
 role: implementation-record
 authority: supporting
-update-when: The readable toolchain case stream completion evidence, structured JSON-RPC LSP fixture evidence, decoded assertion baseline, or current harness reference route changes.
+update-when: The readable toolchain case stream completion evidence, structured JSON-RPC LSP fixture evidence, decoded LSP assertion operations, decoded assertion baseline, or current harness reference route changes.
 ---
 
 # Readable Toolchain Case Streams
