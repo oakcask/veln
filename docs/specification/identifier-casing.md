@@ -41,7 +41,7 @@ The executable evidence is:
 - `examples/specification/check/identifier-casing-accepted/` for accepted
   declaration and binding classes;
 - `examples/specification/check/identifier-casing-diagnostics/` for exact
-  spans and structured JSON; and
+  spans and structured JSON;
 - `examples/specification/check/identifier-casing-underscore-recovery/` for
   underscore-led recovery without missing-name cascades;
 - `examples/specification/check/identifier-casing-human/` for primary human
