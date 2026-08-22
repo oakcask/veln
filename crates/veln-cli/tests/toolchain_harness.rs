@@ -2091,6 +2091,7 @@ impl OutputStream {
 struct JsonAssertion {
     path: String,
     equals: Option<JsonValue>,
+    contains: Option<String>,
     missing: Option<bool>,
     operation: Option<&'static str>,
     operation_count: usize,
@@ -2129,6 +2130,7 @@ struct McpAssertion {
 #[derive(Debug, PartialEq, Eq)]
 enum McpAssertionOperation {
     Equals(JsonValue),
+    Contains(String),
     Length(usize),
     Missing(bool),
     WorkspaceFileUri(String),
@@ -2201,7 +2203,7 @@ impl JsonAssertion {
                 path,
                 0,
                 format!(
-                    "json_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`"
+                    "json_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`"
                 ),
             );
         }
@@ -2228,7 +2230,7 @@ impl McpAssertion {
                 path,
                 0,
                 format!(
-                    "mcp_assert {index} needs exactly one of `equals`, `length`, `workspace_file_uri`, or `missing = true`"
+                    "mcp_assert {index} needs exactly one of `equals`, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
                 ),
             );
         }
@@ -2250,6 +2252,7 @@ struct ResultValueAssertion {
     value_path: String,
     path: String,
     equals: Option<JsonValue>,
+    contains: Option<String>,
     missing: Option<bool>,
     operation: Option<&'static str>,
     operation_count: usize,
@@ -2283,7 +2286,7 @@ impl ResultValueAssertion {
                 path,
                 0,
                 format!(
-                    "result_value_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`"
+                    "result_value_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`"
                 ),
             );
         }
@@ -2691,7 +2694,7 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                     Section::JsonAssert(index)
                         if matches!(
                             *key,
-                            "equals" | "equals_file" | "equals_json_file" | "missing"
+                            "equals" | "equals_file" | "equals_json_file" | "contains" | "missing"
                         ) =>
                     {
                         json_operations[index].record(path, key, value);
@@ -2699,7 +2702,7 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                     Section::ResultValueAssert(index)
                         if matches!(
                             *key,
-                            "equals" | "equals_file" | "equals_json_file" | "missing"
+                            "equals" | "equals_file" | "equals_json_file" | "contains" | "missing"
                         ) =>
                     {
                         result_value_operations[index].record(path, key, value);
@@ -2712,7 +2715,7 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                     Section::McpAssert(index)
                         if matches!(
                             *key,
-                            "equals" | "length" | "workspace_file_uri" | "missing"
+                            "equals" | "contains" | "length" | "workspace_file_uri" | "missing"
                         ) =>
                     {
                         mcp_operations[index].record(path, key, value);
@@ -2746,7 +2749,7 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                 path,
                 0,
                 format!(
-                    "json_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`"
+                    "json_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`"
                 ),
             );
         }
@@ -2764,7 +2767,7 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                 path,
                 0,
                 format!(
-                    "result_value_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`"
+                    "result_value_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`"
                 ),
             );
         }
@@ -2800,7 +2803,7 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                 path,
                 0,
                 format!(
-                    "mcp_assert {index} needs exactly one of `equals`, `length`, `workspace_file_uri`, or `missing = true`"
+                    "mcp_assert {index} needs exactly one of `equals`, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
                 ),
             );
         }
@@ -2931,6 +2934,7 @@ impl<'a> ManifestParser<'a> {
         self.json_assertions.push(JsonAssertion {
             path: String::new(),
             equals: None,
+            contains: None,
             missing: None,
             operation: None,
             operation_count: 0,
@@ -2952,6 +2956,7 @@ impl<'a> ManifestParser<'a> {
             value_path: String::new(),
             path: String::new(),
             equals: None,
+            contains: None,
             missing: None,
             operation: None,
             operation_count: 0,
@@ -3213,6 +3218,11 @@ impl<'a> ManifestParser<'a> {
                         )
                     }))
             }
+            "contains" => {
+                self.json_assertions[index].operation_count += 1;
+                self.json_assertions[index].operation = Some("contains");
+                self.json_assertions[index].contains = Some(parse_string(self.path, value));
+            }
             "missing" => {
                 self.json_assertions[index].operation_count += 1;
                 self.json_assertions[index].operation = Some("missing");
@@ -3263,6 +3273,11 @@ impl<'a> ManifestParser<'a> {
                             format!("invalid result_value_assert equals_json_file value: {error}"),
                         )
                     }))
+            }
+            "contains" => {
+                self.result_value_assertions[index].operation_count += 1;
+                self.result_value_assertions[index].operation = Some("contains");
+                self.result_value_assertions[index].contains = Some(parse_string(self.path, value));
             }
             "missing" => {
                 self.result_value_assertions[index].operation_count += 1;
@@ -3388,6 +3403,12 @@ impl<'a> ManifestParser<'a> {
                 assertion.operation = Some(McpAssertionOperation::Equals(
                     parse_manifest_mcp_json_value(self.path, value),
                 ));
+            }
+            "contains" => {
+                assertion.operation_count += 1;
+                assertion.operation = Some(McpAssertionOperation::Contains(parse_string(
+                    self.path, value,
+                )));
             }
             "length" => {
                 assertion.operation_count += 1;
@@ -6631,7 +6652,7 @@ missing = true
 
 #[test]
 #[should_panic(
-    expected = "json_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`"
+    expected = "json_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`"
 )]
 fn manifest_json_assertions_reject_mixed_equals_and_missing() {
     parse_manifest(
@@ -6760,7 +6781,7 @@ path = "stdout"
 equals = "inline"
 equals_json_file = "case-text/missing-sidecar.json"
 "#,
-        "json_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`",
+        "json_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`",
     );
     assert_manifest_parse_error(
         r#"
@@ -6773,7 +6794,7 @@ path = "value"
 equals = "inline"
 equals_json_file = "case-text/missing-sidecar.json"
 "#,
-        "result_value_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`",
+        "result_value_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`",
     );
 }
 
@@ -6829,7 +6850,7 @@ path = "status"
 path = "stdout"
 equals_file = "case-text/missing-sidecar.txt"
 "#,
-        "json_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`",
+        "json_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`",
         "missing-sidecar",
     );
     assert_manifest_parse_error_without(
@@ -6846,7 +6867,7 @@ value_path = "error.other"
 path = "value"
 equals_file = "case-text/missing-sidecar.txt"
 "#,
-        "result_value_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`",
+        "result_value_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`",
         "missing-sidecar",
     );
     assert_manifest_parse_error_without(
@@ -7205,7 +7226,7 @@ path = "stdout"
 equals = "inline"
 equals_file = "case-text/missing-sidecar.txt"
 "#,
-        "json_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, or `missing = true`",
+        "json_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`",
     );
     assert_manifest_parse_error(
         r#"
@@ -7535,6 +7556,271 @@ fn parsed_mcp_assertions(source: &str) -> Vec<McpAssertion> {
     parse_manifest(Path::new("case.toml"), source)
         .expectations
         .mcp_assertions
+}
+
+#[test]
+fn manifest_contains_operations_parse_and_reject_invalid_forms_through_every_adapter() {
+    let json_manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"command = ["check"]
+exit = 0
+[[json_assert]]
+path = "value"
+contains = "needle"
+"#,
+    );
+    let result_manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"command = ["run", "--json", "main", "main.veln"]
+exit = 0
+[[result_value_assert]]
+value_path = "rendered"
+path = "value"
+contains = "needle"
+"#,
+    );
+    let lsp_manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"command = ["lsp"]
+exit = 0
+[[lsp_assert]]
+id = 1
+path = "/result"
+contains = "needle"
+"#,
+    );
+    let mcp_manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"command = ["mcp"]
+exit = 0
+[[mcp_assert]]
+id = 1
+path = "/result"
+contains = "needle"
+"#,
+    );
+
+    assert_eq!(
+        json_manifest.expectations.json_assertions[0]
+            .contains
+            .as_deref(),
+        Some("needle")
+    );
+    assert_eq!(
+        result_manifest.expectations.result_value_assertions[0]
+            .contains
+            .as_deref(),
+        Some("needle")
+    );
+    assert_eq!(
+        lsp_manifest.expectations.lsp_assertions[0].operation,
+        Some(LspAssertionOperation::Contains("needle".to_string()))
+    );
+    assert_eq!(
+        mcp_manifest.expectations.mcp_assertions[0].operation,
+        Some(McpAssertionOperation::Contains("needle".to_string()))
+    );
+
+    for (command, section, fields) in [
+        ("check", "json_assert", "path = \"value\"\n"),
+        (
+            "run",
+            "result_value_assert",
+            "value_path = \"rendered\"\npath = \"value\"\n",
+        ),
+        ("lsp", "lsp_assert", "id = 1\npath = \"/result\"\n"),
+        ("mcp", "mcp_assert", "id = 1\npath = \"/result\"\n"),
+    ] {
+        for (operations, expected) in [
+            ("", "needs exactly one"),
+            (
+                "contains = \"needle\"\nequals = \"needle\"\n",
+                "needs exactly one",
+            ),
+            (
+                "contains = \"first\"\ncontains = \"second\"\n",
+                "duplicate key `contains`",
+            ),
+            ("missing = false\n", "missing` must be true"),
+            ("contains = 1\n", "expected string"),
+        ] {
+            assert_manifest_parse_error(
+                &format!(
+                    "command = [\"{command}\"]\nexit = 0\n[[{section}]]\n{fields}{operations}"
+                ),
+                expected,
+            );
+        }
+    }
+}
+
+#[test]
+fn contains_evaluation_covers_success_and_failures_through_every_adapter() {
+    let context = CaseRunContext {
+        case_dir: Path::new("contains-adapters"),
+        run_number: 1,
+    };
+
+    let json =
+        parse_json(r#"{"text":"alpha beta","number":1}"#).expect("JSON adapter input should parse");
+    let json_manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"command = ["check"]
+exit = 0
+[[json_assert]]
+path = "text"
+contains = "ha be"
+[[json_assert]]
+path = "text"
+contains = "missing"
+[[json_assert]]
+path = "number"
+contains = "1"
+[[json_assert]]
+path = "absent"
+contains = "x"
+"#,
+    );
+    assert_json_path(
+        &context,
+        &json,
+        &json_manifest.expectations.json_assertions[0],
+    );
+    for (index, expected) in [
+        (1, "string does not contain"),
+        (2, "contains requires a selected JSON string"),
+        (3, "was not found"),
+    ] {
+        let panic = std::panic::catch_unwind(|| {
+            assert_json_path(
+                &context,
+                &json,
+                &json_manifest.expectations.json_assertions[index],
+            )
+        })
+        .expect_err("JSON contains assertion should fail");
+        assert!(panic_message(panic).contains(expected));
+    }
+
+    let rendered = parse_json(r#"{"rendered":"ByteOffset(2)"}"#)
+        .expect("result-value adapter input should parse");
+    let result_manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"command = ["run", "--json", "main", "main.veln"]
+exit = 0
+[[result_value_assert]]
+value_path = "rendered"
+path = "constructor"
+contains = "rr"
+[[result_value_assert]]
+value_path = "rendered"
+path = "constructor"
+contains = "missing"
+[[result_value_assert]]
+value_path = "rendered"
+path = "value"
+contains = "2"
+[[result_value_assert]]
+value_path = "rendered"
+path = "absent"
+contains = "x"
+"#,
+    );
+    assert_result_value_path(
+        &context,
+        &rendered,
+        &result_manifest.expectations.result_value_assertions[0],
+    );
+    for (index, expected) in [
+        (1, "string does not contain"),
+        (2, "contains requires a selected JSON string"),
+        (3, "was not found"),
+    ] {
+        let panic = std::panic::catch_unwind(|| {
+            assert_result_value_path(
+                &context,
+                &rendered,
+                &result_manifest.expectations.result_value_assertions[index],
+            )
+        })
+        .expect_err("result-value contains assertion should fail");
+        assert!(panic_message(panic).contains(expected));
+    }
+
+    let lsp_messages = decode_lsp_stdout(&lsp_frame(
+        r#"{"jsonrpc":"2.0","id":1,"result":{"text":"alpha beta","number":1}}"#,
+    ))
+    .expect("LSP adapter input should decode");
+    let lsp_assertions = parsed_lsp_assertions(
+        r#"command = ["lsp"]
+exit = 0
+[[lsp_assert]]
+id = 1
+path = "/result/text"
+contains = "ha be"
+[[lsp_assert]]
+id = 1
+path = "/result/text"
+contains = "missing"
+[[lsp_assert]]
+id = 1
+path = "/result/number"
+contains = "1"
+[[lsp_assert]]
+id = 1
+path = "/result/absent"
+contains = "x"
+"#,
+    );
+    evaluate_lsp_assertion(&lsp_messages, &lsp_assertions[0])
+        .expect("LSP contains assertion should pass");
+    for (index, expected) in [
+        (1, "string does not contain"),
+        (2, "contains requires a selected JSON string"),
+        (3, "selected JSON path was not found"),
+    ] {
+        let error = evaluate_lsp_assertion(&lsp_messages, &lsp_assertions[index])
+            .expect_err("LSP contains assertion should fail");
+        assert!(error.contains(expected));
+    }
+
+    let mcp_messages = decode_mcp_stdout(
+        r#"{"jsonrpc":"2.0","id":1,"result":{"text":"alpha beta","number":1}}
+"#,
+    )
+    .expect("MCP adapter input should decode");
+    let mcp_assertions = parsed_mcp_assertions(
+        r#"command = ["mcp"]
+exit = 0
+[[mcp_assert]]
+id = 1
+path = "/result/text"
+contains = "ha be"
+[[mcp_assert]]
+id = 1
+path = "/result/text"
+contains = "missing"
+[[mcp_assert]]
+id = 1
+path = "/result/number"
+contains = "1"
+[[mcp_assert]]
+id = 1
+path = "/result/absent"
+contains = "x"
+"#,
+    );
+    evaluate_mcp_assertion(&mcp_messages, &mcp_assertions[0], Path::new("."))
+        .expect("MCP contains assertion should pass");
+    for (index, expected) in [
+        (1, "string does not contain"),
+        (2, "contains requires a selected JSON string"),
+        (3, "selected JSON path was not found"),
+    ] {
+        let error = evaluate_mcp_assertion(&mcp_messages, &mcp_assertions[index], Path::new("."))
+            .expect_err("MCP contains assertion should fail");
+        assert!(error.contains(expected));
+    }
 }
 
 #[test]
@@ -7914,6 +8200,7 @@ fn assert_json_number_spelling_adapter(
     let assertion = JsonAssertion {
         path: "selected".to_string(),
         equals: Some(parse_json(expected).expect("JSON expectation should parse")),
+        contains: None,
         missing: None,
         operation: Some("equals"),
         operation_count: 1,
@@ -7976,6 +8263,7 @@ fn assert_result_value_number_spelling_adapter(
         value_path: "rendered".to_string(),
         path: "value".to_string(),
         equals: Some(parse_json(expected).expect("result-value expectation should parse")),
+        contains: None,
         missing: None,
         operation: Some("equals"),
         operation_count: 1,
@@ -8067,6 +8355,7 @@ fn reordered_json_objects_compare_equal_through_every_assertion_adapter() {
                 parse_json(r#"{"outer":{"b":2,"a":1}}"#)
                     .expect("JSON adapter expectation should parse"),
             ),
+            contains: None,
             missing: None,
             operation: Some("equals"),
             operation_count: 1,
@@ -8085,6 +8374,7 @@ fn reordered_json_objects_compare_equal_through_every_assertion_adapter() {
                 parse_json(r#"{"value":2,"constructor":"ByteOffset"}"#)
                     .expect("result-value adapter expectation should parse"),
             ),
+            contains: None,
             missing: None,
             operation: Some("equals"),
             operation_count: 1,
@@ -8137,6 +8427,7 @@ fn reordered_json_arrays_fail_through_every_assertion_adapter() {
     let json_assertion = JsonAssertion {
         path: "selected".to_string(),
         equals: Some(parse_json("[2,1]").expect("JSON adapter expectation should parse")),
+        contains: None,
         missing: None,
         operation: Some("equals"),
         operation_count: 1,
@@ -8151,6 +8442,7 @@ fn reordered_json_arrays_fail_through_every_assertion_adapter() {
         value_path: "rendered".to_string(),
         path: "value".to_string(),
         equals: Some(parse_json("[2,1]").expect("result-value expectation should parse")),
+        contains: None,
         missing: None,
         operation: Some("equals"),
         operation_count: 1,
@@ -8211,6 +8503,7 @@ fn ordered_json_arrays_succeed_and_length_mismatches_retain_adapter_context() {
         &JsonAssertion {
             path: "selected".to_string(),
             equals: Some(parse_json("[1,2]").expect("JSON success expectation should parse")),
+            contains: None,
             missing: None,
             operation: Some("equals"),
             operation_count: 1,
@@ -8223,6 +8516,7 @@ fn ordered_json_arrays_succeed_and_length_mismatches_retain_adapter_context() {
             &JsonAssertion {
                 path: "selected".to_string(),
                 equals: Some(parse_json("[1,2,3]").expect("JSON failure expectation should parse")),
+                contains: None,
                 missing: None,
                 operation: Some("equals"),
                 operation_count: 1,
@@ -8243,6 +8537,7 @@ fn ordered_json_arrays_succeed_and_length_mismatches_retain_adapter_context() {
             equals: Some(
                 parse_json("[1,2]").expect("result-value success expectation should parse"),
             ),
+            contains: None,
             missing: None,
             operation: Some("equals"),
             operation_count: 1,
@@ -8258,6 +8553,7 @@ fn ordered_json_arrays_succeed_and_length_mismatches_retain_adapter_context() {
                 equals: Some(
                     parse_json("[1,2,3]").expect("result-value failure expectation should parse"),
                 ),
+                contains: None,
                 missing: None,
                 operation: Some("equals"),
                 operation_count: 1,
@@ -8337,6 +8633,7 @@ fn kind_and_nested_json_mismatches_retain_adapter_context() {
         let assertion = JsonAssertion {
             path: "selected".to_string(),
             equals: Some(parse_json(expected).expect("JSON expectation should parse")),
+            contains: None,
             missing: None,
             operation: Some("equals"),
             operation_count: 1,
@@ -8358,6 +8655,7 @@ fn kind_and_nested_json_mismatches_retain_adapter_context() {
             value_path: "rendered".to_string(),
             path: "value".to_string(),
             equals: Some(parse_json(expected).expect("result-value expectation should parse")),
+            contains: None,
             missing: None,
             operation: Some("equals"),
             operation_count: 1,
@@ -10624,16 +10922,7 @@ fn evaluate_lsp_assertion(messages: &[JsonValue], assertion: &LspAssertion) -> R
                     Err("string does not equal the expected file contents".to_string())
                 }
             }
-            LspAssertionOperation::Contains(expected) => {
-                let actual = actual
-                    .as_str()
-                    .ok_or_else(|| "contains requires a selected JSON string".to_string())?;
-                if actual.contains(expected) {
-                    Ok(())
-                } else {
-                    Err(format!("string does not contain {expected:?}"))
-                }
-            }
+            LspAssertionOperation::Contains(expected) => expect_string_contains(actual, expected),
             LspAssertionOperation::Missing(true) => {
                 Err("selected JSON path exists but should be missing".to_string())
             }
@@ -10712,6 +11001,7 @@ fn evaluate_mcp_operation(
         .expect("validated MCP assertion operation")
     {
         McpAssertionOperation::Equals(expected) => expect_json_value(actual, expected),
+        McpAssertionOperation::Contains(expected) => expect_string_contains(actual, expected),
         McpAssertionOperation::Length(expected) => expect_mcp_array_length(actual, *expected),
         McpAssertionOperation::Missing(true) => {
             Err("selected JSON path exists but should be missing".to_string())
@@ -10732,6 +11022,17 @@ fn expect_json_value(actual: &JsonValue, expected: &JsonValue) -> Result<(), Str
             expected.to_compact_string(),
             actual.to_compact_string()
         ))
+    }
+}
+
+fn expect_string_contains(actual: &JsonValue, expected: &str) -> Result<(), String> {
+    let actual = actual
+        .as_str()
+        .ok_or_else(|| "contains requires a selected JSON string".to_string())?;
+    if actual.contains(expected) {
+        Ok(())
+    } else {
+        Err(format!("string does not contain {expected:?}"))
     }
 }
 
@@ -10992,11 +11293,28 @@ fn assert_json_path(context: &CaseRunContext<'_>, json: &JsonValue, assertion: &
             json
         )
     });
-    let expected = assertion
-        .equals
-        .as_ref()
-        .expect("non-missing json assertion should have expected value");
-    expect_json_value(actual, expected).unwrap_or_else(|error| {
+    let result = match assertion
+        .operation
+        .expect("validated JSON assertion operation")
+    {
+        "contains" => expect_string_contains(
+            actual,
+            assertion
+                .contains
+                .as_deref()
+                .expect("validated contains operand"),
+        ),
+        "equals" | "equals_file" | "equals_json_file" => expect_json_value(
+            actual,
+            assertion
+                .equals
+                .as_ref()
+                .expect("validated equality operand"),
+        ),
+        "missing" => unreachable!("handled missing operation"),
+        _ => unreachable!("validated JSON assertion operation"),
+    };
+    result.unwrap_or_else(|error| {
         panic!(
             "{}: JSON path `{}` mismatch: {error}",
             context.label(),
@@ -11047,11 +11365,28 @@ fn assert_result_value_path(
             parsed
         )
     });
-    let expected = assertion
-        .equals
-        .as_ref()
-        .expect("non-missing result value assertion should have expected value");
-    expect_json_value(actual, expected).unwrap_or_else(|error| {
+    let result = match assertion
+        .operation
+        .expect("validated result value assertion operation")
+    {
+        "contains" => expect_string_contains(
+            actual,
+            assertion
+                .contains
+                .as_deref()
+                .expect("validated contains operand"),
+        ),
+        "equals" | "equals_file" | "equals_json_file" => expect_json_value(
+            actual,
+            assertion
+                .equals
+                .as_ref()
+                .expect("validated equality operand"),
+        ),
+        "missing" => unreachable!("handled missing operation"),
+        _ => unreachable!("validated result value assertion operation"),
+    };
+    result.unwrap_or_else(|error| {
         panic!(
             "{}: result value path `{}` mismatch: {error}",
             context.label(),

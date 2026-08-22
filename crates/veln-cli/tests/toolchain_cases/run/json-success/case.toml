@@ -23,6 +23,10 @@ path = "status"
 equals = "passed"
 
 [[json_assert]]
+path = "schema_version"
+contains = "run-json"
+
+[[json_assert]]
 path = "exit_code"
 equals = 0
 

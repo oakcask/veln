@@ -64,6 +64,11 @@ equals = "invalid_position"
 
 [[mcp_assert]]
 id = 5
+path = "/result/structuredContent/code"
+contains = "invalid"
+
+[[mcp_assert]]
+id = 5
 path = "/result/isError"
 equals = true
 
