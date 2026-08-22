@@ -21,14 +21,18 @@ also states it.
 - Common JSON assertion operations and equality semantics across the toolchain
   harness:
   [toolchain-json-assertion-parity.md](toolchain-json-assertion-parity.md).
-- Identifier casing that separates type and constructor names from module,
-  function, and value-binding names:
-  [identifier-casing.md](identifier-casing.md).
+- Recovery-aware casing for source-written declarations and bindings, including
+  the existing `run` reachability boundary:
+  [identifier-casing-source-recovery.md](identifier-casing-source-recovery.md).
 
 Only proposals and subsections listed in this section are selectable targets.
 
 ## Blocked
 
+- The complete identifier-casing proposal is blocked by its source declaration
+  and binding recovery foundation. Move its remaining implementation scope into
+  Ready after that foundation is specified as current behavior:
+  [identifier-casing.md](identifier-casing.md).
 - The agent-language-services umbrella is a planning inventory. Its next saved
   workspace function-reference slice is blocked by identifier casing. Move
   that implementation target into the Ready section after that dependency
