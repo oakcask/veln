@@ -33,6 +33,9 @@
   output coverage when related context is expected.
 * When adding or changing CI-visible messages, make the required action and why
   it matters clear; use `$ci-message-policy`.
+* When a CI workflow coordinates a related sequence of action calls, consider
+  extracting the sequence into a repository-local custom action under
+  `actions/{action-name}`.
 * When investigating slow tests or changing analysis code that processes large
   generated inputs, use `$performance-regression-audit` before reporting the
   work complete.
