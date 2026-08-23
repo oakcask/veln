@@ -10476,8 +10476,8 @@ field	expectations.stdout.not_contains[4]	"target/debug"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":596,"sha256":"9e94279671e9fe6342020ba543e520d7a5cc2cec092381d5a4869b4f20062577"}
-field	source_errors	"forbidden"
-case_digest	"689c52a8e1aecdf70b5b4f1bd39d388d0a9b045f7f3024488c54790e7901b296"
+field	source_errors	"expected"
+case_digest	"3644cc03b479320c041feab5c45bd13ec40b9a16e59c0bbb3102dfc16b14b9d3"
 case	"examples/specification/lsp/schema-semantic-tokens"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -48209,4 +48209,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"d015ad6739dce3d485d6ed3dbd8b2afd2f291edcc285c3329f845d90ca63ba15"
+aggregate_digest	"5d83d801cb41c4b4741929751935dfb3062ef075af52322316996cb94b43a447"
