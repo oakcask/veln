@@ -4,7 +4,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"name.invalid_case\"", "\"name\":\"BrokenTest\"", "\"name_class\":\"type\"", "\"name_class\":\"constructor\"", "\"name_class\":\"function\"", "\"name_class\":\"value_binding\"", "\"observed_initial\":\"underscore\""]
+contains = ["\"id\":\"name.invalid_case\"", "\"name\":\"BrokenTest\""]
 not_contains = ["\"id\":\"name.unresolved\""]
 
 [stderr]
@@ -15,9 +15,65 @@ path = "summary.diagnostic_count"
 equals = 7
 
 [[json_assert]]
-path = "diagnostics.3.span.start.column"
-equals = 4
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
 
 [[json_assert]]
-path = "diagnostics.3.span.end.column"
-equals = 9
+path = "diagnostics.0.message"
+equals = "type name must start with an ASCII uppercase letter"
+
+[[json_assert]]
+path = "diagnostics.0.span"
+equals = {"file": "main.veln", "start": {"line": 1, "column": 6, "offset": 5}, "end": {"line": 1, "column": 10, "offset": 9}}
+
+[[json_assert]]
+path = "diagnostics.0.details"
+equals = {"phase": "name", "origin": "source", "occurrence": "declaration", "name": "item", "name_class": "type", "required_initial": "ascii_uppercase", "observed_initial": "ascii_lowercase"}
+
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.2.message"
+equals = "constructor name must start with an ASCII uppercase letter"
+
+[[json_assert]]
+path = "diagnostics.2.span"
+equals = {"file": "main.veln", "start": {"line": 3, "column": 3, "offset": 19}, "end": {"line": 3, "column": 9, "offset": 25}}
+
+[[json_assert]]
+path = "diagnostics.2.details"
+equals = {"phase": "name", "origin": "source", "occurrence": "declaration", "name": "_other", "name_class": "constructor", "required_initial": "ascii_uppercase", "observed_initial": "underscore"}
+
+[[json_assert]]
+path = "diagnostics.3.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.3.message"
+equals = "function name must start with an ASCII lowercase letter"
+
+[[json_assert]]
+path = "diagnostics.3.span"
+equals = {"file": "main.veln", "start": {"line": 6, "column": 4, "offset": 34}, "end": {"line": 6, "column": 9, "offset": 39}}
+
+[[json_assert]]
+path = "diagnostics.3.details"
+equals = {"phase": "name", "origin": "source", "occurrence": "declaration", "name": "Build", "name_class": "function", "required_initial": "ascii_lowercase", "observed_initial": "ascii_uppercase"}
+
+[[json_assert]]
+path = "diagnostics.4.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.4.message"
+equals = "binding name must start with an ASCII lowercase letter"
+
+[[json_assert]]
+path = "diagnostics.4.span"
+equals = {"file": "main.veln", "start": {"line": 6, "column": 10, "offset": 40}, "end": {"line": 6, "column": 16, "offset": 46}}
+
+[[json_assert]]
+path = "diagnostics.4.details"
+equals = {"phase": "name", "origin": "source", "occurrence": "binding", "name": "_value", "name_class": "value_binding", "required_initial": "ascii_lowercase", "observed_initial": "underscore"}

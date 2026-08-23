@@ -14,7 +14,7 @@ use veln_project::{
     ManifestDependencySelectorKind, ManifestExport, ManifestField, Project, ProjectManifest,
     classify_companion_source, read_manifest,
 };
-use veln_sema::valid_function_name;
+use veln_sema::{valid_function_name, valid_type_name};
 use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{TokenKind, lex, parse};
 
@@ -2210,15 +2210,13 @@ fn module_with_reachable_functions(
 ) -> SurfaceModule {
     let functions = materialize_reachable_functions(inputs, reachable, reachability_index);
     let handlers = materialize_reachable_handlers(inputs, &functions);
-    let types = materialize_reachable_types(inputs, &functions, &handlers, reachability_index);
+    let (types, reachable_type_aliases) =
+        materialize_reachable_types(inputs, &functions, &handlers, reachability_index);
+    let aliases = materialize_reachable_aliases(inputs, &reachable_type_aliases);
     SurfaceModule {
         module: inputs.module_header(),
         uses: inputs.cloned_declarations(|module| &module.uses),
-        aliases: inputs
-            .cloned_declarations(|module| &module.aliases)
-            .into_iter()
-            .filter(|alias| !alias_points_to_quarantined_function(inputs, alias))
-            .collect(),
+        aliases,
         effects: inputs.cloned_declarations(|module| &module.effects),
         handlers,
         types,
@@ -2587,7 +2585,7 @@ fn materialize_reachable_types(
     functions: &[Function],
     handlers: &[veln_ast::HandlerDecl],
     reachability_index: &ReachabilityIndex,
-) -> Vec<veln_ast::TypeDecl> {
+) -> (Vec<veln_ast::TypeDecl>, HashSet<(Option<String>, String)>) {
     let mut names = HashSet::new();
     let mut constructors = HashSet::new();
     let uses = inputs.uses();
@@ -2609,8 +2607,8 @@ fn materialize_reachable_types(
             &mut constructors,
         );
     }
-    collect_alias_type_references(inputs, &uses, &mut names);
-    inputs
+    let reachable_type_aliases = collect_reachable_alias_type_references(inputs, &uses, &mut names);
+    let types = inputs
         .standard
         .into_iter()
         .flat_map(|module| module.types.iter())
@@ -2629,7 +2627,8 @@ fn materialize_reachable_types(
                 })
                 .cloned(),
         )
-        .collect()
+        .collect();
+    (types, reachable_type_aliases)
 }
 
 fn type_is_reachable(
@@ -3145,35 +3144,63 @@ fn collect_type_name_references(
     }
 }
 
-fn collect_alias_type_references(
+fn collect_reachable_alias_type_references(
     inputs: &ReachabilityInputs<'_>,
     uses: &[&UseDecl],
     names: &mut HashSet<ReachableTypeName>,
-) {
-    let mut stack = inputs
-        .aliases()
-        .filter(|alias| alias.kind == PublicAliasKind::Type)
-        .filter_map(|alias| {
-            resolve_reachable_type_name(&alias.target, alias.module_name.as_deref(), uses)
-        })
-        .collect::<Vec<_>>();
+) -> HashSet<(Option<String>, String)> {
+    let mut stack = names.iter().cloned().collect::<Vec<_>>();
+    let mut visited = HashSet::new();
+    let mut aliases = HashSet::new();
     while let Some(name) = stack.pop() {
-        if !names.insert(name.clone()) {
+        if !visited.insert(name.clone()) {
             continue;
         }
+        names.insert(name.clone());
         for alias in inputs
             .aliases()
             .filter(|alias| alias.kind == PublicAliasKind::Type)
         {
             if alias.module_name == name.module_name
                 && alias.name.as_deref() == Some(name.name.as_str())
+                && !alias_points_to_quarantined_type(inputs, alias)
                 && let Some(target) =
                     resolve_reachable_type_name(&alias.target, alias.module_name.as_deref(), uses)
             {
+                aliases.insert((alias.module_name.clone(), name.name.clone()));
                 stack.push(target);
             }
         }
     }
+    aliases
+}
+
+fn materialize_reachable_aliases(
+    inputs: &ReachabilityInputs<'_>,
+    reachable_type_aliases: &HashSet<(Option<String>, String)>,
+) -> Vec<veln_ast::PublicAlias> {
+    inputs
+        .cloned_declarations(|module| &module.aliases)
+        .into_iter()
+        .filter(|alias| !alias_points_to_quarantined_function(inputs, alias))
+        .filter(|alias| match alias.kind {
+            PublicAliasKind::Function | PublicAliasKind::Schema => true,
+            PublicAliasKind::Type => {
+                type_alias_is_reachable(alias, reachable_type_aliases)
+                    && !alias_points_to_quarantined_type(inputs, alias)
+            }
+        })
+        .collect()
+}
+
+fn type_alias_is_reachable(
+    alias: &veln_ast::PublicAlias,
+    reachable_type_aliases: &HashSet<(Option<String>, String)>,
+) -> bool {
+    let Some(name) = alias.name.as_deref() else {
+        return false;
+    };
+    reachable_type_aliases.contains(&(alias.module_name.clone(), name.to_string()))
 }
 
 fn expression_name_resolves_to_function(
@@ -3379,6 +3406,42 @@ fn alias_points_to_quarantined_function(
             && function.name.as_ref() == Some(target_name)
             && function.module_name == target_module
     })
+}
+
+fn alias_points_to_quarantined_type(
+    inputs: &ReachabilityInputs<'_>,
+    alias: &veln_ast::PublicAlias,
+) -> bool {
+    if alias.kind != PublicAliasKind::Type {
+        return false;
+    }
+    let Some(target_name) = alias.target.last() else {
+        return false;
+    };
+    if valid_type_name(target_name) {
+        return false;
+    }
+    let target_module = match alias.target.as_slice() {
+        [_] => alias.module_name.clone(),
+        [_, .., _] => {
+            let uses = inputs.uses();
+            imported_use_for_path(
+                &uses,
+                &alias.target[..alias.target.len() - 1],
+                alias.module_name.as_deref(),
+            )
+            .map(|use_decl| use_decl.name.clone())
+        }
+        _ => None,
+    };
+    inputs
+        .standard
+        .into_iter()
+        .flat_map(|module| module.types.iter())
+        .chain(inputs.application.types.iter())
+        .any(|type_decl| {
+            type_decl.name.as_ref() == Some(target_name) && type_decl.module_name == target_module
+        })
 }
 
 fn companion_alias_targets_imported_private_function(
@@ -6402,6 +6465,50 @@ mod tests {
                 (Some("app::main"), FunctionKind::Function, Some("main")),
                 (Some("app::impl"), FunctionKind::Function, Some("double")),
             ]
+        );
+    }
+
+    #[test]
+    fn run_entry_does_not_reach_unused_type_alias_to_quarantined_type() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "main.veln",
+                    concat!("use broken\n", "pub fn main() -> Int\n", "  4\n", "end\n",),
+                ),
+                SourceFile::new(
+                    "broken.veln",
+                    concat!(
+                        "type bad\n",
+                        "  Made\n",
+                        "end\n",
+                        "pub type Exposed = bad\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert!(
+            reachable
+                .aliases
+                .iter()
+                .all(|alias| alias.name.as_deref() != Some("Exposed")),
+            "{:#?}",
+            reachable.aliases
+        );
+        assert!(
+            reachable
+                .types
+                .iter()
+                .all(|type_decl| type_decl.name.as_deref() != Some("bad")),
+            "{:#?}",
+            reachable.types
         );
     }
 

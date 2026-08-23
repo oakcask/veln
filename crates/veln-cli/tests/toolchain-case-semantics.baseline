@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"abb23af94523bb44bcb684704c193e13aeaac012"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1528
+case_count	1529
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -5467,20 +5467,57 @@ field	expectations.exit	1
 field	expectations.json_assertions[0].equals	7
 field	expectations.json_assertions[0].operation	"equals"
 field	expectations.json_assertions[0].path	"summary.diagnostic_count"
-field	expectations.json_assertions[1].equals	4
+field	expectations.json_assertions[10].equals	"function name must start with an ASCII lowercase letter"
+field	expectations.json_assertions[10].operation	"equals"
+field	expectations.json_assertions[10].path	"diagnostics.3.message"
+field	expectations.json_assertions[11].equals	{"end":{"column":9,"line":6,"offset":39},"file":"main.veln","start":{"column":4,"line":6,"offset":34}}
+field	expectations.json_assertions[11].operation	"equals"
+field	expectations.json_assertions[11].path	"diagnostics.3.span"
+field	expectations.json_assertions[12].equals	{"name":"Build","name_class":"function","observed_initial":"ascii_uppercase","occurrence":"declaration","origin":"source","phase":"name","required_initial":"ascii_lowercase"}
+field	expectations.json_assertions[12].operation	"equals"
+field	expectations.json_assertions[12].path	"diagnostics.3.details"
+field	expectations.json_assertions[13].equals	"name.invalid_case"
+field	expectations.json_assertions[13].operation	"equals"
+field	expectations.json_assertions[13].path	"diagnostics.4.id"
+field	expectations.json_assertions[14].equals	"binding name must start with an ASCII lowercase letter"
+field	expectations.json_assertions[14].operation	"equals"
+field	expectations.json_assertions[14].path	"diagnostics.4.message"
+field	expectations.json_assertions[15].equals	{"end":{"column":16,"line":6,"offset":46},"file":"main.veln","start":{"column":10,"line":6,"offset":40}}
+field	expectations.json_assertions[15].operation	"equals"
+field	expectations.json_assertions[15].path	"diagnostics.4.span"
+field	expectations.json_assertions[16].equals	{"name":"_value","name_class":"value_binding","observed_initial":"underscore","occurrence":"binding","origin":"source","phase":"name","required_initial":"ascii_lowercase"}
+field	expectations.json_assertions[16].operation	"equals"
+field	expectations.json_assertions[16].path	"diagnostics.4.details"
+field	expectations.json_assertions[1].equals	"name.invalid_case"
 field	expectations.json_assertions[1].operation	"equals"
-field	expectations.json_assertions[1].path	"diagnostics.3.span.start.column"
-field	expectations.json_assertions[2].equals	9
+field	expectations.json_assertions[1].path	"diagnostics.0.id"
+field	expectations.json_assertions[2].equals	"type name must start with an ASCII uppercase letter"
 field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"diagnostics.3.span.end.column"
+field	expectations.json_assertions[2].path	"diagnostics.0.message"
+field	expectations.json_assertions[3].equals	{"end":{"column":10,"line":1,"offset":9},"file":"main.veln","start":{"column":6,"line":1,"offset":5}}
+field	expectations.json_assertions[3].operation	"equals"
+field	expectations.json_assertions[3].path	"diagnostics.0.span"
+field	expectations.json_assertions[4].equals	{"name":"item","name_class":"type","observed_initial":"ascii_lowercase","occurrence":"declaration","origin":"source","phase":"name","required_initial":"ascii_uppercase"}
+field	expectations.json_assertions[4].operation	"equals"
+field	expectations.json_assertions[4].path	"diagnostics.0.details"
+field	expectations.json_assertions[5].equals	"name.invalid_case"
+field	expectations.json_assertions[5].operation	"equals"
+field	expectations.json_assertions[5].path	"diagnostics.2.id"
+field	expectations.json_assertions[6].equals	"constructor name must start with an ASCII uppercase letter"
+field	expectations.json_assertions[6].operation	"equals"
+field	expectations.json_assertions[6].path	"diagnostics.2.message"
+field	expectations.json_assertions[7].equals	{"end":{"column":9,"line":3,"offset":25},"file":"main.veln","start":{"column":3,"line":3,"offset":19}}
+field	expectations.json_assertions[7].operation	"equals"
+field	expectations.json_assertions[7].path	"diagnostics.2.span"
+field	expectations.json_assertions[8].equals	{"name":"_other","name_class":"constructor","observed_initial":"underscore","occurrence":"declaration","origin":"source","phase":"name","required_initial":"ascii_uppercase"}
+field	expectations.json_assertions[8].operation	"equals"
+field	expectations.json_assertions[8].path	"diagnostics.2.details"
+field	expectations.json_assertions[9].equals	"name.invalid_case"
+field	expectations.json_assertions[9].operation	"equals"
+field	expectations.json_assertions[9].path	"diagnostics.3.id"
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
 field	expectations.stdout.contains[1]	"\"name\":\"BrokenTest\""
-field	expectations.stdout.contains[2]	"\"name_class\":\"type\""
-field	expectations.stdout.contains[3]	"\"name_class\":\"constructor\""
-field	expectations.stdout.contains[4]	"\"name_class\":\"function\""
-field	expectations.stdout.contains[5]	"\"name_class\":\"value_binding\""
-field	expectations.stdout.contains[6]	"\"observed_initial\":\"underscore\""
 field	expectations.stdout.format	"json"
 field	expectations.stdout.not_contains[0]	"\"id\":\"name.unresolved\""
 field	invocation.command[0]	"check"
@@ -5488,7 +5525,7 @@ field	invocation.command[1]	"--json"
 field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
-case_digest	"f52e7ae2b5277193d13cd59746007270bf3eab94e031c828b3cb46ed2bb9656b"
+case_digest	"6e39b9c068c0a72d99c525da90d514977f54472fa21bf3d28c874c761ba0a18d"
 case	"examples/specification/check/identifier-casing-quarantine"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -37721,6 +37758,24 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"expected"
 case_digest	"812d3440839e30590358e009ee274014953d1aae3310506c219aadb28ad9fc59"
+case	"examples/specification/run/identifier-casing-unused-type-alias-quarantine"
+field	expectations.exit	0
+field	expectations.json_assertions[0].equals	"passed"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"name.invalid_case"
+field	expectations.stdout.not_contains[1]	"Exposed"
+field	expectations.stdout.not_contains[2]	"bad"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.repeat	1
+field	requirements.jdk	true
+field	source_errors	"expected"
+case_digest	"6eb2558923505c714dfc836526106b75a9f7b38352f40debe5525278d42d115a"
 case	"examples/specification/run/identifier-casing-valid-constructor-vs-invalid-function"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -48154,4 +48209,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"02375dcfdaa3501a9af9c9cc5124a7dccd85a81867f013c024f0f8c553c1fc19"
+aggregate_digest	"f024bd4a8fe4d014b80d732899fef58073c7c527d807026074abd48dc5550878"

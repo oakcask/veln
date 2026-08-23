@@ -101,7 +101,7 @@ pub fn valid_function_name(name: &str) -> bool {
         .is_some_and(|initial| initial.is_ascii_lowercase())
 }
 
-pub(crate) fn valid_type_name(name: &str) -> bool {
+pub fn valid_type_name(name: &str) -> bool {
     name.chars()
         .next()
         .is_some_and(|initial| initial.is_ascii_uppercase())
