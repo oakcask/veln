@@ -2090,11 +2090,16 @@ impl OutputStream {
 #[derive(Debug)]
 struct JsonAssertion {
     path: String,
-    equals: Option<JsonValue>,
-    contains: Option<String>,
-    missing: Option<bool>,
-    operation: Option<&'static str>,
-    operation_count: usize,
+    operation: Option<ValueAssertionOperation>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum ValueAssertionOperation {
+    Equals(JsonValue),
+    EqualsFile(JsonValue),
+    EqualsJsonFile(JsonValue),
+    Contains(String),
+    Missing,
 }
 
 #[derive(Debug)]
@@ -2191,22 +2196,6 @@ impl JsonAssertion {
         if self.path.is_empty() {
             manifest_error(path, 0, format!("json_assert {index} is missing `path`"));
         }
-        if self.missing == Some(false) {
-            manifest_error(
-                path,
-                0,
-                format!("json_assert {index} `missing` must be true when present"),
-            );
-        }
-        if self.operation_count != 1 {
-            manifest_error(
-                path,
-                0,
-                format!(
-                    "json_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`"
-                ),
-            );
-        }
     }
 }
 
@@ -2251,11 +2240,7 @@ impl McpAssertion {
 struct ResultValueAssertion {
     value_path: String,
     path: String,
-    equals: Option<JsonValue>,
-    contains: Option<String>,
-    missing: Option<bool>,
-    operation: Option<&'static str>,
-    operation_count: usize,
+    operation: Option<ValueAssertionOperation>,
 }
 
 impl ResultValueAssertion {
@@ -2272,22 +2257,6 @@ impl ResultValueAssertion {
                 path,
                 0,
                 format!("result_value_assert {index} is missing `path`"),
-            );
-        }
-        if self.missing == Some(false) {
-            manifest_error(
-                path,
-                0,
-                format!("result_value_assert {index} `missing` must be true when present"),
-            );
-        }
-        if self.operation_count != 1 {
-            manifest_error(
-                path,
-                0,
-                format!(
-                    "result_value_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`"
-                ),
             );
         }
     }
@@ -2933,11 +2902,7 @@ impl<'a> ManifestParser<'a> {
     fn parse_json_assert_header(&mut self) -> Section {
         self.json_assertions.push(JsonAssertion {
             path: String::new(),
-            equals: None,
-            contains: None,
-            missing: None,
             operation: None,
-            operation_count: 0,
         });
         Section::JsonAssert(self.json_assertions.len() - 1)
     }
@@ -2955,11 +2920,7 @@ impl<'a> ManifestParser<'a> {
         self.result_value_assertions.push(ResultValueAssertion {
             value_path: String::new(),
             path: String::new(),
-            equals: None,
-            contains: None,
-            missing: None,
             operation: None,
-            operation_count: 0,
         });
         Section::ResultValueAssert(self.result_value_assertions.len() - 1)
     }
@@ -3193,38 +3154,36 @@ impl<'a> ManifestParser<'a> {
         match key {
             "path" => self.json_assertions[index].path = parse_string(self.path, value),
             "equals" => {
-                self.json_assertions[index].operation_count += 1;
-                self.json_assertions[index].operation = Some("equals");
-                self.json_assertions[index].equals =
-                    Some(parse_manifest_json_value(self.path, value))
+                self.json_assertions[index].operation = Some(ValueAssertionOperation::Equals(
+                    parse_manifest_json_value(self.path, value),
+                ))
             }
             "equals_file" => {
-                self.json_assertions[index].operation_count += 1;
-                self.json_assertions[index].operation = Some("equals_file");
-                self.json_assertions[index].equals = Some(JsonValue::String(
-                    self.case_text_cache.read(self.path, value),
+                self.json_assertions[index].operation = Some(ValueAssertionOperation::EqualsFile(
+                    JsonValue::String(self.case_text_cache.read(self.path, value)),
                 ))
             }
             "equals_json_file" => {
-                self.json_assertions[index].operation_count += 1;
-                self.json_assertions[index].operation = Some("equals_json_file");
                 let text = self.case_text_cache.read(self.path, value);
-                self.json_assertions[index].equals =
-                    Some(parse_json(&text).unwrap_or_else(|error| {
-                        manifest_error(
-                            self.path,
-                            line_number,
-                            format!("invalid json_assert equals_json_file value: {error}"),
-                        )
-                    }))
+                self.json_assertions[index].operation =
+                    Some(ValueAssertionOperation::EqualsJsonFile(
+                        parse_json(&text).unwrap_or_else(|error| {
+                            manifest_error(
+                                self.path,
+                                line_number,
+                                format!("invalid json_assert equals_json_file value: {error}"),
+                            )
+                        }),
+                    ))
             }
             "contains" => {
-                record_json_contains_assertion(&mut self.json_assertions[index], self.path, value);
+                self.json_assertions[index].operation =
+                    Some(parse_value_contains_operation(self.path, value));
             }
             "missing" => {
-                self.json_assertions[index].operation_count += 1;
-                self.json_assertions[index].operation = Some("missing");
-                self.json_assertions[index].missing = Some(parse_bool(self.path, value));
+                let missing = parse_bool(self.path, value);
+                debug_assert!(missing, "preflight rejects missing = false");
+                self.json_assertions[index].operation = Some(ValueAssertionOperation::Missing);
             }
             _ => manifest_error(
                 self.path,
@@ -3247,42 +3206,40 @@ impl<'a> ManifestParser<'a> {
             }
             "path" => self.result_value_assertions[index].path = parse_string(self.path, value),
             "equals" => {
-                self.result_value_assertions[index].operation_count += 1;
-                self.result_value_assertions[index].operation = Some("equals");
-                self.result_value_assertions[index].equals =
-                    Some(parse_manifest_json_value(self.path, value))
+                self.result_value_assertions[index].operation = Some(
+                    ValueAssertionOperation::Equals(parse_manifest_json_value(self.path, value)),
+                )
             }
             "equals_file" => {
-                self.result_value_assertions[index].operation_count += 1;
-                self.result_value_assertions[index].operation = Some("equals_file");
-                self.result_value_assertions[index].equals = Some(JsonValue::String(
-                    self.case_text_cache.read(self.path, value),
-                ))
+                self.result_value_assertions[index].operation =
+                    Some(ValueAssertionOperation::EqualsFile(JsonValue::String(
+                        self.case_text_cache.read(self.path, value),
+                    )))
             }
             "equals_json_file" => {
-                self.result_value_assertions[index].operation_count += 1;
-                self.result_value_assertions[index].operation = Some("equals_json_file");
                 let text = self.case_text_cache.read(self.path, value);
-                self.result_value_assertions[index].equals =
-                    Some(parse_json(&text).unwrap_or_else(|error| {
-                        manifest_error(
-                            self.path,
-                            line_number,
-                            format!("invalid result_value_assert equals_json_file value: {error}"),
-                        )
-                    }))
+                self.result_value_assertions[index].operation =
+                    Some(ValueAssertionOperation::EqualsJsonFile(
+                        parse_json(&text).unwrap_or_else(|error| {
+                            manifest_error(
+                                self.path,
+                                line_number,
+                                format!(
+                                    "invalid result_value_assert equals_json_file value: {error}"
+                                ),
+                            )
+                        }),
+                    ))
             }
             "contains" => {
-                record_result_value_contains_assertion(
-                    &mut self.result_value_assertions[index],
-                    self.path,
-                    value,
-                );
+                self.result_value_assertions[index].operation =
+                    Some(parse_value_contains_operation(self.path, value));
             }
             "missing" => {
-                self.result_value_assertions[index].operation_count += 1;
-                self.result_value_assertions[index].operation = Some("missing");
-                self.result_value_assertions[index].missing = Some(parse_bool(self.path, value));
+                let missing = parse_bool(self.path, value);
+                debug_assert!(missing, "preflight rejects missing = false");
+                self.result_value_assertions[index].operation =
+                    Some(ValueAssertionOperation::Missing);
             }
             _ => manifest_error(
                 self.path,
@@ -4092,24 +4049,11 @@ fn parse_stream_key(
     }
 }
 
-fn record_json_contains_assertion(
-    assertion: &mut JsonAssertion,
+fn parse_value_contains_operation(
     path: &Path,
     value: &ManifestValue<'_>,
-) {
-    assertion.operation_count += 1;
-    assertion.operation = Some("contains");
-    assertion.contains = Some(parse_string(path, value));
-}
-
-fn record_result_value_contains_assertion(
-    assertion: &mut ResultValueAssertion,
-    path: &Path,
-    value: &ManifestValue<'_>,
-) {
-    assertion.operation_count += 1;
-    assertion.operation = Some("contains");
-    assertion.contains = Some(parse_string(path, value));
+) -> ValueAssertionOperation {
+    ValueAssertionOperation::Contains(parse_string(path, value))
 }
 
 fn record_mcp_contains_assertion(
@@ -5549,12 +5493,13 @@ equals = ["https:\/\/x", {"slash\/key":"value\/ok"}, "\u000D", "\\n"]
 "#;
 
     let manifest = parse_manifest(Path::new("case.toml"), array_source);
+    let Some(ValueAssertionOperation::Equals(expected)) =
+        &manifest.expectations.json_assertions[0].operation
+    else {
+        panic!("expected JSON equality operation");
+    };
     assert_eq!(
-        manifest.expectations.json_assertions[0]
-            .equals
-            .as_ref()
-            .unwrap()
-            .to_compact_string(),
+        expected.to_compact_string(),
         r#"["https://x",{"slash/key":"value/ok"},"\r","\\n"]"#
     );
 
@@ -6672,8 +6617,38 @@ missing = true
 
     let assertion = &manifest.expectations.json_assertions[0];
     assert_eq!(assertion.path, "error.details.byte_diagnostic.byte_preview");
-    assert_eq!(assertion.missing, Some(true));
-    assert!(assertion.equals.is_none());
+    assert_eq!(assertion.operation, Some(ValueAssertionOperation::Missing));
+}
+
+#[test]
+fn manifest_value_assertions_keep_operation_and_operand_together() {
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[[json_assert]]
+path = "message"
+contains = "needle"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.count"
+equals = 3
+"#,
+    );
+
+    assert_eq!(
+        manifest.expectations.json_assertions[0].operation,
+        Some(ValueAssertionOperation::Contains("needle".to_string()))
+    );
+    assert_eq!(
+        manifest.expectations.result_value_assertions[0].operation,
+        Some(ValueAssertionOperation::Equals(JsonValue::Decimal(
+            "3".to_string()
+        )))
+    );
 }
 
 #[test]
@@ -6720,15 +6695,17 @@ equals_json_file = "case-text/expected.json"
     );
 
     assert_eq!(
-        manifest.expectations.json_assertions[0].equals,
-        Some(JsonValue::Object(vec![(
-            "nested".to_string(),
-            JsonValue::Array(vec![
-                JsonValue::Decimal("1".to_string()),
-                JsonValue::Bool(true),
-                JsonValue::Null
-            ])
-        )]))
+        manifest.expectations.json_assertions[0].operation,
+        Some(ValueAssertionOperation::EqualsJsonFile(JsonValue::Object(
+            vec![(
+                "nested".to_string(),
+                JsonValue::Array(vec![
+                    JsonValue::Decimal("1".to_string()),
+                    JsonValue::Bool(true),
+                    JsonValue::Null
+                ])
+            )]
+        )))
     );
     fs::remove_dir_all(root).expect("test root should be removed");
 }
@@ -6756,11 +6733,13 @@ equals_json_file = "case-text/expected.json"
     );
 
     assert_eq!(
-        manifest.expectations.result_value_assertions[0].equals,
-        Some(JsonValue::Array(vec![
-            JsonValue::String("ok".to_string()),
-            JsonValue::Decimal("2".to_string())
-        ]))
+        manifest.expectations.result_value_assertions[0].operation,
+        Some(ValueAssertionOperation::EqualsJsonFile(JsonValue::Array(
+            vec![
+                JsonValue::String("ok".to_string()),
+                JsonValue::Decimal("2".to_string())
+            ]
+        )))
     );
     fs::remove_dir_all(root).expect("test root should be removed");
 }
@@ -7627,16 +7606,12 @@ contains = "needle"
     );
 
     assert_eq!(
-        json_manifest.expectations.json_assertions[0]
-            .contains
-            .as_deref(),
-        Some("needle")
+        json_manifest.expectations.json_assertions[0].operation,
+        Some(ValueAssertionOperation::Contains("needle".to_string()))
     );
     assert_eq!(
-        result_manifest.expectations.result_value_assertions[0]
-            .contains
-            .as_deref(),
-        Some("needle")
+        result_manifest.expectations.result_value_assertions[0].operation,
+        Some(ValueAssertionOperation::Contains("needle".to_string()))
     );
     assert_eq!(
         lsp_manifest.expectations.lsp_assertions[0].operation,
@@ -8192,12 +8167,16 @@ equals = 1.0
 "#,
     );
     assert_eq!(
-        manifest.expectations.json_assertions[0].equals,
-        Some(JsonValue::Decimal("1.0".to_string()))
+        manifest.expectations.json_assertions[0].operation,
+        Some(ValueAssertionOperation::Equals(JsonValue::Decimal(
+            "1.0".to_string()
+        )))
     );
     assert_eq!(
-        manifest.expectations.result_value_assertions[0].equals,
-        Some(JsonValue::Decimal("1e0".to_string()))
+        manifest.expectations.result_value_assertions[0].operation,
+        Some(ValueAssertionOperation::Equals(JsonValue::Decimal(
+            "1e0".to_string()
+        )))
     );
     assert_eq!(
         manifest.expectations.lsp_assertions[0].operation,
@@ -8227,21 +8206,21 @@ equals = {"nested": 1e0}
 "#,
     );
     assert_eq!(
-        manifest.expectations.json_assertions[0].equals,
-        Some(JsonValue::Array(vec![
+        manifest.expectations.json_assertions[0].operation,
+        Some(ValueAssertionOperation::Equals(JsonValue::Array(vec![
             JsonValue::Decimal("1.0".to_string()),
             JsonValue::Object(vec![(
                 "nested".to_string(),
                 JsonValue::Decimal("1e0".to_string())
             )])
-        ]))
+        ])))
     );
     assert_eq!(
-        manifest.expectations.result_value_assertions[0].equals,
-        Some(JsonValue::Object(vec![(
+        manifest.expectations.result_value_assertions[0].operation,
+        Some(ValueAssertionOperation::Equals(JsonValue::Object(vec![(
             "nested".to_string(),
             JsonValue::Array(vec![JsonValue::Decimal("1.0".to_string())])
-        )]))
+        )])))
     );
     assert_eq!(
         manifest.expectations.lsp_assertions[0].operation,
@@ -8352,11 +8331,9 @@ fn assert_json_number_spelling_adapter(
         .expect("JSON adapter input should parse");
     let assertion = JsonAssertion {
         path: "selected".to_string(),
-        equals: Some(parse_json(expected).expect("JSON expectation should parse")),
-        contains: None,
-        missing: None,
-        operation: Some("equals"),
-        operation_count: 1,
+        operation: Some(ValueAssertionOperation::Equals(
+            parse_json(expected).expect("JSON expectation should parse"),
+        )),
     };
     assert_number_spelling_adapter_result(
         std::panic::catch_unwind(|| assert_json_path(context, &actual, &assertion)),
@@ -8415,11 +8392,9 @@ fn assert_result_value_number_spelling_adapter(
     let assertion = ResultValueAssertion {
         value_path: "rendered".to_string(),
         path: "value".to_string(),
-        equals: Some(parse_json(expected).expect("result-value expectation should parse")),
-        contains: None,
-        missing: None,
-        operation: Some("equals"),
-        operation_count: 1,
+        operation: Some(ValueAssertionOperation::Equals(
+            parse_json(expected).expect("result-value expectation should parse"),
+        )),
     };
     assert_number_spelling_adapter_result(
         std::panic::catch_unwind(|| assert_result_value_path(context, &rendered, &assertion)),
@@ -8504,14 +8479,10 @@ fn reordered_json_objects_compare_equal_through_every_assertion_adapter() {
         &actual,
         &JsonAssertion {
             path: "selected".to_string(),
-            equals: Some(
+            operation: Some(ValueAssertionOperation::Equals(
                 parse_json(r#"{"outer":{"b":2,"a":1}}"#)
                     .expect("JSON adapter expectation should parse"),
-            ),
-            contains: None,
-            missing: None,
-            operation: Some("equals"),
-            operation_count: 1,
+            )),
         },
     );
 
@@ -8523,14 +8494,10 @@ fn reordered_json_objects_compare_equal_through_every_assertion_adapter() {
         &ResultValueAssertion {
             value_path: "rendered".to_string(),
             path: "value".to_string(),
-            equals: Some(
+            operation: Some(ValueAssertionOperation::Equals(
                 parse_json(r#"{"value":2,"constructor":"ByteOffset"}"#)
                     .expect("result-value adapter expectation should parse"),
-            ),
-            contains: None,
-            missing: None,
-            operation: Some("equals"),
-            operation_count: 1,
+            )),
         },
     );
 
@@ -8579,11 +8546,9 @@ fn reordered_json_arrays_fail_through_every_assertion_adapter() {
     let actual = parse_json(r#"{"selected":[1,2]}"#).expect("JSON adapter input should parse");
     let json_assertion = JsonAssertion {
         path: "selected".to_string(),
-        equals: Some(parse_json("[2,1]").expect("JSON adapter expectation should parse")),
-        contains: None,
-        missing: None,
-        operation: Some("equals"),
-        operation_count: 1,
+        operation: Some(ValueAssertionOperation::Equals(
+            parse_json("[2,1]").expect("JSON adapter expectation should parse"),
+        )),
     };
     let panic = std::panic::catch_unwind(|| assert_json_path(&context, &actual, &json_assertion))
         .expect_err("JSON adapter should retain array order");
@@ -8594,11 +8559,9 @@ fn reordered_json_arrays_fail_through_every_assertion_adapter() {
     let result_assertion = ResultValueAssertion {
         value_path: "rendered".to_string(),
         path: "value".to_string(),
-        equals: Some(parse_json("[2,1]").expect("result-value expectation should parse")),
-        contains: None,
-        missing: None,
-        operation: Some("equals"),
-        operation_count: 1,
+        operation: Some(ValueAssertionOperation::Equals(
+            parse_json("[2,1]").expect("result-value expectation should parse"),
+        )),
     };
     let panic = std::panic::catch_unwind(|| {
         assert_result_value_path(&context, &rendered, &result_assertion)
@@ -8655,11 +8618,9 @@ fn ordered_json_arrays_succeed_and_length_mismatches_retain_adapter_context() {
         &actual,
         &JsonAssertion {
             path: "selected".to_string(),
-            equals: Some(parse_json("[1,2]").expect("JSON success expectation should parse")),
-            contains: None,
-            missing: None,
-            operation: Some("equals"),
-            operation_count: 1,
+            operation: Some(ValueAssertionOperation::Equals(
+                parse_json("[1,2]").expect("JSON success expectation should parse"),
+            )),
         },
     );
     let panic = std::panic::catch_unwind(|| {
@@ -8668,11 +8629,9 @@ fn ordered_json_arrays_succeed_and_length_mismatches_retain_adapter_context() {
             &actual,
             &JsonAssertion {
                 path: "selected".to_string(),
-                equals: Some(parse_json("[1,2,3]").expect("JSON failure expectation should parse")),
-                contains: None,
-                missing: None,
-                operation: Some("equals"),
-                operation_count: 1,
+                operation: Some(ValueAssertionOperation::Equals(
+                    parse_json("[1,2,3]").expect("JSON failure expectation should parse"),
+                )),
             },
         )
     })
@@ -8687,13 +8646,9 @@ fn ordered_json_arrays_succeed_and_length_mismatches_retain_adapter_context() {
         &ResultValueAssertion {
             value_path: "rendered".to_string(),
             path: "value".to_string(),
-            equals: Some(
+            operation: Some(ValueAssertionOperation::Equals(
                 parse_json("[1,2]").expect("result-value success expectation should parse"),
-            ),
-            contains: None,
-            missing: None,
-            operation: Some("equals"),
-            operation_count: 1,
+            )),
         },
     );
     let panic = std::panic::catch_unwind(|| {
@@ -8703,13 +8658,9 @@ fn ordered_json_arrays_succeed_and_length_mismatches_retain_adapter_context() {
             &ResultValueAssertion {
                 value_path: "rendered".to_string(),
                 path: "value".to_string(),
-                equals: Some(
+                operation: Some(ValueAssertionOperation::Equals(
                     parse_json("[1,2,3]").expect("result-value failure expectation should parse"),
-                ),
-                contains: None,
-                missing: None,
-                operation: Some("equals"),
-                operation_count: 1,
+                )),
             },
         )
     })
@@ -8785,11 +8736,9 @@ fn kind_and_nested_json_mismatches_retain_adapter_context() {
     for expected in [r#""object""#, r#"{"outer":{"nested":2}}"#] {
         let assertion = JsonAssertion {
             path: "selected".to_string(),
-            equals: Some(parse_json(expected).expect("JSON expectation should parse")),
-            contains: None,
-            missing: None,
-            operation: Some("equals"),
-            operation_count: 1,
+            operation: Some(ValueAssertionOperation::Equals(
+                parse_json(expected).expect("JSON expectation should parse"),
+            )),
         };
         let panic = std::panic::catch_unwind(|| assert_json_path(&context, &actual, &assertion))
             .expect_err("JSON adapter should reject mismatched value");
@@ -8807,11 +8756,9 @@ fn kind_and_nested_json_mismatches_retain_adapter_context() {
         let assertion = ResultValueAssertion {
             value_path: "rendered".to_string(),
             path: "value".to_string(),
-            equals: Some(parse_json(expected).expect("result-value expectation should parse")),
-            contains: None,
-            missing: None,
-            operation: Some("equals"),
-            operation_count: 1,
+            operation: Some(ValueAssertionOperation::Equals(
+                parse_json(expected).expect("result-value expectation should parse"),
+            )),
         };
         let panic =
             std::panic::catch_unwind(|| assert_result_value_path(&context, &rendered, &assertion))
@@ -9651,12 +9598,13 @@ fn manifest_field_directed_containers_keep_array_and_json_grammars_distinct() {
     );
     assert_eq!(manifest.invocation.command, ["check", "main.veln"]);
     assert_eq!(manifest.expectations.stdout.contains, ["a,#[]{}", "b"]);
+    let Some(ValueAssertionOperation::Equals(expected)) =
+        &manifest.expectations.json_assertions[0].operation
+    else {
+        panic!("expected JSON equality operation");
+    };
     assert_eq!(
-        manifest.expectations.json_assertions[0]
-            .equals
-            .as_ref()
-            .unwrap()
-            .to_compact_string(),
+        expected.to_compact_string(),
         r#"{"array":[1,{"ok":true}],"text":"a,#[]{}"}"#
     );
 
@@ -9679,8 +9627,10 @@ fn manifest_field_directed_containers_keep_array_and_json_grammars_distinct() {
         "command = [\"check\"]\nexit = 0\n[[json_assert]]\npath = \"x\"\nequals = '''\ntext\n'''",
     );
     assert_eq!(
-        manifest.expectations.json_assertions[0].equals,
-        Some(JsonValue::String("text\n".to_string()))
+        manifest.expectations.json_assertions[0].operation,
+        Some(ValueAssertionOperation::Equals(JsonValue::String(
+            "text\n".to_string()
+        )))
     );
 }
 
@@ -9713,14 +9663,12 @@ fn manifest_array_boundaries_keep_punctuation_inside_string_tokens() {
 
     let expected = "brackets [] braces {} comma , hash # quote \"";
     assert_eq!(manifest.expectations.stdout.contains, [expected]);
-    assert_eq!(
-        manifest.expectations.json_assertions[0]
-            .equals
-            .as_ref()
-            .unwrap()
-            .to_compact_string(),
-        format!("[{expected:?}]")
-    );
+    let Some(ValueAssertionOperation::Equals(value)) =
+        &manifest.expectations.json_assertions[0].operation
+    else {
+        panic!("expected JSON equality operation");
+    };
+    assert_eq!(value.to_compact_string(), format!("[{expected:?}]"));
 }
 
 #[test]
@@ -10054,10 +10002,15 @@ missing = true
     assert_eq!(assertions[0].value_path, "error.details.value");
     assert_eq!(assertions[0].path, "value.id");
     assert_eq!(
-        assertions[0].equals,
-        Some(JsonValue::String("codec.incomplete_input".to_string()))
+        assertions[0].operation,
+        Some(ValueAssertionOperation::Equals(JsonValue::String(
+            "codec.incomplete_input".to_string()
+        )))
     );
-    assert_eq!(assertions[1].missing, Some(true));
+    assert_eq!(
+        assertions[1].operation,
+        Some(ValueAssertionOperation::Missing)
+    );
 }
 
 #[test]
@@ -11427,7 +11380,11 @@ fn json_pointer<'a>(value: &'a JsonValue, tokens: &[String]) -> JsonPointerResul
 }
 
 fn assert_json_path(context: &CaseRunContext<'_>, json: &JsonValue, assertion: &JsonAssertion) {
-    if assertion.missing == Some(true) {
+    let operation = assertion
+        .operation
+        .as_ref()
+        .expect("preflight requires one JSON assertion operation");
+    if matches!(operation, ValueAssertionOperation::Missing) {
         assert!(
             json_path(json, &assertion.path).is_none(),
             "{}: JSON path `{}` should be missing in {:?}",
@@ -11446,27 +11403,7 @@ fn assert_json_path(context: &CaseRunContext<'_>, json: &JsonValue, assertion: &
             json
         )
     });
-    let result = match assertion
-        .operation
-        .expect("validated JSON assertion operation")
-    {
-        "contains" => expect_string_contains(
-            actual,
-            assertion
-                .contains
-                .as_deref()
-                .expect("validated contains operand"),
-        ),
-        "equals" | "equals_file" | "equals_json_file" => expect_json_value(
-            actual,
-            assertion
-                .equals
-                .as_ref()
-                .expect("validated equality operand"),
-        ),
-        "missing" => unreachable!("handled missing operation"),
-        _ => unreachable!("validated JSON assertion operation"),
-    };
+    let result = expect_value_assertion(actual, operation);
     result.unwrap_or_else(|error| {
         panic!(
             "{}: JSON path `{}` mismatch: {error}",
@@ -11499,7 +11436,11 @@ fn assert_result_value_path(
         )
     });
 
-    if assertion.missing == Some(true) {
+    let operation = assertion
+        .operation
+        .as_ref()
+        .expect("preflight requires one result_value assertion operation");
+    if matches!(operation, ValueAssertionOperation::Missing) {
         assert!(
             json_path(&parsed, &assertion.path).is_none(),
             "{}: result value path `{}` should be missing in {:?}",
@@ -11518,27 +11459,7 @@ fn assert_result_value_path(
             parsed
         )
     });
-    let result = match assertion
-        .operation
-        .expect("validated result value assertion operation")
-    {
-        "contains" => expect_string_contains(
-            actual,
-            assertion
-                .contains
-                .as_deref()
-                .expect("validated contains operand"),
-        ),
-        "equals" | "equals_file" | "equals_json_file" => expect_json_value(
-            actual,
-            assertion
-                .equals
-                .as_ref()
-                .expect("validated equality operand"),
-        ),
-        "missing" => unreachable!("handled missing operation"),
-        _ => unreachable!("validated result value assertion operation"),
-    };
+    let result = expect_value_assertion(actual, operation);
     result.unwrap_or_else(|error| {
         panic!(
             "{}: result value path `{}` mismatch: {error}",
@@ -11546,6 +11467,19 @@ fn assert_result_value_path(
             assertion.path
         )
     });
+}
+
+fn expect_value_assertion(
+    actual: &JsonValue,
+    operation: &ValueAssertionOperation,
+) -> Result<(), String> {
+    match operation {
+        ValueAssertionOperation::Equals(expected)
+        | ValueAssertionOperation::EqualsFile(expected)
+        | ValueAssertionOperation::EqualsJsonFile(expected) => expect_json_value(actual, expected),
+        ValueAssertionOperation::Contains(expected) => expect_string_contains(actual, expected),
+        ValueAssertionOperation::Missing => unreachable!("handled missing operation"),
+    }
 }
 
 fn assert_diagnostic(

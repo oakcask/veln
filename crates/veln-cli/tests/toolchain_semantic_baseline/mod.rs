@@ -428,14 +428,7 @@ fn describe_json_assertions(fields: &mut BTreeMap<String, String>, manifest: &Ca
     for (index, assertion) in manifest.expectations.json_assertions.iter().enumerate() {
         let base = format!("expectations.json_assertions[{index}]");
         text(fields, &format!("{base}.path"), &assertion.path);
-        assertion_operation(
-            fields,
-            &base,
-            assertion.operation,
-            assertion.equals.as_ref(),
-            assertion.contains.as_deref(),
-            assertion.missing == Some(true),
-        );
+        value_assertion_operation(fields, &base, assertion.operation.as_ref());
     }
 }
 
@@ -452,14 +445,7 @@ fn describe_result_value_assertions(
         let base = format!("expectations.result_value_assertions[{index}]");
         text(fields, &format!("{base}.value_path"), &assertion.value_path);
         text(fields, &format!("{base}.path"), &assertion.path);
-        assertion_operation(
-            fields,
-            &base,
-            assertion.operation,
-            assertion.equals.as_ref(),
-            assertion.contains.as_deref(),
-            assertion.missing == Some(true),
-        );
+        value_assertion_operation(fields, &base, assertion.operation.as_ref());
     }
 }
 
@@ -677,42 +663,32 @@ fn optional_help(fields: &mut BTreeMap<String, String>, help: Option<&HelpExpect
     string_list(fields, "expectations.help.contains", &help.contains);
 }
 
-fn assertion_operation(
+fn value_assertion_operation(
     fields: &mut BTreeMap<String, String>,
     base: &str,
-    operation: Option<&'static str>,
-    equals: Option<&JsonValue>,
-    contains: Option<&str>,
-    missing: bool,
+    operation: Option<&ValueAssertionOperation>,
 ) {
-    if missing {
-        enum_value(fields, &format!("{base}.operation"), "missing");
-    } else {
-        let operation = operation.expect("validated assertion should have operation");
-        enum_value(fields, &format!("{base}.operation"), operation);
-        let operand = match operation {
-            "equals" => "equals",
-            "equals_file" => "equals_file",
-            "equals_json_file" => "equals_json_file",
-            "contains" => {
-                text(
-                    fields,
-                    &format!("{base}.contains"),
-                    contains.expect("validated contains operand"),
-                );
-                return;
-            }
-            _ => unreachable!("validated JSON assertion operation"),
-        };
-        let path = format!("{base}.{operand}");
-        fields.insert(
-            path.clone(),
-            canonical_json(
-                equals.expect("validated assertion should have equals"),
-                &path,
-            ),
-        );
-    }
+    let operation = operation.expect("preflight requires one value assertion operation");
+    let (name, operand) = match operation {
+        ValueAssertionOperation::Equals(value) => ("equals", Some(value)),
+        ValueAssertionOperation::EqualsFile(value) => ("equals_file", Some(value)),
+        ValueAssertionOperation::EqualsJsonFile(value) => ("equals_json_file", Some(value)),
+        ValueAssertionOperation::Contains(value) => {
+            enum_value(fields, &format!("{base}.operation"), "contains");
+            text(fields, &format!("{base}.contains"), value);
+            return;
+        }
+        ValueAssertionOperation::Missing => {
+            enum_value(fields, &format!("{base}.operation"), "missing");
+            return;
+        }
+    };
+    enum_value(fields, &format!("{base}.operation"), name);
+    let path = format!("{base}.{name}");
+    fields.insert(
+        path.clone(),
+        canonical_json(operand.expect("equality operation has operand"), &path),
+    );
 }
 
 fn binary_fixtures(fields: &mut BTreeMap<String, String>, fixtures: &[BinaryFixtureExpectation]) {
