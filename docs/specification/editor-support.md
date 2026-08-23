@@ -277,9 +277,11 @@ the exact embedded source value and checks package rename rejection.
 LSP executable examples use `stdin_jsonrpc_file` when the requested behavior is
 an ordered sequence of decoded JSON-RPC requests and notifications. Those
 fixtures can place document text in case-text sidecars and reference it with
-`$case_text`, so the case records the exact opened or changed source text
-without making manual `Content-Length` framing part of the behavior under
-test. The `publish-diagnostics`, `semantic-tokens`, and
+`$case_text`, or reference copied workspace source URIs with
+`$workspace_file_uri`. These directives keep source text and workspace URI
+evidence in fixture files without making manual `Content-Length` framing or
+temporary workspace paths part of the behavior under test. The
+`publish-diagnostics`, `semantic-tokens`, and
 `semantic-tokens-unsaved-change` examples use decoded `[[lsp_assert]]`
 selectors for initialize capabilities, diagnostic notifications,
 semantic-token data, and shutdown responses. When an assertion compares a
@@ -291,6 +293,9 @@ contract.
 When a decoded assertion checks string containment, the containment operation
 is harness evidence over the selected JSON string and does not change the LSP
 message field contract.
+When a decoded assertion checks array length or a workspace file URI, the
+operation is harness evidence over the selected notification or response field.
+It does not add an LSP extension field or change URI serialization behavior.
 
 LSP executable examples still use ordered stdout fragments when JSON-RPC
 responses are interleaved with file-backed virtual-document text. Those

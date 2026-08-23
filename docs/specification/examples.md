@@ -14,6 +14,9 @@ toolchain harness. Their placement can change how an example is reviewed
 without changing the language or command behavior that the case checks.
 Text sidecars can also hold parsed JSON operands for `equals_json_file`
 assertions when that keeps large or nested expected values reviewable.
+Structured JSON-RPC request fixtures can use `$workspace_file_uri` directives
+when an example needs the canonical URI for a copied workspace file without
+recording a temporary path in the fixture.
 Files ending in `.raw` are exact-byte fixture sidecars. Use them when checkout
 line-ending normalization would change the protocol bytes that the example
 feeds to the CLI, including LSP JSON-RPC stdin streams.

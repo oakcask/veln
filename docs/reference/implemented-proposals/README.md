@@ -34,6 +34,8 @@ under `../../specification/` and its executable example routes.
 
 ## Records
 
+- Common JSON assertion operation parity:
+  [toolchain-json-assertion-parity.md](toolchain-json-assertion-parity.md).
 - Schema declaration composition surface:
   [schema-declaration-surface.md](schema-declaration-surface.md).
 - Integer bitwise operators:

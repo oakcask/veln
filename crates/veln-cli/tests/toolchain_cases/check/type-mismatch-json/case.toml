@@ -15,6 +15,10 @@ equals = "error"
 path = "summary.diagnostic_count"
 equals = 1
 
+[[json_assert]]
+path = "diagnostics"
+length = 1
+
 [[diagnostics]]
 id = "type.mismatch"
 severity = "error"

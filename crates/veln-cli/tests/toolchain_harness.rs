@@ -96,13 +96,14 @@ fn run_case_with_guard_and_after_invocation(
         let artifact_path = manifest
             .needs_command_source_error_guard(case_dir)
             .then(|| project.source_diagnostic_artifact_path(run_index));
+        let stdin = manifest.invocation.materialized_stdin(&project.root);
         let output = CapturedOutput::read(
             &context,
             project.veln_with_artifact(
                 &manifest.invocation.command,
                 manifest.invocation.cwd.as_deref(),
                 &manifest.invocation.env,
-                manifest.invocation.stdin.as_deref(),
+                stdin.as_deref(),
                 artifact_path.as_deref(),
             ),
         );
@@ -1457,8 +1458,37 @@ struct CaseInvocation {
     cwd: Option<PathBuf>,
     stdin: Option<String>,
     stdin_jsonrpc_file: Option<String>,
+    stdin_jsonrpc_workspace_file_uri_directives: Vec<WorkspaceFileUriDirective>,
     repeat: usize,
     env: Vec<(String, String)>,
+}
+
+impl CaseInvocation {
+    fn materialized_stdin(&self, project_root: &Path) -> Option<String> {
+        let input = self.stdin.as_deref()?;
+        if self.stdin_jsonrpc_file.is_some() {
+            Some(materialize_jsonrpc_workspace_file_uri_directives(
+                input,
+                &self.stdin_jsonrpc_workspace_file_uri_directives,
+                project_root,
+            ))
+        } else {
+            Some(input.to_string())
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct WorkspaceFileUriDirective {
+    message_index: usize,
+    pointer_route: Vec<JsonPointerRouteSegment>,
+    relative: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum JsonPointerRouteSegment {
+    ArrayIndex(usize),
+    ObjectMember { key: String, occurrence: usize },
 }
 
 #[derive(Debug)]
@@ -1839,7 +1869,12 @@ impl CaseExpectations {
             independent_failures.push(panic_message(panic));
         }
         if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            assert_lsp_assertions(context, &output.stdout, &self.lsp_assertions)
+            assert_lsp_assertions_in_workspace(
+                context,
+                &output.stdout,
+                &self.lsp_assertions,
+                project_root,
+            )
         })) {
             independent_failures.push(panic_message(panic));
         }
@@ -1868,11 +1903,17 @@ impl CaseExpectations {
         };
 
         if let Some(json) = json.as_ref() {
-            for assertion in &self.json_assertions {
-                assert_json_path(context, json, assertion);
+            for (index, assertion) in self.json_assertions.iter().enumerate() {
+                assert_json_path_in_workspace(context, json, assertion, index, project_root);
             }
-            for assertion in &self.result_value_assertions {
-                assert_result_value_path(context, json, assertion);
+            for (index, assertion) in self.result_value_assertions.iter().enumerate() {
+                assert_result_value_path_in_workspace(
+                    context,
+                    json,
+                    assertion,
+                    index,
+                    project_root,
+                );
             }
             for diagnostic in &self.diagnostics {
                 assert_diagnostic(context, json, diagnostic);
@@ -2099,7 +2140,9 @@ enum ValueAssertionOperation {
     EqualsFile(JsonValue),
     EqualsJsonFile(JsonValue),
     Contains(String),
+    Length(usize),
     Missing,
+    WorkspaceFileUri(String),
 }
 
 #[derive(Debug)]
@@ -2122,7 +2165,9 @@ enum LspAssertionOperation {
     EqualsJsonFile(JsonValue),
     EqualsJsonFileRef(CaseTextReference),
     Contains(String),
+    Length(usize),
     Missing(bool),
+    WorkspaceFileUri(String),
 }
 
 #[derive(Debug)]
@@ -2185,7 +2230,7 @@ impl LspAssertion {
                 path,
                 0,
                 format!(
-                    "lsp_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`"
+                    "lsp_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
                 ),
             );
         }
@@ -2606,10 +2651,10 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
     let mut section = Section::Root;
     let mut seen = BTreeSet::new();
     let mut root_stdin_operands = 0;
-    let mut json_operations = Vec::<AssertionOperationPreflight>::new();
-    let mut result_value_operations = Vec::<AssertionOperationPreflight>::new();
-    let mut lsp_operations = Vec::<AssertionOperationPreflight>::new();
-    let mut mcp_operations = Vec::<AssertionOperationPreflight>::new();
+    let mut json_operations = Vec::<ValueAssertionPreflight>::new();
+    let mut result_value_operations = Vec::<ValueAssertionPreflight>::new();
+    let mut lsp_operations = Vec::<LspAssertionPreflight>::new();
+    let mut mcp_operations = Vec::<McpAssertionPreflight>::new();
     let mut file_assert_operations = Vec::<usize>::new();
 
     for statement in statements {
@@ -2624,19 +2669,19 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                     "[env]" => Section::Env,
                     "[tools]" => Section::Tools,
                     "[[json_assert]]" => {
-                        json_operations.push(AssertionOperationPreflight::default());
+                        json_operations.push(ValueAssertionPreflight::default());
                         Section::JsonAssert(json_operations.len() - 1)
                     }
                     "[[result_value_assert]]" => {
-                        result_value_operations.push(AssertionOperationPreflight::default());
+                        result_value_operations.push(ValueAssertionPreflight::default());
                         Section::ResultValueAssert(result_value_operations.len() - 1)
                     }
                     "[[lsp_assert]]" => {
-                        lsp_operations.push(AssertionOperationPreflight::default());
+                        lsp_operations.push(LspAssertionPreflight::default());
                         Section::LspAssert(lsp_operations.len() - 1)
                     }
                     "[[mcp_assert]]" => {
-                        mcp_operations.push(AssertionOperationPreflight::default());
+                        mcp_operations.push(McpAssertionPreflight::default());
                         Section::McpAssert(mcp_operations.len() - 1)
                     }
                     "[[file_assert]]" => {
@@ -2673,29 +2718,25 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                     {
                         root_stdin_operands += 1;
                     }
-                    Section::JsonAssert(index)
-                        if matches!(
-                            *key,
-                            "equals" | "equals_file" | "equals_json_file" | "contains" | "missing"
-                        ) =>
-                    {
+                    Section::JsonAssert(index) => {
                         json_operations[index].record(path, key, value);
                     }
-                    Section::ResultValueAssert(index)
-                        if matches!(
-                            *key,
-                            "equals" | "equals_file" | "equals_json_file" | "contains" | "missing"
-                        ) =>
-                    {
+                    Section::ResultValueAssert(index) => {
                         result_value_operations[index].record(path, key, value);
                     }
                     Section::LspAssert(index)
                         if matches!(
                             *key,
-                            "equals" | "equals_file" | "equals_json_file" | "contains" | "missing"
+                            "equals"
+                                | "equals_file"
+                                | "equals_json_file"
+                                | "contains"
+                                | "length"
+                                | "workspace_file_uri"
+                                | "missing"
                         ) =>
                     {
-                        lsp_operations[index].record(path, key, value);
+                        lsp_operations[index].operation.record(path, key, value);
                     }
                     Section::McpAssert(index)
                         if matches!(
@@ -2709,7 +2750,13 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                                 | "missing"
                         ) =>
                     {
-                        mcp_operations[index].record(path, key, value);
+                        mcp_operations[index].operation.record(path, key, value);
+                    }
+                    Section::LspAssert(index) => {
+                        lsp_operations[index].record_selector_or_path(path, key, value);
+                    }
+                    Section::McpAssert(index) => {
+                        mcp_operations[index].record_selector_or_path(path, key, value);
                     }
                     Section::FileAssert(index) if matches!(*key, "equals" | "equals_file") => {
                         file_assert_operations[index] += 1;
@@ -2727,69 +2774,94 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
             "root invocation needs at most one of `stdin`, `stdin_file`, or `stdin_jsonrpc_file`",
         );
     }
-    for (index, operation) in json_operations.iter().enumerate() {
-        if operation.missing_false {
+    for (index, assertion) in json_operations.iter().enumerate() {
+        if assertion.operation.missing_false {
             manifest_error(
                 path,
                 0,
                 format!("json_assert {index} `missing` must be true when present"),
             );
         }
-        if operation.count != 1 {
+        if assertion.operation.count != 1 {
             manifest_error(
                 path,
                 0,
                 format!(
-                    "json_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`"
+                    "json_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
                 ),
             );
         }
+        assertion.operation.validate_operands(
+            path,
+            &value_assertion_base_context(
+                "json_assert",
+                index,
+                assertion.selected_path.as_deref().unwrap_or(""),
+            ),
+        );
     }
-    for (index, operation) in result_value_operations.iter().enumerate() {
-        if operation.missing_false {
+    for (index, assertion) in result_value_operations.iter().enumerate() {
+        if assertion.operation.missing_false {
             manifest_error(
                 path,
                 0,
                 format!("result_value_assert {index} `missing` must be true when present"),
             );
         }
-        if operation.count != 1 {
+        if assertion.operation.count != 1 {
             manifest_error(
                 path,
                 0,
                 format!(
-                    "result_value_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`"
+                    "result_value_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
                 ),
             );
         }
+        assertion.operation.validate_operands(
+            path,
+            &value_assertion_base_context(
+                "result_value_assert",
+                index,
+                assertion.selected_path.as_deref().unwrap_or(""),
+            ),
+        );
     }
-    for (index, operation) in lsp_operations.iter().enumerate() {
-        if operation.missing_false {
+    for (index, assertion) in lsp_operations.iter().enumerate() {
+        if assertion.operation.missing_false {
             manifest_error(
                 path,
                 0,
                 format!("lsp_assert {index} `missing` must be true when present"),
             );
         }
-        if operation.count != 1 {
+        if assertion.operation.count != 1 {
             manifest_error(
                 path,
                 0,
                 format!(
-                    "lsp_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`"
+                    "lsp_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
                 ),
             );
         }
+        assertion.operation.validate_operands(
+            path,
+            &assertion_base_context(
+                "lsp_assert",
+                index,
+                &assertion.selector(),
+                assertion.path.as_deref().unwrap_or(""),
+            ),
+        );
     }
-    for (index, operation) in mcp_operations.iter().enumerate() {
-        if operation.missing_false {
+    for (index, assertion) in mcp_operations.iter().enumerate() {
+        if assertion.operation.missing_false {
             manifest_error(
                 path,
                 0,
                 format!("mcp_assert {index} `missing` must be true when present"),
             );
         }
-        if operation.count != 1 {
+        if assertion.operation.count != 1 {
             manifest_error(
                 path,
                 0,
@@ -2798,6 +2870,15 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                 ),
             );
         }
+        assertion.operation.validate_operands(
+            path,
+            &assertion_base_context(
+                "mcp_assert",
+                index,
+                &assertion.selector(),
+                assertion.path.as_deref().unwrap_or(""),
+            ),
+        );
     }
     for (index, count) in file_assert_operations.iter().enumerate() {
         if *count != 1 {
@@ -2811,9 +2892,28 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
 }
 
 #[derive(Default)]
+struct ValueAssertionPreflight {
+    selected_path: Option<String>,
+    operation: AssertionOperationPreflight,
+}
+
+impl ValueAssertionPreflight {
+    fn record(&mut self, path: &Path, key: &str, value: &ManifestValue<'_>) {
+        match key {
+            "path" => self.selected_path = Some(parse_string(path, value)),
+            "equals" | "equals_file" | "equals_json_file" | "contains" | "length"
+            | "workspace_file_uri" | "missing" => self.operation.record(path, key, value),
+            _ => {}
+        }
+    }
+}
+
+#[derive(Default)]
 struct AssertionOperationPreflight {
     count: usize,
     missing_false: bool,
+    length: Option<PreflightLengthOperand>,
+    workspace_file_uri: Option<PreflightWorkspaceFileUriOperand>,
 }
 
 impl AssertionOperationPreflight {
@@ -2822,7 +2922,124 @@ impl AssertionOperationPreflight {
         if key == "missing" && !parse_bool(path, value) {
             self.missing_false = true;
         }
+        if key == "length" {
+            self.length = Some(PreflightLengthOperand {
+                line_number: value.line(),
+                raw: value.raw().to_string(),
+            });
+        }
+        if key == "workspace_file_uri" {
+            self.workspace_file_uri = Some(PreflightWorkspaceFileUriOperand {
+                line_number: value.line(),
+                relative: value.is_string().then(|| parse_string(path, value)),
+                string_operand: value.is_string(),
+            });
+        }
     }
+
+    fn validate_operands(&self, path: &Path, base_context: &str) {
+        if let Some(operand) = &self.length {
+            let context = format!("{base_context} length");
+            parse_nonnegative_usize_raw_with_context(
+                path,
+                operand.line_number,
+                &operand.raw,
+                Some(&context),
+            );
+        }
+        if let Some(operand) = &self.workspace_file_uri {
+            let context = format!("{base_context} workspace_file_uri");
+            if !operand.string_operand {
+                manifest_error(
+                    path,
+                    operand.line_number,
+                    format!("{context}: expected string"),
+                );
+            }
+            let relative = operand
+                .relative
+                .as_deref()
+                .expect("validated workspace_file_uri string operand");
+            validate_workspace_file_uri_operand_with_context(
+                path,
+                operand.line_number,
+                relative,
+                Some(&context),
+            );
+        }
+    }
+}
+
+#[derive(Default)]
+struct LspAssertionPreflight {
+    id: Option<JsonValue>,
+    method: Option<String>,
+    occurrence: Option<usize>,
+    path: Option<String>,
+    operation: AssertionOperationPreflight,
+}
+
+impl LspAssertionPreflight {
+    fn record_selector_or_path(&mut self, path: &Path, key: &str, value: &ManifestValue<'_>) {
+        match key {
+            "id" => self.id = Some(parse_manifest_json_value(path, value)),
+            "method" => self.method = Some(parse_string(path, value)),
+            "occurrence" => self.occurrence = Some(parse_nonnegative_usize(path, value)),
+            "path" => self.path = Some(parse_string(path, value)),
+            _ => {}
+        }
+    }
+
+    fn selector(&self) -> String {
+        if let Some(id) = &self.id {
+            format!("response id {}", id.to_compact_string())
+        } else if let Some(method) = &self.method {
+            format!(
+                "notification method {method:?} occurrence {}",
+                self.occurrence.unwrap_or(0)
+            )
+        } else {
+            "unresolved selector".to_string()
+        }
+    }
+}
+
+#[derive(Default)]
+struct McpAssertionPreflight {
+    id: Option<JsonValue>,
+    path: Option<String>,
+    operation: AssertionOperationPreflight,
+}
+
+impl McpAssertionPreflight {
+    fn record_selector_or_path(&mut self, path: &Path, key: &str, value: &ManifestValue<'_>) {
+        match key {
+            "id" => self.id = Some(parse_manifest_json_value_allow_decimal(path, value)),
+            "path" => self.path = Some(parse_string(path, value)),
+            _ => {}
+        }
+    }
+
+    fn selector(&self) -> String {
+        if let Some(id) = &self.id {
+            format!("response id {}", id.to_compact_string())
+        } else {
+            "unresolved selector".to_string()
+        }
+    }
+}
+
+#[derive(Default)]
+struct PreflightLengthOperand {
+    line_number: usize,
+    raw: String,
+}
+
+#[derive(Default)]
+struct PreflightWorkspaceFileUriOperand {
+    line_number: usize,
+    relative: Option<String>,
+    string_operand: bool,
 }
 
 struct ManifestParser<'a> {
@@ -2831,6 +3048,7 @@ struct ManifestParser<'a> {
     cwd: Option<PathBuf>,
     stdin: Option<String>,
     stdin_jsonrpc_file: Option<String>,
+    stdin_jsonrpc_workspace_file_uri_directives: Vec<WorkspaceFileUriDirective>,
     exit: Option<i32>,
     repeat: usize,
     env: Vec<(String, String)>,
@@ -2864,6 +3082,7 @@ impl<'a> ManifestParser<'a> {
             cwd: None,
             stdin: None,
             stdin_jsonrpc_file: None,
+            stdin_jsonrpc_workspace_file_uri_directives: Vec::new(),
             exit: None,
             repeat: 1,
             env: Vec::new(),
@@ -3111,13 +3330,16 @@ impl<'a> ManifestParser<'a> {
             "stdin_jsonrpc_file" => {
                 self.stdin_operand_count += 1;
                 let relative = parse_string(self.path, value);
-                self.stdin = Some(load_jsonrpc_stdin(
+                let mut directives = Vec::new();
+                self.stdin = Some(load_jsonrpc_stdin_snapshot(
                     self.path,
                     value.line(),
                     &relative,
                     &mut self.case_text_cache,
+                    &mut directives,
                 ));
                 self.stdin_jsonrpc_file = Some(relative);
+                self.stdin_jsonrpc_workspace_file_uri_directives = directives;
             }
             "exit" => self.exit = Some(parse_i32(self.path, value)),
             "repeat" => self.repeat = parse_positive_usize(self.path, value),
@@ -3202,6 +3424,34 @@ impl<'a> ManifestParser<'a> {
                 self.json_assertions[index].operation =
                     Some(parse_value_contains_operation(self.path, value));
             }
+            "length" => {
+                let context = value_assertion_context(
+                    "json_assert",
+                    index,
+                    &self.json_assertions[index].path,
+                    "length",
+                );
+                self.json_assertions[index].operation = Some(ValueAssertionOperation::Length(
+                    parse_nonnegative_usize_with_context(self.path, value, &context),
+                ));
+            }
+            "workspace_file_uri" => {
+                let context = value_assertion_context(
+                    "json_assert",
+                    index,
+                    &self.json_assertions[index].path,
+                    "workspace_file_uri",
+                );
+                let relative = parse_string_with_context(self.path, value, &context);
+                validate_workspace_file_uri_operand_with_context(
+                    self.path,
+                    line_number,
+                    &relative,
+                    Some(&context),
+                );
+                self.json_assertions[index].operation =
+                    Some(ValueAssertionOperation::WorkspaceFileUri(relative));
+            }
             "missing" => {
                 let missing = parse_bool(self.path, value);
                 debug_assert!(missing, "preflight rejects missing = false");
@@ -3256,6 +3506,35 @@ impl<'a> ManifestParser<'a> {
             "contains" => {
                 self.result_value_assertions[index].operation =
                     Some(parse_value_contains_operation(self.path, value));
+            }
+            "length" => {
+                let context = value_assertion_context(
+                    "result_value_assert",
+                    index,
+                    &self.result_value_assertions[index].path,
+                    "length",
+                );
+                self.result_value_assertions[index].operation =
+                    Some(ValueAssertionOperation::Length(
+                        parse_nonnegative_usize_with_context(self.path, value, &context),
+                    ));
+            }
+            "workspace_file_uri" => {
+                let context = value_assertion_context(
+                    "result_value_assert",
+                    index,
+                    &self.result_value_assertions[index].path,
+                    "workspace_file_uri",
+                );
+                let relative = parse_string_with_context(self.path, value, &context);
+                validate_workspace_file_uri_operand_with_context(
+                    self.path,
+                    line_number,
+                    &relative,
+                    Some(&context),
+                );
+                self.result_value_assertions[index].operation =
+                    Some(ValueAssertionOperation::WorkspaceFileUri(relative));
             }
             "missing" => {
                 let missing = parse_bool(self.path, value);
@@ -3334,6 +3613,29 @@ impl<'a> ManifestParser<'a> {
                     self.path, value,
                 )));
             }
+            "length" => {
+                assertion.operation_count += 1;
+                let context = unresolved_assertion_operation_context("lsp_assert", index, "length");
+                assertion.operation = Some(LspAssertionOperation::Length(
+                    parse_nonnegative_usize_with_context(self.path, value, &context),
+                ));
+            }
+            "workspace_file_uri" => {
+                assertion.operation_count += 1;
+                let context = unresolved_assertion_operation_context(
+                    "lsp_assert",
+                    index,
+                    "workspace_file_uri",
+                );
+                let relative = parse_string_with_context(self.path, value, &context);
+                validate_workspace_file_uri_operand_with_context(
+                    self.path,
+                    line_number,
+                    &relative,
+                    Some(&context),
+                );
+                assertion.operation = Some(LspAssertionOperation::WorkspaceFileUri(relative));
+            }
             "missing" => {
                 assertion.operation_count += 1;
                 assertion.operation =
@@ -3406,14 +3708,25 @@ impl<'a> ManifestParser<'a> {
             }
             "length" => {
                 assertion.operation_count += 1;
-                assertion.operation = Some(McpAssertionOperation::Length(parse_nonnegative_usize(
-                    self.path, value,
-                )));
+                let context = unresolved_assertion_operation_context("mcp_assert", index, "length");
+                assertion.operation = Some(McpAssertionOperation::Length(
+                    parse_nonnegative_usize_with_context(self.path, value, &context),
+                ));
             }
             "workspace_file_uri" => {
                 assertion.operation_count += 1;
-                let relative = parse_string(self.path, value);
-                validate_workspace_file_uri_operand(self.path, line_number, &relative);
+                let context = unresolved_assertion_operation_context(
+                    "mcp_assert",
+                    index,
+                    "workspace_file_uri",
+                );
+                let relative = parse_string_with_context(self.path, value, &context);
+                validate_workspace_file_uri_operand_with_context(
+                    self.path,
+                    line_number,
+                    &relative,
+                    Some(&context),
+                );
                 assertion.operation = Some(McpAssertionOperation::WorkspaceFileUri(relative));
             }
             "missing" => {
@@ -3640,6 +3953,8 @@ impl<'a> ManifestParser<'a> {
                 cwd: self.cwd,
                 stdin: self.stdin,
                 stdin_jsonrpc_file: self.stdin_jsonrpc_file,
+                stdin_jsonrpc_workspace_file_uri_directives: self
+                    .stdin_jsonrpc_workspace_file_uri_directives,
                 repeat: self.repeat,
                 env: self.env,
             },
@@ -3800,7 +4115,29 @@ fn assertion_context(
     pointer: &str,
     operation: &str,
 ) -> String {
-    format!("{section} {index} {selector} path `{pointer}` {operation}")
+    format!(
+        "{} {operation}",
+        assertion_base_context(section, index, selector, pointer)
+    )
+}
+
+fn assertion_base_context(section: &str, index: usize, selector: &str, pointer: &str) -> String {
+    format!("{section} {index} {selector} path `{pointer}`")
+}
+
+fn value_assertion_context(section: &str, index: usize, path: &str, operation: &str) -> String {
+    format!(
+        "{} {operation}",
+        value_assertion_base_context(section, index, path)
+    )
+}
+
+fn value_assertion_base_context(section: &str, index: usize, path: &str) -> String {
+    format!("{section} {index} path `{path}`")
+}
+
+fn unresolved_assertion_operation_context(section: &str, index: usize, operation: &str) -> String {
+    format!("{section} {index} {operation}")
 }
 
 fn validate_binary_fixture_field_path(
@@ -4296,11 +4633,28 @@ fn parse_case_text_reference(
     }
 }
 
+fn load_jsonrpc_stdin_snapshot(
+    manifest_path: &Path,
+    line_number: usize,
+    relative: &str,
+    case_text_cache: &mut CaseTextCache,
+    workspace_file_uri_directives: &mut Vec<WorkspaceFileUriDirective>,
+) -> String {
+    load_jsonrpc_stdin(
+        manifest_path,
+        line_number,
+        relative,
+        case_text_cache,
+        workspace_file_uri_directives,
+    )
+}
+
 fn load_jsonrpc_stdin(
     manifest_path: &Path,
     line_number: usize,
     relative: &str,
     case_text_cache: &mut CaseTextCache,
+    workspace_file_uri_directives: &mut Vec<WorkspaceFileUriDirective>,
 ) -> String {
     let text = case_text_cache.read_path(manifest_path, line_number, relative);
     let fixture = parse_json(&text).unwrap_or_else(|error| {
@@ -4324,13 +4678,19 @@ fn load_jsonrpc_stdin(
     let mut framed = String::new();
     for (index, mut message) in messages.into_iter().enumerate() {
         let position = format!("$[{index}]");
-        expand_case_text_directives(
+        let mut context = JsonrpcDirectiveExpansion {
             manifest_path,
             line_number,
-            index,
-            &position,
-            &mut message,
+            message_index: index,
             case_text_cache,
+            workspace_file_uri_directives,
+        };
+        expand_case_text_directives(
+            &mut context,
+            &position,
+            &mut Vec::new(),
+            &mut Vec::new(),
+            &mut message,
         );
         validate_jsonrpc_input_message(manifest_path, line_number, index, &message);
         let body = message.to_compact_string();
@@ -4340,55 +4700,105 @@ fn load_jsonrpc_stdin(
     framed
 }
 
-fn expand_case_text_directives(
-    manifest_path: &Path,
+struct JsonrpcDirectiveExpansion<'a> {
+    manifest_path: &'a Path,
     line_number: usize,
     message_index: usize,
+    case_text_cache: &'a mut CaseTextCache,
+    workspace_file_uri_directives: &'a mut Vec<WorkspaceFileUriDirective>,
+}
+
+fn expand_case_text_directives(
+    context: &mut JsonrpcDirectiveExpansion<'_>,
     position: &str,
+    pointer_tokens: &mut Vec<String>,
+    pointer_route: &mut Vec<JsonPointerRouteSegment>,
     value: &mut JsonValue,
-    case_text_cache: &mut CaseTextCache,
 ) {
     match value {
         JsonValue::Array(values) => {
             for (index, value) in values.iter_mut().enumerate() {
+                pointer_tokens.push(index.to_string());
+                pointer_route.push(JsonPointerRouteSegment::ArrayIndex(index));
                 expand_case_text_directives(
-                    manifest_path,
-                    line_number,
-                    message_index,
+                    context,
                     &format!("{position}[{index}]"),
+                    pointer_tokens,
+                    pointer_route,
                     value,
-                    case_text_cache,
                 );
+                pointer_tokens.pop();
+                pointer_route.pop();
             }
         }
         JsonValue::Object(entries) => {
+            if let Some((_, directive)) =
+                entries.iter().find(|(key, _)| key == "$workspace_file_uri")
+            {
+                if entries.len() != 1 {
+                    jsonrpc_fixture_error(
+                        context.manifest_path,
+                        context.line_number,
+                        context.message_index,
+                        position,
+                        "`$workspace_file_uri` directive object must contain no other members",
+                    );
+                }
+                let JsonValue::String(relative) = directive else {
+                    jsonrpc_fixture_error(
+                        context.manifest_path,
+                        context.line_number,
+                        context.message_index,
+                        position,
+                        "`$workspace_file_uri` directive value must be a string",
+                    );
+                };
+                validate_workspace_file_uri_operand(
+                    context.manifest_path,
+                    context.line_number,
+                    relative,
+                );
+                context
+                    .workspace_file_uri_directives
+                    .push(WorkspaceFileUriDirective {
+                        message_index: context.message_index,
+                        pointer_route: pointer_route.clone(),
+                        relative: relative.clone(),
+                    });
+                *value = JsonValue::String(workspace_file_uri_marker(relative));
+                return;
+            }
             if let Some((_, directive)) = entries.iter().find(|(key, _)| key == "$case_text") {
                 if entries.len() != 1 {
                     jsonrpc_fixture_error(
-                        manifest_path,
-                        line_number,
-                        message_index,
+                        context.manifest_path,
+                        context.line_number,
+                        context.message_index,
                         position,
                         "`$case_text` directive object must contain no other members",
                     );
                 }
                 let JsonValue::String(relative) = directive else {
                     jsonrpc_fixture_error(
-                        manifest_path,
-                        line_number,
-                        message_index,
+                        context.manifest_path,
+                        context.line_number,
+                        context.message_index,
                         position,
                         "`$case_text` directive value must be a string",
                     );
                 };
                 let replacement = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    case_text_cache.read_path(manifest_path, line_number, relative)
+                    context.case_text_cache.read_path(
+                        context.manifest_path,
+                        context.line_number,
+                        relative,
+                    )
                 }))
                 .unwrap_or_else(|panic| {
                     jsonrpc_fixture_error(
-                        manifest_path,
-                        line_number,
-                        message_index,
+                        context.manifest_path,
+                        context.line_number,
+                        context.message_index,
                         position,
                         &format!("case-text reference failed: {}", panic_message(panic)),
                     )
@@ -4396,19 +4806,67 @@ fn expand_case_text_directives(
                 *value = JsonValue::String(replacement);
                 return;
             }
+            let mut seen_keys = BTreeMap::<String, usize>::new();
             for (key, value) in entries {
+                let occurrence = *seen_keys.get(key).unwrap_or(&0);
+                seen_keys.insert(key.clone(), occurrence + 1);
+                pointer_tokens.push(key.clone());
+                pointer_route.push(JsonPointerRouteSegment::ObjectMember {
+                    key: key.clone(),
+                    occurrence,
+                });
                 expand_case_text_directives(
-                    manifest_path,
-                    line_number,
-                    message_index,
+                    context,
                     &format!("{position}.{}", escape_json_position_key(key)),
+                    pointer_tokens,
+                    pointer_route,
                     value,
-                    case_text_cache,
                 );
+                pointer_tokens.pop();
+                pointer_route.pop();
             }
         }
         _ => {}
     }
+}
+
+const WORKSPACE_FILE_URI_MARKER: &str = "veln-harness-workspace-file-uri:";
+
+fn workspace_file_uri_marker(relative: &str) -> String {
+    let mut marker = WORKSPACE_FILE_URI_MARKER.to_string();
+    for byte in relative.bytes() {
+        marker.push_str(&format!("{byte:02x}"));
+    }
+    marker
+}
+
+fn materialize_jsonrpc_workspace_file_uri_directives(
+    input: &str,
+    directives: &[WorkspaceFileUriDirective],
+    project_root: &Path,
+) -> String {
+    if directives.is_empty() {
+        return input.to_string();
+    }
+    let mut messages = decode_lsp_stdout(input)
+        .unwrap_or_else(|error| panic!("workspace URI directive input failed to decode: {error}"));
+    for directive in directives {
+        let Some(message) = messages.get_mut(directive.message_index) else {
+            panic!(
+                "workspace URI directive references missing message {}",
+                directive.message_index
+            );
+        };
+        let target = json_pointer_route_mut(message, &directive.pointer_route)
+            .unwrap_or_else(|| panic!("workspace URI directive path was not found"));
+        let uri = workspace_file_uri(project_root, &directive.relative)
+            .unwrap_or_else(|error| panic!("workspace URI directive failed: {error}"));
+        *target = JsonValue::String(uri);
+    }
+    messages
+        .iter()
+        .map(|message| lsp_frame(&message.to_compact_string()))
+        .collect()
 }
 
 fn escape_json_position_key(key: &str) -> String {
@@ -5017,6 +5475,13 @@ fn parse_string(path: &Path, value: &ManifestValue<'_>) -> String {
     value.parse_string(path)
 }
 
+fn parse_string_with_context(path: &Path, value: &ManifestValue<'_>, context: &str) -> String {
+    if !value.is_string() {
+        manifest_error(path, value.line(), format!("{context}: expected string"));
+    }
+    parse_string(path, value)
+}
+
 fn parse_i32(path: &Path, value: &ManifestValue<'_>) -> i32 {
     value
         .raw()
@@ -5043,16 +5508,46 @@ fn parse_positive_usize(path: &Path, value: &ManifestValue<'_>) -> usize {
 }
 
 fn parse_nonnegative_usize(path: &Path, value: &ManifestValue<'_>) -> usize {
-    let parsed = parse_i64(path, value);
-    if parsed < 0 {
-        manifest_error(path, value.line(), "expected non-negative integer");
+    parse_nonnegative_usize_raw_with_context(path, value.line(), value.raw(), None)
+}
+
+fn parse_nonnegative_usize_with_context(
+    path: &Path,
+    value: &ManifestValue<'_>,
+    context: &str,
+) -> usize {
+    parse_nonnegative_usize_raw_with_context(path, value.line(), value.raw(), Some(context))
+}
+
+fn parse_nonnegative_usize_raw_with_context(
+    path: &Path,
+    line_number: usize,
+    raw: &str,
+    context: Option<&str>,
+) -> usize {
+    if raw.starts_with('-') && is_json_integer_token(raw) {
+        let message = "expected non-negative integer";
+        let message = match context {
+            Some(context) => format!("{context}: {message}"),
+            None => message.to_string(),
+        };
+        manifest_error(path, line_number, message);
     }
-    usize::try_from(parsed).unwrap_or_else(|_| {
-        manifest_error(
-            path,
-            value.line(),
-            "expected non-negative integer within range",
-        )
+    if !is_json_integer_token(raw) {
+        let message = "expected integer";
+        let message = match context {
+            Some(context) => format!("{context}: {message}"),
+            None => message.to_string(),
+        };
+        manifest_error(path, line_number, message);
+    }
+    raw.parse::<usize>().unwrap_or_else(|_| {
+        let message = "expected non-negative integer within range";
+        let message = match context {
+            Some(context) => format!("{context}: {message}"),
+            None => message.to_string(),
+        };
+        manifest_error(path, line_number, message)
     })
 }
 
@@ -6888,7 +7383,7 @@ equals = 3
 
 #[test]
 #[should_panic(
-    expected = "json_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`"
+    expected = "json_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
 )]
 fn manifest_json_assertions_reject_mixed_equals_and_missing() {
     parse_manifest(
@@ -7021,7 +7516,7 @@ path = "stdout"
 equals = "inline"
 equals_json_file = "case-text/missing-sidecar.json"
 "#,
-        "json_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`",
+        "json_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, `length`, `workspace_file_uri`, or `missing = true`",
     );
     assert_manifest_parse_error(
         r#"
@@ -7034,7 +7529,7 @@ path = "value"
 equals = "inline"
 equals_json_file = "case-text/missing-sidecar.json"
 "#,
-        "result_value_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`",
+        "result_value_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, `length`, `workspace_file_uri`, or `missing = true`",
     );
 }
 
@@ -7090,7 +7585,7 @@ path = "status"
 path = "stdout"
 equals_file = "case-text/missing-sidecar.txt"
 "#,
-        "json_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`",
+        "json_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, `length`, `workspace_file_uri`, or `missing = true`",
         "missing-sidecar",
     );
     assert_manifest_parse_error_without(
@@ -7107,7 +7602,7 @@ value_path = "error.other"
 path = "value"
 equals_file = "case-text/missing-sidecar.txt"
 "#,
-        "result_value_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`",
+        "result_value_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, `length`, `workspace_file_uri`, or `missing = true`",
         "missing-sidecar",
     );
     assert_manifest_parse_error_without(
@@ -7401,6 +7896,107 @@ fn manifest_jsonrpc_fixture_rejects_reserved_directive_shapes_and_paths() {
     fs::remove_dir_all(root).expect("case root should be removed");
 }
 
+#[test]
+fn manifest_jsonrpc_workspace_uri_directives_do_not_rewrite_marker_like_case_text() {
+    let root = test_temp_root("jsonrpc-workspace-uri-case-text-collision");
+    let case_dir = root.join("case");
+    fs::create_dir_all(case_dir.join("case-text")).expect("case text directory should be created");
+    fs::write(case_dir.join("main.veln"), "").expect("workspace file should be written");
+    let marker_like_text = format!("{WORKSPACE_FILE_URI_MARKER}not-hex\nordinary text");
+    fs::write(case_dir.join("case-text/marker.raw"), &marker_like_text)
+        .expect("marker-like case text should be written");
+    fs::write(
+        case_dir.join("requests.json"),
+        r#"[
+  {"jsonrpc":"2.0","method":"text","params":{"text":{"$case_text":"case-text/marker.raw"}}},
+  {"jsonrpc":"2.0","method":"uri","params":{"uri":{"$workspace_file_uri":"main.veln"}}}
+]"#,
+    )
+    .expect("JSON-RPC fixture should be written");
+
+    let manifest = parse_manifest(
+        &case_dir.join("case.toml"),
+        "command = [\"lsp\"]\nstdin_jsonrpc_file = \"requests.json\"\nexit = 0\n",
+    );
+    assert!(
+        manifest
+            .invocation
+            .stdin
+            .as_deref()
+            .is_some_and(|stdin| stdin.contains(WORKSPACE_FILE_URI_MARKER))
+    );
+    let framed = manifest
+        .invocation
+        .materialized_stdin(&case_dir)
+        .expect("JSON-RPC stdin should materialize");
+    let messages = decode_lsp_stdout(&framed).expect("framed JSON-RPC input should decode");
+    assert_eq!(
+        json_path(&messages[0], "params.text"),
+        Some(&JsonValue::String(marker_like_text))
+    );
+    assert_eq!(
+        json_path(&messages[1], "params.uri"),
+        Some(&JsonValue::String(
+            workspace_file_uri(&case_dir, "main.veln").expect("workspace URI should resolve")
+        ))
+    );
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
+fn manifest_jsonrpc_workspace_uri_directive_materializes_later_duplicate_member() {
+    let root = test_temp_root("jsonrpc-workspace-uri-duplicate-member");
+    let case_dir = root.join("case");
+    fs::create_dir_all(&case_dir).expect("case directory should be created");
+    fs::write(case_dir.join("main.veln"), "").expect("workspace file should be written");
+    fs::write(
+        case_dir.join("requests.json"),
+        r#"[
+  {"jsonrpc":"2.0","method":"uri","params":{"uri":"preserve-first","uri":{"$workspace_file_uri":"main.veln"}}}
+]"#,
+    )
+    .expect("JSON-RPC fixture should be written");
+
+    let manifest = parse_manifest(
+        &case_dir.join("case.toml"),
+        "command = [\"lsp\"]\nstdin_jsonrpc_file = \"requests.json\"\nexit = 0\n",
+    );
+    let framed = manifest
+        .invocation
+        .materialized_stdin(&case_dir)
+        .expect("JSON-RPC stdin should materialize");
+    assert!(
+        !framed.contains(WORKSPACE_FILE_URI_MARKER),
+        "workspace URI marker must not reach command input"
+    );
+    let messages = decode_lsp_stdout(&framed).expect("framed JSON-RPC input should decode");
+    let JsonValue::Object(message_entries) = &messages[0] else {
+        panic!("message should be an object");
+    };
+    let params = message_entries
+        .iter()
+        .find_map(|(key, value)| (key == "params").then_some(value))
+        .expect("params should exist");
+    let JsonValue::Object(params_entries) = params else {
+        panic!("params should be an object");
+    };
+    let uri_values = params_entries
+        .iter()
+        .filter_map(|(key, value)| (key == "uri").then_some(value))
+        .collect::<Vec<_>>();
+    assert_eq!(uri_values.len(), 2);
+    assert_eq!(
+        uri_values[0],
+        &JsonValue::String("preserve-first".to_string())
+    );
+    let expected_uri =
+        workspace_file_uri(&case_dir, "main.veln").expect("workspace URI should resolve");
+    assert_eq!(uri_values[1], &JsonValue::String(expected_uri));
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
 #[cfg(unix)]
 #[test]
 fn manifest_jsonrpc_resources_fail_before_skip_fixture_copy_and_command_start() {
@@ -7466,7 +8062,7 @@ path = "stdout"
 equals = "inline"
 equals_file = "case-text/missing-sidecar.txt"
 "#,
-        "json_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`",
+        "json_assert 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, `length`, `workspace_file_uri`, or `missing = true`",
     );
     assert_manifest_parse_error(
         r#"
@@ -8147,6 +8743,917 @@ contains = "needle"
             );
         }
     }
+}
+
+#[test]
+fn common_length_and_workspace_uri_operations_cover_every_json_adapter() {
+    let root = test_temp_root("common-json-operations");
+    fs::write(root.join("main.veln"), "").expect("workspace file should be written");
+    let manifest_path = root.join("case.toml");
+    let uri = workspace_file_uri(&root, "main.veln").expect("workspace URI should resolve");
+
+    let json_manifest = parse_manifest(
+        &manifest_path,
+        r#"command = ["check"]
+exit = 0
+[[json_assert]]
+path = "items"
+length = 2
+[[json_assert]]
+path = "uri"
+workspace_file_uri = "main.veln"
+"#,
+    );
+    let json = parse_json(&format!(r#"{{"items":[1,2],"uri":{uri:?}}}"#))
+        .expect("JSON adapter input should parse");
+    let context = CaseRunContext {
+        case_dir: Path::new("common-json-operations"),
+        run_number: 1,
+    };
+    for (index, assertion) in json_manifest
+        .expectations
+        .json_assertions
+        .iter()
+        .enumerate()
+    {
+        assert_json_path_in_workspace(&context, &json, assertion, index, &root);
+    }
+
+    let result_manifest = parse_manifest(
+        &manifest_path,
+        r#"command = ["run", "--json", "main", "main.veln"]
+exit = 0
+[[result_value_assert]]
+value_path = "rendered"
+path = "value.field_path"
+length = 2
+[[result_value_assert]]
+value_path = "uri_rendered"
+path = "value.id"
+workspace_file_uri = "main.veln"
+"#,
+    );
+    let rendered = parse_json(&format!(
+        r#"{{"rendered":"RuntimeByteDiagnostic(offset, Cons(first, Cons(second, Nil)), facts, preview)","uri_rendered":"RuntimeDiagnostic({uri}, message, detail)"}}"#
+    ))
+    .expect("result-value adapter input should parse");
+    for (index, assertion) in result_manifest
+        .expectations
+        .result_value_assertions
+        .iter()
+        .enumerate()
+    {
+        assert_result_value_path_in_workspace(&context, &rendered, assertion, index, &root);
+    }
+
+    let lsp_manifest = parse_manifest(
+        &manifest_path,
+        r#"command = ["lsp"]
+exit = 0
+[[lsp_assert]]
+id = 1
+path = "/result/items"
+length = 2
+[[lsp_assert]]
+method = "note"
+path = "/params/uri"
+workspace_file_uri = "main.veln"
+"#,
+    );
+    let lsp_stdout = format!(
+        "{}{}",
+        lsp_frame(r#"{"jsonrpc":"2.0","id":1,"result":{"items":[1,2]}}"#),
+        lsp_frame(&format!(
+            r#"{{"jsonrpc":"2.0","method":"note","params":{{"uri":{uri:?}}}}}"#
+        ))
+    );
+    assert_lsp_assertions_in_workspace(
+        &context,
+        &lsp_stdout,
+        &lsp_manifest.expectations.lsp_assertions,
+        &root,
+    );
+
+    for (command, section, selectors) in [
+        ("check", "json_assert", "path = \"value\"\n"),
+        (
+            "run",
+            "result_value_assert",
+            "value_path = \"rendered\"\npath = \"value\"\n",
+        ),
+        ("lsp", "lsp_assert", "id = 1\npath = \"/result\"\n"),
+    ] {
+        for (operation, expected) in [
+            ("length = \"2\"\n", "expected integer"),
+            ("workspace_file_uri = 1\n", "expected string"),
+            (
+                "length = 1\nworkspace_file_uri = \"main.veln\"\n",
+                "needs exactly one",
+            ),
+        ] {
+            assert_manifest_parse_error(
+                &format!(
+                    "command = [\"{command}\"]\nexit = 0\n[[{section}]]\n{selectors}{operation}"
+                ),
+                expected,
+            );
+        }
+    }
+
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn common_length_and_workspace_uri_operand_errors_report_assertion_context() {
+    let root = test_temp_root("common-json-operation-operand-context");
+    fs::write(root.join("main.veln"), "").expect("workspace file should be written");
+    let manifest_path = root.join("case.toml");
+
+    for (command, section, selectors, selector_fragment, path_fragment) in [
+        (
+            "check",
+            "json_assert",
+            "path = \"value\"\n",
+            "",
+            "path `value`",
+        ),
+        (
+            "run",
+            "result_value_assert",
+            "value_path = \"rendered\"\npath = \"value\"\n",
+            "",
+            "path `value`",
+        ),
+        (
+            "lsp",
+            "lsp_assert",
+            "id = 1\npath = \"/result\"\n",
+            "response id 1",
+            "path `/result`",
+        ),
+        (
+            "mcp",
+            "mcp_assert",
+            "id = 1\npath = \"/result\"\n",
+            "response id 1",
+            "path `/result`",
+        ),
+    ] {
+        for (operation, operation_fragment, failed_fact) in [
+            ("length = \"2\"\n", "length", "expected integer"),
+            (
+                "workspace_file_uri = 1\n",
+                "workspace_file_uri",
+                "expected string",
+            ),
+            (
+                "workspace_file_uri = \"../main.veln\"\n",
+                "workspace_file_uri",
+                "must not contain",
+            ),
+        ] {
+            let panic = std::panic::catch_unwind(|| {
+                parse_manifest(
+                    &manifest_path,
+                    &format!(
+                        "command = [\"{command}\"]\nexit = 0\n[[{section}]]\n{selectors}{operation}"
+                    ),
+                )
+            })
+            .expect_err("invalid assertion operand should fail");
+            let message = panic_message(panic);
+            for expected in [
+                section,
+                "0",
+                selector_fragment,
+                path_fragment,
+                operation_fragment,
+                failed_fact,
+            ] {
+                assert!(
+                    expected.is_empty() || message.contains(expected),
+                    "expected `{expected}` in `{message}`"
+                );
+            }
+        }
+    }
+
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn json_and_result_value_operation_before_path_errors_keep_resolved_context() {
+    let root = test_temp_root("json-result-operation-before-path-error");
+    fs::write(root.join("main.veln"), "").expect("workspace file should be written");
+    let manifest_path = root.join("case.toml");
+
+    for (command, section, operation, selectors, expected_fragments) in [
+        (
+            "check",
+            "json_assert",
+            "length = \"2\"\n",
+            "path = \"items\"\n",
+            vec![
+                "json_assert",
+                "0",
+                "path `items`",
+                "length",
+                "expected integer",
+            ],
+        ),
+        (
+            "check",
+            "json_assert",
+            "workspace_file_uri = 1\n",
+            "path = \"uri\"\n",
+            vec![
+                "json_assert",
+                "0",
+                "path `uri`",
+                "workspace_file_uri",
+                "expected string",
+            ],
+        ),
+        (
+            "check",
+            "json_assert",
+            "workspace_file_uri = \"../main.veln\"\n",
+            "path = \"uri\"\n",
+            vec![
+                "json_assert",
+                "0",
+                "path `uri`",
+                "workspace_file_uri",
+                "must not contain",
+            ],
+        ),
+        (
+            "run",
+            "result_value_assert",
+            "length = \"2\"\n",
+            "value_path = \"rendered\"\npath = \"items\"\n",
+            vec![
+                "result_value_assert",
+                "0",
+                "path `items`",
+                "length",
+                "expected integer",
+            ],
+        ),
+        (
+            "run",
+            "result_value_assert",
+            "workspace_file_uri = 1\n",
+            "value_path = \"rendered\"\npath = \"uri\"\n",
+            vec![
+                "result_value_assert",
+                "0",
+                "path `uri`",
+                "workspace_file_uri",
+                "expected string",
+            ],
+        ),
+        (
+            "run",
+            "result_value_assert",
+            "workspace_file_uri = \"../main.veln\"\n",
+            "value_path = \"rendered\"\npath = \"uri\"\n",
+            vec![
+                "result_value_assert",
+                "0",
+                "path `uri`",
+                "workspace_file_uri",
+                "must not contain",
+            ],
+        ),
+    ] {
+        let panic = std::panic::catch_unwind(|| {
+            parse_manifest(
+                &manifest_path,
+                &format!(
+                    "command = [\"{command}\"]\nexit = 0\n[[{section}]]\n{operation}{selectors}"
+                ),
+            )
+        })
+        .expect_err("invalid assertion operand should fail");
+        let message = panic_message(panic);
+        for expected in expected_fragments {
+            assert!(
+                message.contains(expected),
+                "expected `{expected}` in `{message}`"
+            );
+        }
+    }
+
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn lsp_and_mcp_length_and_workspace_uri_accept_operation_before_selector_path() {
+    let root = test_temp_root("lsp-mcp-operation-before-selector");
+    fs::write(root.join("main.veln"), "").expect("workspace file should be written");
+    let manifest_path = root.join("case.toml");
+
+    for (command, section, operation, selectors, operation_fragment) in [
+        (
+            "lsp",
+            "lsp_assert",
+            "length = 2\n",
+            "id = 1\npath = \"/result/items\"\n",
+            "length",
+        ),
+        (
+            "lsp",
+            "lsp_assert",
+            "workspace_file_uri = \"main.veln\"\n",
+            "method = \"note\"\npath = \"/params/uri\"\n",
+            "workspace_file_uri",
+        ),
+        (
+            "mcp",
+            "mcp_assert",
+            "length = 2\n",
+            "id = 1\npath = \"/result/items\"\n",
+            "length",
+        ),
+        (
+            "mcp",
+            "mcp_assert",
+            "workspace_file_uri = \"main.veln\"\n",
+            "id = 1\npath = \"/result/uri\"\n",
+            "workspace_file_uri",
+        ),
+    ] {
+        let manifest = parse_manifest(
+            &manifest_path,
+            &format!("command = [\"{command}\"]\nexit = 0\n[[{section}]]\n{operation}{selectors}"),
+        );
+        let parsed_operation = match section {
+            "lsp_assert" => match manifest.expectations.lsp_assertions[0]
+                .operation
+                .as_ref()
+                .expect("operation should parse")
+            {
+                LspAssertionOperation::Length(_) => "length",
+                LspAssertionOperation::WorkspaceFileUri(_) => "workspace_file_uri",
+                operation => panic!("unexpected lsp operation: {operation:?}"),
+            },
+            "mcp_assert" => match manifest.expectations.mcp_assertions[0]
+                .operation
+                .as_ref()
+                .expect("operation should parse")
+            {
+                McpAssertionOperation::Length(_) => "length",
+                McpAssertionOperation::WorkspaceFileUri(_) => "workspace_file_uri",
+                operation => panic!("unexpected mcp operation: {operation:?}"),
+            },
+            _ => unreachable!("test section should be covered"),
+        };
+        assert_eq!(parsed_operation, operation_fragment);
+    }
+
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn lsp_and_mcp_operation_before_selector_path_errors_keep_resolved_context() {
+    let root = test_temp_root("lsp-mcp-operation-before-selector-error");
+    fs::write(root.join("main.veln"), "").expect("workspace file should be written");
+    let manifest_path = root.join("case.toml");
+
+    for (command, section, operation, selectors, expected_fragments) in [
+        (
+            "lsp",
+            "lsp_assert",
+            "length = \"2\"\n",
+            "id = 1\npath = \"/result/items\"\n",
+            vec![
+                "lsp_assert",
+                "0",
+                "response id 1",
+                "path `/result/items`",
+                "length",
+                "expected integer",
+            ],
+        ),
+        (
+            "lsp",
+            "lsp_assert",
+            "workspace_file_uri = 1\n",
+            "method = \"note\"\npath = \"/params/uri\"\n",
+            vec![
+                "lsp_assert",
+                "0",
+                "notification method \"note\" occurrence 0",
+                "path `/params/uri`",
+                "workspace_file_uri",
+                "expected string",
+            ],
+        ),
+        (
+            "mcp",
+            "mcp_assert",
+            "length = \"2\"\n",
+            "id = 1\npath = \"/result/items\"\n",
+            vec![
+                "mcp_assert",
+                "0",
+                "response id 1",
+                "path `/result/items`",
+                "length",
+                "expected integer",
+            ],
+        ),
+        (
+            "mcp",
+            "mcp_assert",
+            "workspace_file_uri = 1\n",
+            "id = 1\npath = \"/result/uri\"\n",
+            vec![
+                "mcp_assert",
+                "0",
+                "response id 1",
+                "path `/result/uri`",
+                "workspace_file_uri",
+                "expected string",
+            ],
+        ),
+    ] {
+        let panic = std::panic::catch_unwind(|| {
+            parse_manifest(
+                &manifest_path,
+                &format!(
+                    "command = [\"{command}\"]\nexit = 0\n[[{section}]]\n{operation}{selectors}"
+                ),
+            )
+        })
+        .expect_err("invalid assertion operand should fail");
+        let message = panic_message(panic);
+        for expected in expected_fragments {
+            assert!(
+                message.contains(expected),
+                "expected `{expected}` in `{message}`"
+            );
+        }
+    }
+
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn common_length_and_workspace_uri_failures_keep_section_context() {
+    let root = test_temp_root("common-json-operation-failures");
+    fs::write(root.join("main.veln"), "").expect("workspace file should be written");
+    let context = CaseRunContext {
+        case_dir: Path::new("common-json-operation-failures"),
+        run_number: 1,
+    };
+
+    for (actual, operation, expected) in [
+        (
+            JsonValue::String("not-an-array".to_string()),
+            ValueAssertionOperation::Length(1),
+            "length requires a selected JSON array",
+        ),
+        (
+            JsonValue::Array(vec![]),
+            ValueAssertionOperation::Length(1),
+            "array length mismatch: expected 1, got 0",
+        ),
+        (
+            JsonValue::Number(1),
+            ValueAssertionOperation::WorkspaceFileUri("main.veln".to_string()),
+            "workspace_file_uri requires a selected JSON string",
+        ),
+        (
+            JsonValue::String("file:///wrong".to_string()),
+            ValueAssertionOperation::WorkspaceFileUri("main.veln".to_string()),
+            "workspace URI mismatch",
+        ),
+    ] {
+        let error = expect_value_assertion(&actual, &operation, &root)
+            .expect_err("common operation should report its failed fact");
+        assert!(
+            error.contains(expected),
+            "expected `{expected}` in `{error}`"
+        );
+    }
+
+    let json_manifest = parse_manifest(
+        &root.join("case.toml"),
+        r#"command = ["check"]
+exit = 0
+[[json_assert]]
+path = "missing"
+length = 0
+"#,
+    );
+    let panic = std::panic::catch_unwind(|| {
+        assert_json_path_in_workspace(
+            &context,
+            &JsonValue::Object(vec![]),
+            &json_manifest.expectations.json_assertions[0],
+            0,
+            &root,
+        )
+    })
+    .expect_err("missing JSON path should fail");
+    let message = panic_message(panic);
+    assert!(message.contains("json_assert 0"));
+    assert!(message.contains("path `missing`"));
+    assert!(message.contains("was not found"));
+
+    let result_manifest = parse_manifest(
+        &root.join("case.toml"),
+        r#"command = ["run", "--json", "main", "main.veln"]
+exit = 0
+[[result_value_assert]]
+value_path = "rendered"
+path = "value.missing"
+length = 0
+"#,
+    );
+    let rendered = parse_json(r#"{"rendered":"ByteOffset(2)"}"#)
+        .expect("result-value adapter input should parse");
+    let panic = std::panic::catch_unwind(|| {
+        assert_result_value_path_in_workspace(
+            &context,
+            &rendered,
+            &result_manifest.expectations.result_value_assertions[0],
+            0,
+            &root,
+        )
+    })
+    .expect_err("missing result-value path should fail");
+    let message = panic_message(panic);
+    assert!(message.contains("result_value_assert 0"));
+    assert!(message.contains("path `value.missing`"));
+    assert!(message.contains("was not found"));
+
+    for (command, section, selectors) in [
+        ("check", "json_assert", "path = \"uri\"\n"),
+        (
+            "run",
+            "result_value_assert",
+            "value_path = \"rendered\"\npath = \"value.id\"\n",
+        ),
+        ("lsp", "lsp_assert", "id = 1\npath = \"/result/uri\"\n"),
+    ] {
+        let error = std::panic::catch_unwind(|| {
+            parse_manifest(
+                &root.join("case.toml"),
+                &format!(
+                    "command = [\"{command}\"]\nexit = 0\n[[{section}]]\n{selectors}workspace_file_uri = \"../main.veln\"\n"
+                ),
+            )
+        })
+        .expect_err("unsafe workspace URI operand should fail");
+        let message = panic_message(error);
+        assert!(message.contains("workspace_file_uri"));
+        assert!(message.contains("must not contain"));
+    }
+
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn common_length_parser_accepts_full_usize_range_without_signed_intermediary() {
+    let root = test_temp_root("common-length-usize-range");
+    let manifest_path = root.join("case.toml");
+    let max = usize::MAX.to_string();
+    let over_max = ((usize::MAX as u128) + 1).to_string();
+
+    for (command, section, selectors) in [
+        ("check", "json_assert", "path = \"items\"\n"),
+        (
+            "run",
+            "result_value_assert",
+            "value_path = \"rendered\"\npath = \"items\"\n",
+        ),
+        ("lsp", "lsp_assert", "id = 1\npath = \"/result/items\"\n"),
+        ("mcp", "mcp_assert", "id = 1\npath = \"/result/items\"\n"),
+    ] {
+        for accepted in ["9223372036854775807", max.as_str()] {
+            parse_manifest(
+                &manifest_path,
+                &format!(
+                    "command = [\"{command}\"]\nexit = 0\n[[{section}]]\n{selectors}length = {accepted}\n"
+                ),
+            );
+        }
+        if usize::BITS > 63 {
+            parse_manifest(
+                &manifest_path,
+                &format!(
+                    "command = [\"{command}\"]\nexit = 0\n[[{section}]]\n{selectors}length = 9223372036854775808\n"
+                ),
+            );
+        }
+
+        for (rejected, expected) in [
+            ("-1", "expected non-negative integer"),
+            ("1.0", "expected integer"),
+            (
+                over_max.as_str(),
+                "expected non-negative integer within range",
+            ),
+        ] {
+            let panic = std::panic::catch_unwind(|| {
+                parse_manifest(
+                    &manifest_path,
+                    &format!(
+                        "command = [\"{command}\"]\nexit = 0\n[[{section}]]\n{selectors}length = {rejected}\n"
+                    ),
+                )
+            })
+            .expect_err("invalid length operand should fail");
+            let message = panic_message(panic);
+            for fragment in [section, "0", "length", expected] {
+                assert!(
+                    message.contains(fragment),
+                    "expected `{fragment}` in `{message}`"
+                );
+            }
+        }
+    }
+
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn common_operation_wrapper_failures_keep_full_context_matrix() {
+    let root = test_temp_root("common-operation-wrapper-context");
+    fs::write(root.join("main.veln"), "").expect("workspace file should be written");
+    let context = CaseRunContext {
+        case_dir: Path::new("common-operation-wrapper-context"),
+        run_number: 1,
+    };
+    let actual_uri = workspace_file_uri(&root, "main.veln").expect("workspace URI should resolve");
+    let wrong_uri = "file:///wrong";
+
+    for (operation, actual, fragments) in [
+        (
+            "length = 1",
+            r#"{"items":"not-array"}"#.to_string(),
+            vec![
+                "common-operation-wrapper-context run 1",
+                "json_assert 0",
+                "JSON path `items`",
+                "length requires a selected JSON array",
+            ],
+        ),
+        (
+            "length = 2",
+            r#"{"items":[1]}"#.to_string(),
+            vec![
+                "common-operation-wrapper-context run 1",
+                "json_assert 0",
+                "JSON path `items`",
+                "array length mismatch: expected 2, got 1",
+            ],
+        ),
+        (
+            "workspace_file_uri = \"main.veln\"",
+            r#"{"uri":1}"#.to_string(),
+            vec![
+                "common-operation-wrapper-context run 1",
+                "json_assert 0",
+                "JSON path `uri`",
+                "workspace_file_uri requires a selected JSON string",
+            ],
+        ),
+        (
+            "workspace_file_uri = \"main.veln\"",
+            format!(r#"{{"uri":"{wrong_uri}"}}"#),
+            vec![
+                "common-operation-wrapper-context run 1",
+                "json_assert 0",
+                "JSON path `uri`",
+                "workspace URI mismatch",
+                "main.veln",
+            ],
+        ),
+    ] {
+        let manifest = parse_manifest(
+            &root.join("case.toml"),
+            &format!(
+                "command = [\"check\"]\nexit = 0\n[[json_assert]]\npath = \"{}\"\n{operation}\n",
+                if operation.starts_with("length") {
+                    "items"
+                } else {
+                    "uri"
+                }
+            ),
+        );
+        let json = parse_json(&actual).expect("JSON wrapper matrix input should parse");
+        let panic = std::panic::catch_unwind(|| {
+            assert_json_path_in_workspace(
+                &context,
+                &json,
+                &manifest.expectations.json_assertions[0],
+                0,
+                &root,
+            )
+        })
+        .expect_err("JSON assertion should fail");
+        let message = panic_message(panic);
+        for fragment in fragments {
+            assert!(
+                message.contains(fragment),
+                "expected `{fragment}` in `{message}`"
+            );
+        }
+    }
+
+    for (operation, rendered_value, selected_path, fragments) in [
+        (
+            "length = 1",
+            "RuntimeDiagnostic(id, msg, RuntimeValueDiagnostic(Nil, reason))",
+            "value.id",
+            vec![
+                "common-operation-wrapper-context run 1",
+                "result_value_assert 0",
+                "result value path `value.id`",
+                "length requires a selected JSON array",
+            ],
+        ),
+        (
+            "length = 2",
+            "RuntimeDiagnostic(id, msg, RuntimeByteDiagnostic(ByteOffset(1), Cons(RuntimeDiagnosticFieldPathSegment(schema, body), Nil), RuntimeByteCountFacts(ByteCount(2), ByteCount(1), partial), NoRuntimeBytePreview))",
+            "value.detail.field_path",
+            vec![
+                "common-operation-wrapper-context run 1",
+                "result_value_assert 0",
+                "result value path `value.detail.field_path`",
+                "array length mismatch: expected 2, got 1",
+            ],
+        ),
+        (
+            "workspace_file_uri = \"main.veln\"",
+            "ByteOffset(2)",
+            "value",
+            vec![
+                "common-operation-wrapper-context run 1",
+                "result_value_assert 0",
+                "result value path `value`",
+                "workspace_file_uri requires a selected JSON string",
+            ],
+        ),
+        (
+            "workspace_file_uri = \"main.veln\"",
+            "RuntimeDiagnostic(id, msg, RuntimeValueDiagnostic(Nil, reason))",
+            "value.id",
+            vec![
+                "common-operation-wrapper-context run 1",
+                "result_value_assert 0",
+                "result value path `value.id`",
+                "workspace URI mismatch",
+                "main.veln",
+            ],
+        ),
+    ] {
+        let manifest = parse_manifest(
+            &root.join("case.toml"),
+            &format!(
+                "command = [\"run\", \"--json\", \"main\", \"main.veln\"]\nexit = 0\n[[result_value_assert]]\nvalue_path = \"rendered\"\npath = \"{selected_path}\"\n{operation}\n"
+            ),
+        );
+        let rendered = JsonValue::Object(vec![(
+            "rendered".to_string(),
+            JsonValue::String(rendered_value.to_string()),
+        )]);
+        let panic = std::panic::catch_unwind(|| {
+            assert_result_value_path_in_workspace(
+                &context,
+                &rendered,
+                &manifest.expectations.result_value_assertions[0],
+                0,
+                &root,
+            )
+        })
+        .expect_err("result-value assertion should fail");
+        let message = panic_message(panic);
+        for fragment in fragments {
+            assert!(
+                message.contains(fragment),
+                "expected `{fragment}` in `{message}`"
+            );
+        }
+    }
+
+    for (manifest_fields, lsp_stdout, fragments) in [
+        (
+            "id = 1\npath = \"/result/items\"\nlength = 1\n",
+            lsp_frame(r#"{"jsonrpc":"2.0","id":1,"result":{"items":"not-array"}}"#),
+            vec![
+                "common-operation-wrapper-context run 1",
+                "lsp_assert 0",
+                "response id 1",
+                "path \"/result/items\"",
+                "length requires a selected JSON array",
+            ],
+        ),
+        (
+            "id = 1\npath = \"/result/items\"\nlength = 2\n",
+            lsp_frame(r#"{"jsonrpc":"2.0","id":1,"result":{"items":[1]}}"#),
+            vec![
+                "common-operation-wrapper-context run 1",
+                "lsp_assert 0",
+                "response id 1",
+                "path \"/result/items\"",
+                "array length mismatch: expected 2, got 1",
+            ],
+        ),
+        (
+            "method = \"textDocument/publishDiagnostics\"\npath = \"/params/uri\"\nworkspace_file_uri = \"main.veln\"\n",
+            lsp_frame(
+                r#"{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":1,"diagnostics":[]}}"#,
+            ),
+            vec![
+                "common-operation-wrapper-context run 1",
+                "lsp_assert 0",
+                "notification method \"textDocument/publishDiagnostics\" occurrence 0",
+                "path \"/params/uri\"",
+                "workspace_file_uri requires a selected JSON string",
+            ],
+        ),
+        (
+            "method = \"textDocument/publishDiagnostics\"\npath = \"/params/uri\"\nworkspace_file_uri = \"main.veln\"\n",
+            lsp_frame(&format!(
+                r#"{{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{{"uri":"{wrong_uri}","diagnostics":[]}}}}"#
+            )),
+            vec![
+                "common-operation-wrapper-context run 1",
+                "lsp_assert 0",
+                "notification method \"textDocument/publishDiagnostics\" occurrence 0",
+                "path \"/params/uri\"",
+                "workspace URI mismatch",
+                "main.veln",
+            ],
+        ),
+    ] {
+        let lsp_failures = parse_manifest(
+            &root.join("case.toml"),
+            &format!("command = [\"lsp\"]\nexit = 0\n[[lsp_assert]]\n{manifest_fields}"),
+        )
+        .expectations
+        .lsp_assertions;
+        let panic = std::panic::catch_unwind(|| {
+            assert_lsp_assertions_in_workspace(&context, &lsp_stdout, &lsp_failures, &root)
+        })
+        .expect_err("LSP assertion should fail");
+        let message = panic_message(panic);
+        for fragment in fragments {
+            assert!(
+                message.contains(fragment),
+                "expected `{fragment}` in `{message}`"
+            );
+        }
+    }
+
+    let lsp_failures = parse_manifest(
+        &root.join("case.toml"),
+        r#"command = ["lsp"]
+exit = 0
+[[lsp_assert]]
+id = 1
+path = "/result/items"
+length = 1
+[[lsp_assert]]
+id = 2
+path = "/result/items"
+length = 2
+"#,
+    )
+    .expectations
+    .lsp_assertions;
+    let lsp_stdout = format!(
+        "{}{}",
+        lsp_frame(r#"{"jsonrpc":"2.0","id":1,"result":{"items":"not-array"}}"#),
+        lsp_frame(r#"{"jsonrpc":"2.0","id":2,"result":{"items":[1]}}"#)
+    );
+    let panic = std::panic::catch_unwind(|| {
+        assert_lsp_assertions_in_workspace(&context, &lsp_stdout, &lsp_failures, &root)
+    })
+    .expect_err("LSP assertions should aggregate failures");
+    let message = panic_message(panic);
+    for fragment in [
+        "lsp_assert 0",
+        "length requires a selected JSON array",
+        "lsp_assert 1",
+        "array length mismatch: expected 2, got 1",
+    ] {
+        assert!(
+            message.contains(fragment),
+            "expected `{fragment}` in `{message}`"
+        );
+    }
+
+    assert!(
+        actual_uri.starts_with("file://"),
+        "test should create a real file URI"
+    );
+    fs::remove_dir_all(root).expect("test root should be removed");
 }
 
 fn contains_adapter_context() -> CaseRunContext<'static> {
@@ -11282,6 +12789,15 @@ fn parse_json_pointer(
 }
 
 fn assert_lsp_assertions(context: &CaseRunContext<'_>, stdout: &str, assertions: &[LspAssertion]) {
+    assert_lsp_assertions_in_workspace(context, stdout, assertions, Path::new("."));
+}
+
+fn assert_lsp_assertions_in_workspace(
+    context: &CaseRunContext<'_>,
+    stdout: &str,
+    assertions: &[LspAssertion],
+    project_root: &Path,
+) {
     if assertions.is_empty() {
         return;
     }
@@ -11298,7 +12814,8 @@ fn assert_lsp_assertions(context: &CaseRunContext<'_>, stdout: &str, assertions:
     });
     let mut failures = Vec::new();
     for (index, assertion) in assertions.iter().enumerate() {
-        if let Err(error) = evaluate_lsp_assertion(&messages, assertion) {
+        if let Err(error) = evaluate_lsp_assertion_in_workspace(&messages, assertion, project_root)
+        {
             failures.push(format!(
                 "{}: lsp_assert {index} {} path {:?}: {error}",
                 context.label(),
@@ -11474,6 +12991,14 @@ fn is_lsp_response(message: &JsonValue) -> bool {
 }
 
 fn evaluate_lsp_assertion(messages: &[JsonValue], assertion: &LspAssertion) -> Result<(), String> {
+    evaluate_lsp_assertion_in_workspace(messages, assertion, Path::new("."))
+}
+
+fn evaluate_lsp_assertion_in_workspace(
+    messages: &[JsonValue],
+    assertion: &LspAssertion,
+    project_root: &Path,
+) -> Result<(), String> {
     let selected = if let Some(id) = &assertion.id {
         messages
             .iter()
@@ -11523,10 +13048,14 @@ fn evaluate_lsp_assertion(messages: &[JsonValue], assertion: &LspAssertion) -> R
                 unreachable!("manifest finish resolves LSP equals_json_file operands")
             }
             LspAssertionOperation::Contains(expected) => expect_string_contains(actual, expected),
+            LspAssertionOperation::Length(expected) => expect_array_length(actual, *expected),
             LspAssertionOperation::Missing(true) => {
                 Err("selected JSON path exists but should be missing".to_string())
             }
             LspAssertionOperation::Missing(false) => unreachable!("validated missing operation"),
+            LspAssertionOperation::WorkspaceFileUri(relative) => {
+                expect_workspace_file_uri(actual, project_root, relative)
+            }
         },
     }
 }
@@ -11610,12 +13139,12 @@ fn evaluate_mcp_operation(
             unreachable!("manifest finish resolves MCP equals_json_file operands")
         }
         McpAssertionOperation::Contains(expected) => expect_string_contains(actual, expected),
-        McpAssertionOperation::Length(expected) => expect_mcp_array_length(actual, *expected),
+        McpAssertionOperation::Length(expected) => expect_array_length(actual, *expected),
         McpAssertionOperation::Missing(true) => {
             Err("selected JSON path exists but should be missing".to_string())
         }
         McpAssertionOperation::WorkspaceFileUri(relative) => {
-            expect_mcp_workspace_file_uri(actual, project_root, relative)
+            expect_workspace_file_uri(actual, project_root, relative)
         }
         McpAssertionOperation::Missing(false) => unreachable!("validated missing operation"),
     }
@@ -11655,7 +13184,7 @@ fn expect_string_contains(actual: &JsonValue, expected: &str) -> Result<(), Stri
     }
 }
 
-fn expect_mcp_array_length(actual: &JsonValue, expected: usize) -> Result<(), String> {
+fn expect_array_length(actual: &JsonValue, expected: usize) -> Result<(), String> {
     let actual = actual
         .as_array()
         .ok_or_else(|| "length requires a selected JSON array".to_string())?;
@@ -11669,7 +13198,7 @@ fn expect_mcp_array_length(actual: &JsonValue, expected: usize) -> Result<(), St
     }
 }
 
-fn expect_mcp_workspace_file_uri(
+fn expect_workspace_file_uri(
     actual: &JsonValue,
     project_root: &Path,
     relative: &str,
@@ -11730,9 +13259,25 @@ fn json_values_equal(left: &JsonValue, right: &JsonValue) -> bool {
 }
 
 fn validate_workspace_file_uri_operand(path: &Path, line_number: usize, relative: &str) {
+    validate_workspace_file_uri_operand_with_context(path, line_number, relative, None);
+}
+
+fn validate_workspace_file_uri_operand_with_context(
+    path: &Path,
+    line_number: usize,
+    relative: &str,
+    context: Option<&str>,
+) {
     let case_dir = path.parent().unwrap_or_else(|| Path::new("."));
     if let Err(error) = validate_workspace_relative_file(case_dir, relative) {
-        manifest_error(path, line_number, error);
+        manifest_error(
+            path,
+            line_number,
+            match context {
+                Some(context) => format!("{context}: {error}"),
+                None => error,
+            },
+        );
     }
 }
 
@@ -11892,7 +13437,41 @@ fn json_pointer<'a>(value: &'a JsonValue, tokens: &[String]) -> JsonPointerResul
     JsonPointerResult::Found(current)
 }
 
+fn json_pointer_route_mut<'a>(
+    value: &'a mut JsonValue,
+    route: &[JsonPointerRouteSegment],
+) -> Option<&'a mut JsonValue> {
+    let mut current = value;
+    for segment in route {
+        current = match (current, segment) {
+            (JsonValue::Array(values), JsonPointerRouteSegment::ArrayIndex(index)) => {
+                values.get_mut(*index)?
+            }
+            (
+                JsonValue::Object(entries),
+                JsonPointerRouteSegment::ObjectMember { key, occurrence },
+            ) => entries
+                .iter_mut()
+                .filter(|(candidate, _)| candidate == key)
+                .nth(*occurrence)
+                .map(|(_, child)| child)?,
+            _ => return None,
+        };
+    }
+    Some(current)
+}
+
 fn assert_json_path(context: &CaseRunContext<'_>, json: &JsonValue, assertion: &JsonAssertion) {
+    assert_json_path_in_workspace(context, json, assertion, 0, Path::new("."));
+}
+
+fn assert_json_path_in_workspace(
+    context: &CaseRunContext<'_>,
+    json: &JsonValue,
+    assertion: &JsonAssertion,
+    index: usize,
+    project_root: &Path,
+) {
     let operation = assertion
         .operation
         .as_ref()
@@ -11900,7 +13479,7 @@ fn assert_json_path(context: &CaseRunContext<'_>, json: &JsonValue, assertion: &
     if matches!(operation, ValueAssertionOperation::Missing) {
         assert!(
             json_path(json, &assertion.path).is_none(),
-            "{}: JSON path `{}` should be missing in {:?}",
+            "{}: json_assert {index}: JSON path `{}` exists but should be missing in {:?}",
             context.label(),
             assertion.path,
             json
@@ -11910,16 +13489,16 @@ fn assert_json_path(context: &CaseRunContext<'_>, json: &JsonValue, assertion: &
 
     let actual = json_path(json, &assertion.path).unwrap_or_else(|| {
         panic!(
-            "{}: JSON path `{}` was not found in {:?}",
+            "{}: json_assert {index}: JSON path `{}` was not found in {:?}",
             context.label(),
             assertion.path,
             json
         )
     });
-    let result = expect_value_assertion(actual, operation);
+    let result = expect_value_assertion(actual, operation, project_root);
     result.unwrap_or_else(|error| {
         panic!(
-            "{}: JSON path `{}` mismatch: {error}",
+            "{}: json_assert {index}: JSON path `{}` mismatch: {error}",
             context.label(),
             assertion.path
         )
@@ -11931,11 +13510,21 @@ fn assert_result_value_path(
     json: &JsonValue,
     assertion: &ResultValueAssertion,
 ) {
+    assert_result_value_path_in_workspace(context, json, assertion, 0, Path::new("."));
+}
+
+fn assert_result_value_path_in_workspace(
+    context: &CaseRunContext<'_>,
+    json: &JsonValue,
+    assertion: &ResultValueAssertion,
+    index: usize,
+    project_root: &Path,
+) {
     let rendered = json_path(json, &assertion.value_path)
         .and_then(JsonValue::as_str)
         .unwrap_or_else(|| {
             panic!(
-                "{}: result value source path `{}` was not found as a string in {:?}",
+                "{}: result_value_assert {index}: result value source path `{}` was not found as a string in {:?}",
                 context.label(),
                 assertion.value_path,
                 json
@@ -11943,7 +13532,7 @@ fn assert_result_value_path(
         });
     let parsed = parse_result_value(rendered).unwrap_or_else(|error| {
         panic!(
-            "{}: result value at `{}` could not be parsed: {error}\nvalue: {rendered}",
+            "{}: result_value_assert {index}: result value at `{}` could not be parsed: {error}\nvalue: {rendered}",
             context.label(),
             assertion.value_path
         )
@@ -11956,7 +13545,7 @@ fn assert_result_value_path(
     if matches!(operation, ValueAssertionOperation::Missing) {
         assert!(
             json_path(&parsed, &assertion.path).is_none(),
-            "{}: result value path `{}` should be missing in {:?}",
+            "{}: result_value_assert {index}: result value path `{}` exists but should be missing in {:?}",
             context.label(),
             assertion.path,
             parsed
@@ -11966,16 +13555,16 @@ fn assert_result_value_path(
 
     let actual = json_path(&parsed, &assertion.path).unwrap_or_else(|| {
         panic!(
-            "{}: result value path `{}` was not found in {:?}",
+            "{}: result_value_assert {index}: result value path `{}` was not found in {:?}",
             context.label(),
             assertion.path,
             parsed
         )
     });
-    let result = expect_value_assertion(actual, operation);
+    let result = expect_value_assertion(actual, operation, project_root);
     result.unwrap_or_else(|error| {
         panic!(
-            "{}: result value path `{}` mismatch: {error}",
+            "{}: result_value_assert {index}: result value path `{}` mismatch: {error}",
             context.label(),
             assertion.path
         )
@@ -11985,13 +13574,18 @@ fn assert_result_value_path(
 fn expect_value_assertion(
     actual: &JsonValue,
     operation: &ValueAssertionOperation,
+    project_root: &Path,
 ) -> Result<(), String> {
     match operation {
         ValueAssertionOperation::Equals(expected)
         | ValueAssertionOperation::EqualsFile(expected)
         | ValueAssertionOperation::EqualsJsonFile(expected) => expect_json_value(actual, expected),
         ValueAssertionOperation::Contains(expected) => expect_string_contains(actual, expected),
+        ValueAssertionOperation::Length(expected) => expect_array_length(actual, *expected),
         ValueAssertionOperation::Missing => unreachable!("handled missing operation"),
+        ValueAssertionOperation::WorkspaceFileUri(relative) => {
+            expect_workspace_file_uri(actual, project_root, relative)
+        }
     }
 }
 

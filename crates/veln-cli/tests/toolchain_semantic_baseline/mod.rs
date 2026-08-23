@@ -504,10 +504,18 @@ fn describe_lsp_assertions(fields: &mut BTreeMap<String, String>, manifest: &Cas
                 enum_value(fields, &format!("{base}.operation"), "contains");
                 text(fields, &format!("{base}.contains"), value);
             }
+            LspAssertionOperation::Length(value) => {
+                enum_value(fields, &format!("{base}.operation"), "length");
+                scalar(fields, &format!("{base}.length"), *value);
+            }
             LspAssertionOperation::Missing(true) => {
                 enum_value(fields, &format!("{base}.operation"), "missing");
             }
             LspAssertionOperation::Missing(false) => unreachable!("validated missing operation"),
+            LspAssertionOperation::WorkspaceFileUri(value) => {
+                enum_value(fields, &format!("{base}.operation"), "workspace_file_uri");
+                text(fields, &format!("{base}.workspace_file_uri"), value);
+            }
         }
     }
 }
@@ -708,8 +716,18 @@ fn value_assertion_operation(
             text(fields, &format!("{base}.contains"), value);
             return;
         }
+        ValueAssertionOperation::Length(value) => {
+            enum_value(fields, &format!("{base}.operation"), "length");
+            scalar(fields, &format!("{base}.length"), *value);
+            return;
+        }
         ValueAssertionOperation::Missing => {
             enum_value(fields, &format!("{base}.operation"), "missing");
+            return;
+        }
+        ValueAssertionOperation::WorkspaceFileUri(value) => {
+            enum_value(fields, &format!("{base}.operation"), "workspace_file_uri");
+            text(fields, &format!("{base}.workspace_file_uri"), value);
             return;
         }
     };
@@ -1264,6 +1282,60 @@ equals_json_file = "case-text/expected.json"
         mcp_fields["expectations.mcp_assertions[1].equals_json_file"],
         expected
     );
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
+fn semantic_export_preserves_value_assertion_workspace_uri_operands() {
+    let root = test_temp_root("semantic-value-workspace-uri");
+    fs::write(root.join("main.veln"), "").expect("workspace file should be written");
+
+    let json_manifest = parse_manifest(
+        &root.join("json-case.toml"),
+        r#"command = ["check"]
+exit = 0
+[[json_assert]]
+path = "uri"
+workspace_file_uri = "main.veln"
+"#,
+    );
+    let json_fields = describe(&json_manifest);
+    assert_eq!(
+        json_fields["expectations.json_assertions[0].operation"],
+        json_string("workspace_file_uri")
+    );
+    assert_eq!(
+        json_fields["expectations.json_assertions[0].workspace_file_uri"],
+        json_string("main.veln")
+    );
+    assert!(
+        !json_fields["expectations.json_assertions[0].workspace_file_uri"].contains("file://")
+    );
+
+    let result_manifest = parse_manifest(
+        &root.join("result-case.toml"),
+        r#"command = ["run", "--json", "main", "main.veln"]
+exit = 0
+[[result_value_assert]]
+value_path = "rendered"
+path = "value.uri"
+workspace_file_uri = "main.veln"
+"#,
+    );
+    let result_fields = describe(&result_manifest);
+    assert_eq!(
+        result_fields["expectations.result_value_assertions[0].operation"],
+        json_string("workspace_file_uri")
+    );
+    assert_eq!(
+        result_fields["expectations.result_value_assertions[0].workspace_file_uri"],
+        json_string("main.veln")
+    );
+    assert!(
+        !result_fields["expectations.result_value_assertions[0].workspace_file_uri"]
+            .contains("file://")
+    );
+
     fs::remove_dir_all(root).expect("case root should be removed");
 }
 

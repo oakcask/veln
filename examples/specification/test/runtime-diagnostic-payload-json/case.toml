@@ -152,6 +152,11 @@ equals = "body"
 
 [[result_value_assert]]
 value_path = "cases.0.failure.details.value"
+path = "value.detail.field_path"
+length = 2
+
+[[result_value_assert]]
+value_path = "cases.0.failure.details.value"
 path = "value.detail.facts.constructor"
 equals = "RuntimeByteCountFacts"
 

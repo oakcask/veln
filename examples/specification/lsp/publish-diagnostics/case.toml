@@ -19,6 +19,18 @@ equals = "name.unresolved"
 [[lsp_assert]]
 method = "textDocument/publishDiagnostics"
 occurrence = 0
+path = "/params/diagnostics"
+length = 2
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
 path = "/params/diagnostics/1/code"
 contains = "unresolved"
 
