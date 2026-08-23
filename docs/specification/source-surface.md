@@ -19,6 +19,9 @@ is not enough.
   documentation comments, doctests, ADR-lite metadata, and manifest dependency
   metadata plus `[lib].exports` source-file exports:
   [source-surface-full.md](source-surface-full.md).
+- Parser-retained covered names for source identifier casing recovery:
+  [source-surface-full.md](source-surface-full.md) and
+  [source-surface-executable.pl](source-surface-executable.pl).
 - Expression forms, constructors, records, dictionaries, vecs, matches,
   `if` / `else if` / `else` expressions, pipelines, ordinary and variadic
   calls, function type effect rows with final `...E` tails, `perform` operation expressions, `handle ... with ...`

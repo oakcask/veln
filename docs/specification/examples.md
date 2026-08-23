@@ -11,7 +11,7 @@ behavior.
 
 Identifier casing and quarantined recovery are checked by
 [`identifier-casing-json`](../../examples/specification/check/identifier-casing-json/case.toml),
-[`identifier-casing-human`](../../examples/specification/check/identifier-casing-human/case.toml), and
+[`identifier-casing-human`](../../examples/specification/check/identifier-casing-human/case.toml),
 [`identifier-casing-quarantine`](../../examples/specification/check/identifier-casing-quarantine/case.toml), and
 [`identifier-casing-value-recovery`](../../examples/specification/check/identifier-casing-value-recovery/case.toml).
 The selected-entry command boundary is checked by
