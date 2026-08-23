@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"269747c4a20d844dee74e9d49c951d40cfe9ea49"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1529
+case_count	1532
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -5429,6 +5429,20 @@ field	invocation.command[3]	"broken.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"8cc5fd6e9e0f32cc828789b3a9d8901589e828df2327ed7d2ddfe07ddfa028e9"
+case	"examples/specification/check/identifier-casing-alias-same-leaf-mismatch"
+field	expectations.exit	1
+field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
+field	expectations.stdout.contains[1]	"\"id\":\"type.mismatch\""
+field	expectations.stdout.contains[2]	"\"expected_type\":\"E\""
+field	expectations.stdout.contains[3]	"\"actual_type\":\"E\""
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.command[3]	"broken.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"6dc9c20c87511a75fed9dbeb6ec0e2fed00d230a311f5903dd52bb2ec154e874"
 case	"examples/specification/check/identifier-casing-duplicate-quarantine"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -37661,6 +37675,16 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"8c98ea54a0ab83b25e7dcc72838a368d5aef174441a204ab50d7976cde669b51"
+case	"examples/specification/run/identifier-casing-adt-payload-closure"
+field	expectations.exit	1
+field	expectations.stderr.contains[0]	"main.veln:13:6: error[name.invalid_case]: type name must start with an ASCII uppercase letter"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"03e47701b5894e795223a06c226c755e01350a308178b432dffaab0410fd9c3f"
 case	"examples/specification/run/identifier-casing-alias-quarantine"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -37713,6 +37737,22 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"expected"
 case_digest	"60b50f7739bbfc920a5837b90deec4068d323b006222d5a0b365f493877ae307"
+case	"examples/specification/run/identifier-casing-local-binding-vs-invalid-constructor"
+field	expectations.exit	0
+field	expectations.json_assertions[0].equals	"passed"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"name.invalid_case"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.repeat	1
+field	requirements.jdk	true
+field	source_errors	"expected"
+case_digest	"812d3440839e30590358e009ee274014953d1aae3310506c219aadb28ad9fc59"
 case	"examples/specification/run/identifier-casing-qualified-same-leaf"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -48209,4 +48249,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"f024bd4a8fe4d014b80d732899fef58073c7c527d807026074abd48dc5550878"
+aggregate_digest	"0126002a1f2191460607d17a8aebbcc361b997c77f4e5bdc66621dde6ed9e764"

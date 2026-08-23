@@ -1,0 +1,8 @@
+type Carrier
+  bad
+end
+
+pub fn main() -> Int
+  let bad = 1
+  bad
+end

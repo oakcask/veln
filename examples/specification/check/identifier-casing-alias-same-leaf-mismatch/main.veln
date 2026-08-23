@@ -1,0 +1,13 @@
+use broken
+
+type E
+  Failure
+end
+
+fn expected() -> E
+  1
+end
+
+fn actual() -> Int
+  Failure
+end

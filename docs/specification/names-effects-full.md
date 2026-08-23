@@ -31,7 +31,9 @@ The checked `identifier-casing-*` cases under
 `../../examples/specification/check/`, together with parser and semantic unit
 tests, fix accepted and rejected names, exact human and JSON diagnostics,
 checked-artifact exclusion, duplicate overlap, unique and ambiguous recovery,
-valid-candidate precedence, and the import and alias quarantine boundary.
+valid-candidate precedence, same-leaf alias mismatch preservation, the import
+and alias quarantine boundary, and selected-entry reachability over local
+bindings and ADT payloads.
 
 Implemented checker namespaces are:
 

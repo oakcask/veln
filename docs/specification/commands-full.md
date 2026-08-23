@@ -376,7 +376,9 @@ invalid peer outside the reachable closure does not. The checked
 `identifier-casing-unused-type-alias-quarantine` run cases fix this boundary,
 including first-class function value reachability that excludes quarantined
 invalid function targets, unreachable type aliases, and aliases to quarantined
-invalid type targets.
+invalid type targets. The `identifier-casing-local-binding-vs-invalid-constructor`
+and `identifier-casing-adt-payload-closure` cases check local binding
+precedence and ADT payload closure in the same boundary.
 
 `run` and `test` cache generated JVM classfile artifacts by backend content
 below the selected Veln user cache root. On Unix other than macOS, the default

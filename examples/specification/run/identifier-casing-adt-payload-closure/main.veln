@@ -1,0 +1,19 @@
+type Used
+  Made
+  Unused(OuterAlias)
+end
+
+pub type OuterAlias = Outer
+
+type Outer
+  Visible
+  Unused(inner)
+end
+
+type inner
+  Inner
+end
+
+pub fn main() -> Used
+  Made
+end

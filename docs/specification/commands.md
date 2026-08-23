@@ -108,7 +108,10 @@ requiring the full command reference on the first read.
   unreachable type aliases, and aliases to quarantined invalid type targets, and
   resolution-aware type, constructor, function, and alias closure as checked by the
   `identifier-casing-valid-*`, `identifier-casing-qualified-same-leaf`, and
-  `identifier-casing-alias-transitive-target` cases,
+  `identifier-casing-alias-transitive-target` cases, plus local binding
+  precedence and ADT payload closure as checked by
+  `identifier-casing-local-binding-vs-invalid-constructor` and
+  `identifier-casing-adt-payload-closure`,
   fixed and variadic entry argument conversion, static gates, direct JVM
   classfile execution without an ordinary Java source compiler requirement,
   and reusable JVM class caching below the host user cache or the complete

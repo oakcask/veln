@@ -1,0 +1,5 @@
+type bad
+  Made
+end
+
+pub type E = bad

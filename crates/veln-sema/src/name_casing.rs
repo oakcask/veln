@@ -135,7 +135,7 @@ pub(crate) fn suppress_quarantined_type_alias_derivatives(
     module: &SurfaceModule,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    let aliases = quarantined_type_alias_names(module);
+    let aliases = quarantined_type_alias_renders(module);
     if aliases.is_empty() {
         return;
     }
@@ -143,10 +143,27 @@ pub(crate) fn suppress_quarantined_type_alias_derivatives(
         if diagnostic.id != "type.mismatch" {
             return true;
         }
-        !diagnostic_type_names(diagnostic)
-            .iter()
-            .any(|name| aliases.contains(name))
+        let diagnostic_file = diagnostic.span.as_ref().map(|span| span.file.as_str());
+        !diagnostic_type_names(diagnostic).iter().any(|name| {
+            aliases.qualified.contains(name)
+                || diagnostic_file.is_some_and(|file| {
+                    aliases
+                        .local
+                        .contains(&(file.to_string(), name.to_string()))
+                })
+        })
     });
+}
+
+struct QuarantinedTypeAliasRenders {
+    qualified: BTreeSet<String>,
+    local: BTreeSet<(String, String)>,
+}
+
+impl QuarantinedTypeAliasRenders {
+    fn is_empty(&self) -> bool {
+        self.qualified.is_empty() && self.local.is_empty()
+    }
 }
 
 fn diagnostic_type_names(diagnostic: &Diagnostic) -> Vec<String> {
@@ -163,8 +180,9 @@ fn diagnostic_type_names(diagnostic: &Diagnostic) -> Vec<String> {
         .collect()
 }
 
-fn quarantined_type_alias_names(module: &SurfaceModule) -> BTreeSet<String> {
-    let mut names = BTreeSet::new();
+fn quarantined_type_alias_renders(module: &SurfaceModule) -> QuarantinedTypeAliasRenders {
+    let mut qualified = BTreeSet::new();
+    let mut local = BTreeSet::new();
     for alias in module.aliases.iter().filter(|alias| {
         alias.kind == PublicAliasKind::Type
             && type_alias_targets_invalid_source_type(
@@ -176,12 +194,12 @@ fn quarantined_type_alias_names(module: &SurfaceModule) -> BTreeSet<String> {
         let Some(name) = alias.name.as_ref() else {
             continue;
         };
-        names.insert(name.clone());
         if let Some(module_name) = alias.module_name.as_deref() {
-            names.insert(format!("{module_name}::{name}"));
+            qualified.insert(format!("{module_name}::{name}"));
         }
+        local.insert((alias.span.file.as_str().to_string(), name.clone()));
     }
-    names
+    QuarantinedTypeAliasRenders { qualified, local }
 }
 
 fn type_alias_targets_invalid_source_type(
