@@ -487,6 +487,13 @@ fn describe_lsp_assertions(fields: &mut BTreeMap<String, String>, manifest: &Cas
                 enum_value(fields, &format!("{base}.operation"), "equals_file");
                 text(fields, &format!("{base}.equals_file"), value);
             }
+            LspAssertionOperation::EqualsJsonFile(value) => {
+                enum_value(fields, &format!("{base}.operation"), "equals_json_file");
+                fields.insert(
+                    format!("{base}.equals_json_file"),
+                    canonical_json(value, &format!("{base}.equals_json_file")),
+                );
+            }
             LspAssertionOperation::Contains(value) => {
                 enum_value(fields, &format!("{base}.operation"), "contains");
                 text(fields, &format!("{base}.contains"), value);
@@ -520,6 +527,17 @@ fn describe_mcp_assertions(fields: &mut BTreeMap<String, String>, manifest: &Cas
                 fields.insert(
                     format!("{base}.equals"),
                     canonical_json(value, &format!("{base}.equals")),
+                );
+            }
+            McpAssertionOperation::EqualsFile(value) => {
+                enum_value(fields, &format!("{base}.operation"), "equals_file");
+                text(fields, &format!("{base}.equals_file"), value);
+            }
+            McpAssertionOperation::EqualsJsonFile(value) => {
+                enum_value(fields, &format!("{base}.operation"), "equals_json_file");
+                fields.insert(
+                    format!("{base}.equals_json_file"),
+                    canonical_json(value, &format!("{base}.equals_json_file")),
                 );
             }
             McpAssertionOperation::Contains(value) => {
@@ -1158,9 +1176,11 @@ fn semantic_export_distinguishes_equals_json_file_operands() {
     fs::create_dir_all(&text_dir).expect("case text directory should be created");
     fs::write(text_dir.join("expected.json"), r#"{"b":1,"a":-0}"#)
         .expect("expected JSON sidecar should be written");
+    fs::write(text_dir.join("expected.txt"), "expected text\n")
+        .expect("expected text sidecar should be written");
     let manifest = parse_manifest(
         &case_dir.join("case.toml"),
-        r#"command = ["run", "--json", "main", "main.veln"]
+        r#"command = ["lsp"]
 exit = 0
 [[json_assert]]
 path = "value"
@@ -1169,9 +1189,28 @@ equals_json_file = "case-text/expected.json"
 value_path = "value"
 path = "value"
 equals_json_file = "case-text/expected.json"
+[[lsp_assert]]
+id = 1
+path = "/result"
+equals_json_file = "case-text/expected.json"
+"#,
+    );
+    let mcp_manifest = parse_manifest(
+        &case_dir.join("case.toml"),
+        r#"command = ["mcp"]
+exit = 0
+[[mcp_assert]]
+id = 1
+path = "/result/text"
+equals_file = "case-text/expected.txt"
+[[mcp_assert]]
+id = 1
+path = "/result/value"
+equals_json_file = "case-text/expected.json"
 "#,
     );
     let fields = describe(&manifest);
+    let mcp_fields = describe(&mcp_manifest);
     let expected = r#"{"a":-0,"b":1}"#;
     assert_eq!(
         fields["expectations.json_assertions[0].operation"],
@@ -1187,6 +1226,30 @@ equals_json_file = "case-text/expected.json"
     );
     assert_eq!(
         fields["expectations.result_value_assertions[0].equals_json_file"],
+        expected
+    );
+    assert_eq!(
+        fields["expectations.lsp_assertions[0].operation"],
+        json_string("equals_json_file")
+    );
+    assert_eq!(
+        fields["expectations.lsp_assertions[0].equals_json_file"],
+        expected
+    );
+    assert_eq!(
+        mcp_fields["expectations.mcp_assertions[0].operation"],
+        json_string("equals_file")
+    );
+    assert_eq!(
+        mcp_fields["expectations.mcp_assertions[0].equals_file"],
+        json_string("expected text\n")
+    );
+    assert_eq!(
+        mcp_fields["expectations.mcp_assertions[1].operation"],
+        json_string("equals_json_file")
+    );
+    assert_eq!(
+        mcp_fields["expectations.mcp_assertions[1].equals_json_file"],
         expected
     );
     fs::remove_dir_all(root).expect("case root should be removed");

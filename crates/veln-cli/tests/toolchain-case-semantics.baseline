@@ -10252,10 +10252,10 @@ field	expectations.lsp_assertions[2].method	"textDocument/publishDiagnostics"
 field	expectations.lsp_assertions[2].occurrence	0
 field	expectations.lsp_assertions[2].operation	"contains"
 field	expectations.lsp_assertions[2].path	"/params/diagnostics/1/code"
-field	expectations.lsp_assertions[3].equals	[]
+field	expectations.lsp_assertions[3].equals_json_file	[]
 field	expectations.lsp_assertions[3].method	"textDocument/publishDiagnostics"
 field	expectations.lsp_assertions[3].occurrence	1
-field	expectations.lsp_assertions[3].operation	"equals"
+field	expectations.lsp_assertions[3].operation	"equals_json_file"
 field	expectations.lsp_assertions[3].path	"/params/diagnostics"
 field	expectations.lsp_assertions[4].equals	{"id":2,"jsonrpc":"2.0","result":null}
 field	expectations.lsp_assertions[4].id	2
@@ -10267,7 +10267,7 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":571,"sha256":"9a65346dfa3bd9006f05f199db8f8ef63481720dd25b4563b457afea51f2a917"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"forbidden"
-case_digest	"5a2326e2fc7757423d7e5cccf27173457ccb8871a70f706643876f6fa008124d"
+case_digest	"db379a03baf5234889046295df989be3a0926d5fad3139039df990811a72cffc"
 case	"examples/specification/lsp/reexported-constructor-bare-prelude-definition"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -10456,9 +10456,9 @@ field	expectations.mcp_assertions[18].path	"/result/isError"
 field	expectations.mcp_assertions[19].id	6
 field	expectations.mcp_assertions[19].operation	"missing"
 field	expectations.mcp_assertions[19].path	"/error"
-field	expectations.mcp_assertions[1].equals	{"end":{"column":10,"line":1},"start":{"column":4,"line":1}}
+field	expectations.mcp_assertions[1].equals_json_file	{"end":{"column":10,"line":1},"start":{"column":4,"line":1}}
 field	expectations.mcp_assertions[1].id	3
-field	expectations.mcp_assertions[1].operation	"equals"
+field	expectations.mcp_assertions[1].operation	"equals_json_file"
 field	expectations.mcp_assertions[1].path	"/result/structuredContent/definition/range"
 field	expectations.mcp_assertions[20].id	7
 field	expectations.mcp_assertions[20].operation	"workspace_file_uri"
@@ -10505,9 +10505,9 @@ field	expectations.mcp_assertions[30].equals	-32602
 field	expectations.mcp_assertions[30].id	9
 field	expectations.mcp_assertions[30].operation	"equals"
 field	expectations.mcp_assertions[30].path	"/error/code"
-field	expectations.mcp_assertions[31].equals	"Tool input does not match its schema"
+field	expectations.mcp_assertions[31].equals_file	"Tool input does not match its schema"
 field	expectations.mcp_assertions[31].id	9
-field	expectations.mcp_assertions[31].operation	"equals"
+field	expectations.mcp_assertions[31].operation	"equals_file"
 field	expectations.mcp_assertions[31].path	"/error/message"
 field	expectations.mcp_assertions[32].id	9
 field	expectations.mcp_assertions[32].operation	"missing"
@@ -10571,7 +10571,7 @@ field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1489,"sha256":"e2b4d5447b2dc59fe02b8523e695cee21a53e3b32c1a7f0cdcd1919eb1631384"}
 field	source_errors	"forbidden"
-case_digest	"f6ebb458997c53fc6453657eeb8d798b3204c318a5bf6b3ef3bee125d5ec076b"
+case_digest	"fb4fcefd1a48d338181c86c31078b3208a785c9121335fc379747e98fa6a480b"
 case	"examples/specification/mcp/workspace-lifecycle"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -47866,4 +47866,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"271f744aff8cb3a4b31ca00168460754da8b5daad1233a8f25810d166e303e04"
+aggregate_digest	"b7180fa29e673638cca5814da0f3e6d5a20ce904e00eaf3f5498ca8c66d70e60"

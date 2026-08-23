@@ -20,9 +20,8 @@ also states it.
 
 - Remaining common JSON assertion operations across the toolchain harness:
   add `length` and `workspace_file_uri` to `[[json_assert]]` and
-  `[[result_value_assert]]`; add `equals_json_file`, `length`, and
-  `workspace_file_uri` to `[[lsp_assert]]`; and add `equals_file` and
-  `equals_json_file` to `[[mcp_assert]]`:
+  `[[result_value_assert]]`, and add `length` and `workspace_file_uri` to
+  `[[lsp_assert]]`:
   [toolchain-json-assertion-parity.md](toolchain-json-assertion-parity.md).
 - Recovery-aware casing for source-written declarations and bindings, including
   the existing `run` reachability boundary:

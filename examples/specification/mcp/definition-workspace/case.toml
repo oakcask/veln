@@ -20,7 +20,7 @@ workspace_file_uri = "main.veln"
 [[mcp_assert]]
 id = 3
 path = "/result/structuredContent/definition/range"
-equals = {"end":{"column":10,"line":1},"start":{"column":4,"line":1}}
+equals_json_file = "case-text/definition-range.json"
 
 [[mcp_assert]]
 id = 3
@@ -170,7 +170,7 @@ equals = -32602
 [[mcp_assert]]
 id = 9
 path = "/error/message"
-equals = "Tool input does not match its schema"
+equals_file = "case-text/invalid-input-message.txt"
 
 [[mcp_assert]]
 id = 9
