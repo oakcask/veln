@@ -85,6 +85,59 @@ fn invalid_function_declarations_do_not_recover_public_alias_targets() {
 }
 
 #[test]
+fn invalid_type_declarations_do_not_recover_public_alias_targets() {
+    let broken = parse(&SourceFile::new(
+        "broken.veln",
+        concat!(
+            "mod broken\n",
+            "type broken\n",
+            "  pub Made\n",
+            "end\n",
+            "pub type Exposed = broken\n",
+        ),
+    ));
+    let main = parse(&SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod main\n",
+            "use broken\n",
+            "fn main(value: broken::Exposed) -> Int\n",
+            "  1\n",
+            "end\n",
+        ),
+    ));
+    let broken = lower_surface_ast(&broken.tree);
+    let main = lower_surface_ast(&main.tree);
+    let module = SurfaceModule {
+        module: main.module,
+        uses: main.uses,
+        aliases: broken.aliases,
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        types: broken.types,
+        functions: main.functions,
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.invalid_case"
+            && diagnostic.message == "type name must start with an ASCII uppercase letter"
+    }));
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+    let lowered = lower_checked_surface_module(&module);
+    assert!(lowered.core.is_none());
+    assert!(lowered.ir.is_none());
+}
+
+#[test]
 fn multiple_invalid_functions_do_not_select_a_recovery_symbol() {
     let parsed = parse(&SourceFile::new(
         "main.veln",

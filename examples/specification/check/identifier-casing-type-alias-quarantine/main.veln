@@ -1,0 +1,6 @@
+use broken
+
+pub fn main() -> Int
+  let value: broken::Exposed = 1
+  value
+end

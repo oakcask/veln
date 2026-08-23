@@ -1,0 +1,6 @@
+[package]
+name = "identifier-casing-type-alias-quarantine"
+description = "Invalid type aliases stay quarantined."
+
+[lib]
+exports = ["main.veln", "broken.veln"]

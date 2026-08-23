@@ -1,4 +1,8 @@
-use veln_ast::{BodyLineKind, Expr, ExprKind, Function, Pattern, PatternKind, SurfaceModule};
+use std::collections::BTreeSet;
+
+use veln_ast::{
+    BodyLineKind, Expr, ExprKind, Function, Pattern, PatternKind, PublicAliasKind, SurfaceModule,
+};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
 
@@ -124,6 +128,77 @@ pub(crate) fn suppress_unique_local_recovery_derivatives(
         };
         recovery_count(module, role, symbol, span.file.as_str()) != 1
     });
+}
+
+pub(crate) fn suppress_quarantined_type_alias_derivatives(
+    module: &SurfaceModule,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let aliases = quarantined_type_alias_names(module);
+    if aliases.is_empty() {
+        return;
+    }
+    diagnostics.retain(|diagnostic| {
+        if diagnostic.id != "type.mismatch" {
+            return true;
+        }
+        let details = diagnostic.details.to_json();
+        !aliases.iter().any(|alias| details.contains(alias))
+    });
+}
+
+fn quarantined_type_alias_names(module: &SurfaceModule) -> BTreeSet<String> {
+    let mut names = BTreeSet::new();
+    for alias in module.aliases.iter().filter(|alias| {
+        alias.kind == PublicAliasKind::Type
+            && type_alias_targets_invalid_source_type(
+                module,
+                &alias.target,
+                alias.module_name.as_deref(),
+            )
+    }) {
+        let Some(name) = alias.name.as_ref() else {
+            continue;
+        };
+        names.insert(name.clone());
+        if let Some(module_name) = alias.module_name.as_deref() {
+            names.insert(format!("{module_name}::{name}"));
+        }
+    }
+    names
+}
+
+fn type_alias_targets_invalid_source_type(
+    module: &SurfaceModule,
+    segments: &[String],
+    current_module: Option<&str>,
+) -> bool {
+    match segments {
+        [] => true,
+        [name] => module.types.iter().any(|type_decl| {
+            type_decl.name.as_deref() == Some(name)
+                && type_decl.module_name.as_deref() == current_module
+                && !valid_type_name(name)
+        }),
+        [_, .., name] => {
+            let Some(module_name) = module
+                .uses
+                .iter()
+                .find(|use_decl| {
+                    use_decl.module_name.as_deref() == current_module
+                        && use_decl.alias == segments[..segments.len() - 1].join("::")
+                })
+                .map(|use_decl| use_decl.name.as_str())
+            else {
+                return false;
+            };
+            module.types.iter().any(|type_decl| {
+                type_decl.name.as_deref() == Some(name)
+                    && type_decl.module_name.as_deref() == Some(module_name)
+                    && !valid_type_name(name)
+            })
+        }
+    }
 }
 
 #[derive(Clone, Copy)]

@@ -358,6 +358,9 @@ pub(super) fn named_type_symbols(module: &SurfaceModule) -> Vec<NamedSymbol> {
             .aliases
             .iter()
             .filter(|alias| alias.kind == PublicAliasKind::Type)
+            .filter(|alias| {
+                type_alias_target_is_valid(module, &alias.target, alias.module_name.as_deref())
+            })
             .filter_map(|alias| {
                 Some(NamedSymbol {
                     name: alias.name.clone()?,
@@ -367,6 +370,35 @@ pub(super) fn named_type_symbols(module: &SurfaceModule) -> Vec<NamedSymbol> {
             }),
     );
     symbols
+}
+
+fn type_alias_target_is_valid(
+    module: &SurfaceModule,
+    segments: &[String],
+    current_module: Option<&str>,
+) -> bool {
+    match segments {
+        [name] => module.types.iter().any(|ty| {
+            ty.name.as_deref() == Some(name)
+                && ty.module_name.as_deref() == current_module
+                && crate::name_casing::valid_type_name(name)
+        }),
+        [_, .., name] => {
+            let Some(use_decl) = imported_use_for_path(
+                &module.uses,
+                &segments[..segments.len() - 1],
+                current_module,
+            ) else {
+                return false;
+            };
+            module.types.iter().any(|ty| {
+                ty.name.as_deref() == Some(name)
+                    && ty.module_name.as_deref() == Some(use_decl.name.as_str())
+                    && crate::name_casing::valid_type_name(name)
+            })
+        }
+        _ => false,
+    }
 }
 
 pub(super) fn named_codec_symbols(module: &SurfaceModule) -> Vec<NamedSymbol> {
@@ -381,6 +413,59 @@ pub(super) fn named_codec_symbols(module: &SurfaceModule) -> Vec<NamedSymbol> {
             })
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use veln_ast::lower_surface_ast;
+    use veln_source::SourceFile;
+    use veln_syntax::parse;
+
+    #[test]
+    fn named_type_symbols_exclude_aliases_to_invalid_source_types() {
+        let module = lower_surface_ast(
+            &parse(&SourceFile::new(
+                "broken.veln",
+                concat!(
+                    "mod broken\n",
+                    "type broken\n",
+                    "  Made\n",
+                    "end\n",
+                    "pub type Exposed = broken\n",
+                ),
+            ))
+            .tree,
+        );
+
+        let symbols = named_type_symbols(&module);
+
+        assert!(
+            symbols.iter().all(|symbol| symbol.name != "Exposed"),
+            "invalid target alias should stay quarantined"
+        );
+    }
+
+    #[test]
+    fn named_type_symbols_include_aliases_to_valid_source_types() {
+        let module = lower_surface_ast(
+            &parse(&SourceFile::new(
+                "api.veln",
+                concat!(
+                    "mod api\n",
+                    "type Packet\n",
+                    "  Data\n",
+                    "end\n",
+                    "pub type Exposed = Packet\n",
+                ),
+            ))
+            .tree,
+        );
+
+        let symbols = named_type_symbols(&module);
+
+        assert!(symbols.iter().any(|symbol| symbol.name == "Exposed"));
+    }
 }
 
 fn selected_symbols<T: Clone>(

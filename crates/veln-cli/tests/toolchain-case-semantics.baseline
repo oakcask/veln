@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"e99d6973d93ea22756980d20a51de059cce654d5"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1521
+case_count	1522
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -5488,6 +5488,21 @@ field	invocation.command[3]	"bad.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"a2cfbe2867d0632c155818dd49e01647ac850a9de788432bd27508416c1be7b8"
+case	"examples/specification/check/identifier-casing-type-alias-quarantine"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
+field	expectations.stdout.contains[1]	"\"name\":\"broken\""
+field	expectations.stdout.contains[2]	"\"name_class\":\"type\""
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"\"id\":\"type.mismatch\""
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.command[3]	"broken.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"73cdc6bb0be8278bd785338e9bb95760517ef48ad6c0fef2b837a167f810eb75"
 case	"examples/specification/check/identifier-casing-value-recovery"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -48043,4 +48058,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"b2d5fce09235425315c93b6e4b9a2a85b36e3b9abf12b3731713cb33538024f1"
+aggregate_digest	"ba73ad95788d011d1517d14a544ca1a44f85955f320a01e3be2784c3d0a41c54"

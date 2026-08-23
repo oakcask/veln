@@ -15,7 +15,8 @@ use crate::analysis::{
 };
 use crate::lowering::{lower_project_surface_module_to_core, lower_surface_module_to_core};
 use crate::name_casing::{
-    check_source_identifier_casing, suppress_unique_local_recovery_derivatives,
+    check_source_identifier_casing, suppress_quarantined_type_alias_derivatives,
+    suppress_unique_local_recovery_derivatives,
 };
 use crate::schema;
 use crate::types::{
@@ -145,6 +146,7 @@ fn analyze_surface_module_with_environment(
     }
 
     suppress_unique_local_recovery_derivatives(module, &mut diagnostics);
+    suppress_quarantined_type_alias_derivatives(module, &mut diagnostics);
 
     diagnostics
 }

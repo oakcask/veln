@@ -1,0 +1,5 @@
+type broken
+  pub Made
+end
+
+pub type Exposed = broken
