@@ -192,9 +192,11 @@ Each MCP assertion declares exactly one of `equals`, `equals_file`,
 `equals_json_file`, `contains`, `length`, `workspace_file_uri`, or
 `missing = true`. `equals` and `equals_json_file` use the common JSON equality
 rules below. `equals_file` requires the selected value to be a JSON string and
-compares it with the exact sidecar contents. `contains` uses the common
-string-containment contract below. `length` requires a JSON array at the
-selected path and checks its exact element count.
+compares it with the exact sidecar contents. `equals_json_file` parses the
+sidecar while the manifest loads. Invalid JSON reports the manifest line plus
+the `mcp_assert` index, response selector, JSON Pointer path, and operation.
+`contains` uses the common string-containment contract below. `length`
+requires a JSON array at the selected path and checks its exact element count.
 `workspace_file_uri` requires a JSON string at the selected path and compares
 it with the canonical `file:` URI for one existing regular
 workspace-relative file in the copied case project. The URI spelling matches
@@ -249,9 +251,12 @@ validated while the manifest loads.
 Each LSP assertion declares exactly one of `equals`, `equals_file`,
 `equals_json_file`, `contains`, or `missing = true`. `equals` and
 `equals_json_file` use the common JSON equality rules below. `equals_file`
-requires the selected value to be a JSON string. `contains` uses the common
-string-containment contract below. A missing path can satisfy `missing = true`
-only after its response or notification exists.
+requires the selected value to be a JSON string. `equals_json_file` parses the
+sidecar while the manifest loads. Invalid JSON reports the manifest line plus
+the `lsp_assert` index, response or notification selector, JSON Pointer path,
+and operation. `contains` uses the common string-containment contract below. A
+missing path can satisfy `missing = true` only after its response or
+notification exists.
 
 The harness requires stdout to be a complete ordered sequence of
 `Content-Length` frames before it evaluates LSP assertions. Malformed or
@@ -289,8 +294,11 @@ string-containment contract below.
 
 Every `equals_file` and `equals_json_file` operand is a case-relative sidecar.
 The harness snapshots the sidecar from the discovered case while it loads the
-manifest. A command cannot change the expected operand by modifying its copied
-workspace.
+manifest. LSP and MCP file-backed assertion operands are resolved after the
+assertion selector and path validate, so sidecar read failures and
+`equals_json_file` parse failures can name the assertion section, index,
+selector, path, and operation. A command cannot change the expected operand by
+modifying its copied workspace.
 
 The `equals` and `equals_json_file` operations in `[[json_assert]]`,
 `[[result_value_assert]]`, `[[lsp_assert]]`, and `[[mcp_assert]]` compare JSON
