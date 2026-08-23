@@ -2722,16 +2722,14 @@ fn collect_handler_type_references(
             name: param.name.clone(),
             function_shape: None,
         }));
-        collect_expr_type_references(
-            &clause.body,
-            handler.module_name.as_deref(),
+        let context = ExprTypeReferenceContext {
+            current_module: handler.module_name.as_deref(),
             uses,
             function_targets,
             types,
-            &local_bindings,
-            names,
-            constructors,
-        );
+            local_bindings: &local_bindings,
+        };
+        collect_expr_type_references(&clause.body, &context, names, constructors);
         local_bindings.truncate(binding_count);
     }
 }
@@ -2785,70 +2783,68 @@ fn collect_function_type_references(
                     uses,
                     constructors,
                 );
-                collect_expr_type_references(
-                    expr,
-                    function.module_name.as_deref(),
+                let context = ExprTypeReferenceContext {
+                    current_module: function.module_name.as_deref(),
                     uses,
                     function_targets,
                     types,
-                    &local_bindings,
-                    names,
-                    constructors,
-                );
+                    local_bindings: &local_bindings,
+                };
+                collect_expr_type_references(expr, &context, names, constructors);
                 collect_pattern_bindings(pattern, None, &mut local_bindings);
             }
             veln_ast::BodyLineKind::Expr { expr } => {
-                collect_expr_type_references(
-                    expr,
-                    function.module_name.as_deref(),
+                let context = ExprTypeReferenceContext {
+                    current_module: function.module_name.as_deref(),
                     uses,
                     function_targets,
                     types,
-                    &local_bindings,
-                    names,
-                    constructors,
-                );
+                    local_bindings: &local_bindings,
+                };
+                collect_expr_type_references(expr, &context, names, constructors);
             }
         }
     }
 }
 
+#[derive(Clone, Copy)]
+struct ExprTypeReferenceContext<'a> {
+    current_module: Option<&'a str>,
+    uses: &'a [&'a UseDecl],
+    function_targets: &'a FunctionTargetIndex,
+    types: &'a [&'a veln_ast::TypeDecl],
+    local_bindings: &'a [LocalBinding],
+}
+
 fn collect_expr_type_references(
     expr: &Expr,
-    current_module: Option<&str>,
-    uses: &[&UseDecl],
-    function_targets: &FunctionTargetIndex,
-    types: &[&veln_ast::TypeDecl],
-    local_bindings: &[LocalBinding],
+    context: &ExprTypeReferenceContext<'_>,
     names: &mut HashSet<ReachableTypeName>,
     constructors: &mut HashSet<ReachableConstructorName>,
 ) {
+    let current_module = context.current_module;
+    let uses = context.uses;
+    let function_targets = context.function_targets;
+    let types = context.types;
+    let local_bindings = context.local_bindings;
+
     match &expr.kind {
         ExprKind::NamePath(segments) => {
             if !expression_name_resolves_to_value_or_function(
                 segments,
-                current_module,
-                uses,
-                function_targets,
-                local_bindings,
+                context.current_module,
+                context.uses,
+                context.function_targets,
+                context.local_bindings,
             ) && let Some(constructor) =
-                resolve_reachable_constructor_name(segments, current_module, uses)
-                && constructor_decl_exists(&constructor, types)
+                resolve_reachable_constructor_name(segments, context.current_module, context.uses)
+                && constructor_decl_exists(&constructor, context.types)
             {
                 constructors.insert(constructor);
             }
         }
         ExprKind::TypeApply { callee, type_args } => {
-            collect_expr_type_references(
-                callee,
-                current_module,
-                uses,
-                function_targets,
-                types,
-                local_bindings,
-                names,
-                constructors,
-            );
+            collect_expr_type_references(callee, context, names, constructors);
             for type_arg in type_args {
                 collect_type_name_references(type_arg, current_module, uses, names);
             }
@@ -2868,201 +2864,61 @@ fn collect_expr_type_references(
                     constructors.insert(constructor);
                 }
             } else {
-                collect_expr_type_references(
-                    callee,
-                    current_module,
-                    uses,
-                    function_targets,
-                    types,
-                    local_bindings,
-                    names,
-                    constructors,
-                );
+                collect_expr_type_references(callee, context, names, constructors);
             }
             for arg in args {
-                collect_expr_type_references(
-                    arg,
-                    current_module,
-                    uses,
-                    function_targets,
-                    types,
-                    local_bindings,
-                    names,
-                    constructors,
-                );
+                collect_expr_type_references(arg, context, names, constructors);
             }
         }
         ExprKind::Perform { args, .. } => {
             for arg in args {
-                collect_expr_type_references(
-                    arg,
-                    current_module,
-                    uses,
-                    function_targets,
-                    types,
-                    local_bindings,
-                    names,
-                    constructors,
-                );
+                collect_expr_type_references(arg, context, names, constructors);
             }
         }
         ExprKind::Handle { body, args, .. } => {
-            collect_expr_type_references(
-                body,
-                current_module,
-                uses,
-                function_targets,
-                types,
-                local_bindings,
-                names,
-                constructors,
-            );
+            collect_expr_type_references(body, context, names, constructors);
             for arg in args {
-                collect_expr_type_references(
-                    arg,
-                    current_module,
-                    uses,
-                    function_targets,
-                    types,
-                    local_bindings,
-                    names,
-                    constructors,
-                );
+                collect_expr_type_references(arg, context, names, constructors);
             }
         }
         ExprKind::SchemaDecode { input, base, .. } => {
-            collect_expr_type_references(
-                input,
-                current_module,
-                uses,
-                function_targets,
-                types,
-                local_bindings,
-                names,
-                constructors,
-            );
-            collect_expr_type_references(
-                base,
-                current_module,
-                uses,
-                function_targets,
-                types,
-                local_bindings,
-                names,
-                constructors,
-            );
+            collect_expr_type_references(input, context, names, constructors);
+            collect_expr_type_references(base, context, names, constructors);
         }
         ExprKind::SchemaEncode { value, .. } => {
-            collect_expr_type_references(
-                value,
-                current_module,
-                uses,
-                function_targets,
-                types,
-                local_bindings,
-                names,
-                constructors,
-            );
+            collect_expr_type_references(value, context, names, constructors);
         }
         ExprKind::FieldAccess { base, .. } => {
-            collect_expr_type_references(
-                base,
-                current_module,
-                uses,
-                function_targets,
-                types,
-                local_bindings,
-                names,
-                constructors,
-            );
+            collect_expr_type_references(base, context, names, constructors);
         }
-        ExprKind::Try(inner) => collect_expr_type_references(
-            inner,
-            current_module,
-            uses,
-            function_targets,
-            types,
-            local_bindings,
-            names,
-            constructors,
-        ),
+        ExprKind::Try(inner) => collect_expr_type_references(inner, context, names, constructors),
         ExprKind::Record(fields) => {
             for field in fields {
-                collect_expr_type_references(
-                    &field.expr,
-                    current_module,
-                    uses,
-                    function_targets,
-                    types,
-                    local_bindings,
-                    names,
-                    constructors,
-                );
+                collect_expr_type_references(&field.expr, context, names, constructors);
             }
         }
         ExprKind::Dict(entries) => {
             for entry in entries {
-                collect_expr_type_references(
-                    &entry.key,
-                    current_module,
-                    uses,
-                    function_targets,
-                    types,
-                    local_bindings,
-                    names,
-                    constructors,
-                );
-                collect_expr_type_references(
-                    &entry.value,
-                    current_module,
-                    uses,
-                    function_targets,
-                    types,
-                    local_bindings,
-                    names,
-                    constructors,
-                );
+                collect_expr_type_references(&entry.key, context, names, constructors);
+                collect_expr_type_references(&entry.value, context, names, constructors);
             }
         }
         ExprKind::List(items) => {
             for item in items {
-                collect_expr_type_references(
-                    item,
-                    current_module,
-                    uses,
-                    function_targets,
-                    types,
-                    local_bindings,
-                    names,
-                    constructors,
-                );
+                collect_expr_type_references(item, context, names, constructors);
             }
         }
         ExprKind::Match { scrutinee, arms } => {
-            collect_expr_type_references(
-                scrutinee,
-                current_module,
-                uses,
-                function_targets,
-                types,
-                local_bindings,
-                names,
-                constructors,
-            );
+            collect_expr_type_references(scrutinee, context, names, constructors);
             for arm in arms {
                 collect_pattern_type_references(&arm.pattern, current_module, uses, constructors);
                 let mut arm_bindings = local_bindings.to_vec();
                 collect_pattern_bindings(&arm.pattern, None, &mut arm_bindings);
-                collect_expr_type_references(
-                    &arm.expr,
-                    current_module,
-                    uses,
-                    function_targets,
-                    types,
-                    &arm_bindings,
-                    names,
-                    constructors,
-                );
+                let arm_context = ExprTypeReferenceContext {
+                    local_bindings: &arm_bindings,
+                    ..*context
+                };
+                collect_expr_type_references(&arm.expr, &arm_context, names, constructors);
             }
         }
         ExprKind::If {
@@ -3071,90 +2927,20 @@ fn collect_expr_type_references(
             else_if_branches,
             else_branch,
         } => {
-            collect_expr_type_references(
-                condition,
-                current_module,
-                uses,
-                function_targets,
-                types,
-                local_bindings,
-                names,
-                constructors,
-            );
-            collect_expr_type_references(
-                then_branch,
-                current_module,
-                uses,
-                function_targets,
-                types,
-                local_bindings,
-                names,
-                constructors,
-            );
+            collect_expr_type_references(condition, context, names, constructors);
+            collect_expr_type_references(then_branch, context, names, constructors);
             for branch in else_if_branches {
-                collect_expr_type_references(
-                    &branch.condition,
-                    current_module,
-                    uses,
-                    function_targets,
-                    types,
-                    local_bindings,
-                    names,
-                    constructors,
-                );
-                collect_expr_type_references(
-                    &branch.expr,
-                    current_module,
-                    uses,
-                    function_targets,
-                    types,
-                    local_bindings,
-                    names,
-                    constructors,
-                );
+                collect_expr_type_references(&branch.condition, context, names, constructors);
+                collect_expr_type_references(&branch.expr, context, names, constructors);
             }
-            collect_expr_type_references(
-                else_branch,
-                current_module,
-                uses,
-                function_targets,
-                types,
-                local_bindings,
-                names,
-                constructors,
-            );
+            collect_expr_type_references(else_branch, context, names, constructors);
         }
-        ExprKind::Prefix { expr, .. } => collect_expr_type_references(
-            expr,
-            current_module,
-            uses,
-            function_targets,
-            types,
-            local_bindings,
-            names,
-            constructors,
-        ),
+        ExprKind::Prefix { expr, .. } => {
+            collect_expr_type_references(expr, context, names, constructors)
+        }
         ExprKind::Binary { left, right, .. } => {
-            collect_expr_type_references(
-                left,
-                current_module,
-                uses,
-                function_targets,
-                types,
-                local_bindings,
-                names,
-                constructors,
-            );
-            collect_expr_type_references(
-                right,
-                current_module,
-                uses,
-                function_targets,
-                types,
-                local_bindings,
-                names,
-                constructors,
-            );
+            collect_expr_type_references(left, context, names, constructors);
+            collect_expr_type_references(right, context, names, constructors);
         }
         ExprKind::Missing
         | ExprKind::Hole { .. }
