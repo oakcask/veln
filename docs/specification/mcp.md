@@ -167,6 +167,8 @@ rejection over stdio. Its response-local assertions bind response IDs 3
 through 11 to the expected JSON-RPC result, error, location, cardinality, and
 absence observations. Object member order inside those expected result objects
 is harness equality evidence, not an MCP output ordering contract.
+File-backed expected text and JSON sidecars in that case are harness
+reviewability evidence and do not add a distinct MCP response field contract.
 Response-local string containment checks in that case are harness evidence
 over selected JSON strings and do not add a distinct MCP response field
 contract.
