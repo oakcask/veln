@@ -18,6 +18,10 @@ The selected-entry command boundary is checked by
 [`identifier-casing-reachable`](../../examples/specification/run/identifier-casing-reachable/case.toml)
 and
 [`identifier-casing-unreachable`](../../examples/specification/run/identifier-casing-unreachable/case.toml).
+Import and public-alias quarantine are checked by
+[`identifier-casing-import-quarantine`](../../examples/specification/run/identifier-casing-import-quarantine/case.toml)
+and
+[`identifier-casing-alias-quarantine`](../../examples/specification/run/identifier-casing-alias-quarantine/case.toml).
 
 Case text files under `case-text/` are fixture evidence owned by the CLI
 toolchain harness. Their placement can change how an example is reviewed

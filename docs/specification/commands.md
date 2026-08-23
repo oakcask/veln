@@ -98,8 +98,8 @@ requiring the full command reference on the first read.
 - `run`: production source discovery excluding `.test.veln` companions,
   rejection of explicitly supplied `.test.veln` run inputs, entry resolution,
   selected-entry reachability that rejects reachable `name.invalid_case`
-  diagnostics while ignoring invalid peer functions outside the selected
-  entry's reachable closure, import and public-alias quarantine for invalid
+  diagnostics while ignoring invalid peer declarations and bindings outside the
+  selected entry's reachable closure, import and public-alias quarantine for invalid
   source names as checked by `identifier-casing-reachable`,
   `identifier-casing-unreachable`, `identifier-casing-import-quarantine`, and
   `identifier-casing-alias-quarantine`,

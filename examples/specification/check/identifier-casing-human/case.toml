@@ -4,7 +4,7 @@ exit = 1
 
 [stdout]
 format = "text"
-contains = ["main.veln:1:6: error[name.invalid_case]: type name must start with an ASCII uppercase letter", "main.veln:5:4: error[name.invalid_case]: function name must start with an ASCII lowercase letter", "main.veln:5:10: error[name.invalid_case]: binding name must start with an ASCII lowercase letter", "main.veln:9:6: error[name.invalid_case]: function name must start with an ASCII lowercase letter"]
+contains = ["main.veln:1:6: error[name.invalid_case]: type name must start with an ASCII uppercase letter", "main.veln:6:3: error[name.invalid_case]: constructor name must start with an ASCII uppercase letter", "main.veln:9:4: error[name.invalid_case]: function name must start with an ASCII lowercase letter", "main.veln:9:10: error[name.invalid_case]: binding name must start with an ASCII lowercase letter", "main.veln:13:6: error[name.invalid_case]: function name must start with an ASCII lowercase letter"]
 
 [stderr]
 format = "empty"

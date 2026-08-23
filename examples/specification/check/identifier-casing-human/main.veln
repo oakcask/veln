@@ -2,6 +2,10 @@ type item
   Made
 end
 
+type Item
+  made
+end
+
 fn Build(Value: Int) -> Int
   Value
 end

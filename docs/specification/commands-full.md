@@ -368,11 +368,12 @@ declarations to the imported source module. Semantic
 diagnostics in functions unreachable from the selected entry do not block
 `run`.
 
-This reachability boundary includes `name.invalid_case`. An invalid function
-reached from the selected entry blocks `run`, while an invalid peer function
-outside the reachable closure does not. The checked
-`identifier-casing-reachable` and `identifier-casing-unreachable` run cases
-fix this boundary.
+This reachability boundary includes `name.invalid_case`. An invalid covered
+declaration or binding reached from the selected entry blocks `run`, while an
+invalid peer outside the reachable closure does not. The checked
+`identifier-casing-reachable`, `identifier-casing-unreachable`,
+`identifier-casing-import-quarantine`, and `identifier-casing-alias-quarantine`
+run cases fix this boundary.
 
 `run` and `test` cache generated JVM classfile artifacts by backend content
 below the selected Veln user cache root. On Unix other than macOS, the default

@@ -2,6 +2,18 @@ fn Broken() -> Int
   1
 end
 
+type broken
+  bad
+end
+
+effect Ask
+  value() -> Int
+end
+
+handler unused(Bad: Int) handles Ask
+  value() => Bad
+end
+
 pub fn main() -> Int
   2
 end

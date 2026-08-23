@@ -14,7 +14,8 @@ suppress a derivative unresolved-name diagnostic, but recovery does not cross
 imports or public aliases.
 
 `check` diagnoses every selected invalid covered name. `run` diagnoses an
-invalid function only when it is in the selected entry's reachable closure.
+invalid covered declaration or binding only when it is in the selected entry's
+reachable closure.
 
 Current behavior is specified by
 `../../specification/names-effects-full.md`,
