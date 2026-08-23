@@ -20,17 +20,18 @@ in a covered declaration or binding is retained for `name.invalid_case`
 recovery instead of producing a missing-identifier parse diagnostic.
 
 An invalid covered name is quarantined from ordinary type, constructor, and
-function lookup. One same-spelled compatible use in the declaring source and
-lexical scope may suppress a derivative unresolved-name diagnostic when
-exactly one invalid declaration or binding is available and no valid
-declaration or binding wins. Recovery does not cross an import or public alias,
-and it never enters checked core, typed IR, hole repair candidate lists, or
-backend input.
+function lookup. Same-kind, same-scope invalid names with the same spelling
+still emit the ordinary duplicate diagnostic. One same-spelled compatible use
+in the declaring source and lexical scope may suppress a derivative
+unresolved-name diagnostic when exactly one invalid declaration or binding is
+available and no valid declaration or binding wins. Recovery does not cross an
+import or public alias, and it never enters checked core, typed IR, hole repair
+candidate lists, or backend input.
 The checked `identifier-casing-*` cases under
 `../../examples/specification/check/`, together with parser and semantic unit
 tests, fix accepted and rejected names, exact human and JSON diagnostics,
-checked-artifact exclusion, unique and ambiguous recovery, valid-candidate
-precedence, and the import and alias quarantine boundary.
+checked-artifact exclusion, duplicate overlap, unique and ambiguous recovery,
+valid-candidate precedence, and the import and alias quarantine boundary.
 
 Implemented checker namespaces are:
 
@@ -856,6 +857,14 @@ function-typed local bindings and parameters conservatively include visible
 same-arity function declarations when the surface graph does not identify one
 concrete target, so blockers inside possible helpers are reported before the
 selected entry runs.
+The selected-entry closure resolves candidate identity before materializing
+reachable names. A valid function value with the same leaf name as an invalid
+constructor does not reach the invalid constructor's source type, and a valid
+constructor with the same leaf name as an invalid function does not reach the
+invalid function. Module-qualified same-leaf paths and transitive public type
+aliases follow their resolved type, constructor, function, and alias targets.
+Unreachable type aliases and aliases to quarantined invalid type targets are
+not materialized for run checking.
 
 A public function whose declared effects omit an inferred effect reports
 `effect.missing_public` with related provenance pointing at bounded call sites.
