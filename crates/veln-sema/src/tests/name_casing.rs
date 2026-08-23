@@ -286,6 +286,32 @@ fn incompatible_recovery_class_does_not_suppress_unresolved_call() {
 }
 
 #[test]
+fn invalid_constructor_does_not_suppress_unresolved_value() {
+    let parsed = parse(&SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Box\n",
+            "  item(value: Int)\n",
+            "end\n",
+            "fn main() -> Int\n",
+            "  item\n",
+            "end\n",
+        ),
+    ));
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.invalid_case"
+            && diagnostic.message == "constructor name must start with an ASCII uppercase letter"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved" && diagnostic.message == "unresolved value `item`"
+    }));
+}
+
+#[test]
 fn invalid_value_binding_is_quarantined_but_unique_value_use_recovers() {
     let parsed = parse(&SourceFile::new(
         "main.veln",

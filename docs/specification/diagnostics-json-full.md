@@ -18,6 +18,14 @@ schema operation path resolution, and generated helper availability.
 Schema-level mapping diagnostics are not current behavior because mapping
 clauses are rejected by the parser.
 
+## Name Diagnostics
+
+Invalid source type, constructor, function, test declaration, and value-binding
+names use `name.invalid_case`. Test declarations use the function name class.
+The primary span is the complete written token. Details contain
+`phase = "name"`, `origin = "source"`, `occurrence`, `name`, `name_class`,
+`required_initial`, and `observed_initial`.
+
 ## Type Inference Diagnostics
 
 `type.local_inference_incomplete` details identify the failed slot with

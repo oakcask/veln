@@ -2,6 +2,14 @@ fn Broken() -> Int
   1
 end
 
+fn invoke(job: fn() -> Int) -> Int
+  job()
+end
+
+fn ready() -> Int
+  2
+end
+
 type broken
   bad
 end
@@ -15,5 +23,5 @@ handler unused(Bad: Int) handles Ask
 end
 
 pub fn main() -> Int
-  2
+  invoke(ready)
 end

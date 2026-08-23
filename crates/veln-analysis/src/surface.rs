@@ -3792,12 +3792,13 @@ fn collect_opaque_function_value_callees(
     }
     let public_or_same_module_access = HashMap::new();
     for target in function_targets.shaped(shape).filter(|target| {
-        target_visible_from_current_module(
-            target,
-            current_module,
-            uses,
-            &public_or_same_module_access,
-        )
+        !target.quarantined
+            && target_visible_from_current_module(
+                target,
+                current_module,
+                uses,
+                &public_or_same_module_access,
+            )
     }) {
         push_reachable(
             callees,

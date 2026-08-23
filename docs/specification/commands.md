@@ -102,8 +102,9 @@ requiring the full command reference on the first read.
   selected entry's reachable closure, import and public-alias quarantine for invalid
   source names as checked by `identifier-casing-reachable`,
   `identifier-casing-unreachable`, `identifier-casing-import-quarantine`, and
-  `identifier-casing-alias-quarantine`, and resolution-aware type, constructor,
-  function, handler, and alias closure as checked by the
+  `identifier-casing-alias-quarantine`, including first-class function value
+  reachability that excludes quarantined invalid function targets, and
+  resolution-aware type, constructor, function, and alias closure as checked by the
   `identifier-casing-valid-*`, `identifier-casing-qualified-same-leaf`, and
   `identifier-casing-alias-transitive-target` cases,
   fixed and variadic entry argument conversion, static gates, direct JVM

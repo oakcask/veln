@@ -124,7 +124,7 @@ pub(crate) fn suppress_unique_local_recovery_derivatives(
         let Some(span) = &diagnostic.span else {
             return true;
         };
-        let Some((role, symbol)) = unresolved_recovery_role_and_symbol(&diagnostic.message) else {
+        let Some((role, symbol)) = unresolved_recovery_role_and_symbol(diagnostic) else {
             return true;
         };
         recovery_count(module, role, symbol, span.file.as_str()) != 1
@@ -220,20 +220,33 @@ fn type_alias_targets_invalid_source_type(
 #[derive(Clone, Copy)]
 enum RecoveryRole {
     Type,
-    Callable,
+    CallTarget,
 }
 
-fn unresolved_recovery_role_and_symbol(message: &str) -> Option<(RecoveryRole, &str)> {
-    let (prefix, suffix) = message.split_once('`')?;
-    let symbol = suffix.strip_suffix('`')?;
-    let role = if prefix.contains("call_target") || prefix.contains("value") {
-        RecoveryRole::Callable
-    } else if prefix.contains("type") {
-        RecoveryRole::Type
-    } else {
-        return None;
+fn unresolved_recovery_role_and_symbol(diagnostic: &Diagnostic) -> Option<(RecoveryRole, &str)> {
+    let namespace = diagnostic_string_detail(diagnostic, "namespace")?;
+    let symbol = diagnostic_string_detail(diagnostic, "symbol")?;
+    let role = match namespace {
+        "type" => RecoveryRole::Type,
+        "call_target" => RecoveryRole::CallTarget,
+        _ => return None,
     };
     Some((role, symbol))
+}
+
+fn diagnostic_string_detail<'a>(diagnostic: &'a Diagnostic, key: &str) -> Option<&'a str> {
+    let JsonValue::Object(entries) = &diagnostic.details else {
+        return None;
+    };
+    entries.iter().find_map(|(entry_key, value)| {
+        if entry_key == key
+            && let JsonValue::String(value) = value
+        {
+            Some(value.as_str())
+        } else {
+            None
+        }
+    })
 }
 
 fn recovery_count(module: &SurfaceModule, role: RecoveryRole, symbol: &str, file: &str) -> usize {
@@ -259,7 +272,7 @@ fn recovery_count(module: &SurfaceModule, role: RecoveryRole, symbol: &str, file
         });
     match role {
         RecoveryRole::Type => invalid_types.count(),
-        RecoveryRole::Callable => invalid_functions.count() + invalid_variants.count(),
+        RecoveryRole::CallTarget => invalid_functions.count() + invalid_variants.count(),
     }
 }
 

@@ -373,7 +373,8 @@ declaration or binding reached from the selected entry blocks `run`, while an
 invalid peer outside the reachable closure does not. The checked
 `identifier-casing-reachable`, `identifier-casing-unreachable`,
 `identifier-casing-import-quarantine`, and `identifier-casing-alias-quarantine`
-run cases fix this boundary.
+run cases fix this boundary, including first-class function value reachability
+that excludes quarantined invalid function targets.
 
 `run` and `test` cache generated JVM classfile artifacts by backend content
 below the selected Veln user cache root. On Unix other than macOS, the default
