@@ -225,6 +225,9 @@ message object, including when one duplicate spelling has an otherwise valid
 value and another duplicate spelling has an invalid value. JSON string escapes
 in the request file decode paired UTF-16 surrogates before framing and reject
 unpaired surrogate units before command startup.
+Duplicate extension members are retained. If a `$workspace_file_uri` directive
+appears below a later duplicate extension member, the harness materializes that
+same member and does not rewrite an earlier member with the same name.
 
 Any complete object value or array element in a structured request may use a
 `{"$case_text":"relative/path"}` directive. The object must contain only that

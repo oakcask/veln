@@ -1286,6 +1286,60 @@ equals_json_file = "case-text/expected.json"
 }
 
 #[test]
+fn semantic_export_preserves_value_assertion_workspace_uri_operands() {
+    let root = test_temp_root("semantic-value-workspace-uri");
+    fs::write(root.join("main.veln"), "").expect("workspace file should be written");
+
+    let json_manifest = parse_manifest(
+        &root.join("json-case.toml"),
+        r#"command = ["check"]
+exit = 0
+[[json_assert]]
+path = "uri"
+workspace_file_uri = "main.veln"
+"#,
+    );
+    let json_fields = describe(&json_manifest);
+    assert_eq!(
+        json_fields["expectations.json_assertions[0].operation"],
+        json_string("workspace_file_uri")
+    );
+    assert_eq!(
+        json_fields["expectations.json_assertions[0].workspace_file_uri"],
+        json_string("main.veln")
+    );
+    assert!(
+        !json_fields["expectations.json_assertions[0].workspace_file_uri"].contains("file://")
+    );
+
+    let result_manifest = parse_manifest(
+        &root.join("result-case.toml"),
+        r#"command = ["run", "--json", "main", "main.veln"]
+exit = 0
+[[result_value_assert]]
+value_path = "rendered"
+path = "value.uri"
+workspace_file_uri = "main.veln"
+"#,
+    );
+    let result_fields = describe(&result_manifest);
+    assert_eq!(
+        result_fields["expectations.result_value_assertions[0].operation"],
+        json_string("workspace_file_uri")
+    );
+    assert_eq!(
+        result_fields["expectations.result_value_assertions[0].workspace_file_uri"],
+        json_string("main.veln")
+    );
+    assert!(
+        !result_fields["expectations.result_value_assertions[0].workspace_file_uri"]
+            .contains("file://")
+    );
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
 fn checked_in_semantic_baseline_matches_authoritative_cases() {
     let expected =
         Inventory::parse(BASELINE).expect("checked-in semantic baseline should be valid");

@@ -1481,8 +1481,14 @@ impl CaseInvocation {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct WorkspaceFileUriDirective {
     message_index: usize,
-    pointer_tokens: Vec<String>,
+    pointer_route: Vec<JsonPointerRouteSegment>,
     relative: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum JsonPointerRouteSegment {
+    ArrayIndex(usize),
+    ObjectMember { key: String, occurrence: usize },
 }
 
 #[derive(Debug)]
@@ -2934,27 +2940,12 @@ impl AssertionOperationPreflight {
     fn validate_operands(&self, path: &Path, base_context: &str) {
         if let Some(operand) = &self.length {
             let context = format!("{base_context} length");
-            let parsed = operand.raw.parse::<i64>().unwrap_or_else(|_| {
-                manifest_error(
-                    path,
-                    operand.line_number,
-                    format!("{context}: expected integer"),
-                )
-            });
-            if parsed < 0 {
-                manifest_error(
-                    path,
-                    operand.line_number,
-                    format!("{context}: expected non-negative integer"),
-                );
-            }
-            usize::try_from(parsed).unwrap_or_else(|_| {
-                manifest_error(
-                    path,
-                    operand.line_number,
-                    format!("{context}: expected non-negative integer within range"),
-                )
-            });
+            parse_nonnegative_usize_raw_with_context(
+                path,
+                operand.line_number,
+                &operand.raw,
+                Some(&context),
+            );
         }
         if let Some(operand) = &self.workspace_file_uri {
             let context = format!("{base_context} workspace_file_uri");
@@ -4694,7 +4685,13 @@ fn load_jsonrpc_stdin(
             case_text_cache,
             workspace_file_uri_directives,
         };
-        expand_case_text_directives(&mut context, &position, &mut Vec::new(), &mut message);
+        expand_case_text_directives(
+            &mut context,
+            &position,
+            &mut Vec::new(),
+            &mut Vec::new(),
+            &mut message,
+        );
         validate_jsonrpc_input_message(manifest_path, line_number, index, &message);
         let body = message.to_compact_string();
         let length = body.len();
@@ -4715,19 +4712,23 @@ fn expand_case_text_directives(
     context: &mut JsonrpcDirectiveExpansion<'_>,
     position: &str,
     pointer_tokens: &mut Vec<String>,
+    pointer_route: &mut Vec<JsonPointerRouteSegment>,
     value: &mut JsonValue,
 ) {
     match value {
         JsonValue::Array(values) => {
             for (index, value) in values.iter_mut().enumerate() {
                 pointer_tokens.push(index.to_string());
+                pointer_route.push(JsonPointerRouteSegment::ArrayIndex(index));
                 expand_case_text_directives(
                     context,
                     &format!("{position}[{index}]"),
                     pointer_tokens,
+                    pointer_route,
                     value,
                 );
                 pointer_tokens.pop();
+                pointer_route.pop();
             }
         }
         JsonValue::Object(entries) => {
@@ -4761,7 +4762,7 @@ fn expand_case_text_directives(
                     .workspace_file_uri_directives
                     .push(WorkspaceFileUriDirective {
                         message_index: context.message_index,
-                        pointer_tokens: pointer_tokens.clone(),
+                        pointer_route: pointer_route.clone(),
                         relative: relative.clone(),
                     });
                 *value = JsonValue::String(workspace_file_uri_marker(relative));
@@ -4805,15 +4806,24 @@ fn expand_case_text_directives(
                 *value = JsonValue::String(replacement);
                 return;
             }
+            let mut seen_keys = BTreeMap::<String, usize>::new();
             for (key, value) in entries {
+                let occurrence = *seen_keys.get(key).unwrap_or(&0);
+                seen_keys.insert(key.clone(), occurrence + 1);
                 pointer_tokens.push(key.clone());
+                pointer_route.push(JsonPointerRouteSegment::ObjectMember {
+                    key: key.clone(),
+                    occurrence,
+                });
                 expand_case_text_directives(
                     context,
                     &format!("{position}.{}", escape_json_position_key(key)),
                     pointer_tokens,
+                    pointer_route,
                     value,
                 );
                 pointer_tokens.pop();
+                pointer_route.pop();
             }
         }
         _ => {}
@@ -4847,7 +4857,7 @@ fn materialize_jsonrpc_workspace_file_uri_directives(
                 directive.message_index
             );
         };
-        let target = json_pointer_mut(message, &directive.pointer_tokens)
+        let target = json_pointer_route_mut(message, &directive.pointer_route)
             .unwrap_or_else(|| panic!("workspace URI directive path was not found"));
         let uri = workspace_file_uri(project_root, &directive.relative)
             .unwrap_or_else(|error| panic!("workspace URI directive failed: {error}"));
@@ -5498,17 +5508,7 @@ fn parse_positive_usize(path: &Path, value: &ManifestValue<'_>) -> usize {
 }
 
 fn parse_nonnegative_usize(path: &Path, value: &ManifestValue<'_>) -> usize {
-    let parsed = parse_i64(path, value);
-    if parsed < 0 {
-        manifest_error(path, value.line(), "expected non-negative integer");
-    }
-    usize::try_from(parsed).unwrap_or_else(|_| {
-        manifest_error(
-            path,
-            value.line(),
-            "expected non-negative integer within range",
-        )
-    })
+    parse_nonnegative_usize_raw_with_context(path, value.line(), value.raw(), None)
 }
 
 fn parse_nonnegative_usize_with_context(
@@ -5516,22 +5516,38 @@ fn parse_nonnegative_usize_with_context(
     value: &ManifestValue<'_>,
     context: &str,
 ) -> usize {
-    let parsed = value.raw().parse::<i64>().unwrap_or_else(|_| {
-        manifest_error(path, value.line(), format!("{context}: expected integer"))
-    });
-    if parsed < 0 {
-        manifest_error(
-            path,
-            value.line(),
-            format!("{context}: expected non-negative integer"),
-        );
+    parse_nonnegative_usize_raw_with_context(path, value.line(), value.raw(), Some(context))
+}
+
+fn parse_nonnegative_usize_raw_with_context(
+    path: &Path,
+    line_number: usize,
+    raw: &str,
+    context: Option<&str>,
+) -> usize {
+    if raw.starts_with('-') && is_json_integer_token(raw) {
+        let message = "expected non-negative integer";
+        let message = match context {
+            Some(context) => format!("{context}: {message}"),
+            None => message.to_string(),
+        };
+        manifest_error(path, line_number, message);
     }
-    usize::try_from(parsed).unwrap_or_else(|_| {
-        manifest_error(
-            path,
-            value.line(),
-            format!("{context}: expected non-negative integer within range"),
-        )
+    if !is_json_integer_token(raw) {
+        let message = "expected integer";
+        let message = match context {
+            Some(context) => format!("{context}: {message}"),
+            None => message.to_string(),
+        };
+        manifest_error(path, line_number, message);
+    }
+    raw.parse::<usize>().unwrap_or_else(|_| {
+        let message = "expected non-negative integer within range";
+        let message = match context {
+            Some(context) => format!("{context}: {message}"),
+            None => message.to_string(),
+        };
+        manifest_error(path, line_number, message)
     })
 }
 
@@ -7928,6 +7944,59 @@ fn manifest_jsonrpc_workspace_uri_directives_do_not_rewrite_marker_like_case_tex
     fs::remove_dir_all(root).expect("case root should be removed");
 }
 
+#[test]
+fn manifest_jsonrpc_workspace_uri_directive_materializes_later_duplicate_member() {
+    let root = test_temp_root("jsonrpc-workspace-uri-duplicate-member");
+    let case_dir = root.join("case");
+    fs::create_dir_all(&case_dir).expect("case directory should be created");
+    fs::write(case_dir.join("main.veln"), "").expect("workspace file should be written");
+    fs::write(
+        case_dir.join("requests.json"),
+        r#"[
+  {"jsonrpc":"2.0","method":"uri","params":{"uri":"preserve-first","uri":{"$workspace_file_uri":"main.veln"}}}
+]"#,
+    )
+    .expect("JSON-RPC fixture should be written");
+
+    let manifest = parse_manifest(
+        &case_dir.join("case.toml"),
+        "command = [\"lsp\"]\nstdin_jsonrpc_file = \"requests.json\"\nexit = 0\n",
+    );
+    let framed = manifest
+        .invocation
+        .materialized_stdin(&case_dir)
+        .expect("JSON-RPC stdin should materialize");
+    assert!(
+        !framed.contains(WORKSPACE_FILE_URI_MARKER),
+        "workspace URI marker must not reach command input"
+    );
+    let messages = decode_lsp_stdout(&framed).expect("framed JSON-RPC input should decode");
+    let JsonValue::Object(message_entries) = &messages[0] else {
+        panic!("message should be an object");
+    };
+    let params = message_entries
+        .iter()
+        .find_map(|(key, value)| (key == "params").then_some(value))
+        .expect("params should exist");
+    let JsonValue::Object(params_entries) = params else {
+        panic!("params should be an object");
+    };
+    let uri_values = params_entries
+        .iter()
+        .filter_map(|(key, value)| (key == "uri").then_some(value))
+        .collect::<Vec<_>>();
+    assert_eq!(uri_values.len(), 2);
+    assert_eq!(
+        uri_values[0],
+        &JsonValue::String("preserve-first".to_string())
+    );
+    let expected_uri =
+        workspace_file_uri(&case_dir, "main.veln").expect("workspace URI should resolve");
+    assert_eq!(uri_values[1], &JsonValue::String(expected_uri));
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
 #[cfg(unix)]
 #[test]
 fn manifest_jsonrpc_resources_fail_before_skip_fixture_copy_and_command_start() {
@@ -9244,6 +9313,245 @@ length = 0
         assert!(message.contains("must not contain"));
     }
 
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn common_length_parser_accepts_full_usize_range_without_signed_intermediary() {
+    let root = test_temp_root("common-length-usize-range");
+    let manifest_path = root.join("case.toml");
+    let max = usize::MAX.to_string();
+    let over_max = ((usize::MAX as u128) + 1).to_string();
+
+    for (command, section, selectors) in [
+        ("check", "json_assert", "path = \"items\"\n"),
+        (
+            "run",
+            "result_value_assert",
+            "value_path = \"rendered\"\npath = \"items\"\n",
+        ),
+        ("lsp", "lsp_assert", "id = 1\npath = \"/result/items\"\n"),
+        ("mcp", "mcp_assert", "id = 1\npath = \"/result/items\"\n"),
+    ] {
+        for accepted in ["9223372036854775807", max.as_str()] {
+            parse_manifest(
+                &manifest_path,
+                &format!(
+                    "command = [\"{command}\"]\nexit = 0\n[[{section}]]\n{selectors}length = {accepted}\n"
+                ),
+            );
+        }
+        if usize::BITS > 63 {
+            parse_manifest(
+                &manifest_path,
+                &format!(
+                    "command = [\"{command}\"]\nexit = 0\n[[{section}]]\n{selectors}length = 9223372036854775808\n"
+                ),
+            );
+        }
+
+        for (rejected, expected) in [
+            ("-1", "expected non-negative integer"),
+            ("1.0", "expected integer"),
+            (
+                over_max.as_str(),
+                "expected non-negative integer within range",
+            ),
+        ] {
+            let panic = std::panic::catch_unwind(|| {
+                parse_manifest(
+                    &manifest_path,
+                    &format!(
+                        "command = [\"{command}\"]\nexit = 0\n[[{section}]]\n{selectors}length = {rejected}\n"
+                    ),
+                )
+            })
+            .expect_err("invalid length operand should fail");
+            let message = panic_message(panic);
+            for fragment in [section, "0", "length", expected] {
+                assert!(
+                    message.contains(fragment),
+                    "expected `{fragment}` in `{message}`"
+                );
+            }
+        }
+    }
+
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn common_operation_wrapper_failures_keep_full_context_matrix() {
+    let root = test_temp_root("common-operation-wrapper-context");
+    fs::write(root.join("main.veln"), "").expect("workspace file should be written");
+    let context = CaseRunContext {
+        case_dir: Path::new("common-operation-wrapper-context"),
+        run_number: 1,
+    };
+    let actual_uri = workspace_file_uri(&root, "main.veln").expect("workspace URI should resolve");
+    let wrong_uri = "file:///wrong";
+
+    for (operation, actual, fragments) in [
+        (
+            "length = 1",
+            r#"{"items":"not-array"}"#.to_string(),
+            vec!["length requires a selected JSON array"],
+        ),
+        (
+            "length = 2",
+            r#"{"items":[1]}"#.to_string(),
+            vec!["array length mismatch: expected 2, got 1"],
+        ),
+        (
+            "workspace_file_uri = \"main.veln\"",
+            r#"{"uri":1}"#.to_string(),
+            vec!["workspace_file_uri requires a selected JSON string"],
+        ),
+        (
+            "workspace_file_uri = \"main.veln\"",
+            format!(r#"{{"uri":"{wrong_uri}"}}"#),
+            vec!["workspace URI mismatch", "main.veln"],
+        ),
+    ] {
+        let manifest = parse_manifest(
+            &root.join("case.toml"),
+            &format!(
+                "command = [\"check\"]\nexit = 0\n[[json_assert]]\npath = \"{}\"\n{operation}\n",
+                if operation.starts_with("length") {
+                    "items"
+                } else {
+                    "uri"
+                }
+            ),
+        );
+        let json = parse_json(&actual).expect("JSON wrapper matrix input should parse");
+        let panic = std::panic::catch_unwind(|| {
+            assert_json_path_in_workspace(
+                &context,
+                &json,
+                &manifest.expectations.json_assertions[0],
+                0,
+                &root,
+            )
+        })
+        .expect_err("JSON assertion should fail");
+        let message = panic_message(panic);
+        for fragment in ["json_assert 0", "JSON path", *fragments.first().unwrap()] {
+            assert!(
+                message.contains(fragment),
+                "expected `{fragment}` in `{message}`"
+            );
+        }
+    }
+
+    for (operation, rendered_value, selected_path, fragments) in [
+        (
+            "length = 1",
+            "RuntimeDiagnostic(id, msg, RuntimeValueDiagnostic(Nil, reason))",
+            "value.id",
+            vec!["length requires a selected JSON array"],
+        ),
+        (
+            "length = 2",
+            "RuntimeDiagnostic(id, msg, RuntimeByteDiagnostic(ByteOffset(1), Cons(RuntimeDiagnosticFieldPathSegment(schema, body), Nil), RuntimeByteCountFacts(ByteCount(2), ByteCount(1), partial), NoRuntimeBytePreview))",
+            "value.detail.field_path",
+            vec!["array length mismatch: expected 2, got 1"],
+        ),
+        (
+            "workspace_file_uri = \"main.veln\"",
+            "RuntimeDiagnostic(id, msg, RuntimeValueDiagnostic(Nil, reason))",
+            "value.id",
+            vec!["workspace URI mismatch", "main.veln"],
+        ),
+    ] {
+        let manifest = parse_manifest(
+            &root.join("case.toml"),
+            &format!(
+                "command = [\"run\", \"--json\", \"main\", \"main.veln\"]\nexit = 0\n[[result_value_assert]]\nvalue_path = \"rendered\"\npath = \"{selected_path}\"\n{operation}\n"
+            ),
+        );
+        let rendered = JsonValue::Object(vec![(
+            "rendered".to_string(),
+            JsonValue::String(rendered_value.to_string()),
+        )]);
+        let panic = std::panic::catch_unwind(|| {
+            assert_result_value_path_in_workspace(
+                &context,
+                &rendered,
+                &manifest.expectations.result_value_assertions[0],
+                0,
+                &root,
+            )
+        })
+        .expect_err("result-value assertion should fail");
+        let message = panic_message(panic);
+        for fragment in [
+            "result_value_assert 0",
+            selected_path,
+            *fragments.first().unwrap(),
+        ] {
+            assert!(
+                message.contains(fragment),
+                "expected `{fragment}` in `{message}`"
+            );
+        }
+    }
+
+    let lsp_stdout = format!(
+        "{}{}{}",
+        lsp_frame(r#"{"jsonrpc":"2.0","id":1,"result":{"items":"not-array"}}"#),
+        lsp_frame(r#"{"jsonrpc":"2.0","id":2,"result":{"items":[1]}}"#),
+        lsp_frame(&format!(
+            r#"{{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{{"uri":"{wrong_uri}","diagnostics":[]}}}}"#
+        ))
+    );
+    let lsp_failures = parse_manifest(
+        &root.join("case.toml"),
+        r#"command = ["lsp"]
+exit = 0
+[[lsp_assert]]
+id = 1
+path = "/result/items"
+length = 1
+[[lsp_assert]]
+id = 2
+path = "/result/items"
+length = 2
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+path = "/params/uri"
+workspace_file_uri = "main.veln"
+"#,
+    )
+    .expectations
+    .lsp_assertions;
+    let panic = std::panic::catch_unwind(|| {
+        assert_lsp_assertions_in_workspace(&context, &lsp_stdout, &lsp_failures, &root)
+    })
+    .expect_err("LSP assertions should fail");
+    let message = panic_message(panic);
+    for fragment in [
+        "lsp_assert 0",
+        "response id 1",
+        "path \"/result/items\"",
+        "length requires a selected JSON array",
+        "lsp_assert 1",
+        "array length mismatch: expected 2, got 1",
+        "lsp_assert 2",
+        "notification method \"textDocument/publishDiagnostics\" occurrence 0",
+        "path \"/params/uri\"",
+        "workspace URI mismatch",
+    ] {
+        assert!(
+            message.contains(fragment),
+            "expected `{fragment}` in `{message}`"
+        );
+    }
+
+    assert!(
+        actual_uri.starts_with("file://"),
+        "test should create a real file URI"
+    );
     fs::remove_dir_all(root).expect("test root should be removed");
 }
 
@@ -13028,18 +13336,24 @@ fn json_pointer<'a>(value: &'a JsonValue, tokens: &[String]) -> JsonPointerResul
     JsonPointerResult::Found(current)
 }
 
-fn json_pointer_mut<'a>(value: &'a mut JsonValue, tokens: &[String]) -> Option<&'a mut JsonValue> {
+fn json_pointer_route_mut<'a>(
+    value: &'a mut JsonValue,
+    route: &[JsonPointerRouteSegment],
+) -> Option<&'a mut JsonValue> {
     let mut current = value;
-    for token in tokens {
-        current = match current {
-            JsonValue::Object(entries) => entries
-                .iter_mut()
-                .find(|(key, _)| key == token)
-                .map(|(_, child)| child)?,
-            JsonValue::Array(values) => {
-                let index = token.parse::<usize>().ok()?;
-                values.get_mut(index)?
+    for segment in route {
+        current = match (current, segment) {
+            (JsonValue::Array(values), JsonPointerRouteSegment::ArrayIndex(index)) => {
+                values.get_mut(*index)?
             }
+            (
+                JsonValue::Object(entries),
+                JsonPointerRouteSegment::ObjectMember { key, occurrence },
+            ) => entries
+                .iter_mut()
+                .filter(|(candidate, _)| candidate == key)
+                .nth(*occurrence)
+                .map(|(_, child)| child)?,
             _ => return None,
         };
     }
