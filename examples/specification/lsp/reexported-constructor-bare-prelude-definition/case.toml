@@ -1,6 +1,5 @@
 command = ["lsp"]
 stdin_file = "case-text/root-stdin-1.raw"
-source_errors = "expected"
 exit = 0
 
 [stdout]
