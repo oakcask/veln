@@ -1,7 +1,10 @@
 name: Prepare and run nextest
-description: Restore the main Rust test build and optionally run one nextest shard or seed the caches.
+description: Restore a Rust test build and optionally run one nextest shard or seed the caches.
 
 inputs:
+  build-cache-scope:
+    description: Scope that distinguishes the main and pull-request build caches.
+    required: true
   nextest-version:
     description: Version of cargo-nextest to install.
     required: true
@@ -12,7 +15,7 @@ inputs:
     description: Total number of nextest shards.
     required: false
   save-cache:
-    description: Whether to build and save cache misses for the main branch.
+    description: Whether to build and save misses for the selected cache scope.
     required: false
     default: "false"
 
@@ -29,12 +32,12 @@ runs:
       uses: ./.github/actions/cargo-dependencies
       with:
         save-cache: ${{ inputs.save-cache }}
-    - name: Restore main Rust test build cache
+    - name: Restore Rust test build cache
       id: rust-test-build-cache
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: target
-        key: rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
+        key: rust-test-build-${{ inputs.build-cache-scope }}-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
     - name: Install cargo-nextest
       uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2
       with:
@@ -45,16 +48,16 @@ runs:
       with:
         path: ~/.cargo/bin/cargo-nextest
         key: cargo-nextest-${{ runner.os }}-${{ inputs.nextest-version }}
-    - name: Build main Rust test cache
+    - name: Build Rust test cache
       if: inputs.save-cache == 'true' && steps.rust-test-build-cache.outputs.cache-hit != 'true'
       shell: bash
       run: cargo nextest run --locked --workspace --profile ci --no-run
-    - name: Save main Rust test build cache
+    - name: Save Rust test build cache
       if: inputs.save-cache == 'true' && steps.rust-test-build-cache.outputs.cache-hit != 'true'
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: target
-        key: rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
+        key: rust-test-build-${{ inputs.build-cache-scope }}-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
     - name: Run Rust tests
       if: inputs.shard != ''
       shell: bash

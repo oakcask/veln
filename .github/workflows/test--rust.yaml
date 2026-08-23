@@ -37,6 +37,7 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: "1"
+  RUST_TEST_BUILD_CACHE_SCOPE: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || 'main' }}
   # renovate: datasource=github-releases depName=nextest-rs/nextest versioning=semver extractVersion=^cargo-nextest-(?<version>.*)$
   NEXTEST_VERSION: "0.9.140"
   # Keep test execution near twice the clean-build cost so extra shards still repay their build overhead.
@@ -59,19 +60,22 @@ jobs:
         run: node workflow-scripts/plan-nextest-shards.mjs
 
   seed-cache:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - name: Seed Rust test caches
         uses: ./.github/actions/nextest
         with:
+          build-cache-scope: ${{ env.RUST_TEST_BUILD_CACHE_SCOPE }}
           nextest-version: ${{ env.NEXTEST_VERSION }}
           save-cache: true
 
   test:
     name: test shard ${{ matrix.shard }}
-    needs: plan-test-shards
+    needs:
+      - plan-test-shards
+      - seed-cache
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -82,6 +86,7 @@ jobs:
       - name: Run Rust tests
         uses: ./.github/actions/nextest
         with:
+          build-cache-scope: ${{ env.RUST_TEST_BUILD_CACHE_SCOPE }}
           nextest-version: ${{ env.NEXTEST_VERSION }}
           shard: ${{ matrix.shard }}
           shard-count: ${{ needs.plan-test-shards.outputs.shard_count }}
