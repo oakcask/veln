@@ -9395,22 +9395,43 @@ fn common_operation_wrapper_failures_keep_full_context_matrix() {
         (
             "length = 1",
             r#"{"items":"not-array"}"#.to_string(),
-            vec!["length requires a selected JSON array"],
+            vec![
+                "common-operation-wrapper-context run 1",
+                "json_assert 0",
+                "JSON path `items`",
+                "length requires a selected JSON array",
+            ],
         ),
         (
             "length = 2",
             r#"{"items":[1]}"#.to_string(),
-            vec!["array length mismatch: expected 2, got 1"],
+            vec![
+                "common-operation-wrapper-context run 1",
+                "json_assert 0",
+                "JSON path `items`",
+                "array length mismatch: expected 2, got 1",
+            ],
         ),
         (
             "workspace_file_uri = \"main.veln\"",
             r#"{"uri":1}"#.to_string(),
-            vec!["workspace_file_uri requires a selected JSON string"],
+            vec![
+                "common-operation-wrapper-context run 1",
+                "json_assert 0",
+                "JSON path `uri`",
+                "workspace_file_uri requires a selected JSON string",
+            ],
         ),
         (
             "workspace_file_uri = \"main.veln\"",
             format!(r#"{{"uri":"{wrong_uri}"}}"#),
-            vec!["workspace URI mismatch", "main.veln"],
+            vec![
+                "common-operation-wrapper-context run 1",
+                "json_assert 0",
+                "JSON path `uri`",
+                "workspace URI mismatch",
+                "main.veln",
+            ],
         ),
     ] {
         let manifest = parse_manifest(
@@ -9436,7 +9457,7 @@ fn common_operation_wrapper_failures_keep_full_context_matrix() {
         })
         .expect_err("JSON assertion should fail");
         let message = panic_message(panic);
-        for fragment in ["json_assert 0", "JSON path", *fragments.first().unwrap()] {
+        for fragment in fragments {
             assert!(
                 message.contains(fragment),
                 "expected `{fragment}` in `{message}`"
@@ -9449,19 +9470,46 @@ fn common_operation_wrapper_failures_keep_full_context_matrix() {
             "length = 1",
             "RuntimeDiagnostic(id, msg, RuntimeValueDiagnostic(Nil, reason))",
             "value.id",
-            vec!["length requires a selected JSON array"],
+            vec![
+                "common-operation-wrapper-context run 1",
+                "result_value_assert 0",
+                "result value path `value.id`",
+                "length requires a selected JSON array",
+            ],
         ),
         (
             "length = 2",
             "RuntimeDiagnostic(id, msg, RuntimeByteDiagnostic(ByteOffset(1), Cons(RuntimeDiagnosticFieldPathSegment(schema, body), Nil), RuntimeByteCountFacts(ByteCount(2), ByteCount(1), partial), NoRuntimeBytePreview))",
             "value.detail.field_path",
-            vec!["array length mismatch: expected 2, got 1"],
+            vec![
+                "common-operation-wrapper-context run 1",
+                "result_value_assert 0",
+                "result value path `value.detail.field_path`",
+                "array length mismatch: expected 2, got 1",
+            ],
+        ),
+        (
+            "workspace_file_uri = \"main.veln\"",
+            "ByteOffset(2)",
+            "value",
+            vec![
+                "common-operation-wrapper-context run 1",
+                "result_value_assert 0",
+                "result value path `value`",
+                "workspace_file_uri requires a selected JSON string",
+            ],
         ),
         (
             "workspace_file_uri = \"main.veln\"",
             "RuntimeDiagnostic(id, msg, RuntimeValueDiagnostic(Nil, reason))",
             "value.id",
-            vec!["workspace URI mismatch", "main.veln"],
+            vec![
+                "common-operation-wrapper-context run 1",
+                "result_value_assert 0",
+                "result value path `value.id`",
+                "workspace URI mismatch",
+                "main.veln",
+            ],
         ),
     ] {
         let manifest = parse_manifest(
@@ -9485,11 +9533,7 @@ fn common_operation_wrapper_failures_keep_full_context_matrix() {
         })
         .expect_err("result-value assertion should fail");
         let message = panic_message(panic);
-        for fragment in [
-            "result_value_assert 0",
-            selected_path,
-            *fragments.first().unwrap(),
-        ] {
+        for fragment in fragments {
             assert!(
                 message.contains(fragment),
                 "expected `{fragment}` in `{message}`"
@@ -9497,14 +9541,76 @@ fn common_operation_wrapper_failures_keep_full_context_matrix() {
         }
     }
 
-    let lsp_stdout = format!(
-        "{}{}{}",
-        lsp_frame(r#"{"jsonrpc":"2.0","id":1,"result":{"items":"not-array"}}"#),
-        lsp_frame(r#"{"jsonrpc":"2.0","id":2,"result":{"items":[1]}}"#),
-        lsp_frame(&format!(
-            r#"{{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{{"uri":"{wrong_uri}","diagnostics":[]}}}}"#
-        ))
-    );
+    for (manifest_fields, lsp_stdout, fragments) in [
+        (
+            "id = 1\npath = \"/result/items\"\nlength = 1\n",
+            lsp_frame(r#"{"jsonrpc":"2.0","id":1,"result":{"items":"not-array"}}"#),
+            vec![
+                "common-operation-wrapper-context run 1",
+                "lsp_assert 0",
+                "response id 1",
+                "path \"/result/items\"",
+                "length requires a selected JSON array",
+            ],
+        ),
+        (
+            "id = 1\npath = \"/result/items\"\nlength = 2\n",
+            lsp_frame(r#"{"jsonrpc":"2.0","id":1,"result":{"items":[1]}}"#),
+            vec![
+                "common-operation-wrapper-context run 1",
+                "lsp_assert 0",
+                "response id 1",
+                "path \"/result/items\"",
+                "array length mismatch: expected 2, got 1",
+            ],
+        ),
+        (
+            "method = \"textDocument/publishDiagnostics\"\npath = \"/params/uri\"\nworkspace_file_uri = \"main.veln\"\n",
+            lsp_frame(
+                r#"{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":1,"diagnostics":[]}}"#,
+            ),
+            vec![
+                "common-operation-wrapper-context run 1",
+                "lsp_assert 0",
+                "notification method \"textDocument/publishDiagnostics\" occurrence 0",
+                "path \"/params/uri\"",
+                "workspace_file_uri requires a selected JSON string",
+            ],
+        ),
+        (
+            "method = \"textDocument/publishDiagnostics\"\npath = \"/params/uri\"\nworkspace_file_uri = \"main.veln\"\n",
+            lsp_frame(&format!(
+                r#"{{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{{"uri":"{wrong_uri}","diagnostics":[]}}}}"#
+            )),
+            vec![
+                "common-operation-wrapper-context run 1",
+                "lsp_assert 0",
+                "notification method \"textDocument/publishDiagnostics\" occurrence 0",
+                "path \"/params/uri\"",
+                "workspace URI mismatch",
+                "main.veln",
+            ],
+        ),
+    ] {
+        let lsp_failures = parse_manifest(
+            &root.join("case.toml"),
+            &format!("command = [\"lsp\"]\nexit = 0\n[[lsp_assert]]\n{manifest_fields}"),
+        )
+        .expectations
+        .lsp_assertions;
+        let panic = std::panic::catch_unwind(|| {
+            assert_lsp_assertions_in_workspace(&context, &lsp_stdout, &lsp_failures, &root)
+        })
+        .expect_err("LSP assertion should fail");
+        let message = panic_message(panic);
+        for fragment in fragments {
+            assert!(
+                message.contains(fragment),
+                "expected `{fragment}` in `{message}`"
+            );
+        }
+    }
+
     let lsp_failures = parse_manifest(
         &root.join("case.toml"),
         r#"command = ["lsp"]
@@ -9517,30 +9623,25 @@ length = 1
 id = 2
 path = "/result/items"
 length = 2
-[[lsp_assert]]
-method = "textDocument/publishDiagnostics"
-path = "/params/uri"
-workspace_file_uri = "main.veln"
 "#,
     )
     .expectations
     .lsp_assertions;
+    let lsp_stdout = format!(
+        "{}{}",
+        lsp_frame(r#"{"jsonrpc":"2.0","id":1,"result":{"items":"not-array"}}"#),
+        lsp_frame(r#"{"jsonrpc":"2.0","id":2,"result":{"items":[1]}}"#)
+    );
     let panic = std::panic::catch_unwind(|| {
         assert_lsp_assertions_in_workspace(&context, &lsp_stdout, &lsp_failures, &root)
     })
-    .expect_err("LSP assertions should fail");
+    .expect_err("LSP assertions should aggregate failures");
     let message = panic_message(panic);
     for fragment in [
         "lsp_assert 0",
-        "response id 1",
-        "path \"/result/items\"",
         "length requires a selected JSON array",
         "lsp_assert 1",
         "array length mismatch: expected 2, got 1",
-        "lsp_assert 2",
-        "notification method \"textDocument/publishDiagnostics\" occurrence 0",
-        "path \"/params/uri\"",
-        "workspace URI mismatch",
     ] {
         assert!(
             message.contains(fragment),
