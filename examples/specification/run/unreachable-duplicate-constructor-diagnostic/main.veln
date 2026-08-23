@@ -1,0 +1,8 @@
+type Unused
+	Same
+	Same
+end
+
+pub fn main() -> Int
+	1
+end

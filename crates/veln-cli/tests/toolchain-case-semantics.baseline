@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"269747c4a20d844dee74e9d49c951d40cfe9ea49"
+source_git_tree	"7517c10fb900dc2ba204abb6324bee200e3a32c6"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1532
+case_count	1537
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -37719,6 +37719,23 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"b14eda51b5d0c4adc7402546692843e6eb67ff9225295816f5ab767ebaf8ab1f"
+case	"examples/specification/run/identifier-casing-handler-imported-constructor-valid-wins"
+field	expectations.exit	0
+field	expectations.json_assertions[0].equals	"passed"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"name.invalid_case"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.command[4]	"model.veln"
+field	invocation.repeat	1
+field	requirements.jdk	true
+field	source_errors	"expected"
+case_digest	"c7b01fe843a6186a224e76678a04cbd45b873f9bfb67e62308e69fa4c65d5552"
 case	"examples/specification/run/identifier-casing-import-quarantine"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -37737,6 +37754,23 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"expected"
 case_digest	"60b50f7739bbfc920a5837b90deec4068d323b006222d5a0b365f493877ae307"
+case	"examples/specification/run/identifier-casing-imported-constructor-valid-wins"
+field	expectations.exit	0
+field	expectations.json_assertions[0].equals	"passed"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"name.invalid_case"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.command[4]	"model.veln"
+field	invocation.repeat	1
+field	requirements.jdk	true
+field	source_errors	"expected"
+case_digest	"c7b01fe843a6186a224e76678a04cbd45b873f9bfb67e62308e69fa4c65d5552"
 case	"examples/specification/run/identifier-casing-local-binding-vs-invalid-constructor"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -46441,6 +46475,39 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"dafd165a03639950d26fe2417959f68580d4c963538cd11d28964b2597618c81"
+case	"examples/specification/run/unreachable-duplicate-constructor-diagnostic"
+field	expectations.exit	1
+field	expectations.stderr.contains[0]	"error[name.duplicate]: duplicate constructor declaration name `Same`"
+field	expectations.stderr.not_contains[0]	"name.invalid_case"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"7e89f0edd94e59410a49de51f91dc7903eed2d3f5a37a277748f912dc964918e"
+case	"examples/specification/run/unreachable-handler-diagnostic"
+field	expectations.exit	1
+field	expectations.stderr.contains[0]	"error[handler.missing_operation_clause]: handler `main::incomplete` does not declare operation `second`"
+field	expectations.stderr.not_contains[0]	"name.invalid_case"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"df1d55ba0d58a380f1ee99f97771e549ccc001cf0dc89b76db82821ff373437a"
+case	"examples/specification/run/unreachable-type-alias-diagnostic"
+field	expectations.exit	1
+field	expectations.stderr.contains[0]	"error[name.unresolved]: unresolved type alias target `Missing`"
+field	expectations.stderr.not_contains[0]	"name.invalid_case"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"7cac5d6da11cb819cf0cfed8ea4e624dce8e73b5df57d94522a50f7ef5515945"
 case	"examples/specification/run/unsupported-entry-argument-type"
 field	expectations.exit	1
 field	expectations.stderr.contains[0]	"veln: run entry parameter `value` cannot be supplied from a command-line argument"
@@ -48249,4 +48316,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"0126002a1f2191460607d17a8aebbcc361b997c77f4e5bdc66621dde6ed9e764"
+aggregate_digest	"4171f3353fb18e990b8957b7b5dbf79729463a93783c1e76f9951f8cbcd00932"

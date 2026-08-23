@@ -1,0 +1,12 @@
+effect Ask
+	first() -> Int
+	second() -> Int
+end
+
+handler incomplete() handles Ask
+	first() => 1
+end
+
+pub fn main() -> Int
+	1
+end

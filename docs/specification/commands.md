@@ -109,11 +109,16 @@ requiring the full command reference on the first read.
   resolution-aware type, constructor, function, and alias closure as checked by
   `identifier-casing-valid-function-vs-invalid-constructor`,
   `identifier-casing-valid-constructor-vs-invalid-function`,
+  `identifier-casing-imported-constructor-valid-wins`,
+  `identifier-casing-handler-imported-constructor-valid-wins`,
   `identifier-casing-qualified-same-leaf`, and
   `identifier-casing-alias-transitive-target`, plus local binding precedence
   and ADT payload closure as checked by
   `identifier-casing-local-binding-vs-invalid-constructor` and
-  `identifier-casing-adt-payload-closure`,
+  `identifier-casing-adt-payload-closure`, while unreachable non-casing
+  type, alias, and handler diagnostics remain checked by
+  `unreachable-duplicate-constructor-diagnostic`,
+  `unreachable-type-alias-diagnostic`, and `unreachable-handler-diagnostic`,
   fixed and variadic entry argument conversion, static gates, direct JVM
   classfile execution without an ordinary Java source compiler requirement,
   and reusable JVM class caching below the host user cache or the complete

@@ -1,0 +1,17 @@
+use model
+
+effect Ask
+	fetch() -> Token
+end
+
+handler serve() handles Ask
+	fetch() => Build(1)
+end
+
+fn Build(value: Int) -> Int
+	value
+end
+
+pub fn main() -> Token
+	handle perform Ask::fetch() with serve()
+end

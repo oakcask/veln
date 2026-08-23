@@ -1,0 +1,5 @@
+pub type MissingAlias = Missing
+
+pub fn main() -> Int
+	1
+end

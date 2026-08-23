@@ -1,0 +1,10 @@
+command = ["run", "main", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[handler.missing_operation_clause]: handler `main::incomplete` does not declare operation `second`"]
+not_contains = ["name.invalid_case"]

@@ -1,0 +1,10 @@
+command = ["run", "main", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[name.duplicate]: duplicate constructor declaration name `Same`"]
+not_contains = ["name.invalid_case"]

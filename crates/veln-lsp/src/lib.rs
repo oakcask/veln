@@ -3796,13 +3796,13 @@ mod tests {
             concat!(
                 "use model\n\n",
                 "pub fn main() -> Token\n",
-                "  byte(1)\n",
+                "  Piece(1)\n",
                 "end\n",
             ),
         );
         project.write(
             "model.veln",
-            concat!("pub type Token\n", "  pub byte(Int)\n", "end\n"),
+            concat!("pub type Token\n", "  pub Piece(Int)\n", "end\n"),
         );
         let root_uri = path_to_uri(&project.root);
         let main_uri = path_to_uri(&project.root.join("main.veln"));
@@ -3814,7 +3814,7 @@ mod tests {
         assert!(definition[0].contains("/model.veln"), "{}", definition[0]);
         assert!(
             definition[0].contains(
-                r#""range":{"start":{"line":1,"character":6},"end":{"line":1,"character":10}}"#
+                r#""range":{"start":{"line":1,"character":6},"end":{"line":1,"character":11}}"#
             ),
             "{}",
             definition[0]
@@ -3835,10 +3835,10 @@ mod tests {
             concat!(
                 "use facade\n\n",
                 "pub fn bare() -> Token\n",
-                "  byte(1)\n",
+                "  Piece(1)\n",
                 "end\n\n",
                 "pub fn qualified() -> Token\n",
-                "  facade::byte(2)\n",
+                "  facade::Piece(2)\n",
                 "end\n",
             ),
         );
@@ -3848,7 +3848,7 @@ mod tests {
         );
         project.write(
             "model.veln",
-            concat!("pub type Token\n", "  pub byte(Int)\n", "end\n"),
+            concat!("pub type Token\n", "  pub Piece(Int)\n", "end\n"),
         );
         let root_uri = path_to_uri(&project.root);
         let main_uri = path_to_uri(&project.root.join("main.veln"));
@@ -3861,7 +3861,7 @@ mod tests {
             assert!(definition[0].contains("/model.veln"), "{}", definition[0]);
             assert!(
                 definition[0].contains(
-                    r#""range":{"start":{"line":1,"character":6},"end":{"line":1,"character":10}}"#
+                    r#""range":{"start":{"line":1,"character":6},"end":{"line":1,"character":11}}"#
                 ),
                 "{}",
                 definition[0]

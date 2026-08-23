@@ -1,0 +1,9 @@
+use model
+
+fn Build(value: Int) -> Int
+	value
+end
+
+pub fn main() -> Token
+	Build(1)
+end

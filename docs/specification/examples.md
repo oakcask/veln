@@ -31,12 +31,18 @@ and
 Resolution-aware run reachability is checked by
 [`identifier-casing-valid-function-vs-invalid-constructor`](../../examples/specification/run/identifier-casing-valid-function-vs-invalid-constructor/case.toml),
 [`identifier-casing-valid-constructor-vs-invalid-function`](../../examples/specification/run/identifier-casing-valid-constructor-vs-invalid-function/case.toml),
+[`identifier-casing-imported-constructor-valid-wins`](../../examples/specification/run/identifier-casing-imported-constructor-valid-wins/case.toml),
+[`identifier-casing-handler-imported-constructor-valid-wins`](../../examples/specification/run/identifier-casing-handler-imported-constructor-valid-wins/case.toml),
 [`identifier-casing-qualified-same-leaf`](../../examples/specification/run/identifier-casing-qualified-same-leaf/case.toml), and
 [`identifier-casing-alias-transitive-target`](../../examples/specification/run/identifier-casing-alias-transitive-target/case.toml).
 Resolved local bindings and ADT payload closure are checked by
 [`identifier-casing-local-binding-vs-invalid-constructor`](../../examples/specification/run/identifier-casing-local-binding-vs-invalid-constructor/case.toml)
 and
 [`identifier-casing-adt-payload-closure`](../../examples/specification/run/identifier-casing-adt-payload-closure/case.toml).
+Run diagnostics outside the casing filter remain checked by
+[`unreachable-duplicate-constructor-diagnostic`](../../examples/specification/run/unreachable-duplicate-constructor-diagnostic/case.toml),
+[`unreachable-type-alias-diagnostic`](../../examples/specification/run/unreachable-type-alias-diagnostic/case.toml), and
+[`unreachable-handler-diagnostic`](../../examples/specification/run/unreachable-handler-diagnostic/case.toml).
 
 Case text files under `case-text/` are fixture evidence owned by the CLI
 toolchain harness. Their placement can change how an example is reviewed

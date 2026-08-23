@@ -2281,310 +2281,9 @@ fn reachability_target_matches_function(
 
 fn materialize_reachable_handlers(
     inputs: &ReachabilityInputs<'_>,
-    functions: &[Function],
+    _functions: &[Function],
 ) -> Vec<veln_ast::HandlerDecl> {
-    let uses = inputs.uses();
-    let handlers = inputs.handlers();
-    let mut reachable = HashSet::new();
-    for function in functions {
-        collect_reachable_handler_ids_from_function(function, &uses, &handlers, &mut reachable);
-    }
-    handlers
-        .into_iter()
-        .filter(|handler| reachable.contains(&handler.node_id))
-        .cloned()
-        .collect()
-}
-
-fn collect_reachable_handler_ids_from_function(
-    function: &Function,
-    uses: &[&UseDecl],
-    handlers: &[&veln_ast::HandlerDecl],
-    reachable: &mut HashSet<veln_ast::NodeId>,
-) {
-    for line in &function.body {
-        match &line.kind {
-            veln_ast::BodyLineKind::Let { expr, .. } | veln_ast::BodyLineKind::Expr { expr } => {
-                collect_reachable_handler_ids_from_expr(
-                    expr,
-                    function.module_name.as_deref(),
-                    uses,
-                    handlers,
-                    reachable,
-                );
-            }
-        }
-    }
-}
-
-fn collect_reachable_handler_ids_from_expr(
-    expr: &Expr,
-    current_module: Option<&str>,
-    uses: &[&UseDecl],
-    handlers: &[&veln_ast::HandlerDecl],
-    reachable: &mut HashSet<veln_ast::NodeId>,
-) {
-    match &expr.kind {
-        ExprKind::Handle {
-            body,
-            handler,
-            args,
-            ..
-        } => {
-            for candidate in matching_handlers(handler, current_module, uses, handlers) {
-                if !reachable.insert(candidate.node_id) {
-                    continue;
-                }
-                for clause in &candidate.operation_clauses {
-                    collect_reachable_handler_ids_from_expr(
-                        &clause.body,
-                        current_module,
-                        uses,
-                        handlers,
-                        reachable,
-                    );
-                }
-            }
-            collect_reachable_handler_ids_from_expr(
-                body,
-                current_module,
-                uses,
-                handlers,
-                reachable,
-            );
-            for arg in args {
-                collect_reachable_handler_ids_from_expr(
-                    arg,
-                    current_module,
-                    uses,
-                    handlers,
-                    reachable,
-                );
-            }
-        }
-        ExprKind::TypeApply { callee, .. }
-        | ExprKind::FieldAccess { base: callee, .. }
-        | ExprKind::Try(callee)
-        | ExprKind::Prefix { expr: callee, .. } => {
-            collect_reachable_handler_ids_from_expr(
-                callee,
-                current_module,
-                uses,
-                handlers,
-                reachable,
-            );
-        }
-        ExprKind::Call { callee, args } => {
-            collect_reachable_handler_ids_from_expr(
-                callee,
-                current_module,
-                uses,
-                handlers,
-                reachable,
-            );
-            for arg in args {
-                collect_reachable_handler_ids_from_expr(
-                    arg,
-                    current_module,
-                    uses,
-                    handlers,
-                    reachable,
-                );
-            }
-        }
-        ExprKind::Perform { args, .. } => {
-            for arg in args {
-                collect_reachable_handler_ids_from_expr(
-                    arg,
-                    current_module,
-                    uses,
-                    handlers,
-                    reachable,
-                );
-            }
-        }
-        ExprKind::SchemaDecode { input, base, .. } => {
-            collect_reachable_handler_ids_from_expr(
-                input,
-                current_module,
-                uses,
-                handlers,
-                reachable,
-            );
-            collect_reachable_handler_ids_from_expr(
-                base,
-                current_module,
-                uses,
-                handlers,
-                reachable,
-            );
-        }
-        ExprKind::SchemaEncode { value, .. } => {
-            collect_reachable_handler_ids_from_expr(
-                value,
-                current_module,
-                uses,
-                handlers,
-                reachable,
-            );
-        }
-        ExprKind::Record(fields) => {
-            for field in fields {
-                collect_reachable_handler_ids_from_expr(
-                    &field.expr,
-                    current_module,
-                    uses,
-                    handlers,
-                    reachable,
-                );
-            }
-        }
-        ExprKind::Dict(entries) => {
-            for entry in entries {
-                collect_reachable_handler_ids_from_expr(
-                    &entry.key,
-                    current_module,
-                    uses,
-                    handlers,
-                    reachable,
-                );
-                collect_reachable_handler_ids_from_expr(
-                    &entry.value,
-                    current_module,
-                    uses,
-                    handlers,
-                    reachable,
-                );
-            }
-        }
-        ExprKind::List(items) => {
-            for item in items {
-                collect_reachable_handler_ids_from_expr(
-                    item,
-                    current_module,
-                    uses,
-                    handlers,
-                    reachable,
-                );
-            }
-        }
-        ExprKind::Match { scrutinee, arms } => {
-            collect_reachable_handler_ids_from_expr(
-                scrutinee,
-                current_module,
-                uses,
-                handlers,
-                reachable,
-            );
-            for arm in arms {
-                collect_reachable_handler_ids_from_expr(
-                    &arm.expr,
-                    current_module,
-                    uses,
-                    handlers,
-                    reachable,
-                );
-            }
-        }
-        ExprKind::If {
-            condition,
-            then_branch,
-            else_if_branches,
-            else_branch,
-        } => {
-            collect_reachable_handler_ids_from_expr(
-                condition,
-                current_module,
-                uses,
-                handlers,
-                reachable,
-            );
-            collect_reachable_handler_ids_from_expr(
-                then_branch,
-                current_module,
-                uses,
-                handlers,
-                reachable,
-            );
-            for branch in else_if_branches {
-                collect_reachable_handler_ids_from_expr(
-                    &branch.condition,
-                    current_module,
-                    uses,
-                    handlers,
-                    reachable,
-                );
-                collect_reachable_handler_ids_from_expr(
-                    &branch.expr,
-                    current_module,
-                    uses,
-                    handlers,
-                    reachable,
-                );
-            }
-            collect_reachable_handler_ids_from_expr(
-                else_branch,
-                current_module,
-                uses,
-                handlers,
-                reachable,
-            );
-        }
-        ExprKind::Binary { left, right, .. } => {
-            collect_reachable_handler_ids_from_expr(
-                left,
-                current_module,
-                uses,
-                handlers,
-                reachable,
-            );
-            collect_reachable_handler_ids_from_expr(
-                right,
-                current_module,
-                uses,
-                handlers,
-                reachable,
-            );
-        }
-        ExprKind::Missing
-        | ExprKind::Hole { .. }
-        | ExprKind::NamePath(_)
-        | ExprKind::StringLiteral(_)
-        | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
-        | ExprKind::BoolLiteral(_)
-        | ExprKind::Unit => {}
-    }
-}
-
-fn matching_handlers<'a>(
-    handler: &[String],
-    current_module: Option<&str>,
-    uses: &[&UseDecl],
-    handlers: &'a [&'a veln_ast::HandlerDecl],
-) -> Vec<&'a veln_ast::HandlerDecl> {
-    handlers
-        .iter()
-        .copied()
-        .filter(|candidate| {
-            let Some(name) = &candidate.name else {
-                return false;
-            };
-            match handler {
-                [segment] => name == segment && candidate.module_name.as_deref() == current_module,
-                [_, .., segment] => {
-                    let Some(use_decl) =
-                        imported_use_for_path(uses, &handler[..handler.len() - 1], current_module)
-                    else {
-                        return false;
-                    };
-                    name == segment
-                        && candidate.module_name.as_deref() == Some(use_decl.name.as_str())
-                }
-                _ => false,
-            }
-        })
-        .collect()
+    inputs.cloned_declarations(|module| &module.handlers)
 }
 
 fn materialize_reachable_types(
@@ -2623,21 +2322,15 @@ fn materialize_reachable_types(
         .standard
         .into_iter()
         .flat_map(|module| module.types.iter())
+        .chain(inputs.application.types.iter().filter(|type_decl| {
+            type_decl.name.as_deref().is_some_and(valid_type_name)
+                && type_decl
+                    .variants
+                    .iter()
+                    .all(|variant| variant.name.as_deref().is_some_and(valid_type_name))
+                || type_is_reachable(type_decl, &names, &constructors)
+        }))
         .cloned()
-        .chain(
-            inputs
-                .application
-                .types
-                .iter()
-                .filter(|type_decl| {
-                    type_decl
-                        .module_name
-                        .as_deref()
-                        .is_some_and(|module| module.starts_with("std::"))
-                        || type_is_reachable(type_decl, &names, &constructors)
-                })
-                .cloned(),
-        )
         .collect();
     (types, reachable_type_aliases)
 }
@@ -3127,7 +2820,7 @@ fn expand_reachable_type_closure(
 
 fn materialize_reachable_aliases(
     inputs: &ReachabilityInputs<'_>,
-    reachable_type_aliases: &HashSet<(Option<String>, String)>,
+    _reachable_type_aliases: &HashSet<(Option<String>, String)>,
 ) -> Vec<veln_ast::PublicAlias> {
     inputs
         .cloned_declarations(|module| &module.aliases)
@@ -3135,22 +2828,9 @@ fn materialize_reachable_aliases(
         .filter(|alias| !alias_points_to_quarantined_function(inputs, alias))
         .filter(|alias| match alias.kind {
             PublicAliasKind::Function | PublicAliasKind::Schema => true,
-            PublicAliasKind::Type => {
-                type_alias_is_reachable(alias, reachable_type_aliases)
-                    && !alias_points_to_quarantined_type(inputs, alias)
-            }
+            PublicAliasKind::Type => !alias_points_to_quarantined_type(inputs, alias),
         })
         .collect()
-}
-
-fn type_alias_is_reachable(
-    alias: &veln_ast::PublicAlias,
-    reachable_type_aliases: &HashSet<(Option<String>, String)>,
-) -> bool {
-    let Some(name) = alias.name.as_deref() else {
-        return false;
-    };
-    reachable_type_aliases.contains(&(alias.module_name.clone(), name.to_string()))
 }
 
 fn expression_name_resolves_to_value_or_function(
@@ -3255,19 +2935,64 @@ fn visible_constructor_exists(
     uses: &[&UseDecl],
     types: &[&veln_ast::TypeDecl],
 ) -> bool {
-    let Some(constructor) = resolve_reachable_constructor_name(segments, current_module, uses)
-    else {
-        return false;
-    };
-    types.iter().any(|type_decl| {
-        type_decl.module_name == constructor.module_name
+    match segments {
+        [name] => visible_bare_constructor_exists(name, current_module, uses, types),
+        _ => {
+            let Some(constructor) =
+                resolve_reachable_constructor_name(segments, current_module, uses)
+            else {
+                return false;
+            };
+            constructor_exists_in_module(
+                constructor.name.as_str(),
+                constructor.module_name.as_deref(),
+                current_module,
+                types,
+            )
+        }
+    }
+}
+
+fn visible_bare_constructor_exists(
+    name: &str,
+    current_module: Option<&str>,
+    uses: &[&UseDecl],
+    types: &[&veln_ast::TypeDecl],
+) -> bool {
+    if constructor_exists_in_module(name, current_module, current_module, types) {
+        return true;
+    }
+    let mut matches = types.iter().filter(|type_decl| {
+        type_decl.module_name.as_deref().is_some_and(|module_name| {
+            uses.iter().any(|use_decl| {
+                use_decl.module_name.as_deref() == current_module
+                    && use_decl.name == module_name
+                    && use_decl.package.is_none()
+            })
+        }) && type_decl.visibility == Visibility::Public
             && type_decl.variants.iter().any(|variant| {
-                variant.name.as_deref() == Some(constructor.name.as_str())
-                    && constructor
-                        .name
-                        .chars()
-                        .next()
-                        .is_some_and(|initial| initial.is_ascii_uppercase())
+                variant.name.as_deref() == Some(name)
+                    && variant.visibility == Visibility::Public
+                    && valid_type_name(name)
+            })
+    });
+    matches.next().is_some() && matches.next().is_none()
+}
+
+fn constructor_exists_in_module(
+    name: &str,
+    module_name: Option<&str>,
+    current_module: Option<&str>,
+    types: &[&veln_ast::TypeDecl],
+) -> bool {
+    types.iter().any(|type_decl| {
+        type_decl.module_name.as_deref() == module_name
+            && type_decl.variants.iter().any(|variant| {
+                variant.name.as_deref() == Some(name)
+                    && valid_type_name(name)
+                    && (type_decl.module_name.as_deref() == current_module
+                        || (type_decl.visibility == Visibility::Public
+                            && variant.visibility == Visibility::Public))
             })
     })
 }
@@ -3699,6 +3424,7 @@ fn collect_function_callees(
                 function_targets,
                 companion_access_targets,
                 handlers,
+                &context.types,
                 callees,
             );
             collect_function_callees(body, context, local_bindings, callees);
@@ -3995,6 +3721,7 @@ fn collect_handler_operation_clause_callees(
     function_targets: &FunctionTargetIndex,
     companion_access_targets: &HashMap<String, String>,
     handlers: &[&veln_ast::HandlerDecl],
+    types: &[&veln_ast::TypeDecl],
     callees: &mut Vec<ReachableFunction>,
 ) {
     let ExprKind::Handle { handler, .. } = &expr.kind else {
@@ -4024,7 +3751,7 @@ fn collect_handler_operation_clause_callees(
             function_targets,
             companion_access_targets,
             handlers,
-            types: Vec::new(),
+            types: types.to_vec(),
         };
         let mut local_bindings = handler
             .params
@@ -4054,19 +3781,26 @@ fn resolve_function_reference(
     companion_access_targets: &HashMap<String, String>,
 ) -> Vec<ReachableFunction> {
     match segments {
-        [name] => function_targets
-            .named(name)
-            .filter(|target| {
-                #[cfg(test)]
-                reachability_counters::record_target_resolution_scan();
-                target.name == *name && bare_target_visible(target, current_module, uses)
-            })
-            .map(|target| ReachableFunction {
-                kind: FunctionKind::Function,
-                name: target.target_name.clone(),
-                module_name: target.target_module_name.clone(),
-            })
-            .collect(),
+        [name] => {
+            let visible = function_targets
+                .named(name)
+                .filter(|target| {
+                    #[cfg(test)]
+                    reachability_counters::record_target_resolution_scan();
+                    target.name == *name && bare_target_visible(target, current_module, uses)
+                })
+                .collect::<Vec<_>>();
+            let has_valid_function = visible.iter().any(|target| !target.quarantined);
+            visible
+                .into_iter()
+                .filter(|target| !has_valid_function || !target.quarantined)
+                .map(|target| ReachableFunction {
+                    kind: FunctionKind::Function,
+                    name: target.target_name.clone(),
+                    module_name: target.target_module_name.clone(),
+                })
+                .collect()
+        }
         [_, .., name] => {
             let Some(use_decl) =
                 imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)
@@ -6506,6 +6240,104 @@ mod tests {
     }
 
     #[test]
+    fn run_entry_imported_constructor_wins_over_invalid_local_function() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "main.veln",
+                    concat!(
+                        "use model\n",
+                        "fn Build(value: Int) -> Int\n",
+                        "  value\n",
+                        "end\n",
+                        "pub fn main() -> Token\n",
+                        "  Build(1)\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "model.veln",
+                    concat!("pub type Token\n", "  pub Build(Int)\n", "end\n"),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![(Some("main"), FunctionKind::Function, Some("main"))]
+        );
+    }
+
+    #[test]
+    fn run_entry_handler_clause_imported_constructor_wins_over_invalid_local_function() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "main.veln",
+                    concat!(
+                        "use model\n",
+                        "effect Ask\n",
+                        "  fetch() -> Token\n",
+                        "end\n",
+                        "handler serve() handles Ask\n",
+                        "  fetch() => Build(1)\n",
+                        "end\n",
+                        "fn Build(value: Int) -> Int\n",
+                        "  value\n",
+                        "end\n",
+                        "pub fn main() -> Token\n",
+                        "  handle perform Ask::fetch() with serve()\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "model.veln",
+                    concat!("pub type Token\n", "  pub Build(Int)\n", "end\n"),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![(Some("main"), FunctionKind::Function, Some("main"))]
+        );
+    }
+
+    #[test]
     fn run_entry_contract_and_record_field_names_do_not_reach_same_leaf_invalid_type() {
         let module = lower(concat!(
             "type bad\n",
@@ -6526,6 +6358,76 @@ mod tests {
                 .all(|type_decl| type_decl.name.as_deref() != Some("bad")),
             "record field or contract identifiers should not select invalid type: {:#?}",
             reachable.types
+        );
+    }
+
+    #[test]
+    fn run_entry_keeps_unreachable_duplicate_constructor_diagnostic_surface() {
+        let module = lower(concat!(
+            "type Unused\n",
+            "  Same\n",
+            "  Same\n",
+            "end\n",
+            "pub fn main() -> Int\n",
+            "  1\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let type_names = reachable
+            .types
+            .iter()
+            .filter_map(|type_decl| type_decl.name.as_deref())
+            .collect::<Vec<_>>();
+
+        assert_eq!(type_names, vec!["Unused"]);
+    }
+
+    #[test]
+    fn run_entry_keeps_unreachable_type_alias_diagnostic_surface() {
+        let module = lower(concat!(
+            "pub type MissingAlias = Missing\n",
+            "pub fn main() -> Int\n",
+            "  1\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert!(
+            reachable
+                .aliases
+                .iter()
+                .any(|alias| alias.name.as_deref() == Some("MissingAlias")),
+            "{:#?}",
+            reachable.aliases
+        );
+    }
+
+    #[test]
+    fn run_entry_keeps_unreachable_handler_diagnostic_surface() {
+        let module = lower(concat!(
+            "effect Ask\n",
+            "  first() -> Int\n",
+            "  second() -> Int\n",
+            "end\n",
+            "handler incomplete() handles Ask\n",
+            "  first() => 1\n",
+            "end\n",
+            "pub fn main() -> Int\n",
+            "  1\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert!(
+            reachable
+                .handlers
+                .iter()
+                .any(|handler| handler.name.as_deref() == Some("incomplete")),
+            "{:#?}",
+            reachable.handlers
         );
     }
 

@@ -378,7 +378,13 @@ including first-class function value reachability that excludes quarantined
 invalid function targets, unreachable type aliases, and aliases to quarantined
 invalid type targets. The `identifier-casing-local-binding-vs-invalid-constructor`
 and `identifier-casing-adt-payload-closure` cases check local binding
-precedence and ADT payload closure in the same boundary.
+precedence and ADT payload closure in the same boundary. The
+`identifier-casing-imported-constructor-valid-wins` and
+`identifier-casing-handler-imported-constructor-valid-wins` cases check that
+visible constructor resolution is not replaced by quarantined same-spelled
+functions. The `unreachable-duplicate-constructor-diagnostic`,
+`unreachable-type-alias-diagnostic`, and `unreachable-handler-diagnostic` cases
+check that the run boundary does not hide non-casing diagnostics.
 
 `run` and `test` cache generated JVM classfile artifacts by backend content
 below the selected Veln user cache root. On Unix other than macOS, the default
