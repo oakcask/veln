@@ -37,7 +37,8 @@ This page routes implemented JSON output for `veln test --json`.
   diagnostic details used by `run --json`.
   Result-value containment assertions in the executable payload cases are
   harness evidence over existing string fields and do not add a separate
-  `veln test --json` field shape.
+  `veln test --json` field shape. Result-value length assertions are the same
+  kind of harness evidence over existing structured payload values.
 - `test --json` keeps `cases`, captured `events`, `summary`, top-level
   `status`, diagnostics, and failures in discovered-case order for serial
   `--jobs 1`, explicit bounded `--jobs <JOBS>`, and automatic job modes.

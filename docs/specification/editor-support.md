@@ -291,6 +291,9 @@ contract.
 When a decoded assertion checks string containment, the containment operation
 is harness evidence over the selected JSON string and does not change the LSP
 message field contract.
+When a decoded assertion checks array length or a workspace file URI, the
+operation is harness evidence over the selected notification or response field.
+It does not add an LSP extension field or change URI serialization behavior.
 
 LSP executable examples still use ordered stdout fragments when JSON-RPC
 responses are interleaved with file-backed virtual-document text. Those

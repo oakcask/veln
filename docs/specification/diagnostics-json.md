@@ -56,6 +56,10 @@ See [diagnostics-json-full.md](diagnostics-json-full.md).
 See
 [diagnostics-json-full.md](diagnostics-json-full.md).
 
+Executable diagnostic cases may use harness JSON assertions, including array
+length checks, to verify existing command JSON fields. Those assertions are
+fixture evidence and do not add a diagnostic JSON field.
+
 Malformed binary and hexadecimal integer coverage is executable in
 `examples/specification/check/integer-radix-diagnostics-json/` and the matching
 human-output case. The `parse.integer_literal` details retain the complete
