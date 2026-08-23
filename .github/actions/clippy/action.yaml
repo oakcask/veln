@@ -8,7 +8,7 @@ runs:
       shell: bash
       run: rustup component add clippy
     - name: Prepare Cargo dependencies
-      uses: ./actions/cargo-dependencies
+      uses: ./.github/actions/cargo-dependencies
       with:
         save-cache: true
     - name: Restore Clippy build cache
@@ -16,7 +16,7 @@ runs:
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: target
-        key: clippy-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', '.cargo/config.toml') }}-${{ hashFiles('Cargo.toml', 'crates/**', 'examples/specification/**', 'tools/**', 'actions/clippy/action.yaml', '.github/workflows/lint--rust.yaml') }}
+        key: clippy-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', '.cargo/config.toml') }}-${{ hashFiles('Cargo.toml', 'crates/**', 'examples/specification/**', 'tools/**', '.github/actions/clippy/action.yaml', '.github/workflows/lint--rust.yaml') }}
         restore-keys: |
           clippy-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', '.cargo/config.toml') }}-
     - name: Reuse exact Clippy build inputs
@@ -33,4 +33,4 @@ runs:
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: target
-        key: clippy-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', '.cargo/config.toml') }}-${{ hashFiles('Cargo.toml', 'crates/**', 'examples/specification/**', 'tools/**', 'actions/clippy/action.yaml', '.github/workflows/lint--rust.yaml') }}
+        key: clippy-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', '.cargo/config.toml') }}-${{ hashFiles('Cargo.toml', 'crates/**', 'examples/specification/**', 'tools/**', '.github/actions/clippy/action.yaml', '.github/workflows/lint--rust.yaml') }}

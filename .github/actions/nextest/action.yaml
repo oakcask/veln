@@ -26,7 +26,7 @@ runs:
         path: ~/.cargo/bin/cargo-nextest
         key: cargo-nextest-${{ runner.os }}-${{ inputs.nextest-version }}
     - name: Prepare Cargo dependencies
-      uses: ./actions/cargo-dependencies
+      uses: ./.github/actions/cargo-dependencies
       with:
         save-cache: ${{ inputs.save-cache }}
     - name: Install cargo-nextest
