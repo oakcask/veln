@@ -17,7 +17,8 @@ does not cross imports or public aliases.
 `check` diagnoses every selected invalid covered name. `run` diagnoses an
 invalid covered declaration or binding only when it is in the selected entry's
 reachable closure. The reachable closure follows resolved declaration identity
-for functions, constructors, type aliases, and module-qualified same-leaf names.
+for functions, constructors, type aliases, module-qualified same-leaf names,
+local binding precedence, and source ADT payload types.
 
 Current behavior is specified by
 `../../specification/names-effects-full.md`,
@@ -25,3 +26,7 @@ Current behavior is specified by
 `../../specification/diagnostics-json.md`. Primary executable evidence lives in
 the `identifier-casing-*` check and run cases under
 `../../../examples/specification/` and in the parser and semantic unit tests.
+The current evidence includes duplicate quarantine, alias mismatch boundaries,
+import and public-alias quarantine, selected-entry reachability, valid-candidate
+precedence over invalid same-leaf peers, transitive alias closure, local binding
+precedence, and source ADT payload closure.
