@@ -188,11 +188,15 @@ The pointer escape sequences `~0` and `~1` decode to `~` and `/`. A missing
 path can satisfy only `missing = true`; invalid traversal through a scalar or
 noncanonical array index fails.
 
-Each MCP assertion declares exactly one of `equals`, `contains`, `length`,
-`workspace_file_uri`, or `missing = true`. `equals` uses the common JSON
-equality rules below. `contains` uses the common string-containment contract
-below. `length` requires a JSON array at the selected path and checks its exact
-element count.
+Each MCP assertion declares exactly one of `equals`, `equals_file`,
+`equals_json_file`, `contains`, `length`, `workspace_file_uri`, or
+`missing = true`. `equals` and `equals_json_file` use the common JSON equality
+rules below. `equals_file` requires the selected value to be a JSON string and
+compares it with the exact sidecar contents. `equals_json_file` parses the
+sidecar while the manifest loads. Invalid JSON reports the manifest line plus
+the `mcp_assert` index, response selector, JSON Pointer path, and operation.
+`contains` uses the common string-containment contract below. `length`
+requires a JSON array at the selected path and checks its exact element count.
 `workspace_file_uri` requires a JSON string at the selected path and compares
 it with the canonical `file:` URI for one existing regular
 workspace-relative file in the copied case project. The URI spelling matches
@@ -244,11 +248,15 @@ defaults to zero. It then selects a value with an RFC 6901 JSON Pointer in
 `path`, including the empty pointer for the complete message. Pointer syntax is
 validated while the manifest loads.
 
-Each LSP assertion declares exactly one of `equals`, `equals_file`, `contains`,
-or `missing = true`. `equals` uses the common JSON equality rules below.
-`equals_file` requires the selected value to be a JSON string. `contains` uses
-the common string-containment contract below. A missing path can satisfy
-`missing = true` only after its response or notification exists.
+Each LSP assertion declares exactly one of `equals`, `equals_file`,
+`equals_json_file`, `contains`, or `missing = true`. `equals` and
+`equals_json_file` use the common JSON equality rules below. `equals_file`
+requires the selected value to be a JSON string. `equals_json_file` parses the
+sidecar while the manifest loads. Invalid JSON reports the manifest line plus
+the `lsp_assert` index, response or notification selector, JSON Pointer path,
+and operation. `contains` uses the common string-containment contract below. A
+missing path can satisfy `missing = true` only after its response or
+notification exists.
 
 The harness requires stdout to be a complete ordered sequence of
 `Content-Length` frames before it evaluates LSP assertions. Malformed or
@@ -284,15 +292,23 @@ the sidecar as JSON. `equals_json_file` parses the sidecar as JSON before the
 comparison and uses the common JSON equality rules. `contains` uses the common
 string-containment contract below.
 
-The `equals` operation in `[[json_assert]]`, `[[result_value_assert]]`,
-`[[lsp_assert]]`, and `[[mcp_assert]]` compares JSON values recursively. Null,
+Every `equals_file` and `equals_json_file` operand is a case-relative sidecar.
+The harness snapshots the sidecar from the discovered case while it loads the
+manifest. LSP and MCP file-backed assertion operands are resolved after the
+assertion selector and path validate, so sidecar read failures and
+`equals_json_file` parse failures can name the assertion section, index,
+selector, path, and operation. A command cannot change the expected operand by
+modifying its copied workspace.
+
+The `equals` and `equals_json_file` operations in `[[json_assert]]`,
+`[[result_value_assert]]`, `[[lsp_assert]]`, and `[[mcp_assert]]` compare JSON
+values recursively. Null,
 boolean, and string values require the same JSON kind and decoded value. JSON
 numbers require the same complete spelling, so `1`, `1.0`, and `1e0` are
 distinct. Every affected section accepts those forms as a complete inline
 `equals` value. Arrays require the same length and equal values at each index.
 Objects require the same member names and recursively equal member values, but
-member order does not affect equality. Existing `equals_json_file` operations
-use these same rules.
+member order does not affect equality.
 
 The `contains` operation in `[[json_assert]]`,
 `[[result_value_assert]]`, `[[lsp_assert]]`, and `[[mcp_assert]]` accepts one

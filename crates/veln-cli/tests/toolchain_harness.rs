@@ -2118,6 +2118,9 @@ struct LspAssertion {
 enum LspAssertionOperation {
     Equals(JsonValue),
     EqualsFile(String),
+    EqualsFileRef(CaseTextReference),
+    EqualsJsonFile(JsonValue),
+    EqualsJsonFileRef(CaseTextReference),
     Contains(String),
     Missing(bool),
 }
@@ -2135,10 +2138,20 @@ struct McpAssertion {
 #[derive(Debug, PartialEq, Eq)]
 enum McpAssertionOperation {
     Equals(JsonValue),
+    EqualsFile(String),
+    EqualsFileRef(CaseTextReference),
+    EqualsJsonFile(JsonValue),
+    EqualsJsonFileRef(CaseTextReference),
     Contains(String),
     Length(usize),
     Missing(bool),
     WorkspaceFileUri(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CaseTextReference {
+    line_number: usize,
+    relative: String,
 }
 
 impl LspAssertion {
@@ -2172,7 +2185,7 @@ impl LspAssertion {
                 path,
                 0,
                 format!(
-                    "lsp_assert {index} needs exactly one of `equals`, `equals_file`, `contains`, or `missing = true`"
+                    "lsp_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`"
                 ),
             );
         }
@@ -2219,7 +2232,7 @@ impl McpAssertion {
                 path,
                 0,
                 format!(
-                    "mcp_assert {index} needs exactly one of `equals`, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
+                    "mcp_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
                 ),
             );
         }
@@ -2677,14 +2690,23 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                         result_value_operations[index].record(path, key, value);
                     }
                     Section::LspAssert(index)
-                        if matches!(*key, "equals" | "equals_file" | "contains" | "missing") =>
+                        if matches!(
+                            *key,
+                            "equals" | "equals_file" | "equals_json_file" | "contains" | "missing"
+                        ) =>
                     {
                         lsp_operations[index].record(path, key, value);
                     }
                     Section::McpAssert(index)
                         if matches!(
                             *key,
-                            "equals" | "contains" | "length" | "workspace_file_uri" | "missing"
+                            "equals"
+                                | "equals_file"
+                                | "equals_json_file"
+                                | "contains"
+                                | "length"
+                                | "workspace_file_uri"
+                                | "missing"
                         ) =>
                     {
                         mcp_operations[index].record(path, key, value);
@@ -2754,7 +2776,7 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                 path,
                 0,
                 format!(
-                    "lsp_assert {index} needs exactly one of `equals`, `equals_file`, `contains`, or `missing = true`"
+                    "lsp_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`"
                 ),
             );
         }
@@ -2772,7 +2794,7 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                 path,
                 0,
                 format!(
-                    "mcp_assert {index} needs exactly one of `equals`, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
+                    "mcp_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
                 ),
             );
         }
@@ -3296,8 +3318,14 @@ impl<'a> ManifestParser<'a> {
             }
             "equals_file" => {
                 assertion.operation_count += 1;
-                assertion.operation = Some(LspAssertionOperation::EqualsFile(
-                    self.case_text_cache.read(self.path, value),
+                assertion.operation = Some(LspAssertionOperation::EqualsFileRef(
+                    parse_case_text_reference(self.path, value, "lsp_assert", "equals_file"),
+                ));
+            }
+            "equals_json_file" => {
+                assertion.operation_count += 1;
+                assertion.operation = Some(LspAssertionOperation::EqualsJsonFileRef(
+                    parse_case_text_reference(self.path, value, "lsp_assert", "equals_json_file"),
                 ));
             }
             "contains" => {
@@ -3359,6 +3387,18 @@ impl<'a> ManifestParser<'a> {
                 assertion.operation_count += 1;
                 assertion.operation = Some(McpAssertionOperation::Equals(
                     parse_manifest_mcp_json_value(self.path, value),
+                ));
+            }
+            "equals_file" => {
+                assertion.operation_count += 1;
+                assertion.operation = Some(McpAssertionOperation::EqualsFileRef(
+                    parse_case_text_reference(self.path, value, "mcp_assert", "equals_file"),
+                ));
+            }
+            "equals_json_file" => {
+                assertion.operation_count += 1;
+                assertion.operation = Some(McpAssertionOperation::EqualsJsonFileRef(
+                    parse_case_text_reference(self.path, value, "mcp_assert", "equals_json_file"),
                 ));
             }
             "contains" => {
@@ -3582,8 +3622,9 @@ impl<'a> ManifestParser<'a> {
         }
     }
 
-    fn finish(self) -> CaseManifest {
+    fn finish(mut self) -> CaseManifest {
         let path = self.path;
+        let mut case_text_cache = std::mem::take(&mut self.case_text_cache);
         if self.stdin_operand_count > 1 {
             manifest_error(
                 path,
@@ -3591,7 +3632,7 @@ impl<'a> ManifestParser<'a> {
                 "root invocation needs at most one of `stdin`, `stdin_file`, or `stdin_jsonrpc_file`",
             );
         }
-        let manifest = CaseManifest {
+        let mut manifest = CaseManifest {
             invocation: CaseInvocation {
                 command: self
                     .command
@@ -3626,8 +3667,140 @@ impl<'a> ManifestParser<'a> {
         };
 
         manifest.validate(path);
+        resolve_lsp_mcp_file_backed_assertions(
+            path,
+            &mut manifest.expectations,
+            &mut case_text_cache,
+        );
         manifest
     }
+}
+
+fn resolve_lsp_mcp_file_backed_assertions(
+    path: &Path,
+    expectations: &mut CaseExpectations,
+    case_text_cache: &mut CaseTextCache,
+) {
+    for (index, assertion) in expectations.lsp_assertions.iter_mut().enumerate() {
+        resolve_lsp_file_backed_assertion(path, index, assertion, case_text_cache);
+    }
+    for (index, assertion) in expectations.mcp_assertions.iter_mut().enumerate() {
+        resolve_mcp_file_backed_assertion(path, index, assertion, case_text_cache);
+    }
+}
+
+fn resolve_lsp_file_backed_assertion(
+    path: &Path,
+    index: usize,
+    assertion: &mut LspAssertion,
+    case_text_cache: &mut CaseTextCache,
+) {
+    let Some(operation) = assertion.operation.take() else {
+        return;
+    };
+    assertion.operation = Some(match operation {
+        LspAssertionOperation::EqualsFileRef(reference) => {
+            let context = assertion_context(
+                "lsp_assert",
+                index,
+                &assertion.selector(),
+                &assertion.path,
+                "equals_file",
+            );
+            let text = case_text_cache.read_path_with_context(
+                path,
+                reference.line_number,
+                &reference.relative,
+                Some(&context),
+            );
+            LspAssertionOperation::EqualsFile(text)
+        }
+        LspAssertionOperation::EqualsJsonFileRef(reference) => {
+            let context = assertion_context(
+                "lsp_assert",
+                index,
+                &assertion.selector(),
+                &assertion.path,
+                "equals_json_file",
+            );
+            let text = case_text_cache.read_path_with_context(
+                path,
+                reference.line_number,
+                &reference.relative,
+                Some(&context),
+            );
+            LspAssertionOperation::EqualsJsonFile(parse_json(&text).unwrap_or_else(|error| {
+                manifest_error(
+                    path,
+                    reference.line_number,
+                    format!("invalid {context} value: {error}"),
+                )
+            }))
+        }
+        operation => operation,
+    });
+}
+
+fn resolve_mcp_file_backed_assertion(
+    path: &Path,
+    index: usize,
+    assertion: &mut McpAssertion,
+    case_text_cache: &mut CaseTextCache,
+) {
+    let Some(operation) = assertion.operation.take() else {
+        return;
+    };
+    assertion.operation = Some(match operation {
+        McpAssertionOperation::EqualsFileRef(reference) => {
+            let context = assertion_context(
+                "mcp_assert",
+                index,
+                &assertion.selector(),
+                &assertion.path,
+                "equals_file",
+            );
+            let text = case_text_cache.read_path_with_context(
+                path,
+                reference.line_number,
+                &reference.relative,
+                Some(&context),
+            );
+            McpAssertionOperation::EqualsFile(text)
+        }
+        McpAssertionOperation::EqualsJsonFileRef(reference) => {
+            let context = assertion_context(
+                "mcp_assert",
+                index,
+                &assertion.selector(),
+                &assertion.path,
+                "equals_json_file",
+            );
+            let text = case_text_cache.read_path_with_context(
+                path,
+                reference.line_number,
+                &reference.relative,
+                Some(&context),
+            );
+            McpAssertionOperation::EqualsJsonFile(parse_json(&text).unwrap_or_else(|error| {
+                manifest_error(
+                    path,
+                    reference.line_number,
+                    format!("invalid {context} value: {error}"),
+                )
+            }))
+        }
+        operation => operation,
+    });
+}
+
+fn assertion_context(
+    section: &str,
+    index: usize,
+    selector: &str,
+    pointer: &str,
+    operation: &str,
+) -> String {
+    format!("{section} {index} {selector} path `{pointer}` {operation}")
 }
 
 fn validate_binary_fixture_field_path(
@@ -4084,13 +4257,42 @@ impl CaseTextCache {
     }
 
     fn read_path(&mut self, path: &Path, line_number: usize, relative: &str) -> String {
-        let relative_path = validate_case_file_reference(path, line_number, relative);
+        self.read_path_with_context(path, line_number, relative, None)
+    }
+
+    fn read_path_with_context(
+        &mut self,
+        path: &Path,
+        line_number: usize,
+        relative: &str,
+        context: Option<&str>,
+    ) -> String {
+        let relative_path = validate_case_file_reference(path, line_number, relative, context);
         if let Some(snapshot) = self.snapshots.get(&relative_path) {
             return snapshot.clone();
         }
-        let text = read_case_text_file_path(path, line_number, relative, &relative_path);
+        let text = read_case_text_file_path(path, line_number, relative, &relative_path, context);
         self.snapshots.insert(relative_path, text.clone());
         text
+    }
+}
+
+fn parse_case_text_reference(
+    path: &Path,
+    value: &ManifestValue<'_>,
+    section: &str,
+    operation: &str,
+) -> CaseTextReference {
+    if !value.is_string() {
+        manifest_error(
+            path,
+            value.line(),
+            format!("{section} `{operation}` must be a string case file reference"),
+        );
+    }
+    CaseTextReference {
+        line_number: value.line(),
+        relative: parse_string(path, value),
     }
 }
 
@@ -4474,19 +4676,29 @@ fn read_case_text_file_path(
     line_number: usize,
     relative: &str,
     relative_path: &Path,
+    context: Option<&str>,
 ) -> String {
     let base = path.parent().unwrap_or_else(|| Path::new(""));
-    let resolved = resolve_case_file_reference(path, line_number, base, relative, relative_path);
+    let resolved =
+        resolve_case_file_reference(path, line_number, base, relative, relative_path, context);
     fs::read_to_string(&resolved).unwrap_or_else(|error| {
         manifest_error(
             path,
             line_number,
-            format!("failed to read case file `{relative}` as UTF-8: {error}"),
+            format!(
+                "failed to read case file `{relative}`{} as UTF-8: {error}",
+                case_file_error_context(context)
+            ),
         )
     })
 }
 
-fn validate_case_file_reference(path: &Path, line_number: usize, relative: &str) -> PathBuf {
+fn validate_case_file_reference(
+    path: &Path,
+    line_number: usize,
+    relative: &str,
+    context: Option<&str>,
+) -> PathBuf {
     if relative.is_empty()
         || relative.starts_with('/')
         || relative.starts_with('\\')
@@ -4498,10 +4710,19 @@ fn validate_case_file_reference(path: &Path, line_number: usize, relative: &str)
         manifest_error(
             path,
             line_number,
-            format!("case file reference `{relative}` must use portable relative components"),
+            format!(
+                "case file reference `{relative}`{} must use portable relative components",
+                case_file_error_context(context)
+            ),
         );
     }
     PathBuf::from(relative)
+}
+
+fn case_file_error_context(context: Option<&str>) -> String {
+    context
+        .map(|context| format!(" for {context}"))
+        .unwrap_or_default()
 }
 
 fn is_portable_case_file_component(component: &str) -> bool {
@@ -4535,6 +4756,7 @@ fn resolve_case_file_reference(
     base: &Path,
     relative: &str,
     relative_path: &Path,
+    context: Option<&str>,
 ) -> PathBuf {
     let mut current = base.to_path_buf();
     let mut traversed = PathBuf::new();
@@ -4545,7 +4767,10 @@ fn resolve_case_file_reference(
             manifest_error(
                 manifest_path,
                 line_number,
-                format!("case file `{relative}` must match fixture entry spelling exactly"),
+                format!(
+                    "case file `{relative}`{} must match fixture entry spelling exactly",
+                    case_file_error_context(context)
+                ),
             );
         }
         current.push(name);
@@ -4554,14 +4779,20 @@ fn resolve_case_file_reference(
             manifest_error(
                 manifest_path,
                 line_number,
-                format!("failed to inspect case file `{relative}`: {error}"),
+                format!(
+                    "failed to inspect case file `{relative}`{}: {error}",
+                    case_file_error_context(context)
+                ),
             )
         });
         if is_link_like_metadata(&metadata) {
             manifest_error(
                 manifest_path,
                 line_number,
-                format!("case file `{relative}` must not traverse a link or reparse point"),
+                format!(
+                    "case file `{relative}`{} must not traverse a link or reparse point",
+                    case_file_error_context(context)
+                ),
             );
         }
         let final_component = index + 1 == component_count;
@@ -4570,7 +4801,10 @@ fn resolve_case_file_reference(
                 manifest_error(
                     manifest_path,
                     line_number,
-                    format!("case file `{relative}` must be a regular file"),
+                    format!(
+                        "case file `{relative}`{} must be a regular file",
+                        case_file_error_context(context)
+                    ),
                 );
             }
         } else if !metadata.is_dir() {
@@ -4578,7 +4812,8 @@ fn resolve_case_file_reference(
                 manifest_path,
                 line_number,
                 format!(
-                    "case file `{relative}` component `{}` must be a directory",
+                    "case file `{relative}`{} component `{}` must be a directory",
+                    case_file_error_context(context),
                     traversed.display()
                 ),
             );
@@ -7561,6 +7796,265 @@ fn parsed_mcp_assertions(source: &str) -> Vec<McpAssertion> {
     parse_manifest(Path::new("case.toml"), source)
         .expectations
         .mcp_assertions
+}
+
+#[test]
+fn manifest_lsp_and_mcp_file_backed_equality_loads_immutable_case_operands() {
+    let root = test_temp_root("lsp-mcp-file-backed-equality");
+    let case_dir = root.join("case");
+    let text_dir = case_dir.join("case-text");
+    fs::create_dir_all(&text_dir).expect("case text directory should be created");
+    let expected_text = text_dir.join("expected.txt");
+    let expected_json = text_dir.join("expected.json");
+    fs::write(&expected_text, "expected text\n").expect("text sidecar should be written");
+    fs::write(&expected_json, r#"{"b":[2],"a":1}"#).expect("JSON sidecar should be written");
+
+    let lsp_manifest = parse_manifest(
+        &case_dir.join("case.toml"),
+        r#"command = ["lsp"]
+exit = 0
+[[lsp_assert]]
+id = 1
+path = "/result"
+equals_json_file = "case-text/expected.json"
+"#,
+    );
+    let mcp_manifest = parse_manifest(
+        &case_dir.join("case.toml"),
+        r#"command = ["mcp"]
+exit = 0
+[[mcp_assert]]
+id = 1
+path = "/result/text"
+equals_file = "case-text/expected.txt"
+[[mcp_assert]]
+id = 1
+path = "/result/value"
+equals_json_file = "case-text/expected.json"
+"#,
+    );
+
+    assert_eq!(
+        lsp_manifest.expectations.lsp_assertions[0].operation,
+        Some(LspAssertionOperation::EqualsJsonFile(
+            parse_json(r#"{"b":[2],"a":1}"#).expect("expected JSON should parse")
+        ))
+    );
+    assert_eq!(
+        mcp_manifest.expectations.mcp_assertions[0].operation,
+        Some(McpAssertionOperation::EqualsFile(
+            "expected text\n".to_string()
+        ))
+    );
+    assert!(matches!(
+        mcp_manifest.expectations.mcp_assertions[1].operation,
+        Some(McpAssertionOperation::EqualsJsonFile(_))
+    ));
+
+    fs::write(&expected_text, "modified workspace text\n")
+        .expect("text sidecar should be changed after manifest loading");
+    fs::write(&expected_json, r#"{"modified":true}"#)
+        .expect("JSON sidecar should be changed after manifest loading");
+
+    let lsp_messages = decode_lsp_stdout(&lsp_frame(
+        r#"{"jsonrpc":"2.0","id":1,"result":{"a":1,"b":[2]}}"#,
+    ))
+    .expect("LSP response should decode");
+    evaluate_lsp_assertion(&lsp_messages, &lsp_manifest.expectations.lsp_assertions[0])
+        .expect("LSP JSON file equality should use the discovered case snapshot");
+
+    let mcp_messages = decode_mcp_stdout(
+        r#"{"jsonrpc":"2.0","id":1,"result":{"text":"expected text\n","value":{"a":1,"b":[2]}}}
+"#,
+    )
+    .expect("MCP response should decode");
+    for assertion in &mcp_manifest.expectations.mcp_assertions {
+        evaluate_mcp_assertion(&mcp_messages, assertion, &case_dir)
+            .expect("MCP file equality should use the discovered case snapshot");
+    }
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
+fn manifest_lsp_and_mcp_file_equality_rejects_invalid_missing_and_duplicate_operands() {
+    let root = test_temp_root("lsp-mcp-invalid-json-sidecar");
+    let case_dir = root.join("case");
+    let text_dir = case_dir.join("case-text");
+    fs::create_dir_all(&text_dir).expect("case text directory should be created");
+    fs::write(text_dir.join("invalid.json"), "{").expect("invalid JSON sidecar should be written");
+
+    for (command, section) in [("lsp", "lsp_assert"), ("mcp", "mcp_assert")] {
+        let error = std::panic::catch_unwind(|| {
+            parse_manifest(
+                &case_dir.join("case.toml"),
+                &format!(
+                    "command = [\"{command}\"]\nexit = 0\n[[{section}]]\nid = 1\npath = \"/result\"\nequals_json_file = \"case-text/invalid.json\"\n"
+                ),
+            )
+        })
+        .expect_err("invalid JSON sidecar should fail manifest loading");
+        let message = panic_message(error);
+        assert!(message.contains(section), "{message}");
+        assert!(message.contains("0"), "{message}");
+        assert!(message.contains("response id 1"), "{message}");
+        assert!(message.contains("path `/result`"), "{message}");
+        assert!(message.contains("equals_json_file"), "{message}");
+        assert!(message.contains("invalid"), "{message}");
+
+        let error = std::panic::catch_unwind(|| {
+            parse_manifest(
+                &case_dir.join("case.toml"),
+                &format!(
+                    "command = [\"{command}\"]\nexit = 0\n[[{section}]]\nid = 1\npath = \"/result\"\nequals_json_file = \"case-text/missing.json\"\n"
+                ),
+            )
+        })
+        .expect_err("missing JSON sidecar should fail manifest loading");
+        let message = panic_message(error);
+        assert!(message.contains("case file `case-text/missing.json`"));
+        assert!(message.contains(section), "{message}");
+        assert!(message.contains("0"), "{message}");
+        assert!(message.contains("response id 1"), "{message}");
+        assert!(message.contains("path `/result`"), "{message}");
+        assert!(message.contains("equals_json_file"), "{message}");
+
+        assert_manifest_parse_error(
+            &format!(
+                "command = [\"{command}\"]\nexit = 0\n[[{section}]]\nid = 1\npath = \"/result\"\nequals = null\nequals_json_file = \"case-text/missing.json\"\n"
+            ),
+            "needs exactly one",
+        );
+    }
+
+    let error = std::panic::catch_unwind(|| {
+        parse_manifest(
+            &case_dir.join("case.toml"),
+            "command = [\"mcp\"]\nexit = 0\n[[mcp_assert]]\nid = 1\npath = \"/result\"\nequals_file = \"case-text/missing.txt\"\n",
+        )
+    })
+    .expect_err("missing MCP text sidecar should fail manifest loading");
+    let message = panic_message(error);
+    assert!(message.contains("case file `case-text/missing.txt`"));
+    assert!(message.contains("mcp_assert 0 response id 1 path `/result` equals_file"));
+
+    for (command, section, operation, expected) in [
+        (
+            "lsp",
+            "lsp_assert",
+            "equals_json_file",
+            "lsp_assert `equals_json_file` must be a string case file reference",
+        ),
+        (
+            "mcp",
+            "mcp_assert",
+            "equals_file",
+            "mcp_assert `equals_file` must be a string case file reference",
+        ),
+        (
+            "mcp",
+            "mcp_assert",
+            "equals_json_file",
+            "mcp_assert `equals_json_file` must be a string case file reference",
+        ),
+    ] {
+        assert_manifest_parse_error(
+            &format!(
+                "command = [\"{command}\"]\nexit = 0\n[[{section}]]\nid = 1\npath = \"/result\"\n{operation} = 1\n"
+            ),
+            expected,
+        );
+    }
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
+fn lsp_and_mcp_file_backed_equality_report_operation_specific_failures() {
+    let expected_object = parse_json(r#"{"a":2}"#).expect("expected object should parse");
+    let lsp_messages = decode_lsp_stdout(&lsp_frame(
+        r#"{"jsonrpc":"2.0","id":"one","result":{"a":1}}"#,
+    ))
+    .expect("LSP response should decode");
+    let lsp_assertion = LspAssertion {
+        id: Some(JsonValue::String("one".to_string())),
+        method: None,
+        occurrence: None,
+        path: "/result".to_string(),
+        path_present: true,
+        pointer_tokens: vec!["result".to_string()],
+        operation: Some(LspAssertionOperation::EqualsJsonFile(
+            expected_object.clone(),
+        )),
+        operation_count: 1,
+    };
+    assert_eq!(
+        evaluate_lsp_assertion(&lsp_messages, &lsp_assertion)
+            .expect_err("different LSP JSON should fail"),
+        "value mismatch: expected {\"a\":2}, got {\"a\":1}"
+    );
+
+    let mcp_messages = decode_mcp_stdout(
+        r#"{"jsonrpc":"2.0","id":"one","result":{"text":1,"value":{"a":1}}}
+"#,
+    )
+    .expect("MCP response should decode");
+    let mut mcp_assertion = McpAssertion {
+        id: Some(JsonValue::String("one".to_string())),
+        path: "/result/text".to_string(),
+        path_present: true,
+        pointer_tokens: vec!["result".to_string(), "text".to_string()],
+        operation: Some(McpAssertionOperation::EqualsFile("1".to_string())),
+        operation_count: 1,
+    };
+    assert_eq!(
+        evaluate_mcp_assertion(&mcp_messages, &mcp_assertion, Path::new("."))
+            .expect_err("non-string MCP value should fail"),
+        "equals_file requires a selected JSON string"
+    );
+
+    mcp_assertion.path = "/result/value".to_string();
+    mcp_assertion.pointer_tokens = vec!["result".to_string(), "value".to_string()];
+    mcp_assertion.operation = Some(McpAssertionOperation::EqualsJsonFile(expected_object));
+    assert_eq!(
+        evaluate_mcp_assertion(&mcp_messages, &mcp_assertion, Path::new("."))
+            .expect_err("different MCP JSON should fail"),
+        "value mismatch: expected {\"a\":2}, got {\"a\":1}"
+    );
+
+    let context = CaseRunContext {
+        case_dir: Path::new("file-backed-runtime-context"),
+        run_number: 1,
+    };
+    let lsp_panic = std::panic::catch_unwind(|| {
+        assert_lsp_assertions(
+            &context,
+            &lsp_frame(r#"{"jsonrpc":"2.0","id":"one","result":{"a":1}}"#),
+            &[lsp_assertion],
+        );
+    })
+    .expect_err("aggregated LSP assertion should fail");
+    let message = panic_message(lsp_panic);
+    assert!(message.contains("file-backed-runtime-context run 1"));
+    assert!(message.contains("lsp_assert 0"));
+    assert!(message.contains("response id \"one\""));
+    assert!(message.contains("path \"/result\""));
+    assert!(message.contains("value mismatch"));
+
+    let mcp_panic = std::panic::catch_unwind(|| {
+        assert_mcp_assertions(
+            &context,
+            r#"{"jsonrpc":"2.0","id":"one","result":{"text":1,"value":{"a":1}}}
+"#,
+            &[mcp_assertion],
+            Path::new("."),
+        );
+    })
+    .expect_err("aggregated MCP assertion should fail");
+    let message = panic_message(mcp_panic);
+    assert!(message.contains("file-backed-runtime-context run 1"));
+    assert!(message.contains("mcp_assert 0"));
+    assert!(message.contains("response id \"one\""));
+    assert!(message.contains("path \"/result/value\""));
+    assert!(message.contains("value mismatch"));
 }
 
 #[test]
@@ -10803,10 +11297,10 @@ fn assert_lsp_assertions(context: &CaseRunContext<'_>, stdout: &str, assertions:
         )
     });
     let mut failures = Vec::new();
-    for assertion in assertions {
+    for (index, assertion) in assertions.iter().enumerate() {
         if let Err(error) = evaluate_lsp_assertion(&messages, assertion) {
             failures.push(format!(
-                "{}: {} path {:?}: {error}",
+                "{}: lsp_assert {index} {} path {:?}: {error}",
                 context.label(),
                 assertion.selector(),
                 assertion.path
@@ -10839,10 +11333,10 @@ fn assert_mcp_assertions(
         )
     });
     let mut failures = Vec::new();
-    for assertion in assertions {
+    for (index, assertion) in assertions.iter().enumerate() {
         if let Err(error) = evaluate_mcp_assertion(&messages, assertion, project_root) {
             failures.push(format!(
-                "{}: {} path {:?}: {error}",
+                "{}: mcp_assert {index} {} path {:?}: {error}",
                 context.label(),
                 assertion.selector(),
                 assertion.path
@@ -11019,14 +11513,14 @@ fn evaluate_lsp_assertion(messages: &[JsonValue], assertion: &LspAssertion) -> R
         {
             LspAssertionOperation::Equals(expected) => expect_json_value(actual, expected),
             LspAssertionOperation::EqualsFile(expected) => {
-                let actual = actual
-                    .as_str()
-                    .ok_or_else(|| "equals_file requires a selected JSON string".to_string())?;
-                if actual == expected {
-                    Ok(())
-                } else {
-                    Err("string does not equal the expected file contents".to_string())
-                }
+                expect_string_equals_file(actual, expected)
+            }
+            LspAssertionOperation::EqualsFileRef(_) => {
+                unreachable!("manifest finish resolves LSP equals_file operands")
+            }
+            LspAssertionOperation::EqualsJsonFile(expected) => expect_json_value(actual, expected),
+            LspAssertionOperation::EqualsJsonFileRef(_) => {
+                unreachable!("manifest finish resolves LSP equals_json_file operands")
             }
             LspAssertionOperation::Contains(expected) => expect_string_contains(actual, expected),
             LspAssertionOperation::Missing(true) => {
@@ -11107,6 +11601,14 @@ fn evaluate_mcp_operation(
         .expect("validated MCP assertion operation")
     {
         McpAssertionOperation::Equals(expected) => expect_json_value(actual, expected),
+        McpAssertionOperation::EqualsFile(expected) => expect_string_equals_file(actual, expected),
+        McpAssertionOperation::EqualsFileRef(_) => {
+            unreachable!("manifest finish resolves MCP equals_file operands")
+        }
+        McpAssertionOperation::EqualsJsonFile(expected) => expect_json_value(actual, expected),
+        McpAssertionOperation::EqualsJsonFileRef(_) => {
+            unreachable!("manifest finish resolves MCP equals_json_file operands")
+        }
         McpAssertionOperation::Contains(expected) => expect_string_contains(actual, expected),
         McpAssertionOperation::Length(expected) => expect_mcp_array_length(actual, *expected),
         McpAssertionOperation::Missing(true) => {
@@ -11128,6 +11630,17 @@ fn expect_json_value(actual: &JsonValue, expected: &JsonValue) -> Result<(), Str
             expected.to_compact_string(),
             actual.to_compact_string()
         ))
+    }
+}
+
+fn expect_string_equals_file(actual: &JsonValue, expected: &str) -> Result<(), String> {
+    let actual = actual
+        .as_str()
+        .ok_or_else(|| "equals_file requires a selected JSON string".to_string())?;
+    if actual == expected {
+        Ok(())
+    } else {
+        Err("string does not equal the expected file contents".to_string())
     }
 }
 
