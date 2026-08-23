@@ -4687,16 +4687,14 @@ fn load_jsonrpc_stdin(
     let mut framed = String::new();
     for (index, mut message) in messages.into_iter().enumerate() {
         let position = format!("$[{index}]");
-        expand_case_text_directives(
+        let mut context = JsonrpcDirectiveExpansion {
             manifest_path,
             line_number,
-            index,
-            &position,
-            &mut Vec::new(),
-            &mut message,
+            message_index: index,
             case_text_cache,
             workspace_file_uri_directives,
-        );
+        };
+        expand_case_text_directives(&mut context, &position, &mut Vec::new(), &mut message);
         validate_jsonrpc_input_message(manifest_path, line_number, index, &message);
         let body = message.to_compact_string();
         let length = body.len();
@@ -4705,29 +4703,29 @@ fn load_jsonrpc_stdin(
     framed
 }
 
-fn expand_case_text_directives(
-    manifest_path: &Path,
+struct JsonrpcDirectiveExpansion<'a> {
+    manifest_path: &'a Path,
     line_number: usize,
     message_index: usize,
+    case_text_cache: &'a mut CaseTextCache,
+    workspace_file_uri_directives: &'a mut Vec<WorkspaceFileUriDirective>,
+}
+
+fn expand_case_text_directives(
+    context: &mut JsonrpcDirectiveExpansion<'_>,
     position: &str,
     pointer_tokens: &mut Vec<String>,
     value: &mut JsonValue,
-    case_text_cache: &mut CaseTextCache,
-    workspace_file_uri_directives: &mut Vec<WorkspaceFileUriDirective>,
 ) {
     match value {
         JsonValue::Array(values) => {
             for (index, value) in values.iter_mut().enumerate() {
                 pointer_tokens.push(index.to_string());
                 expand_case_text_directives(
-                    manifest_path,
-                    line_number,
-                    message_index,
+                    context,
                     &format!("{position}[{index}]"),
                     pointer_tokens,
                     value,
-                    case_text_cache,
-                    workspace_file_uri_directives,
                 );
                 pointer_tokens.pop();
             }
@@ -4738,58 +4736,68 @@ fn expand_case_text_directives(
             {
                 if entries.len() != 1 {
                     jsonrpc_fixture_error(
-                        manifest_path,
-                        line_number,
-                        message_index,
+                        context.manifest_path,
+                        context.line_number,
+                        context.message_index,
                         position,
                         "`$workspace_file_uri` directive object must contain no other members",
                     );
                 }
                 let JsonValue::String(relative) = directive else {
                     jsonrpc_fixture_error(
-                        manifest_path,
-                        line_number,
-                        message_index,
+                        context.manifest_path,
+                        context.line_number,
+                        context.message_index,
                         position,
                         "`$workspace_file_uri` directive value must be a string",
                     );
                 };
-                validate_workspace_file_uri_operand(manifest_path, line_number, relative);
-                workspace_file_uri_directives.push(WorkspaceFileUriDirective {
-                    message_index,
-                    pointer_tokens: pointer_tokens.clone(),
-                    relative: relative.clone(),
-                });
+                validate_workspace_file_uri_operand(
+                    context.manifest_path,
+                    context.line_number,
+                    relative,
+                );
+                context
+                    .workspace_file_uri_directives
+                    .push(WorkspaceFileUriDirective {
+                        message_index: context.message_index,
+                        pointer_tokens: pointer_tokens.clone(),
+                        relative: relative.clone(),
+                    });
                 *value = JsonValue::String(workspace_file_uri_marker(relative));
                 return;
             }
             if let Some((_, directive)) = entries.iter().find(|(key, _)| key == "$case_text") {
                 if entries.len() != 1 {
                     jsonrpc_fixture_error(
-                        manifest_path,
-                        line_number,
-                        message_index,
+                        context.manifest_path,
+                        context.line_number,
+                        context.message_index,
                         position,
                         "`$case_text` directive object must contain no other members",
                     );
                 }
                 let JsonValue::String(relative) = directive else {
                     jsonrpc_fixture_error(
-                        manifest_path,
-                        line_number,
-                        message_index,
+                        context.manifest_path,
+                        context.line_number,
+                        context.message_index,
                         position,
                         "`$case_text` directive value must be a string",
                     );
                 };
                 let replacement = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    case_text_cache.read_path(manifest_path, line_number, relative)
+                    context.case_text_cache.read_path(
+                        context.manifest_path,
+                        context.line_number,
+                        relative,
+                    )
                 }))
                 .unwrap_or_else(|panic| {
                     jsonrpc_fixture_error(
-                        manifest_path,
-                        line_number,
-                        message_index,
+                        context.manifest_path,
+                        context.line_number,
+                        context.message_index,
                         position,
                         &format!("case-text reference failed: {}", panic_message(panic)),
                     )
@@ -4800,14 +4808,10 @@ fn expand_case_text_directives(
             for (key, value) in entries {
                 pointer_tokens.push(key.clone());
                 expand_case_text_directives(
-                    manifest_path,
-                    line_number,
-                    message_index,
+                    context,
                     &format!("{position}.{}", escape_json_position_key(key)),
                     pointer_tokens,
                     value,
-                    case_text_cache,
-                    workspace_file_uri_directives,
                 );
                 pointer_tokens.pop();
             }
