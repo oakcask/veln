@@ -7863,6 +7863,120 @@ contains = "x"
 }
 
 #[test]
+fn contains_failures_retain_wrapper_context_through_every_adapter() {
+    let context = contains_adapter_context();
+
+    let json_manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"command = ["check", "--json", "main.veln"]
+exit = 0
+[[json_assert]]
+path = "text"
+contains = "missing"
+"#,
+    );
+    let panic = std::panic::catch_unwind(|| {
+        json_manifest.expectations.assert_matches(
+            &context,
+            &CapturedOutput {
+                exit: Some(0),
+                stdout: r#"{"text":"alpha beta"}"#.to_string(),
+                stderr: String::new(),
+            },
+            Path::new("."),
+        )
+    })
+    .expect_err("JSON contains failure should include wrapper context");
+    let message = panic_message(panic);
+    assert!(message.contains("contains-adapters run 1"));
+    assert!(message.contains("JSON path `text` mismatch"));
+    assert!(message.contains("string does not contain \"missing\""));
+
+    let result_manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"command = ["run", "--json", "main", "main.veln"]
+exit = 0
+[[result_value_assert]]
+value_path = "rendered"
+path = "constructor"
+contains = "missing"
+"#,
+    );
+    let panic = std::panic::catch_unwind(|| {
+        result_manifest.expectations.assert_matches(
+            &context,
+            &CapturedOutput {
+                exit: Some(0),
+                stdout: r#"{"rendered":"ByteOffset(2)"}"#.to_string(),
+                stderr: String::new(),
+            },
+            Path::new("."),
+        )
+    })
+    .expect_err("result-value contains failure should include wrapper context");
+    let message = panic_message(panic);
+    assert!(message.contains("contains-adapters run 1"));
+    assert!(message.contains("result value path `constructor` mismatch"));
+    assert!(message.contains("string does not contain \"missing\""));
+
+    let lsp_manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"command = ["lsp"]
+exit = 0
+[[lsp_assert]]
+id = 1
+path = "/result/text"
+contains = "missing"
+"#,
+    );
+    let panic = std::panic::catch_unwind(|| {
+        lsp_manifest.expectations.assert_matches(
+            &context,
+            &CapturedOutput {
+                exit: Some(0),
+                stdout: lsp_frame(r#"{"jsonrpc":"2.0","id":1,"result":{"text":"alpha beta"}}"#),
+                stderr: String::new(),
+            },
+            Path::new("."),
+        )
+    })
+    .expect_err("LSP contains failure should include wrapper context");
+    let message = panic_message(panic);
+    assert!(message.contains("contains-adapters run 1"));
+    assert!(message.contains("response id 1 path \"/result/text\""));
+    assert!(message.contains("string does not contain \"missing\""));
+
+    let mcp_manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"command = ["mcp"]
+exit = 0
+[[mcp_assert]]
+id = 1
+path = "/result/text"
+contains = "missing"
+"#,
+    );
+    let panic = std::panic::catch_unwind(|| {
+        mcp_manifest.expectations.assert_matches(
+            &context,
+            &CapturedOutput {
+                exit: Some(0),
+                stdout: r#"{"jsonrpc":"2.0","id":1,"result":{"text":"alpha beta"}}
+"#
+                .to_string(),
+                stderr: String::new(),
+            },
+            Path::new("."),
+        )
+    })
+    .expect_err("MCP contains failure should include wrapper context");
+    let message = panic_message(panic);
+    assert!(message.contains("contains-adapters run 1"));
+    assert!(message.contains("response id 1 path \"/result/text\""));
+    assert!(message.contains("string does not contain \"missing\""));
+}
+
+#[test]
 fn manifest_lsp_assertions_validate_selector_operation_and_pointer_contracts() {
     for (fields, expected) in [
         (
