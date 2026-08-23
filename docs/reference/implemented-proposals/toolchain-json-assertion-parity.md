@@ -1,30 +1,29 @@
 ---
-role: proposal
-update-when: The proposed shared toolchain JSON assertion operations, compatibility boundary, acceptance evidence, or implementation status changes.
+role: implementation-record
+authority: supporting
+update-when: The completed shared toolchain JSON assertion operation evidence is superseded or becomes invalid.
 ---
 
-# Toolchain JSON Assertion Parity
+# Toolchain JSON Assertion Parity Record
 
 ## Summary
 
-Complete the remaining operation parity for toolchain harness assertions that
-select a JSON value. The affected sections are `[[json_assert]]`,
+This record describes the completed operation parity for toolchain harness
+assertions that select a JSON value. The affected sections are `[[json_assert]]`,
 `[[result_value_assert]]`, `[[lsp_assert]]`, and `[[mcp_assert]]`.
 
-The common JSON equality foundation, string containment, and file-backed
-equality are implemented for their affected sections. The current contract is
-specified by [Toolchain Test Harness](../reference/toolchain-test-harness.md).
-This proposal now covers the remaining array length and workspace-file URI
-gaps.
+The implementation completed the common JSON equality foundation, string
+containment, file-backed equality, array length, and workspace-file URI
+operations for their affected sections. Current behavior is specified by
+[Toolchain Test Harness](../toolchain-test-harness.md).
 
 ## Motivation
 
-The toolchain harness currently divides JSON operations by command transport.
-MCP assertions can check array length and canonical workspace file URIs, while
-other JSON-valued assertions cannot. All four assertions can check string
-containment and load their supported expected values from case files. The
-remaining operation split still requires fixture authors to choose raw output
-checks for array length and workspace file URIs outside MCP assertions.
+Before this work, the toolchain harness divided JSON operations by command
+transport. MCP assertions could check array length and canonical workspace file
+URIs, while other JSON-valued assertions could not. Fixture authors had to use
+raw output checks for array length and workspace file URIs outside MCP
+assertions.
 
 This division makes fixture authors choose raw output checks or duplicate
 larger values when the required operation is absent from the section that owns
@@ -32,10 +31,9 @@ the selected value. The implemented equality foundation removed the former
 section-specific object-order and number-spelling differences without changing
 the remaining operation split.
 
-## Current Boundary
+## Prior Boundary
 
-[Toolchain Test Harness](../reference/toolchain-test-harness.md) specifies the
-implemented assertion behavior. The current operation split is:
+The operation split before this work was:
 
 | Section | Selected input | Current operations | Current equality boundary |
 | --- | --- | --- | --- |
@@ -49,15 +47,13 @@ and length, distinguishes JSON kinds and nested values, and preserves complete
 number spelling. The semantic baseline key-sorts objects while retaining array
 order, assertion order, and JSON number spelling.
 
-## Remaining Proposed Contract
+## Implemented Contract
 
-### Remaining Operation Additions
+### Operation Additions
 
-The implemented `equals`, `contains`, and `missing = true` contracts are
-specified by [Toolchain Test Harness](../reference/toolchain-test-harness.md).
-The remaining work adds only the section and operation pairs in this matrix.
+The implementation added only the section and operation pairs in this matrix.
 
-| Section | Remaining operations |
+| Section | Added operations |
 | --- | --- |
 | `[[json_assert]]` | `length`, `workspace_file_uri` |
 | `[[result_value_assert]]` | `length`, `workspace_file_uri` |
@@ -71,13 +67,13 @@ table.
 | `length` | One non-negative integer representable by the harness collection length type. | A JSON array. | Require the selected array to contain exactly the stated number of elements. |
 | `workspace_file_uri` | One safe workspace-relative file path. | A JSON string. | Compare the selected string with the canonical `file:` URI of that copied workspace file. |
 
-The existing exactly-one-operation rule applies as each operation is added.
+The existing exactly-one-operation rule applies to each added operation.
 
 ### Selection And Path Compatibility
 
-This proposal does not change how an assertion obtains its selected value.
+The implementation did not change how an assertion obtains its selected value.
 
-| Section | Selector and path retained by this proposal |
+| Section | Retained selector and path |
 | --- | --- |
 | `[[json_assert]]` | Select parsed JSON stdout, then use the existing dot-separated path. |
 | `[[result_value_assert]]` | Select and parse the string at `value_path`, then use the existing dot-separated result-value path. |
@@ -122,10 +118,10 @@ MCP JSONL errors, or response and notification selection errors.
 
 ## Compatibility And Migration
 
-Every currently valid assertion manifest remains valid. Existing selectors,
+Every previously valid assertion manifest remained valid. Existing selectors,
 paths, operations, common equality behavior, file-backed equality, and the
 implemented common `contains` behavior keep their current spelling and meaning.
-Representative fixtures must adopt each newly available operation to provide
+Representative fixtures adopted each newly available operation to provide
 executable evidence for its assertion source.
 
 ## Non-Goals
@@ -141,19 +137,18 @@ executable evidence for its assertion source.
 
 ## Acceptance Model
 
-| Case | Expected result | Planned evidence |
+| Case | Expected result | Checked evidence |
 | --- | --- | --- |
 | Parse the remaining operation additions in each affected section. | Each section accepts each newly added operation with its declared operand type and retains rejection of omission, duplication, `missing = false`, and invalid operand types. | Table-driven manifest parser success and rejection tests in the toolchain harness. |
 | Compare a copied workspace file URI. | Each section computes the canonical URI for an existing safe workspace-relative file and rejects unsafe operands and non-string selected values. | Cross-section URI success matrix and the existing link and workspace-escape rejection matrix. |
 | Preserve selector and path behavior. | JSON and result-value dot paths, LSP response and notification selection, MCP response selection, and LSP/MCP pointer failures retain their current outcomes. | Existing section-specific tests plus regression rows that use a newly shared operation after selection. |
 | Publish representative executable evidence. | A JSON case and a result-value case use `length` or `workspace_file_uri`; the LSP publish-diagnostics case checks diagnostic cardinality and its workspace URI; the MCP definition case retains response-local length and workspace URI checks. | Checked cases under `crates/veln-cli/tests/toolchain_cases/` and `examples/specification/`. |
 | Keep the semantic inventory reviewable. | The baseline records each newly common operation and operand while preserving the implemented equality baseline. | Semantic baseline unit tests and the checked authoritative-case baseline comparison. |
-| Publish the completed operation contract. | Current common operations and section-specific selection boundaries are documented without relying on this proposal as authority. | Update `../reference/toolchain-test-harness.md` after executable evidence passes. |
+| Publish the completed operation contract. | Current common operations and section-specific selection boundaries are documented without relying on this record as authority. | `../toolchain-test-harness.md` contains the current contract. |
 
-## Completion Rule
+## Completion Evidence
 
-This proposal completes when every acceptance row has checked evidence, the
-normative toolchain harness reference describes the common operation contract,
-and representative executable cases use the shared surface. Move the completed
-record to `../reference/implemented-proposals/` and remove this page from the
-proposal catalog when the implementation is complete.
+Every acceptance row has checked evidence. The normative toolchain harness
+reference describes the common operation contract. Representative executable
+cases use the shared surface. This record lives in implemented-proposal history,
+and the proposal catalog no longer lists the work as planned.

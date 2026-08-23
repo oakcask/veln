@@ -208,6 +208,12 @@ and canonical paths that leave the workspace root.
 
 Use `stdin_jsonrpc_file` for an ordered UTF-8 JSON array of JSON-RPC requests
 and notifications. It is mutually exclusive with `stdin` and `stdin_file`.
+An object containing only `$case_text` replaces that object with the exact text
+of a case-relative sidecar. An object containing only `$workspace_file_uri`
+replaces that object with the canonical `file:` URI for one safe
+workspace-relative regular file after the case is copied. The URI directive
+uses the same path-safety contract as the common `workspace_file_uri`
+assertion operation.
 Each array element must be an object. Its `jsonrpc` member must be `"2.0"`.
 Its `method` member must be a string. An `id` may be absent, a string, a
 number, or null. A `params` member may be absent, an object, an array, or null.
@@ -249,12 +255,13 @@ defaults to zero. It then selects a value with an RFC 6901 JSON Pointer in
 validated while the manifest loads.
 
 Each LSP assertion declares exactly one of `equals`, `equals_file`,
-`equals_json_file`, `contains`, or `missing = true`. `equals` and
+`equals_json_file`, `contains`, `length`, `workspace_file_uri`, or
+`missing = true`. `equals` and
 `equals_json_file` use the common JSON equality rules below. `equals_file`
 requires the selected value to be a JSON string. `equals_json_file` parses the
 sidecar while the manifest loads. Invalid JSON reports the manifest line plus
 the `lsp_assert` index, response or notification selector, JSON Pointer path,
-and operation. `contains` uses the common string-containment contract below. A
+and operation. The remaining operations use the common contracts below. A
 missing path can satisfy `missing = true` only after its response or
 notification exists.
 
@@ -286,7 +293,8 @@ stdout fragments only for incidental initialization and tool discovery text.
 
 Use `[[json_assert]]`, `[[result_value_assert]]`, and `[[diagnostics]]` for
 semantic checks inside JSON stdout. JSON and result-value assertions accept
-`equals`, `equals_file`, `equals_json_file`, `contains`, or `missing = true`.
+`equals`, `equals_file`, `equals_json_file`, `contains`, `length`,
+`workspace_file_uri`, or `missing = true`.
 `equals_file` compares the selected JSON value as a string and never reparses
 the sidecar as JSON. `equals_json_file` parses the sidecar as JSON before the
 comparison and uses the common JSON equality rules. `contains` uses the common
@@ -320,6 +328,20 @@ existing selector and path rules: JSON and result-value assertions use their
 dot-separated paths, while LSP and MCP assertions use RFC 6901 JSON Pointers.
 Result-value assertions still parse the rendered value selected by
 `value_path` before applying the operation.
+
+The `length` operation in `[[json_assert]]`, `[[result_value_assert]]`,
+`[[lsp_assert]]`, and `[[mcp_assert]]` accepts one non-negative integer that is
+representable as a harness collection length. The selected value must be a
+JSON array with exactly that element count. A missing path, a selected
+non-array value, and a different element count are distinct failures.
+
+The `workspace_file_uri` operation in the same four sections accepts one safe
+workspace-relative regular file. The selected value must be a JSON string
+equal to the canonical `file:` URI for that file in the copied case workspace.
+The operand rejects absolute and empty paths, `.`, `..`, empty segments,
+backslashes, links and link-like components, non-file entries, and canonical
+paths outside the workspace. The semantic baseline records the relative
+operand and does not record the temporary workspace URI.
 
 The shared JSON parser stores parsed JSON numbers with their complete source
 spelling. Veln-produced integer values remain integer JSON values when command

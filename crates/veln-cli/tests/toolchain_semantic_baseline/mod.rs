@@ -504,10 +504,18 @@ fn describe_lsp_assertions(fields: &mut BTreeMap<String, String>, manifest: &Cas
                 enum_value(fields, &format!("{base}.operation"), "contains");
                 text(fields, &format!("{base}.contains"), value);
             }
+            LspAssertionOperation::Length(value) => {
+                enum_value(fields, &format!("{base}.operation"), "length");
+                scalar(fields, &format!("{base}.length"), *value);
+            }
             LspAssertionOperation::Missing(true) => {
                 enum_value(fields, &format!("{base}.operation"), "missing");
             }
             LspAssertionOperation::Missing(false) => unreachable!("validated missing operation"),
+            LspAssertionOperation::WorkspaceFileUri(value) => {
+                enum_value(fields, &format!("{base}.operation"), "workspace_file_uri");
+                text(fields, &format!("{base}.workspace_file_uri"), value);
+            }
         }
     }
 }
@@ -708,8 +716,18 @@ fn value_assertion_operation(
             text(fields, &format!("{base}.contains"), value);
             return;
         }
+        ValueAssertionOperation::Length(value) => {
+            enum_value(fields, &format!("{base}.operation"), "length");
+            scalar(fields, &format!("{base}.length"), *value);
+            return;
+        }
         ValueAssertionOperation::Missing => {
             enum_value(fields, &format!("{base}.operation"), "missing");
+            return;
+        }
+        ValueAssertionOperation::WorkspaceFileUri(value) => {
+            enum_value(fields, &format!("{base}.operation"), "workspace_file_uri");
+            text(fields, &format!("{base}.workspace_file_uri"), value);
             return;
         }
     };
