@@ -11,7 +11,7 @@ use veln_project::Project;
 use veln_sema::{
     LoweredSurfaceModule, ReusableStandardEnvironment,
     check_project_surface_module_with_standard_modules_environment,
-    lower_project_reachable_surface_modules_with_standard_environment,
+    lower_project_reachable_surface_modules_with_standard_environment_filtering_diagnostics,
     prepare_current_reusable_standard_surface_module_environment,
 };
 use veln_source::SourceSpan;
@@ -331,6 +331,15 @@ impl ProjectAnalysis {
         entry: &str,
         entry_kind: FunctionKind,
     ) -> (ReachableEntryAnalysis, AnalysisTiming) {
+        self.lower_reachable_entry_with_timing_and_diagnostic_filter(entry, entry_kind, |_, _| true)
+    }
+
+    pub fn lower_reachable_entry_with_timing_and_diagnostic_filter(
+        &self,
+        entry: &str,
+        entry_kind: FunctionKind,
+        retain_diagnostic: impl Fn(&SurfaceModule, &Diagnostic) -> bool,
+    ) -> (ReachableEntryAnalysis, AnalysisTiming) {
         let start = std::time::Instant::now();
         let module = reachable_entry_module_with_standard_cache(
             &self.selected_standard,
@@ -340,11 +349,13 @@ impl ProjectAnalysis {
             &self.reachability_cache,
         );
         let standard = standard_environment_for_modules(&self.selected_standard_module_names);
-        let lowered = lower_project_reachable_surface_modules_with_standard_environment(
-            &module,
-            &self.selected_standard,
-            &standard.environment,
-        );
+        let lowered =
+            lower_project_reachable_surface_modules_with_standard_environment_filtering_diagnostics(
+                &module,
+                &self.selected_standard,
+                &standard.environment,
+                |diagnostic| retain_diagnostic(&module, diagnostic),
+            );
         (
             ReachableEntryAnalysis { module, lowered },
             AnalysisTiming {

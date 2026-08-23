@@ -9,8 +9,7 @@ use std::time::{Duration, Instant};
 use veln_analysis::{
     AnalysisTiming, DoctestMode, ProjectAnalysis, analyze_project, analyze_project_with_timings,
 };
-use veln_ast::Function;
-use veln_ast::FunctionKind;
+use veln_ast::{Expr, ExprKind, Function, FunctionKind, HandlerDecl, SurfaceModule};
 use veln_backend_jvm::{EntryArgScalar, EntryArgType, generate_classfiles_with_entry_arg_types};
 use veln_diagnostics::{Diagnostic, DiagnosticEnvelope, DiagnosticKind, JsonValue, Severity};
 use veln_project::{Project, explicit_companion_inputs, production_analysis_inputs};
@@ -337,16 +336,26 @@ fn lower_run_entry(
     timings: Option<&mut RunAnalysisTimings>,
 ) -> Result<Option<veln_ir::TypedProgram>, String> {
     let reachable = if let Some(timings) = timings {
-        let (reachable, timing) =
-            analysis.lower_reachable_entry_with_timing(entry, FunctionKind::Function);
+        let (reachable, timing) = analysis.lower_reachable_entry_with_timing_and_diagnostic_filter(
+            entry,
+            FunctionKind::Function,
+            run_reachable_diagnostic,
+        );
         timings.push_analysis(timing);
         reachable
     } else {
-        analysis.lower_reachable_entry(entry, FunctionKind::Function)
+        analysis
+            .lower_reachable_entry_with_timing_and_diagnostic_filter(
+                entry,
+                FunctionKind::Function,
+                run_reachable_diagnostic,
+            )
+            .0
     };
     let lowered = reachable.lowered;
-    if has_error(&lowered.diagnostics) {
-        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), lowered.diagnostics))?;
+    let diagnostics = lowered.diagnostics;
+    if has_error(&diagnostics) {
+        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), diagnostics))?;
         return Ok(None);
     }
     if let Some(diagnostic) = retained_user_effect_diagnostic(
@@ -359,11 +368,193 @@ fn lower_run_entry(
         return Ok(None);
     }
     let Some(ir) = lowered.ir else {
-        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), lowered.diagnostics))?;
+        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), diagnostics))?;
         eprintln!("veln: run blocked: checked program is not executable");
         return Ok(None);
     };
     Ok(Some(ir))
+}
+
+fn run_reachable_diagnostic(reachable_module: &SurfaceModule, diagnostic: &Diagnostic) -> bool {
+    if diagnostic.id != "name.invalid_case" {
+        return true;
+    }
+    let casing_regions = run_reachable_identifier_casing_regions(reachable_module);
+    diagnostic.span.as_ref().is_some_and(|span| {
+        casing_regions
+            .iter()
+            .any(|region| span_inside(span, region))
+    })
+}
+
+fn run_reachable_identifier_casing_regions(module: &SurfaceModule) -> Vec<veln_source::SourceSpan> {
+    let mut regions = Vec::new();
+    regions.extend(
+        module
+            .functions
+            .iter()
+            .map(|function| function.span.clone()),
+    );
+    regions.extend(module.types.iter().map(|type_decl| type_decl.span.clone()));
+    regions.extend(
+        run_reachable_handlers(module)
+            .into_iter()
+            .map(|handler| handler.span.clone()),
+    );
+    regions
+}
+
+fn run_reachable_handlers<'a>(module: &'a SurfaceModule) -> Vec<&'a HandlerDecl> {
+    let mut handles = Vec::new();
+    for function in &module.functions {
+        for line in &function.body {
+            match &line.kind {
+                veln_ast::BodyLineKind::Let { expr, .. }
+                | veln_ast::BodyLineKind::Expr { expr } => {
+                    collect_handle_paths(expr, function.module_name.as_deref(), &mut handles);
+                }
+            }
+        }
+    }
+    module
+        .handlers
+        .iter()
+        .filter(|handler| {
+            handles
+                .iter()
+                .any(|path| handler_matches_path(module, handler, path))
+        })
+        .collect()
+}
+
+struct RunHandlePath<'a> {
+    current_module: Option<&'a str>,
+    path: &'a [String],
+}
+
+fn handler_matches_path(
+    module: &SurfaceModule,
+    handler: &HandlerDecl,
+    path: &RunHandlePath<'_>,
+) -> bool {
+    let Some(name) = handler.name.as_deref() else {
+        return false;
+    };
+    match path.path {
+        [segment] => name == segment && handler.module_name.as_deref() == path.current_module,
+        [_, .., segment] => {
+            let alias = path.path[..path.path.len() - 1].join("::");
+            module.uses.iter().any(|use_decl| {
+                use_decl.module_name.as_deref() == path.current_module
+                    && use_decl.alias == alias
+                    && name == segment
+                    && handler.module_name.as_deref() == Some(use_decl.name.as_str())
+            })
+        }
+        [] => false,
+    }
+}
+
+fn collect_handle_paths<'a>(
+    expr: &'a Expr,
+    current_module: Option<&'a str>,
+    handles: &mut Vec<RunHandlePath<'a>>,
+) {
+    match &expr.kind {
+        ExprKind::Handle {
+            body,
+            handler,
+            args,
+            ..
+        } => {
+            handles.push(RunHandlePath {
+                current_module,
+                path: handler,
+            });
+            collect_handle_paths(body, current_module, handles);
+            for arg in args {
+                collect_handle_paths(arg, current_module, handles);
+            }
+        }
+        ExprKind::TypeApply { callee, .. }
+        | ExprKind::FieldAccess { base: callee, .. }
+        | ExprKind::Try(callee)
+        | ExprKind::Prefix { expr: callee, .. } => {
+            collect_handle_paths(callee, current_module, handles);
+        }
+        ExprKind::Call { callee, args } => {
+            collect_handle_paths(callee, current_module, handles);
+            for arg in args {
+                collect_handle_paths(arg, current_module, handles);
+            }
+        }
+        ExprKind::Perform { args, .. } => {
+            for arg in args {
+                collect_handle_paths(arg, current_module, handles);
+            }
+        }
+        ExprKind::SchemaDecode { input, base, .. } => {
+            collect_handle_paths(input, current_module, handles);
+            collect_handle_paths(base, current_module, handles);
+        }
+        ExprKind::SchemaEncode { value, .. } => {
+            collect_handle_paths(value, current_module, handles);
+        }
+        ExprKind::Record(fields) => {
+            for field in fields {
+                collect_handle_paths(&field.expr, current_module, handles);
+            }
+        }
+        ExprKind::Dict(entries) => {
+            for entry in entries {
+                collect_handle_paths(&entry.key, current_module, handles);
+                collect_handle_paths(&entry.value, current_module, handles);
+            }
+        }
+        ExprKind::List(items) => {
+            for item in items {
+                collect_handle_paths(item, current_module, handles);
+            }
+        }
+        ExprKind::Match { scrutinee, arms } => {
+            collect_handle_paths(scrutinee, current_module, handles);
+            for arm in arms {
+                collect_handle_paths(&arm.expr, current_module, handles);
+            }
+        }
+        ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            collect_handle_paths(condition, current_module, handles);
+            collect_handle_paths(then_branch, current_module, handles);
+            for branch in else_if_branches {
+                collect_handle_paths(&branch.condition, current_module, handles);
+                collect_handle_paths(&branch.expr, current_module, handles);
+            }
+            collect_handle_paths(else_branch, current_module, handles);
+        }
+        ExprKind::Binary { left, right, .. } => {
+            collect_handle_paths(left, current_module, handles);
+            collect_handle_paths(right, current_module, handles);
+        }
+        ExprKind::Missing
+        | ExprKind::Hole { .. }
+        | ExprKind::NamePath(_)
+        | ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
+        | ExprKind::Unit => {}
+    }
+}
+
+fn span_inside(span: &veln_source::SourceSpan, region: &veln_source::SourceSpan) -> bool {
+    span.file == region.file
+        && span.start.offset >= region.start.offset
+        && span.end.offset <= region.end.offset
 }
 
 struct RunAnalysisTimings {

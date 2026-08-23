@@ -181,6 +181,31 @@ pub fn lower_project_reachable_surface_modules_with_standard_environment(
     lower_project_reachable_surface_module_with_environment(reachable_module, environment)
 }
 
+pub fn lower_project_reachable_surface_modules_with_standard_environment_filtering_diagnostics(
+    reachable_module: &SurfaceModule,
+    selected_standard_module: &SurfaceModule,
+    standard: &ReusableStandardEnvironment,
+    retain_diagnostic: impl Fn(&Diagnostic) -> bool,
+) -> LoweredSurfaceModule {
+    let environment = TypeEnvironment::from_application_module_with_standard(
+        reachable_module,
+        selected_standard_module,
+        standard,
+    );
+    let mut diagnostics = analyze_surface_module_with_environment(
+        reachable_module,
+        &environment,
+        should_validate_standard_bodies(reachable_module),
+    );
+    diagnostics.retain(retain_diagnostic);
+    lower_analyzed_surface_module_with_environment(
+        reachable_module,
+        diagnostics,
+        &environment,
+        false,
+    )
+}
+
 fn lower_project_reachable_surface_module_with_environment(
     module: &SurfaceModule,
     environment: TypeEnvironment,

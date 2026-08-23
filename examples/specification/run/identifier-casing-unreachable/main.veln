@@ -18,8 +18,8 @@ effect Ask
   value() -> Int
 end
 
-handler unused(value: Int) handles Ask
-  value() => value
+handler unused(Value: Int) handles Ask
+  value() => Value
 end
 
 pub fn main() -> Int
