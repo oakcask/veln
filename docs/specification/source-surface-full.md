@@ -71,7 +71,7 @@ CoveredBindingName ::= BindingName | Hole
 Item          ::= Function | TestDecl | EffectDecl | HandlerDecl | TypeDecl | SchemaDecl | PublicAlias
 Function      ::= "pub"? "fn" CoveredName EffectBinder? "(" ParamList? ")" Return? Effects? NL
                   Contract* Body "end" NL?
-TestDecl      ::= "test" Name "(" ")" Return Effects? NL
+TestDecl      ::= "test" CoveredName "(" ")" Return Effects? NL
                   Contract* Body "end" NL?
 TypeDecl      ::= "pub"? "type" CoveredName TypeParamList? NL TypeVariant+ "end" NL?
 EffectDecl    ::= "pub"? "effect" Name NL EffectOperation+ "end" NL?

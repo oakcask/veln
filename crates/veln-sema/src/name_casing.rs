@@ -129,16 +129,13 @@ pub(crate) fn suppress_unique_local_recovery_derivatives(
 #[derive(Clone, Copy)]
 enum RecoveryRole {
     Type,
-    Function,
     Callable,
 }
 
 fn unresolved_recovery_role_and_symbol(message: &str) -> Option<(RecoveryRole, &str)> {
     let (prefix, suffix) = message.split_once('`')?;
     let symbol = suffix.strip_suffix('`')?;
-    let role = if prefix.contains("function alias") {
-        RecoveryRole::Function
-    } else if prefix.contains("call_target") || prefix.contains("value") {
+    let role = if prefix.contains("call_target") || prefix.contains("value") {
         RecoveryRole::Callable
     } else if prefix.contains("type") {
         RecoveryRole::Type
@@ -170,7 +167,6 @@ fn recovery_count(module: &SurfaceModule, role: RecoveryRole, symbol: &str, file
         });
     match role {
         RecoveryRole::Type => invalid_types.count(),
-        RecoveryRole::Function => invalid_functions.count(),
         RecoveryRole::Callable => invalid_functions.count() + invalid_variants.count(),
     }
 }

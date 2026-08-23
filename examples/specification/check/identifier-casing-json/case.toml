@@ -4,7 +4,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"name.invalid_case\"", "\"name_class\":\"type\"", "\"name_class\":\"constructor\"", "\"name_class\":\"function\"", "\"name_class\":\"value_binding\"", "\"observed_initial\":\"underscore\""]
+contains = ["\"id\":\"name.invalid_case\"", "\"name\":\"BrokenTest\"", "\"name_class\":\"type\"", "\"name_class\":\"constructor\"", "\"name_class\":\"function\"", "\"name_class\":\"value_binding\"", "\"observed_initial\":\"underscore\""]
 not_contains = ["\"id\":\"name.unresolved\""]
 
 [stderr]
@@ -12,7 +12,7 @@ format = "empty"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 6
+equals = 7
 
 [[json_assert]]
 path = "diagnostics.3.span.start.column"

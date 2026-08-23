@@ -6,3 +6,7 @@ end
 fn Build(_value: Int) -> Result: Int
   Build(1)
 end
+
+test BrokenTest() -> ()
+  ()
+end

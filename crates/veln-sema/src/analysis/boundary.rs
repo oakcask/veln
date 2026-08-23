@@ -4654,7 +4654,9 @@ fn function_target<'a>(
 ) -> Option<&'a veln_ast::Function> {
     match segments {
         [name] => module.functions.iter().find(|function| {
-            function.kind == FunctionKind::Function && function.name.as_deref() == Some(name)
+            function.kind == FunctionKind::Function
+                && function.name.as_deref() == Some(name)
+                && crate::name_casing::valid_function_name(name)
         }),
         [_, .., name] => {
             let module_name = imported_module_for_path(
@@ -4665,6 +4667,7 @@ fn function_target<'a>(
             module.functions.iter().find(|function| {
                 function.kind == FunctionKind::Function
                     && function.name.as_deref() == Some(name)
+                    && crate::name_casing::valid_function_name(name)
                     && function.module_name.as_deref() == Some(module_name)
             })
         }
@@ -4678,10 +4681,9 @@ fn type_target<'a>(
     current_module: Option<&str>,
 ) -> Option<&'a veln_ast::TypeDecl> {
     match segments {
-        [name] => module
-            .types
-            .iter()
-            .find(|type_decl| type_decl.name.as_deref() == Some(name)),
+        [name] => module.types.iter().find(|type_decl| {
+            type_decl.name.as_deref() == Some(name) && crate::name_casing::valid_type_name(name)
+        }),
         [_, .., name] => {
             let module_name = imported_module_for_path(
                 &module.uses,
@@ -4690,6 +4692,7 @@ fn type_target<'a>(
             )?;
             module.types.iter().find(|type_decl| {
                 type_decl.name.as_deref() == Some(name)
+                    && crate::name_casing::valid_type_name(name)
                     && type_decl.module_name.as_deref() == Some(module_name)
             })
         }

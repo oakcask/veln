@@ -59,6 +59,32 @@ fn invalid_declarations_never_produce_checked_artifacts() {
 }
 
 #[test]
+fn invalid_function_declarations_do_not_recover_public_alias_targets() {
+    let parsed = parse(&SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn Broken() -> Int\n",
+            "  1\n",
+            "end\n",
+            "pub fn exposed = Broken\n",
+        ),
+    ));
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.invalid_case")
+    );
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved function alias target `Broken`"
+    }));
+}
+
+#[test]
 fn multiple_invalid_functions_do_not_select_a_recovery_symbol() {
     let parsed = parse(&SourceFile::new(
         "main.veln",

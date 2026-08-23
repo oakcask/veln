@@ -11,9 +11,9 @@ This file specifies implemented name resolution and effect checking.
 ## Name Resolution
 
 Source ADT type and constructor declarations start with an ASCII uppercase
-letter. Function declarations and value bindings start with an ASCII lowercase
-letter. Value bindings include function parameters, result bindings, `let`
-bindings, pattern bindings, handler clause bindings, and hole `satisfy`
+letter. Function and test declarations and value bindings start with an ASCII
+lowercase letter. Value bindings include function parameters, result bindings,
+`let` bindings, pattern bindings, handler clause bindings, and hole `satisfy`
 candidate bindings. An underscore does not satisfy either class. The
 standalone `_` keeps its wildcard and discard behavior. An underscore-led token
 in a covered declaration or binding is retained for `name.invalid_case`

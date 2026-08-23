@@ -94,7 +94,7 @@ grammar_line(48, "CoveredBindingName ::= BindingName | Hole").
 grammar_line(50, "Item          ::= Function | TestDecl | EffectDecl | HandlerDecl | TypeDecl | SchemaDecl | PublicAlias").
 grammar_line(60, "Function      ::= \"pub\"? \"fn\" CoveredName EffectBinder? \"(\" ParamList? \")\" Return? Effects? NL").
 grammar_line(70, "                  Contract* Body \"end\" NL?").
-grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
+grammar_line(80, "TestDecl      ::= \"test\" CoveredName \"(\" \")\" Return Effects? NL").
 grammar_line(90, "                  Contract* Body \"end\" NL?").
 grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" CoveredName TypeParamList? NL TypeVariant+ \"end\" NL?").
 grammar_line(101, "EffectDecl    ::= \"pub\"? \"effect\" Name NL EffectOperation+ \"end\" NL?").
@@ -359,7 +359,7 @@ effect_binder_opt --> [].
 
 test_decl -->
     tok(test),
-    ident,
+    covered_name,
     tok(lparen),
     tok(rparen),
     return_clause,

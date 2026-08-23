@@ -4,8 +4,14 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"name.invalid_case\"", "\"name\":\"Broken\"", "unresolved call_target `bad::exposed`", "\"symbol\":\"bad::exposed\""]
-not_contains = ["unresolved function alias target `Broken`"]
+contains = [
+  "\"id\":\"name.invalid_case\"",
+  "\"name\":\"Broken\"",
+  "unresolved function alias target `Broken`",
+  "\"target\":\"Broken\"",
+  "unresolved call_target `bad::exposed`",
+  "\"symbol\":\"bad::exposed\"",
+]
 
 [stderr]
 format = "empty"
