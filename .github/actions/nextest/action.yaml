@@ -1,5 +1,5 @@
 name: Prepare and run nextest
-description: Prepare Rust test caches and optionally run one nextest shard or seed the caches.
+description: Prepare nextest, optionally build a test archive, run one shard, or seed caches.
 
 inputs:
   nextest-version:
@@ -11,6 +11,13 @@ inputs:
   shard-count:
     description: Total number of nextest shards.
     required: false
+  archive-file:
+    description: Path to the shared nextest archive to build or run.
+    required: false
+  build-archive:
+    description: Whether to build the shared nextest archive.
+    required: false
+    default: "false"
   save-cache:
     description: Whether to fetch dependencies and save cache misses.
     required: false
@@ -26,6 +33,7 @@ runs:
         path: ~/.cargo/bin/cargo-nextest
         key: cargo-nextest-${{ runner.os }}-${{ inputs.nextest-version }}
     - name: Prepare Cargo dependencies
+      if: inputs.archive-file == '' || inputs.build-archive == 'true'
       uses: ./.github/actions/cargo-dependencies
       with:
         save-cache: ${{ inputs.save-cache }}
@@ -39,10 +47,18 @@ runs:
       with:
         path: ~/.cargo/bin/cargo-nextest
         key: cargo-nextest-${{ runner.os }}-${{ inputs.nextest-version }}
+    - name: Build Rust test archive
+      if: inputs.build-archive == 'true'
+      shell: bash
+      env:
+        NEXTEST_ARCHIVE_FILE: ${{ inputs.archive-file }}
+      run: cargo nextest archive --locked --workspace --archive-file "$NEXTEST_ARCHIVE_FILE"
     - name: Run Rust tests
       if: inputs.shard != ''
       shell: bash
-      run: cargo nextest run --locked --workspace --profile ci --partition count:${{ inputs.shard }}/${{ inputs.shard-count }}
+      env:
+        NEXTEST_ARCHIVE_FILE: ${{ inputs.archive-file }}
+      run: cargo nextest run --archive-file "$NEXTEST_ARCHIVE_FILE" --profile ci --partition count:${{ inputs.shard }}/${{ inputs.shard-count }}
     - name: Upload nextest JUnit report
       if: always() && inputs.shard != ''
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

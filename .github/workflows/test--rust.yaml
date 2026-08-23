@@ -69,9 +69,28 @@ jobs:
           nextest-version: ${{ env.NEXTEST_VERSION }}
           save-cache: true
 
+  build-test-archive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Build shared Rust test archive
+        uses: ./.github/actions/nextest
+        with:
+          nextest-version: ${{ env.NEXTEST_VERSION }}
+          archive-file: ${{ runner.temp }}/nextest-archive.tar.zst
+          build-archive: true
+      - name: Upload shared Rust test archive
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          path: ${{ runner.temp }}/nextest-archive.tar.zst
+          archive: false
+          retention-days: 1
+
   test:
     name: test shard ${{ matrix.shard }}
-    needs: plan-test-shards
+    needs:
+      - build-test-archive
+      - plan-test-shards
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -79,10 +98,16 @@ jobs:
         shard: ${{ fromJSON(needs.plan-test-shards.outputs.shards) }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Download shared Rust test archive
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: nextest-archive.tar.zst
+          path: ${{ runner.temp }}
       - name: Run Rust tests
         uses: ./.github/actions/nextest
         with:
           nextest-version: ${{ env.NEXTEST_VERSION }}
+          archive-file: ${{ runner.temp }}/nextest-archive.tar.zst
           shard: ${{ matrix.shard }}
           shard-count: ${{ needs.plan-test-shards.outputs.shard_count }}
 
