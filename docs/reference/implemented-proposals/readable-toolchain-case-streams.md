@@ -25,9 +25,13 @@ of manifest escape sequences and into structured or file-backed forms:
   LSP cases whose behavior is decoded message structure.
 - `$case_text` directives let structured requests include exact case-relative
   document text without manual protocol framing.
+- Later JSON assertion parity work lets structured requests use
+  `$workspace_file_uri` directives for copied workspace source URIs in the same
+  reviewable request fixture model.
 - `[[lsp_assert]]` selectors check decoded responses and notifications by id,
   method occurrence, JSON Pointer, complete JSON equality, string containment,
-  file-backed string equality, and missing paths.
+  file-backed string equality, array length, workspace file URI equality, and
+  missing paths.
 - Raw stream fixtures remain available for cases whose observable behavior is
   protocol bytes, framing failures, or an as-yet-unmigrated representation.
 

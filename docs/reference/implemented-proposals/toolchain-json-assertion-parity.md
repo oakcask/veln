@@ -35,7 +35,7 @@ the remaining operation split.
 
 The operation split before this work was:
 
-| Section | Selected input | Current operations | Current equality boundary |
+| Section | Selected input | Prior operations | Prior equality boundary |
 | --- | --- | --- | --- |
 | `[[json_assert]]` | Parsed JSON command stdout and a dot-separated path. | `equals`, `equals_file`, `equals_json_file`, `contains`, `missing` | Uses the common JSON equality contract. |
 | `[[result_value_assert]]` | A parsed rendered Veln result value and a dot-separated path. | `equals`, `equals_file`, `equals_json_file`, `contains`, `missing` | Uses the common JSON equality contract. |
