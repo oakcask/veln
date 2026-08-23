@@ -487,12 +487,18 @@ fn describe_lsp_assertions(fields: &mut BTreeMap<String, String>, manifest: &Cas
                 enum_value(fields, &format!("{base}.operation"), "equals_file");
                 text(fields, &format!("{base}.equals_file"), value);
             }
+            LspAssertionOperation::EqualsFileRef(_) => {
+                unreachable!("manifest finish resolves LSP equals_file operands")
+            }
             LspAssertionOperation::EqualsJsonFile(value) => {
                 enum_value(fields, &format!("{base}.operation"), "equals_json_file");
                 fields.insert(
                     format!("{base}.equals_json_file"),
                     canonical_json(value, &format!("{base}.equals_json_file")),
                 );
+            }
+            LspAssertionOperation::EqualsJsonFileRef(_) => {
+                unreachable!("manifest finish resolves LSP equals_json_file operands")
             }
             LspAssertionOperation::Contains(value) => {
                 enum_value(fields, &format!("{base}.operation"), "contains");
@@ -533,12 +539,18 @@ fn describe_mcp_assertions(fields: &mut BTreeMap<String, String>, manifest: &Cas
                 enum_value(fields, &format!("{base}.operation"), "equals_file");
                 text(fields, &format!("{base}.equals_file"), value);
             }
+            McpAssertionOperation::EqualsFileRef(_) => {
+                unreachable!("manifest finish resolves MCP equals_file operands")
+            }
             McpAssertionOperation::EqualsJsonFile(value) => {
                 enum_value(fields, &format!("{base}.operation"), "equals_json_file");
                 fields.insert(
                     format!("{base}.equals_json_file"),
                     canonical_json(value, &format!("{base}.equals_json_file")),
                 );
+            }
+            McpAssertionOperation::EqualsJsonFileRef(_) => {
+                unreachable!("manifest finish resolves MCP equals_json_file operands")
             }
             McpAssertionOperation::Contains(value) => {
                 enum_value(fields, &format!("{base}.operation"), "contains");
