@@ -88,12 +88,15 @@ grammar_line(47, "IntLiteral    ::= DecimalLiteral | BinaryLiteral | Hexadecimal
 grammar_line(47, "DecimalLiteral ::= ASCII decimal digit+").
 grammar_line(47, "BinaryLiteral ::= \"0b\" (\"0\" | \"1\")+").
 grammar_line(47, "HexadecimalLiteral ::= \"0x\" ASCII hexadecimal digit+").
+grammar_line(48, "CoveredName   ::= Name | Hole").
+grammar_line(48, "CoveredUpperName ::= UpperName | Hole").
+grammar_line(48, "CoveredBindingName ::= BindingName | Hole").
 grammar_line(50, "Item          ::= Function | TestDecl | EffectDecl | HandlerDecl | TypeDecl | SchemaDecl | PublicAlias").
-grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name EffectBinder? \"(\" ParamList? \")\" Return? Effects? NL").
+grammar_line(60, "Function      ::= \"pub\"? \"fn\" CoveredName EffectBinder? \"(\" ParamList? \")\" Return? Effects? NL").
 grammar_line(70, "                  Contract* Body \"end\" NL?").
 grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
 grammar_line(90, "                  Contract* Body \"end\" NL?").
-grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL TypeVariant+ \"end\" NL?").
+grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" CoveredName TypeParamList? NL TypeVariant+ \"end\" NL?").
 grammar_line(101, "EffectDecl    ::= \"pub\"? \"effect\" Name NL EffectOperation+ \"end\" NL?").
 grammar_line(101, "EffectOperation ::= Name \"(\" EffectParamList? \")\" \"->\" TypeText NL").
 grammar_line(101, "EffectParamList ::= Name \":\" TypeText (\",\" Name \":\" TypeText)*").
@@ -116,22 +119,22 @@ grammar_line(107, "SchemaValidation ::= \"validate\" ContractPredicate NL").
 grammar_line(108, "PublicAlias   ::= \"pub\" (\"fn\" | \"type\" | \"schema\") Name \"=\" MemberPath NL").
 grammar_line(110, "TypeParamList ::= \"<\" Name (\",\" Name)* \",\"? \">\"").
 grammar_line(112, "EffectBinder  ::= \"<\" \"effect\" Name \">\"").
-grammar_line(120, "TypeVariant   ::= \"pub\"? UpperName TypeVariantFields? NL").
+grammar_line(120, "TypeVariant   ::= \"pub\"? CoveredUpperName TypeVariantFields? NL").
 grammar_line(130, "TypeVariantFields ::= \"(\" TypeVariantField (\",\" TypeVariantField)* \",\"? \")\"").
 grammar_line(140, "                  | \"{\" TypeVariantField (\",\" TypeVariantField)* \",\"? \"}\"").
 grammar_line(145, "TypeVariantField ::= Name \":\" TypeText | TypeText").
 grammar_line(150, "ParamList     ::= Param (\",\" Param)* \",\"?").
-grammar_line(160, "Param         ::= Name (\":\" VariadicMarker? TypeText)?").
+grammar_line(160, "Param         ::= CoveredName (\":\" VariadicMarker? TypeText)?").
 grammar_line(165, "VariadicMarker ::= \"...\"").
 grammar_line(170, "Return        ::= \"->\" ResultBinding? TypeText").
-grammar_line(180, "ResultBinding ::= Name \":\"").
+grammar_line(180, "ResultBinding ::= CoveredName \":\"").
 grammar_line(190, "Effects       ::= \"effects\" \"[\" EffectList? \"]\"").
 grammar_line(200, "EffectList    ::= EffectEntry (\",\" EffectEntry)* \",\"?").
 grammar_line(205, "EffectEntry   ::= MemberPath | \"...\" Name").
 grammar_line(210, "Contract      ::= (\"require\" | \"ensure\" | \"invariant\") ContractPredicate NL").
 grammar_line(220, "Body          ::= (LetLine | ExprLine)*").
 grammar_line(230, "LetLine       ::= \"let\" LetPattern (\":\" TypeText)? \"=\" Expr NL").
-grammar_line(240, "LetPattern    ::= \"_\" | BindingName | RecordPattern").
+grammar_line(240, "LetPattern    ::= \"_\" | CoveredBindingName | RecordPattern").
 grammar_line(250, "ExprLine      ::= Expr NL").
 grammar_line(260, "Expr          ::= PrefixExpr (BinaryOp PrefixExpr)*").
 grammar_line(265, "BinaryOp      ::= \"|>\" | \"or\" | \"and\" | \"|\" | \"^\" | \"&\" | \"==\" | \"!=\"").
@@ -156,7 +159,7 @@ grammar_line(380, "Match         ::= \"match\" Expr NL MatchArm+ \"end\"").
 grammar_line(390, "MatchArm      ::= Pattern \"=>\" Expr NL").
 grammar_line(400, "If            ::= \"if\" Expr NL Expr NL ElseIf* \"else\" NL Expr NL \"end\"").
 grammar_line(410, "ElseIf        ::= \"else\" \"if\" Expr NL Expr NL").
-grammar_line(420, "Pattern       ::= \"_\" | BindingName | Literal | ConstructorPattern | RecordPattern").
+grammar_line(420, "Pattern       ::= \"_\" | CoveredBindingName | Literal | ConstructorPattern | RecordPattern").
 grammar_line(430, "ConstructorPattern ::= ConstructorName \"(\" PatternList? \")\" | ConstructorName").
 grammar_line(440, "ConstructorName ::= UpperName | Name \"::\" Name (\"::\" Name)*").
 grammar_line(450, "RecordPattern ::= \"{\" PatternFieldList? \"}\"").
@@ -338,7 +341,7 @@ item --> nls, public_alias.
 function_decl -->
     visibility,
     tok(fn),
-    ident,
+    covered_name,
     effect_binder_opt,
     tok(lparen),
     params_opt,
@@ -429,7 +432,7 @@ effect_param --> ident, tok(colon), type_text_until([comma, rparen]).
 type_decl -->
     visibility,
     tok(type),
-    ident,
+    covered_name,
     type_params_opt,
     nl,
     type_variants,
@@ -506,7 +509,7 @@ ident_tail --> [].
 type_variants --> type_variant, !, type_variants_tail.
 type_variants_tail --> type_variant, !, type_variants_tail.
 type_variants_tail --> [].
-type_variant --> visibility, upper_name, type_variant_fields_opt, nl.
+type_variant --> visibility, covered_upper_name, type_variant_fields_opt, nl.
 type_variant_fields_opt --> tok(lparen), type_variant_field_list, tok(rparen), !.
 type_variant_fields_opt --> tok(lbrace), type_variant_record_field_list, tok(rbrace), !.
 type_variant_fields_opt --> [].
@@ -530,14 +533,14 @@ params_tail --> [].
 trailing_comma_opt --> tok(comma), !.
 trailing_comma_opt --> [].
 
-param --> ident, annotation_opt.
+param --> covered_name, annotation_opt.
 annotation_opt --> tok(colon), type_text_until([comma, rparen]), !.
 annotation_opt --> [].
 
 return_opt --> return_clause, !.
 return_opt --> [].
 return_clause --> tok(arrow), result_binding_opt, type_text_until([effects, nl]).
-result_binding_opt --> ident, tok(colon), !.
+result_binding_opt --> covered_name, tok(colon), !.
 result_binding_opt --> [].
 
 effects_opt --> effects_clause, !.
@@ -706,7 +709,7 @@ primary_expr --> list_expr.
 primary_expr --> match_expr.
 primary_expr --> if_expr.
 
-satisfy_opt --> ident_text("satisfy"), ident, tok(fat_arrow), expr, !.
+satisfy_opt --> ident_text("satisfy"), covered_name, tok(fat_arrow), expr, !.
 satisfy_opt --> [].
 
 schema_decode_expr -->
@@ -787,14 +790,14 @@ else_if_tail --> tok(else), tok(if), expr, nls, expr, nls, !, else_if_tail.
 else_if_tail --> [].
 
 let_pattern --> tok(underscore).
-let_pattern --> binding_name.
+let_pattern --> covered_binding_name.
 let_pattern --> record_pattern.
 
 pattern --> tok(underscore).
 pattern --> literal.
 pattern --> record_pattern.
 pattern --> constructor_pattern.
-pattern --> binding_name.
+pattern --> covered_binding_name.
 
 constructor_pattern -->
     constructor_name,
@@ -857,6 +860,12 @@ binary_op --> tok(minus).
 binary_op --> tok(star).
 binary_op --> tok(slash).
 
+covered_binding_name --> binding_name.
+covered_binding_name --> tok(hole).
+covered_upper_name --> upper_name.
+covered_upper_name --> tok(hole).
+covered_name --> ident.
+covered_name --> tok(hole).
 binding_name --> ident_text(Text), { string_chars(Text, [First | _]), \+ char_type(First, upper) }.
 upper_name --> ident_text(Text), { string_chars(Text, [First | _]), char_type(First, upper) }.
 ident --> tok(ident).

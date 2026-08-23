@@ -65,12 +65,15 @@ IntLiteral    ::= DecimalLiteral | BinaryLiteral | HexadecimalLiteral
 DecimalLiteral ::= ASCII decimal digit+
 BinaryLiteral ::= "0b" ("0" | "1")+
 HexadecimalLiteral ::= "0x" ASCII hexadecimal digit+
+CoveredName   ::= Name | Hole
+CoveredUpperName ::= UpperName | Hole
+CoveredBindingName ::= BindingName | Hole
 Item          ::= Function | TestDecl | EffectDecl | HandlerDecl | TypeDecl | SchemaDecl | PublicAlias
-Function      ::= "pub"? "fn" Name EffectBinder? "(" ParamList? ")" Return? Effects? NL
+Function      ::= "pub"? "fn" CoveredName EffectBinder? "(" ParamList? ")" Return? Effects? NL
                   Contract* Body "end" NL?
 TestDecl      ::= "test" Name "(" ")" Return Effects? NL
                   Contract* Body "end" NL?
-TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant+ "end" NL?
+TypeDecl      ::= "pub"? "type" CoveredName TypeParamList? NL TypeVariant+ "end" NL?
 EffectDecl    ::= "pub"? "effect" Name NL EffectOperation+ "end" NL?
 EffectOperation ::= Name "(" EffectParamList? ")" "->" TypeText NL
 EffectParamList ::= Name ":" TypeText ("," Name ":" TypeText)*
@@ -93,22 +96,22 @@ SchemaValidation ::= "validate" ContractPredicate NL
 PublicAlias   ::= "pub" ("fn" | "type" | "schema") Name "=" MemberPath NL
 TypeParamList ::= "<" Name ("," Name)* ","? ">"
 EffectBinder  ::= "<" "effect" Name ">"
-TypeVariant   ::= "pub"? UpperName TypeVariantFields? NL
+TypeVariant   ::= "pub"? CoveredUpperName TypeVariantFields? NL
 TypeVariantFields ::= "(" TypeVariantField ("," TypeVariantField)* ","? ")"
                   | "{" TypeVariantField ("," TypeVariantField)* ","? "}"
 TypeVariantField ::= Name ":" TypeText | TypeText
 ParamList     ::= Param ("," Param)* ","?
-Param         ::= Name (":" VariadicMarker? TypeText)?
+Param         ::= CoveredName (":" VariadicMarker? TypeText)?
 VariadicMarker ::= "..."
 Return        ::= "->" ResultBinding? TypeText
-ResultBinding ::= Name ":"
+ResultBinding ::= CoveredName ":"
 Effects       ::= "effects" "[" EffectList? "]"
 EffectList    ::= EffectEntry ("," EffectEntry)* ","?
 EffectEntry   ::= MemberPath | "..." Name
 Contract      ::= ("require" | "ensure" | "invariant") ContractPredicate NL
 Body          ::= (LetLine | ExprLine)*
 LetLine       ::= "let" LetPattern (":" TypeText)? "=" Expr NL
-LetPattern    ::= "_" | BindingName | RecordPattern
+LetPattern    ::= "_" | CoveredBindingName | RecordPattern
 ExprLine      ::= Expr NL
 Expr          ::= PrefixExpr (BinaryOp PrefixExpr)*
 BinaryOp      ::= "|>" | "or" | "and" | "|" | "^" | "&" | "==" | "!="
@@ -133,7 +136,7 @@ Match         ::= "match" Expr NL MatchArm+ "end"
 MatchArm      ::= Pattern "=>" Expr NL
 If            ::= "if" Expr NL Expr NL ElseIf* "else" NL Expr NL "end"
 ElseIf        ::= "else" "if" Expr NL Expr NL
-Pattern       ::= "_" | BindingName | Literal | ConstructorPattern | RecordPattern
+Pattern       ::= "_" | CoveredBindingName | Literal | ConstructorPattern | RecordPattern
 ConstructorPattern ::= ConstructorName "(" PatternList? ")" | ConstructorName
 ConstructorName ::= UpperName | Name "::" Name ("::" Name)*
 RecordPattern ::= "{" PatternFieldList? "}"

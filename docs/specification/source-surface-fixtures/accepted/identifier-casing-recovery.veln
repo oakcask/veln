@@ -1,0 +1,8 @@
+type _item
+	_made(field: Int)
+end
+
+fn _build(_value: Int) -> _result: Int
+	let _local = _ satisfy _candidate => true
+	_local
+end
