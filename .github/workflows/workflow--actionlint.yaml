@@ -5,8 +5,8 @@ on:
     paths:
       - .github/workflows/*.yaml
       - .github/workflows/*.yml
-      - actions/**/*.yaml
-      - actions/**/*.yml
+      - .github/actions/**/*.yaml
+      - .github/actions/**/*.yml
 
 permissions:
   contents: read

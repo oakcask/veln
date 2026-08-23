@@ -7,8 +7,8 @@ on:
     paths:
       - .github/workflows/lint--rust.yaml
       - .cargo/config.toml
-      - actions/cargo-dependencies/action.yaml
-      - actions/clippy/action.yaml
+      - .github/actions/cargo-dependencies/action.yaml
+      - .github/actions/clippy/action.yaml
       - Cargo.lock
       - Cargo.toml
       - crates/**/Cargo.toml
@@ -20,8 +20,8 @@ on:
     paths:
       - .github/workflows/lint--rust.yaml
       - .cargo/config.toml
-      - actions/cargo-dependencies/action.yaml
-      - actions/clippy/action.yaml
+      - .github/actions/cargo-dependencies/action.yaml
+      - .github/actions/clippy/action.yaml
       - Cargo.lock
       - Cargo.toml
       - crates/**/Cargo.toml
@@ -52,4 +52,4 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - name: Check Clippy lints
-        uses: ./actions/clippy
+        uses: ./.github/actions/clippy

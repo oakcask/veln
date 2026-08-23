@@ -31,8 +31,8 @@ workflow_with_run(run) := {
 
 test_accepts_exact_local_action_manifest_in_filtered_trigger if {
   violations := deny with input as workflow_with(
-    [".github/workflows/test--local-action.yaml", "actions/example/action.yaml"],
-    "./actions/example",
+    [".github/workflows/test--local-action.yaml", ".github/actions/example/action.yaml"],
+    "./.github/actions/example",
   )
   count(violations) == 0
 }
@@ -40,17 +40,17 @@ test_accepts_exact_local_action_manifest_in_filtered_trigger if {
 test_rejects_missing_local_action_manifest_in_filtered_trigger if {
   violations := deny with input as workflow_with(
     [".github/workflows/test--local-action.yaml"],
-    "./actions/example",
+    "./.github/actions/example",
   )
-  violations["add \"actions/example/action.yaml\" to on.pull_request.paths because this workflow uses local action \"./actions/example\""]
+  violations["add \".github/actions/example/action.yaml\" to on.pull_request.paths because this workflow uses local action \"./.github/actions/example\""]
 }
 
 test_rejects_wildcard_local_action_path if {
   violations := deny with input as workflow_with(
-    [".github/workflows/test--local-action.yaml", "actions/**"],
-    "./actions/example",
+    [".github/workflows/test--local-action.yaml", ".github/actions/**"],
+    "./.github/actions/example",
   )
-  violations["replace wildcard path \"actions/**\" in on.pull_request.paths with each exact local action.yaml path; wildcard custom-action trigger paths are not allowed"]
+  violations["replace wildcard path \".github/actions/**\" in on.pull_request.paths with each exact local action.yaml path; wildcard custom-action trigger paths are not allowed"]
 }
 
 test_requires_each_local_action_manifest if {
@@ -60,7 +60,7 @@ test_requires_each_local_action_manifest if {
       "pull_request": {
         "paths": [
           ".github/workflows/test--local-actions.yaml",
-          "actions/first/action.yaml",
+          ".github/actions/first/action.yaml",
         ],
       },
     },
@@ -69,14 +69,14 @@ test_requires_each_local_action_manifest if {
       "test": {
         "runs-on": "ubuntu-latest",
         "steps": [
-          {"uses": "./actions/first"},
-          {"uses": "./actions/second"},
+          {"uses": "./.github/actions/first"},
+          {"uses": "./.github/actions/second"},
         ],
       },
     },
   }
   violations := deny with input as workflow
-  violations["add \"actions/second/action.yaml\" to on.pull_request.paths because this workflow uses local action \"./actions/second\""]
+  violations["add \".github/actions/second/action.yaml\" to on.pull_request.paths because this workflow uses local action \"./.github/actions/second\""]
 }
 
 test_ignores_external_actions if {
@@ -95,7 +95,7 @@ test_accepts_local_action_without_path_filter if {
     "jobs": {
       "test": {
         "runs-on": "ubuntu-latest",
-        "steps": [{"uses": "./actions/example"}],
+        "steps": [{"uses": "./.github/actions/example"}],
       },
     },
   }
