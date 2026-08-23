@@ -2647,8 +2647,8 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
     let mut root_stdin_operands = 0;
     let mut json_operations = Vec::<AssertionOperationPreflight>::new();
     let mut result_value_operations = Vec::<AssertionOperationPreflight>::new();
-    let mut lsp_operations = Vec::<AssertionOperationPreflight>::new();
-    let mut mcp_operations = Vec::<AssertionOperationPreflight>::new();
+    let mut lsp_operations = Vec::<LspAssertionPreflight>::new();
+    let mut mcp_operations = Vec::<McpAssertionPreflight>::new();
     let mut file_assert_operations = Vec::<usize>::new();
 
     for statement in statements {
@@ -2671,11 +2671,11 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                         Section::ResultValueAssert(result_value_operations.len() - 1)
                     }
                     "[[lsp_assert]]" => {
-                        lsp_operations.push(AssertionOperationPreflight::default());
+                        lsp_operations.push(LspAssertionPreflight::default());
                         Section::LspAssert(lsp_operations.len() - 1)
                     }
                     "[[mcp_assert]]" => {
-                        mcp_operations.push(AssertionOperationPreflight::default());
+                        mcp_operations.push(McpAssertionPreflight::default());
                         Section::McpAssert(mcp_operations.len() - 1)
                     }
                     "[[file_assert]]" => {
@@ -2752,7 +2752,7 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                                 | "missing"
                         ) =>
                     {
-                        lsp_operations[index].record(path, key, value);
+                        lsp_operations[index].operation.record(path, key, value);
                     }
                     Section::McpAssert(index)
                         if matches!(
@@ -2766,7 +2766,13 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                                 | "missing"
                         ) =>
                     {
-                        mcp_operations[index].record(path, key, value);
+                        mcp_operations[index].operation.record(path, key, value);
+                    }
+                    Section::LspAssert(index) => {
+                        lsp_operations[index].record_selector_or_path(path, key, value);
+                    }
+                    Section::McpAssert(index) => {
+                        mcp_operations[index].record_selector_or_path(path, key, value);
                     }
                     Section::FileAssert(index) if matches!(*key, "equals" | "equals_file") => {
                         file_assert_operations[index] += 1;
@@ -2820,15 +2826,15 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
             );
         }
     }
-    for (index, operation) in lsp_operations.iter().enumerate() {
-        if operation.missing_false {
+    for (index, assertion) in lsp_operations.iter().enumerate() {
+        if assertion.operation.missing_false {
             manifest_error(
                 path,
                 0,
                 format!("lsp_assert {index} `missing` must be true when present"),
             );
         }
-        if operation.count != 1 {
+        if assertion.operation.count != 1 {
             manifest_error(
                 path,
                 0,
@@ -2837,16 +2843,25 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                 ),
             );
         }
+        assertion.operation.validate_operands(
+            path,
+            &assertion_base_context(
+                "lsp_assert",
+                index,
+                &assertion.selector(),
+                assertion.path.as_deref().unwrap_or(""),
+            ),
+        );
     }
-    for (index, operation) in mcp_operations.iter().enumerate() {
-        if operation.missing_false {
+    for (index, assertion) in mcp_operations.iter().enumerate() {
+        if assertion.operation.missing_false {
             manifest_error(
                 path,
                 0,
                 format!("mcp_assert {index} `missing` must be true when present"),
             );
         }
-        if operation.count != 1 {
+        if assertion.operation.count != 1 {
             manifest_error(
                 path,
                 0,
@@ -2855,6 +2870,15 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
                 ),
             );
         }
+        assertion.operation.validate_operands(
+            path,
+            &assertion_base_context(
+                "mcp_assert",
+                index,
+                &assertion.selector(),
+                assertion.path.as_deref().unwrap_or(""),
+            ),
+        );
     }
     for (index, count) in file_assert_operations.iter().enumerate() {
         if *count != 1 {
@@ -2871,6 +2895,8 @@ fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestSta
 struct AssertionOperationPreflight {
     count: usize,
     missing_false: bool,
+    length: Option<PreflightLengthOperand>,
+    workspace_file_uri: Option<PreflightWorkspaceFileUriOperand>,
 }
 
 impl AssertionOperationPreflight {
@@ -2879,7 +2905,139 @@ impl AssertionOperationPreflight {
         if key == "missing" && !parse_bool(path, value) {
             self.missing_false = true;
         }
+        if key == "length" {
+            self.length = Some(PreflightLengthOperand {
+                line_number: value.line(),
+                raw: value.raw().to_string(),
+            });
+        }
+        if key == "workspace_file_uri" {
+            self.workspace_file_uri = Some(PreflightWorkspaceFileUriOperand {
+                line_number: value.line(),
+                relative: value.is_string().then(|| parse_string(path, value)),
+                string_operand: value.is_string(),
+            });
+        }
     }
+
+    fn validate_operands(&self, path: &Path, base_context: &str) {
+        if let Some(operand) = &self.length {
+            let context = format!("{base_context} length");
+            let parsed = operand.raw.parse::<i64>().unwrap_or_else(|_| {
+                manifest_error(
+                    path,
+                    operand.line_number,
+                    format!("{context}: expected integer"),
+                )
+            });
+            if parsed < 0 {
+                manifest_error(
+                    path,
+                    operand.line_number,
+                    format!("{context}: expected non-negative integer"),
+                );
+            }
+            usize::try_from(parsed).unwrap_or_else(|_| {
+                manifest_error(
+                    path,
+                    operand.line_number,
+                    format!("{context}: expected non-negative integer within range"),
+                )
+            });
+        }
+        if let Some(operand) = &self.workspace_file_uri {
+            let context = format!("{base_context} workspace_file_uri");
+            if !operand.string_operand {
+                manifest_error(
+                    path,
+                    operand.line_number,
+                    format!("{context}: expected string"),
+                );
+            }
+            let relative = operand
+                .relative
+                .as_deref()
+                .expect("validated workspace_file_uri string operand");
+            validate_workspace_file_uri_operand_with_context(
+                path,
+                operand.line_number,
+                relative,
+                Some(&context),
+            );
+        }
+    }
+}
+
+#[derive(Default)]
+struct LspAssertionPreflight {
+    id: Option<JsonValue>,
+    method: Option<String>,
+    occurrence: Option<usize>,
+    path: Option<String>,
+    operation: AssertionOperationPreflight,
+}
+
+impl LspAssertionPreflight {
+    fn record_selector_or_path(&mut self, path: &Path, key: &str, value: &ManifestValue<'_>) {
+        match key {
+            "id" => self.id = Some(parse_manifest_json_value(path, value)),
+            "method" => self.method = Some(parse_string(path, value)),
+            "occurrence" => self.occurrence = Some(parse_nonnegative_usize(path, value)),
+            "path" => self.path = Some(parse_string(path, value)),
+            _ => {}
+        }
+    }
+
+    fn selector(&self) -> String {
+        if let Some(id) = &self.id {
+            format!("response id {}", id.to_compact_string())
+        } else if let Some(method) = &self.method {
+            format!(
+                "notification method {method:?} occurrence {}",
+                self.occurrence.unwrap_or(0)
+            )
+        } else {
+            "unresolved selector".to_string()
+        }
+    }
+}
+
+#[derive(Default)]
+struct McpAssertionPreflight {
+    id: Option<JsonValue>,
+    path: Option<String>,
+    operation: AssertionOperationPreflight,
+}
+
+impl McpAssertionPreflight {
+    fn record_selector_or_path(&mut self, path: &Path, key: &str, value: &ManifestValue<'_>) {
+        match key {
+            "id" => self.id = Some(parse_manifest_json_value_allow_decimal(path, value)),
+            "path" => self.path = Some(parse_string(path, value)),
+            _ => {}
+        }
+    }
+
+    fn selector(&self) -> String {
+        if let Some(id) = &self.id {
+            format!("response id {}", id.to_compact_string())
+        } else {
+            "unresolved selector".to_string()
+        }
+    }
+}
+
+#[derive(Default)]
+struct PreflightLengthOperand {
+    line_number: usize,
+    raw: String,
+}
+
+#[derive(Default)]
+struct PreflightWorkspaceFileUriOperand {
+    line_number: usize,
+    relative: Option<String>,
+    string_operand: bool,
 }
 
 struct ManifestParser<'a> {
@@ -3455,24 +3613,16 @@ impl<'a> ManifestParser<'a> {
             }
             "length" => {
                 assertion.operation_count += 1;
-                let context = assertion_context(
-                    "lsp_assert",
-                    index,
-                    &assertion.selector(),
-                    &assertion.path,
-                    "length",
-                );
+                let context = unresolved_assertion_operation_context("lsp_assert", index, "length");
                 assertion.operation = Some(LspAssertionOperation::Length(
                     parse_nonnegative_usize_with_context(self.path, value, &context),
                 ));
             }
             "workspace_file_uri" => {
                 assertion.operation_count += 1;
-                let context = assertion_context(
+                let context = unresolved_assertion_operation_context(
                     "lsp_assert",
                     index,
-                    &assertion.selector(),
-                    &assertion.path,
                     "workspace_file_uri",
                 );
                 let relative = parse_string_with_context(self.path, value, &context);
@@ -3556,24 +3706,16 @@ impl<'a> ManifestParser<'a> {
             }
             "length" => {
                 assertion.operation_count += 1;
-                let context = assertion_context(
-                    "mcp_assert",
-                    index,
-                    &assertion.selector(),
-                    &assertion.path,
-                    "length",
-                );
+                let context = unresolved_assertion_operation_context("mcp_assert", index, "length");
                 assertion.operation = Some(McpAssertionOperation::Length(
                     parse_nonnegative_usize_with_context(self.path, value, &context),
                 ));
             }
             "workspace_file_uri" => {
                 assertion.operation_count += 1;
-                let context = assertion_context(
+                let context = unresolved_assertion_operation_context(
                     "mcp_assert",
                     index,
-                    &assertion.selector(),
-                    &assertion.path,
                     "workspace_file_uri",
                 );
                 let relative = parse_string_with_context(self.path, value, &context);
@@ -3971,11 +4113,22 @@ fn assertion_context(
     pointer: &str,
     operation: &str,
 ) -> String {
-    format!("{section} {index} {selector} path `{pointer}` {operation}")
+    format!(
+        "{} {operation}",
+        assertion_base_context(section, index, selector, pointer)
+    )
+}
+
+fn assertion_base_context(section: &str, index: usize, selector: &str, pointer: &str) -> String {
+    format!("{section} {index} {selector} path `{pointer}`")
 }
 
 fn value_assertion_context(section: &str, index: usize, path: &str, operation: &str) -> String {
     format!("{section} {index} path `{path}` {operation}")
+}
+
+fn unresolved_assertion_operation_context(section: &str, index: usize, operation: &str) -> String {
+    format!("{section} {index} {operation}")
 }
 
 fn validate_binary_fixture_field_path(
@@ -8691,6 +8844,158 @@ fn common_length_and_workspace_uri_operand_errors_report_assertion_context() {
                     "expected `{expected}` in `{message}`"
                 );
             }
+        }
+    }
+
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn lsp_and_mcp_length_and_workspace_uri_accept_operation_before_selector_path() {
+    let root = test_temp_root("lsp-mcp-operation-before-selector");
+    fs::write(root.join("main.veln"), "").expect("workspace file should be written");
+    let manifest_path = root.join("case.toml");
+
+    for (command, section, operation, selectors, operation_fragment) in [
+        (
+            "lsp",
+            "lsp_assert",
+            "length = 2\n",
+            "id = 1\npath = \"/result/items\"\n",
+            "length",
+        ),
+        (
+            "lsp",
+            "lsp_assert",
+            "workspace_file_uri = \"main.veln\"\n",
+            "method = \"note\"\npath = \"/params/uri\"\n",
+            "workspace_file_uri",
+        ),
+        (
+            "mcp",
+            "mcp_assert",
+            "length = 2\n",
+            "id = 1\npath = \"/result/items\"\n",
+            "length",
+        ),
+        (
+            "mcp",
+            "mcp_assert",
+            "workspace_file_uri = \"main.veln\"\n",
+            "id = 1\npath = \"/result/uri\"\n",
+            "workspace_file_uri",
+        ),
+    ] {
+        let manifest = parse_manifest(
+            &manifest_path,
+            &format!("command = [\"{command}\"]\nexit = 0\n[[{section}]]\n{operation}{selectors}"),
+        );
+        let parsed_operation = match section {
+            "lsp_assert" => match manifest.expectations.lsp_assertions[0]
+                .operation
+                .as_ref()
+                .expect("operation should parse")
+            {
+                LspAssertionOperation::Length(_) => "length",
+                LspAssertionOperation::WorkspaceFileUri(_) => "workspace_file_uri",
+                operation => panic!("unexpected lsp operation: {operation:?}"),
+            },
+            "mcp_assert" => match manifest.expectations.mcp_assertions[0]
+                .operation
+                .as_ref()
+                .expect("operation should parse")
+            {
+                McpAssertionOperation::Length(_) => "length",
+                McpAssertionOperation::WorkspaceFileUri(_) => "workspace_file_uri",
+                operation => panic!("unexpected mcp operation: {operation:?}"),
+            },
+            _ => unreachable!("test section should be covered"),
+        };
+        assert_eq!(parsed_operation, operation_fragment);
+    }
+
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn lsp_and_mcp_operation_before_selector_path_errors_keep_resolved_context() {
+    let root = test_temp_root("lsp-mcp-operation-before-selector-error");
+    fs::write(root.join("main.veln"), "").expect("workspace file should be written");
+    let manifest_path = root.join("case.toml");
+
+    for (command, section, operation, selectors, expected_fragments) in [
+        (
+            "lsp",
+            "lsp_assert",
+            "length = \"2\"\n",
+            "id = 1\npath = \"/result/items\"\n",
+            vec![
+                "lsp_assert",
+                "0",
+                "response id 1",
+                "path `/result/items`",
+                "length",
+                "expected integer",
+            ],
+        ),
+        (
+            "lsp",
+            "lsp_assert",
+            "workspace_file_uri = 1\n",
+            "method = \"note\"\npath = \"/params/uri\"\n",
+            vec![
+                "lsp_assert",
+                "0",
+                "notification method \"note\" occurrence 0",
+                "path `/params/uri`",
+                "workspace_file_uri",
+                "expected string",
+            ],
+        ),
+        (
+            "mcp",
+            "mcp_assert",
+            "length = \"2\"\n",
+            "id = 1\npath = \"/result/items\"\n",
+            vec![
+                "mcp_assert",
+                "0",
+                "response id 1",
+                "path `/result/items`",
+                "length",
+                "expected integer",
+            ],
+        ),
+        (
+            "mcp",
+            "mcp_assert",
+            "workspace_file_uri = 1\n",
+            "id = 1\npath = \"/result/uri\"\n",
+            vec![
+                "mcp_assert",
+                "0",
+                "response id 1",
+                "path `/result/uri`",
+                "workspace_file_uri",
+                "expected string",
+            ],
+        ),
+    ] {
+        let panic = std::panic::catch_unwind(|| {
+            parse_manifest(
+                &manifest_path,
+                &format!(
+                    "command = [\"{command}\"]\nexit = 0\n[[{section}]]\n{operation}{selectors}"
+                ),
+            )
+        })
+        .expect_err("invalid assertion operand should fail");
+        let message = panic_message(panic);
+        for expected in expected_fragments {
+            assert!(
+                message.contains(expected),
+                "expected `{expected}` in `{message}`"
+            );
         }
     }
 
