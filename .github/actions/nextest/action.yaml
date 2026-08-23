@@ -58,7 +58,7 @@ runs:
       shell: bash
       env:
         NEXTEST_ARCHIVE_FILE: ${{ inputs.archive-file }}
-      run: cargo nextest run --archive-file "$NEXTEST_ARCHIVE_FILE" --profile ci --partition count:${{ inputs.shard }}/${{ inputs.shard-count }}
+      run: cargo nextest run --archive-file "$NEXTEST_ARCHIVE_FILE" --extract-to . --extract-overwrite --profile ci --partition count:${{ inputs.shard }}/${{ inputs.shard-count }}
     - name: Upload nextest JUnit report
       if: always() && inputs.shard != ''
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
