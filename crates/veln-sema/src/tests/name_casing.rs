@@ -166,3 +166,136 @@ fn incompatible_recovery_class_does_not_suppress_unresolved_call() {
             .any(|diagnostic| diagnostic.id == "name.unresolved")
     );
 }
+
+#[test]
+fn invalid_value_binding_is_quarantined_but_unique_value_use_recovers() {
+    let parsed = parse(&SourceFile::new(
+        "main.veln",
+        concat!("fn main(Value: Int) -> Int\n", "  Value\n", "end\n",),
+    ));
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "name.invalid_case");
+    assert_eq!(
+        diagnostics[0].message,
+        "binding name must start with an ASCII lowercase letter"
+    );
+}
+
+#[test]
+fn invalid_value_bindings_do_not_enter_duplicate_lookup() {
+    let parsed = parse(&SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(Value: Int, Value: Int) -> Int\n",
+            "  Value\n",
+            "end\n",
+        ),
+    ));
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+            .count(),
+        2
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.duplicate")
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.unresolved")
+    );
+}
+
+#[test]
+fn multiple_invalid_value_bindings_do_not_select_recovery() {
+    let parsed = parse(&SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(Value: Int, Value: Int) -> Int\n",
+            "  Value\n",
+            "end\n",
+        ),
+    ));
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.unresolved")
+    );
+}
+
+#[test]
+fn invalid_callable_binding_recovers_only_for_function_typed_calls() {
+    let parsed = parse(&SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(Callback: fn(Int) -> Int, Number: Int) -> Int\n",
+            "  Callback(1)\n",
+            "  Number()\n",
+            "end\n",
+        ),
+    ));
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+            .count(),
+        2
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.unresolved"
+                && diagnostic.message == "unresolved call_target `Number`")
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.message != "unresolved value `Number`")
+    );
+}
+
+#[test]
+fn invalid_satisfy_candidate_does_not_enter_predicate_bindings() {
+    let parsed = parse(&SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(fallback: Int) -> Int\n",
+            "  _value satisfy Candidate => Candidate == fallback\n",
+            "end\n",
+        ),
+    ));
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.invalid_case")
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.message != "unresolved satisfy_predicate `Candidate`")
+    );
+}

@@ -12,16 +12,20 @@ This file specifies implemented name resolution and effect checking.
 
 Source ADT type and constructor declarations start with an ASCII uppercase
 letter. Function declarations and value bindings start with an ASCII lowercase
-letter. An underscore does not satisfy either class. The standalone `_` keeps
-its wildcard and discard behavior. An underscore-led token in a covered
-declaration or binding is retained for `name.invalid_case` recovery instead of
-producing a missing-identifier parse diagnostic.
+letter. Value bindings include function parameters, result bindings, `let`
+bindings, pattern bindings, handler clause bindings, and hole `satisfy`
+candidate bindings. An underscore does not satisfy either class. The
+standalone `_` keeps its wildcard and discard behavior. An underscore-led token
+in a covered declaration or binding is retained for `name.invalid_case`
+recovery instead of producing a missing-identifier parse diagnostic.
 
 An invalid covered name is quarantined from ordinary type, constructor, and
-function lookup. One same-spelled compatible use in the declaring source may
-suppress a derivative unresolved-name diagnostic when exactly one invalid
-declaration is available and no valid declaration wins. Recovery does not
-cross an import or public alias, and it never enters checked core or typed IR.
+function lookup. One same-spelled compatible use in the declaring source and
+lexical scope may suppress a derivative unresolved-name diagnostic when
+exactly one invalid declaration or binding is available and no valid
+declaration or binding wins. Recovery does not cross an import or public alias,
+and it never enters checked core, typed IR, hole repair candidate lists, or
+backend input.
 The checked `identifier-casing-*` cases under
 `../../examples/specification/check/`, together with parser and semantic unit
 tests, fix accepted and rejected names, exact human and JSON diagnostics,

@@ -1,0 +1,16 @@
+fn unique(Unique: Int) -> Int
+  Unique
+end
+
+fn ambiguous(Repeat: Int, Repeat: Int) -> Int
+  Repeat
+end
+
+fn callable(Callback: fn(Int) -> Int, Number: Int) -> Int
+  let result = Callback(1)
+  Number()
+end
+
+fn satisfy_case(fallback: Int) -> Int
+  _hole satisfy Candidate => Candidate == fallback
+end

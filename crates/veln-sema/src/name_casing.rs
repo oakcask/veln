@@ -102,6 +102,12 @@ pub(crate) fn valid_type_name(name: &str) -> bool {
         .is_some_and(|initial| initial.is_ascii_uppercase())
 }
 
+pub(crate) fn valid_value_binding_name(name: &str) -> bool {
+    name.chars()
+        .next()
+        .is_some_and(|initial| initial.is_ascii_lowercase())
+}
+
 pub(crate) fn suppress_unique_local_recovery_derivatives(
     module: &SurfaceModule,
     diagnostics: &mut Vec<Diagnostic>,

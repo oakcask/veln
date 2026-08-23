@@ -10,6 +10,7 @@ use super::boundary::{
 use super::repair_reasoning::*;
 use super::*;
 use crate::effects::prelude_effect_origin;
+use crate::name_casing::valid_value_binding_name;
 use crate::schema::primitives::lowercase_schema_primitive;
 use crate::standard_symbols::qualified_symbol;
 use crate::types::signatures::{
@@ -38,6 +39,7 @@ pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) function: &'a Function,
     pub(super) environment: &'a TypeEnvironment,
     pub(super) bindings: Vec<Binding>,
+    recovery_bindings: Vec<RecoveryLocalBinding>,
     omitted_local_bindings: Vec<OmittedLocalBinding>,
     pub(super) local_names: BTreeMap<String, (String, SourceSpan)>,
     pub(super) inferred_effects: Vec<EffectUse>,
@@ -58,6 +60,19 @@ struct OmittedLocalBinding {
     node_id: NodeId,
     span: SourceSpan,
     deferred_initializer_diagnostic: Option<usize>,
+}
+
+struct RecoveryLocalBinding {
+    name: String,
+    ty: Type,
+    span: SourceSpan,
+    scope: RecoveryScope,
+}
+
+#[derive(Clone, Copy)]
+pub(super) enum RecoveryScope {
+    Body,
+    EnsureContract,
 }
 
 struct EffectBoundary {
@@ -171,6 +186,7 @@ impl<'a> FunctionChecker<'a> {
             function,
             environment,
             bindings: Vec::new(),
+            recovery_bindings: Vec::new(),
             omitted_local_bindings: Vec::new(),
             local_names: BTreeMap::new(),
             inferred_effects: Vec::new(),
@@ -264,6 +280,15 @@ impl<'a> FunctionChecker<'a> {
         deferred_initializer_diagnostic: Option<usize>,
         pattern_has_diagnostic: bool,
     ) {
+        if !valid_value_binding_name(&binding.name) {
+            self.record_recovery_binding(
+                binding.name,
+                binding.ty,
+                binding.span,
+                RecoveryScope::Body,
+            );
+            return;
+        }
         if !self.declare_local_name(
             &binding.name,
             binding.node_id.display("pattern"),
@@ -608,15 +633,6 @@ impl<'a> FunctionChecker<'a> {
             });
 
         self.check_variadic_parameter_shape(param, variadic_count, private_omitted_parameter);
-        if !self.declare_local_name(
-            &param.name,
-            param.node_id.display("param"),
-            param.span.clone(),
-            "parameter",
-        ) {
-            return;
-        }
-
         let binding_type = signature
             .and_then(|signature| signature.params.get(index).cloned())
             .or(inferred_private_param.filter(|ty| !type_contains_unknown(ty)))
@@ -629,6 +645,23 @@ impl<'a> FunctionChecker<'a> {
                     }
                 })
             });
+        if !valid_value_binding_name(&param.name) {
+            self.record_recovery_binding(
+                param.name.clone(),
+                binding_type,
+                param.span.clone(),
+                RecoveryScope::Body,
+            );
+            return;
+        }
+        if !self.declare_local_name(
+            &param.name,
+            param.node_id.display("param"),
+            param.span.clone(),
+            "parameter",
+        ) {
+            return;
+        }
         self.bindings
             .push(Binding::new(param.name.clone(), binding_type));
     }
@@ -695,42 +728,61 @@ impl<'a> FunctionChecker<'a> {
     }
 
     fn check_result_binding_name(&mut self) {
-        if let Some(result_binding) = &self.function.return_binding
-            && let Some(param) = self
+        if let Some(result_binding) = &self.function.return_binding {
+            if !valid_value_binding_name(&result_binding.name) {
+                let ty = self
+                    .function
+                    .return_type
+                    .as_deref()
+                    .and_then(|return_type| parse_type_annotation(return_type).ok())
+                    .map(|ty| {
+                        self.environment
+                            .canonicalize_type_annotation(ty, self.function.module_name.as_deref())
+                    })
+                    .unwrap_or(Type::Unknown);
+                self.record_recovery_binding(
+                    result_binding.name.clone(),
+                    ty,
+                    result_binding.span.clone(),
+                    RecoveryScope::EnsureContract,
+                );
+            }
+            if let Some(param) = self
                 .function
                 .params
                 .iter()
                 .find(|param| param.name == result_binding.name)
-        {
-            let mut diagnostic = Diagnostic::new(
-                "name.duplicate",
-                Severity::Error,
-                DiagnosticKind::Name,
-                format!("duplicate result binding name `{}`", result_binding.name),
-                Some(result_binding.span.clone()),
-                JsonValue::object([
-                    ("phase", JsonValue::string("name")),
+            {
+                let mut diagnostic = Diagnostic::new(
+                    "name.duplicate",
+                    Severity::Error,
+                    DiagnosticKind::Name,
+                    format!("duplicate result binding name `{}`", result_binding.name),
+                    Some(result_binding.span.clone()),
+                    JsonValue::object([
+                        ("phase", JsonValue::string("name")),
+                        (
+                            "node_id",
+                            JsonValue::string(result_binding.node_id.display("result")),
+                        ),
+                        ("name", JsonValue::string(result_binding.name.clone())),
+                        ("namespace", JsonValue::string("value")),
+                        (
+                            "first_node_id",
+                            JsonValue::string(param.node_id.display("param")),
+                        ),
+                    ]),
+                );
+                diagnostic.related.push(JsonValue::object([
+                    ("kind", JsonValue::string("duplicate_origin")),
                     (
-                        "node_id",
-                        JsonValue::string(result_binding.node_id.display("result")),
+                        "message",
+                        JsonValue::string("Parameter with this name is here."),
                     ),
-                    ("name", JsonValue::string(result_binding.name.clone())),
-                    ("namespace", JsonValue::string("value")),
-                    (
-                        "first_node_id",
-                        JsonValue::string(param.node_id.display("param")),
-                    ),
-                ]),
-            );
-            diagnostic.related.push(JsonValue::object([
-                ("kind", JsonValue::string("duplicate_origin")),
-                (
-                    "message",
-                    JsonValue::string("Parameter with this name is here."),
-                ),
-                ("span", span_json(&param.span)),
-            ]));
-            self.diagnostics.push(diagnostic);
+                    ("span", span_json(&param.span)),
+                ]));
+                self.diagnostics.push(diagnostic);
+            }
         }
     }
 
@@ -805,6 +857,67 @@ impl<'a> FunctionChecker<'a> {
                 .insert(name.to_string(), (node_id, span.clone()));
             true
         }
+    }
+
+    pub(super) fn record_recovery_binding(
+        &mut self,
+        name: String,
+        ty: Type,
+        span: SourceSpan,
+        scope: RecoveryScope,
+    ) {
+        self.recovery_bindings.push(RecoveryLocalBinding {
+            name,
+            ty,
+            span,
+            scope,
+        });
+    }
+
+    pub(super) fn recovery_binding_count(&self) -> usize {
+        self.recovery_bindings.len()
+    }
+
+    pub(super) fn truncate_recovery_bindings(&mut self, len: usize) {
+        self.recovery_bindings.truncate(len);
+    }
+
+    fn unique_recovery_binding(
+        &self,
+        symbol: &str,
+        use_span: &SourceSpan,
+        scope: RecoveryScope,
+        namespace: &str,
+    ) -> bool {
+        self.recovery_bindings
+            .iter()
+            .filter(|binding| {
+                binding.name == symbol
+                    && binding.span.file == use_span.file
+                    && (namespace == "satisfy_predicate"
+                        || span_starts_not_after(&binding.span, use_span))
+                    && matches!(
+                        (binding.scope, scope),
+                        (RecoveryScope::Body, RecoveryScope::Body)
+                            | (RecoveryScope::Body, RecoveryScope::EnsureContract)
+                            | (RecoveryScope::EnsureContract, RecoveryScope::EnsureContract)
+                    )
+                    && (namespace != "call_target" || matches!(binding.ty, Type::Function { .. }))
+            })
+            .count()
+            == 1
+    }
+
+    fn should_suppress_recovery_unresolved(
+        &self,
+        symbol: &str,
+        span: &SourceSpan,
+        namespace: &str,
+    ) -> bool {
+        matches!(
+            namespace,
+            "value" | "call_target" | "contract_predicate" | "satisfy_predicate"
+        ) && self.unique_recovery_binding(symbol, span, RecoveryScope::Body, namespace)
     }
 
     pub(super) fn check_contracts(&mut self) {
@@ -889,12 +1002,24 @@ impl<'a> FunctionChecker<'a> {
                     ));
                 }
                 ContractValidation::UnresolvedName { name } => {
-                    self.push_unresolved_name(
-                        contract.node_id,
-                        contract.span.clone(),
+                    let recovery_scope = if contract.kind == ContractKind::Ensure {
+                        RecoveryScope::EnsureContract
+                    } else {
+                        RecoveryScope::Body
+                    };
+                    if !self.unique_recovery_binding(
                         &name,
+                        &contract.span,
+                        recovery_scope,
                         "contract_predicate",
-                    );
+                    ) {
+                        self.push_unresolved_name(
+                            contract.node_id,
+                            contract.span.clone(),
+                            &name,
+                            "contract_predicate",
+                        );
+                    }
                 }
             }
         }
@@ -1362,6 +1487,7 @@ impl<'a> FunctionChecker<'a> {
         let mut bindings = self.bindings.clone();
         if kind == ContractKind::Ensure
             && let Some(result_binding) = &self.function.return_binding
+            && valid_value_binding_name(&result_binding.name)
         {
             bindings.push(Binding::new(
                 result_binding.name.clone(),
@@ -2710,13 +2836,23 @@ impl<'a> FunctionChecker<'a> {
             .unwrap_or(Type::Unknown);
         for arm in arms {
             let saved_bindings = self.bindings.len();
+            let saved_recovery_bindings = self.recovery_bindings.len();
             let saved_names = self.local_names.clone();
             let pattern_bindings = self.pattern_bindings(&arm.pattern, &scrutinee_type);
             for binding in pattern_bindings {
+                if !valid_value_binding_name(&binding.name) {
+                    self.record_recovery_binding(
+                        binding.name,
+                        binding.ty,
+                        binding.span,
+                        RecoveryScope::Body,
+                    );
+                    continue;
+                }
                 if !self.declare_local_name(
                     &binding.name,
                     binding.node_id.display("pattern"),
-                    binding.span,
+                    binding.span.clone(),
                     "pattern binding",
                 ) {
                     continue;
@@ -2746,6 +2882,7 @@ impl<'a> FunctionChecker<'a> {
             }
 
             self.bindings.truncate(saved_bindings);
+            self.recovery_bindings.truncate(saved_recovery_bindings);
             self.local_names = saved_names;
         }
 
@@ -3648,6 +3785,9 @@ impl<'a> FunctionChecker<'a> {
         symbol: &str,
         namespace: &'static str,
     ) {
+        if self.should_suppress_recovery_unresolved(symbol, &span, namespace) {
+            return;
+        }
         if namespace == "value"
             && let Some(primitive) = exact_width_binary_primitive_name(symbol)
         {
@@ -4108,6 +4248,9 @@ impl<'a> FunctionChecker<'a> {
         let Some(candidate) = satisfy.candidate.as_ref() else {
             return false;
         };
+        if !valid_value_binding_name(candidate) {
+            return false;
+        }
         let mut predicate_bindings = self.bindings.clone();
         predicate_bindings.push(Binding::new(candidate.clone(), expected.clone()));
         matches!(
@@ -4216,6 +4359,12 @@ fn push_unique_effect(effects: &mut Vec<String>, effect: String) {
     if !effects.contains(&effect) {
         effects.push(effect);
     }
+}
+
+fn span_starts_not_after(binding_span: &SourceSpan, use_span: &SourceSpan) -> bool {
+    binding_span.start.line < use_span.start.line
+        || (binding_span.start.line == use_span.start.line
+            && binding_span.start.column <= use_span.start.column)
 }
 
 fn shift_operator_text(op: BinaryOp) -> Option<&'static str> {

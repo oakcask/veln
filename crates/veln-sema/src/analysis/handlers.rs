@@ -1,4 +1,6 @@
+use super::body::RecoveryScope;
 use super::*;
+use crate::name_casing::valid_value_binding_name;
 use crate::types::signatures::{
     EffectOperationSignature, EffectSignature, HandlerSignature, UserEffectPathResolution,
     synthetic_handler_clause_function_name,
@@ -412,32 +414,46 @@ fn clause_body_diagnostics(
     let synthetic = synthetic_clause_function(handler, clause, operation);
     let mut checker = FunctionChecker::new(&synthetic, environment);
     for (index, param) in handler.params.iter().enumerate() {
-        checker.bindings.push(Binding::new(
-            param.name.clone(),
-            signature
-                .params
-                .get(index)
-                .cloned()
-                .unwrap_or(Type::Unknown),
-        ));
-        checker.local_names.insert(
-            param.name.clone(),
-            (param.node_id.display("param"), param.span.clone()),
-        );
+        let ty = signature
+            .params
+            .get(index)
+            .cloned()
+            .unwrap_or(Type::Unknown);
+        if valid_value_binding_name(&param.name) {
+            checker.local_names.insert(
+                param.name.clone(),
+                (param.node_id.display("param"), param.span.clone()),
+            );
+            checker.bindings.push(Binding::new(param.name.clone(), ty));
+        } else {
+            checker.record_recovery_binding(
+                param.name.clone(),
+                ty,
+                param.span.clone(),
+                RecoveryScope::Body,
+            );
+        }
     }
     for (index, param) in clause.params.iter().enumerate() {
-        checker.bindings.push(Binding::new(
-            param.name.clone(),
-            operation
-                .params
-                .get(index)
-                .cloned()
-                .unwrap_or(Type::Unknown),
-        ));
-        checker.local_names.insert(
-            param.name.clone(),
-            (param.node_id.display("param"), param.span.clone()),
-        );
+        let ty = operation
+            .params
+            .get(index)
+            .cloned()
+            .unwrap_or(Type::Unknown);
+        if valid_value_binding_name(&param.name) {
+            checker.local_names.insert(
+                param.name.clone(),
+                (param.node_id.display("param"), param.span.clone()),
+            );
+            checker.bindings.push(Binding::new(param.name.clone(), ty));
+        } else {
+            checker.record_recovery_binding(
+                param.name.clone(),
+                ty,
+                param.span.clone(),
+                RecoveryScope::Body,
+            );
+        }
     }
     let expected = ExpectedType {
         ty: operation.return_type.clone(),

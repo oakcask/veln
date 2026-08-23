@@ -4,10 +4,12 @@ use veln_source::SourceSpan;
 
 use crate::contracts::{ContractValidation, contract_kind_text, referenced_names};
 use crate::diagnostics::span_json;
+use crate::name_casing::valid_value_binding_name;
 use crate::prelude::prelude_signature;
 use crate::semantic_model::{Binding, ExpectedType, ExpectedTypeSource, Type};
 
 use super::FunctionChecker;
+use super::body::RecoveryScope;
 
 fn satisfy_shadow_related_note(origin_span: Option<&SourceSpan>) -> JsonValue {
     if let Some(origin_span) = origin_span {
@@ -233,18 +235,31 @@ impl<'a> FunctionChecker<'a> {
             .unwrap_or_else(|| satisfy.span.clone());
 
         self.check_satisfy_candidate_shadow(expr, candidate, &candidate_span);
-        self.check_satisfy_candidate_used(expr, satisfy, candidate, candidate_span);
+        self.check_satisfy_candidate_used(expr, satisfy, candidate, candidate_span.clone());
 
         let mut predicate_bindings = self.bindings.clone();
-        predicate_bindings.push(Binding::new(
-            candidate.to_string(),
-            expected
-                .map(|expected| expected.ty.clone())
-                .unwrap_or(Type::Unknown),
-        ));
+        let saved_recovery_bindings = self.recovery_binding_count();
+        if valid_value_binding_name(candidate) {
+            predicate_bindings.push(Binding::new(
+                candidate.to_string(),
+                expected
+                    .map(|expected| expected.ty.clone())
+                    .unwrap_or(Type::Unknown),
+            ));
+        } else {
+            self.record_recovery_binding(
+                candidate.to_string(),
+                expected
+                    .map(|expected| expected.ty.clone())
+                    .unwrap_or(Type::Unknown),
+                candidate_span,
+                RecoveryScope::Body,
+            );
+        }
         let validation =
             self.validate_predicate_with_bindings(&satisfy.predicate, &predicate_bindings);
         self.push_satisfy_validation_diagnostic(expr, satisfy, candidate, validation);
+        self.truncate_recovery_bindings(saved_recovery_bindings);
     }
 
     fn check_satisfy_candidate_shadow(
@@ -359,6 +374,7 @@ impl<'a> FunctionChecker<'a> {
         }
         if let Some(result_binding) = &self.function.return_binding
             && result_binding.name == candidate
+            && valid_value_binding_name(&result_binding.name)
         {
             return Some(("result", Some(result_binding.span.clone())));
         }

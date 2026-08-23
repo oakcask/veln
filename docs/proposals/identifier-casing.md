@@ -28,7 +28,7 @@ letter in `a` through `z`.
 | Constructor | Uppercase | Qualified constructor calls and pattern heads. |
 | Module | Lowercase | Written and source-path-derived module segments, import paths, and import aliases. |
 | Function | Lowercase | Public function aliases, qualified function uses, and function-alias target leaves. |
-| Value binding | Lowercase | Hole `satisfy` candidates and remaining language-service classified binding occurrences. |
+| Value binding | Lowercase | Remaining language-service classified binding occurrences. |
 
 A wrong-cased source occurrence reports `name.invalid_case` at its exact token.
 Source-path-derived module segments use a zero-width span at the start of the

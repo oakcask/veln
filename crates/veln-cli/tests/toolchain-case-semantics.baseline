@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"e99d6973d93ea22756980d20a51de059cce654d5"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1517
+case_count	1518
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -5468,6 +5468,28 @@ field	invocation.command[3]	"bad.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"6fbca58974581bf34f727f05c2ea54613cc75e576d5a2e38173c5b230ef3c9be"
+case	"examples/specification/check/identifier-casing-value-recovery"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
+field	expectations.stdout.contains[1]	"\"name\":\"Unique\""
+field	expectations.stdout.contains[2]	"\"name\":\"Repeat\""
+field	expectations.stdout.contains[3]	"\"name\":\"Callback\""
+field	expectations.stdout.contains[4]	"\"name\":\"Number\""
+field	expectations.stdout.contains[5]	"\"name\":\"Candidate\""
+field	expectations.stdout.contains[6]	"unresolved value `Repeat`"
+field	expectations.stdout.contains[7]	"unresolved call_target `Number`"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"unresolved value `Unique`"
+field	expectations.stdout.not_contains[1]	"unresolved call_target `Callback`"
+field	expectations.stdout.not_contains[2]	"unresolved satisfy_predicate `Candidate`"
+field	expectations.stdout.not_contains[3]	"\"name\":\"result\""
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"b1a55751e94cfb4ba70c67908fecce4f475e551a14de1d9098009d809f32fa3f"
 case	"examples/specification/check/if-branch-callback-inference"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -47964,4 +47986,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"4c89c855abaee647ae02507af22155e2fb0db4242b43611aeecc395e5de60305"
+aggregate_digest	"34aa4ec78c0cc845ef688dd8eb1712f7b6b1286db13dd4dc63607deae0a48a50"
