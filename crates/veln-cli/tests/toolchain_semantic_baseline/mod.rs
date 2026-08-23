@@ -14,8 +14,10 @@ const ROOTS: [(&str, &str); 2] = [
     ),
     ("examples/specification", "../../examples/specification"),
 ];
-const BASELINE: &str =
-    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/toolchain-case-semantics.baseline"));
+const BASELINE: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/toolchain-case-semantics.baseline"
+));
 const LARGE_TEXT_BYTES: usize = 256;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -431,6 +433,7 @@ fn describe_json_assertions(fields: &mut BTreeMap<String, String>, manifest: &Ca
             &base,
             assertion.operation,
             assertion.equals.as_ref(),
+            assertion.contains.as_deref(),
             assertion.missing == Some(true),
         );
     }
@@ -454,6 +457,7 @@ fn describe_result_value_assertions(
             &base,
             assertion.operation,
             assertion.equals.as_ref(),
+            assertion.contains.as_deref(),
             assertion.missing == Some(true),
         );
     }
@@ -463,9 +467,16 @@ fn describe_lsp_assertions(fields: &mut BTreeMap<String, String>, manifest: &Cas
     for (index, assertion) in manifest.expectations.lsp_assertions.iter().enumerate() {
         let base = format!("expectations.lsp_assertions[{index}]");
         if let Some(id) = &assertion.id {
-            fields.insert(format!("{base}.id"), canonical_json(id, &format!("{base}.id")));
+            fields.insert(
+                format!("{base}.id"),
+                canonical_json(id, &format!("{base}.id")),
+            );
         }
-        optional_text(fields, &format!("{base}.method"), assertion.method.as_deref());
+        optional_text(
+            fields,
+            &format!("{base}.method"),
+            assertion.method.as_deref(),
+        );
         if assertion.method.is_some() {
             scalar(
                 fields,
@@ -507,7 +518,10 @@ fn describe_mcp_assertions(fields: &mut BTreeMap<String, String>, manifest: &Cas
         let base = format!("expectations.mcp_assertions[{index}]");
         fields.insert(
             format!("{base}.id"),
-            canonical_json(assertion.id.as_ref().expect("validated MCP id"), &format!("{base}.id")),
+            canonical_json(
+                assertion.id.as_ref().expect("validated MCP id"),
+                &format!("{base}.id"),
+            ),
         );
         text(fields, &format!("{base}.path"), &assertion.path);
         match assertion
@@ -521,6 +535,10 @@ fn describe_mcp_assertions(fields: &mut BTreeMap<String, String>, manifest: &Cas
                     format!("{base}.equals"),
                     canonical_json(value, &format!("{base}.equals")),
                 );
+            }
+            McpAssertionOperation::Contains(value) => {
+                enum_value(fields, &format!("{base}.operation"), "contains");
+                text(fields, &format!("{base}.contains"), value);
             }
             McpAssertionOperation::Length(value) => {
                 enum_value(fields, &format!("{base}.operation"), "length");
@@ -664,6 +682,7 @@ fn assertion_operation(
     base: &str,
     operation: Option<&'static str>,
     equals: Option<&JsonValue>,
+    contains: Option<&str>,
     missing: bool,
 ) {
     if missing {
@@ -675,6 +694,14 @@ fn assertion_operation(
             "equals" => "equals",
             "equals_file" => "equals_file",
             "equals_json_file" => "equals_json_file",
+            "contains" => {
+                text(
+                    fields,
+                    &format!("{base}.contains"),
+                    contains.expect("validated contains operand"),
+                );
+                return;
+            }
             _ => unreachable!("validated JSON assertion operation"),
         };
         let path = format!("{base}.{operand}");
@@ -726,10 +753,7 @@ fn binary_fixtures(fields: &mut BTreeMap<String, String>, fixtures: &[BinaryFixt
             );
             if let Some(value) = &diagnostic.field_path {
                 let path = format!("{base}.byte_diagnostic.field_path");
-                fields.insert(
-                    path.clone(),
-                    canonical_json(value, &path),
-                );
+                fields.insert(path.clone(), canonical_json(value, &path));
             }
         }
     }
@@ -1011,8 +1035,7 @@ fn semantic_export_hashes_large_typed_json_strings_with_logical_fields() {
         Path::new("case.toml"),
         &format!(
             "command = [\"check\"]\nexit = 0\n[[json_assert]]\npath = \"value\"\nequals = {{\"outer\": [{{\"inner/key\": {:?}}}]}}\n[[json_assert]]\npath = \"top\"\nequals = {:?}\n",
-            large,
-            large
+            large, large
         ),
     );
     let fields = describe(&manifest);
@@ -1095,6 +1118,60 @@ equals = {"b": [1.0, 1e0], "a": 1}
         mcp_fields["expectations.mcp_assertions[0].operation"],
         json_string("equals")
     );
+}
+
+#[test]
+fn semantic_export_records_contains_operands_for_every_assertion_adapter() {
+    let lsp_manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"command = ["lsp"]
+exit = 0
+[[json_assert]]
+path = "value"
+contains = "json needle"
+[[result_value_assert]]
+value_path = "rendered"
+path = "value"
+contains = "result needle"
+[[lsp_assert]]
+id = 1
+path = "/result"
+contains = "lsp needle"
+"#,
+    );
+    let mcp_manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"command = ["mcp"]
+exit = 0
+[[mcp_assert]]
+id = 1
+path = "/result"
+contains = "mcp needle"
+"#,
+    );
+    let lsp_fields = describe(&lsp_manifest);
+    let mcp_fields = describe(&mcp_manifest);
+
+    for (fields, base, operand) in [
+        (
+            &lsp_fields,
+            "expectations.json_assertions[0]",
+            "json needle",
+        ),
+        (
+            &lsp_fields,
+            "expectations.result_value_assertions[0]",
+            "result needle",
+        ),
+        (&lsp_fields, "expectations.lsp_assertions[0]", "lsp needle"),
+        (&mcp_fields, "expectations.mcp_assertions[0]", "mcp needle"),
+    ] {
+        assert_eq!(
+            fields[&format!("{base}.operation")],
+            json_string("contains")
+        );
+        assert_eq!(fields[&format!("{base}.contains")], json_string(operand));
+    }
 }
 
 #[test]

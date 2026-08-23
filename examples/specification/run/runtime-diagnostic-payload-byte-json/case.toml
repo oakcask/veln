@@ -108,6 +108,11 @@ equals = "byte read requires 3 bytes but view has 2"
 
 [[result_value_assert]]
 value_path = "error.details.value"
+path = "value.message"
+contains = "requires 3 bytes"
+
+[[result_value_assert]]
+value_path = "error.details.value"
 path = "value.detail.constructor"
 equals = "RuntimeByteDiagnostic"
 

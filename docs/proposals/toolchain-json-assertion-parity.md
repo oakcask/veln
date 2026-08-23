@@ -13,8 +13,9 @@ select a JSON value. The affected sections are `[[json_assert]]`,
 
 The common JSON equality foundation is implemented. The current contract is
 specified by [Toolchain Test Harness](../reference/toolchain-test-harness.md).
-This proposal now covers the remaining file-backed equality, string
-containment, array length, and workspace-file URI gaps.
+String containment is implemented for every affected section. This proposal
+now covers the remaining file-backed equality, array length, and
+workspace-file URI gaps.
 
 ## Motivation
 
@@ -22,7 +23,9 @@ The toolchain harness currently divides JSON operations by command transport.
 MCP assertions can check array length and canonical workspace file URIs, while
 other JSON-valued assertions cannot. JSON and result-value assertions can load
 complete expected JSON from a case file, while MCP and LSP assertions cannot.
-LSP assertions can check string containment, while the other sections cannot.
+All four assertions can check string containment. The remaining operation
+split still requires fixture authors to choose raw output checks or duplicate
+larger values for operations that have not reached every section.
 
 This division makes fixture authors choose raw output checks or duplicate
 larger values when the required operation is absent from the section that owns
@@ -37,10 +40,10 @@ implemented assertion behavior. The current operation split is:
 
 | Section | Selected input | Current operations | Current equality boundary |
 | --- | --- | --- | --- |
-| `[[json_assert]]` | Parsed JSON command stdout and a dot-separated path. | `equals`, `equals_file`, `equals_json_file`, `missing` | Uses the common JSON equality contract. |
-| `[[result_value_assert]]` | A parsed rendered Veln result value and a dot-separated path. | `equals`, `equals_file`, `equals_json_file`, `missing` | Uses the common JSON equality contract. |
+| `[[json_assert]]` | Parsed JSON command stdout and a dot-separated path. | `equals`, `equals_file`, `equals_json_file`, `contains`, `missing` | Uses the common JSON equality contract. |
+| `[[result_value_assert]]` | A parsed rendered Veln result value and a dot-separated path. | `equals`, `equals_file`, `equals_json_file`, `contains`, `missing` | Uses the common JSON equality contract. |
 | `[[lsp_assert]]` | One selected LSP response or notification and an RFC 6901 JSON Pointer. | `equals`, `equals_file`, `contains`, `missing` | Uses the common JSON equality contract. |
-| `[[mcp_assert]]` | One selected MCP response and an RFC 6901 JSON Pointer. | `equals`, `length`, `workspace_file_uri`, `missing` | Uses the common JSON equality contract. |
+| `[[mcp_assert]]` | One selected MCP response and an RFC 6901 JSON Pointer. | `equals`, `contains`, `length`, `workspace_file_uri`, `missing` | Uses the common JSON equality contract. |
 
 The common equality contract ignores object member order, retains array order
 and length, distinguishes JSON kinds and nested values, and preserves complete
@@ -49,23 +52,32 @@ order, assertion order, and JSON number spelling.
 
 ## Remaining Proposed Contract
 
-### Common Operation Surface
+### Remaining Operation Additions
 
-Each affected assertion declares exactly one operation from this table.
+The implemented `equals`, `contains`, and `missing = true` contracts are
+specified by [Toolchain Test Harness](../reference/toolchain-test-harness.md).
+The remaining work adds only the section and operation pairs in this matrix.
+
+| Section | Remaining operations |
+| --- | --- |
+| `[[json_assert]]` | `length`, `workspace_file_uri` |
+| `[[result_value_assert]]` | `length`, `workspace_file_uri` |
+| `[[lsp_assert]]` | `equals_json_file`, `length`, `workspace_file_uri` |
+| `[[mcp_assert]]` | `equals_file`, `equals_json_file` |
+
+Each listed operation uses the operand and selected-value contract in this
+table.
 
 | Operation | Operand | Required selected value | Required result |
 | --- | --- | --- | --- |
-| `equals` | One inline JSON value. | Any JSON value. | Compare the complete selected value using the current common JSON equality contract. |
 | `equals_file` | One immutable case-relative text file. | A JSON string. | Compare the selected string with the exact file contents without parsing the file as JSON. |
 | `equals_json_file` | One immutable case-relative text file containing one JSON value. | Any JSON value. | Parse the file as JSON and compare the complete selected value using the current common JSON equality contract. |
-| `contains` | One inline string. | A JSON string. | Require the selected string to contain the operand as one contiguous substring. |
 | `length` | One non-negative integer representable by the harness collection length type. | A JSON array. | Require the selected array to contain exactly the stated number of elements. |
 | `workspace_file_uri` | One safe workspace-relative file path. | A JSON string. | Compare the selected string with the canonical `file:` URI of that copied workspace file. |
-| `missing = true` | The boolean value `true`. | No selected value. | Succeed only when the assertion selector exists and the assertion path is missing. |
 
-An omitted operation, more than one operation, or `missing = false` is a
-manifest error. A file-backed operand is read from the immutable discovered
-case, not from a file changed by the command under test.
+The existing exactly-one-operation rule applies as each operation is added. A
+file-backed operand is read from the immutable discovered case, not from a
+file changed by the command under test.
 
 ### Selection And Path Compatibility
 
@@ -105,7 +117,7 @@ fact distinguishes at least these outcomes:
 | --- | --- |
 | A selected path is absent for an operation other than `missing`. | The selected JSON path was not found. |
 | A selected path exists for `missing = true`. | The selected JSON path exists but should be missing. |
-| `contains`, `equals_file`, or `workspace_file_uri` selects a non-string. | The operation requires a JSON string. |
+| `equals_file` or `workspace_file_uri` selects a non-string. | The operation requires a JSON string. |
 | `length` selects a non-array. | The operation requires a JSON array. |
 | `equals` or `equals_json_file` differs. | The complete expected and actual JSON values differ. |
 | `length` differs. | The expected and actual array lengths differ. |
@@ -118,9 +130,10 @@ MCP JSONL errors, or response and notification selection errors.
 ## Compatibility And Migration
 
 Every currently valid assertion manifest remains valid. Existing selectors,
-paths, operations, and common equality behavior keep their current spelling
-and meaning. Representative fixtures must adopt newly available operations to
-provide executable evidence for each assertion source.
+paths, operations, common equality behavior, and the implemented common
+`contains` behavior keep their current spelling and meaning. Representative
+fixtures must adopt each newly available operation to provide executable
+evidence for its assertion source.
 
 ## Non-Goals
 
@@ -137,9 +150,8 @@ provide executable evidence for each assertion source.
 
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |
-| Parse the common operation surface in each affected section. | Each section accepts exactly one of the seven operations and rejects omission, duplication, `missing = false`, and invalid operand types. | Table-driven manifest parser success and rejection tests in the toolchain harness. |
+| Parse the remaining operation additions in each affected section. | Each section accepts each newly added operation with its declared operand type and retains rejection of omission, duplication, `missing = false`, and invalid operand types. | Table-driven manifest parser success and rejection tests in the toolchain harness. |
 | Use file-backed expected values. | Each section supports exact string files and parsed JSON files. Invalid JSON files and wrong selected value kinds fail with operation-specific facts. | Immutable case-file parser tests and evaluator rejection tests. |
-| Check selected string containment. | Each section accepts `contains`; a non-string or absent substring fails. | Shared operation tests exercised through all four assertion adapters. |
 | Compare a copied workspace file URI. | Each section computes the canonical URI for an existing safe workspace-relative file and rejects unsafe operands and non-string selected values. | Cross-section URI success matrix and the existing link and workspace-escape rejection matrix. |
 | Preserve selector and path behavior. | JSON and result-value dot paths, LSP response and notification selection, MCP response selection, and LSP/MCP pointer failures retain their current outcomes. | Existing section-specific tests plus regression rows that use a newly shared operation after selection. |
 | Publish representative executable evidence. | A JSON case and a result-value case use `length` or file-backed JSON equality; the LSP publish-diagnostics case checks diagnostic cardinality and its workspace URI; the MCP definition case retains response-local length and workspace URI checks. | Checked cases under `crates/veln-cli/tests/toolchain_cases/` and `examples/specification/`. |

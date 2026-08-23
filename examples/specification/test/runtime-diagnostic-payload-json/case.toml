@@ -127,6 +127,11 @@ equals = "codec.incomplete_input"
 
 [[result_value_assert]]
 value_path = "cases.0.failure.details.value"
+path = "value.id"
+contains = "incomplete"
+
+[[result_value_assert]]
+value_path = "cases.0.failure.details.value"
 path = "value.detail.constructor"
 equals = "RuntimeByteDiagnostic"
 

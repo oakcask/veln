@@ -1,7 +1,7 @@
 ---
 role: implementation-record
 authority: supporting
-update-when: The readable toolchain case stream completion evidence, structured JSON-RPC LSP fixture evidence, decoded assertion baseline, or current harness reference route changes.
+update-when: The readable toolchain case stream completion evidence, structured JSON-RPC LSP fixture evidence, decoded LSP assertion operations, decoded assertion baseline, or current harness reference route changes.
 ---
 
 # Readable Toolchain Case Streams
@@ -26,7 +26,8 @@ of manifest escape sequences and into structured or file-backed forms:
 - `$case_text` directives let structured requests include exact case-relative
   document text without manual protocol framing.
 - `[[lsp_assert]]` selectors check decoded responses and notifications by id,
-  method occurrence, and JSON Pointer.
+  method occurrence, JSON Pointer, complete JSON equality, string containment,
+  file-backed string equality, and missing paths.
 - Raw stream fixtures remain available for cases whose observable behavior is
   protocol bytes, framing failures, or an as-yet-unmigrated representation.
 

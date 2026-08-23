@@ -285,6 +285,9 @@ selectors for initialize capabilities, diagnostic notifications,
 semantic-token data, and shutdown responses. When an assertion compares a
 complete JSON-RPC response object, member order belongs to the harness JSON
 equality model rather than to the LSP server contract.
+When a decoded assertion checks string containment, the containment operation
+is harness evidence over the selected JSON string and does not change the LSP
+message field contract.
 
 LSP executable examples still use ordered stdout fragments when JSON-RPC
 responses are interleaved with file-backed virtual-document text. Those

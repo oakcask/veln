@@ -18,6 +18,12 @@ equals = "name.unresolved"
 
 [[lsp_assert]]
 method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/1/code"
+contains = "unresolved"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
 occurrence = 1
 path = "/params/diagnostics"
 equals = []

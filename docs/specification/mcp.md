@@ -167,6 +167,9 @@ rejection over stdio. Its response-local assertions bind response IDs 3
 through 11 to the expected JSON-RPC result, error, location, cardinality, and
 absence observations. Object member order inside those expected result objects
 is harness equality evidence, not an MCP output ordering contract.
+Response-local string containment checks in that case are harness evidence
+over selected JSON strings and do not add a distinct MCP response field
+contract.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous
