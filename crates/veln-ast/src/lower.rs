@@ -225,6 +225,7 @@ impl AstBuilder {
                 SyntaxVisibility::Private => Visibility::Private,
             },
             name: type_decl.name.clone(),
+            name_span: type_decl.name_span.clone(),
             params: type_decl.params.clone(),
             variants: type_decl
                 .variants
@@ -236,6 +237,7 @@ impl AstBuilder {
                         SyntaxVisibility::Private => Visibility::Private,
                     },
                     name: variant.name.clone(),
+                    name_span: variant.name_span.clone(),
                     fields: variant
                         .fields
                         .iter()
@@ -289,6 +291,7 @@ impl AstBuilder {
                 .map(|param| Param {
                     node_id: self.alloc(),
                     name: param.name.clone(),
+                    name_span: param.name_span.clone(),
                     ty: param.ty.clone(),
                     ty_span: param.ty_span.clone(),
                     is_variadic: param.is_variadic,
@@ -319,6 +322,7 @@ impl AstBuilder {
                 .map(|param| Param {
                     node_id: self.alloc(),
                     name: param.name.clone(),
+                    name_span: param.name_span.clone(),
                     ty: param.ty.clone(),
                     ty_span: param.ty_span.clone(),
                     is_variadic: param.is_variadic,
@@ -352,6 +356,7 @@ impl AstBuilder {
                 .map(|param| Param {
                     node_id: self.alloc(),
                     name: param.name.clone(),
+                    name_span: param.name_span.clone(),
                     ty: None,
                     ty_span: None,
                     is_variadic: false,
@@ -469,6 +474,7 @@ impl AstBuilder {
                 SyntaxVisibility::Private => Visibility::Private,
             },
             name: function.name.clone(),
+            name_span: function.name_span.clone(),
             effect_binder: function
                 .effect_binder
                 .as_ref()
@@ -482,6 +488,7 @@ impl AstBuilder {
                 .map(|param| Param {
                     node_id: self.alloc(),
                     name: param.name.clone(),
+                    name_span: param.name_span.clone(),
                     ty: param.ty.clone(),
                     ty_span: param.ty_span.clone(),
                     is_variadic: param.is_variadic,

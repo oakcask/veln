@@ -9,6 +9,15 @@ Executable examples live under `../../examples/specification/`. Use that
 directory's README and the focused `case.toml` files as the source of checked
 behavior.
 
+Identifier casing and quarantined recovery are checked by
+[`identifier-casing-json`](../../examples/specification/check/identifier-casing-json/case.toml),
+[`identifier-casing-human`](../../examples/specification/check/identifier-casing-human/case.toml), and
+[`identifier-casing-quarantine`](../../examples/specification/check/identifier-casing-quarantine/case.toml). The
+selected-entry command boundary is checked by
+[`identifier-casing-reachable`](../../examples/specification/run/identifier-casing-reachable/case.toml)
+and
+[`identifier-casing-unreachable`](../../examples/specification/run/identifier-casing-unreachable/case.toml).
+
 Case text files under `case-text/` are fixture evidence owned by the CLI
 toolchain harness. Their placement can change how an example is reviewed
 without changing the language or command behavior that the case checks.

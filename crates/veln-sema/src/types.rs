@@ -680,6 +680,12 @@ pub(crate) fn ordinary_function_signatures(
         .functions
         .iter()
         .filter(|function| function.kind == FunctionKind::Function)
+        .filter(|function| {
+            function
+                .name
+                .as_deref()
+                .is_none_or(crate::name_casing::valid_function_name)
+        })
         .filter_map(|function| {
             let name = function.name.clone()?;
             let (params, variadic) = function_signature_params(function);

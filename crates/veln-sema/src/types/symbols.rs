@@ -340,6 +340,11 @@ pub(super) fn named_type_symbols(module: &SurfaceModule) -> Vec<NamedSymbol> {
     let mut symbols = module
         .types
         .iter()
+        .filter(|ty| {
+            ty.name
+                .as_deref()
+                .is_none_or(crate::name_casing::valid_type_name)
+        })
         .filter_map(|ty| {
             Some(NamedSymbol {
                 name: ty.name.clone()?,

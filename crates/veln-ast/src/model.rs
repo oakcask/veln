@@ -138,6 +138,7 @@ pub struct TypeDecl {
     pub module_name: Option<String>,
     pub visibility: Visibility,
     pub name: Option<String>,
+    pub name_span: Option<SourceSpan>,
     pub params: Vec<String>,
     pub variants: Vec<TypeVariantDecl>,
     pub span: SourceSpan,
@@ -148,6 +149,7 @@ pub struct TypeVariantDecl {
     pub node_id: NodeId,
     pub visibility: Visibility,
     pub name: Option<String>,
+    pub name_span: Option<SourceSpan>,
     pub fields: Vec<TypeVariantField>,
     pub span: SourceSpan,
 }
@@ -241,6 +243,7 @@ pub struct Function {
     pub kind: FunctionKind,
     pub visibility: Visibility,
     pub name: Option<String>,
+    pub name_span: Option<SourceSpan>,
     pub effect_binder: Option<EffectBinder>,
     pub params: Vec<Param>,
     pub return_binding: Option<ResultBinding>,
@@ -284,6 +287,7 @@ pub enum Visibility {
 pub struct Param {
     pub node_id: NodeId,
     pub name: String,
+    pub name_span: SourceSpan,
     pub ty: Option<String>,
     pub ty_span: Option<SourceSpan>,
     pub is_variadic: bool,

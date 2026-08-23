@@ -1,0 +1,8 @@
+type item
+  made
+  _other
+end
+
+fn Build(_value: Int) -> Result: Int
+  Build(1)
+end

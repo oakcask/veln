@@ -71,6 +71,13 @@ actual count, and inclusive `0..63` bounds. Removed schema primitives, types,
 constructors, patterns, and helpers use focused removed-vocabulary diagnostics
 with replacement details instead of generic unresolved-name output.
 
+Invalid source type, constructor, function, and value-binding names use
+`name.invalid_case`. The primary span is the complete written token. Details
+contain `phase = "name"`, `origin = "source"`, `occurrence`, `name`,
+`name_class`, `required_initial`, and `observed_initial`. The checked
+`identifier-casing-json` and `identifier-casing-human` cases are the executable
+JSON and human-output evidence.
+
 Companion source diagnostics are executable in
 `examples/specification/check/companion-missing-target-json/`,
 `examples/specification/check/companion-missing-target-human/`,

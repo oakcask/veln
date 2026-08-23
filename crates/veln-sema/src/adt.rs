@@ -2658,6 +2658,9 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
 
 fn source_descriptor(decl: &TypeDecl) -> Option<AdtDescriptor> {
     let name = decl.name.clone()?;
+    if !crate::name_casing::valid_type_name(&name) {
+        return None;
+    }
     if matches!(name.as_str(), "Option" | "Result" | "List") {
         return None;
     }
@@ -2666,6 +2669,9 @@ fn source_descriptor(decl: &TypeDecl) -> Option<AdtDescriptor> {
         .iter()
         .filter_map(|variant| {
             let name = variant.name.clone()?;
+            if !crate::name_casing::valid_type_name(&name) {
+                return None;
+            }
             let payload_fields = variant
                 .fields
                 .iter()

@@ -14,6 +14,9 @@ use crate::analysis::{
     check_test_declaration_boundary,
 };
 use crate::lowering::{lower_project_surface_module_to_core, lower_surface_module_to_core};
+use crate::name_casing::{
+    check_source_identifier_casing, suppress_unique_local_recovery_derivatives,
+};
 use crate::schema;
 use crate::types::{
     ReusableStandardEnvironment, TypeEnvironment, prepare_current_reusable_standard_environment,
@@ -108,6 +111,7 @@ fn analyze_surface_module_with_environment(
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
+    diagnostics.extend(check_source_identifier_casing(module));
     diagnostics.extend(check_duplicate_function_names(module));
     diagnostics.extend(check_duplicate_type_names(module));
     diagnostics.extend(check_duplicate_effect_names(module));
@@ -139,6 +143,8 @@ fn analyze_surface_module_with_environment(
         }
         diagnostics.extend(check_function_body(function, environment));
     }
+
+    suppress_unique_local_recovery_derivatives(module, &mut diagnostics);
 
     diagnostics
 }

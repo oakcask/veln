@@ -1,0 +1,7 @@
+type item
+  Made
+end
+
+fn Build(Value: Int) -> Int
+  Value
+end

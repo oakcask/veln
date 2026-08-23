@@ -11,7 +11,7 @@ use crate::{
     UseOrigin, Visibility,
 };
 
-const MAGIC: &[u8; 8] = b"VLNAST1\n";
+const MAGIC: &[u8; 8] = b"VLNAST2\n";
 
 pub fn encode_surface_module(module: &SurfaceModule) -> Vec<u8> {
     let mut writer = Writer { bytes: Vec::new() };
@@ -201,6 +201,7 @@ impl Writer {
         self.option(&value.module_name, |writer, value| writer.string(value));
         self.visibility(value.visibility);
         self.option(&value.name, |writer, value| writer.string(value));
+        self.option(&value.name_span, Self::span);
         self.vec(&value.params, |writer, value| writer.string(value));
         self.vec(&value.variants, Self::type_variant);
         self.span(&value.span);
@@ -210,6 +211,7 @@ impl Writer {
         self.node_id(value.node_id);
         self.visibility(value.visibility);
         self.option(&value.name, |writer, value| writer.string(value));
+        self.option(&value.name_span, Self::span);
         self.vec(&value.fields, Self::type_variant_field);
         self.span(&value.span);
     }
@@ -301,6 +303,7 @@ impl Writer {
         self.function_kind(value.kind);
         self.visibility(value.visibility);
         self.option(&value.name, |writer, value| writer.string(value));
+        self.option(&value.name_span, Self::span);
         self.option(&value.effect_binder, Self::effect_binder);
         self.vec(&value.params, Self::param);
         self.option(&value.return_binding, Self::result_binding);
@@ -332,6 +335,7 @@ impl Writer {
     fn param(&mut self, value: &Param) {
         self.node_id(value.node_id);
         self.string(&value.name);
+        self.span(&value.name_span);
         self.option(&value.ty, |writer, value| writer.string(value));
         self.option(&value.ty_span, Self::span);
         self.bool(value.is_variadic);
@@ -937,6 +941,7 @@ impl<'a> Reader<'a> {
             module_name: self.option(Self::string)?,
             visibility: self.visibility()?,
             name: self.option(Self::string)?,
+            name_span: self.option(Self::span)?,
             params: self.vec(Self::string)?,
             variants: self.vec(Self::type_variant)?,
             span: self.span()?,
@@ -948,6 +953,7 @@ impl<'a> Reader<'a> {
             node_id: self.node_id()?,
             visibility: self.visibility()?,
             name: self.option(Self::string)?,
+            name_span: self.option(Self::span)?,
             fields: self.vec(Self::type_variant_field)?,
             span: self.span()?,
         })
@@ -1056,6 +1062,7 @@ impl<'a> Reader<'a> {
             kind: self.function_kind()?,
             visibility: self.visibility()?,
             name: self.option(Self::string)?,
+            name_span: self.option(Self::span)?,
             effect_binder: self.option(Self::effect_binder)?,
             params: self.vec(Self::param)?,
             return_binding: self.option(Self::result_binding)?,
@@ -1088,6 +1095,7 @@ impl<'a> Reader<'a> {
         Ok(Param {
             node_id: self.node_id()?,
             name: self.string()?,
+            name_span: self.span()?,
             ty: self.option(Self::string)?,
             ty_span: self.option(Self::span)?,
             is_variadic: self.bool()?,

@@ -1,0 +1,7 @@
+fn Broken() -> Int
+  1
+end
+
+pub fn main() -> Int
+  Broken()
+end

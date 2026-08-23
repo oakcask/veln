@@ -13,6 +13,7 @@ mod declarations_and_names;
 mod effect_rows;
 mod local_inference_callback_expected_types;
 mod lowering_and_pattern_semantics;
+mod name_casing;
 mod prelude_and_callable_values;
 mod satisfy_alias_and_order_repairs;
 mod satisfy_boolean_and_bound_repairs;

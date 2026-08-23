@@ -1,0 +1,5 @@
+use bad
+
+pub fn main() -> Int
+  bad::exposed()
+end

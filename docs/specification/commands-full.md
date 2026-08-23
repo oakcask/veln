@@ -368,6 +368,12 @@ declarations to the imported source module. Semantic
 diagnostics in functions unreachable from the selected entry do not block
 `run`.
 
+This reachability boundary includes `name.invalid_case`. An invalid function
+reached from the selected entry blocks `run`, while an invalid peer function
+outside the reachable closure does not. The checked
+`identifier-casing-reachable` and `identifier-casing-unreachable` run cases
+fix this boundary.
+
 `run` and `test` cache generated JVM classfile artifacts by backend content
 below the selected Veln user cache root. On Unix other than macOS, the default
 root is the `veln` child of an absolute, non-empty `XDG_CACHE_HOME`, or the

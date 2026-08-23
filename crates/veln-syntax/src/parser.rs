@@ -113,6 +113,7 @@ struct Parser<'a> {
 struct FunctionHeader {
     visibility: Visibility,
     name: Option<String>,
+    name_span: Option<SourceSpan>,
     effect_binder: Option<EffectBinder>,
     params: Vec<Param>,
 }
@@ -556,7 +557,7 @@ impl<'a> Parser<'a> {
         let start = self
             .expect(TokenKind::Type, "type_declaration", vec!["type"])
             .range;
-        let name = self.expect_ident("type_declaration", "type name");
+        let (name, name_span) = self.expect_covered_name("type_declaration", "type name");
         let params = if self.eat(TokenKind::Less).is_some() {
             let params = self.parse_type_params_until(TokenKind::Greater);
             self.expect(TokenKind::Greater, "type_declaration", vec![">"]);
@@ -603,6 +604,7 @@ impl<'a> Parser<'a> {
         TypeDecl {
             visibility,
             name,
+            name_span,
             params,
             variants,
             span: self.source.span(start.cover(end)),
@@ -868,11 +870,11 @@ impl<'a> Parser<'a> {
         }
         loop {
             let start = self.current().range;
-            let name = self
-                .expect_ident("handler_operation_clause", "operation parameter")
-                .unwrap_or_default();
+            let (name, name_span) =
+                self.expect_covered_name("handler_operation_clause", "operation parameter");
             params.push(Param {
-                name,
+                name: name.unwrap_or_default(),
+                name_span: name_span.unwrap_or_else(|| self.source.span(start)),
                 ty: None,
                 ty_span: None,
                 is_variadic: false,
@@ -1269,7 +1271,7 @@ impl<'a> Parser<'a> {
         } else {
             Visibility::Private
         };
-        let name = self.expect_ident("type_variant", "variant name");
+        let (name, name_span) = self.expect_covered_name("type_variant", "variant name");
         let (field_delimiter, fields) = if self.eat(TokenKind::LParen).is_some() {
             let fields = self.parse_type_variant_fields();
             self.expect(TokenKind::RParen, "type_variant", vec![")"]);
@@ -1285,6 +1287,7 @@ impl<'a> Parser<'a> {
         TypeVariantDecl {
             visibility,
             name,
+            name_span,
             field_delimiter,
             fields,
             span: self.source.span(start.cover(end)),
@@ -1403,6 +1406,7 @@ impl<'a> Parser<'a> {
             kind,
             visibility: header.visibility,
             name: header.name,
+            name_span: header.name_span,
             effect_binder: header.effect_binder,
             params: header.params,
             return_binding: return_decl.binding,
@@ -1439,10 +1443,11 @@ impl<'a> Parser<'a> {
                 FunctionKind::Test => "test",
             }],
         );
-        let name = if self.at(TokenKind::Decode) {
-            Some(self.bump().text)
+        let (name, name_span) = if self.at(TokenKind::Decode) {
+            let token = self.bump();
+            (Some(token.text), Some(self.source.span(token.range)))
         } else {
-            self.expect_ident(Self::function_context(kind), "declaration name")
+            self.expect_covered_name(Self::function_context(kind), "declaration name")
         };
         let effect_binder = self.parse_effect_binder(kind);
         self.expect(TokenKind::LParen, Self::parameter_context(kind), vec!["("]);
@@ -1451,6 +1456,7 @@ impl<'a> Parser<'a> {
         FunctionHeader {
             visibility,
             name,
+            name_span,
             effect_binder,
             params,
         }
@@ -1492,12 +1498,14 @@ impl<'a> Parser<'a> {
     fn parse_function_return_and_effects(&mut self, kind: FunctionKind) -> FunctionReturn {
         let return_context = Self::return_context(kind);
         let (binding, ty, ty_span) = if self.eat(TokenKind::Arrow).is_some() {
-            let return_binding = if self.at(TokenKind::Ident) && self.peek_at(TokenKind::Colon) {
+            let return_binding = if (self.at(TokenKind::Ident) || self.at(TokenKind::Hole))
+                && self.peek_at(TokenKind::Colon)
+            {
                 let name = self.bump();
-                let colon = self.expect(TokenKind::Colon, return_context, vec![":"]);
+                self.expect(TokenKind::Colon, return_context, vec![":"]);
                 Some(crate::ResultBinding {
                     name: name.text,
-                    span: self.source.span(name.range.cover(colon.range)),
+                    span: self.source.span(name.range),
                 })
             } else {
                 None
@@ -1601,7 +1609,7 @@ impl<'a> Parser<'a> {
         let mut params = Vec::new();
         while !self.at(TokenKind::RParen) && !self.at(TokenKind::Eof) {
             let start = self.current().range;
-            let name = self.expect_ident(context, "parameter name");
+            let (name, name_span) = self.expect_covered_name(context, "parameter name");
             let mut is_variadic = false;
             let mut ty_span = None;
             let ty = self.eat(TokenKind::Colon).map(|colon| {
@@ -1639,6 +1647,7 @@ impl<'a> Parser<'a> {
             let end = self.previous().map_or(start, |token| token.range);
             params.push(Param {
                 name: name.unwrap_or_default(),
+                name_span: name_span.unwrap_or_else(|| self.source.span(start)),
                 ty,
                 ty_span,
                 is_variadic,
@@ -2103,6 +2112,28 @@ impl<'a> Parser<'a> {
                 None,
             );
             None
+        }
+    }
+
+    fn expect_covered_name(
+        &mut self,
+        context: &'static str,
+        expected: &'static str,
+    ) -> (Option<String>, Option<SourceSpan>) {
+        if is_contextual_identifier(self.current().kind) || self.at(TokenKind::Hole) {
+            let token = self.bump();
+            let span = self.source.span(token.range);
+            (Some(token.text), Some(span))
+        } else {
+            self.error_current(
+                "parse.expected_identifier",
+                format!("expected {expected}"),
+                context,
+                vec![expected],
+                RecoveryStrategy::InsertToken,
+                None,
+            );
+            (None, None)
         }
     }
 
@@ -3230,7 +3261,7 @@ impl<'a> ExprParser<'a> {
                 }
             }
             TokenKind::LBrace => self.parse_record_pattern(),
-            TokenKind::Ident => self.parse_name_pattern(),
+            TokenKind::Ident | TokenKind::Hole => self.parse_name_pattern(),
             _ => {
                 self.error_current(
                     "parse.pattern",
@@ -3359,7 +3390,7 @@ impl<'a> ExprParser<'a> {
             return None;
         }
         let start = self.bump().range;
-        let (candidate, candidate_span) = if self.at(TokenKind::Ident) {
+        let (candidate, candidate_span) = if self.at(TokenKind::Ident) || self.at(TokenKind::Hole) {
             let token = self.bump();
             let span = self.source.span(token.range);
             (Some(token.text), Some(span))

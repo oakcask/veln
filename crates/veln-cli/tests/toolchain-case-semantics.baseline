@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"f2be905dff360d6343090bf3cb489cf5100cfb0d"
+source_git_tree	"e99d6973d93ea22756980d20a51de059cce654d5"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1512
+case_count	1517
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -5414,6 +5414,60 @@ field	invocation.command[1]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"af45c8120f1ed02128418f1ddaff7189a0b2f187e6ba6fcc14afe6797cddd434"
+case	"examples/specification/check/identifier-casing-human"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"main.veln:1:6: error[name.invalid_case]: type name must start with an ASCII uppercase letter"
+field	expectations.stdout.contains[1]	"main.veln:5:4: error[name.invalid_case]: function name must start with an ASCII lowercase letter"
+field	expectations.stdout.contains[2]	"main.veln:5:10: error[name.invalid_case]: binding name must start with an ASCII lowercase letter"
+field	expectations.stdout.format	"text"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"936d7651eeed3f4ef0d37520732c5661a234b5523760e416ee83026219df61f1"
+case	"examples/specification/check/identifier-casing-json"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	6
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"summary.diagnostic_count"
+field	expectations.json_assertions[1].equals	4
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"diagnostics.3.span.start.column"
+field	expectations.json_assertions[2].equals	9
+field	expectations.json_assertions[2].operation	"equals"
+field	expectations.json_assertions[2].path	"diagnostics.3.span.end.column"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
+field	expectations.stdout.contains[1]	"\"name_class\":\"type\""
+field	expectations.stdout.contains[2]	"\"name_class\":\"constructor\""
+field	expectations.stdout.contains[3]	"\"name_class\":\"function\""
+field	expectations.stdout.contains[4]	"\"name_class\":\"value_binding\""
+field	expectations.stdout.contains[5]	"\"observed_initial\":\"underscore\""
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"\"id\":\"name.unresolved\""
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"d346a7c049985c610e94c9daa8e27a54dcea3b153af0b9bff0a528b32eeb6862"
+case	"examples/specification/check/identifier-casing-quarantine"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
+field	expectations.stdout.contains[1]	"\"name\":\"Broken\""
+field	expectations.stdout.contains[2]	"unresolved call_target `bad::exposed`"
+field	expectations.stdout.contains[3]	"\"symbol\":\"bad::exposed\""
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"unresolved function alias target `Broken`"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.command[3]	"bad.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"6fbca58974581bf34f727f05c2ea54613cc75e576d5a2e38173c5b230ef3c9be"
 case	"examples/specification/check/if-branch-callback-inference"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -10209,8 +10263,8 @@ field	expectations.stdout.not_contains[3]	"target/debug"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":422,"sha256":"5a95441b801ed21613ae7bcaf439a0ce804efc3545665b6d95459845614a5370"}
-field	source_errors	"forbidden"
-case_digest	"b4afe143dc0996fc85cd8cdf6300e4c55e6ec79cafa56cd4efb0241def282b20"
+field	source_errors	"expected"
+case_digest	"7766ef02f4d56d9a2d49bb9641819c786c94274b83f8e4a8f785f61ecb78631d"
 case	"examples/specification/lsp/open-document-nested-boundary"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -10297,8 +10351,8 @@ field	expectations.stdout.not_contains[4]	"target/debug"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":596,"sha256":"9e94279671e9fe6342020ba543e520d7a5cc2cec092381d5a4869b4f20062577"}
-field	source_errors	"forbidden"
-case_digest	"689c52a8e1aecdf70b5b4f1bd39d388d0a9b045f7f3024488c54790e7901b296"
+field	source_errors	"expected"
+case_digest	"3644cc03b479320c041feab5c45bd13ec40b9a16e59c0bbb3102dfc16b14b9d3"
 case	"examples/specification/lsp/schema-semantic-tokens"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -37482,6 +37536,33 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"8c98ea54a0ab83b25e7dcc72838a368d5aef174441a204ab50d7976cde669b51"
+case	"examples/specification/run/identifier-casing-reachable"
+field	expectations.exit	1
+field	expectations.stderr.contains[0]	"main.veln:1:4: error[name.invalid_case]: function name must start with an ASCII lowercase letter"
+field	expectations.stderr.not_contains[0]	"name.unresolved"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"8d42b2b7f8f1f17b4f25c937e1dd631fe615a87785b86a157f99f2e8145ae4be"
+case	"examples/specification/run/identifier-casing-unreachable"
+field	expectations.exit	0
+field	expectations.json_assertions[0].equals	"passed"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"name.invalid_case"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.repeat	1
+field	requirements.jdk	true
+field	source_errors	"expected"
+case_digest	"812d3440839e30590358e009ee274014953d1aae3310506c219aadb28ad9fc59"
 case	"examples/specification/run/implicit-prelude-imports"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -47883,4 +47964,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"124b22679bafbec9b7b2a72a5a49bfbadb97dfb4161cb7fff4d3905b4b9465f7"
+aggregate_digest	"4c89c855abaee647ae02507af22155e2fb0db4242b43611aeecc395e5de60305"

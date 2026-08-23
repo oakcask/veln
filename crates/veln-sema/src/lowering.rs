@@ -182,6 +182,7 @@ fn lower_handler_clause_functions(
                     .map(|(index, param)| veln_ast::Param {
                         node_id: param.node_id,
                         name: param.name.clone(),
+                        name_span: param.name_span.clone(),
                         ty: operation.params.get(index).map(Type::render),
                         ty_span: None,
                         is_variadic: false,
@@ -197,6 +198,7 @@ fn lower_handler_clause_functions(
                     handler.name.as_deref().unwrap_or("missing"),
                     operation_name,
                 )),
+                name_span: None,
                 effect_binder: None,
                 params,
                 return_binding: None,

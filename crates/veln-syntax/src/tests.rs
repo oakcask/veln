@@ -18,6 +18,69 @@ fn first_function(output: &ParseOutput) -> &FunctionDecl {
 }
 
 #[test]
+fn covered_names_retain_exact_spans_and_underscore_recovery_tokens() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type _item\n",
+            "  _made\n",
+            "end\n",
+            "fn _build(_value: Int) -> _result: Int\n",
+            "  let _local = 1\n",
+            "  _local\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Type(type_decl) = &output.tree.items[0] else {
+        panic!("expected type declaration");
+    };
+    assert_eq!(type_decl.name.as_deref(), Some("_item"));
+    assert_eq!(type_decl.name_span.as_ref().unwrap().start.column, 6);
+    assert_eq!(type_decl.name_span.as_ref().unwrap().end.column, 11);
+    assert_eq!(type_decl.variants[0].name.as_deref(), Some("_made"));
+    assert_eq!(
+        type_decl.variants[0]
+            .name_span
+            .as_ref()
+            .unwrap()
+            .start
+            .column,
+        3
+    );
+    let SyntaxItem::Function(function) = &output.tree.items[1] else {
+        panic!("expected function declaration");
+    };
+    assert_eq!(function.name.as_deref(), Some("_build"));
+    assert_eq!(function.name_span.as_ref().unwrap().start.column, 4);
+    assert_eq!(function.params[0].name, "_value");
+    assert_eq!(function.params[0].name_span.start.column, 11);
+    assert_eq!(
+        function.return_binding.as_ref().unwrap().span.start.column,
+        27
+    );
+    let BodyLine::Let { pattern, .. } = &function.body[0] else {
+        panic!("expected let binding");
+    };
+    assert!(matches!(&pattern.kind, PatternKind::Binding(name) if name == "_local"));
+}
+
+#[test]
+fn standalone_underscore_remains_structural_in_a_declaration_name() {
+    let output = parse(&SourceFile::new("main.veln", "fn _() -> Int\n  1\nend\n"));
+
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.expected_identifier")
+    );
+}
+
+#[test]
 fn parses_decode_as_an_explicit_module_member_name() {
     let source = SourceFile::new(
         "main.veln",

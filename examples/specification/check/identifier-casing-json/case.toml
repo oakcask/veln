@@ -1,0 +1,23 @@
+command = ["check", "--json", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"name.invalid_case\"", "\"name_class\":\"type\"", "\"name_class\":\"constructor\"", "\"name_class\":\"function\"", "\"name_class\":\"value_binding\"", "\"observed_initial\":\"underscore\""]
+not_contains = ["\"id\":\"name.unresolved\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 6
+
+[[json_assert]]
+path = "diagnostics.3.span.start.column"
+equals = 4
+
+[[json_assert]]
+path = "diagnostics.3.span.end.column"
+equals = 9
