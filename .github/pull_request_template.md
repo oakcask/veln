@@ -26,13 +26,14 @@ State what could still regress or surprise users, why that risk is acceptable, a
 mitigation is not included when reviewers might expect it. State uncertainty plainly.
 -->
 
-## Verification
+## Compliance and Revisit Triggers
 
 <!--
-For each material claim, identify the concrete change that supplies evidence, state the observed
-result, and explain how that evidence supports the claim. Name the relevant scenario, assertion,
-fixture, specification case, check, or measurement; do not use a passing command alone as evidence.
-Include commands only when they help reviewers reproduce or understand the evidence. Omit generic
-hygiene checks such as `git diff --check` when they do not validate the change's behavior or risks.
-When verification was skipped, identify what remains unverified and why.
+State how durable assertions, invariants, review rules, or observable conditions keep future changes
+compliant, and what violation each mechanism exposes. Then identify concrete changes to assumptions,
+constraints, costs, or external contracts that should trigger a new decision. A trigger does not
+require automatic rollback; name an exit or rollback condition only when that response is already
+decided. Do not include commands or results for anything CI can report. When no durable check exists,
+state the review rule and remaining risk. When no decision-specific trigger is known, state which
+premise would have to change before reconsideration.
 -->
