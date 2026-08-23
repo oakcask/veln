@@ -415,6 +415,45 @@ pub(super) fn named_codec_symbols(module: &SurfaceModule) -> Vec<NamedSymbol> {
         .collect()
 }
 
+fn selected_symbols<T: Clone>(
+    symbols: &[T],
+    selected_modules: &BTreeSet<String>,
+    module_name: impl for<'a> Fn(&'a T) -> Option<&'a str>,
+) -> Vec<T> {
+    symbols
+        .iter()
+        .filter(|symbol| {
+            module_name(symbol).is_none_or(|module_name| selected_modules.contains(module_name))
+        })
+        .cloned()
+        .collect()
+}
+
+pub(super) fn imported_use_for_path<'a>(
+    uses: &'a [UseDecl],
+    segments: &[String],
+    current_module: Option<&str>,
+) -> Option<&'a UseDecl> {
+    let module_path = segments.join("::");
+    uses.iter().find(|use_decl| {
+        use_decl.module_name.as_deref() == current_module
+            && (use_decl.name == module_path || use_decl.alias == module_path)
+    })
+}
+
+pub(super) fn companion_private_schema_access_allowed(
+    use_decl: &UseDecl,
+    current_module: Option<&str>,
+    companion_access_targets: &BTreeMap<String, String>,
+) -> bool {
+    use_decl.package.is_none()
+        && current_module.is_some_and(|current_module| {
+            companion_access_targets
+                .get(current_module)
+                .is_some_and(|allowed| allowed == use_decl.name.as_str())
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -466,43 +505,4 @@ mod tests {
 
         assert!(symbols.iter().any(|symbol| symbol.name == "Exposed"));
     }
-}
-
-fn selected_symbols<T: Clone>(
-    symbols: &[T],
-    selected_modules: &BTreeSet<String>,
-    module_name: impl for<'a> Fn(&'a T) -> Option<&'a str>,
-) -> Vec<T> {
-    symbols
-        .iter()
-        .filter(|symbol| {
-            module_name(symbol).is_none_or(|module_name| selected_modules.contains(module_name))
-        })
-        .cloned()
-        .collect()
-}
-
-pub(super) fn imported_use_for_path<'a>(
-    uses: &'a [UseDecl],
-    segments: &[String],
-    current_module: Option<&str>,
-) -> Option<&'a UseDecl> {
-    let module_path = segments.join("::");
-    uses.iter().find(|use_decl| {
-        use_decl.module_name.as_deref() == current_module
-            && (use_decl.name == module_path || use_decl.alias == module_path)
-    })
-}
-
-pub(super) fn companion_private_schema_access_allowed(
-    use_decl: &UseDecl,
-    current_module: Option<&str>,
-    companion_access_targets: &BTreeMap<String, String>,
-) -> bool {
-    use_decl.package.is_none()
-        && current_module.is_some_and(|current_module| {
-            companion_access_targets
-                .get(current_module)
-                .is_some_and(|allowed| allowed == use_decl.name.as_str())
-        })
 }

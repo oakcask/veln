@@ -2584,7 +2584,6 @@ fn materialize_reachable_types(
                 })
                 .cloned(),
         )
-        .into_iter()
         .collect()
 }
 
