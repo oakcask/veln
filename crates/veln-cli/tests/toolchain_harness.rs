@@ -2153,12 +2153,12 @@ struct LspAssertion {
     path: String,
     path_present: bool,
     pointer_tokens: Vec<String>,
-    operation: Option<LspAssertionOperation>,
+    operation: Option<RpcAssertionOperation>,
     operation_count: usize,
 }
 
 #[derive(Debug, PartialEq, Eq)]
-enum LspAssertionOperation {
+enum RpcAssertionOperation {
     Equals(JsonValue),
     EqualsFile(String),
     EqualsFileRef(CaseTextReference),
@@ -2176,21 +2176,8 @@ struct McpAssertion {
     path: String,
     path_present: bool,
     pointer_tokens: Vec<String>,
-    operation: Option<McpAssertionOperation>,
+    operation: Option<RpcAssertionOperation>,
     operation_count: usize,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum McpAssertionOperation {
-    Equals(JsonValue),
-    EqualsFile(String),
-    EqualsFileRef(CaseTextReference),
-    EqualsJsonFile(JsonValue),
-    EqualsJsonFileRef(CaseTextReference),
-    Contains(String),
-    Length(usize),
-    Missing(bool),
-    WorkspaceFileUri(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2218,7 +2205,7 @@ impl LspAssertion {
                 format!("lsp_assert {index} `occurrence` is valid only with `method`"),
             );
         }
-        if matches!(self.operation, Some(LspAssertionOperation::Missing(false))) {
+        if matches!(self.operation, Some(RpcAssertionOperation::Missing(false))) {
             manifest_error(
                 path,
                 0,
@@ -2265,7 +2252,7 @@ impl McpAssertion {
         if !self.path_present {
             manifest_error(path, 0, format!("mcp_assert {index} is missing `path`"));
         }
-        if matches!(self.operation, Some(McpAssertionOperation::Missing(false))) {
+        if matches!(self.operation, Some(RpcAssertionOperation::Missing(false))) {
             manifest_error(
                 path,
                 0,
@@ -3591,32 +3578,32 @@ impl<'a> ManifestParser<'a> {
             }
             "equals" => {
                 assertion.operation_count += 1;
-                assertion.operation = Some(LspAssertionOperation::Equals(
+                assertion.operation = Some(RpcAssertionOperation::Equals(
                     parse_manifest_json_value(self.path, value),
                 ));
             }
             "equals_file" => {
                 assertion.operation_count += 1;
-                assertion.operation = Some(LspAssertionOperation::EqualsFileRef(
+                assertion.operation = Some(RpcAssertionOperation::EqualsFileRef(
                     parse_case_text_reference(self.path, value, "lsp_assert", "equals_file"),
                 ));
             }
             "equals_json_file" => {
                 assertion.operation_count += 1;
-                assertion.operation = Some(LspAssertionOperation::EqualsJsonFileRef(
+                assertion.operation = Some(RpcAssertionOperation::EqualsJsonFileRef(
                     parse_case_text_reference(self.path, value, "lsp_assert", "equals_json_file"),
                 ));
             }
             "contains" => {
                 assertion.operation_count += 1;
-                assertion.operation = Some(LspAssertionOperation::Contains(parse_string(
+                assertion.operation = Some(RpcAssertionOperation::Contains(parse_string(
                     self.path, value,
                 )));
             }
             "length" => {
                 assertion.operation_count += 1;
                 let context = unresolved_assertion_operation_context("lsp_assert", index, "length");
-                assertion.operation = Some(LspAssertionOperation::Length(
+                assertion.operation = Some(RpcAssertionOperation::Length(
                     parse_nonnegative_usize_with_context(self.path, value, &context),
                 ));
             }
@@ -3634,12 +3621,12 @@ impl<'a> ManifestParser<'a> {
                     &relative,
                     Some(&context),
                 );
-                assertion.operation = Some(LspAssertionOperation::WorkspaceFileUri(relative));
+                assertion.operation = Some(RpcAssertionOperation::WorkspaceFileUri(relative));
             }
             "missing" => {
                 assertion.operation_count += 1;
                 assertion.operation =
-                    Some(LspAssertionOperation::Missing(parse_bool(self.path, value)));
+                    Some(RpcAssertionOperation::Missing(parse_bool(self.path, value)));
             }
             _ => manifest_error(
                 self.path,
@@ -3687,19 +3674,19 @@ impl<'a> ManifestParser<'a> {
             }
             "equals" => {
                 assertion.operation_count += 1;
-                assertion.operation = Some(McpAssertionOperation::Equals(
+                assertion.operation = Some(RpcAssertionOperation::Equals(
                     parse_manifest_mcp_json_value(self.path, value),
                 ));
             }
             "equals_file" => {
                 assertion.operation_count += 1;
-                assertion.operation = Some(McpAssertionOperation::EqualsFileRef(
+                assertion.operation = Some(RpcAssertionOperation::EqualsFileRef(
                     parse_case_text_reference(self.path, value, "mcp_assert", "equals_file"),
                 ));
             }
             "equals_json_file" => {
                 assertion.operation_count += 1;
-                assertion.operation = Some(McpAssertionOperation::EqualsJsonFileRef(
+                assertion.operation = Some(RpcAssertionOperation::EqualsJsonFileRef(
                     parse_case_text_reference(self.path, value, "mcp_assert", "equals_json_file"),
                 ));
             }
@@ -3709,7 +3696,7 @@ impl<'a> ManifestParser<'a> {
             "length" => {
                 assertion.operation_count += 1;
                 let context = unresolved_assertion_operation_context("mcp_assert", index, "length");
-                assertion.operation = Some(McpAssertionOperation::Length(
+                assertion.operation = Some(RpcAssertionOperation::Length(
                     parse_nonnegative_usize_with_context(self.path, value, &context),
                 ));
             }
@@ -3727,12 +3714,12 @@ impl<'a> ManifestParser<'a> {
                     &relative,
                     Some(&context),
                 );
-                assertion.operation = Some(McpAssertionOperation::WorkspaceFileUri(relative));
+                assertion.operation = Some(RpcAssertionOperation::WorkspaceFileUri(relative));
             }
             "missing" => {
                 assertion.operation_count += 1;
                 assertion.operation =
-                    Some(McpAssertionOperation::Missing(parse_bool(self.path, value)));
+                    Some(RpcAssertionOperation::Missing(parse_bool(self.path, value)));
             }
             _ => manifest_error(
                 self.path,
@@ -3997,106 +3984,63 @@ fn resolve_lsp_mcp_file_backed_assertions(
     case_text_cache: &mut CaseTextCache,
 ) {
     for (index, assertion) in expectations.lsp_assertions.iter_mut().enumerate() {
-        resolve_lsp_file_backed_assertion(path, index, assertion, case_text_cache);
+        let selector = assertion.selector();
+        resolve_protocol_file_backed_operation(
+            path,
+            "lsp_assert",
+            index,
+            &selector,
+            &assertion.path,
+            &mut assertion.operation,
+            case_text_cache,
+        );
     }
     for (index, assertion) in expectations.mcp_assertions.iter_mut().enumerate() {
-        resolve_mcp_file_backed_assertion(path, index, assertion, case_text_cache);
+        let selector = assertion.selector();
+        resolve_protocol_file_backed_operation(
+            path,
+            "mcp_assert",
+            index,
+            &selector,
+            &assertion.path,
+            &mut assertion.operation,
+            case_text_cache,
+        );
     }
 }
 
-fn resolve_lsp_file_backed_assertion(
+fn resolve_protocol_file_backed_operation(
     path: &Path,
+    section: &str,
     index: usize,
-    assertion: &mut LspAssertion,
+    selector: &str,
+    pointer: &str,
+    operation: &mut Option<RpcAssertionOperation>,
     case_text_cache: &mut CaseTextCache,
 ) {
-    let Some(operation) = assertion.operation.take() else {
+    let Some(current) = operation.take() else {
         return;
     };
-    assertion.operation = Some(match operation {
-        LspAssertionOperation::EqualsFileRef(reference) => {
-            let context = assertion_context(
-                "lsp_assert",
-                index,
-                &assertion.selector(),
-                &assertion.path,
-                "equals_file",
-            );
+    *operation = Some(match current {
+        RpcAssertionOperation::EqualsFileRef(reference) => {
+            let context = assertion_context(section, index, selector, pointer, "equals_file");
             let text = case_text_cache.read_path_with_context(
                 path,
                 reference.line_number,
                 &reference.relative,
                 Some(&context),
             );
-            LspAssertionOperation::EqualsFile(text)
+            RpcAssertionOperation::EqualsFile(text)
         }
-        LspAssertionOperation::EqualsJsonFileRef(reference) => {
-            let context = assertion_context(
-                "lsp_assert",
-                index,
-                &assertion.selector(),
-                &assertion.path,
-                "equals_json_file",
-            );
+        RpcAssertionOperation::EqualsJsonFileRef(reference) => {
+            let context = assertion_context(section, index, selector, pointer, "equals_json_file");
             let text = case_text_cache.read_path_with_context(
                 path,
                 reference.line_number,
                 &reference.relative,
                 Some(&context),
             );
-            LspAssertionOperation::EqualsJsonFile(parse_json(&text).unwrap_or_else(|error| {
-                manifest_error(
-                    path,
-                    reference.line_number,
-                    format!("invalid {context} value: {error}"),
-                )
-            }))
-        }
-        operation => operation,
-    });
-}
-
-fn resolve_mcp_file_backed_assertion(
-    path: &Path,
-    index: usize,
-    assertion: &mut McpAssertion,
-    case_text_cache: &mut CaseTextCache,
-) {
-    let Some(operation) = assertion.operation.take() else {
-        return;
-    };
-    assertion.operation = Some(match operation {
-        McpAssertionOperation::EqualsFileRef(reference) => {
-            let context = assertion_context(
-                "mcp_assert",
-                index,
-                &assertion.selector(),
-                &assertion.path,
-                "equals_file",
-            );
-            let text = case_text_cache.read_path_with_context(
-                path,
-                reference.line_number,
-                &reference.relative,
-                Some(&context),
-            );
-            McpAssertionOperation::EqualsFile(text)
-        }
-        McpAssertionOperation::EqualsJsonFileRef(reference) => {
-            let context = assertion_context(
-                "mcp_assert",
-                index,
-                &assertion.selector(),
-                &assertion.path,
-                "equals_json_file",
-            );
-            let text = case_text_cache.read_path_with_context(
-                path,
-                reference.line_number,
-                &reference.relative,
-                Some(&context),
-            );
-            McpAssertionOperation::EqualsJsonFile(parse_json(&text).unwrap_or_else(|error| {
+            RpcAssertionOperation::EqualsJsonFile(parse_json(&text).unwrap_or_else(|error| {
                 manifest_error(
                     path,
                     reference.line_number,
@@ -4572,7 +4516,7 @@ fn record_mcp_contains_assertion(
     value: &ManifestValue<'_>,
 ) {
     assertion.operation_count += 1;
-    assertion.operation = Some(McpAssertionOperation::Contains(parse_string(path, value)));
+    assertion.operation = Some(RpcAssertionOperation::Contains(parse_string(path, value)));
 }
 
 #[derive(Debug, Default)]
@@ -8432,19 +8376,19 @@ equals_json_file = "case-text/expected.json"
 
     assert_eq!(
         lsp_manifest.expectations.lsp_assertions[0].operation,
-        Some(LspAssertionOperation::EqualsJsonFile(
+        Some(RpcAssertionOperation::EqualsJsonFile(
             parse_json(r#"{"b":[2],"a":1}"#).expect("expected JSON should parse")
         ))
     );
     assert_eq!(
         mcp_manifest.expectations.mcp_assertions[0].operation,
-        Some(McpAssertionOperation::EqualsFile(
+        Some(RpcAssertionOperation::EqualsFile(
             "expected text\n".to_string()
         ))
     );
     assert!(matches!(
         mcp_manifest.expectations.mcp_assertions[1].operation,
-        Some(McpAssertionOperation::EqualsJsonFile(_))
+        Some(RpcAssertionOperation::EqualsJsonFile(_))
     ));
 
     fs::write(&expected_text, "modified workspace text\n")
@@ -8577,7 +8521,7 @@ fn lsp_and_mcp_file_backed_equality_report_operation_specific_failures() {
         path: "/result".to_string(),
         path_present: true,
         pointer_tokens: vec!["result".to_string()],
-        operation: Some(LspAssertionOperation::EqualsJsonFile(
+        operation: Some(RpcAssertionOperation::EqualsJsonFile(
             expected_object.clone(),
         )),
         operation_count: 1,
@@ -8598,7 +8542,7 @@ fn lsp_and_mcp_file_backed_equality_report_operation_specific_failures() {
         path: "/result/text".to_string(),
         path_present: true,
         pointer_tokens: vec!["result".to_string(), "text".to_string()],
-        operation: Some(McpAssertionOperation::EqualsFile("1".to_string())),
+        operation: Some(RpcAssertionOperation::EqualsFile("1".to_string())),
         operation_count: 1,
     };
     assert_eq!(
@@ -8609,7 +8553,7 @@ fn lsp_and_mcp_file_backed_equality_report_operation_specific_failures() {
 
     mcp_assertion.path = "/result/value".to_string();
     mcp_assertion.pointer_tokens = vec!["result".to_string(), "value".to_string()];
-    mcp_assertion.operation = Some(McpAssertionOperation::EqualsJsonFile(expected_object));
+    mcp_assertion.operation = Some(RpcAssertionOperation::EqualsJsonFile(expected_object));
     assert_eq!(
         evaluate_mcp_assertion(&mcp_messages, &mcp_assertion, Path::new("."))
             .expect_err("different MCP JSON should fail"),
@@ -8651,6 +8595,64 @@ fn lsp_and_mcp_file_backed_equality_report_operation_specific_failures() {
     assert!(message.contains("response id \"one\""));
     assert!(message.contains("path \"/result/value\""));
     assert!(message.contains("value mismatch"));
+}
+
+#[test]
+fn lsp_and_mcp_shared_operations_produce_the_same_result() {
+    let expected_object = parse_json(r#"{"a":2}"#).expect("expected object should parse");
+    let cases = [
+        (
+            r#"{"jsonrpc":"2.0","id":"one","result":{"value":{"a":1}}}"#,
+            vec!["result".to_string(), "value".to_string()],
+            RpcAssertionOperation::Equals(expected_object.clone()),
+            RpcAssertionOperation::Equals(expected_object.clone()),
+        ),
+        (
+            r#"{"jsonrpc":"2.0","id":"one","result":{"value":"haystack"}}"#,
+            vec!["result".to_string(), "value".to_string()],
+            RpcAssertionOperation::Contains("needle".to_string()),
+            RpcAssertionOperation::Contains("needle".to_string()),
+        ),
+        (
+            r#"{"jsonrpc":"2.0","id":"one","result":{"value":[1]}}"#,
+            vec!["result".to_string(), "value".to_string()],
+            RpcAssertionOperation::Length(2),
+            RpcAssertionOperation::Length(2),
+        ),
+        (
+            r#"{"jsonrpc":"2.0","id":"one","result":{}}"#,
+            vec!["result".to_string(), "value".to_string()],
+            RpcAssertionOperation::Missing(true),
+            RpcAssertionOperation::Missing(true),
+        ),
+    ];
+
+    for (message, pointer_tokens, lsp_operation, mcp_operation) in cases {
+        let messages = vec![parse_json(message).expect("response should parse")];
+        let lsp_assertion = LspAssertion {
+            id: Some(JsonValue::String("one".to_string())),
+            method: None,
+            occurrence: None,
+            path: "/result/value".to_string(),
+            path_present: true,
+            pointer_tokens: pointer_tokens.clone(),
+            operation: Some(lsp_operation),
+            operation_count: 1,
+        };
+        let mcp_assertion = McpAssertion {
+            id: Some(JsonValue::String("one".to_string())),
+            path: "/result/value".to_string(),
+            path_present: true,
+            pointer_tokens,
+            operation: Some(mcp_operation),
+            operation_count: 1,
+        };
+
+        assert_eq!(
+            evaluate_lsp_assertion(&messages, &lsp_assertion),
+            evaluate_mcp_assertion(&messages, &mcp_assertion, Path::new("."))
+        );
+    }
 }
 
 #[test]
@@ -8705,11 +8707,11 @@ contains = "needle"
     );
     assert_eq!(
         lsp_manifest.expectations.lsp_assertions[0].operation,
-        Some(LspAssertionOperation::Contains("needle".to_string()))
+        Some(RpcAssertionOperation::Contains("needle".to_string()))
     );
     assert_eq!(
         mcp_manifest.expectations.mcp_assertions[0].operation,
-        Some(McpAssertionOperation::Contains("needle".to_string()))
+        Some(RpcAssertionOperation::Contains("needle".to_string()))
     );
 
     for (command, section, fields) in [
@@ -9094,8 +9096,8 @@ fn lsp_and_mcp_length_and_workspace_uri_accept_operation_before_selector_path() 
                 .as_ref()
                 .expect("operation should parse")
             {
-                LspAssertionOperation::Length(_) => "length",
-                LspAssertionOperation::WorkspaceFileUri(_) => "workspace_file_uri",
+                RpcAssertionOperation::Length(_) => "length",
+                RpcAssertionOperation::WorkspaceFileUri(_) => "workspace_file_uri",
                 operation => panic!("unexpected lsp operation: {operation:?}"),
             },
             "mcp_assert" => match manifest.expectations.mcp_assertions[0]
@@ -9103,8 +9105,8 @@ fn lsp_and_mcp_length_and_workspace_uri_accept_operation_before_selector_path() 
                 .as_ref()
                 .expect("operation should parse")
             {
-                McpAssertionOperation::Length(_) => "length",
-                McpAssertionOperation::WorkspaceFileUri(_) => "workspace_file_uri",
+                RpcAssertionOperation::Length(_) => "length",
+                RpcAssertionOperation::WorkspaceFileUri(_) => "workspace_file_uri",
                 operation => panic!("unexpected mcp operation: {operation:?}"),
             },
             _ => unreachable!("test section should be covered"),
@@ -10181,7 +10183,7 @@ equals = 1.0
     );
     assert_eq!(
         manifest.expectations.lsp_assertions[0].operation,
-        Some(LspAssertionOperation::Equals(JsonValue::Decimal(
+        Some(RpcAssertionOperation::Equals(JsonValue::Decimal(
             "1.0".to_string()
         )))
     );
@@ -10225,7 +10227,7 @@ equals = {"nested": 1e0}
     );
     assert_eq!(
         manifest.expectations.lsp_assertions[0].operation,
-        Some(LspAssertionOperation::Equals(JsonValue::Object(vec![(
+        Some(RpcAssertionOperation::Equals(JsonValue::Object(vec![(
             "nested".to_string(),
             JsonValue::Decimal("1e0".to_string())
         )])))
@@ -10254,19 +10256,19 @@ equals = {"nested": [1.0, 1e0]}
     );
     assert_eq!(
         manifest.expectations.mcp_assertions[0].operation,
-        Some(McpAssertionOperation::Equals(JsonValue::Decimal(
+        Some(RpcAssertionOperation::Equals(JsonValue::Decimal(
             "1.0".to_string()
         )))
     );
     assert_eq!(
         manifest.expectations.mcp_assertions[1].operation,
-        Some(McpAssertionOperation::Equals(JsonValue::Decimal(
+        Some(RpcAssertionOperation::Equals(JsonValue::Decimal(
             "1e0".to_string()
         )))
     );
     assert_eq!(
         manifest.expectations.mcp_assertions[2].operation,
-        Some(McpAssertionOperation::Equals(JsonValue::Object(vec![(
+        Some(RpcAssertionOperation::Equals(JsonValue::Object(vec![(
             "nested".to_string(),
             JsonValue::Array(vec![
                 JsonValue::Decimal("1.0".to_string()),
@@ -13019,41 +13021,51 @@ fn evaluate_lsp_assertion_in_workspace(
             .ok_or_else(|| "selected notification was not found".to_string())?
     };
 
-    match json_pointer(selected, &assertion.pointer_tokens) {
+    evaluate_protocol_pointer_result(
+        json_pointer(selected, &assertion.pointer_tokens),
+        assertion
+            .operation
+            .as_ref()
+            .expect("validated LSP assertion operation"),
+        project_root,
+    )
+}
+
+fn evaluate_protocol_pointer_result(
+    result: JsonPointerResult<'_>,
+    operation: &RpcAssertionOperation,
+    project_root: &Path,
+) -> Result<(), String> {
+    match result {
         JsonPointerResult::Missing => {
-            if matches!(
-                assertion.operation,
-                Some(LspAssertionOperation::Missing(true))
-            ) {
+            if matches!(operation, RpcAssertionOperation::Missing(true)) {
                 Ok(())
             } else {
                 Err("selected JSON path was not found".to_string())
             }
         }
         JsonPointerResult::Invalid(reason) => Err(format!("invalid traversal: {reason}")),
-        JsonPointerResult::Found(actual) => match assertion
-            .operation
-            .as_ref()
-            .expect("validated LSP assertion operation")
-        {
-            LspAssertionOperation::Equals(expected) => expect_json_value(actual, expected),
-            LspAssertionOperation::EqualsFile(expected) => {
+        JsonPointerResult::Found(actual) => match operation {
+            RpcAssertionOperation::Equals(expected) => expect_json_value(actual, expected),
+            RpcAssertionOperation::EqualsFile(expected) => {
                 expect_string_equals_file(actual, expected)
             }
-            LspAssertionOperation::EqualsFileRef(_) => {
-                unreachable!("manifest finish resolves LSP equals_file operands")
+            RpcAssertionOperation::EqualsFileRef(_) => {
+                unreachable!("manifest finish resolves protocol equals_file operands")
             }
-            LspAssertionOperation::EqualsJsonFile(expected) => expect_json_value(actual, expected),
-            LspAssertionOperation::EqualsJsonFileRef(_) => {
-                unreachable!("manifest finish resolves LSP equals_json_file operands")
+            RpcAssertionOperation::EqualsJsonFile(expected) => expect_json_value(actual, expected),
+            RpcAssertionOperation::EqualsJsonFileRef(_) => {
+                unreachable!("manifest finish resolves protocol equals_json_file operands")
             }
-            LspAssertionOperation::Contains(expected) => expect_string_contains(actual, expected),
-            LspAssertionOperation::Length(expected) => expect_array_length(actual, *expected),
-            LspAssertionOperation::Missing(true) => {
+            RpcAssertionOperation::Contains(expected) => expect_string_contains(actual, expected),
+            RpcAssertionOperation::Length(expected) => expect_array_length(actual, *expected),
+            RpcAssertionOperation::Missing(true) => {
                 Err("selected JSON path exists but should be missing".to_string())
             }
-            LspAssertionOperation::Missing(false) => unreachable!("validated missing operation"),
-            LspAssertionOperation::WorkspaceFileUri(relative) => {
+            RpcAssertionOperation::Missing(false) => {
+                unreachable!("validated missing operation")
+            }
+            RpcAssertionOperation::WorkspaceFileUri(relative) => {
                 expect_workspace_file_uri(actual, project_root, relative)
             }
         },
@@ -13067,8 +13079,14 @@ fn evaluate_mcp_assertion(
 ) -> Result<(), String> {
     let id = assertion.id.as_ref().expect("validated MCP id");
     let selected = select_mcp_response(messages, id)?;
-    let result = json_pointer(selected, &assertion.pointer_tokens);
-    evaluate_mcp_pointer_result(result, assertion, project_root)
+    evaluate_protocol_pointer_result(
+        json_pointer(selected, &assertion.pointer_tokens),
+        assertion
+            .operation
+            .as_ref()
+            .expect("validated MCP assertion operation"),
+        project_root,
+    )
 }
 
 fn select_mcp_response<'a>(
@@ -13096,58 +13114,6 @@ fn select_mcp_response<'a>(
         }
     };
     Ok(selected)
-}
-
-fn evaluate_mcp_pointer_result(
-    result: JsonPointerResult<'_>,
-    assertion: &McpAssertion,
-    project_root: &Path,
-) -> Result<(), String> {
-    match result {
-        JsonPointerResult::Missing => {
-            if matches!(
-                assertion.operation,
-                Some(McpAssertionOperation::Missing(true))
-            ) {
-                Ok(())
-            } else {
-                Err("selected JSON path was not found".to_string())
-            }
-        }
-        JsonPointerResult::Invalid(reason) => Err(format!("invalid traversal: {reason}")),
-        JsonPointerResult::Found(actual) => evaluate_mcp_operation(actual, assertion, project_root),
-    }
-}
-
-fn evaluate_mcp_operation(
-    actual: &JsonValue,
-    assertion: &McpAssertion,
-    project_root: &Path,
-) -> Result<(), String> {
-    match assertion
-        .operation
-        .as_ref()
-        .expect("validated MCP assertion operation")
-    {
-        McpAssertionOperation::Equals(expected) => expect_json_value(actual, expected),
-        McpAssertionOperation::EqualsFile(expected) => expect_string_equals_file(actual, expected),
-        McpAssertionOperation::EqualsFileRef(_) => {
-            unreachable!("manifest finish resolves MCP equals_file operands")
-        }
-        McpAssertionOperation::EqualsJsonFile(expected) => expect_json_value(actual, expected),
-        McpAssertionOperation::EqualsJsonFileRef(_) => {
-            unreachable!("manifest finish resolves MCP equals_json_file operands")
-        }
-        McpAssertionOperation::Contains(expected) => expect_string_contains(actual, expected),
-        McpAssertionOperation::Length(expected) => expect_array_length(actual, *expected),
-        McpAssertionOperation::Missing(true) => {
-            Err("selected JSON path exists but should be missing".to_string())
-        }
-        McpAssertionOperation::WorkspaceFileUri(relative) => {
-            expect_workspace_file_uri(actual, project_root, relative)
-        }
-        McpAssertionOperation::Missing(false) => unreachable!("validated missing operation"),
-    }
 }
 
 fn expect_json_value(actual: &JsonValue, expected: &JsonValue) -> Result<(), String> {

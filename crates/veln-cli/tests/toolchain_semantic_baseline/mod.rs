@@ -471,52 +471,14 @@ fn describe_lsp_assertions(fields: &mut BTreeMap<String, String>, manifest: &Cas
             );
         }
         text(fields, &format!("{base}.path"), &assertion.path);
-        match assertion
-            .operation
-            .as_ref()
-            .expect("validated LSP assertion operation")
-        {
-            LspAssertionOperation::Equals(value) => {
-                enum_value(fields, &format!("{base}.operation"), "equals");
-                fields.insert(
-                    format!("{base}.equals"),
-                    canonical_json(value, &format!("{base}.equals")),
-                );
-            }
-            LspAssertionOperation::EqualsFile(value) => {
-                enum_value(fields, &format!("{base}.operation"), "equals_file");
-                text(fields, &format!("{base}.equals_file"), value);
-            }
-            LspAssertionOperation::EqualsFileRef(_) => {
-                unreachable!("manifest finish resolves LSP equals_file operands")
-            }
-            LspAssertionOperation::EqualsJsonFile(value) => {
-                enum_value(fields, &format!("{base}.operation"), "equals_json_file");
-                fields.insert(
-                    format!("{base}.equals_json_file"),
-                    canonical_json(value, &format!("{base}.equals_json_file")),
-                );
-            }
-            LspAssertionOperation::EqualsJsonFileRef(_) => {
-                unreachable!("manifest finish resolves LSP equals_json_file operands")
-            }
-            LspAssertionOperation::Contains(value) => {
-                enum_value(fields, &format!("{base}.operation"), "contains");
-                text(fields, &format!("{base}.contains"), value);
-            }
-            LspAssertionOperation::Length(value) => {
-                enum_value(fields, &format!("{base}.operation"), "length");
-                scalar(fields, &format!("{base}.length"), *value);
-            }
-            LspAssertionOperation::Missing(true) => {
-                enum_value(fields, &format!("{base}.operation"), "missing");
-            }
-            LspAssertionOperation::Missing(false) => unreachable!("validated missing operation"),
-            LspAssertionOperation::WorkspaceFileUri(value) => {
-                enum_value(fields, &format!("{base}.operation"), "workspace_file_uri");
-                text(fields, &format!("{base}.workspace_file_uri"), value);
-            }
-        }
+        describe_protocol_assertion_operation(
+            fields,
+            &base,
+            assertion
+                .operation
+                .as_ref()
+                .expect("validated LSP assertion operation"),
+        );
     }
 }
 
@@ -531,52 +493,63 @@ fn describe_mcp_assertions(fields: &mut BTreeMap<String, String>, manifest: &Cas
             ),
         );
         text(fields, &format!("{base}.path"), &assertion.path);
-        match assertion
-            .operation
-            .as_ref()
-            .expect("validated MCP assertion operation")
-        {
-            McpAssertionOperation::Equals(value) => {
-                enum_value(fields, &format!("{base}.operation"), "equals");
-                fields.insert(
-                    format!("{base}.equals"),
-                    canonical_json(value, &format!("{base}.equals")),
-                );
-            }
-            McpAssertionOperation::EqualsFile(value) => {
-                enum_value(fields, &format!("{base}.operation"), "equals_file");
-                text(fields, &format!("{base}.equals_file"), value);
-            }
-            McpAssertionOperation::EqualsFileRef(_) => {
-                unreachable!("manifest finish resolves MCP equals_file operands")
-            }
-            McpAssertionOperation::EqualsJsonFile(value) => {
-                enum_value(fields, &format!("{base}.operation"), "equals_json_file");
-                fields.insert(
-                    format!("{base}.equals_json_file"),
-                    canonical_json(value, &format!("{base}.equals_json_file")),
-                );
-            }
-            McpAssertionOperation::EqualsJsonFileRef(_) => {
-                unreachable!("manifest finish resolves MCP equals_json_file operands")
-            }
-            McpAssertionOperation::Contains(value) => {
-                enum_value(fields, &format!("{base}.operation"), "contains");
-                text(fields, &format!("{base}.contains"), value);
-            }
-            McpAssertionOperation::Length(value) => {
-                enum_value(fields, &format!("{base}.operation"), "length");
-                scalar(fields, &format!("{base}.length"), *value);
-            }
-            McpAssertionOperation::Missing(true) => {
-                enum_value(fields, &format!("{base}.operation"), "missing");
-            }
-            McpAssertionOperation::WorkspaceFileUri(value) => {
-                enum_value(fields, &format!("{base}.operation"), "workspace_file_uri");
-                text(fields, &format!("{base}.workspace_file_uri"), value);
-            }
-            McpAssertionOperation::Missing(false) => unreachable!("validated missing operation"),
+        describe_protocol_assertion_operation(
+            fields,
+            &base,
+            assertion
+                .operation
+                .as_ref()
+                .expect("validated MCP assertion operation"),
+        );
+    }
+}
+
+fn describe_protocol_assertion_operation(
+    fields: &mut BTreeMap<String, String>,
+    base: &str,
+    operation: &RpcAssertionOperation,
+) {
+    match operation {
+        RpcAssertionOperation::Equals(value) => {
+            enum_value(fields, &format!("{base}.operation"), "equals");
+            fields.insert(
+                format!("{base}.equals"),
+                canonical_json(value, &format!("{base}.equals")),
+            );
         }
+        RpcAssertionOperation::EqualsFile(value) => {
+            enum_value(fields, &format!("{base}.operation"), "equals_file");
+            text(fields, &format!("{base}.equals_file"), value);
+        }
+        RpcAssertionOperation::EqualsFileRef(_) => {
+            unreachable!("manifest finish resolves protocol equals_file operands")
+        }
+        RpcAssertionOperation::EqualsJsonFile(value) => {
+            enum_value(fields, &format!("{base}.operation"), "equals_json_file");
+            fields.insert(
+                format!("{base}.equals_json_file"),
+                canonical_json(value, &format!("{base}.equals_json_file")),
+            );
+        }
+        RpcAssertionOperation::EqualsJsonFileRef(_) => {
+            unreachable!("manifest finish resolves protocol equals_json_file operands")
+        }
+        RpcAssertionOperation::Contains(value) => {
+            enum_value(fields, &format!("{base}.operation"), "contains");
+            text(fields, &format!("{base}.contains"), value);
+        }
+        RpcAssertionOperation::Length(value) => {
+            enum_value(fields, &format!("{base}.operation"), "length");
+            scalar(fields, &format!("{base}.length"), *value);
+        }
+        RpcAssertionOperation::Missing(true) => {
+            enum_value(fields, &format!("{base}.operation"), "missing");
+        }
+        RpcAssertionOperation::WorkspaceFileUri(value) => {
+            enum_value(fields, &format!("{base}.operation"), "workspace_file_uri");
+            text(fields, &format!("{base}.workspace_file_uri"), value);
+        }
+        RpcAssertionOperation::Missing(false) => unreachable!("validated missing operation"),
     }
 }
 
