@@ -1,0 +1,9 @@
+type Hidden
+  HiddenMade
+end
+
+pub type Exposed = Hidden
+
+pub fn main() -> Int
+  1
+end

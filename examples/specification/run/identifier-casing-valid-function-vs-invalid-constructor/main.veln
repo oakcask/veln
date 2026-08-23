@@ -1,0 +1,11 @@
+type Bad
+  helper
+end
+
+fn helper() -> Int
+  1
+end
+
+pub fn main() -> Int
+  helper()
+end

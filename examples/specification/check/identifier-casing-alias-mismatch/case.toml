@@ -1,0 +1,15 @@
+command = ["check", "--json", "main.veln", "broken.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "\"id\":\"name.invalid_case\"",
+  "\"name\":\"bad\"",
+  "\"id\":\"type.mismatch\"",
+  "\"expected_type\":\"Error\"",
+]
+
+[stderr]
+format = "empty"

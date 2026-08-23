@@ -1,0 +1,11 @@
+type Choice
+  Build(Int)
+end
+
+fn Build() -> Int
+  1
+end
+
+pub fn main() -> Choice
+  Build(1)
+end

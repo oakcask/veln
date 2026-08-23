@@ -9,10 +9,11 @@ contains = [
   "\"name\":\"item\"",
   "\"name\":\"made\"",
   "\"name\":\"Broken\"",
-  "unresolved call_target `Broken`",
-]
-not_contains = [
   "\"id\":\"name.duplicate\"",
+  "duplicate type declaration name `item`",
+  "duplicate constructor declaration name `made`",
+  "duplicate function declaration name `Broken`",
+  "unresolved call_target `Broken`",
 ]
 
 [stderr]

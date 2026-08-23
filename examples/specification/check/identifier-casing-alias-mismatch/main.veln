@@ -1,0 +1,9 @@
+use broken
+
+type Error
+  Failure
+end
+
+fn main() -> Error
+  1
+end

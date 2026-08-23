@@ -281,6 +281,12 @@ impl<'a> FunctionChecker<'a> {
         pattern_has_diagnostic: bool,
     ) {
         if !valid_value_binding_name(&binding.name) {
+            self.declare_local_name(
+                &binding.name,
+                binding.node_id.display("pattern"),
+                binding.span.clone(),
+                "local binding",
+            );
             self.record_recovery_binding(
                 binding.name,
                 binding.ty,
@@ -646,6 +652,12 @@ impl<'a> FunctionChecker<'a> {
                 })
             });
         if !valid_value_binding_name(&param.name) {
+            self.declare_local_name(
+                &param.name,
+                param.node_id.display("param"),
+                param.span.clone(),
+                "parameter",
+            );
             self.record_recovery_binding(
                 param.name.clone(),
                 binding_type,
@@ -2841,6 +2853,12 @@ impl<'a> FunctionChecker<'a> {
             let pattern_bindings = self.pattern_bindings(&arm.pattern, &scrutinee_type);
             for binding in pattern_bindings {
                 if !valid_value_binding_name(&binding.name) {
+                    self.declare_local_name(
+                        &binding.name,
+                        binding.node_id.display("pattern"),
+                        binding.span.clone(),
+                        "pattern binding",
+                    );
                     self.record_recovery_binding(
                         binding.name,
                         binding.ty,

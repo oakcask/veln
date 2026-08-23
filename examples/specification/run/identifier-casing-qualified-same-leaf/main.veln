@@ -1,0 +1,6 @@
+use bad
+use good
+
+pub fn main() -> Int
+  good::helper()
+end

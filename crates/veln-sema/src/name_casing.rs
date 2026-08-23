@@ -1,7 +1,8 @@
 use std::collections::BTreeSet;
 
 use veln_ast::{
-    BodyLineKind, Expr, ExprKind, Function, Pattern, PatternKind, PublicAliasKind, SurfaceModule,
+    BodyLineKind, Expr, ExprKind, Function, FunctionKind, Pattern, PatternKind, PublicAliasKind,
+    SurfaceModule,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
@@ -142,9 +143,24 @@ pub(crate) fn suppress_quarantined_type_alias_derivatives(
         if diagnostic.id != "type.mismatch" {
             return true;
         }
-        let details = diagnostic.details.to_json();
-        !aliases.iter().any(|alias| details.contains(alias))
+        !diagnostic_type_names(diagnostic)
+            .iter()
+            .any(|name| aliases.contains(name))
     });
+}
+
+fn diagnostic_type_names(diagnostic: &Diagnostic) -> Vec<String> {
+    let JsonValue::Object(entries) = &diagnostic.details else {
+        return Vec::new();
+    };
+    entries
+        .iter()
+        .filter(|(key, _)| key == "expected_type" || key == "actual_type")
+        .filter_map(|(_, value)| match value {
+            JsonValue::String(value) => Some(value.clone()),
+            _ => None,
+        })
+        .collect()
 }
 
 fn quarantined_type_alias_names(module: &SurfaceModule) -> BTreeSet<String> {
@@ -222,7 +238,8 @@ fn unresolved_recovery_role_and_symbol(message: &str) -> Option<(RecoveryRole, &
 
 fn recovery_count(module: &SurfaceModule, role: RecoveryRole, symbol: &str, file: &str) -> usize {
     let invalid_functions = module.functions.iter().filter(|function| {
-        function.name.as_deref() == Some(symbol)
+        function.kind == FunctionKind::Function
+            && function.name.as_deref() == Some(symbol)
             && !valid_function_name(symbol)
             && function.span.file.as_str() == file
     });

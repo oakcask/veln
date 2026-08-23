@@ -14,6 +14,11 @@ Identifier casing and quarantined recovery are checked by
 [`identifier-casing-human`](../../examples/specification/check/identifier-casing-human/case.toml),
 [`identifier-casing-quarantine`](../../examples/specification/check/identifier-casing-quarantine/case.toml), and
 [`identifier-casing-value-recovery`](../../examples/specification/check/identifier-casing-value-recovery/case.toml).
+Duplicate overlap, alias-mismatch suppression boundaries, and test declaration
+recovery compatibility are checked by
+[`identifier-casing-duplicate-quarantine`](../../examples/specification/check/identifier-casing-duplicate-quarantine/case.toml),
+[`identifier-casing-alias-mismatch`](../../examples/specification/check/identifier-casing-alias-mismatch/case.toml), and
+[`identifier-casing-test-recovery`](../../examples/specification/check/identifier-casing-test-recovery/case.toml).
 The selected-entry command boundary is checked by
 [`identifier-casing-reachable`](../../examples/specification/run/identifier-casing-reachable/case.toml)
 and
@@ -22,6 +27,11 @@ Import and public-alias quarantine are checked by
 [`identifier-casing-import-quarantine`](../../examples/specification/run/identifier-casing-import-quarantine/case.toml)
 and
 [`identifier-casing-alias-quarantine`](../../examples/specification/run/identifier-casing-alias-quarantine/case.toml).
+Resolution-aware run reachability is checked by
+[`identifier-casing-valid-function-vs-invalid-constructor`](../../examples/specification/run/identifier-casing-valid-function-vs-invalid-constructor/case.toml),
+[`identifier-casing-valid-constructor-vs-invalid-function`](../../examples/specification/run/identifier-casing-valid-constructor-vs-invalid-function/case.toml),
+[`identifier-casing-qualified-same-leaf`](../../examples/specification/run/identifier-casing-qualified-same-leaf/case.toml), and
+[`identifier-casing-alias-transitive-target`](../../examples/specification/run/identifier-casing-alias-transitive-target/case.toml).
 
 Case text files under `case-text/` are fixture evidence owned by the CLI
 toolchain harness. Their placement can change how an example is reviewed

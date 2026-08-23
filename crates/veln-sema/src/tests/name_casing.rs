@@ -169,15 +169,14 @@ fn multiple_invalid_functions_do_not_select_a_recovery_symbol() {
             .iter()
             .any(|diagnostic| diagnostic.id == "name.unresolved")
     );
-    assert!(
-        diagnostics
-            .iter()
-            .all(|diagnostic| diagnostic.id != "name.duplicate")
-    );
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.duplicate"
+            && diagnostic.message == "duplicate function declaration name `Broken`"
+    }));
 }
 
 #[test]
-fn invalid_type_and_constructor_declarations_do_not_enter_duplicate_lookup() {
+fn invalid_type_and_constructor_declarations_report_same_kind_duplicates() {
     let parsed = parse(&SourceFile::new(
         "main.veln",
         concat!(
@@ -201,11 +200,14 @@ fn invalid_type_and_constructor_declarations_do_not_enter_duplicate_lookup() {
             .count(),
         5
     );
-    assert!(
-        diagnostics
-            .iter()
-            .all(|diagnostic| diagnostic.id != "name.duplicate")
-    );
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.duplicate"
+            && diagnostic.message == "duplicate constructor declaration name `made`"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.duplicate"
+            && diagnostic.message == "duplicate type declaration name `item`"
+    }));
 }
 
 #[test]
@@ -302,7 +304,7 @@ fn invalid_value_binding_is_quarantined_but_unique_value_use_recovers() {
 }
 
 #[test]
-fn invalid_value_bindings_do_not_enter_duplicate_lookup() {
+fn invalid_value_bindings_report_same_scope_duplicates_without_normal_lookup() {
     let parsed = parse(&SourceFile::new(
         "main.veln",
         concat!(
@@ -322,11 +324,10 @@ fn invalid_value_bindings_do_not_enter_duplicate_lookup() {
             .count(),
         2
     );
-    assert!(
-        diagnostics
-            .iter()
-            .all(|diagnostic| diagnostic.id != "name.duplicate")
-    );
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.duplicate"
+            && diagnostic.message == "duplicate parameter name `Value`"
+    }));
     assert!(
         diagnostics
             .iter()
@@ -414,4 +415,63 @@ fn invalid_satisfy_candidate_does_not_enter_predicate_bindings() {
             .iter()
             .all(|diagnostic| diagnostic.message != "unresolved satisfy_predicate `Candidate`")
     );
+}
+
+#[test]
+fn quarantined_alias_does_not_suppress_unrelated_type_mismatch() {
+    let module = merged_modules(vec![
+        SourceFile::new(
+            "broken.veln",
+            concat!("type bad\n", "  Made\n", "end\n", "pub type E = bad\n",),
+        ),
+        SourceFile::new(
+            "main.veln",
+            concat!(
+                "use broken\n",
+                "type Error\n",
+                "  Failure\n",
+                "end\n",
+                "fn main() -> Error\n",
+                "  1\n",
+                "end\n",
+            ),
+        ),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.invalid_case"
+            && diagnostic.message == "type name must start with an ASCII uppercase letter"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.mismatch" && diagnostic.details.to_json().contains("\"Error\"")
+    }));
+}
+
+#[test]
+fn invalid_tests_do_not_recover_function_calls() {
+    let parsed = parse(&SourceFile::new(
+        "main_test.veln",
+        concat!(
+            "test Broken() -> ()\n",
+            "  ()\n",
+            "end\n",
+            "test caller() -> ()\n",
+            "  Broken()\n",
+            "end\n",
+        ),
+    ));
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.invalid_case"
+            && diagnostic.message == "function name must start with an ASCII lowercase letter"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved call_target `Broken`"
+    }));
 }

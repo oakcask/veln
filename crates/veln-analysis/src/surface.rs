@@ -1899,13 +1899,13 @@ impl<'a> ReachabilityInputs<'a> {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 struct FunctionRef {
     input: ReachabilityInput,
     index: usize,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum ReachabilityInput {
     Standard,
     Application,
@@ -1967,6 +1967,18 @@ impl FunctionTargetIndex {
             .flatten()
             .map(|index| &self.all[*index])
     }
+
+    fn function_refs_for_name(
+        &self,
+        name: &str,
+        module_name: Option<&str>,
+    ) -> Vec<&FunctionTarget> {
+        if let Some(module_name) = module_name {
+            self.qualified(module_name, name).collect()
+        } else {
+            self.named(name).collect()
+        }
+    }
 }
 
 #[cfg(test)]
@@ -2026,7 +2038,7 @@ pub(crate) fn reachable_entry_module_with_cache(
         &companion_access_targets,
         cache,
     );
-    module_with_reachable_functions(&inputs, &reachable)
+    module_with_reachable_functions(&inputs, &reachable, reachability_index)
 }
 
 pub(crate) fn reachable_entry_module_with_standard_cache(
@@ -2049,7 +2061,7 @@ pub(crate) fn reachable_entry_module_with_standard_cache(
         &companion_access_targets,
         cache,
     );
-    module_with_reachable_functions(&inputs, &reachable)
+    module_with_reachable_functions(&inputs, &reachable, reachability_index)
 }
 
 fn reachable_function_targets(inputs: &ReachabilityInputs<'_>) -> ReachabilityIndex {
@@ -2194,10 +2206,11 @@ fn reachable_functions(
 fn module_with_reachable_functions(
     inputs: &ReachabilityInputs<'_>,
     reachable: &HashSet<ReachableFunction>,
+    reachability_index: &ReachabilityIndex,
 ) -> SurfaceModule {
-    let functions = materialize_reachable_functions(inputs, reachable);
+    let functions = materialize_reachable_functions(inputs, reachable, reachability_index);
     let handlers = materialize_reachable_handlers(inputs, &functions);
-    let types = materialize_reachable_types(inputs, &functions, &handlers);
+    let types = materialize_reachable_types(inputs, &functions, &handlers, reachability_index);
     SurfaceModule {
         module: inputs.module_header(),
         uses: inputs.cloned_declarations(|module| &module.uses),
@@ -2218,21 +2231,21 @@ fn module_with_reachable_functions(
 fn materialize_reachable_functions(
     inputs: &ReachabilityInputs<'_>,
     reachable: &HashSet<ReachableFunction>,
+    reachability_index: &ReachabilityIndex,
 ) -> Vec<Function> {
     inputs
-        .functions()
-        .filter(|function| {
-            function.name.as_ref().is_some_and(|name| {
-                reachable.contains(&ReachableFunction {
-                    kind: function.kind,
-                    name: name.clone(),
-                    module_name: None,
-                }) || reachable.contains(&ReachableFunction {
-                    kind: function.kind,
-                    name: name.clone(),
-                    module_name: function.module_name.clone(),
-                })
-            })
+        .function_refs()
+        .filter_map(|function_ref| {
+            let function = inputs.function(function_ref);
+            let name = function.name.as_ref()?;
+            let function_reachable = reachable.iter().any(|reachable_function| {
+                reachable_function.kind == function.kind
+                    && reachability_index
+                        .function_refs(reachable_function)
+                        .contains(&function_ref)
+                    && reachability_target_matches_function(reachable_function, function, name)
+            });
+            function_reachable.then_some(function)
         })
         .inspect(|_function| {
             #[cfg(test)]
@@ -2242,6 +2255,23 @@ fn materialize_reachable_functions(
         })
         .cloned()
         .collect()
+}
+
+fn reachability_target_matches_function(
+    reachable: &ReachableFunction,
+    function: &Function,
+    name: &str,
+) -> bool {
+    if function.kind != FunctionKind::Function {
+        return reachable.name == name
+            && (reachable.module_name.is_none() || reachable.module_name == function.module_name);
+    }
+    reachable.name == name
+        && if reachable.module_name == function.module_name {
+            true
+        } else {
+            reachable.module_name.is_none() && valid_function_name(name)
+        }
 }
 
 fn materialize_reachable_handlers(
@@ -2556,15 +2586,30 @@ fn materialize_reachable_types(
     inputs: &ReachabilityInputs<'_>,
     functions: &[Function],
     handlers: &[veln_ast::HandlerDecl],
+    reachability_index: &ReachabilityIndex,
 ) -> Vec<veln_ast::TypeDecl> {
     let mut names = HashSet::new();
     let mut constructors = HashSet::new();
+    let uses = inputs.uses();
     for function in functions {
-        collect_function_type_references(function, &mut names, &mut constructors);
+        collect_function_type_references(
+            function,
+            &uses,
+            &reachability_index.function_targets,
+            &mut names,
+            &mut constructors,
+        );
     }
     for handler in handlers {
-        collect_handler_type_references(handler, &mut names, &mut constructors);
+        collect_handler_type_references(
+            handler,
+            &uses,
+            &reachability_index.function_targets,
+            &mut names,
+            &mut constructors,
+        );
     }
+    collect_alias_type_references(inputs, &uses, &mut names);
     inputs
         .standard
         .into_iter()
@@ -2589,48 +2634,104 @@ fn materialize_reachable_types(
 
 fn type_is_reachable(
     type_decl: &veln_ast::TypeDecl,
-    names: &HashSet<String>,
-    constructors: &HashSet<String>,
+    names: &HashSet<ReachableTypeName>,
+    constructors: &HashSet<ReachableConstructorName>,
 ) -> bool {
-    type_decl
-        .name
-        .as_ref()
-        .is_some_and(|name| names.contains(name))
-        || type_decl.variants.iter().any(|variant| {
-            variant
-                .name
-                .as_ref()
-                .is_some_and(|name| constructors.contains(name))
+    type_decl.name.as_ref().is_some_and(|name| {
+        reachable_type_name_matches(names, type_decl.module_name.as_deref(), name)
+    }) || type_decl.variants.iter().any(|variant| {
+        variant.name.as_ref().is_some_and(|name| {
+            reachable_constructor_name_matches(constructors, type_decl.module_name.as_deref(), name)
         })
+    })
+}
+
+fn reachable_type_name_matches(
+    names: &HashSet<ReachableTypeName>,
+    module_name: Option<&str>,
+    name: &str,
+) -> bool {
+    names.iter().any(|candidate| {
+        candidate.name == name
+            && candidate
+                .module_name
+                .as_deref()
+                .is_none_or(|candidate_module| Some(candidate_module) == module_name)
+    })
+}
+
+fn reachable_constructor_name_matches(
+    constructors: &HashSet<ReachableConstructorName>,
+    module_name: Option<&str>,
+    name: &str,
+) -> bool {
+    constructors.iter().any(|candidate| {
+        candidate.name == name
+            && candidate
+                .module_name
+                .as_deref()
+                .is_none_or(|candidate_module| Some(candidate_module) == module_name)
+    })
 }
 
 fn collect_handler_type_references(
     handler: &veln_ast::HandlerDecl,
-    names: &mut HashSet<String>,
-    constructors: &mut HashSet<String>,
+    uses: &[&UseDecl],
+    function_targets: &FunctionTargetIndex,
+    names: &mut HashSet<ReachableTypeName>,
+    constructors: &mut HashSet<ReachableConstructorName>,
 ) {
     for param in &handler.params {
-        collect_optional_type_name_references(param.ty.as_deref(), names);
+        collect_optional_type_name_references(
+            param.ty.as_deref(),
+            handler.module_name.as_deref(),
+            uses,
+            names,
+        );
     }
     for clause in &handler.operation_clauses {
         for param in &clause.params {
-            collect_optional_type_name_references(param.ty.as_deref(), names);
+            collect_optional_type_name_references(
+                param.ty.as_deref(),
+                handler.module_name.as_deref(),
+                uses,
+                names,
+            );
         }
-        collect_expr_type_references(&clause.body, names, constructors);
+        collect_expr_type_references(
+            &clause.body,
+            handler.module_name.as_deref(),
+            uses,
+            function_targets,
+            names,
+            constructors,
+        );
     }
 }
 
 fn collect_function_type_references(
     function: &Function,
-    names: &mut HashSet<String>,
-    constructors: &mut HashSet<String>,
+    uses: &[&UseDecl],
+    function_targets: &FunctionTargetIndex,
+    names: &mut HashSet<ReachableTypeName>,
+    constructors: &mut HashSet<ReachableConstructorName>,
 ) {
     for param in &function.params {
-        collect_optional_type_name_references(param.ty.as_deref(), names);
+        collect_optional_type_name_references(
+            param.ty.as_deref(),
+            function.module_name.as_deref(),
+            uses,
+            names,
+        );
     }
-    collect_optional_type_name_references(function.return_type.as_deref(), names);
+    collect_optional_type_name_references(
+        function.return_type.as_deref(),
+        function.module_name.as_deref(),
+        uses,
+        names,
+    );
     for contract in &function.contracts {
-        collect_type_name_references(&contract.text, names);
+        collect_type_name_references(&contract.text, function.module_name.as_deref(), uses, names);
     }
     for line in &function.body {
         match &line.kind {
@@ -2639,12 +2740,36 @@ fn collect_function_type_references(
                 annotation,
                 expr,
             } => {
-                collect_optional_type_name_references(annotation.as_deref(), names);
-                collect_pattern_type_references(pattern, constructors);
-                collect_expr_type_references(expr, names, constructors);
+                collect_optional_type_name_references(
+                    annotation.as_deref(),
+                    function.module_name.as_deref(),
+                    uses,
+                    names,
+                );
+                collect_pattern_type_references(
+                    pattern,
+                    function.module_name.as_deref(),
+                    uses,
+                    constructors,
+                );
+                collect_expr_type_references(
+                    expr,
+                    function.module_name.as_deref(),
+                    uses,
+                    function_targets,
+                    names,
+                    constructors,
+                );
             }
             veln_ast::BodyLineKind::Expr { expr } => {
-                collect_expr_type_references(expr, names, constructors);
+                collect_expr_type_references(
+                    expr,
+                    function.module_name.as_deref(),
+                    uses,
+                    function_targets,
+                    names,
+                    constructors,
+                );
             }
         }
     }
@@ -2652,70 +2777,212 @@ fn collect_function_type_references(
 
 fn collect_expr_type_references(
     expr: &Expr,
-    names: &mut HashSet<String>,
-    constructors: &mut HashSet<String>,
+    current_module: Option<&str>,
+    uses: &[&UseDecl],
+    function_targets: &FunctionTargetIndex,
+    names: &mut HashSet<ReachableTypeName>,
+    constructors: &mut HashSet<ReachableConstructorName>,
 ) {
     match &expr.kind {
         ExprKind::NamePath(segments) => {
-            if let Some(name) = segments.last() {
-                constructors.insert(name.clone());
+            if !expression_name_resolves_to_function(
+                segments,
+                current_module,
+                uses,
+                function_targets,
+            ) && let Some(constructor) =
+                resolve_reachable_constructor_name(segments, current_module, uses)
+            {
+                constructors.insert(constructor);
             }
         }
         ExprKind::TypeApply { callee, type_args } => {
-            collect_expr_type_references(callee, names, constructors);
+            collect_expr_type_references(
+                callee,
+                current_module,
+                uses,
+                function_targets,
+                names,
+                constructors,
+            );
             for type_arg in type_args {
-                collect_type_name_references(type_arg, names);
+                collect_type_name_references(type_arg, current_module, uses, names);
             }
         }
         ExprKind::Call { callee, args } => {
-            collect_expr_type_references(callee, names, constructors);
+            if let Some(segments) = callee_name_path(callee) {
+                if !expression_name_resolves_to_function(
+                    segments,
+                    current_module,
+                    uses,
+                    function_targets,
+                ) && let Some(constructor) =
+                    resolve_reachable_constructor_name(segments, current_module, uses)
+                {
+                    constructors.insert(constructor);
+                }
+            } else {
+                collect_expr_type_references(
+                    callee,
+                    current_module,
+                    uses,
+                    function_targets,
+                    names,
+                    constructors,
+                );
+            }
             for arg in args {
-                collect_expr_type_references(arg, names, constructors);
+                collect_expr_type_references(
+                    arg,
+                    current_module,
+                    uses,
+                    function_targets,
+                    names,
+                    constructors,
+                );
             }
         }
         ExprKind::Perform { args, .. } => {
             for arg in args {
-                collect_expr_type_references(arg, names, constructors);
+                collect_expr_type_references(
+                    arg,
+                    current_module,
+                    uses,
+                    function_targets,
+                    names,
+                    constructors,
+                );
             }
         }
         ExprKind::Handle { body, args, .. } => {
-            collect_expr_type_references(body, names, constructors);
+            collect_expr_type_references(
+                body,
+                current_module,
+                uses,
+                function_targets,
+                names,
+                constructors,
+            );
             for arg in args {
-                collect_expr_type_references(arg, names, constructors);
+                collect_expr_type_references(
+                    arg,
+                    current_module,
+                    uses,
+                    function_targets,
+                    names,
+                    constructors,
+                );
             }
         }
         ExprKind::SchemaDecode { input, base, .. } => {
-            collect_expr_type_references(input, names, constructors);
-            collect_expr_type_references(base, names, constructors);
+            collect_expr_type_references(
+                input,
+                current_module,
+                uses,
+                function_targets,
+                names,
+                constructors,
+            );
+            collect_expr_type_references(
+                base,
+                current_module,
+                uses,
+                function_targets,
+                names,
+                constructors,
+            );
         }
         ExprKind::SchemaEncode { value, .. } => {
-            collect_expr_type_references(value, names, constructors);
+            collect_expr_type_references(
+                value,
+                current_module,
+                uses,
+                function_targets,
+                names,
+                constructors,
+            );
         }
         ExprKind::FieldAccess { base, .. } => {
-            collect_expr_type_references(base, names, constructors);
+            collect_expr_type_references(
+                base,
+                current_module,
+                uses,
+                function_targets,
+                names,
+                constructors,
+            );
         }
-        ExprKind::Try(inner) => collect_expr_type_references(inner, names, constructors),
+        ExprKind::Try(inner) => collect_expr_type_references(
+            inner,
+            current_module,
+            uses,
+            function_targets,
+            names,
+            constructors,
+        ),
         ExprKind::Record(fields) => {
             for field in fields {
-                collect_expr_type_references(&field.expr, names, constructors);
+                collect_expr_type_references(
+                    &field.expr,
+                    current_module,
+                    uses,
+                    function_targets,
+                    names,
+                    constructors,
+                );
             }
         }
         ExprKind::Dict(entries) => {
             for entry in entries {
-                collect_expr_type_references(&entry.key, names, constructors);
-                collect_expr_type_references(&entry.value, names, constructors);
+                collect_expr_type_references(
+                    &entry.key,
+                    current_module,
+                    uses,
+                    function_targets,
+                    names,
+                    constructors,
+                );
+                collect_expr_type_references(
+                    &entry.value,
+                    current_module,
+                    uses,
+                    function_targets,
+                    names,
+                    constructors,
+                );
             }
         }
         ExprKind::List(items) => {
             for item in items {
-                collect_expr_type_references(item, names, constructors);
+                collect_expr_type_references(
+                    item,
+                    current_module,
+                    uses,
+                    function_targets,
+                    names,
+                    constructors,
+                );
             }
         }
         ExprKind::Match { scrutinee, arms } => {
-            collect_expr_type_references(scrutinee, names, constructors);
+            collect_expr_type_references(
+                scrutinee,
+                current_module,
+                uses,
+                function_targets,
+                names,
+                constructors,
+            );
             for arm in arms {
-                collect_pattern_type_references(&arm.pattern, constructors);
-                collect_expr_type_references(&arm.expr, names, constructors);
+                collect_pattern_type_references(&arm.pattern, current_module, uses, constructors);
+                collect_expr_type_references(
+                    &arm.expr,
+                    current_module,
+                    uses,
+                    function_targets,
+                    names,
+                    constructors,
+                );
             }
         }
         ExprKind::If {
@@ -2724,18 +2991,74 @@ fn collect_expr_type_references(
             else_if_branches,
             else_branch,
         } => {
-            collect_expr_type_references(condition, names, constructors);
-            collect_expr_type_references(then_branch, names, constructors);
+            collect_expr_type_references(
+                condition,
+                current_module,
+                uses,
+                function_targets,
+                names,
+                constructors,
+            );
+            collect_expr_type_references(
+                then_branch,
+                current_module,
+                uses,
+                function_targets,
+                names,
+                constructors,
+            );
             for branch in else_if_branches {
-                collect_expr_type_references(&branch.condition, names, constructors);
-                collect_expr_type_references(&branch.expr, names, constructors);
+                collect_expr_type_references(
+                    &branch.condition,
+                    current_module,
+                    uses,
+                    function_targets,
+                    names,
+                    constructors,
+                );
+                collect_expr_type_references(
+                    &branch.expr,
+                    current_module,
+                    uses,
+                    function_targets,
+                    names,
+                    constructors,
+                );
             }
-            collect_expr_type_references(else_branch, names, constructors);
+            collect_expr_type_references(
+                else_branch,
+                current_module,
+                uses,
+                function_targets,
+                names,
+                constructors,
+            );
         }
-        ExprKind::Prefix { expr, .. } => collect_expr_type_references(expr, names, constructors),
+        ExprKind::Prefix { expr, .. } => collect_expr_type_references(
+            expr,
+            current_module,
+            uses,
+            function_targets,
+            names,
+            constructors,
+        ),
         ExprKind::Binary { left, right, .. } => {
-            collect_expr_type_references(left, names, constructors);
-            collect_expr_type_references(right, names, constructors);
+            collect_expr_type_references(
+                left,
+                current_module,
+                uses,
+                function_targets,
+                names,
+                constructors,
+            );
+            collect_expr_type_references(
+                right,
+                current_module,
+                uses,
+                function_targets,
+                names,
+                constructors,
+            );
         }
         ExprKind::Missing
         | ExprKind::Hole { .. }
@@ -2747,19 +3070,26 @@ fn collect_expr_type_references(
     }
 }
 
-fn collect_pattern_type_references(pattern: &Pattern, constructors: &mut HashSet<String>) {
+fn collect_pattern_type_references(
+    pattern: &Pattern,
+    current_module: Option<&str>,
+    uses: &[&UseDecl],
+    constructors: &mut HashSet<ReachableConstructorName>,
+) {
     match &pattern.kind {
         PatternKind::Constructor { name, args } => {
-            if let Some(name) = name.last() {
-                constructors.insert(name.clone());
+            if let Some(constructor) =
+                resolve_reachable_constructor_name(name, current_module, uses)
+            {
+                constructors.insert(constructor);
             }
             for arg in args {
-                collect_pattern_type_references(arg, constructors);
+                collect_pattern_type_references(arg, current_module, uses, constructors);
             }
         }
         PatternKind::Record(fields) => {
             for field in fields {
-                collect_pattern_type_references(&field.pattern, constructors);
+                collect_pattern_type_references(&field.pattern, current_module, uses, constructors);
             }
         }
         PatternKind::Wildcard
@@ -2772,19 +3102,187 @@ fn collect_pattern_type_references(pattern: &Pattern, constructors: &mut HashSet
     }
 }
 
-fn collect_optional_type_name_references(text: Option<&str>, names: &mut HashSet<String>) {
+fn collect_optional_type_name_references(
+    text: Option<&str>,
+    current_module: Option<&str>,
+    uses: &[&UseDecl],
+    names: &mut HashSet<ReachableTypeName>,
+) {
     if let Some(text) = text {
-        collect_type_name_references(text, names);
+        collect_type_name_references(text, current_module, uses, names);
     }
 }
 
-fn collect_type_name_references(text: &str, names: &mut HashSet<String>) {
+fn collect_type_name_references(
+    text: &str,
+    current_module: Option<&str>,
+    uses: &[&UseDecl],
+    names: &mut HashSet<ReachableTypeName>,
+) {
     let source = SourceFile::new("<type>", text);
-    for token in lex(&source).tokens {
-        if token.kind == TokenKind::Ident {
-            names.insert(token.text);
+    let tokens = lex(&source).tokens;
+    let mut index = 0usize;
+    while index < tokens.len() {
+        if tokens[index].kind != TokenKind::Ident {
+            index += 1;
+            continue;
+        }
+        let mut segments = vec![tokens[index].text.clone()];
+        index += 1;
+        while tokens
+            .get(index)
+            .is_some_and(|token| token.kind == TokenKind::DoubleColon)
+            && tokens
+                .get(index + 1)
+                .is_some_and(|token| token.kind == TokenKind::Ident)
+        {
+            segments.push(tokens[index + 1].text.clone());
+            index += 2;
+        }
+        if let Some(name) = resolve_reachable_type_name(&segments, current_module, uses) {
+            names.insert(name);
         }
     }
+}
+
+fn collect_alias_type_references(
+    inputs: &ReachabilityInputs<'_>,
+    uses: &[&UseDecl],
+    names: &mut HashSet<ReachableTypeName>,
+) {
+    let mut stack = inputs
+        .aliases()
+        .filter(|alias| alias.kind == PublicAliasKind::Type)
+        .filter_map(|alias| {
+            resolve_reachable_type_name(&alias.target, alias.module_name.as_deref(), uses)
+        })
+        .collect::<Vec<_>>();
+    while let Some(name) = stack.pop() {
+        if !names.insert(name.clone()) {
+            continue;
+        }
+        for alias in inputs
+            .aliases()
+            .filter(|alias| alias.kind == PublicAliasKind::Type)
+        {
+            if alias.module_name == name.module_name
+                && alias.name.as_deref() == Some(name.name.as_str())
+                && let Some(target) =
+                    resolve_reachable_type_name(&alias.target, alias.module_name.as_deref(), uses)
+            {
+                stack.push(target);
+            }
+        }
+    }
+}
+
+fn expression_name_resolves_to_function(
+    segments: &[String],
+    current_module: Option<&str>,
+    uses: &[&UseDecl],
+    function_targets: &FunctionTargetIndex,
+) -> bool {
+    match segments {
+        [name] => function_targets
+            .named(name)
+            .any(|target| !target.quarantined && bare_target_visible(target, current_module, uses)),
+        [_, .., name] => {
+            let Some(use_decl) =
+                imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)
+            else {
+                return false;
+            };
+            function_targets
+                .qualified(&use_decl.name, name)
+                .any(|target| !target.quarantined && imported_target_is_visible(target, use_decl))
+        }
+        _ => false,
+    }
+}
+
+fn resolve_reachable_type_name(
+    segments: &[String],
+    current_module: Option<&str>,
+    uses: &[&UseDecl],
+) -> Option<ReachableTypeName> {
+    match segments {
+        [name] => Some(ReachableTypeName {
+            module_name: current_module.map(str::to_string),
+            name: name.clone(),
+        }),
+        [_, .., name] => {
+            let use_decl =
+                imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)?;
+            Some(ReachableTypeName {
+                module_name: Some(use_decl.name.clone()),
+                name: name.clone(),
+            })
+        }
+        _ => None,
+    }
+}
+
+fn resolve_reachable_constructor_name(
+    segments: &[String],
+    current_module: Option<&str>,
+    uses: &[&UseDecl],
+) -> Option<ReachableConstructorName> {
+    match segments {
+        [name] => Some(ReachableConstructorName {
+            module_name: current_module.map(str::to_string),
+            name: name.clone(),
+        }),
+        [_, name] => Some(ReachableConstructorName {
+            module_name: imported_use_for_path(uses, &segments[..1], current_module)
+                .map(|use_decl| use_decl.name.clone())
+                .or_else(|| current_module.map(str::to_string)),
+            name: name.clone(),
+        }),
+        [_, .., name] => {
+            let use_decl =
+                imported_use_for_path(uses, &segments[..segments.len() - 2], current_module)?;
+            Some(ReachableConstructorName {
+                module_name: Some(use_decl.name.clone()),
+                name: name.clone(),
+            })
+        }
+        _ => None,
+    }
+}
+
+fn visible_constructor_exists(
+    segments: &[String],
+    current_module: Option<&str>,
+    uses: &[&UseDecl],
+    types: &[&veln_ast::TypeDecl],
+) -> bool {
+    let Some(constructor) = resolve_reachable_constructor_name(segments, current_module, uses)
+    else {
+        return false;
+    };
+    types.iter().any(|type_decl| {
+        type_decl.module_name == constructor.module_name
+            && type_decl.variants.iter().any(|variant| {
+                variant.name.as_deref() == Some(constructor.name.as_str())
+                    && constructor
+                        .name
+                        .chars()
+                        .next()
+                        .is_some_and(|initial| initial.is_ascii_uppercase())
+            })
+    })
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct ReachableTypeName {
+    module_name: Option<String>,
+    name: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct ReachableConstructorName {
+    module_name: Option<String>,
+    name: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -2926,6 +3424,7 @@ struct FunctionCalleeContext<'a> {
     function_targets: &'a FunctionTargetIndex,
     companion_access_targets: &'a HashMap<String, String>,
     handlers: &'a [&'a veln_ast::HandlerDecl],
+    types: Vec<&'a veln_ast::TypeDecl>,
 }
 
 fn direct_function_callees(
@@ -2937,12 +3436,19 @@ fn direct_function_callees(
     let mut callees = Vec::new();
     let uses = inputs.uses();
     let handlers = inputs.handlers();
+    let types = inputs
+        .standard
+        .into_iter()
+        .flat_map(|module| module.types.iter())
+        .chain(inputs.application.types.iter())
+        .collect();
     let context = FunctionCalleeContext {
         current_module: function.module_name.as_deref(),
         uses: &uses,
         function_targets,
         companion_access_targets,
         handlers: &handlers,
+        types,
     };
     let mut local_bindings = function
         .params
@@ -3425,13 +3931,23 @@ fn collect_function_name_reference(
         public_or_same_module_access = HashMap::new();
         &public_or_same_module_access
     };
-    for callee in resolve_function_reference(
+    let resolved = resolve_function_reference(
         segments,
         current_module,
         uses,
         function_targets,
         access_targets,
-    ) {
+    );
+    if resolved.iter().any(|callee| {
+        function_targets
+            .function_refs_for_name(&callee.name, callee.module_name.as_deref())
+            .iter()
+            .any(|target| target.quarantined)
+    }) && visible_constructor_exists(segments, current_module, uses, &context.types)
+    {
+        return;
+    }
+    for callee in resolved {
         push_reachable(callees, callee);
     }
 }
@@ -3472,6 +3988,7 @@ fn collect_handler_operation_clause_callees(
             function_targets,
             companion_access_targets,
             handlers,
+            types: Vec::new(),
         };
         let mut local_bindings = handler
             .params

@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"e99d6973d93ea22756980d20a51de059cce654d5"
+source_git_tree	"abb23af94523bb44bcb684704c193e13aeaac012"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1522
+case_count	1528
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -5414,6 +5414,21 @@ field	invocation.command[1]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"af45c8120f1ed02128418f1ddaff7189a0b2f187e6ba6fcc14afe6797cddd434"
+case	"examples/specification/check/identifier-casing-alias-mismatch"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
+field	expectations.stdout.contains[1]	"\"name\":\"bad\""
+field	expectations.stdout.contains[2]	"\"id\":\"type.mismatch\""
+field	expectations.stdout.contains[3]	"\"expected_type\":\"Error\""
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.command[3]	"broken.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"8cc5fd6e9e0f32cc828789b3a9d8901589e828df2327ed7d2ddfe07ddfa028e9"
 case	"examples/specification/check/identifier-casing-duplicate-quarantine"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -5421,15 +5436,18 @@ field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
 field	expectations.stdout.contains[1]	"\"name\":\"item\""
 field	expectations.stdout.contains[2]	"\"name\":\"made\""
 field	expectations.stdout.contains[3]	"\"name\":\"Broken\""
-field	expectations.stdout.contains[4]	"unresolved call_target `Broken`"
+field	expectations.stdout.contains[4]	"\"id\":\"name.duplicate\""
+field	expectations.stdout.contains[5]	"duplicate type declaration name `item`"
+field	expectations.stdout.contains[6]	"duplicate constructor declaration name `made`"
+field	expectations.stdout.contains[7]	"duplicate function declaration name `Broken`"
+field	expectations.stdout.contains[8]	"unresolved call_target `Broken`"
 field	expectations.stdout.format	"json"
-field	expectations.stdout.not_contains[0]	"\"id\":\"name.duplicate\""
 field	invocation.command[0]	"check"
 field	invocation.command[1]	"--json"
 field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
-case_digest	"0ef3dabbe046cd1feaf6eb0cabda53e376fea890e89731f073f4ae69716c42e9"
+case_digest	"f56e7518d4389c635913359ad572f797675a6b41b28d75c48f8edbd92f4f3377"
 case	"examples/specification/check/identifier-casing-human"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -5488,6 +5506,19 @@ field	invocation.command[3]	"bad.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"a2cfbe2867d0632c155818dd49e01647ac850a9de788432bd27508416c1be7b8"
+case	"examples/specification/check/identifier-casing-test-recovery"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
+field	expectations.stdout.contains[1]	"\"name\":\"Broken\""
+field	expectations.stdout.contains[2]	"unresolved call_target `Broken`"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main_test.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"84d1a14150221a3684a66950b9f51a0c91ed4d2d77be205377997bfa88d7bbf8"
 case	"examples/specification/check/identifier-casing-type-alias-quarantine"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -37612,6 +37643,21 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"expected"
 case_digest	"fda0f3c2111164600b96f0e5fa9a512d4dbd22aee1377b88c8357d54422160ef"
+case	"examples/specification/run/identifier-casing-alias-transitive-target"
+field	expectations.exit	0
+field	expectations.json_assertions[0].equals	"passed"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.repeat	1
+field	requirements.jdk	true
+field	source_errors	"forbidden"
+case_digest	"b14eda51b5d0c4adc7402546692843e6eb67ff9225295816f5ab767ebaf8ab1f"
 case	"examples/specification/run/identifier-casing-import-quarantine"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -37630,6 +37676,24 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"expected"
 case_digest	"60b50f7739bbfc920a5837b90deec4068d323b006222d5a0b365f493877ae307"
+case	"examples/specification/run/identifier-casing-qualified-same-leaf"
+field	expectations.exit	0
+field	expectations.json_assertions[0].equals	"passed"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"name.invalid_case"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.command[4]	"good.veln"
+field	invocation.command[5]	"bad.veln"
+field	invocation.repeat	1
+field	requirements.jdk	true
+field	source_errors	"expected"
+case_digest	"3ff2a7d897f0ee0ae91ef87750f4087da7e9be17e7e564f99b35cb2781f35303"
 case	"examples/specification/run/identifier-casing-reachable"
 field	expectations.exit	1
 field	expectations.stderr.contains[0]	"main.veln:1:4: error[name.invalid_case]: function name must start with an ASCII lowercase letter"
@@ -37642,6 +37706,38 @@ field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"8d42b2b7f8f1f17b4f25c937e1dd631fe615a87785b86a157f99f2e8145ae4be"
 case	"examples/specification/run/identifier-casing-unreachable"
+field	expectations.exit	0
+field	expectations.json_assertions[0].equals	"passed"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"name.invalid_case"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.repeat	1
+field	requirements.jdk	true
+field	source_errors	"expected"
+case_digest	"812d3440839e30590358e009ee274014953d1aae3310506c219aadb28ad9fc59"
+case	"examples/specification/run/identifier-casing-valid-constructor-vs-invalid-function"
+field	expectations.exit	0
+field	expectations.json_assertions[0].equals	"passed"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"name.invalid_case"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.repeat	1
+field	requirements.jdk	true
+field	source_errors	"expected"
+case_digest	"812d3440839e30590358e009ee274014953d1aae3310506c219aadb28ad9fc59"
+case	"examples/specification/run/identifier-casing-valid-function-vs-invalid-constructor"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
 field	expectations.json_assertions[0].operation	"equals"
@@ -48058,4 +48154,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"ba73ad95788d011d1517d14a544ca1a44f85955f320a01e3be2784c3d0a41c54"
+aggregate_digest	"02375dcfdaa3501a9af9c9cc5124a7dccd85a81867f013c024f0f8c553c1fc19"

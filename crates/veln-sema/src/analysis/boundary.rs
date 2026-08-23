@@ -658,16 +658,30 @@ fn unknown_declared_effect_diagnostic(
 pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     let mut seen = BTreeMap::<(Option<String>, String), (String, SourceSpan)>::new();
+    let mut seen_invalid = BTreeMap::<(Option<String>, String), (String, SourceSpan)>::new();
 
     for function in &module.functions {
         let Some(name) = &function.name else {
             continue;
         };
+        let node_id = function.node_id.display(function.kind.node_prefix());
+        let key = (function.module_name.clone(), name.clone());
         if !valid_function_name(name) {
+            if let Some((first_node_id, first_span)) = seen_invalid.get(&key) {
+                diagnostics.push(duplicate_name_diagnostic(
+                    name,
+                    "function",
+                    "function declaration",
+                    node_id,
+                    function.span.clone(),
+                    first_node_id.clone(),
+                    first_span,
+                ));
+            } else {
+                seen_invalid.insert(key, (node_id, function.span.clone()));
+            }
             continue;
         }
-        let key = (function.module_name.clone(), name.clone());
-        let node_id = function.node_id.display(function.kind.node_prefix());
         if let Some((first_node_id, first_span)) = seen.get(&key) {
             diagnostics.push(duplicate_name_diagnostic(
                 name,
@@ -713,16 +727,30 @@ pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diag
 pub(crate) fn check_duplicate_type_names(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     let mut seen = BTreeMap::<(Option<String>, String), (String, SourceSpan)>::new();
+    let mut seen_invalid = BTreeMap::<(Option<String>, String), (String, SourceSpan)>::new();
 
     for type_decl in &module.types {
         let Some(name) = &type_decl.name else {
             continue;
         };
+        let node_id = type_decl.node_id.display("type");
+        let key = (type_decl.module_name.clone(), name.clone());
         if !valid_type_name(name) {
+            if let Some((first_node_id, first_span)) = seen_invalid.get(&key) {
+                diagnostics.push(duplicate_name_diagnostic(
+                    name,
+                    "type",
+                    "type declaration",
+                    node_id,
+                    type_decl.span.clone(),
+                    first_node_id.clone(),
+                    first_span,
+                ));
+            } else {
+                seen_invalid.insert(key, (node_id, type_decl.span.clone()));
+            }
             continue;
         }
-        let key = (type_decl.module_name.clone(), name.clone());
-        let node_id = type_decl.node_id.display("type");
         if let Some((first_node_id, first_span)) = seen.get(&key) {
             diagnostics.push(duplicate_name_diagnostic(
                 name,
@@ -4898,21 +4926,36 @@ pub(crate) fn check_duplicate_constructor_names(module: &SurfaceModule) -> Vec<D
     let mut diagnostics = Vec::new();
     let mut seen =
         BTreeMap::<(Option<String>, Option<String>, String), (String, SourceSpan)>::new();
+    let mut seen_invalid =
+        BTreeMap::<(Option<String>, Option<String>, String), (String, SourceSpan)>::new();
 
     for type_decl in &module.types {
         for variant in &type_decl.variants {
             let Some(name) = &variant.name else {
                 continue;
             };
-            if !valid_type_name(name) {
-                continue;
-            }
             let key = (
                 type_decl.module_name.clone(),
                 type_decl.name.clone(),
                 name.clone(),
             );
             let node_id = variant.node_id.display("variant");
+            if !valid_type_name(name) {
+                if let Some((first_node_id, first_span)) = seen_invalid.get(&key) {
+                    diagnostics.push(duplicate_name_diagnostic(
+                        name,
+                        "constructor",
+                        "constructor declaration",
+                        node_id,
+                        variant.span.clone(),
+                        first_node_id.clone(),
+                        first_span,
+                    ));
+                } else {
+                    seen_invalid.insert(key, (node_id, variant.span.clone()));
+                }
+                continue;
+            }
             if let Some((first_node_id, first_span)) = seen.get(&key) {
                 diagnostics.push(duplicate_name_diagnostic(
                     name,
