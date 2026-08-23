@@ -14,6 +14,7 @@ use veln_project::{
     ManifestDependencySelectorKind, ManifestExport, ManifestField, Project, ProjectManifest,
     classify_companion_source, read_manifest,
 };
+use veln_sema::valid_function_name;
 use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{TokenKind, lex, parse};
 
@@ -2068,6 +2069,7 @@ fn function_targets(inputs: &ReachabilityInputs<'_>) -> Vec<FunctionTarget> {
 
 fn function_target(function: &Function) -> Option<FunctionTarget> {
     let name = function.name.clone()?;
+    let quarantined = !valid_function_name(&name);
     Some(FunctionTarget {
         name: name.clone(),
         module_name: function.module_name.clone(),
@@ -2077,6 +2079,7 @@ fn function_target(function: &Function) -> Option<FunctionTarget> {
         shape: function_shape(function),
         bare_importable: true,
         requires_public_import: false,
+        quarantined,
     })
 }
 
@@ -2126,6 +2129,7 @@ fn codec_with_targets(inputs: &ReachabilityInputs<'_>) -> Vec<FunctionTarget> {
                             shape: function_shape(target),
                             bare_importable: false,
                             requires_public_import: true,
+                            quarantined: !valid_function_name(function_name),
                         })
                     }),
             )
@@ -2194,7 +2198,11 @@ fn module_with_reachable_functions(
     SurfaceModule {
         module: inputs.module_header(),
         uses: inputs.cloned_declarations(|module| &module.uses),
-        aliases: inputs.cloned_declarations(|module| &module.aliases),
+        aliases: inputs
+            .cloned_declarations(|module| &module.aliases)
+            .into_iter()
+            .filter(|alias| !alias_points_to_quarantined_function(inputs, alias))
+            .collect(),
         effects: inputs.cloned_declarations(|module| &module.effects),
         handlers: inputs.cloned_declarations(|module| &module.handlers),
         types: inputs.cloned_declarations(|module| &module.types),
@@ -2250,6 +2258,7 @@ struct FunctionTarget {
     shape: FunctionShape,
     bare_importable: bool,
     requires_public_import: bool,
+    quarantined: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -2274,6 +2283,9 @@ fn function_alias_targets(
                 function_targets,
                 alias.module_name.as_deref(),
             )?;
+            if target.quarantined {
+                return None;
+            }
             if companion_alias_targets_imported_private_function(alias, target) {
                 return None;
             }
@@ -2286,9 +2298,43 @@ fn function_alias_targets(
                 shape: target.shape.clone(),
                 bare_importable: true,
                 requires_public_import: false,
+                quarantined: false,
             })
         })
         .collect()
+}
+
+fn alias_points_to_quarantined_function(
+    inputs: &ReachabilityInputs<'_>,
+    alias: &veln_ast::PublicAlias,
+) -> bool {
+    if alias.kind != PublicAliasKind::Function {
+        return false;
+    }
+    let Some(target_name) = alias.target.last() else {
+        return false;
+    };
+    if valid_function_name(target_name) {
+        return false;
+    }
+    let target_module = match alias.target.as_slice() {
+        [_] => alias.module_name.clone(),
+        [_, .., _] => {
+            let uses = inputs.uses();
+            imported_use_for_path(
+                &uses,
+                &alias.target[..alias.target.len() - 1],
+                alias.module_name.as_deref(),
+            )
+            .map(|use_decl| use_decl.name.clone())
+        }
+        _ => None,
+    };
+    inputs.functions().any(|function| {
+        function.kind == FunctionKind::Function
+            && function.name.as_ref() == Some(target_name)
+            && function.module_name == target_module
+    })
 }
 
 fn companion_alias_targets_imported_private_function(
@@ -2965,6 +3011,9 @@ fn imported_use_for_path<'a>(
 }
 
 fn imported_target_is_visible(target: &FunctionTarget, use_decl: &UseDecl) -> bool {
+    if target.quarantined {
+        return false;
+    }
     if target.requires_public_import {
         return target.visibility == Visibility::Public;
     }
@@ -2977,6 +3026,9 @@ fn imported_target_visible_from_module(
     current_module: Option<&str>,
     companion_access_targets: &HashMap<String, String>,
 ) -> bool {
+    if target.quarantined {
+        return false;
+    }
     if target.visibility == Visibility::Public {
         return true;
     }
@@ -3025,6 +3077,9 @@ fn bare_target_visible(
     };
     if target.module_name.as_deref() == Some(current_module) {
         return true;
+    }
+    if target.quarantined {
+        return false;
     }
     target.bare_importable
         && target.module_name.as_deref().is_some_and(|module_name| {

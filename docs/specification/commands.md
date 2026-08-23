@@ -97,6 +97,12 @@ requiring the full command reference on the first read.
   output.
 - `run`: production source discovery excluding `.test.veln` companions,
   rejection of explicitly supplied `.test.veln` run inputs, entry resolution,
+  selected-entry reachability that rejects reachable `name.invalid_case`
+  diagnostics while ignoring invalid peer functions outside the selected
+  entry's reachable closure, import and public-alias quarantine for invalid
+  source names as checked by `identifier-casing-reachable`,
+  `identifier-casing-unreachable`, `identifier-casing-import-quarantine`, and
+  `identifier-casing-alias-quarantine`,
   fixed and variadic entry argument conversion, static gates, direct JVM
   classfile execution without an ordinary Java source compiler requirement,
   and reusable JVM class caching below the host user cache or the complete

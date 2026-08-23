@@ -90,7 +90,7 @@ pub(crate) fn check_source_identifier_casing(module: &SurfaceModule) -> Vec<Diag
     diagnostics
 }
 
-pub(crate) fn valid_function_name(name: &str) -> bool {
+pub fn valid_function_name(name: &str) -> bool {
     name.chars()
         .next()
         .is_some_and(|initial| initial.is_ascii_lowercase())

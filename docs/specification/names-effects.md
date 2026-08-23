@@ -14,6 +14,15 @@ compiler-known calls.
 - Namespaces, shadowing, duplicate checks, module ownership, external package
   imports, and manifest export checks:
   [names-effects-full.md](names-effects-full.md#name-resolution).
+- Source ADT types, constructors, functions, and value bindings must use the
+  casing required by their name class. Invalid source names emit
+  `name.invalid_case` at the written-name span and stay quarantined from
+  ordinary symbol lookup, duplicate lookup, imports, public aliases, checked
+  core, typed IR, exports, and backend input. A unique compatible same-source
+  recovery reference can suppress only the derivative unresolved-name
+  diagnostic. The checked `identifier-casing-*` cases, including
+  `identifier-casing-duplicate-quarantine`, `identifier-casing-quarantine`,
+  and `identifier-casing-value-recovery`, fix the observable boundary.
 - Declaration effect spelling, effect-row substitution, host effect labels,
   nominal operation effects, lexical handlers, and effect inference:
   [names-effects-full.md](names-effects-full.md#effect-labels) and

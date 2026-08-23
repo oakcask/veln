@@ -116,6 +116,43 @@ fn multiple_invalid_functions_do_not_select_a_recovery_symbol() {
             .iter()
             .any(|diagnostic| diagnostic.id == "name.unresolved")
     );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.duplicate")
+    );
+}
+
+#[test]
+fn invalid_type_and_constructor_declarations_do_not_enter_duplicate_lookup() {
+    let parsed = parse(&SourceFile::new(
+        "main.veln",
+        concat!(
+            "type item\n",
+            "  made\n",
+            "  made\n",
+            "end\n",
+            "type item\n",
+            "  other\n",
+            "end\n",
+        ),
+    ));
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+            .count(),
+        5
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.duplicate")
+    );
 }
 
 #[test]

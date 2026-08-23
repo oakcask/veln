@@ -1,0 +1,5 @@
+fn Broken() -> Int
+  1
+end
+
+pub fn exposed = Broken

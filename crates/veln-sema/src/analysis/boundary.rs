@@ -1,5 +1,6 @@
 use super::*;
 use crate::adt::AdtRegistry;
+use crate::name_casing::{valid_function_name, valid_type_name};
 use crate::schema::dispatch::{
     SchemaDispatchCase, SchemaDispatchCasePayload, SchemaDispatchSpec,
     closed_dispatch_schema_primitive, extension_dispatch_schema_primitive,
@@ -662,6 +663,9 @@ pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diag
         let Some(name) = &function.name else {
             continue;
         };
+        if !valid_function_name(name) {
+            continue;
+        }
         let key = (function.module_name.clone(), name.clone());
         let node_id = function.node_id.display(function.kind.node_prefix());
         if let Some((first_node_id, first_span)) = seen.get(&key) {
@@ -714,6 +718,9 @@ pub(crate) fn check_duplicate_type_names(module: &SurfaceModule) -> Vec<Diagnost
         let Some(name) = &type_decl.name else {
             continue;
         };
+        if !valid_type_name(name) {
+            continue;
+        }
         let key = (type_decl.module_name.clone(), name.clone());
         let node_id = type_decl.node_id.display("type");
         if let Some((first_node_id, first_span)) = seen.get(&key) {
@@ -4897,6 +4904,9 @@ pub(crate) fn check_duplicate_constructor_names(module: &SurfaceModule) -> Vec<D
             let Some(name) = &variant.name else {
                 continue;
             };
+            if !valid_type_name(name) {
+                continue;
+            }
             let key = (
                 type_decl.module_name.clone(),
                 type_decl.name.clone(),

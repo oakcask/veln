@@ -1,0 +1,21 @@
+# Invalid declaration names are recovery data, not ordinary duplicate symbols.
+type item
+  made
+  made
+end
+
+type item
+  other
+end
+
+fn Broken() -> Int
+  1
+end
+
+fn Broken() -> Int
+  2
+end
+
+pub fn main() -> Int
+  Broken()
+end
