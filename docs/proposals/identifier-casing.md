@@ -24,8 +24,11 @@ MCP and LSP transport behavior.
 Implementation starts with
 [Recovery-Aware Source Identifier Casing](identifier-casing-source-recovery.md).
 That foundation combines declaration and binding diagnostics with quarantined
-recovery and command reachability. The remaining work in this proposal is
-blocked until the foundation is implemented and promoted to the current
+recovery and `check`/`run` reachability. The dependent
+[Identifier Casing Selection Boundaries](identifier-casing-selection-boundaries.md)
+proposal then covers `test`, `doc`, language-service selection, dependencies,
+companions, and the implicit prelude. The remaining work in this proposal is
+blocked until both prerequisites are implemented and promoted to the current
 specification.
 
 ## Current Boundary
