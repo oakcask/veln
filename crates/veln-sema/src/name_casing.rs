@@ -200,8 +200,26 @@ fn quarantined_type_alias_targets(module: &SurfaceModule) -> QuarantinedTypeAlia
             qualified.insert(format!("{module_name}::{name}"));
         }
         local.insert((alias.span.file.as_str().to_string(), name.clone()));
+        let Some(alias_name) = &alias.name else {
+            continue;
+        };
+        if module_has_valid_type(module, alias.module_name.as_deref(), alias_name) {
+            continue;
+        }
+        if let Some(module_name) = &alias.module_name {
+            qualified.insert(format!("{module_name}::{alias_name}"));
+        }
+        local.insert((alias.span.file.as_str().to_string(), alias_name.clone()));
     }
     QuarantinedTypeAliasTargets { qualified, local }
+}
+
+fn module_has_valid_type(module: &SurfaceModule, module_name: Option<&str>, name: &str) -> bool {
+    module.types.iter().any(|type_decl| {
+        type_decl.name.as_deref() == Some(name)
+            && type_decl.module_name.as_deref() == module_name
+            && valid_type_name(name)
+    })
 }
 
 pub(crate) fn type_alias_targets_invalid_source_type(
