@@ -2755,6 +2755,7 @@ struct TypeReachabilityIndex<'a> {
     types_by_qualified_name: HashMap<(String, String), Vec<TypeRef>>,
     types_by_constructor: HashMap<String, Vec<TypeRef>>,
     types_by_qualified_constructor: HashMap<(String, String), Vec<TypeRef>>,
+    type_validity: TypeValidityIndex,
 }
 
 impl<'a> TypeReachabilityIndex<'a> {
@@ -2825,6 +2826,7 @@ impl<'a> TypeReachabilityIndex<'a> {
             types_by_qualified_name,
             types_by_constructor,
             types_by_qualified_constructor,
+            type_validity: TypeValidityIndex::new(inputs),
         }
     }
 
@@ -2843,7 +2845,7 @@ impl<'a> TypeReachabilityIndex<'a> {
     }
 
     fn types_for_name(&self, name: &ReachableTypeName) -> Vec<TypeRef> {
-        if let Some(module_name) = &name.module_name {
+        let refs = if let Some(module_name) = &name.module_name {
             self.types_by_qualified_name
                 .get(&(module_name.clone(), name.name.clone()))
                 .cloned()
@@ -2853,11 +2855,14 @@ impl<'a> TypeReachabilityIndex<'a> {
                 .get(&name.name)
                 .cloned()
                 .unwrap_or_default()
-        }
+        };
+        refs.into_iter()
+            .filter(|type_ref| name.allow_invalid || self.type_validity.type_ref_is_valid(type_ref))
+            .collect()
     }
 
     fn types_for_constructor(&self, constructor: &ReachableConstructorName) -> Vec<TypeRef> {
-        if let Some(module_name) = &constructor.module_name {
+        let refs = if let Some(module_name) = &constructor.module_name {
             self.types_by_qualified_constructor
                 .get(&(module_name.clone(), constructor.name.clone()))
                 .cloned()
@@ -2867,7 +2872,37 @@ impl<'a> TypeReachabilityIndex<'a> {
                 .get(&constructor.name)
                 .cloned()
                 .unwrap_or_default()
-        }
+        };
+        refs.into_iter()
+            .filter(|type_ref| {
+                constructor.allow_invalid || self.type_validity.type_ref_is_valid(type_ref)
+            })
+            .collect()
+    }
+}
+
+struct TypeValidityIndex {
+    valid_refs: HashSet<TypeRef>,
+}
+
+impl TypeValidityIndex {
+    fn new(inputs: &ReachabilityInputs<'_>) -> Self {
+        let valid_refs = inputs
+            .type_refs()
+            .filter(|type_ref| {
+                let type_decl = inputs.type_decl(*type_ref);
+                type_decl.name.as_deref().is_some_and(valid_type_name)
+                    && type_decl
+                        .variants
+                        .iter()
+                        .all(|variant| variant.name.as_deref().is_some_and(valid_type_name))
+            })
+            .collect();
+        Self { valid_refs }
+    }
+
+    fn type_ref_is_valid(&self, type_ref: &TypeRef) -> bool {
+        self.valid_refs.contains(type_ref)
     }
 }
 
@@ -3188,6 +3223,16 @@ fn collect_type_name_references(
     uses: &[&UseDecl],
     names: &mut HashSet<ReachableTypeName>,
 ) -> Vec<ReachableTypeName> {
+    collect_type_name_references_with_invalid_policy(text, current_module, uses, true, names)
+}
+
+fn collect_type_name_references_with_invalid_policy(
+    text: &str,
+    current_module: Option<&str>,
+    uses: &[&UseDecl],
+    allow_bare_invalid: bool,
+    names: &mut HashSet<ReachableTypeName>,
+) -> Vec<ReachableTypeName> {
     let mut inserted = Vec::new();
     let source = SourceFile::new("<type>", text);
     let tokens = lex(&source).tokens;
@@ -3215,8 +3260,12 @@ fn collect_type_name_references(
             segments.push(tokens[index + 1].text.clone());
             index += 2;
         }
-        if let Some(name) = resolve_reachable_type_name(&segments, current_module, uses)
-            && names.insert(name.clone())
+        if let Some(name) = resolve_reachable_type_name_with_invalid_policy(
+            &segments,
+            current_module,
+            uses,
+            allow_bare_invalid,
+        ) && names.insert(name.clone())
         {
             inserted.push(name);
         }
@@ -3244,7 +3293,7 @@ fn expand_reachable_type_closure(
     let mut stack = names.iter().cloned().collect::<Vec<_>>();
     let mut visited = HashSet::new();
     let mut aliases = HashSet::new();
-    let mut selected_types = HashSet::new();
+    let mut selected_types = HashMap::<TypeRef, bool>::new();
     for constructor in constructors {
         for type_ref in type_index.types_for_constructor(constructor) {
             #[cfg(test)]
@@ -3254,6 +3303,7 @@ fn expand_reachable_type_closure(
                 let reachable = ReachableTypeName {
                     module_name: type_decl.module_name.clone(),
                     name: name.clone(),
+                    allow_invalid: constructor.allow_invalid,
                 };
                 if names.insert(reachable.clone()) {
                     stack.push(reachable);
@@ -3286,26 +3336,27 @@ fn expand_reachable_type_closure(
         for type_ref in type_index.types_for_name(&name) {
             #[cfg(test)]
             reachability_counters::record_type_lookup_scan();
-            if !selected_types.insert(type_ref) {
-                continue;
-            }
+            let allow_invalid_payloads =
+                selected_types.entry(type_ref).or_insert(name.allow_invalid);
+            *allow_invalid_payloads |= name.allow_invalid;
             let type_decl = inputs.type_decl(type_ref);
             for field in type_decl
                 .variants
                 .iter()
                 .flat_map(|variant| &variant.fields)
             {
-                let inserted = collect_type_name_references(
+                let inserted = collect_type_name_references_with_invalid_policy(
                     &field.ty,
                     type_decl.module_name.as_deref(),
                     uses,
+                    *allow_invalid_payloads,
                     names,
                 );
                 stack.extend(inserted);
             }
         }
     }
-    (aliases, selected_types)
+    (aliases, selected_types.into_keys().collect())
 }
 
 fn materialize_reachable_aliases(
@@ -3739,10 +3790,20 @@ fn resolve_reachable_type_name(
     current_module: Option<&str>,
     uses: &[&UseDecl],
 ) -> Option<ReachableTypeName> {
+    resolve_reachable_type_name_with_invalid_policy(segments, current_module, uses, true)
+}
+
+fn resolve_reachable_type_name_with_invalid_policy(
+    segments: &[String],
+    current_module: Option<&str>,
+    uses: &[&UseDecl],
+    allow_bare_invalid: bool,
+) -> Option<ReachableTypeName> {
     match segments {
         [name] => Some(ReachableTypeName {
             module_name: current_module.map(str::to_string),
             name: name.clone(),
+            allow_invalid: allow_bare_invalid,
         }),
         [_, .., name] => {
             let use_decl =
@@ -3750,6 +3811,7 @@ fn resolve_reachable_type_name(
             Some(ReachableTypeName {
                 module_name: Some(use_decl.name.clone()),
                 name: name.clone(),
+                allow_invalid: false,
             })
         }
         _ => None,
@@ -3765,12 +3827,14 @@ fn resolve_reachable_constructor_name(
         [name] => Some(ReachableConstructorName {
             module_name: current_module.map(str::to_string),
             name: name.clone(),
+            allow_invalid: true,
         }),
         [_, name] => Some(ReachableConstructorName {
             module_name: imported_use_for_path(uses, &segments[..1], current_module)
                 .map(|use_decl| use_decl.name.clone())
                 .or_else(|| current_module.map(str::to_string)),
             name: name.clone(),
+            allow_invalid: imported_use_for_path(uses, &segments[..1], current_module).is_none(),
         }),
         [_, .., name] => {
             let use_decl =
@@ -3778,6 +3842,7 @@ fn resolve_reachable_constructor_name(
             Some(ReachableConstructorName {
                 module_name: Some(use_decl.name.clone()),
                 name: name.clone(),
+                allow_invalid: false,
             })
         }
         _ => None,
@@ -3856,12 +3921,14 @@ fn constructor_exists_in_module(
 struct ReachableTypeName {
     module_name: Option<String>,
     name: String,
+    allow_invalid: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct ReachableConstructorName {
     module_name: Option<String>,
     name: String,
+    allow_invalid: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -7787,7 +7854,7 @@ mod tests {
     }
 
     #[test]
-    fn run_entry_reachable_adt_payloads_keep_source_specific_type_identity() {
+    fn run_entry_reachable_adt_payloads_do_not_select_imported_invalid_type_identity() {
         let project = Project {
             root: ".".into(),
             files: vec![
@@ -7845,8 +7912,100 @@ mod tests {
         assert!(
             type_names.contains(&("app::a", "Start"))
                 && type_names.contains(&("app::b", "Middle"))
-                && type_names.contains(&("app::c", "_bad")),
-            "colliding type node ids must not stop payload fixed point: {type_names:#?}"
+                && !type_names.contains(&("app::c", "_bad")),
+            "imported invalid payload type must stay quarantined: {type_names:#?}"
+        );
+    }
+
+    #[test]
+    fn run_diagnostic_view_omits_imported_invalid_type_declarations() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "main.veln",
+                    concat!(
+                        "use broken\n",
+                        "pub fn main() -> broken::bad\n",
+                        "  1\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "broken.veln",
+                    concat!("pub type bad\n", "  Made\n", "end\n"),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let diagnostic = reachable_entry_diagnostic_module_with_standard_cache(
+            &empty_standard_module(),
+            &module,
+            "main",
+            FunctionKind::Function,
+            &ReachabilityCache::default(),
+        );
+
+        assert!(
+            diagnostic
+                .types
+                .iter()
+                .all(|type_decl| type_decl.name.as_deref() != Some("bad")),
+            "imported invalid type should stay out of diagnostic view: {:#?}",
+            diagnostic.types
+        );
+    }
+
+    #[test]
+    fn run_diagnostic_view_omits_imported_invalid_payload_type_declarations() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "main.veln",
+                    concat!(
+                        "use broken\n",
+                        "pub fn main() -> broken::Public\n",
+                        "  broken::Wrap(1)\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "broken.veln",
+                    concat!(
+                        "pub type bad\n",
+                        "  Made\n",
+                        "end\n",
+                        "pub type Public\n",
+                        "  pub Wrap(bad)\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let diagnostic = reachable_entry_diagnostic_module_with_standard_cache(
+            &empty_standard_module(),
+            &module,
+            "main",
+            FunctionKind::Function,
+            &ReachabilityCache::default(),
+        );
+        let type_names = diagnostic
+            .types
+            .iter()
+            .filter_map(|type_decl| type_decl.name.as_deref())
+            .collect::<Vec<_>>();
+
+        assert!(
+            type_names.contains(&"Public") && !type_names.contains(&"bad"),
+            "imported invalid payload type should stay out of diagnostic view: {type_names:#?}"
         );
     }
 

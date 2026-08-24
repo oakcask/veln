@@ -103,11 +103,16 @@ fn prepare_run_program(
         return Ok(None);
     }
 
-    let Some(entry_arg_types) = checked_entry_arg_types(&analysis, entry, entry_args, json)? else {
+    if !run_entry_exists(&analysis, entry) {
+        eprintln!("veln: run entry `{entry}` was not found");
+        write_timings(timings)?;
+        return Ok(None);
+    }
+    let Some(ir) = lower_run_entry(&analysis, entry, json, timings.as_mut())? else {
         write_timings(timings)?;
         return Ok(None);
     };
-    let Some(ir) = lower_run_entry(&analysis, entry, json, timings.as_mut())? else {
+    let Some(entry_arg_types) = checked_entry_arg_types(&analysis, entry, entry_args, json)? else {
         write_timings(timings)?;
         return Ok(None);
     };
@@ -250,6 +255,10 @@ fn find_entry_function<'a>(analysis: &'a ProjectAnalysis, entry: &str) -> Option
     analysis.module.functions.iter().find(|function| {
         function.kind == FunctionKind::Function && function.name.as_deref() == Some(entry)
     })
+}
+
+fn run_entry_exists(analysis: &ProjectAnalysis, entry: &str) -> bool {
+    find_entry_function(analysis, entry).is_some()
 }
 
 fn checked_entry_arg_types(
@@ -430,7 +439,7 @@ fn run_reachable_identifier_casing_regions(
             .map(|function| function.span.clone()),
     );
     regions.extend(
-        diagnostic_module
+        reachable_module
             .types
             .iter()
             .map(|type_decl| type_decl.span.clone()),

@@ -1,0 +1,5 @@
+use broken
+
+pub fn main() -> broken::Public
+  broken::Wrap(1)
+end

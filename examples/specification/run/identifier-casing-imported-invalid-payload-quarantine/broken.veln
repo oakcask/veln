@@ -1,0 +1,7 @@
+pub type bad
+  Made
+end
+
+pub type Public
+  pub Wrap(bad)
+end

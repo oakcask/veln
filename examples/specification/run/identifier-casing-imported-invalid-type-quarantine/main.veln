@@ -1,0 +1,5 @@
+use broken
+
+pub fn main() -> broken::bad
+  1
+end

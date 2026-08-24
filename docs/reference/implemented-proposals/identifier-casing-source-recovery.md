@@ -31,12 +31,14 @@ The current evidence includes duplicate quarantine, public alias declaration
 names, alias mismatch boundaries, import and public-alias quarantine,
 selected-entry reachability, valid-candidate precedence over invalid same-leaf
 peers, imported constructor precedence over invalid same-spelled local
-functions, reachable handler clauses, transitive alias closure, same-file valid
+functions, imported invalid type and constructor quarantine for used, unused,
+and payload-transitive references, reachable handler clauses, transitive alias closure, same-file valid
 declaration precedence over quarantined aliases, invalid public alias
 declaration names that preserve independently provable missing-target and
 wrong-kind target diagnostics, same-file alias use preservation, split
 recovery candidate uniqueness, handler clause binding recovery, invalid
 selected-entry rejection, local binding precedence, source ADT payload closure,
+selected-entry casing precedence over entry argument validation,
 ADT-payload-reachable invalid public type aliases, valid constructors under
 invalid parent types, handler annotation reachability, transitive handler body reachability,
 test declaration name validation without ordinary function-call recovery,

@@ -1,0 +1,15 @@
+command = ["run", "--json", "Main", "main.veln", "--", "not-int"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"name.invalid_case\"", "\"name\":\"Main\"", "\"name\":\"Value\""]
+not_contains = ["invalid Int argument"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 2

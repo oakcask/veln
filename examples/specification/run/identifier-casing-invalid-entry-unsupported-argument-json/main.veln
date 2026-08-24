@@ -1,0 +1,7 @@
+type Box
+  Wrap(Int)
+end
+
+pub fn Main(Value: Box) -> Box
+  Value
+end

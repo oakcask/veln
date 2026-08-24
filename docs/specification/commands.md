@@ -103,10 +103,18 @@ requiring the full command reference on the first read.
   invalid source names as checked by `identifier-casing-reachable`,
   `identifier-casing-unreachable`, `identifier-casing-import-quarantine`,
   `identifier-casing-imported-invalid-alias-quarantine`,
+  `identifier-casing-imported-invalid-type-quarantine`,
+  `identifier-casing-imported-invalid-payload-quarantine`,
+  `identifier-casing-imported-invalid-constructor-quarantine`,
   `identifier-casing-invalid-entry`, `identifier-casing-invalid-entry-json`,
+  `identifier-casing-invalid-entry-wrong-arity`,
+  `identifier-casing-invalid-entry-wrong-arity-json`,
+  `identifier-casing-invalid-entry-unsupported-argument-json`,
+  `identifier-casing-invalid-entry-conversion-json`,
   `identifier-casing-alias-quarantine`, and
   `identifier-casing-unused-type-alias-quarantine`, including multiple casing
-  diagnostics retained for an invalid selected entry, first-class
+  diagnostics retained for an invalid selected entry before entry argument
+  validation diagnostics, first-class
   function value reachability that excludes quarantined invalid function targets,
   invalid public function alias declaration names, unreachable type aliases,
   aliases to quarantined invalid type targets, and ADT-payload-reachable
@@ -125,6 +133,9 @@ requiring the full command reference on the first read.
   `identifier-casing-local-binding-vs-invalid-constructor` and
   `identifier-casing-adt-payload-closure`, valid constructors under invalid
   parent types as checked by `identifier-casing-invalid-parent-constructor`,
+  unused imported invalid types and constructors as checked by
+  `identifier-casing-unused-imported-invalid-type-quarantine` and
+  `identifier-casing-unused-imported-invalid-constructor-quarantine`,
   handler and underscore-led type
   reachability as checked by `identifier-casing-unused-handler-type-reference`,
   `identifier-casing-transitive-handler-binding`,

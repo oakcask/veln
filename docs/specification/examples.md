@@ -53,10 +53,23 @@ and
 [`identifier-casing-unreachable`](../../examples/specification/run/identifier-casing-unreachable/case.toml).
 Invalid casing on the selected entry declaration itself is checked by
 [`identifier-casing-invalid-entry`](../../examples/specification/run/identifier-casing-invalid-entry/case.toml).
+Selected-entry casing is reported before entry argument validation in
+[`identifier-casing-invalid-entry-wrong-arity`](../../examples/specification/run/identifier-casing-invalid-entry-wrong-arity/case.toml),
+[`identifier-casing-invalid-entry-wrong-arity-json`](../../examples/specification/run/identifier-casing-invalid-entry-wrong-arity-json/case.toml),
+[`identifier-casing-invalid-entry-unsupported-argument-json`](../../examples/specification/run/identifier-casing-invalid-entry-unsupported-argument-json/case.toml),
+and
+[`identifier-casing-invalid-entry-conversion-json`](../../examples/specification/run/identifier-casing-invalid-entry-conversion-json/case.toml).
 Import and public-alias quarantine are checked by
 [`identifier-casing-import-quarantine`](../../examples/specification/run/identifier-casing-import-quarantine/case.toml)
 and
 [`identifier-casing-alias-quarantine`](../../examples/specification/run/identifier-casing-alias-quarantine/case.toml).
+Imported invalid type and constructor quarantine is checked by
+[`identifier-casing-imported-invalid-type-quarantine`](../../examples/specification/run/identifier-casing-imported-invalid-type-quarantine/case.toml),
+[`identifier-casing-imported-invalid-payload-quarantine`](../../examples/specification/run/identifier-casing-imported-invalid-payload-quarantine/case.toml),
+[`identifier-casing-imported-invalid-constructor-quarantine`](../../examples/specification/run/identifier-casing-imported-invalid-constructor-quarantine/case.toml),
+[`identifier-casing-unused-imported-invalid-type-quarantine`](../../examples/specification/run/identifier-casing-unused-imported-invalid-type-quarantine/case.toml),
+and
+[`identifier-casing-unused-imported-invalid-constructor-quarantine`](../../examples/specification/run/identifier-casing-unused-imported-invalid-constructor-quarantine/case.toml).
 Imported invalid public-alias quarantine is checked by
 [`identifier-casing-imported-invalid-alias-quarantine`](../../examples/specification/run/identifier-casing-imported-invalid-alias-quarantine/case.toml).
 Reachable and unreachable public alias declaration-name boundaries are checked

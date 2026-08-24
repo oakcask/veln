@@ -345,10 +345,11 @@ renamed-module cycles, and cycles with added members or cyclic edges fail.
 
 `run` uses the same source discovery rule as `check`. Parse-clean files are
 combined into one surface module for entry resolution. It blocks before user
-code execution on parse errors, a missing entry function, an entry argument
-count mismatch, an entry parameter type that cannot be supplied from command
-line text, selected-entry semantic errors, reachable holes, or checked-core
-blockers.
+code execution on parse errors, a missing entry function, selected-entry
+semantic errors, reachable holes, an entry argument count mismatch, an entry
+parameter type that cannot be supplied from command-line text, or checked-core
+blockers. Reachable source-casing diagnostics for the selected entry are
+reported before entry argument validation diagnostics.
 
 The entry must be a discovered function. Arguments after `--` are entry
 arguments, not source inputs. Entry parameters may be declared as `String`,
@@ -374,8 +375,15 @@ invalid peer outside the reachable closure does not. The checked
 `identifier-casing-reachable`, `identifier-casing-unreachable`,
 `identifier-casing-import-quarantine`,
 `identifier-casing-imported-invalid-alias-quarantine`,
+`identifier-casing-imported-invalid-type-quarantine`,
+`identifier-casing-imported-invalid-payload-quarantine`,
+`identifier-casing-imported-invalid-constructor-quarantine`,
 `identifier-casing-invalid-entry`,
 `identifier-casing-invalid-entry-json`,
+`identifier-casing-invalid-entry-wrong-arity`,
+`identifier-casing-invalid-entry-wrong-arity-json`,
+`identifier-casing-invalid-entry-unsupported-argument-json`,
+`identifier-casing-invalid-entry-conversion-json`,
 `identifier-casing-alias-quarantine`, and
 `identifier-casing-unused-type-alias-quarantine` run cases fix this boundary,
 including first-class function value reachability that excludes quarantined
@@ -386,6 +394,9 @@ ADT-payload-reachable invalid public type aliases checked by
 `identifier-casing-local-binding-vs-invalid-constructor`
 and `identifier-casing-adt-payload-closure` cases check local binding
 precedence and ADT payload closure in the same boundary.
+`identifier-casing-unused-imported-invalid-type-quarantine` and
+`identifier-casing-unused-imported-invalid-constructor-quarantine` check the
+matching unused import boundary.
 `identifier-casing-invalid-parent-constructor` checks valid constructors under
 invalid parent types. The
 `identifier-casing-reachable-function-alias` and
