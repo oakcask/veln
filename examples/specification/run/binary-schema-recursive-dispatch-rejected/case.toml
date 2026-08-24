@@ -3,8 +3,23 @@ source_errors = "expected"
 exit = 1
 
 [stdout]
-format = "empty"
+format = "json"
 
 [stderr]
-format = "text"
-contains = ["error[schema.dispatch_payload]", "dispatch payload schema `MissingBasePacket` requires parent dispatch field `payload` to include a non-recursive primitive case"]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "schema.dispatch_payload"
+
+[[json_assert]]
+path = "diagnostics.0.message"
+equals = "dispatch payload schema `MissingBasePacket` requires parent dispatch field `payload` to include a non-recursive primitive case"
+
+[[json_assert]]
+path = "diagnostics.0.details.reason"
+equals = "recursive_payload_missing_primitive_base_case"
