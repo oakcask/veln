@@ -26,6 +26,14 @@ are not part of the implemented grammar. Source code uses ordinary functions
 plus explicit schema `decode` and `encode` expressions for executable decode
 and encode entry points.
 
+The token `_` remains wildcard or hole syntax in ordinary expression and
+pattern positions. Parser recovery also accepts `_` as the written token for
+source ADT type names, source ADT constructors, function and test names, public
+function and type alias names, function parameters without required type
+annotations, result bindings, and local pattern bindings so the name analysis
+can report `name.invalid_case` at the written span. Schema declaration names
+and other declaration-name contexts keep their parser diagnostics for `_`.
+
 `format binary` dispatch payload cases accept lowercase exact-width `uint...`
 primitive spelling in the same positions as compatible upper-case exact-width
 primitive payload spelling. They also accept

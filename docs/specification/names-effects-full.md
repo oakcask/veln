@@ -104,6 +104,25 @@ unique source module paths.
 Named holes remain repair labels, not value declarations. Reusing a hole label
 does not affect name resolution.
 
+Source-written identifier casing is validated before invalid names can enter
+normal lookup. Source ADT type names and public type aliases must start with an
+ASCII uppercase letter. Source ADT constructors must start with an ASCII
+uppercase letter. Function declarations, test declarations, and public
+function aliases must start with an ASCII lowercase letter. Function
+parameters, result bindings, and local pattern bindings must start with an
+ASCII lowercase letter. Invalid declarations and bindings report
+`name.invalid_case` and are retained only as quarantined recovery records.
+They do not become normal declarations, exports, checked core, typed IR, or
+backend input.
+
+A compatible same-source use may link to one unique quarantined record only to
+suppress diagnostics that derive from the invalid name being absent. A valid
+normal declaration wins over a compatible invalid recovery record. Multiple
+compatible recovery records with the same spelling remain ambiguous and do not
+suppress independent ambiguity or unresolved diagnostics. Recovery records do
+not cross import or public-alias boundaries. Value-binding recovery is scoped
+to the binding's lexical function body.
+
 ## Effect Labels
 
 Implemented effect labels are:

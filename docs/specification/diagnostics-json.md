@@ -139,6 +139,14 @@ Manifest export diagnostics reject `.test.veln` companion paths with
 publication boundaries are checked by
 `examples/specification/check/dependency-companion-export-boundary-json/`.
 
+Source-written identifier casing diagnostics use `name.invalid_case` with
+`details.phase = "name"`, `details.origin = "source"`, `details.name`, and
+`details.name_class`. JSON and human output are checked by
+`examples/specification/check/identifier-casing-recovery-json/`,
+`examples/specification/check/identifier-casing-recovery-human/`,
+`examples/specification/check/identifier-casing-constructor-recovery/`, and
+`examples/specification/check/identifier-casing-underscore-aliases/`.
+
 ## Stable Details
 
 See

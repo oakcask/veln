@@ -368,6 +368,13 @@ declarations to the imported source module. Semantic
 diagnostics in functions unreachable from the selected entry do not block
 `run`.
 
+Source identifier casing recovery follows the same selected-entry boundary.
+An invalid entry function name, invalid entry binding, invalid declaration
+reached through the selected entry, or invalid type referenced from the
+selected entry signature reports `name.invalid_case` and blocks execution.
+An invalid same-source declaration outside the selected entry's reachable
+closure does not block `run`.
+
 `run` and `test` cache generated JVM classfile artifacts by backend content
 below the selected Veln user cache root. On Unix other than macOS, the default
 root is the `veln` child of an absolute, non-empty `XDG_CACHE_HOME`, or the

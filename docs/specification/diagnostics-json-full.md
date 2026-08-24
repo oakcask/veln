@@ -43,6 +43,21 @@ Checked examples under `examples/specification/check/` pin these shapes for
 local bindings, private helper parameters and returns, constructor ambiguity,
 empty collection ambiguity, and match scrutinee ambiguity.
 
+## Name Diagnostics
+
+`name.invalid_case` details identify source-written identifier casing failures
+with `phase = "name"`, `origin = "source"`, the rejected `name`, and
+`name_class`. The implemented `name_class` values are `type`, `constructor`,
+`function`, and `value_binding`.
+
+The checked examples
+`examples/specification/check/identifier-casing-recovery-json/` and
+`examples/specification/check/identifier-casing-recovery-human/` pin the JSON
+and human message boundary for type, constructor, function, and value-binding
+failures. `identifier-casing-constructor-recovery` pins constructor recovery,
+and `identifier-casing-underscore-aliases` pins underscore-led public function
+and type alias diagnostics.
+
 ## Handler Diagnostics
 
 Handler effect diagnostics use `phase = "effect"` and include `boundary`,
