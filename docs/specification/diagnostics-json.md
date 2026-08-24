@@ -146,7 +146,7 @@ Source-written identifier casing diagnostics use `name.invalid_case` with
 `details.occurrence` is `declaration` or `binding`. `details.name_class` is
 `type`, `constructor`, `function`, or `value_binding`.
 `details.required_initial` and `details.observed_initial` use
-`ascii_uppercase`, `ascii_lowercase`, or `other`. JSON and human output are checked by
+`ascii_uppercase`, `ascii_lowercase`, `underscore`, or `other`. JSON and human output are checked by
 `examples/specification/check/identifier-casing-recovery-json/`,
 `examples/specification/check/identifier-casing-recovery-human/`,
 `examples/specification/check/identifier-casing-constructor-recovery/`, and

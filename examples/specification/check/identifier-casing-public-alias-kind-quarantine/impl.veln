@@ -1,0 +1,7 @@
+type Shape
+	pub Circle(Int)
+end
+
+pub fn make_shape(radius: Int) -> Shape
+	Circle(radius)
+end

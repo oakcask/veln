@@ -1,0 +1,4 @@
+use impl
+
+pub type Shape = impl::Shape
+pub fn Shape = impl::make_shape

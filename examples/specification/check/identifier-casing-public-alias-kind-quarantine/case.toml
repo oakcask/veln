@@ -1,0 +1,18 @@
+command = ["check", "--json", "app.veln", "api.veln", "impl.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"name.invalid_case\"", "function name must start with an ASCII lowercase letter", "\"name\":\"Shape\"", "\"name_class\":\"function\""]
+not_contains = ["\"id\":\"name.unresolved\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1

@@ -1201,10 +1201,7 @@ fn quarantine_invalid_casing(module: &mut SurfaceModule, records: &[CasingRecove
             records.iter().any(|record| {
                 record.name == *name
                     && record.module_name == alias.module_name
-                    && matches!(
-                        record.name_class,
-                        CasingNameClass::Type | CasingNameClass::Function
-                    )
+                    && alias_kind_matches_casing_record(alias.kind, record.name_class)
             })
         })
     });
@@ -1244,6 +1241,17 @@ fn quarantine_invalid_casing(module: &mut SurfaceModule, records: &[CasingRecove
         });
         true
     });
+}
+
+fn alias_kind_matches_casing_record(
+    alias_kind: PublicAliasKind,
+    name_class: CasingNameClass,
+) -> bool {
+    matches!(
+        (alias_kind, name_class),
+        (PublicAliasKind::Function, CasingNameClass::Function)
+            | (PublicAliasKind::Type, CasingNameClass::Type)
+    )
 }
 
 fn quarantine_handler_bindings(

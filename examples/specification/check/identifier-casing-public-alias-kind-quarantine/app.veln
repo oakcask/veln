@@ -1,0 +1,7 @@
+use api
+
+pub fn main(input: api::Shape) -> Int
+	match input
+		api::Circle(radius) => radius
+	end
+end
