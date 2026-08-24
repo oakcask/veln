@@ -26,9 +26,16 @@ Only proposals and subsections listed in this section are selectable targets.
 
 ## Blocked
 
+- Identifier-casing selection boundaries for `test`, `doc`, language-service
+  snapshots and overlays, dependencies, companions, and the implicit prelude
+  are blocked by the source declaration and binding recovery foundation. Move
+  this proposal into Ready after that foundation is specified as current
+  behavior:
+  [identifier-casing-selection-boundaries.md](identifier-casing-selection-boundaries.md).
 - The complete identifier-casing proposal is blocked by its source declaration
-  and binding recovery foundation. Move its remaining implementation scope into
-  Ready after that foundation is specified as current behavior:
+  and binding recovery foundation and its remaining selection-boundary work.
+  Move its remaining implementation scope into Ready after those prerequisites
+  are specified as current behavior:
   [identifier-casing.md](identifier-casing.md).
 - The agent-language-services umbrella is a planning inventory. Its next saved
   workspace function-reference slice is blocked by identifier casing. Move
