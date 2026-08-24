@@ -36,3 +36,16 @@ pub fn bare_result_is_not_special(value: Int) -> Int
 	ensure result >= 0
 	value
 end
+
+pub fn body_cannot_call_result(value: Int) -> Callback: fn(Int) -> Int
+	Callback(1)
+end
+
+pub fn invalid_ensure_can_read_function_result(value: Int) -> Callback: fn(Int) -> Int
+	ensure Callback == Callback
+	identity
+end
+
+fn identity(value: Int) -> Int
+	value
+end

@@ -960,6 +960,35 @@ fn invalid_inferred_callable_let_binding_recovers_call_target() {
 }
 
 #[test]
+fn invalid_callable_result_binding_does_not_recover_body_call_target() {
+    let parsed = parse(&SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn body_cannot_call_result(value: Int) -> Callback: fn(Int) -> Int\n",
+            "  Callback(1)\n",
+            "end\n",
+        ),
+    ));
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.invalid_case"
+                && diagnostic.message == "binding name must start with an ASCII lowercase letter")
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.unresolved"
+                && diagnostic.message == "unresolved call_target `Callback`"
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn invalid_inferred_callable_pattern_binding_recovers_call_target() {
     let parsed = parse(&SourceFile::new(
         "main.veln",

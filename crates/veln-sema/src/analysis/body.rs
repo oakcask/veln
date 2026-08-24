@@ -106,6 +106,15 @@ impl EffectBoundary {
     }
 }
 
+fn recovery_scope_visible(binding_scope: RecoveryScope, use_scope: RecoveryScope) -> bool {
+    matches!(
+        (binding_scope, use_scope),
+        (RecoveryScope::Body, RecoveryScope::Body)
+            | (RecoveryScope::Body, RecoveryScope::EnsureContract)
+            | (RecoveryScope::EnsureContract, RecoveryScope::EnsureContract)
+    )
+}
+
 #[derive(Clone, Copy)]
 enum MatchDomain {
     Bool,
@@ -918,12 +927,7 @@ impl<'a> FunctionChecker<'a> {
                     && binding.span.file == use_span.file
                     && (namespace == "satisfy_predicate"
                         || span_starts_not_after(&binding.span, use_span))
-                    && matches!(
-                        (binding.scope, scope),
-                        (RecoveryScope::Body, RecoveryScope::Body)
-                            | (RecoveryScope::Body, RecoveryScope::EnsureContract)
-                            | (RecoveryScope::EnsureContract, RecoveryScope::EnsureContract)
-                    )
+                    && recovery_scope_visible(binding.scope, scope)
                     && (namespace != "call_target" || matches!(binding.ty, Type::Function { .. }))
             })
             .count()
@@ -946,15 +950,25 @@ impl<'a> FunctionChecker<'a> {
     }
 
     fn unique_call_target_recovery(&self, symbol: &str, span: &SourceSpan) -> bool {
-        self.call_target_recovery_count(symbol, span) == 1
+        self.call_target_recovery_count(symbol, span, RecoveryScope::Body) == 1
     }
 
-    fn call_target_recovery_count(&self, symbol: &str, span: &SourceSpan) -> usize {
-        self.typed_local_call_target_recovery_count(symbol, span)
+    fn call_target_recovery_count(
+        &self,
+        symbol: &str,
+        span: &SourceSpan,
+        scope: RecoveryScope,
+    ) -> usize {
+        self.typed_local_call_target_recovery_count(symbol, span, scope)
             + self.invalid_declaration_call_target_recovery_count(symbol, span)
     }
 
-    fn typed_local_call_target_recovery_count(&self, symbol: &str, span: &SourceSpan) -> usize {
+    fn typed_local_call_target_recovery_count(
+        &self,
+        symbol: &str,
+        span: &SourceSpan,
+        scope: RecoveryScope,
+    ) -> usize {
         self.recovery_bindings
             .iter()
             .filter(|binding| {
@@ -962,10 +976,7 @@ impl<'a> FunctionChecker<'a> {
                     && binding.span.file == span.file
                     && span_starts_not_after(&binding.span, span)
                     && matches!(binding.ty, Type::Function { .. })
-                    && matches!(
-                        binding.scope,
-                        RecoveryScope::Body | RecoveryScope::EnsureContract
-                    )
+                    && recovery_scope_visible(binding.scope, scope)
             })
             .count()
     }
@@ -3943,7 +3954,7 @@ impl<'a> FunctionChecker<'a> {
         ];
         if namespace == "call_target" {
             let typed_local_recovery_candidates =
-                self.typed_local_call_target_recovery_count(symbol, &span);
+                self.typed_local_call_target_recovery_count(symbol, &span, RecoveryScope::Body);
             if typed_local_recovery_candidates > 0 {
                 details.push((
                     "typed_local_recovery_candidates",
