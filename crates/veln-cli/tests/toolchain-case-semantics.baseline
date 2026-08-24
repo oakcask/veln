@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"7529eca4e949fb83df290a6da1f475e2d1e7fcfe"
+source_git_tree	"15739f2acc00a4e2a7f594f346e28c7ee804f8b9"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1559
+case_count	1561
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -5528,6 +5528,25 @@ field	invocation.command[1]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"4458eb5e52ff67dcb7a61384697b61d48f522da1650b141617d34699b3eb5d49"
+case	"examples/specification/check/identifier-casing-inferred-callable-recovery"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	5
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"summary.diagnostic_count"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
+field	expectations.stdout.contains[1]	"\"name\":\"LocalCallback\""
+field	expectations.stdout.contains[2]	"\"name\":\"PatternHandler\""
+field	expectations.stdout.contains[3]	"\"name\":\"Ambiguous\""
+field	expectations.stdout.contains[4]	"\"id\":\"name.unresolved\""
+field	expectations.stdout.contains[5]	"unresolved call_target `Ambiguous`"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"a761a206e30b3fe30c7f6b1946e5f75b3fbc82b22f6d0b12f56b9a6998c30260"
 case	"examples/specification/check/identifier-casing-invalid-alias-duplicates"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	11
@@ -38114,6 +38133,24 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"expected"
 case_digest	"812d3440839e30590358e009ee274014953d1aae3310506c219aadb28ad9fc59"
+case	"examples/specification/run/identifier-casing-mixed-json-diagnostics"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	2
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"summary.diagnostic_count"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
+field	expectations.stdout.contains[1]	"\"id\":\"type.mismatch\""
+field	expectations.stdout.contains[2]	"type name must start with an ASCII uppercase letter"
+field	expectations.stdout.contains[3]	"expected `exposed`, but found `Valid`"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"94737b0125e66c98ccb0163b0e54556b2f10ec0467f12c6549f301cc5d901acd"
 case	"examples/specification/run/identifier-casing-qualified-same-leaf"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -48759,4 +48796,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"cecd2444984114d29bfadc2a222afce52c5d9e220d9e3171e687ae015169baec"
+aggregate_digest	"b7717fed305921ec29954068ec4d4264617eae185d127baff1e932c3d62527bd"
