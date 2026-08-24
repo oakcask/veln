@@ -1,0 +1,11 @@
+type Packet
+  packet(value: Int)
+end
+
+fn packet() -> Int
+  1
+end
+
+pub fn main() -> Int
+  packet()
+end

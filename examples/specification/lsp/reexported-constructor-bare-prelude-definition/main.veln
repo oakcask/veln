@@ -1,9 +1,9 @@
 use facade
 
 pub fn bare() -> Token
-  TokenByte(1)
+  byte(1)
 end
 
 pub fn qualified() -> Token
-  facade::TokenByte(2)
+  facade::byte(2)
 end

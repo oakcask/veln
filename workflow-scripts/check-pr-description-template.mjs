@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const requiredSections = ["Intent", "Consequences", "Risks", "Compliance and Revisit Triggers"];
+const requiredSections = ["Intent", "Consequences", "Risks", "Verification"];
 const isGitHubActions = process.env.GITHUB_ACTIONS === "true";
 
 if (isMainModule()) {
@@ -11,7 +11,7 @@ if (isMainModule()) {
 
   if (!result.valid) {
     const message = [
-      "Update the pull request description before review; the template keeps intent, consequences, risks, compliance mechanisms, and revisit triggers visible.",
+      "Update the pull request description before review; the template keeps intent, consequences, risks, and verification visible.",
       ...result.errors.map((error) => `- ${error}`),
     ].join("\n");
 

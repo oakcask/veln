@@ -23,7 +23,9 @@ compiler-known calls.
   checked cases `identifier-casing-recovery-json`,
   `identifier-casing-recovery-human`, and
   `identifier-casing-constructor-recovery` cover source spans, messages, JSON
-  details, and non-cascading constructor recovery.
+  details, and non-cascading constructor recovery. The checked
+  `identifier-casing-valid-wins` case covers normal lookup winning over a
+  compatible invalid recovery record.
 - Namespaces, shadowing, duplicate checks, module ownership, external package
   imports, and manifest export checks:
   [names-effects-full.md](names-effects-full.md#name-resolution).

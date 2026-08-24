@@ -2,10 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { validatePullRequestDescription } from "./check-pr-description-template.mjs";
 
-const requiredSectionError =
-  "Use exactly these H2 sections in this order: ## Intent, ## Consequences, ## Risks, " +
-  "## Compliance and Revisit Triggers.";
-
 test("accepts the PR template sections with optional stack preface", () => {
   const result = validatePullRequestDescription(
     [
@@ -23,9 +19,9 @@ test("accepts the PR template sections with optional stack preface", () => {
       "",
       "Review the boundary behavior.",
       "",
-      "## Compliance and Revisit Triggers",
+      "## Verification",
       "",
-      "Boundary assertions enforce the contract. Revisit it when callers reject empty input.",
+      "- pnpm test",
     ].join("\n"),
   );
 
@@ -49,9 +45,9 @@ test("accepts a breaking PR title when the description explains the breaking cha
       "",
       "Downstream callers may still read the removed aliases.",
       "",
-      "## Compliance and Revisit Triggers",
+      "## Verification",
       "",
-      "Semantic assertions enforce the contract. Revisit it if consumers need aliases.",
+      "- pnpm test",
     ].join("\n"),
     { title: "refactor(core)!: remove legacy diagnostic aliases" },
   );
@@ -74,9 +70,9 @@ test("rejects a breaking PR title without a BREAKING CHANGE line", () => {
       "",
       "This is a breaking API cleanup.",
       "",
-      "## Compliance and Revisit Triggers",
+      "## Verification",
       "",
-      "Semantic assertions enforce the contract. Revisit it if consumers need aliases.",
+      "- pnpm test",
     ].join("\n"),
     { title: "refactor(core)!: remove legacy diagnostic aliases" },
   );
@@ -102,9 +98,9 @@ test("rejects an empty BREAKING CHANGE line for a breaking PR title", () => {
       "",
       "Downstream callers may still read the removed aliases.",
       "",
-      "## Compliance and Revisit Triggers",
+      "## Verification",
       "",
-      "Semantic assertions enforce the contract. Revisit it if consumers need aliases.",
+      "- pnpm test",
     ].join("\n"),
     { title: "refactor(core)!: remove legacy diagnostic aliases" },
   );
@@ -129,28 +125,9 @@ test("rejects the old summary and tests section format", () => {
   );
 
   assert.equal(result.valid, false);
-  assert.deepEqual(result.errors, [requiredSectionError]);
-});
-
-test("rejects the former Verification heading", () => {
-  const result = validatePullRequestDescription(
-    [
-      "## Intent",
-      "Motivation.",
-      "",
-      "## Consequences",
-      "None.",
-      "",
-      "## Risks",
-      "None.",
-      "",
-      "## Verification",
-      "The boundary assertion enforces the decision.",
-    ].join("\n"),
-  );
-
-  assert.equal(result.valid, false);
-  assert.deepEqual(result.errors, [requiredSectionError]);
+  assert.deepEqual(result.errors, [
+    "Use exactly these H2 sections in this order: ## Intent, ## Consequences, ## Risks, ## Verification.",
+  ]);
 });
 
 test("rejects missing, extra, or reordered H2 sections", () => {
@@ -159,8 +136,8 @@ test("rejects missing, extra, or reordered H2 sections", () => {
       "## Intent",
       "Motivation.",
       "",
-      "## Compliance and Revisit Triggers",
-      "Assertions enforce the decision. Revisit it when the input contract changes.",
+      "## Verification",
+      "- pnpm test",
       "",
       "## Risks",
       "Unexpected order.",
@@ -171,7 +148,9 @@ test("rejects missing, extra, or reordered H2 sections", () => {
   );
 
   assert.equal(result.valid, false);
-  assert.deepEqual(result.errors, [requiredSectionError]);
+  assert.deepEqual(result.errors, [
+    "Use exactly these H2 sections in this order: ## Intent, ## Consequences, ## Risks, ## Verification.",
+  ]);
 });
 
 test("rejects template sections left with only comments", () => {
@@ -186,8 +165,8 @@ test("rejects template sections left with only comments", () => {
       "## Risks",
       "None.",
       "",
-      "## Compliance and Revisit Triggers",
-      "Assertions enforce the decision. Revisit it when the input contract changes.",
+      "## Verification",
+      "- pnpm test",
     ].join("\n"),
   );
 

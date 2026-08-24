@@ -6,27 +6,19 @@ on:
       - main
     paths:
       - .github/workflows/lint--rust.yaml
-      - .cargo/config.toml
-      - .github/actions/cargo-dependencies/action.yaml
-      - .github/actions/clippy/action.yaml
       - Cargo.lock
       - Cargo.toml
       - crates/**/Cargo.toml
       - crates/**/*.rs
-      - examples/specification/**
       - tools/**/Cargo.toml
       - tools/**/*.rs
   pull_request:
     paths:
       - .github/workflows/lint--rust.yaml
-      - .cargo/config.toml
-      - .github/actions/cargo-dependencies/action.yaml
-      - .github/actions/clippy/action.yaml
       - Cargo.lock
       - Cargo.toml
       - crates/**/Cargo.toml
       - crates/**/*.rs
-      - examples/specification/**
       - tools/**/Cargo.toml
       - tools/**/*.rs
 
@@ -35,7 +27,6 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  CARGO_INCREMENTAL: "0"
 
 jobs:
   rustfmt:
@@ -51,5 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-      - name: Check Clippy lints
-        uses: ./.github/actions/clippy
+      - name: Install clippy
+        run: rustup component add clippy
+      - name: Check clippy lints
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings

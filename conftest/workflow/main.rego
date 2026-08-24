@@ -7,7 +7,7 @@ local_action_paths contains action_path if {
   job := input.jobs[job_name]
   some step in object.get(job, "steps", [])
   uses := object.get(step, "uses", "")
-  startswith(uses, "./.github/actions/")
+  startswith(uses, "./actions/")
   action_path := trim_prefix(uses, "./")
 }
 
@@ -140,7 +140,7 @@ deny contains msg if {
   paths != null
   some path in paths
   normalized_path := trim_prefix(path, "!")
-  startswith(normalized_path, ".github/actions/")
+  startswith(normalized_path, "actions/")
   contains(normalized_path, "*")
   msg := sprintf("replace wildcard path %q in on.%s.paths with each exact local action.yaml path; wildcard custom-action trigger paths are not allowed", [
     path,

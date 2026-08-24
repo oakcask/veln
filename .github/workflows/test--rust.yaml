@@ -7,8 +7,8 @@ on:
     paths:
       - .github/workflows/test--rust.yaml
       - .config/nextest.toml
-      - .github/actions/cargo-dependencies/action.yaml
-      - .github/actions/nextest/action.yaml
+      - actions/cargo-dependencies/action.yaml
+      - actions/nextest/action.yaml
       - Cargo.lock
       - Cargo.toml
       - crates/**/Cargo.toml
@@ -20,8 +20,8 @@ on:
     paths:
       - .github/workflows/test--rust.yaml
       - .config/nextest.toml
-      - .github/actions/cargo-dependencies/action.yaml
-      - .github/actions/nextest/action.yaml
+      - actions/cargo-dependencies/action.yaml
+      - actions/nextest/action.yaml
       - Cargo.lock
       - Cargo.toml
       - crates/**/Cargo.toml
@@ -36,7 +36,7 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  CARGO_INCREMENTAL: "1"
+  CARGO_INCREMENTAL: "0"
   # renovate: datasource=github-releases depName=nextest-rs/nextest versioning=semver extractVersion=^cargo-nextest-(?<version>.*)$
   NEXTEST_VERSION: "0.9.140"
   # Keep test execution near twice the clean-build cost so extra shards still repay their build overhead.
@@ -61,13 +61,10 @@ jobs:
   seed-cache:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    concurrency:
-      group: rust-test-main-cache
-      cancel-in-progress: false
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - name: Seed Rust test caches
-        uses: ./.github/actions/nextest
+        uses: ./actions/nextest
         with:
           nextest-version: ${{ env.NEXTEST_VERSION }}
           save-cache: true
@@ -83,7 +80,7 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - name: Run Rust tests
-        uses: ./.github/actions/nextest
+        uses: ./actions/nextest
         with:
           nextest-version: ${{ env.NEXTEST_VERSION }}
           shard: ${{ matrix.shard }}
@@ -94,6 +91,6 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - name: Prepare Cargo dependencies
-        uses: ./.github/actions/cargo-dependencies
+        uses: ./actions/cargo-dependencies
       - name: Run Rust doctests
         run: cargo test --locked --workspace --doc
