@@ -471,6 +471,7 @@ requiring the full command reference on the first read.
   `identifier-casing-reachable-binding`,
   `identifier-casing-unreachable-peer`,
   `identifier-casing-entry-binding`,
+  `identifier-casing-entry-binding-before-arguments`,
   `identifier-casing-entry-function`,
   `identifier-casing-type-reference-does-not-reach-function`, and
   `identifier-casing-signature-reachable` cover this command boundary.

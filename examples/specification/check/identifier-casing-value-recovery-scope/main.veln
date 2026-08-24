@@ -2,4 +2,6 @@ pub fn main() -> Int
   _Value
   let _Value = 1
   _Value
+  let Value = 1
+  Value
 end

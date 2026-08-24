@@ -255,6 +255,11 @@ fn checked_entry_arg_types(
         eprintln!("veln: run entry `{entry}` was not found");
         return Ok(None);
     };
+    let diagnostics = analysis.invalid_entry_casing_diagnostics(entry);
+    if !diagnostics.is_empty() {
+        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), diagnostics))?;
+        return Ok(None);
+    }
     validate_entry_args(entry_function, entry, entry_args)
 }
 

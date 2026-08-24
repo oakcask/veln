@@ -9,6 +9,7 @@ end
 fn main(Bad: Int) -> ResultName: Int
   let {field: _Destructured} = {field: 1}
   let _Let = _value satisfy BadCandidate => BadCandidate > 0
+  let Value = 1
   match Bad
     _Arm => _Arm
   end

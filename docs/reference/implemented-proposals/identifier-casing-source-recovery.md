@@ -92,8 +92,7 @@ The checked `identifier-casing-underscore-aliases` and
 `identifier-casing-value-recovery-scope` cases fix the public-alias recovery
 and lexical-scope recovery boundaries of this slice.
 
-Implementation must promote the completed behavior to the smallest matching
-pages under `docs/specification/` and to checked cases under
-`examples/specification/`. Completion moves this proposal to implemented
-history and unblocks the selection-boundary proposal. It does not complete the
-remaining identifier-casing work.
+The completed behavior is promoted to the smallest matching pages under
+`docs/specification/` and to checked cases under `examples/specification/`.
+This implemented history unblocks the selection-boundary proposal. It does not
+complete the remaining identifier-casing work.

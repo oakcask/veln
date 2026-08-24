@@ -27,12 +27,14 @@ plus explicit schema `decode` and `encode` expressions for executable decode
 and encode entry points.
 
 The token `_` remains wildcard or hole syntax in ordinary expression and
-pattern positions. Parser recovery also accepts `_` as the written token for
-source ADT type names, source ADT constructors, function and test names, public
-function and type alias names, function parameters without required type
-annotations, result bindings, and local pattern bindings so the name analysis
-can report `name.invalid_case` at the written span. Schema declaration names
-and other declaration-name contexts keep their parser diagnostics for `_`.
+pattern positions. Standalone `_` does not become a recoverable declaration or
+binding name. Parser recovery accepts underscore-led written tokens such as
+`_value` for source ADT type names, source ADT constructors, function and test
+names, public function and type alias names, function parameters without
+required type annotations, result bindings, and local pattern bindings so the
+name analysis can report `name.invalid_case` at the written span. Schema
+declaration names and other declaration-name contexts keep their parser
+diagnostics for standalone `_`.
 
 `format binary` dispatch payload cases accept lowercase exact-width `uint...`
 primitive spelling in the same positions as compatible upper-case exact-width

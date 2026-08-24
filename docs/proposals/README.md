@@ -26,10 +26,9 @@ Only proposals and subsections listed in this section are selectable targets.
 
 ## Blocked
 
-- The complete identifier-casing proposal is blocked by its source declaration
-  and binding recovery foundation and its remaining selection-boundary work.
-  Move its remaining implementation scope into Ready after those prerequisites
-  are specified as current behavior:
+- The complete identifier-casing proposal is blocked by its remaining
+  selection-boundary work. Move its remaining implementation scope into Ready
+  after those prerequisites are specified as current behavior:
   [identifier-casing.md](identifier-casing.md).
 - The agent-language-services umbrella is a planning inventory. Its next saved
   workspace function-reference slice is blocked by identifier casing. Move

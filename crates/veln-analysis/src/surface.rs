@@ -630,6 +630,7 @@ fn source_identifier_casing_records(
                                 &source_path,
                                 function_name.as_deref(),
                                 &scope,
+                                true,
                             );
                             collect_invalid_expr_bindings(
                                 &mut records,
@@ -711,6 +712,7 @@ fn collect_invalid_pattern_bindings(
     source_path: &SourcePath,
     function_name: Option<&str>,
     lexical_scope: &SourceSpan,
+    simple_constructor_as_binding: bool,
 ) {
     match &pattern.kind {
         veln_syntax::PatternKind::Binding(name) => push_invalid_casing_record(
@@ -726,6 +728,23 @@ fn collect_invalid_pattern_bindings(
                 lexical_scope: Some(lexical_scope),
             },
         ),
+        veln_syntax::PatternKind::Constructor { name, args }
+            if simple_constructor_as_binding && name.len() == 1 && args.is_empty() =>
+        {
+            push_invalid_casing_record(
+                records,
+                &name[0],
+                &pattern.span,
+                CasingNameClass::ValueBinding,
+                "binding",
+                CasingRecoveryContext {
+                    source_path,
+                    module_name,
+                    function_name,
+                    lexical_scope: Some(lexical_scope),
+                },
+            );
+        }
         veln_syntax::PatternKind::Record(fields) => {
             for field in fields {
                 collect_invalid_pattern_bindings(
@@ -735,6 +754,7 @@ fn collect_invalid_pattern_bindings(
                     source_path,
                     function_name,
                     lexical_scope,
+                    simple_constructor_as_binding,
                 );
             }
         }
@@ -747,6 +767,7 @@ fn collect_invalid_pattern_bindings(
                     source_path,
                     function_name,
                     lexical_scope,
+                    simple_constructor_as_binding,
                 );
             }
         }
@@ -964,6 +985,7 @@ fn collect_invalid_expr_bindings(
                     source_path,
                     function_name,
                     &arm_scope,
+                    false,
                 );
                 collect_invalid_expr_bindings(
                     records,
@@ -6675,6 +6697,7 @@ mod tests {
                 "fn main(Bad: Int) -> ResultName: Int\n",
                 "  let {field: _Destructured} = {field: 1}\n",
                 "  let _Let = _value satisfy BadCandidate => BadCandidate > 0\n",
+                "  let Value = 1\n",
                 "  match Bad\n",
                 "    _Arm => _Arm\n",
                 "  end\n",
@@ -6716,7 +6739,8 @@ mod tests {
             ("_Destructured", 10, 15, 28),
             ("_Let", 11, 7, 11),
             ("BadCandidate", 11, 29, 41),
-            ("_Arm", 13, 5, 9),
+            ("Value", 12, 7, 12),
+            ("_Arm", 14, 5, 9),
         ] {
             let diagnostic = casing
                 .iter()

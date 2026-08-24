@@ -46,9 +46,12 @@ empty collection ambiguity, and match scrutinee ambiguity.
 ## Name Diagnostics
 
 `name.invalid_case` details identify source-written identifier casing failures
-with `phase = "name"`, `origin = "source"`, the rejected `name`, and
-`name_class`. The implemented `name_class` values are `type`, `constructor`,
-`function`, and `value_binding`.
+with `phase = "name"`, `origin = "source"`, the source `occurrence`, the
+rejected `name`, `name_class`, `required_initial`, and `observed_initial`.
+The implemented `occurrence` values are `declaration` and `binding`. The
+implemented `name_class` values are `type`, `constructor`, `function`, and
+`value_binding`. The implemented initial-classification values are
+`ascii_uppercase`, `ascii_lowercase`, and `other`.
 
 The checked examples
 `examples/specification/check/identifier-casing-recovery-json/` and

@@ -109,8 +109,9 @@ normal lookup. Source ADT type names and public type aliases must start with an
 ASCII uppercase letter. Source ADT constructors must start with an ASCII
 uppercase letter. Function declarations, test declarations, and public
 function aliases must start with an ASCII lowercase letter. Function
-parameters, result bindings, and local pattern bindings must start with an
-ASCII lowercase letter. Invalid declarations and bindings report
+parameters, result bindings, handler context parameters, operation-clause
+parameters, local pattern bindings, and hole `satisfy` candidate bindings must
+start with an ASCII lowercase letter. Invalid declarations and bindings report
 `name.invalid_case` and are retained only as quarantined recovery records.
 They do not become normal declarations, exports, checked core, typed IR, or
 backend input.

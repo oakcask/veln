@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"name.invalid_case\"", "\"name\":\"_Ctx\"", "\"name\":\"_Entry\"", "\"name\":\"Bad\"", "\"name\":\"ResultName\"", "\"name\":\"_Destructured\"", "\"name\":\"_Let\"", "\"name\":\"BadCandidate\"", "\"name\":\"_Arm\"", "\"name_class\":\"value_binding\""]
+contains = ["\"id\":\"name.invalid_case\"", "\"name\":\"_Ctx\"", "\"name\":\"_Entry\"", "\"name\":\"Bad\"", "\"name\":\"ResultName\"", "\"name\":\"_Destructured\"", "\"name\":\"_Let\"", "\"name\":\"BadCandidate\"", "\"name\":\"Value\"", "\"name\":\"_Arm\"", "\"name_class\":\"value_binding\""]
 
 [stderr]
 format = "empty"

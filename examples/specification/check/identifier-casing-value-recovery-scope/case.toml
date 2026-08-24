@@ -3,7 +3,8 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"name.invalid_case\"", "\"id\":\"hole.unfilled\"", "binding name must start with an ASCII lowercase letter", "\"label\":\"_Value\""]
+contains = ["\"id\":\"name.invalid_case\"", "\"id\":\"hole.unfilled\"", "binding name must start with an ASCII lowercase letter", "\"name\":\"Value\"", "\"label\":\"_Value\""]
+not_contains = ["\"id\":\"name.unresolved\"", "unresolved value `Value`"]
 
 [stderr]
 format = "empty"

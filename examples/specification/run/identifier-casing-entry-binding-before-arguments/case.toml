@@ -1,0 +1,11 @@
+command = ["run", "main", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[name.invalid_case]: binding name must start with an ASCII lowercase letter", "main.veln:1:13"]
+not_contains = ["expects 1 argument"]
