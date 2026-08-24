@@ -98,7 +98,7 @@ fn prepare_run_program(
 ) -> Result<Option<PreparedRun>, String> {
     let analysis = analyze_run_project(root, inputs, timings.as_mut())?;
     write_harness_source_diagnostic_artifact(&analysis.checked_diagnostics())?;
-    if report_source_errors(&analysis, json)? {
+    if report_source_errors(&analysis)? {
         write_timings(timings)?;
         return Ok(None);
     }
@@ -227,10 +227,10 @@ fn test_only_run_input_diagnostic(path: &str) -> Diagnostic {
     )
 }
 
-fn report_source_errors(analysis: &ProjectAnalysis, json: bool) -> Result<bool, String> {
+fn report_source_errors(analysis: &ProjectAnalysis) -> Result<bool, String> {
     let diagnostics = analysis.source_diagnostics();
     if has_error(&diagnostics) {
-        report_diagnostics(json, diagnostics)?;
+        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), diagnostics))?;
         return Ok(true);
     }
     Ok(false)
@@ -396,7 +396,7 @@ fn lower_run_entry(
     let lowered = reachable.lowered;
     let diagnostics = lowered.diagnostics;
     if has_error(&diagnostics) {
-        report_diagnostics(json, diagnostics)?;
+        report_run_blocking_diagnostics(json, diagnostics)?;
         return Ok(None);
     }
     if let Some(diagnostic) = retained_user_effect_diagnostic(
@@ -405,15 +405,27 @@ fn lower_run_entry(
         entry,
         FunctionKind::Function,
     ) {
-        report_diagnostics(json, vec![diagnostic])?;
+        report_run_blocking_diagnostics(json, vec![diagnostic])?;
         return Ok(None);
     }
     let Some(ir) = lowered.ir else {
-        report_diagnostics(json, diagnostics)?;
+        report_run_blocking_diagnostics(json, diagnostics)?;
         eprintln!("veln: run blocked: checked program is not executable");
         return Ok(None);
     };
     Ok(Some(ir))
+}
+
+fn report_run_blocking_diagnostics(json: bool, diagnostics: Vec<Diagnostic>) -> Result<(), String> {
+    if json
+        && diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "name.invalid_case")
+    {
+        report_diagnostics(true, diagnostics)
+    } else {
+        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), diagnostics))
+    }
 }
 
 fn run_reachable_diagnostic(
