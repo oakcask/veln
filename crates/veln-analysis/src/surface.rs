@@ -6903,11 +6903,21 @@ mod tests {
             files: vec![
                 SourceFile::new(
                     "main.veln",
-                    concat!("use broken\n", "pub fn main() -> Int\n", "  Build()\n", "end\n",),
+                    concat!(
+                        "use broken\n",
+                        "pub fn main() -> Int\n",
+                        "  Build()\n",
+                        "end\n",
+                    ),
                 ),
                 SourceFile::new(
                     "broken.veln",
-                    concat!("fn good() -> Int\n", "  1\n", "end\n", "pub fn Build = good\n",),
+                    concat!(
+                        "fn good() -> Int\n",
+                        "  1\n",
+                        "end\n",
+                        "pub fn Build = good\n",
+                    ),
                 ),
             ],
             manifest: None,
