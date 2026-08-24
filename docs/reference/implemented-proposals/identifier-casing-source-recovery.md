@@ -28,5 +28,8 @@ the `identifier-casing-*` check and run cases under
 `../../../examples/specification/` and in the parser and semantic unit tests.
 The current evidence includes duplicate quarantine, alias mismatch boundaries,
 import and public-alias quarantine, selected-entry reachability, valid-candidate
-precedence over invalid same-leaf peers, transitive alias closure, local binding
-precedence, and source ADT payload closure.
+precedence over invalid same-leaf peers, imported constructor precedence over
+invalid same-spelled local functions, reachable handler clauses, transitive
+alias closure, local binding precedence, source ADT payload closure, and
+preserved non-casing diagnostics for unreachable duplicate constructors, type
+aliases, and handlers.

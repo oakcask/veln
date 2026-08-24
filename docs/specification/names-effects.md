@@ -21,9 +21,12 @@ compiler-known calls.
   exports, and backend input. Same-kind, same-scope invalid names with the
   same spelling still emit the ordinary duplicate diagnostic. A unique
   compatible same-source recovery reference can suppress only the derivative
-  unresolved-name diagnostic. The checked `identifier-casing-*` cases, including
+  unresolved-name diagnostic. `run` reports reachable invalid-casing names
+  without suppressing other unreachable static diagnostics. The checked
+  `identifier-casing-*` cases, including
   `identifier-casing-duplicate-quarantine`, `identifier-casing-quarantine`,
-  and `identifier-casing-value-recovery`, fix the observable boundary.
+  `identifier-casing-value-recovery`, and the reachable run cases, fix the
+  observable boundary.
 - Declaration effect spelling, effect-row substitution, host effect labels,
   nominal operation effects, lexical handlers, and effect inference:
   [names-effects-full.md](names-effects-full.md#effect-labels) and

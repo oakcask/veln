@@ -863,10 +863,15 @@ The selected-entry closure resolves candidate identity before materializing
 reachable names. A valid function value with the same leaf name as an invalid
 constructor does not reach the invalid constructor's source type, and a valid
 constructor with the same leaf name as an invalid function does not reach the
-invalid function. Module-qualified same-leaf paths and transitive public type
+invalid function. Visible imported constructors also win over quarantined
+same-spelled local functions, including constructor calls inside reachable
+handler clauses. Module-qualified same-leaf paths and transitive public type
 aliases follow their resolved type, constructor, function, and alias targets.
-Unreachable type aliases and aliases to quarantined invalid type targets are
-not materialized for run checking.
+`run` filters invalid-casing diagnostics to selected-entry reachable
+declarations and reachable handlers; unreachable duplicate constructors,
+unresolved type aliases, and incomplete handlers still remain in the checked
+surface so their non-casing diagnostics are reported. Aliases to quarantined
+invalid type targets are not materialized for run checking.
 
 A public function whose declared effects omit an inferred effect reports
 `effect.missing_public` with related provenance pointing at bounded call sites.
