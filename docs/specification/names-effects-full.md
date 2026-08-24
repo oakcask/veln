@@ -33,7 +33,8 @@ tests, fix accepted and rejected names, exact human and JSON diagnostics,
 checked-artifact exclusion, duplicate overlap, unique and ambiguous recovery,
 valid-candidate precedence, same-leaf alias mismatch preservation, the import
 and alias quarantine boundary, and selected-entry reachability over local
-bindings and ADT payloads.
+bindings, ADT payloads, handler annotations, transitive handler bodies, and
+underscore-led recovered type names.
 
 Implemented checker namespaces are:
 
@@ -868,10 +869,13 @@ same-spelled local functions, including constructor calls inside reachable
 handler clauses. Module-qualified same-leaf paths and transitive public type
 aliases follow their resolved type, constructor, function, and alias targets.
 `run` filters invalid-casing diagnostics to selected-entry reachable
-declarations and reachable handlers; unreachable duplicate constructors,
-unresolved type aliases, and incomplete handlers still remain in the checked
-surface so their non-casing diagnostics are reported. Aliases to quarantined
-invalid type targets are not materialized for run checking.
+declarations and reachable handlers. Handler annotations are selected only
+when the selected entry reaches that handler, and nested `handle ... with ...`
+expressions in reachable handler clause bodies can select additional handlers.
+Unreachable duplicate constructors, unresolved type aliases, and incomplete
+handlers still remain in the checked surface so their non-casing diagnostics
+are reported. Aliases to quarantined invalid type targets are not materialized
+for run checking.
 
 A public function whose declared effects omit an inferred effect reports
 `effect.missing_public` with related provenance pointing at bounded call sites.

@@ -30,6 +30,7 @@ The current evidence includes duplicate quarantine, alias mismatch boundaries,
 import and public-alias quarantine, selected-entry reachability, valid-candidate
 precedence over invalid same-leaf peers, imported constructor precedence over
 invalid same-spelled local functions, reachable handler clauses, transitive
-alias closure, local binding precedence, source ADT payload closure, and
-preserved non-casing diagnostics for unreachable duplicate constructors, type
-aliases, and handlers.
+alias closure, local binding precedence, source ADT payload closure, handler
+annotation reachability, transitive handler body reachability, underscore-led
+recovered type names, and preserved non-casing diagnostics for unreachable
+duplicate constructors, type aliases, and handlers.
