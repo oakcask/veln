@@ -1,0 +1,5 @@
+pub fn Bad = missing
+
+pub fn main() -> Int
+  1
+end

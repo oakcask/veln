@@ -1,0 +1,10 @@
+fn good() -> Int
+  1
+end
+
+pub fn Bad = good
+pub fn Bad = good
+
+pub fn main() -> Int
+  Bad()
+end

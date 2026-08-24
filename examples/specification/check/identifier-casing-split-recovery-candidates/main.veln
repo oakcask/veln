@@ -1,0 +1,7 @@
+fn Callback(value: Int) -> Int
+  value
+end
+
+fn main(Callback: fn(Int) -> Int) -> Int
+  Callback(1)
+end

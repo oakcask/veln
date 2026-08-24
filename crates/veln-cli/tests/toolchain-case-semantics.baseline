@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"14177e857cec29f008e277f7477f29f28b09b4d5"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1548
+case_count	1553
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -5488,6 +5488,65 @@ field	invocation.command[1]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"880b1d52d0c668e26b6a3c0519c6fdbcda25386b558f6e2be76eddc0b5cd44e4"
+case	"examples/specification/check/identifier-casing-invalid-alias-duplicates"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	3
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"summary.diagnostic_count"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
+field	expectations.stdout.contains[1]	"\"name\":\"Bad\""
+field	expectations.stdout.contains[2]	"\"id\":\"name.unresolved\""
+field	expectations.stdout.contains[3]	"unresolved call_target `Bad`"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"6a2452b773720e89e846b110a75eee4143eaa1cf6b1caee11aa070154840fcb4"
+case	"examples/specification/check/identifier-casing-invalid-alias-missing-target"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
+field	expectations.stdout.contains[1]	"\"name\":\"Bad\""
+field	expectations.stdout.contains[2]	"\"id\":\"name.unresolved\""
+field	expectations.stdout.contains[3]	"unresolved function alias target `missing`"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"80e2b47d7b308e3b98ed823133a13c8db9c78589dd29fed32420356fb5b43b0d"
+case	"examples/specification/check/identifier-casing-invalid-alias-same-file-use"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
+field	expectations.stdout.contains[1]	"\"name\":\"Bad\""
+field	expectations.stdout.contains[2]	"\"id\":\"name.unresolved\""
+field	expectations.stdout.contains[3]	"unresolved call_target `Bad`"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"86c6be456f26014307cf3af89951077ce721489b49b4c1fcd4e0d97d413d263a"
+case	"examples/specification/check/identifier-casing-invalid-alias-wrong-kind"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
+field	expectations.stdout.contains[1]	"\"name\":\"Bad\""
+field	expectations.stdout.contains[2]	"\"id\":\"name.kind_mismatch\""
+field	expectations.stdout.contains[3]	"public alias target `Target` is a type, not a function"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"43afd343201991c4eeccb9660e69afa845513ec765f2d6c3b6c83e94f1728236"
 case	"examples/specification/check/identifier-casing-json"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	7
@@ -5628,6 +5687,23 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"c1f5b62b9e2380ada6f89c82351f7bff98851000d1f7c4e0867523097671aba1"
+case	"examples/specification/check/identifier-casing-split-recovery-candidates"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	3
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"summary.diagnostic_count"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
+field	expectations.stdout.contains[1]	"\"name\":\"Callback\""
+field	expectations.stdout.contains[2]	"\"id\":\"name.unresolved\""
+field	expectations.stdout.contains[3]	"unresolved call_target `Callback`"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"5f0a5301fb8d66b32fbb351ec31eb47d059b713d8f144407b320912df28fc22f"
 case	"examples/specification/check/identifier-casing-test-recovery"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -37915,14 +37991,15 @@ case_digest	"8d42b2b7f8f1f17b4f25c937e1dd631fe615a87785b86a157f99f2e8145ae4be"
 case	"examples/specification/run/identifier-casing-reachable-function-alias"
 field	expectations.exit	1
 field	expectations.stderr.contains[0]	"main.veln:5:8: error[name.invalid_case]: function name must start with an ASCII lowercase letter"
-field	expectations.stderr.not_contains[0]	"name.unresolved"
+field	expectations.stderr.contains[1]	"error[name.unresolved]: unresolved function alias target `good`"
+field	expectations.stderr.contains[2]	"error[name.unresolved]: unresolved call_target `Build`"
 field	expectations.stdout.format	"empty"
 field	invocation.command[0]	"run"
 field	invocation.command[1]	"main"
 field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
-case_digest	"1b3c54dede2494cc4d4ee50fc2e6a437abb3b81b234be0aa76b80e368108f399"
+case_digest	"196fc7e79b1f2c8a7002eecaeba1861ad45e5b6049fa9c818da98f913ac55ca3"
 case	"examples/specification/run/identifier-casing-reachable-type-alias"
 field	expectations.exit	1
 field	expectations.stderr.contains[0]	"main.veln:5:10: error[name.invalid_case]: type name must start with an ASCII uppercase letter"
@@ -48491,4 +48568,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"7af4536ab66f3d6241019d495c22fb1ccc755d36a7de9ba8a75e2672fd4d6a11"
+aggregate_digest	"86b2487f2193e42cf2b7923332478f81310d1882b6cd839611dcd0edac495c30"

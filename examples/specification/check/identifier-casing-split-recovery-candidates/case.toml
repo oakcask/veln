@@ -1,0 +1,19 @@
+command = ["check", "--json", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "\"id\":\"name.invalid_case\"",
+  "\"name\":\"Callback\"",
+  "\"id\":\"name.unresolved\"",
+  "unresolved call_target `Callback`",
+]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 3

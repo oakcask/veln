@@ -1,0 +1,15 @@
+command = ["check", "--json", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "\"id\":\"name.invalid_case\"",
+  "\"name\":\"Bad\"",
+  "\"id\":\"name.unresolved\"",
+  "unresolved function alias target `missing`",
+]
+
+[stderr]
+format = "empty"

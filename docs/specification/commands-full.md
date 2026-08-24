@@ -378,13 +378,16 @@ invalid peer outside the reachable closure does not. The checked
 `identifier-casing-alias-quarantine`, and
 `identifier-casing-unused-type-alias-quarantine` run cases fix this boundary,
 including first-class function value reachability that excludes quarantined
-invalid function targets, unreachable type aliases, and aliases to quarantined
-invalid type targets. The `identifier-casing-local-binding-vs-invalid-constructor`
+invalid function targets, invalid public function alias declaration names,
+unreachable type aliases, and aliases to quarantined invalid type targets. The
+`identifier-casing-local-binding-vs-invalid-constructor`
 and `identifier-casing-adt-payload-closure` cases check local binding
 precedence and ADT payload closure in the same boundary. The
 `identifier-casing-reachable-function-alias` and
 `identifier-casing-reachable-type-alias` cases check reachable invalid public
-alias declaration names without unresolved or type-mismatch derivative noise.
+alias declaration names. Invalid public function aliases remain quarantined:
+same-file calls and independently missing alias targets still report
+`name.unresolved`.
 The
 `identifier-casing-imported-constructor-valid-wins` and
 `identifier-casing-handler-imported-constructor-valid-wins` cases check that

@@ -1,0 +1,5 @@
+type Target
+  Made
+end
+
+pub fn Bad = Target

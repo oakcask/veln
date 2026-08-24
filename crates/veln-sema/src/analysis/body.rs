@@ -928,7 +928,7 @@ impl<'a> FunctionChecker<'a> {
     ) -> bool {
         matches!(
             namespace,
-            "value" | "call_target" | "contract_predicate" | "satisfy_predicate"
+            "value" | "contract_predicate" | "satisfy_predicate"
         ) && self.unique_recovery_binding(symbol, span, RecoveryScope::Body, namespace)
     }
 

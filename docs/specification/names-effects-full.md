@@ -26,19 +26,21 @@ function lookup. Same-kind, same-scope invalid names with the same spelling
 still emit the ordinary duplicate diagnostic. One same-spelled compatible use
 in the declaring source and lexical scope may suppress a derivative
 unresolved-name diagnostic when exactly one invalid declaration or binding is
-available and no valid declaration or binding wins. Recovery does not cross an
-import or public alias, and it never enters checked core, typed IR, hole repair
-candidate lists, or backend input.
+available. Invalid public function alias declaration names do not recover
+same-file calls, and missing or wrong-kind alias targets remain independently
+reported. Recovery does not cross an import or public alias, and it never
+enters checked core, typed IR, hole repair candidate lists, or backend input.
 The checked `identifier-casing-*` cases under
 `../../examples/specification/check/`, together with parser and semantic unit
 tests, fix accepted and rejected names, exact human and JSON diagnostics,
 checked-artifact exclusion, duplicate overlap, unique and ambiguous recovery,
 valid-candidate precedence, public alias declaration names, same-leaf alias
-mismatch preservation, the import and alias quarantine boundary, handler
-clause binding recovery, same-file valid declaration precedence over
-quarantined aliases, and selected-entry reachability over local bindings, ADT
-payloads, handler annotations, transitive handler bodies, and underscore-led
-recovered names.
+mismatch preservation, invalid public alias target and same-file use
+preservation, split recovery candidate uniqueness, the import and alias
+quarantine boundary, handler clause binding recovery, same-file valid
+declaration precedence over quarantined aliases, and selected-entry
+reachability over local bindings, ADT payloads, handler annotations,
+transitive handler bodies, and underscore-led recovered names.
 
 Implemented checker namespaces are:
 

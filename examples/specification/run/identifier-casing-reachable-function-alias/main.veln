@@ -1,4 +1,4 @@
-fn good() -> Int
+pub fn good() -> Int
   1
 end
 

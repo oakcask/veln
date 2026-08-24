@@ -22,6 +22,14 @@ Duplicate overlap and alias-mismatch suppression boundaries are checked by
 [`identifier-casing-alias-same-leaf-mismatch`](../../examples/specification/check/identifier-casing-alias-same-leaf-mismatch/case.toml).
 Same-file valid declaration precedence over a quarantined alias is checked by
 [`identifier-casing-same-file-alias-valid-wins`](../../examples/specification/check/identifier-casing-same-file-alias-valid-wins/case.toml).
+Invalid public function aliases preserve independent target and same-file use
+diagnostics in
+[`identifier-casing-invalid-alias-missing-target`](../../examples/specification/check/identifier-casing-invalid-alias-missing-target/case.toml),
+[`identifier-casing-invalid-alias-wrong-kind`](../../examples/specification/check/identifier-casing-invalid-alias-wrong-kind/case.toml),
+[`identifier-casing-invalid-alias-same-file-use`](../../examples/specification/check/identifier-casing-invalid-alias-same-file-use/case.toml), and
+[`identifier-casing-invalid-alias-duplicates`](../../examples/specification/check/identifier-casing-invalid-alias-duplicates/case.toml).
+Split recovery candidate uniqueness is checked by
+[`identifier-casing-split-recovery-candidates`](../../examples/specification/check/identifier-casing-split-recovery-candidates/case.toml).
 Test declaration recovery compatibility is checked by
 [`identifier-casing-test-recovery`](../../examples/specification/check/identifier-casing-test-recovery/case.toml).
 The selected-entry command boundary is checked by
