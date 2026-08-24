@@ -4258,8 +4258,6 @@ mod tests {
     use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan};
     use veln_syntax::parse;
 
-    use crate::analysis::{DoctestMode, checked_project_diagnostics};
-
     use super::{
         Diagnostic, EmbeddedStandardModuleEntry, EmbeddedStandardPackage, ReachabilityCache,
         SurfaceParts, embedded_standard_counters, load_embedded_standard_package_from,
@@ -6965,41 +6963,73 @@ mod tests {
             manifest: None,
         };
 
-        let diagnostics = checked_project_diagnostics(project, DoctestMode::Exclude);
+        let (loaded, parse_diagnostics) = super::load_surface_modules(&project);
+        assert!(
+            parse_diagnostics.is_empty(),
+            "unexpected parse diagnostics: {parse_diagnostics:#?}"
+        );
+        let diagnostics = loaded
+            .casing_records
+            .iter()
+            .map(|record| &record.diagnostic)
+            .collect::<Vec<_>>();
+        assert_value_binding_casing_spans(
+            &diagnostics,
+            &[
+                ("_Ctx", 5, 15, 19),
+                ("_Entry", 6, 8, 14),
+                ("Bad", 9, 9, 12),
+                ("ResultName", 9, 22, 32),
+                ("_Destructured", 10, 15, 28),
+                ("_Let", 11, 7, 11),
+                ("BadCandidate", 11, 29, 41),
+                ("Value", 12, 7, 12),
+                ("_Arm", 14, 5, 9),
+            ],
+        );
+    }
+
+    fn assert_value_binding_casing_spans(
+        diagnostics: &[&Diagnostic],
+        expected: &[(&str, usize, usize, usize)],
+    ) {
         let casing = diagnostics
             .iter()
+            .copied()
             .filter(|diagnostic| diagnostic.id == "name.invalid_case")
             .collect::<Vec<_>>();
 
-        for (name, line, start_column, end_column) in [
-            ("_Ctx", 5, 15, 19),
-            ("_Entry", 6, 8, 14),
-            ("Bad", 9, 9, 12),
-            ("ResultName", 9, 22, 32),
-            ("_Destructured", 10, 15, 28),
-            ("_Let", 11, 7, 11),
-            ("BadCandidate", 11, 29, 41),
-            ("Value", 12, 7, 12),
-            ("_Arm", 14, 5, 9),
-        ] {
-            let diagnostic = casing
-                .iter()
-                .find(|diagnostic| diagnostic_detail_string(diagnostic, "name") == Some(name))
-                .unwrap_or_else(|| {
-                    panic!("missing casing diagnostic for {name}: {diagnostics:#?}")
-                });
-            let span = diagnostic.span.as_ref().unwrap();
-            assert_eq!(
-                (span.start.line, span.start.column, span.end.column),
-                (line, start_column, end_column),
-                "{name}"
-            );
-            assert_eq!(
-                diagnostic_detail_string(diagnostic, "name_class"),
-                Some("value_binding"),
-                "{name}"
+        for (name, line, start_column, end_column) in expected {
+            assert_value_binding_casing_span(
+                diagnostics,
+                &casing,
+                name,
+                (*line, *start_column, *end_column),
             );
         }
+    }
+
+    fn assert_value_binding_casing_span(
+        diagnostics: &[&Diagnostic],
+        casing: &[&Diagnostic],
+        name: &str,
+        span_columns: (usize, usize, usize),
+    ) {
+        let diagnostic = casing
+            .iter()
+            .find(|diagnostic| diagnostic_detail_string(diagnostic, "name") == Some(name))
+            .unwrap_or_else(|| panic!("missing casing diagnostic for {name}: {diagnostics:#?}"));
+        let span = diagnostic.span.as_ref().unwrap();
+        assert_eq!(
+            (span.start.line, span.start.column, span.end.column),
+            span_columns,
+            "{name}"
+        );
+        assert_eq!(
+            diagnostic_detail_string(diagnostic, "name_class"),
+            Some("value_binding"),
+            "{name}"
+        );
     }
 
     fn diagnostic_detail_string<'a>(diagnostic: &'a Diagnostic, key: &str) -> Option<&'a str> {
