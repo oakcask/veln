@@ -49,6 +49,8 @@ compiler-known calls.
   `identifier-casing-inferred-callable-recovery`,
   `identifier-casing-pattern-binding-recovery`,
   `contract-result-binding-scope`,
+  `identifier-casing-adt-payload-alias`,
+  `identifier-casing-invalid-parent-constructor`,
   `identifier-casing-unused-handler-type-reference`,
   `identifier-casing-transitive-handler-binding`, and
   `identifier-casing-underscore-type-closure`, fix the observable boundary.

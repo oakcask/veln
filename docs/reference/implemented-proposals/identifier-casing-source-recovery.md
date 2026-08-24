@@ -37,7 +37,8 @@ declaration names that preserve independently provable missing-target and
 wrong-kind target diagnostics, same-file alias use preservation, split
 recovery candidate uniqueness, handler clause binding recovery, invalid
 selected-entry rejection, local binding precedence, source ADT payload closure,
-handler annotation reachability, transitive handler body reachability,
+ADT-payload-reachable invalid public type aliases, valid constructors under
+invalid parent types, handler annotation reachability, transitive handler body reachability,
 test declaration name validation without ordinary function-call recovery,
 handler callable and pattern-binding recovery, inferred callable local binding
 recovery ambiguity, underscore-led recovered names,

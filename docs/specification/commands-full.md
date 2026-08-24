@@ -380,10 +380,14 @@ invalid peer outside the reachable closure does not. The checked
 `identifier-casing-unused-type-alias-quarantine` run cases fix this boundary,
 including first-class function value reachability that excludes quarantined
 invalid function targets, invalid public function alias declaration names,
-unreachable type aliases, and aliases to quarantined invalid type targets. The
+unreachable type aliases, aliases to quarantined invalid type targets, and
+ADT-payload-reachable invalid public type aliases checked by
+`identifier-casing-adt-payload-alias`. The
 `identifier-casing-local-binding-vs-invalid-constructor`
 and `identifier-casing-adt-payload-closure` cases check local binding
-precedence and ADT payload closure in the same boundary. The
+precedence and ADT payload closure in the same boundary.
+`identifier-casing-invalid-parent-constructor` checks valid constructors under
+invalid parent types. The
 `identifier-casing-reachable-function-alias` and
 `identifier-casing-reachable-type-alias` cases check reachable invalid public
 alias declaration names. Invalid public function aliases remain quarantined.
