@@ -48,9 +48,10 @@ same-file alias use recovery, split recovery candidate uniqueness, result
 binding recovery scope, the import and alias quarantine boundary, handler
 clause binding recovery, same-file valid declaration precedence over
 quarantined aliases, and selected-entry reachability over local bindings, ADT
-payloads, handler annotations, transitive handler bodies, test declaration
-names, handler callable values, pattern bindings, inferred callable local
-bindings, and underscore-led recovered names.
+payloads, ADT-payload-reachable invalid public type aliases, valid
+constructors under invalid parent types, handler annotations, transitive
+handler bodies, test declaration names, handler callable values, pattern
+bindings, inferred callable local bindings, and underscore-led recovered names.
 
 Implemented checker namespaces are:
 

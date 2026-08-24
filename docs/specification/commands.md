@@ -105,12 +105,15 @@ requiring the full command reference on the first read.
   `identifier-casing-imported-invalid-alias-quarantine`,
   `identifier-casing-invalid-entry`, `identifier-casing-invalid-entry-json`,
   `identifier-casing-alias-quarantine`, and
-  `identifier-casing-unused-type-alias-quarantine`, including first-class
+  `identifier-casing-unused-type-alias-quarantine`, including multiple casing
+  diagnostics retained for an invalid selected entry, first-class
   function value reachability that excludes quarantined invalid function targets,
   invalid public function alias declaration names, unreachable type aliases,
-  and aliases to quarantined invalid type targets, while one unique same-file
-  alias use may suppress a derivative `name.unresolved` and independently
-  missing alias targets still report `name.unresolved`, and
+  aliases to quarantined invalid type targets, and ADT-payload-reachable
+  invalid public type aliases checked by
+  `identifier-casing-adt-payload-alias`, while one unique same-file alias use
+  may suppress a derivative `name.unresolved` and independently missing alias
+  targets still report `name.unresolved`, and
   resolution-aware type, constructor, function, and alias closure as checked by
   `identifier-casing-valid-function-vs-invalid-constructor`,
   `identifier-casing-valid-constructor-vs-invalid-function`,
@@ -120,7 +123,9 @@ requiring the full command reference on the first read.
   `identifier-casing-alias-transitive-target`, plus local binding precedence
   and ADT payload closure as checked by
   `identifier-casing-local-binding-vs-invalid-constructor` and
-  `identifier-casing-adt-payload-closure`, handler and underscore-led type
+  `identifier-casing-adt-payload-closure`, valid constructors under invalid
+  parent types as checked by `identifier-casing-invalid-parent-constructor`,
+  handler and underscore-led type
   reachability as checked by `identifier-casing-unused-handler-type-reference`,
   `identifier-casing-transitive-handler-binding`,
   `identifier-casing-underscore-type-closure`, and

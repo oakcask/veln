@@ -1,0 +1,7 @@
+type bad
+  Made(Int)
+end
+
+pub fn main() -> bad
+  Made(1)
+end

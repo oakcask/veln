@@ -21,8 +21,9 @@ diagnostic reporting. If any reachable pre-execution diagnostic is
 `name.invalid_case`, `run --json` emits the shared diagnostic JSON envelope for
 the full reachable diagnostic set, including non-casing diagnostics reported
 with the casing failure. The
-`examples/specification/run/identifier-casing-mixed-json-diagnostics/` case
-checks this boundary.
+`examples/specification/run/identifier-casing-invalid-entry-json/` and
+`examples/specification/run/identifier-casing-mixed-json-diagnostics/` cases
+check this boundary.
 
 Runtime contract failures use `error.kind: "contract"`. The error details use
 `kind: "contract"` and `phase: "runtime"` and include:

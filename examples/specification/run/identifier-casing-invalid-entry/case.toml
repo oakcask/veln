@@ -1,4 +1,4 @@
-command = ["run", "Main", "main.veln"]
+command = ["run", "Main", "main.veln", "--", "1"]
 source_errors = "expected"
 exit = 1
 
@@ -6,5 +6,8 @@ exit = 1
 format = "empty"
 
 [stderr]
-contains = ["main.veln:1:8: error[name.invalid_case]: function name must start with an ASCII lowercase letter"]
+contains = [
+  "main.veln:1:8: error[name.invalid_case]: function name must start with an ASCII lowercase letter",
+  "main.veln:1:13: error[name.invalid_case]: binding name must start with an ASCII lowercase letter",
+]
 not_contains = ["name.unresolved", "run entry `Main` was not found"]

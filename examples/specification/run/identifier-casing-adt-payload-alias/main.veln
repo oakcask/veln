@@ -1,0 +1,14 @@
+type Valid
+  Good
+end
+
+pub type exposed = Valid
+
+type Used
+  Wrap(exposed)
+  Empty
+end
+
+pub fn main() -> Used
+  Empty
+end

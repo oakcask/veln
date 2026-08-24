@@ -1002,13 +1002,28 @@ impl<'a> FunctionChecker<'a> {
                     && !valid_type_name(symbol)
                     && variant.span.file == span.file
             });
+        let valid_variants_under_invalid_types = self.module.types.iter().flat_map(|type_decl| {
+            let invalid_parent = type_decl
+                .name
+                .as_deref()
+                .is_some_and(|name| !valid_type_name(name));
+            type_decl.variants.iter().filter(move |variant| {
+                invalid_parent
+                    && variant.name.as_deref() == Some(symbol)
+                    && valid_type_name(symbol)
+                    && variant.span.file == span.file
+            })
+        });
         let invalid_function_aliases = self.module.aliases.iter().filter(|alias| {
             alias.kind == PublicAliasKind::Function
                 && alias.name.as_deref() == Some(symbol)
                 && !valid_public_alias_name(alias.kind, symbol)
                 && alias.span.file == span.file
         });
-        invalid_functions.count() + invalid_variants.count() + invalid_function_aliases.count()
+        invalid_functions.count()
+            + invalid_variants.count()
+            + valid_variants_under_invalid_types.count()
+            + invalid_function_aliases.count()
     }
 
     pub(super) fn check_contracts(&mut self) {

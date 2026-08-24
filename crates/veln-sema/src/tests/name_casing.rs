@@ -668,6 +668,35 @@ fn a_valid_constructor_wins_over_an_invalid_same_spelled_function() {
 }
 
 #[test]
+fn valid_constructor_under_invalid_parent_type_suppresses_unresolved_call() {
+    let parsed = parse(&SourceFile::new(
+        "main.veln",
+        concat!(
+            "type bad\n",
+            "  Made(Int)\n",
+            "end\n",
+            "fn main() -> bad\n",
+            "  Made(1)\n",
+            "end\n",
+        ),
+    ));
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.invalid_case"
+            && diagnostic.message == "type name must start with an ASCII uppercase letter"
+    }));
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.unresolved"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn accepted_declaration_and_binding_names_keep_checked_artifacts() {
     let parsed = parse(&SourceFile::new(
         "main.veln",

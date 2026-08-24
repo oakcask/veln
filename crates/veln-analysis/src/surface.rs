@@ -2336,6 +2336,12 @@ enum HandlerView {
 }
 
 #[derive(Clone, Copy)]
+enum FunctionView {
+    Artifact,
+    Diagnostic,
+}
+
+#[derive(Clone, Copy)]
 enum AliasView {
     Artifact,
     Diagnostic,
@@ -2347,7 +2353,12 @@ fn module_with_reachable_functions_and_handler_view(
     reachability_index: &ReachabilityIndex,
     handler_view: HandlerView,
 ) -> SurfaceModule {
-    let mut functions = materialize_reachable_functions(inputs, reachable, reachability_index);
+    let function_view = match handler_view {
+        HandlerView::Artifact => FunctionView::Artifact,
+        HandlerView::Diagnostic => FunctionView::Diagnostic,
+    };
+    let mut functions =
+        materialize_reachable_functions(inputs, reachable, reachability_index, function_view);
     let reachable_handler_refs = reachable_handler_refs(inputs, &functions);
     let reachable_handlers = inputs
         .handler_refs()
@@ -2391,6 +2402,7 @@ fn materialize_reachable_functions(
     inputs: &ReachabilityInputs<'_>,
     reachable: &HashSet<ReachableFunction>,
     reachability_index: &ReachabilityIndex,
+    function_view: FunctionView,
 ) -> Vec<Function> {
     inputs
         .function_refs()
@@ -2404,7 +2416,15 @@ fn materialize_reachable_functions(
                         .contains(&function_ref)
                     && reachability_target_matches_function(reachable_function, function, name)
             });
-            function_reachable.then_some(function)
+            let invalid_entry_reachable = matches!(function_view, FunctionView::Diagnostic)
+                && !valid_function_name(name)
+                && reachable.iter().any(|reachable_function| {
+                    reachable_function.kind == function.kind
+                        && reachable_function.name == *name
+                        && (reachable_function.module_name.is_none()
+                            || reachable_function.module_name == function.module_name)
+                });
+            (function_reachable || invalid_entry_reachable).then_some(function)
         })
         .inspect(|_function| {
             #[cfg(test)]
@@ -2730,6 +2750,7 @@ fn materialize_reachable_types(
 
 struct TypeReachabilityIndex<'a> {
     aliases_by_name: HashMap<(Option<String>, String), Vec<&'a veln_ast::PublicAlias>>,
+    invalid_aliases_by_name: HashMap<(Option<String>, String), Vec<&'a veln_ast::PublicAlias>>,
     types_by_name: HashMap<String, Vec<TypeRef>>,
     types_by_qualified_name: HashMap<(String, String), Vec<TypeRef>>,
     types_by_constructor: HashMap<String, Vec<TypeRef>>,
@@ -2740,6 +2761,8 @@ impl<'a> TypeReachabilityIndex<'a> {
     fn new(inputs: &ReachabilityInputs<'a>) -> Self {
         let mut aliases_by_name =
             HashMap::<(Option<String>, String), Vec<&'a veln_ast::PublicAlias>>::new();
+        let mut invalid_aliases_by_name =
+            HashMap::<(Option<String>, String), Vec<&'a veln_ast::PublicAlias>>::new();
         for alias in inputs
             .aliases()
             .filter(|alias| alias.kind == PublicAliasKind::Type)
@@ -2748,6 +2771,10 @@ impl<'a> TypeReachabilityIndex<'a> {
                 continue;
             };
             if !valid_public_alias_name(alias.kind, name) {
+                invalid_aliases_by_name
+                    .entry((alias.module_name.clone(), name.clone()))
+                    .or_default()
+                    .push(alias);
                 continue;
             }
             aliases_by_name
@@ -2793,6 +2820,7 @@ impl<'a> TypeReachabilityIndex<'a> {
 
         Self {
             aliases_by_name,
+            invalid_aliases_by_name,
             types_by_name,
             types_by_qualified_name,
             types_by_constructor,
@@ -2802,6 +2830,13 @@ impl<'a> TypeReachabilityIndex<'a> {
 
     fn aliases_for_name(&self, name: &ReachableTypeName) -> &[&'a veln_ast::PublicAlias] {
         self.aliases_by_name
+            .get(&(name.module_name.clone(), name.name.clone()))
+            .map(Vec::as_slice)
+            .unwrap_or_default()
+    }
+
+    fn invalid_aliases_for_name(&self, name: &ReachableTypeName) -> &[&'a veln_ast::PublicAlias] {
+        self.invalid_aliases_by_name
             .get(&(name.module_name.clone(), name.name.clone()))
             .map(Vec::as_slice)
             .unwrap_or_default()
@@ -3231,6 +3266,11 @@ fn expand_reachable_type_closure(
             continue;
         }
         names.insert(name.clone());
+        for alias in type_index.invalid_aliases_for_name(&name) {
+            #[cfg(test)]
+            reachability_counters::record_type_alias_lookup_scan();
+            aliases.insert((alias.module_name.clone(), name.name.clone()));
+        }
         for alias in type_index.aliases_for_name(&name) {
             #[cfg(test)]
             reachability_counters::record_type_alias_lookup_scan();
@@ -3272,7 +3312,7 @@ fn materialize_reachable_aliases(
     inputs: &ReachabilityInputs<'_>,
     functions: &[Function],
     handlers: &[&veln_ast::HandlerDecl],
-    _reachable_type_aliases: &HashSet<(Option<String>, String)>,
+    reachable_type_aliases: &HashSet<(Option<String>, String)>,
     alias_view: AliasView,
 ) -> Vec<veln_ast::PublicAlias> {
     let mut aliases = inputs
@@ -3296,11 +3336,16 @@ fn materialize_reachable_aliases(
             .map(|alias| (alias.span.file.as_str().to_string(), alias.node_id))
             .collect::<HashSet<_>>();
         aliases.extend(
-            reachable_invalid_public_aliases_for_diagnostics(inputs, functions, handlers)
-                .into_iter()
-                .filter(|alias| {
-                    !existing_ids.contains(&(alias.span.file.as_str().to_string(), alias.node_id))
-                }),
+            reachable_invalid_public_aliases_for_diagnostics(
+                inputs,
+                functions,
+                handlers,
+                reachable_type_aliases,
+            )
+            .into_iter()
+            .filter(|alias| {
+                !existing_ids.contains(&(alias.span.file.as_str().to_string(), alias.node_id))
+            }),
         );
     }
     aliases
@@ -3310,6 +3355,7 @@ fn reachable_invalid_public_aliases_for_diagnostics(
     inputs: &ReachabilityInputs<'_>,
     functions: &[Function],
     handlers: &[&veln_ast::HandlerDecl],
+    reachable_type_aliases: &HashSet<(Option<String>, String)>,
 ) -> Vec<veln_ast::PublicAlias> {
     let uses = inputs.uses();
     let mut function_paths = Vec::new();
@@ -3380,11 +3426,14 @@ fn reachable_invalid_public_aliases_for_diagnostics(
                 PublicAliasKind::Function => function_paths
                     .iter()
                     .any(|reference| public_alias_reference_matches(alias, reference, &uses)),
-                PublicAliasKind::Type => type_names.iter().any(|type_name| {
-                    type_name.name == name
-                        && (type_name.current_module.as_deref() == alias.module_name.as_deref()
-                            || type_name.file == alias.span.file.as_str())
-                }),
+                PublicAliasKind::Type => {
+                    type_names.iter().any(|type_name| {
+                        type_name.name == name
+                            && (type_name.current_module.as_deref() == alias.module_name.as_deref()
+                                || type_name.file == alias.span.file.as_str())
+                    }) || reachable_type_aliases
+                        .contains(&(alias.module_name.clone(), name.to_string()))
+                }
                 PublicAliasKind::Schema => false,
             }
         })
@@ -7247,6 +7296,58 @@ mod tests {
                 .any(|alias| alias.name.as_deref() == Some("exposed")),
             "reachable invalid type alias should enter diagnostic view: {:#?}",
             diagnostic.aliases
+        );
+    }
+
+    #[test]
+    fn run_diagnostic_view_keeps_invalid_type_alias_reached_through_adt_payload() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "type Valid\n",
+                    "  Good\n",
+                    "end\n",
+                    "pub type exposed = Valid\n",
+                    "type Used\n",
+                    "  Wrap(exposed)\n",
+                    "  Empty\n",
+                    "end\n",
+                    "pub fn main() -> Used\n",
+                    "  Empty\n",
+                    "end\n",
+                ),
+            )],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let diagnostic = reachable_entry_diagnostic_module_with_standard_cache(
+            &empty_standard_module(),
+            &module,
+            "main",
+            FunctionKind::Function,
+            &ReachabilityCache::default(),
+        );
+        let artifact = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert!(
+            diagnostic
+                .aliases
+                .iter()
+                .any(|alias| alias.name.as_deref() == Some("exposed")),
+            "ADT payload-reachable invalid type alias should enter diagnostic view: {:#?}",
+            diagnostic.aliases
+        );
+        assert!(
+            artifact
+                .aliases
+                .iter()
+                .all(|alias| alias.name.as_deref() != Some("exposed")),
+            "invalid type alias should stay out of artifact view: {:#?}",
+            artifact.aliases
         );
     }
 

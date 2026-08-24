@@ -256,40 +256,13 @@ fn checked_entry_arg_types(
     analysis: &ProjectAnalysis,
     entry: &str,
     entry_args: &[String],
-    json: bool,
+    _json: bool,
 ) -> Result<Option<Vec<EntryArgType>>, String> {
     let Some(entry_function) = find_entry_function(analysis, entry) else {
         eprintln!("veln: run entry `{entry}` was not found");
         return Ok(None);
     };
-    if let Some(diagnostic) = invalid_entry_name_diagnostic(analysis, entry_function) {
-        report_diagnostics(json, vec![diagnostic])?;
-        return Ok(None);
-    }
     validate_entry_args(entry_function, entry, entry_args)
-}
-
-fn invalid_entry_name_diagnostic(
-    analysis: &ProjectAnalysis,
-    entry_function: &Function,
-) -> Option<Diagnostic> {
-    let name_span = entry_function.name_span.as_ref()?;
-    analysis
-        .semantic_diagnostics()
-        .into_iter()
-        .find(|diagnostic| {
-            diagnostic.id == "name.invalid_case"
-                && diagnostic
-                    .span
-                    .as_ref()
-                    .is_some_and(|span| same_span(span, name_span))
-        })
-}
-
-fn same_span(left: &veln_source::SourceSpan, right: &veln_source::SourceSpan) -> bool {
-    left.file == right.file
-        && left.start.offset == right.start.offset
-        && left.end.offset == right.end.offset
 }
 
 fn validate_entry_args(

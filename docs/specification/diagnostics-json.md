@@ -95,7 +95,8 @@ including typed local recovery ambiguity and the boundary that prevents result
 bindings from recovering body call targets. The run cases
 `identifier-casing-invalid-entry-json` and `identifier-casing-reachable-json`
 check that pre-execution `run --json` casing failures use the same diagnostic
-envelope shape. The `identifier-casing-mixed-json-diagnostics` run case checks
+envelope shape, including multiple reachable casing diagnostics for an invalid
+selected entry. The `identifier-casing-mixed-json-diagnostics` run case checks
 the same envelope shape for mixed casing and non-casing pre-execution
 diagnostics.
 
