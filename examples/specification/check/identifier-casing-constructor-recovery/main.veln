@@ -1,0 +1,8 @@
+type Packet
+  packet(value: Int)
+end
+
+pub fn main() -> Int
+  let value = packet(1)
+  0
+end

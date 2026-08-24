@@ -30,6 +30,11 @@ is not enough.
   [source-surface-full.md](source-surface-full.md).
 - Formatter layout and canonical comment spelling:
   [commands.md](commands.md).
+- Underscore-led recovery tokens are accepted as identifiers only in the
+  source ADT, constructor, function, and value-binding casing contexts named
+  by [names-effects.md](names-effects.md). Other declaration-name positions
+  keep their parser diagnostics; `identifier-casing-schema-hole-boundary`
+  checks the schema declaration boundary.
 
 ## Test Companion Sources
 

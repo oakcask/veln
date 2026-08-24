@@ -1,0 +1,5 @@
+schema _Packet
+  format binary
+
+  value: uint8
+end

@@ -452,11 +452,11 @@ fn unique_recovery_derivative_record<'a>(
     diagnostic: &Diagnostic,
     records: &'a [CasingRecoveryRecord],
 ) -> Option<&'a CasingRecoveryRecord> {
-    let (name, compatible_name_class) = recovery_derivative_name_and_class(diagnostic)?;
+    let (name, compatible_name_classes) = recovery_derivative_name_and_classes(diagnostic)?;
     let diagnostic_source = diagnostic.span.as_ref().map(|span| &span.file);
     let mut matches = records.iter().filter(|record| {
         record.name == name.as_str()
-            && compatible_name_class == record.name_class
+            && compatible_name_classes.contains(&record.name_class)
             && diagnostic_source == Some(&record.source_path)
             && unresolved_span_is_in_recovery_scope(diagnostic, record)
     });
@@ -519,18 +519,18 @@ fn is_unique_recovery_derivative(
     unique_recovery_derivative_record(diagnostic, records).is_some()
 }
 
-fn recovery_derivative_name_and_class(
+fn recovery_derivative_name_and_classes(
     diagnostic: &Diagnostic,
-) -> Option<(String, CasingNameClass)> {
+) -> Option<(String, Vec<CasingNameClass>)> {
     match diagnostic.id.as_str() {
         "name.unresolved" => {
             let name = unresolved_name_from_message(&diagnostic.message)?.to_string();
             let namespace = diagnostic_string_detail(diagnostic, "namespace")?;
-            Some((name, recovery_name_class_for_namespace(namespace)?))
+            Some((name, recovery_name_classes_for_namespace(namespace)?))
         }
         "hole.unfilled" => {
             let label = diagnostic_string_detail(diagnostic, "label")?;
-            Some((label.to_string(), CasingNameClass::ValueBinding))
+            Some((label.to_string(), vec![CasingNameClass::ValueBinding]))
         }
         _ => None,
     }
@@ -551,10 +551,13 @@ fn diagnostic_string_detail<'a>(diagnostic: &'a Diagnostic, key: &str) -> Option
     })
 }
 
-fn recovery_name_class_for_namespace(namespace: &str) -> Option<CasingNameClass> {
+fn recovery_name_classes_for_namespace(namespace: &str) -> Option<Vec<CasingNameClass>> {
     match namespace {
-        "call_target" => Some(CasingNameClass::Function),
-        "value" | "contract_predicate" => Some(CasingNameClass::ValueBinding),
+        "call_target" => Some(vec![
+            CasingNameClass::Function,
+            CasingNameClass::Constructor,
+        ]),
+        "value" | "contract_predicate" => Some(vec![CasingNameClass::ValueBinding]),
         _ => None,
     }
 }

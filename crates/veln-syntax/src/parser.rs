@@ -527,7 +527,14 @@ impl<'a> Parser<'a> {
             );
             PublicAliasKind::Schema
         };
-        let name_token = self.expect_ident_token("public_alias", "public member name");
+        let name_token = match kind {
+            PublicAliasKind::Function | PublicAliasKind::Type => {
+                self.expect_recoverable_ident_token("public_alias", "public member name")
+            }
+            PublicAliasKind::Schema => {
+                self.expect_ident_token("public_alias", "public member name")
+            }
+        };
         let name_span = name_token
             .as_ref()
             .map(|token| self.source.span(token.range));
@@ -566,7 +573,7 @@ impl<'a> Parser<'a> {
         let start = self
             .expect(TokenKind::Type, "type_declaration", vec!["type"])
             .range;
-        let name_token = self.expect_ident_token("type_declaration", "type name");
+        let name_token = self.expect_recoverable_ident_token("type_declaration", "type name");
         let name_span = name_token
             .as_ref()
             .map(|token| self.source.span(token.range));
@@ -1284,7 +1291,7 @@ impl<'a> Parser<'a> {
         } else {
             Visibility::Private
         };
-        let name_token = self.expect_ident_token("type_variant", "variant name");
+        let name_token = self.expect_recoverable_ident_token("type_variant", "variant name");
         let name_span = name_token
             .as_ref()
             .map(|token| self.source.span(token.range));
@@ -1463,7 +1470,7 @@ impl<'a> Parser<'a> {
         let name_token = if self.at(TokenKind::Decode) {
             Some(self.bump())
         } else {
-            self.expect_ident_token(Self::function_context(kind), "declaration name")
+            self.expect_recoverable_ident_token(Self::function_context(kind), "declaration name")
         };
         let name_span = name_token
             .as_ref()
@@ -1518,7 +1525,9 @@ impl<'a> Parser<'a> {
     fn parse_function_return_and_effects(&mut self, kind: FunctionKind) -> FunctionReturn {
         let return_context = Self::return_context(kind);
         let (binding, ty, ty_span) = if self.eat(TokenKind::Arrow).is_some() {
-            let return_binding = if self.at(TokenKind::Ident) && self.peek_at(TokenKind::Colon) {
+            let return_binding = if (self.at(TokenKind::Ident) || self.at(TokenKind::Hole))
+                && self.peek_at(TokenKind::Colon)
+            {
                 let name = self.bump();
                 let colon = self.expect(TokenKind::Colon, return_context, vec![":"]);
                 Some(crate::ResultBinding {
@@ -1627,7 +1636,11 @@ impl<'a> Parser<'a> {
         let mut params = Vec::new();
         while !self.at(TokenKind::RParen) && !self.at(TokenKind::Eof) {
             let start = self.current().range;
-            let name = self.expect_ident(context, "parameter name");
+            let name = if require_types {
+                self.expect_ident(context, "parameter name")
+            } else {
+                self.expect_recoverable_ident(context, "parameter name")
+            };
             let mut is_variadic = false;
             let mut ty_span = None;
             let ty = self.eat(TokenKind::Colon).map(|colon| {
@@ -2121,7 +2134,35 @@ impl<'a> Parser<'a> {
             .map(|token| token.text)
     }
 
+    fn expect_recoverable_ident(
+        &mut self,
+        context: &'static str,
+        expected: &'static str,
+    ) -> Option<String> {
+        self.expect_recoverable_ident_token(context, expected)
+            .map(|token| token.text)
+    }
+
     fn expect_ident_token(
+        &mut self,
+        context: &'static str,
+        expected: &'static str,
+    ) -> Option<Token> {
+        if self.at(TokenKind::Ident) {
+            return Some(self.bump());
+        }
+        self.error_current(
+            "parse.expected_identifier",
+            format!("expected {expected}"),
+            context,
+            vec![expected],
+            RecoveryStrategy::InsertToken,
+            None,
+        );
+        None
+    }
+
+    fn expect_recoverable_ident_token(
         &mut self,
         context: &'static str,
         expected: &'static str,

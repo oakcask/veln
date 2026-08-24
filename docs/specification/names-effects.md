@@ -20,9 +20,10 @@ compiler-known calls.
   token span with `details.phase: "name"` and `details.origin: "source"`.
   Invalid source declarations and invalid bindings are quarantined and do not
   enter normal lookup, checked core, typed IR, exports, or backend input. The
-  checked cases `identifier-casing-recovery-json` and
-  `identifier-casing-recovery-human` cover source spans, messages, and JSON
-  details.
+  checked cases `identifier-casing-recovery-json`,
+  `identifier-casing-recovery-human`, and
+  `identifier-casing-constructor-recovery` cover source spans, messages, JSON
+  details, and non-cascading constructor recovery.
 - Namespaces, shadowing, duplicate checks, module ownership, external package
   imports, and manifest export checks:
   [names-effects-full.md](names-effects-full.md#name-resolution).

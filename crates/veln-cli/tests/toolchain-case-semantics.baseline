@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"df6b022b5747f724cda8c354113cd6fbfa0800fd"
+source_git_tree	"cbe01138653cffc6156d1d32b2a41a6d8f04345f"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1524
+case_count	1527
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -5414,6 +5414,24 @@ field	invocation.command[1]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"af45c8120f1ed02128418f1ddaff7189a0b2f187e6ba6fcc14afe6797cddd434"
+case	"examples/specification/check/identifier-casing-constructor-recovery"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
+field	expectations.stdout.contains[1]	"\"name_class\":\"constructor\""
+field	expectations.stdout.contains[2]	"constructor name must start with an ASCII uppercase letter"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"\"id\":\"name.unresolved\""
+field	expectations.stdout.not_contains[1]	"unresolved call_target `packet`"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"ff0be1b27944bdaf288b9b803a5fccaf3392d2e963aef73ada66620267109867"
 case	"examples/specification/check/identifier-casing-import-boundary"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"error"
@@ -5518,6 +5536,22 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"315a60425bc9bf64309682e22bc3d2dee89bbe96dc244774a6885bd31e051cef"
+case	"examples/specification/check/identifier-casing-schema-hole-boundary"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"parse.expected_identifier\""
+field	expectations.stdout.contains[1]	"expected schema name"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"\"id\":\"name.invalid_case\""
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"635d9bdbd2b0abf9a3ec46ead2959226876780c90bff5951266054009c1e4f71"
 case	"examples/specification/check/identifier-casing-value-recovery-scope"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"error"
@@ -37629,6 +37663,21 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"0f9a1c310e848eaa4bf9a4cb4a478c6b818b102c149210f73ef1dcd28470c6f3"
+case	"examples/specification/run/identifier-casing-reachable-binding"
+field	expectations.exit	1
+field	expectations.stderr.contains[0]	"error[name.invalid_case]: binding name must start with an ASCII lowercase letter"
+field	expectations.stderr.contains[1]	"main.veln:2:7"
+field	expectations.stderr.format	"text"
+field	expectations.stderr.not_contains[0]	"name.unresolved"
+field	expectations.stderr.not_contains[1]	"hole.unfilled"
+field	expectations.stderr.not_contains[2]	"unresolved call_target `helper`"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"65c0b35d5470895ae152a75f456c7649b05d7dc397597f8a31e6a0eba3269a99"
 case	"examples/specification/run/identifier-casing-reachable-invalid"
 field	expectations.exit	1
 field	expectations.stderr.contains[0]	"error[name.invalid_case]: function name must start with an ASCII lowercase letter"
@@ -48090,4 +48139,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"3046e3a9aacae306672eb33ecc5c8296dbe9d4aef618ece59e2d37541e3a7fb6"
+aggregate_digest	"a46f1ff7b22ec5651fac8f1a491c873e2fe49b758c25ca248d7f526c10046ec5"

@@ -810,14 +810,17 @@ fn quarantine_invalid_casing(module: &mut SurfaceModule, records: &[CasingRecove
 }
 
 fn quarantine_function_bindings(function: &mut Function, records: &[CasingRecoveryRecord]) {
-    if function.params.iter().any(|param| {
-        invalid_value_binding_record(
+    for param in &mut function.params {
+        if invalid_value_binding_record(
             records,
             &param.name,
             function.module_name.as_deref(),
             function.name.as_deref(),
-        )
-    }) || function.return_binding.as_ref().is_some_and(|binding| {
+        ) {
+            param.name = quarantined_value_binding_name(param.node_id);
+        }
+    }
+    if function.return_binding.as_ref().is_some_and(|binding| {
         invalid_value_binding_record(
             records,
             &binding.name,
@@ -825,8 +828,7 @@ fn quarantine_function_bindings(function: &mut Function, records: &[CasingRecove
             function.name.as_deref(),
         )
     }) {
-        function.name = None;
-        return;
+        function.return_binding = None;
     }
     for line in &mut function.body {
         if let veln_ast::BodyLineKind::Let { pattern, .. } = &mut line.kind {
@@ -838,6 +840,10 @@ fn quarantine_function_bindings(function: &mut Function, records: &[CasingRecove
             );
         }
     }
+}
+
+fn quarantined_value_binding_name(node_id: veln_ast::NodeId) -> String {
+    node_id.display("__invalid_case_binding")
 }
 
 fn quarantine_pattern_bindings(
