@@ -2257,6 +2257,12 @@ enum HandlerView {
     Diagnostic,
 }
 
+#[derive(Clone, Copy)]
+enum AliasView {
+    Artifact,
+    Diagnostic,
+}
+
 fn module_with_reachable_functions_and_handler_view(
     inputs: &ReachabilityInputs<'_>,
     reachable: &HashSet<ReachableFunction>,
@@ -2276,7 +2282,17 @@ fn module_with_reachable_functions_and_handler_view(
     };
     let (types, reachable_type_aliases) =
         materialize_reachable_types(inputs, &functions, &reachable_handlers, reachability_index);
-    let aliases = materialize_reachable_aliases(inputs, &reachable_type_aliases);
+    let alias_view = match handler_view {
+        HandlerView::Artifact => AliasView::Artifact,
+        HandlerView::Diagnostic => AliasView::Diagnostic,
+    };
+    let aliases = materialize_reachable_aliases(
+        inputs,
+        &functions,
+        &reachable_handlers,
+        &reachable_type_aliases,
+        alias_view,
+    );
     SurfaceModule {
         module: inputs.module_header(),
         uses: inputs.cloned_declarations(|module| &module.uses),
@@ -3058,9 +3074,12 @@ fn expand_reachable_type_closure(
 
 fn materialize_reachable_aliases(
     inputs: &ReachabilityInputs<'_>,
+    functions: &[Function],
+    handlers: &[&veln_ast::HandlerDecl],
     _reachable_type_aliases: &HashSet<(Option<String>, String)>,
+    alias_view: AliasView,
 ) -> Vec<veln_ast::PublicAlias> {
-    inputs
+    let mut aliases = inputs
         .cloned_declarations(|module| &module.aliases)
         .into_iter()
         .filter(|alias| {
@@ -3074,7 +3093,367 @@ fn materialize_reachable_aliases(
             PublicAliasKind::Function | PublicAliasKind::Schema => true,
             PublicAliasKind::Type => !alias_points_to_quarantined_type(inputs, alias),
         })
+        .collect::<Vec<_>>();
+    if matches!(alias_view, AliasView::Diagnostic) {
+        let existing_ids = aliases
+            .iter()
+            .map(|alias| (alias.span.file.as_str().to_string(), alias.node_id))
+            .collect::<HashSet<_>>();
+        aliases.extend(
+            reachable_invalid_public_aliases_for_diagnostics(inputs, functions, handlers)
+                .into_iter()
+                .filter(|alias| {
+                    !existing_ids.contains(&(alias.span.file.as_str().to_string(), alias.node_id))
+                }),
+        );
+    }
+    aliases
+}
+
+fn reachable_invalid_public_aliases_for_diagnostics(
+    inputs: &ReachabilityInputs<'_>,
+    functions: &[Function],
+    handlers: &[&veln_ast::HandlerDecl],
+) -> Vec<veln_ast::PublicAlias> {
+    let uses = inputs.uses();
+    let mut function_paths = Vec::new();
+    let mut type_names = Vec::new();
+    for function in functions {
+        collect_function_alias_reference_paths(function, &mut function_paths);
+        collect_optional_type_alias_reference_names(
+            function.return_type.as_deref(),
+            function.module_name.as_deref(),
+            function.span.file.as_str(),
+            &uses,
+            &mut type_names,
+        );
+        for param in &function.params {
+            collect_optional_type_alias_reference_names(
+                param.ty.as_deref(),
+                function.module_name.as_deref(),
+                function.span.file.as_str(),
+                &uses,
+                &mut type_names,
+            );
+        }
+        for line in &function.body {
+            if let veln_ast::BodyLineKind::Let { annotation, .. } = &line.kind {
+                collect_optional_type_alias_reference_names(
+                    annotation.as_deref(),
+                    function.module_name.as_deref(),
+                    function.span.file.as_str(),
+                    &uses,
+                    &mut type_names,
+                );
+            }
+        }
+    }
+    for handler in handlers {
+        for param in &handler.params {
+            collect_optional_type_alias_reference_names(
+                param.ty.as_deref(),
+                handler.module_name.as_deref(),
+                handler.span.file.as_str(),
+                &uses,
+                &mut type_names,
+            );
+        }
+        for clause in &handler.operation_clauses {
+            for param in &clause.params {
+                collect_optional_type_alias_reference_names(
+                    param.ty.as_deref(),
+                    handler.module_name.as_deref(),
+                    handler.span.file.as_str(),
+                    &uses,
+                    &mut type_names,
+                );
+            }
+        }
+    }
+    inputs
+        .cloned_declarations(|module| &module.aliases)
+        .into_iter()
+        .filter(|alias| {
+            let Some(name) = alias.name.as_deref() else {
+                return false;
+            };
+            if valid_public_alias_name(alias.kind, name) {
+                return false;
+            }
+            match alias.kind {
+                PublicAliasKind::Function => function_paths
+                    .iter()
+                    .any(|reference| public_alias_reference_matches(alias, reference, &uses)),
+                PublicAliasKind::Type => type_names.iter().any(|type_name| {
+                    type_name.name == name
+                        && (type_name.current_module.as_deref() == alias.module_name.as_deref()
+                            || type_name.file == alias.span.file.as_str())
+                }),
+                PublicAliasKind::Schema => false,
+            }
+        })
         .collect()
+}
+
+#[derive(Debug)]
+struct AliasReferencePath {
+    current_module: Option<String>,
+    file: String,
+    segments: Vec<String>,
+}
+
+struct AliasTypeReference {
+    current_module: Option<String>,
+    file: String,
+    name: String,
+}
+
+fn collect_function_alias_reference_paths(
+    function: &Function,
+    references: &mut Vec<AliasReferencePath>,
+) {
+    for contract in &function.contracts {
+        collect_alias_reference_paths_from_text(
+            &contract.text,
+            function.module_name.clone(),
+            references,
+        );
+    }
+    for line in &function.body {
+        match &line.kind {
+            veln_ast::BodyLineKind::Let { expr, .. } | veln_ast::BodyLineKind::Expr { expr } => {
+                collect_expr_alias_reference_paths(expr, function.module_name.clone(), references);
+            }
+        }
+    }
+}
+
+fn collect_alias_reference_paths_from_text(
+    text: &str,
+    current_module: Option<String>,
+    references: &mut Vec<AliasReferencePath>,
+) {
+    let source = SourceFile::new("<contract>", text);
+    let tokens = lex(&source)
+        .tokens
+        .into_iter()
+        .filter(|token| !matches!(token.kind, TokenKind::Whitespace | TokenKind::Comment))
+        .collect::<Vec<_>>();
+    let mut index = 0usize;
+    while index < tokens.len() {
+        if tokens[index].kind != TokenKind::Ident {
+            index += 1;
+            continue;
+        }
+        let mut segments = vec![tokens[index].text.clone()];
+        index += 1;
+        while tokens
+            .get(index)
+            .is_some_and(|token| token.kind == TokenKind::DoubleColon)
+            && tokens
+                .get(index + 1)
+                .is_some_and(|token| token.kind == TokenKind::Ident)
+        {
+            segments.push(tokens[index + 1].text.clone());
+            index += 2;
+        }
+        references.push(AliasReferencePath {
+            current_module: current_module.clone(),
+            file: "<contract>".to_string(),
+            segments,
+        });
+    }
+}
+
+fn collect_expr_alias_reference_paths(
+    expr: &Expr,
+    current_module: Option<String>,
+    references: &mut Vec<AliasReferencePath>,
+) {
+    match &expr.kind {
+        ExprKind::NamePath(segments) => references.push(AliasReferencePath {
+            current_module,
+            file: expr.span.file.as_str().to_string(),
+            segments: segments.clone(),
+        }),
+        ExprKind::TypeApply { callee, .. }
+        | ExprKind::FieldAccess { base: callee, .. }
+        | ExprKind::Try(callee)
+        | ExprKind::Prefix { expr: callee, .. } => {
+            collect_expr_alias_reference_paths(callee, current_module, references);
+        }
+        ExprKind::Call { callee, args } => {
+            collect_expr_alias_reference_paths(callee, current_module.clone(), references);
+            for arg in args {
+                collect_expr_alias_reference_paths(arg, current_module.clone(), references);
+            }
+        }
+        ExprKind::Perform { args, .. } => {
+            for arg in args {
+                collect_expr_alias_reference_paths(arg, current_module.clone(), references);
+            }
+        }
+        ExprKind::Handle {
+            body,
+            handler: _,
+            args,
+            ..
+        } => {
+            collect_expr_alias_reference_paths(body, current_module.clone(), references);
+            for arg in args {
+                collect_expr_alias_reference_paths(arg, current_module.clone(), references);
+            }
+        }
+        ExprKind::SchemaDecode { input, base, .. } => {
+            collect_expr_alias_reference_paths(input, current_module.clone(), references);
+            collect_expr_alias_reference_paths(base, current_module, references);
+        }
+        ExprKind::SchemaEncode { value, .. } => {
+            collect_expr_alias_reference_paths(value, current_module, references);
+        }
+        ExprKind::Record(fields) => {
+            for field in fields {
+                collect_expr_alias_reference_paths(&field.expr, current_module.clone(), references);
+            }
+        }
+        ExprKind::Dict(entries) => {
+            for entry in entries {
+                collect_expr_alias_reference_paths(&entry.key, current_module.clone(), references);
+                collect_expr_alias_reference_paths(
+                    &entry.value,
+                    current_module.clone(),
+                    references,
+                );
+            }
+        }
+        ExprKind::List(items) => {
+            for item in items {
+                collect_expr_alias_reference_paths(item, current_module.clone(), references);
+            }
+        }
+        ExprKind::Match { scrutinee, arms } => {
+            collect_expr_alias_reference_paths(scrutinee, current_module.clone(), references);
+            for arm in arms {
+                collect_expr_alias_reference_paths(&arm.expr, current_module.clone(), references);
+            }
+        }
+        ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            collect_expr_alias_reference_paths(condition, current_module.clone(), references);
+            collect_expr_alias_reference_paths(then_branch, current_module.clone(), references);
+            for branch in else_if_branches {
+                collect_expr_alias_reference_paths(
+                    &branch.condition,
+                    current_module.clone(),
+                    references,
+                );
+                collect_expr_alias_reference_paths(
+                    &branch.expr,
+                    current_module.clone(),
+                    references,
+                );
+            }
+            collect_expr_alias_reference_paths(else_branch, current_module, references);
+        }
+        ExprKind::Binary { left, right, .. } => {
+            collect_expr_alias_reference_paths(left, current_module.clone(), references);
+            collect_expr_alias_reference_paths(right, current_module, references);
+        }
+        ExprKind::Missing
+        | ExprKind::Hole { .. }
+        | ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
+        | ExprKind::Unit => {}
+    }
+}
+
+fn public_alias_reference_matches(
+    alias: &veln_ast::PublicAlias,
+    reference: &AliasReferencePath,
+    uses: &[&UseDecl],
+) -> bool {
+    let Some(alias_name) = alias.name.as_deref() else {
+        return false;
+    };
+    match reference.segments.as_slice() {
+        [name] => {
+            name == alias_name
+                && (alias.span.file.as_str() == reference.file
+                    || alias.module_name == reference.current_module
+                    || alias.module_name.as_deref().is_some_and(|module_name| {
+                        uses.iter().any(|use_decl| {
+                            use_decl.module_name.as_deref() == reference.current_module.as_deref()
+                                && use_decl.name == module_name
+                        })
+                    }))
+        }
+        [_, .., name] => {
+            if name != alias_name {
+                return false;
+            }
+            let Some(use_decl) = imported_use_for_path(
+                uses,
+                &reference.segments[..reference.segments.len() - 1],
+                reference.current_module.as_deref(),
+            ) else {
+                return false;
+            };
+            alias.module_name.as_deref() == Some(use_decl.name.as_str())
+        }
+        [] => false,
+    }
+}
+
+fn collect_optional_type_alias_reference_names(
+    text: Option<&str>,
+    current_module: Option<&str>,
+    file: &str,
+    uses: &[&UseDecl],
+    names: &mut Vec<AliasTypeReference>,
+) {
+    let Some(text) = text else {
+        return;
+    };
+    let source = SourceFile::new("<type>", text);
+    let tokens = lex(&source).tokens;
+    let mut index = 0usize;
+    while index < tokens.len() {
+        if !matches!(tokens[index].kind, TokenKind::Ident | TokenKind::Hole) {
+            index += 1;
+            continue;
+        }
+        if next_non_layout_token(&tokens, index + 1)
+            .is_some_and(|token| token.kind == TokenKind::Colon)
+        {
+            index += 1;
+            continue;
+        }
+        let mut segments = vec![tokens[index].text.clone()];
+        index += 1;
+        while tokens
+            .get(index)
+            .is_some_and(|token| token.kind == TokenKind::DoubleColon)
+            && tokens
+                .get(index + 1)
+                .is_some_and(|token| matches!(token.kind, TokenKind::Ident | TokenKind::Hole))
+        {
+            segments.push(tokens[index + 1].text.clone());
+            index += 2;
+        }
+        if let Some(name) = resolve_reachable_type_name(&segments, current_module, uses) {
+            names.push(AliasTypeReference {
+                current_module: name.module_name,
+                file: file.to_string(),
+                name: name.name,
+            });
+        }
+    }
 }
 
 fn expression_name_resolves_to_value_or_function(
@@ -4172,7 +4551,8 @@ mod tests {
     use super::{
         Diagnostic, EmbeddedStandardModuleEntry, EmbeddedStandardPackage, ReachabilityCache,
         SurfaceParts, embedded_standard_counters, load_embedded_standard_package_from,
-        load_project_sources, load_surface_module, reachability_counters, reachable_entry_module,
+        load_project_sources, load_surface_module, reachability_counters,
+        reachable_entry_diagnostic_module_with_standard_cache, reachable_entry_module,
         reachable_entry_module_with_standard_cache, validate_manifest_exports,
     };
 
@@ -4185,6 +4565,20 @@ mod tests {
             parsed.diagnostics
         );
         lower_surface_ast(&parsed.tree)
+    }
+
+    fn empty_standard_module() -> SurfaceModule {
+        SurfaceModule {
+            module: None,
+            uses: Vec::new(),
+            aliases: Vec::new(),
+            effects: Vec::new(),
+            handlers: Vec::new(),
+            types: Vec::new(),
+            schemas: Vec::new(),
+            codecs: Vec::new(),
+            functions: Vec::new(),
+        }
     }
 
     fn reachable_function_names(module: &SurfaceModule) -> Vec<(&str, &str)> {
@@ -6473,6 +6867,84 @@ mod tests {
                 .all(|alias| !matches!(alias.name.as_deref(), Some("exposed" | "Build"))),
             "invalid public aliases should not enter reachable artifacts: {:#?}",
             reachable.aliases
+        );
+    }
+
+    #[test]
+    fn run_diagnostic_view_keeps_reachable_invalid_function_alias_declarations() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "fn good() -> Int\n",
+                    "  1\n",
+                    "end\n",
+                    "pub fn Build = good\n",
+                    "pub fn main() -> Int\n",
+                    "  Build()\n",
+                    "end\n",
+                ),
+            )],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let diagnostic = reachable_entry_diagnostic_module_with_standard_cache(
+            &empty_standard_module(),
+            &module,
+            "main",
+            FunctionKind::Function,
+            &ReachabilityCache::default(),
+        );
+
+        assert!(
+            diagnostic
+                .aliases
+                .iter()
+                .any(|alias| alias.name.as_deref() == Some("Build")),
+            "reachable invalid function alias should enter diagnostic view: {:#?}",
+            diagnostic.aliases
+        );
+    }
+
+    #[test]
+    fn run_diagnostic_view_keeps_reachable_invalid_type_alias_declarations() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "type Valid\n",
+                    "  Made\n",
+                    "end\n",
+                    "pub type exposed = Valid\n",
+                    "pub fn main() -> exposed\n",
+                    "  Made\n",
+                    "end\n",
+                ),
+            )],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let diagnostic = reachable_entry_diagnostic_module_with_standard_cache(
+            &empty_standard_module(),
+            &module,
+            "main",
+            FunctionKind::Function,
+            &ReachabilityCache::default(),
+        );
+
+        assert!(
+            diagnostic
+                .aliases
+                .iter()
+                .any(|alias| alias.name.as_deref() == Some("exposed")),
+            "reachable invalid type alias should enter diagnostic view: {:#?}",
+            diagnostic.aliases
         );
     }
 

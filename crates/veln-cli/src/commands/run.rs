@@ -437,6 +437,12 @@ fn run_reachable_identifier_casing_regions(
             .map(|type_decl| type_decl.span.clone()),
     );
     regions.extend(
+        diagnostic_module
+            .aliases
+            .iter()
+            .map(|alias| alias.span.clone()),
+    );
+    regions.extend(
         run_reachable_handlers(reachable_module)
             .into_iter()
             .map(|handler| handler.span.clone()),

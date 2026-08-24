@@ -1,0 +1,10 @@
+command = ["run", "main", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["main.veln:5:8: error[name.invalid_case]: function name must start with an ASCII lowercase letter"]
+not_contains = ["name.unresolved"]

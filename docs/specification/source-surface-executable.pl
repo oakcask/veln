@@ -116,7 +116,9 @@ grammar_line(106, "CountExpr ::= Name | Name (\"-\" | \"+\" | \"*\" | \"/\") Nam
 grammar_line(107, "SchemaFieldWhere ::= \"where\" (ContractPredicate | ByteViewMultiplePredicate)").
 grammar_line(107, "ByteViewMultiplePredicate ::= \"payload_count\" \"multiple\" \"of\" (Name | IntLiteral)").
 grammar_line(107, "SchemaValidation ::= \"validate\" ContractPredicate NL").
-grammar_line(108, "PublicAlias   ::= \"pub\" (\"fn\" | \"type\" | \"schema\") Name \"=\" MemberPath NL").
+grammar_line(108, "PublicAlias   ::= \"pub\" \"fn\" CoveredName \"=\" MemberPath NL").
+grammar_line(108, "                | \"pub\" \"type\" CoveredName \"=\" MemberPath NL").
+grammar_line(108, "                | \"pub\" \"schema\" Name \"=\" MemberPath NL").
 grammar_line(110, "TypeParamList ::= \"<\" Name (\",\" Name)* \",\"? \">\"").
 grammar_line(112, "EffectBinder  ::= \"<\" \"effect\" Name \">\"").
 grammar_line(120, "TypeVariant   ::= \"pub\"? CoveredVariantName TypeVariantFields? NL").

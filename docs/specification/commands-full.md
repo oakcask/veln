@@ -380,6 +380,10 @@ invalid function targets, unreachable type aliases, and aliases to quarantined
 invalid type targets. The `identifier-casing-local-binding-vs-invalid-constructor`
 and `identifier-casing-adt-payload-closure` cases check local binding
 precedence and ADT payload closure in the same boundary. The
+`identifier-casing-reachable-function-alias` and
+`identifier-casing-reachable-type-alias` cases check reachable invalid public
+alias declaration names without unresolved or type-mismatch derivative noise.
+The
 `identifier-casing-imported-constructor-valid-wins` and
 `identifier-casing-handler-imported-constructor-valid-wins` cases check that
 visible constructor resolution is not replaced by quarantined same-spelled

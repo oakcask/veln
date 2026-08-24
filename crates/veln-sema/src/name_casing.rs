@@ -182,6 +182,49 @@ pub(crate) fn suppress_quarantined_type_alias_derivatives(
     });
 }
 
+pub(crate) fn suppress_quarantined_function_alias_derivatives(
+    module: &SurfaceModule,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let invalid_aliases = module
+        .aliases
+        .iter()
+        .filter(|alias| {
+            alias.kind == PublicAliasKind::Function
+                && alias
+                    .name
+                    .as_deref()
+                    .is_some_and(|name| !valid_public_alias_name(alias.kind, name))
+        })
+        .collect::<Vec<_>>();
+    if invalid_aliases.is_empty() {
+        return;
+    }
+    diagnostics.retain(|diagnostic| {
+        if diagnostic.id != "name.unresolved" {
+            return true;
+        }
+        let Some(span) = &diagnostic.span else {
+            return true;
+        };
+        if invalid_aliases
+            .iter()
+            .any(|alias| span_inside(span, &alias.span))
+        {
+            return false;
+        }
+        if diagnostic_string_detail(diagnostic, "namespace") != Some("call_target") {
+            return true;
+        }
+        let Some(symbol) = diagnostic_string_detail(diagnostic, "symbol") else {
+            return true;
+        };
+        !invalid_aliases.iter().any(|alias| {
+            alias.name.as_deref() == Some(symbol) && alias.span.file.as_str() == span.file.as_str()
+        })
+    });
+}
+
 struct QuarantinedTypeAliasTargets {
     qualified: BTreeSet<String>,
     local: BTreeSet<(String, String)>,
@@ -210,6 +253,21 @@ fn diagnostic_type_names(diagnostic: &Diagnostic) -> Vec<String> {
 fn quarantined_type_alias_targets(module: &SurfaceModule) -> QuarantinedTypeAliasTargets {
     let mut qualified = BTreeSet::new();
     let mut local = BTreeSet::new();
+    for alias in module.aliases.iter().filter(|alias| {
+        alias.kind == PublicAliasKind::Type
+            && alias
+                .name
+                .as_deref()
+                .is_some_and(|name| !valid_public_alias_name(alias.kind, name))
+    }) {
+        let Some(alias_name) = &alias.name else {
+            continue;
+        };
+        if let Some(module_name) = &alias.module_name {
+            qualified.insert(format!("{module_name}::{alias_name}"));
+        }
+        local.insert((alias.span.file.as_str().to_string(), alias_name.clone()));
+    }
     for alias in module.aliases.iter().filter(|alias| {
         alias.kind == PublicAliasKind::Type
             && type_alias_targets_invalid_source_type(
@@ -331,6 +389,12 @@ fn diagnostic_string_detail<'a>(diagnostic: &'a Diagnostic, key: &str) -> Option
             None
         }
     })
+}
+
+fn span_inside(span: &SourceSpan, region: &SourceSpan) -> bool {
+    span.file == region.file
+        && span.start.offset >= region.start.offset
+        && span.end.offset <= region.end.offset
 }
 
 fn recovery_count(module: &SurfaceModule, role: RecoveryRole, symbol: &str, file: &str) -> usize {

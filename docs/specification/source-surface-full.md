@@ -93,7 +93,9 @@ CountExpr ::= Name | Name ("-" | "+" | "*" | "/") Name
 SchemaFieldWhere ::= "where" (ContractPredicate | ByteViewMultiplePredicate)
 ByteViewMultiplePredicate ::= "payload_count" "multiple" "of" (Name | IntLiteral)
 SchemaValidation ::= "validate" ContractPredicate NL
-PublicAlias   ::= "pub" ("fn" | "type" | "schema") Name "=" MemberPath NL
+PublicAlias   ::= "pub" "fn" CoveredName "=" MemberPath NL
+                | "pub" "type" CoveredName "=" MemberPath NL
+                | "pub" "schema" Name "=" MemberPath NL
 TypeParamList ::= "<" Name ("," Name)* ","? ">"
 EffectBinder  ::= "<" "effect" Name ">"
 TypeVariant   ::= "pub"? CoveredVariantName TypeVariantFields? NL

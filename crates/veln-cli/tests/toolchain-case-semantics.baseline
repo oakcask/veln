@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"1a13f247de3f6da72a99418f44b261caa3aa652f"
+source_git_tree	"dd129e8fe22c58d597e714e235971c3090a20d50"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1545
+case_count	1547
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -37899,6 +37899,28 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"8d42b2b7f8f1f17b4f25c937e1dd631fe615a87785b86a157f99f2e8145ae4be"
+case	"examples/specification/run/identifier-casing-reachable-function-alias"
+field	expectations.exit	1
+field	expectations.stderr.contains[0]	"main.veln:5:8: error[name.invalid_case]: function name must start with an ASCII lowercase letter"
+field	expectations.stderr.not_contains[0]	"name.unresolved"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"1b3c54dede2494cc4d4ee50fc2e6a437abb3b81b234be0aa76b80e368108f399"
+case	"examples/specification/run/identifier-casing-reachable-type-alias"
+field	expectations.exit	1
+field	expectations.stderr.contains[0]	"main.veln:5:10: error[name.invalid_case]: type name must start with an ASCII uppercase letter"
+field	expectations.stderr.not_contains[0]	"type.mismatch"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"0726786096a05225f591927f7ba610843b523959286d306d78cdc35c1bba9934"
 case	"examples/specification/run/identifier-casing-transitive-handler-binding"
 field	expectations.exit	1
 field	expectations.stderr.contains[0]	"main.veln:9:15: error[name.invalid_case]: binding name must start with an ASCII lowercase letter"
@@ -48456,4 +48478,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"0fda89d23fbc4adae21bca1be6ec714eb7101b934d07b51e4485a9c37b66916f"
+aggregate_digest	"572a7b23c6d16093904ba5ebde7b64bc4533f80d0622947da94ff163616405db"
