@@ -1891,6 +1891,33 @@ impl<'a> ReachabilityInputs<'a> {
             .collect()
     }
 
+    fn handler_refs(&self) -> impl Iterator<Item = HandlerRef> + '_ {
+        let standard_len = self.standard.map_or(0, |module| module.handlers.len());
+        (0..standard_len)
+            .map(|index| HandlerRef {
+                input: ReachabilityInput::Standard,
+                index,
+            })
+            .chain(
+                (0..self.application.handlers.len()).map(|index| HandlerRef {
+                    input: ReachabilityInput::Application,
+                    index,
+                }),
+            )
+    }
+
+    fn handler(&self, handler_ref: HandlerRef) -> &'a veln_ast::HandlerDecl {
+        match handler_ref.input {
+            ReachabilityInput::Standard => {
+                &self
+                    .standard
+                    .expect("standard handler ref should have standard input")
+                    .handlers[handler_ref.index]
+            }
+            ReachabilityInput::Application => &self.application.handlers[handler_ref.index],
+        }
+    }
+
     fn codecs(&self) -> impl Iterator<Item = &'a veln_ast::CodecDecl> + '_ {
         self.standard
             .into_iter()
@@ -1904,6 +1931,31 @@ impl<'a> ReachabilityInputs<'a> {
             .flat_map(|module| module.types.iter())
             .chain(self.application.types.iter())
     }
+
+    fn type_refs(&self) -> impl Iterator<Item = TypeRef> + '_ {
+        let standard_len = self.standard.map_or(0, |module| module.types.len());
+        (0..standard_len)
+            .map(|index| TypeRef {
+                input: ReachabilityInput::Standard,
+                index,
+            })
+            .chain((0..self.application.types.len()).map(|index| TypeRef {
+                input: ReachabilityInput::Application,
+                index,
+            }))
+    }
+
+    fn type_decl(&self, type_ref: TypeRef) -> &'a veln_ast::TypeDecl {
+        match type_ref.input {
+            ReachabilityInput::Standard => {
+                &self
+                    .standard
+                    .expect("standard type ref should have standard input")
+                    .types[type_ref.index]
+            }
+            ReachabilityInput::Application => &self.application.types[type_ref.index],
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -1912,7 +1964,19 @@ struct FunctionRef {
     index: usize,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+struct HandlerRef {
+    input: ReachabilityInput,
+    index: usize,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+struct TypeRef {
+    input: ReachabilityInput,
+    index: usize,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum ReachabilityInput {
     Standard,
     Application,
@@ -1996,12 +2060,16 @@ mod reachability_counters {
         static FUNCTION_LOOKUP_SCANS: Cell<usize> = const { Cell::new(0) };
         static TARGET_RESOLUTION_SCANS: Cell<usize> = const { Cell::new(0) };
         static MATERIALIZED_FUNCTION_BODIES: Cell<usize> = const { Cell::new(0) };
+        static TYPE_ALIAS_LOOKUP_SCANS: Cell<usize> = const { Cell::new(0) };
+        static TYPE_LOOKUP_SCANS: Cell<usize> = const { Cell::new(0) };
     }
 
     pub(super) fn reset() {
         FUNCTION_LOOKUP_SCANS.set(0);
         TARGET_RESOLUTION_SCANS.set(0);
         MATERIALIZED_FUNCTION_BODIES.set(0);
+        TYPE_ALIAS_LOOKUP_SCANS.set(0);
+        TYPE_LOOKUP_SCANS.set(0);
     }
 
     pub(super) fn record_function_lookup_scan() {
@@ -2016,11 +2084,21 @@ mod reachability_counters {
         MATERIALIZED_FUNCTION_BODIES.set(MATERIALIZED_FUNCTION_BODIES.get() + 1);
     }
 
-    pub(super) fn snapshot() -> (usize, usize, usize) {
+    pub(super) fn record_type_alias_lookup_scan() {
+        TYPE_ALIAS_LOOKUP_SCANS.set(TYPE_ALIAS_LOOKUP_SCANS.get() + 1);
+    }
+
+    pub(super) fn record_type_lookup_scan() {
+        TYPE_LOOKUP_SCANS.set(TYPE_LOOKUP_SCANS.get() + 1);
+    }
+
+    pub(super) fn snapshot() -> (usize, usize, usize, usize, usize) {
         (
             FUNCTION_LOOKUP_SCANS.get(),
             TARGET_RESOLUTION_SCANS.get(),
             MATERIALIZED_FUNCTION_BODIES.get(),
+            TYPE_ALIAS_LOOKUP_SCANS.get(),
+            TYPE_LOOKUP_SCANS.get(),
         )
     }
 }
@@ -2270,11 +2348,12 @@ fn module_with_reachable_functions_and_handler_view(
     handler_view: HandlerView,
 ) -> SurfaceModule {
     let functions = materialize_reachable_functions(inputs, reachable, reachability_index);
-    let reachable_handler_ids = reachable_handler_node_ids(inputs, &functions);
+    let reachable_handler_refs = reachable_handler_refs(inputs, &functions);
     let reachable_handlers = inputs
-        .handlers()
+        .handler_refs()
         .into_iter()
-        .filter(|handler| reachable_handler_ids.contains(&handler.node_id))
+        .filter(|handler_ref| reachable_handler_refs.contains(handler_ref))
+        .map(|handler_ref| inputs.handler(handler_ref))
         .collect::<Vec<_>>();
     let handlers = match handler_view {
         HandlerView::Artifact => materialize_reachable_handlers(&reachable_handlers),
@@ -2362,12 +2441,15 @@ fn materialize_diagnostic_handlers(inputs: &ReachabilityInputs<'_>) -> Vec<veln_
     inputs.cloned_declarations(|module| &module.handlers)
 }
 
-fn reachable_handler_node_ids(
+fn reachable_handler_refs(
     inputs: &ReachabilityInputs<'_>,
     functions: &[Function],
-) -> HashSet<veln_ast::NodeId> {
+) -> HashSet<HandlerRef> {
     let uses = inputs.uses();
-    let handlers = inputs.handlers();
+    let handlers = inputs
+        .handler_refs()
+        .map(|handler_ref| (handler_ref, inputs.handler(handler_ref)))
+        .collect::<Vec<_>>();
     let mut reachable = HashSet::new();
     let mut stack = Vec::new();
 
@@ -2376,8 +2458,8 @@ fn reachable_handler_node_ids(
     }
 
     while let Some(path) = stack.pop() {
-        for handler in matching_handlers(&handlers, &uses, &path) {
-            if !reachable.insert(handler.node_id) {
+        for (handler_ref, handler) in matching_handlers(&handlers, &uses, &path) {
+            if !reachable.insert(handler_ref) {
                 continue;
             }
             for clause in &handler.operation_clauses {
@@ -2395,14 +2477,15 @@ struct HandlePath {
 }
 
 fn matching_handlers<'a>(
-    handlers: &'a [&'a veln_ast::HandlerDecl],
+    handlers: &'a [(HandlerRef, &'a veln_ast::HandlerDecl)],
     uses: &[&UseDecl],
     path: &HandlePath,
-) -> Vec<&'a veln_ast::HandlerDecl> {
+) -> Vec<(HandlerRef, &'a veln_ast::HandlerDecl)> {
     handlers
         .iter()
-        .copied()
-        .filter(|handler| handler_matches_path(handler, uses, path))
+        .filter_map(|(handler_ref, handler)| {
+            handler_matches_path(handler, uses, path).then_some((*handler_ref, *handler))
+        })
         .collect()
 }
 
@@ -2549,6 +2632,7 @@ fn materialize_reachable_types(
     let mut constructors = HashSet::new();
     let uses = inputs.uses();
     let all_types = inputs.types().collect::<Vec<_>>();
+    let type_index = TypeReachabilityIndex::new(inputs);
     for function in functions {
         collect_function_type_references(
             function,
@@ -2569,65 +2653,132 @@ fn materialize_reachable_types(
             &mut constructors,
         );
     }
-    let reachable_type_aliases =
-        expand_reachable_type_closure(inputs, &uses, &all_types, &mut names, &constructors);
+    let (reachable_type_aliases, reachable_type_refs) =
+        expand_reachable_type_closure(inputs, &uses, &type_index, &mut names, &constructors);
     let types = inputs
-        .standard
-        .into_iter()
-        .flat_map(|module| module.types.iter())
-        .chain(inputs.application.types.iter().filter(|type_decl| {
-            type_decl.name.as_deref().is_some_and(valid_type_name)
+        .type_refs()
+        .filter_map(|type_ref| {
+            let type_decl = inputs.type_decl(type_ref);
+            let standard = type_ref.input == ReachabilityInput::Standard;
+            let valid_application_type = type_decl.name.as_deref().is_some_and(valid_type_name)
                 && type_decl
                     .variants
                     .iter()
-                    .all(|variant| variant.name.as_deref().is_some_and(valid_type_name))
-                || type_is_reachable(type_decl, &names, &constructors)
-        }))
+                    .all(|variant| variant.name.as_deref().is_some_and(valid_type_name));
+            (standard || valid_application_type || reachable_type_refs.contains(&type_ref))
+                .then_some(type_decl)
+        })
         .cloned()
         .collect();
     (types, reachable_type_aliases)
 }
 
-fn type_is_reachable(
-    type_decl: &veln_ast::TypeDecl,
-    names: &HashSet<ReachableTypeName>,
-    constructors: &HashSet<ReachableConstructorName>,
-) -> bool {
-    type_decl.name.as_ref().is_some_and(|name| {
-        reachable_type_name_matches(names, type_decl.module_name.as_deref(), name)
-    }) || type_decl.variants.iter().any(|variant| {
-        variant.name.as_ref().is_some_and(|name| {
-            reachable_constructor_name_matches(constructors, type_decl.module_name.as_deref(), name)
-        })
-    })
+struct TypeReachabilityIndex<'a> {
+    aliases_by_name: HashMap<(Option<String>, String), Vec<&'a veln_ast::PublicAlias>>,
+    types_by_name: HashMap<String, Vec<TypeRef>>,
+    types_by_qualified_name: HashMap<(String, String), Vec<TypeRef>>,
+    types_by_constructor: HashMap<String, Vec<TypeRef>>,
+    types_by_qualified_constructor: HashMap<(String, String), Vec<TypeRef>>,
 }
 
-fn reachable_type_name_matches(
-    names: &HashSet<ReachableTypeName>,
-    module_name: Option<&str>,
-    name: &str,
-) -> bool {
-    names.iter().any(|candidate| {
-        candidate.name == name
-            && candidate
-                .module_name
-                .as_deref()
-                .is_none_or(|candidate_module| Some(candidate_module) == module_name)
-    })
-}
+impl<'a> TypeReachabilityIndex<'a> {
+    fn new(inputs: &ReachabilityInputs<'a>) -> Self {
+        let mut aliases_by_name =
+            HashMap::<(Option<String>, String), Vec<&'a veln_ast::PublicAlias>>::new();
+        for alias in inputs
+            .aliases()
+            .filter(|alias| alias.kind == PublicAliasKind::Type)
+        {
+            let Some(name) = &alias.name else {
+                continue;
+            };
+            if !valid_public_alias_name(alias.kind, name) {
+                continue;
+            }
+            aliases_by_name
+                .entry((alias.module_name.clone(), name.clone()))
+                .or_default()
+                .push(alias);
+        }
 
-fn reachable_constructor_name_matches(
-    constructors: &HashSet<ReachableConstructorName>,
-    module_name: Option<&str>,
-    name: &str,
-) -> bool {
-    constructors.iter().any(|candidate| {
-        candidate.name == name
-            && candidate
-                .module_name
-                .as_deref()
-                .is_none_or(|candidate_module| Some(candidate_module) == module_name)
-    })
+        let mut types_by_name = HashMap::<String, Vec<TypeRef>>::new();
+        let mut types_by_qualified_name = HashMap::<(String, String), Vec<TypeRef>>::new();
+        let mut types_by_constructor = HashMap::<String, Vec<TypeRef>>::new();
+        let mut types_by_qualified_constructor = HashMap::<(String, String), Vec<TypeRef>>::new();
+        for type_ref in inputs.type_refs() {
+            let type_decl = inputs.type_decl(type_ref);
+            if let Some(name) = &type_decl.name {
+                types_by_name
+                    .entry(name.clone())
+                    .or_default()
+                    .push(type_ref);
+                if let Some(module_name) = &type_decl.module_name {
+                    types_by_qualified_name
+                        .entry((module_name.clone(), name.clone()))
+                        .or_default()
+                        .push(type_ref);
+                }
+            }
+            for variant in &type_decl.variants {
+                let Some(name) = &variant.name else {
+                    continue;
+                };
+                types_by_constructor
+                    .entry(name.clone())
+                    .or_default()
+                    .push(type_ref);
+                if let Some(module_name) = &type_decl.module_name {
+                    types_by_qualified_constructor
+                        .entry((module_name.clone(), name.clone()))
+                        .or_default()
+                        .push(type_ref);
+                }
+            }
+        }
+
+        Self {
+            aliases_by_name,
+            types_by_name,
+            types_by_qualified_name,
+            types_by_constructor,
+            types_by_qualified_constructor,
+        }
+    }
+
+    fn aliases_for_name(&self, name: &ReachableTypeName) -> &[&'a veln_ast::PublicAlias] {
+        self.aliases_by_name
+            .get(&(name.module_name.clone(), name.name.clone()))
+            .map(Vec::as_slice)
+            .unwrap_or_default()
+    }
+
+    fn types_for_name(&self, name: &ReachableTypeName) -> Vec<TypeRef> {
+        if let Some(module_name) = &name.module_name {
+            self.types_by_qualified_name
+                .get(&(module_name.clone(), name.name.clone()))
+                .cloned()
+                .unwrap_or_default()
+        } else {
+            self.types_by_name
+                .get(&name.name)
+                .cloned()
+                .unwrap_or_default()
+        }
+    }
+
+    fn types_for_constructor(&self, constructor: &ReachableConstructorName) -> Vec<TypeRef> {
+        if let Some(module_name) = &constructor.module_name {
+            self.types_by_qualified_constructor
+                .get(&(module_name.clone(), constructor.name.clone()))
+                .cloned()
+                .unwrap_or_default()
+        } else {
+            self.types_by_constructor
+                .get(&constructor.name)
+                .cloned()
+                .unwrap_or_default()
+        }
+    }
 }
 
 fn collect_handler_type_references(
@@ -2946,7 +3097,8 @@ fn collect_type_name_references(
     current_module: Option<&str>,
     uses: &[&UseDecl],
     names: &mut HashSet<ReachableTypeName>,
-) {
+) -> Vec<ReachableTypeName> {
+    let mut inserted = Vec::new();
     let source = SourceFile::new("<type>", text);
     let tokens = lex(&source).tokens;
     let mut index = 0usize;
@@ -2974,9 +3126,12 @@ fn collect_type_name_references(
             index += 2;
         }
         if let Some(name) = resolve_reachable_type_name(&segments, current_module, uses) {
-            names.insert(name);
+            if names.insert(name.clone()) {
+                inserted.push(name);
+            }
         }
     }
+    inserted
 }
 
 fn next_non_layout_token(
@@ -2992,27 +3147,27 @@ fn next_non_layout_token(
 fn expand_reachable_type_closure(
     inputs: &ReachabilityInputs<'_>,
     uses: &[&UseDecl],
-    types: &[&veln_ast::TypeDecl],
+    type_index: &TypeReachabilityIndex,
     names: &mut HashSet<ReachableTypeName>,
     constructors: &HashSet<ReachableConstructorName>,
-) -> HashSet<(Option<String>, String)> {
+) -> (HashSet<(Option<String>, String)>, HashSet<TypeRef>) {
     let mut stack = names.iter().cloned().collect::<Vec<_>>();
     let mut visited = HashSet::new();
     let mut aliases = HashSet::new();
     let mut selected_types = HashSet::new();
-    let initial_types = types
-        .iter()
-        .copied()
-        .filter(|type_decl| type_is_reachable(type_decl, names, constructors))
-        .collect::<Vec<_>>();
-    for type_decl in initial_types {
-        if let Some(name) = &type_decl.name {
-            let reachable = ReachableTypeName {
-                module_name: type_decl.module_name.clone(),
-                name: name.clone(),
-            };
-            if names.insert(reachable.clone()) {
-                stack.push(reachable);
+    for constructor in constructors {
+        for type_ref in type_index.types_for_constructor(constructor) {
+            #[cfg(test)]
+            reachability_counters::record_type_lookup_scan();
+            let type_decl = inputs.type_decl(type_ref);
+            if let Some(name) = &type_decl.name {
+                let reachable = ReachableTypeName {
+                    module_name: type_decl.module_name.clone(),
+                    name: name.clone(),
+                };
+                if names.insert(reachable.clone()) {
+                    stack.push(reachable);
+                }
             }
         }
     }
@@ -3021,15 +3176,11 @@ fn expand_reachable_type_closure(
             continue;
         }
         names.insert(name.clone());
-        for alias in inputs
-            .aliases()
-            .filter(|alias| alias.kind == PublicAliasKind::Type)
-        {
-            if alias.module_name == name.module_name
-                && alias.name.as_deref() == Some(name.name.as_str())
-                && valid_public_alias_name(alias.kind, &name.name)
-                && let Some(target) =
-                    resolve_reachable_type_name(&alias.target, alias.module_name.as_deref(), uses)
+        for alias in type_index.aliases_for_name(&name) {
+            #[cfg(test)]
+            reachability_counters::record_type_alias_lookup_scan();
+            if let Some(target) =
+                resolve_reachable_type_name(&alias.target, alias.module_name.as_deref(), uses)
             {
                 aliases.insert((alias.module_name.clone(), name.name.clone()));
                 if names.insert(target.clone()) {
@@ -3037,39 +3188,29 @@ fn expand_reachable_type_closure(
                 }
             }
         }
-        let reachable_types = types
-            .iter()
-            .copied()
-            .filter(|type_decl| type_is_reachable(type_decl, names, constructors))
-            .collect::<Vec<_>>();
-        for type_decl in reachable_types {
-            if !selected_types.insert(type_decl.node_id) {
+        for type_ref in type_index.types_for_name(&name) {
+            #[cfg(test)]
+            reachability_counters::record_type_lookup_scan();
+            if !selected_types.insert(type_ref) {
                 continue;
             }
+            let type_decl = inputs.type_decl(type_ref);
             for field in type_decl
                 .variants
                 .iter()
                 .flat_map(|variant| &variant.fields)
             {
-                let before = names.len();
-                collect_type_name_references(
+                let inserted = collect_type_name_references(
                     &field.ty,
                     type_decl.module_name.as_deref(),
                     uses,
                     names,
                 );
-                if names.len() > before {
-                    stack.extend(
-                        names
-                            .iter()
-                            .filter(|name| !visited.contains(*name))
-                            .cloned(),
-                    );
-                }
+                stack.extend(inserted);
             }
         }
     }
-    aliases
+    (aliases, selected_types)
 }
 
 fn materialize_reachable_aliases(
@@ -4733,7 +4874,7 @@ mod tests {
 
     #[test]
     fn reachable_resolution_skips_unrelated_annotated_functions() {
-        fn resolution_scans(unrelated_count: usize) -> (usize, usize, usize) {
+        fn resolution_scans(unrelated_count: usize) -> (usize, usize, usize, usize, usize) {
             let mut source = String::from(
                 "pub fn main() -> Int\n  helper()\nend\n\nfn helper() -> Int\n  1\nend\n",
             );
@@ -4780,6 +4921,78 @@ mod tests {
             materialized_body_count(128),
             materialized_body_count(0),
             "unreachable annotated functions must not be materialized for lowering"
+        );
+    }
+
+    #[test]
+    fn reachable_type_alias_chain_scans_grow_near_linearly() {
+        fn type_lookup_counts(alias_count: usize) -> (usize, usize) {
+            let mut source = String::new();
+            for index in 0..alias_count {
+                source.push_str(&format!("pub type Alias{index} = Alias{}\n", index + 1));
+            }
+            source.push_str(&format!(
+                "type Alias{alias_count}\n  Done\nend\npub fn main() -> Alias0\n  Done\nend\n"
+            ));
+            let module = lower(&source);
+            reachability_counters::reset();
+            let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+            let target = format!("Alias{alias_count}");
+            assert!(
+                reachable
+                    .types
+                    .iter()
+                    .any(|type_decl| type_decl.name.as_deref() == Some(target.as_str())),
+                "{:#?}",
+                reachable.types
+            );
+            let snapshot = reachability_counters::snapshot();
+            (snapshot.3, snapshot.4)
+        }
+
+        let small = type_lookup_counts(32);
+        let large = type_lookup_counts(64);
+
+        assert!(
+            large.0 <= small.0 * 2 + 2 && large.1 <= small.1 * 2 + 2,
+            "alias/type lookup counts should scale near linearly: small={small:?}, large={large:?}"
+        );
+    }
+
+    #[test]
+    fn reachable_adt_payload_chain_scans_grow_near_linearly() {
+        fn type_lookup_counts(type_count: usize) -> usize {
+            let mut source = String::new();
+            for index in 0..type_count {
+                source.push_str(&format!(
+                    "type Type{index}\n  Made{}(Type{})\nend\n",
+                    index,
+                    index + 1
+                ));
+            }
+            source.push_str(&format!("type Type{type_count}\n  Done\nend\n"));
+            source.push_str("pub fn main() -> Type0\n  Made0(Done)\nend\n");
+            let module = lower(&source);
+            reachability_counters::reset();
+            let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+            let target = format!("Type{type_count}");
+            assert!(
+                reachable
+                    .types
+                    .iter()
+                    .any(|type_decl| type_decl.name.as_deref() == Some(target.as_str())),
+                "{:#?}",
+                reachable.types
+            );
+            reachability_counters::snapshot().4
+        }
+
+        let small = type_lookup_counts(32);
+        let large = type_lookup_counts(64);
+
+        assert!(
+            large <= small * 2 + 2,
+            "ADT payload lookup counts should scale near linearly: small={small}, large={large}"
         );
     }
 
@@ -7257,6 +7470,125 @@ mod tests {
     }
 
     #[test]
+    fn run_entry_reaches_transitive_handler_with_colliding_node_id() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "app/a.veln",
+                    concat!(
+                        "effect Ask\n",
+                        "  value() -> Int\n",
+                        "end\n",
+                        "handler outer() handles Ask\n",
+                        "  value() => 1\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "app/b.veln",
+                    concat!(
+                        "type _bad\n",
+                        "  Made\n",
+                        "end\n",
+                        "effect Ask\n",
+                        "  value() -> Int\n",
+                        "end\n",
+                        "handler outer() handles Ask\n",
+                        "  value() => handle perform Ask::value() with inner(1)\n",
+                        "end\n",
+                        "handler inner(Offset: _bad) handles Ask\n",
+                        "  value() => 1\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "app/main.veln",
+                    concat!(
+                        "use app::a\n",
+                        "use app::b\n",
+                        "pub fn main() -> Int\n",
+                        "  let first = handle perform app::a::Ask::value() with app::a::outer()\n",
+                        "  first + handle perform app::b::Ask::value() with app::b::outer()\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert!(
+            reachable
+                .types
+                .iter()
+                .any(
+                    |type_decl| type_decl.module_name.as_deref() == Some("app::b")
+                        && type_decl.name.as_deref() == Some("_bad")
+                ),
+            "colliding handler node ids must not skip transitive handler traversal: {:#?}",
+            reachable.types
+        );
+    }
+
+    #[test]
+    fn run_entry_artifact_omits_unreachable_handler_with_colliding_node_id() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "app/a.veln",
+                    concat!(
+                        "effect Ask\n",
+                        "  value() -> Int\n",
+                        "end\n",
+                        "handler used() handles Ask\n",
+                        "  value() => 1\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "app/b.veln",
+                    concat!(
+                        "effect Ask\n",
+                        "  value() -> Int\n",
+                        "end\n",
+                        "handler unused() handles Ask\n",
+                        "  value() => _\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "app/main.veln",
+                    concat!(
+                        "use app::a\n",
+                        "pub fn main() -> Int\n",
+                        "  handle perform app::a::Ask::value() with app::a::used()\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert!(
+            reachable
+                .handlers
+                .iter()
+                .all(|handler| handler.module_name.as_deref() != Some("app::b")),
+            "unreachable colliding handler must not enter artifact: {:#?}",
+            reachable.handlers
+        );
+    }
+
+    #[test]
     fn run_entry_reachable_adt_payloads_form_alias_mediated_fixed_point() {
         let module = lower(concat!(
             "type Used\n",
@@ -7295,6 +7627,70 @@ mod tests {
                 .any(|alias| alias.name.as_deref() == Some("OuterAlias")),
             "reachable type alias should be materialized: {:#?}",
             reachable.aliases
+        );
+    }
+
+    #[test]
+    fn run_entry_reachable_adt_payloads_keep_source_specific_type_identity() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "app/a.veln",
+                    concat!(
+                        "use app::b\n",
+                        "pub type Start\n",
+                        "  pub Made(app::b::Middle)\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "app/b.veln",
+                    concat!(
+                        "use app::c\n",
+                        "pub type Middle\n",
+                        "  pub Made(app::c::_bad)\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "app/c.veln",
+                    concat!("pub type _bad\n", "  pub Done\n", "end\n",),
+                ),
+                SourceFile::new(
+                    "app/main.veln",
+                    concat!(
+                        "use app::a\n",
+                        "use app::b\n",
+                        "use app::c\n",
+                        "pub fn main() -> app::a::Start\n",
+                        "  app::a::Made(app::b::Made(app::c::Done))\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let type_names = reachable
+            .types
+            .iter()
+            .filter_map(|type_decl| {
+                Some((
+                    type_decl.module_name.as_deref()?,
+                    type_decl.name.as_deref()?,
+                ))
+            })
+            .collect::<Vec<_>>();
+
+        assert!(
+            type_names.contains(&("app::a", "Start"))
+                && type_names.contains(&("app::b", "Middle"))
+                && type_names.contains(&("app::c", "_bad")),
+            "colliding type node ids must not stop payload fixed point: {type_names:#?}"
         );
     }
 

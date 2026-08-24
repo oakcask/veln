@@ -22,9 +22,11 @@ compiler-known calls.
   exports, and backend input. Same-kind, same-scope invalid names with the
   same spelling still emit the ordinary duplicate diagnostic. A unique
   compatible same-source recovery reference can suppress only the derivative
-  unresolved-name diagnostic. `run` reports invalid-casing names reachable
-  from the selected entry through function values, aliases, local bindings,
-  ADT payloads, and transitive handler bodies without suppressing other
+  unresolved-name diagnostic; independently provable type mismatches remain
+  diagnostics even when a quarantined alias or target type name appears in the
+  expected or actual type. `run` reports invalid-casing names reachable from
+  the selected entry through function values, aliases, local bindings, ADT
+  payloads, and transitive handler bodies without suppressing other
   unreachable static diagnostics. The checked `identifier-casing-*` cases,
   including
   `identifier-casing-duplicate-quarantine`, `identifier-casing-quarantine`,
@@ -36,6 +38,7 @@ compiler-known calls.
   `identifier-casing-invalid-alias-wrong-kind`,
   `identifier-casing-invalid-alias-same-file-use`,
   `identifier-casing-invalid-alias-duplicates`,
+  `identifier-casing-type-alias-quarantine`,
   `identifier-casing-split-recovery-candidates`,
   `identifier-casing-unused-handler-type-reference`,
   `identifier-casing-transitive-handler-binding`, and

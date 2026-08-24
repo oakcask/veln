@@ -6,11 +6,9 @@ exit = 1
 format = "json"
 contains = [
   "\"id\":\"name.invalid_case\"",
+  "\"id\":\"type.mismatch\"",
   "\"name\":\"broken\"",
   "\"name_class\":\"type\"",
-]
-not_contains = [
-  "\"id\":\"type.mismatch\"",
 ]
 
 [stderr]

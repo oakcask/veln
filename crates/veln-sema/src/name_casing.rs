@@ -1,5 +1,3 @@
-use std::collections::BTreeSet;
-
 use veln_ast::{
     BodyLineKind, Expr, ExprKind, Function, FunctionKind, Pattern, PatternKind, PublicAliasKind,
     SurfaceModule,
@@ -162,24 +160,8 @@ pub(crate) fn suppress_quarantined_type_alias_derivatives(
     module: &SurfaceModule,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    let targets = quarantined_type_alias_targets(module);
-    if targets.is_empty() {
-        return;
-    }
-    diagnostics.retain(|diagnostic| {
-        if diagnostic.id != "type.mismatch" {
-            return true;
-        }
-        let diagnostic_file = diagnostic.span.as_ref().map(|span| span.file.as_str());
-        !diagnostic_type_names(diagnostic).iter().any(|name| {
-            targets.qualified.contains(name)
-                || diagnostic_file.is_some_and(|file| {
-                    targets
-                        .local
-                        .contains(&(file.to_string(), name.to_string()))
-                })
-        })
-    });
+    let _ = module;
+    let _ = diagnostics;
 }
 
 pub(crate) fn suppress_quarantined_function_alias_derivatives(
@@ -188,88 +170,6 @@ pub(crate) fn suppress_quarantined_function_alias_derivatives(
 ) {
     let _ = module;
     let _ = diagnostics;
-}
-
-struct QuarantinedTypeAliasTargets {
-    qualified: BTreeSet<String>,
-    local: BTreeSet<(String, String)>,
-}
-
-impl QuarantinedTypeAliasTargets {
-    fn is_empty(&self) -> bool {
-        self.qualified.is_empty() && self.local.is_empty()
-    }
-}
-
-fn diagnostic_type_names(diagnostic: &Diagnostic) -> Vec<String> {
-    let JsonValue::Object(entries) = &diagnostic.details else {
-        return Vec::new();
-    };
-    entries
-        .iter()
-        .filter(|(key, _)| key == "expected_type" || key == "actual_type")
-        .filter_map(|(_, value)| match value {
-            JsonValue::String(value) => Some(value.clone()),
-            _ => None,
-        })
-        .collect()
-}
-
-fn quarantined_type_alias_targets(module: &SurfaceModule) -> QuarantinedTypeAliasTargets {
-    let mut qualified = BTreeSet::new();
-    let mut local = BTreeSet::new();
-    for alias in module.aliases.iter().filter(|alias| {
-        alias.kind == PublicAliasKind::Type
-            && alias
-                .name
-                .as_deref()
-                .is_some_and(|name| !valid_public_alias_name(alias.kind, name))
-    }) {
-        let Some(alias_name) = &alias.name else {
-            continue;
-        };
-        if let Some(module_name) = &alias.module_name {
-            qualified.insert(format!("{module_name}::{alias_name}"));
-        }
-        local.insert((alias.span.file.as_str().to_string(), alias_name.clone()));
-    }
-    for alias in module.aliases.iter().filter(|alias| {
-        alias.kind == PublicAliasKind::Type
-            && type_alias_targets_invalid_source_type(
-                module,
-                &alias.target,
-                alias.module_name.as_deref(),
-            )
-    }) {
-        let Some(name) = alias.target.last() else {
-            continue;
-        };
-        let target_module =
-            type_alias_target_module(module, &alias.target, alias.module_name.as_deref());
-        if let Some(module_name) = target_module {
-            qualified.insert(format!("{module_name}::{name}"));
-        }
-        local.insert((alias.span.file.as_str().to_string(), name.clone()));
-        let Some(alias_name) = &alias.name else {
-            continue;
-        };
-        if module_has_valid_type(module, alias.module_name.as_deref(), alias_name) {
-            continue;
-        }
-        if let Some(module_name) = &alias.module_name {
-            qualified.insert(format!("{module_name}::{alias_name}"));
-        }
-        local.insert((alias.span.file.as_str().to_string(), alias_name.clone()));
-    }
-    QuarantinedTypeAliasTargets { qualified, local }
-}
-
-fn module_has_valid_type(module: &SurfaceModule, module_name: Option<&str>, name: &str) -> bool {
-    module.types.iter().any(|type_decl| {
-        type_decl.name.as_deref() == Some(name)
-            && type_decl.module_name.as_deref() == module_name
-            && valid_type_name(name)
-    })
 }
 
 pub(crate) fn type_alias_targets_invalid_source_type(
@@ -302,25 +202,6 @@ pub(crate) fn type_alias_targets_invalid_source_type(
                     && !valid_type_name(name)
             })
         }
-    }
-}
-
-fn type_alias_target_module(
-    module: &SurfaceModule,
-    segments: &[String],
-    current_module: Option<&str>,
-) -> Option<String> {
-    match segments {
-        [_] => current_module.map(str::to_string),
-        [_, .., _] => module
-            .uses
-            .iter()
-            .find(|use_decl| {
-                use_decl.module_name.as_deref() == current_module
-                    && use_decl.alias == segments[..segments.len() - 1].join("::")
-            })
-            .map(|use_decl| use_decl.name.clone()),
-        [] => None,
     }
 }
 

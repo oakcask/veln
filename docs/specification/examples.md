@@ -28,6 +28,9 @@ diagnostics in
 [`identifier-casing-invalid-alias-wrong-kind`](../../examples/specification/check/identifier-casing-invalid-alias-wrong-kind/case.toml),
 [`identifier-casing-invalid-alias-same-file-use`](../../examples/specification/check/identifier-casing-invalid-alias-same-file-use/case.toml), and
 [`identifier-casing-invalid-alias-duplicates`](../../examples/specification/check/identifier-casing-invalid-alias-duplicates/case.toml).
+Invalid type alias quarantine preserves independently provable type
+mismatches in
+[`identifier-casing-type-alias-quarantine`](../../examples/specification/check/identifier-casing-type-alias-quarantine/case.toml).
 Split recovery candidate uniqueness is checked by
 [`identifier-casing-split-recovery-candidates`](../../examples/specification/check/identifier-casing-split-recovery-candidates/case.toml).
 Test declaration recovery compatibility is checked by

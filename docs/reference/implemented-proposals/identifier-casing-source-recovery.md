@@ -37,5 +37,5 @@ and same-file use preservation, split recovery candidate uniqueness, handler
 clause binding recovery, invalid selected-entry rejection, local binding
 precedence, source ADT payload closure, handler annotation reachability,
 transitive handler body reachability, underscore-led recovered names, and
-preserved non-casing diagnostics for unreachable duplicate constructors, type
-aliases, and handlers.
+preserved non-casing diagnostics for type mismatches, unreachable duplicate
+constructors, type aliases, and handlers.
