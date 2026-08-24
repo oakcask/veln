@@ -313,8 +313,9 @@ impl ProjectAnalysis {
         self.casing_records
             .iter()
             .filter(|record| {
-                record.name_class == CasingNameClass::ValueBinding
-                    && record.enclosing_function.as_deref() == Some(entry)
+                (record.name_class == CasingNameClass::Function && record.name == entry)
+                    || (record.name_class == CasingNameClass::ValueBinding
+                        && record.enclosing_function.as_deref() == Some(entry))
             })
             .map(|record| record.diagnostic.clone())
             .collect()
@@ -372,7 +373,8 @@ impl ProjectAnalysis {
             &self.selected_standard,
             &standard.environment,
         );
-        let reachable_casing = reachable_casing_diagnostics(&module, &self.casing_records);
+        let reachable_casing =
+            reachable_casing_diagnostics(&module, &lowered.diagnostics, &self.casing_records);
         lowered.diagnostics.extend(reachable_casing);
         lowered.diagnostics =
             filter_recovery_derivative_diagnostics(lowered.diagnostics, &self.casing_records);
@@ -392,40 +394,95 @@ impl ProjectAnalysis {
 
 fn reachable_casing_diagnostics(
     module: &SurfaceModule,
+    diagnostics: &[Diagnostic],
     records: &[CasingRecoveryRecord],
 ) -> Vec<Diagnostic> {
-    records
+    let mut reachable = records
         .iter()
-        .filter(|record| match record.name_class {
-            CasingNameClass::ValueBinding => {
-                record.enclosing_function.as_ref().is_some_and(|name| {
+        .filter(|record| {
+            record.name_class == CasingNameClass::ValueBinding
+                && record.enclosing_function.as_ref().is_some_and(|name| {
                     module.functions.iter().any(|function| {
                         function.name.as_ref() == Some(name)
                             && function.module_name == record.module_name
                     })
                 })
-            }
-            _ => module.functions.iter().any(|function| {
-                function.module_name == record.module_name
-                    && function_references_record(function, record)
-            }),
         })
         .map(|record| record.diagnostic.clone())
-        .collect()
+        .collect::<Vec<_>>();
+    let derivative_records = diagnostics
+        .iter()
+        .filter_map(|diagnostic| unique_recovery_derivative_record(diagnostic, records))
+        .collect::<Vec<_>>();
+    for record in derivative_records {
+        push_reachable_casing(&mut reachable, &record.diagnostic);
+    }
+    let signature_type_records = records
+        .iter()
+        .filter(|record| {
+            record.name_class == CasingNameClass::Type
+                && module.functions.iter().any(|function| {
+                    function.module_name == record.module_name
+                        && function_signature_references_name(function, &record.name)
+                })
+                && unique_recovery_record(records, record).is_some()
+                && !normal_type_exists(module, record)
+        })
+        .collect::<Vec<_>>();
+    for record in signature_type_records {
+        push_reachable_casing(&mut reachable, &record.diagnostic);
+    }
+    reachable
 }
 
-fn function_references_record(
-    function: &veln_ast::Function,
-    record: &CasingRecoveryRecord,
-) -> bool {
-    function_signature_references_name(function, &record.name)
-        || function.body.iter().any(|line| match &line.kind {
-            veln_ast::BodyLineKind::Let { pattern, expr, .. } => {
-                pattern_references_name(pattern, &record.name)
-                    || expr_references_name(expr, &record.name)
-            }
-            veln_ast::BodyLineKind::Expr { expr } => expr_references_name(expr, &record.name),
-        })
+fn push_reachable_casing(reachable: &mut Vec<Diagnostic>, diagnostic: &Diagnostic) {
+    if !reachable
+        .iter()
+        .any(|existing| diagnostics_have_same_origin(existing, diagnostic))
+    {
+        reachable.push(diagnostic.clone());
+    }
+}
+
+fn diagnostics_have_same_origin(left: &Diagnostic, right: &Diagnostic) -> bool {
+    left.id == right.id && left.span == right.span
+}
+
+fn unique_recovery_derivative_record<'a>(
+    diagnostic: &Diagnostic,
+    records: &'a [CasingRecoveryRecord],
+) -> Option<&'a CasingRecoveryRecord> {
+    let (name, compatible_name_class) = recovery_derivative_name_and_class(diagnostic)?;
+    let diagnostic_source = diagnostic.span.as_ref().map(|span| &span.file);
+    let mut matches = records.iter().filter(|record| {
+        record.name == name.as_str()
+            && compatible_name_class == record.name_class
+            && diagnostic_source == Some(&record.source_path)
+            && unresolved_span_is_in_recovery_scope(diagnostic, record)
+    });
+    let first = matches.next()?;
+    matches.next().is_none().then_some(first)
+}
+
+fn unique_recovery_record<'a>(
+    records: &'a [CasingRecoveryRecord],
+    target: &CasingRecoveryRecord,
+) -> Option<&'a CasingRecoveryRecord> {
+    let mut matches = records.iter().filter(|record| {
+        record.name == target.name
+            && record.name_class == target.name_class
+            && record.source_path == target.source_path
+            && record.module_name == target.module_name
+    });
+    let first = matches.next()?;
+    matches.next().is_none().then_some(first)
+}
+
+fn normal_type_exists(module: &SurfaceModule, record: &CasingRecoveryRecord) -> bool {
+    module.types.iter().any(|type_decl| {
+        type_decl.module_name == record.module_name
+            && type_decl.name.as_deref() == Some(record.name.as_str())
+    })
 }
 
 fn function_signature_references_name(function: &veln_ast::Function, name: &str) -> bool {
@@ -445,84 +502,6 @@ fn type_text_references_name(ty: &str, name: &str) -> bool {
         .any(|part| part == name || part.rsplit_once("::").is_some_and(|(_, leaf)| leaf == name))
 }
 
-fn pattern_references_name(pattern: &veln_ast::Pattern, name: &str) -> bool {
-    match &pattern.kind {
-        veln_ast::PatternKind::Binding(binding) => binding == name,
-        veln_ast::PatternKind::Constructor {
-            name: segments,
-            args,
-        } => {
-            segments.last().is_some_and(|segment| segment == name)
-                || args.iter().any(|arg| pattern_references_name(arg, name))
-        }
-        veln_ast::PatternKind::Record(fields) => fields
-            .iter()
-            .any(|field| pattern_references_name(&field.pattern, name)),
-        _ => false,
-    }
-}
-
-fn expr_references_name(expr: &veln_ast::Expr, name: &str) -> bool {
-    match &expr.kind {
-        veln_ast::ExprKind::NamePath(segments) => {
-            segments.last().is_some_and(|segment| segment == name)
-        }
-        veln_ast::ExprKind::TypeApply { callee, .. } => expr_references_name(callee, name),
-        veln_ast::ExprKind::Call { callee, args } => {
-            expr_references_name(callee, name)
-                || args.iter().any(|arg| expr_references_name(arg, name))
-        }
-        veln_ast::ExprKind::Perform { args, .. } => {
-            args.iter().any(|arg| expr_references_name(arg, name))
-        }
-        veln_ast::ExprKind::Handle { body, args, .. } => {
-            expr_references_name(body, name)
-                || args.iter().any(|arg| expr_references_name(arg, name))
-        }
-        veln_ast::ExprKind::SchemaDecode { input, base, .. } => {
-            expr_references_name(input, name) || expr_references_name(base, name)
-        }
-        veln_ast::ExprKind::SchemaEncode { value, .. }
-        | veln_ast::ExprKind::FieldAccess { base: value, .. }
-        | veln_ast::ExprKind::Try(value)
-        | veln_ast::ExprKind::Prefix { expr: value, .. } => expr_references_name(value, name),
-        veln_ast::ExprKind::Record(fields) => fields
-            .iter()
-            .any(|field| expr_references_name(&field.expr, name)),
-        veln_ast::ExprKind::Dict(entries) => entries.iter().any(|entry| {
-            expr_references_name(&entry.key, name) || expr_references_name(&entry.value, name)
-        }),
-        veln_ast::ExprKind::List(items) => {
-            items.iter().any(|item| expr_references_name(item, name))
-        }
-        veln_ast::ExprKind::Match { scrutinee, arms } => {
-            expr_references_name(scrutinee, name)
-                || arms.iter().any(|arm| {
-                    pattern_references_name(&arm.pattern, name)
-                        || expr_references_name(&arm.expr, name)
-                })
-        }
-        veln_ast::ExprKind::If {
-            condition,
-            then_branch,
-            else_if_branches,
-            else_branch,
-        } => {
-            expr_references_name(condition, name)
-                || expr_references_name(then_branch, name)
-                || else_if_branches.iter().any(|branch| {
-                    expr_references_name(&branch.condition, name)
-                        || expr_references_name(&branch.expr, name)
-                })
-                || expr_references_name(else_branch, name)
-        }
-        veln_ast::ExprKind::Binary { left, right, .. } => {
-            expr_references_name(left, name) || expr_references_name(right, name)
-        }
-        _ => false,
-    }
-}
-
 fn filter_recovery_derivative_diagnostics(
     diagnostics: Vec<Diagnostic>,
     records: &[CasingRecoveryRecord],
@@ -537,21 +516,7 @@ fn is_unique_recovery_derivative(
     diagnostic: &Diagnostic,
     records: &[CasingRecoveryRecord],
 ) -> bool {
-    let Some((name, compatible_name_class)) = recovery_derivative_name_and_class(diagnostic) else {
-        return false;
-    };
-    let diagnostic_source = diagnostic.span.as_ref().map(|span| &span.file);
-    records
-        .iter()
-        .filter(|record| {
-            record.name == name.as_str()
-                && compatible_name_class == record.name_class
-                && diagnostic_source == Some(&record.source_path)
-                && unresolved_span_is_in_recovery_scope(diagnostic, record)
-        })
-        .take(2)
-        .count()
-        == 1
+    unique_recovery_derivative_record(diagnostic, records).is_some()
 }
 
 fn recovery_derivative_name_and_class(

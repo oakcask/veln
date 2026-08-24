@@ -1,0 +1,10 @@
+command = ["run", "BadPeer", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[name.invalid_case]: function name must start with an ASCII lowercase letter", "main.veln:1:8"]

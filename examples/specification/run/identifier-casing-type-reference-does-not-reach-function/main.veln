@@ -1,0 +1,11 @@
+fn BadPeer() -> Int
+  1
+end
+
+type BadPeer
+  Ready
+end
+
+pub fn main() -> BadPeer
+  Ready
+end

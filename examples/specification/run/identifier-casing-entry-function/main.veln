@@ -1,0 +1,3 @@
+pub fn BadPeer() -> Int
+  1
+end

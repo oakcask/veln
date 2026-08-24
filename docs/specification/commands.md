@@ -469,7 +469,9 @@ requiring the full command reference on the first read.
   same-source peer that is outside the selected entry's reachable closure. The
   checked cases `identifier-casing-reachable-invalid`,
   `identifier-casing-unreachable-peer`,
-  `identifier-casing-entry-binding`, and
+  `identifier-casing-entry-binding`,
+  `identifier-casing-entry-function`,
+  `identifier-casing-type-reference-does-not-reach-function`, and
   `identifier-casing-signature-reachable` cover this command boundary.
 - `test`: test and doctest selection, static gates, bounded `-j` / `--jobs`
   case execution, the serial `--jobs 1` compatibility route, deterministic

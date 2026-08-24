@@ -1,0 +1,20 @@
+command = ["run", "--json", "main", "main.veln"]
+source_errors = "expected"
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "error"
+equals = null
