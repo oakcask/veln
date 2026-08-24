@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"bfed7a7868067f3e228755261f7cb5ca2ed27203"
+source_git_tree	"HEAD"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1529
@@ -10420,7 +10420,7 @@ field	expectations.exit	0
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"definitionProvider\":true"
 field	expectations.stdout.contains[1]	"\"id\":2,\"result\":{\"uri\":\"file://"
-field	expectations.stdout.contains[2]	"/model.veln\",\"range\":{\"start\":{\"line\":1,\"character\":6},\"end\":{\"line\":1,\"character\":10}}"
+field	expectations.stdout.contains[2]	"/model.veln\",\"range\":{\"start\":{\"line\":1,\"character\":6},\"end\":{\"line\":1,\"character\":15}}"
 field	expectations.stdout.contains[3]	"\"id\":3,\"result\":null"
 field	expectations.stdout.not_contains[0]	"\"id\":2,\"result\":null"
 field	expectations.stdout.not_contains[1]	"veln-pkg:///std/snapshot/"
@@ -10430,7 +10430,7 @@ field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":422,"sha256":"5a95441b801ed21613ae7bcaf439a0ce804efc3545665b6d95459845614a5370"}
 field	source_errors	"forbidden"
-case_digest	"b4afe143dc0996fc85cd8cdf6300e4c55e6ec79cafa56cd4efb0241def282b20"
+case_digest	"91e7d12ae24ba5d09cb38f71aebd5ebfcdbeee4b2cab0b0ed894d5726c4225b0"
 case	"examples/specification/lsp/open-document-nested-boundary"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -10507,7 +10507,7 @@ field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"definitionProvider\":true"
 field	expectations.stdout.contains[1]	"\"id\":2,\"result\":{\"uri\":\"file://"
 field	expectations.stdout.contains[2]	"\"id\":3,\"result\":{\"uri\":\"file://"
-field	expectations.stdout.contains[3]	"/model.veln\",\"range\":{\"start\":{\"line\":1,\"character\":6},\"end\":{\"line\":1,\"character\":10}}"
+field	expectations.stdout.contains[3]	"/model.veln\",\"range\":{\"start\":{\"line\":1,\"character\":6},\"end\":{\"line\":1,\"character\":15}}"
 field	expectations.stdout.contains[4]	"\"id\":4,\"result\":null"
 field	expectations.stdout.not_contains[0]	"\"id\":2,\"result\":null"
 field	expectations.stdout.not_contains[1]	"\"id\":3,\"result\":null"
@@ -10518,7 +10518,7 @@ field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":596,"sha256":"9e94279671e9fe6342020ba543e520d7a5cc2cec092381d5a4869b4f20062577"}
 field	source_errors	"forbidden"
-case_digest	"689c52a8e1aecdf70b5b4f1bd39d388d0a9b045f7f3024488c54790e7901b296"
+case_digest	"5263937dd2050953bd43a3c3eaddede664257a3fca2de0a22127d820848e0277"
 case	"examples/specification/lsp/schema-semantic-tokens"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -48204,4 +48204,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"1bc849ed7b896a1379ca8dea0655eea38387da90e582ea3ca14631b011352cd5"
+aggregate_digest	"66a77e87d50aa58f404621d967e13246f0da34520b634fa8516e427c7c9acd9f"

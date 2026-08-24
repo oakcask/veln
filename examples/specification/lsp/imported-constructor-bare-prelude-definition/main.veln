@@ -1,5 +1,5 @@
 use model
 
 pub fn main() -> Token
-  byte(1)
+  TokenByte(1)
 end

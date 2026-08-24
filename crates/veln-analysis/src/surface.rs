@@ -91,6 +91,13 @@ pub(crate) enum CasingNameClass {
     ValueBinding,
 }
 
+struct CasingRecoveryContext<'a> {
+    source_path: &'a SourcePath,
+    module_name: Option<&'a str>,
+    function_name: Option<&'a str>,
+    lexical_scope: Option<&'a SourceSpan>,
+}
+
 #[derive(Clone, Debug)]
 pub struct CapturedDependencyProject {
     pub package: String,
@@ -504,10 +511,12 @@ fn source_identifier_casing_records(
                 alias.name_span.as_ref().unwrap_or(&alias.span),
                 name_class,
                 "declaration",
-                &source_path,
-                module_name,
-                None,
-                None,
+                CasingRecoveryContext {
+                    source_path: &source_path,
+                    module_name,
+                    function_name: None,
+                    lexical_scope: None,
+                },
             );
         }
     }
@@ -521,10 +530,12 @@ fn source_identifier_casing_records(
                         type_decl.name_span.as_ref().unwrap_or(&type_decl.span),
                         CasingNameClass::Type,
                         "declaration",
-                        &source_path,
-                        module_name,
-                        None,
-                        None,
+                        CasingRecoveryContext {
+                            source_path: &source_path,
+                            module_name,
+                            function_name: None,
+                            lexical_scope: None,
+                        },
                     );
                 }
                 for variant in &type_decl.variants {
@@ -535,10 +546,12 @@ fn source_identifier_casing_records(
                             variant.name_span.as_ref().unwrap_or(&variant.span),
                             CasingNameClass::Constructor,
                             "declaration",
-                            &source_path,
-                            module_name,
-                            None,
-                            None,
+                            CasingRecoveryContext {
+                                source_path: &source_path,
+                                module_name,
+                                function_name: None,
+                                lexical_scope: None,
+                            },
                         );
                     }
                 }
@@ -552,10 +565,12 @@ fn source_identifier_casing_records(
                         function.name_span.as_ref().unwrap_or(&function.span),
                         CasingNameClass::Function,
                         "declaration",
-                        &source_path,
-                        module_name,
-                        None,
-                        None,
+                        CasingRecoveryContext {
+                            source_path: &source_path,
+                            module_name,
+                            function_name: None,
+                            lexical_scope: None,
+                        },
                     );
                 }
                 for param in &function.params {
@@ -566,10 +581,12 @@ fn source_identifier_casing_records(
                         &param.span,
                         CasingNameClass::ValueBinding,
                         "binding",
-                        &source_path,
-                        module_name,
-                        function_name.as_deref(),
-                        Some(&scope),
+                        CasingRecoveryContext {
+                            source_path: &source_path,
+                            module_name,
+                            function_name: function_name.as_deref(),
+                            lexical_scope: Some(&scope),
+                        },
                     );
                 }
                 if let Some(binding) = &function.return_binding {
@@ -580,10 +597,12 @@ fn source_identifier_casing_records(
                         &binding.span,
                         CasingNameClass::ValueBinding,
                         "binding",
-                        &source_path,
-                        module_name,
-                        function_name.as_deref(),
-                        Some(&scope),
+                        CasingRecoveryContext {
+                            source_path: &source_path,
+                            module_name,
+                            function_name: function_name.as_deref(),
+                            lexical_scope: Some(&scope),
+                        },
                     );
                 }
                 for line in &function.body {
@@ -621,10 +640,12 @@ fn collect_invalid_pattern_bindings(
             &pattern.span,
             CasingNameClass::ValueBinding,
             "binding",
-            source_path,
-            module_name,
-            function_name,
-            Some(lexical_scope),
+            CasingRecoveryContext {
+                source_path,
+                module_name,
+                function_name,
+                lexical_scope: Some(lexical_scope),
+            },
         ),
         veln_syntax::PatternKind::Record(fields) => {
             for field in fields {
@@ -673,10 +694,7 @@ fn push_invalid_casing_record(
     span: &SourceSpan,
     name_class: CasingNameClass,
     occurrence: &'static str,
-    source_path: &SourcePath,
-    module_name: Option<&str>,
-    function_name: Option<&str>,
-    lexical_scope: Option<&SourceSpan>,
+    context: CasingRecoveryContext<'_>,
 ) {
     if name == "_" || casing_name_is_valid(name, name_class) {
         return;
@@ -684,10 +702,10 @@ fn push_invalid_casing_record(
     records.push(CasingRecoveryRecord {
         name: name.to_string(),
         name_class,
-        source_path: source_path.clone(),
-        module_name: module_name.map(str::to_string),
-        enclosing_function: function_name.map(str::to_string),
-        lexical_scope: lexical_scope.cloned(),
+        source_path: context.source_path.clone(),
+        module_name: context.module_name.map(str::to_string),
+        enclosing_function: context.function_name.map(str::to_string),
+        lexical_scope: context.lexical_scope.cloned(),
         diagnostic: invalid_case_diagnostic(name, span, name_class, occurrence),
     });
 }
