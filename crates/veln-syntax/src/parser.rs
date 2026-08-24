@@ -712,7 +712,7 @@ impl<'a> Parser<'a> {
         let name_span = self.source.span(start);
         let name = self.expect_ident("effect_operation", "operation name");
         self.expect(TokenKind::LParen, "effect_operation", vec!["("]);
-        let params = self.parse_params_in_context("effect_operation", true);
+        let params = self.parse_params_in_context("effect_operation", true, false);
         self.expect(TokenKind::RParen, "effect_operation", vec![")"]);
         let return_type = if self.eat(TokenKind::Arrow).is_some() {
             Some(self.collect_return_type_until(
@@ -768,7 +768,7 @@ impl<'a> Parser<'a> {
             .range;
         let name = self.expect_ident("handler_declaration", "handler name");
         self.expect(TokenKind::LParen, "handler_parameters", vec!["("]);
-        let params = self.parse_params_in_context("handler_parameters", true);
+        let params = self.parse_params_in_context("handler_parameters", true, true);
         self.expect(TokenKind::RParen, "handler_parameters", vec![")"]);
         self.expect(TokenKind::Handles, "handler_declaration", vec!["handles"]);
         let effect = self.parse_handler_effect();
@@ -1632,23 +1632,32 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_params(&mut self) -> Vec<Param> {
-        self.parse_params_in_context("function_parameters", false)
+        self.parse_params_in_context("function_parameters", false, true)
     }
 
     fn parse_params_in_context(
         &mut self,
         context: &'static str,
         require_types: bool,
+        recoverable_names: bool,
     ) -> Vec<Param> {
         let mut params = Vec::new();
         while !self.at(TokenKind::RParen) && !self.at(TokenKind::Eof) {
             let start = self.current().range;
-            let name_token = self.expect_recoverable_ident_token(context, "parameter name");
+            let name_token = if recoverable_names {
+                self.expect_recoverable_ident_token(context, "parameter name")
+            } else {
+                self.expect_ident_token(context, "parameter name")
+            };
             let name_span = name_token
                 .as_ref()
                 .map(|token| self.source.span(token.range))
                 .unwrap_or_else(|| self.source.span(start));
             let name = name_token.map(|token| token.text);
+            if name.is_none() && !recoverable_names && is_contextual_identifier(self.current().kind)
+            {
+                self.bump();
+            }
             let mut is_variadic = false;
             let mut ty_span = None;
             let ty = self.eat(TokenKind::Colon).map(|colon| {

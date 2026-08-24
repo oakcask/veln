@@ -50,8 +50,9 @@ with `phase = "name"`, `origin = "source"`, the source `occurrence`, the
 rejected `name`, `name_class`, `required_initial`, and `observed_initial`.
 The implemented `occurrence` values are `declaration` and `binding`. The
 implemented `name_class` values are `type`, `constructor`, `function`, and
-`value_binding`. The implemented initial-classification values are
-`ascii_uppercase`, `ascii_lowercase`, `underscore`, and `other`.
+`value_binding`. The implemented `required_initial` values are
+`ascii_uppercase` and `ascii_lowercase`. The implemented `observed_initial`
+values are `ascii_uppercase`, `ascii_lowercase`, `underscore`, and `other`.
 
 The checked examples
 `examples/specification/check/identifier-casing-recovery-json/` and

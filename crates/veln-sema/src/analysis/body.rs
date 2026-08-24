@@ -3868,6 +3868,7 @@ impl<'a> FunctionChecker<'a> {
         let argument_types = self
             .bindings
             .iter()
+            .filter(|binding| !is_quarantined_casing_binding(&binding.name))
             .map(|binding| binding.ty.render())
             .collect::<Vec<_>>()
             .join(", ");
@@ -4032,6 +4033,7 @@ impl<'a> FunctionChecker<'a> {
         let static_allowed_bindings = if allow_static_truth {
             self.bindings
                 .iter()
+                .filter(|binding| !is_quarantined_casing_binding(&binding.name))
                 .filter(|binding| {
                     let replaced = replace_identifier(&satisfy.predicate, candidate, &binding.name);
                     predicate_is_statically_true_with_literal_bounds(&replaced)
@@ -4073,6 +4075,7 @@ impl<'a> FunctionChecker<'a> {
         let require_allowed_bindings = self
             .bindings
             .iter()
+            .filter(|binding| !is_quarantined_casing_binding(&binding.name))
             .filter(|binding| {
                 let replaced = replace_identifier(&satisfy.predicate, candidate, &binding.name);
                 predicate_guaranteed_by_required_predicates(&replaced, &required_predicates)
@@ -4115,6 +4118,10 @@ impl<'a> FunctionChecker<'a> {
             ContractValidation::Valid
         )
     }
+}
+
+fn is_quarantined_casing_binding(name: &str) -> bool {
+    name.starts_with("__invalid_case_binding-")
 }
 
 fn collect_effect_row_substitution(

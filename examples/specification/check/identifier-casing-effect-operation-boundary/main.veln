@@ -1,0 +1,7 @@
+effect Audit
+  save(_Entry: Int) -> Int
+end
+
+pub fn main() -> Int
+  1
+end

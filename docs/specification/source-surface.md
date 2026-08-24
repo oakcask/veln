@@ -34,7 +34,9 @@ is not enough.
   source ADT, constructor, function, and value-binding casing contexts named
   by [names-effects.md](names-effects.md). Other declaration-name positions
   keep their parser diagnostics; `identifier-casing-schema-hole-boundary`
-  checks the schema declaration boundary, and
+  checks the schema declaration boundary,
+  `identifier-casing-effect-operation-boundary` checks the effect-operation
+  parameter boundary, and
   `identifier-casing-parse-recovery-independent` checks that standalone `_`
   keeps its structural parse behavior while independent covered names still
   report casing.

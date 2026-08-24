@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"parse.name_path\"", "path segment"]
+contains = ["\"id\":\"parse.expected_identifier\"", "expected parameter name", "\"parser_context\":\"effect_operation\""]
 not_contains = ["\"id\":\"name.invalid_case\""]
 
 [stderr]

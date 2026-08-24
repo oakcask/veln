@@ -33,8 +33,9 @@ binding name. Parser recovery accepts underscore-led written tokens such as
 names, public function and type alias names, function parameters without
 required type annotations, result bindings, and local pattern bindings so the
 name analysis can report `name.invalid_case` at the written span. Schema
-declaration names and other declaration-name contexts keep their parser
-diagnostics for standalone `_`.
+declaration names, effect-operation declaration parameters, qualified-use path
+segments, and other declaration-name contexts keep their parser diagnostics
+for standalone `_` or underscore-led recovery tokens.
 
 `format binary` dispatch payload cases accept lowercase exact-width `uint...`
 primitive spelling in the same positions as compatible upper-case exact-width

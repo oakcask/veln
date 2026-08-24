@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
-use veln_ast::{FunctionKind, SurfaceModule};
+use veln_ast::{Function, FunctionKind, SurfaceModule};
 use veln_diagnostics::Diagnostic;
 use veln_ir::TypedProgram;
 use veln_project::Project;
@@ -18,9 +18,9 @@ use veln_source::SourceSpan;
 use veln_test::{DoctestExpectation, doctest_sources, reconcile_expected_doctest_failures};
 
 use crate::surface::{
-    CapturedDependencyProject, CasingNameClass, CasingRecoveryRecord, ReachabilityCache,
-    ReachableHandler, load_embedded_standard_surface_module_for_names, load_surface_modules,
-    load_surface_modules_with_captured_dependencies,
+    CapturedDependencyProject, CasingNameClass, CasingRecoveryOwnerKind, CasingRecoveryRecord,
+    ReachabilityCache, ReachableHandler, load_embedded_standard_surface_module_for_names,
+    load_surface_modules, load_surface_modules_with_captured_dependencies,
     reachable_entry_surface_module_with_standard_cache,
 };
 
@@ -310,13 +310,27 @@ impl ProjectAnalysis {
         self.reconcile_doctest_failures(self.source_diagnostics.clone())
     }
 
-    pub fn invalid_entry_casing_diagnostics(&self, entry: &str) -> Vec<Diagnostic> {
+    pub fn invalid_entry_casing_diagnostics(
+        &self,
+        entry: &str,
+        entry_function: Option<&Function>,
+    ) -> Vec<Diagnostic> {
         self.casing_records
             .iter()
             .filter(|record| {
-                (record.name_class == CasingNameClass::Function && record.name == entry)
-                    || (record.name_class == CasingNameClass::ValueBinding
-                        && record.enclosing_function.as_deref() == Some(entry))
+                if let Some(entry_function) = entry_function {
+                    record.module_name == entry_function.module_name
+                        && ((record.name_class == CasingNameClass::Function
+                            && record.name == entry)
+                            || (record.name_class == CasingNameClass::ValueBinding
+                                && record.enclosing_function.as_deref() == Some(entry)
+                                && record.owner_kind == CasingRecoveryOwnerKind::Function))
+                } else {
+                    (record.name_class == CasingNameClass::Function && record.name == entry)
+                        || (record.name_class == CasingNameClass::ValueBinding
+                            && record.enclosing_function.as_deref() == Some(entry)
+                            && record.owner_kind == CasingRecoveryOwnerKind::Function)
+                }
             })
             .map(|record| record.diagnostic.clone())
             .collect()
@@ -522,7 +536,7 @@ fn function_signature_references_name(function: &veln_ast::Function, name: &str)
 
 fn type_text_references_name(ty: &str, name: &str) -> bool {
     ty.split(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '_' || ch == ':'))
-        .any(|part| part == name || part.rsplit_once("::").is_some_and(|(_, leaf)| leaf == name))
+        .any(|part| !part.contains("::") && part == name)
 }
 
 fn filter_recovery_derivative_diagnostics(

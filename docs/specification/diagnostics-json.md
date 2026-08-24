@@ -145,8 +145,9 @@ Source-written identifier casing diagnostics use `name.invalid_case` with
 `details.required_initial`, and `details.observed_initial`.
 `details.occurrence` is `declaration` or `binding`. `details.name_class` is
 `type`, `constructor`, `function`, or `value_binding`.
-`details.required_initial` and `details.observed_initial` use
-`ascii_uppercase`, `ascii_lowercase`, `underscore`, or `other`. JSON and human output are checked by
+`details.required_initial` is `ascii_uppercase` or `ascii_lowercase`.
+`details.observed_initial` is `ascii_uppercase`, `ascii_lowercase`,
+`underscore`, or `other`. JSON and human output are checked by
 `examples/specification/check/identifier-casing-recovery-json/`,
 `examples/specification/check/identifier-casing-recovery-human/`,
 `examples/specification/check/identifier-casing-constructor-recovery/`, and
@@ -155,7 +156,8 @@ Source-written identifier casing diagnostics use `name.invalid_case` with
 representative exact spans for type, constructor, function, and value-binding
 diagnostics. The
 `examples/specification/check/identifier-casing-binding-origins/` case checks
-covered value-binding origins and exact written-token spans. The
+covered value-binding origins, quarantine in `hole.unfilled` local-binding
+details, and exact written-token spans. The
 `examples/specification/check/identifier-casing-test-declaration/` case checks
 test declaration names as function-class source declarations.
 

@@ -69,6 +69,7 @@ fn hole_details(
 fn local_bindings(bindings: &[Binding]) -> Vec<JsonValue> {
     bindings
         .iter()
+        .filter(|binding| !binding.name.starts_with("__invalid_case_binding-"))
         .map(|binding| {
             JsonValue::object([
                 ("name", JsonValue::string(binding.name.clone())),

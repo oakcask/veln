@@ -12,10 +12,10 @@ specified by `../../specification/names-effects.md`,
 
 ## Outcome
 
-Implement the first reviewable casing foundation for source-written type,
-constructor, function, and value-binding declarations. Preserve the existing
-selection boundary of `check` and the existing selected-entry reachability
-boundary of `run`.
+The first reviewable casing foundation for source-written type, constructor,
+function, and value-binding declarations was implemented. The implementation
+preserved the existing selection boundary of `check` and the existing
+selected-entry reachability boundary of `run`.
 
 This proposal is the required first slice of
 [Identifier Casing](../../proposals/identifier-casing.md). A declaration-only validation slice
@@ -27,18 +27,23 @@ exclude invalid symbols from checked artifacts.
 
 ## Scope
 
-The source positions and `name.invalid_case` diagnostic contract are the type,
-constructor, function, and value-binding rows in
-[Identifier Casing](../../proposals/identifier-casing.md#remaining-naming-contract). Module identities,
-qualified-use casing, alias target leaves, rename, and source-less registries
-remain outside this slice.
+The completed source positions and `name.invalid_case` diagnostic contract are
+specified by the current name and diagnostics specification pages. Module
+identities, qualified-use casing, alias target leaves, rename, and source-less
+registries remained outside this slice.
 
-The function row includes function declarations, test declaration names, and
-public function alias declaration names. The type row includes source ADT type
-declarations and public type alias declaration names. This slice validates
-those declarations when `check` or `run` selects them. It does not add the
-dedicated `test` command selection evidence that the later boundary proposal
-requires.
+The completed function-class declaration contexts are function declarations,
+test declaration names, and public function alias declaration names. The
+completed type-class declaration contexts are source ADT type declarations and
+public type alias declaration names. The completed constructor context is
+source ADT constructor declarations. The completed value-binding contexts are
+function parameters, result bindings, local pattern bindings selected by
+pattern syntax, handler context parameters, handler operation-clause
+parameters, and hole `satisfy` candidate bindings. Effect-operation
+declaration parameters and qualified-use path segments were explicitly
+excluded from this slice. The slice validates the covered declarations when
+`check` or `run` selects them. It did not add the dedicated `test` command
+selection evidence that the later boundary proposal requires.
 
 An invalid declaration or binding is retained only as a quarantined recovery
 record. It does not enter normal lookup, checked core, typed intermediate
@@ -46,9 +51,9 @@ representation, package exports, or a backend. A compatible use may link to a
 unique recovery record only to suppress a derivative diagnostic. This slice
 does not expose recovery navigation or rename.
 
-Validation preserves parse recovery for underscore-led names and retains the
-complete written token span. A standalone `_` keeps its existing wildcard,
-discard, or structural-error behavior.
+Validation preserves parse recovery for underscore-led names in covered
+contexts and retains the complete written token span. A standalone `_` keeps
+its existing wildcard, discard, or structural-error behavior.
 
 ## Command Boundary
 

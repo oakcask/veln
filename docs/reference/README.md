@@ -23,8 +23,6 @@ behavior page needs rationale, source support, or toolchain reference material.
   [specification/diagnostics-json.md](../specification/diagnostics-json.md).
 - Machine-readable command output:
   [specification/json-output.md](../specification/json-output.md).
-- Repository CI, local action path-filter policy, and PR description sections:
-  [repository-ci.md](repository-ci.md).
 - CLI integration test harness:
   [toolchain-test-harness.md](toolchain-test-harness.md).
 - HTTP/2 public symbol migration and residual-name classification:
@@ -42,9 +40,6 @@ behavior page needs rationale, source support, or toolchain reference material.
   diagnostics, commands, JSON output, runtime behavior, or examples.
 - Use [toolchain-test-harness.md](toolchain-test-harness.md) before changing
   CLI integration case layout or assertion policy.
-- Use [repository-ci.md](repository-ci.md) before changing GitHub Actions
-  local action paths, workflow path-filter policy, or PR description template
-  requirements.
 - Use `implemented-proposals/` only for completed proposal history or
   completion evidence after checking current behavior.
 - Use `source-decisions/` after a language page needs rationale; start with

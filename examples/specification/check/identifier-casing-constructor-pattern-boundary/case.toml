@@ -1,0 +1,14 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"name.invalid_case\"", "\"name\":\"_Inner\"", "\"name_class\":\"value_binding\""]
+not_contains = ["\"name\":\"Some\"", "\"name\":\"None\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

@@ -78,6 +78,7 @@ pub(crate) struct CasingRecoveryRecord {
     pub(crate) name_class: CasingNameClass,
     pub(crate) dependent_constructor_names: Vec<String>,
     pub(crate) owner_type_name: Option<String>,
+    pub(crate) owner_kind: CasingRecoveryOwnerKind,
     pub(crate) source_path: SourcePath,
     pub(crate) module_name: Option<String>,
     pub(crate) enclosing_function: Option<String>,
@@ -85,6 +86,13 @@ pub(crate) struct CasingRecoveryRecord {
     pub(crate) occurrence: &'static str,
     declaration_kind: Option<&'static str>,
     pub(crate) diagnostic: Diagnostic,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CasingRecoveryOwnerKind {
+    None,
+    Function,
+    Handler,
 }
 
 pub(crate) struct ReachableSurfaceModule {
@@ -110,6 +118,7 @@ struct CasingRecoveryContext<'a> {
     source_path: &'a SourcePath,
     module_name: Option<&'a str>,
     function_name: Option<&'a str>,
+    owner_kind: CasingRecoveryOwnerKind,
     lexical_scope: Option<&'a SourceSpan>,
 }
 
@@ -543,6 +552,7 @@ fn source_identifier_casing_records(
                     source_path: &source_path,
                     module_name,
                     function_name: None,
+                    owner_kind: CasingRecoveryOwnerKind::None,
                     lexical_scope: None,
                 },
             );
@@ -572,6 +582,7 @@ fn source_identifier_casing_records(
                             source_path: &source_path,
                             module_name,
                             function_name: None,
+                            owner_kind: CasingRecoveryOwnerKind::None,
                             lexical_scope: None,
                         },
                     );
@@ -600,6 +611,7 @@ fn source_identifier_casing_records(
                                 source_path: &source_path,
                                 module_name,
                                 function_name: None,
+                                owner_kind: CasingRecoveryOwnerKind::None,
                                 lexical_scope: None,
                             },
                         );
@@ -626,6 +638,7 @@ fn source_identifier_casing_records(
                             source_path: &source_path,
                             module_name,
                             function_name: None,
+                            owner_kind: CasingRecoveryOwnerKind::None,
                             lexical_scope: None,
                         },
                     );
@@ -647,6 +660,7 @@ fn source_identifier_casing_records(
                             source_path: &source_path,
                             module_name,
                             function_name: function_name.as_deref(),
+                            owner_kind: CasingRecoveryOwnerKind::Function,
                             lexical_scope: Some(&scope),
                         },
                     );
@@ -663,6 +677,7 @@ fn source_identifier_casing_records(
                             source_path: &source_path,
                             module_name,
                             function_name: function_name.as_deref(),
+                            owner_kind: CasingRecoveryOwnerKind::Function,
                             lexical_scope: Some(&scope),
                         },
                     );
@@ -682,8 +697,9 @@ fn source_identifier_casing_records(
                                 module_name,
                                 &source_path,
                                 function_name.as_deref(),
+                                CasingRecoveryOwnerKind::Function,
                                 &scope,
-                                true,
+                                false,
                             );
                             collect_invalid_expr_bindings(
                                 &mut records,
@@ -691,6 +707,7 @@ fn source_identifier_casing_records(
                                 module_name,
                                 &source_path,
                                 function_name.as_deref(),
+                                CasingRecoveryOwnerKind::Function,
                                 &scope,
                             );
                         }
@@ -701,6 +718,7 @@ fn source_identifier_casing_records(
                                 module_name,
                                 &source_path,
                                 function_name.as_deref(),
+                                CasingRecoveryOwnerKind::Function,
                                 span,
                             );
                         }
@@ -721,6 +739,7 @@ fn source_identifier_casing_records(
                             source_path: &source_path,
                             module_name,
                             function_name: handler_name.as_deref(),
+                            owner_kind: CasingRecoveryOwnerKind::Handler,
                             lexical_scope: Some(&scope),
                         },
                     );
@@ -738,6 +757,7 @@ fn source_identifier_casing_records(
                                 source_path: &source_path,
                                 module_name,
                                 function_name: handler_name.as_deref(),
+                                owner_kind: CasingRecoveryOwnerKind::Handler,
                                 lexical_scope: Some(&scope),
                             },
                         );
@@ -748,6 +768,7 @@ fn source_identifier_casing_records(
                         module_name,
                         &source_path,
                         handler_name.as_deref(),
+                        CasingRecoveryOwnerKind::Handler,
                         &clause.span,
                     );
                 }
@@ -758,12 +779,14 @@ fn source_identifier_casing_records(
     records
 }
 
+#[allow(clippy::too_many_arguments)]
 fn collect_invalid_pattern_bindings(
     records: &mut Vec<CasingRecoveryRecord>,
     pattern: &veln_syntax::Pattern,
     module_name: Option<&str>,
     source_path: &SourcePath,
     function_name: Option<&str>,
+    owner_kind: CasingRecoveryOwnerKind,
     lexical_scope: &SourceSpan,
     simple_constructor_as_binding: bool,
 ) {
@@ -778,6 +801,7 @@ fn collect_invalid_pattern_bindings(
                 source_path,
                 module_name,
                 function_name,
+                owner_kind,
                 lexical_scope: Some(lexical_scope),
             },
         ),
@@ -794,6 +818,7 @@ fn collect_invalid_pattern_bindings(
                     source_path,
                     module_name,
                     function_name,
+                    owner_kind,
                     lexical_scope: Some(lexical_scope),
                 },
             );
@@ -806,6 +831,7 @@ fn collect_invalid_pattern_bindings(
                     module_name,
                     source_path,
                     function_name,
+                    owner_kind,
                     lexical_scope,
                     simple_constructor_as_binding,
                 );
@@ -819,6 +845,7 @@ fn collect_invalid_pattern_bindings(
                     module_name,
                     source_path,
                     function_name,
+                    owner_kind,
                     lexical_scope,
                     simple_constructor_as_binding,
                 );
@@ -840,6 +867,7 @@ fn collect_invalid_expr_bindings(
     module_name: Option<&str>,
     source_path: &SourcePath,
     function_name: Option<&str>,
+    owner_kind: CasingRecoveryOwnerKind,
     lexical_scope: &SourceSpan,
 ) {
     match &expr.kind {
@@ -861,6 +889,7 @@ fn collect_invalid_expr_bindings(
                         source_path,
                         module_name,
                         function_name,
+                        owner_kind,
                         lexical_scope: Some(&scope),
                     },
                 );
@@ -873,6 +902,7 @@ fn collect_invalid_expr_bindings(
                 module_name,
                 source_path,
                 function_name,
+                owner_kind,
                 lexical_scope,
             );
         }
@@ -883,6 +913,7 @@ fn collect_invalid_expr_bindings(
                 module_name,
                 source_path,
                 function_name,
+                owner_kind,
                 lexical_scope,
             );
             for arg in args {
@@ -892,6 +923,7 @@ fn collect_invalid_expr_bindings(
                     module_name,
                     source_path,
                     function_name,
+                    owner_kind,
                     lexical_scope,
                 );
             }
@@ -904,6 +936,7 @@ fn collect_invalid_expr_bindings(
                     module_name,
                     source_path,
                     function_name,
+                    owner_kind,
                     lexical_scope,
                 );
             }
@@ -915,6 +948,7 @@ fn collect_invalid_expr_bindings(
                 module_name,
                 source_path,
                 function_name,
+                owner_kind,
                 lexical_scope,
             );
             for arg in args {
@@ -924,6 +958,7 @@ fn collect_invalid_expr_bindings(
                     module_name,
                     source_path,
                     function_name,
+                    owner_kind,
                     lexical_scope,
                 );
             }
@@ -935,6 +970,7 @@ fn collect_invalid_expr_bindings(
                 module_name,
                 source_path,
                 function_name,
+                owner_kind,
                 lexical_scope,
             );
             collect_invalid_expr_bindings(
@@ -943,6 +979,7 @@ fn collect_invalid_expr_bindings(
                 module_name,
                 source_path,
                 function_name,
+                owner_kind,
                 lexical_scope,
             );
         }
@@ -953,6 +990,7 @@ fn collect_invalid_expr_bindings(
                 module_name,
                 source_path,
                 function_name,
+                owner_kind,
                 lexical_scope,
             );
         }
@@ -963,6 +1001,7 @@ fn collect_invalid_expr_bindings(
                 module_name,
                 source_path,
                 function_name,
+                owner_kind,
                 lexical_scope,
             );
         }
@@ -973,6 +1012,7 @@ fn collect_invalid_expr_bindings(
                 module_name,
                 source_path,
                 function_name,
+                owner_kind,
                 lexical_scope,
             );
         }
@@ -984,6 +1024,7 @@ fn collect_invalid_expr_bindings(
                     module_name,
                     source_path,
                     function_name,
+                    owner_kind,
                     lexical_scope,
                 );
             }
@@ -996,6 +1037,7 @@ fn collect_invalid_expr_bindings(
                     module_name,
                     source_path,
                     function_name,
+                    owner_kind,
                     lexical_scope,
                 );
                 collect_invalid_expr_bindings(
@@ -1004,6 +1046,7 @@ fn collect_invalid_expr_bindings(
                     module_name,
                     source_path,
                     function_name,
+                    owner_kind,
                     lexical_scope,
                 );
             }
@@ -1016,6 +1059,7 @@ fn collect_invalid_expr_bindings(
                     module_name,
                     source_path,
                     function_name,
+                    owner_kind,
                     lexical_scope,
                 );
             }
@@ -1027,6 +1071,7 @@ fn collect_invalid_expr_bindings(
                 module_name,
                 source_path,
                 function_name,
+                owner_kind,
                 lexical_scope,
             );
             for arm in arms {
@@ -1037,6 +1082,7 @@ fn collect_invalid_expr_bindings(
                     module_name,
                     source_path,
                     function_name,
+                    owner_kind,
                     &arm_scope,
                     false,
                 );
@@ -1046,6 +1092,7 @@ fn collect_invalid_expr_bindings(
                     module_name,
                     source_path,
                     function_name,
+                    owner_kind,
                     &arm_scope,
                 );
             }
@@ -1062,6 +1109,7 @@ fn collect_invalid_expr_bindings(
                 module_name,
                 source_path,
                 function_name,
+                owner_kind,
                 lexical_scope,
             );
             collect_invalid_expr_bindings(
@@ -1070,6 +1118,7 @@ fn collect_invalid_expr_bindings(
                 module_name,
                 source_path,
                 function_name,
+                owner_kind,
                 lexical_scope,
             );
             for branch in else_if_branches {
@@ -1079,6 +1128,7 @@ fn collect_invalid_expr_bindings(
                     module_name,
                     source_path,
                     function_name,
+                    owner_kind,
                     lexical_scope,
                 );
                 collect_invalid_expr_bindings(
@@ -1087,6 +1137,7 @@ fn collect_invalid_expr_bindings(
                     module_name,
                     source_path,
                     function_name,
+                    owner_kind,
                     lexical_scope,
                 );
             }
@@ -1096,6 +1147,7 @@ fn collect_invalid_expr_bindings(
                 module_name,
                 source_path,
                 function_name,
+                owner_kind,
                 lexical_scope,
             );
         }
@@ -1106,6 +1158,7 @@ fn collect_invalid_expr_bindings(
                 module_name,
                 source_path,
                 function_name,
+                owner_kind,
                 lexical_scope,
             );
         }
@@ -1116,6 +1169,7 @@ fn collect_invalid_expr_bindings(
                 module_name,
                 source_path,
                 function_name,
+                owner_kind,
                 lexical_scope,
             );
             collect_invalid_expr_bindings(
@@ -1124,6 +1178,7 @@ fn collect_invalid_expr_bindings(
                 module_name,
                 source_path,
                 function_name,
+                owner_kind,
                 lexical_scope,
             );
         }
@@ -1162,6 +1217,7 @@ fn push_invalid_casing_record(
         name_class,
         dependent_constructor_names: Vec::new(),
         owner_type_name: None,
+        owner_kind: context.owner_kind,
         source_path: context.source_path.clone(),
         module_name: context.module_name.map(str::to_string),
         enclosing_function: context.function_name.map(str::to_string),
@@ -1442,6 +1498,7 @@ fn quarantine_handler_bindings(
             &param.name,
             handler.module_name.as_deref(),
             handler.name.as_deref(),
+            CasingRecoveryOwnerKind::Handler,
         ) {
             param.name = quarantined_value_binding_name(param.node_id);
         }
@@ -1453,10 +1510,18 @@ fn quarantine_handler_bindings(
                 &param.name,
                 handler.module_name.as_deref(),
                 handler.name.as_deref(),
+                CasingRecoveryOwnerKind::Handler,
             ) {
                 param.name = quarantined_value_binding_name(param.node_id);
             }
         }
+        quarantine_expr_bindings(
+            &mut clause.body,
+            records,
+            handler.module_name.as_deref(),
+            handler.name.as_deref(),
+            CasingRecoveryOwnerKind::Handler,
+        );
     }
 }
 
@@ -1467,6 +1532,7 @@ fn quarantine_function_bindings(function: &mut Function, records: &[CasingRecove
             &param.name,
             function.module_name.as_deref(),
             function.name.as_deref(),
+            CasingRecoveryOwnerKind::Function,
         ) {
             param.name = quarantined_value_binding_name(param.node_id);
         }
@@ -1477,18 +1543,38 @@ fn quarantine_function_bindings(function: &mut Function, records: &[CasingRecove
             &binding.name,
             function.module_name.as_deref(),
             function.name.as_deref(),
+            CasingRecoveryOwnerKind::Function,
         )
     }) {
         function.return_binding = None;
     }
     for line in &mut function.body {
-        if let veln_ast::BodyLineKind::Let { pattern, .. } = &mut line.kind {
-            quarantine_pattern_bindings(
-                pattern,
-                records,
-                function.module_name.as_deref(),
-                function.name.as_deref(),
-            );
+        match &mut line.kind {
+            veln_ast::BodyLineKind::Let { pattern, expr, .. } => {
+                quarantine_pattern_bindings(
+                    pattern,
+                    records,
+                    function.module_name.as_deref(),
+                    function.name.as_deref(),
+                    CasingRecoveryOwnerKind::Function,
+                );
+                quarantine_expr_bindings(
+                    expr,
+                    records,
+                    function.module_name.as_deref(),
+                    function.name.as_deref(),
+                    CasingRecoveryOwnerKind::Function,
+                );
+            }
+            veln_ast::BodyLineKind::Expr { expr } => {
+                quarantine_expr_bindings(
+                    expr,
+                    records,
+                    function.module_name.as_deref(),
+                    function.name.as_deref(),
+                    CasingRecoveryOwnerKind::Function,
+                );
+            }
         }
     }
 }
@@ -1502,10 +1588,17 @@ fn quarantine_pattern_bindings(
     records: &[CasingRecoveryRecord],
     module_name: Option<&str>,
     function_name: Option<&str>,
+    owner_kind: CasingRecoveryOwnerKind,
 ) {
     match &mut pattern.kind {
         PatternKind::Binding(name)
-            if invalid_value_binding_record(records, name, module_name, function_name) =>
+            if invalid_value_binding_record(
+                records,
+                name,
+                module_name,
+                function_name,
+                owner_kind,
+            ) =>
         {
             pattern.kind = PatternKind::Wildcard;
         }
@@ -1516,15 +1609,170 @@ fn quarantine_pattern_bindings(
                     records,
                     module_name,
                     function_name,
+                    owner_kind,
                 );
             }
         }
         PatternKind::Constructor { args, .. } => {
             for arg in args {
-                quarantine_pattern_bindings(arg, records, module_name, function_name);
+                quarantine_pattern_bindings(arg, records, module_name, function_name, owner_kind);
             }
         }
         _ => {}
+    }
+}
+
+fn quarantine_expr_bindings(
+    expr: &mut Expr,
+    records: &[CasingRecoveryRecord],
+    module_name: Option<&str>,
+    function_name: Option<&str>,
+    owner_kind: CasingRecoveryOwnerKind,
+) {
+    match &mut expr.kind {
+        ExprKind::Hole {
+            satisfy: Some(satisfy),
+            ..
+        } => {
+            if satisfy.candidate.as_ref().is_some_and(|candidate| {
+                invalid_value_binding_record(
+                    records,
+                    candidate,
+                    module_name,
+                    function_name,
+                    owner_kind,
+                )
+            }) {
+                satisfy.candidate = None;
+            }
+        }
+        ExprKind::TypeApply { callee, .. } => {
+            quarantine_expr_bindings(callee, records, module_name, function_name, owner_kind);
+        }
+        ExprKind::Call { callee, args } => {
+            quarantine_expr_bindings(callee, records, module_name, function_name, owner_kind);
+            for arg in args {
+                quarantine_expr_bindings(arg, records, module_name, function_name, owner_kind);
+            }
+        }
+        ExprKind::Perform { args, .. } => {
+            for arg in args {
+                quarantine_expr_bindings(arg, records, module_name, function_name, owner_kind);
+            }
+        }
+        ExprKind::Handle { body, args, .. } => {
+            quarantine_expr_bindings(body, records, module_name, function_name, owner_kind);
+            for arg in args {
+                quarantine_expr_bindings(arg, records, module_name, function_name, owner_kind);
+            }
+        }
+        ExprKind::SchemaDecode { input, base, .. } => {
+            quarantine_expr_bindings(input, records, module_name, function_name, owner_kind);
+            quarantine_expr_bindings(base, records, module_name, function_name, owner_kind);
+        }
+        ExprKind::SchemaEncode { value, .. } => {
+            quarantine_expr_bindings(value, records, module_name, function_name, owner_kind);
+        }
+        ExprKind::FieldAccess { base, .. } => {
+            quarantine_expr_bindings(base, records, module_name, function_name, owner_kind);
+        }
+        ExprKind::Try(inner) => {
+            quarantine_expr_bindings(inner, records, module_name, function_name, owner_kind);
+        }
+        ExprKind::Record(fields) => {
+            for field in fields {
+                quarantine_expr_bindings(
+                    &mut field.expr,
+                    records,
+                    module_name,
+                    function_name,
+                    owner_kind,
+                );
+            }
+        }
+        ExprKind::Dict(entries) => {
+            for entry in entries {
+                quarantine_expr_bindings(
+                    &mut entry.key,
+                    records,
+                    module_name,
+                    function_name,
+                    owner_kind,
+                );
+                quarantine_expr_bindings(
+                    &mut entry.value,
+                    records,
+                    module_name,
+                    function_name,
+                    owner_kind,
+                );
+            }
+        }
+        ExprKind::List(items) => {
+            for item in items {
+                quarantine_expr_bindings(item, records, module_name, function_name, owner_kind);
+            }
+        }
+        ExprKind::Match { scrutinee, arms } => {
+            quarantine_expr_bindings(scrutinee, records, module_name, function_name, owner_kind);
+            for arm in arms {
+                quarantine_pattern_bindings(
+                    &mut arm.pattern,
+                    records,
+                    module_name,
+                    function_name,
+                    owner_kind,
+                );
+                quarantine_expr_bindings(
+                    &mut arm.expr,
+                    records,
+                    module_name,
+                    function_name,
+                    owner_kind,
+                );
+            }
+        }
+        ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            quarantine_expr_bindings(condition, records, module_name, function_name, owner_kind);
+            quarantine_expr_bindings(then_branch, records, module_name, function_name, owner_kind);
+            for branch in else_if_branches {
+                quarantine_expr_bindings(
+                    &mut branch.condition,
+                    records,
+                    module_name,
+                    function_name,
+                    owner_kind,
+                );
+                quarantine_expr_bindings(
+                    &mut branch.expr,
+                    records,
+                    module_name,
+                    function_name,
+                    owner_kind,
+                );
+            }
+            quarantine_expr_bindings(else_branch, records, module_name, function_name, owner_kind);
+        }
+        ExprKind::Prefix { expr, .. } => {
+            quarantine_expr_bindings(expr, records, module_name, function_name, owner_kind);
+        }
+        ExprKind::Binary { left, right, .. } => {
+            quarantine_expr_bindings(left, records, module_name, function_name, owner_kind);
+            quarantine_expr_bindings(right, records, module_name, function_name, owner_kind);
+        }
+        ExprKind::Missing
+        | ExprKind::Hole { .. }
+        | ExprKind::NamePath(_)
+        | ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
+        | ExprKind::Unit => {}
     }
 }
 
@@ -1533,12 +1781,14 @@ fn invalid_value_binding_record(
     name: &str,
     module_name: Option<&str>,
     function_name: Option<&str>,
+    owner_kind: CasingRecoveryOwnerKind,
 ) -> bool {
     records.iter().any(|record| {
         record.name == name
             && record.name_class == CasingNameClass::ValueBinding
             && record.module_name.as_deref() == module_name
             && record.enclosing_function.as_deref() == function_name
+            && record.owner_kind == owner_kind
     })
 }
 
@@ -6983,7 +7233,6 @@ mod tests {
                 ("_Destructured", 10, 15, 28),
                 ("_Let", 11, 7, 11),
                 ("BadCandidate", 11, 29, 41),
-                ("Value", 12, 7, 12),
                 ("_Arm", 14, 5, 9),
             ],
         );

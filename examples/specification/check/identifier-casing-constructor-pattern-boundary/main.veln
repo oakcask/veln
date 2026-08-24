@@ -1,0 +1,12 @@
+type MaybeInt
+  Some(Int)
+  None
+end
+
+pub fn main(input: MaybeInt) -> Int
+  let Some(value) = input
+  match input
+    Some(_Inner) => _Inner
+    None => 0
+  end
+end

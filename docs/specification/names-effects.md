@@ -37,8 +37,11 @@ compiler-known calls.
   `identifier-casing-value-recovery-scope` case covers lexical-scope-bounded
   value-binding recovery. The checked `identifier-casing-binding-origins` case
   covers the covered value-binding origins and their exact written-token
-  spans. The checked `identifier-casing-valid-wins` case covers normal lookup
-  winning over a compatible invalid recovery record.
+  spans and quarantine in `hole.unfilled` local-binding details. The checked
+  `identifier-casing-constructor-pattern-boundary` case covers local pattern
+  bindings selected by pattern syntax and preserves bare constructor patterns.
+  The checked `identifier-casing-valid-wins` case covers normal lookup winning
+  over a compatible invalid recovery record.
 - Namespaces, shadowing, duplicate checks, module ownership, external package
   imports, and manifest export checks:
   [names-effects-full.md](names-effects-full.md#name-resolution).
