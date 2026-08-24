@@ -58,13 +58,15 @@ pub(crate) fn check_source_identifier_casing(module: &SurfaceModule) -> Vec<Diag
         }
     }
     for function in &module.functions {
-        check_name(
-            &mut diagnostics,
-            function.name.as_deref(),
-            function.name_span.as_ref(),
-            NameClass::Function,
-            "declaration",
-        );
+        if function.kind == FunctionKind::Function {
+            check_name(
+                &mut diagnostics,
+                function.name.as_deref(),
+                function.name_span.as_ref(),
+                NameClass::Function,
+                "declaration",
+            );
+        }
         check_function_bindings(&mut diagnostics, function);
     }
     for alias in &module.aliases {

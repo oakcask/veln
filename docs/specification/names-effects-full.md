@@ -12,8 +12,8 @@ This file specifies implemented name resolution and effect checking.
 
 Source ADT type declarations, constructor declarations, and public type alias
 declaration names start with an ASCII uppercase letter. Function declarations,
-test declarations, public function alias declaration names, and value bindings
-start with an ASCII lowercase letter. Value bindings include function
+public function alias declaration names, and value bindings start with an ASCII
+lowercase letter. Value bindings include function
 parameters, result bindings, `let` bindings, pattern bindings, handler clause
 bindings, and hole `satisfy` candidate bindings. An underscore does not satisfy
 either class. The standalone `_` keeps its wildcard and discard behavior. An

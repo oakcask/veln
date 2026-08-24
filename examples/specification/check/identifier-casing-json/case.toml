@@ -4,7 +4,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"name.invalid_case\"", "\"name\":\"BrokenTest\""]
+contains = ["\"id\":\"name.invalid_case\""]
 not_contains = ["\"id\":\"name.unresolved\""]
 
 [stderr]
@@ -12,7 +12,7 @@ format = "empty"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 7
+equals = 6
 
 [[json_assert]]
 path = "diagnostics.0.id"

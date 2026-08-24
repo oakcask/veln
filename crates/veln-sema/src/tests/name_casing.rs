@@ -59,6 +59,25 @@ fn invalid_declarations_never_produce_checked_artifacts() {
 }
 
 #[test]
+fn test_declaration_names_are_not_part_of_source_identifier_casing() {
+    let parsed = parse(&SourceFile::new(
+        "main_test.veln",
+        "test BrokenTest() -> ()\n  ()\nend\n",
+    ));
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.invalid_case"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn invalid_public_alias_declaration_names_use_type_and_function_classes() {
     let parsed = parse(&SourceFile::new(
         "main.veln",
@@ -1108,10 +1127,12 @@ fn invalid_tests_do_not_recover_function_calls() {
 
     let diagnostics = analyze_surface_module(&module);
 
-    assert!(diagnostics.iter().any(|diagnostic| {
-        diagnostic.id == "name.invalid_case"
-            && diagnostic.message == "function name must start with an ASCII lowercase letter"
-    }));
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.invalid_case"),
+        "{diagnostics:#?}"
+    );
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic.id == "name.unresolved"
             && diagnostic.message == "unresolved call_target `Broken`"

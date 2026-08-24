@@ -5522,13 +5522,12 @@ field	expectations.stdout.contains[0]	"main.veln:1:6: error[name.invalid_case]: 
 field	expectations.stdout.contains[1]	"main.veln:6:3: error[name.invalid_case]: constructor name must start with an ASCII uppercase letter"
 field	expectations.stdout.contains[2]	"main.veln:9:4: error[name.invalid_case]: function name must start with an ASCII lowercase letter"
 field	expectations.stdout.contains[3]	"main.veln:9:10: error[name.invalid_case]: binding name must start with an ASCII lowercase letter"
-field	expectations.stdout.contains[4]	"main.veln:13:6: error[name.invalid_case]: function name must start with an ASCII lowercase letter"
 field	expectations.stdout.format	"text"
 field	invocation.command[0]	"check"
 field	invocation.command[1]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
-case_digest	"880b1d52d0c668e26b6a3c0519c6fdbcda25386b558f6e2be76eddc0b5cd44e4"
+case_digest	"4458eb5e52ff67dcb7a61384697b61d48f522da1650b141617d34699b3eb5d49"
 case	"examples/specification/check/identifier-casing-invalid-alias-duplicates"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	11
@@ -5596,7 +5595,7 @@ field	source_errors	"expected"
 case_digest	"43afd343201991c4eeccb9660e69afa845513ec765f2d6c3b6c83e94f1728236"
 case	"examples/specification/check/identifier-casing-json"
 field	expectations.exit	1
-field	expectations.json_assertions[0].equals	7
+field	expectations.json_assertions[0].equals	6
 field	expectations.json_assertions[0].operation	"equals"
 field	expectations.json_assertions[0].path	"summary.diagnostic_count"
 field	expectations.json_assertions[10].equals	"function name must start with an ASCII lowercase letter"
@@ -5649,7 +5648,6 @@ field	expectations.json_assertions[9].operation	"equals"
 field	expectations.json_assertions[9].path	"diagnostics.3.id"
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
-field	expectations.stdout.contains[1]	"\"name\":\"BrokenTest\""
 field	expectations.stdout.format	"json"
 field	expectations.stdout.not_contains[0]	"\"id\":\"name.unresolved\""
 field	invocation.command[0]	"check"
@@ -5657,7 +5655,50 @@ field	invocation.command[1]	"--json"
 field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
-case_digest	"6e39b9c068c0a72d99c525da90d514977f54472fa21bf3d28c874c761ba0a18d"
+case_digest	"160d4bb17a2945870d3378e83a741463eb6929fbef9d9c9b38eb8fb9867ae073"
+case	"examples/specification/check/identifier-casing-pattern-binding-recovery"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	2
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"summary.diagnostic_count"
+field	expectations.json_assertions[1].equals	"name.invalid_case"
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"diagnostics.0.id"
+field	expectations.json_assertions[2].equals	"binding name must start with an ASCII lowercase letter"
+field	expectations.json_assertions[2].operation	"equals"
+field	expectations.json_assertions[2].path	"diagnostics.0.message"
+field	expectations.json_assertions[3].equals	{"end":{"column":14,"line":7,"offset":93},"file":"main.veln","start":{"column":10,"line":7,"offset":89}}
+field	expectations.json_assertions[3].operation	"equals"
+field	expectations.json_assertions[3].path	"diagnostics.0.span"
+field	expectations.json_assertions[4].equals	{"name":"Head","name_class":"value_binding","observed_initial":"ascii_uppercase","occurrence":"binding","origin":"source","phase":"name","required_initial":"ascii_lowercase"}
+field	expectations.json_assertions[4].operation	"equals"
+field	expectations.json_assertions[4].path	"diagnostics.0.details"
+field	expectations.json_assertions[5].equals	"name.invalid_case"
+field	expectations.json_assertions[5].operation	"equals"
+field	expectations.json_assertions[5].path	"diagnostics.1.id"
+field	expectations.json_assertions[6].equals	"binding name must start with an ASCII lowercase letter"
+field	expectations.json_assertions[6].operation	"equals"
+field	expectations.json_assertions[6].path	"diagnostics.1.message"
+field	expectations.json_assertions[7].equals	{"end":{"column":17,"line":12,"offset":183},"file":"main.veln","start":{"column":12,"line":12,"offset":178}}
+field	expectations.json_assertions[7].operation	"equals"
+field	expectations.json_assertions[7].path	"diagnostics.1.span"
+field	expectations.json_assertions[8].equals	{"name":"First","name_class":"value_binding","observed_initial":"ascii_uppercase","occurrence":"binding","origin":"source","phase":"name","required_initial":"ascii_lowercase"}
+field	expectations.json_assertions[8].operation	"equals"
+field	expectations.json_assertions[8].path	"diagnostics.1.details"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
+field	expectations.stdout.contains[1]	"\"name\":\"Head\""
+field	expectations.stdout.contains[2]	"\"name\":\"First\""
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"\"id\":\"name.unresolved\""
+field	expectations.stdout.not_contains[1]	"unresolved value `Head`"
+field	expectations.stdout.not_contains[2]	"unresolved value `First`"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"236f25caaacbf0a8e2673aaf6e639d762792873d14cb16c1b5d2938da7d19976"
 case	"examples/specification/check/identifier-casing-public-alias-declarations"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	4
@@ -5773,19 +5814,6 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"5f0a5301fb8d66b32fbb351ec31eb47d059b713d8f144407b320912df28fc22f"
-case	"examples/specification/check/identifier-casing-test-recovery"
-field	expectations.exit	1
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
-field	expectations.stdout.contains[1]	"\"name\":\"Broken\""
-field	expectations.stdout.contains[2]	"unresolved call_target `Broken`"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"check"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main_test.veln"
-field	invocation.repeat	1
-field	source_errors	"expected"
-case_digest	"84d1a14150221a3684a66950b9f51a0c91ed4d2d77be205377997bfa88d7bbf8"
 case	"examples/specification/check/identifier-casing-type-alias-quarantine"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -48696,4 +48724,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"942c898f49bfc907cd8e224d5144de7d06131d9cfef65ffb337d3166105f08be"
+aggregate_digest	"129ab00f212ab8020445e97f59c0648898fc3fd9b23d91a0a249024188328aeb"

@@ -20,12 +20,12 @@ clauses are rejected by the parser.
 
 ## Name Diagnostics
 
-Invalid source type, constructor, function, test declaration, public type alias
-declaration, public function alias declaration, and value-binding names use
-`name.invalid_case`. Test declarations and public function alias declarations
-use the function name class. Public type alias declarations use the type name
-class. Public schema alias declaration names are casing-neutral. The primary
-span is the complete written token. Details contain `phase = "name"`,
+Invalid source type, constructor, function, public type alias declaration,
+public function alias declaration, and value-binding names use
+`name.invalid_case`. Public function alias declarations use the function name
+class. Public type alias declarations use the type name class. Public schema
+alias declaration names are casing-neutral. The primary span is the complete
+written token. Details contain `phase = "name"`,
 `origin = "source"`, `occurrence`, `name`, `name_class`, `required_initial`,
 and `observed_initial`. Executable JSON evidence includes the
 `identifier-casing-json`, `identifier-casing-public-alias-declarations`,

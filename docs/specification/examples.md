@@ -36,8 +36,6 @@ and binary schema payload wrong-kind checks in
 [`identifier-casing-schema-type-quarantine`](../../examples/specification/check/identifier-casing-schema-type-quarantine/case.toml).
 Split recovery candidate uniqueness is checked by
 [`identifier-casing-split-recovery-candidates`](../../examples/specification/check/identifier-casing-split-recovery-candidates/case.toml).
-Test declaration recovery compatibility is checked by
-[`identifier-casing-test-recovery`](../../examples/specification/check/identifier-casing-test-recovery/case.toml).
 The selected-entry command boundary is checked by
 [`identifier-casing-reachable`](../../examples/specification/run/identifier-casing-reachable/case.toml)
 and

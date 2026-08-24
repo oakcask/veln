@@ -1,7 +1,0 @@
-test Broken() -> ()
-  ()
-end
-
-test caller() -> ()
-  Broken()
-end

@@ -9,7 +9,3 @@ end
 fn Build(Value: Int) -> Int
   Value
 end
-
-test BrokenTest() -> ()
-  ()
-end
