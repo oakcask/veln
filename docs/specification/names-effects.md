@@ -28,6 +28,8 @@ compiler-known calls.
   including
   `identifier-casing-duplicate-quarantine`, `identifier-casing-quarantine`,
   `identifier-casing-value-recovery`,
+  `identifier-casing-handler-clause-binding`,
+  `identifier-casing-same-file-alias-valid-wins`,
   `identifier-casing-unused-handler-type-reference`,
   `identifier-casing-transitive-handler-binding`, and
   `identifier-casing-underscore-type-closure`, fix the observable boundary.

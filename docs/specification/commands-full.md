@@ -372,7 +372,8 @@ This reachability boundary includes `name.invalid_case`. An invalid covered
 declaration or binding reached from the selected entry blocks `run`, while an
 invalid peer outside the reachable closure does not. The checked
 `identifier-casing-reachable`, `identifier-casing-unreachable`,
-`identifier-casing-import-quarantine`, `identifier-casing-alias-quarantine`, and
+`identifier-casing-import-quarantine`, `identifier-casing-invalid-entry`,
+`identifier-casing-alias-quarantine`, and
 `identifier-casing-unused-type-alias-quarantine` run cases fix this boundary,
 including first-class function value reachability that excludes quarantined
 invalid function targets, unreachable type aliases, and aliases to quarantined
@@ -382,9 +383,16 @@ precedence and ADT payload closure in the same boundary. The
 `identifier-casing-imported-constructor-valid-wins` and
 `identifier-casing-handler-imported-constructor-valid-wins` cases check that
 visible constructor resolution is not replaced by quarantined same-spelled
-functions. The `unreachable-duplicate-constructor-diagnostic`,
-`unreachable-type-alias-diagnostic`, and `unreachable-handler-diagnostic` cases
-check that the run boundary does not hide non-casing diagnostics.
+functions. The `identifier-casing-qualified-same-leaf` and
+`identifier-casing-alias-transitive-target` cases check resolved same-leaf and
+transitive public-alias targets. The
+`identifier-casing-unused-handler-type-reference`,
+`identifier-casing-transitive-handler-binding`, and
+`identifier-casing-underscore-type-closure` cases check handler and
+underscore-led type reachability. The
+`unreachable-duplicate-constructor-diagnostic`,
+`unreachable-type-alias-diagnostic`, and `unreachable-handler-diagnostic`
+cases check that the run boundary does not hide non-casing diagnostics.
 
 `run` and `test` cache generated JVM classfile artifacts by backend content
 below the selected Veln user cache root. On Unix other than macOS, the default

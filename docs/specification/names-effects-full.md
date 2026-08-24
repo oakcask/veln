@@ -32,9 +32,10 @@ The checked `identifier-casing-*` cases under
 tests, fix accepted and rejected names, exact human and JSON diagnostics,
 checked-artifact exclusion, duplicate overlap, unique and ambiguous recovery,
 valid-candidate precedence, same-leaf alias mismatch preservation, the import
-and alias quarantine boundary, and selected-entry reachability over local
-bindings, ADT payloads, handler annotations, transitive handler bodies, and
-underscore-led recovered type names.
+and alias quarantine boundary, handler clause binding recovery, same-file valid
+declaration precedence over quarantined aliases, and selected-entry
+reachability over local bindings, ADT payloads, handler annotations,
+transitive handler bodies, and underscore-led recovered type names.
 
 Implemented checker namespaces are:
 
