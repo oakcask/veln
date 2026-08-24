@@ -145,7 +145,9 @@ Source-written identifier casing diagnostics use `name.invalid_case` with
 `examples/specification/check/identifier-casing-recovery-json/`,
 `examples/specification/check/identifier-casing-recovery-human/`,
 `examples/specification/check/identifier-casing-constructor-recovery/`, and
-`examples/specification/check/identifier-casing-underscore-aliases/`.
+`examples/specification/check/identifier-casing-underscore-aliases/`. The
+`examples/specification/check/identifier-casing-binding-origins/` case checks
+covered value-binding origins and exact written-token spans.
 
 ## Stable Details
 

@@ -332,6 +332,7 @@ impl Writer {
     fn param(&mut self, value: &Param) {
         self.node_id(value.node_id);
         self.string(&value.name);
+        self.span(&value.name_span);
         self.option(&value.ty, |writer, value| writer.string(value));
         self.option(&value.ty_span, Self::span);
         self.bool(value.is_variadic);
@@ -341,6 +342,7 @@ impl Writer {
     fn result_binding(&mut self, value: &ResultBinding) {
         self.node_id(value.node_id);
         self.string(&value.name);
+        self.span(&value.name_span);
         self.span(&value.span);
     }
 
@@ -1088,6 +1090,7 @@ impl<'a> Reader<'a> {
         Ok(Param {
             node_id: self.node_id()?,
             name: self.string()?,
+            name_span: self.span()?,
             ty: self.option(Self::string)?,
             ty_span: self.option(Self::span)?,
             is_variadic: self.bool()?,
@@ -1099,6 +1102,7 @@ impl<'a> Reader<'a> {
         Ok(ResultBinding {
             node_id: self.node_id()?,
             name: self.string()?,
+            name_span: self.span()?,
             span: self.span()?,
         })
     }

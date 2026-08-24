@@ -890,11 +890,16 @@ impl<'a> Parser<'a> {
         }
         loop {
             let start = self.current().range;
-            let name = self
-                .expect_ident("handler_operation_clause", "operation parameter")
-                .unwrap_or_default();
+            let name_token = self
+                .expect_recoverable_ident_token("handler_operation_clause", "operation parameter");
+            let name_span = name_token
+                .as_ref()
+                .map(|token| self.source.span(token.range))
+                .unwrap_or_else(|| self.source.span(start));
+            let name = name_token.map(|token| token.text).unwrap_or_default();
             params.push(Param {
                 name,
+                name_span,
                 ty: None,
                 ty_span: None,
                 is_variadic: false,
@@ -1529,9 +1534,11 @@ impl<'a> Parser<'a> {
                 && self.peek_at(TokenKind::Colon)
             {
                 let name = self.bump();
+                let name_span = self.source.span(name.range);
                 let colon = self.expect(TokenKind::Colon, return_context, vec![":"]);
                 Some(crate::ResultBinding {
                     name: name.text,
+                    name_span,
                     span: self.source.span(name.range.cover(colon.range)),
                 })
             } else {
@@ -1636,11 +1643,12 @@ impl<'a> Parser<'a> {
         let mut params = Vec::new();
         while !self.at(TokenKind::RParen) && !self.at(TokenKind::Eof) {
             let start = self.current().range;
-            let name = if require_types {
-                self.expect_ident(context, "parameter name")
-            } else {
-                self.expect_recoverable_ident(context, "parameter name")
-            };
+            let name_token = self.expect_recoverable_ident_token(context, "parameter name");
+            let name_span = name_token
+                .as_ref()
+                .map(|token| self.source.span(token.range))
+                .unwrap_or_else(|| self.source.span(start));
+            let name = name_token.map(|token| token.text);
             let mut is_variadic = false;
             let mut ty_span = None;
             let ty = self.eat(TokenKind::Colon).map(|colon| {
@@ -1678,6 +1686,7 @@ impl<'a> Parser<'a> {
             let end = self.previous().map_or(start, |token| token.range);
             params.push(Param {
                 name: name.unwrap_or_default(),
+                name_span,
                 ty,
                 ty_span,
                 is_variadic,
@@ -2131,15 +2140,6 @@ impl<'a> Parser<'a> {
 
     fn expect_ident(&mut self, context: &'static str, expected: &'static str) -> Option<String> {
         self.expect_ident_token(context, expected)
-            .map(|token| token.text)
-    }
-
-    fn expect_recoverable_ident(
-        &mut self,
-        context: &'static str,
-        expected: &'static str,
-    ) -> Option<String> {
-        self.expect_recoverable_ident_token(context, expected)
             .map(|token| token.text)
     }
 
@@ -3434,7 +3434,7 @@ impl<'a> ExprParser<'a> {
             return None;
         }
         let start = self.bump().range;
-        let (candidate, candidate_span) = if self.at(TokenKind::Ident) {
+        let (candidate, candidate_span) = if is_contextual_identifier(self.current().kind) {
             let token = self.bump();
             let span = self.source.span(token.range);
             (Some(token.text), Some(span))

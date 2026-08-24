@@ -1,0 +1,25 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"name.invalid_case\"", "\"name\":\"_Ctx\"", "\"name\":\"_Entry\"", "\"name\":\"Bad\"", "\"name\":\"ResultName\"", "\"name\":\"_Destructured\"", "\"name\":\"_Let\"", "\"name\":\"BadCandidate\"", "\"name\":\"_Arm\"", "\"name_class\":\"value_binding\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.details.name"
+equals = "_Ctx"
+
+[[json_assert]]
+path = "diagnostics.0.span.start.column"
+equals = 15
+
+[[json_assert]]
+path = "diagnostics.0.span.end.column"
+equals = 19

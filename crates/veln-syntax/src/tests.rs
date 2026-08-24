@@ -340,6 +340,68 @@ fn rejects_effect_operation_parameter_without_type() {
 }
 
 #[test]
+fn parameter_and_result_binding_name_spans_cover_only_written_names() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn exact(Bad: Int, _alsoBad: String) -> ResultName: Int\n",
+            "  1\n",
+            "end\n",
+            "\n",
+            "handler serve(Bad: Int) handles Audit\n",
+            "  save(_Entry) => _Entry\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    let SyntaxItem::Function(function) = &output.tree.items[0] else {
+        panic!("expected function declaration");
+    };
+    assert_eq!(
+        (
+            function.params[0].name_span.start.column,
+            function.params[0].name_span.end.column,
+        ),
+        (10, 13)
+    );
+    assert_eq!(
+        (
+            function.params[1].name_span.start.column,
+            function.params[1].name_span.end.column,
+        ),
+        (20, 28)
+    );
+    assert_eq!(
+        function
+            .return_binding
+            .as_ref()
+            .map(|binding| (binding.name_span.start.column, binding.name_span.end.column,)),
+        Some((41, 51))
+    );
+    let SyntaxItem::Handler(handler) = &output.tree.items[1] else {
+        panic!("expected handler declaration");
+    };
+    assert_eq!(
+        (
+            handler.params[0].name_span.start.column,
+            handler.params[0].name_span.end.column,
+        ),
+        (15, 18)
+    );
+    assert_eq!(
+        (
+            handler.operation_clauses[0].params[0]
+                .name_span
+                .start
+                .column,
+            handler.operation_clauses[0].params[0].name_span.end.column,
+        ),
+        (8, 14)
+    );
+}
+
+#[test]
 fn rejects_effect_declaration_without_operations() {
     let source = SourceFile::new("main.veln", concat!("effect Audit\n", "end\n"));
 

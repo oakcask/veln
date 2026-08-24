@@ -1,0 +1,30 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+source_errors = "expected"
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"parse.expected_item\"", "\"id\":\"name.invalid_case\"", "\"name\":\"Bad\"", "function name must start with an ASCII lowercase letter"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.1.span.start.line"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.1.span.start.column"
+equals = 4
+
+[[json_assert]]
+path = "diagnostics.1.span.end.column"
+equals = 7

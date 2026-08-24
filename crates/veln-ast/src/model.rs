@@ -284,6 +284,7 @@ pub enum Visibility {
 pub struct Param {
     pub node_id: NodeId,
     pub name: String,
+    pub name_span: SourceSpan,
     pub ty: Option<String>,
     pub ty_span: Option<SourceSpan>,
     pub is_variadic: bool,
@@ -294,6 +295,7 @@ pub struct Param {
 pub struct ResultBinding {
     pub node_id: NodeId,
     pub name: String,
+    pub name_span: SourceSpan,
     pub span: SourceSpan,
 }
 

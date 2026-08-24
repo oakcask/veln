@@ -325,6 +325,15 @@ fn load_project_sources(
         let parsed = parse(source);
         diagnostics.extend(parsed.diagnostics.iter().map(parse_diagnostic_to_envelope));
         if !parsed.diagnostics.is_empty() {
+            let derived_module = derive_source_module_path(source).ok();
+            let internal_module = derived_module
+                .as_ref()
+                .map(|module| internal_module_name(package, module));
+            casing_records.extend(source_identifier_casing_records(
+                &parsed.tree,
+                source.path().clone(),
+                internal_module.as_deref(),
+            ));
             continue;
         }
         process_parsed_source(
@@ -574,11 +583,11 @@ fn source_identifier_casing_records(
                     );
                 }
                 for param in &function.params {
-                    let scope = span_from_end_to_end(&param.span, &function.span);
+                    let scope = span_from_end_to_end(&param.name_span, &function.span);
                     push_invalid_casing_record(
                         &mut records,
                         &param.name,
-                        &param.span,
+                        &param.name_span,
                         CasingNameClass::ValueBinding,
                         "binding",
                         CasingRecoveryContext {
@@ -590,11 +599,11 @@ fn source_identifier_casing_records(
                     );
                 }
                 if let Some(binding) = &function.return_binding {
-                    let scope = span_from_end_to_end(&binding.span, &function.span);
+                    let scope = span_from_end_to_end(&binding.name_span, &function.span);
                     push_invalid_casing_record(
                         &mut records,
                         &binding.name,
-                        &binding.span,
+                        &binding.name_span,
                         CasingNameClass::ValueBinding,
                         "binding",
                         CasingRecoveryContext {
@@ -606,17 +615,87 @@ fn source_identifier_casing_records(
                     );
                 }
                 for line in &function.body {
-                    if let veln_syntax::BodyLine::Let { pattern, span, .. } = line {
-                        let scope = span_from_end_to_end(span, &function.span);
-                        collect_invalid_pattern_bindings(
-                            &mut records,
+                    match line {
+                        veln_syntax::BodyLine::Let {
                             pattern,
+                            expr,
+                            span,
+                            ..
+                        } => {
+                            let scope = span_from_end_to_end(span, &function.span);
+                            collect_invalid_pattern_bindings(
+                                &mut records,
+                                pattern,
+                                module_name,
+                                &source_path,
+                                function_name.as_deref(),
+                                &scope,
+                            );
+                            collect_invalid_expr_bindings(
+                                &mut records,
+                                expr,
+                                module_name,
+                                &source_path,
+                                function_name.as_deref(),
+                                &scope,
+                            );
+                        }
+                        veln_syntax::BodyLine::Expr { expr, span } => {
+                            collect_invalid_expr_bindings(
+                                &mut records,
+                                expr,
+                                module_name,
+                                &source_path,
+                                function_name.as_deref(),
+                                span,
+                            );
+                        }
+                    }
+                }
+            }
+            veln_syntax::SyntaxItem::Handler(handler) => {
+                let handler_name = handler.name.clone();
+                for param in &handler.params {
+                    let scope = span_from_end_to_end(&param.name_span, &handler.span);
+                    push_invalid_casing_record(
+                        &mut records,
+                        &param.name,
+                        &param.name_span,
+                        CasingNameClass::ValueBinding,
+                        "binding",
+                        CasingRecoveryContext {
+                            source_path: &source_path,
                             module_name,
-                            &source_path,
-                            function_name.as_deref(),
-                            &scope,
+                            function_name: handler_name.as_deref(),
+                            lexical_scope: Some(&scope),
+                        },
+                    );
+                }
+                for clause in &handler.operation_clauses {
+                    for param in &clause.params {
+                        let scope = span_from_end_to_end(&param.name_span, &clause.span);
+                        push_invalid_casing_record(
+                            &mut records,
+                            &param.name,
+                            &param.name_span,
+                            CasingNameClass::ValueBinding,
+                            "binding",
+                            CasingRecoveryContext {
+                                source_path: &source_path,
+                                module_name,
+                                function_name: handler_name.as_deref(),
+                                lexical_scope: Some(&scope),
+                            },
                         );
                     }
+                    collect_invalid_expr_bindings(
+                        &mut records,
+                        &clause.body,
+                        module_name,
+                        &source_path,
+                        handler_name.as_deref(),
+                        &clause.span,
+                    );
                 }
             }
             _ => {}
@@ -677,6 +756,310 @@ fn collect_invalid_pattern_bindings(
         | veln_syntax::PatternKind::FloatLiteral(_)
         | veln_syntax::PatternKind::BoolLiteral(_)
         | veln_syntax::PatternKind::Unit => {}
+    }
+}
+
+#[allow(clippy::only_used_in_recursion)]
+fn collect_invalid_expr_bindings(
+    records: &mut Vec<CasingRecoveryRecord>,
+    expr: &veln_syntax::Expr,
+    module_name: Option<&str>,
+    source_path: &SourcePath,
+    function_name: Option<&str>,
+    lexical_scope: &SourceSpan,
+) {
+    match &expr.kind {
+        veln_syntax::ExprKind::Hole {
+            satisfy: Some(satisfy),
+            ..
+        } => {
+            if let (Some(candidate), Some(candidate_span)) =
+                (&satisfy.candidate, &satisfy.candidate_span)
+            {
+                let scope = span_from_end_to_end(candidate_span, &satisfy.span);
+                push_invalid_casing_record(
+                    records,
+                    candidate,
+                    candidate_span,
+                    CasingNameClass::ValueBinding,
+                    "binding",
+                    CasingRecoveryContext {
+                        source_path,
+                        module_name,
+                        function_name,
+                        lexical_scope: Some(&scope),
+                    },
+                );
+            }
+        }
+        veln_syntax::ExprKind::TypeApply { callee, .. } => {
+            collect_invalid_expr_bindings(
+                records,
+                callee,
+                module_name,
+                source_path,
+                function_name,
+                lexical_scope,
+            );
+        }
+        veln_syntax::ExprKind::Call { callee, args } => {
+            collect_invalid_expr_bindings(
+                records,
+                callee,
+                module_name,
+                source_path,
+                function_name,
+                lexical_scope,
+            );
+            for arg in args {
+                collect_invalid_expr_bindings(
+                    records,
+                    arg,
+                    module_name,
+                    source_path,
+                    function_name,
+                    lexical_scope,
+                );
+            }
+        }
+        veln_syntax::ExprKind::Perform { args, .. } => {
+            for arg in args {
+                collect_invalid_expr_bindings(
+                    records,
+                    arg,
+                    module_name,
+                    source_path,
+                    function_name,
+                    lexical_scope,
+                );
+            }
+        }
+        veln_syntax::ExprKind::Handle { body, args, .. } => {
+            collect_invalid_expr_bindings(
+                records,
+                body,
+                module_name,
+                source_path,
+                function_name,
+                lexical_scope,
+            );
+            for arg in args {
+                collect_invalid_expr_bindings(
+                    records,
+                    arg,
+                    module_name,
+                    source_path,
+                    function_name,
+                    lexical_scope,
+                );
+            }
+        }
+        veln_syntax::ExprKind::SchemaDecode { input, base, .. } => {
+            collect_invalid_expr_bindings(
+                records,
+                input,
+                module_name,
+                source_path,
+                function_name,
+                lexical_scope,
+            );
+            collect_invalid_expr_bindings(
+                records,
+                base,
+                module_name,
+                source_path,
+                function_name,
+                lexical_scope,
+            );
+        }
+        veln_syntax::ExprKind::SchemaEncode { value, .. } => {
+            collect_invalid_expr_bindings(
+                records,
+                value,
+                module_name,
+                source_path,
+                function_name,
+                lexical_scope,
+            );
+        }
+        veln_syntax::ExprKind::FieldAccess { base, .. } => {
+            collect_invalid_expr_bindings(
+                records,
+                base,
+                module_name,
+                source_path,
+                function_name,
+                lexical_scope,
+            );
+        }
+        veln_syntax::ExprKind::Try(inner) => {
+            collect_invalid_expr_bindings(
+                records,
+                inner,
+                module_name,
+                source_path,
+                function_name,
+                lexical_scope,
+            );
+        }
+        veln_syntax::ExprKind::Record(fields) => {
+            for field in fields {
+                collect_invalid_expr_bindings(
+                    records,
+                    &field.expr,
+                    module_name,
+                    source_path,
+                    function_name,
+                    lexical_scope,
+                );
+            }
+        }
+        veln_syntax::ExprKind::Dict(entries) => {
+            for entry in entries {
+                collect_invalid_expr_bindings(
+                    records,
+                    &entry.key,
+                    module_name,
+                    source_path,
+                    function_name,
+                    lexical_scope,
+                );
+                collect_invalid_expr_bindings(
+                    records,
+                    &entry.value,
+                    module_name,
+                    source_path,
+                    function_name,
+                    lexical_scope,
+                );
+            }
+        }
+        veln_syntax::ExprKind::List(items) => {
+            for item in items {
+                collect_invalid_expr_bindings(
+                    records,
+                    item,
+                    module_name,
+                    source_path,
+                    function_name,
+                    lexical_scope,
+                );
+            }
+        }
+        veln_syntax::ExprKind::Match { scrutinee, arms } => {
+            collect_invalid_expr_bindings(
+                records,
+                scrutinee,
+                module_name,
+                source_path,
+                function_name,
+                lexical_scope,
+            );
+            for arm in arms {
+                let arm_scope = span_from_end_to_end(&arm.pattern.span, &arm.span);
+                collect_invalid_pattern_bindings(
+                    records,
+                    &arm.pattern,
+                    module_name,
+                    source_path,
+                    function_name,
+                    &arm_scope,
+                );
+                collect_invalid_expr_bindings(
+                    records,
+                    &arm.expr,
+                    module_name,
+                    source_path,
+                    function_name,
+                    &arm_scope,
+                );
+            }
+        }
+        veln_syntax::ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            collect_invalid_expr_bindings(
+                records,
+                condition,
+                module_name,
+                source_path,
+                function_name,
+                lexical_scope,
+            );
+            collect_invalid_expr_bindings(
+                records,
+                then_branch,
+                module_name,
+                source_path,
+                function_name,
+                lexical_scope,
+            );
+            for branch in else_if_branches {
+                collect_invalid_expr_bindings(
+                    records,
+                    &branch.condition,
+                    module_name,
+                    source_path,
+                    function_name,
+                    lexical_scope,
+                );
+                collect_invalid_expr_bindings(
+                    records,
+                    &branch.expr,
+                    module_name,
+                    source_path,
+                    function_name,
+                    lexical_scope,
+                );
+            }
+            collect_invalid_expr_bindings(
+                records,
+                else_branch,
+                module_name,
+                source_path,
+                function_name,
+                lexical_scope,
+            );
+        }
+        veln_syntax::ExprKind::Prefix { expr, .. } => {
+            collect_invalid_expr_bindings(
+                records,
+                expr,
+                module_name,
+                source_path,
+                function_name,
+                lexical_scope,
+            );
+        }
+        veln_syntax::ExprKind::Binary { left, right, .. } => {
+            collect_invalid_expr_bindings(
+                records,
+                left,
+                module_name,
+                source_path,
+                function_name,
+                lexical_scope,
+            );
+            collect_invalid_expr_bindings(
+                records,
+                right,
+                module_name,
+                source_path,
+                function_name,
+                lexical_scope,
+            );
+        }
+        veln_syntax::ExprKind::Missing
+        | veln_syntax::ExprKind::Hole { .. }
+        | veln_syntax::ExprKind::NamePath(_)
+        | veln_syntax::ExprKind::StringLiteral(_)
+        | veln_syntax::ExprKind::IntLiteral(_)
+        | veln_syntax::ExprKind::FloatLiteral(_)
+        | veln_syntax::ExprKind::BoolLiteral(_)
+        | veln_syntax::ExprKind::Unit => {}
     }
 }
 
@@ -815,6 +1198,9 @@ fn quarantine_invalid_casing(module: &mut SurfaceModule, records: &[CasingRecove
     for function in &mut module.functions {
         quarantine_function_bindings(function, records);
     }
+    for handler in &mut module.handlers {
+        quarantine_handler_bindings(handler, records);
+    }
     module.types.retain_mut(|type_decl| {
         if type_decl.name.as_ref().is_some_and(|name| {
             records.iter().any(|record| {
@@ -836,6 +1222,34 @@ fn quarantine_invalid_casing(module: &mut SurfaceModule, records: &[CasingRecove
         });
         true
     });
+}
+
+fn quarantine_handler_bindings(
+    handler: &mut veln_ast::HandlerDecl,
+    records: &[CasingRecoveryRecord],
+) {
+    for param in &mut handler.params {
+        if invalid_value_binding_record(
+            records,
+            &param.name,
+            handler.module_name.as_deref(),
+            handler.name.as_deref(),
+        ) {
+            param.name = quarantined_value_binding_name(param.node_id);
+        }
+    }
+    for clause in &mut handler.operation_clauses {
+        for param in &mut clause.params {
+            if invalid_value_binding_record(
+                records,
+                &param.name,
+                handler.module_name.as_deref(),
+                handler.name.as_deref(),
+            ) {
+                param.name = quarantined_value_binding_name(param.node_id);
+            }
+        }
+    }
 }
 
 fn quarantine_function_bindings(function: &mut Function, records: &[CasingRecoveryRecord]) {
@@ -3582,6 +3996,8 @@ mod tests {
     use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan};
     use veln_syntax::parse;
 
+    use crate::analysis::{DoctestMode, checked_project_diagnostics};
+
     use super::{
         Diagnostic, EmbeddedStandardModuleEntry, EmbeddedStandardPackage, ReachabilityCache,
         SurfaceParts, embedded_standard_counters, load_embedded_standard_package_from,
@@ -6241,6 +6657,100 @@ mod tests {
                     )
                 })
         }));
+    }
+
+    #[test]
+    fn source_identifier_casing_reports_value_binding_origins_at_name_spans() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "effect Audit\n",
+                "  save(entry: Int) -> Int\n",
+                "end\n",
+                "\n",
+                "handler serve(_Ctx: Int) handles Audit\n",
+                "  save(_Entry) => _Entry\n",
+                "end\n",
+                "\n",
+                "fn main(Bad: Int) -> ResultName: Int\n",
+                "  let {field: _Destructured} = {field: 1}\n",
+                "  let _Let = _value satisfy BadCandidate => BadCandidate > 0\n",
+                "  match Bad\n",
+                "    _Arm => _Arm\n",
+                "  end\n",
+                "end\n",
+            ),
+        );
+        let parsed = parse(&source);
+        assert!(
+            parsed.diagnostics.is_empty(),
+            "unexpected parse diagnostics: {:#?}",
+            parsed.diagnostics
+        );
+        let records = super::source_identifier_casing_records(
+            &parsed.tree,
+            source.path().clone(),
+            Some("main"),
+        );
+        assert!(
+            records.iter().any(|record| record.name == "_Ctx"),
+            "missing direct casing record: {records:#?}"
+        );
+        let project = Project {
+            root: ".".into(),
+            files: vec![source],
+            manifest: None,
+        };
+
+        let diagnostics = checked_project_diagnostics(project, DoctestMode::Exclude);
+        let casing = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+            .collect::<Vec<_>>();
+
+        for (name, line, start_column, end_column) in [
+            ("_Ctx", 5, 15, 19),
+            ("_Entry", 6, 8, 14),
+            ("Bad", 9, 9, 12),
+            ("ResultName", 9, 22, 32),
+            ("_Destructured", 10, 15, 28),
+            ("_Let", 11, 7, 11),
+            ("BadCandidate", 11, 29, 41),
+            ("_Arm", 13, 5, 9),
+        ] {
+            let diagnostic = casing
+                .iter()
+                .find(|diagnostic| diagnostic_detail_string(diagnostic, "name") == Some(name))
+                .unwrap_or_else(|| {
+                    panic!("missing casing diagnostic for {name}: {diagnostics:#?}")
+                });
+            let span = diagnostic.span.as_ref().unwrap();
+            assert_eq!(
+                (span.start.line, span.start.column, span.end.column),
+                (line, start_column, end_column),
+                "{name}"
+            );
+            assert_eq!(
+                diagnostic_detail_string(diagnostic, "name_class"),
+                Some("value_binding"),
+                "{name}"
+            );
+        }
+    }
+
+    fn diagnostic_detail_string<'a>(diagnostic: &'a Diagnostic, key: &str) -> Option<&'a str> {
+        let veln_diagnostics::JsonValue::Object(entries) = &diagnostic.details else {
+            return None;
+        };
+        entries.iter().find_map(|(entry_key, value)| {
+            if entry_key == key
+                && let veln_diagnostics::JsonValue::String(value) = value
+            {
+                Some(value.as_str())
+            } else {
+                None
+            }
+        })
     }
 
     #[test]

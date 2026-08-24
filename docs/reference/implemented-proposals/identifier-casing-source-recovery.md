@@ -55,15 +55,15 @@ discard, or structural-error behavior.
 The casing diagnostic follows each consumer's existing selected unit. It does
 not become a project-wide or source-wide loading gate.
 
-| Consumer state | Required result | Planned evidence |
+| Consumer state | Required result | Completed evidence |
 | --- | --- | --- |
-| `check` selects a source with an invalid covered name. | Report every selected casing diagnostic and produce no successful checked artifact. | Human and JSON checked cases with exact spans and details. |
+| `check` selects a source with an invalid covered name. | Report every selected casing diagnostic and produce no successful checked artifact. | Human and JSON checked cases with exact spans and details, including `identifier-casing-binding-origins` and `identifier-casing-parse-recovery-independent`. |
 | `run` reaches an invalid declaration or binding from the selected entry. | Report the casing diagnostic and produce no executable artifact. | `identifier-casing-reachable-invalid`, `identifier-casing-entry-binding`, and `identifier-casing-signature-reachable`. |
 | `run` does not reach an invalid declaration from the selected entry. | Run the valid reachable closure and omit the unreachable casing diagnostic. | `identifier-casing-unreachable-peer`. |
 
 ## Recovery Boundary
 
-| Source state | Required result | Planned evidence |
+| Source state | Required result | Completed evidence |
 | --- | --- | --- |
 | One compatible invalid declaration is referenced. | Keep one `name.invalid_case`; suppress only failures caused by absence of that declaration; emit no normal symbol or artifact for it. | Focused semantic and checked-artifact cases. |
 | A valid declaration and an invalid recovery record share a spelling. | The valid declaration wins normal lookup. | Lookup decision-table test. |
@@ -83,10 +83,10 @@ depends on this foundation and is not part of this slice's completion rule.
 
 ## Completion
 
-This slice is complete when all covered declaration and binding names have
-exact human and JSON diagnostics, underscore recovery has no missing-name
-cascade, accepted names retain their behavior, invalid symbols cannot enter a
-checked artifact, and every row in the `check`/`run` command table and the
+This slice is complete. Covered declaration and binding names have exact human
+and JSON diagnostics, underscore recovery has no missing-name cascade,
+accepted names retain their behavior, invalid symbols cannot enter a checked
+artifact, and every row in the `check`/`run` command table and the
 same-source/import/public-alias recovery table above has executable evidence.
 The checked `identifier-casing-underscore-aliases` and
 `identifier-casing-value-recovery-scope` cases fix the public-alias recovery

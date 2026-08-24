@@ -289,6 +289,7 @@ impl AstBuilder {
                 .map(|param| Param {
                     node_id: self.alloc(),
                     name: param.name.clone(),
+                    name_span: param.name_span.clone(),
                     ty: param.ty.clone(),
                     ty_span: param.ty_span.clone(),
                     is_variadic: param.is_variadic,
@@ -319,6 +320,7 @@ impl AstBuilder {
                 .map(|param| Param {
                     node_id: self.alloc(),
                     name: param.name.clone(),
+                    name_span: param.name_span.clone(),
                     ty: param.ty.clone(),
                     ty_span: param.ty_span.clone(),
                     is_variadic: param.is_variadic,
@@ -352,6 +354,7 @@ impl AstBuilder {
                 .map(|param| Param {
                     node_id: self.alloc(),
                     name: param.name.clone(),
+                    name_span: param.name_span.clone(),
                     ty: None,
                     ty_span: None,
                     is_variadic: false,
@@ -482,6 +485,7 @@ impl AstBuilder {
                 .map(|param| Param {
                     node_id: self.alloc(),
                     name: param.name.clone(),
+                    name_span: param.name_span.clone(),
                     ty: param.ty.clone(),
                     ty_span: param.ty_span.clone(),
                     is_variadic: param.is_variadic,
@@ -494,6 +498,7 @@ impl AstBuilder {
                 .map(|binding| ResultBinding {
                     node_id: self.alloc(),
                     name: binding.name.clone(),
+                    name_span: binding.name_span.clone(),
                     span: binding.span.clone(),
                 }),
             return_type: function.return_type.clone(),

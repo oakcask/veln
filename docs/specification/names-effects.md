@@ -15,8 +15,10 @@ compiler-known calls.
   ASCII uppercase letter. Source ADT constructors must start with an ASCII
   uppercase letter. Function declarations, test declarations, and public
   function aliases must start with an ASCII lowercase letter. Function
-  parameters, result bindings, and local pattern bindings must start with an
-  ASCII lowercase letter. Violations report `name.invalid_case` at the written
+  parameters, result bindings, local pattern bindings, handler context
+  parameters, handler operation-clause parameters, and hole `satisfy`
+  candidate bindings must start with an ASCII lowercase letter. Violations
+  report `name.invalid_case` at the written
   token span with `details.phase: "name"` and `details.origin: "source"`.
   Invalid source declarations and invalid bindings are quarantined and do not
   enter normal lookup, checked core, typed IR, exports, or backend input. The
@@ -27,8 +29,10 @@ compiler-known calls.
   `identifier-casing-underscore-aliases` case covers underscore-led public
   function and type alias declaration recovery. The checked
   `identifier-casing-value-recovery-scope` case covers lexical-scope-bounded
-  value-binding recovery. The checked `identifier-casing-valid-wins` case
-  covers normal lookup winning over a compatible invalid recovery record.
+  value-binding recovery. The checked `identifier-casing-binding-origins` case
+  covers the covered value-binding origins and their exact written-token
+  spans. The checked `identifier-casing-valid-wins` case covers normal lookup
+  winning over a compatible invalid recovery record.
 - Namespaces, shadowing, duplicate checks, module ownership, external package
   imports, and manifest export checks:
   [names-effects-full.md](names-effects-full.md#name-resolution).
