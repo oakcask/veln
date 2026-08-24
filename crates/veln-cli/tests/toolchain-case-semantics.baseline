@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"15739f2acc00a4e2a7f594f346e28c7ee804f8b9"
+source_git_tree	"3d9a8e6625211a7bc84e98fa7aae8266cdc6739c"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1561
+case_count	1563
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -37981,6 +37981,17 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"8c98ea54a0ab83b25e7dcc72838a368d5aef174441a204ab50d7976cde669b51"
+case	"examples/specification/run/identifier-casing-adt-payload-alias"
+field	expectations.exit	1
+field	expectations.stderr.contains[0]	"main.veln:5:10: error[name.invalid_case]: type name must start with an ASCII uppercase letter"
+field	expectations.stderr.not_contains[0]	"name.unresolved"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"8228e5e193765dacb0e217799ed97311c7cecb73c85cc08dd62ebb30fecc1b14"
 case	"examples/specification/run/identifier-casing-adt-payload-closure"
 field	expectations.exit	1
 field	expectations.stderr.contains[0]	"main.veln:13:6: error[name.invalid_case]: type name must start with an ASCII uppercase letter"
@@ -38093,38 +38104,59 @@ case_digest	"4a6eb123b047caff13b9d3c851ca8ed3d0ca8266cfd272077855d2cf31184d73"
 case	"examples/specification/run/identifier-casing-invalid-entry"
 field	expectations.exit	1
 field	expectations.stderr.contains[0]	"main.veln:1:8: error[name.invalid_case]: function name must start with an ASCII lowercase letter"
+field	expectations.stderr.contains[1]	"main.veln:1:13: error[name.invalid_case]: binding name must start with an ASCII lowercase letter"
 field	expectations.stderr.not_contains[0]	"name.unresolved"
 field	expectations.stderr.not_contains[1]	"run entry `Main` was not found"
 field	expectations.stdout.format	"empty"
 field	invocation.command[0]	"run"
 field	invocation.command[1]	"Main"
 field	invocation.command[2]	"main.veln"
+field	invocation.command[3]	"--"
+field	invocation.command[4]	"1"
 field	invocation.repeat	1
 field	source_errors	"expected"
-case_digest	"0127ed59c18f860140c8cf2bfad757222a0bc091e69163ee076ed15783ea40d9"
+case_digest	"873acf08e80f131d33d94d8ccc2a7f3b6daaedefd80819c505fefac36cd35641"
 case	"examples/specification/run/identifier-casing-invalid-entry-json"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	1
 field	expectations.json_assertions[0].operation	"equals"
 field	expectations.json_assertions[0].path	"schema_version"
-field	expectations.json_assertions[1].equals	1
+field	expectations.json_assertions[1].equals	2
 field	expectations.json_assertions[1].operation	"equals"
 field	expectations.json_assertions[1].path	"summary.diagnostic_count"
 field	expectations.json_assertions[2].equals	"name.invalid_case"
 field	expectations.json_assertions[2].operation	"equals"
 field	expectations.json_assertions[2].path	"diagnostics.0.id"
+field	expectations.json_assertions[3].equals	"name.invalid_case"
+field	expectations.json_assertions[3].operation	"equals"
+field	expectations.json_assertions[3].path	"diagnostics.1.id"
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
 field	expectations.stdout.contains[1]	"\"name\":\"Main\""
-field	expectations.stdout.contains[2]	"\"name_class\":\"function\""
+field	expectations.stdout.contains[2]	"\"name\":\"Value\""
+field	expectations.stdout.contains[3]	"\"name_class\":\"function\""
+field	expectations.stdout.contains[4]	"\"name_class\":\"value_binding\""
 field	expectations.stdout.format	"json"
 field	invocation.command[0]	"run"
 field	invocation.command[1]	"--json"
 field	invocation.command[2]	"Main"
 field	invocation.command[3]	"main.veln"
+field	invocation.command[4]	"--"
+field	invocation.command[5]	"1"
 field	invocation.repeat	1
 field	source_errors	"expected"
-case_digest	"ec5a6575f74dbf641c976fdc2a1c797c0e52859a1a83adeab8b6d77c3e588f70"
+case_digest	"22b0290b54fdcff089a3fe5375a0854bc52eb13f1f52db5f6979fbfe962f7d07"
+case	"examples/specification/run/identifier-casing-invalid-parent-constructor"
+field	expectations.exit	1
+field	expectations.stderr.contains[0]	"main.veln:1:6: error[name.invalid_case]: type name must start with an ASCII uppercase letter"
+field	expectations.stderr.not_contains[0]	"name.unresolved"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"c82fdd5c4d49e7cee92b85442a8395a6d930cae289d010d33b4fb44f30b04210"
 case	"examples/specification/run/identifier-casing-local-binding-vs-invalid-constructor"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -48804,4 +48836,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"08a01cd80679fb22bb47769fca6a538042f2f8a1162ff41edbc353dba58d6b12"
+aggregate_digest	"0590f2e9e7e3de0f754554a1e4dad459d40114bc935f987b06b7e225f031bd45"
