@@ -273,6 +273,13 @@ private prelude boundary, the exact standard snapshot URI, the complete
 embedded prelude read, and noncanonical URI rejection. The `veln-lsp`
 standard-package test additionally compares the returned virtual document with
 the exact embedded source value and checks package rename rejection.
+The executable LSP examples
+`../../examples/specification/lsp/imported-constructor-bare-prelude-definition/`
+and
+`../../examples/specification/lsp/reexported-constructor-bare-prelude-definition/`
+check that imported and re-exported constructor definition locations use the
+valid uppercase constructor declaration token while preserving the existing
+bare and qualified prelude-definition boundaries.
 
 LSP executable examples use `stdin_jsonrpc_file` when the requested behavior is
 an ordered sequence of decoded JSON-RPC requests and notifications. Those
@@ -438,6 +445,8 @@ Implemented:
 - Stdio definition responses for implicit prelude functions and public
   functions in explicitly imported exported `std` sources, with exact
   `veln/virtualDocument` reads from the embedded standard snapshot.
+- Stdio definition responses for imported and re-exported constructors that
+  preserve the source constructor declaration range.
 - VSCode startup for `.veln` files using the configured language-server
   command.
 - VSCode Problems pane integration for Veln diagnostics.
@@ -454,5 +463,5 @@ Not implemented:
 - Dependency reference search.
 - General rename and go-to-definition support outside the implemented
   companion private-function identity, handler binding, direct path, vendor,
-  mirror, locally available direct git dependency, and embedded
-  standard-function definition cases.
+  mirror, locally available direct git dependency, imported or re-exported
+  constructor, and embedded standard-function definition cases.
