@@ -1,0 +1,34 @@
+type _bad
+  Made(Int)
+end
+
+type Wrapper
+  Item(_bad)
+end
+
+fn helper(value: _bad) -> _bad
+  value
+end
+
+fn local(value: _bad) -> _bad
+  let item: _bad = helper(value)
+  item
+end
+
+fn wrap(value: _bad) -> Wrapper
+  Item(value)
+end
+
+fn accept(job: fn(_bad) -> _bad) -> Int
+  1
+end
+
+fn accept_wrap(job: fn(_bad) -> Wrapper) -> Int
+  1
+end
+
+pub fn main() -> Int
+  accept(local)
+  accept_wrap(wrap)
+  1
+end

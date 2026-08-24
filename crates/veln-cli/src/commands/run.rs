@@ -405,26 +405,39 @@ fn run_reachable_identifier_casing_regions(module: &SurfaceModule) -> Vec<veln_s
 }
 
 fn run_reachable_handlers(module: &SurfaceModule) -> Vec<&HandlerDecl> {
-    let mut handles = Vec::new();
+    let mut reachable = Vec::new();
+    let mut stack = Vec::new();
     for function in &module.functions {
         for line in &function.body {
             match &line.kind {
                 veln_ast::BodyLineKind::Let { expr, .. }
                 | veln_ast::BodyLineKind::Expr { expr } => {
-                    collect_handle_paths(expr, function.module_name.as_deref(), &mut handles);
+                    collect_handle_paths(expr, function.module_name.as_deref(), &mut stack);
                 }
             }
         }
     }
-    module
-        .handlers
-        .iter()
-        .filter(|handler| {
-            handles
+
+    while let Some(path) = stack.pop() {
+        for handler in module
+            .handlers
+            .iter()
+            .filter(|handler| handler_matches_path(module, handler, &path))
+        {
+            if reachable
                 .iter()
-                .any(|path| handler_matches_path(module, handler, path))
-        })
-        .collect()
+                .any(|known: &&HandlerDecl| known.node_id == handler.node_id)
+            {
+                continue;
+            }
+            reachable.push(handler);
+            for clause in &handler.operation_clauses {
+                collect_handle_paths(&clause.body, handler.module_name.as_deref(), &mut stack);
+            }
+        }
+    }
+
+    reachable
 }
 
 struct RunHandlePath<'a> {

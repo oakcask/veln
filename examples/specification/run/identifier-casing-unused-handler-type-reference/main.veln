@@ -1,0 +1,15 @@
+type bad
+  broken
+end
+
+effect Ask
+  value() -> Int
+end
+
+handler unused(value: bad) handles Ask
+  value() => 1
+end
+
+pub fn main() -> Int
+  1
+end

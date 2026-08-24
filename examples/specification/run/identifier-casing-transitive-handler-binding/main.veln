@@ -1,0 +1,15 @@
+effect Ask
+  value() -> Int
+end
+
+handler outer() handles Ask
+  value() => handle perform Ask::value() with inner(1)
+end
+
+handler inner(Offset: Int) handles Ask
+  value() => Offset
+end
+
+pub fn main() -> Int
+  handle perform Ask::value() with outer()
+end

@@ -2216,9 +2216,15 @@ fn module_with_reachable_functions(
     reachability_index: &ReachabilityIndex,
 ) -> SurfaceModule {
     let functions = materialize_reachable_functions(inputs, reachable, reachability_index);
-    let handlers = materialize_reachable_handlers(inputs, &functions);
+    let reachable_handler_ids = reachable_handler_node_ids(inputs, &functions);
+    let reachable_handlers = inputs
+        .handlers()
+        .into_iter()
+        .filter(|handler| reachable_handler_ids.contains(&handler.node_id))
+        .collect::<Vec<_>>();
+    let handlers = materialize_reachable_handlers(inputs);
     let (types, reachable_type_aliases) =
-        materialize_reachable_types(inputs, &functions, &handlers, reachability_index);
+        materialize_reachable_types(inputs, &functions, &reachable_handlers, reachability_index);
     let aliases = materialize_reachable_aliases(inputs, &reachable_type_aliases);
     SurfaceModule {
         module: inputs.module_header(),
@@ -2279,17 +2285,191 @@ fn reachability_target_matches_function(
         }
 }
 
-fn materialize_reachable_handlers(
-    inputs: &ReachabilityInputs<'_>,
-    _functions: &[Function],
-) -> Vec<veln_ast::HandlerDecl> {
+fn materialize_reachable_handlers(inputs: &ReachabilityInputs<'_>) -> Vec<veln_ast::HandlerDecl> {
     inputs.cloned_declarations(|module| &module.handlers)
+}
+
+fn reachable_handler_node_ids(
+    inputs: &ReachabilityInputs<'_>,
+    functions: &[Function],
+) -> HashSet<veln_ast::NodeId> {
+    let uses = inputs.uses();
+    let handlers = inputs.handlers();
+    let mut reachable = HashSet::new();
+    let mut stack = Vec::new();
+
+    for function in functions {
+        collect_body_handle_paths(&function.body, function.module_name.as_deref(), &mut stack);
+    }
+
+    while let Some(path) = stack.pop() {
+        for handler in matching_handlers(&handlers, &uses, &path) {
+            if !reachable.insert(handler.node_id) {
+                continue;
+            }
+            for clause in &handler.operation_clauses {
+                collect_expr_handle_paths(&clause.body, handler.module_name.as_deref(), &mut stack);
+            }
+        }
+    }
+
+    reachable
+}
+
+struct HandlePath {
+    current_module: Option<String>,
+    path: Vec<String>,
+}
+
+fn matching_handlers<'a>(
+    handlers: &'a [&'a veln_ast::HandlerDecl],
+    uses: &[&UseDecl],
+    path: &HandlePath,
+) -> Vec<&'a veln_ast::HandlerDecl> {
+    handlers
+        .iter()
+        .copied()
+        .filter(|handler| handler_matches_path(handler, uses, path))
+        .collect()
+}
+
+fn handler_matches_path(
+    handler: &veln_ast::HandlerDecl,
+    uses: &[&UseDecl],
+    path: &HandlePath,
+) -> bool {
+    let Some(name) = handler.name.as_deref() else {
+        return false;
+    };
+    let current_module = path.current_module.as_deref();
+    match path.path.as_slice() {
+        [segment] => name == segment && handler.module_name.as_deref() == current_module,
+        [_, .., segment] => {
+            let Some(use_decl) =
+                imported_use_for_path(uses, &path.path[..path.path.len() - 1], current_module)
+            else {
+                return false;
+            };
+            name == segment && handler.module_name.as_deref() == Some(use_decl.name.as_str())
+        }
+        [] => false,
+    }
+}
+
+fn collect_body_handle_paths(
+    body: &[veln_ast::BodyLine],
+    current_module: Option<&str>,
+    handles: &mut Vec<HandlePath>,
+) {
+    for line in body {
+        match &line.kind {
+            veln_ast::BodyLineKind::Let { expr, .. } | veln_ast::BodyLineKind::Expr { expr } => {
+                collect_expr_handle_paths(expr, current_module, handles);
+            }
+        }
+    }
+}
+
+fn collect_expr_handle_paths(
+    expr: &Expr,
+    current_module: Option<&str>,
+    handles: &mut Vec<HandlePath>,
+) {
+    match &expr.kind {
+        ExprKind::Handle {
+            body,
+            handler,
+            args,
+            ..
+        } => {
+            handles.push(HandlePath {
+                current_module: current_module.map(str::to_string),
+                path: handler.clone(),
+            });
+            collect_expr_handle_paths(body, current_module, handles);
+            for arg in args {
+                collect_expr_handle_paths(arg, current_module, handles);
+            }
+        }
+        ExprKind::TypeApply { callee, .. }
+        | ExprKind::FieldAccess { base: callee, .. }
+        | ExprKind::Try(callee)
+        | ExprKind::Prefix { expr: callee, .. } => {
+            collect_expr_handle_paths(callee, current_module, handles);
+        }
+        ExprKind::Call { callee, args } => {
+            collect_expr_handle_paths(callee, current_module, handles);
+            for arg in args {
+                collect_expr_handle_paths(arg, current_module, handles);
+            }
+        }
+        ExprKind::Perform { args, .. } => {
+            for arg in args {
+                collect_expr_handle_paths(arg, current_module, handles);
+            }
+        }
+        ExprKind::SchemaDecode { input, base, .. } => {
+            collect_expr_handle_paths(input, current_module, handles);
+            collect_expr_handle_paths(base, current_module, handles);
+        }
+        ExprKind::SchemaEncode { value, .. } => {
+            collect_expr_handle_paths(value, current_module, handles);
+        }
+        ExprKind::Record(fields) => {
+            for field in fields {
+                collect_expr_handle_paths(&field.expr, current_module, handles);
+            }
+        }
+        ExprKind::Dict(entries) => {
+            for entry in entries {
+                collect_expr_handle_paths(&entry.key, current_module, handles);
+                collect_expr_handle_paths(&entry.value, current_module, handles);
+            }
+        }
+        ExprKind::List(items) => {
+            for item in items {
+                collect_expr_handle_paths(item, current_module, handles);
+            }
+        }
+        ExprKind::Match { scrutinee, arms } => {
+            collect_expr_handle_paths(scrutinee, current_module, handles);
+            for arm in arms {
+                collect_expr_handle_paths(&arm.expr, current_module, handles);
+            }
+        }
+        ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            collect_expr_handle_paths(condition, current_module, handles);
+            collect_expr_handle_paths(then_branch, current_module, handles);
+            for branch in else_if_branches {
+                collect_expr_handle_paths(&branch.condition, current_module, handles);
+                collect_expr_handle_paths(&branch.expr, current_module, handles);
+            }
+            collect_expr_handle_paths(else_branch, current_module, handles);
+        }
+        ExprKind::Binary { left, right, .. } => {
+            collect_expr_handle_paths(left, current_module, handles);
+            collect_expr_handle_paths(right, current_module, handles);
+        }
+        ExprKind::Missing
+        | ExprKind::Hole { .. }
+        | ExprKind::NamePath(_)
+        | ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
+        | ExprKind::Unit => {}
+    }
 }
 
 fn materialize_reachable_types(
     inputs: &ReachabilityInputs<'_>,
     functions: &[Function],
-    handlers: &[veln_ast::HandlerDecl],
+    handlers: &[&veln_ast::HandlerDecl],
     reachability_index: &ReachabilityIndex,
 ) -> (Vec<veln_ast::TypeDecl>, HashSet<(Option<String>, String)>) {
     let mut names = HashSet::new();
@@ -2698,7 +2878,7 @@ fn collect_type_name_references(
     let tokens = lex(&source).tokens;
     let mut index = 0usize;
     while index < tokens.len() {
-        if tokens[index].kind != TokenKind::Ident {
+        if !matches!(tokens[index].kind, TokenKind::Ident | TokenKind::Hole) {
             index += 1;
             continue;
         }
@@ -2715,7 +2895,7 @@ fn collect_type_name_references(
             .is_some_and(|token| token.kind == TokenKind::DoubleColon)
             && tokens
                 .get(index + 1)
-                .is_some_and(|token| token.kind == TokenKind::Ident)
+                .is_some_and(|token| matches!(token.kind, TokenKind::Ident | TokenKind::Hole))
         {
             segments.push(tokens[index + 1].text.clone());
             index += 2;
@@ -6402,6 +6582,67 @@ mod tests {
                 .any(|handler| handler.name.as_deref() == Some("incomplete")),
             "{:#?}",
             reachable.handlers
+        );
+    }
+
+    #[test]
+    fn run_entry_does_not_reach_type_from_unused_handler_annotation() {
+        let module = lower(concat!(
+            "type bad\n",
+            "  Made\n",
+            "end\n",
+            "effect Ask\n",
+            "  fetch() -> Int\n",
+            "end\n",
+            "handler unused(value: bad) handles Ask\n",
+            "  fetch() => 1\n",
+            "end\n",
+            "pub fn main() -> Int\n",
+            "  1\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert!(
+            reachable
+                .types
+                .iter()
+                .all(|type_decl| type_decl.name.as_deref() != Some("bad")),
+            "unused handler annotation should not select invalid type: {:#?}",
+            reachable.types
+        );
+    }
+
+    #[test]
+    fn run_entry_reaches_types_from_transitive_handler_body() {
+        let module = lower(concat!(
+            "type _bad\n",
+            "  Made\n",
+            "end\n",
+            "effect Ask\n",
+            "  fetch() -> Int\n",
+            "end\n",
+            "handler outer() handles Ask\n",
+            "  fetch() => handle perform Ask::fetch() with inner()\n",
+            "end\n",
+            "handler inner(value: _bad) handles Ask\n",
+            "  fetch() => 1\n",
+            "end\n",
+            "pub fn main() -> Int\n",
+            "  handle perform Ask::fetch() with outer()\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert!(
+            reachable
+                .types
+                .iter()
+                .any(|type_decl| type_decl.name.as_deref() == Some("_bad")),
+            "transitively reached handler annotation should select invalid type: {:#?}",
+            reachable.types
         );
     }
 

@@ -39,6 +39,10 @@ Resolved local bindings and ADT payload closure are checked by
 [`identifier-casing-local-binding-vs-invalid-constructor`](../../examples/specification/run/identifier-casing-local-binding-vs-invalid-constructor/case.toml)
 and
 [`identifier-casing-adt-payload-closure`](../../examples/specification/run/identifier-casing-adt-payload-closure/case.toml).
+Handler and underscore-led type reachability boundaries are checked by
+[`identifier-casing-unused-handler-type-reference`](../../examples/specification/run/identifier-casing-unused-handler-type-reference/case.toml),
+[`identifier-casing-transitive-handler-binding`](../../examples/specification/run/identifier-casing-transitive-handler-binding/case.toml), and
+[`identifier-casing-underscore-type-closure`](../../examples/specification/run/identifier-casing-underscore-type-closure/case.toml).
 Run diagnostics outside the casing filter remain checked by
 [`unreachable-duplicate-constructor-diagnostic`](../../examples/specification/run/unreachable-duplicate-constructor-diagnostic/case.toml),
 [`unreachable-type-alias-diagnostic`](../../examples/specification/run/unreachable-type-alias-diagnostic/case.toml), and
