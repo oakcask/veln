@@ -71,13 +71,16 @@ actual count, and inclusive `0..63` bounds. Removed schema primitives, types,
 constructors, patterns, and helpers use focused removed-vocabulary diagnostics
 with replacement details instead of generic unresolved-name output.
 
-Invalid source type, constructor, function, test declaration, and value-binding
-names use `name.invalid_case`. Test declarations use the function name class.
-The primary span is the complete written token. Details contain
-`phase = "name"`, `origin = "source"`, `occurrence`, `name`, `name_class`,
-`required_initial`, and `observed_initial`. The checked `identifier-casing-json`
-and `identifier-casing-human` cases are the executable JSON and human-output
-evidence.
+Invalid source type, constructor, function, test declaration, public type alias
+declaration, public function alias declaration, and value-binding names use
+`name.invalid_case`. Test declarations and public function alias declarations
+use the function name class. Public type alias declarations use the type name
+class. Public schema alias declaration names are casing-neutral. The primary
+span is the complete written token. Details contain `phase = "name"`,
+`origin = "source"`, `occurrence`, `name`, `name_class`, `required_initial`,
+and `observed_initial`. The checked `identifier-casing-json`,
+`identifier-casing-human`, and `identifier-casing-public-alias-declarations`
+cases are the executable JSON and human-output evidence.
 
 Companion source diagnostics are executable in
 `examples/specification/check/companion-missing-target-json/`,

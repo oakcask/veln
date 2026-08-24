@@ -20,11 +20,14 @@ clauses are rejected by the parser.
 
 ## Name Diagnostics
 
-Invalid source type, constructor, function, test declaration, and value-binding
-names use `name.invalid_case`. Test declarations use the function name class.
-The primary span is the complete written token. Details contain
-`phase = "name"`, `origin = "source"`, `occurrence`, `name`, `name_class`,
-`required_initial`, and `observed_initial`.
+Invalid source type, constructor, function, test declaration, public type alias
+declaration, public function alias declaration, and value-binding names use
+`name.invalid_case`. Test declarations and public function alias declarations
+use the function name class. Public type alias declarations use the type name
+class. Public schema alias declaration names are casing-neutral. The primary
+span is the complete written token. Details contain `phase = "name"`,
+`origin = "source"`, `occurrence`, `name`, `name_class`, `required_initial`,
+and `observed_initial`.
 
 ## Type Inference Diagnostics
 
