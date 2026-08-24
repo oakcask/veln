@@ -16,6 +16,14 @@ update-when: The `veln run --json` output schema, runtime failure details, resul
 - `error`: `null` for passed runs, or a structured result, runtime, or runner
   error
 
+Before execution, reachable analysis diagnostics normally use ordinary
+diagnostic reporting. If any reachable pre-execution diagnostic is
+`name.invalid_case`, `run --json` emits the shared diagnostic JSON envelope for
+the full reachable diagnostic set, including non-casing diagnostics reported
+with the casing failure. The
+`examples/specification/run/identifier-casing-mixed-json-diagnostics/` case
+checks this boundary.
+
 Runtime contract failures use `error.kind: "contract"`. The error details use
 `kind: "contract"` and `phase: "runtime"` and include:
 

@@ -122,8 +122,9 @@ requiring the full command reference on the first read.
   `identifier-casing-local-binding-vs-invalid-constructor` and
   `identifier-casing-adt-payload-closure`, handler and underscore-led type
   reachability as checked by `identifier-casing-unused-handler-type-reference`,
-  `identifier-casing-transitive-handler-binding`, and
-  `identifier-casing-underscore-type-closure`, while unreachable non-casing
+  `identifier-casing-transitive-handler-binding`,
+  `identifier-casing-underscore-type-closure`, and
+  `identifier-casing-mixed-json-diagnostics`, while unreachable non-casing
   type, alias, and handler diagnostics remain checked by
   `unreachable-duplicate-constructor-diagnostic`,
   `unreachable-type-alias-diagnostic`, and `unreachable-handler-diagnostic`,

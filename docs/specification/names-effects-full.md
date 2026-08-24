@@ -45,7 +45,7 @@ and alias quarantine boundary, handler clause binding recovery, same-file
 valid declaration precedence over quarantined aliases, and selected-entry
 reachability over local bindings, ADT payloads, handler annotations, transitive
 handler bodies, test declaration names, handler callable values, pattern
-bindings, and underscore-led recovered names.
+bindings, inferred callable local bindings, and underscore-led recovered names.
 
 Implemented checker namespaces are:
 
@@ -70,6 +70,9 @@ Bare names resolve to local bindings. Function calls resolve to:
 Unresolved values and call targets produce `name.unresolved` diagnostics. A
 qualified call does not fall back to a bare function with the same final
 segment when no matching import alias exists.
+An ambiguous call-target casing recovery diagnostic reports
+`details.typed_local_recovery_candidates` when typed local bindings with
+function type contribute to the ambiguous recovery set.
 When more than one import provides the same bare function name, including a
 conflict between a written import and the implicit prelude import, the checker
 reports `name.ambiguous` at the bare name and lists qualified spellings in

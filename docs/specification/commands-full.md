@@ -403,6 +403,10 @@ transitive public-alias targets. The
 `identifier-casing-underscore-type-closure` cases check handler and
 underscore-led type reachability, including handler declaration identities
 that collide by source-local node ordinal across files. The
+`identifier-casing-mixed-json-diagnostics` case checks that `run --json`
+reports a JSON diagnostic envelope when any reachable pre-execution diagnostic
+is `name.invalid_case`, even when other reachable diagnostics are not casing
+diagnostics. The
 `unreachable-duplicate-constructor-diagnostic`,
 `unreachable-type-alias-diagnostic`, and `unreachable-handler-diagnostic`
 cases check that the run boundary does not hide non-casing diagnostics.

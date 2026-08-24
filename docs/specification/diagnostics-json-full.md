@@ -37,10 +37,15 @@ and `observed_initial`. Executable JSON evidence includes the
 `identifier-casing-test-declaration`,
 `identifier-casing-split-recovery-candidates`,
 `identifier-casing-handler-callable-recovery`, and
-`identifier-casing-pattern-binding-recovery` cases. The run cases
+`identifier-casing-pattern-binding-recovery` cases. The
+`identifier-casing-inferred-callable-recovery` case checks
+`details.typed_local_recovery_candidates` on ambiguous call-target recovery
+diagnostics. The run cases
 `identifier-casing-invalid-entry-json` and `identifier-casing-reachable-json`
 check that pre-execution `run --json` casing failures use the same diagnostic
-envelope shape.
+envelope shape. The `identifier-casing-mixed-json-diagnostics` run case checks
+that the diagnostic envelope is also used when reachable pre-execution casing
+and non-casing diagnostics are reported together.
 
 ## Type Inference Diagnostics
 
