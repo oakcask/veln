@@ -29,7 +29,7 @@ exclude invalid symbols from checked artifacts.
 
 The source positions and `name.invalid_case` diagnostic contract are the type,
 constructor, function, and value-binding rows in
-[Identifier Casing](../../proposals/identifier-casing.md#naming-contract). Module identities,
+[Identifier Casing](../../proposals/identifier-casing.md#remaining-naming-contract). Module identities,
 qualified-use casing, alias target leaves, rename, and source-less registries
 remain outside this slice.
 
