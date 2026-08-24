@@ -247,6 +247,11 @@ fn checked_entry_arg_types(
     entry_args: &[String],
 ) -> Result<Option<Vec<EntryArgType>>, String> {
     let Some(entry_function) = find_entry_function(analysis, entry) else {
+        let diagnostics = analysis.invalid_entry_casing_diagnostics(entry);
+        if !diagnostics.is_empty() {
+            print_human_stderr(&DiagnosticEnvelope::new(tool_info(), diagnostics))?;
+            return Ok(None);
+        }
         eprintln!("veln: run entry `{entry}` was not found");
         return Ok(None);
     };

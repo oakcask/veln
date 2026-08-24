@@ -1,0 +1,7 @@
+type badType
+  Ready
+end
+
+pub fn main() -> badType
+  Ready
+end

@@ -76,8 +76,10 @@ pub(crate) struct LoadedSurfaceModules {
 pub(crate) struct CasingRecoveryRecord {
     pub(crate) name: String,
     pub(crate) name_class: CasingNameClass,
+    pub(crate) source_path: SourcePath,
     pub(crate) module_name: Option<String>,
     pub(crate) enclosing_function: Option<String>,
+    pub(crate) lexical_scope: Option<SourceSpan>,
     pub(crate) diagnostic: Diagnostic,
 }
 
@@ -379,6 +381,7 @@ fn process_parsed_source(
         .map(|module| internal_module_name(package, module));
     casing_records.extend(source_identifier_casing_records(
         tree,
+        source.path().clone(),
         internal_module.as_deref(),
     ));
     let mut lowered = lower_source_tree(source, tree, derived_module, package);
@@ -481,6 +484,7 @@ fn lower_source_tree(
 
 fn source_identifier_casing_records(
     tree: &veln_syntax::SyntaxTree,
+    source_path: SourcePath,
     module_name: Option<&str>,
 ) -> Vec<CasingRecoveryRecord> {
     let mut records = Vec::new();
@@ -500,7 +504,9 @@ fn source_identifier_casing_records(
                 alias.name_span.as_ref().unwrap_or(&alias.span),
                 name_class,
                 "declaration",
+                &source_path,
                 module_name,
+                None,
                 None,
             );
         }
@@ -515,7 +521,9 @@ fn source_identifier_casing_records(
                         type_decl.name_span.as_ref().unwrap_or(&type_decl.span),
                         CasingNameClass::Type,
                         "declaration",
+                        &source_path,
                         module_name,
+                        None,
                         None,
                     );
                 }
@@ -527,7 +535,9 @@ fn source_identifier_casing_records(
                             variant.name_span.as_ref().unwrap_or(&variant.span),
                             CasingNameClass::Constructor,
                             "declaration",
+                            &source_path,
                             module_name,
+                            None,
                             None,
                         );
                     }
@@ -542,7 +552,9 @@ fn source_identifier_casing_records(
                         function.name_span.as_ref().unwrap_or(&function.span),
                         CasingNameClass::Function,
                         "declaration",
+                        &source_path,
                         module_name,
+                        None,
                         None,
                     );
                 }
@@ -553,8 +565,10 @@ fn source_identifier_casing_records(
                         &param.span,
                         CasingNameClass::ValueBinding,
                         "binding",
+                        &source_path,
                         module_name,
                         function_name.as_deref(),
+                        Some(&function.span),
                     );
                 }
                 if let Some(binding) = &function.return_binding {
@@ -564,8 +578,10 @@ fn source_identifier_casing_records(
                         &binding.span,
                         CasingNameClass::ValueBinding,
                         "binding",
+                        &source_path,
                         module_name,
                         function_name.as_deref(),
+                        Some(&function.span),
                     );
                 }
                 for line in &function.body {
@@ -574,7 +590,9 @@ fn source_identifier_casing_records(
                             &mut records,
                             pattern,
                             module_name,
+                            &source_path,
                             function_name.as_deref(),
+                            &function.span,
                         );
                     }
                 }
@@ -589,7 +607,9 @@ fn collect_invalid_pattern_bindings(
     records: &mut Vec<CasingRecoveryRecord>,
     pattern: &veln_syntax::Pattern,
     module_name: Option<&str>,
+    source_path: &SourcePath,
     function_name: Option<&str>,
+    function_span: &SourceSpan,
 ) {
     match &pattern.kind {
         veln_syntax::PatternKind::Binding(name) => push_invalid_casing_record(
@@ -598,8 +618,10 @@ fn collect_invalid_pattern_bindings(
             &pattern.span,
             CasingNameClass::ValueBinding,
             "binding",
+            source_path,
             module_name,
             function_name,
+            Some(function_span),
         ),
         veln_syntax::PatternKind::Record(fields) => {
             for field in fields {
@@ -607,13 +629,22 @@ fn collect_invalid_pattern_bindings(
                     records,
                     &field.pattern,
                     module_name,
+                    source_path,
                     function_name,
+                    function_span,
                 );
             }
         }
         veln_syntax::PatternKind::Constructor { args, .. } => {
             for arg in args {
-                collect_invalid_pattern_bindings(records, arg, module_name, function_name);
+                collect_invalid_pattern_bindings(
+                    records,
+                    arg,
+                    module_name,
+                    source_path,
+                    function_name,
+                    function_span,
+                );
             }
         }
         veln_syntax::PatternKind::Wildcard
@@ -631,8 +662,10 @@ fn push_invalid_casing_record(
     span: &SourceSpan,
     name_class: CasingNameClass,
     occurrence: &'static str,
+    source_path: &SourcePath,
     module_name: Option<&str>,
     function_name: Option<&str>,
+    lexical_scope: Option<&SourceSpan>,
 ) {
     if name == "_" || casing_name_is_valid(name, name_class) {
         return;
@@ -640,8 +673,10 @@ fn push_invalid_casing_record(
     records.push(CasingRecoveryRecord {
         name: name.to_string(),
         name_class,
+        source_path: source_path.clone(),
         module_name: module_name.map(str::to_string),
         enclosing_function: function_name.map(str::to_string),
+        lexical_scope: lexical_scope.cloned(),
         diagnostic: invalid_case_diagnostic(name, span, name_class, occurrence),
     });
 }

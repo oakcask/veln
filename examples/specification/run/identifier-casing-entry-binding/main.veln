@@ -1,0 +1,3 @@
+pub fn main(_Value: Int) -> Int
+  _Value
+end

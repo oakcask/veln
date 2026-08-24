@@ -467,8 +467,10 @@ requiring the full command reference on the first read.
   lookup. `run` reports `name.invalid_case` only when the selected entry
   reaches a compatible invalid recovery record. It omits an invalid
   same-source peer that is outside the selected entry's reachable closure. The
-  checked cases `identifier-casing-reachable-invalid` and
-  `identifier-casing-unreachable-peer` cover this command boundary.
+  checked cases `identifier-casing-reachable-invalid`,
+  `identifier-casing-unreachable-peer`,
+  `identifier-casing-entry-binding`, and
+  `identifier-casing-signature-reachable` cover this command boundary.
 - `test`: test and doctest selection, static gates, bounded `-j` / `--jobs`
   case execution, the serial `--jobs 1` compatibility route, deterministic
   ordered reporting, direct JVM classfile execution without an ordinary Java

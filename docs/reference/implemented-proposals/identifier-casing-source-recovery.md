@@ -58,8 +58,8 @@ not become a project-wide or source-wide loading gate.
 | Consumer state | Required result | Planned evidence |
 | --- | --- | --- |
 | `check` selects a source with an invalid covered name. | Report every selected casing diagnostic and produce no successful checked artifact. | Human and JSON checked cases with exact spans and details. |
-| `run` reaches an invalid declaration or binding from the selected entry. | Report the casing diagnostic and produce no executable artifact. | Run case with a valid entry that reaches one invalid recovery record. |
-| `run` does not reach an invalid declaration from the selected entry. | Run the valid reachable closure and omit the unreachable casing diagnostic. | Run case with a valid entry and an invalid unreachable peer in the same source. |
+| `run` reaches an invalid declaration or binding from the selected entry. | Report the casing diagnostic and produce no executable artifact. | `identifier-casing-reachable-invalid`, `identifier-casing-entry-binding`, and `identifier-casing-signature-reachable`. |
+| `run` does not reach an invalid declaration from the selected entry. | Run the valid reachable closure and omit the unreachable casing diagnostic. | `identifier-casing-unreachable-peer`. |
 
 ## Recovery Boundary
 
@@ -67,8 +67,8 @@ not become a project-wide or source-wide loading gate.
 | --- | --- | --- |
 | One compatible invalid declaration is referenced. | Keep one `name.invalid_case`; suppress only failures caused by absence of that declaration; emit no normal symbol or artifact for it. | Focused semantic and checked-artifact cases. |
 | A valid declaration and an invalid recovery record share a spelling. | The valid declaration wins normal lookup. | Lookup decision-table test. |
-| More than one compatible recovery record shares a spelling. | Select no recovery record and preserve independently provable ambiguity or unresolved facts. | Ambiguous recovery test. |
-| A use crosses an import or public alias boundary. | Do not expose the recovery record across the boundary. | Checked diagnostics and artifact assertions for both boundaries. |
+| More than one compatible recovery record shares a spelling. | Select no recovery record and preserve independently provable ambiguity or unresolved facts. | `identifier-casing-recovery-ambiguous`. |
+| A use crosses an import or public alias boundary. | Do not expose the recovery record across the boundary. | `identifier-casing-import-boundary` and `identifier-casing-public-alias-boundary`. |
 
 The implementation may use any internal representation that satisfies these
 outcomes. The quarantined representation is a required semantic boundary, not

@@ -1,0 +1,13 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"name.invalid_case\"", "\"id\":\"hole.unfilled\"", "binding name must start with an ASCII lowercase letter", "\"label\":\"_Value\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

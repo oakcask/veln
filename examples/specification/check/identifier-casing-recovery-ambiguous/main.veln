@@ -1,0 +1,5 @@
+pub fn main() -> Int
+  let _Value = 1
+  let _Value = 2
+  _Value
+end

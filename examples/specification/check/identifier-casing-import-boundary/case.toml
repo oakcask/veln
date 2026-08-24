@@ -1,0 +1,13 @@
+command = ["check", "--json", "main.veln", "support.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"name.invalid_case\"", "\"id\":\"name.unresolved\"", "function name must start with an ASCII lowercase letter", "unresolved call_target `support::BadPeer`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

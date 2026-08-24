@@ -309,6 +309,17 @@ impl ProjectAnalysis {
         self.reconcile_doctest_failures(self.source_diagnostics.clone())
     }
 
+    pub fn invalid_entry_casing_diagnostics(&self, entry: &str) -> Vec<Diagnostic> {
+        self.casing_records
+            .iter()
+            .filter(|record| {
+                record.name_class == CasingNameClass::ValueBinding
+                    && record.enclosing_function.as_deref() == Some(entry)
+            })
+            .map(|record| record.diagnostic.clone())
+            .collect()
+    }
+
     pub fn semantic_diagnostics(&self) -> Vec<Diagnostic> {
         let mut diagnostics = self.source_diagnostics.clone();
         diagnostics.extend(
@@ -396,20 +407,42 @@ fn reachable_casing_diagnostics(
             }
             _ => module.functions.iter().any(|function| {
                 function.module_name == record.module_name
-                    && function_references_name(function, &record.name)
+                    && function_references_record(function, record)
             }),
         })
         .map(|record| record.diagnostic.clone())
         .collect()
 }
 
-fn function_references_name(function: &veln_ast::Function, name: &str) -> bool {
-    function.body.iter().any(|line| match &line.kind {
-        veln_ast::BodyLineKind::Let { pattern, expr, .. } => {
-            pattern_references_name(pattern, name) || expr_references_name(expr, name)
-        }
-        veln_ast::BodyLineKind::Expr { expr } => expr_references_name(expr, name),
-    })
+fn function_references_record(
+    function: &veln_ast::Function,
+    record: &CasingRecoveryRecord,
+) -> bool {
+    function_signature_references_name(function, &record.name)
+        || function.body.iter().any(|line| match &line.kind {
+            veln_ast::BodyLineKind::Let { pattern, expr, .. } => {
+                pattern_references_name(pattern, &record.name)
+                    || expr_references_name(expr, &record.name)
+            }
+            veln_ast::BodyLineKind::Expr { expr } => expr_references_name(expr, &record.name),
+        })
+}
+
+fn function_signature_references_name(function: &veln_ast::Function, name: &str) -> bool {
+    function.params.iter().any(|param| {
+        param
+            .ty
+            .as_deref()
+            .is_some_and(|ty| type_text_references_name(ty, name))
+    }) || function
+        .return_type
+        .as_deref()
+        .is_some_and(|ty| type_text_references_name(ty, name))
+}
+
+fn type_text_references_name(ty: &str, name: &str) -> bool {
+    ty.split(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '_' || ch == ':'))
+        .any(|part| part == name || part.rsplit_once("::").is_some_and(|(_, leaf)| leaf == name))
 }
 
 fn pattern_references_name(pattern: &veln_ast::Pattern, name: &str) -> bool {
@@ -496,26 +529,89 @@ fn filter_recovery_derivative_diagnostics(
 ) -> Vec<Diagnostic> {
     diagnostics
         .into_iter()
-        .filter(|diagnostic| !is_unique_recovery_unresolved(diagnostic, records))
+        .filter(|diagnostic| !is_unique_recovery_derivative(diagnostic, records))
         .collect()
 }
 
-fn is_unique_recovery_unresolved(
+fn is_unique_recovery_derivative(
     diagnostic: &Diagnostic,
     records: &[CasingRecoveryRecord],
 ) -> bool {
-    if diagnostic.id != "name.unresolved" {
-        return false;
-    }
-    let Some(name) = unresolved_name_from_message(&diagnostic.message) else {
+    let Some((name, compatible_name_class)) = recovery_derivative_name_and_class(diagnostic) else {
         return false;
     };
+    let diagnostic_source = diagnostic.span.as_ref().map(|span| &span.file);
     records
         .iter()
-        .filter(|record| record.name == name)
+        .filter(|record| {
+            record.name == name.as_str()
+                && compatible_name_class == record.name_class
+                && diagnostic_source == Some(&record.source_path)
+                && unresolved_span_is_in_recovery_scope(diagnostic, record)
+        })
         .take(2)
         .count()
         == 1
+}
+
+fn recovery_derivative_name_and_class(
+    diagnostic: &Diagnostic,
+) -> Option<(String, CasingNameClass)> {
+    match diagnostic.id.as_str() {
+        "name.unresolved" => {
+            let name = unresolved_name_from_message(&diagnostic.message)?.to_string();
+            let namespace = diagnostic_string_detail(diagnostic, "namespace")?;
+            Some((name, recovery_name_class_for_namespace(namespace)?))
+        }
+        "hole.unfilled" => {
+            let label = diagnostic_string_detail(diagnostic, "label")?;
+            Some((label.to_string(), CasingNameClass::ValueBinding))
+        }
+        _ => None,
+    }
+}
+
+fn diagnostic_string_detail<'a>(diagnostic: &'a Diagnostic, key: &str) -> Option<&'a str> {
+    let veln_diagnostics::JsonValue::Object(entries) = &diagnostic.details else {
+        return None;
+    };
+    entries.iter().find_map(|(entry_key, value)| {
+        if entry_key == key
+            && let veln_diagnostics::JsonValue::String(value) = value
+        {
+            Some(value.as_str())
+        } else {
+            None
+        }
+    })
+}
+
+fn recovery_name_class_for_namespace(namespace: &str) -> Option<CasingNameClass> {
+    match namespace {
+        "call_target" => Some(CasingNameClass::Function),
+        "value" | "contract_predicate" => Some(CasingNameClass::ValueBinding),
+        _ => None,
+    }
+}
+
+fn unresolved_span_is_in_recovery_scope(
+    diagnostic: &Diagnostic,
+    record: &CasingRecoveryRecord,
+) -> bool {
+    if record.name_class != CasingNameClass::ValueBinding {
+        return true;
+    }
+    let Some(function_name) = record.enclosing_function.as_deref() else {
+        return false;
+    };
+    let Some(span) = diagnostic.span.as_ref() else {
+        return false;
+    };
+    record.lexical_scope.as_ref().is_some_and(|scope| {
+        scope.file == span.file
+            && scope.start.offset <= span.start.offset
+            && span.end.offset <= scope.end.offset
+    }) && !function_name.is_empty()
 }
 
 fn unresolved_name_from_message(message: &str) -> Option<&str> {
