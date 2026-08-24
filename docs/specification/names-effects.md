@@ -32,6 +32,11 @@ compiler-known calls.
   `identifier-casing-handler-clause-binding`,
   `identifier-casing-public-alias-declarations`,
   `identifier-casing-same-file-alias-valid-wins`,
+  `identifier-casing-invalid-alias-missing-target`,
+  `identifier-casing-invalid-alias-wrong-kind`,
+  `identifier-casing-invalid-alias-same-file-use`,
+  `identifier-casing-invalid-alias-duplicates`,
+  `identifier-casing-split-recovery-candidates`,
   `identifier-casing-unused-handler-type-reference`,
   `identifier-casing-transitive-handler-binding`, and
   `identifier-casing-underscore-type-closure`, fix the observable boundary.

@@ -107,7 +107,8 @@ requiring the full command reference on the first read.
   `identifier-casing-unused-type-alias-quarantine`, including first-class
   function value reachability that excludes quarantined invalid function targets,
   invalid public function alias declaration names, unreachable type aliases,
-  and aliases to quarantined invalid type targets, and
+  and aliases to quarantined invalid type targets, while same-file calls and
+  independently missing alias targets still report `name.unresolved`, and
   resolution-aware type, constructor, function, and alias closure as checked by
   `identifier-casing-valid-function-vs-invalid-constructor`,
   `identifier-casing-valid-constructor-vs-invalid-function`,

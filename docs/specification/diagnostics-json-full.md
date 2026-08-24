@@ -27,7 +27,13 @@ use the function name class. Public type alias declarations use the type name
 class. Public schema alias declaration names are casing-neutral. The primary
 span is the complete written token. Details contain `phase = "name"`,
 `origin = "source"`, `occurrence`, `name`, `name_class`, `required_initial`,
-and `observed_initial`.
+and `observed_initial`. Executable JSON evidence includes the
+`identifier-casing-json`, `identifier-casing-public-alias-declarations`,
+`identifier-casing-invalid-alias-missing-target`,
+`identifier-casing-invalid-alias-wrong-kind`,
+`identifier-casing-invalid-alias-same-file-use`,
+`identifier-casing-invalid-alias-duplicates`, and
+`identifier-casing-split-recovery-candidates` cases.
 
 ## Type Inference Diagnostics
 

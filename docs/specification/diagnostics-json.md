@@ -79,8 +79,13 @@ class. Public schema alias declaration names are casing-neutral. The primary
 span is the complete written token. Details contain `phase = "name"`,
 `origin = "source"`, `occurrence`, `name`, `name_class`, `required_initial`,
 and `observed_initial`. The checked `identifier-casing-json`,
-`identifier-casing-human`, and `identifier-casing-public-alias-declarations`
-cases are the executable JSON and human-output evidence.
+`identifier-casing-human`, `identifier-casing-public-alias-declarations`,
+`identifier-casing-invalid-alias-missing-target`,
+`identifier-casing-invalid-alias-wrong-kind`,
+`identifier-casing-invalid-alias-same-file-use`,
+`identifier-casing-invalid-alias-duplicates`, and
+`identifier-casing-split-recovery-candidates` cases are the executable JSON
+and human-output evidence.
 
 Companion source diagnostics are executable in
 `examples/specification/check/companion-missing-target-json/`,
