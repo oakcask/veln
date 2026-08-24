@@ -132,6 +132,7 @@ impl Writer {
         self.option(&value.module_name, |writer, value| writer.string(value));
         self.public_alias_kind(value.kind);
         self.option(&value.name, |writer, value| writer.string(value));
+        self.option(&value.name_span, Self::span);
         self.vec(&value.target, |writer, value| writer.string(value));
         self.span(&value.span);
     }
@@ -864,6 +865,7 @@ impl<'a> Reader<'a> {
             module_name: self.option(Self::string)?,
             kind: self.public_alias_kind()?,
             name: self.option(Self::string)?,
+            name_span: self.option(Self::span)?,
             target: self.vec(Self::string)?,
             span: self.span()?,
         })

@@ -1,0 +1,54 @@
+command = ["check", "--json", "main.veln", "wire.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "\"id\":\"name.invalid_case\"",
+  "\"name\":\"exposed\"",
+  "\"name\":\"Build\"",
+  "\"name\":\"_hidden\"",
+  "\"name\":\"_Build\"",
+  "\"name_class\":\"type\"",
+  "\"name_class\":\"function\"",
+  "\"observed_initial\":\"underscore\"",
+]
+not_contains = [
+  "\"name\":\"packet\"",
+  "duplicate type alias name `exposed`",
+  "duplicate function alias name `Build`",
+  "unresolved type alias target `Valid`",
+  "unresolved function alias target `good`",
+]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 4
+
+[[json_assert]]
+path = "diagnostics.0.message"
+equals = "type name must start with an ASCII uppercase letter"
+
+[[json_assert]]
+path = "diagnostics.0.details"
+equals = {"phase": "name", "origin": "source", "occurrence": "declaration", "name": "exposed", "name_class": "type", "required_initial": "ascii_uppercase", "observed_initial": "ascii_lowercase"}
+
+[[json_assert]]
+path = "diagnostics.1.message"
+equals = "function name must start with an ASCII lowercase letter"
+
+[[json_assert]]
+path = "diagnostics.1.details"
+equals = {"phase": "name", "origin": "source", "occurrence": "declaration", "name": "Build", "name_class": "function", "required_initial": "ascii_lowercase", "observed_initial": "ascii_uppercase"}
+
+[[json_assert]]
+path = "diagnostics.2.details"
+equals = {"phase": "name", "origin": "source", "occurrence": "declaration", "name": "_hidden", "name_class": "type", "required_initial": "ascii_uppercase", "observed_initial": "underscore"}
+
+[[json_assert]]
+path = "diagnostics.3.details"
+equals = {"phase": "name", "origin": "source", "occurrence": "declaration", "name": "_Build", "name_class": "function", "required_initial": "ascii_lowercase", "observed_initial": "underscore"}

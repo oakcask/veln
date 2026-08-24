@@ -22,7 +22,7 @@ mod type_relations;
 mod type_syntax;
 mod types;
 
-pub use name_casing::{valid_function_name, valid_type_name};
+pub use name_casing::{valid_function_name, valid_public_alias_name, valid_type_name};
 pub use pipeline::{
     LoweredSurfaceModule, analyze_surface_module, check_project_surface_module,
     check_project_surface_module_with_standard_environment,

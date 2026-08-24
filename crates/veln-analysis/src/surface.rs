@@ -14,7 +14,7 @@ use veln_project::{
     ManifestDependencySelectorKind, ManifestExport, ManifestField, Project, ProjectManifest,
     classify_companion_source, read_manifest,
 };
-use veln_sema::{valid_function_name, valid_type_name};
+use veln_sema::{valid_function_name, valid_public_alias_name, valid_type_name};
 use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{TokenKind, lex, parse};
 
@@ -3011,6 +3011,7 @@ fn expand_reachable_type_closure(
         {
             if alias.module_name == name.module_name
                 && alias.name.as_deref() == Some(name.name.as_str())
+                && valid_public_alias_name(alias.kind, &name.name)
                 && let Some(target) =
                     resolve_reachable_type_name(&alias.target, alias.module_name.as_deref(), uses)
             {
@@ -3062,6 +3063,12 @@ fn materialize_reachable_aliases(
     inputs
         .cloned_declarations(|module| &module.aliases)
         .into_iter()
+        .filter(|alias| {
+            alias
+                .name
+                .as_deref()
+                .is_some_and(|name| valid_public_alias_name(alias.kind, name))
+        })
         .filter(|alias| !alias_points_to_quarantined_function(inputs, alias))
         .filter(|alias| match alias.kind {
             PublicAliasKind::Function | PublicAliasKind::Schema => true,
@@ -3282,6 +3289,9 @@ fn function_alias_targets(
         .filter(|alias| alias.kind == PublicAliasKind::Function)
         .filter_map(|alias| {
             let name = alias.name.clone()?;
+            if !valid_public_alias_name(alias.kind, &name) {
+                return None;
+            }
             let target = target_for_alias_path(
                 &alias.target,
                 &uses,
@@ -6426,6 +6436,43 @@ mod tests {
                 .all(|type_decl| type_decl.name.as_deref() != Some("bad")),
             "{:#?}",
             reachable.types
+        );
+    }
+
+    #[test]
+    fn run_entry_does_not_materialize_invalid_public_alias_declarations() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "type Valid\n",
+                    "  Made\n",
+                    "end\n",
+                    "fn good() -> Int\n",
+                    "  1\n",
+                    "end\n",
+                    "pub type exposed = Valid\n",
+                    "pub fn Build = good\n",
+                    "pub fn main() -> Int\n",
+                    "  good()\n",
+                    "end\n",
+                ),
+            )],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert!(
+            reachable
+                .aliases
+                .iter()
+                .all(|alias| !matches!(alias.name.as_deref(), Some("exposed" | "Build"))),
+            "invalid public aliases should not enter reachable artifacts: {:#?}",
+            reachable.aliases
         );
     }
 

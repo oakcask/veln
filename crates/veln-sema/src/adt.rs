@@ -4,7 +4,7 @@ use veln_ast::{PublicAliasKind, SurfaceModule, TypeDecl, UseDecl, Visibility};
 use veln_core::CoreType;
 use veln_project::classify_companion_source;
 
-use crate::name_casing::type_alias_targets_invalid_source_type;
+use crate::name_casing::{type_alias_targets_invalid_source_type, valid_public_alias_name};
 use crate::semantic_model::Type;
 use crate::standard_names::PRELUDE_MODULE;
 use crate::type_syntax::parse_type_or_unknown;
@@ -533,6 +533,10 @@ fn type_alias_descriptors(
         .iter()
         .filter(|alias| {
             alias.kind == PublicAliasKind::Type
+                && alias
+                    .name
+                    .as_deref()
+                    .is_some_and(|name| valid_public_alias_name(alias.kind, name))
                 && !type_alias_targets_invalid_source_type(
                     module,
                     &alias.target,

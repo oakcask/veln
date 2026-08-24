@@ -59,6 +59,90 @@ fn invalid_declarations_never_produce_checked_artifacts() {
 }
 
 #[test]
+fn invalid_public_alias_declaration_names_use_type_and_function_classes() {
+    let parsed = parse(&SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub type Valid\n",
+            "  Made\n",
+            "end\n",
+            "pub fn good() -> Int\n",
+            "  1\n",
+            "end\n",
+            "pub type exposed = Valid\n",
+            "pub fn Build = good\n",
+        ),
+    ));
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let invalid_case = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+        .collect::<Vec<_>>();
+    assert_eq!(invalid_case.len(), 2, "{diagnostics:#?}");
+    assert!(invalid_case.iter().any(|diagnostic| {
+        diagnostic.message == "type name must start with an ASCII uppercase letter"
+            && diagnostic
+                .details
+                .to_json()
+                .contains("\"name\":\"exposed\"")
+            && diagnostic
+                .details
+                .to_json()
+                .contains("\"name_class\":\"type\"")
+    }));
+    assert!(invalid_case.iter().any(|diagnostic| {
+        diagnostic.message == "function name must start with an ASCII lowercase letter"
+            && diagnostic.details.to_json().contains("\"name\":\"Build\"")
+            && diagnostic
+                .details
+                .to_json()
+                .contains("\"name_class\":\"function\"")
+    }));
+}
+
+#[test]
+fn invalid_public_alias_declaration_names_do_not_enter_duplicate_names() {
+    let parsed = parse(&SourceFile::new(
+        "main.veln",
+        concat!(
+            "type exposed\n",
+            "  Made\n",
+            "end\n",
+            "fn Build() -> Int\n",
+            "  1\n",
+            "end\n",
+            "pub type exposed = Int\n",
+            "pub fn Build = good\n",
+            "fn good() -> Int\n",
+            "  1\n",
+            "end\n",
+        ),
+    ));
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+            .count()
+            >= 2
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.duplicate"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn invalid_function_declarations_do_not_recover_public_alias_targets() {
     let parsed = parse(&SourceFile::new(
         "main.veln",

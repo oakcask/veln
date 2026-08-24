@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"1a13f247de3f6da72a99418f44b261caa3aa652f"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1543
+case_count	1545
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -5552,6 +5552,51 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"6e39b9c068c0a72d99c525da90d514977f54472fa21bf3d28c874c761ba0a18d"
+case	"examples/specification/check/identifier-casing-public-alias-declarations"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	4
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"summary.diagnostic_count"
+field	expectations.json_assertions[1].equals	"type name must start with an ASCII uppercase letter"
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"diagnostics.0.message"
+field	expectations.json_assertions[2].equals	{"name":"exposed","name_class":"type","observed_initial":"ascii_lowercase","occurrence":"declaration","origin":"source","phase":"name","required_initial":"ascii_uppercase"}
+field	expectations.json_assertions[2].operation	"equals"
+field	expectations.json_assertions[2].path	"diagnostics.0.details"
+field	expectations.json_assertions[3].equals	"function name must start with an ASCII lowercase letter"
+field	expectations.json_assertions[3].operation	"equals"
+field	expectations.json_assertions[3].path	"diagnostics.1.message"
+field	expectations.json_assertions[4].equals	{"name":"Build","name_class":"function","observed_initial":"ascii_uppercase","occurrence":"declaration","origin":"source","phase":"name","required_initial":"ascii_lowercase"}
+field	expectations.json_assertions[4].operation	"equals"
+field	expectations.json_assertions[4].path	"diagnostics.1.details"
+field	expectations.json_assertions[5].equals	{"name":"_hidden","name_class":"type","observed_initial":"underscore","occurrence":"declaration","origin":"source","phase":"name","required_initial":"ascii_uppercase"}
+field	expectations.json_assertions[5].operation	"equals"
+field	expectations.json_assertions[5].path	"diagnostics.2.details"
+field	expectations.json_assertions[6].equals	{"name":"_Build","name_class":"function","observed_initial":"underscore","occurrence":"declaration","origin":"source","phase":"name","required_initial":"ascii_lowercase"}
+field	expectations.json_assertions[6].operation	"equals"
+field	expectations.json_assertions[6].path	"diagnostics.3.details"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
+field	expectations.stdout.contains[1]	"\"name\":\"exposed\""
+field	expectations.stdout.contains[2]	"\"name\":\"Build\""
+field	expectations.stdout.contains[3]	"\"name\":\"_hidden\""
+field	expectations.stdout.contains[4]	"\"name\":\"_Build\""
+field	expectations.stdout.contains[5]	"\"name_class\":\"type\""
+field	expectations.stdout.contains[6]	"\"name_class\":\"function\""
+field	expectations.stdout.contains[7]	"\"observed_initial\":\"underscore\""
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"\"name\":\"packet\""
+field	expectations.stdout.not_contains[1]	"duplicate type alias name `exposed`"
+field	expectations.stdout.not_contains[2]	"duplicate function alias name `Build`"
+field	expectations.stdout.not_contains[3]	"unresolved type alias target `Valid`"
+field	expectations.stdout.not_contains[4]	"unresolved function alias target `good`"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.command[3]	"wire.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"6275eeec47fb07889a97c6b244b8b2d3e8f284e964b32fe0a67e4e250376f9d6"
 case	"examples/specification/check/identifier-casing-quarantine"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -37893,6 +37938,24 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"expected"
 case_digest	"812d3440839e30590358e009ee274014953d1aae3310506c219aadb28ad9fc59"
+case	"examples/specification/run/identifier-casing-unreachable-public-alias"
+field	expectations.exit	0
+field	expectations.json_assertions[0].equals	"passed"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"name.invalid_case"
+field	expectations.stdout.not_contains[1]	"exposed"
+field	expectations.stdout.not_contains[2]	"Build"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.repeat	1
+field	requirements.jdk	true
+field	source_errors	"expected"
+case_digest	"7ed6dcf781c961caae865ce5521614306da8cf0e6d4050ee1ca6d9ed60bb1e0c"
 case	"examples/specification/run/identifier-casing-unused-handler-type-reference"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -48393,4 +48456,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"56e0914d877e5d38ccf65ce8173db3ddd91ee2bb865c0daac47141966da06804"
+aggregate_digest	"0fda89d23fbc4adae21bca1be6ec714eb7101b934d07b51e4485a9c37b66916f"

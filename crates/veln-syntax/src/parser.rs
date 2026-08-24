@@ -496,15 +496,26 @@ impl<'a> Parser<'a> {
     }
 
     fn at_public_alias_header(&self) -> bool {
-        self.at(TokenKind::Pub)
-            && matches!(
-                (self.peek_kind(1), self.peek_kind(2), self.peek_kind(3)),
-                (
-                    Some(TokenKind::Fn | TokenKind::Type | TokenKind::Schema),
-                    Some(TokenKind::Ident),
-                    Some(TokenKind::Equal)
-                )
-            )
+        if !self.at(TokenKind::Pub) {
+            return false;
+        }
+        let Some(kind) = self.peek_kind(1) else {
+            return false;
+        };
+        let Some(name) = self.peek_kind(2) else {
+            return false;
+        };
+        let Some(equal) = self.peek_kind(3) else {
+            return false;
+        };
+        equal == TokenKind::Equal
+            && match kind {
+                TokenKind::Fn | TokenKind::Type => {
+                    matches!(name, TokenKind::Ident | TokenKind::Hole)
+                }
+                TokenKind::Schema => name == TokenKind::Ident,
+                _ => false,
+            }
     }
 
     fn parse_public_alias(&mut self) -> PublicAliasDecl {
@@ -523,13 +534,22 @@ impl<'a> Parser<'a> {
             );
             PublicAliasKind::Schema
         };
-        let name = self.expect_ident("public_alias", "public member name");
+        let (name, name_span) = match kind {
+            PublicAliasKind::Function | PublicAliasKind::Type => {
+                self.expect_covered_name("public_alias", "public member name")
+            }
+            PublicAliasKind::Schema => (
+                self.expect_ident("public_alias", "public member name"),
+                None,
+            ),
+        };
         self.expect(TokenKind::Equal, "public_alias", vec!["="]);
         let target = self.parse_member_alias_target();
         let end = self.expect_newline("public_alias").range;
         PublicAliasDecl {
             kind,
             name,
+            name_span,
             target,
             span: self.source.span(start.cover(end)),
         }

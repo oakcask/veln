@@ -1,0 +1,14 @@
+type Valid
+  Made
+end
+
+fn good() -> Int
+  1
+end
+
+pub type exposed = Valid
+pub fn Build = good
+
+pub fn main() -> Int
+  good()
+end

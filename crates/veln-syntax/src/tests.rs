@@ -679,12 +679,23 @@ fn parses_public_member_aliases() {
     };
     assert_eq!(function_alias.kind, PublicAliasKind::Function);
     assert_eq!(function_alias.name.as_deref(), Some("parse"));
+    assert_eq!(
+        function_alias
+            .name_span
+            .as_ref()
+            .map(|span| span.start.column),
+        Some(8)
+    );
     assert_eq!(function_alias.target, vec!["impl", "parse"]);
     let SyntaxItem::PublicAlias(type_alias) = &output.tree.items[1] else {
         panic!("expected type alias");
     };
     assert_eq!(type_alias.kind, PublicAliasKind::Type);
     assert_eq!(type_alias.name.as_deref(), Some("Document"));
+    assert_eq!(
+        type_alias.name_span.as_ref().map(|span| span.start.column),
+        Some(10)
+    );
     assert_eq!(type_alias.target, vec!["impl", "Document"]);
     let SyntaxItem::PublicAlias(schema_alias) = &output.tree.items[2] else {
         panic!("expected schema alias");
@@ -705,6 +716,58 @@ fn parses_public_member_aliases() {
             "pub schema Packet = impl::Packet\n",
         )
     );
+}
+
+#[test]
+fn parses_underscore_led_public_type_and_function_alias_names_as_recovery_names() {
+    let source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "pub fn _Build = impl::good\n",
+            "pub type _exposed = impl::Valid\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::PublicAlias(function_alias) = &output.tree.items[0] else {
+        panic!("expected function alias");
+    };
+    assert_eq!(function_alias.kind, PublicAliasKind::Function);
+    assert_eq!(function_alias.name.as_deref(), Some("_Build"));
+    assert_eq!(
+        function_alias
+            .name_span
+            .as_ref()
+            .map(|span| span.start.column),
+        Some(8)
+    );
+    let SyntaxItem::PublicAlias(type_alias) = &output.tree.items[1] else {
+        panic!("expected type alias");
+    };
+    assert_eq!(type_alias.kind, PublicAliasKind::Type);
+    assert_eq!(type_alias.name.as_deref(), Some("_exposed"));
+    assert_eq!(
+        type_alias.name_span.as_ref().map(|span| span.start.column),
+        Some(10)
+    );
+}
+
+#[test]
+fn standalone_underscore_public_alias_name_keeps_structural_parse_behavior() {
+    let source = SourceFile::new("api.veln", "pub type _ = impl::Valid\n");
+
+    let output = parse(&source);
+
+    assert!(
+        output
+            .tree
+            .items
+            .iter()
+            .all(|item| !matches!(item, SyntaxItem::PublicAlias(_)))
+    );
+    assert!(!output.diagnostics.is_empty());
 }
 
 #[test]

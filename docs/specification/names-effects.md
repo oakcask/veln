@@ -14,8 +14,9 @@ compiler-known calls.
 - Namespaces, shadowing, duplicate checks, module ownership, external package
   imports, and manifest export checks:
   [names-effects-full.md](names-effects-full.md#name-resolution).
-- Source ADT types, constructors, functions, and value bindings must use the
-  casing required by their name class. Invalid source names emit
+- Source ADT types, constructors, functions, public type and function alias
+  declaration names, and value bindings must use the casing required by their
+  name class. Invalid source names emit
   `name.invalid_case` at the written-name span and stay quarantined from
   ordinary symbol lookup, imports, public aliases, checked core, typed IR,
   exports, and backend input. Same-kind, same-scope invalid names with the
@@ -29,6 +30,7 @@ compiler-known calls.
   `identifier-casing-duplicate-quarantine`, `identifier-casing-quarantine`,
   `identifier-casing-value-recovery`,
   `identifier-casing-handler-clause-binding`,
+  `identifier-casing-public-alias-declarations`,
   `identifier-casing-same-file-alias-valid-wins`,
   `identifier-casing-unused-handler-type-reference`,
   `identifier-casing-transitive-handler-binding`, and

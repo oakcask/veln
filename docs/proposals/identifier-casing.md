@@ -8,11 +8,11 @@ update-when: Remaining identifier casing classes, qualified-name roles, language
 ## Outcome
 
 Extend the implemented source declaration and binding casing foundation to
-module identities, qualified occurrences, public aliases, source-less symbol
-registries, and language-service operations.
+module identities, qualified occurrences, alias target leaves, source-less
+symbol registries, and language-service operations.
 
-Current type, constructor, function, and value-binding declaration behavior is
-specified in
+Current type, constructor, function, public type and function alias declaration
+name, and value-binding behavior is specified in
 [`names-effects-full.md`](../specification/names-effects-full.md#name-resolution).
 Its completed recovery foundation is recorded in
 [`identifier-casing-source-recovery.md`](../reference/implemented-proposals/identifier-casing-source-recovery.md).
@@ -24,10 +24,10 @@ letter in `a` through `z`.
 
 | Name class | Required initial | Remaining covered source |
 | --- | --- | --- |
-| Type | Uppercase | Public type aliases, qualified type uses, and type-alias target leaves. |
+| Type | Uppercase | Qualified type uses and type-alias target leaves. |
 | Constructor | Uppercase | Qualified constructor calls and pattern heads. |
 | Module | Lowercase | Written and source-path-derived module segments, import paths, and import aliases. |
-| Function | Lowercase | Public function aliases, qualified function uses, and function-alias target leaves. |
+| Function | Lowercase | Qualified function uses and function-alias target leaves. |
 | Value binding | Lowercase | Remaining language-service classified binding occurrences. |
 
 A wrong-cased source occurrence reports `name.invalid_case` at its exact token.
@@ -44,9 +44,10 @@ Only a role fixed by syntax, successful resolution, or one unique recovery link
 receives a casing diagnostic. An unresolved or ambiguous intermediate segment
 is not classified from spelling alone.
 
-Public function and type alias kinds fix the class of the alias name and target
-leaf. Schema aliases remain casing-neutral. An invalid alias or recovery target
-does not enter the export namespace.
+Public function and type alias kinds fix the class of the alias target leaf.
+Alias declaration-name casing is already implemented. Schema alias target
+leaves remain casing-neutral. An invalid recovery target does not enter the
+export namespace.
 
 ## Command And Language-Service Boundary
 

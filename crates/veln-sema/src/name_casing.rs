@@ -69,6 +69,25 @@ pub(crate) fn check_source_identifier_casing(module: &SurfaceModule) -> Vec<Diag
         );
         check_function_bindings(&mut diagnostics, function);
     }
+    for alias in &module.aliases {
+        match alias.kind {
+            PublicAliasKind::Function => check_name(
+                &mut diagnostics,
+                alias.name.as_deref(),
+                alias.name_span.as_ref(),
+                NameClass::Function,
+                "declaration",
+            ),
+            PublicAliasKind::Type => check_name(
+                &mut diagnostics,
+                alias.name.as_deref(),
+                alias.name_span.as_ref(),
+                NameClass::Type,
+                "declaration",
+            ),
+            PublicAliasKind::Schema => {}
+        }
+    }
     for handler in &module.handlers {
         for param in &handler.params {
             check_name(
@@ -105,6 +124,14 @@ pub fn valid_type_name(name: &str) -> bool {
     name.chars()
         .next()
         .is_some_and(|initial| initial.is_ascii_uppercase())
+}
+
+pub fn valid_public_alias_name(kind: PublicAliasKind, name: &str) -> bool {
+    match kind {
+        PublicAliasKind::Function => valid_function_name(name),
+        PublicAliasKind::Type => valid_type_name(name),
+        PublicAliasKind::Schema => true,
+    }
 }
 
 pub(crate) fn valid_value_binding_name(name: &str) -> bool {

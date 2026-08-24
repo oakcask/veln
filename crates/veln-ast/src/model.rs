@@ -101,6 +101,7 @@ pub struct PublicAlias {
     pub module_name: Option<String>,
     pub kind: PublicAliasKind,
     pub name: Option<String>,
+    pub name_span: Option<SourceSpan>,
     pub target: Vec<String>,
     pub span: SourceSpan,
 }

@@ -10,14 +10,16 @@ This file specifies implemented name resolution and effect checking.
 
 ## Name Resolution
 
-Source ADT type and constructor declarations start with an ASCII uppercase
-letter. Function and test declarations and value bindings start with an ASCII
-lowercase letter. Value bindings include function parameters, result bindings,
-`let` bindings, pattern bindings, handler clause bindings, and hole `satisfy`
-candidate bindings. An underscore does not satisfy either class. The
-standalone `_` keeps its wildcard and discard behavior. An underscore-led token
-in a covered declaration or binding is retained for `name.invalid_case`
-recovery instead of producing a missing-identifier parse diagnostic.
+Source ADT type declarations, constructor declarations, and public type alias
+declaration names start with an ASCII uppercase letter. Function declarations,
+test declarations, public function alias declaration names, and value bindings
+start with an ASCII lowercase letter. Value bindings include function
+parameters, result bindings, `let` bindings, pattern bindings, handler clause
+bindings, and hole `satisfy` candidate bindings. An underscore does not satisfy
+either class. The standalone `_` keeps its wildcard and discard behavior. An
+underscore-led token in a covered declaration or binding is retained for
+`name.invalid_case` recovery instead of producing a missing-identifier parse
+diagnostic. Public schema alias declaration names stay casing-neutral.
 
 An invalid covered name is quarantined from ordinary type, constructor, and
 function lookup. Same-kind, same-scope invalid names with the same spelling
@@ -31,11 +33,12 @@ The checked `identifier-casing-*` cases under
 `../../examples/specification/check/`, together with parser and semantic unit
 tests, fix accepted and rejected names, exact human and JSON diagnostics,
 checked-artifact exclusion, duplicate overlap, unique and ambiguous recovery,
-valid-candidate precedence, same-leaf alias mismatch preservation, the import
-and alias quarantine boundary, handler clause binding recovery, same-file valid
-declaration precedence over quarantined aliases, and selected-entry
-reachability over local bindings, ADT payloads, handler annotations,
-transitive handler bodies, and underscore-led recovered type names.
+valid-candidate precedence, public alias declaration names, same-leaf alias
+mismatch preservation, the import and alias quarantine boundary, handler
+clause binding recovery, same-file valid declaration precedence over
+quarantined aliases, and selected-entry reachability over local bindings, ADT
+payloads, handler annotations, transitive handler bodies, and underscore-led
+recovered names.
 
 Implemented checker namespaces are:
 

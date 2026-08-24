@@ -207,6 +207,7 @@ impl AstBuilder {
                 SyntaxPublicAliasKind::Schema => PublicAliasKind::Schema,
             },
             name: alias.name.clone(),
+            name_span: alias.name_span.clone(),
             target: alias.target.clone(),
             span: alias.span.clone(),
         }

@@ -1,7 +1,8 @@
 use super::*;
 use crate::adt::AdtRegistry;
 use crate::name_casing::{
-    type_alias_targets_invalid_source_type, valid_function_name, valid_type_name,
+    type_alias_targets_invalid_source_type, valid_function_name, valid_public_alias_name,
+    valid_type_name,
 };
 use crate::schema::dispatch::{
     SchemaDispatchCase, SchemaDispatchCasePayload, SchemaDispatchSpec,
@@ -706,6 +707,9 @@ pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diag
         let Some(name) = &alias.name else {
             continue;
         };
+        if !valid_public_alias_name(alias.kind, name) {
+            continue;
+        }
         let key = (alias.module_name.clone(), name.clone());
         let node_id = alias.node_id.display("alias");
         if let Some((first_node_id, first_span)) = seen.get(&key) {
@@ -769,6 +773,10 @@ pub(crate) fn check_duplicate_type_names(module: &SurfaceModule) -> Vec<Diagnost
     }
     for alias in module.aliases.iter().filter(|alias| {
         alias.kind == PublicAliasKind::Type
+            && alias
+                .name
+                .as_deref()
+                .is_some_and(|name| valid_public_alias_name(alias.kind, name))
             && !type_alias_targets_invalid_source_type(
                 module,
                 &alias.target,
@@ -936,6 +944,9 @@ fn codec_schema_wrong_kind(
     if let Some(alias) = module.aliases.iter().find(|alias| {
         alias.name.as_deref() == Some(name) && alias.module_name.as_deref() == module_name
     }) {
+        if !valid_public_alias_name(alias.kind, name) {
+            return None;
+        }
         return match alias.kind {
             PublicAliasKind::Function => Some("function"),
             PublicAliasKind::Type => Some("type"),
@@ -1729,6 +1740,7 @@ fn schema_field_has_ordinary_type_target(
     }) || module.aliases.iter().any(|alias| {
         alias.kind == PublicAliasKind::Type
             && alias.name.as_deref() == Some(name)
+            && valid_public_alias_name(alias.kind, name)
             && alias.module_name.as_deref() == module_name
     })
 }

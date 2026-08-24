@@ -8,6 +8,7 @@ use veln_ast::{
 };
 
 use crate::adt::{self, AdtRegistry};
+use crate::name_casing::valid_public_alias_name;
 use crate::semantic_model::{Binding, FunctionKey, Type};
 use crate::type_syntax::parse_type_or_unknown;
 use crate::types::signatures::{FunctionSignature, MatchScrutineePatternInference};
@@ -3219,6 +3220,9 @@ pub(crate) fn function_alias_signatures(
         .filter(|alias| alias.kind == PublicAliasKind::Function)
         .filter_map(|alias| {
             let name = alias.name.clone()?;
+            if !valid_public_alias_name(alias.kind, &name) {
+                return None;
+            }
             let target = function_signature_path(
                 &alias.target,
                 &module.uses,

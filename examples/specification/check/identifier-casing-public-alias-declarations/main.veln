@@ -1,0 +1,18 @@
+use wire
+
+type Valid
+  Made
+end
+
+fn good() -> Int
+  1
+end
+
+pub type Visible = Valid
+pub fn expose = good
+pub schema packet = wire::Packet
+
+pub type exposed = Valid
+pub fn Build = good
+pub type _hidden = Valid
+pub fn _Build = good

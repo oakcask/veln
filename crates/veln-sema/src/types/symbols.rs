@@ -5,6 +5,7 @@ use veln_source::SourceSpan;
 
 use super::schema_types::format_neutral_schema_first_unsupported_encode_field;
 use super::signatures::FunctionSignature;
+use crate::name_casing::valid_public_alias_name;
 
 #[derive(Clone)]
 pub(super) struct SchemaSymbolTable {
@@ -358,6 +359,12 @@ pub(super) fn named_type_symbols(module: &SurfaceModule) -> Vec<NamedSymbol> {
             .aliases
             .iter()
             .filter(|alias| alias.kind == PublicAliasKind::Type)
+            .filter(|alias| {
+                alias
+                    .name
+                    .as_deref()
+                    .is_some_and(|name| valid_public_alias_name(alias.kind, name))
+            })
             .filter(|alias| {
                 type_alias_target_is_valid(module, &alias.target, alias.module_name.as_deref())
             })
