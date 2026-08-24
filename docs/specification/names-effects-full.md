@@ -28,11 +28,15 @@ payload wrong-kind checks. Same-kind, same-scope invalid names with the same
 spelling still emit the ordinary duplicate diagnostic. One same-spelled
 compatible use in the declaring source and lexical scope may suppress a
 derivative unresolved-name diagnostic when exactly one invalid declaration or
-binding is available. This rule includes invalid public type and function
-alias declaration names used from the same source. Missing or wrong-kind alias
-targets remain independently reported. Recovery does not cross an import or
-public alias, and it never enters checked core, typed IR, hole repair candidate
-lists, or backend input.
+binding is available. Function result bindings are visible only to the
+function's `ensure` predicates for this recovery rule; an invalid function
+result binding can recover compatible `ensure` references but does not recover
+body value reads or body call targets. Body bindings remain visible to later
+body expressions and to later `ensure` predicates. This rule includes invalid
+public type and function alias declaration names used from the same source.
+Missing or wrong-kind alias targets remain independently reported. Recovery
+does not cross an import or public alias, and it never enters checked core,
+typed IR, hole repair candidate lists, or backend input.
 The checked `identifier-casing-*` cases under
 `../../examples/specification/check/`, together with parser and semantic unit
 tests, fix accepted and rejected names, exact human and JSON diagnostics,
@@ -40,12 +44,13 @@ checked-artifact exclusion, duplicate overlap, unique and ambiguous recovery,
 valid-candidate precedence, public alias declaration names, same-leaf alias
 mismatch preservation, invalid public alias declaration names that preserve
 independently provable missing-target and wrong-kind target diagnostics,
-same-file alias use recovery, split recovery candidate uniqueness, the import
-and alias quarantine boundary, handler clause binding recovery, same-file
-valid declaration precedence over quarantined aliases, and selected-entry
-reachability over local bindings, ADT payloads, handler annotations, transitive
-handler bodies, test declaration names, handler callable values, pattern
-bindings, inferred callable local bindings, and underscore-led recovered names.
+same-file alias use recovery, split recovery candidate uniqueness, result
+binding recovery scope, the import and alias quarantine boundary, handler
+clause binding recovery, same-file valid declaration precedence over
+quarantined aliases, and selected-entry reachability over local bindings, ADT
+payloads, handler annotations, transitive handler bodies, test declaration
+names, handler callable values, pattern bindings, inferred callable local
+bindings, and underscore-led recovered names.
 
 Implemented checker namespaces are:
 

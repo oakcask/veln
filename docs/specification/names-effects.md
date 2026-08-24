@@ -23,12 +23,14 @@ compiler-known calls.
   exports, and backend input. Same-kind, same-scope invalid names with the
   same spelling still emit the ordinary duplicate diagnostic. A unique
   compatible same-source recovery reference can suppress only the derivative
-  unresolved-name diagnostic; independently provable type mismatches remain
-  diagnostics even when a quarantined alias or target type name appears in the
-  expected or actual type. `run` reports invalid-casing names reachable from
-  the selected entry through function values, aliases, local bindings, ADT
-  payloads, and transitive handler bodies without suppressing other
-  unreachable static diagnostics. The checked `identifier-casing-*` cases,
+  unresolved-name diagnostic; result-binding recovery is limited to function
+  `ensure` predicates and does not make a result binding visible to the
+  function body. Independently provable type mismatches remain diagnostics
+  even when a quarantined alias or target type name appears in the expected or
+  actual type. `run` reports invalid-casing names reachable from the selected
+  entry through function values, aliases, local bindings, ADT payloads, and
+  transitive handler bodies without suppressing other unreachable static
+  diagnostics. The checked `identifier-casing-*` cases,
   including
   `identifier-casing-duplicate-quarantine`, `identifier-casing-quarantine`,
   `identifier-casing-value-recovery`,
@@ -46,6 +48,7 @@ compiler-known calls.
   `identifier-casing-handler-callable-recovery`,
   `identifier-casing-inferred-callable-recovery`,
   `identifier-casing-pattern-binding-recovery`,
+  `contract-result-binding-scope`,
   `identifier-casing-unused-handler-type-reference`,
   `identifier-casing-transitive-handler-binding`, and
   `identifier-casing-underscore-type-closure`, fix the observable boundary.

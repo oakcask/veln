@@ -45,6 +45,8 @@ and
 [`identifier-casing-pattern-binding-recovery`](../../examples/specification/check/identifier-casing-pattern-binding-recovery/case.toml).
 Inferred callable `let` and pattern-binding recovery is checked by
 [`identifier-casing-inferred-callable-recovery`](../../examples/specification/check/identifier-casing-inferred-callable-recovery/case.toml).
+Result binding recovery scope is checked by
+[`contract-result-binding-scope`](../../examples/specification/check/contract-result-binding-scope/case.toml).
 The selected-entry command boundary is checked by
 [`identifier-casing-reachable`](../../examples/specification/run/identifier-casing-reachable/case.toml)
 and
