@@ -3023,6 +3023,13 @@ field	expectations.diagnostics[6].severity	"error"
 field	expectations.diagnostics[6].span.column	2
 field	expectations.diagnostics[6].span.file	"main.veln"
 field	expectations.diagnostics[6].span.line	36
+field	expectations.diagnostics[7].id	"name.unresolved"
+field	expectations.diagnostics[7].kind	"name"
+field	expectations.diagnostics[7].message	"unresolved call_target `Callback`"
+field	expectations.diagnostics[7].severity	"error"
+field	expectations.diagnostics[7].span.column	2
+field	expectations.diagnostics[7].span.file	"main.veln"
+field	expectations.diagnostics[7].span.line	41
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"error"
 field	expectations.json_assertions[0].operation	"equals"
@@ -3034,13 +3041,14 @@ field	expectations.stdout.contains[2]	"unresolved contract_predicate `Output`"
 field	expectations.stdout.contains[3]	"unresolved value `output`"
 field	expectations.stdout.contains[4]	"unresolved value `Output`"
 field	expectations.stdout.contains[5]	"unresolved contract_predicate `result`"
+field	expectations.stdout.contains[6]	"unresolved call_target `Callback`"
 field	expectations.stdout.format	"json"
 field	invocation.command[0]	"check"
 field	invocation.command[1]	"--json"
 field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
-case_digest	"156aa2e8a8d9ba5f67b0295faec1cb05add50359fa538fb6a3cb752cfeecb698"
+case_digest	"e8f19d2e0fc2afd39d97715f0ccc3b060af228290022015bc24ec5905c76fa0b"
 case	"examples/specification/check/contract-static-classification"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -48796,4 +48804,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"b7717fed305921ec29954068ec4d4264617eae185d127baff1e932c3d62527bd"
+aggregate_digest	"08a01cd80679fb22bb47769fca6a538042f2f8a1162ff41edbc353dba58d6b12"
