@@ -404,7 +404,7 @@ fn run_reachable_identifier_casing_regions(module: &SurfaceModule) -> Vec<veln_s
     regions
 }
 
-fn run_reachable_handlers<'a>(module: &'a SurfaceModule) -> Vec<&'a HandlerDecl> {
+fn run_reachable_handlers(module: &SurfaceModule) -> Vec<&HandlerDecl> {
     let mut handles = Vec::new();
     for function in &module.functions {
         for line in &function.body {

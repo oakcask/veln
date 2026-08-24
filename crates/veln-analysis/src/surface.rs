@@ -3382,12 +3382,6 @@ fn collect_function_callees(
     local_bindings: &[LocalBinding],
     callees: &mut Vec<ReachableFunction>,
 ) {
-    let current_module = context.current_module;
-    let uses = context.uses;
-    let function_targets = context.function_targets;
-    let companion_access_targets = context.companion_access_targets;
-    let handlers = context.handlers;
-
     match &expr.kind {
         ExprKind::NamePath(segments) => {
             collect_function_name_reference(segments, context, local_bindings, None, callees);
@@ -3417,16 +3411,7 @@ fn collect_function_callees(
             }
         }
         ExprKind::Handle { body, args, .. } => {
-            collect_handler_operation_clause_callees(
-                expr,
-                current_module,
-                uses,
-                function_targets,
-                companion_access_targets,
-                handlers,
-                &context.types,
-                callees,
-            );
+            collect_handler_operation_clause_callees(expr, context, callees);
             collect_function_callees(body, context, local_bindings, callees);
             for arg in args {
                 collect_function_callees(arg, context, local_bindings, callees);
@@ -3716,18 +3701,15 @@ fn collect_function_name_reference(
 
 fn collect_handler_operation_clause_callees(
     expr: &Expr,
-    current_module: Option<&str>,
-    uses: &[&UseDecl],
-    function_targets: &FunctionTargetIndex,
-    companion_access_targets: &HashMap<String, String>,
-    handlers: &[&veln_ast::HandlerDecl],
-    types: &[&veln_ast::TypeDecl],
+    context: &FunctionCalleeContext<'_>,
     callees: &mut Vec<ReachableFunction>,
 ) {
     let ExprKind::Handle { handler, .. } = &expr.kind else {
         return;
     };
-    let matching_handlers = handlers.iter().filter(|candidate| {
+    let current_module = context.current_module;
+    let uses = context.uses;
+    let matching_handlers = context.handlers.iter().filter(|candidate| {
         let Some(name) = &candidate.name else {
             return false;
         };
@@ -3745,14 +3727,6 @@ fn collect_handler_operation_clause_callees(
         }
     });
     for handler in matching_handlers {
-        let context = FunctionCalleeContext {
-            current_module,
-            uses,
-            function_targets,
-            companion_access_targets,
-            handlers,
-            types: types.to_vec(),
-        };
         let mut local_bindings = handler
             .params
             .iter()
@@ -3767,7 +3741,7 @@ fn collect_handler_operation_clause_callees(
                 name: param.name.clone(),
                 function_shape: None,
             }));
-            collect_function_callees(&clause.body, &context, &local_bindings, callees);
+            collect_function_callees(&clause.body, context, &local_bindings, callees);
             local_bindings.truncate(binding_count);
         }
     }
