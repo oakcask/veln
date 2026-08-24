@@ -55,8 +55,6 @@ Before drafting:
 6. For each material claim, identify the concrete change that supplies evidence,
    the observed result, and how that result supports the claim. Distinguish
    behavior-relevant verification from incidental repository hygiene checks.
-   For pull request descriptions, apply the `Compliance and Revisit Triggers`
-   rules below instead of recording results that CI can report.
 7. Write the body or description so a future reader understands the decision without rereading the entire diff.
 
 If the intent or risk cannot be inferred, state the uncertainty briefly instead of inventing a reason.
@@ -91,7 +89,7 @@ Prefer this structure when no repository template exists:
 
 ...
 
-## Compliance and Revisit Triggers
+## Verification
 
 ...
 ```
@@ -108,51 +106,41 @@ Use the framework across the sections:
 - **Risks**: State what could still fail or surprise maintainers, why the risk is
   acceptable, and why further mitigation is not included when reviewers might
   expect it.
-- **Compliance and Revisit Triggers**: State how future changes remain compliant
-  with each material decision or claim, and identify observable conditions that
-  should cause maintainers to reconsider the decision.
+- **Verification**: Map each material claim to the concrete change that supplies
+  evidence, state the observed result, and explain why that evidence supports
+  the claim. Explain why broader or alternative verification was unnecessary
+  when its omission would otherwise be unclear.
 
-Treat `Compliance and Revisit Triggers` as decision-lifecycle guidance, not as
-an execution transcript or a copy of CI results.
+Treat `Verification` as part of the rationale, not as an execution transcript.
 
-For each material decision or claim, name the compliance mechanism at a useful
-review granularity. Examples include a regression scenario and its assertion, a
-fixture and expected output, a specification case, an invariant check, an
-architecture fitness function, or a concrete review rule. Explain which future
-violation the mechanism detects or prevents. An unchanged test can be a
-compliance mechanism only when the description identifies the relevant scenario
-or assertion and explains which decision boundary it protects.
+For each material claim, name the evidence-bearing change at a useful review
+granularity. Examples include an added regression scenario and its assertion, a
+changed fixture and expected output, a specification case, an invariant check,
+or a before-and-after measurement. Explain what that change demonstrates. An
+unchanged test can contribute evidence only when the description identifies the
+relevant scenario or assertion and explains why it exercises the changed path.
+Implementation changes can directly support structural claims, but behavioral
+claims need an observed outcome rather than an appeal to the diff alone.
 
-Name concrete revisit triggers that would invalidate the decision's assumptions
-or change its accepted tradeoff. Useful triggers include a changed public
-contract, an upstream capability that removes the original constraint, a
-measurable cost crossing an accepted bound, or evidence that the chosen behavior
-no longer serves its users. A trigger starts a new decision; it does not require
-automatic rollback. Call it an exit or rollback condition only when that
-response is already part of the decision.
+Do not turn this mapping into a file-by-file summary. Group related claims and
+evidence by behavior, contract, or risk. If no changed or existing evidence
+directly supports a material claim, mark the claim as indirectly verified or
+unverified and state the remaining uncertainty.
 
-Do not turn this mapping into a file-by-file summary. Group related decisions
-and compliance mechanisms by behavior, contract, or risk. If no durable
-mechanism protects a material decision, state the reviewer-facing rule that
-future changes must follow. If relying on review alone is intentional, explain
-why automation would be disproportionate and state the remaining risk.
+Name a command only when it helps reviewers reproduce or understand the
+evidence. A command states the inspection method, not the evidence or its
+relationship to a claim. Do not list a command merely because it was run, and
+do not claim that a suite "covers" a behavior without identifying the relevant
+scenario, assertion, fixture, or measured result. In particular, omit
+generic hygiene checks such as `git diff --check` when they provide no evidence
+about the change's intended behavior, consequences, or material risks. The same
+rule applies to formatting, linting, compilation, and broad test commands: keep
+them when they validate a claim or meaningful integration boundary, and leave
+them out when they only add activity without decision-relevant confidence.
 
-Do not invent a trigger merely to fill the section, use a calendar reminder as
-a substitute for an observable condition, or write vague phrases such as
-"revisit if needed." When no decision-specific trigger is known, state which
-premise must materially change before reconsideration is warranted.
-
-Do not include the outcome of a check that CI can run or report. Passing tests,
-formatting, linting, compilation, generated-file checks, and similar current-run
-results belong in CI, even when they are relevant to the change. Do not list the
-commands for those checks either. Describe the enduring scenario, assertion, or
-rule that establishes compliance instead of reporting that it passed.
-
-Use a manual review rule only when compliance cannot reasonably be represented
-by CI. Explain the observable condition and how future reviewers can recognize
-noncompliance; do not reduce the entry to a one-time "verified" result. If
-neither automation nor a repeatable review rule is practical, state that gap and
-the remaining uncertainty.
+When verification was not run, state the relevant unverified behavior or risk
+and why it was not checked. Use a bare `Not run` only when the surrounding
+template requires that exact marker; follow it with the reason.
 
 When a pull request changes public behavior or compatibility, mark the PR title with `!` and include a `BREAKING CHANGE: ...` line in the description. Put the line where the repository template discusses compatibility or consequences, and explain the removed, changed, or incompatible contract from the consumer's point of view.
 
@@ -186,14 +174,8 @@ Avoid:
 - Mention implementation details only when they clarify the rationale, consequence, or review focus.
 - Keep claims proportional to evidence.
 - Do not include environment-specific or personal information.
-- Avoid GitHub mention syntax unless the purpose is to notify that user or team.
-  When a command is decision-relevant elsewhere in the description, prefer root
-  scripts like `pnpm build`, package paths like `packages/web`, or escaped scoped
-  package names so package scopes do not become mentions.
-- In PR descriptions, write every command line inside inline backticks or a
-  fenced code block, because raw command text can contain `@` and accidentally
-  notify users or teams. The `Compliance and Revisit Triggers` section has the
-  stricter no-command rule above.
+- Avoid GitHub mention syntax unless the purpose is to notify that user or team. When a verification command is decision-relevant, prefer root scripts like `pnpm build`, package paths like `packages/web`, or escaped scoped package names so package scopes do not become mentions.
+- In PR descriptions, write every command line inside inline backticks or a fenced code block. This is required for verification entries too, because raw command text can contain `@` and accidentally notify users or teams.
 
 ## Examples
 
@@ -242,44 +224,35 @@ This changes an error classification that some callers may have matched directly
 No compatibility alias is retained because it would keep expired sessions
 indistinguishable from genuine authorization failures.
 
-## Compliance and Revisit Triggers
+## Verification
 
-The expired-session regression is the compliance mechanism for the new
-classification: it requires an expired session to produce the reauthentication
-response. The retained permission-failure assertion protects the other side of
-the boundary by requiring genuine permission failures to remain unauthorized.
-Future changes that collapse either response into the shared path violate these
-assertions.
-
-Revisit the classification if the public protocol defines a standard
-session-expiry response or supported clients can no longer distinguish the two
-recovery paths. Either change invalidates the compatibility rationale for
-maintaining separate responses.
+The added expired-session regression supplies a session past its expiry and
+asserts the new reauthentication response. The retained permission-failure case
+asserts the unchanged unauthorized response. Together these changes support the
+claimed classification boundary; broader authentication tests were not repeated
+because the middleware's other branches and session validation are unchanged.
 ```
 
-Weak compliance guidance:
+Weak verification:
 
 ```markdown
-## Compliance and Revisit Triggers
+## Verification
 
 - `git diff --check`
 - `cargo fmt --check`
 - `cargo test`
 ```
 
-Better compliance guidance:
+Better verification:
 
 ```markdown
-## Compliance and Revisit Triggers
+## Verification
 
-The empty-input regression enforces the new parser contract by requiring a
-successful no-op result. The adjacent malformed-input assertion requires
-malformed input to remain an error. Together they make any future change that
-conflates empty and malformed input a compliance failure.
-
-Revisit this contract if callers can no longer treat empty input as an optional
-configuration or if a later parser stage requires at least one token. Either
-change removes the premise that a successful no-op is the safer boundary.
+The added empty-input regression asserts a successful no-op result, directly
+supporting the new parser behavior. The adjacent malformed-input assertion
+remains an error, supporting the claim that the failure contract is preserved.
+`cargo test -p parser` runs both cases. The full workspace suite was unnecessary
+because the change does not alter lowering or runtime behavior.
 ```
 
 Decision record example:

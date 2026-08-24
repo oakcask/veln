@@ -19,7 +19,7 @@ Choose the narrowest boundary that owns the behavior:
 - Put parsing, calculation, shell control flow, retries, cleanup, and other
   multi-step behavior in `workflow-scripts/`. Export the decision-making parts
   where practical and cover meaningful success and failure paths with tests.
-- Use a repository-local action under `.github/actions/{action-name}` when a related
+- Use a repository-local action under `actions/{action-name}` when a related
   sequence of action calls, inputs, outputs, and runner setup forms one reusable
   step. Do not use a local action merely to hide complex untested shell code.
 - Use a reusable workflow when callers need to share a job or job graph,

@@ -33,6 +33,5 @@ When reporting the result, include:
 
 - PR URL or PR number when available.
 - Title and important labels that were set.
-- Durable compliance mechanisms and revisit triggers identified in the PR
-  description's `Compliance and Revisit Triggers` section.
+- Verification commands or checks included in the PR description.
 - Any API connection retry or approval issue that affected the operation.
