@@ -7,13 +7,13 @@ update-when: Recovery-aware source identifier casing evidence is superseded or i
 # Recovery-Aware Source Identifier Casing
 
 The first identifier-casing slice established exact written-name spans and
-`name.invalid_case` for source ADT types, constructors, functions, public type
-and function alias declaration names, and value bindings. Invalid declarations
-are excluded from ordinary symbol lookup and checked artifacts. Same-kind,
-same-scope invalid duplicates still report the ordinary duplicate diagnostic.
-One unique compatible same-source recovery reference can suppress a derivative
-unresolved-name diagnostic, but recovery does not cross imports or public
-aliases.
+`name.invalid_case` for source ADT types, constructors, function declarations,
+test declarations, public type and function alias declaration names, and value
+bindings. Invalid declarations are excluded from ordinary symbol lookup and
+checked artifacts. Same-kind, same-scope invalid duplicates still report the
+ordinary duplicate diagnostic. One unique compatible same-source recovery
+reference can suppress a derivative unresolved-name diagnostic, but recovery
+does not cross imports or public aliases.
 
 `check` diagnoses every selected invalid covered name. `run` diagnoses an
 invalid covered declaration or binding only when it is in the selected entry's
@@ -38,5 +38,6 @@ wrong-kind target diagnostics, same-file alias use preservation, split
 recovery candidate uniqueness, handler clause binding recovery, invalid
 selected-entry rejection, local binding precedence, source ADT payload closure,
 handler annotation reachability, transitive handler body reachability,
+test declaration name validation without ordinary function-call recovery,
 underscore-led recovered names, and preserved non-casing diagnostics for type
 mismatches, unreachable duplicate constructors, type aliases, and handlers.

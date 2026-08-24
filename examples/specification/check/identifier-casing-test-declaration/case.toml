@@ -1,0 +1,43 @@
+command = ["check", "--json", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "\"id\":\"name.invalid_case\"",
+  "\"name\":\"BrokenTest\"",
+  "\"name_class\":\"function\"",
+  "unresolved call_target `BrokenTest`",
+]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.0.message"
+equals = "function name must start with an ASCII lowercase letter"
+
+[[json_assert]]
+path = "diagnostics.0.span"
+equals = {"file": "main.veln", "start": {"line": 1, "column": 6, "offset": 5}, "end": {"line": 1, "column": 16, "offset": 15}}
+
+[[json_assert]]
+path = "diagnostics.0.details"
+equals = {"phase": "name", "origin": "source", "occurrence": "declaration", "name": "BrokenTest", "name_class": "function", "required_initial": "ascii_lowercase", "observed_initial": "ascii_uppercase"}
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "name.unresolved"
+
+[[json_assert]]
+path = "diagnostics.1.message"
+equals = "unresolved call_target `BrokenTest`"

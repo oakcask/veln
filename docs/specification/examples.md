@@ -16,6 +16,9 @@ Identifier casing and quarantined recovery are checked by
 [`identifier-casing-value-recovery`](../../examples/specification/check/identifier-casing-value-recovery/case.toml).
 Public alias declaration-name casing is checked by
 [`identifier-casing-public-alias-declarations`](../../examples/specification/check/identifier-casing-public-alias-declarations/case.toml).
+Test declaration-name casing without ordinary function-call recovery is
+checked by
+[`identifier-casing-test-declaration`](../../examples/specification/check/identifier-casing-test-declaration/case.toml).
 Duplicate overlap and alias-mismatch suppression boundaries are checked by
 [`identifier-casing-duplicate-quarantine`](../../examples/specification/check/identifier-casing-duplicate-quarantine/case.toml),
 [`identifier-casing-alias-mismatch`](../../examples/specification/check/identifier-casing-alias-mismatch/case.toml), and

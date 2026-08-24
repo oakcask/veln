@@ -12,8 +12,9 @@ This file specifies implemented name resolution and effect checking.
 
 Source ADT type declarations, constructor declarations, and public type alias
 declaration names start with an ASCII uppercase letter. Function declarations,
-public function alias declaration names, and value bindings start with an ASCII
-lowercase letter. Value bindings include function
+test declarations, public function alias declaration names, and value bindings
+start with an ASCII lowercase letter. Test declarations use the function name
+class. Value bindings include function
 parameters, result bindings, `let` bindings, pattern bindings, handler clause
 bindings, and hole `satisfy` candidate bindings. An underscore does not satisfy
 either class. The standalone `_` keeps its wildcard and discard behavior. An
@@ -43,7 +44,7 @@ same-file alias use recovery, split recovery candidate uniqueness, the import
 and alias quarantine boundary, handler clause binding recovery, same-file
 valid declaration precedence over quarantined aliases, and selected-entry
 reachability over local bindings, ADT payloads, handler annotations, transitive
-handler bodies, and underscore-led recovered names.
+handler bodies, test declaration names, and underscore-led recovered names.
 
 Implemented checker namespaces are:
 

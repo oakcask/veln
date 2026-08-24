@@ -1,0 +1,7 @@
+test BrokenTest() -> ()
+  ()
+end
+
+test caller() -> ()
+  BrokenTest()
+end

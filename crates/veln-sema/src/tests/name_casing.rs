@@ -59,10 +59,62 @@ fn invalid_declarations_never_produce_checked_artifacts() {
 }
 
 #[test]
-fn test_declaration_names_are_not_part_of_source_identifier_casing() {
+fn test_declaration_names_use_function_identifier_casing() {
     let parsed = parse(&SourceFile::new(
         "main_test.veln",
         "test BrokenTest() -> ()\n  ()\nend\n",
+    ));
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "name.invalid_case")
+        .expect("test declaration casing diagnostic");
+    assert_eq!(
+        diagnostic.message,
+        "function name must start with an ASCII lowercase letter"
+    );
+    assert_diagnostic_span(diagnostic, 1, 6, 1, 16);
+    assert!(diagnostic.details.to_json().contains(
+        "\"origin\":\"source\",\"occurrence\":\"declaration\",\"name\":\"BrokenTest\",\"name_class\":\"function\",\"required_initial\":\"ascii_lowercase\",\"observed_initial\":\"ascii_uppercase\""
+    ));
+}
+
+#[test]
+fn invalid_tests_do_not_recover_function_calls() {
+    let parsed = parse(&SourceFile::new(
+        "main_test.veln",
+        concat!(
+            "test Broken() -> ()\n",
+            "  ()\n",
+            "end\n",
+            "test caller() -> ()\n",
+            "  Broken()\n",
+            "end\n",
+        ),
+    ));
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.invalid_case"
+            && diagnostic.message == "function name must start with an ASCII lowercase letter"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved call_target `Broken`"
+    }));
+}
+
+#[test]
+fn valid_test_declaration_names_do_not_emit_identifier_casing_diagnostics() {
+    let parsed = parse(&SourceFile::new(
+        "main_test.veln",
+        "test valid_test() -> ()\n  ()\nend\n",
     ));
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
     let module = lower_surface_ast(&parsed.tree);
@@ -1107,34 +1159,5 @@ fn quarantined_import_alias_does_not_suppress_same_leaf_actual_type_mismatch() {
     }));
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic.id == "type.mismatch" && diagnostic.details.to_json().contains("\"E\"")
-    }));
-}
-
-#[test]
-fn invalid_tests_do_not_recover_function_calls() {
-    let parsed = parse(&SourceFile::new(
-        "main_test.veln",
-        concat!(
-            "test Broken() -> ()\n",
-            "  ()\n",
-            "end\n",
-            "test caller() -> ()\n",
-            "  Broken()\n",
-            "end\n",
-        ),
-    ));
-    let module = lower_surface_ast(&parsed.tree);
-
-    let diagnostics = analyze_surface_module(&module);
-
-    assert!(
-        diagnostics
-            .iter()
-            .all(|diagnostic| diagnostic.id != "name.invalid_case"),
-        "{diagnostics:#?}"
-    );
-    assert!(diagnostics.iter().any(|diagnostic| {
-        diagnostic.id == "name.unresolved"
-            && diagnostic.message == "unresolved call_target `Broken`"
     }));
 }
