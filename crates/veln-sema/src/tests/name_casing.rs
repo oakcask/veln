@@ -688,6 +688,48 @@ fn invalid_value_binding_is_quarantined_but_unique_value_use_recovers() {
 }
 
 #[test]
+fn invalid_pattern_bindings_recover_unique_same_scope_uses() {
+    let parsed = parse(&SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Pair\n",
+            "  Pair(Int, Int)\n",
+            "end\n",
+            "\n",
+            "fn from_match(input: Pair) -> Int\n",
+            "  match input\n",
+            "    Pair(Head, tail) => Head + tail\n",
+            "  end\n",
+            "end\n",
+            "\n",
+            "fn from_destructure(input: Pair) -> Int\n",
+            "  let Pair(First, second) = input\n",
+            "  First + second\n",
+            "end\n",
+        ),
+    ));
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+    let invalid_bindings = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "name.invalid_case"
+                && diagnostic.message == "binding name must start with an ASCII lowercase letter"
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(invalid_bindings.len(), 2, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.unresolved"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn invalid_handler_clause_bindings_report_exact_spans() {
     let parsed = parse(&SourceFile::new(
         "main.veln",

@@ -1,0 +1,14 @@
+type Pair
+  Pair(Int, Int)
+end
+
+fn from_match(input: Pair) -> Int
+  match input
+    Pair(Head, tail) => Head + tail
+  end
+end
+
+fn from_destructure(input: Pair) -> Int
+  let Pair(First, second) = input
+  First + second
+end

@@ -138,6 +138,10 @@ pub(crate) fn valid_value_binding_name(name: &str) -> bool {
         .is_some_and(|initial| initial.is_ascii_lowercase())
 }
 
+pub(crate) fn invalid_value_binding_case_diagnostic(name: &str, span: SourceSpan) -> Diagnostic {
+    invalid_case_diagnostic(name, span, NameClass::ValueBinding, "binding")
+}
+
 pub(crate) fn suppress_unique_local_recovery_derivatives(
     module: &SurfaceModule,
     diagnostics: &mut Vec<Diagnostic>,
@@ -823,12 +827,26 @@ fn check_name(
     if valid {
         return;
     }
+    diagnostics.push(invalid_case_diagnostic(
+        name,
+        span.clone(),
+        class,
+        occurrence,
+    ));
+}
+
+fn invalid_case_diagnostic(
+    name: &str,
+    span: SourceSpan,
+    class: NameClass,
+    occurrence: &'static str,
+) -> Diagnostic {
     let required_initial = if class.requires_uppercase() {
         "ascii_uppercase"
     } else {
         "ascii_lowercase"
     };
-    diagnostics.push(Diagnostic::new(
+    Diagnostic::new(
         "name.invalid_case",
         Severity::Error,
         DiagnosticKind::Name,
@@ -841,7 +859,7 @@ fn check_name(
                 "lowercase"
             }
         ),
-        Some(span.clone()),
+        Some(span),
         JsonValue::object([
             ("phase", JsonValue::string("name")),
             ("origin", JsonValue::string("source")),
@@ -854,7 +872,7 @@ fn check_name(
                 JsonValue::string(observed_initial(name)),
             ),
         ]),
-    ));
+    )
 }
 
 fn observed_initial(name: &str) -> &'static str {

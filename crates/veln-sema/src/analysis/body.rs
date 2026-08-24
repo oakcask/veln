@@ -10,7 +10,7 @@ use super::boundary::{
 use super::repair_reasoning::*;
 use super::*;
 use crate::effects::prelude_effect_origin;
-use crate::name_casing::valid_value_binding_name;
+use crate::name_casing::{invalid_value_binding_case_diagnostic, valid_value_binding_name};
 use crate::schema::primitives::lowercase_schema_primitive;
 use crate::standard_symbols::qualified_symbol;
 use crate::types::signatures::{
@@ -3146,6 +3146,11 @@ impl<'a> FunctionChecker<'a> {
         scrutinee_type: &Type,
     ) -> Vec<PatternBinding> {
         let Some(descriptor) = self.environment.adts.descriptor_for_type(scrutinee_type) else {
+            if let Some(binding) =
+                self.non_adt_constructor_shaped_binding(pattern, name, args, scrutinee_type)
+            {
+                return vec![binding];
+            }
             return self.unknown_pattern_bindings(args);
         };
         if let Some(constructor) = self.environment.adts.constructor_for_descriptor(
@@ -3166,6 +3171,34 @@ impl<'a> FunctionChecker<'a> {
         }
         self.report_constructor_pattern_mismatch(pattern, name, scrutinee_type);
         self.unknown_pattern_bindings(args)
+    }
+
+    fn non_adt_constructor_shaped_binding(
+        &mut self,
+        pattern: &Pattern,
+        name: &[String],
+        args: &[Pattern],
+        scrutinee_type: &Type,
+    ) -> Option<PatternBinding> {
+        if scrutinee_type == &Type::Unknown || !args.is_empty() {
+            return None;
+        }
+        let [name] = name else {
+            return None;
+        };
+        if valid_value_binding_name(name) {
+            return None;
+        }
+        self.diagnostics.push(invalid_value_binding_case_diagnostic(
+            name,
+            pattern.span.clone(),
+        ));
+        Some(PatternBinding {
+            name: name.clone(),
+            ty: scrutinee_type.clone(),
+            node_id: pattern.node_id,
+            span: pattern.span.clone(),
+        })
     }
 
     fn unknown_pattern_bindings(&mut self, patterns: &[Pattern]) -> Vec<PatternBinding> {
