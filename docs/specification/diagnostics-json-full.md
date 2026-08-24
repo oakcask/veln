@@ -34,8 +34,10 @@ and `observed_initial`. Executable JSON evidence includes the
 `identifier-casing-invalid-alias-wrong-kind`,
 `identifier-casing-invalid-alias-same-file-use`,
 `identifier-casing-invalid-alias-duplicates`,
-`identifier-casing-test-declaration`, and
-`identifier-casing-split-recovery-candidates` cases. The run cases
+`identifier-casing-test-declaration`,
+`identifier-casing-split-recovery-candidates`,
+`identifier-casing-handler-callable-recovery`, and
+`identifier-casing-pattern-binding-recovery` cases. The run cases
 `identifier-casing-invalid-entry-json` and `identifier-casing-reachable-json`
 check that pre-execution `run --json` casing failures use the same diagnostic
 envelope shape.

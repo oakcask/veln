@@ -39,5 +39,6 @@ recovery candidate uniqueness, handler clause binding recovery, invalid
 selected-entry rejection, local binding precedence, source ADT payload closure,
 handler annotation reachability, transitive handler body reachability,
 test declaration name validation without ordinary function-call recovery,
-underscore-led recovered names, and preserved non-casing diagnostics for type
-mismatches, unreachable duplicate constructors, type aliases, and handlers.
+handler callable and pattern-binding recovery, underscore-led recovered names,
+and preserved non-casing diagnostics for type mismatches, unreachable duplicate
+constructors, type aliases, and handlers.

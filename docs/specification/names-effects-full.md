@@ -44,7 +44,8 @@ same-file alias use recovery, split recovery candidate uniqueness, the import
 and alias quarantine boundary, handler clause binding recovery, same-file
 valid declaration precedence over quarantined aliases, and selected-entry
 reachability over local bindings, ADT payloads, handler annotations, transitive
-handler bodies, test declaration names, and underscore-led recovered names.
+handler bodies, test declaration names, handler callable values, pattern
+bindings, and underscore-led recovered names.
 
 Implemented checker namespaces are:
 

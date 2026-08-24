@@ -43,6 +43,8 @@ compiler-known calls.
   `identifier-casing-type-alias-quarantine`,
   `identifier-casing-schema-type-quarantine`,
   `identifier-casing-split-recovery-candidates`,
+  `identifier-casing-handler-callable-recovery`,
+  `identifier-casing-pattern-binding-recovery`,
   `identifier-casing-unused-handler-type-reference`,
   `identifier-casing-transitive-handler-binding`, and
   `identifier-casing-underscore-type-closure`, fix the observable boundary.
