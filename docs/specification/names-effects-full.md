@@ -22,12 +22,13 @@ underscore-led token in a covered declaration or binding is retained for
 diagnostic. Public schema alias declaration names stay casing-neutral.
 
 An invalid covered name is quarantined from ordinary type, constructor, and
-function lookup. Same-kind, same-scope invalid names with the same spelling
-still emit the ordinary duplicate diagnostic. One same-spelled compatible use
-in the declaring source and lexical scope may suppress a derivative
-unresolved-name diagnostic when exactly one invalid declaration or binding is
-available. This rule includes invalid public type and function alias
-declaration names used from the same source. Missing or wrong-kind alias
+function lookup, including schema/type composition lookup and binary schema
+payload wrong-kind checks. Same-kind, same-scope invalid names with the same
+spelling still emit the ordinary duplicate diagnostic. One same-spelled
+compatible use in the declaring source and lexical scope may suppress a
+derivative unresolved-name diagnostic when exactly one invalid declaration or
+binding is available. This rule includes invalid public type and function
+alias declaration names used from the same source. Missing or wrong-kind alias
 targets remain independently reported. Recovery does not cross an import or
 public alias, and it never enters checked core, typed IR, hole repair candidate
 lists, or backend input.

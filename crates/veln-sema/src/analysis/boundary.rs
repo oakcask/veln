@@ -964,9 +964,11 @@ fn codec_schema_wrong_kind(
     }) {
         return Some("function");
     }
-    if module.types.iter().any(|type_decl| {
-        type_decl.name.as_deref() == Some(name) && type_decl.module_name.as_deref() == module_name
-    }) {
+    if module
+        .types
+        .iter()
+        .any(|type_decl| source_type_is_ordinary_candidate(type_decl, module_name, name, false))
+    {
         return Some("type");
     }
     if module.codecs.iter().any(|codec| {
@@ -1766,16 +1768,28 @@ fn schema_field_has_ordinary_type_target(
         }
         _ => return false,
     };
-    module.types.iter().any(|ty| {
-        ty.name.as_deref() == Some(name)
-            && ty.module_name.as_deref() == module_name
-            && (!imported || ty.visibility == Visibility::Public)
-    }) || module.aliases.iter().any(|alias| {
-        alias.kind == PublicAliasKind::Type
-            && alias.name.as_deref() == Some(name)
-            && valid_public_alias_name(alias.kind, name)
-            && alias.module_name.as_deref() == module_name
-    })
+    module
+        .types
+        .iter()
+        .any(|ty| source_type_is_ordinary_candidate(ty, module_name, name, imported))
+        || module.aliases.iter().any(|alias| {
+            alias.kind == PublicAliasKind::Type
+                && alias.name.as_deref() == Some(name)
+                && valid_public_alias_name(alias.kind, name)
+                && alias.module_name.as_deref() == module_name
+        })
+}
+
+fn source_type_is_ordinary_candidate(
+    type_decl: &veln_ast::TypeDecl,
+    module_name: Option<&str>,
+    name: &str,
+    imported: bool,
+) -> bool {
+    type_decl.name.as_deref() == Some(name)
+        && valid_type_name(name)
+        && type_decl.module_name.as_deref() == module_name
+        && (!imported || type_decl.visibility == Visibility::Public)
 }
 
 fn schema_composition_reaches(

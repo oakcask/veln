@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"516bdfb58e6bc6c51fc358b2c95a8d2f7d3fb23d"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1557
+case_count	1558
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -5734,6 +5734,28 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"c1f5b62b9e2380ada6f89c82351f7bff98851000d1f7c4e0867523097671aba1"
+case	"examples/specification/check/identifier-casing-schema-type-quarantine"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
+field	expectations.stdout.contains[1]	"type name must start with an ASCII uppercase letter"
+field	expectations.stdout.contains[2]	"schema field `field` cannot compose `badPayload` because it does not resolve to a visible schema or supported binary field family"
+field	expectations.stdout.contains[3]	"\"reason\":\"missing_schema\""
+field	expectations.stdout.contains[4]	"dispatch payload schema `badPayload` is not declared"
+field	expectations.stdout.contains[5]	"\"reason\":\"unknown_payload_schema\""
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"schema field `field` cannot compose `badPayload` because it resolves in a non-schema namespace"
+field	expectations.stdout.not_contains[1]	"schema field `field` cannot compose `badPayload` because it resolves as both an ordinary type and a schema"
+field	expectations.stdout.not_contains[2]	"dispatch payload `badPayload` resolves to a type, not a schema"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"978d4340e202b697c19d862acc0d92f5bff17b06d9a7e4eac847b40e380fc8d9"
 case	"examples/specification/check/identifier-casing-split-recovery-candidates"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	3
@@ -48684,4 +48706,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"dd4fe033c4927bbb47eb40290bfd5850814cb87dc809bf8997c7cb10412b508f"
+aggregate_digest	"104e831cec3ea5e818d06e36de6f6933f56fd46616e53b3f9cb05d2ff7593f64"

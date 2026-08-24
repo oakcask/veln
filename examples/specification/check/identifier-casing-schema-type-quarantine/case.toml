@@ -1,0 +1,25 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "\"id\":\"name.invalid_case\"",
+  "type name must start with an ASCII uppercase letter",
+  "schema field `field` cannot compose `badPayload` because it does not resolve to a visible schema or supported binary field family",
+  "\"reason\":\"missing_schema\"",
+  "dispatch payload schema `badPayload` is not declared",
+  "\"reason\":\"unknown_payload_schema\"",
+]
+not_contains = [
+  "schema field `field` cannot compose `badPayload` because it resolves in a non-schema namespace",
+  "schema field `field` cannot compose `badPayload` because it resolves as both an ordinary type and a schema",
+  "dispatch payload `badPayload` resolves to a type, not a schema",
+]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

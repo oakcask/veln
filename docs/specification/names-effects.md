@@ -39,6 +39,7 @@ compiler-known calls.
   `identifier-casing-invalid-alias-same-file-use`,
   `identifier-casing-invalid-alias-duplicates`,
   `identifier-casing-type-alias-quarantine`,
+  `identifier-casing-schema-type-quarantine`,
   `identifier-casing-split-recovery-candidates`,
   `identifier-casing-unused-handler-type-reference`,
   `identifier-casing-transitive-handler-binding`, and

@@ -31,6 +31,9 @@ diagnostics in
 Invalid type alias quarantine preserves independently provable type
 mismatches in
 [`identifier-casing-type-alias-quarantine`](../../examples/specification/check/identifier-casing-type-alias-quarantine/case.toml).
+Invalid source ADT type declarations are quarantined from schema/type lookup
+and binary schema payload wrong-kind checks in
+[`identifier-casing-schema-type-quarantine`](../../examples/specification/check/identifier-casing-schema-type-quarantine/case.toml).
 Split recovery candidate uniqueness is checked by
 [`identifier-casing-split-recovery-candidates`](../../examples/specification/check/identifier-casing-split-recovery-candidates/case.toml).
 Test declaration recovery compatibility is checked by

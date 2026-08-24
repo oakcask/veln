@@ -1,0 +1,14 @@
+type badPayload
+	badPayload(Int)
+end
+
+schema CompositionHost
+	field: badPayload
+end
+
+schema DispatchHost
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => badPayload)
+end
