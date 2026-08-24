@@ -491,15 +491,14 @@ schema_validation_opt --> [].
 
 public_alias -->
     tok(pub),
-    alias_kind,
-    ident,
+    public_alias_head,
     tok(equal),
     member_path,
     nl.
 
-alias_kind --> tok(fn).
-alias_kind --> tok(type).
-alias_kind --> tok(schema).
+public_alias_head --> tok(fn), covered_name.
+public_alias_head --> tok(type), covered_name.
+public_alias_head --> tok(schema), ident.
 
 type_params_opt --> tok(less), ident_list_opt, tok(greater), !.
 type_params_opt --> [].

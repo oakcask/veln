@@ -1,0 +1,4 @@
+use impl
+
+pub fn _Build = impl::build
+pub type _document = impl::Document
