@@ -11,6 +11,18 @@ compiler-known calls.
 
 ## Read First
 
+- Source-written ADT type names and public type aliases must start with an
+  ASCII uppercase letter. Source ADT constructors must start with an ASCII
+  uppercase letter. Function declarations, test declarations, and public
+  function aliases must start with an ASCII lowercase letter. Function
+  parameters, result bindings, and local pattern bindings must start with an
+  ASCII lowercase letter. Violations report `name.invalid_case` at the written
+  token span with `details.phase: "name"` and `details.origin: "source"`.
+  Invalid source declarations and invalid bindings are quarantined and do not
+  enter normal lookup, checked core, typed IR, exports, or backend input. The
+  checked cases `identifier-casing-recovery-json` and
+  `identifier-casing-recovery-human` cover source spans, messages, and JSON
+  details.
 - Namespaces, shadowing, duplicate checks, module ownership, external package
   imports, and manifest export checks:
   [names-effects-full.md](names-effects-full.md#name-resolution).

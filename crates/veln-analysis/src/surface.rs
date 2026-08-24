@@ -69,6 +69,24 @@ pub(crate) struct LoadedSurfaceModules {
     pub(crate) combined: SurfaceModule,
     pub(crate) application: SurfaceModule,
     pub(crate) selected_standard_module_names: BTreeSet<String>,
+    pub(crate) casing_records: Vec<CasingRecoveryRecord>,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct CasingRecoveryRecord {
+    pub(crate) name: String,
+    pub(crate) name_class: CasingNameClass,
+    pub(crate) module_name: Option<String>,
+    pub(crate) enclosing_function: Option<String>,
+    pub(crate) diagnostic: Diagnostic,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CasingNameClass {
+    Type,
+    Constructor,
+    Function,
+    ValueBinding,
 }
 
 #[derive(Clone, Debug)]
@@ -100,26 +118,44 @@ fn load_surface_modules_with_combined(
     captured_dependencies: Option<&[CapturedDependencyProject]>,
 ) -> (LoadedSurfaceModules, Vec<Diagnostic>) {
     let mut diagnostics = Vec::new();
+    let mut casing_records = Vec::new();
     let mut parts = SurfaceParts::new();
     let toolchain_std = is_toolchain_standard_project(project);
 
     if toolchain_std {
-        load_toolchain_standard_sources(project, &mut diagnostics, &mut parts);
+        load_toolchain_standard_sources(project, &mut diagnostics, &mut casing_records, &mut parts);
     } else {
-        load_project_sources(project, &mut diagnostics, &mut parts, None);
+        load_project_sources(
+            project,
+            &mut diagnostics,
+            &mut casing_records,
+            &mut parts,
+            None,
+        );
     }
     diagnostics.extend(validate_manifest_exports(project));
     diagnostics.extend(validate_manifest_dependencies(project));
     diagnostics.extend(validate_companion_sources(project));
     diagnostics.extend(validate_companion_public_declarations(&parts.module));
     diagnostics.extend(validate_reserved_standard_package(project, toolchain_std));
-    load_external_dependencies(project, captured_dependencies, &mut diagnostics, &mut parts);
+    load_external_dependencies(
+        project,
+        captured_dependencies,
+        &mut diagnostics,
+        &mut casing_records,
+        &mut parts,
+    );
     rewrite_standard_import_targets(&mut parts.module.uses);
     add_implicit_standard_prelude_imports(&mut parts);
     let selected_standard = if toolchain_std {
         BTreeSet::new()
     } else {
-        load_embedded_standard_package(&mut diagnostics, &mut parts, include_combined)
+        load_embedded_standard_package(
+            &mut diagnostics,
+            &mut casing_records,
+            &mut parts,
+            include_combined,
+        )
     };
     diagnostics.extend(unresolved_local_import_diagnostics(
         &parts.module.uses,
@@ -127,7 +163,12 @@ fn load_surface_modules_with_combined(
     ));
 
     (
-        loaded_surface_modules(parts.module, selected_standard, include_combined),
+        loaded_surface_modules(
+            parts.module,
+            selected_standard,
+            include_combined,
+            casing_records,
+        ),
         diagnostics,
     )
 }
@@ -136,18 +177,21 @@ fn loaded_surface_modules(
     module: SurfaceModule,
     selected_standard_module_names: BTreeSet<String>,
     include_combined: bool,
+    casing_records: Vec<CasingRecoveryRecord>,
 ) -> LoadedSurfaceModules {
     if include_combined {
         return LoadedSurfaceModules {
             combined: module.clone(),
             application: module,
             selected_standard_module_names,
+            casing_records,
         };
     }
     LoadedSurfaceModules {
         combined: SurfaceParts::new().module,
         application: module,
         selected_standard_module_names,
+        casing_records,
     }
 }
 
@@ -257,6 +301,7 @@ impl SurfaceParts {
 fn load_project_sources(
     project: &Project,
     diagnostics: &mut Vec<Diagnostic>,
+    casing_records: &mut Vec<CasingRecoveryRecord>,
     parts: &mut SurfaceParts,
     package: Option<&str>,
 ) {
@@ -273,13 +318,21 @@ fn load_project_sources(
         if !parsed.diagnostics.is_empty() {
             continue;
         }
-        process_parsed_source(source, &parsed.tree, diagnostics, parts, package);
+        process_parsed_source(
+            source,
+            &parsed.tree,
+            diagnostics,
+            casing_records,
+            parts,
+            package,
+        );
     }
 }
 
 fn load_toolchain_standard_sources(
     project: &Project,
     diagnostics: &mut Vec<Diagnostic>,
+    casing_records: &mut Vec<CasingRecoveryRecord>,
     parts: &mut SurfaceParts,
 ) {
     let standard = embedded_standard_package();
@@ -305,6 +358,7 @@ fn load_toolchain_standard_sources(
     load_project_sources(
         &test_project,
         diagnostics,
+        casing_records,
         parts,
         Some(veln_stdlib::PACKAGE_NAME),
     );
@@ -314,12 +368,21 @@ fn process_parsed_source(
     source: &SourceFile,
     tree: &veln_syntax::SyntaxTree,
     diagnostics: &mut Vec<Diagnostic>,
+    casing_records: &mut Vec<CasingRecoveryRecord>,
     parts: &mut SurfaceParts,
     package: Option<&str>,
 ) {
     push_source_parse_semantic_diagnostics(tree, diagnostics);
     let derived_module = derive_and_record_source_module(source, diagnostics, parts, package);
+    let internal_module = derived_module
+        .as_ref()
+        .map(|module| internal_module_name(package, module));
+    casing_records.extend(source_identifier_casing_records(
+        tree,
+        internal_module.as_deref(),
+    ));
     let mut lowered = lower_source_tree(source, tree, derived_module, package);
+    quarantine_invalid_casing(&mut lowered, casing_records);
     rewrite_import_targets(&mut lowered.uses, package);
     if parts.module.module.is_none() {
         parts.module.module = lowered.module;
@@ -416,6 +479,377 @@ fn lower_source_tree(
     }
 }
 
+fn source_identifier_casing_records(
+    tree: &veln_syntax::SyntaxTree,
+    module_name: Option<&str>,
+) -> Vec<CasingRecoveryRecord> {
+    let mut records = Vec::new();
+    for alias in &tree.items {
+        if let veln_syntax::SyntaxItem::PublicAlias(alias) = alias {
+            let Some(name) = &alias.name else {
+                continue;
+            };
+            let name_class = match alias.kind {
+                veln_syntax::PublicAliasKind::Function => CasingNameClass::Function,
+                veln_syntax::PublicAliasKind::Type => CasingNameClass::Type,
+                veln_syntax::PublicAliasKind::Schema => continue,
+            };
+            push_invalid_casing_record(
+                &mut records,
+                name,
+                alias.name_span.as_ref().unwrap_or(&alias.span),
+                name_class,
+                "declaration",
+                module_name,
+                None,
+            );
+        }
+    }
+    for item in &tree.items {
+        match item {
+            veln_syntax::SyntaxItem::Type(type_decl) => {
+                if let Some(name) = &type_decl.name {
+                    push_invalid_casing_record(
+                        &mut records,
+                        name,
+                        type_decl.name_span.as_ref().unwrap_or(&type_decl.span),
+                        CasingNameClass::Type,
+                        "declaration",
+                        module_name,
+                        None,
+                    );
+                }
+                for variant in &type_decl.variants {
+                    if let Some(name) = &variant.name {
+                        push_invalid_casing_record(
+                            &mut records,
+                            name,
+                            variant.name_span.as_ref().unwrap_or(&variant.span),
+                            CasingNameClass::Constructor,
+                            "declaration",
+                            module_name,
+                            None,
+                        );
+                    }
+                }
+            }
+            veln_syntax::SyntaxItem::Function(function) => {
+                let function_name = function.name.clone();
+                if let Some(name) = &function.name {
+                    push_invalid_casing_record(
+                        &mut records,
+                        name,
+                        function.name_span.as_ref().unwrap_or(&function.span),
+                        CasingNameClass::Function,
+                        "declaration",
+                        module_name,
+                        None,
+                    );
+                }
+                for param in &function.params {
+                    push_invalid_casing_record(
+                        &mut records,
+                        &param.name,
+                        &param.span,
+                        CasingNameClass::ValueBinding,
+                        "binding",
+                        module_name,
+                        function_name.as_deref(),
+                    );
+                }
+                if let Some(binding) = &function.return_binding {
+                    push_invalid_casing_record(
+                        &mut records,
+                        &binding.name,
+                        &binding.span,
+                        CasingNameClass::ValueBinding,
+                        "binding",
+                        module_name,
+                        function_name.as_deref(),
+                    );
+                }
+                for line in &function.body {
+                    if let veln_syntax::BodyLine::Let { pattern, .. } = line {
+                        collect_invalid_pattern_bindings(
+                            &mut records,
+                            pattern,
+                            module_name,
+                            function_name.as_deref(),
+                        );
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    records
+}
+
+fn collect_invalid_pattern_bindings(
+    records: &mut Vec<CasingRecoveryRecord>,
+    pattern: &veln_syntax::Pattern,
+    module_name: Option<&str>,
+    function_name: Option<&str>,
+) {
+    match &pattern.kind {
+        veln_syntax::PatternKind::Binding(name) => push_invalid_casing_record(
+            records,
+            name,
+            &pattern.span,
+            CasingNameClass::ValueBinding,
+            "binding",
+            module_name,
+            function_name,
+        ),
+        veln_syntax::PatternKind::Record(fields) => {
+            for field in fields {
+                collect_invalid_pattern_bindings(
+                    records,
+                    &field.pattern,
+                    module_name,
+                    function_name,
+                );
+            }
+        }
+        veln_syntax::PatternKind::Constructor { args, .. } => {
+            for arg in args {
+                collect_invalid_pattern_bindings(records, arg, module_name, function_name);
+            }
+        }
+        veln_syntax::PatternKind::Wildcard
+        | veln_syntax::PatternKind::StringLiteral(_)
+        | veln_syntax::PatternKind::IntLiteral(_)
+        | veln_syntax::PatternKind::FloatLiteral(_)
+        | veln_syntax::PatternKind::BoolLiteral(_)
+        | veln_syntax::PatternKind::Unit => {}
+    }
+}
+
+fn push_invalid_casing_record(
+    records: &mut Vec<CasingRecoveryRecord>,
+    name: &str,
+    span: &SourceSpan,
+    name_class: CasingNameClass,
+    occurrence: &'static str,
+    module_name: Option<&str>,
+    function_name: Option<&str>,
+) {
+    if name == "_" || casing_name_is_valid(name, name_class) {
+        return;
+    }
+    records.push(CasingRecoveryRecord {
+        name: name.to_string(),
+        name_class,
+        module_name: module_name.map(str::to_string),
+        enclosing_function: function_name.map(str::to_string),
+        diagnostic: invalid_case_diagnostic(name, span, name_class, occurrence),
+    });
+}
+
+fn casing_name_is_valid(name: &str, name_class: CasingNameClass) -> bool {
+    let Some(first) = name.chars().next() else {
+        return true;
+    };
+    match name_class {
+        CasingNameClass::Type | CasingNameClass::Constructor => first.is_ascii_uppercase(),
+        CasingNameClass::Function | CasingNameClass::ValueBinding => first.is_ascii_lowercase(),
+    }
+}
+
+fn invalid_case_diagnostic(
+    name: &str,
+    span: &SourceSpan,
+    name_class: CasingNameClass,
+    occurrence: &'static str,
+) -> Diagnostic {
+    let required_initial = match name_class {
+        CasingNameClass::Type | CasingNameClass::Constructor => "ascii_uppercase",
+        CasingNameClass::Function | CasingNameClass::ValueBinding => "ascii_lowercase",
+    };
+    Diagnostic::new(
+        "name.invalid_case",
+        Severity::Error,
+        DiagnosticKind::Name,
+        format!(
+            "{} name must start with an ASCII {} letter",
+            casing_human_class(name_class),
+            if required_initial == "ascii_uppercase" {
+                "uppercase"
+            } else {
+                "lowercase"
+            }
+        ),
+        Some(span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("name")),
+            ("origin", JsonValue::string("source")),
+            ("occurrence", JsonValue::string(occurrence)),
+            ("name", JsonValue::string(name)),
+            (
+                "name_class",
+                JsonValue::string(casing_json_class(name_class)),
+            ),
+            ("required_initial", JsonValue::string(required_initial)),
+            (
+                "observed_initial",
+                JsonValue::string(observed_initial(name)),
+            ),
+        ]),
+    )
+}
+
+fn casing_human_class(name_class: CasingNameClass) -> &'static str {
+    match name_class {
+        CasingNameClass::Type => "type",
+        CasingNameClass::Constructor => "constructor",
+        CasingNameClass::Function => "function",
+        CasingNameClass::ValueBinding => "binding",
+    }
+}
+
+fn casing_json_class(name_class: CasingNameClass) -> &'static str {
+    match name_class {
+        CasingNameClass::Type => "type",
+        CasingNameClass::Constructor => "constructor",
+        CasingNameClass::Function => "function",
+        CasingNameClass::ValueBinding => "value_binding",
+    }
+}
+
+fn observed_initial(name: &str) -> &'static str {
+    match name.chars().next() {
+        Some(first) if first.is_ascii_uppercase() => "ascii_uppercase",
+        Some(first) if first.is_ascii_lowercase() => "ascii_lowercase",
+        Some('_') => "underscore",
+        Some(_) => "other",
+        None => "other",
+    }
+}
+
+fn quarantine_invalid_casing(module: &mut SurfaceModule, records: &[CasingRecoveryRecord]) {
+    module.aliases.retain(|alias| {
+        !alias.name.as_ref().is_some_and(|name| {
+            records.iter().any(|record| {
+                record.name == *name
+                    && record.module_name == alias.module_name
+                    && matches!(
+                        record.name_class,
+                        CasingNameClass::Type | CasingNameClass::Function
+                    )
+            })
+        })
+    });
+    module.functions.retain(|function| {
+        !function.name.as_ref().is_some_and(|name| {
+            records.iter().any(|record| {
+                record.name == *name
+                    && record.module_name == function.module_name
+                    && record.name_class == CasingNameClass::Function
+            })
+        })
+    });
+    for function in &mut module.functions {
+        quarantine_function_bindings(function, records);
+    }
+    module.types.retain_mut(|type_decl| {
+        if type_decl.name.as_ref().is_some_and(|name| {
+            records.iter().any(|record| {
+                record.name == *name
+                    && record.module_name == type_decl.module_name
+                    && record.name_class == CasingNameClass::Type
+            })
+        }) {
+            return false;
+        }
+        type_decl.variants.retain(|variant| {
+            !variant.name.as_ref().is_some_and(|name| {
+                records.iter().any(|record| {
+                    record.name == *name
+                        && record.module_name == type_decl.module_name
+                        && record.name_class == CasingNameClass::Constructor
+                })
+            })
+        });
+        true
+    });
+}
+
+fn quarantine_function_bindings(function: &mut Function, records: &[CasingRecoveryRecord]) {
+    if function.params.iter().any(|param| {
+        invalid_value_binding_record(
+            records,
+            &param.name,
+            function.module_name.as_deref(),
+            function.name.as_deref(),
+        )
+    }) || function.return_binding.as_ref().is_some_and(|binding| {
+        invalid_value_binding_record(
+            records,
+            &binding.name,
+            function.module_name.as_deref(),
+            function.name.as_deref(),
+        )
+    }) {
+        function.name = None;
+        return;
+    }
+    for line in &mut function.body {
+        if let veln_ast::BodyLineKind::Let { pattern, .. } = &mut line.kind {
+            quarantine_pattern_bindings(
+                pattern,
+                records,
+                function.module_name.as_deref(),
+                function.name.as_deref(),
+            );
+        }
+    }
+}
+
+fn quarantine_pattern_bindings(
+    pattern: &mut Pattern,
+    records: &[CasingRecoveryRecord],
+    module_name: Option<&str>,
+    function_name: Option<&str>,
+) {
+    match &mut pattern.kind {
+        PatternKind::Binding(name)
+            if invalid_value_binding_record(records, name, module_name, function_name) =>
+        {
+            pattern.kind = PatternKind::Wildcard;
+        }
+        PatternKind::Record(fields) => {
+            for field in fields {
+                quarantine_pattern_bindings(
+                    &mut field.pattern,
+                    records,
+                    module_name,
+                    function_name,
+                );
+            }
+        }
+        PatternKind::Constructor { args, .. } => {
+            for arg in args {
+                quarantine_pattern_bindings(arg, records, module_name, function_name);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn invalid_value_binding_record(
+    records: &[CasingRecoveryRecord],
+    name: &str,
+    module_name: Option<&str>,
+    function_name: Option<&str>,
+) -> bool {
+    records.iter().any(|record| {
+        record.name == name
+            && record.name_class == CasingNameClass::ValueBinding
+            && record.module_name.as_deref() == module_name
+            && record.enclosing_function.as_deref() == function_name
+    })
+}
+
 fn rewrite_import_targets(uses: &mut [UseDecl], package: Option<&str>) {
     for use_decl in uses {
         if let Some(package) = &use_decl.package {
@@ -451,6 +885,7 @@ fn load_external_dependencies(
     project: &Project,
     captured_dependencies: Option<&[CapturedDependencyProject]>,
     diagnostics: &mut Vec<Diagnostic>,
+    casing_records: &mut Vec<CasingRecoveryRecord>,
     parts: &mut SurfaceParts,
 ) {
     let external_uses = parts
@@ -481,6 +916,7 @@ fn load_external_dependencies(
             package,
             &use_decl,
             diagnostics,
+            casing_records,
             parts,
         );
     }
@@ -488,16 +924,24 @@ fn load_external_dependencies(
 
 fn load_embedded_standard_package(
     diagnostics: &mut Vec<Diagnostic>,
+    casing_records: &mut Vec<CasingRecoveryRecord>,
     parts: &mut SurfaceParts,
     merge_into_parts: bool,
 ) -> BTreeSet<String> {
     let standard = embedded_standard_package();
-    load_embedded_standard_package_from(standard, diagnostics, parts, merge_into_parts)
+    load_embedded_standard_package_from(
+        standard,
+        diagnostics,
+        casing_records,
+        parts,
+        merge_into_parts,
+    )
 }
 
 fn load_embedded_standard_package_from(
     standard: &EmbeddedStandardPackage,
     diagnostics: &mut Vec<Diagnostic>,
+    _casing_records: &mut Vec<CasingRecoveryRecord>,
     parts: &mut SurfaceParts,
     merge_into_parts: bool,
 ) -> BTreeSet<String> {
@@ -677,6 +1121,7 @@ fn load_external_dependency_package(
     package: &str,
     use_decl: &UseDecl,
     diagnostics: &mut Vec<Diagnostic>,
+    casing_records: &mut Vec<CasingRecoveryRecord>,
     parts: &mut SurfaceParts,
 ) {
     let Some((dependency_project, dependency)) = load_external_dependency_project(
@@ -711,7 +1156,15 @@ fn load_external_dependency_package(
             diagnostics.push(unexported_external_module_diagnostic(external_use));
         }
     }
-    load_project_sources(&dependency_project, diagnostics, parts, Some(package));
+    let mut dependency_casing_records = Vec::new();
+    load_project_sources(
+        &dependency_project,
+        diagnostics,
+        &mut dependency_casing_records,
+        parts,
+        Some(package),
+    );
+    casing_records.extend(dependency_casing_records);
 }
 
 fn load_external_dependency_project<'a>(
@@ -3596,15 +4049,23 @@ mod tests {
     fn load_synthetic_standard(unrelated_count: usize) -> StandardInitializationWork {
         let standard = synthetic_standard_package(unrelated_count);
         let mut diagnostics = Vec::new();
+        let mut casing_records = Vec::new();
         let mut parts = SurfaceParts::new();
         load_project_sources(
             &single_file_project("pub fn main() -> Int\n  1\nend\n"),
             &mut diagnostics,
+            &mut casing_records,
             &mut parts,
             None,
         );
         let ((), standard_work) = embedded_standard_counters::observe(|| {
-            load_embedded_standard_package_from(&standard, &mut diagnostics, &mut parts, true);
+            load_embedded_standard_package_from(
+                &standard,
+                &mut diagnostics,
+                &mut casing_records,
+                &mut parts,
+                true,
+            );
         });
         assert!(diagnostics.is_empty(), "{diagnostics:#?}");
         check_standard_surface_module(&parts.module);

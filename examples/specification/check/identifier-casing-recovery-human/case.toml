@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[name.invalid_case]: function name must start with an ASCII lowercase letter", "main.veln:1:8"]
+
+[stderr]
+format = "empty"

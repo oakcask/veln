@@ -12,7 +12,7 @@ the command and source-selection boundaries that are not part of the initial
 `check` and `run` foundation.
 
 This proposal depends on
-[Recovery-Aware Source Identifier Casing](identifier-casing-source-recovery.md).
+[Recovery-Aware Source Identifier Casing](../reference/implemented-proposals/identifier-casing-source-recovery.md).
 It becomes selectable only after that foundation is implemented and specified
 as current behavior.
 

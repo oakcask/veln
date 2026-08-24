@@ -1,0 +1,7 @@
+pub fn Main() -> Int
+  1
+end
+
+pub fn main() -> Int
+  1
+end

@@ -1,0 +1,37 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"name.invalid_case\"", "\"name_class\":\"type\"", "\"name_class\":\"constructor\"", "\"name_class\":\"function\"", "\"name_class\":\"value_binding\"", "type name must start with an ASCII uppercase letter", "constructor name must start with an ASCII uppercase letter", "function name must start with an ASCII lowercase letter", "binding name must start with an ASCII lowercase letter"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.0.details.name"
+equals = "lower"
+
+[[json_assert]]
+path = "diagnostics.0.span.start.line"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.span.start.column"
+equals = 6
+
+[[json_assert]]
+path = "diagnostics.2.details.name"
+equals = "BadPeer"
+
+[[json_assert]]
+path = "diagnostics.3.details.name"
+equals = "_value"

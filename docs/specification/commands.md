@@ -97,8 +97,9 @@ requiring the full command reference on the first read.
   output.
 - `run`: production source discovery excluding `.test.veln` companions,
   rejection of explicitly supplied `.test.veln` run inputs, entry resolution,
-  fixed and variadic entry argument conversion, static gates, direct JVM
-  classfile execution without an ordinary Java source compiler requirement,
+  fixed and variadic entry argument conversion, static gates,
+  selected-entry reachability, direct JVM classfile execution without an
+  ordinary Java source compiler requirement,
   and reusable JVM class caching below the host user cache or the complete
   absolute `VELN_CACHE_DIR` override, with cache configuration checked only
   after analysis, entry selection, JVM generation, and Java discovery, and
@@ -462,6 +463,12 @@ requiring the full command reference on the first read.
   receive/send calls, fixture-backed or production loopback socket
   listen/accept/read/write and address metadata calls, and relative timeout
   or deadline calls stay runtime errors.
+- Source identifier casing recovery keeps invalid declarations out of normal
+  lookup. `run` reports `name.invalid_case` only when the selected entry
+  reaches a compatible invalid recovery record. It omits an invalid
+  same-source peer that is outside the selected entry's reachable closure. The
+  checked cases `identifier-casing-reachable-invalid` and
+  `identifier-casing-unreachable-peer` cover this command boundary.
 - `test`: test and doctest selection, static gates, bounded `-j` / `--jobs`
   case execution, the serial `--jobs 1` compatibility route, deterministic
   ordered reporting, direct JVM classfile execution without an ordinary Java

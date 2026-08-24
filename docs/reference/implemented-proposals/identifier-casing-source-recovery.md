@@ -1,9 +1,14 @@
 ---
-role: proposal
-update-when: Source-written identifier casing recovery, check and run reachability boundaries, or the foundation acceptance evidence changes.
+role: implementation-record
+authority: supporting
+update-when: Source-written identifier casing recovery is superseded, its checked evidence changes, or current identifier-casing specification starts relying on this record as authority.
 ---
 
 # Recovery-Aware Source Identifier Casing
+
+This record preserves the completed proposal history. Current behavior is
+specified by `../../specification/names-effects.md`,
+`../../specification/commands.md`, and the checked cases named in those pages.
 
 ## Outcome
 

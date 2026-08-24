@@ -18,9 +18,9 @@ use veln_source::SourceSpan;
 use veln_test::{DoctestExpectation, doctest_sources, reconcile_expected_doctest_failures};
 
 use crate::surface::{
-    CapturedDependencyProject, ReachabilityCache, load_embedded_standard_surface_module_for_names,
-    load_surface_modules, load_surface_modules_with_captured_dependencies,
-    reachable_entry_module_with_standard_cache,
+    CapturedDependencyProject, CasingNameClass, CasingRecoveryRecord, ReachabilityCache,
+    load_embedded_standard_surface_module_for_names, load_surface_modules,
+    load_surface_modules_with_captured_dependencies, reachable_entry_module_with_standard_cache,
 };
 
 static STANDARD_ENVIRONMENTS: OnceLock<StandardEnvironmentCache> = OnceLock::new();
@@ -100,6 +100,7 @@ pub struct ProjectAnalysis {
     selected_standard_module_names: BTreeSet<String>,
     pub doctest_expectations: BTreeMap<String, DoctestExpectation>,
     source_diagnostics: Vec<Diagnostic>,
+    casing_records: Vec<CasingRecoveryRecord>,
     semantic_diagnostics: Vec<Diagnostic>,
     checked: LoweredSurfaceModule,
     expected_doctest_failures: BTreeMap<String, SourceSpan>,
@@ -194,6 +195,7 @@ fn analyze_project_with_standard_provider(
         selected_standard_module_names: loaded.selected_standard_module_names,
         doctest_expectations,
         source_diagnostics,
+        casing_records: loaded.casing_records,
         semantic_diagnostics,
         checked,
         expected_doctest_failures,
@@ -275,6 +277,7 @@ fn analyze_project_with_captured_dependencies(
         selected_standard_module_names: loaded.selected_standard_module_names,
         doctest_expectations,
         source_diagnostics,
+        casing_records: loaded.casing_records,
         semantic_diagnostics,
         checked,
         expected_doctest_failures,
@@ -308,13 +311,26 @@ impl ProjectAnalysis {
 
     pub fn semantic_diagnostics(&self) -> Vec<Diagnostic> {
         let mut diagnostics = self.source_diagnostics.clone();
+        diagnostics.extend(
+            self.casing_records
+                .iter()
+                .map(|record| record.diagnostic.clone()),
+        );
         diagnostics.extend(self.semantic_diagnostics.clone());
         self.reconcile_doctest_failures(diagnostics)
     }
 
     pub fn checked_diagnostics(&self) -> Vec<Diagnostic> {
         let mut diagnostics = self.source_diagnostics.clone();
-        diagnostics.extend(self.checked.diagnostics.clone());
+        diagnostics.extend(
+            self.casing_records
+                .iter()
+                .map(|record| record.diagnostic.clone()),
+        );
+        diagnostics.extend(filter_recovery_derivative_diagnostics(
+            self.checked.diagnostics.clone(),
+            &self.casing_records,
+        ));
         self.reconcile_doctest_failures(diagnostics)
     }
 
@@ -340,11 +356,15 @@ impl ProjectAnalysis {
             &self.reachability_cache,
         );
         let standard = standard_environment_for_modules(&self.selected_standard_module_names);
-        let lowered = lower_project_reachable_surface_modules_with_standard_environment(
+        let mut lowered = lower_project_reachable_surface_modules_with_standard_environment(
             &module,
             &self.selected_standard,
             &standard.environment,
         );
+        let reachable_casing = reachable_casing_diagnostics(&module, &self.casing_records);
+        lowered.diagnostics.extend(reachable_casing);
+        lowered.diagnostics =
+            filter_recovery_derivative_diagnostics(lowered.diagnostics, &self.casing_records);
         (
             ReachableEntryAnalysis { module, lowered },
             AnalysisTiming {
@@ -357,6 +377,153 @@ impl ProjectAnalysis {
     fn reconcile_doctest_failures(&self, diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
         reconcile_expected_doctest_failures(diagnostics, &self.expected_doctest_failures)
     }
+}
+
+fn reachable_casing_diagnostics(
+    module: &SurfaceModule,
+    records: &[CasingRecoveryRecord],
+) -> Vec<Diagnostic> {
+    records
+        .iter()
+        .filter(|record| match record.name_class {
+            CasingNameClass::ValueBinding => {
+                record.enclosing_function.as_ref().is_some_and(|name| {
+                    module.functions.iter().any(|function| {
+                        function.name.as_ref() == Some(name)
+                            && function.module_name == record.module_name
+                    })
+                })
+            }
+            _ => module.functions.iter().any(|function| {
+                function.module_name == record.module_name
+                    && function_references_name(function, &record.name)
+            }),
+        })
+        .map(|record| record.diagnostic.clone())
+        .collect()
+}
+
+fn function_references_name(function: &veln_ast::Function, name: &str) -> bool {
+    function.body.iter().any(|line| match &line.kind {
+        veln_ast::BodyLineKind::Let { pattern, expr, .. } => {
+            pattern_references_name(pattern, name) || expr_references_name(expr, name)
+        }
+        veln_ast::BodyLineKind::Expr { expr } => expr_references_name(expr, name),
+    })
+}
+
+fn pattern_references_name(pattern: &veln_ast::Pattern, name: &str) -> bool {
+    match &pattern.kind {
+        veln_ast::PatternKind::Binding(binding) => binding == name,
+        veln_ast::PatternKind::Constructor {
+            name: segments,
+            args,
+        } => {
+            segments.last().is_some_and(|segment| segment == name)
+                || args.iter().any(|arg| pattern_references_name(arg, name))
+        }
+        veln_ast::PatternKind::Record(fields) => fields
+            .iter()
+            .any(|field| pattern_references_name(&field.pattern, name)),
+        _ => false,
+    }
+}
+
+fn expr_references_name(expr: &veln_ast::Expr, name: &str) -> bool {
+    match &expr.kind {
+        veln_ast::ExprKind::NamePath(segments) => {
+            segments.last().is_some_and(|segment| segment == name)
+        }
+        veln_ast::ExprKind::TypeApply { callee, .. } => expr_references_name(callee, name),
+        veln_ast::ExprKind::Call { callee, args } => {
+            expr_references_name(callee, name)
+                || args.iter().any(|arg| expr_references_name(arg, name))
+        }
+        veln_ast::ExprKind::Perform { args, .. } => {
+            args.iter().any(|arg| expr_references_name(arg, name))
+        }
+        veln_ast::ExprKind::Handle { body, args, .. } => {
+            expr_references_name(body, name)
+                || args.iter().any(|arg| expr_references_name(arg, name))
+        }
+        veln_ast::ExprKind::SchemaDecode { input, base, .. } => {
+            expr_references_name(input, name) || expr_references_name(base, name)
+        }
+        veln_ast::ExprKind::SchemaEncode { value, .. }
+        | veln_ast::ExprKind::FieldAccess { base: value, .. }
+        | veln_ast::ExprKind::Try(value)
+        | veln_ast::ExprKind::Prefix { expr: value, .. } => expr_references_name(value, name),
+        veln_ast::ExprKind::Record(fields) => fields
+            .iter()
+            .any(|field| expr_references_name(&field.expr, name)),
+        veln_ast::ExprKind::Dict(entries) => entries.iter().any(|entry| {
+            expr_references_name(&entry.key, name) || expr_references_name(&entry.value, name)
+        }),
+        veln_ast::ExprKind::List(items) => {
+            items.iter().any(|item| expr_references_name(item, name))
+        }
+        veln_ast::ExprKind::Match { scrutinee, arms } => {
+            expr_references_name(scrutinee, name)
+                || arms.iter().any(|arm| {
+                    pattern_references_name(&arm.pattern, name)
+                        || expr_references_name(&arm.expr, name)
+                })
+        }
+        veln_ast::ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            expr_references_name(condition, name)
+                || expr_references_name(then_branch, name)
+                || else_if_branches.iter().any(|branch| {
+                    expr_references_name(&branch.condition, name)
+                        || expr_references_name(&branch.expr, name)
+                })
+                || expr_references_name(else_branch, name)
+        }
+        veln_ast::ExprKind::Binary { left, right, .. } => {
+            expr_references_name(left, name) || expr_references_name(right, name)
+        }
+        _ => false,
+    }
+}
+
+fn filter_recovery_derivative_diagnostics(
+    diagnostics: Vec<Diagnostic>,
+    records: &[CasingRecoveryRecord],
+) -> Vec<Diagnostic> {
+    diagnostics
+        .into_iter()
+        .filter(|diagnostic| !is_unique_recovery_unresolved(diagnostic, records))
+        .collect()
+}
+
+fn is_unique_recovery_unresolved(
+    diagnostic: &Diagnostic,
+    records: &[CasingRecoveryRecord],
+) -> bool {
+    if diagnostic.id != "name.unresolved" {
+        return false;
+    }
+    let Some(name) = unresolved_name_from_message(&diagnostic.message) else {
+        return false;
+    };
+    records
+        .iter()
+        .filter(|record| record.name == name)
+        .take(2)
+        .count()
+        == 1
+}
+
+fn unresolved_name_from_message(message: &str) -> Option<&str> {
+    message
+        .rsplit_once('`')?
+        .0
+        .rsplit_once('`')
+        .map(|(_, name)| name)
 }
 
 fn standard_environment_for_modules(module_names: &BTreeSet<String>) -> ReusableStandardInput {

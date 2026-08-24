@@ -1,0 +1,7 @@
+fn BadPeer() -> Int
+  1
+end
+
+pub fn main() -> Int
+  BadPeer()
+end

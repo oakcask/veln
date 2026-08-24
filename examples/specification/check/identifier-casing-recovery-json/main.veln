@@ -1,0 +1,12 @@
+type lower
+  badVariant
+end
+
+fn BadPeer() -> Int
+  1
+end
+
+pub fn main() -> Int
+  let _value = BadPeer()
+  0
+end

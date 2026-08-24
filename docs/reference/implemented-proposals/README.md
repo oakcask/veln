@@ -78,6 +78,8 @@ under `../../specification/` and its executable example routes.
   [parallel-test-execution.md](parallel-test-execution.md).
 - Companion test modules:
   [companion-test-modules.md](companion-test-modules.md).
+- Recovery-aware source identifier casing:
+  [identifier-casing-source-recovery.md](identifier-casing-source-recovery.md).
 - Agent module, package, and documentation model:
   [agent-module-package-docs.md](agent-module-package-docs.md).
 - Agent language services slice closure:

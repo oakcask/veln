@@ -17,7 +17,11 @@ use crate::{
 fn is_contextual_identifier(kind: TokenKind) -> bool {
     matches!(
         kind,
-        TokenKind::Ident | TokenKind::Handle | TokenKind::Handler | TokenKind::Handles
+        TokenKind::Ident
+            | TokenKind::Hole
+            | TokenKind::Handle
+            | TokenKind::Handler
+            | TokenKind::Handles
     )
 }
 
@@ -113,6 +117,7 @@ struct Parser<'a> {
 struct FunctionHeader {
     visibility: Visibility,
     name: Option<String>,
+    name_span: Option<SourceSpan>,
     effect_binder: Option<EffectBinder>,
     params: Vec<Param>,
 }
@@ -522,13 +527,18 @@ impl<'a> Parser<'a> {
             );
             PublicAliasKind::Schema
         };
-        let name = self.expect_ident("public_alias", "public member name");
+        let name_token = self.expect_ident_token("public_alias", "public member name");
+        let name_span = name_token
+            .as_ref()
+            .map(|token| self.source.span(token.range));
+        let name = name_token.map(|token| token.text);
         self.expect(TokenKind::Equal, "public_alias", vec!["="]);
         let target = self.parse_member_alias_target();
         let end = self.expect_newline("public_alias").range;
         PublicAliasDecl {
             kind,
             name,
+            name_span,
             target,
             span: self.source.span(start.cover(end)),
         }
@@ -556,7 +566,11 @@ impl<'a> Parser<'a> {
         let start = self
             .expect(TokenKind::Type, "type_declaration", vec!["type"])
             .range;
-        let name = self.expect_ident("type_declaration", "type name");
+        let name_token = self.expect_ident_token("type_declaration", "type name");
+        let name_span = name_token
+            .as_ref()
+            .map(|token| self.source.span(token.range));
+        let name = name_token.map(|token| token.text);
         let params = if self.eat(TokenKind::Less).is_some() {
             let params = self.parse_type_params_until(TokenKind::Greater);
             self.expect(TokenKind::Greater, "type_declaration", vec![">"]);
@@ -603,6 +617,7 @@ impl<'a> Parser<'a> {
         TypeDecl {
             visibility,
             name,
+            name_span,
             params,
             variants,
             span: self.source.span(start.cover(end)),
@@ -1269,7 +1284,11 @@ impl<'a> Parser<'a> {
         } else {
             Visibility::Private
         };
-        let name = self.expect_ident("type_variant", "variant name");
+        let name_token = self.expect_ident_token("type_variant", "variant name");
+        let name_span = name_token
+            .as_ref()
+            .map(|token| self.source.span(token.range));
+        let name = name_token.map(|token| token.text);
         let (field_delimiter, fields) = if self.eat(TokenKind::LParen).is_some() {
             let fields = self.parse_type_variant_fields();
             self.expect(TokenKind::RParen, "type_variant", vec![")"]);
@@ -1285,6 +1304,7 @@ impl<'a> Parser<'a> {
         TypeVariantDecl {
             visibility,
             name,
+            name_span,
             field_delimiter,
             fields,
             span: self.source.span(start.cover(end)),
@@ -1403,6 +1423,7 @@ impl<'a> Parser<'a> {
             kind,
             visibility: header.visibility,
             name: header.name,
+            name_span: header.name_span,
             effect_binder: header.effect_binder,
             params: header.params,
             return_binding: return_decl.binding,
@@ -1439,11 +1460,15 @@ impl<'a> Parser<'a> {
                 FunctionKind::Test => "test",
             }],
         );
-        let name = if self.at(TokenKind::Decode) {
-            Some(self.bump().text)
+        let name_token = if self.at(TokenKind::Decode) {
+            Some(self.bump())
         } else {
-            self.expect_ident(Self::function_context(kind), "declaration name")
+            self.expect_ident_token(Self::function_context(kind), "declaration name")
         };
+        let name_span = name_token
+            .as_ref()
+            .map(|token| self.source.span(token.range));
+        let name = name_token.map(|token| token.text);
         let effect_binder = self.parse_effect_binder(kind);
         self.expect(TokenKind::LParen, Self::parameter_context(kind), vec!["("]);
         let params = self.parse_params();
@@ -1451,6 +1476,7 @@ impl<'a> Parser<'a> {
         FunctionHeader {
             visibility,
             name,
+            name_span,
             effect_binder,
             params,
         }
@@ -2091,19 +2117,27 @@ impl<'a> Parser<'a> {
     }
 
     fn expect_ident(&mut self, context: &'static str, expected: &'static str) -> Option<String> {
+        self.expect_ident_token(context, expected)
+            .map(|token| token.text)
+    }
+
+    fn expect_ident_token(
+        &mut self,
+        context: &'static str,
+        expected: &'static str,
+    ) -> Option<Token> {
         if is_contextual_identifier(self.current().kind) {
-            Some(self.bump().text)
-        } else {
-            self.error_current(
-                "parse.expected_identifier",
-                format!("expected {expected}"),
-                context,
-                vec![expected],
-                RecoveryStrategy::InsertToken,
-                None,
-            );
-            None
+            return Some(self.bump());
         }
+        self.error_current(
+            "parse.expected_identifier",
+            format!("expected {expected}"),
+            context,
+            vec![expected],
+            RecoveryStrategy::InsertToken,
+            None,
+        );
+        None
     }
 
     fn expect_ident_text(
@@ -3230,7 +3264,7 @@ impl<'a> ExprParser<'a> {
                 }
             }
             TokenKind::LBrace => self.parse_record_pattern(),
-            TokenKind::Ident => self.parse_name_pattern(),
+            TokenKind::Ident | TokenKind::Hole => self.parse_name_pattern(),
             _ => {
                 self.error_current(
                     "parse.pattern",
