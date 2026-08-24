@@ -1156,7 +1156,7 @@ fn load_external_dependency_package(
     package: &str,
     use_decl: &UseDecl,
     diagnostics: &mut Vec<Diagnostic>,
-    casing_records: &mut Vec<CasingRecoveryRecord>,
+    _casing_records: &mut Vec<CasingRecoveryRecord>,
     parts: &mut SurfaceParts,
 ) {
     let Some((dependency_project, dependency)) = load_external_dependency_project(
@@ -1199,7 +1199,6 @@ fn load_external_dependency_package(
         parts,
         Some(package),
     );
-    casing_records.extend(dependency_casing_records);
 }
 
 fn load_external_dependency_project<'a>(
@@ -3551,8 +3550,9 @@ mod tests {
     use super::{
         Diagnostic, EmbeddedStandardModuleEntry, EmbeddedStandardPackage, ReachabilityCache,
         SurfaceParts, embedded_standard_counters, load_embedded_standard_package_from,
-        load_project_sources, load_surface_module, reachability_counters, reachable_entry_module,
-        reachable_entry_module_with_standard_cache, validate_manifest_exports,
+        load_project_sources, load_surface_module, load_surface_modules, reachability_counters,
+        reachable_entry_module, reachable_entry_module_with_standard_cache,
+        validate_manifest_exports,
     };
 
     fn lower(text: &str) -> SurfaceModule {
@@ -3645,6 +3645,44 @@ mod tests {
         let (_, diagnostics) = load_surface_module(&project);
 
         assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    }
+
+    #[test]
+    fn external_dependency_invalid_casing_is_quarantined_without_selected_diagnostic() {
+        let temp = TempProject::new("external-dependency-invalid-casing-boundary");
+        temp.write(
+            "veln.toml",
+            "[dependencies.\"github.com/oakcask/foo\"]\npath = \"vendor/foo\"\n",
+        );
+        temp.write(
+            "main.veln",
+            "use foo from \"github.com/oakcask/foo\"\n\npub fn main() -> Int\n  add_one(1)\nend\n",
+        );
+        temp.write(
+            "vendor/foo/veln.toml",
+            "[package]\nname = \"github.com/oakcask/foo\"\n\n[lib]\nexports = [\"foo.veln\"]\n",
+        );
+        temp.write(
+            "vendor/foo/foo.veln",
+            "pub fn BadPeer() -> Int\n  1\nend\n\npub fn add_one(value: Int) -> Int\n  value + 1\nend\n",
+        );
+
+        let project =
+            Project::discover(temp.root().to_path_buf(), &[PathBuf::from("main.veln")]).unwrap();
+        let (loaded, diagnostics) = load_surface_modules(&project);
+
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        assert!(
+            loaded.casing_records.is_empty(),
+            "{:#?}",
+            loaded.casing_records
+        );
+        assert!(!loaded.combined.functions.iter().any(|function| {
+            function.module_name.as_deref().is_some_and(|module_name| {
+                module_name.starts_with("github.com/oakcask/foo::")
+                    && function.name.as_deref() == Some("BadPeer")
+            })
+        }));
     }
 
     #[test]
@@ -6157,6 +6195,56 @@ mod tests {
                 .all(|diagnostic| diagnostic.id != "manifest.invalid_export"),
             "{diagnostics:#?}"
         );
+    }
+
+    #[test]
+    fn source_identifier_casing_accepts_covered_name_classes() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "type Good\n",
+                "  Ready\n",
+                "end\n",
+                "\n",
+                "pub fn main(value: Good) -> Good\n",
+                "  let next = Ready\n",
+                "  next\n",
+                "end\n",
+            ),
+        );
+        let project = Project {
+            root: ".".into(),
+            files: vec![source],
+            manifest: None,
+        };
+
+        let (module, diagnostics) = load_surface_module(&project);
+
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        assert!(module.types.iter().any(|type_decl| {
+            type_decl.name.as_deref() == Some("Good")
+                && type_decl
+                    .variants
+                    .iter()
+                    .any(|variant| variant.name.as_deref() == Some("Ready"))
+        }));
+        assert!(module.functions.iter().any(|function| {
+            function.name.as_deref() == Some("main")
+                && function.params.iter().any(|param| param.name == "value")
+                && function.body.iter().any(|line| {
+                    matches!(
+                        &line.kind,
+                        veln_ast::BodyLineKind::Let {
+                            pattern:
+                                veln_ast::Pattern {
+                                    kind: veln_ast::PatternKind::Binding(name),
+                                    ..
+                                },
+                            ..
+                        } if name == "next"
+                    )
+                })
+        }));
     }
 
     #[test]
