@@ -99,6 +99,11 @@ envelope shape, including multiple reachable casing diagnostics for an invalid
 selected entry. The `identifier-casing-mixed-json-diagnostics` run case checks
 the same envelope shape for mixed casing and non-casing pre-execution
 diagnostics.
+The `identifier-casing-invalid-entry-wrong-arity-json`,
+`identifier-casing-invalid-entry-unsupported-argument-json`, and
+`identifier-casing-invalid-entry-conversion-json` run cases check that
+selected entry casing diagnostics are emitted before entry argument validation
+diagnostics.
 
 Companion source diagnostics are executable in
 `examples/specification/check/companion-missing-target-json/`,

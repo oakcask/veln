@@ -24,6 +24,11 @@ with the casing failure. The
 `examples/specification/run/identifier-casing-invalid-entry-json/` and
 `examples/specification/run/identifier-casing-mixed-json-diagnostics/` cases
 check this boundary.
+The `identifier-casing-invalid-entry-wrong-arity-json`,
+`identifier-casing-invalid-entry-unsupported-argument-json`, and
+`identifier-casing-invalid-entry-conversion-json` cases check that selected
+entry casing diagnostics are emitted before entry argument validation
+diagnostics.
 
 Runtime contract failures use `error.kind: "contract"`. The error details use
 `kind: "contract"` and `phase: "runtime"` and include:
