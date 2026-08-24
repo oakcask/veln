@@ -16,11 +16,12 @@ pub(crate) fn check_handler_declarations(
     module
         .handlers
         .iter()
-        .flat_map(|handler| check_handler_declaration(handler, environment))
+        .flat_map(|handler| check_handler_declaration(module, handler, environment))
         .collect()
 }
 
 fn check_handler_declaration(
+    module: &SurfaceModule,
     handler: &HandlerDecl,
     environment: &TypeEnvironment,
 ) -> Vec<Diagnostic> {
@@ -57,6 +58,7 @@ fn check_handler_declaration(
     diagnostics.extend(missing_clause_diagnostics(handler, signature, effect));
     for clause in &handler.operation_clauses {
         diagnostics.extend(check_clause(
+            module,
             handler,
             clause,
             signature,
@@ -305,6 +307,7 @@ fn missing_clause_diagnostics(
 }
 
 fn check_clause(
+    module: &SurfaceModule,
     handler: &HandlerDecl,
     clause: &HandlerOperationClauseDecl,
     signature: &HandlerSignature,
@@ -329,6 +332,7 @@ fn check_clause(
 
     let mut diagnostics = clause_binding_diagnostics(clause, operation, signature, effect);
     diagnostics.extend(clause_body_diagnostics(
+        module,
         handler,
         clause,
         operation,
@@ -404,6 +408,7 @@ fn clause_parameter_span(clause: &HandlerOperationClauseDecl) -> SourceSpan {
 }
 
 fn clause_body_diagnostics(
+    module: &SurfaceModule,
     handler: &HandlerDecl,
     clause: &HandlerOperationClauseDecl,
     operation: &EffectOperationSignature,
@@ -412,7 +417,7 @@ fn clause_body_diagnostics(
     environment: &TypeEnvironment,
 ) -> Vec<Diagnostic> {
     let synthetic = synthetic_clause_function(handler, clause, operation);
-    let mut checker = FunctionChecker::new(&synthetic, environment);
+    let mut checker = FunctionChecker::new(&synthetic, environment, module);
     for (index, param) in handler.params.iter().enumerate() {
         let ty = signature
             .params

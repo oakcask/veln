@@ -43,6 +43,8 @@ Handler callable and pattern-binding recovery boundaries are checked by
 [`identifier-casing-handler-callable-recovery`](../../examples/specification/check/identifier-casing-handler-callable-recovery/case.toml)
 and
 [`identifier-casing-pattern-binding-recovery`](../../examples/specification/check/identifier-casing-pattern-binding-recovery/case.toml).
+Inferred callable `let` and pattern-binding recovery is checked by
+[`identifier-casing-inferred-callable-recovery`](../../examples/specification/check/identifier-casing-inferred-callable-recovery/case.toml).
 The selected-entry command boundary is checked by
 [`identifier-casing-reachable`](../../examples/specification/run/identifier-casing-reachable/case.toml)
 and
@@ -60,6 +62,8 @@ by
 [`identifier-casing-reachable-function-alias`](../../examples/specification/run/identifier-casing-reachable-function-alias/case.toml),
 [`identifier-casing-reachable-type-alias`](../../examples/specification/run/identifier-casing-reachable-type-alias/case.toml), and
 [`identifier-casing-unreachable-public-alias`](../../examples/specification/run/identifier-casing-unreachable-public-alias/case.toml).
+Mixed reachable `run --json` casing and non-casing diagnostics are checked by
+[`identifier-casing-mixed-json-diagnostics`](../../examples/specification/run/identifier-casing-mixed-json-diagnostics/case.toml).
 Resolution-aware run reachability is checked by
 [`identifier-casing-valid-function-vs-invalid-constructor`](../../examples/specification/run/identifier-casing-valid-function-vs-invalid-constructor/case.toml),
 [`identifier-casing-valid-constructor-vs-invalid-function`](../../examples/specification/run/identifier-casing-valid-constructor-vs-invalid-function/case.toml),

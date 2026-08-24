@@ -420,7 +420,7 @@ fn report_run_blocking_diagnostics(json: bool, diagnostics: Vec<Diagnostic>) -> 
     if json
         && diagnostics
             .iter()
-            .all(|diagnostic| diagnostic.id == "name.invalid_case")
+            .any(|diagnostic| diagnostic.id == "name.invalid_case")
     {
         report_diagnostics(true, diagnostics)
     } else {

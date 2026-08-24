@@ -1,0 +1,9 @@
+type Valid
+  Made
+end
+
+pub type exposed = Valid
+
+pub fn main() -> exposed
+  Made
+end

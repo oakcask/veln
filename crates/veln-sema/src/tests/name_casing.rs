@@ -926,6 +926,114 @@ fn invalid_callable_binding_recovers_only_for_function_typed_calls() {
 }
 
 #[test]
+fn invalid_inferred_callable_let_binding_recovers_call_target() {
+    let parsed = parse(&SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn stringify(value: Int) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
+            "\n",
+            "fn main() -> String\n",
+            "  let Callback = stringify\n",
+            "  Callback(1)\n",
+            "end\n",
+        ),
+    ));
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+            .count(),
+        1
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.message != "unresolved call_target `Callback`"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn invalid_inferred_callable_pattern_binding_recovers_call_target() {
+    let parsed = parse(&SourceFile::new(
+        "main.veln",
+        concat!(
+            "type CallbackBox\n",
+            "  CallbackBox(fn(Int) -> String)\n",
+            "end\n",
+            "\n",
+            "fn stringify(value: Int) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
+            "\n",
+            "fn main(input: CallbackBox) -> String\n",
+            "  let CallbackBox(Callback) = input\n",
+            "  Callback(1)\n",
+            "end\n",
+        ),
+    ));
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+            .count(),
+        1
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.message != "unresolved call_target `Callback`"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn invalid_inferred_callable_binding_and_function_candidates_do_not_select_recovery() {
+    let parsed = parse(&SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn Callback(value: Int) -> String\n",
+            "  \"bad\"\n",
+            "end\n",
+            "\n",
+            "fn stringify(value: Int) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
+            "\n",
+            "fn main() -> String\n",
+            "  let Callback = stringify\n",
+            "  Callback(1)\n",
+            "end\n",
+        ),
+    ));
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+            .count(),
+        2
+    );
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved call_target `Callback`"
+    }));
+}
+
+#[test]
 fn invalid_callable_handler_context_binding_recovers_call_target() {
     let parsed = parse(&SourceFile::new(
         "main.veln",

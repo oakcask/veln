@@ -142,7 +142,7 @@ fn analyze_surface_module_with_environment(
         if function.kind == FunctionKind::Test {
             diagnostics.extend(check_test_declaration_boundary(function));
         }
-        diagnostics.extend(check_function_body(function, environment));
+        diagnostics.extend(check_function_body(function, environment, module));
     }
 
     suppress_unique_local_recovery_derivatives(module, &mut diagnostics);

@@ -156,7 +156,7 @@ pub(crate) fn suppress_unique_local_recovery_derivatives(
         let Some((role, symbol)) = unresolved_recovery_role_and_symbol(diagnostic) else {
             return true;
         };
-        !has_unique_recovery_candidate(module, role, symbol, span)
+        !has_unique_recovery_candidate_for_diagnostic(module, role, symbol, span, diagnostic)
     });
 }
 
@@ -192,7 +192,7 @@ fn suppress_unique_alias_recovery_derivatives(
         let Some((role, symbol)) = unresolved_recovery_role_and_symbol(diagnostic) else {
             return true;
         };
-        !has_unique_alias_recovery_candidate(module, kind, role, symbol, span)
+        !has_unique_alias_recovery_candidate(module, kind, role, symbol, span, diagnostic)
     });
 }
 
@@ -354,13 +354,34 @@ fn diagnostic_string_detail<'a>(diagnostic: &'a Diagnostic, key: &str) -> Option
     })
 }
 
-fn has_unique_recovery_candidate(
+fn diagnostic_usize_detail(diagnostic: &Diagnostic, key: &str) -> usize {
+    let JsonValue::Object(entries) = &diagnostic.details else {
+        return 0;
+    };
+    entries
+        .iter()
+        .find_map(|(entry_key, value)| {
+            if entry_key == key
+                && let JsonValue::Number(value) = value
+            {
+                usize::try_from(*value).ok()
+            } else {
+                None
+            }
+        })
+        .unwrap_or(0)
+}
+
+fn has_unique_recovery_candidate_for_diagnostic(
     module: &SurfaceModule,
     role: RecoveryRole,
     symbol: &str,
     use_span: &SourceSpan,
+    diagnostic: &Diagnostic,
 ) -> bool {
-    recovery_count(module, role, symbol, use_span) == 1
+    recovery_count(module, role, symbol, use_span)
+        + diagnostic_usize_detail(diagnostic, "typed_local_recovery_candidates")
+        == 1
 }
 
 fn recovery_count(
@@ -408,10 +429,7 @@ fn recovery_count(
             invalid_value_bindings
         }
         RecoveryRole::CallTarget => {
-            invalid_functions.count()
-                + invalid_variants.count()
-                + invalid_function_aliases.count()
-                + invalid_value_bindings
+            invalid_functions.count() + invalid_variants.count() + invalid_function_aliases.count()
         }
     }
 }
@@ -422,6 +440,7 @@ fn has_unique_alias_recovery_candidate(
     role: RecoveryRole,
     symbol: &str,
     use_span: &SourceSpan,
+    diagnostic: &Diagnostic,
 ) -> bool {
     let expected_role = match kind {
         PublicAliasKind::Function => RecoveryRole::CallTarget,
@@ -431,7 +450,10 @@ fn has_unique_alias_recovery_candidate(
     if !matches_recovery_role(role, expected_role) {
         return false;
     }
-    if recovery_count(module, role, symbol, use_span) != 1 {
+    if recovery_count(module, role, symbol, use_span)
+        + diagnostic_usize_detail(diagnostic, "typed_local_recovery_candidates")
+        != 1
+    {
         return false;
     }
     module

@@ -10,7 +10,10 @@ use super::boundary::{
 use super::repair_reasoning::*;
 use super::*;
 use crate::effects::prelude_effect_origin;
-use crate::name_casing::{invalid_value_binding_case_diagnostic, valid_value_binding_name};
+use crate::name_casing::{
+    invalid_value_binding_case_diagnostic, valid_function_name, valid_public_alias_name,
+    valid_type_name, valid_value_binding_name,
+};
 use crate::schema::primitives::lowercase_schema_primitive;
 use crate::standard_symbols::qualified_symbol;
 use crate::types::signatures::{
@@ -20,8 +23,9 @@ use crate::types::signatures::{
 pub(crate) fn check_function_body(
     function: &Function,
     environment: &TypeEnvironment,
+    module: &SurfaceModule,
 ) -> Vec<Diagnostic> {
-    let mut checker = FunctionChecker::new(function, environment);
+    let mut checker = FunctionChecker::new(function, environment, module);
     checker.check_body();
     checker.diagnostics
 }
@@ -38,6 +42,7 @@ fn json_string_field_is(value: &JsonValue, field: &str, expected: &str) -> bool 
 pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) function: &'a Function,
     pub(super) environment: &'a TypeEnvironment,
+    pub(super) module: &'a SurfaceModule,
     pub(super) bindings: Vec<Binding>,
     recovery_bindings: Vec<RecoveryLocalBinding>,
     omitted_local_bindings: Vec<OmittedLocalBinding>,
@@ -181,10 +186,15 @@ fn match_pattern_coverage(
 }
 
 impl<'a> FunctionChecker<'a> {
-    pub(super) fn new(function: &'a Function, environment: &'a TypeEnvironment) -> Self {
+    pub(super) fn new(
+        function: &'a Function,
+        environment: &'a TypeEnvironment,
+        module: &'a SurfaceModule,
+    ) -> Self {
         Self {
             function,
             environment,
+            module,
             bindings: Vec::new(),
             recovery_bindings: Vec::new(),
             omitted_local_bindings: Vec::new(),
@@ -926,10 +936,68 @@ impl<'a> FunctionChecker<'a> {
         span: &SourceSpan,
         namespace: &str,
     ) -> bool {
+        if namespace == "call_target" {
+            return self.unique_call_target_recovery(symbol, span);
+        }
         matches!(
             namespace,
             "value" | "contract_predicate" | "satisfy_predicate"
         ) && self.unique_recovery_binding(symbol, span, RecoveryScope::Body, namespace)
+    }
+
+    fn unique_call_target_recovery(&self, symbol: &str, span: &SourceSpan) -> bool {
+        self.call_target_recovery_count(symbol, span) == 1
+    }
+
+    fn call_target_recovery_count(&self, symbol: &str, span: &SourceSpan) -> usize {
+        self.typed_local_call_target_recovery_count(symbol, span)
+            + self.invalid_declaration_call_target_recovery_count(symbol, span)
+    }
+
+    fn typed_local_call_target_recovery_count(&self, symbol: &str, span: &SourceSpan) -> usize {
+        self.recovery_bindings
+            .iter()
+            .filter(|binding| {
+                binding.name == symbol
+                    && binding.span.file == span.file
+                    && span_starts_not_after(&binding.span, span)
+                    && matches!(binding.ty, Type::Function { .. })
+                    && matches!(
+                        binding.scope,
+                        RecoveryScope::Body | RecoveryScope::EnsureContract
+                    )
+            })
+            .count()
+    }
+
+    fn invalid_declaration_call_target_recovery_count(
+        &self,
+        symbol: &str,
+        span: &SourceSpan,
+    ) -> usize {
+        let invalid_functions = self.module.functions.iter().filter(|function| {
+            function.kind == FunctionKind::Function
+                && function.name.as_deref() == Some(symbol)
+                && !valid_function_name(symbol)
+                && function.span.file == span.file
+        });
+        let invalid_variants = self
+            .module
+            .types
+            .iter()
+            .flat_map(|type_decl| &type_decl.variants)
+            .filter(|variant| {
+                variant.name.as_deref() == Some(symbol)
+                    && !valid_type_name(symbol)
+                    && variant.span.file == span.file
+            });
+        let invalid_function_aliases = self.module.aliases.iter().filter(|alias| {
+            alias.kind == PublicAliasKind::Function
+                && alias.name.as_deref() == Some(symbol)
+                && !valid_public_alias_name(alias.kind, symbol)
+                && alias.span.file == span.file
+        });
+        invalid_functions.count() + invalid_variants.count() + invalid_function_aliases.count()
     }
 
     pub(super) fn check_contracts(&mut self) {
@@ -3865,20 +3933,31 @@ impl<'a> FunctionChecker<'a> {
                 ));
             return;
         }
+        let mut details = vec![
+            ("phase", JsonValue::string("name")),
+            ("node_id", JsonValue::string(node_id.display("name"))),
+            ("symbol", JsonValue::string(symbol)),
+            ("namespace", JsonValue::string(namespace)),
+            ("resolution_status", JsonValue::string("unresolved")),
+            ("candidates", JsonValue::array([])),
+        ];
+        if namespace == "call_target" {
+            let typed_local_recovery_candidates =
+                self.typed_local_call_target_recovery_count(symbol, &span);
+            if typed_local_recovery_candidates > 0 {
+                details.push((
+                    "typed_local_recovery_candidates",
+                    JsonValue::Number(typed_local_recovery_candidates as i64),
+                ));
+            }
+        }
         self.diagnostics.push(Diagnostic::new(
             "name.unresolved",
             Severity::Error,
             DiagnosticKind::Name,
             format!("unresolved {namespace} `{symbol}`"),
             Some(span),
-            JsonValue::object([
-                ("phase", JsonValue::string("name")),
-                ("node_id", JsonValue::string(node_id.display("name"))),
-                ("symbol", JsonValue::string(symbol)),
-                ("namespace", JsonValue::string(namespace)),
-                ("resolution_status", JsonValue::string("unresolved")),
-                ("candidates", JsonValue::array([])),
-            ]),
+            JsonValue::object(details),
         ));
     }
 

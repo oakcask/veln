@@ -89,10 +89,15 @@ and `observed_initial`. The checked `identifier-casing-json`,
 `identifier-casing-split-recovery-candidates`,
 `identifier-casing-handler-callable-recovery`, and
 `identifier-casing-pattern-binding-recovery` cases are the executable JSON and
-human-output evidence. The run cases
+human-output evidence. The `identifier-casing-inferred-callable-recovery` case
+checks that an ambiguous `name.unresolved` call-target diagnostic can expose
+`details.typed_local_recovery_candidates` when typed local recovery candidates
+contribute to the ambiguity. The run cases
 `identifier-casing-invalid-entry-json` and `identifier-casing-reachable-json`
 check that pre-execution `run --json` casing failures use the same diagnostic
-envelope shape.
+envelope shape. The `identifier-casing-mixed-json-diagnostics` run case checks
+the same envelope shape for mixed casing and non-casing pre-execution
+diagnostics.
 
 Companion source diagnostics are executable in
 `examples/specification/check/companion-missing-target-json/`,

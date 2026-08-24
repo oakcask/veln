@@ -1,0 +1,19 @@
+command = ["run", "--json", "main", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "\"id\":\"name.invalid_case\"",
+  "\"id\":\"type.mismatch\"",
+  "type name must start with an ASCII uppercase letter",
+  "expected `exposed`, but found `Valid`",
+]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 2

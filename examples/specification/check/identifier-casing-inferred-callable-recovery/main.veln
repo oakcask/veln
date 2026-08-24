@@ -1,0 +1,26 @@
+type CallbackBox
+  CallbackBox(fn(Int) -> String)
+end
+
+fn stringify(value: Int) -> String
+  "ok"
+end
+
+fn from_let() -> String
+  let LocalCallback = stringify
+  LocalCallback(1)
+end
+
+fn from_pattern(input: CallbackBox) -> String
+  let CallbackBox(PatternHandler) = input
+  PatternHandler(1)
+end
+
+fn Ambiguous(value: Int) -> String
+  "bad"
+end
+
+fn ambiguous() -> String
+  let Ambiguous = stringify
+  Ambiguous(1)
+end
