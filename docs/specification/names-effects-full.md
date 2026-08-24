@@ -36,12 +36,13 @@ The checked `identifier-casing-*` cases under
 tests, fix accepted and rejected names, exact human and JSON diagnostics,
 checked-artifact exclusion, duplicate overlap, unique and ambiguous recovery,
 valid-candidate precedence, public alias declaration names, same-leaf alias
-mismatch preservation, invalid public alias target preservation, same-file
-alias use recovery, split recovery candidate uniqueness, the import and alias
-quarantine boundary, handler clause binding recovery, same-file valid
-declaration precedence over quarantined aliases, and selected-entry
-reachability over local bindings, ADT payloads, handler annotations,
-transitive handler bodies, and underscore-led recovered names.
+mismatch preservation, invalid public alias declaration names that preserve
+independently provable missing-target and wrong-kind target diagnostics,
+same-file alias use recovery, split recovery candidate uniqueness, the import
+and alias quarantine boundary, handler clause binding recovery, same-file
+valid declaration precedence over quarantined aliases, and selected-entry
+reachability over local bindings, ADT payloads, handler annotations, transitive
+handler bodies, and underscore-led recovered names.
 
 Implemented checker namespaces are:
 
