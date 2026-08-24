@@ -469,6 +469,7 @@ requiring the full command reference on the first read.
   same-source peer that is outside the selected entry's reachable closure. The
   checked cases `identifier-casing-reachable-invalid`,
   `identifier-casing-reachable-binding`,
+  `identifier-casing-reachable-handler-binding`,
   `identifier-casing-unreachable-peer`,
   `identifier-casing-entry-binding`,
   `identifier-casing-entry-binding-before-arguments`,

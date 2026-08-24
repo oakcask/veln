@@ -76,11 +76,23 @@ pub(crate) struct LoadedSurfaceModules {
 pub(crate) struct CasingRecoveryRecord {
     pub(crate) name: String,
     pub(crate) name_class: CasingNameClass,
+    pub(crate) dependent_constructor_names: Vec<String>,
     pub(crate) source_path: SourcePath,
     pub(crate) module_name: Option<String>,
     pub(crate) enclosing_function: Option<String>,
     pub(crate) lexical_scope: Option<SourceSpan>,
     pub(crate) diagnostic: Diagnostic,
+}
+
+pub(crate) struct ReachableSurfaceModule {
+    pub(crate) module: SurfaceModule,
+    pub(crate) handlers: HashSet<ReachableHandler>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct ReachableHandler {
+    pub(crate) name: String,
+    pub(crate) module_name: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -533,6 +545,7 @@ fn source_identifier_casing_records(
         match item {
             veln_syntax::SyntaxItem::Type(type_decl) => {
                 if let Some(name) = &type_decl.name {
+                    let start_len = records.len();
                     push_invalid_casing_record(
                         &mut records,
                         name,
@@ -546,6 +559,15 @@ fn source_identifier_casing_records(
                             lexical_scope: None,
                         },
                     );
+                    if records.len() > start_len
+                        && let Some(record) = records.last_mut()
+                    {
+                        record.dependent_constructor_names = type_decl
+                            .variants
+                            .iter()
+                            .filter_map(|variant| variant.name.clone())
+                            .collect();
+                    }
                 }
                 for variant in &type_decl.variants {
                     if let Some(name) = &variant.name {
@@ -1107,6 +1129,7 @@ fn push_invalid_casing_record(
     records.push(CasingRecoveryRecord {
         name: name.to_string(),
         name_class,
+        dependent_constructor_names: Vec::new(),
         source_path: context.source_path.clone(),
         module_name: context.module_name.map(str::to_string),
         enclosing_function: context.function_name.map(str::to_string),
@@ -2706,7 +2729,7 @@ pub(crate) struct ReachabilityCache {
     #[cfg(test)]
     function_targets: OnceCell<ReachabilityIndex>,
     separated_function_targets: OnceCell<ReachabilityIndex>,
-    direct_callees: RefCell<HashMap<ReachableFunction, Vec<ReachableFunction>>>,
+    direct_callees: RefCell<HashMap<ReachableFunction, DirectReachability>>,
 }
 
 struct ReachabilityIndex {
@@ -2991,9 +3014,10 @@ pub(crate) fn reachable_entry_module_with_cache(
         &companion_access_targets,
         cache,
     );
-    module_with_reachable_functions(&inputs, &reachable)
+    module_with_reachable_functions(&inputs, &reachable.functions)
 }
 
+#[cfg(test)]
 pub(crate) fn reachable_entry_module_with_standard_cache(
     standard_module: &SurfaceModule,
     application_module: &SurfaceModule,
@@ -3001,6 +3025,23 @@ pub(crate) fn reachable_entry_module_with_standard_cache(
     entry_kind: FunctionKind,
     cache: &ReachabilityCache,
 ) -> SurfaceModule {
+    reachable_entry_surface_module_with_standard_cache(
+        standard_module,
+        application_module,
+        entry,
+        entry_kind,
+        cache,
+    )
+    .module
+}
+
+pub(crate) fn reachable_entry_surface_module_with_standard_cache(
+    standard_module: &SurfaceModule,
+    application_module: &SurfaceModule,
+    entry: &str,
+    entry_kind: FunctionKind,
+    cache: &ReachabilityCache,
+) -> ReachableSurfaceModule {
     let inputs = ReachabilityInputs::separated(standard_module, application_module);
     let reachability_index = cache
         .separated_function_targets
@@ -3014,7 +3055,10 @@ pub(crate) fn reachable_entry_module_with_standard_cache(
         &companion_access_targets,
         cache,
     );
-    module_with_reachable_functions(&inputs, &reachable)
+    ReachableSurfaceModule {
+        module: module_with_reachable_functions(&inputs, &reachable.functions),
+        handlers: reachable.handlers,
+    }
 }
 
 fn reachable_function_targets(inputs: &ReachabilityInputs<'_>) -> ReachabilityIndex {
@@ -3107,8 +3151,9 @@ fn reachable_functions(
     reachability_index: &ReachabilityIndex,
     companion_access_targets: &HashMap<String, String>,
     cache: &ReachabilityCache,
-) -> HashSet<ReachableFunction> {
+) -> ReachabilityResult {
     let mut reachable = HashSet::<ReachableFunction>::new();
+    let mut reachable_handlers = HashSet::<ReachableHandler>::new();
     let mut stack = vec![ReachableFunction {
         kind: entry_kind,
         name: entry.to_string(),
@@ -3121,7 +3166,8 @@ fn reachable_functions(
         }
         let cached_callees = cache.direct_callees.borrow().get(&key).cloned();
         let callees = cached_callees.unwrap_or_else(|| {
-            let callees = reachability_index
+            let mut callees = DirectReachability::default();
+            for function in reachability_index
                 .function_refs(&key)
                 .iter()
                 .map(|function_ref| {
@@ -3129,28 +3175,35 @@ fn reachable_functions(
                     reachability_counters::record_function_lookup_scan();
                     inputs.function(*function_ref)
                 })
-                .flat_map(|function| {
-                    direct_function_callees(
-                        function,
-                        inputs,
-                        &reachability_index.function_targets,
-                        companion_access_targets,
-                    )
-                })
-                .collect::<Vec<_>>();
+            {
+                let mut function_reachable = direct_function_callees(
+                    function,
+                    inputs,
+                    &reachability_index.function_targets,
+                    companion_access_targets,
+                );
+                callees.functions.append(&mut function_reachable.functions);
+                callees.handlers.append(&mut function_reachable.handlers);
+            }
             cache
                 .direct_callees
                 .borrow_mut()
                 .insert(key.clone(), callees.clone());
             callees
         });
-        for callee in callees {
+        for handler in &callees.handlers {
+            reachable_handlers.insert(handler.clone());
+        }
+        for callee in callees.functions {
             if !reachable.contains(&callee) {
                 stack.push(callee);
             }
         }
     }
-    reachable
+    ReachabilityResult {
+        functions: reachable,
+        handlers: reachable_handlers,
+    }
 }
 
 fn module_with_reachable_functions(
@@ -3204,6 +3257,18 @@ struct ReachableFunction {
     kind: FunctionKind,
     name: String,
     module_name: Option<String>,
+}
+
+#[derive(Clone, Debug, Default)]
+struct DirectReachability {
+    functions: Vec<ReachableFunction>,
+    handlers: Vec<ReachableHandler>,
+}
+
+#[derive(Clone, Debug)]
+struct ReachabilityResult {
+    functions: HashSet<ReachableFunction>,
+    handlers: HashSet<ReachableHandler>,
 }
 
 #[derive(Clone, Debug)]
@@ -3307,8 +3372,8 @@ fn direct_function_callees(
     inputs: &ReachabilityInputs<'_>,
     function_targets: &FunctionTargetIndex,
     companion_access_targets: &HashMap<String, String>,
-) -> Vec<ReachableFunction> {
-    let mut callees = Vec::new();
+) -> DirectReachability {
+    let mut reachable = DirectReachability::default();
     let uses = inputs.uses();
     let handlers = inputs.handlers();
     let context = FunctionCalleeContext {
@@ -3333,7 +3398,7 @@ fn direct_function_callees(
             context.uses,
             function_targets,
             companion_access_targets,
-            &mut callees,
+            &mut reachable.functions,
         );
     }
     for line in &function.body {
@@ -3343,7 +3408,7 @@ fn direct_function_callees(
                 annotation,
                 expr,
             } => {
-                collect_function_callees(expr, &context, &local_bindings, &mut callees);
+                collect_function_callees(expr, &context, &local_bindings, &mut reachable);
                 collect_pattern_bindings(
                     pattern,
                     annotation.as_deref().and_then(function_type_shape),
@@ -3351,11 +3416,11 @@ fn direct_function_callees(
                 );
             }
             veln_ast::BodyLineKind::Expr { expr } => {
-                collect_function_callees(expr, &context, &local_bindings, &mut callees);
+                collect_function_callees(expr, &context, &local_bindings, &mut reachable);
             }
         }
     }
-    callees
+    reachable
 }
 
 fn collect_contract_callees(
@@ -3488,7 +3553,7 @@ fn collect_function_callees(
     expr: &Expr,
     context: &FunctionCalleeContext<'_>,
     local_bindings: &[LocalBinding],
-    callees: &mut Vec<ReachableFunction>,
+    reachable: &mut DirectReachability,
 ) {
     let current_module = context.current_module;
     let uses = context.uses;
@@ -3498,10 +3563,16 @@ fn collect_function_callees(
 
     match &expr.kind {
         ExprKind::NamePath(segments) => {
-            collect_function_name_reference(segments, context, local_bindings, None, callees);
+            collect_function_name_reference(
+                segments,
+                context,
+                local_bindings,
+                None,
+                &mut reachable.functions,
+            );
         }
         ExprKind::TypeApply { callee, .. } => {
-            collect_function_callees(callee, context, local_bindings, callees);
+            collect_function_callees(callee, context, local_bindings, reachable);
         }
         ExprKind::Call { callee, args } => {
             if let Some(segments) = callee_name_path(callee) {
@@ -3510,18 +3581,18 @@ fn collect_function_callees(
                     context,
                     local_bindings,
                     Some(args.len()),
-                    callees,
+                    &mut reachable.functions,
                 );
             } else {
-                collect_function_callees(callee, context, local_bindings, callees);
+                collect_function_callees(callee, context, local_bindings, reachable);
             }
             for arg in args {
-                collect_function_callees(arg, context, local_bindings, callees);
+                collect_function_callees(arg, context, local_bindings, reachable);
             }
         }
         ExprKind::Perform { args, .. } => {
             for arg in args {
-                collect_function_callees(arg, context, local_bindings, callees);
+                collect_function_callees(arg, context, local_bindings, reachable);
             }
         }
         ExprKind::Handle { body, args, .. } => {
@@ -3532,46 +3603,46 @@ fn collect_function_callees(
                 function_targets,
                 companion_access_targets,
                 handlers,
-                callees,
+                reachable,
             );
-            collect_function_callees(body, context, local_bindings, callees);
+            collect_function_callees(body, context, local_bindings, reachable);
             for arg in args {
-                collect_function_callees(arg, context, local_bindings, callees);
+                collect_function_callees(arg, context, local_bindings, reachable);
             }
         }
         ExprKind::SchemaDecode { input, base, .. } => {
-            collect_function_callees(input, context, local_bindings, callees);
-            collect_function_callees(base, context, local_bindings, callees);
+            collect_function_callees(input, context, local_bindings, reachable);
+            collect_function_callees(base, context, local_bindings, reachable);
         }
         ExprKind::SchemaEncode { value, .. } => {
-            collect_function_callees(value, context, local_bindings, callees);
+            collect_function_callees(value, context, local_bindings, reachable);
         }
         ExprKind::FieldAccess { base, .. } => {
-            collect_function_callees(base, context, local_bindings, callees);
+            collect_function_callees(base, context, local_bindings, reachable);
         }
-        ExprKind::Try(inner) => collect_function_callees(inner, context, local_bindings, callees),
+        ExprKind::Try(inner) => collect_function_callees(inner, context, local_bindings, reachable),
         ExprKind::Record(fields) => {
             for field in fields {
-                collect_function_callees(&field.expr, context, local_bindings, callees);
+                collect_function_callees(&field.expr, context, local_bindings, reachable);
             }
         }
         ExprKind::Dict(entries) => {
             for entry in entries {
-                collect_function_callees(&entry.key, context, local_bindings, callees);
-                collect_function_callees(&entry.value, context, local_bindings, callees);
+                collect_function_callees(&entry.key, context, local_bindings, reachable);
+                collect_function_callees(&entry.value, context, local_bindings, reachable);
             }
         }
         ExprKind::List(items) => {
             for item in items {
-                collect_function_callees(item, context, local_bindings, callees);
+                collect_function_callees(item, context, local_bindings, reachable);
             }
         }
         ExprKind::Match { scrutinee, arms } => {
-            collect_function_callees(scrutinee, context, local_bindings, callees);
+            collect_function_callees(scrutinee, context, local_bindings, reachable);
             for arm in arms {
                 let mut arm_bindings = local_bindings.to_vec();
                 collect_pattern_bindings(&arm.pattern, None, &mut arm_bindings);
-                collect_function_callees(&arm.expr, context, &arm_bindings, callees);
+                collect_function_callees(&arm.expr, context, &arm_bindings, reachable);
             }
         }
         ExprKind::If {
@@ -3580,20 +3651,20 @@ fn collect_function_callees(
             else_if_branches,
             else_branch,
         } => {
-            collect_function_callees(condition, context, local_bindings, callees);
-            collect_function_callees(then_branch, context, local_bindings, callees);
+            collect_function_callees(condition, context, local_bindings, reachable);
+            collect_function_callees(then_branch, context, local_bindings, reachable);
             for branch in else_if_branches {
-                collect_function_callees(&branch.condition, context, local_bindings, callees);
-                collect_function_callees(&branch.expr, context, local_bindings, callees);
+                collect_function_callees(&branch.condition, context, local_bindings, reachable);
+                collect_function_callees(&branch.expr, context, local_bindings, reachable);
             }
-            collect_function_callees(else_branch, context, local_bindings, callees);
+            collect_function_callees(else_branch, context, local_bindings, reachable);
         }
         ExprKind::Prefix { expr, .. } => {
-            collect_function_callees(expr, context, local_bindings, callees);
+            collect_function_callees(expr, context, local_bindings, reachable);
         }
         ExprKind::Binary { left, right, .. } => {
-            collect_function_callees(left, context, local_bindings, callees);
-            collect_function_callees(right, context, local_bindings, callees);
+            collect_function_callees(left, context, local_bindings, reachable);
+            collect_function_callees(right, context, local_bindings, reachable);
         }
         ExprKind::Missing
         | ExprKind::Hole { .. }
@@ -3817,7 +3888,7 @@ fn collect_handler_operation_clause_callees(
     function_targets: &FunctionTargetIndex,
     companion_access_targets: &HashMap<String, String>,
     handlers: &[&veln_ast::HandlerDecl],
-    callees: &mut Vec<ReachableFunction>,
+    reachable: &mut DirectReachability,
 ) {
     let ExprKind::Handle { handler, .. } = &expr.kind else {
         return;
@@ -3840,6 +3911,12 @@ fn collect_handler_operation_clause_callees(
         }
     });
     for handler in matching_handlers {
+        if let Some(name) = &handler.name {
+            reachable.handlers.push(ReachableHandler {
+                name: name.clone(),
+                module_name: handler.module_name.clone(),
+            });
+        }
         let context = FunctionCalleeContext {
             current_module,
             uses,
@@ -3861,7 +3938,7 @@ fn collect_handler_operation_clause_callees(
                 name: param.name.clone(),
                 function_shape: None,
             }));
-            collect_function_callees(&clause.body, &context, &local_bindings, callees);
+            collect_function_callees(&clause.body, &context, &local_bindings, reachable);
             local_bindings.truncate(binding_count);
         }
     }

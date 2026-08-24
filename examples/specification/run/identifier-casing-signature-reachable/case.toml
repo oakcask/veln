@@ -8,3 +8,4 @@ format = "empty"
 [stderr]
 format = "text"
 contains = ["error[name.invalid_case]: type name must start with an ASCII uppercase letter", "main.veln:1:6"]
+not_contains = ["name.unresolved", "unresolved value `Ready`"]

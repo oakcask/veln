@@ -58,7 +58,7 @@ not become a project-wide or source-wide loading gate.
 | Consumer state | Required result | Completed evidence |
 | --- | --- | --- |
 | `check` selects a source with an invalid covered name. | Report every selected casing diagnostic and produce no successful checked artifact. | Human and JSON checked cases with exact spans and details, including `identifier-casing-binding-origins` and `identifier-casing-parse-recovery-independent`. |
-| `run` reaches an invalid declaration or binding from the selected entry. | Report the casing diagnostic and produce no executable artifact. | `identifier-casing-reachable-invalid`, `identifier-casing-entry-binding`, and `identifier-casing-signature-reachable`. |
+| `run` reaches an invalid declaration or binding from the selected entry. | Report the casing diagnostic and produce no executable artifact. | `identifier-casing-reachable-invalid`, `identifier-casing-entry-binding`, `identifier-casing-reachable-handler-binding`, and `identifier-casing-signature-reachable`. |
 | `run` does not reach an invalid declaration from the selected entry. | Run the valid reachable closure and omit the unreachable casing diagnostic. | `identifier-casing-unreachable-peer`. |
 
 ## Recovery Boundary

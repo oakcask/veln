@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"d9400af7568294d6b6558672e8c92a739b17b3a0"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1536
+case_count	1537
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -37860,6 +37860,21 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"65c0b35d5470895ae152a75f456c7649b05d7dc397597f8a31e6a0eba3269a99"
+case	"examples/specification/run/identifier-casing-reachable-handler-binding"
+field	expectations.exit	1
+field	expectations.stderr.contains[0]	"error[name.invalid_case]: binding name must start with an ASCII lowercase letter"
+field	expectations.stderr.contains[1]	"main.veln:5:13"
+field	expectations.stderr.contains[2]	"main.veln:6:9"
+field	expectations.stderr.format	"text"
+field	expectations.stderr.not_contains[0]	"name.unresolved"
+field	expectations.stderr.not_contains[1]	"hole.unfilled"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"388749d5235de40a0631f30d66234c81362770465bbabdb7d9c9ff88a4708159"
 case	"examples/specification/run/identifier-casing-reachable-invalid"
 field	expectations.exit	1
 field	expectations.stderr.contains[0]	"error[name.invalid_case]: function name must start with an ASCII lowercase letter"
@@ -37905,13 +37920,15 @@ field	expectations.exit	1
 field	expectations.stderr.contains[0]	"error[name.invalid_case]: type name must start with an ASCII uppercase letter"
 field	expectations.stderr.contains[1]	"main.veln:1:6"
 field	expectations.stderr.format	"text"
+field	expectations.stderr.not_contains[0]	"name.unresolved"
+field	expectations.stderr.not_contains[1]	"unresolved value `Ready`"
 field	expectations.stdout.format	"empty"
 field	invocation.command[0]	"run"
 field	invocation.command[1]	"main"
 field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
-case_digest	"f77fce7a0b24243167c645130b182cba7a8ff58db05f3383969effe1c26e3e78"
+case_digest	"6433bedd4f0ffbee173da59126105124f3499716df8689d11aa51f9a71838955"
 case	"examples/specification/run/identifier-casing-type-reference-does-not-reach-function"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -48349,4 +48366,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"1ee349aa7807c41094f0fa0a42ca91d03818e6e83651fac6d67a703cfd5e1de6"
+aggregate_digest	"6e54a9203d36db17581c687b6be9fa91042382aae8ff394ba1cf43a925f3fc91"

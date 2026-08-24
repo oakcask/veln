@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 #[cfg(test)]
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -19,8 +19,9 @@ use veln_test::{DoctestExpectation, doctest_sources, reconcile_expected_doctest_
 
 use crate::surface::{
     CapturedDependencyProject, CasingNameClass, CasingRecoveryRecord, ReachabilityCache,
-    load_embedded_standard_surface_module_for_names, load_surface_modules,
-    load_surface_modules_with_captured_dependencies, reachable_entry_module_with_standard_cache,
+    ReachableHandler, load_embedded_standard_surface_module_for_names, load_surface_modules,
+    load_surface_modules_with_captured_dependencies,
+    reachable_entry_surface_module_with_standard_cache,
 };
 
 static STANDARD_ENVIRONMENTS: OnceLock<StandardEnvironmentCache> = OnceLock::new();
@@ -360,21 +361,26 @@ impl ProjectAnalysis {
         entry_kind: FunctionKind,
     ) -> (ReachableEntryAnalysis, AnalysisTiming) {
         let start = std::time::Instant::now();
-        let module = reachable_entry_module_with_standard_cache(
+        let reachable_surface = reachable_entry_surface_module_with_standard_cache(
             &self.selected_standard,
             &self.module,
             entry,
             entry_kind,
             &self.reachability_cache,
         );
+        let module = reachable_surface.module;
         let standard = standard_environment_for_modules(&self.selected_standard_module_names);
         let mut lowered = lower_project_reachable_surface_modules_with_standard_environment(
             &module,
             &self.selected_standard,
             &standard.environment,
         );
-        let reachable_casing =
-            reachable_casing_diagnostics(&module, &lowered.diagnostics, &self.casing_records);
+        let reachable_casing = reachable_casing_diagnostics(
+            &module,
+            &reachable_surface.handlers,
+            &lowered.diagnostics,
+            &self.casing_records,
+        );
         lowered.diagnostics.extend(reachable_casing);
         lowered.diagnostics =
             filter_recovery_derivative_diagnostics(lowered.diagnostics, &self.casing_records);
@@ -394,6 +400,7 @@ impl ProjectAnalysis {
 
 fn reachable_casing_diagnostics(
     module: &SurfaceModule,
+    handlers: &HashSet<ReachableHandler>,
     diagnostics: &[Diagnostic],
     records: &[CasingRecoveryRecord],
 ) -> Vec<Diagnostic> {
@@ -405,6 +412,9 @@ fn reachable_casing_diagnostics(
                     module.functions.iter().any(|function| {
                         function.name.as_ref() == Some(name)
                             && function.module_name == record.module_name
+                    }) || handlers.contains(&ReachableHandler {
+                        name: name.clone(),
+                        module_name: record.module_name.clone(),
                     })
                 })
         })
@@ -455,13 +465,26 @@ fn unique_recovery_derivative_record<'a>(
     let (name, compatible_name_classes) = recovery_derivative_name_and_classes(diagnostic)?;
     let diagnostic_source = diagnostic.span.as_ref().map(|span| &span.file);
     let mut matches = records.iter().filter(|record| {
-        record.name == name.as_str()
-            && compatible_name_classes.contains(&record.name_class)
+        recovery_record_matches_derivative_name(record, name.as_str(), &compatible_name_classes)
             && diagnostic_source == Some(&record.source_path)
             && unresolved_span_is_in_recovery_scope(diagnostic, record)
     });
     let first = matches.next()?;
     matches.next().is_none().then_some(first)
+}
+
+fn recovery_record_matches_derivative_name(
+    record: &CasingRecoveryRecord,
+    name: &str,
+    compatible_name_classes: &[CasingNameClass],
+) -> bool {
+    record.name == name && compatible_name_classes.contains(&record.name_class)
+        || record.name_class == CasingNameClass::Type
+            && compatible_name_classes.contains(&CasingNameClass::Constructor)
+            && record
+                .dependent_constructor_names
+                .iter()
+                .any(|constructor| constructor == name)
 }
 
 fn unique_recovery_record<'a>(
@@ -557,7 +580,11 @@ fn recovery_name_classes_for_namespace(namespace: &str) -> Option<Vec<CasingName
             CasingNameClass::Function,
             CasingNameClass::Constructor,
         ]),
-        "value" | "contract_predicate" => Some(vec![CasingNameClass::ValueBinding]),
+        "value" => Some(vec![
+            CasingNameClass::Constructor,
+            CasingNameClass::ValueBinding,
+        ]),
+        "contract_predicate" => Some(vec![CasingNameClass::ValueBinding]),
         _ => None,
     }
 }

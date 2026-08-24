@@ -369,9 +369,10 @@ diagnostics in functions unreachable from the selected entry do not block
 `run`.
 
 Source identifier casing recovery follows the same selected-entry boundary.
-An invalid entry function name, invalid entry binding, invalid declaration
-reached through the selected entry, or invalid type referenced from the
-selected entry signature reports `name.invalid_case` and blocks execution.
+An invalid entry function name, invalid entry binding, invalid handler binding
+reached through the selected entry, invalid declaration reached through the
+selected entry, or invalid type referenced from the selected entry signature
+reports `name.invalid_case` and blocks execution.
 An invalid same-source declaration outside the selected entry's reachable
 closure does not block `run`.
 

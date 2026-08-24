@@ -1,0 +1,15 @@
+effect Ask
+  value(item: Int) -> Int
+end
+
+handler ask(_Ctx: Int) handles Ask
+  value(_Item) => 1
+end
+
+fn compute() -> Int effects [Ask]
+  perform Ask::value(4)
+end
+
+pub fn main() -> () effects [stdio]
+  stdio::println(int_to_string(handle compute() with ask(0)))
+end
