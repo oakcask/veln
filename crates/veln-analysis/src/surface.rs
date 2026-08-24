@@ -3143,6 +3143,55 @@ fn collect_expr_type_references(
                 collect_expr_type_references(&arm.expr, &arm_context, names, constructors);
             }
         }
+        _ => collect_expr_child_type_references(expr, context, names, constructors),
+    }
+}
+
+fn collect_expr_child_type_references(
+    expr: &Expr,
+    context: &ExprTypeReferenceContext<'_>,
+    names: &mut HashSet<ReachableTypeName>,
+    constructors: &mut HashSet<ReachableConstructorName>,
+) {
+    match &expr.kind {
+        ExprKind::Perform { args, .. } => {
+            for arg in args {
+                collect_expr_type_references(arg, context, names, constructors);
+            }
+        }
+        ExprKind::Handle { body, args, .. } => {
+            collect_expr_type_references(body, context, names, constructors);
+            for arg in args {
+                collect_expr_type_references(arg, context, names, constructors);
+            }
+        }
+        ExprKind::SchemaDecode { input, base, .. } => {
+            collect_expr_type_references(input, context, names, constructors);
+            collect_expr_type_references(base, context, names, constructors);
+        }
+        ExprKind::SchemaEncode { value, .. } => {
+            collect_expr_type_references(value, context, names, constructors);
+        }
+        ExprKind::FieldAccess { base, .. } => {
+            collect_expr_type_references(base, context, names, constructors);
+        }
+        ExprKind::Try(inner) => collect_expr_type_references(inner, context, names, constructors),
+        ExprKind::Record(fields) => {
+            for field in fields {
+                collect_expr_type_references(&field.expr, context, names, constructors);
+            }
+        }
+        ExprKind::Dict(entries) => {
+            for entry in entries {
+                collect_expr_type_references(&entry.key, context, names, constructors);
+                collect_expr_type_references(&entry.value, context, names, constructors);
+            }
+        }
+        ExprKind::List(items) => {
+            for item in items {
+                collect_expr_type_references(item, context, names, constructors);
+            }
+        }
         ExprKind::If {
             condition,
             then_branch,
@@ -3164,7 +3213,11 @@ fn collect_expr_type_references(
             collect_expr_type_references(left, context, names, constructors);
             collect_expr_type_references(right, context, names, constructors);
         }
-        ExprKind::Missing
+        ExprKind::NamePath(_)
+        | ExprKind::TypeApply { .. }
+        | ExprKind::Call { .. }
+        | ExprKind::Match { .. }
+        | ExprKind::Missing
         | ExprKind::Hole { .. }
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)
@@ -3295,68 +3348,108 @@ fn expand_reachable_type_closure(
     let mut aliases = HashSet::new();
     let mut selected_types = HashMap::<TypeRef, bool>::new();
     for constructor in constructors {
-        for type_ref in type_index.types_for_constructor(constructor) {
-            #[cfg(test)]
-            reachability_counters::record_type_lookup_scan();
-            let type_decl = inputs.type_decl(type_ref);
-            if let Some(name) = &type_decl.name {
-                let reachable = ReachableTypeName {
-                    module_name: type_decl.module_name.clone(),
-                    name: name.clone(),
-                    allow_invalid: constructor.allow_invalid,
-                };
-                if names.insert(reachable.clone()) {
-                    stack.push(reachable);
-                }
-            }
-        }
+        seed_constructor_type_names(inputs, type_index, constructor, names, &mut stack);
     }
     while let Some(name) = stack.pop() {
         if !visited.insert(name.clone()) {
             continue;
         }
         names.insert(name.clone());
-        for alias in type_index.invalid_aliases_for_name(&name) {
-            #[cfg(test)]
-            reachability_counters::record_type_alias_lookup_scan();
-            aliases.insert((alias.module_name.clone(), name.name.clone()));
-        }
-        for alias in type_index.aliases_for_name(&name) {
-            #[cfg(test)]
-            reachability_counters::record_type_alias_lookup_scan();
-            if let Some(target) =
-                resolve_reachable_type_name(&alias.target, alias.module_name.as_deref(), uses)
-            {
-                aliases.insert((alias.module_name.clone(), name.name.clone()));
-                if names.insert(target.clone()) {
-                    stack.push(target);
-                }
-            }
-        }
-        for type_ref in type_index.types_for_name(&name) {
-            #[cfg(test)]
-            reachability_counters::record_type_lookup_scan();
-            let allow_invalid_payloads =
-                selected_types.entry(type_ref).or_insert(name.allow_invalid);
-            *allow_invalid_payloads |= name.allow_invalid;
-            let type_decl = inputs.type_decl(type_ref);
-            for field in type_decl
-                .variants
-                .iter()
-                .flat_map(|variant| &variant.fields)
-            {
-                let inserted = collect_type_name_references_with_invalid_policy(
-                    &field.ty,
-                    type_decl.module_name.as_deref(),
-                    uses,
-                    *allow_invalid_payloads,
-                    names,
-                );
-                stack.extend(inserted);
+        expand_reachable_type_aliases(type_index, uses, &name, names, &mut stack, &mut aliases);
+        expand_reachable_type_payloads(
+            inputs,
+            uses,
+            type_index,
+            &name,
+            names,
+            &mut stack,
+            &mut selected_types,
+        );
+    }
+    (aliases, selected_types.into_keys().collect())
+}
+
+fn seed_constructor_type_names(
+    inputs: &ReachabilityInputs<'_>,
+    type_index: &TypeReachabilityIndex<'_>,
+    constructor: &ReachableConstructorName,
+    names: &mut HashSet<ReachableTypeName>,
+    stack: &mut Vec<ReachableTypeName>,
+) {
+    for type_ref in type_index.types_for_constructor(constructor) {
+        #[cfg(test)]
+        reachability_counters::record_type_lookup_scan();
+        let type_decl = inputs.type_decl(type_ref);
+        if let Some(name) = &type_decl.name {
+            let reachable = ReachableTypeName {
+                module_name: type_decl.module_name.clone(),
+                name: name.clone(),
+                allow_invalid: constructor.allow_invalid,
+            };
+            if names.insert(reachable.clone()) {
+                stack.push(reachable);
             }
         }
     }
-    (aliases, selected_types.into_keys().collect())
+}
+
+fn expand_reachable_type_aliases(
+    type_index: &TypeReachabilityIndex<'_>,
+    uses: &[&UseDecl],
+    name: &ReachableTypeName,
+    names: &mut HashSet<ReachableTypeName>,
+    stack: &mut Vec<ReachableTypeName>,
+    aliases: &mut HashSet<(Option<String>, String)>,
+) {
+    for alias in type_index.invalid_aliases_for_name(name) {
+        #[cfg(test)]
+        reachability_counters::record_type_alias_lookup_scan();
+        aliases.insert((alias.module_name.clone(), name.name.clone()));
+    }
+    for alias in type_index.aliases_for_name(name) {
+        #[cfg(test)]
+        reachability_counters::record_type_alias_lookup_scan();
+        if let Some(target) =
+            resolve_reachable_type_name(&alias.target, alias.module_name.as_deref(), uses)
+        {
+            aliases.insert((alias.module_name.clone(), name.name.clone()));
+            if names.insert(target.clone()) {
+                stack.push(target);
+            }
+        }
+    }
+}
+
+fn expand_reachable_type_payloads(
+    inputs: &ReachabilityInputs<'_>,
+    uses: &[&UseDecl],
+    type_index: &TypeReachabilityIndex<'_>,
+    name: &ReachableTypeName,
+    names: &mut HashSet<ReachableTypeName>,
+    stack: &mut Vec<ReachableTypeName>,
+    selected_types: &mut HashMap<TypeRef, bool>,
+) {
+    for type_ref in type_index.types_for_name(name) {
+        #[cfg(test)]
+        reachability_counters::record_type_lookup_scan();
+        let allow_invalid_payloads = selected_types.entry(type_ref).or_insert(name.allow_invalid);
+        *allow_invalid_payloads |= name.allow_invalid;
+        let type_decl = inputs.type_decl(type_ref);
+        for field in type_decl
+            .variants
+            .iter()
+            .flat_map(|variant| &variant.fields)
+        {
+            let inserted = collect_type_name_references_with_invalid_policy(
+                &field.ty,
+                type_decl.module_name.as_deref(),
+                uses,
+                *allow_invalid_payloads,
+                names,
+            );
+            stack.extend(inserted);
+        }
+    }
 }
 
 fn materialize_reachable_aliases(
@@ -3412,83 +3505,128 @@ fn reachable_invalid_public_aliases_for_diagnostics(
     let mut function_paths = Vec::new();
     let mut type_names = Vec::new();
     for function in functions {
-        collect_function_alias_reference_paths(function, &mut function_paths);
-        collect_optional_type_alias_reference_names(
-            function.return_type.as_deref(),
-            function.module_name.as_deref(),
-            function.span.file.as_str(),
+        collect_function_invalid_alias_references(
+            function,
             &uses,
+            &mut function_paths,
             &mut type_names,
         );
-        for param in &function.params {
-            collect_optional_type_alias_reference_names(
-                param.ty.as_deref(),
-                function.module_name.as_deref(),
-                function.span.file.as_str(),
-                &uses,
-                &mut type_names,
-            );
-        }
-        for line in &function.body {
-            if let veln_ast::BodyLineKind::Let { annotation, .. } = &line.kind {
-                collect_optional_type_alias_reference_names(
-                    annotation.as_deref(),
-                    function.module_name.as_deref(),
-                    function.span.file.as_str(),
-                    &uses,
-                    &mut type_names,
-                );
-            }
-        }
     }
     for handler in handlers {
-        for param in &handler.params {
-            collect_optional_type_alias_reference_names(
-                param.ty.as_deref(),
-                handler.module_name.as_deref(),
-                handler.span.file.as_str(),
-                &uses,
-                &mut type_names,
-            );
-        }
-        for clause in &handler.operation_clauses {
-            for param in &clause.params {
-                collect_optional_type_alias_reference_names(
-                    param.ty.as_deref(),
-                    handler.module_name.as_deref(),
-                    handler.span.file.as_str(),
-                    &uses,
-                    &mut type_names,
-                );
-            }
-        }
+        collect_handler_invalid_alias_references(handler, &uses, &mut type_names);
     }
     inputs
         .cloned_declarations(|module| &module.aliases)
         .into_iter()
         .filter(|alias| {
-            let Some(name) = alias.name.as_deref() else {
-                return false;
-            };
-            if valid_public_alias_name(alias.kind, name) {
-                return false;
-            }
-            match alias.kind {
-                PublicAliasKind::Function => function_paths
-                    .iter()
-                    .any(|reference| public_alias_reference_matches(alias, reference, &uses)),
-                PublicAliasKind::Type => {
-                    type_names.iter().any(|type_name| {
-                        type_name.name == name
-                            && (type_name.current_module.as_deref() == alias.module_name.as_deref()
-                                || type_name.file == alias.span.file.as_str())
-                    }) || reachable_type_aliases
-                        .contains(&(alias.module_name.clone(), name.to_string()))
-                }
-                PublicAliasKind::Schema => false,
-            }
+            invalid_alias_is_reachable(
+                alias,
+                &uses,
+                &function_paths,
+                &type_names,
+                reachable_type_aliases,
+            )
         })
         .collect()
+}
+
+fn collect_function_invalid_alias_references(
+    function: &Function,
+    uses: &[&UseDecl],
+    function_paths: &mut Vec<AliasReferencePath>,
+    type_names: &mut Vec<AliasTypeReference>,
+) {
+    collect_function_alias_reference_paths(function, function_paths);
+    collect_optional_type_alias_reference_names(
+        function.return_type.as_deref(),
+        function.module_name.as_deref(),
+        function.span.file.as_str(),
+        uses,
+        type_names,
+    );
+    for param in &function.params {
+        collect_optional_type_alias_reference_names(
+            param.ty.as_deref(),
+            function.module_name.as_deref(),
+            function.span.file.as_str(),
+            uses,
+            type_names,
+        );
+    }
+    for line in &function.body {
+        if let veln_ast::BodyLineKind::Let { annotation, .. } = &line.kind {
+            collect_optional_type_alias_reference_names(
+                annotation.as_deref(),
+                function.module_name.as_deref(),
+                function.span.file.as_str(),
+                uses,
+                type_names,
+            );
+        }
+    }
+}
+
+fn collect_handler_invalid_alias_references(
+    handler: &veln_ast::HandlerDecl,
+    uses: &[&UseDecl],
+    type_names: &mut Vec<AliasTypeReference>,
+) {
+    for param in &handler.params {
+        collect_optional_type_alias_reference_names(
+            param.ty.as_deref(),
+            handler.module_name.as_deref(),
+            handler.span.file.as_str(),
+            uses,
+            type_names,
+        );
+    }
+    for clause in &handler.operation_clauses {
+        for param in &clause.params {
+            collect_optional_type_alias_reference_names(
+                param.ty.as_deref(),
+                handler.module_name.as_deref(),
+                handler.span.file.as_str(),
+                uses,
+                type_names,
+            );
+        }
+    }
+}
+
+fn invalid_alias_is_reachable(
+    alias: &veln_ast::PublicAlias,
+    uses: &[&UseDecl],
+    function_paths: &[AliasReferencePath],
+    type_names: &[AliasTypeReference],
+    reachable_type_aliases: &HashSet<(Option<String>, String)>,
+) -> bool {
+    let Some(name) = alias.name.as_deref() else {
+        return false;
+    };
+    if valid_public_alias_name(alias.kind, name) {
+        return false;
+    }
+    match alias.kind {
+        PublicAliasKind::Function => function_paths
+            .iter()
+            .any(|reference| public_alias_reference_matches(alias, reference, uses)),
+        PublicAliasKind::Type => {
+            type_names
+                .iter()
+                .any(|type_name| type_alias_reference_matches(alias, type_name))
+                || reachable_type_aliases.contains(&(alias.module_name.clone(), name.to_string()))
+        }
+        PublicAliasKind::Schema => false,
+    }
+}
+
+fn type_alias_reference_matches(
+    alias: &veln_ast::PublicAlias,
+    type_name: &AliasTypeReference,
+) -> bool {
+    alias.name.as_deref() == Some(type_name.name.as_str())
+        && (type_name.current_module.as_deref() == alias.module_name.as_deref()
+            || type_name.file == alias.span.file.as_str())
 }
 
 #[derive(Debug)]
@@ -3572,6 +3710,16 @@ fn collect_expr_alias_reference_paths(
             file: expr.span.file.as_str().to_string(),
             segments: segments.clone(),
         }),
+        _ => collect_expr_child_alias_reference_paths(expr, current_module, references),
+    }
+}
+
+fn collect_expr_child_alias_reference_paths(
+    expr: &Expr,
+    current_module: Option<String>,
+    references: &mut Vec<AliasReferencePath>,
+) {
+    match &expr.kind {
         ExprKind::TypeApply { callee, .. }
         | ExprKind::FieldAccess { base: callee, .. }
         | ExprKind::Try(callee)
@@ -3659,7 +3807,8 @@ fn collect_expr_alias_reference_paths(
             collect_expr_alias_reference_paths(left, current_module.clone(), references);
             collect_expr_alias_reference_paths(right, current_module, references);
         }
-        ExprKind::Missing
+        ExprKind::NamePath(_)
+        | ExprKind::Missing
         | ExprKind::Hole { .. }
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)

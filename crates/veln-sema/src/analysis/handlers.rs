@@ -424,20 +424,7 @@ fn clause_body_diagnostics(
             .get(index)
             .cloned()
             .unwrap_or(Type::Unknown);
-        if valid_value_binding_name(&param.name) {
-            checker.local_names.insert(
-                param.name.clone(),
-                (param.node_id.display("param"), param.span.clone()),
-            );
-            checker.bindings.push(Binding::new(param.name.clone(), ty));
-        } else {
-            checker.record_recovery_binding(
-                param.name.clone(),
-                ty,
-                param.span.clone(),
-                RecoveryScope::Body,
-            );
-        }
+        bind_clause_parameter(&mut checker, param, ty);
     }
     for (index, param) in clause.params.iter().enumerate() {
         let ty = operation
@@ -445,20 +432,7 @@ fn clause_body_diagnostics(
             .get(index)
             .cloned()
             .unwrap_or(Type::Unknown);
-        if valid_value_binding_name(&param.name) {
-            checker.local_names.insert(
-                param.name.clone(),
-                (param.node_id.display("param"), param.span.clone()),
-            );
-            checker.bindings.push(Binding::new(param.name.clone(), ty));
-        } else {
-            checker.record_recovery_binding(
-                param.name.clone(),
-                ty,
-                param.span.clone(),
-                RecoveryScope::Body,
-            );
-        }
+        bind_clause_parameter(&mut checker, param, ty);
     }
     let expected = ExpectedType {
         ty: operation.return_type.clone(),
@@ -475,48 +449,82 @@ fn clause_body_diagnostics(
         &expected,
         "handler_operation_result",
     );
+    let uses_handled_effect = clause_uses_handled_effect(&checker, signature);
+    let public_effect_diagnostics =
+        missing_public_effect_diagnostics(handler, clause, operation, signature, effect, &checker);
     let mut diagnostics = checker.diagnostics;
-    if checker
+    if uses_handled_effect {
+        diagnostics.push(recursive_clause_diagnostic(clause, signature, effect));
+    }
+    diagnostics.extend(public_effect_diagnostics);
+    diagnostics
+}
+
+fn clause_uses_handled_effect(checker: &FunctionChecker<'_>, signature: &HandlerSignature) -> bool {
+    checker
         .inferred_effects
         .iter()
         .any(|effect_use| effect_use.effect == signature.effect)
-    {
-        diagnostics.push(recursive_clause_diagnostic(clause, signature, effect));
+}
+
+fn missing_public_effect_diagnostics(
+    handler: &HandlerDecl,
+    clause: &HandlerOperationClauseDecl,
+    operation: &EffectOperationSignature,
+    signature: &HandlerSignature,
+    effect: &EffectSignature,
+    checker: &FunctionChecker<'_>,
+) -> Vec<Diagnostic> {
+    if handler.visibility != Visibility::Public {
+        return Vec::new();
     }
-    if handler.visibility == Visibility::Public {
-        diagnostics.extend(
-            checker
-                .inferred_effects
-                .iter()
-                .filter(|effect_use| {
-                    effect_use.effect != signature.effect
-                        && !signature
-                            .effects
-                            .iter()
-                            .any(|declared| declared == &effect_use.effect)
-                })
-                .map(|effect_use| {
-                    Diagnostic::new(
-                        "handler.missing_public_effect",
-                        Severity::Error,
-                        DiagnosticKind::Effect,
-                        format!(
-                            "public handler `{}` uses undeclared effect `{}`",
-                            signature.qualified_name, effect_use.effect
-                        ),
-                        Some(clause.body.span.clone()),
-                        clause_details(
-                            clause.node_id.display("clause"),
-                            signature,
-                            effect,
-                            Some(&operation.name),
-                            "missing_public_effect",
-                        ),
-                    )
-                }),
+    checker
+        .inferred_effects
+        .iter()
+        .filter(|effect_use| {
+            effect_use.effect != signature.effect
+                && !signature
+                    .effects
+                    .iter()
+                    .any(|declared| declared == &effect_use.effect)
+        })
+        .map(|effect_use| {
+            Diagnostic::new(
+                "handler.missing_public_effect",
+                Severity::Error,
+                DiagnosticKind::Effect,
+                format!(
+                    "public handler `{}` uses undeclared effect `{}`",
+                    signature.qualified_name, effect_use.effect
+                ),
+                Some(clause.body.span.clone()),
+                clause_details(
+                    clause.node_id.display("clause"),
+                    signature,
+                    effect,
+                    Some(&operation.name),
+                    "missing_public_effect",
+                ),
+            )
+        })
+        .collect()
+}
+
+fn bind_clause_parameter(checker: &mut FunctionChecker<'_>, param: &veln_ast::Param, ty: Type) {
+    if valid_value_binding_name(&param.name) {
+        checker.local_names.insert(
+            param.name.clone(),
+            (param.node_id.display("param"), param.span.clone()),
+        );
+        checker.bindings.push(Binding::new(param.name.clone(), ty));
+    } else {
+        checker.record_recovery_binding(
+            param.name.clone(),
+            ty,
+            param.span.clone(),
+            RecoveryScope::Body,
         );
     }
-    diagnostics
 }
 
 fn synthetic_clause_function(
