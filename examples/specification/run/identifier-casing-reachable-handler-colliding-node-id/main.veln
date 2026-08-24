@@ -1,0 +1,8 @@
+use alpha
+use beta
+
+pub fn main() -> Int
+  let left = handle alpha::compute() with alpha::serve()
+  let right = handle beta::compute() with beta::serve(1)
+  left + right
+end

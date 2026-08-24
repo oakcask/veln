@@ -375,6 +375,7 @@ invalid peer outside the reachable closure does not. The checked
 `identifier-casing-import-quarantine`,
 `identifier-casing-imported-invalid-alias-quarantine`,
 `identifier-casing-invalid-entry`,
+`identifier-casing-invalid-entry-json`,
 `identifier-casing-alias-quarantine`, and
 `identifier-casing-unused-type-alias-quarantine` run cases fix this boundary,
 including first-class function value reachability that excludes quarantined
@@ -385,8 +386,9 @@ and `identifier-casing-adt-payload-closure` cases check local binding
 precedence and ADT payload closure in the same boundary. The
 `identifier-casing-reachable-function-alias` and
 `identifier-casing-reachable-type-alias` cases check reachable invalid public
-alias declaration names. Invalid public function aliases remain quarantined:
-same-file calls and independently missing alias targets still report
+alias declaration names. Invalid public function aliases remain quarantined.
+One unique same-file alias use may suppress a derivative unresolved-name
+diagnostic, while independently missing alias targets still report
 `name.unresolved`.
 The
 `identifier-casing-imported-constructor-valid-wins` and
@@ -396,9 +398,11 @@ functions. The `identifier-casing-qualified-same-leaf` and
 `identifier-casing-alias-transitive-target` cases check resolved same-leaf and
 transitive public-alias targets. The
 `identifier-casing-unused-handler-type-reference`,
-`identifier-casing-transitive-handler-binding`, and
+`identifier-casing-transitive-handler-binding`,
+`identifier-casing-reachable-handler-colliding-node-id`, and
 `identifier-casing-underscore-type-closure` cases check handler and
-underscore-led type reachability. The
+underscore-led type reachability, including handler declaration identities
+that collide by source-local node ordinal across files. The
 `unreachable-duplicate-constructor-diagnostic`,
 `unreachable-type-alias-diagnostic`, and `unreachable-handler-diagnostic`
 cases check that the run boundary does not hide non-casing diagnostics.

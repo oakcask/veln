@@ -160,16 +160,123 @@ pub(crate) fn suppress_quarantined_type_alias_derivatives(
     module: &SurfaceModule,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    let _ = module;
-    let _ = diagnostics;
+    suppress_unique_alias_recovery_derivatives(module, diagnostics, PublicAliasKind::Type);
 }
 
 pub(crate) fn suppress_quarantined_function_alias_derivatives(
     module: &SurfaceModule,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    let _ = module;
-    let _ = diagnostics;
+    suppress_unique_alias_recovery_derivatives(module, diagnostics, PublicAliasKind::Function);
+}
+
+fn suppress_unique_alias_recovery_derivatives(
+    module: &SurfaceModule,
+    diagnostics: &mut Vec<Diagnostic>,
+    kind: PublicAliasKind,
+) {
+    diagnostics.retain(|diagnostic| {
+        if suppress_valid_invalid_alias_target_derivative(module, diagnostic, kind) {
+            return false;
+        }
+        if diagnostic.id != "name.unresolved" {
+            return true;
+        }
+        let Some(span) = &diagnostic.span else {
+            return true;
+        };
+        let Some((role, symbol)) = unresolved_recovery_role_and_symbol(diagnostic) else {
+            return true;
+        };
+        !has_unique_alias_recovery_candidate(module, kind, role, symbol, span)
+    });
+}
+
+fn suppress_valid_invalid_alias_target_derivative(
+    module: &SurfaceModule,
+    diagnostic: &Diagnostic,
+    kind: PublicAliasKind,
+) -> bool {
+    if diagnostic.id != "name.unresolved" {
+        return false;
+    }
+    let Some(span) = &diagnostic.span else {
+        return false;
+    };
+    let Some(expected_kind) = diagnostic_string_detail(diagnostic, "expected_kind") else {
+        return false;
+    };
+    if !alias_expected_kind_matches(kind, expected_kind) {
+        return false;
+    }
+    module.aliases.iter().any(|alias| {
+        alias.kind == kind
+            && alias.span.file == span.file
+            && alias.span.start.offset == span.start.offset
+            && alias.span.end.offset == span.end.offset
+            && alias.name.as_deref().is_some_and(|name| {
+                !valid_public_alias_name(alias.kind, name) && alias_target_exists(module, alias)
+            })
+    })
+}
+
+fn alias_expected_kind_matches(kind: PublicAliasKind, expected_kind: &str) -> bool {
+    matches!(
+        (kind, expected_kind),
+        (PublicAliasKind::Function, "function") | (PublicAliasKind::Type, "type")
+    )
+}
+
+fn alias_target_exists(module: &SurfaceModule, alias: &veln_ast::PublicAlias) -> bool {
+    match alias.kind {
+        PublicAliasKind::Function => alias_target_function_exists(module, alias),
+        PublicAliasKind::Type => alias_target_type_exists(module, alias),
+        PublicAliasKind::Schema => false,
+    }
+}
+
+fn alias_target_function_exists(module: &SurfaceModule, alias: &veln_ast::PublicAlias) -> bool {
+    let Some(target_name) = alias.target.last() else {
+        return false;
+    };
+    if !valid_function_name(target_name) {
+        return false;
+    }
+    let target_module = alias_target_module(module, alias);
+    module.functions.iter().any(|function| {
+        function.kind == FunctionKind::Function
+            && function.name.as_ref() == Some(target_name)
+            && function.module_name == target_module
+    })
+}
+
+fn alias_target_type_exists(module: &SurfaceModule, alias: &veln_ast::PublicAlias) -> bool {
+    let Some(target_name) = alias.target.last() else {
+        return false;
+    };
+    if !valid_type_name(target_name) {
+        return false;
+    }
+    let target_module = alias_target_module(module, alias);
+    module.types.iter().any(|type_decl| {
+        type_decl.name.as_ref() == Some(target_name) && type_decl.module_name == target_module
+    })
+}
+
+fn alias_target_module(module: &SurfaceModule, alias: &veln_ast::PublicAlias) -> Option<String> {
+    match alias.target.as_slice() {
+        [_] => alias.module_name.clone(),
+        [_, .., _] => module
+            .uses
+            .iter()
+            .find(|use_decl| {
+                use_decl.module_name.as_deref() == alias.module_name.as_deref()
+                    && (use_decl.alias == alias.target[..alias.target.len() - 1].join("::")
+                        || use_decl.name == alias.target[..alias.target.len() - 1].join("::"))
+            })
+            .map(|use_decl| use_decl.name.clone()),
+        _ => None,
+    }
 }
 
 pub(crate) fn type_alias_targets_invalid_source_type(
@@ -284,6 +391,12 @@ fn recovery_count(
             && !valid_public_alias_name(alias.kind, symbol)
             && alias.span.file == use_span.file
     });
+    let invalid_function_aliases = module.aliases.iter().filter(|alias| {
+        alias.kind == PublicAliasKind::Function
+            && alias.name.as_deref() == Some(symbol)
+            && !valid_public_alias_name(alias.kind, symbol)
+            && alias.span.file == use_span.file
+    });
     let invalid_value_bindings = local_recovery_binding_count(module, role, symbol, use_span);
     match role {
         RecoveryRole::Type => invalid_types.count() + invalid_type_aliases.count(),
@@ -291,9 +404,48 @@ fn recovery_count(
             invalid_value_bindings
         }
         RecoveryRole::CallTarget => {
-            invalid_functions.count() + invalid_variants.count() + invalid_value_bindings
+            invalid_functions.count()
+                + invalid_variants.count()
+                + invalid_function_aliases.count()
+                + invalid_value_bindings
         }
     }
+}
+
+fn has_unique_alias_recovery_candidate(
+    module: &SurfaceModule,
+    kind: PublicAliasKind,
+    role: RecoveryRole,
+    symbol: &str,
+    use_span: &SourceSpan,
+) -> bool {
+    let expected_role = match kind {
+        PublicAliasKind::Function => RecoveryRole::CallTarget,
+        PublicAliasKind::Type => RecoveryRole::Type,
+        PublicAliasKind::Schema => return false,
+    };
+    if !matches_recovery_role(role, expected_role) {
+        return false;
+    }
+    if recovery_count(module, role, symbol, use_span) != 1 {
+        return false;
+    }
+    module
+        .aliases
+        .iter()
+        .filter(|alias| {
+            alias.kind == kind
+                && alias.name.as_deref() == Some(symbol)
+                && !valid_public_alias_name(alias.kind, symbol)
+                && alias.span.file == use_span.file
+        })
+        .take(2)
+        .count()
+        == 1
+}
+
+fn matches_recovery_role(left: RecoveryRole, right: RecoveryRole) -> bool {
+    std::mem::discriminant(&left) == std::mem::discriminant(&right)
 }
 
 fn local_recovery_binding_count(

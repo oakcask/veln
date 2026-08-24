@@ -1,0 +1,7 @@
+fn Bad() -> Int
+  1
+end
+
+pub fn main() -> Int
+  Bad()
+end

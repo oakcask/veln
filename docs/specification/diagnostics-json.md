@@ -85,7 +85,10 @@ and `observed_initial`. The checked `identifier-casing-json`,
 `identifier-casing-invalid-alias-same-file-use`,
 `identifier-casing-invalid-alias-duplicates`, and
 `identifier-casing-split-recovery-candidates` cases are the executable JSON
-and human-output evidence.
+and human-output evidence. The run cases
+`identifier-casing-invalid-entry-json` and `identifier-casing-reachable-json`
+check that pre-execution `run --json` casing failures use the same diagnostic
+envelope shape.
 
 Companion source diagnostics are executable in
 `examples/specification/check/companion-missing-target-json/`,

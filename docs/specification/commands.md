@@ -103,12 +103,14 @@ requiring the full command reference on the first read.
   invalid source names as checked by `identifier-casing-reachable`,
   `identifier-casing-unreachable`, `identifier-casing-import-quarantine`,
   `identifier-casing-imported-invalid-alias-quarantine`,
-  `identifier-casing-invalid-entry`, `identifier-casing-alias-quarantine`, and
+  `identifier-casing-invalid-entry`, `identifier-casing-invalid-entry-json`,
+  `identifier-casing-alias-quarantine`, and
   `identifier-casing-unused-type-alias-quarantine`, including first-class
   function value reachability that excludes quarantined invalid function targets,
   invalid public function alias declaration names, unreachable type aliases,
-  and aliases to quarantined invalid type targets, while same-file calls and
-  independently missing alias targets still report `name.unresolved`, and
+  and aliases to quarantined invalid type targets, while one unique same-file
+  alias use may suppress a derivative `name.unresolved` and independently
+  missing alias targets still report `name.unresolved`, and
   resolution-aware type, constructor, function, and alias closure as checked by
   `identifier-casing-valid-function-vs-invalid-constructor`,
   `identifier-casing-valid-constructor-vs-invalid-function`,

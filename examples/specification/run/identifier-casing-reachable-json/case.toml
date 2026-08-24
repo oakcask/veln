@@ -1,0 +1,26 @@
+command = ["run", "--json", "main", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "\"id\":\"name.invalid_case\"",
+  "\"name\":\"Bad\"",
+  "\"name_class\":\"function\"",
+]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "schema_version"
+equals = 1
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"

@@ -1,0 +1,11 @@
+effect Ask
+  value() -> Int
+end
+
+handler serve() handles Ask
+  value() => 1
+end
+
+pub fn compute() -> Int effects [Ask]
+  perform Ask::value()
+end

@@ -2347,7 +2347,7 @@ fn module_with_reachable_functions_and_handler_view(
     reachability_index: &ReachabilityIndex,
     handler_view: HandlerView,
 ) -> SurfaceModule {
-    let functions = materialize_reachable_functions(inputs, reachable, reachability_index);
+    let mut functions = materialize_reachable_functions(inputs, reachable, reachability_index);
     let reachable_handler_refs = reachable_handler_refs(inputs, &functions);
     let reachable_handlers = inputs
         .handler_refs()
@@ -2372,6 +2372,9 @@ fn module_with_reachable_functions_and_handler_view(
         &reachable_type_aliases,
         alias_view,
     );
+    if matches!(handler_view, HandlerView::Diagnostic) {
+        include_invalid_function_alias_targets_for_diagnostics(inputs, &aliases, &mut functions);
+    }
     SurfaceModule {
         module: inputs.module_header(),
         uses: inputs.cloned_declarations(|module| &module.uses),
@@ -2412,6 +2415,59 @@ fn materialize_reachable_functions(
         })
         .cloned()
         .collect()
+}
+
+fn include_invalid_function_alias_targets_for_diagnostics(
+    inputs: &ReachabilityInputs<'_>,
+    aliases: &[veln_ast::PublicAlias],
+    functions: &mut Vec<Function>,
+) {
+    let uses = inputs.uses();
+    let existing = functions
+        .iter()
+        .map(|function| (function.span.file.as_str().to_string(), function.node_id))
+        .collect::<HashSet<_>>();
+    let mut added = HashSet::new();
+    let targets = aliases.iter().filter_map(|alias| {
+        if alias.kind != PublicAliasKind::Function {
+            return None;
+        }
+        let alias_name = alias.name.as_deref()?;
+        if valid_public_alias_name(alias.kind, alias_name) {
+            return None;
+        }
+        let target_name = alias.target.last()?;
+        if !valid_function_name(target_name) {
+            return None;
+        }
+        let target_module = alias_target_module(alias, &uses)?;
+        inputs
+            .functions()
+            .find(|function| {
+                function.kind == FunctionKind::Function
+                    && function.name.as_ref() == Some(target_name)
+                    && function.module_name == target_module
+            })
+            .cloned()
+    });
+    for target in targets {
+        let key = (target.span.file.as_str().to_string(), target.node_id);
+        if !existing.contains(&key) && added.insert(key) {
+            functions.push(target);
+        }
+    }
+}
+
+fn alias_target_module(alias: &veln_ast::PublicAlias, uses: &[&UseDecl]) -> Option<Option<String>> {
+    match alias.target.as_slice() {
+        [_] => Some(alias.module_name.clone()),
+        [_, .., _] => {
+            let path = &alias.target[..alias.target.len() - 1];
+            imported_use_for_path(uses, path, alias.module_name.as_deref())
+                .map(|use_decl| Some(use_decl.name.clone()))
+        }
+        [] => None,
+    }
 }
 
 fn reachability_target_matches_function(

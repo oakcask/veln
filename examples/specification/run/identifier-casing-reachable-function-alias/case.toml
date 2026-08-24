@@ -8,6 +8,8 @@ format = "empty"
 [stderr]
 contains = [
   "main.veln:5:8: error[name.invalid_case]: function name must start with an ASCII lowercase letter",
-  "error[name.unresolved]: unresolved function alias target `good`",
-  "error[name.unresolved]: unresolved call_target `Build`",
+]
+not_contains = [
+  "unresolved function alias target `good`",
+  "unresolved call_target `Build`",
 ]

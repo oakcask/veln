@@ -49,6 +49,7 @@ pub(crate) fn run_entry(
         &inputs,
         &entry,
         &entry_args,
+        json,
         &mut timings,
     )?
     else {
@@ -92,20 +93,21 @@ fn prepare_run_program(
     inputs: &[PathBuf],
     entry: &str,
     entry_args: &[String],
+    json: bool,
     timings: &mut Option<RunAnalysisTimings>,
 ) -> Result<Option<PreparedRun>, String> {
     let analysis = analyze_run_project(root, inputs, timings.as_mut())?;
     write_harness_source_diagnostic_artifact(&analysis.checked_diagnostics())?;
-    if report_source_errors(&analysis)? {
+    if report_source_errors(&analysis, json)? {
         write_timings(timings)?;
         return Ok(None);
     }
 
-    let Some(entry_arg_types) = checked_entry_arg_types(&analysis, entry, entry_args)? else {
+    let Some(entry_arg_types) = checked_entry_arg_types(&analysis, entry, entry_args, json)? else {
         write_timings(timings)?;
         return Ok(None);
     };
-    let Some(ir) = lower_run_entry(&analysis, entry, timings.as_mut())? else {
+    let Some(ir) = lower_run_entry(&analysis, entry, json, timings.as_mut())? else {
         write_timings(timings)?;
         return Ok(None);
     };
@@ -225,13 +227,23 @@ fn test_only_run_input_diagnostic(path: &str) -> Diagnostic {
     )
 }
 
-fn report_source_errors(analysis: &ProjectAnalysis) -> Result<bool, String> {
+fn report_source_errors(analysis: &ProjectAnalysis, json: bool) -> Result<bool, String> {
     let diagnostics = analysis.source_diagnostics();
     if has_error(&diagnostics) {
-        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), diagnostics))?;
+        report_diagnostics(json, diagnostics)?;
         return Ok(true);
     }
     Ok(false)
+}
+
+fn report_diagnostics(json: bool, diagnostics: Vec<Diagnostic>) -> Result<(), String> {
+    let envelope = DiagnosticEnvelope::new(tool_info(), diagnostics);
+    if json {
+        println!("{}", envelope.to_json());
+    } else {
+        print_human_stderr(&envelope)?;
+    }
+    Ok(())
 }
 
 fn find_entry_function<'a>(analysis: &'a ProjectAnalysis, entry: &str) -> Option<&'a Function> {
@@ -244,13 +256,14 @@ fn checked_entry_arg_types(
     analysis: &ProjectAnalysis,
     entry: &str,
     entry_args: &[String],
+    json: bool,
 ) -> Result<Option<Vec<EntryArgType>>, String> {
     let Some(entry_function) = find_entry_function(analysis, entry) else {
         eprintln!("veln: run entry `{entry}` was not found");
         return Ok(None);
     };
     if let Some(diagnostic) = invalid_entry_name_diagnostic(analysis, entry_function) {
-        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), vec![diagnostic]))?;
+        report_diagnostics(json, vec![diagnostic])?;
         return Ok(None);
     }
     validate_entry_args(entry_function, entry, entry_args)
@@ -360,6 +373,7 @@ fn validate_entry_args(
 fn lower_run_entry(
     analysis: &ProjectAnalysis,
     entry: &str,
+    json: bool,
     timings: Option<&mut RunAnalysisTimings>,
 ) -> Result<Option<veln_ir::TypedProgram>, String> {
     let reachable = if let Some(timings) = timings {
@@ -382,7 +396,7 @@ fn lower_run_entry(
     let lowered = reachable.lowered;
     let diagnostics = lowered.diagnostics;
     if has_error(&diagnostics) {
-        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), diagnostics))?;
+        report_diagnostics(json, diagnostics)?;
         return Ok(None);
     }
     if let Some(diagnostic) = retained_user_effect_diagnostic(
@@ -391,11 +405,11 @@ fn lower_run_entry(
         entry,
         FunctionKind::Function,
     ) {
-        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), vec![diagnostic]))?;
+        report_diagnostics(json, vec![diagnostic])?;
         return Ok(None);
     }
     let Some(ir) = lowered.ir else {
-        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), diagnostics))?;
+        report_diagnostics(json, diagnostics)?;
         eprintln!("veln: run blocked: checked program is not executable");
         return Ok(None);
     };
@@ -451,7 +465,7 @@ fn run_reachable_identifier_casing_regions(
 }
 
 fn run_reachable_handlers(module: &SurfaceModule) -> Vec<&HandlerDecl> {
-    let mut reachable = Vec::new();
+    let mut reachable: Vec<&HandlerDecl> = Vec::new();
     let mut stack = Vec::new();
     for function in &module.functions {
         for line in &function.body {
@@ -472,7 +486,7 @@ fn run_reachable_handlers(module: &SurfaceModule) -> Vec<&HandlerDecl> {
         {
             if reachable
                 .iter()
-                .any(|known: &&HandlerDecl| known.node_id == handler.node_id)
+                .any(|known| same_handler_identity(known, handler))
             {
                 continue;
             }
@@ -484,6 +498,10 @@ fn run_reachable_handlers(module: &SurfaceModule) -> Vec<&HandlerDecl> {
     }
 
     reachable
+}
+
+fn same_handler_identity(left: &HandlerDecl, right: &HandlerDecl) -> bool {
+    left.node_id == right.node_id && left.span.file == right.span.file
 }
 
 struct RunHandlePath<'a> {
@@ -2348,7 +2366,7 @@ mod tests {
             "production analysis should exclude companion diagnostics: {:#?}",
             analysis.checked_diagnostics()
         );
-        let ir = lower_run_entry(&analysis, "main", None)
+        let ir = lower_run_entry(&analysis, "main", false, None)
             .expect("entry should lower")
             .expect("entry should produce IR");
 

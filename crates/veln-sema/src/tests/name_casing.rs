@@ -221,7 +221,7 @@ fn invalid_function_alias_preserves_wrong_kind_target_diagnostic() {
 }
 
 #[test]
-fn invalid_function_alias_declaration_name_does_not_recover_same_file_call() {
+fn invalid_function_alias_declaration_name_recovers_unique_same_file_call() {
     let parsed = parse(&SourceFile::new(
         "main.veln",
         concat!(
@@ -244,9 +244,12 @@ fn invalid_function_alias_declaration_name_does_not_recover_same_file_call() {
         diagnostic.id == "name.invalid_case"
             && diagnostic.message == "function name must start with an ASCII lowercase letter"
     }));
-    assert!(diagnostics.iter().any(|diagnostic| {
-        diagnostic.id == "name.unresolved" && diagnostic.message == "unresolved call_target `Bad`"
-    }));
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.message != "unresolved call_target `Bad`"),
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]
@@ -277,6 +280,35 @@ fn same_spelled_invalid_function_aliases_do_not_recover_call() {
             .count(),
         2
     );
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved" && diagnostic.message == "unresolved call_target `Bad`"
+    }));
+}
+
+#[test]
+fn invalid_function_and_alias_candidates_do_not_recover_call() {
+    let parsed = parse(&SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn good() -> Int\n",
+            "  1\n",
+            "end\n",
+            "\n",
+            "fn Bad() -> Int\n",
+            "  2\n",
+            "end\n",
+            "\n",
+            "pub fn Bad = good\n",
+            "\n",
+            "pub fn main() -> Int\n",
+            "  Bad()\n",
+            "end\n",
+        ),
+    ));
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic.id == "name.unresolved" && diagnostic.message == "unresolved call_target `Bad`"
     }));

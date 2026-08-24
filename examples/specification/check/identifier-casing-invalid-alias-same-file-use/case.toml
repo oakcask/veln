@@ -7,9 +7,8 @@ format = "json"
 contains = [
   "\"id\":\"name.invalid_case\"",
   "\"name\":\"Bad\"",
-  "\"id\":\"name.unresolved\"",
-  "unresolved call_target `Bad`",
 ]
+not_contains = ["unresolved call_target `Bad`"]
 
 [stderr]
 format = "empty"
