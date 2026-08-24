@@ -813,6 +813,84 @@ fn invalid_callable_binding_recovers_only_for_function_typed_calls() {
 }
 
 #[test]
+fn invalid_callable_handler_context_binding_recovers_call_target() {
+    let parsed = parse(&SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Ask\n",
+            "  value(item: Int) -> Int\n",
+            "end\n",
+            "handler recover(Callback: fn(Int) -> Int, Number: Int) handles Ask\n",
+            "  value(item) => Callback(item) + Number()\n",
+            "end\n",
+        ),
+    ));
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+            .count(),
+        2
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.message != "unresolved call_target `Callback`"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.unresolved"
+                && diagnostic.message == "unresolved call_target `Number`"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn invalid_callable_handler_operation_binding_recovers_call_target() {
+    let parsed = parse(&SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Ask\n",
+            "  value(callback: fn(Int) -> Int, number: Int) -> Int\n",
+            "end\n",
+            "handler recover() handles Ask\n",
+            "  value(Callback, Number) => Callback(1) + Number()\n",
+            "end\n",
+        ),
+    ));
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+            .count(),
+        2
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.message != "unresolved call_target `Callback`"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.unresolved"
+                && diagnostic.message == "unresolved call_target `Number`"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn invalid_satisfy_candidate_does_not_enter_predicate_bindings() {
     let parsed = parse(&SourceFile::new(
         "main.veln",

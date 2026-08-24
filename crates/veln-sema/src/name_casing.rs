@@ -454,7 +454,7 @@ fn local_recovery_binding_count(
     symbol: &str,
     use_span: &SourceSpan,
 ) -> usize {
-    module
+    let function_bindings = module
         .functions
         .iter()
         .filter(|function| {
@@ -478,7 +478,47 @@ fn local_recovery_binding_count(
                     .map(|line| local_recovery_bindings_in_line(line, role, symbol, use_span))
                     .sum::<usize>()
         })
-        .sum()
+        .sum::<usize>();
+    let handler_bindings = module
+        .handlers
+        .iter()
+        .filter(|handler| {
+            handler.span.file == use_span.file && span_contains(&handler.span, use_span)
+        })
+        .map(|handler| {
+            let context_bindings = handler
+                .params
+                .iter()
+                .filter(|param| {
+                    param.name == symbol
+                        && !valid_value_binding_name(&param.name)
+                        && span_starts_not_after(&param.name_span, use_span)
+                        && recovery_binding_matches_role(param.ty.as_deref(), role)
+                })
+                .count();
+            let clause_bindings = handler
+                .operation_clauses
+                .iter()
+                .filter(|clause| span_contains(&clause.body.span, use_span))
+                .map(|clause| {
+                    clause
+                        .params
+                        .iter()
+                        .filter(|param| {
+                            param.name == symbol
+                                && !valid_value_binding_name(&param.name)
+                                && span_starts_not_after(&param.name_span, use_span)
+                                && operation_clause_binding_matches_role(
+                                    module, handler, clause, param, role,
+                                )
+                        })
+                        .count()
+                })
+                .sum::<usize>();
+            context_bindings + clause_bindings
+        })
+        .sum::<usize>();
+    function_bindings + handler_bindings
 }
 
 fn local_recovery_bindings_in_line(
@@ -535,6 +575,74 @@ fn recovery_binding_matches_role(annotation: Option<&str>, role: RecoveryRole) -
 
 fn annotation_is_function_type(annotation: &str) -> bool {
     annotation.trim_start().starts_with("fn(")
+}
+
+fn operation_clause_binding_matches_role(
+    module: &SurfaceModule,
+    handler: &veln_ast::HandlerDecl,
+    clause: &veln_ast::HandlerOperationClauseDecl,
+    param: &veln_ast::Param,
+    role: RecoveryRole,
+) -> bool {
+    match role {
+        RecoveryRole::CallTarget => {
+            operation_clause_param_annotation(module, handler, clause, param)
+                .is_some_and(annotation_is_function_type)
+        }
+        RecoveryRole::Value | RecoveryRole::ContractPredicate | RecoveryRole::SatisfyPredicate => {
+            true
+        }
+        RecoveryRole::Type => false,
+    }
+}
+
+fn operation_clause_param_annotation<'a>(
+    module: &'a SurfaceModule,
+    handler: &veln_ast::HandlerDecl,
+    clause: &veln_ast::HandlerOperationClauseDecl,
+    param: &veln_ast::Param,
+) -> Option<&'a str> {
+    let operation_name = clause.operation.as_deref()?;
+    let param_index = clause
+        .params
+        .iter()
+        .position(|candidate| candidate.node_id == param.node_id)?;
+    let handler_effect_module = handler_effect_module(module, handler);
+    module
+        .effects
+        .iter()
+        .find(|effect| {
+            handler_effect_module
+                .as_deref()
+                .is_none_or(|module_name| effect.module_name.as_deref() == Some(module_name))
+                && effect.name.as_deref() == handler.effect.last().map(String::as_str)
+        })
+        .and_then(|effect| {
+            effect
+                .operations
+                .iter()
+                .find(|operation| operation.name.as_deref() == Some(operation_name))
+        })
+        .and_then(|operation| operation.params.get(param_index))
+        .and_then(|signature_param| signature_param.ty.as_deref())
+}
+
+fn handler_effect_module(
+    module: &SurfaceModule,
+    handler: &veln_ast::HandlerDecl,
+) -> Option<String> {
+    match handler.effect.as_slice() {
+        [_] => handler.module_name.clone(),
+        [_, .., _] => module
+            .uses
+            .iter()
+            .find(|use_decl| {
+                use_decl.module_name.as_deref() == handler.module_name.as_deref()
+                    && use_decl.alias == handler.effect[..handler.effect.len() - 1].join("::")
+            })
+            .map(|use_decl| use_decl.name.clone()),
+        _ => None,
+    }
 }
 
 fn span_contains(region: &SourceSpan, span: &SourceSpan) -> bool {

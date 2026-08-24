@@ -1,0 +1,11 @@
+command = ["check", "--json", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"name.invalid_case\"", "\"name\":\"Callback\"", "\"name\":\"Number\"", "unresolved call_target `Number`"]
+not_contains = ["unresolved call_target `Callback`", "unresolved value `Callback`", "unresolved value `Number`"]
+
+[stderr]
+format = "empty"

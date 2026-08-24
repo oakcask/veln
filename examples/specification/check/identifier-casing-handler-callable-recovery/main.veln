@@ -1,0 +1,14 @@
+effect Ask
+  context(value: Int) -> Int
+  clause(callback: fn(Int) -> Int, number: Int) -> Int
+end
+
+handler recover_context(Callback: fn(Int) -> Int, Number: Int) handles Ask
+  context(item) => Callback(item) + Number()
+  clause(callback, number) => callback(number)
+end
+
+handler recover_clause() handles Ask
+  context(value) => value
+  clause(Callback, Number) => Callback(1) + Number()
+end

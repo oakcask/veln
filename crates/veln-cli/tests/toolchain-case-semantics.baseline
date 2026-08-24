@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"516bdfb58e6bc6c51fc358b2c95a8d2f7d3fb23d"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1556
+case_count	1557
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -2990,33 +2990,57 @@ field	expectations.diagnostics[1].span.file	"main.veln"
 field	expectations.diagnostics[1].span.line	8
 field	expectations.diagnostics[2].id	"name.unresolved"
 field	expectations.diagnostics[2].kind	"name"
-field	expectations.diagnostics[2].message	"unresolved value `output`"
+field	expectations.diagnostics[2].message	"unresolved contract_predicate `Output`"
 field	expectations.diagnostics[2].severity	"error"
 field	expectations.diagnostics[2].span.column	2
 field	expectations.diagnostics[2].span.file	"main.veln"
 field	expectations.diagnostics[2].span.line	13
 field	expectations.diagnostics[3].id	"name.unresolved"
 field	expectations.diagnostics[3].kind	"name"
-field	expectations.diagnostics[3].message	"unresolved contract_predicate `result`"
+field	expectations.diagnostics[3].message	"unresolved contract_predicate `Output`"
 field	expectations.diagnostics[3].severity	"error"
 field	expectations.diagnostics[3].span.column	2
 field	expectations.diagnostics[3].span.file	"main.veln"
-field	expectations.diagnostics[3].span.line	17
+field	expectations.diagnostics[3].span.line	18
+field	expectations.diagnostics[4].id	"name.unresolved"
+field	expectations.diagnostics[4].kind	"name"
+field	expectations.diagnostics[4].message	"unresolved value `output`"
+field	expectations.diagnostics[4].severity	"error"
+field	expectations.diagnostics[4].span.column	2
+field	expectations.diagnostics[4].span.file	"main.veln"
+field	expectations.diagnostics[4].span.line	28
+field	expectations.diagnostics[5].id	"name.unresolved"
+field	expectations.diagnostics[5].kind	"name"
+field	expectations.diagnostics[5].message	"unresolved value `Output`"
+field	expectations.diagnostics[5].severity	"error"
+field	expectations.diagnostics[5].span.column	2
+field	expectations.diagnostics[5].span.file	"main.veln"
+field	expectations.diagnostics[5].span.line	32
+field	expectations.diagnostics[6].id	"name.unresolved"
+field	expectations.diagnostics[6].kind	"name"
+field	expectations.diagnostics[6].message	"unresolved contract_predicate `result`"
+field	expectations.diagnostics[6].severity	"error"
+field	expectations.diagnostics[6].span.column	2
+field	expectations.diagnostics[6].span.file	"main.veln"
+field	expectations.diagnostics[6].span.line	36
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"error"
 field	expectations.json_assertions[0].operation	"equals"
 field	expectations.json_assertions[0].path	"status"
 field	expectations.stderr.format	"empty"
-field	expectations.stdout.contains[0]	"unresolved contract_predicate `output`"
-field	expectations.stdout.contains[1]	"unresolved value `output`"
-field	expectations.stdout.contains[2]	"unresolved contract_predicate `result`"
+field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
+field	expectations.stdout.contains[1]	"unresolved contract_predicate `output`"
+field	expectations.stdout.contains[2]	"unresolved contract_predicate `Output`"
+field	expectations.stdout.contains[3]	"unresolved value `output`"
+field	expectations.stdout.contains[4]	"unresolved value `Output`"
+field	expectations.stdout.contains[5]	"unresolved contract_predicate `result`"
 field	expectations.stdout.format	"json"
 field	invocation.command[0]	"check"
 field	invocation.command[1]	"--json"
 field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
-field	source_errors	"forbidden"
-case_digest	"b5fafb1f78696dc220418f72c348a69d0464067454d148c825705aa0ed11865d"
+field	source_errors	"expected"
+case_digest	"156aa2e8a8d9ba5f67b0295faec1cb05add50359fa538fb6a3cb752cfeecb698"
 case	"examples/specification/check/contract-static-classification"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -5462,6 +5486,23 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"f56e7518d4389c635913359ad572f797675a6b41b28d75c48f8edbd92f4f3377"
+case	"examples/specification/check/identifier-casing-handler-callable-recovery"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
+field	expectations.stdout.contains[1]	"\"name\":\"Callback\""
+field	expectations.stdout.contains[2]	"\"name\":\"Number\""
+field	expectations.stdout.contains[3]	"unresolved call_target `Number`"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"unresolved call_target `Callback`"
+field	expectations.stdout.not_contains[1]	"unresolved value `Callback`"
+field	expectations.stdout.not_contains[2]	"unresolved value `Number`"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"753c273ab8ba59ef13a6bd9b98fa4f41dd5fda7e2d7dd70584f39e20c1d1e94e"
 case	"examples/specification/check/identifier-casing-handler-clause-binding"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -5490,21 +5531,28 @@ field	source_errors	"expected"
 case_digest	"880b1d52d0c668e26b6a3c0519c6fdbcda25386b558f6e2be76eddc0b5cd44e4"
 case	"examples/specification/check/identifier-casing-invalid-alias-duplicates"
 field	expectations.exit	1
-field	expectations.json_assertions[0].equals	3
+field	expectations.json_assertions[0].equals	11
 field	expectations.json_assertions[0].operation	"equals"
 field	expectations.json_assertions[0].path	"summary.diagnostic_count"
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
+field	expectations.stdout.contains[10]	"unresolved call_target `Bad`"
 field	expectations.stdout.contains[1]	"\"name\":\"Bad\""
-field	expectations.stdout.contains[2]	"\"id\":\"name.unresolved\""
-field	expectations.stdout.contains[3]	"unresolved call_target `Bad`"
+field	expectations.stdout.contains[2]	"\"name\":\"Build\""
+field	expectations.stdout.contains[3]	"\"name\":\"exposed\""
+field	expectations.stdout.contains[4]	"\"name\":\"wrong\""
+field	expectations.stdout.contains[5]	"\"id\":\"name.duplicate\""
+field	expectations.stdout.contains[6]	"duplicate function alias name `Bad`"
+field	expectations.stdout.contains[7]	"duplicate type alias name `exposed`"
+field	expectations.stdout.contains[8]	"duplicate type alias name `wrong`"
+field	expectations.stdout.contains[9]	"\"id\":\"name.unresolved\""
 field	expectations.stdout.format	"json"
 field	invocation.command[0]	"check"
 field	invocation.command[1]	"--json"
 field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
-case_digest	"6a2452b773720e89e846b110a75eee4143eaa1cf6b1caee11aa070154840fcb4"
+case_digest	"6866178d94752e017c20146039e2cb0a4d0de09fde9339d3219c802dd33fdd42"
 case	"examples/specification/check/identifier-casing-invalid-alias-missing-target"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -48636,4 +48684,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"e49f997482c09488dbfe71b286f5b44ccabbcb0fa456c67bd85feedba2892515"
+aggregate_digest	"dd4fe033c4927bbb47eb40290bfd5850814cb87dc809bf8997c7cb10412b508f"
