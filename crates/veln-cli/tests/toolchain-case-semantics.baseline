@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"7517c10fb900dc2ba204abb6324bee200e3a32c6"
+source_git_tree	"08660d46a7693d70f67c20328828c25945fb5b03"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1537
+case_count	1540
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -37816,7 +37816,46 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"8d42b2b7f8f1f17b4f25c937e1dd631fe615a87785b86a157f99f2e8145ae4be"
+case	"examples/specification/run/identifier-casing-transitive-handler-binding"
+field	expectations.exit	1
+field	expectations.stderr.contains[0]	"main.veln:9:15: error[name.invalid_case]: binding name must start with an ASCII lowercase letter"
+field	expectations.stderr.not_contains[0]	"name.unresolved"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"751e1cf1df23277a96a3e187a8433a978e15fd9e58df34803c19549d631020f1"
+case	"examples/specification/run/identifier-casing-underscore-type-closure"
+field	expectations.exit	1
+field	expectations.stderr.contains[0]	"main.veln:1:6: error[name.invalid_case]: type name must start with an ASCII uppercase letter"
+field	expectations.stderr.not_contains[0]	"name.unresolved"
+field	expectations.stderr.not_contains[1]	"type.mismatch"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"4eda1aed2557e66bc66846c1c6979f545aee388c3eb95bc4859191ceda9d1290"
 case	"examples/specification/run/identifier-casing-unreachable"
+field	expectations.exit	0
+field	expectations.json_assertions[0].equals	"passed"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"name.invalid_case"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.repeat	1
+field	requirements.jdk	true
+field	source_errors	"expected"
+case_digest	"812d3440839e30590358e009ee274014953d1aae3310506c219aadb28ad9fc59"
+case	"examples/specification/run/identifier-casing-unused-handler-type-reference"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
 field	expectations.json_assertions[0].operation	"equals"
@@ -48316,4 +48355,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"9c04315f586cbf55cfe6894fab222357a5a57999c4b1865123958fe676fd4b9b"
+aggregate_digest	"5eb9580019848f7a65f6a79c08dd9f1bbb4b4b501a0c79a4e58c068497ad522a"
