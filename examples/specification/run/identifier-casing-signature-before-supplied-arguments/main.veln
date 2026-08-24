@@ -1,0 +1,7 @@
+type badType
+  Ready
+end
+
+pub fn main(value: badType) -> Int
+  0
+end

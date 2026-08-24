@@ -473,6 +473,8 @@ requiring the full command reference on the first read.
   `identifier-casing-entry-binding`,
   `identifier-casing-entry-binding-before-arguments`,
   `identifier-casing-entry-function`,
+  `identifier-casing-signature-before-missing-arguments`,
+  `identifier-casing-signature-before-supplied-arguments`,
   `identifier-casing-type-reference-does-not-reach-function`, and
   `identifier-casing-signature-reachable` cover this command boundary.
 - `test`: test and doctest selection, static gates, bounded `-j` / `--jobs`

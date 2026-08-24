@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"143c446de09f91bf954771cf6179d3c318d4a6dd"
+source_git_tree	"d9400af7568294d6b6558672e8c92a739b17b3a0"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1533
+case_count	1536
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -5553,6 +5553,22 @@ field	invocation.command[4]	"impl.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"6875c21f234f62098b8c76d2bce6b40aacb653687e3ea0accd371eb7ade372d5"
+case	"examples/specification/check/identifier-casing-qualified-hole-boundary"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"parse.name_path\""
+field	expectations.stdout.contains[1]	"path segment"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"\"id\":\"name.invalid_case\""
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"ed0411fc3bd0bb4ab0debdc1fd4fbd9eb25052de30e724736c0b7074e5638d35"
 case	"examples/specification/check/identifier-casing-recovery-ambiguous"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"error"
@@ -37856,6 +37872,34 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"746a1b47968e5def494fe02ec18bad3d52d78ee5f405ab169efdc3980190008e"
+case	"examples/specification/run/identifier-casing-signature-before-missing-arguments"
+field	expectations.exit	1
+field	expectations.stderr.contains[0]	"error[name.invalid_case]: type name must start with an ASCII uppercase letter"
+field	expectations.stderr.contains[1]	"main.veln:1:6"
+field	expectations.stderr.format	"text"
+field	expectations.stderr.not_contains[0]	"expects 1 argument"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"dd3f52f6e701600701f19bad13c11edf73fdb34844f4114cb4f041d06d090c9a"
+case	"examples/specification/run/identifier-casing-signature-before-supplied-arguments"
+field	expectations.exit	1
+field	expectations.stderr.contains[0]	"error[name.invalid_case]: type name must start with an ASCII uppercase letter"
+field	expectations.stderr.contains[1]	"main.veln:1:6"
+field	expectations.stderr.format	"text"
+field	expectations.stderr.not_contains[0]	"cannot be supplied from a command-line argument"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.command[3]	"--"
+field	invocation.command[4]	"anything"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"208fd53591b4e0121067ca9bed63fe123e27d746bade9c9a595ef80f9b3665c3"
 case	"examples/specification/run/identifier-casing-signature-reachable"
 field	expectations.exit	1
 field	expectations.stderr.contains[0]	"error[name.invalid_case]: type name must start with an ASCII uppercase letter"
@@ -48305,4 +48349,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"f26d70eda61efb3b3c15eccf475f43e23905f10249485329a4f7744f8e7b7b97"
+aggregate_digest	"1ee349aa7807c41094f0fa0a42ca91d03818e6e83651fac6d67a703cfd5e1de6"

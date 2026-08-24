@@ -1,0 +1,11 @@
+command = ["run", "main", "main.veln", "--", "anything"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[name.invalid_case]: type name must start with an ASCII uppercase letter", "main.veln:1:6"]
+not_contains = ["cannot be supplied from a command-line argument"]

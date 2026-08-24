@@ -102,11 +102,15 @@ fn prepare_run_program(
         return Ok(None);
     }
 
-    let Some(entry_arg_types) = checked_entry_arg_types(&analysis, entry, entry_args)? else {
+    let Some(entry_function) = checked_run_entry_function(&analysis, entry)? else {
         write_timings(timings)?;
         return Ok(None);
     };
     let Some(ir) = lower_run_entry(&analysis, entry, timings.as_mut())? else {
+        write_timings(timings)?;
+        return Ok(None);
+    };
+    let Some(entry_arg_types) = validate_entry_args(entry_function, entry, entry_args)? else {
         write_timings(timings)?;
         return Ok(None);
     };
@@ -241,11 +245,10 @@ fn find_entry_function<'a>(analysis: &'a ProjectAnalysis, entry: &str) -> Option
     })
 }
 
-fn checked_entry_arg_types(
-    analysis: &ProjectAnalysis,
+fn checked_run_entry_function<'a>(
+    analysis: &'a ProjectAnalysis,
     entry: &str,
-    entry_args: &[String],
-) -> Result<Option<Vec<EntryArgType>>, String> {
+) -> Result<Option<&'a Function>, String> {
     let Some(entry_function) = find_entry_function(analysis, entry) else {
         let diagnostics = analysis.invalid_entry_casing_diagnostics(entry);
         if !diagnostics.is_empty() {
@@ -260,7 +263,7 @@ fn checked_entry_arg_types(
         print_human_stderr(&DiagnosticEnvelope::new(tool_info(), diagnostics))?;
         return Ok(None);
     }
-    validate_entry_args(entry_function, entry, entry_args)
+    Ok(Some(entry_function))
 }
 
 fn validate_entry_args(
