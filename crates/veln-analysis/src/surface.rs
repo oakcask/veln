@@ -2048,6 +2048,34 @@ pub(crate) fn reachable_entry_module_with_cache(
     module_with_reachable_functions(&inputs, &reachable, reachability_index)
 }
 
+pub(crate) fn reachable_entry_diagnostic_module_with_standard_cache(
+    standard_module: &SurfaceModule,
+    application_module: &SurfaceModule,
+    entry: &str,
+    entry_kind: FunctionKind,
+    cache: &ReachabilityCache,
+) -> SurfaceModule {
+    let inputs = ReachabilityInputs::separated(standard_module, application_module);
+    let reachability_index = cache
+        .separated_function_targets
+        .get_or_init(|| reachable_function_targets(&inputs));
+    let companion_access_targets = companion_function_access_targets(&inputs);
+    let reachable = reachable_functions(
+        &inputs,
+        entry,
+        entry_kind,
+        reachability_index,
+        &companion_access_targets,
+        cache,
+    );
+    module_with_reachable_functions_and_handler_view(
+        &inputs,
+        &reachable,
+        reachability_index,
+        HandlerView::Diagnostic,
+    )
+}
+
 pub(crate) fn reachable_entry_module_with_standard_cache(
     standard_module: &SurfaceModule,
     application_module: &SurfaceModule,
@@ -2215,6 +2243,26 @@ fn module_with_reachable_functions(
     reachable: &HashSet<ReachableFunction>,
     reachability_index: &ReachabilityIndex,
 ) -> SurfaceModule {
+    module_with_reachable_functions_and_handler_view(
+        inputs,
+        reachable,
+        reachability_index,
+        HandlerView::Artifact,
+    )
+}
+
+#[derive(Clone, Copy)]
+enum HandlerView {
+    Artifact,
+    Diagnostic,
+}
+
+fn module_with_reachable_functions_and_handler_view(
+    inputs: &ReachabilityInputs<'_>,
+    reachable: &HashSet<ReachableFunction>,
+    reachability_index: &ReachabilityIndex,
+    handler_view: HandlerView,
+) -> SurfaceModule {
     let functions = materialize_reachable_functions(inputs, reachable, reachability_index);
     let reachable_handler_ids = reachable_handler_node_ids(inputs, &functions);
     let reachable_handlers = inputs
@@ -2222,7 +2270,10 @@ fn module_with_reachable_functions(
         .into_iter()
         .filter(|handler| reachable_handler_ids.contains(&handler.node_id))
         .collect::<Vec<_>>();
-    let handlers = materialize_reachable_handlers(inputs);
+    let handlers = match handler_view {
+        HandlerView::Artifact => materialize_reachable_handlers(&reachable_handlers),
+        HandlerView::Diagnostic => materialize_diagnostic_handlers(inputs),
+    };
     let (types, reachable_type_aliases) =
         materialize_reachable_types(inputs, &functions, &reachable_handlers, reachability_index);
     let aliases = materialize_reachable_aliases(inputs, &reachable_type_aliases);
@@ -2285,7 +2336,13 @@ fn reachability_target_matches_function(
         }
 }
 
-fn materialize_reachable_handlers(inputs: &ReachabilityInputs<'_>) -> Vec<veln_ast::HandlerDecl> {
+fn materialize_reachable_handlers(
+    handlers: &[&veln_ast::HandlerDecl],
+) -> Vec<veln_ast::HandlerDecl> {
+    handlers.iter().map(|handler| (*handler).clone()).collect()
+}
+
+fn materialize_diagnostic_handlers(inputs: &ReachabilityInputs<'_>) -> Vec<veln_ast::HandlerDecl> {
     inputs.cloned_declarations(|module| &module.handlers)
 }
 
@@ -6559,7 +6616,7 @@ mod tests {
     }
 
     #[test]
-    fn run_entry_keeps_unreachable_handler_diagnostic_surface() {
+    fn run_entry_artifact_omits_unreachable_handler() {
         let module = lower(concat!(
             "effect Ask\n",
             "  first() -> Int\n",
@@ -6579,7 +6636,7 @@ mod tests {
             reachable
                 .handlers
                 .iter()
-                .any(|handler| handler.name.as_deref() == Some("incomplete")),
+                .all(|handler| handler.name.as_deref() != Some("incomplete")),
             "{:#?}",
             reachable.handlers
         );

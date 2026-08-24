@@ -66,7 +66,7 @@ DecimalLiteral ::= ASCII decimal digit+
 BinaryLiteral ::= "0b" ("0" | "1")+
 HexadecimalLiteral ::= "0x" ASCII hexadecimal digit+
 CoveredName   ::= Name | Hole
-CoveredUpperName ::= UpperName | Hole
+CoveredVariantName ::= Name | Hole
 CoveredBindingName ::= BindingName | Hole
 Item          ::= Function | TestDecl | EffectDecl | HandlerDecl | TypeDecl | SchemaDecl | PublicAlias
 Function      ::= "pub"? "fn" CoveredName EffectBinder? "(" ParamList? ")" Return? Effects? NL
@@ -79,7 +79,7 @@ EffectOperation ::= Name "(" EffectParamList? ")" "->" TypeText NL
 EffectParamList ::= Name ":" TypeText ("," Name ":" TypeText)*
 HandlerDecl   ::= "pub"? "handler" Name "(" ParamList? ")" "handles" MemberPath Effects? NL HandlerOperationClause+ "end" NL?
 HandlerOperationClause ::= Name "(" HandlerOperationParams? ")" "=>" Expr NL
-HandlerOperationParams ::= Name ("," Name)*
+HandlerOperationParams ::= CoveredBindingName ("," CoveredBindingName)*
 SchemaDecl    ::= "pub"? "schema" Name NL SchemaFormat? SchemaField+ SchemaValidation? "end" NL?
 SchemaFormat  ::= "format" "binary" NL
 SchemaField   ::= Name ":" SchemaFieldType SchemaFieldWhere? NL
@@ -96,7 +96,7 @@ SchemaValidation ::= "validate" ContractPredicate NL
 PublicAlias   ::= "pub" ("fn" | "type" | "schema") Name "=" MemberPath NL
 TypeParamList ::= "<" Name ("," Name)* ","? ">"
 EffectBinder  ::= "<" "effect" Name ">"
-TypeVariant   ::= "pub"? CoveredUpperName TypeVariantFields? NL
+TypeVariant   ::= "pub"? CoveredVariantName TypeVariantFields? NL
 TypeVariantFields ::= "(" TypeVariantField ("," TypeVariantField)* ","? ")"
                   | "{" TypeVariantField ("," TypeVariantField)* ","? "}"
 TypeVariantField ::= Name ":" TypeText | TypeText

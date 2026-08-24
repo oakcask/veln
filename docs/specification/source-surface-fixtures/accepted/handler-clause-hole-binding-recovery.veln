@@ -1,0 +1,7 @@
+effect Ask
+  value(item: Int) -> Int
+end
+
+handler recover() handles Ask
+  value(_item) => 1
+end

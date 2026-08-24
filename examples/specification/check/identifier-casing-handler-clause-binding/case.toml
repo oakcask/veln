@@ -1,0 +1,11 @@
+command = ["check", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["main.veln:4:17: error[name.invalid_case]: binding name must start with an ASCII lowercase letter", "main.veln:5:9: error[name.invalid_case]: binding name must start with an ASCII lowercase letter"]
+not_contains = ["name.unresolved"]
+
+[stderr]
+format = "empty"

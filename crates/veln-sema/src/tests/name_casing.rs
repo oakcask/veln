@@ -330,6 +330,43 @@ fn invalid_value_binding_is_quarantined_but_unique_value_use_recovers() {
 }
 
 #[test]
+fn invalid_handler_clause_bindings_report_exact_spans() {
+    let parsed = parse(&SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Ask\n",
+            "  value(item: Int) -> Int\n",
+            "end\n",
+            "handler recover(Value: Int) handles Ask\n",
+            "  value(_item) => Value\n",
+            "end\n",
+        ),
+    ));
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+    let mut binding_diagnostics = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "name.invalid_case"
+                && diagnostic.message == "binding name must start with an ASCII lowercase letter"
+        })
+        .collect::<Vec<_>>();
+    binding_diagnostics.sort_by_key(|diagnostic| {
+        diagnostic
+            .span
+            .as_ref()
+            .map(|span| span.start.offset)
+            .unwrap_or_default()
+    });
+
+    assert_eq!(binding_diagnostics.len(), 2, "{diagnostics:#?}");
+    assert_diagnostic_span(binding_diagnostics[0], 4, 17, 4, 22);
+    assert_diagnostic_span(binding_diagnostics[1], 5, 9, 5, 14);
+}
+
+#[test]
 fn invalid_value_bindings_report_same_scope_duplicates_without_normal_lookup() {
     let parsed = parse(&SourceFile::new(
         "main.veln",

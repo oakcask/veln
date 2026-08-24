@@ -89,7 +89,7 @@ grammar_line(47, "DecimalLiteral ::= ASCII decimal digit+").
 grammar_line(47, "BinaryLiteral ::= \"0b\" (\"0\" | \"1\")+").
 grammar_line(47, "HexadecimalLiteral ::= \"0x\" ASCII hexadecimal digit+").
 grammar_line(48, "CoveredName   ::= Name | Hole").
-grammar_line(48, "CoveredUpperName ::= UpperName | Hole").
+grammar_line(48, "CoveredVariantName ::= Name | Hole").
 grammar_line(48, "CoveredBindingName ::= BindingName | Hole").
 grammar_line(50, "Item          ::= Function | TestDecl | EffectDecl | HandlerDecl | TypeDecl | SchemaDecl | PublicAlias").
 grammar_line(60, "Function      ::= \"pub\"? \"fn\" CoveredName EffectBinder? \"(\" ParamList? \")\" Return? Effects? NL").
@@ -102,7 +102,7 @@ grammar_line(101, "EffectOperation ::= Name \"(\" EffectParamList? \")\" \"->\" 
 grammar_line(101, "EffectParamList ::= Name \":\" TypeText (\",\" Name \":\" TypeText)*").
 grammar_line(101, "HandlerDecl   ::= \"pub\"? \"handler\" Name \"(\" ParamList? \")\" \"handles\" MemberPath Effects? NL HandlerOperationClause+ \"end\" NL?").
 grammar_line(101, "HandlerOperationClause ::= Name \"(\" HandlerOperationParams? \")\" \"=>\" Expr NL").
-grammar_line(101, "HandlerOperationParams ::= Name (\",\" Name)*").
+grammar_line(101, "HandlerOperationParams ::= CoveredBindingName (\",\" CoveredBindingName)*").
 grammar_line(102, "SchemaDecl    ::= \"pub\"? \"schema\" Name NL SchemaFormat? SchemaField+ SchemaValidation? \"end\" NL?").
 grammar_line(103, "SchemaFormat  ::= \"format\" \"binary\" NL").
 grammar_line(104, "SchemaField   ::= Name \":\" SchemaFieldType SchemaFieldWhere? NL").
@@ -119,7 +119,7 @@ grammar_line(107, "SchemaValidation ::= \"validate\" ContractPredicate NL").
 grammar_line(108, "PublicAlias   ::= \"pub\" (\"fn\" | \"type\" | \"schema\") Name \"=\" MemberPath NL").
 grammar_line(110, "TypeParamList ::= \"<\" Name (\",\" Name)* \",\"? \">\"").
 grammar_line(112, "EffectBinder  ::= \"<\" \"effect\" Name \">\"").
-grammar_line(120, "TypeVariant   ::= \"pub\"? CoveredUpperName TypeVariantFields? NL").
+grammar_line(120, "TypeVariant   ::= \"pub\"? CoveredVariantName TypeVariantFields? NL").
 grammar_line(130, "TypeVariantFields ::= \"(\" TypeVariantField (\",\" TypeVariantField)* \",\"? \")\"").
 grammar_line(140, "                  | \"{\" TypeVariantField (\",\" TypeVariantField)* \",\"? \"}\"").
 grammar_line(145, "TypeVariantField ::= Name \":\" TypeText | TypeText").
@@ -418,9 +418,9 @@ handler_operation_clause -->
     expr,
     nl.
 
-handler_operation_params_opt --> ident, handler_operation_params_tail_no_trailing, !.
+handler_operation_params_opt --> covered_binding_name, handler_operation_params_tail_no_trailing, !.
 handler_operation_params_opt --> [].
-handler_operation_params_tail_no_trailing --> tok(comma), ident, !, handler_operation_params_tail_no_trailing.
+handler_operation_params_tail_no_trailing --> tok(comma), covered_binding_name, !, handler_operation_params_tail_no_trailing.
 handler_operation_params_tail_no_trailing --> [].
 
 effect_params_opt --> effect_param, effect_params_tail, trailing_comma_opt, !.
@@ -509,7 +509,7 @@ ident_tail --> [].
 type_variants --> type_variant, !, type_variants_tail.
 type_variants_tail --> type_variant, !, type_variants_tail.
 type_variants_tail --> [].
-type_variant --> visibility, covered_upper_name, type_variant_fields_opt, nl.
+type_variant --> visibility, covered_variant_name, type_variant_fields_opt, nl.
 type_variant_fields_opt --> tok(lparen), type_variant_field_list, tok(rparen), !.
 type_variant_fields_opt --> tok(lbrace), type_variant_record_field_list, tok(rbrace), !.
 type_variant_fields_opt --> [].
@@ -862,8 +862,8 @@ binary_op --> tok(slash).
 
 covered_binding_name --> binding_name.
 covered_binding_name --> tok(hole).
-covered_upper_name --> upper_name.
-covered_upper_name --> tok(hole).
+covered_variant_name --> ident.
+covered_variant_name --> tok(hole).
 covered_name --> ident.
 covered_name --> tok(hole).
 binding_name --> ident_text(Text), { string_chars(Text, [First | _]), \+ char_type(First, upper) }.

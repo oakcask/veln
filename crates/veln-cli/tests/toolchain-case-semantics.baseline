@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"08660d46a7693d70f67c20328828c25945fb5b03"
+source_git_tree	"769a6575446a00f5f16d6a36385a5a38b5f9bde6"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1540
+case_count	1541
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -5462,6 +5462,18 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"f56e7518d4389c635913359ad572f797675a6b41b28d75c48f8edbd92f4f3377"
+case	"examples/specification/check/identifier-casing-handler-clause-binding"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"main.veln:4:17: error[name.invalid_case]: binding name must start with an ASCII lowercase letter"
+field	expectations.stdout.contains[1]	"main.veln:5:9: error[name.invalid_case]: binding name must start with an ASCII lowercase letter"
+field	expectations.stdout.format	"text"
+field	expectations.stdout.not_contains[0]	"name.unresolved"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"c2cdd50dd4748bb7587d6f108c7b87e24c1e05b8dd0c1a350c859b35bb1e6c08"
 case	"examples/specification/check/identifier-casing-human"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -48355,4 +48367,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"5eb9580019848f7a65f6a79c08dd9f1bbb4b4b501a0c79a4e58c068497ad522a"
+aggregate_digest	"4c6c10981464821f439dd7c4bcce7ea704763df6bcbd24f030a324ea713438eb"

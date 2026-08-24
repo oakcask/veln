@@ -20,6 +20,7 @@ use veln_test::{DoctestExpectation, doctest_sources, reconcile_expected_doctest_
 use crate::surface::{
     CapturedDependencyProject, ReachabilityCache, load_embedded_standard_surface_module_for_names,
     load_surface_modules, load_surface_modules_with_captured_dependencies,
+    reachable_entry_diagnostic_module_with_standard_cache,
     reachable_entry_module_with_standard_cache,
 };
 
@@ -348,9 +349,17 @@ impl ProjectAnalysis {
             entry_kind,
             &self.reachability_cache,
         );
+        let diagnostic_module = reachable_entry_diagnostic_module_with_standard_cache(
+            &self.selected_standard,
+            &self.module,
+            entry,
+            entry_kind,
+            &self.reachability_cache,
+        );
         let standard = standard_environment_for_modules(&self.selected_standard_module_names);
         let lowered =
             lower_project_reachable_surface_modules_with_standard_environment_filtering_diagnostics(
+                &diagnostic_module,
                 &module,
                 &self.selected_standard,
                 &standard.environment,
@@ -403,7 +412,7 @@ fn standard_environment_with_test_cache(
 mod tests {
     use veln_diagnostics::diagnostic_to_json;
     use veln_project::Project;
-    use veln_source::SourceFile;
+    use veln_source::{SourceFile, SourceSpan};
 
     use super::*;
     use crate::surface::reachable_entry_module_with_cache;
@@ -467,11 +476,234 @@ mod tests {
         );
     }
 
+    #[test]
+    fn run_selected_unreachable_invalid_handler_bindings_do_not_enter_artifacts() {
+        let analysis = analyze_project(
+            Project {
+                root: ".".into(),
+                files: vec![SourceFile::new(
+                    "main.veln",
+                    concat!(
+                        "effect Ask\n",
+                        "  value(item: Int) -> Int\n",
+                        "end\n",
+                        "\n",
+                        "handler unused(Value: Int) handles Ask\n",
+                        "  value(Item) => Value + Item\n",
+                        "end\n",
+                        "\n",
+                        "pub fn main() -> Int\n",
+                        "  1\n",
+                        "end\n",
+                    ),
+                )],
+                manifest: None,
+            },
+            DoctestMode::Exclude,
+        );
+
+        let reachable = analysis.lower_reachable_entry_with_timing_and_diagnostic_filter(
+            "main",
+            FunctionKind::Function,
+            retain_run_reachable_casing_diagnostic_for_test,
+        );
+        let lowered = reachable.0.lowered;
+
+        assert!(
+            lowered
+                .diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != "name.invalid_case"),
+            "{:#?}",
+            lowered.diagnostics
+        );
+        let core = lowered
+            .core
+            .expect("unreachable invalid handler should not block core");
+        assert_no_invalid_handler_artifacts_in_core(&core);
+        let ir = lowered
+            .ir
+            .expect("unreachable invalid handler should not block IR");
+        assert_no_invalid_handler_artifacts_in_ir(&ir);
+    }
+
+    #[test]
+    fn run_selected_reachable_invalid_handler_bindings_block_artifacts() {
+        let analysis = analyze_project(
+            Project {
+                root: ".".into(),
+                files: vec![SourceFile::new(
+                    "main.veln",
+                    concat!(
+                        "effect Ask\n",
+                        "  value(item: Int) -> Int\n",
+                        "end\n",
+                        "\n",
+                        "handler used(Value: Int) handles Ask\n",
+                        "  value(Item) => Value + Item\n",
+                        "end\n",
+                        "\n",
+                        "pub fn main() -> Int\n",
+                        "  handle perform Ask::value(1) with used(2)\n",
+                        "end\n",
+                    ),
+                )],
+                manifest: None,
+            },
+            DoctestMode::Exclude,
+        );
+
+        let reachable = analysis.lower_reachable_entry_with_timing_and_diagnostic_filter(
+            "main",
+            FunctionKind::Function,
+            retain_run_reachable_casing_diagnostic_for_test,
+        );
+        let lowered = reachable.0.lowered;
+
+        assert!(
+            lowered
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "name.invalid_case"),
+            "{:#?}",
+            lowered.diagnostics
+        );
+        assert!(lowered.core.is_none(), "{:#?}", lowered.core);
+        assert!(lowered.ir.is_none(), "{:#?}", lowered.ir);
+    }
+
+    #[test]
+    fn run_selected_unreachable_handler_missing_clause_still_blocks() {
+        let analysis = analyze_project(
+            Project {
+                root: ".".into(),
+                files: vec![SourceFile::new(
+                    "main.veln",
+                    concat!(
+                        "effect Ask\n",
+                        "  first() -> Int\n",
+                        "  second() -> Int\n",
+                        "end\n",
+                        "\n",
+                        "handler incomplete() handles Ask\n",
+                        "  first() => 1\n",
+                        "end\n",
+                        "\n",
+                        "pub fn main() -> Int\n",
+                        "  1\n",
+                        "end\n",
+                    ),
+                )],
+                manifest: None,
+            },
+            DoctestMode::Exclude,
+        );
+
+        let reachable = analysis.lower_reachable_entry_with_timing_and_diagnostic_filter(
+            "main",
+            FunctionKind::Function,
+            retain_run_reachable_casing_diagnostic_for_test,
+        );
+        let lowered = reachable.0.lowered;
+
+        assert!(
+            lowered
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "handler.missing_operation_clause"),
+            "{:#?}",
+            lowered.diagnostics
+        );
+        assert!(lowered.core.is_none(), "{:#?}", lowered.core);
+        assert!(lowered.ir.is_none(), "{:#?}", lowered.ir);
+    }
+
     fn diagnostic_json(diagnostics: &[veln_diagnostics::Diagnostic]) -> Vec<String> {
         diagnostics
             .iter()
             .map(|diagnostic| diagnostic_to_json(diagnostic).to_json())
             .collect()
+    }
+
+    fn retain_run_reachable_casing_diagnostic_for_test(
+        module: &SurfaceModule,
+        diagnostic: &veln_diagnostics::Diagnostic,
+    ) -> bool {
+        if diagnostic.id != "name.invalid_case" {
+            return true;
+        }
+        let Some(span) = diagnostic.span.as_ref() else {
+            return false;
+        };
+        reachable_casing_regions_for_test(module)
+            .iter()
+            .any(|region| span_inside_for_test(span, region))
+    }
+
+    fn reachable_casing_regions_for_test(module: &SurfaceModule) -> Vec<SourceSpan> {
+        let mut regions = Vec::new();
+        regions.extend(
+            module
+                .functions
+                .iter()
+                .map(|function| function.span.clone()),
+        );
+        regions.extend(module.types.iter().map(|type_decl| type_decl.span.clone()));
+        regions.extend(module.handlers.iter().map(|handler| handler.span.clone()));
+        regions
+    }
+
+    fn span_inside_for_test(span: &SourceSpan, region: &SourceSpan) -> bool {
+        span.file == region.file
+            && span.start.offset >= region.start.offset
+            && span.end.offset <= region.end.offset
+    }
+
+    fn assert_no_invalid_handler_artifacts_in_core(program: &veln_core::CheckedProgram) {
+        for function in &program.functions {
+            assert!(
+                !function.name.starts_with("__handler_"),
+                "unreachable handler lowered to core function: {function:#?}"
+            );
+            assert!(
+                function
+                    .params
+                    .iter()
+                    .all(|param| param.name != "Value" && param.name != "Item"),
+                "invalid handler parameter entered core: {function:#?}"
+            );
+            assert!(
+                function.body.iter().all(|stmt| match &stmt.kind {
+                    veln_core::CoreStmtKind::Let { name, .. } => name != "Value" && name != "Item",
+                    veln_core::CoreStmtKind::Expr { .. }
+                    | veln_core::CoreStmtKind::Return { .. } => true,
+                }),
+                "invalid handler binding entered core body: {function:#?}"
+            );
+        }
+    }
+
+    fn assert_no_invalid_handler_artifacts_in_ir(program: &veln_ir::TypedProgram) {
+        for function in &program.functions {
+            assert!(
+                !function.name.starts_with("__handler_"),
+                "unreachable handler lowered to IR function: {function:#?}"
+            );
+            assert!(
+                function
+                    .params
+                    .iter()
+                    .all(|param| param.name != "Value" && param.name != "Item"),
+                "invalid handler parameter entered IR: {function:#?}"
+            );
+            assert!(
+                function.body.iter().all(|stmt| match &stmt.kind {
+                    veln_ir::IrStmtKind::Let { name, .. } => name != "Value" && name != "Item",
+                    veln_ir::IrStmtKind::Expr { .. } | veln_ir::IrStmtKind::Return { .. } => true,
+                }),
+                "invalid handler binding entered IR body: {function:#?}"
+            );
+        }
     }
 
     fn reachable_function_names(module: &SurfaceModule) -> Vec<(&str, &str)> {
