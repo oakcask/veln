@@ -57,7 +57,7 @@ not become a project-wide or source-wide loading gate.
 
 | Consumer state | Required result | Completed evidence |
 | --- | --- | --- |
-| `check` selects a source with an invalid covered name. | Report every selected casing diagnostic and produce no successful checked artifact. | Human and JSON checked cases with exact spans and details, including `identifier-casing-binding-origins` and `identifier-casing-parse-recovery-independent`. |
+| `check` selects a source with an invalid covered name. | Report every selected casing diagnostic and produce no successful checked artifact. | Human and JSON checked cases with exact spans and details, including `identifier-casing-binding-origins`, `identifier-casing-test-declaration`, and `identifier-casing-parse-recovery-independent`. |
 | `run` reaches an invalid declaration or binding from the selected entry. | Report the casing diagnostic and produce no executable artifact. | `identifier-casing-reachable-invalid`, `identifier-casing-entry-binding`, `identifier-casing-reachable-handler-binding`, and `identifier-casing-signature-reachable`. |
 | `run` does not reach an invalid declaration from the selected entry. | Run the valid reachable closure and omit the unreachable casing diagnostic. | `identifier-casing-unreachable-peer`. |
 
@@ -65,10 +65,15 @@ not become a project-wide or source-wide loading gate.
 
 | Source state | Required result | Completed evidence |
 | --- | --- | --- |
-| One compatible invalid declaration is referenced. | Keep one `name.invalid_case`; suppress only failures caused by absence of that declaration; emit no normal symbol or artifact for it. | Focused semantic and checked-artifact cases. |
+| One compatible invalid declaration is referenced. | Keep one `name.invalid_case`; suppress only failures caused by absence of that declaration; emit no normal symbol or artifact for it. | Focused semantic and checked-artifact cases, including `identifier-casing-invalid-type-constructor-recovery`. |
 | A valid declaration and an invalid recovery record share a spelling. | The valid declaration wins normal lookup. | Lookup decision-table test. |
 | More than one compatible recovery record shares a spelling. | Select no recovery record and preserve independently provable ambiguity or unresolved facts. | `identifier-casing-recovery-ambiguous`. |
 | A use crosses an import or public alias boundary. | Do not expose the recovery record across the boundary. | `identifier-casing-import-boundary` and `identifier-casing-public-alias-boundary`. |
+
+Same-spelled invalid declarations still participate in duplicate checking when
+the duplicate fact is independently provable from the original spelling. The
+checked `identifier-casing-invalid-duplicates` case fixes this overlap for
+functions, types, and constructors.
 
 The implementation may use any internal representation that satisfies these
 outcomes. The quarantined representation is a required semantic boundary, not
@@ -90,7 +95,11 @@ artifact, and every row in the `check`/`run` command table and the
 same-source/import/public-alias recovery table above has executable evidence.
 The checked `identifier-casing-underscore-aliases` and
 `identifier-casing-value-recovery-scope` cases fix the public-alias recovery
-and lexical-scope recovery boundaries of this slice.
+and lexical-scope recovery boundaries of this slice. The checked
+`identifier-casing-invalid-type-constructor-recovery`,
+`identifier-casing-invalid-duplicates`, and
+`identifier-casing-test-declaration` cases fix the reviewed recovery and
+diagnostic-overlap gaps in this slice.
 
 The completed behavior is promoted to the smallest matching pages under
 `docs/specification/` and to checked cases under `examples/specification/`.

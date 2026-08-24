@@ -28,6 +28,12 @@ compiler-known calls.
   details, and non-cascading constructor recovery. The checked
   `identifier-casing-underscore-aliases` case covers underscore-led public
   function and type alias declaration recovery. The checked
+  `identifier-casing-invalid-type-constructor-recovery` case covers an invalid
+  type declaration and invalid constructor declaration without a derivative
+  unresolved call diagnostic. The checked `identifier-casing-invalid-duplicates`
+  case covers independently provable duplicate diagnostics for same-spelled
+  invalid declarations. The checked `identifier-casing-test-declaration` case
+  covers test declaration names through `check`. The checked
   `identifier-casing-value-recovery-scope` case covers lexical-scope-bounded
   value-binding recovery. The checked `identifier-casing-binding-origins` case
   covers the covered value-binding origins and their exact written-token

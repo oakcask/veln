@@ -1,0 +1,13 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"name.invalid_case\"", "\"id\":\"name.duplicate\"", "function name must start with an ASCII lowercase letter", "type name must start with an ASCII uppercase letter", "constructor name must start with an ASCII uppercase letter", "duplicate function declaration name `Bad`", "duplicate type declaration name `lower`", "duplicate constructor declaration name `bad`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

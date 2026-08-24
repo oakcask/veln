@@ -77,10 +77,13 @@ pub(crate) struct CasingRecoveryRecord {
     pub(crate) name: String,
     pub(crate) name_class: CasingNameClass,
     pub(crate) dependent_constructor_names: Vec<String>,
+    pub(crate) owner_type_name: Option<String>,
     pub(crate) source_path: SourcePath,
     pub(crate) module_name: Option<String>,
     pub(crate) enclosing_function: Option<String>,
     pub(crate) lexical_scope: Option<SourceSpan>,
+    pub(crate) occurrence: &'static str,
+    declaration_kind: Option<&'static str>,
     pub(crate) diagnostic: Diagnostic,
 }
 
@@ -95,7 +98,7 @@ pub(crate) struct ReachableHandler {
     pub(crate) module_name: Option<String>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum CasingNameClass {
     Type,
     Constructor,
@@ -181,6 +184,9 @@ fn load_surface_modules_with_combined(
     diagnostics.extend(unresolved_local_import_diagnostics(
         &parts.module.uses,
         &parts.derived_modules,
+    ));
+    diagnostics.extend(duplicate_invalid_casing_declaration_diagnostics(
+        &casing_records,
     ));
 
     (
@@ -526,6 +532,7 @@ fn source_identifier_casing_records(
                 veln_syntax::PublicAliasKind::Type => CasingNameClass::Type,
                 veln_syntax::PublicAliasKind::Schema => continue,
             };
+            let start_len = records.len();
             push_invalid_casing_record(
                 &mut records,
                 name,
@@ -539,6 +546,15 @@ fn source_identifier_casing_records(
                     lexical_scope: None,
                 },
             );
+            if records.len() > start_len
+                && let Some(record) = records.last_mut()
+            {
+                record.declaration_kind = Some(match alias.kind {
+                    veln_syntax::PublicAliasKind::Function => "function alias",
+                    veln_syntax::PublicAliasKind::Type => "type alias",
+                    veln_syntax::PublicAliasKind::Schema => unreachable!(),
+                });
+            }
         }
     }
     for item in &tree.items {
@@ -562,15 +578,18 @@ fn source_identifier_casing_records(
                     if records.len() > start_len
                         && let Some(record) = records.last_mut()
                     {
+                        record.declaration_kind = Some("type declaration");
                         record.dependent_constructor_names = type_decl
                             .variants
                             .iter()
                             .filter_map(|variant| variant.name.clone())
+                            .filter(|name| casing_name_is_valid(name, CasingNameClass::Constructor))
                             .collect();
                     }
                 }
                 for variant in &type_decl.variants {
                     if let Some(name) = &variant.name {
+                        let start_len = records.len();
                         push_invalid_casing_record(
                             &mut records,
                             name,
@@ -584,12 +603,19 @@ fn source_identifier_casing_records(
                                 lexical_scope: None,
                             },
                         );
+                        if records.len() > start_len
+                            && let Some(record) = records.last_mut()
+                        {
+                            record.owner_type_name = type_decl.name.clone();
+                            record.declaration_kind = Some("constructor declaration");
+                        }
                     }
                 }
             }
             veln_syntax::SyntaxItem::Function(function) => {
                 let function_name = function.name.clone();
                 if let Some(name) = &function.name {
+                    let start_len = records.len();
                     push_invalid_casing_record(
                         &mut records,
                         name,
@@ -603,6 +629,11 @@ fn source_identifier_casing_records(
                             lexical_scope: None,
                         },
                     );
+                    if records.len() > start_len
+                        && let Some(record) = records.last_mut()
+                    {
+                        record.declaration_kind = Some("function declaration");
+                    }
                 }
                 for param in &function.params {
                     let scope = span_from_end_to_end(&param.name_span, &function.span);
@@ -1130,12 +1161,136 @@ fn push_invalid_casing_record(
         name: name.to_string(),
         name_class,
         dependent_constructor_names: Vec::new(),
+        owner_type_name: None,
         source_path: context.source_path.clone(),
         module_name: context.module_name.map(str::to_string),
         enclosing_function: context.function_name.map(str::to_string),
         lexical_scope: context.lexical_scope.cloned(),
+        occurrence,
+        declaration_kind: None,
         diagnostic: invalid_case_diagnostic(name, span, name_class, occurrence),
     });
+}
+
+fn duplicate_invalid_casing_declaration_diagnostics(
+    records: &[CasingRecoveryRecord],
+) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    let mut seen = BTreeMap::<InvalidCasingDuplicateKey, &CasingRecoveryRecord>::new();
+
+    for record in records.iter().filter(|record| {
+        record.occurrence == "declaration"
+            && matches!(
+                record.name_class,
+                CasingNameClass::Type | CasingNameClass::Constructor | CasingNameClass::Function
+            )
+    }) {
+        let key = InvalidCasingDuplicateKey {
+            module_name: record.module_name.clone(),
+            owner_type_name: if record.name_class == CasingNameClass::Constructor {
+                record.owner_type_name.clone()
+            } else {
+                None
+            },
+            name: record.name.clone(),
+            name_class: record.name_class,
+        };
+        if let Some(first) = seen.get(&key) {
+            diagnostics.push(duplicate_invalid_casing_declaration_diagnostic(
+                record, first,
+            ));
+        } else {
+            seen.insert(key, record);
+        }
+    }
+
+    diagnostics
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct InvalidCasingDuplicateKey {
+    module_name: Option<String>,
+    owner_type_name: Option<String>,
+    name: String,
+    name_class: CasingNameClass,
+}
+
+fn duplicate_invalid_casing_declaration_diagnostic(
+    record: &CasingRecoveryRecord,
+    first: &CasingRecoveryRecord,
+) -> Diagnostic {
+    let namespace = casing_duplicate_namespace(record.name_class);
+    let declaration_kind = record
+        .declaration_kind
+        .unwrap_or_else(|| casing_duplicate_declaration_kind(record.name_class));
+    let mut diagnostic = Diagnostic::new(
+        "name.duplicate",
+        Severity::Error,
+        DiagnosticKind::Name,
+        format!("duplicate {declaration_kind} name `{}`", record.name),
+        record.diagnostic.span.clone(),
+        JsonValue::object([
+            ("phase", JsonValue::string("name")),
+            (
+                "node_id",
+                JsonValue::string(invalid_casing_duplicate_node_id(record)),
+            ),
+            ("name", JsonValue::string(record.name.as_str())),
+            ("namespace", JsonValue::string(namespace)),
+            (
+                "first_node_id",
+                JsonValue::string(invalid_casing_duplicate_node_id(first)),
+            ),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("duplicate_origin")),
+        (
+            "message",
+            JsonValue::string(format!("First {declaration_kind} with this name is here.")),
+        ),
+        (
+            "span",
+            source_span_json(
+                first
+                    .diagnostic
+                    .span
+                    .as_ref()
+                    .expect("source-written casing recovery records have spans"),
+            ),
+        ),
+    ]));
+    diagnostic
+}
+
+fn invalid_casing_duplicate_node_id(record: &CasingRecoveryRecord) -> String {
+    match &record.diagnostic.span {
+        Some(span) => format!(
+            "invalid_case:{}:{}:{}",
+            span.file.as_str(),
+            span.start.line,
+            span.start.column
+        ),
+        None => format!("invalid_case:{}", record.name),
+    }
+}
+
+fn casing_duplicate_namespace(name_class: CasingNameClass) -> &'static str {
+    match name_class {
+        CasingNameClass::Type => "type",
+        CasingNameClass::Constructor => "constructor",
+        CasingNameClass::Function => "function",
+        CasingNameClass::ValueBinding => "value",
+    }
+}
+
+fn casing_duplicate_declaration_kind(name_class: CasingNameClass) -> &'static str {
+    match name_class {
+        CasingNameClass::Type => "type declaration",
+        CasingNameClass::Constructor => "constructor declaration",
+        CasingNameClass::Function => "function declaration",
+        CasingNameClass::ValueBinding => "binding",
+    }
 }
 
 fn casing_name_is_valid(name: &str, name_class: CasingNameClass) -> bool {

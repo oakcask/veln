@@ -1,0 +1,15 @@
+fn Bad() -> Int
+  1
+end
+
+fn Bad() -> Int
+  2
+end
+
+type lower
+  bad
+  bad
+end
+
+type lower
+end

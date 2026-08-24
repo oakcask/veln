@@ -17,8 +17,32 @@ path = "diagnostics.0.id"
 equals = "name.invalid_case"
 
 [[json_assert]]
+path = "diagnostics.0.details.phase"
+equals = "name"
+
+[[json_assert]]
+path = "diagnostics.0.details.origin"
+equals = "source"
+
+[[json_assert]]
+path = "diagnostics.0.details.occurrence"
+equals = "declaration"
+
+[[json_assert]]
 path = "diagnostics.0.details.name"
 equals = "lower"
+
+[[json_assert]]
+path = "diagnostics.0.details.name_class"
+equals = "type"
+
+[[json_assert]]
+path = "diagnostics.0.details.required_initial"
+equals = "ascii_uppercase"
+
+[[json_assert]]
+path = "diagnostics.0.details.observed_initial"
+equals = "ascii_lowercase"
 
 [[json_assert]]
 path = "diagnostics.0.span.start.line"
@@ -29,9 +53,125 @@ path = "diagnostics.0.span.start.column"
 equals = 6
 
 [[json_assert]]
+path = "diagnostics.0.span.end.column"
+equals = 11
+
+[[json_assert]]
+path = "diagnostics.1.details.phase"
+equals = "name"
+
+[[json_assert]]
+path = "diagnostics.1.details.origin"
+equals = "source"
+
+[[json_assert]]
+path = "diagnostics.1.details.occurrence"
+equals = "declaration"
+
+[[json_assert]]
+path = "diagnostics.1.details.name"
+equals = "badVariant"
+
+[[json_assert]]
+path = "diagnostics.1.details.name_class"
+equals = "constructor"
+
+[[json_assert]]
+path = "diagnostics.1.details.required_initial"
+equals = "ascii_uppercase"
+
+[[json_assert]]
+path = "diagnostics.1.details.observed_initial"
+equals = "ascii_lowercase"
+
+[[json_assert]]
+path = "diagnostics.1.span.start.line"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.1.span.start.column"
+equals = 3
+
+[[json_assert]]
+path = "diagnostics.1.span.end.column"
+equals = 13
+
+[[json_assert]]
+path = "diagnostics.2.details.phase"
+equals = "name"
+
+[[json_assert]]
+path = "diagnostics.2.details.origin"
+equals = "source"
+
+[[json_assert]]
+path = "diagnostics.2.details.occurrence"
+equals = "declaration"
+
+[[json_assert]]
 path = "diagnostics.2.details.name"
 equals = "BadPeer"
 
 [[json_assert]]
+path = "diagnostics.2.details.name_class"
+equals = "function"
+
+[[json_assert]]
+path = "diagnostics.2.details.required_initial"
+equals = "ascii_lowercase"
+
+[[json_assert]]
+path = "diagnostics.2.details.observed_initial"
+equals = "ascii_uppercase"
+
+[[json_assert]]
+path = "diagnostics.2.span.start.line"
+equals = 5
+
+[[json_assert]]
+path = "diagnostics.2.span.start.column"
+equals = 4
+
+[[json_assert]]
+path = "diagnostics.2.span.end.column"
+equals = 11
+
+[[json_assert]]
+path = "diagnostics.3.details.phase"
+equals = "name"
+
+[[json_assert]]
+path = "diagnostics.3.details.origin"
+equals = "source"
+
+[[json_assert]]
+path = "diagnostics.3.details.occurrence"
+equals = "binding"
+
+[[json_assert]]
 path = "diagnostics.3.details.name"
 equals = "_value"
+
+[[json_assert]]
+path = "diagnostics.3.details.name_class"
+equals = "value_binding"
+
+[[json_assert]]
+path = "diagnostics.3.details.required_initial"
+equals = "ascii_lowercase"
+
+[[json_assert]]
+path = "diagnostics.3.details.observed_initial"
+equals = "underscore"
+
+[[json_assert]]
+path = "diagnostics.3.span.start.line"
+equals = 10
+
+[[json_assert]]
+path = "diagnostics.3.span.start.column"
+equals = 7
+
+[[json_assert]]
+path = "diagnostics.3.span.end.column"
+equals = 13

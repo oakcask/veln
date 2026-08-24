@@ -1,0 +1,8 @@
+type lower
+  bad(value: Int)
+end
+
+pub fn main() -> Int
+  let value = bad(1)
+  0
+end

@@ -151,8 +151,13 @@ Source-written identifier casing diagnostics use `name.invalid_case` with
 `examples/specification/check/identifier-casing-recovery-human/`,
 `examples/specification/check/identifier-casing-constructor-recovery/`, and
 `examples/specification/check/identifier-casing-underscore-aliases/`. The
+`identifier-casing-recovery-json` case asserts every stable detail field and
+representative exact spans for type, constructor, function, and value-binding
+diagnostics. The
 `examples/specification/check/identifier-casing-binding-origins/` case checks
-covered value-binding origins and exact written-token spans.
+covered value-binding origins and exact written-token spans. The
+`examples/specification/check/identifier-casing-test-declaration/` case checks
+test declaration names as function-class source declarations.
 
 ## Stable Details
 
