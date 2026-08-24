@@ -1893,6 +1893,38 @@ fn parses_structured_calls_and_holes() {
 }
 
 #[test]
+fn rejects_hole_tokens_in_qualified_expression_paths() {
+    let cases = [
+        (
+            "qualified expression path",
+            "fn main(module) -> ()\n  module::_name()\nend\n",
+        ),
+        (
+            "perform effect path",
+            "fn main() -> ()\n  perform _Effect::op()\nend\n",
+        ),
+        (
+            "handler path",
+            "fn main(body) -> ()\n  handle body with _handler()\nend\n",
+        ),
+    ];
+
+    for (name, text) in cases {
+        let source = SourceFile::new(format!("{name}.veln"), text);
+        let output = parse(&source);
+
+        assert!(
+            output
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "parse.name_path"),
+            "{name} should reject underscore-led path segments: {:#?}",
+            output.diagnostics
+        );
+    }
+}
+
+#[test]
 fn parses_type_argument_call_callees() {
     let source = SourceFile::new(
         "main.veln",

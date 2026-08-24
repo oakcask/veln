@@ -1,0 +1,3 @@
+fn main(module) -> ()
+  module::_name()
+end

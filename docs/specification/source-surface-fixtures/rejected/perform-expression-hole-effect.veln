@@ -1,0 +1,3 @@
+fn broken() -> ()
+	perform _Effect::op()
+end

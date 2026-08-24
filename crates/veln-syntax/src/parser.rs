@@ -3512,11 +3512,18 @@ impl<'a> ExprParser<'a> {
         let mut end = start;
         let mut segments = vec![self.bump().text];
         while self.eat(TokenKind::DoubleColon).is_some() {
-            if self.at_contextual_identifier() || self.at(TokenKind::Decode) {
+            if self.at(TokenKind::Ident) || self.at(TokenKind::Decode) {
                 let segment = self.bump();
                 end = segment.range;
                 segments.push(segment.text);
             } else {
+                self.error_current(
+                    "parse.name_path",
+                    "expression path has an incomplete path",
+                    vec!["path segment"],
+                    RecoveryStrategy::InsertToken,
+                    None,
+                );
                 break;
             }
         }
@@ -3544,7 +3551,7 @@ impl<'a> ExprParser<'a> {
         expected_name: &'static str,
     ) -> Vec<String> {
         let mut segments = Vec::new();
-        if self.at_contextual_identifier() {
+        if self.at(TokenKind::Ident) {
             segments.push(self.bump().text);
         } else {
             self.error_current(
@@ -3556,7 +3563,7 @@ impl<'a> ExprParser<'a> {
             );
         }
         while self.eat(TokenKind::DoubleColon).is_some() {
-            if self.at_contextual_identifier() {
+            if self.at(TokenKind::Ident) {
                 segments.push(self.bump().text);
             } else {
                 self.error_current(
@@ -3715,12 +3722,6 @@ impl<'a> ExprParser<'a> {
         self.tokens
             .get(self.cursor)
             .is_some_and(|token| token.kind == kind)
-    }
-
-    fn at_contextual_identifier(&self) -> bool {
-        self.tokens
-            .get(self.cursor)
-            .is_some_and(|token| is_contextual_identifier(token.kind))
     }
 
     fn peek_kind(&self, offset: usize) -> Option<TokenKind> {

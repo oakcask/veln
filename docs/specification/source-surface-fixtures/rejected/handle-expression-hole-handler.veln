@@ -1,0 +1,3 @@
+fn broken(body) -> ()
+	handle body with _handler()
+end
