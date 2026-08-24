@@ -1,0 +1,5 @@
+fn good() -> Int
+  1
+end
+
+pub fn Build = good

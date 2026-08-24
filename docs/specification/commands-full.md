@@ -372,7 +372,9 @@ This reachability boundary includes `name.invalid_case`. An invalid covered
 declaration or binding reached from the selected entry blocks `run`, while an
 invalid peer outside the reachable closure does not. The checked
 `identifier-casing-reachable`, `identifier-casing-unreachable`,
-`identifier-casing-import-quarantine`, `identifier-casing-invalid-entry`,
+`identifier-casing-import-quarantine`,
+`identifier-casing-imported-invalid-alias-quarantine`,
+`identifier-casing-invalid-entry`,
 `identifier-casing-alias-quarantine`, and
 `identifier-casing-unused-type-alias-quarantine` run cases fix this boundary,
 including first-class function value reachability that excludes quarantined

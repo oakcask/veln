@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"dd129e8fe22c58d597e714e235971c3090a20d50"
+source_git_tree	"14177e857cec29f008e277f7477f29f28b09b4d5"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1547
+case_count	1548
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -37842,6 +37842,19 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"expected"
 case_digest	"c7b01fe843a6186a224e76678a04cbd45b873f9bfb67e62308e69fa4c65d5552"
+case	"examples/specification/run/identifier-casing-imported-invalid-alias-quarantine"
+field	expectations.exit	1
+field	expectations.stderr.contains[0]	"error[name.unresolved]: unresolved call_target `Build`"
+field	expectations.stderr.not_contains[0]	"name.invalid_case"
+field	expectations.stderr.not_contains[1]	"function name must start with an ASCII lowercase letter"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.command[3]	"broken.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"4a6eb123b047caff13b9d3c851ca8ed3d0ca8266cfd272077855d2cf31184d73"
 case	"examples/specification/run/identifier-casing-invalid-entry"
 field	expectations.exit	1
 field	expectations.stderr.contains[0]	"main.veln:1:8: error[name.invalid_case]: function name must start with an ASCII lowercase letter"
@@ -48478,4 +48491,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"572a7b23c6d16093904ba5ebde7b64bc4533f80d0622947da94ff163616405db"
+aggregate_digest	"7af4536ab66f3d6241019d495c22fb1ccc755d36a7de9ba8a75e2672fd4d6a11"

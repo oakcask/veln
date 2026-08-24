@@ -3376,7 +3376,7 @@ fn collect_expr_alias_reference_paths(
 fn public_alias_reference_matches(
     alias: &veln_ast::PublicAlias,
     reference: &AliasReferencePath,
-    uses: &[&UseDecl],
+    _uses: &[&UseDecl],
 ) -> bool {
     let Some(alias_name) = alias.name.as_deref() else {
         return false;
@@ -3385,26 +3385,13 @@ fn public_alias_reference_matches(
         [name] => {
             name == alias_name
                 && (alias.span.file.as_str() == reference.file
-                    || alias.module_name == reference.current_module
-                    || alias.module_name.as_deref().is_some_and(|module_name| {
-                        uses.iter().any(|use_decl| {
-                            use_decl.module_name.as_deref() == reference.current_module.as_deref()
-                                && use_decl.name == module_name
-                        })
-                    }))
+                    || alias.module_name == reference.current_module)
         }
         [_, .., name] => {
             if name != alias_name {
                 return false;
             }
-            let Some(use_decl) = imported_use_for_path(
-                uses,
-                &reference.segments[..reference.segments.len() - 1],
-                reference.current_module.as_deref(),
-            ) else {
-                return false;
-            };
-            alias.module_name.as_deref() == Some(use_decl.name.as_str())
+            alias.span.file.as_str() == reference.file
         }
         [] => false,
     }
@@ -6905,6 +6892,43 @@ mod tests {
                 .iter()
                 .any(|alias| alias.name.as_deref() == Some("Build")),
             "reachable invalid function alias should enter diagnostic view: {:#?}",
+            diagnostic.aliases
+        );
+    }
+
+    #[test]
+    fn run_diagnostic_view_ignores_imported_invalid_function_alias_declarations() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "main.veln",
+                    concat!("use broken\n", "pub fn main() -> Int\n", "  Build()\n", "end\n",),
+                ),
+                SourceFile::new(
+                    "broken.veln",
+                    concat!("fn good() -> Int\n", "  1\n", "end\n", "pub fn Build = good\n",),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let diagnostic = reachable_entry_diagnostic_module_with_standard_cache(
+            &empty_standard_module(),
+            &module,
+            "main",
+            FunctionKind::Function,
+            &ReachabilityCache::default(),
+        );
+
+        assert!(
+            diagnostic
+                .aliases
+                .iter()
+                .all(|alias| alias.name.as_deref() != Some("Build")),
+            "imported invalid function alias should stay out of diagnostic view: {:#?}",
             diagnostic.aliases
         );
     }

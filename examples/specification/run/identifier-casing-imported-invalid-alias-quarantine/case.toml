@@ -1,0 +1,10 @@
+command = ["run", "main", "main.veln", "broken.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[name.unresolved]: unresolved call_target `Build`"]
+not_contains = ["name.invalid_case", "function name must start with an ASCII lowercase letter"]
