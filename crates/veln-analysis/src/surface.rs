@@ -2351,7 +2351,6 @@ fn module_with_reachable_functions_and_handler_view(
     let reachable_handler_refs = reachable_handler_refs(inputs, &functions);
     let reachable_handlers = inputs
         .handler_refs()
-        .into_iter()
         .filter(|handler_ref| reachable_handler_refs.contains(handler_ref))
         .map(|handler_ref| inputs.handler(handler_ref))
         .collect::<Vec<_>>();
@@ -3181,10 +3180,10 @@ fn collect_type_name_references(
             segments.push(tokens[index + 1].text.clone());
             index += 2;
         }
-        if let Some(name) = resolve_reachable_type_name(&segments, current_module, uses) {
-            if names.insert(name.clone()) {
-                inserted.push(name);
-            }
+        if let Some(name) = resolve_reachable_type_name(&segments, current_module, uses)
+            && names.insert(name.clone())
+        {
+            inserted.push(name);
         }
     }
     inserted
