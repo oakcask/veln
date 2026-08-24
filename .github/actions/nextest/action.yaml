@@ -1,7 +1,14 @@
 name: Prepare and run nextest
-description: Restore the main Rust test build and optionally run one nextest shard or seed the caches.
+description: Restore a rolling main Rust test build and optionally run one nextest shard or update the cache.
 
 inputs:
+  build-cache-revision:
+    description: Main commit revision represented by the primary build-cache key.
+    required: true
+  github-token:
+    description: Token used to prune obsolete main build caches after an update.
+    required: false
+    default: ""
   nextest-version:
     description: Version of cargo-nextest to install.
     required: true
@@ -34,7 +41,8 @@ runs:
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: target
-        key: rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
+        key: rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-${{ inputs.build-cache-revision }}
+        restore-keys: rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-
     - name: Install cargo-nextest
       uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2
       with:
@@ -54,7 +62,15 @@ runs:
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: target
-        key: rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
+        key: ${{ steps.rust-test-build-cache.outputs.cache-primary-key }}
+    - name: Prune obsolete main Rust test build caches
+      if: inputs.save-cache == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        RUST_TEST_BUILD_CACHE_KEY: ${{ steps.rust-test-build-cache.outputs.cache-primary-key }}
+        RUST_TEST_BUILD_CACHE_PREFIX: rust-test-build-${{ runner.os }}-
+      run: node workflow-scripts/prune-rust-test-build-caches.mjs
     - name: Run Rust tests
       if: inputs.shard != ''
       shell: bash

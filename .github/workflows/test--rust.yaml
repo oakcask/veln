@@ -16,6 +16,7 @@ on:
       - tools/**/Cargo.toml
       - tools/**/*.rs
       - workflow-scripts/plan-nextest-shards.mjs
+      - workflow-scripts/prune-rust-test-build-caches.mjs
   pull_request:
     paths:
       - .github/workflows/test--rust.yaml
@@ -29,6 +30,7 @@ on:
       - tools/**/Cargo.toml
       - tools/**/*.rs
       - workflow-scripts/plan-nextest-shards.mjs
+      - workflow-scripts/prune-rust-test-build-caches.mjs
 
 permissions:
   actions: read
@@ -37,6 +39,7 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: "1"
+  RUST_TEST_BUILD_CACHE_REVISION: ${{ github.event.pull_request.base.sha || github.sha }}
   # renovate: datasource=github-releases depName=nextest-rs/nextest versioning=semver extractVersion=^cargo-nextest-(?<version>.*)$
   NEXTEST_VERSION: "0.9.140"
   # Keep test execution near twice the clean-build cost so extra shards still repay their build overhead.
@@ -61,11 +64,19 @@ jobs:
   seed-cache:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    concurrency:
+      group: rust-test-main-cache
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - name: Seed Rust test caches
         uses: ./.github/actions/nextest
         with:
+          build-cache-revision: ${{ env.RUST_TEST_BUILD_CACHE_REVISION }}
+          github-token: ${{ github.token }}
           nextest-version: ${{ env.NEXTEST_VERSION }}
           save-cache: true
 
@@ -82,6 +93,7 @@ jobs:
       - name: Run Rust tests
         uses: ./.github/actions/nextest
         with:
+          build-cache-revision: ${{ env.RUST_TEST_BUILD_CACHE_REVISION }}
           nextest-version: ${{ env.NEXTEST_VERSION }}
           shard: ${{ matrix.shard }}
           shard-count: ${{ needs.plan-test-shards.outputs.shard_count }}
