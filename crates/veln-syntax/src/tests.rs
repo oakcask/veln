@@ -645,6 +645,35 @@ fn parses_public_member_aliases() {
 }
 
 #[test]
+fn parses_underscore_led_function_and_type_alias_recovery_names() {
+    let source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "mod spec.api\n",
+            "use spec.impl\n",
+            "\n",
+            "pub fn _parse = impl::parse\n",
+            "pub type _Document = impl::Document\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(output.tree.items.len(), 2);
+    let SyntaxItem::PublicAlias(function_alias) = &output.tree.items[0] else {
+        panic!("expected function alias");
+    };
+    assert_eq!(function_alias.kind, PublicAliasKind::Function);
+    assert_eq!(function_alias.name.as_deref(), Some("_parse"));
+    let SyntaxItem::PublicAlias(type_alias) = &output.tree.items[1] else {
+        panic!("expected type alias");
+    };
+    assert_eq!(type_alias.kind, PublicAliasKind::Type);
+    assert_eq!(type_alias.name.as_deref(), Some("_Document"));
+}
+
+#[test]
 fn dispatches_mixed_public_and_private_top_level_declarations_in_source_order() {
     let source = SourceFile::new(
         "mixed.veln",

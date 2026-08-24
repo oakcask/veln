@@ -1,0 +1,38 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"name.invalid_case\"", "\"name\":\"_target\"", "\"name\":\"_Good\"", "\"name_class\":\"function\"", "\"name_class\":\"type\"", "function name must start with an ASCII lowercase letter", "type name must start with an ASCII uppercase letter"]
+not_contains = ["\"id\":\"parse.expected_item\"", "\"id\":\"parse.expected_identifier\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.0.details.name"
+equals = "_target"
+
+[[json_assert]]
+path = "diagnostics.0.details.observed_initial"
+equals = "underscore"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.1.details.name"
+equals = "_Good"
+
+[[json_assert]]
+path = "diagnostics.1.details.observed_initial"
+equals = "underscore"

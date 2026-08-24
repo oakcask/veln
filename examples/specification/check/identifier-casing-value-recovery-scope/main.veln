@@ -1,8 +1,5 @@
-fn peer() -> Int
-  let _Value = 1
-  _Value
-end
-
 pub fn main() -> Int
+  _Value
+  let _Value = 1
   _Value
 end

@@ -88,6 +88,9 @@ exact human and JSON diagnostics, underscore recovery has no missing-name
 cascade, accepted names retain their behavior, invalid symbols cannot enter a
 checked artifact, and every row in the `check`/`run` command table and the
 same-source/import/public-alias recovery table above has executable evidence.
+The checked `identifier-casing-underscore-aliases` and
+`identifier-casing-value-recovery-scope` cases fix the public-alias recovery
+and lexical-scope recovery boundaries of this slice.
 
 Implementation must promote the completed behavior to the smallest matching
 pages under `docs/specification/` and to checked cases under

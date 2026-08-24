@@ -505,9 +505,9 @@ impl<'a> Parser<'a> {
                 (self.peek_kind(1), self.peek_kind(2), self.peek_kind(3)),
                 (
                     Some(TokenKind::Fn | TokenKind::Type | TokenKind::Schema),
-                    Some(TokenKind::Ident),
+                    Some(name),
                     Some(TokenKind::Equal)
-                )
+                ) if is_contextual_identifier(name)
             )
     }
 

@@ -24,8 +24,11 @@ compiler-known calls.
   `identifier-casing-recovery-human`, and
   `identifier-casing-constructor-recovery` cover source spans, messages, JSON
   details, and non-cascading constructor recovery. The checked
-  `identifier-casing-valid-wins` case covers normal lookup winning over a
-  compatible invalid recovery record.
+  `identifier-casing-underscore-aliases` case covers underscore-led public
+  function and type alias declaration recovery. The checked
+  `identifier-casing-value-recovery-scope` case covers lexical-scope-bounded
+  value-binding recovery. The checked `identifier-casing-valid-wins` case
+  covers normal lookup winning over a compatible invalid recovery record.
 - Namespaces, shadowing, duplicate checks, module ownership, external package
   imports, and manifest export checks:
   [names-effects-full.md](names-effects-full.md#name-resolution).

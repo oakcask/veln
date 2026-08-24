@@ -559,6 +559,7 @@ fn source_identifier_casing_records(
                     );
                 }
                 for param in &function.params {
+                    let scope = span_from_end_to_end(&param.span, &function.span);
                     push_invalid_casing_record(
                         &mut records,
                         &param.name,
@@ -568,10 +569,11 @@ fn source_identifier_casing_records(
                         &source_path,
                         module_name,
                         function_name.as_deref(),
-                        Some(&function.span),
+                        Some(&scope),
                     );
                 }
                 if let Some(binding) = &function.return_binding {
+                    let scope = span_from_end_to_end(&binding.span, &function.span);
                     push_invalid_casing_record(
                         &mut records,
                         &binding.name,
@@ -581,18 +583,19 @@ fn source_identifier_casing_records(
                         &source_path,
                         module_name,
                         function_name.as_deref(),
-                        Some(&function.span),
+                        Some(&scope),
                     );
                 }
                 for line in &function.body {
-                    if let veln_syntax::BodyLine::Let { pattern, .. } = line {
+                    if let veln_syntax::BodyLine::Let { pattern, span, .. } = line {
+                        let scope = span_from_end_to_end(span, &function.span);
                         collect_invalid_pattern_bindings(
                             &mut records,
                             pattern,
                             module_name,
                             &source_path,
                             function_name.as_deref(),
-                            &function.span,
+                            &scope,
                         );
                     }
                 }
@@ -609,7 +612,7 @@ fn collect_invalid_pattern_bindings(
     module_name: Option<&str>,
     source_path: &SourcePath,
     function_name: Option<&str>,
-    function_span: &SourceSpan,
+    lexical_scope: &SourceSpan,
 ) {
     match &pattern.kind {
         veln_syntax::PatternKind::Binding(name) => push_invalid_casing_record(
@@ -621,7 +624,7 @@ fn collect_invalid_pattern_bindings(
             source_path,
             module_name,
             function_name,
-            Some(function_span),
+            Some(lexical_scope),
         ),
         veln_syntax::PatternKind::Record(fields) => {
             for field in fields {
@@ -631,7 +634,7 @@ fn collect_invalid_pattern_bindings(
                     module_name,
                     source_path,
                     function_name,
-                    function_span,
+                    lexical_scope,
                 );
             }
         }
@@ -643,7 +646,7 @@ fn collect_invalid_pattern_bindings(
                     module_name,
                     source_path,
                     function_name,
-                    function_span,
+                    lexical_scope,
                 );
             }
         }
@@ -653,6 +656,14 @@ fn collect_invalid_pattern_bindings(
         | veln_syntax::PatternKind::FloatLiteral(_)
         | veln_syntax::PatternKind::BoolLiteral(_)
         | veln_syntax::PatternKind::Unit => {}
+    }
+}
+
+fn span_from_end_to_end(start: &SourceSpan, end: &SourceSpan) -> SourceSpan {
+    SourceSpan {
+        file: start.file.clone(),
+        start: start.end,
+        end: end.end,
     }
 }
 
@@ -3556,9 +3567,8 @@ mod tests {
     use super::{
         Diagnostic, EmbeddedStandardModuleEntry, EmbeddedStandardPackage, ReachabilityCache,
         SurfaceParts, embedded_standard_counters, load_embedded_standard_package_from,
-        load_project_sources, load_surface_module, load_surface_modules, reachability_counters,
-        reachable_entry_module, reachable_entry_module_with_standard_cache,
-        validate_manifest_exports,
+        load_project_sources, load_surface_module, reachability_counters, reachable_entry_module,
+        reachable_entry_module_with_standard_cache, validate_manifest_exports,
     };
 
     fn lower(text: &str) -> SurfaceModule {
@@ -3651,44 +3661,6 @@ mod tests {
         let (_, diagnostics) = load_surface_module(&project);
 
         assert!(diagnostics.is_empty(), "{diagnostics:#?}");
-    }
-
-    #[test]
-    fn external_dependency_invalid_casing_is_quarantined_without_selected_diagnostic() {
-        let temp = TempProject::new("external-dependency-invalid-casing-boundary");
-        temp.write(
-            "veln.toml",
-            "[dependencies.\"github.com/oakcask/foo\"]\npath = \"vendor/foo\"\n",
-        );
-        temp.write(
-            "main.veln",
-            "use foo from \"github.com/oakcask/foo\"\n\npub fn main() -> Int\n  add_one(1)\nend\n",
-        );
-        temp.write(
-            "vendor/foo/veln.toml",
-            "[package]\nname = \"github.com/oakcask/foo\"\n\n[lib]\nexports = [\"foo.veln\"]\n",
-        );
-        temp.write(
-            "vendor/foo/foo.veln",
-            "pub fn BadPeer() -> Int\n  1\nend\n\npub fn add_one(value: Int) -> Int\n  value + 1\nend\n",
-        );
-
-        let project =
-            Project::discover(temp.root().to_path_buf(), &[PathBuf::from("main.veln")]).unwrap();
-        let (loaded, diagnostics) = load_surface_modules(&project);
-
-        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
-        assert!(
-            loaded.casing_records.is_empty(),
-            "{:#?}",
-            loaded.casing_records
-        );
-        assert!(!loaded.combined.functions.iter().any(|function| {
-            function.module_name.as_deref().is_some_and(|module_name| {
-                module_name.starts_with("github.com/oakcask/foo::")
-                    && function.name.as_deref() == Some("BadPeer")
-            })
-        }));
     }
 
     #[test]

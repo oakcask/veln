@@ -1,0 +1,14 @@
+type Good
+  Ready
+end
+
+fn target() -> Int
+  1
+end
+
+pub fn _target = target
+pub type _Good = Good
+
+pub fn main() -> Int
+  target()
+end
