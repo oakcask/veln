@@ -7,6 +7,13 @@ format = "json"
 contains = [
   "\"id\":\"name.invalid_case\"",
   "\"name\":\"Bad\"",
+  "\"name\":\"Build\"",
+  "\"name\":\"exposed\"",
+  "\"name\":\"wrong\"",
+  "\"id\":\"name.duplicate\"",
+  "duplicate function alias name `Bad`",
+  "duplicate type alias name `exposed`",
+  "duplicate type alias name `wrong`",
   "\"id\":\"name.unresolved\"",
   "unresolved call_target `Bad`",
 ]
@@ -16,4 +23,4 @@ format = "empty"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 3
+equals = 11

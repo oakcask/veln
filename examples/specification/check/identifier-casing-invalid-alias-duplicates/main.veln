@@ -2,8 +2,24 @@ fn good() -> Int
   1
 end
 
+fn Build() -> Int
+  2
+end
+
 pub fn Bad = good
 pub fn Bad = good
+
+type exposed
+  Made
+end
+
+type Valid
+  Other
+end
+
+pub type exposed = Valid
+pub type wrong = Valid
+pub type wrong = Valid
 
 pub fn main() -> Int
   Bad()

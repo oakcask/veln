@@ -708,6 +708,21 @@ pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diag
             continue;
         };
         if !valid_public_alias_name(alias.kind, name) {
+            let key = (alias.module_name.clone(), name.clone());
+            let node_id = alias.node_id.display("alias");
+            if let Some((first_node_id, first_span)) = seen_invalid.get(&key) {
+                diagnostics.push(duplicate_name_diagnostic(
+                    name,
+                    "function",
+                    "function alias",
+                    node_id,
+                    alias.span.clone(),
+                    first_node_id.clone(),
+                    first_span,
+                ));
+            } else {
+                seen_invalid.insert(key, (node_id, alias.span.clone()));
+            }
             continue;
         }
         let key = (alias.module_name.clone(), name.clone());
@@ -771,21 +786,39 @@ pub(crate) fn check_duplicate_type_names(module: &SurfaceModule) -> Vec<Diagnost
             seen.insert(key, (node_id, type_decl.span.clone()));
         }
     }
-    for alias in module.aliases.iter().filter(|alias| {
-        alias.kind == PublicAliasKind::Type
-            && alias
-                .name
-                .as_deref()
-                .is_some_and(|name| valid_public_alias_name(alias.kind, name))
-            && !type_alias_targets_invalid_source_type(
-                module,
-                &alias.target,
-                alias.module_name.as_deref(),
-            )
-    }) {
+    for alias in module
+        .aliases
+        .iter()
+        .filter(|alias| alias.kind == PublicAliasKind::Type)
+    {
         let Some(name) = &alias.name else {
             continue;
         };
+        if !valid_public_alias_name(alias.kind, name) {
+            let key = (alias.module_name.clone(), name.clone());
+            let node_id = alias.node_id.display("alias");
+            if let Some((first_node_id, first_span)) = seen_invalid.get(&key) {
+                diagnostics.push(duplicate_name_diagnostic(
+                    name,
+                    "type",
+                    "type alias",
+                    node_id,
+                    alias.span.clone(),
+                    first_node_id.clone(),
+                    first_span,
+                ));
+            } else {
+                seen_invalid.insert(key, (node_id, alias.span.clone()));
+            }
+            continue;
+        }
+        if type_alias_targets_invalid_source_type(
+            module,
+            &alias.target,
+            alias.module_name.as_deref(),
+        ) {
+            continue;
+        }
         let key = (alias.module_name.clone(), name.clone());
         let node_id = alias.node_id.display("alias");
         if let Some((first_node_id, first_span)) = seen.get(&key) {

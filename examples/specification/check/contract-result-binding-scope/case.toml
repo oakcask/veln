@@ -1,9 +1,10 @@
 command = ["check", "--json", "main.veln"]
+source_errors = "expected"
 exit = 1
 
 [stdout]
 format = "json"
-contains = ["unresolved contract_predicate `output`", "unresolved value `output`", "unresolved contract_predicate `result`"]
+contains = ["\"id\":\"name.invalid_case\"", "unresolved contract_predicate `output`", "unresolved contract_predicate `Output`", "unresolved value `output`", "unresolved value `Output`", "unresolved contract_predicate `result`"]
 
 [stderr]
 format = "empty"
@@ -38,7 +39,7 @@ column = 2
 id = "name.unresolved"
 severity = "error"
 kind = "name"
-message = "unresolved value `output`"
+message = "unresolved contract_predicate `Output`"
 
 [diagnostics.span]
 file = "main.veln"
@@ -49,9 +50,42 @@ column = 2
 id = "name.unresolved"
 severity = "error"
 kind = "name"
+message = "unresolved contract_predicate `Output`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 18
+column = 2
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved value `output`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 28
+column = 2
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved value `Output`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 32
+column = 2
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
 message = "unresolved contract_predicate `result`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 17
+line = 36
 column = 2

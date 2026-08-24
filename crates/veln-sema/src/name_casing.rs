@@ -472,15 +472,6 @@ fn local_recovery_binding_count(
                 })
                 .count()
                 + function
-                    .return_binding
-                    .iter()
-                    .filter(|binding| {
-                        binding.name == symbol
-                            && !valid_value_binding_name(&binding.name)
-                            && matches!(role, RecoveryRole::ContractPredicate)
-                    })
-                    .count()
-                + function
                     .body
                     .iter()
                     .filter(|line| span_starts_not_after(&line.span, use_span))

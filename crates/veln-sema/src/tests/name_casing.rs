@@ -105,7 +105,7 @@ fn invalid_public_alias_declaration_names_use_type_and_function_classes() {
 }
 
 #[test]
-fn invalid_public_alias_declaration_names_do_not_enter_duplicate_names() {
+fn invalid_public_alias_declaration_names_report_duplicates() {
     let parsed = parse(&SourceFile::new(
         "main.veln",
         concat!(
@@ -137,7 +137,15 @@ fn invalid_public_alias_declaration_names_do_not_enter_duplicate_names() {
     assert!(
         diagnostics
             .iter()
-            .all(|diagnostic| diagnostic.id != "name.duplicate"),
+            .any(|diagnostic| diagnostic.id == "name.duplicate"
+                && diagnostic.message == "duplicate type alias name `exposed`"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.duplicate"
+                && diagnostic.message == "duplicate function alias name `Build`"),
         "{diagnostics:#?}"
     );
 }
@@ -283,6 +291,10 @@ fn same_spelled_invalid_function_aliases_do_not_recover_call() {
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic.id == "name.unresolved" && diagnostic.message == "unresolved call_target `Bad`"
     }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.duplicate"
+            && diagnostic.message == "duplicate function alias name `Bad`"
+    }));
 }
 
 #[test]
@@ -399,7 +411,7 @@ fn invalid_callable_local_and_function_candidates_do_not_select_recovery() {
 }
 
 #[test]
-fn invalid_type_declaration_and_same_spelled_alias_both_report_invalid_case() {
+fn invalid_type_declaration_and_same_spelled_alias_report_duplicate() {
     let parsed = parse(&SourceFile::new(
         "main.veln",
         concat!(
@@ -429,12 +441,58 @@ fn invalid_type_declaration_and_same_spelled_alias_both_report_invalid_case() {
             .count(),
         2
     );
-    assert!(
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.duplicate" && diagnostic.message == "duplicate type alias name `bad`"
+    }));
+}
+
+#[test]
+fn invalid_result_binding_recovers_only_ensure_contracts() {
+    let parsed = parse(&SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn require_cannot_read_result(value: Int) -> Output: Int\n",
+            "  require Output >= 0\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "fn invariant_cannot_read_result(value: Int) -> Output: Int\n",
+            "  invariant Output >= 0\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "fn ensure_can_read_result(value: Int) -> Output: Int\n",
+            "  ensure Output >= 0\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "fn body_cannot_read_result(value: Int) -> Output: Int\n",
+            "  Output\n",
+            "end\n",
+        ),
+    ));
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
         diagnostics
             .iter()
-            .all(|diagnostic| diagnostic.id != "name.duplicate"),
+            .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+            .count(),
+        4
+    );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.message == "unresolved contract_predicate `Output`")
+            .count(),
+        2,
         "{diagnostics:#?}"
     );
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved" && diagnostic.message == "unresolved value `Output`"
+    }));
 }
 
 #[test]

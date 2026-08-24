@@ -9,8 +9,27 @@ pub fn invariant_cannot_read_result(value: Int) -> output: Int
 	value
 end
 
+pub fn invalid_require_cannot_read_result(value: Int) -> Output: Int
+	require Output >= 0
+	value
+end
+
+pub fn invalid_invariant_cannot_read_result(value: Int) -> Output: Int
+	invariant Output >= 0
+	value
+end
+
+pub fn invalid_ensure_can_read_result(value: Int) -> Output: Int
+	ensure Output >= 0
+	value
+end
+
 pub fn body_cannot_read_result(value: Int) -> output: Int
 	output
+end
+
+pub fn invalid_body_cannot_read_result(value: Int) -> Output: Int
+	Output
 end
 
 pub fn bare_result_is_not_special(value: Int) -> Int
