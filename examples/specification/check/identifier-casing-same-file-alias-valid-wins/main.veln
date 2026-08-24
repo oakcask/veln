@@ -1,0 +1,13 @@
+type bad
+  Made
+end
+
+pub type E = bad
+
+type E
+  Failure
+end
+
+fn main() -> E
+  1
+end

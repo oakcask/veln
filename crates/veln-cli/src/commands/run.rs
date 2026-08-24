@@ -249,7 +249,34 @@ fn checked_entry_arg_types(
         eprintln!("veln: run entry `{entry}` was not found");
         return Ok(None);
     };
+    if let Some(diagnostic) = invalid_entry_name_diagnostic(analysis, entry_function) {
+        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), vec![diagnostic]))?;
+        return Ok(None);
+    }
     validate_entry_args(entry_function, entry, entry_args)
+}
+
+fn invalid_entry_name_diagnostic(
+    analysis: &ProjectAnalysis,
+    entry_function: &Function,
+) -> Option<Diagnostic> {
+    let name_span = entry_function.name_span.as_ref()?;
+    analysis
+        .semantic_diagnostics()
+        .into_iter()
+        .find(|diagnostic| {
+            diagnostic.id == "name.invalid_case"
+                && diagnostic
+                    .span
+                    .as_ref()
+                    .is_some_and(|span| same_span(span, name_span))
+        })
+}
+
+fn same_span(left: &veln_source::SourceSpan, right: &veln_source::SourceSpan) -> bool {
+    left.file == right.file
+        && left.start.offset == right.start.offset
+        && left.end.offset == right.end.offset
 }
 
 fn validate_entry_args(
@@ -375,11 +402,16 @@ fn lower_run_entry(
     Ok(Some(ir))
 }
 
-fn run_reachable_diagnostic(reachable_module: &SurfaceModule, diagnostic: &Diagnostic) -> bool {
+fn run_reachable_diagnostic(
+    reachable_module: &SurfaceModule,
+    diagnostic_module: &SurfaceModule,
+    diagnostic: &Diagnostic,
+) -> bool {
     if diagnostic.id != "name.invalid_case" {
         return true;
     }
-    let casing_regions = run_reachable_identifier_casing_regions(reachable_module);
+    let casing_regions =
+        run_reachable_identifier_casing_regions(reachable_module, diagnostic_module);
     diagnostic.span.as_ref().is_some_and(|span| {
         casing_regions
             .iter()
@@ -387,17 +419,25 @@ fn run_reachable_diagnostic(reachable_module: &SurfaceModule, diagnostic: &Diagn
     })
 }
 
-fn run_reachable_identifier_casing_regions(module: &SurfaceModule) -> Vec<veln_source::SourceSpan> {
+fn run_reachable_identifier_casing_regions(
+    reachable_module: &SurfaceModule,
+    diagnostic_module: &SurfaceModule,
+) -> Vec<veln_source::SourceSpan> {
     let mut regions = Vec::new();
     regions.extend(
-        module
+        diagnostic_module
             .functions
             .iter()
             .map(|function| function.span.clone()),
     );
-    regions.extend(module.types.iter().map(|type_decl| type_decl.span.clone()));
     regions.extend(
-        run_reachable_handlers(module)
+        diagnostic_module
+            .types
+            .iter()
+            .map(|type_decl| type_decl.span.clone()),
+    );
+    regions.extend(
+        run_reachable_handlers(reachable_module)
             .into_iter()
             .map(|handler| handler.span.clone()),
     );

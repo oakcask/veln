@@ -135,8 +135,8 @@ pub(crate) fn suppress_quarantined_type_alias_derivatives(
     module: &SurfaceModule,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    let aliases = quarantined_type_alias_renders(module);
-    if aliases.is_empty() {
+    let targets = quarantined_type_alias_targets(module);
+    if targets.is_empty() {
         return;
     }
     diagnostics.retain(|diagnostic| {
@@ -145,9 +145,9 @@ pub(crate) fn suppress_quarantined_type_alias_derivatives(
         }
         let diagnostic_file = diagnostic.span.as_ref().map(|span| span.file.as_str());
         !diagnostic_type_names(diagnostic).iter().any(|name| {
-            aliases.qualified.contains(name)
+            targets.qualified.contains(name)
                 || diagnostic_file.is_some_and(|file| {
-                    aliases
+                    targets
                         .local
                         .contains(&(file.to_string(), name.to_string()))
                 })
@@ -155,12 +155,12 @@ pub(crate) fn suppress_quarantined_type_alias_derivatives(
     });
 }
 
-struct QuarantinedTypeAliasRenders {
+struct QuarantinedTypeAliasTargets {
     qualified: BTreeSet<String>,
     local: BTreeSet<(String, String)>,
 }
 
-impl QuarantinedTypeAliasRenders {
+impl QuarantinedTypeAliasTargets {
     fn is_empty(&self) -> bool {
         self.qualified.is_empty() && self.local.is_empty()
     }
@@ -180,7 +180,7 @@ fn diagnostic_type_names(diagnostic: &Diagnostic) -> Vec<String> {
         .collect()
 }
 
-fn quarantined_type_alias_renders(module: &SurfaceModule) -> QuarantinedTypeAliasRenders {
+fn quarantined_type_alias_targets(module: &SurfaceModule) -> QuarantinedTypeAliasTargets {
     let mut qualified = BTreeSet::new();
     let mut local = BTreeSet::new();
     for alias in module.aliases.iter().filter(|alias| {
@@ -191,18 +191,20 @@ fn quarantined_type_alias_renders(module: &SurfaceModule) -> QuarantinedTypeAlia
                 alias.module_name.as_deref(),
             )
     }) {
-        let Some(name) = alias.name.as_ref() else {
+        let Some(name) = alias.target.last() else {
             continue;
         };
-        if let Some(module_name) = alias.module_name.as_deref() {
+        let target_module =
+            type_alias_target_module(module, &alias.target, alias.module_name.as_deref());
+        if let Some(module_name) = target_module {
             qualified.insert(format!("{module_name}::{name}"));
         }
         local.insert((alias.span.file.as_str().to_string(), name.clone()));
     }
-    QuarantinedTypeAliasRenders { qualified, local }
+    QuarantinedTypeAliasTargets { qualified, local }
 }
 
-fn type_alias_targets_invalid_source_type(
+pub(crate) fn type_alias_targets_invalid_source_type(
     module: &SurfaceModule,
     segments: &[String],
     current_module: Option<&str>,
@@ -232,6 +234,25 @@ fn type_alias_targets_invalid_source_type(
                     && !valid_type_name(name)
             })
         }
+    }
+}
+
+fn type_alias_target_module(
+    module: &SurfaceModule,
+    segments: &[String],
+    current_module: Option<&str>,
+) -> Option<String> {
+    match segments {
+        [_] => current_module.map(str::to_string),
+        [_, .., _] => module
+            .uses
+            .iter()
+            .find(|use_decl| {
+                use_decl.module_name.as_deref() == current_module
+                    && use_decl.alias == segments[..segments.len() - 1].join("::")
+            })
+            .map(|use_decl| use_decl.name.clone()),
+        [] => None,
     }
 }
 

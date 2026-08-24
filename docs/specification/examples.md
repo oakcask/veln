@@ -18,12 +18,16 @@ Duplicate overlap and alias-mismatch suppression boundaries are checked by
 [`identifier-casing-duplicate-quarantine`](../../examples/specification/check/identifier-casing-duplicate-quarantine/case.toml),
 [`identifier-casing-alias-mismatch`](../../examples/specification/check/identifier-casing-alias-mismatch/case.toml), and
 [`identifier-casing-alias-same-leaf-mismatch`](../../examples/specification/check/identifier-casing-alias-same-leaf-mismatch/case.toml).
+Same-file valid declaration precedence over a quarantined alias is checked by
+[`identifier-casing-same-file-alias-valid-wins`](../../examples/specification/check/identifier-casing-same-file-alias-valid-wins/case.toml).
 Test declaration recovery compatibility is checked by
 [`identifier-casing-test-recovery`](../../examples/specification/check/identifier-casing-test-recovery/case.toml).
 The selected-entry command boundary is checked by
 [`identifier-casing-reachable`](../../examples/specification/run/identifier-casing-reachable/case.toml)
 and
 [`identifier-casing-unreachable`](../../examples/specification/run/identifier-casing-unreachable/case.toml).
+Invalid casing on the selected entry declaration itself is checked by
+[`identifier-casing-invalid-entry`](../../examples/specification/run/identifier-casing-invalid-entry/case.toml).
 Import and public-alias quarantine are checked by
 [`identifier-casing-import-quarantine`](../../examples/specification/run/identifier-casing-import-quarantine/case.toml)
 and

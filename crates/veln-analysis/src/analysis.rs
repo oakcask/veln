@@ -332,14 +332,18 @@ impl ProjectAnalysis {
         entry: &str,
         entry_kind: FunctionKind,
     ) -> (ReachableEntryAnalysis, AnalysisTiming) {
-        self.lower_reachable_entry_with_timing_and_diagnostic_filter(entry, entry_kind, |_, _| true)
+        self.lower_reachable_entry_with_timing_and_diagnostic_filter(
+            entry,
+            entry_kind,
+            |_, _, _| true,
+        )
     }
 
     pub fn lower_reachable_entry_with_timing_and_diagnostic_filter(
         &self,
         entry: &str,
         entry_kind: FunctionKind,
-        retain_diagnostic: impl Fn(&SurfaceModule, &Diagnostic) -> bool,
+        retain_diagnostic: impl Fn(&SurfaceModule, &SurfaceModule, &Diagnostic) -> bool,
     ) -> (ReachableEntryAnalysis, AnalysisTiming) {
         let start = std::time::Instant::now();
         let module = reachable_entry_module_with_standard_cache(
@@ -363,7 +367,7 @@ impl ProjectAnalysis {
                 &module,
                 &self.selected_standard,
                 &standard.environment,
-                |diagnostic| retain_diagnostic(&module, diagnostic),
+                |diagnostic| retain_diagnostic(&module, &diagnostic_module, diagnostic),
             );
         (
             ReachableEntryAnalysis { module, lowered },
@@ -627,6 +631,7 @@ mod tests {
 
     fn retain_run_reachable_casing_diagnostic_for_test(
         module: &SurfaceModule,
+        _diagnostic_module: &SurfaceModule,
         diagnostic: &veln_diagnostics::Diagnostic,
     ) -> bool {
         if diagnostic.id != "name.invalid_case" {

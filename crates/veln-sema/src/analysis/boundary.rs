@@ -1,6 +1,8 @@
 use super::*;
 use crate::adt::AdtRegistry;
-use crate::name_casing::{valid_function_name, valid_type_name};
+use crate::name_casing::{
+    type_alias_targets_invalid_source_type, valid_function_name, valid_type_name,
+};
 use crate::schema::dispatch::{
     SchemaDispatchCase, SchemaDispatchCasePayload, SchemaDispatchSpec,
     closed_dispatch_schema_primitive, extension_dispatch_schema_primitive,
@@ -765,11 +767,14 @@ pub(crate) fn check_duplicate_type_names(module: &SurfaceModule) -> Vec<Diagnost
             seen.insert(key, (node_id, type_decl.span.clone()));
         }
     }
-    for alias in module
-        .aliases
-        .iter()
-        .filter(|alias| alias.kind == PublicAliasKind::Type)
-    {
+    for alias in module.aliases.iter().filter(|alias| {
+        alias.kind == PublicAliasKind::Type
+            && !type_alias_targets_invalid_source_type(
+                module,
+                &alias.target,
+                alias.module_name.as_deref(),
+            )
+    }) {
         let Some(name) = &alias.name else {
             continue;
         };

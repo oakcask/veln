@@ -545,6 +545,43 @@ fn quarantined_import_alias_does_not_suppress_same_leaf_expected_type_mismatch()
 }
 
 #[test]
+fn quarantined_same_file_alias_does_not_suppress_valid_type_mismatch() {
+    let parsed = parse(&SourceFile::new(
+        "main.veln",
+        concat!(
+            "type bad\n",
+            "  Made\n",
+            "end\n",
+            "pub type E = bad\n",
+            "type E\n",
+            "  Failure\n",
+            "end\n",
+            "fn main() -> E\n",
+            "  1\n",
+            "end\n",
+        ),
+    ));
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.invalid_case"
+            && diagnostic.message == "type name must start with an ASCII uppercase letter"
+    }));
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.mismatch"
+                && diagnostic
+                    .details
+                    .to_json()
+                    .contains("\"expected_type\":\"E\"")),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn quarantined_import_alias_does_not_suppress_same_leaf_actual_type_mismatch() {
     let module = merged_modules(vec![
         SourceFile::new(

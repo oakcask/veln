@@ -102,7 +102,7 @@ requiring the full command reference on the first read.
   selected entry's reachable closure, import and public-alias quarantine for
   invalid source names as checked by `identifier-casing-reachable`,
   `identifier-casing-unreachable`, `identifier-casing-import-quarantine`,
-  `identifier-casing-alias-quarantine`, and
+  `identifier-casing-invalid-entry`, `identifier-casing-alias-quarantine`, and
   `identifier-casing-unused-type-alias-quarantine`, including first-class
   function value reachability that excludes quarantined invalid function targets,
   unreachable type aliases, and aliases to quarantined invalid type targets, and

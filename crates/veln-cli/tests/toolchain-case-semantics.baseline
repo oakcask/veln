@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"769a6575446a00f5f16d6a36385a5a38b5f9bde6"
+source_git_tree	"1a13f247de3f6da72a99418f44b261caa3aa652f"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1541
+case_count	1543
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -5569,6 +5569,20 @@ field	invocation.command[3]	"bad.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"a2cfbe2867d0632c155818dd49e01647ac850a9de788432bd27508416c1be7b8"
+case	"examples/specification/check/identifier-casing-same-file-alias-valid-wins"
+field	expectations.exit	1
+field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
+field	expectations.stdout.contains[1]	"\"id\":\"type.mismatch\""
+field	expectations.stdout.contains[2]	"\"expected_type\":\"E\""
+field	expectations.stdout.contains[3]	"\"actual_type\":\"Int\""
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"duplicate type alias name `E`"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"c1f5b62b9e2380ada6f89c82351f7bff98851000d1f7c4e0867523097671aba1"
 case	"examples/specification/check/identifier-casing-test-recovery"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -37783,6 +37797,18 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"expected"
 case_digest	"c7b01fe843a6186a224e76678a04cbd45b873f9bfb67e62308e69fa4c65d5552"
+case	"examples/specification/run/identifier-casing-invalid-entry"
+field	expectations.exit	1
+field	expectations.stderr.contains[0]	"main.veln:1:8: error[name.invalid_case]: function name must start with an ASCII lowercase letter"
+field	expectations.stderr.not_contains[0]	"name.unresolved"
+field	expectations.stderr.not_contains[1]	"run entry `Main` was not found"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"Main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"0127ed59c18f860140c8cf2bfad757222a0bc091e69163ee076ed15783ea40d9"
 case	"examples/specification/run/identifier-casing-local-binding-vs-invalid-constructor"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -48367,4 +48393,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"4c6c10981464821f439dd7c4bcce7ea704763df6bcbd24f030a324ea713438eb"
+aggregate_digest	"56e0914d877e5d38ccf65ce8173db3ddd91ee2bb865c0daac47141966da06804"
