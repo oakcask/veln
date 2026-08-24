@@ -14,6 +14,8 @@ Identifier casing and quarantined recovery are checked by
 [`identifier-casing-human`](../../examples/specification/check/identifier-casing-human/case.toml),
 [`identifier-casing-quarantine`](../../examples/specification/check/identifier-casing-quarantine/case.toml), and
 [`identifier-casing-value-recovery`](../../examples/specification/check/identifier-casing-value-recovery/case.toml).
+Public alias declaration-name casing is checked by
+[`identifier-casing-public-alias-declarations`](../../examples/specification/check/identifier-casing-public-alias-declarations/case.toml).
 Duplicate overlap and alias-mismatch suppression boundaries are checked by
 [`identifier-casing-duplicate-quarantine`](../../examples/specification/check/identifier-casing-duplicate-quarantine/case.toml),
 [`identifier-casing-alias-mismatch`](../../examples/specification/check/identifier-casing-alias-mismatch/case.toml), and
@@ -32,6 +34,13 @@ Import and public-alias quarantine are checked by
 [`identifier-casing-import-quarantine`](../../examples/specification/run/identifier-casing-import-quarantine/case.toml)
 and
 [`identifier-casing-alias-quarantine`](../../examples/specification/run/identifier-casing-alias-quarantine/case.toml).
+Imported invalid public-alias quarantine is checked by
+[`identifier-casing-imported-invalid-alias-quarantine`](../../examples/specification/run/identifier-casing-imported-invalid-alias-quarantine/case.toml).
+Reachable and unreachable public alias declaration-name boundaries are checked
+by
+[`identifier-casing-reachable-function-alias`](../../examples/specification/run/identifier-casing-reachable-function-alias/case.toml),
+[`identifier-casing-reachable-type-alias`](../../examples/specification/run/identifier-casing-reachable-type-alias/case.toml), and
+[`identifier-casing-unreachable-public-alias`](../../examples/specification/run/identifier-casing-unreachable-public-alias/case.toml).
 Resolution-aware run reachability is checked by
 [`identifier-casing-valid-function-vs-invalid-constructor`](../../examples/specification/run/identifier-casing-valid-function-vs-invalid-constructor/case.toml),
 [`identifier-casing-valid-constructor-vs-invalid-function`](../../examples/specification/run/identifier-casing-valid-constructor-vs-invalid-function/case.toml),
