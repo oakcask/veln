@@ -15,7 +15,10 @@ Current behavior is specified in
 `identifier-casing-reachable-recovery`, and
 `identifier-casing-unreachable-peer` cases cover exact diagnostics, parser
 recovery, checked-artifact blocking, and the `check`/`run` selection boundary.
-Focused semantic tests cover accepted names and expression-hole preservation.
+The checked `identifier-casing-public-alias-recovery-isolation-json` case
+covers the public-alias recovery boundary. Focused semantic tests cover
+accepted names, expression-hole preservation, valid lookup precedence,
+ambiguous recovery, and import isolation.
 
 ## Outcome
 

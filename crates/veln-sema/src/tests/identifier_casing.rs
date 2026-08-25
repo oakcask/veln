@@ -168,6 +168,33 @@ fn ambiguous_recovery_does_not_resolve() {
 }
 
 #[test]
+fn valid_function_lookup_ignores_same_source_recovery_records() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main() -> Int\n",
+            "  good()\n",
+            "end\n",
+            "fn good() -> Int\n",
+            "  1\n",
+            "end\n",
+            "fn Bad() -> Int\n",
+            "  2\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.id != "name.unresolved" || diagnostic.message != "unresolved call_target `good`"
+    }));
+    let environment = TypeEnvironment::from_module(&module);
+    assert!(environment.function("good").is_some());
+    assert!(environment.function("Bad").is_none());
+}
+
+#[test]
 fn recovery_is_not_visible_through_an_import() {
     let module = merged_modules(vec![
         SourceFile::new(
@@ -188,4 +215,43 @@ fn recovery_is_not_visible_through_an_import() {
         diagnostic.id == "name.unresolved"
             && diagnostic.message == "unresolved call_target `helper::Bad`"
     }));
+}
+
+#[test]
+fn recovery_is_not_visible_through_public_alias_targets() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn Bad() -> Int\n",
+            "  1\n",
+            "end\n",
+            "type item\n",
+            "  Value\n",
+            "end\n",
+            "pub fn exposed = Bad\n",
+            "pub type Exposed = item\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.invalid_case"
+            && diagnostic.message == "function name `Bad` must start with an ASCII lowercase letter"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.invalid_case"
+            && diagnostic.message == "type name `item` must start with an ASCII uppercase letter"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved function alias target `Bad`"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved type alias target `item`"
+    }));
+
+    let environment = TypeEnvironment::from_module(&module);
+    assert!(environment.function("exposed").is_none());
 }

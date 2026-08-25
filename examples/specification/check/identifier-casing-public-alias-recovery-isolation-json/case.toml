@@ -1,0 +1,33 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["name.invalid_case", "unresolved function alias target `Bad`", "unresolved type alias target `item`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "function name `Bad` must start with an ASCII lowercase letter"
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "type name `item` must start with an ASCII uppercase letter"
+
+[[diagnostics]]
+id = "name.unresolved"
+kind = "name"
+message = "unresolved function alias target `Bad`"
+
+[[diagnostics]]
+id = "name.unresolved"
+kind = "name"
+message = "unresolved type alias target `item`"

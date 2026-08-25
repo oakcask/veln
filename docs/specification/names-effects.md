@@ -22,6 +22,8 @@ compiler-known calls.
   `identifier-casing-underscore-recovery-human` cases define the diagnostic
   contract. The run cases `identifier-casing-reachable-recovery` and
   `identifier-casing-unreachable-peer` define selected-entry reachability.
+  The checked `identifier-casing-public-alias-recovery-isolation-json` case
+  fixes that quarantined recovery records do not satisfy public alias targets.
 
 - Namespaces, shadowing, duplicate checks, module ownership, external package
   imports, and manifest export checks:

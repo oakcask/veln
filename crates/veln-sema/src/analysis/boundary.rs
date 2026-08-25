@@ -4654,7 +4654,9 @@ fn function_target<'a>(
 ) -> Option<&'a veln_ast::Function> {
     match segments {
         [name] => module.functions.iter().find(|function| {
-            function.kind == FunctionKind::Function && function.name.as_deref() == Some(name)
+            function.kind == FunctionKind::Function
+                && function.name.as_deref() == Some(name)
+                && function.name.as_deref().is_some_and(valid_function_name)
         }),
         [_, .., name] => {
             let module_name = imported_module_for_path(
@@ -4665,6 +4667,7 @@ fn function_target<'a>(
             module.functions.iter().find(|function| {
                 function.kind == FunctionKind::Function
                     && function.name.as_deref() == Some(name)
+                    && function.name.as_deref().is_some_and(valid_function_name)
                     && function.module_name.as_deref() == Some(module_name)
             })
         }
@@ -4678,10 +4681,10 @@ fn type_target<'a>(
     current_module: Option<&str>,
 ) -> Option<&'a veln_ast::TypeDecl> {
     match segments {
-        [name] => module
-            .types
-            .iter()
-            .find(|type_decl| type_decl.name.as_deref() == Some(name)),
+        [name] => module.types.iter().find(|type_decl| {
+            type_decl.name.as_deref() == Some(name)
+                && type_decl.name.as_deref().is_some_and(valid_type_name)
+        }),
         [_, .., name] => {
             let module_name = imported_module_for_path(
                 &module.uses,
@@ -4690,11 +4693,20 @@ fn type_target<'a>(
             )?;
             module.types.iter().find(|type_decl| {
                 type_decl.name.as_deref() == Some(name)
+                    && type_decl.name.as_deref().is_some_and(valid_type_name)
                     && type_decl.module_name.as_deref() == Some(module_name)
             })
         }
         _ => None,
     }
+}
+
+fn valid_function_name(name: &str) -> bool {
+    name.as_bytes().first().is_some_and(u8::is_ascii_lowercase)
+}
+
+fn valid_type_name(name: &str) -> bool {
+    name.as_bytes().first().is_some_and(u8::is_ascii_uppercase)
 }
 
 fn imported_module_for_path<'a>(
