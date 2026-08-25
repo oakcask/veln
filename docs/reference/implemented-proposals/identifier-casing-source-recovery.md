@@ -17,17 +17,24 @@ Current behavior is specified in
 `identifier-casing-underscore-recovery-human`,
 `identifier-casing-underscore-recovery-json`,
 `identifier-casing-reachable-recovery`,
+`identifier-casing-reachable-recovery-json`,
 `identifier-casing-constructor-call-recovery`,
+`identifier-casing-constructor-call-recovery-json`,
 `identifier-casing-reachable-invalid-alias`,
+`identifier-casing-reachable-invalid-alias-json`,
 `identifier-casing-reachable-expression-type`,
-`identifier-casing-reachable-type-alias`, and
+`identifier-casing-reachable-expression-type-json`,
+`identifier-casing-reachable-type-alias`,
+`identifier-casing-reachable-type-alias-json`, and
 `identifier-casing-unreachable-peer` cases cover exact diagnostics, parser
 recovery, checked-artifact blocking, and the `check`/`run` selection boundary.
-The `identifier-casing-reachable-handler-bindings` case covers reachable
+The `identifier-casing-reachable-handler-bindings` and
+`identifier-casing-reachable-handler-bindings-json` cases cover reachable
 handler binding diagnostics under `run`.
 The checked `identifier-casing-import-recovery-isolation-json` and
-`identifier-casing-public-alias-recovery-isolation-json` cases cover the import
-and public-alias recovery boundaries. Focused semantic tests cover
+`identifier-casing-public-alias-recovery-isolation-json` cases and the run
+`identifier-casing-import-recovery-isolation-json` case cover the import and
+public-alias recovery boundaries. Focused semantic tests cover
 accepted names, expression-hole preservation, valid lookup precedence including
 same-spelled constructor/function recovery, ambiguous recovery, invalid
 value-binding quarantine from lookup and repair candidates, and import

@@ -50,6 +50,7 @@ pub(crate) fn run_entry(
         &inputs,
         &entry,
         &entry_args,
+        json,
         &mut timings,
     )?
     else {
@@ -93,11 +94,12 @@ fn prepare_run_program(
     inputs: &[PathBuf],
     entry: &str,
     entry_args: &[String],
+    json: bool,
     timings: &mut Option<RunAnalysisTimings>,
 ) -> Result<Option<PreparedRun>, String> {
     let analysis = analyze_run_project(root, inputs, timings.as_mut())?;
     write_harness_source_diagnostic_artifact(&analysis.checked_diagnostics())?;
-    if report_source_errors(&analysis)? {
+    if report_source_errors(json, &analysis)? {
         write_timings(timings)?;
         return Ok(None);
     }
@@ -106,7 +108,7 @@ fn prepare_run_program(
         write_timings(timings)?;
         return Ok(None);
     };
-    let Some(ir) = lower_run_entry(&analysis, entry, timings.as_mut())? else {
+    let Some(ir) = lower_run_entry(json, &analysis, entry, timings.as_mut())? else {
         write_timings(timings)?;
         return Ok(None);
     };
@@ -226,10 +228,10 @@ fn test_only_run_input_diagnostic(path: &str) -> Diagnostic {
     )
 }
 
-fn report_source_errors(analysis: &ProjectAnalysis) -> Result<bool, String> {
+fn report_source_errors(json: bool, analysis: &ProjectAnalysis) -> Result<bool, String> {
     let diagnostics = analysis.source_diagnostics();
     if has_error(&diagnostics) {
-        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), diagnostics))?;
+        report_pre_execution_diagnostics(json, diagnostics)?;
         return Ok(true);
     }
     Ok(false)
@@ -332,6 +334,7 @@ fn validate_entry_args(
 }
 
 fn lower_run_entry(
+    json: bool,
     analysis: &ProjectAnalysis,
     entry: &str,
     timings: Option<&mut RunAnalysisTimings>,
@@ -346,7 +349,7 @@ fn lower_run_entry(
     };
     let lowered = reachable.lowered;
     if has_error(&lowered.diagnostics) {
-        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), lowered.diagnostics))?;
+        report_pre_execution_diagnostics(json, lowered.diagnostics)?;
         return Ok(None);
     }
     if let Some(diagnostic) = retained_user_effect_diagnostic(
@@ -355,15 +358,28 @@ fn lower_run_entry(
         entry,
         FunctionKind::Function,
     ) {
-        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), vec![diagnostic]))?;
+        report_pre_execution_diagnostics(json, vec![diagnostic])?;
         return Ok(None);
     }
     let Some(ir) = lowered.ir else {
-        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), lowered.diagnostics))?;
+        report_pre_execution_diagnostics(json, lowered.diagnostics)?;
         eprintln!("veln: run blocked: checked program is not executable");
         return Ok(None);
     };
     Ok(Some(ir))
+}
+
+fn report_pre_execution_diagnostics(
+    json: bool,
+    diagnostics: Vec<Diagnostic>,
+) -> Result<(), String> {
+    let envelope = DiagnosticEnvelope::new(tool_info(), diagnostics);
+    if json {
+        println!("{}", envelope.to_json());
+    } else {
+        print_human_stderr(&envelope)?;
+    }
+    Ok(())
 }
 
 struct RunAnalysisTimings {

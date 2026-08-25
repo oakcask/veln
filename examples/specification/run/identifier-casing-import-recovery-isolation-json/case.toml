@@ -1,0 +1,67 @@
+command = ["run", "--json", "main", "app.veln", "helper.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.0.span.file"
+equals = "helper.veln"
+
+[[json_assert]]
+path = "diagnostics.0.details.name"
+equals = "Bad"
+
+[[json_assert]]
+path = "diagnostics.0.details.origin"
+equals = "source"
+
+[[json_assert]]
+path = "diagnostics.0.details.occurrence"
+equals = "declaration"
+
+[[json_assert]]
+path = "diagnostics.0.details.required_initial"
+equals = "ascii_lowercase"
+
+[[json_assert]]
+path = "diagnostics.0.details.observed_initial"
+equals = "ascii_uppercase"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "name.unresolved"
+
+[[json_assert]]
+path = "diagnostics.1.span.file"
+equals = "app.veln"
+
+[[json_assert]]
+path = "diagnostics.1.details.symbol"
+equals = "helper::Bad"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 2
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "function name `Bad` must start with an ASCII lowercase letter"
+
+[[diagnostics]]
+id = "name.unresolved"
+kind = "name"
+message = "unresolved call_target `helper::Bad`"

@@ -1,0 +1,58 @@
+command = ["run", "--json", "main", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.0.span.start.line"
+equals = 9
+
+[[json_assert]]
+path = "diagnostics.0.span.start.column"
+equals = 8
+
+[[json_assert]]
+path = "diagnostics.0.details.name"
+equals = "Exported"
+
+[[json_assert]]
+path = "diagnostics.0.details.name_class"
+equals = "function"
+
+[[json_assert]]
+path = "diagnostics.0.details.origin"
+equals = "source"
+
+[[json_assert]]
+path = "diagnostics.0.details.occurrence"
+equals = "declaration"
+
+[[json_assert]]
+path = "diagnostics.0.details.required_initial"
+equals = "ascii_lowercase"
+
+[[json_assert]]
+path = "diagnostics.0.details.observed_initial"
+equals = "ascii_uppercase"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "function name `Exported` must start with an ASCII lowercase letter"

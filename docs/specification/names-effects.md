@@ -33,20 +33,27 @@ compiler-known calls.
   recovery record suppresses only derivative unresolved-name diagnostics. The
   run cases
   `identifier-casing-reachable-recovery`,
+  `identifier-casing-reachable-recovery-json`,
   `identifier-casing-constructor-call-recovery`,
+  `identifier-casing-constructor-call-recovery-json`,
   `identifier-casing-reachable-invalid-alias`,
+  `identifier-casing-reachable-invalid-alias-json`,
   `identifier-casing-reachable-expression-type`,
-  `identifier-casing-reachable-type-alias`, and
+  `identifier-casing-reachable-expression-type-json`,
+  `identifier-casing-reachable-type-alias`,
+  `identifier-casing-reachable-type-alias-json`, and
   `identifier-casing-unreachable-peer` define selected-entry reachability for
   invalid functions, constructor calls, public aliases, expression-only
   constructor/type references, and the rule that reachable local value
   spellings and type references do not make unrelated invalid declarations
-  reachable. The `identifier-casing-reachable-handler-bindings` run case
-  defines reachable handler parameter and operation-clause parameter selection.
+  reachable. The `identifier-casing-reachable-handler-bindings` and
+  `identifier-casing-reachable-handler-bindings-json` run cases define
+  reachable handler parameter and operation-clause parameter selection.
   The checked `identifier-casing-import-recovery-isolation-json` and
-  `identifier-casing-public-alias-recovery-isolation-json` cases fix that
-  quarantined recovery records do not cross import boundaries or satisfy public
-  alias targets. Workspace snapshot and open-document overlay selection
+  `identifier-casing-public-alias-recovery-isolation-json` cases and the run
+  `identifier-casing-import-recovery-isolation-json` case fix that quarantined
+  recovery records do not cross import boundaries or satisfy public alias
+  targets. Workspace snapshot and open-document overlay selection
   evidence remains outside this source foundation.
 
 - Namespaces, shadowing, duplicate checks, module ownership, external package
