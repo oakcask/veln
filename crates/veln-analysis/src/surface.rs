@@ -2209,6 +2209,7 @@ fn module_with_reachable_functions(
 ) -> SurfaceModule {
     let functions = materialize_reachable_functions(inputs, reachable);
     let reachable_invalid_name_spans = reachable_invalid_name_declaration_spans(inputs, &functions);
+    let invalid_names_by_declaration = inputs.cloned_declarations(|module| &module.invalid_names);
     let invalid_names = inputs
         .cloned_declarations(|module| &module.invalid_names)
         .into_iter()
@@ -2221,9 +2222,7 @@ fn module_with_reachable_functions(
             .cloned_declarations(|module| &module.aliases)
             .into_iter()
             .filter(|alias| {
-                reachable_invalid_name_spans
-                    .iter()
-                    .any(|span| span == &alias.span)
+                !declaration_contains_invalid_name(&alias.span, &invalid_names_by_declaration)
             })
             .collect(),
         effects: inputs.cloned_declarations(|module| &module.effects),
@@ -2231,9 +2230,7 @@ fn module_with_reachable_functions(
             .cloned_declarations(|module| &module.handlers)
             .into_iter()
             .filter(|handler| {
-                reachable_invalid_name_spans
-                    .iter()
-                    .any(|span| span == &handler.span)
+                !declaration_contains_invalid_name(&handler.span, &invalid_names_by_declaration)
             })
             .collect(),
         types: inputs.cloned_declarations(|module| &module.types),
@@ -2242,6 +2239,15 @@ fn module_with_reachable_functions(
         functions,
         invalid_names,
     }
+}
+
+fn declaration_contains_invalid_name(
+    declaration: &SourceSpan,
+    invalid_names: &[veln_ast::InvalidName],
+) -> bool {
+    invalid_names
+        .iter()
+        .any(|invalid| span_contains(declaration, &invalid.span))
 }
 
 fn invalid_name_is_reachable(
