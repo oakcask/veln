@@ -26,7 +26,8 @@ compiler-known calls.
   `identifier-casing-binding-positions-human` cases define exact diagnostics
   for handler parameters, operation-clause parameters, pattern-head bindings,
   and hole `satisfy` bindings. The checked
-  `identifier-casing-underscore-recovery-human` case defines underscore-led
+  `identifier-casing-underscore-recovery-human` and
+  `identifier-casing-underscore-recovery-json` cases define underscore-led
   parser recovery without missing-name cascades. Invalid value bindings are
   kept out of normal local lookup and repair candidates; a unique same-function
   recovery record suppresses only derivative unresolved-name diagnostics. The
@@ -34,8 +35,13 @@ compiler-known calls.
   `identifier-casing-reachable-recovery` and `identifier-casing-unreachable-peer`
   define selected-entry reachability, including the rule that reachable local
   value spellings do not make unrelated invalid declarations reachable.
-  The checked `identifier-casing-public-alias-recovery-isolation-json` case
-  fixes that quarantined recovery records do not satisfy public alias targets.
+  The checked `identifier-casing-import-recovery-isolation-json` and
+  `identifier-casing-public-alias-recovery-isolation-json` cases fix that
+  quarantined recovery records do not cross import boundaries or satisfy public
+  alias targets. The LSP single-file diagnostics helper reports the same
+  parse-clean source casing diagnostics for that source. Workspace snapshot and
+  open-document overlay selection evidence remains outside this source
+  foundation.
 
 - Namespaces, shadowing, duplicate checks, module ownership, external package
   imports, and manifest export checks:

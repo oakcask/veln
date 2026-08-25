@@ -48,6 +48,12 @@ registries. It also depends on
 for `test`, `doc`, language-service snapshot and overlay, dependency,
 companion, and implicit-prelude selection evidence.
 
+The LSP single-file diagnostics helper now receives the same parse-clean
+source invalid-name records as `check`. That helper behavior is part of the
+implemented source foundation. This proposal still owns language-service
+snapshot, open-document overlay, navigation, and rename evidence until those
+rows are implemented.
+
 The lexer still tokenizes `_` as a standalone underscore and `_label` as a
 named hole rather than as an identifier. The parser already interprets `_` as a
 non-binding wildcard in supported binding and pattern positions.
@@ -66,6 +72,13 @@ casing evidence for the implemented source foundation; this proposal retains
 only the unimplemented casing extensions.
 
 ## Naming Contract
+
+This section describes the complete identifier-casing contract. The
+source-written type, constructor, function, test, public type-alias, public
+function-alias, and value-binding declaration and recovery subset is current
+behavior under [Names And Effects](../specification/names-effects.md). Rows
+for module identities, written qualified-use segments, alias target leaves,
+rename, and source-less registries remain proposed behavior.
 
 The first character of each declared name must match this table. `Uppercase`
 means one ASCII letter in `A` through `Z`. `Lowercase` means one ASCII letter
@@ -107,6 +120,13 @@ retains its existing type-versus-schema ambiguity rule because that source
 position intentionally admits both namespaces.
 
 ## Observable Rejections
+
+For implemented source declaration and binding positions, current behavior is
+specified by [Names And Effects](../specification/names-effects.md) and checked
+identifier-casing examples. The rejection rows below remain proposal scope only
+where they cover module identities, qualified-use segment roles, alias target
+leaves, rename, source-less registries, or the selection evidence delegated to
+[Identifier Casing Selection Boundaries](identifier-casing-selection-boundaries.md).
 
 Each invalid declaration or binding reports `name.invalid_case` at the complete
 name span. The primary message identifies the failed fact and required class.
@@ -196,6 +216,13 @@ path_segment`. It has the same class and initial fields plus `source_path`,
 also has its zero-based `segment_index` within the written path.
 
 ## Resolution Consequences
+
+The implemented source foundation quarantines invalid source declarations and
+bindings for `check`, `run`, and LSP single-file diagnostics. The remaining
+rules in this section are proposal scope where they require module identity
+validation, qualified-use segment validation, alias target-leaf validation,
+navigation, rename, source-less registries, or the deferred command and
+language-service selection boundary.
 
 For sources without casing diagnostics, ordinary expression calls and
 constructor patterns use these candidate classes. Dedicated schema, effect,
@@ -396,6 +423,13 @@ spelling as a compatibility exception or reintroduce a cross-class candidate.
 Casing uses the selection and reachability boundary already defined by each
 command. It does not add a workspace-global gate.
 
+The `check` and `run` rows are current behavior for the implemented
+source-written declaration and binding foundation. The `test`, `doc`, language
+service snapshot and overlay, dependency, companion, and implicit-prelude rows
+remain planned in
+[Identifier Casing Selection Boundaries](identifier-casing-selection-boundaries.md)
+until their executable evidence lands.
+
 | Consumer | Unit affected by a casing diagnostic | Required outcome |
 | --- | --- | --- |
 | `check` | The selected analysis set. | Report all selected diagnostics and do not return a successful checked artifact. |
@@ -457,13 +491,14 @@ does not become a constructor.
 
 ## Acceptance Model
 
+Rows covered by
+[Recovery-Aware Source Identifier Casing](../reference/implemented-proposals/identifier-casing-source-recovery.md)
+are no longer planned work. The table below retains only the unimplemented
+identifier-casing remainder and the deferred selection-boundary evidence.
+
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |
-| Check one accepted declaration from every name class. | The source passes casing validation and retains its existing semantic meaning. | Checked source-surface fixture plus focused parser and semantic tests. |
-| Check every row of the rejection table. | Each invalid name reports `name.invalid_case` at exactly that name with the class-specific primary message. | Table-driven diagnostic tests and human-output fixtures. |
-| Place `_`, `_value`, and `_Type` in expression, declaration, binding, pattern, written-module, and source-path-module positions. | `_` remains a wildcard only in supported positions; underscore-led name occurrences report the required class error; expression holes retain hole behavior; standalone `_` in a required-name position remains structural. | Lexer, parser-recovery, human, JSON, and source-path fixtures. |
 | Declare equal-spelled schemas, effects, handlers, operations, types, constructors, functions, and bindings. | Each dedicated source position selects its existing namespace, cross-namespace spellings do not create duplicates, ordinary calls exclude casing-neutral namespaces, and schema composition retains its existing ambiguity. | Namespace-by-use-role decision table with duplicate and definition cases. |
-| Check lowercase and uppercase `satisfy` candidates and an uppercase hole label. | The lowercase candidate is accepted, the uppercase candidate reports one exact-span binding diagnostic without an unresolved cascade, and the hole label remains outside the rule. | Semantic, human-output, JSON, and language-service cases. |
 | Check qualified uppercase and lowercase constructor patterns. | Uppercase final segments retain constructor behavior. Each lowercase final segment reports one exact-span casing diagnostic without constructor-resolution, arity, or exhaustiveness cascades. | Parser recovery, semantic, lowering, and exhaustiveness cases. |
 | Classify every segment of module-only, module-and-type, and prelude-qualified paths with each segment invalid in turn. | Every syntax- or resolution-fixed role receives its class diagnostic; unresolved intermediate roles are not guessed; all language-service operations observe the same decomposition. | Expression, pattern, type, alias-target, definition, reference, and rename decision table. |
 | Check function, type, and schema alias targets with independently valid and invalid declaration casing, target casing, and target kind. | Function and type leaves receive their class diagnostic; schema leaves stay casing-neutral; independently provable kind and unresolved failures coexist; recovery targets neither cascade nor export. | Exact ordered human and JSON alias-target table plus navigation cases. |
@@ -471,12 +506,12 @@ does not become a constructor.
 | Analyze an invalid derived module beside imports, duplicates, cycles, documentation, and metrics. | All invalid origin segments are reported; the source receives local diagnostics but no importable graph identity or emitted artifact; unrelated graph analysis continues. | Multi-segment module, import, duplicate, cycle, documentation, and metrics cases. |
 | Import a path whose final segment is also its implicit alias. | An invalid final segment produces one diagnostic owned by that segment, not separate path and alias diagnostics. | Single- and multi-segment import cases. |
 | Observe name ranges through every diagnostic and language-service consumer. | Parser-retained token spans, human and JSON spans, definition, references, prepare-rename, and rename ranges agree for each written name segment. | CRLF, preceding Unicode, multiline, recovery, and qualified-path fixtures. |
-| Resolve uses near invalid declarations in every compatible and incompatible use role. | A unique class-compatible quarantined symbol suppresses only derivative cascades and supports repair navigation; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for functions, constructors, types, and bindings across bare and qualified expressions and patterns. |
-| Cross a same-module, import, alias, exact-companion, dependency, and prelude boundary with an invalid declaration. | Recovery navigation exists only in the declaring source and lexical scope. No recovery symbol is imported, aliased, snapshotted, or lowered. | Boundary table covering diagnostics, definition, references, and artifacts. |
+| Resolve uses near invalid declarations in qualified, module-derived, dependency, companion, prelude, navigation, and rename roles not covered by the source foundation. | A unique class-compatible quarantined symbol suppresses only derivative cascades and supports repair navigation where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, boundary, definition, reference, and rename cases. |
+| Cross exact-companion, dependency, prelude, snapshot, and overlay boundaries with an invalid declaration. | Recovery navigation exists only in the declaring source and lexical scope. No recovery symbol is imported, aliased, snapshotted, or lowered. | Boundary table covering diagnostics, definition, references, and artifacts for deferred boundaries. |
 | Combine casing with structural, reserved-name, duplicate, ambiguity, target-kind, and unresolved failures. | Every direct and independently provable error appears once in the defined order with the required details and unchanged related notes; recovery-derived cascades do not appear. | Exact ordered human and JSON overlap tables, including an asserted reason for every expected absence. |
 | Request valid, class-changing, conflicting, and invalid-declaration repair renames. | Class-preserving and repair renames return complete linked edits. Class-changing requests return `rename.invalid_case`; predictable collisions return `rename.conflict`; failures return no edits. Path-derived module segments return no prepare range or file edits. | Shared language-service, LSP error-mapping, and planned MCP error-mapping cases. |
 | Register valid and invalid source-less lookup descriptors. | The release-mode registry gate either publishes one complete validated registry or returns `toolchain.invalid_symbol_case`; invalid descriptors never reach lookup, while internal names remain outside the gate. | Generated-table, injected-descriptor, release-mode, atomic-failure, and lookup-isolation tests. |
-| Run each command with casing errors inside and outside its selected unit. | `check`, `run`, `test`, `doc`, language-service overlays, and dependency analysis follow the command boundary table and never send an invalid symbol to a backend. | Command fixtures covering reachable and unreachable sources, selected and unselected tests, documentation exclusions, overlays, and loaded and unloaded dependencies. |
+| Run each deferred command or service consumer with casing errors inside and outside its selected unit. | `test`, `doc`, language-service snapshots and overlays, dependency analysis, companions, and the implicit prelude follow the command boundary table and never send an invalid symbol to a backend. | Command fixtures covering selected and unselected tests, documentation exclusions, overlays, loaded and unloaded dependencies, companions, and the implicit prelude. |
 | Use uppercase constructors and lowercase bindings in bare and qualified expressions and patterns. | Expressions, lowering targets, pattern classification, and exhaustiveness agree on the name class. | Semantic and lowering tests plus checked ADT expression and pattern examples. |
 | Attempt a former same-spelled callable-binding and constructor case. | One declaration is rejected by casing; no accepted source reaches a precedence decision between the two candidates. | Negative semantic fixture covering callable and non-callable local bindings. |
 | Navigate accepted function, binding, type, and constructor uses. | The language service selects only the symbol class fixed by the initial letter. | Definition, reference, and rename cases in `veln-language-service`. |

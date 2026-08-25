@@ -1,0 +1,23 @@
+command = ["check", "--json", "app.veln", "helper.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+equals_file = "case-text/stdout-1.json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "function name `Bad` must start with an ASCII lowercase letter"
+
+[[diagnostics]]
+id = "name.unresolved"
+kind = "name"
+message = "unresolved call_target `helper::Bad`"
