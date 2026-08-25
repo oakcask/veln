@@ -34,6 +34,157 @@ fn json_string_field_is(value: &JsonValue, field: &str, expected: &str) -> bool 
     )
 }
 
+fn valid_value_binding_name(name: &str) -> bool {
+    name.as_bytes().first().is_some_and(u8::is_ascii_lowercase)
+}
+
+fn invalid_value_binding_name(name: &str) -> bool {
+    !valid_value_binding_name(name)
+}
+
+fn invalid_local_binding_recovery_count(function: &Function, name: &str) -> usize {
+    let mut count = 0usize;
+    for param in &function.params {
+        if param.name == name && invalid_value_binding_name(&param.name) {
+            count += 1;
+        }
+    }
+    if let Some(binding) = &function.return_binding
+        && binding.name == name
+        && invalid_value_binding_name(&binding.name)
+    {
+        count += 1;
+    }
+    for line in &function.body {
+        match &line.kind {
+            BodyLineKind::Let { pattern, expr, .. } => {
+                count += invalid_pattern_binding_recovery_count(pattern, name);
+                count += invalid_expr_binding_recovery_count(expr, name);
+            }
+            BodyLineKind::Expr { expr } => {
+                count += invalid_expr_binding_recovery_count(expr, name);
+            }
+        }
+    }
+    count
+}
+
+fn invalid_expr_binding_recovery_count(expr: &Expr, name: &str) -> usize {
+    match &expr.kind {
+        ExprKind::Hole {
+            satisfy: Some(satisfy),
+            ..
+        } => satisfy.candidate.as_ref().map_or(0, |candidate| {
+            usize::from(candidate == name && invalid_value_binding_name(candidate))
+        }),
+        ExprKind::TypeApply { callee, .. }
+        | ExprKind::FieldAccess { base: callee, .. }
+        | ExprKind::Try(callee)
+        | ExprKind::Prefix { expr: callee, .. } => {
+            invalid_expr_binding_recovery_count(callee, name)
+        }
+        ExprKind::Call { callee, args } => {
+            invalid_expr_binding_recovery_count(callee, name)
+                + args
+                    .iter()
+                    .map(|arg| invalid_expr_binding_recovery_count(arg, name))
+                    .sum::<usize>()
+        }
+        ExprKind::Perform { args, .. } => args
+            .iter()
+            .map(|arg| invalid_expr_binding_recovery_count(arg, name))
+            .sum(),
+        ExprKind::Handle { body, args, .. } => {
+            invalid_expr_binding_recovery_count(body, name)
+                + args
+                    .iter()
+                    .map(|arg| invalid_expr_binding_recovery_count(arg, name))
+                    .sum::<usize>()
+        }
+        ExprKind::SchemaDecode { input, base, .. } => {
+            invalid_expr_binding_recovery_count(input, name)
+                + invalid_expr_binding_recovery_count(base, name)
+        }
+        ExprKind::SchemaEncode { value, .. } => invalid_expr_binding_recovery_count(value, name),
+        ExprKind::Record(fields) => fields
+            .iter()
+            .map(|field| invalid_expr_binding_recovery_count(&field.expr, name))
+            .sum(),
+        ExprKind::Dict(entries) => entries
+            .iter()
+            .map(|entry| {
+                invalid_expr_binding_recovery_count(&entry.key, name)
+                    + invalid_expr_binding_recovery_count(&entry.value, name)
+            })
+            .sum(),
+        ExprKind::List(items) => items
+            .iter()
+            .map(|item| invalid_expr_binding_recovery_count(item, name))
+            .sum(),
+        ExprKind::Match { scrutinee, arms } => {
+            invalid_expr_binding_recovery_count(scrutinee, name)
+                + arms
+                    .iter()
+                    .map(|arm| {
+                        invalid_pattern_binding_recovery_count(&arm.pattern, name)
+                            + invalid_expr_binding_recovery_count(&arm.expr, name)
+                    })
+                    .sum::<usize>()
+        }
+        ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            invalid_expr_binding_recovery_count(condition, name)
+                + invalid_expr_binding_recovery_count(then_branch, name)
+                + else_if_branches
+                    .iter()
+                    .map(|branch| {
+                        invalid_expr_binding_recovery_count(&branch.condition, name)
+                            + invalid_expr_binding_recovery_count(&branch.expr, name)
+                    })
+                    .sum::<usize>()
+                + invalid_expr_binding_recovery_count(else_branch, name)
+        }
+        ExprKind::Binary { left, right, .. } => {
+            invalid_expr_binding_recovery_count(left, name)
+                + invalid_expr_binding_recovery_count(right, name)
+        }
+        ExprKind::Missing
+        | ExprKind::Hole { .. }
+        | ExprKind::NamePath(_)
+        | ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
+        | ExprKind::Unit => 0,
+    }
+}
+
+fn invalid_pattern_binding_recovery_count(pattern: &Pattern, name: &str) -> usize {
+    match &pattern.kind {
+        PatternKind::Binding(candidate) => {
+            usize::from(candidate == name && invalid_value_binding_name(candidate))
+        }
+        PatternKind::Record(fields) => fields
+            .iter()
+            .map(|field| invalid_pattern_binding_recovery_count(&field.pattern, name))
+            .sum(),
+        PatternKind::Constructor { args, .. } => args
+            .iter()
+            .map(|arg| invalid_pattern_binding_recovery_count(arg, name))
+            .sum(),
+        PatternKind::Wildcard
+        | PatternKind::StringLiteral(_)
+        | PatternKind::IntLiteral(_)
+        | PatternKind::FloatLiteral(_)
+        | PatternKind::BoolLiteral(_)
+        | PatternKind::Unit => 0,
+    }
+}
+
 pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) function: &'a Function,
     pub(super) environment: &'a TypeEnvironment,
@@ -264,6 +415,9 @@ impl<'a> FunctionChecker<'a> {
         deferred_initializer_diagnostic: Option<usize>,
         pattern_has_diagnostic: bool,
     ) {
+        if !valid_value_binding_name(&binding.name) {
+            return;
+        }
         if !self.declare_local_name(
             &binding.name,
             binding.node_id.display("pattern"),
@@ -608,6 +762,9 @@ impl<'a> FunctionChecker<'a> {
             });
 
         self.check_variadic_parameter_shape(param, variadic_count, private_omitted_parameter);
+        if !valid_value_binding_name(&param.name) {
+            return;
+        }
         if !self.declare_local_name(
             &param.name,
             param.node_id.display("param"),
@@ -1338,7 +1495,9 @@ impl<'a> FunctionChecker<'a> {
                         .function
                         .return_binding
                         .as_ref()
-                        .is_some_and(|binding| binding.name == name)
+                        .is_some_and(|binding| {
+                            binding.name == name && valid_value_binding_name(&binding.name)
+                        })
                 {
                     return Some(JsonValue::object([
                         ("name", JsonValue::string(name)),
@@ -1362,6 +1521,7 @@ impl<'a> FunctionChecker<'a> {
         let mut bindings = self.bindings.clone();
         if kind == ContractKind::Ensure
             && let Some(result_binding) = &self.function.return_binding
+            && valid_value_binding_name(&result_binding.name)
         {
             bindings.push(Binding::new(
                 result_binding.name.clone(),
@@ -1938,7 +2098,8 @@ impl<'a> FunctionChecker<'a> {
                                 if !self.environment.has_unique_local_function_value_recovery(
                                     name,
                                     self.function.module_name.as_deref(),
-                                ) {
+                                ) && !self.has_unique_invalid_local_binding_recovery(name)
+                                {
                                     self.push_unresolved_name(
                                         expr.node_id,
                                         expr.span.clone(),
@@ -2342,7 +2503,7 @@ impl<'a> FunctionChecker<'a> {
                 name,
                 self.function.module_name.as_deref(),
                 args.len(),
-            ));
+            ) || self.has_unique_invalid_local_binding_recovery(name));
             if !recovered {
                 let symbol = segments.join("::");
                 self.push_unresolved_name(
@@ -2470,6 +2631,10 @@ impl<'a> FunctionChecker<'a> {
                 FunctionLookup::Found(function)
                     if function.module_name.as_deref() == self.function.module_name.as_deref()
             )
+    }
+
+    fn has_unique_invalid_local_binding_recovery(&self, name: &str) -> bool {
+        invalid_local_binding_recovery_count(self.function, name) == 1
     }
 
     fn bare_prelude_import_is_ambiguous(&self, name: &str) -> bool {
@@ -2732,6 +2897,9 @@ impl<'a> FunctionChecker<'a> {
             let saved_names = self.local_names.clone();
             let pattern_bindings = self.pattern_bindings(&arm.pattern, &scrutinee_type);
             for binding in pattern_bindings {
+                if !valid_value_binding_name(&binding.name) {
+                    continue;
+                }
                 if !self.declare_local_name(
                     &binding.name,
                     binding.node_id.display("pattern"),

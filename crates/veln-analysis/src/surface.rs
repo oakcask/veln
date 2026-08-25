@@ -2307,9 +2307,6 @@ fn collect_reachable_function_reference_names(function: &Function, names: &mut H
         collect_type_reference_names(param.ty.as_deref(), names);
     }
     collect_type_reference_names(function.return_type.as_deref(), names);
-    for contract in &function.contracts {
-        collect_token_reference_names(&contract.text, names);
-    }
     for line in &function.body {
         match &line.kind {
             veln_ast::BodyLineKind::Let {
@@ -2346,15 +2343,8 @@ fn collect_token_reference_names(text: &str, names: &mut HashSet<String>) {
 
 fn collect_expr_reference_names(expr: &Expr, names: &mut HashSet<String>) {
     match &expr.kind {
-        ExprKind::NamePath(segments) => collect_path_reference_names(segments, names),
-        ExprKind::Hole { satisfy, .. } => {
-            if let Some(candidate) = satisfy
-                .as_ref()
-                .and_then(|clause| clause.candidate.as_ref())
-            {
-                names.insert(candidate.clone());
-            }
-        }
+        ExprKind::NamePath(_) => {}
+        ExprKind::Hole { .. } => {}
         ExprKind::TypeApply { callee, type_args } => {
             collect_expr_reference_names(callee, names);
             for type_arg in type_args {
@@ -2454,9 +2444,7 @@ fn collect_expr_reference_names(expr: &Expr, names: &mut HashSet<String>) {
 
 fn collect_pattern_reference_names(pattern: &Pattern, names: &mut HashSet<String>) {
     match &pattern.kind {
-        PatternKind::Binding(name) => {
-            names.insert(name.clone());
-        }
+        PatternKind::Binding(_) => {}
         PatternKind::Constructor { name, args } => {
             collect_path_reference_names(name, names);
             for arg in args {
@@ -5192,6 +5180,27 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(invalid_names, vec!["item", "value"]);
+    }
+
+    #[test]
+    fn run_entry_does_not_reach_invalid_type_from_local_value_spelling() {
+        let module = lower(concat!(
+            "fn main() -> Int\n",
+            "  let item = 1\n",
+            "  item\n",
+            "end\n",
+            "type item\n",
+            "  value\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert!(
+            reachable.invalid_names.is_empty(),
+            "{:#?}",
+            reachable.invalid_names
+        );
     }
 
     #[test]

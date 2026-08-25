@@ -116,6 +116,59 @@ fn underscore_led_binding_recovers_without_missing_identifier_diagnostic() {
 }
 
 #[test]
+fn invalid_value_bindings_suppress_derivative_unresolved_without_lookup() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(_input: Int) -> _output: Int\n",
+            "  let Local = _input\n",
+            "  Local\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+            .count(),
+        3,
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.unresolved"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn invalid_value_bindings_do_not_enter_repair_candidates() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(limit: Int) -> Int\n",
+            "  let Candidate = limit\n",
+            "  _value satisfy candidate => candidate == Candidate\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+    let hole = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "hole.unfilled")
+        .expect("hole diagnostic");
+    let details = hole.details.to_json();
+
+    assert!(!details.contains("\"name\":\"Candidate\""), "{details}");
+    assert!(details.contains("\"name\":\"limit\""), "{details}");
+}
+
+#[test]
 fn unique_same_source_recovery_suppresses_only_derivative_missing_name() {
     let source = SourceFile::new(
         "main.veln",

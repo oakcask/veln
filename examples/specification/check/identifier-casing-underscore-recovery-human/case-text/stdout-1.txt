@@ -1,0 +1,7 @@
+main.veln:1:4: error[name.invalid_case]: function name `_build` must start with an ASCII lowercase letter
+main.veln:1:11: error[name.invalid_case]: binding name `_input` must start with an ASCII lowercase letter
+main.veln:1:27: error[name.invalid_case]: binding name `_output` must start with an ASCII lowercase letter
+main.veln:2:7: error[name.invalid_case]: binding name `_local` must start with an ASCII lowercase letter
+main.veln:2:16: hint[hole.unfilled]: hole requires a value of unknown type
+main.veln:3:3: hint[hole.unfilled]: hole requires a `Int` value
+  note: main.veln:1:1: Return type declared here.

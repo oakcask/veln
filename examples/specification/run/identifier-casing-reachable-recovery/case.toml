@@ -7,4 +7,4 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["error[name.invalid_case]: function name `Bad` must start with an ASCII lowercase letter"]
+equals_file = "case-text/stderr-1.txt"

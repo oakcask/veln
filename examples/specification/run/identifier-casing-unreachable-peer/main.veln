@@ -1,5 +1,6 @@
 fn main() -> Int
-  1
+  let item = 1
+  item
 end
 
 fn Bad() -> Int

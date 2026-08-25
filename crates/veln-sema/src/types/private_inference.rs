@@ -13,6 +13,10 @@ use crate::type_syntax::parse_type_or_unknown;
 use crate::types::signatures::{FunctionSignature, MatchScrutineePatternInference};
 use crate::types::symbols::imported_use_for_path;
 
+fn valid_value_binding_name(name: &str) -> bool {
+    name.as_bytes().first().is_some_and(u8::is_ascii_lowercase)
+}
+
 type FunctionAstMap<'a> = BTreeMap<FunctionKey, &'a Function>;
 type FunctionSignatureMap = BTreeMap<FunctionKey, FunctionSignature>;
 type FunctionReturnMap = BTreeMap<FunctionKey, Type>;
@@ -592,13 +596,18 @@ fn private_reference_initial_bindings(function: &Function) -> Vec<Binding> {
     function
         .params
         .iter()
+        .filter(|param| valid_value_binding_name(&param.name))
         .map(|param| Binding::new(param.name.clone(), function_body_param_type(param)))
         .collect()
 }
 
 fn collect_private_reference_pattern_bindings(pattern: &Pattern, bindings: &mut Vec<Binding>) {
     match &pattern.kind {
-        PatternKind::Binding(name) => bindings.push(Binding::new(name.clone(), Type::Unknown)),
+        PatternKind::Binding(name) => {
+            if valid_value_binding_name(name) {
+                bindings.push(Binding::new(name.clone(), Type::Unknown));
+            }
+        }
         PatternKind::Record(fields) => {
             for field in fields {
                 collect_private_reference_pattern_bindings(&field.pattern, bindings);
@@ -1770,6 +1779,7 @@ fn collect_private_prelude_callback_return_constraints(
     let mut bindings = function
         .params
         .iter()
+        .filter(|param| valid_value_binding_name(&param.name))
         .map(|param| Binding::new(param.name.clone(), function_body_param_type(param)))
         .collect::<Vec<_>>();
     let declared_return = function
@@ -1916,6 +1926,7 @@ fn private_prelude_callback_function_can_constrain(
     let mut bindings = function
         .params
         .iter()
+        .filter(|param| valid_value_binding_name(&param.name))
         .map(|param| Binding::new(param.name.clone(), function_body_param_type(param)))
         .collect::<Vec<_>>();
     let declared_return = function
@@ -2664,6 +2675,7 @@ fn private_function_body_bindings(
         .params
         .iter()
         .enumerate()
+        .filter(|(_, param)| valid_value_binding_name(&param.name))
         .map(|(index, param)| {
             let ty = if param.is_variadic {
                 signature
@@ -3284,10 +3296,16 @@ fn collect_let_pattern_bindings(
     bindings: &mut Vec<Binding>,
 ) {
     match &pattern.kind {
-        PatternKind::Binding(name) => bindings.push(match private_function_value {
-            Some(target) => Binding::private_function_value(name.clone(), ty.clone(), target),
-            None => Binding::new(name.clone(), ty.clone()),
-        }),
+        PatternKind::Binding(name) => {
+            if valid_value_binding_name(name) {
+                bindings.push(match private_function_value {
+                    Some(target) => {
+                        Binding::private_function_value(name.clone(), ty.clone(), target)
+                    }
+                    None => Binding::new(name.clone(), ty.clone()),
+                });
+            }
+        }
         PatternKind::Record(fields) => {
             for field in fields {
                 let field_ty = ty.record_field(&field.name).unwrap_or(&Type::Unknown);
