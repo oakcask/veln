@@ -41,7 +41,16 @@ compiler-known calls.
   `identifier-casing-constructor-pattern-boundary` case covers local pattern
   bindings selected by pattern syntax and preserves bare constructor patterns.
   The checked `identifier-casing-valid-wins` case covers normal lookup winning
-  over a compatible invalid recovery record.
+  over a compatible invalid recovery record. The checked
+  `identifier-casing-recovery-ambiguous` case covers ambiguous compatible
+  recovery records selecting no record. The checked
+  `identifier-casing-import-boundary`,
+  `identifier-casing-public-alias-boundary`, and
+  `identifier-casing-public-alias-kind-quarantine` cases cover import and
+  public-alias quarantine boundaries. Direct semantic artifact tests assert
+  that invalid functions, types, constructors, value bindings, and public
+  aliases are absent from surface exports, checked core, and typed IR before
+  backend input.
 - Namespaces, shadowing, duplicate checks, module ownership, external package
   imports, and manifest export checks:
   [names-effects-full.md](names-effects-full.md#name-resolution).

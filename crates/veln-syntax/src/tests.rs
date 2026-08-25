@@ -1925,6 +1925,60 @@ fn rejects_hole_tokens_in_qualified_expression_paths() {
 }
 
 #[test]
+fn preserves_contextual_keyword_segments_in_paths_and_alias_targets() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "use handler\n",
+            "\n",
+            "pub fn alias = handler::target\n",
+            "\n",
+            "fn main(body: ()) -> ()\n",
+            "  module::handler()\n",
+            "  perform handler::op()\n",
+            "  handle body with handler()\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(output.tree.uses[0].name, "handler");
+    let SyntaxItem::PublicAlias(alias) = &output.tree.items[0] else {
+        panic!("expected public alias");
+    };
+    assert_eq!(alias.target, vec!["handler", "target"]);
+    let SyntaxItem::Function(function) = &output.tree.items[1] else {
+        panic!("expected function");
+    };
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression");
+    };
+    assert!(matches!(
+        &expr.kind,
+        ExprKind::Call { callee, .. }
+            if matches!(&callee.kind, ExprKind::NamePath(segments)
+                if segments == &vec!["module".to_string(), "handler".to_string()])
+    ));
+    let BodyLine::Expr { expr, .. } = &function.body[1] else {
+        panic!("expected expression");
+    };
+    assert!(matches!(
+        &expr.kind,
+        ExprKind::Perform { effect, operation, .. }
+            if effect == &vec!["handler".to_string()] && operation == "op"
+    ));
+    let BodyLine::Expr { expr, .. } = &function.body[2] else {
+        panic!("expected expression");
+    };
+    assert!(matches!(
+        &expr.kind,
+        ExprKind::Handle { handler, .. } if handler == &vec!["handler".to_string()]
+    ));
+}
+
+#[test]
 fn parses_type_argument_call_callees() {
     let source = SourceFile::new(
         "main.veln",

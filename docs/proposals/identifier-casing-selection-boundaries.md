@@ -13,8 +13,8 @@ the command and source-selection boundaries that are not part of the initial
 
 This proposal depends on
 [Recovery-Aware Source Identifier Casing](../reference/implemented-proposals/identifier-casing-source-recovery.md).
-It becomes selectable only after that foundation is implemented and specified
-as current behavior.
+That recovery foundation is implemented and specified as current behavior, so
+this proposal is Ready.
 
 ## Scope
 

@@ -1,0 +1,17 @@
+use handler
+
+pub fn alias = handler::target
+
+effect E
+	op() -> ()
+end
+
+handler handler() handles E
+	op() => ()
+end
+
+fn main(body: ()) -> () effects [E]
+	module::handler()
+	perform handler::op()
+	handle body with handler()
+end

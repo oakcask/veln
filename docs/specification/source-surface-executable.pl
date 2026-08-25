@@ -859,9 +859,12 @@ binary_op --> tok(slash).
 
 binding_name --> ident_text(Text), { string_chars(Text, [First | _]), \+ char_type(First, upper) }.
 upper_name --> ident_text(Text), { string_chars(Text, [First | _]), char_type(First, upper) }.
-ident --> tok(ident).
-ident_text(Text) --> [t(ident, Text)].
-ident_text(Expected) --> [t(ident, Expected)].
+ident --> ordinary_ident_token_text(_).
+ident_text(Text) --> ordinary_ident_token_text(Text).
+
+ordinary_ident_token_text(Text) -->
+    [t(Kind, Text)],
+    { memberchk(Kind, [ident, handle, handler, handles]) }.
 
 nls --> nl, !, nls.
 nls --> [].

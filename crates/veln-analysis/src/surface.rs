@@ -4509,9 +4509,10 @@ mod tests {
     use veln_syntax::parse;
 
     use super::{
-        Diagnostic, EmbeddedStandardModuleEntry, EmbeddedStandardPackage, ReachabilityCache,
-        SurfaceParts, embedded_standard_counters, load_embedded_standard_package_from,
-        load_project_sources, load_surface_module, reachability_counters, reachable_entry_module,
+        CasingNameClass, Diagnostic, EmbeddedStandardModuleEntry, EmbeddedStandardPackage,
+        ReachabilityCache, SurfaceParts, embedded_standard_counters,
+        load_embedded_standard_package_from, load_project_sources, load_surface_module,
+        load_surface_modules, reachability_counters, reachable_entry_module,
         reachable_entry_module_with_standard_cache, validate_manifest_exports,
     };
 
@@ -7236,6 +7237,172 @@ mod tests {
                 ("_Arm", 14, 5, 9),
             ],
         );
+    }
+
+    #[test]
+    fn invalid_identifier_casing_is_quarantined_before_checked_artifacts() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "type lower\n",
+                "  Ready\n",
+                "end\n",
+                "\n",
+                "fn Bad() -> Int\n",
+                "  1\n",
+                "end\n",
+                "\n",
+                "fn helper() -> Int\n",
+                "  1\n",
+                "end\n",
+                "\n",
+                "pub fn _alias = helper\n",
+                "pub type _Good = Good\n",
+                "\n",
+                "pub fn main(_Param: Int) -> Int\n",
+                "  let _Local = 1\n",
+                "  1\n",
+                "end\n",
+            ),
+        );
+        let project = Project {
+            root: ".".into(),
+            files: vec![source],
+            manifest: None,
+        };
+
+        let (loaded, diagnostics) = load_surface_modules(&project);
+        let module = loaded.application;
+        let casing_diagnostics = loaded
+            .casing_records
+            .iter()
+            .map(|record| &record.diagnostic)
+            .collect::<Vec<_>>();
+
+        assert!(
+            casing_diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "name.invalid_case"),
+            "{casing_diagnostics:#?}"
+        );
+        assert!(
+            module
+                .functions
+                .iter()
+                .all(|function| function.name.as_deref() != Some("Bad")),
+            "invalid function should not enter the surface artifact: {:#?}",
+            module.functions
+        );
+        assert!(
+            module
+                .types
+                .iter()
+                .all(|type_decl| type_decl.name.as_deref() != Some("lower")),
+            "invalid type should not enter the surface artifact: {:#?}",
+            module.types
+        );
+        let constructor_source = SourceFile::new(
+            "constructors.veln",
+            concat!(
+                "type Good\n",
+                "  Ready\n",
+                "  _Bad\n",
+                "end\n",
+                "\n",
+                "fn main() -> Int\n",
+                "  1\n",
+                "end\n",
+            ),
+        );
+        let constructor_project = Project {
+            root: ".".into(),
+            files: vec![constructor_source],
+            manifest: None,
+        };
+        let (constructor_loaded, _) = load_surface_modules(&constructor_project);
+        assert!(
+            constructor_loaded.casing_records.iter().any(|record| {
+                record.name == "_Bad" && record.name_class == CasingNameClass::Constructor
+            }),
+            "{:#?}",
+            constructor_loaded.casing_records
+        );
+        let good = constructor_loaded
+            .application
+            .types
+            .iter()
+            .find(|type_decl| type_decl.name.as_deref() == Some("Good"))
+            .unwrap_or_else(|| {
+                panic!(
+                    "valid peer type should remain: {:#?}",
+                    constructor_loaded.application.types
+                )
+            });
+        assert!(
+            good.variants
+                .iter()
+                .all(|variant| variant.name.as_deref() != Some("_Bad")),
+            "invalid constructor should not enter the surface artifact: {good:#?}"
+        );
+        assert!(
+            module.aliases.iter().all(|alias| {
+                alias.name.as_deref() != Some("_alias") && alias.name.as_deref() != Some("_Good")
+            }),
+            "invalid public aliases should not enter the export surface: {:#?}",
+            module.aliases
+        );
+        let main = module
+            .functions
+            .iter()
+            .find(|function| function.name.as_deref() == Some("main"))
+            .expect("valid main should remain");
+        assert!(
+            main.params[0].name.starts_with("__invalid_case_binding-"),
+            "invalid parameter should be rewritten before lowering: {main:#?}"
+        );
+
+        let lowered = veln_sema::lower_analyzed_surface_module(&module, diagnostics);
+
+        assert!(
+            lowered.diagnostics.is_empty(),
+            "quarantined module should lower after casing diagnostics are withheld: {:#?}",
+            lowered.diagnostics
+        );
+        let core = lowered.core.expect("checked core should be built");
+        assert!(
+            core.functions.iter().all(|function| function.name != "Bad"),
+            "invalid function should not enter checked core: {core:#?}"
+        );
+        let core_main = core
+            .functions
+            .iter()
+            .find(|function| function.name == "main")
+            .expect("main should enter checked core");
+        assert!(
+            core_main.params[0]
+                .name
+                .starts_with("__invalid_case_binding-"),
+            "checked core should see only the quarantined parameter: {core_main:#?}"
+        );
+        assert_ne!(core_main.params[0].name, "_Param");
+
+        let ir = lowered.ir.expect("typed IR should be built");
+        assert!(
+            ir.functions.iter().all(|function| function.name != "Bad"),
+            "invalid function should not enter typed IR: {ir:#?}"
+        );
+        let ir_main = ir
+            .functions
+            .iter()
+            .find(|function| function.name == "main")
+            .expect("main should enter typed IR");
+        assert!(
+            ir_main.params[0]
+                .name
+                .starts_with("__invalid_case_binding-"),
+            "typed IR should see only the quarantined parameter: {ir_main:#?}"
+        );
+        assert_ne!(ir_main.params[0].name, "_Param");
     }
 
     fn assert_value_binding_casing_spans(

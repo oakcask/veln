@@ -14,7 +14,14 @@ use crate::{
     TypeVariantField, TypeVariantFieldDelimiter, UseDecl, UsePackage, Visibility, lex,
 };
 
-fn is_contextual_identifier(kind: TokenKind) -> bool {
+fn is_ordinary_contextual_identifier(kind: TokenKind) -> bool {
+    matches!(
+        kind,
+        TokenKind::Ident | TokenKind::Handle | TokenKind::Handler | TokenKind::Handles
+    )
+}
+
+fn is_recoverable_identifier(kind: TokenKind) -> bool {
     matches!(
         kind,
         TokenKind::Ident
@@ -507,7 +514,7 @@ impl<'a> Parser<'a> {
                     Some(TokenKind::Fn | TokenKind::Type | TokenKind::Schema),
                     Some(name),
                     Some(TokenKind::Equal)
-                ) if is_contextual_identifier(name)
+                ) if is_recoverable_identifier(name)
             )
     }
 
@@ -1654,7 +1661,9 @@ impl<'a> Parser<'a> {
                 .map(|token| self.source.span(token.range))
                 .unwrap_or_else(|| self.source.span(start));
             let name = name_token.map(|token| token.text);
-            if name.is_none() && !recoverable_names && is_contextual_identifier(self.current().kind)
+            if name.is_none()
+                && !recoverable_names
+                && is_ordinary_contextual_identifier(self.current().kind)
             {
                 self.bump();
             }
@@ -2157,7 +2166,7 @@ impl<'a> Parser<'a> {
         context: &'static str,
         expected: &'static str,
     ) -> Option<Token> {
-        if self.at(TokenKind::Ident) {
+        if is_ordinary_contextual_identifier(self.current().kind) {
             return Some(self.bump());
         }
         self.error_current(
@@ -2176,7 +2185,7 @@ impl<'a> Parser<'a> {
         context: &'static str,
         expected: &'static str,
     ) -> Option<Token> {
-        if is_contextual_identifier(self.current().kind) {
+        if is_recoverable_identifier(self.current().kind) {
             return Some(self.bump());
         }
         self.error_current(
@@ -3014,7 +3023,7 @@ impl<'a> ExprParser<'a> {
                 "schema decode expression has an incomplete schema path",
             ),
         };
-        if self.at(TokenKind::Ident) {
+        if is_ordinary_contextual_identifier(self.current().kind) {
             segments.push(self.bump().text);
         } else {
             self.error_current(
@@ -3026,7 +3035,7 @@ impl<'a> ExprParser<'a> {
             );
         }
         while self.eat(TokenKind::DoubleColon).is_some() {
-            if self.at(TokenKind::Ident) {
+            if is_ordinary_contextual_identifier(self.current().kind) {
                 segments.push(self.bump().text);
             } else {
                 self.error_current(
@@ -3443,7 +3452,8 @@ impl<'a> ExprParser<'a> {
             return None;
         }
         let start = self.bump().range;
-        let (candidate, candidate_span) = if is_contextual_identifier(self.current().kind) {
+        let (candidate, candidate_span) = if is_ordinary_contextual_identifier(self.current().kind)
+        {
             let token = self.bump();
             let span = self.source.span(token.range);
             (Some(token.text), Some(span))
@@ -3521,7 +3531,8 @@ impl<'a> ExprParser<'a> {
         let mut end = start;
         let mut segments = vec![self.bump().text];
         while self.eat(TokenKind::DoubleColon).is_some() {
-            if self.at(TokenKind::Ident) || self.at(TokenKind::Decode) {
+            if is_ordinary_contextual_identifier(self.current().kind) || self.at(TokenKind::Decode)
+            {
                 let segment = self.bump();
                 end = segment.range;
                 segments.push(segment.text);
@@ -3560,7 +3571,7 @@ impl<'a> ExprParser<'a> {
         expected_name: &'static str,
     ) -> Vec<String> {
         let mut segments = Vec::new();
-        if self.at(TokenKind::Ident) {
+        if is_ordinary_contextual_identifier(self.current().kind) {
             segments.push(self.bump().text);
         } else {
             self.error_current(
@@ -3572,7 +3583,7 @@ impl<'a> ExprParser<'a> {
             );
         }
         while self.eat(TokenKind::DoubleColon).is_some() {
-            if self.at(TokenKind::Ident) {
+            if is_ordinary_contextual_identifier(self.current().kind) {
                 segments.push(self.bump().text);
             } else {
                 self.error_current(

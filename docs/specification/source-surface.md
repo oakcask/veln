@@ -40,6 +40,11 @@ is not enough.
   `identifier-casing-parse-recovery-independent` checks that standalone `_`
   keeps its structural parse behavior while independent covered names still
   report casing.
+- Contextual keyword tokens `handle`, `handler`, and `handles` remain ordinary
+  identifier segments outside underscore-led recovery. The accepted
+  `contextual-keyword-identifiers` source-surface fixture checks module paths,
+  qualified expression paths, perform paths, handler paths, and public-alias
+  target paths.
 
 ## Test Companion Sources
 
