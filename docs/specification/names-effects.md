@@ -32,9 +32,13 @@ compiler-known calls.
   kept out of normal local lookup and repair candidates; a unique same-function
   recovery record suppresses only derivative unresolved-name diagnostics. The
   run cases
-  `identifier-casing-reachable-recovery` and `identifier-casing-unreachable-peer`
-  define selected-entry reachability, including the rule that reachable local
-  value spellings and type references do not make unrelated invalid declarations
+  `identifier-casing-reachable-recovery`,
+  `identifier-casing-reachable-invalid-alias`,
+  `identifier-casing-reachable-expression-type`, and
+  `identifier-casing-unreachable-peer` define selected-entry reachability,
+  including reachable invalid public function aliases and expression-only
+  constructor/type references, plus the rule that reachable local value
+  spellings and type references do not make unrelated invalid declarations
   reachable.
   The checked `identifier-casing-import-recovery-isolation-json` and
   `identifier-casing-public-alias-recovery-isolation-json` cases fix that

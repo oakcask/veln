@@ -7,6 +7,7 @@ pub(crate) struct TypeEnvironment {
     functions: Vec<FunctionSignature>,
     functions_by_name: HashMap<String, Vec<usize>>,
     function_recoveries: BTreeMap<FunctionRecoveryKey, usize>,
+    constructor_recoveries: BTreeMap<ConstructorRecoveryKey, usize>,
     codec_calls: Vec<CodecCallSignature>,
     effects: Vec<EffectSignature>,
     handlers: Vec<HandlerSignature>,
@@ -101,6 +102,16 @@ impl TypeEnvironment {
                 })
                 .map(|(key, count)| (key.clone(), *count))
                 .collect(),
+            constructor_recoveries: self
+                .constructor_recoveries
+                .iter()
+                .filter(|(key, _)| {
+                    key.module_name
+                        .as_ref()
+                        .is_none_or(|module| module_names.contains(module))
+                })
+                .map(|(key, count)| (key.clone(), *count))
+                .collect(),
             codec_calls: selected_standard_facts(&self.codec_calls, module_names, |signature| {
                 signature.module_name.as_deref()
             }),
@@ -184,6 +195,21 @@ impl TypeEnvironment {
                 key.module_name.as_deref() == current_module
                     && key.name.as_str() == name
                     && key.accepts_arg_count(arg_count)
+            })
+            .map(|(_, count)| *count)
+            .sum::<usize>()
+            == 1
+    }
+
+    pub(crate) fn has_unique_local_constructor_value_recovery(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+    ) -> bool {
+        self.constructor_recoveries
+            .iter()
+            .filter(|(key, _)| {
+                key.module_name.as_deref() == current_module && key.name.as_str() == name
             })
             .map(|(_, count)| *count)
             .sum::<usize>()
@@ -748,4 +774,10 @@ impl FunctionRecoveryKey {
             arg_count == self.fixed_arg_count
         }
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct ConstructorRecoveryKey {
+    module_name: Option<String>,
+    name: String,
 }

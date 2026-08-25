@@ -2223,6 +2223,9 @@ fn module_with_reachable_functions(
             .into_iter()
             .filter(|alias| {
                 !declaration_contains_invalid_name(&alias.span, &invalid_names_by_declaration)
+                    || reachable_invalid_name_spans
+                        .iter()
+                        .any(|span| span == &alias.span)
             })
             .collect(),
         effects: inputs.cloned_declarations(|module| &module.effects),
@@ -2270,15 +2273,29 @@ fn reachable_invalid_name_declaration_spans(
         .iter()
         .map(|function| function.span.clone())
         .collect::<Vec<_>>();
-    let mut names = HashSet::new();
+    let mut declaration_names = HashSet::new();
+    let mut function_reference_names = HashSet::new();
     for function in functions {
-        collect_reachable_function_reference_names(function, &mut names);
+        collect_reachable_function_reference_names(
+            function,
+            &mut declaration_names,
+            &mut function_reference_names,
+        );
+    }
+    for alias in inputs.aliases() {
+        if alias
+            .name
+            .as_ref()
+            .is_some_and(|name| function_reference_names.contains(name))
+        {
+            spans.push(alias.span.clone());
+        }
     }
     for handler in inputs.handlers() {
         if handler
             .name
             .as_ref()
-            .is_some_and(|name| names.contains(name))
+            .is_some_and(|name| declaration_names.contains(name))
         {
             spans.push(handler.span.clone());
         }
@@ -2287,12 +2304,12 @@ fn reachable_invalid_name_declaration_spans(
         let type_referenced = type_decl
             .name
             .as_ref()
-            .is_some_and(|name| names.contains(name));
+            .is_some_and(|name| declaration_names.contains(name));
         let variant_referenced = type_decl.variants.iter().any(|variant| {
             variant
                 .name
                 .as_ref()
-                .is_some_and(|name| names.contains(name))
+                .is_some_and(|name| declaration_names.contains(name))
         });
         if type_referenced || variant_referenced {
             spans.push(type_decl.span.clone());
@@ -2301,11 +2318,20 @@ fn reachable_invalid_name_declaration_spans(
     spans
 }
 
-fn collect_reachable_function_reference_names(function: &Function, names: &mut HashSet<String>) {
+fn collect_reachable_function_reference_names(
+    function: &Function,
+    declaration_names: &mut HashSet<String>,
+    function_reference_names: &mut HashSet<String>,
+) {
+    let mut local_bindings = function
+        .params
+        .iter()
+        .map(|param| param.name.clone())
+        .collect::<Vec<_>>();
     for param in &function.params {
-        collect_type_reference_names(param.ty.as_deref(), names);
+        collect_type_reference_names(param.ty.as_deref(), declaration_names);
     }
-    collect_type_reference_names(function.return_type.as_deref(), names);
+    collect_type_reference_names(function.return_type.as_deref(), declaration_names);
     for line in &function.body {
         match &line.kind {
             veln_ast::BodyLineKind::Let {
@@ -2313,12 +2339,23 @@ fn collect_reachable_function_reference_names(function: &Function, names: &mut H
                 annotation,
                 expr,
             } => {
-                collect_pattern_reference_names(pattern, names);
-                collect_type_reference_names(annotation.as_deref(), names);
-                collect_expr_reference_names(expr, names);
+                collect_pattern_reference_names(pattern, declaration_names);
+                collect_type_reference_names(annotation.as_deref(), declaration_names);
+                collect_expr_reference_names(
+                    expr,
+                    &local_bindings,
+                    declaration_names,
+                    function_reference_names,
+                );
+                collect_pattern_binding_names(pattern, &mut local_bindings);
             }
             veln_ast::BodyLineKind::Expr { expr } => {
-                collect_expr_reference_names(expr, names);
+                collect_expr_reference_names(
+                    expr,
+                    &local_bindings,
+                    declaration_names,
+                    function_reference_names,
+                );
             }
         }
     }
@@ -2340,25 +2377,59 @@ fn collect_token_reference_names(text: &str, names: &mut HashSet<String>) {
     }
 }
 
-fn collect_expr_reference_names(expr: &Expr, names: &mut HashSet<String>) {
+fn collect_expr_reference_names(
+    expr: &Expr,
+    local_bindings: &[String],
+    declaration_names: &mut HashSet<String>,
+    function_reference_names: &mut HashSet<String>,
+) {
     match &expr.kind {
-        ExprKind::NamePath(_) => {}
+        ExprKind::NamePath(segments) => {
+            if !matches!(segments.as_slice(), [name] if local_bindings.iter().rev().any(|binding| binding == name))
+            {
+                collect_path_reference_names(segments, declaration_names);
+            }
+        }
         ExprKind::Hole { .. } => {}
         ExprKind::TypeApply { callee, type_args } => {
-            collect_expr_reference_names(callee, names);
+            collect_expr_reference_names(
+                callee,
+                local_bindings,
+                declaration_names,
+                function_reference_names,
+            );
             for type_arg in type_args {
-                collect_type_reference_names(Some(type_arg), names);
+                collect_type_reference_names(Some(type_arg), declaration_names);
             }
         }
         ExprKind::Call { callee, args } => {
-            collect_expr_reference_names(callee, names);
+            if let Some(segments) = callee_name_path(callee) {
+                collect_path_reference_names(segments, function_reference_names);
+            } else {
+                collect_expr_reference_names(
+                    callee,
+                    local_bindings,
+                    declaration_names,
+                    function_reference_names,
+                );
+            }
             for arg in args {
-                collect_expr_reference_names(arg, names);
+                collect_expr_reference_names(
+                    arg,
+                    local_bindings,
+                    declaration_names,
+                    function_reference_names,
+                );
             }
         }
         ExprKind::Perform { args, .. } => {
             for arg in args {
-                collect_expr_reference_names(arg, names);
+                collect_expr_reference_names(
+                    arg,
+                    local_bindings,
+                    declaration_names,
+                    function_reference_names,
+                );
             }
         }
         ExprKind::Handle {
@@ -2367,10 +2438,20 @@ fn collect_expr_reference_names(expr: &Expr, names: &mut HashSet<String>) {
             args,
             ..
         } => {
-            collect_expr_reference_names(body, names);
-            collect_path_reference_names(handler, names);
+            collect_expr_reference_names(
+                body,
+                local_bindings,
+                declaration_names,
+                function_reference_names,
+            );
+            collect_path_reference_names(handler, declaration_names);
             for arg in args {
-                collect_expr_reference_names(arg, names);
+                collect_expr_reference_names(
+                    arg,
+                    local_bindings,
+                    declaration_names,
+                    function_reference_names,
+                );
             }
         }
         ExprKind::SchemaDecode {
@@ -2378,40 +2459,92 @@ fn collect_expr_reference_names(expr: &Expr, names: &mut HashSet<String>) {
             input,
             base,
         } => {
-            collect_path_reference_names(schema, names);
-            collect_expr_reference_names(input, names);
-            collect_expr_reference_names(base, names);
+            collect_path_reference_names(schema, declaration_names);
+            collect_expr_reference_names(
+                input,
+                local_bindings,
+                declaration_names,
+                function_reference_names,
+            );
+            collect_expr_reference_names(
+                base,
+                local_bindings,
+                declaration_names,
+                function_reference_names,
+            );
         }
         ExprKind::SchemaEncode { schema, value } => {
-            collect_path_reference_names(schema, names);
-            collect_expr_reference_names(value, names);
+            collect_path_reference_names(schema, declaration_names);
+            collect_expr_reference_names(
+                value,
+                local_bindings,
+                declaration_names,
+                function_reference_names,
+            );
         }
         ExprKind::FieldAccess { base, .. }
         | ExprKind::Try(base)
         | ExprKind::Prefix { expr: base, .. } => {
-            collect_expr_reference_names(base, names);
+            collect_expr_reference_names(
+                base,
+                local_bindings,
+                declaration_names,
+                function_reference_names,
+            );
         }
         ExprKind::Record(fields) => {
             for field in fields {
-                collect_expr_reference_names(&field.expr, names);
+                collect_expr_reference_names(
+                    &field.expr,
+                    local_bindings,
+                    declaration_names,
+                    function_reference_names,
+                );
             }
         }
         ExprKind::Dict(entries) => {
             for entry in entries {
-                collect_expr_reference_names(&entry.key, names);
-                collect_expr_reference_names(&entry.value, names);
+                collect_expr_reference_names(
+                    &entry.key,
+                    local_bindings,
+                    declaration_names,
+                    function_reference_names,
+                );
+                collect_expr_reference_names(
+                    &entry.value,
+                    local_bindings,
+                    declaration_names,
+                    function_reference_names,
+                );
             }
         }
         ExprKind::List(items) => {
             for item in items {
-                collect_expr_reference_names(item, names);
+                collect_expr_reference_names(
+                    item,
+                    local_bindings,
+                    declaration_names,
+                    function_reference_names,
+                );
             }
         }
         ExprKind::Match { scrutinee, arms } => {
-            collect_expr_reference_names(scrutinee, names);
+            collect_expr_reference_names(
+                scrutinee,
+                local_bindings,
+                declaration_names,
+                function_reference_names,
+            );
             for arm in arms {
-                collect_pattern_reference_names(&arm.pattern, names);
-                collect_expr_reference_names(&arm.expr, names);
+                collect_pattern_reference_names(&arm.pattern, declaration_names);
+                let mut arm_bindings = local_bindings.to_vec();
+                collect_pattern_binding_names(&arm.pattern, &mut arm_bindings);
+                collect_expr_reference_names(
+                    &arm.expr,
+                    &arm_bindings,
+                    declaration_names,
+                    function_reference_names,
+                );
             }
         }
         ExprKind::If {
@@ -2420,17 +2553,52 @@ fn collect_expr_reference_names(expr: &Expr, names: &mut HashSet<String>) {
             else_if_branches,
             else_branch,
         } => {
-            collect_expr_reference_names(condition, names);
-            collect_expr_reference_names(then_branch, names);
+            collect_expr_reference_names(
+                condition,
+                local_bindings,
+                declaration_names,
+                function_reference_names,
+            );
+            collect_expr_reference_names(
+                then_branch,
+                local_bindings,
+                declaration_names,
+                function_reference_names,
+            );
             for branch in else_if_branches {
-                collect_expr_reference_names(&branch.condition, names);
-                collect_expr_reference_names(&branch.expr, names);
+                collect_expr_reference_names(
+                    &branch.condition,
+                    local_bindings,
+                    declaration_names,
+                    function_reference_names,
+                );
+                collect_expr_reference_names(
+                    &branch.expr,
+                    local_bindings,
+                    declaration_names,
+                    function_reference_names,
+                );
             }
-            collect_expr_reference_names(else_branch, names);
+            collect_expr_reference_names(
+                else_branch,
+                local_bindings,
+                declaration_names,
+                function_reference_names,
+            );
         }
         ExprKind::Binary { left, right, .. } => {
-            collect_expr_reference_names(left, names);
-            collect_expr_reference_names(right, names);
+            collect_expr_reference_names(
+                left,
+                local_bindings,
+                declaration_names,
+                function_reference_names,
+            );
+            collect_expr_reference_names(
+                right,
+                local_bindings,
+                declaration_names,
+                function_reference_names,
+            );
         }
         ExprKind::Missing
         | ExprKind::StringLiteral(_)
@@ -2438,6 +2606,28 @@ fn collect_expr_reference_names(expr: &Expr, names: &mut HashSet<String>) {
         | ExprKind::FloatLiteral(_)
         | ExprKind::BoolLiteral(_)
         | ExprKind::Unit => {}
+    }
+}
+
+fn collect_pattern_binding_names(pattern: &Pattern, bindings: &mut Vec<String>) {
+    match &pattern.kind {
+        PatternKind::Binding(name) => bindings.push(name.clone()),
+        PatternKind::Constructor { args, .. } => {
+            for arg in args {
+                collect_pattern_binding_names(arg, bindings);
+            }
+        }
+        PatternKind::Record(fields) => {
+            for field in fields {
+                collect_pattern_binding_names(&field.pattern, bindings);
+            }
+        }
+        PatternKind::Wildcard
+        | PatternKind::StringLiteral(_)
+        | PatternKind::IntLiteral(_)
+        | PatternKind::FloatLiteral(_)
+        | PatternKind::BoolLiteral(_)
+        | PatternKind::Unit => {}
     }
 }
 
@@ -2541,9 +2731,7 @@ fn function_alias_targets(
         .filter(|alias| alias.kind == PublicAliasKind::Function)
         .filter_map(|alias| {
             let name = alias.name.clone()?;
-            if !name.as_bytes().first().is_some_and(u8::is_ascii_lowercase) {
-                return None;
-            }
+            let recovery = !name.as_bytes().first().is_some_and(u8::is_ascii_lowercase);
             let target = target_for_alias_path(
                 &alias.target,
                 &uses,
@@ -2565,7 +2753,7 @@ fn function_alias_targets(
                 shape: target.shape.clone(),
                 bare_importable: true,
                 requires_public_import: false,
-                recovery: false,
+                recovery,
             })
         })
         .collect()
@@ -5225,6 +5413,67 @@ mod tests {
             reachable.invalid_names
         );
         assert!(reachable.aliases.is_empty(), "{:#?}", reachable.aliases);
+    }
+
+    #[test]
+    fn run_entry_keeps_reachable_invalid_function_alias_name() {
+        let module = lower(concat!(
+            "fn main() -> Int\n",
+            "  Exported()\n",
+            "end\n",
+            "fn good() -> Int\n",
+            "  1\n",
+            "end\n",
+            "pub fn Exported = good\n",
+            "pub fn Unreachable = good\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let invalid_names = reachable
+            .invalid_names
+            .iter()
+            .map(|invalid| invalid.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(invalid_names, vec!["Exported"]);
+        assert!(
+            reachable
+                .aliases
+                .iter()
+                .any(|alias| alias.name.as_deref() == Some("Exported"))
+        );
+        assert!(
+            reachable
+                .aliases
+                .iter()
+                .all(|alias| alias.name.as_deref() != Some("Unreachable")),
+            "unreachable invalid aliases must not materialize: {:#?}",
+            reachable.aliases
+        );
+    }
+
+    #[test]
+    fn run_entry_keeps_invalid_constructor_referenced_by_reachable_expression_path() {
+        let module = lower(concat!(
+            "fn main() -> item\n",
+            "  value\n",
+            "end\n",
+            "type item\n",
+            "  value\n",
+            "end\n",
+            "type other\n",
+            "  other_value\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let invalid_names = reachable
+            .invalid_names
+            .iter()
+            .map(|invalid| invalid.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(invalid_names, vec!["item", "value"]);
     }
 
     #[test]

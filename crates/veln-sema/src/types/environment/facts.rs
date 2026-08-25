@@ -75,11 +75,66 @@ pub(super) fn from_module_with_base(
             })
             .or_insert(0) += 1;
     }
+    for alias in module
+        .aliases
+        .iter()
+        .filter(|alias| alias.kind == PublicAliasKind::Function)
+    {
+        let Some(name) = &alias.name else {
+            continue;
+        };
+        if name.as_bytes().first().is_some_and(u8::is_ascii_lowercase) {
+            continue;
+        }
+        let Some(target) = function_signature_path(
+            &alias.target,
+            &module.uses,
+            &callables.functions,
+            alias.module_name.as_deref(),
+            &BTreeMap::new(),
+        ) else {
+            continue;
+        };
+        *function_recoveries
+            .entry(FunctionRecoveryKey {
+                module_name: alias.module_name.clone(),
+                name: name.clone(),
+                fixed_arg_count: target.params.len(),
+                has_variadic: target.variadic.is_some(),
+            })
+            .or_insert(0) += 1;
+    }
+    let mut constructor_recoveries = BTreeMap::new();
+    for invalid in &module.invalid_names {
+        if invalid.class != NameClass::Constructor
+            || invalid.occurrence != NameOccurrence::Declaration
+        {
+            continue;
+        }
+        let module_name = module.types.iter().find_map(|type_decl| {
+            type_decl
+                .variants
+                .iter()
+                .any(|variant| {
+                    variant.name.as_deref() == Some(invalid.name.as_str())
+                        && span_contains(&variant.span, &invalid.span)
+                })
+                .then(|| type_decl.module_name.clone())
+                .flatten()
+        });
+        *constructor_recoveries
+            .entry(ConstructorRecoveryKey {
+                module_name,
+                name: invalid.name.clone(),
+            })
+            .or_insert(0) += 1;
+    }
 
     TypeEnvironment {
         functions: callables.functions,
         functions_by_name,
         function_recoveries,
+        constructor_recoveries,
         codec_calls,
         effects: declarations.effects,
         handlers: callables.handlers,
@@ -201,6 +256,12 @@ fn extend_with_base_facts<T: BaseFacts>(facts: &mut T, base: Option<&T>) {
     if let Some(base) = base {
         facts.extend_with(base);
     }
+}
+
+fn span_contains(container: &SourceSpan, span: &SourceSpan) -> bool {
+    container.file == span.file
+        && container.start.offset <= span.start.offset
+        && span.end.offset <= container.end.offset
 }
 
 #[cfg(test)]

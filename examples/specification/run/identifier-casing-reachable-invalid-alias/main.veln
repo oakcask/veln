@@ -1,0 +1,11 @@
+fn main() -> Int
+  Exported()
+end
+
+fn good() -> Int
+  1
+end
+
+pub fn Exported = good
+
+pub fn Unreachable = good

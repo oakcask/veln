@@ -1967,7 +1967,13 @@ impl<'a> FunctionChecker<'a> {
                                 if !self.environment.has_unique_local_function_value_recovery(
                                     name,
                                     self.function.module_name.as_deref(),
-                                ) && !self.has_unique_invalid_local_binding_recovery(name)
+                                ) && !self
+                                    .environment
+                                    .has_unique_local_constructor_value_recovery(
+                                        name,
+                                        self.function.module_name.as_deref(),
+                                    )
+                                    && !self.has_unique_invalid_local_binding_recovery(name)
                                 {
                                     self.push_unresolved_name(
                                         expr.node_id,

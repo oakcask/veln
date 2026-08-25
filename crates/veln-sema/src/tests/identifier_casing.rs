@@ -463,3 +463,38 @@ fn recovery_is_not_visible_through_public_alias_targets() {
     let environment = TypeEnvironment::from_module(&module);
     assert!(environment.function("exposed").is_none());
 }
+
+#[test]
+fn invalid_public_function_alias_recovery_suppresses_derivative_unresolved_without_lookup() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main() -> Int\n",
+            "  Exported()\n",
+            "end\n",
+            "fn good() -> Int\n",
+            "  1\n",
+            "end\n",
+            "pub fn Exported = good\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.invalid_case"
+            && diagnostic.message
+                == "function name `Exported` must start with an ASCII lowercase letter"
+    }));
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.unresolved"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        TypeEnvironment::from_module(&module)
+            .function("Exported")
+            .is_none()
+    );
+}
