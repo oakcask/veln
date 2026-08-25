@@ -47,11 +47,11 @@ invalid symbols from checked artifacts.
 
 ## Scope
 
-The source positions and `name.invalid_case` diagnostic contract are the type,
-constructor, function, and value-binding rows in
-[Identifier Casing](../../proposals/identifier-casing.md#naming-contract). Module identities,
-qualified-use casing, alias target leaves, rename, and source-less registries
-remain outside this completed slice.
+The source positions and `name.invalid_case` diagnostic contract are specified
+by [Names And Effects](../../specification/names-effects.md) and its checked
+identifier-casing examples. Module identities, qualified-use casing, alias
+target leaves, rename, and source-less registries remain outside this
+completed slice.
 
 The function row includes function declarations, test declaration names, and
 public function alias declaration names. The type row includes source ADT type
