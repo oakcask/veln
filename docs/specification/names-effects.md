@@ -19,9 +19,12 @@ compiler-known calls.
   and prevents checked-core and typed-IR output. An underscore-led token is
   retained for recovery in these positions; standalone `_` remains a wildcard
   or discard. The checked `identifier-casing-source-recovery-json` and
-  `identifier-casing-underscore-recovery-human` cases define the diagnostic
-  contract. The run cases `identifier-casing-reachable-recovery` and
-  `identifier-casing-unreachable-peer` define selected-entry reachability.
+  `identifier-casing-source-recovery-human` cases define exact JSON and human
+  diagnostics for the covered declaration and binding rows. The checked
+  `identifier-casing-underscore-recovery-human` case defines underscore-led
+  parser recovery without missing-name cascades. The run cases
+  `identifier-casing-reachable-recovery` and `identifier-casing-unreachable-peer`
+  define selected-entry reachability.
   The checked `identifier-casing-public-alias-recovery-isolation-json` case
   fixes that quarantined recovery records do not satisfy public alias targets.
 

@@ -168,6 +168,37 @@ fn ambiguous_recovery_does_not_resolve() {
 }
 
 #[test]
+fn incompatible_recovery_does_not_suppress_unresolved_call() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main() -> Int\n",
+            "  Bad()\n",
+            "end\n",
+            "test Bad() -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn WrongArity(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+            "fn caller() -> Int\n",
+            "  WrongArity()\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved" && diagnostic.message == "unresolved call_target `Bad`"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved call_target `WrongArity`"
+    }));
+}
+
+#[test]
 fn valid_function_lookup_ignores_same_source_recovery_records() {
     let source = SourceFile::new(
         "main.veln",

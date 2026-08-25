@@ -11,6 +11,7 @@ update-when: Recovery-aware source identifier casing is superseded or its named 
 Current behavior is specified in
 [Names And Effects](../../specification/names-effects.md). The executable
 `identifier-casing-source-recovery-json`,
+`identifier-casing-source-recovery-human`,
 `identifier-casing-underscore-recovery-human`,
 `identifier-casing-reachable-recovery`, and
 `identifier-casing-unreachable-peer` cases cover exact diagnostics, parser

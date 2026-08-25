@@ -1935,7 +1935,7 @@ impl<'a> FunctionChecker<'a> {
                                 Type::Unknown
                             }
                             FunctionLookup::Missing => {
-                                if !self.environment.has_unique_local_function_recovery(
+                                if !self.environment.has_unique_local_function_value_recovery(
                                     name,
                                     self.function.module_name.as_deref(),
                                 ) {
@@ -2338,9 +2338,10 @@ impl<'a> FunctionChecker<'a> {
         {
             let recovered = matches!(segments, [name] if self
             .environment
-            .has_unique_local_function_recovery(
+            .has_unique_local_function_call_recovery(
                 name,
                 self.function.module_name.as_deref(),
+                args.len(),
             ));
             if !recovered {
                 let symbol = segments.join("::");

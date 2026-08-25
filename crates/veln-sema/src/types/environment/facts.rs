@@ -59,11 +59,20 @@ pub(super) fn from_module_with_base(
         let Some(name) = &function.name else {
             continue;
         };
+        if function.kind != FunctionKind::Function {
+            continue;
+        }
         if name.as_bytes().first().is_some_and(u8::is_ascii_lowercase) {
             continue;
         }
+        let (params, variadic) = function_signature_params(function);
         *function_recoveries
-            .entry((function.module_name.clone(), name.clone()))
+            .entry(FunctionRecoveryKey {
+                module_name: function.module_name.clone(),
+                name: name.clone(),
+                fixed_arg_count: params.len(),
+                has_variadic: variadic.is_some(),
+            })
             .or_insert(0) += 1;
     }
 

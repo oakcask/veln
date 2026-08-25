@@ -6,7 +6,7 @@ mod facts;
 pub(crate) struct TypeEnvironment {
     functions: Vec<FunctionSignature>,
     functions_by_name: HashMap<String, Vec<usize>>,
-    function_recoveries: BTreeMap<(Option<String>, String), usize>,
+    function_recoveries: BTreeMap<FunctionRecoveryKey, usize>,
     codec_calls: Vec<CodecCallSignature>,
     effects: Vec<EffectSignature>,
     handlers: Vec<HandlerSignature>,
@@ -94,8 +94,8 @@ impl TypeEnvironment {
             function_recoveries: self
                 .function_recoveries
                 .iter()
-                .filter(|((module, _), _)| {
-                    module
+                .filter(|(key, _)| {
+                    key.module_name
                         .as_ref()
                         .is_none_or(|module| module_names.contains(module))
                 })
@@ -157,14 +157,37 @@ impl TypeEnvironment {
         self.functions_named(name).next()
     }
 
-    pub(crate) fn has_unique_local_function_recovery(
+    pub(crate) fn has_unique_local_function_value_recovery(
         &self,
         name: &str,
         current_module: Option<&str>,
     ) -> bool {
         self.function_recoveries
-            .get(&(current_module.map(str::to_string), name.to_string()))
-            == Some(&1)
+            .iter()
+            .filter(|(key, _)| {
+                key.module_name.as_deref() == current_module && key.name.as_str() == name
+            })
+            .map(|(_, count)| *count)
+            .sum::<usize>()
+            == 1
+    }
+
+    pub(crate) fn has_unique_local_function_call_recovery(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        arg_count: usize,
+    ) -> bool {
+        self.function_recoveries
+            .iter()
+            .filter(|(key, _)| {
+                key.module_name.as_deref() == current_module
+                    && key.name.as_str() == name
+                    && key.accepts_arg_count(arg_count)
+            })
+            .map(|(_, count)| *count)
+            .sum::<usize>()
+            == 1
     }
 
     pub(crate) fn canonicalize_type_annotation(
@@ -705,6 +728,24 @@ impl TypeEnvironment {
                     .collect()
             }
             _ => Vec::new(),
+        }
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub(crate) struct FunctionRecoveryKey {
+    module_name: Option<String>,
+    name: String,
+    fixed_arg_count: usize,
+    has_variadic: bool,
+}
+
+impl FunctionRecoveryKey {
+    fn accepts_arg_count(&self, arg_count: usize) -> bool {
+        if self.has_variadic {
+            arg_count >= self.fixed_arg_count
+        } else {
+            arg_count == self.fixed_arg_count
         }
     }
 }
