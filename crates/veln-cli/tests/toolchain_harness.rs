@@ -5339,7 +5339,7 @@ fn decode_lowercase_hex(path: &Path, line_number: usize, hex: &str) -> Vec<u8> {
     }
 
     let mut decoded = Vec::with_capacity(bytes.len() / 2);
-    for pair in bytes.chunks_exact(2) {
+    for pair in bytes.as_chunks::<2>().0 {
         let high = lowercase_hex_nibble(pair[0])
             .unwrap_or_else(|| manifest_error(path, line_number, "expected lowercase hex"));
         let low = lowercase_hex_nibble(pair[1])
