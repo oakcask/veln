@@ -51,10 +51,12 @@ compiler-known calls.
   reachable handler parameter and operation-clause parameter selection.
   The checked `identifier-casing-import-recovery-isolation-json` and
   `identifier-casing-public-alias-recovery-isolation-json` cases and the run
-  `identifier-casing-import-recovery-isolation-json` case fix that quarantined
-  recovery records do not cross import boundaries or satisfy public alias
-  targets. Workspace snapshot and open-document overlay selection
-  evidence remains outside this source foundation.
+  `identifier-casing-import-recovery-isolation-json` and
+  `identifier-casing-qualified-type-import-isolation-json` cases fix that
+  quarantined recovery records do not cross import boundaries, do not satisfy
+  public alias targets, and keep qualified type paths from selecting unrelated
+  same-leaf local recovery records. Workspace snapshot and open-document
+  overlay selection evidence remains outside this source foundation.
 
 - Namespaces, shadowing, duplicate checks, module ownership, external package
   imports, and manifest export checks:

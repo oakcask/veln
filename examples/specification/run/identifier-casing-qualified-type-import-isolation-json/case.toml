@@ -1,0 +1,21 @@
+command = ["run", "--json", "main", "app.veln", "helper.veln"]
+source_errors = "expected"
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+not_contains = ["name.invalid_case"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "exit_code"
+equals = 0

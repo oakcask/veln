@@ -4,6 +4,7 @@ exit = 1
 
 [stdout]
 format = "json"
+not_contains = ["name.invalid_case"]
 
 [stderr]
 format = "empty"
@@ -14,52 +15,19 @@ equals = "error"
 
 [[json_assert]]
 path = "diagnostics.0.id"
-equals = "name.invalid_case"
-
-[[json_assert]]
-path = "diagnostics.0.span.file"
-equals = "helper.veln"
-
-[[json_assert]]
-path = "diagnostics.0.details.name"
-equals = "Bad"
-
-[[json_assert]]
-path = "diagnostics.0.details.origin"
-equals = "source"
-
-[[json_assert]]
-path = "diagnostics.0.details.occurrence"
-equals = "declaration"
-
-[[json_assert]]
-path = "diagnostics.0.details.required_initial"
-equals = "ascii_lowercase"
-
-[[json_assert]]
-path = "diagnostics.0.details.observed_initial"
-equals = "ascii_uppercase"
-
-[[json_assert]]
-path = "diagnostics.1.id"
 equals = "name.unresolved"
 
 [[json_assert]]
-path = "diagnostics.1.span.file"
+path = "diagnostics.0.span.file"
 equals = "app.veln"
 
 [[json_assert]]
-path = "diagnostics.1.details.symbol"
+path = "diagnostics.0.details.symbol"
 equals = "helper::Bad"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 2
-
-[[diagnostics]]
-id = "name.invalid_case"
-kind = "name"
-message = "function name `Bad` must start with an ASCII lowercase letter"
+equals = 1
 
 [[diagnostics]]
 id = "name.unresolved"

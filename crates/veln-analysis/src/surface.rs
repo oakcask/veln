@@ -2363,11 +2363,11 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         let Some(annotation) = annotation else {
             return;
         };
-        let Ok(type_names) = veln_sema::type_annotation_reference_names(annotation) else {
+        let Ok(type_names) = veln_sema::type_annotation_reference_paths(annotation) else {
             return;
         };
-        for name in type_names {
-            self.select_type_name(&[name], current_module, spans);
+        for path in type_names {
+            self.select_type_name(&path, current_module, spans);
         }
     }
 
@@ -2530,8 +2530,10 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         if self.has_valid_function_alias(segments, current_module) {
             return;
         }
-        self.select_unique_constructor_recovery(segments, current_module, None, spans);
-        self.select_unique_function_recovery(segments, current_module, None, spans);
+        if same_module_recovery_path(segments) {
+            self.select_unique_constructor_recovery(segments, current_module, None, spans);
+            self.select_unique_function_recovery(segments, current_module, None, spans);
+        }
     }
 
     fn select_call_name(
@@ -2547,8 +2549,15 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         {
             return;
         }
-        self.select_unique_function_recovery(segments, current_module, Some(arg_count), spans);
-        self.select_unique_constructor_recovery(segments, current_module, Some(arg_count), spans);
+        if same_module_recovery_path(segments) {
+            self.select_unique_function_recovery(segments, current_module, Some(arg_count), spans);
+            self.select_unique_constructor_recovery(
+                segments,
+                current_module,
+                Some(arg_count),
+                spans,
+            );
+        }
     }
 
     fn select_type_name(
@@ -2562,7 +2571,9 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         {
             return;
         }
-        self.select_unique_type_recovery(segments, current_module, spans);
+        if same_module_recovery_path(segments) {
+            self.select_unique_type_recovery(segments, current_module, spans);
+        }
     }
 
     fn select_constructor_name(
@@ -2575,7 +2586,9 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         if self.has_valid_constructor(segments, current_module, arg_count) {
             return;
         }
-        self.select_unique_constructor_recovery(segments, current_module, arg_count, spans);
+        if same_module_recovery_path(segments) {
+            self.select_unique_constructor_recovery(segments, current_module, arg_count, spans);
+        }
     }
 
     fn select_handler(
@@ -2875,6 +2888,10 @@ fn visible_path_target(
 
 fn path_leaf(segments: &[String]) -> Option<&str> {
     segments.last().map(String::as_str)
+}
+
+fn same_module_recovery_path(segments: &[String]) -> bool {
+    matches!(segments, [_])
 }
 
 fn declaration_visible(
@@ -5923,6 +5940,75 @@ mod tests {
             reachable.invalid_names
         );
         assert!(reachable.handlers.is_empty(), "{:#?}", reachable.handlers);
+    }
+
+    #[test]
+    fn run_entry_does_not_select_imported_function_recovery() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "app.veln",
+                    concat!(
+                        "mod app\n",
+                        "use helper\n",
+                        "fn main() -> Int\n",
+                        "  helper::Bad()\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "helper.veln",
+                    concat!("mod helper\n", "pub fn Bad() -> Int\n", "  1\n", "end\n"),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, _) = load_surface_module(&project);
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert!(
+            reachable.invalid_names.is_empty(),
+            "{:#?}",
+            reachable.invalid_names
+        );
+    }
+
+    #[test]
+    fn run_entry_preserves_qualified_type_references_for_recovery_selection() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "app.veln",
+                    concat!(
+                        "mod app\n",
+                        "use helper\n",
+                        "fn main(input: helper::item) -> Int\n",
+                        "  1\n",
+                        "end\n",
+                        "type item\n",
+                        "  Value\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "helper.veln",
+                    concat!("mod helper\n", "pub type item\n", "  Value\n", "end\n"),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, _) = load_surface_module(&project);
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert!(
+            reachable.invalid_names.is_empty(),
+            "{:#?}",
+            reachable.invalid_names
+        );
     }
 
     #[test]

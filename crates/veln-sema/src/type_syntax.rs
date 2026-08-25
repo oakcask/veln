@@ -1,10 +1,17 @@
 use crate::semantic_model::Type;
 
 pub fn type_annotation_reference_names(text: &str) -> Result<Vec<String>, String> {
+    Ok(type_annotation_reference_paths(text)?
+        .into_iter()
+        .flatten()
+        .collect())
+}
+
+pub fn type_annotation_reference_paths(text: &str) -> Result<Vec<Vec<String>>, String> {
     let ty = parse_type_annotation(text)?;
-    let mut names = Vec::new();
-    collect_type_reference_names(&ty, &mut names);
-    Ok(names)
+    let mut paths = Vec::new();
+    collect_type_reference_paths(&ty, &mut paths);
+    Ok(paths)
 }
 
 pub(crate) fn parse_type_or_unknown(text: Option<&str>) -> Type {
@@ -23,17 +30,17 @@ pub(crate) fn parse_type_annotation(text: &str) -> Result<Type, String> {
     }
 }
 
-fn collect_type_reference_names(ty: &Type, names: &mut Vec<String>) {
+fn collect_type_reference_paths(ty: &Type, paths: &mut Vec<Vec<String>>) {
     match ty {
         Type::Named { name, args } => {
-            names.extend(name.split("::").map(str::to_string));
+            paths.push(name.split("::").map(str::to_string).collect());
             for arg in args {
-                collect_type_reference_names(arg, names);
+                collect_type_reference_paths(arg, paths);
             }
         }
         Type::Record(fields) => {
             for (_, field_type) in fields {
-                collect_type_reference_names(field_type, names);
+                collect_type_reference_paths(field_type, paths);
             }
         }
         Type::Function {
@@ -43,12 +50,12 @@ fn collect_type_reference_names(ty: &Type, names: &mut Vec<String>) {
             ..
         } => {
             for param in params {
-                collect_type_reference_names(param, names);
+                collect_type_reference_paths(param, paths);
             }
             if let Some(variadic) = variadic {
-                collect_type_reference_names(variadic, names);
+                collect_type_reference_paths(variadic, paths);
             }
-            collect_type_reference_names(return_type, names);
+            collect_type_reference_paths(return_type, paths);
         }
         Type::Unknown => {}
     }
@@ -385,6 +392,25 @@ mod tests {
             names,
             vec![
                 "Request", "stream", "Chunk", "Result", "Response", "error", "AppError"
+            ]
+        );
+    }
+
+    #[test]
+    fn type_annotation_reference_paths_preserve_qualified_names() {
+        let paths = type_annotation_reference_paths(
+            "fn({input: Request}, ...stream::Chunk) -> Result<Response, error::AppError>",
+        )
+        .unwrap();
+
+        assert_eq!(
+            paths,
+            vec![
+                vec!["Request"],
+                vec!["stream", "Chunk"],
+                vec!["Result"],
+                vec!["Response"],
+                vec!["error", "AppError"]
             ]
         );
     }
