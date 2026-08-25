@@ -7186,6 +7186,7 @@ mod tests {
                 "fn main(Bad: Int) -> ResultName: Int\n",
                 "  let {field: _Destructured} = {field: 1}\n",
                 "  let _Let = _value satisfy BadCandidate => BadCandidate > 0\n",
+                "  let _Satisfy = _value satisfy _Candidate => _Candidate > 0\n",
                 "  let Value = 1\n",
                 "  match Bad\n",
                 "    _Arm => _Arm\n",
@@ -7234,7 +7235,9 @@ mod tests {
                 ("_Destructured", 10, 15, 28),
                 ("_Let", 11, 7, 11),
                 ("BadCandidate", 11, 29, 41),
-                ("_Arm", 14, 5, 9),
+                ("_Satisfy", 12, 7, 15),
+                ("_Candidate", 12, 33, 43),
+                ("_Arm", 15, 5, 9),
             ],
         );
     }

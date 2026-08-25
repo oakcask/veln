@@ -2696,6 +2696,36 @@ fn parses_hole_satisfy_clause() {
 }
 
 #[test]
+fn parses_underscore_led_hole_satisfy_candidate_for_casing_recovery() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn choose() -> ()\n",
+            "\t_value satisfy _Candidate => _Candidate > 0\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let function = first_function(&output);
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+    let ExprKind::Hole {
+        satisfy: Some(satisfy),
+        ..
+    } = &expr.kind
+    else {
+        panic!("expected hole with satisfy clause");
+    };
+    assert_eq!(satisfy.candidate.as_deref(), Some("_Candidate"));
+    assert_eq!(satisfy.predicate, "_Candidate > 0");
+    assert_eq!(format_tree(&output.tree), source.text());
+}
+
+#[test]
 fn reports_malformed_hole_satisfy_clause() {
     let source = SourceFile::new(
         "main.veln",

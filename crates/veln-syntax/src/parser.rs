@@ -1147,6 +1147,7 @@ impl<'a> Parser<'a> {
                         "schema_field_where",
                         "parse.schema_field_where",
                         &predicate_tokens,
+                        None,
                     )
                     .parse(),
                 );
@@ -1197,6 +1198,7 @@ impl<'a> Parser<'a> {
                     "schema_validation",
                     "parse.schema_validation",
                     &predicate_tokens,
+                    None,
                 )
                 .parse(),
             );
@@ -1789,6 +1791,7 @@ impl<'a> Parser<'a> {
                 "contract_predicate",
                 "parse.contract_predicate",
                 &predicate_tokens,
+                None,
             )
             .parse(),
         );
@@ -3452,8 +3455,7 @@ impl<'a> ExprParser<'a> {
             return None;
         }
         let start = self.bump().range;
-        let (candidate, candidate_span) = if is_ordinary_contextual_identifier(self.current().kind)
-        {
+        let (candidate, candidate_span) = if is_recoverable_identifier(self.current().kind) {
             let token = self.bump();
             let span = self.source.span(token.range);
             (Some(token.text), Some(span))
@@ -3515,6 +3517,7 @@ impl<'a> ExprParser<'a> {
                 "satisfy_predicate",
                 "parse.satisfy_predicate",
                 &predicate_tokens,
+                candidate.as_deref(),
             )
             .parse(),
         );
@@ -3850,6 +3853,7 @@ struct ContractPredicateParser<'a> {
     context: &'static str,
     diagnostic_id: &'static str,
     tokens: &'a [Token],
+    recoverable_identifier: Option<&'a str>,
     cursor: usize,
     diagnostics: Vec<ParseDiagnostic>,
 }
@@ -3860,12 +3864,14 @@ impl<'a> ContractPredicateParser<'a> {
         context: &'static str,
         diagnostic_id: &'static str,
         tokens: &'a [Token],
+        recoverable_identifier: Option<&'a str>,
     ) -> Self {
         Self {
             source,
             context,
             diagnostic_id,
             tokens,
+            recoverable_identifier,
             cursor: 0,
             diagnostics: Vec::new(),
         }
@@ -3999,6 +4005,9 @@ impl<'a> ContractPredicateParser<'a> {
             TokenKind::String | TokenKind::Int | TokenKind::Float | TokenKind::Ident => {
                 self.parse_name_path_or_literal();
             }
+            TokenKind::Hole if self.current_text_is_recoverable_identifier() => {
+                self.parse_name_path_or_literal();
+            }
             TokenKind::Perform => {
                 self.parse_perform_contract_primary();
             }
@@ -4084,6 +4093,11 @@ impl<'a> ContractPredicateParser<'a> {
                 self.bump();
             }
         }
+    }
+
+    fn current_text_is_recoverable_identifier(&self) -> bool {
+        self.recoverable_identifier
+            .is_some_and(|name| self.current().text == name)
     }
 
     fn parse_name_path_or_literal(&mut self) {
