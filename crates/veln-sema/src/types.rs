@@ -393,6 +393,7 @@ pub(crate) fn embedded_standard_surface_module() -> SurfaceModule {
         schemas: Vec::new(),
         codecs: Vec::new(),
         functions: Vec::new(),
+        invalid_names: Vec::new(),
     };
     let mut modules = veln_stdlib::package_bundle()
         .files
@@ -440,6 +441,7 @@ fn merge_standard_surface_module(merged: &mut SurfaceModule, module: SurfaceModu
     merged.schemas.extend(module.schemas);
     merged.codecs.extend(module.codecs);
     merged.functions.extend(module.functions);
+    merged.invalid_names.extend(module.invalid_names);
 }
 
 fn collect_standard_names<T: StandardDeclaration>(decls: &[T], names: &mut BTreeSet<String>) {
@@ -656,6 +658,7 @@ fn filter_module_declarations(
             .filter(|decl| keep(*decl))
             .cloned()
             .collect(),
+        invalid_names: module.invalid_names.clone(),
     }
 }
 
@@ -682,6 +685,9 @@ pub(crate) fn ordinary_function_signatures(
         .filter(|function| function.kind == FunctionKind::Function)
         .filter_map(|function| {
             let name = function.name.clone()?;
+            if !name.as_bytes().first().is_some_and(u8::is_ascii_lowercase) {
+                return None;
+            }
             let (params, variadic) = function_signature_params(function);
             let params = params
                 .into_iter()

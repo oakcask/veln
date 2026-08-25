@@ -4,11 +4,11 @@ use crate::{
     BinaryOp, BodyLine, BodyLineKind, CodecDecl, CodecDirection, CodecImplementationClause,
     CodecImplementationKind, Contract, ContractKind, DictEntry, EffectBinder, EffectDecl,
     EffectOperationDecl, Expr, ExprKind, Function, FunctionKind, HandlerDecl,
-    HandlerOperationClauseDecl, IfBranch, MatchArm, ModuleHeader, NodeId, Param, Pattern,
-    PatternField, PatternKind, PrefixOp, PublicAlias, PublicAliasKind, RecordField, ResultBinding,
-    SatisfyClause, SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause,
-    SchemaValidationClause, SurfaceModule, TypeDecl, TypeVariantDecl, TypeVariantField, UseDecl,
-    UseOrigin, Visibility,
+    HandlerOperationClauseDecl, IfBranch, InvalidName, MatchArm, ModuleHeader, NameClass,
+    NameOccurrence, NodeId, Param, Pattern, PatternField, PatternKind, PrefixOp, PublicAlias,
+    PublicAliasKind, RecordField, ResultBinding, SatisfyClause, SchemaDecl, SchemaField,
+    SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause, SurfaceModule, TypeDecl,
+    TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin, Visibility,
 };
 
 const MAGIC: &[u8; 8] = b"VLNAST1\n";
@@ -101,6 +101,24 @@ impl Writer {
         self.vec(&module.schemas, Self::schema_decl);
         self.vec(&module.codecs, Self::codec_decl);
         self.vec(&module.functions, Self::function);
+        self.vec(&module.invalid_names, Self::invalid_name);
+    }
+
+    fn invalid_name(&mut self, value: &InvalidName) {
+        self.string(&value.name);
+        self.u8(match value.class {
+            NameClass::Type => 0,
+            NameClass::Constructor => 1,
+            NameClass::Function => 2,
+            NameClass::ValueBinding => 3,
+        });
+        self.u8(match value.occurrence {
+            NameOccurrence::Declaration => 0,
+            NameOccurrence::Binding => 1,
+            NameOccurrence::PatternHead => 2,
+        });
+        self.span(&value.span);
+        self.option(&value.enclosing_function_span, Self::span);
     }
 
     fn module_header(&mut self, value: &ModuleHeader) {
@@ -822,6 +840,31 @@ impl<'a> Reader<'a> {
             schemas: self.vec(Self::schema_decl)?,
             codecs: self.vec(Self::codec_decl)?,
             functions: self.vec(Self::function)?,
+            invalid_names: self.vec(Self::invalid_name)?,
+        })
+    }
+
+    fn invalid_name(&mut self) -> Result<InvalidName, String> {
+        let name = self.string()?;
+        let class = match self.u8()? {
+            0 => NameClass::Type,
+            1 => NameClass::Constructor,
+            2 => NameClass::Function,
+            3 => NameClass::ValueBinding,
+            value => return Err(format!("invalid name class tag {value}")),
+        };
+        let occurrence = match self.u8()? {
+            0 => NameOccurrence::Declaration,
+            1 => NameOccurrence::Binding,
+            2 => NameOccurrence::PatternHead,
+            value => return Err(format!("invalid name occurrence tag {value}")),
+        };
+        Ok(InvalidName {
+            name,
+            class,
+            occurrence,
+            span: self.span()?,
+            enclosing_function_span: self.option(Self::span)?,
         })
     }
 

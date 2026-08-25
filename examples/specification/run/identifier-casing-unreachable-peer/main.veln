@@ -1,0 +1,7 @@
+fn main() -> Int
+  1
+end
+
+fn Bad() -> Int
+  2
+end

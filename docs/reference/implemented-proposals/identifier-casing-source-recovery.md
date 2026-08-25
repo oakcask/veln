@@ -1,9 +1,21 @@
 ---
-role: proposal
-update-when: Source-written identifier casing recovery, check and run reachability boundaries, or the foundation acceptance evidence changes.
+role: implementation-record
+authority: supporting
+update-when: Recovery-aware source identifier casing is superseded or its named executable evidence becomes invalid.
 ---
 
 # Recovery-Aware Source Identifier Casing
+
+## Completion Evidence
+
+Current behavior is specified in
+[Names And Effects](../../specification/names-effects.md). The executable
+`identifier-casing-source-recovery-json`,
+`identifier-casing-underscore-recovery-human`,
+`identifier-casing-reachable-recovery`, and
+`identifier-casing-unreachable-peer` cases cover exact diagnostics, parser
+recovery, checked-artifact blocking, and the `check`/`run` selection boundary.
+Focused semantic tests cover accepted names and expression-hole preservation.
 
 ## Outcome
 
@@ -13,7 +25,7 @@ selection boundary of `check` and the existing selected-entry reachability
 boundary of `run`.
 
 This proposal is the required first slice of
-[Identifier Casing](identifier-casing.md). A declaration-only validation slice
+[Identifier Casing](../../proposals/identifier-casing.md). A declaration-only validation slice
 is not independently implementable. Analysis needs a surface graph before it
 can compute selected-entry reachability, but an invalid declaration must not
 enter that graph as a normal symbol. The first slice therefore includes the
@@ -24,7 +36,7 @@ exclude invalid symbols from checked artifacts.
 
 The source positions and `name.invalid_case` diagnostic contract are the type,
 constructor, function, and value-binding rows in
-[Identifier Casing](identifier-casing.md#naming-contract). Module identities,
+[Identifier Casing](../../proposals/identifier-casing.md#naming-contract). Module identities,
 qualified-use casing, alias target leaves, rename, and source-less registries
 remain outside this slice.
 
@@ -71,7 +83,7 @@ a requirement for a particular data structure.
 
 ## Deferred Selection Boundaries
 
-[Identifier Casing Selection Boundaries](identifier-casing-selection-boundaries.md)
+[Identifier Casing Selection Boundaries](../../proposals/identifier-casing-selection-boundaries.md)
 owns the later `test`, `doc`, language-service snapshot and overlay, loaded and
 unloaded dependency, companion, dependency, and implicit-prelude evidence. It
 depends on this foundation and is not part of this slice's completion rule.

@@ -533,6 +533,9 @@ fn type_alias_descriptors(
         .filter(|alias| alias.kind == PublicAliasKind::Type)
         .filter_map(|alias| {
             let name = alias.name.clone()?;
+            if !name.as_bytes().first().is_some_and(u8::is_ascii_uppercase) {
+                return None;
+            }
             let target = descriptor_for_alias_target(
                 &alias.target,
                 &module.uses,
@@ -2658,6 +2661,9 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
 
 fn source_descriptor(decl: &TypeDecl) -> Option<AdtDescriptor> {
     let name = decl.name.clone()?;
+    if !name.as_bytes().first().is_some_and(u8::is_ascii_uppercase) {
+        return None;
+    }
     if matches!(name.as_str(), "Option" | "Result" | "List") {
         return None;
     }
@@ -2666,6 +2672,9 @@ fn source_descriptor(decl: &TypeDecl) -> Option<AdtDescriptor> {
         .iter()
         .filter_map(|variant| {
             let name = variant.name.clone()?;
+            if !name.as_bytes().first().is_some_and(u8::is_ascii_uppercase) {
+                return None;
+            }
             let payload_fields = variant
                 .fields
                 .iter()

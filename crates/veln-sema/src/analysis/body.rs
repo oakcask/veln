@@ -1935,12 +1935,17 @@ impl<'a> FunctionChecker<'a> {
                                 Type::Unknown
                             }
                             FunctionLookup::Missing => {
-                                self.push_unresolved_name(
-                                    expr.node_id,
-                                    expr.span.clone(),
+                                if !self.environment.has_unique_local_function_recovery(
                                     name,
-                                    "value",
-                                );
+                                    self.function.module_name.as_deref(),
+                                ) {
+                                    self.push_unresolved_name(
+                                        expr.node_id,
+                                        expr.span.clone(),
+                                        name,
+                                        "value",
+                                    );
+                                }
                                 Type::Unknown
                             }
                         }
@@ -2331,8 +2336,21 @@ impl<'a> FunctionChecker<'a> {
         if let Some((segments, type_args)) = callee_name_path_and_type_args(callee)
             && !known_concurrency_type_arg_overflow(segments, type_args)
         {
-            let symbol = segments.join("::");
-            self.push_unresolved_name(callee.node_id, callee.span.clone(), &symbol, "call_target");
+            let recovered = matches!(segments, [name] if self
+            .environment
+            .has_unique_local_function_recovery(
+                name,
+                self.function.module_name.as_deref(),
+            ));
+            if !recovered {
+                let symbol = segments.join("::");
+                self.push_unresolved_name(
+                    callee.node_id,
+                    callee.span.clone(),
+                    &symbol,
+                    "call_target",
+                );
+            }
         }
         for arg in args {
             self.infer_expr(arg, None);

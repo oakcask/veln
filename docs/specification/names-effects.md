@@ -11,6 +11,18 @@ compiler-known calls.
 
 ## Read First
 
+- Source ADT type and constructor names start with an ASCII uppercase letter.
+  Function, test, public function-alias, parameter, result, local `let`, pattern,
+  handler parameter, operation-clause parameter, and hole `satisfy` binding
+  names start with an ASCII lowercase letter. Public type-alias names follow the
+  type rule. A violation reports `name.invalid_case` at the exact written token
+  and prevents checked-core and typed-IR output. An underscore-led token is
+  retained for recovery in these positions; standalone `_` remains a wildcard
+  or discard. The checked `identifier-casing-source-recovery-json` and
+  `identifier-casing-underscore-recovery-human` cases define the diagnostic
+  contract. The run cases `identifier-casing-reachable-recovery` and
+  `identifier-casing-unreachable-peer` define selected-entry reachability.
+
 - Namespaces, shadowing, duplicate checks, module ownership, external package
   imports, and manifest export checks:
   [names-effects-full.md](names-effects-full.md#name-resolution).

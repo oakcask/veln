@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[name.invalid_case]: function name `_build` must start with an ASCII lowercase letter", "error[name.invalid_case]: binding name `_input` must start with an ASCII lowercase letter", "error[name.invalid_case]: binding name `_output` must start with an ASCII lowercase letter", "error[name.invalid_case]: binding name `_local` must start with an ASCII lowercase letter"]
+
+[stderr]
+format = "empty"

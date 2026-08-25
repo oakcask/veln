@@ -22,7 +22,7 @@ and reference matrix in
 MCP and LSP transport behavior.
 
 Implementation starts with
-[Recovery-Aware Source Identifier Casing](identifier-casing-source-recovery.md).
+[Recovery-Aware Source Identifier Casing](../reference/implemented-proposals/identifier-casing-source-recovery.md).
 That foundation combines declaration and binding diagnostics with quarantined
 recovery and `check`/`run` reachability. The dependent
 [Identifier Casing Selection Boundaries](identifier-casing-selection-boundaries.md)

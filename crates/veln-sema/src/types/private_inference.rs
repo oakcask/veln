@@ -3219,6 +3219,9 @@ pub(crate) fn function_alias_signatures(
         .filter(|alias| alias.kind == PublicAliasKind::Function)
         .filter_map(|alias| {
             let name = alias.name.clone()?;
+            if !name.as_bytes().first().is_some_and(u8::is_ascii_lowercase) {
+                return None;
+            }
             let target = function_signature_path(
                 &alias.target,
                 &module.uses,

@@ -6,6 +6,7 @@ mod facts;
 pub(crate) struct TypeEnvironment {
     functions: Vec<FunctionSignature>,
     functions_by_name: HashMap<String, Vec<usize>>,
+    function_recoveries: BTreeMap<(Option<String>, String), usize>,
     codec_calls: Vec<CodecCallSignature>,
     effects: Vec<EffectSignature>,
     handlers: Vec<HandlerSignature>,
@@ -90,6 +91,16 @@ impl TypeEnvironment {
         Self {
             functions,
             functions_by_name,
+            function_recoveries: self
+                .function_recoveries
+                .iter()
+                .filter(|((module, _), _)| {
+                    module
+                        .as_ref()
+                        .is_none_or(|module| module_names.contains(module))
+                })
+                .map(|(key, count)| (key.clone(), *count))
+                .collect(),
             codec_calls: selected_standard_facts(&self.codec_calls, module_names, |signature| {
                 signature.module_name.as_deref()
             }),
@@ -144,6 +155,16 @@ impl TypeEnvironment {
 
     pub(crate) fn function(&self, name: &str) -> Option<&FunctionSignature> {
         self.functions_named(name).next()
+    }
+
+    pub(crate) fn has_unique_local_function_recovery(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+    ) -> bool {
+        self.function_recoveries
+            .get(&(current_module.map(str::to_string), name.to_string()))
+            == Some(&1)
     }
 
     pub(crate) fn canonicalize_type_annotation(

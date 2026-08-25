@@ -28,6 +28,59 @@ pub struct SurfaceModule {
     pub schemas: Vec<SchemaDecl>,
     pub codecs: Vec<CodecDecl>,
     pub functions: Vec<Function>,
+    pub invalid_names: Vec<InvalidName>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NameClass {
+    Type,
+    Constructor,
+    Function,
+    ValueBinding,
+}
+
+impl NameClass {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Type => "type",
+            Self::Constructor => "constructor",
+            Self::Function => "function",
+            Self::ValueBinding => "value_binding",
+        }
+    }
+
+    pub fn required_initial(self) -> &'static str {
+        match self {
+            Self::Type | Self::Constructor => "ascii_uppercase",
+            Self::Function | Self::ValueBinding => "ascii_lowercase",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NameOccurrence {
+    Declaration,
+    Binding,
+    PatternHead,
+}
+
+impl NameOccurrence {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Declaration => "declaration",
+            Self::Binding => "binding",
+            Self::PatternHead => "pattern_head",
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct InvalidName {
+    pub name: String,
+    pub class: NameClass,
+    pub occurrence: NameOccurrence,
+    pub span: SourceSpan,
+    pub enclosing_function_span: Option<SourceSpan>,
 }
 
 #[derive(Clone, Debug)]

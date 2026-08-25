@@ -570,6 +570,7 @@ fn infers_import_alias_call_effects_from_function_body() {
             .into_iter()
             .chain(console.functions)
             .collect(),
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -1107,6 +1108,7 @@ fn contract_predicate_accepts_qualified_pure_function_calls() {
         codecs: Vec::new(),
         types: main.types.into_iter().chain(rules.types).collect(),
         functions: main.functions.into_iter().chain(rules.functions).collect(),
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);

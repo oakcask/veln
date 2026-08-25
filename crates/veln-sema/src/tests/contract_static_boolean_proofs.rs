@@ -62,6 +62,7 @@ fn contract_predicate_accepts_qualified_function_value_arguments() {
         codecs: Vec::new(),
         types: main.types.into_iter().chain(rules.types).collect(),
         functions: main.functions.into_iter().chain(rules.functions).collect(),
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);

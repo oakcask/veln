@@ -54,10 +54,23 @@ pub(super) fn from_module_with_base(
     callables.functions.extend(aliases);
     codec_calls.shrink_to_fit();
     let functions_by_name = function_name_index(&callables.functions);
+    let mut function_recoveries = BTreeMap::new();
+    for function in &module.functions {
+        let Some(name) = &function.name else {
+            continue;
+        };
+        if name.as_bytes().first().is_some_and(u8::is_ascii_lowercase) {
+            continue;
+        }
+        *function_recoveries
+            .entry((function.module_name.clone(), name.clone()))
+            .or_insert(0) += 1;
+    }
 
     TypeEnvironment {
         functions: callables.functions,
         functions_by_name,
+        function_recoveries,
         codec_calls,
         effects: declarations.effects,
         handlers: callables.handlers,

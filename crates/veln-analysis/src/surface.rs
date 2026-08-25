@@ -248,6 +248,7 @@ impl SurfaceParts {
                 schemas: Vec::new(),
                 codecs: Vec::new(),
                 functions: Vec::new(),
+                invalid_names: Vec::new(),
             },
             derived_modules: Vec::new(),
         }
@@ -332,6 +333,7 @@ fn process_parsed_source(
     parts.module.schemas.extend(lowered.schemas);
     parts.module.codecs.extend(lowered.codecs);
     parts.module.functions.extend(lowered.functions);
+    parts.module.invalid_names.extend(lowered.invalid_names);
 }
 
 fn push_source_parse_semantic_diagnostics(
@@ -602,6 +604,10 @@ fn merge_surface_parts(parts: &mut SurfaceParts, additions: &SurfaceParts) {
         .module
         .functions
         .extend(additions.module.functions.clone());
+    parts
+        .module
+        .invalid_names
+        .extend(additions.module.invalid_names.clone());
     parts
         .derived_modules
         .extend(additions.derived_modules.clone());
@@ -2068,6 +2074,7 @@ fn function_targets(inputs: &ReachabilityInputs<'_>) -> Vec<FunctionTarget> {
 
 fn function_target(function: &Function) -> Option<FunctionTarget> {
     let name = function.name.clone()?;
+    let recovery = !name.as_bytes().first().is_some_and(u8::is_ascii_lowercase);
     Some(FunctionTarget {
         name: name.clone(),
         module_name: function.module_name.clone(),
@@ -2077,6 +2084,7 @@ fn function_target(function: &Function) -> Option<FunctionTarget> {
         shape: function_shape(function),
         bare_importable: true,
         requires_public_import: false,
+        recovery,
     })
 }
 
@@ -2126,6 +2134,7 @@ fn codec_with_targets(inputs: &ReachabilityInputs<'_>) -> Vec<FunctionTarget> {
                             shape: function_shape(target),
                             bare_importable: false,
                             requires_public_import: true,
+                            recovery: false,
                         })
                     }),
             )
@@ -2191,6 +2200,17 @@ fn module_with_reachable_functions(
     inputs: &ReachabilityInputs<'_>,
     reachable: &HashSet<ReachableFunction>,
 ) -> SurfaceModule {
+    let functions = materialize_reachable_functions(inputs, reachable);
+    let invalid_names = inputs
+        .cloned_declarations(|module| &module.invalid_names)
+        .into_iter()
+        .filter(|invalid| {
+            invalid
+                .enclosing_function_span
+                .as_ref()
+                .is_none_or(|span| functions.iter().any(|function| &function.span == span))
+        })
+        .collect();
     SurfaceModule {
         module: inputs.module_header(),
         uses: inputs.cloned_declarations(|module| &module.uses),
@@ -2200,7 +2220,8 @@ fn module_with_reachable_functions(
         types: inputs.cloned_declarations(|module| &module.types),
         schemas: inputs.cloned_declarations(|module| &module.schemas),
         codecs: inputs.cloned_declarations(|module| &module.codecs),
-        functions: materialize_reachable_functions(inputs, reachable),
+        functions,
+        invalid_names,
     }
 }
 
@@ -2250,6 +2271,7 @@ struct FunctionTarget {
     shape: FunctionShape,
     bare_importable: bool,
     requires_public_import: bool,
+    recovery: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -2268,6 +2290,9 @@ fn function_alias_targets(
         .filter(|alias| alias.kind == PublicAliasKind::Function)
         .filter_map(|alias| {
             let name = alias.name.clone()?;
+            if !name.as_bytes().first().is_some_and(u8::is_ascii_lowercase) {
+                return None;
+            }
             let target = target_for_alias_path(
                 &alias.target,
                 &uses,
@@ -2275,6 +2300,9 @@ fn function_alias_targets(
                 alias.module_name.as_deref(),
             )?;
             if companion_alias_targets_imported_private_function(alias, target) {
+                return None;
+            }
+            if target.recovery {
                 return None;
             }
             Some(FunctionTarget {
@@ -2286,6 +2314,7 @@ fn function_alias_targets(
                 shape: target.shape.clone(),
                 bare_importable: true,
                 requires_public_import: false,
+                recovery: false,
             })
         })
         .collect()
@@ -2977,6 +3006,9 @@ fn imported_target_visible_from_module(
     current_module: Option<&str>,
     companion_access_targets: &HashMap<String, String>,
 ) -> bool {
+    if target.recovery {
+        return false;
+    }
     if target.visibility == Visibility::Public {
         return true;
     }
@@ -3025,6 +3057,9 @@ fn bare_target_visible(
     };
     if target.module_name.as_deref() == Some(current_module) {
         return true;
+    }
+    if target.recovery {
+        return false;
     }
     target.bare_importable
         && target.module_name.as_deref().is_some_and(|module_name| {
@@ -3395,6 +3430,9 @@ mod tests {
         combined.schemas.extend(application.schemas.clone());
         combined.codecs.extend(application.codecs.clone());
         combined.functions.extend(application.functions.clone());
+        combined
+            .invalid_names
+            .extend(application.invalid_names.clone());
         combined.module = application.module.clone();
 
         let combined_reachable = reachable_entry_module(&combined, "main", FunctionKind::Function);
@@ -3484,6 +3522,9 @@ mod tests {
         combined.schemas.extend(application.schemas.clone());
         combined.codecs.extend(application.codecs.clone());
         combined.functions.extend(application.functions.clone());
+        combined
+            .invalid_names
+            .extend(application.invalid_names.clone());
         combined.module = application.module.clone();
 
         let combined_reachable = reachable_entry_module(&combined, "main", FunctionKind::Function);
