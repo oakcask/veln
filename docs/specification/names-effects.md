@@ -33,21 +33,21 @@ compiler-known calls.
   recovery record suppresses only derivative unresolved-name diagnostics. The
   run cases
   `identifier-casing-reachable-recovery`,
+  `identifier-casing-constructor-call-recovery`,
   `identifier-casing-reachable-invalid-alias`,
   `identifier-casing-reachable-expression-type`,
   `identifier-casing-reachable-type-alias`, and
-  `identifier-casing-unreachable-peer` define selected-entry reachability,
-  including reachable invalid public function aliases and expression-only
-  constructor/type references, reachable invalid public type aliases from type
-  references, plus the rule that reachable local value spellings and type
-  references do not make unrelated invalid declarations reachable.
+  `identifier-casing-unreachable-peer` define selected-entry reachability for
+  invalid functions, constructor calls, public aliases, expression-only
+  constructor/type references, and the rule that reachable local value
+  spellings and type references do not make unrelated invalid declarations
+  reachable. The `identifier-casing-reachable-handler-bindings` run case
+  defines reachable handler parameter and operation-clause parameter selection.
   The checked `identifier-casing-import-recovery-isolation-json` and
   `identifier-casing-public-alias-recovery-isolation-json` cases fix that
   quarantined recovery records do not cross import boundaries or satisfy public
-  alias targets. The LSP single-file diagnostics helper reports the same
-  parse-clean source casing diagnostics for that source. Workspace snapshot and
-  open-document overlay selection evidence remains outside this source
-  foundation.
+  alias targets. Workspace snapshot and open-document overlay selection
+  evidence remains outside this source foundation.
 
 - Namespaces, shadowing, duplicate checks, module ownership, external package
   imports, and manifest export checks:

@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"308cf98cb0c3bec597d616473b2d1bb3c92c1223"
+source_git_tree	"3818b98c2edc5820204a27dfb394dd1121fc63ea"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1526
+case_count	1528
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -37755,7 +37755,27 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"8c98ea54a0ab83b25e7dcc72838a368d5aef174441a204ab50d7976cde669b51"
+case	"examples/specification/run/identifier-casing-constructor-call-recovery"
+field	expectations.exit	1
+field	expectations.stderr.format	"text"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"d505a537bf4e200f2cdc4e29b87f5d89c398ca3868986dda03bd0631fdc5a32f"
 case	"examples/specification/run/identifier-casing-reachable-expression-type"
+field	expectations.exit	1
+field	expectations.stderr.format	"text"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"d505a537bf4e200f2cdc4e29b87f5d89c398ca3868986dda03bd0631fdc5a32f"
+case	"examples/specification/run/identifier-casing-reachable-handler-bindings"
 field	expectations.exit	1
 field	expectations.stderr.format	"text"
 field	expectations.stdout.format	"empty"
@@ -48218,4 +48238,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"eefaa73dbdd80a9fbeea77a3bb36c2b23a2e39be93f9bcef922e6c38160e6f59"
+aggregate_digest	"5713848a760aef1deab395ad459e31e809640236cad4991b928b5f6c9dad970c"

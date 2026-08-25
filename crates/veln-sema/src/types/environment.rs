@@ -206,10 +206,30 @@ impl TypeEnvironment {
         name: &str,
         current_module: Option<&str>,
     ) -> bool {
+        self.has_unique_local_constructor_recovery(name, current_module, None)
+    }
+
+    pub(crate) fn has_unique_local_constructor_call_recovery(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        arg_count: usize,
+    ) -> bool {
+        self.has_unique_local_constructor_recovery(name, current_module, Some(arg_count))
+    }
+
+    fn has_unique_local_constructor_recovery(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        arg_count: Option<usize>,
+    ) -> bool {
         self.constructor_recoveries
             .iter()
             .filter(|(key, _)| {
-                key.module_name.as_deref() == current_module && key.name.as_str() == name
+                key.module_name.as_deref() == current_module
+                    && key.name.as_str() == name
+                    && arg_count.is_none_or(|count| key.field_count == count)
             })
             .map(|(_, count)| *count)
             .sum::<usize>()
@@ -780,4 +800,5 @@ impl FunctionRecoveryKey {
 pub(crate) struct ConstructorRecoveryKey {
     module_name: Option<String>,
     name: String,
+    field_count: usize,
 }

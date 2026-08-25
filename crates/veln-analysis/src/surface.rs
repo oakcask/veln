@@ -2234,6 +2234,9 @@ fn module_with_reachable_functions(
             .into_iter()
             .filter(|handler| {
                 !declaration_contains_invalid_name(&handler.span, &invalid_names_by_declaration)
+                    || reachable_invalid_name_spans
+                        .iter()
+                        .any(|span| span == &handler.span)
             })
             .collect(),
         types: inputs.cloned_declarations(|module| &module.types),
@@ -2269,346 +2272,643 @@ fn reachable_invalid_name_declaration_spans(
     inputs: &ReachabilityInputs<'_>,
     functions: &[Function],
 ) -> Vec<SourceSpan> {
+    let mut selector = ReachableInvalidNameSelector::new(inputs);
     let mut spans = functions
         .iter()
         .map(|function| function.span.clone())
         .collect::<Vec<_>>();
-    let mut declaration_names = HashSet::new();
-    let mut function_reference_names = HashSet::new();
     for function in functions {
-        collect_reachable_function_reference_names(
-            function,
-            &mut declaration_names,
-            &mut function_reference_names,
-        );
+        selector.collect_function(function, &mut spans);
     }
-    for alias in inputs.aliases() {
-        if alias.kind == veln_ast::PublicAliasKind::Function
-            && alias
-                .name
-                .as_ref()
-                .is_some_and(|name| function_reference_names.contains(name))
-        {
-            spans.push(alias.span.clone());
-        }
-        if alias.kind == veln_ast::PublicAliasKind::Type
-            && alias
-                .name
-                .as_ref()
-                .is_some_and(|name| declaration_names.contains(name))
-        {
-            spans.push(alias.span.clone());
-        }
-    }
-    for handler in inputs.handlers() {
-        if handler
-            .name
-            .as_ref()
-            .is_some_and(|name| declaration_names.contains(name))
-        {
-            spans.push(handler.span.clone());
-        }
-    }
-    for type_decl in inputs.types() {
-        let type_referenced = type_decl
-            .name
-            .as_ref()
-            .is_some_and(|name| declaration_names.contains(name));
-        let variant_referenced = type_decl.variants.iter().any(|variant| {
-            variant
-                .name
-                .as_ref()
-                .is_some_and(|name| declaration_names.contains(name))
-        });
-        if type_referenced || variant_referenced {
-            spans.push(type_decl.span.clone());
-        }
-    }
+    dedup_spans(&mut spans);
     spans
 }
 
-fn collect_reachable_function_reference_names(
-    function: &Function,
-    declaration_names: &mut HashSet<String>,
-    function_reference_names: &mut HashSet<String>,
-) {
-    let mut local_bindings = function
-        .params
-        .iter()
-        .map(|param| param.name.clone())
-        .collect::<Vec<_>>();
-    for param in &function.params {
-        collect_type_reference_names(param.ty.as_deref(), declaration_names);
-    }
-    collect_type_reference_names(function.return_type.as_deref(), declaration_names);
-    for line in &function.body {
-        match &line.kind {
-            veln_ast::BodyLineKind::Let {
-                pattern,
-                annotation,
-                expr,
-            } => {
-                collect_pattern_reference_names(pattern, declaration_names);
-                collect_type_reference_names(annotation.as_deref(), declaration_names);
-                collect_expr_reference_names(
-                    expr,
-                    &local_bindings,
-                    declaration_names,
-                    function_reference_names,
-                );
-                collect_pattern_binding_names(pattern, &mut local_bindings);
-            }
-            veln_ast::BodyLineKind::Expr { expr } => {
-                collect_expr_reference_names(
-                    expr,
-                    &local_bindings,
-                    declaration_names,
-                    function_reference_names,
-                );
-            }
-        }
-    }
+struct ReachableInvalidNameSelector<'a> {
+    uses: Vec<&'a UseDecl>,
+    aliases: Vec<&'a veln_ast::PublicAlias>,
+    handlers: Vec<&'a veln_ast::HandlerDecl>,
+    types: Vec<&'a veln_ast::TypeDecl>,
+    functions: Vec<&'a Function>,
 }
 
-fn collect_type_reference_names(annotation: Option<&str>, names: &mut HashSet<String>) {
-    let Some(annotation) = annotation else {
-        return;
-    };
-    if let Ok(type_names) = veln_sema::type_annotation_reference_names(annotation) {
-        names.extend(type_names);
-    }
-}
-
-fn collect_expr_reference_names(
-    expr: &Expr,
-    local_bindings: &[String],
-    declaration_names: &mut HashSet<String>,
-    function_reference_names: &mut HashSet<String>,
-) {
-    match &expr.kind {
-        ExprKind::NamePath(segments) => {
-            if !matches!(segments.as_slice(), [name] if local_bindings.iter().rev().any(|binding| binding == name))
-            {
-                collect_path_reference_names(segments, declaration_names);
-            }
+impl<'a> ReachableInvalidNameSelector<'a> {
+    fn new(inputs: &'a ReachabilityInputs<'_>) -> Self {
+        Self {
+            uses: inputs.uses(),
+            aliases: inputs.aliases().collect(),
+            handlers: inputs.handlers(),
+            types: inputs.types().collect(),
+            functions: inputs.functions().collect(),
         }
-        ExprKind::Hole { .. } => {}
-        ExprKind::TypeApply { callee, type_args } => {
-            collect_expr_reference_names(
-                callee,
-                local_bindings,
-                declaration_names,
-                function_reference_names,
+    }
+
+    fn collect_function(&mut self, function: &Function, spans: &mut Vec<SourceSpan>) {
+        let mut local_bindings = function
+            .params
+            .iter()
+            .map(|param| param.name.clone())
+            .collect::<Vec<_>>();
+        for param in &function.params {
+            self.collect_type_annotation(
+                param.ty.as_deref(),
+                function.module_name.as_deref(),
+                spans,
             );
-            for type_arg in type_args {
-                collect_type_reference_names(Some(type_arg), declaration_names);
+        }
+        self.collect_type_annotation(
+            function.return_type.as_deref(),
+            function.module_name.as_deref(),
+            spans,
+        );
+        for line in &function.body {
+            match &line.kind {
+                veln_ast::BodyLineKind::Let {
+                    pattern,
+                    annotation,
+                    expr,
+                } => {
+                    self.collect_pattern(pattern, function.module_name.as_deref(), spans);
+                    self.collect_type_annotation(
+                        annotation.as_deref(),
+                        function.module_name.as_deref(),
+                        spans,
+                    );
+                    self.collect_expr(
+                        expr,
+                        function.module_name.as_deref(),
+                        &local_bindings,
+                        spans,
+                    );
+                    collect_pattern_binding_names(pattern, &mut local_bindings);
+                }
+                veln_ast::BodyLineKind::Expr { expr } => {
+                    self.collect_expr(
+                        expr,
+                        function.module_name.as_deref(),
+                        &local_bindings,
+                        spans,
+                    );
+                }
             }
         }
-        ExprKind::Call { callee, args } => {
-            if let Some(segments) = callee_name_path(callee) {
-                collect_path_reference_names(segments, function_reference_names);
-            } else {
-                collect_expr_reference_names(
-                    callee,
-                    local_bindings,
-                    declaration_names,
-                    function_reference_names,
-                );
-            }
-            for arg in args {
-                collect_expr_reference_names(
-                    arg,
-                    local_bindings,
-                    declaration_names,
-                    function_reference_names,
-                );
-            }
+    }
+
+    fn collect_type_annotation(
+        &mut self,
+        annotation: Option<&str>,
+        current_module: Option<&str>,
+        spans: &mut Vec<SourceSpan>,
+    ) {
+        let Some(annotation) = annotation else {
+            return;
+        };
+        let Ok(type_names) = veln_sema::type_annotation_reference_names(annotation) else {
+            return;
+        };
+        for name in type_names {
+            self.select_type_name(&[name], current_module, spans);
         }
-        ExprKind::Perform { args, .. } => {
-            for arg in args {
-                collect_expr_reference_names(
-                    arg,
-                    local_bindings,
-                    declaration_names,
-                    function_reference_names,
-                );
+    }
+
+    fn collect_expr(
+        &mut self,
+        expr: &Expr,
+        current_module: Option<&str>,
+        local_bindings: &[String],
+        spans: &mut Vec<SourceSpan>,
+    ) {
+        match &expr.kind {
+            ExprKind::NamePath(segments) => {
+                if !matches!(segments.as_slice(), [name] if local_bindings.iter().rev().any(|binding| binding == name))
+                {
+                    self.select_value_name(segments, current_module, spans);
+                }
             }
-        }
-        ExprKind::Handle {
-            body,
-            handler,
-            args,
-            ..
-        } => {
-            collect_expr_reference_names(
+            ExprKind::Hole { .. } => {}
+            ExprKind::TypeApply { callee, type_args } => {
+                self.collect_expr(callee, current_module, local_bindings, spans);
+                for type_arg in type_args {
+                    self.collect_type_annotation(Some(type_arg), current_module, spans);
+                }
+            }
+            ExprKind::Call { callee, args } => {
+                if let Some(segments) = callee_name_path(callee) {
+                    if !matches!(segments.as_slice(), [name] if local_bindings.iter().rev().any(|binding| binding == name))
+                    {
+                        self.select_call_name(segments, current_module, args.len(), spans);
+                    }
+                } else {
+                    self.collect_expr(callee, current_module, local_bindings, spans);
+                }
+                for arg in args {
+                    self.collect_expr(arg, current_module, local_bindings, spans);
+                }
+            }
+            ExprKind::Perform { args, .. } => {
+                for arg in args {
+                    self.collect_expr(arg, current_module, local_bindings, spans);
+                }
+            }
+            ExprKind::Handle {
                 body,
-                local_bindings,
-                declaration_names,
-                function_reference_names,
-            );
-            collect_path_reference_names(handler, declaration_names);
-            for arg in args {
-                collect_expr_reference_names(
-                    arg,
-                    local_bindings,
-                    declaration_names,
-                    function_reference_names,
-                );
+                handler,
+                args,
+                ..
+            } => {
+                self.select_handler(handler, current_module, spans);
+                self.collect_expr(body, current_module, local_bindings, spans);
+                for arg in args {
+                    self.collect_expr(arg, current_module, local_bindings, spans);
+                }
             }
-        }
-        ExprKind::SchemaDecode {
-            schema,
-            input,
-            base,
-        } => {
-            collect_path_reference_names(schema, declaration_names);
-            collect_expr_reference_names(
+            ExprKind::SchemaDecode {
+                schema: _,
                 input,
-                local_bindings,
-                declaration_names,
-                function_reference_names,
-            );
-            collect_expr_reference_names(
                 base,
-                local_bindings,
-                declaration_names,
-                function_reference_names,
-            );
-        }
-        ExprKind::SchemaEncode { schema, value } => {
-            collect_path_reference_names(schema, declaration_names);
-            collect_expr_reference_names(
-                value,
-                local_bindings,
-                declaration_names,
-                function_reference_names,
-            );
-        }
-        ExprKind::FieldAccess { base, .. }
-        | ExprKind::Try(base)
-        | ExprKind::Prefix { expr: base, .. } => {
-            collect_expr_reference_names(
-                base,
-                local_bindings,
-                declaration_names,
-                function_reference_names,
-            );
-        }
-        ExprKind::Record(fields) => {
-            for field in fields {
-                collect_expr_reference_names(
-                    &field.expr,
-                    local_bindings,
-                    declaration_names,
-                    function_reference_names,
-                );
+            } => {
+                self.collect_expr(input, current_module, local_bindings, spans);
+                self.collect_expr(base, current_module, local_bindings, spans);
             }
-        }
-        ExprKind::Dict(entries) => {
-            for entry in entries {
-                collect_expr_reference_names(
-                    &entry.key,
-                    local_bindings,
-                    declaration_names,
-                    function_reference_names,
-                );
-                collect_expr_reference_names(
-                    &entry.value,
-                    local_bindings,
-                    declaration_names,
-                    function_reference_names,
-                );
+            ExprKind::SchemaEncode { schema: _, value } => {
+                self.collect_expr(value, current_module, local_bindings, spans);
             }
-        }
-        ExprKind::List(items) => {
-            for item in items {
-                collect_expr_reference_names(
-                    item,
-                    local_bindings,
-                    declaration_names,
-                    function_reference_names,
-                );
+            ExprKind::FieldAccess { base, .. }
+            | ExprKind::Try(base)
+            | ExprKind::Prefix { expr: base, .. } => {
+                self.collect_expr(base, current_module, local_bindings, spans);
             }
-        }
-        ExprKind::Match { scrutinee, arms } => {
-            collect_expr_reference_names(
-                scrutinee,
-                local_bindings,
-                declaration_names,
-                function_reference_names,
-            );
-            for arm in arms {
-                collect_pattern_reference_names(&arm.pattern, declaration_names);
-                let mut arm_bindings = local_bindings.to_vec();
-                collect_pattern_binding_names(&arm.pattern, &mut arm_bindings);
-                collect_expr_reference_names(
-                    &arm.expr,
-                    &arm_bindings,
-                    declaration_names,
-                    function_reference_names,
-                );
+            ExprKind::Record(fields) => {
+                for field in fields {
+                    self.collect_expr(&field.expr, current_module, local_bindings, spans);
+                }
             }
-        }
-        ExprKind::If {
-            condition,
-            then_branch,
-            else_if_branches,
-            else_branch,
-        } => {
-            collect_expr_reference_names(
+            ExprKind::Dict(entries) => {
+                for entry in entries {
+                    self.collect_expr(&entry.key, current_module, local_bindings, spans);
+                    self.collect_expr(&entry.value, current_module, local_bindings, spans);
+                }
+            }
+            ExprKind::List(items) => {
+                for item in items {
+                    self.collect_expr(item, current_module, local_bindings, spans);
+                }
+            }
+            ExprKind::Match { scrutinee, arms } => {
+                self.collect_expr(scrutinee, current_module, local_bindings, spans);
+                for arm in arms {
+                    self.collect_pattern(&arm.pattern, current_module, spans);
+                    let mut arm_bindings = local_bindings.to_vec();
+                    collect_pattern_binding_names(&arm.pattern, &mut arm_bindings);
+                    self.collect_expr(&arm.expr, current_module, &arm_bindings, spans);
+                }
+            }
+            ExprKind::If {
                 condition,
-                local_bindings,
-                declaration_names,
-                function_reference_names,
-            );
-            collect_expr_reference_names(
                 then_branch,
-                local_bindings,
-                declaration_names,
-                function_reference_names,
-            );
-            for branch in else_if_branches {
-                collect_expr_reference_names(
-                    &branch.condition,
-                    local_bindings,
-                    declaration_names,
-                    function_reference_names,
-                );
-                collect_expr_reference_names(
-                    &branch.expr,
-                    local_bindings,
-                    declaration_names,
-                    function_reference_names,
-                );
-            }
-            collect_expr_reference_names(
+                else_if_branches,
                 else_branch,
-                local_bindings,
-                declaration_names,
-                function_reference_names,
-            );
+            } => {
+                self.collect_expr(condition, current_module, local_bindings, spans);
+                self.collect_expr(then_branch, current_module, local_bindings, spans);
+                for branch in else_if_branches {
+                    self.collect_expr(&branch.condition, current_module, local_bindings, spans);
+                    self.collect_expr(&branch.expr, current_module, local_bindings, spans);
+                }
+                self.collect_expr(else_branch, current_module, local_bindings, spans);
+            }
+            ExprKind::Binary { left, right, .. } => {
+                self.collect_expr(left, current_module, local_bindings, spans);
+                self.collect_expr(right, current_module, local_bindings, spans);
+            }
+            ExprKind::Missing
+            | ExprKind::StringLiteral(_)
+            | ExprKind::IntLiteral(_)
+            | ExprKind::FloatLiteral(_)
+            | ExprKind::BoolLiteral(_)
+            | ExprKind::Unit => {}
         }
-        ExprKind::Binary { left, right, .. } => {
-            collect_expr_reference_names(
-                left,
-                local_bindings,
-                declaration_names,
-                function_reference_names,
-            );
-            collect_expr_reference_names(
-                right,
-                local_bindings,
-                declaration_names,
-                function_reference_names,
-            );
-        }
-        ExprKind::Missing
-        | ExprKind::StringLiteral(_)
-        | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
-        | ExprKind::BoolLiteral(_)
-        | ExprKind::Unit => {}
     }
+
+    fn collect_pattern(
+        &mut self,
+        pattern: &Pattern,
+        current_module: Option<&str>,
+        spans: &mut Vec<SourceSpan>,
+    ) {
+        match &pattern.kind {
+            PatternKind::Binding(_) => {}
+            PatternKind::Constructor { name, args } => {
+                self.select_constructor_name(name, current_module, None, spans);
+                for arg in args {
+                    self.collect_pattern(arg, current_module, spans);
+                }
+            }
+            PatternKind::Record(fields) => {
+                for field in fields {
+                    self.collect_pattern(&field.pattern, current_module, spans);
+                }
+            }
+            PatternKind::Wildcard
+            | PatternKind::StringLiteral(_)
+            | PatternKind::IntLiteral(_)
+            | PatternKind::FloatLiteral(_)
+            | PatternKind::BoolLiteral(_)
+            | PatternKind::Unit => {}
+        }
+    }
+
+    fn select_value_name(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        spans: &mut Vec<SourceSpan>,
+    ) {
+        if self.has_valid_constructor(segments, current_module, None) {
+            return;
+        }
+        if self.has_valid_function_alias(segments, current_module) {
+            return;
+        }
+        self.select_unique_constructor_recovery(segments, current_module, None, spans);
+        self.select_unique_function_recovery(segments, current_module, None, spans);
+    }
+
+    fn select_call_name(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        arg_count: usize,
+        spans: &mut Vec<SourceSpan>,
+    ) {
+        if self.has_valid_function(segments, current_module, Some(arg_count))
+            || self.has_valid_function_alias(segments, current_module)
+            || self.has_valid_constructor(segments, current_module, Some(arg_count))
+        {
+            return;
+        }
+        self.select_unique_function_recovery(segments, current_module, Some(arg_count), spans);
+        self.select_unique_constructor_recovery(segments, current_module, Some(arg_count), spans);
+    }
+
+    fn select_type_name(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        spans: &mut Vec<SourceSpan>,
+    ) {
+        if self.has_valid_type(segments, current_module)
+            || self.has_valid_type_alias(segments, current_module)
+        {
+            return;
+        }
+        self.select_unique_type_recovery(segments, current_module, spans);
+    }
+
+    fn select_constructor_name(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        arg_count: Option<usize>,
+        spans: &mut Vec<SourceSpan>,
+    ) {
+        if self.has_valid_constructor(segments, current_module, arg_count) {
+            return;
+        }
+        self.select_unique_constructor_recovery(segments, current_module, arg_count, spans);
+    }
+
+    fn select_handler(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        spans: &mut Vec<SourceSpan>,
+    ) {
+        if let Some(handler) = self.visible_handler(segments, current_module) {
+            spans.push(handler.span.clone());
+        }
+    }
+
+    fn has_valid_function(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        arg_count: Option<usize>,
+    ) -> bool {
+        self.visible_functions(segments, current_module)
+            .into_iter()
+            .any(|function| {
+                function
+                    .name
+                    .as_ref()
+                    .is_some_and(|name| name.as_bytes().first().is_some_and(u8::is_ascii_lowercase))
+                    && arg_count
+                        .is_none_or(|count| function_shape(function).accepts_arg_count(count))
+            })
+    }
+
+    fn has_valid_function_alias(&self, segments: &[String], current_module: Option<&str>) -> bool {
+        self.visible_aliases(segments, current_module, PublicAliasKind::Function)
+            .into_iter()
+            .any(|alias| {
+                alias
+                    .name
+                    .as_ref()
+                    .is_some_and(|name| name.as_bytes().first().is_some_and(u8::is_ascii_lowercase))
+            })
+    }
+
+    fn has_valid_type_alias(&self, segments: &[String], current_module: Option<&str>) -> bool {
+        self.visible_aliases(segments, current_module, PublicAliasKind::Type)
+            .into_iter()
+            .any(|alias| {
+                alias
+                    .name
+                    .as_ref()
+                    .is_some_and(|name| name.as_bytes().first().is_some_and(u8::is_ascii_uppercase))
+            })
+    }
+
+    fn has_valid_type(&self, segments: &[String], current_module: Option<&str>) -> bool {
+        self.visible_types(segments, current_module)
+            .into_iter()
+            .any(|type_decl| {
+                type_decl
+                    .name
+                    .as_ref()
+                    .is_some_and(|name| name.as_bytes().first().is_some_and(u8::is_ascii_uppercase))
+            })
+    }
+
+    fn has_valid_constructor(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        arg_count: Option<usize>,
+    ) -> bool {
+        self.visible_constructor_variants(segments, current_module)
+            .into_iter()
+            .any(|(_, variant)| {
+                variant
+                    .name
+                    .as_ref()
+                    .is_some_and(|name| name.as_bytes().first().is_some_and(u8::is_ascii_uppercase))
+                    && arg_count.is_none_or(|count| variant.fields.len() == count)
+            })
+    }
+
+    fn select_unique_function_recovery(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        arg_count: Option<usize>,
+        spans: &mut Vec<SourceSpan>,
+    ) {
+        let candidates = self
+            .visible_functions(segments, current_module)
+            .into_iter()
+            .filter(|function| {
+                function.name.as_ref().is_some_and(|name| {
+                    !name.as_bytes().first().is_some_and(u8::is_ascii_lowercase)
+                }) && arg_count
+                    .is_none_or(|count| function_shape(function).accepts_arg_count(count))
+            })
+            .map(|function| function.span.clone())
+            .chain(
+                self.visible_aliases(segments, current_module, PublicAliasKind::Function)
+                    .into_iter()
+                    .filter(|alias| {
+                        alias.name.as_ref().is_some_and(|name| {
+                            !name.as_bytes().first().is_some_and(u8::is_ascii_lowercase)
+                        })
+                    })
+                    .map(|alias| alias.span.clone()),
+            )
+            .collect::<Vec<_>>();
+        push_unique_span(candidates, spans);
+    }
+
+    fn select_unique_type_recovery(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        spans: &mut Vec<SourceSpan>,
+    ) {
+        let candidates = self
+            .visible_types(segments, current_module)
+            .into_iter()
+            .filter(|type_decl| {
+                type_decl.name.as_ref().is_some_and(|name| {
+                    !name.as_bytes().first().is_some_and(u8::is_ascii_uppercase)
+                })
+            })
+            .map(|type_decl| type_decl.span.clone())
+            .chain(
+                self.visible_aliases(segments, current_module, PublicAliasKind::Type)
+                    .into_iter()
+                    .filter(|alias| {
+                        alias.name.as_ref().is_some_and(|name| {
+                            !name.as_bytes().first().is_some_and(u8::is_ascii_uppercase)
+                        })
+                    })
+                    .map(|alias| alias.span.clone()),
+            )
+            .collect::<Vec<_>>();
+        push_unique_span(candidates, spans);
+    }
+
+    fn select_unique_constructor_recovery(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        arg_count: Option<usize>,
+        spans: &mut Vec<SourceSpan>,
+    ) {
+        let candidates = self
+            .visible_constructor_variants(segments, current_module)
+            .into_iter()
+            .filter(|(_, variant)| {
+                variant.name.as_ref().is_some_and(|name| {
+                    !name.as_bytes().first().is_some_and(u8::is_ascii_uppercase)
+                }) && arg_count.is_none_or(|count| variant.fields.len() == count)
+            })
+            .map(|(type_decl, _)| type_decl.span.clone())
+            .collect::<Vec<_>>();
+        push_unique_span(candidates, spans);
+    }
+
+    fn visible_functions(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> Vec<&'a Function> {
+        let target = visible_path_target(&self.uses, segments, current_module);
+        let leaf = path_leaf(segments).map(str::to_string);
+        self.functions
+            .iter()
+            .copied()
+            .filter(move |function| {
+                function.kind == FunctionKind::Function
+                    && function.name.as_deref() == leaf.as_deref()
+                    && declaration_visible(
+                        function.module_name.as_deref(),
+                        function.visibility,
+                        target.as_deref(),
+                        current_module,
+                    )
+            })
+            .collect()
+    }
+
+    fn visible_aliases(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        kind: PublicAliasKind,
+    ) -> Vec<&'a veln_ast::PublicAlias> {
+        let target = visible_path_target(&self.uses, segments, current_module);
+        let leaf = path_leaf(segments).map(str::to_string);
+        self.aliases
+            .iter()
+            .copied()
+            .filter(move |alias| {
+                alias.kind == kind
+                    && alias.name.as_deref() == leaf.as_deref()
+                    && declaration_visible(
+                        alias.module_name.as_deref(),
+                        Visibility::Public,
+                        target.as_deref(),
+                        current_module,
+                    )
+            })
+            .collect()
+    }
+
+    fn visible_types(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> Vec<&'a veln_ast::TypeDecl> {
+        let target = visible_path_target(&self.uses, segments, current_module);
+        let leaf = path_leaf(segments).map(str::to_string);
+        self.types
+            .iter()
+            .copied()
+            .filter(move |type_decl| {
+                type_decl.name.as_deref() == leaf.as_deref()
+                    && declaration_visible(
+                        type_decl.module_name.as_deref(),
+                        type_decl.visibility,
+                        target.as_deref(),
+                        current_module,
+                    )
+            })
+            .collect()
+    }
+
+    fn visible_constructor_variants(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> Vec<(&'a veln_ast::TypeDecl, &'a veln_ast::TypeVariantDecl)> {
+        let target = visible_path_target(&self.uses, segments, current_module);
+        let leaf = path_leaf(segments).map(str::to_string);
+        self.types
+            .iter()
+            .copied()
+            .flat_map(move |type_decl| {
+                type_decl.variants.iter().filter_map({
+                    let target = target.clone();
+                    let leaf = leaf.clone();
+                    move |variant| {
+                        (variant.name.as_deref() == leaf.as_deref()
+                            && declaration_visible(
+                                type_decl.module_name.as_deref(),
+                                type_decl.visibility,
+                                target.as_deref(),
+                                current_module,
+                            ))
+                        .then_some((type_decl, variant))
+                    }
+                })
+            })
+            .collect()
+    }
+
+    fn visible_handler(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> Option<&'a veln_ast::HandlerDecl> {
+        let target = visible_path_target(&self.uses, segments, current_module);
+        self.handlers.iter().copied().find(|handler| {
+            handler.name.as_deref() == path_leaf(segments)
+                && declaration_visible(
+                    handler.module_name.as_deref(),
+                    handler.visibility,
+                    target.as_deref(),
+                    current_module,
+                )
+        })
+    }
+}
+
+impl FunctionShape {
+    fn accepts_arg_count(&self, arg_count: usize) -> bool {
+        self.variadic.is_some() && arg_count >= self.fixed_arity
+            || self.variadic.is_none() && arg_count == self.fixed_arity
+    }
+}
+
+fn visible_path_target(
+    uses: &[&UseDecl],
+    segments: &[String],
+    current_module: Option<&str>,
+) -> Option<String> {
+    match segments {
+        [_] => current_module.map(str::to_string),
+        [_, .., _] => imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)
+            .map(|use_decl| use_decl.name.clone()),
+        _ => None,
+    }
+}
+
+fn path_leaf(segments: &[String]) -> Option<&str> {
+    segments.last().map(String::as_str)
+}
+
+fn declaration_visible(
+    declaration_module: Option<&str>,
+    visibility: Visibility,
+    target_module: Option<&str>,
+    current_module: Option<&str>,
+) -> bool {
+    match target_module {
+        Some(target_module) if Some(target_module) != current_module => {
+            declaration_module == Some(target_module) && visibility == Visibility::Public
+        }
+        Some(target_module) => declaration_module == Some(target_module),
+        None => current_module.is_none() && declaration_module.is_none(),
+    }
+}
+
+fn push_unique_span(mut candidates: Vec<SourceSpan>, spans: &mut Vec<SourceSpan>) {
+    dedup_spans(&mut candidates);
+    if let [span] = candidates.as_slice() {
+        spans.push(span.clone());
+    }
+}
+
+fn dedup_spans(spans: &mut Vec<SourceSpan>) {
+    let mut seen = Vec::<SourceSpan>::new();
+    spans.retain(|span| {
+        if seen.iter().any(|known| known == span) {
+            false
+        } else {
+            seen.push(span.clone());
+            true
+        }
+    });
 }
 
 fn collect_pattern_binding_names(pattern: &Pattern, bindings: &mut Vec<String>) {
@@ -2630,35 +2930,6 @@ fn collect_pattern_binding_names(pattern: &Pattern, bindings: &mut Vec<String>) 
         | PatternKind::FloatLiteral(_)
         | PatternKind::BoolLiteral(_)
         | PatternKind::Unit => {}
-    }
-}
-
-fn collect_pattern_reference_names(pattern: &Pattern, names: &mut HashSet<String>) {
-    match &pattern.kind {
-        PatternKind::Binding(_) => {}
-        PatternKind::Constructor { name, args } => {
-            collect_path_reference_names(name, names);
-            for arg in args {
-                collect_pattern_reference_names(arg, names);
-            }
-        }
-        PatternKind::Record(fields) => {
-            for field in fields {
-                collect_pattern_reference_names(&field.pattern, names);
-            }
-        }
-        PatternKind::Wildcard
-        | PatternKind::StringLiteral(_)
-        | PatternKind::IntLiteral(_)
-        | PatternKind::FloatLiteral(_)
-        | PatternKind::BoolLiteral(_)
-        | PatternKind::Unit => {}
-    }
-}
-
-fn collect_path_reference_names(segments: &[String], names: &mut HashSet<String>) {
-    for segment in segments {
-        names.insert(segment.clone());
     }
 }
 
@@ -2804,6 +3075,7 @@ struct FunctionCalleeContext<'a> {
     function_targets: &'a FunctionTargetIndex,
     companion_access_targets: &'a HashMap<String, String>,
     handlers: &'a [&'a veln_ast::HandlerDecl],
+    types: &'a [&'a veln_ast::TypeDecl],
 }
 
 fn direct_function_callees(
@@ -2815,12 +3087,14 @@ fn direct_function_callees(
     let mut callees = Vec::new();
     let uses = inputs.uses();
     let handlers = inputs.handlers();
+    let types = inputs.types().collect::<Vec<_>>();
     let context = FunctionCalleeContext {
         current_module: function.module_name.as_deref(),
         uses: &uses,
         function_targets,
         companion_access_targets,
         handlers: &handlers,
+        types: &types,
     };
     let mut local_bindings = function
         .params
@@ -3265,6 +3539,32 @@ fn split_top_level_commas(text: &str) -> Vec<&str> {
     parts
 }
 
+fn path_has_valid_constructor(
+    segments: &[String],
+    arg_count: Option<usize>,
+    current_module: Option<&str>,
+    uses: &[&UseDecl],
+    types: &[&veln_ast::TypeDecl],
+) -> bool {
+    let target = visible_path_target(uses, segments, current_module);
+    let leaf = path_leaf(segments);
+    types.iter().copied().any(|type_decl| {
+        declaration_visible(
+            type_decl.module_name.as_deref(),
+            type_decl.visibility,
+            target.as_deref(),
+            current_module,
+        ) && type_decl.variants.iter().any(|variant| {
+            variant.name.as_deref() == leaf
+                && variant
+                    .name
+                    .as_ref()
+                    .is_some_and(|name| name.as_bytes().first().is_some_and(u8::is_ascii_uppercase))
+                && arg_count.is_none_or(|count| variant.fields.len() == count)
+        })
+    })
+}
+
 fn collect_function_name_reference(
     segments: &[String],
     context: &FunctionCalleeContext<'_>,
@@ -3276,6 +3576,7 @@ fn collect_function_name_reference(
     let uses = context.uses;
     let function_targets = context.function_targets;
     let companion_access_targets = context.companion_access_targets;
+    let types = context.types;
 
     if let [name] = segments
         && let Some(binding) = local_bindings
@@ -3294,6 +3595,9 @@ fn collect_function_name_reference(
                 callees,
             );
         }
+        return;
+    }
+    if path_has_valid_constructor(segments, arg_count, current_module, uses, types) {
         return;
     }
     let public_or_same_module_access;
@@ -3350,6 +3654,7 @@ fn collect_handler_operation_clause_callees(
             function_targets,
             companion_access_targets,
             handlers,
+            types: &[],
         };
         let mut local_bindings = handler
             .params
@@ -5477,7 +5782,7 @@ mod tests {
     #[test]
     fn run_entry_keeps_invalid_constructor_referenced_by_reachable_expression_path() {
         let module = lower(concat!(
-            "fn main() -> item\n",
+            "fn main() -> Int\n",
             "  value\n",
             "end\n",
             "type item\n",
@@ -5496,6 +5801,128 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(invalid_names, vec!["item", "value"]);
+    }
+
+    #[test]
+    fn run_entry_keeps_unique_invalid_constructor_call_by_arity() {
+        let module = lower(concat!(
+            "fn main() -> item\n",
+            "  value(1)\n",
+            "end\n",
+            "type item\n",
+            "  value(Int)\n",
+            "end\n",
+            "type other\n",
+            "  value\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let invalid_names = reachable
+            .invalid_names
+            .iter()
+            .map(|invalid| invalid.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(invalid_names, vec!["item", "value"]);
+    }
+
+    #[test]
+    fn run_entry_does_not_choose_ambiguous_constructor_recovery() {
+        let module = lower(concat!(
+            "fn main() -> Int\n",
+            "  value\n",
+            "end\n",
+            "type item\n",
+            "  value\n",
+            "end\n",
+            "type other\n",
+            "  value\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert!(
+            reachable.invalid_names.is_empty(),
+            "{:#?}",
+            reachable.invalid_names
+        );
+    }
+
+    #[test]
+    fn run_entry_uses_valid_constructor_before_same_spelled_function_recovery() {
+        let module = lower(concat!(
+            "type Item\n",
+            "  Bad\n",
+            "end\n",
+            "fn main() -> Item\n",
+            "  Bad\n",
+            "end\n",
+            "fn Bad() -> Item\n",
+            "  Bad\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert!(
+            reachable.invalid_names.is_empty(),
+            "{:#?}",
+            reachable.invalid_names
+        );
+    }
+
+    #[test]
+    fn run_entry_keeps_invalid_bindings_in_reachable_handler() {
+        let module = lower(concat!(
+            "effect Ask\n",
+            "  value() -> Int\n",
+            "end\n",
+            "fn body() -> Int effects [Ask]\n",
+            "  perform Ask::value()\n",
+            "end\n",
+            "handler ask(Context: Int) handles Ask\n",
+            "  value(Result) => Context + Result\n",
+            "end\n",
+            "fn main() -> Int\n",
+            "  handle body() with ask(1)\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let invalid_names = reachable
+            .invalid_names
+            .iter()
+            .map(|invalid| invalid.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(invalid_names, vec!["Context", "Result"]);
+        assert_eq!(reachable.handlers.len(), 1, "{:#?}", reachable.handlers);
+    }
+
+    #[test]
+    fn run_entry_ignores_invalid_bindings_in_unreachable_handler() {
+        let module = lower(concat!(
+            "effect Ask\n",
+            "  value() -> Int\n",
+            "end\n",
+            "handler ask(Context: Int) handles Ask\n",
+            "  value(Result) => Context + Result\n",
+            "end\n",
+            "fn main() -> Int\n",
+            "  1\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert!(
+            reachable.invalid_names.is_empty(),
+            "{:#?}",
+            reachable.invalid_names
+        );
+        assert!(reachable.handlers.is_empty(), "{:#?}", reachable.handlers);
     }
 
     #[test]

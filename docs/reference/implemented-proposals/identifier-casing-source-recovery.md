@@ -17,11 +17,14 @@ Current behavior is specified in
 `identifier-casing-underscore-recovery-human`,
 `identifier-casing-underscore-recovery-json`,
 `identifier-casing-reachable-recovery`,
+`identifier-casing-constructor-call-recovery`,
 `identifier-casing-reachable-invalid-alias`,
 `identifier-casing-reachable-expression-type`,
 `identifier-casing-reachable-type-alias`, and
 `identifier-casing-unreachable-peer` cases cover exact diagnostics, parser
 recovery, checked-artifact blocking, and the `check`/`run` selection boundary.
+The `identifier-casing-reachable-handler-bindings` case covers reachable
+handler binding diagnostics under `run`.
 The checked `identifier-casing-import-recovery-isolation-json` and
 `identifier-casing-public-alias-recovery-isolation-json` cases cover the import
 and public-alias recovery boundaries. Focused semantic tests cover
@@ -78,7 +81,7 @@ not become a project-wide or source-wide loading gate.
 | Consumer state | Result | Evidence |
 | --- | --- | --- |
 | `check` selects a source with an invalid covered name. | Reports every selected casing diagnostic and produces no successful checked artifact. | Human and JSON checked cases with exact spans and details. |
-| `run` reaches an invalid declaration or binding from the selected entry. | Reports the casing diagnostic and produces no executable artifact. | Run cases with a valid entry that reaches an invalid function, invalid public function alias, invalid public type alias through a type reference, and invalid type or constructor through an expression path. |
+| `run` reaches an invalid declaration or binding from the selected entry. | Reports the casing diagnostic and produces no executable artifact. | Run cases with a valid entry that reaches an invalid function, constructor call, invalid public function alias, invalid public type alias through a type reference, invalid type or constructor through an expression path, and invalid handler bindings. |
 | `run` does not reach an invalid declaration from the selected entry. | Runs the valid reachable closure and omits the unreachable casing diagnostic. | Run case with a valid entry, a reachable same-spelled local value, and invalid unreachable peers in the same source. |
 
 ## Recovery Boundary

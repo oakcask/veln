@@ -126,6 +126,16 @@ pub(super) fn from_module_with_base(
             .entry(ConstructorRecoveryKey {
                 module_name,
                 name: invalid.name.clone(),
+                field_count: module
+                    .types
+                    .iter()
+                    .flat_map(|type_decl| type_decl.variants.iter())
+                    .find(|variant| {
+                        variant.name.as_deref() == Some(invalid.name.as_str())
+                            && span_contains(&variant.span, &invalid.span)
+                    })
+                    .map(|variant| variant.fields.len())
+                    .unwrap_or(0),
             })
             .or_insert(0) += 1;
     }

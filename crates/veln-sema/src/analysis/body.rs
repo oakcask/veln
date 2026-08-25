@@ -2378,7 +2378,14 @@ impl<'a> FunctionChecker<'a> {
                 name,
                 self.function.module_name.as_deref(),
                 args.len(),
-            ) || self.has_unique_invalid_local_callable_recovery(name));
+            ) || self
+                .environment
+                .has_unique_local_constructor_call_recovery(
+                    name,
+                    self.function.module_name.as_deref(),
+                    args.len(),
+                )
+                || self.has_unique_invalid_local_callable_recovery(name));
             if !recovered {
                 let symbol = segments.join("::");
                 self.push_unresolved_name(
