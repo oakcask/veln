@@ -10643,9 +10643,9 @@ field	expectations.stdout.not_contains[0]	"crates/veln-stdlib"
 field	expectations.stdout.not_contains[1]	"target/debug"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1697,"sha256":"c2ecc3dd8f8d26c765ec3be1d1cd697536b7136ca6750a9202a44c125e85ea75"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1699,"sha256":"7ec8d69f170307150c85e784bbb1b94b2eb24b54842f54eaca69667e1232fc47"}
 field	source_errors	"expected"
-case_digest	"c94edcb3709c752c79f729b3cbac10d5ad5665cb75bf8cb515ff2a45cc3925ff"
+case_digest	"11571621360595517542d5e195916d123454fc73cbd1c2fcb7139af80d10d39d"
 case	"examples/specification/lsp/unopened-missing-file"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -48218,4 +48218,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"533cc18314011d86a39ff006547548c593bf8d1697c59c671d0d01da8d293994"
+aggregate_digest	"eefaa73dbdd80a9fbeea77a3bb36c2b23a2e39be93f9bcef922e6c38160e6f59"
