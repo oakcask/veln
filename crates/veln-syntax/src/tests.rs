@@ -340,6 +340,24 @@ fn rejects_effect_operation_parameter_without_type() {
 }
 
 #[test]
+fn rejects_underscore_led_effect_operation_parameter_without_looping() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!("effect Audit\n", "  save(_Entry: Int) -> Int\n", "end\n"),
+    );
+
+    let output = parse(&source);
+
+    assert_eq!(output.diagnostics.len(), 1, "{:#?}", output.diagnostics);
+    let diagnostic = &output.diagnostics[0];
+    assert_eq!(diagnostic.id, "parse.expected_identifier");
+    assert_eq!(diagnostic.message, "expected parameter name");
+    assert_eq!(diagnostic.parser_context, "effect_operation");
+    assert_eq!(diagnostic.unexpected.text, "_Entry");
+    assert_eq!(diagnostic.expected, vec!["parameter name"]);
+}
+
+#[test]
 fn parameter_and_result_binding_name_spans_cover_only_written_names() {
     let source = SourceFile::new(
         "main.veln",

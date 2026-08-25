@@ -1663,7 +1663,7 @@ impl<'a> Parser<'a> {
             let name = name_token.map(|token| token.text);
             if name.is_none()
                 && !recoverable_names
-                && is_ordinary_contextual_identifier(self.current().kind)
+                && is_recoverable_identifier(self.current().kind)
             {
                 self.bump();
             }
