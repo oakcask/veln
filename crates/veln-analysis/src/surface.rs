@@ -2298,13 +2298,6 @@ fn reachable_invalid_name_declaration_spans(
             spans.push(type_decl.span.clone());
         }
     }
-    for alias in inputs.aliases() {
-        if alias.name.as_ref().is_some_and(|name| names.contains(name))
-            || alias.target.iter().any(|segment| names.contains(segment))
-        {
-            spans.push(alias.span.clone());
-        }
-    }
     spans
 }
 
@@ -5207,6 +5200,31 @@ mod tests {
             "{:#?}",
             reachable.invalid_names
         );
+    }
+
+    #[test]
+    fn run_entry_does_not_reach_invalid_alias_from_return_type_spelling() {
+        let module = lower(concat!(
+            "type Item\n",
+            "  Value\n",
+            "end\n",
+            "fn main() -> Item\n",
+            "  Value\n",
+            "end\n",
+            "fn good() -> Item\n",
+            "  Value\n",
+            "end\n",
+            "pub fn Item = good\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert!(
+            reachable.invalid_names.is_empty(),
+            "{:#?}",
+            reachable.invalid_names
+        );
+        assert!(reachable.aliases.is_empty(), "{:#?}", reachable.aliases);
     }
 
     #[test]

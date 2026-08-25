@@ -239,7 +239,19 @@ fn collect_invalid_pattern_names(
                 collect_invalid_pattern_names(&field.pattern, invalid, enclosing.clone());
             }
         }
-        SyntaxPatternKind::Constructor { args, .. } => {
+        SyntaxPatternKind::Constructor { name, args } => {
+            if let [name] = name.as_slice()
+                && args.is_empty()
+            {
+                push_invalid_name(
+                    invalid,
+                    Some(name),
+                    Some(&pattern.span),
+                    NameClass::ValueBinding,
+                    NameOccurrence::PatternHead,
+                    enclosing.clone(),
+                );
+            }
             for arg in args {
                 collect_invalid_pattern_names(arg, invalid, enclosing.clone());
             }

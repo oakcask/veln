@@ -34,7 +34,8 @@ compiler-known calls.
   run cases
   `identifier-casing-reachable-recovery` and `identifier-casing-unreachable-peer`
   define selected-entry reachability, including the rule that reachable local
-  value spellings do not make unrelated invalid declarations reachable.
+  value spellings and type references do not make unrelated invalid declarations
+  reachable.
   The checked `identifier-casing-import-recovery-isolation-json` and
   `identifier-casing-public-alias-recovery-isolation-json` cases fix that
   quarantined recovery records do not cross import boundaries or satisfy public

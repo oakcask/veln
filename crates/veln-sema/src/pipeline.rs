@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use veln_ast::{FunctionKind, InvalidName, NameClass, SurfaceModule, Visibility};
+use veln_ast::{FunctionKind, InvalidName, NameClass, NameOccurrence, SurfaceModule, Visibility};
 use veln_core::CheckedProgram;
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_ir::{TypedProgram, lower_checked_core};
@@ -108,7 +108,7 @@ fn analyze_surface_module_with_environment(
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
-    diagnostics.extend(check_invalid_name_casing(module));
+    diagnostics.extend(check_invalid_name_casing(module, environment));
     diagnostics.extend(check_duplicate_function_names(module));
     diagnostics.extend(check_duplicate_type_names(module));
     diagnostics.extend(check_duplicate_effect_names(module));
@@ -144,12 +144,42 @@ fn analyze_surface_module_with_environment(
     diagnostics
 }
 
-fn check_invalid_name_casing(module: &SurfaceModule) -> Vec<Diagnostic> {
+fn check_invalid_name_casing(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> Vec<Diagnostic> {
     module
         .invalid_names
         .iter()
+        .filter(|invalid| !invalid_name_is_valid_constructor_pattern(invalid, module, environment))
         .map(invalid_name_diagnostic)
         .collect()
+}
+
+fn invalid_name_is_valid_constructor_pattern(
+    invalid: &InvalidName,
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> bool {
+    if invalid.class != NameClass::ValueBinding || invalid.occurrence != NameOccurrence::PatternHead
+    {
+        return false;
+    }
+    let current_module = invalid.enclosing_function_span.as_ref().and_then(|span| {
+        module
+            .functions
+            .iter()
+            .find(|function| &function.span == span)
+            .and_then(|function| function.module_name.as_deref())
+    });
+    matches!(
+        environment.adts.constructor(
+            std::slice::from_ref(&invalid.name),
+            current_module,
+            &environment.uses,
+        ),
+        crate::adt::ConstructorLookup::Found(_) | crate::adt::ConstructorLookup::Ambiguous
+    )
 }
 
 fn invalid_name_diagnostic(invalid: &InvalidName) -> Diagnostic {

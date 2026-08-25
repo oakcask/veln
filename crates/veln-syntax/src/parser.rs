@@ -2494,13 +2494,7 @@ impl<'a> ExprParser<'a> {
     }
 
     fn parse_pattern_only(mut self) -> (Pattern, Vec<ParseDiagnostic>) {
-        let mut pattern = self.parse_pattern();
-        if let PatternKind::Constructor { name, args } = &pattern.kind
-            && let [name] = name.as_slice()
-            && args.is_empty()
-        {
-            pattern.kind = PatternKind::Binding(name.clone());
-        }
+        let pattern = self.parse_pattern();
         self.report_trailing_tokens_with_expected(
             "parse.pattern",
             "expected the pattern to end before this token",

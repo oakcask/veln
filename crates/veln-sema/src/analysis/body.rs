@@ -42,153 +42,11 @@ fn invalid_value_binding_name(name: &str) -> bool {
     !valid_value_binding_name(name)
 }
 
-fn invalid_local_binding_recovery_count(function: &Function, name: &str) -> usize {
-    let mut count = 0usize;
-    for param in &function.params {
-        if param.name == name && invalid_value_binding_name(&param.name) {
-            count += 1;
-        }
-    }
-    if let Some(binding) = &function.return_binding
-        && binding.name == name
-        && invalid_value_binding_name(&binding.name)
-    {
-        count += 1;
-    }
-    for line in &function.body {
-        match &line.kind {
-            BodyLineKind::Let { pattern, expr, .. } => {
-                count += invalid_pattern_binding_recovery_count(pattern, name);
-                count += invalid_expr_binding_recovery_count(expr, name);
-            }
-            BodyLineKind::Expr { expr } => {
-                count += invalid_expr_binding_recovery_count(expr, name);
-            }
-        }
-    }
-    count
-}
-
-fn invalid_expr_binding_recovery_count(expr: &Expr, name: &str) -> usize {
-    match &expr.kind {
-        ExprKind::Hole {
-            satisfy: Some(satisfy),
-            ..
-        } => satisfy.candidate.as_ref().map_or(0, |candidate| {
-            usize::from(candidate == name && invalid_value_binding_name(candidate))
-        }),
-        ExprKind::TypeApply { callee, .. }
-        | ExprKind::FieldAccess { base: callee, .. }
-        | ExprKind::Try(callee)
-        | ExprKind::Prefix { expr: callee, .. } => {
-            invalid_expr_binding_recovery_count(callee, name)
-        }
-        ExprKind::Call { callee, args } => {
-            invalid_expr_binding_recovery_count(callee, name)
-                + args
-                    .iter()
-                    .map(|arg| invalid_expr_binding_recovery_count(arg, name))
-                    .sum::<usize>()
-        }
-        ExprKind::Perform { args, .. } => args
-            .iter()
-            .map(|arg| invalid_expr_binding_recovery_count(arg, name))
-            .sum(),
-        ExprKind::Handle { body, args, .. } => {
-            invalid_expr_binding_recovery_count(body, name)
-                + args
-                    .iter()
-                    .map(|arg| invalid_expr_binding_recovery_count(arg, name))
-                    .sum::<usize>()
-        }
-        ExprKind::SchemaDecode { input, base, .. } => {
-            invalid_expr_binding_recovery_count(input, name)
-                + invalid_expr_binding_recovery_count(base, name)
-        }
-        ExprKind::SchemaEncode { value, .. } => invalid_expr_binding_recovery_count(value, name),
-        ExprKind::Record(fields) => fields
-            .iter()
-            .map(|field| invalid_expr_binding_recovery_count(&field.expr, name))
-            .sum(),
-        ExprKind::Dict(entries) => entries
-            .iter()
-            .map(|entry| {
-                invalid_expr_binding_recovery_count(&entry.key, name)
-                    + invalid_expr_binding_recovery_count(&entry.value, name)
-            })
-            .sum(),
-        ExprKind::List(items) => items
-            .iter()
-            .map(|item| invalid_expr_binding_recovery_count(item, name))
-            .sum(),
-        ExprKind::Match { scrutinee, arms } => {
-            invalid_expr_binding_recovery_count(scrutinee, name)
-                + arms
-                    .iter()
-                    .map(|arm| {
-                        invalid_pattern_binding_recovery_count(&arm.pattern, name)
-                            + invalid_expr_binding_recovery_count(&arm.expr, name)
-                    })
-                    .sum::<usize>()
-        }
-        ExprKind::If {
-            condition,
-            then_branch,
-            else_if_branches,
-            else_branch,
-        } => {
-            invalid_expr_binding_recovery_count(condition, name)
-                + invalid_expr_binding_recovery_count(then_branch, name)
-                + else_if_branches
-                    .iter()
-                    .map(|branch| {
-                        invalid_expr_binding_recovery_count(&branch.condition, name)
-                            + invalid_expr_binding_recovery_count(&branch.expr, name)
-                    })
-                    .sum::<usize>()
-                + invalid_expr_binding_recovery_count(else_branch, name)
-        }
-        ExprKind::Binary { left, right, .. } => {
-            invalid_expr_binding_recovery_count(left, name)
-                + invalid_expr_binding_recovery_count(right, name)
-        }
-        ExprKind::Missing
-        | ExprKind::Hole { .. }
-        | ExprKind::NamePath(_)
-        | ExprKind::StringLiteral(_)
-        | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
-        | ExprKind::BoolLiteral(_)
-        | ExprKind::Unit => 0,
-    }
-}
-
-fn invalid_pattern_binding_recovery_count(pattern: &Pattern, name: &str) -> usize {
-    match &pattern.kind {
-        PatternKind::Binding(candidate) => {
-            usize::from(candidate == name && invalid_value_binding_name(candidate))
-        }
-        PatternKind::Record(fields) => fields
-            .iter()
-            .map(|field| invalid_pattern_binding_recovery_count(&field.pattern, name))
-            .sum(),
-        PatternKind::Constructor { args, .. } => args
-            .iter()
-            .map(|arg| invalid_pattern_binding_recovery_count(arg, name))
-            .sum(),
-        PatternKind::Wildcard
-        | PatternKind::StringLiteral(_)
-        | PatternKind::IntLiteral(_)
-        | PatternKind::FloatLiteral(_)
-        | PatternKind::BoolLiteral(_)
-        | PatternKind::Unit => 0,
-    }
-}
-
 pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) function: &'a Function,
     pub(super) environment: &'a TypeEnvironment,
     pub(super) bindings: Vec<Binding>,
+    invalid_binding_recoveries: Vec<InvalidBindingRecovery>,
     omitted_local_bindings: Vec<OmittedLocalBinding>,
     pub(super) local_names: BTreeMap<String, (String, SourceSpan)>,
     pub(super) inferred_effects: Vec<EffectUse>,
@@ -202,6 +60,11 @@ pub(in crate::analysis) struct PatternBinding {
     ty: Type,
     node_id: NodeId,
     span: SourceSpan,
+}
+
+struct InvalidBindingRecovery {
+    name: String,
+    ty: Type,
 }
 
 struct OmittedLocalBinding {
@@ -322,6 +185,7 @@ impl<'a> FunctionChecker<'a> {
             function,
             environment,
             bindings: Vec::new(),
+            invalid_binding_recoveries: Vec::new(),
             omitted_local_bindings: Vec::new(),
             local_names: BTreeMap::new(),
             inferred_effects: Vec::new(),
@@ -394,7 +258,7 @@ impl<'a> FunctionChecker<'a> {
         let binding_type = expected
             .as_ref()
             .map_or_else(|| actual.clone(), |expected| expected.ty.clone());
-        let pattern_bindings = self.pattern_bindings(pattern, &binding_type);
+        let pattern_bindings = self.let_pattern_bindings(pattern, &binding_type);
         let pattern_has_diagnostic = self.diagnostics.len() != pattern_diagnostic_count;
         for binding in pattern_bindings {
             self.bind_let_pattern(
@@ -416,6 +280,7 @@ impl<'a> FunctionChecker<'a> {
         pattern_has_diagnostic: bool,
     ) {
         if !valid_value_binding_name(&binding.name) {
+            self.push_invalid_binding_recovery(binding);
             return;
         }
         if !self.declare_local_name(
@@ -762,18 +627,6 @@ impl<'a> FunctionChecker<'a> {
             });
 
         self.check_variadic_parameter_shape(param, variadic_count, private_omitted_parameter);
-        if !valid_value_binding_name(&param.name) {
-            return;
-        }
-        if !self.declare_local_name(
-            &param.name,
-            param.node_id.display("param"),
-            param.span.clone(),
-            "parameter",
-        ) {
-            return;
-        }
-
         let binding_type = signature
             .and_then(|signature| signature.params.get(index).cloned())
             .or(inferred_private_param.filter(|ty| !type_contains_unknown(ty)))
@@ -786,6 +639,22 @@ impl<'a> FunctionChecker<'a> {
                     }
                 })
             });
+        if !valid_value_binding_name(&param.name) {
+            self.invalid_binding_recoveries
+                .push(InvalidBindingRecovery {
+                    name: param.name.clone(),
+                    ty: binding_type,
+                });
+            return;
+        }
+        if !self.declare_local_name(
+            &param.name,
+            param.node_id.display("param"),
+            param.span.clone(),
+            "parameter",
+        ) {
+            return;
+        }
         self.bindings
             .push(Binding::new(param.name.clone(), binding_type));
     }
@@ -2503,7 +2372,7 @@ impl<'a> FunctionChecker<'a> {
                 name,
                 self.function.module_name.as_deref(),
                 args.len(),
-            ) || self.has_unique_invalid_local_binding_recovery(name));
+            ) || self.has_unique_invalid_local_callable_recovery(name));
             if !recovered {
                 let symbol = segments.join("::");
                 self.push_unresolved_name(
@@ -2634,7 +2503,29 @@ impl<'a> FunctionChecker<'a> {
     }
 
     fn has_unique_invalid_local_binding_recovery(&self, name: &str) -> bool {
-        invalid_local_binding_recovery_count(self.function, name) == 1
+        self.invalid_binding_recoveries
+            .iter()
+            .filter(|recovery| recovery.name == name)
+            .count()
+            == 1
+    }
+
+    fn has_unique_invalid_local_callable_recovery(&self, name: &str) -> bool {
+        self.invalid_binding_recoveries
+            .iter()
+            .filter(|recovery| {
+                recovery.name == name && matches!(recovery.ty, Type::Function { .. })
+            })
+            .count()
+            == 1
+    }
+
+    fn push_invalid_binding_recovery(&mut self, binding: PatternBinding) {
+        self.invalid_binding_recoveries
+            .push(InvalidBindingRecovery {
+                name: binding.name,
+                ty: binding.ty,
+            });
     }
 
     fn bare_prelude_import_is_ambiguous(&self, name: &str) -> bool {
@@ -2894,10 +2785,12 @@ impl<'a> FunctionChecker<'a> {
             .unwrap_or(Type::Unknown);
         for arm in arms {
             let saved_bindings = self.bindings.len();
+            let saved_invalid_binding_recoveries = self.invalid_binding_recoveries.len();
             let saved_names = self.local_names.clone();
             let pattern_bindings = self.pattern_bindings(&arm.pattern, &scrutinee_type);
             for binding in pattern_bindings {
                 if !valid_value_binding_name(&binding.name) {
+                    self.push_invalid_binding_recovery(binding);
                     continue;
                 }
                 if !self.declare_local_name(
@@ -2933,6 +2826,8 @@ impl<'a> FunctionChecker<'a> {
             }
 
             self.bindings.truncate(saved_bindings);
+            self.invalid_binding_recoveries
+                .truncate(saved_invalid_binding_recoveries);
             self.local_names = saved_names;
         }
 
@@ -3080,6 +2975,23 @@ impl<'a> FunctionChecker<'a> {
         pattern: &Pattern,
         scrutinee_type: &Type,
     ) -> Vec<PatternBinding> {
+        self.pattern_bindings_with_recovery(pattern, scrutinee_type, false)
+    }
+
+    fn let_pattern_bindings(
+        &mut self,
+        pattern: &Pattern,
+        scrutinee_type: &Type,
+    ) -> Vec<PatternBinding> {
+        self.pattern_bindings_with_recovery(pattern, scrutinee_type, true)
+    }
+
+    fn pattern_bindings_with_recovery(
+        &mut self,
+        pattern: &Pattern,
+        scrutinee_type: &Type,
+        recover_unknown_bare_constructor: bool,
+    ) -> Vec<PatternBinding> {
         match &pattern.kind {
             PatternKind::Wildcard
             | PatternKind::StringLiteral(_)
@@ -3093,10 +3005,26 @@ impl<'a> FunctionChecker<'a> {
                 node_id: pattern.node_id,
                 span: pattern.span.clone(),
             }],
-            PatternKind::Record(fields) => {
-                self.record_pattern_bindings(pattern, fields, scrutinee_type)
-            }
+            PatternKind::Record(fields) => self.record_pattern_bindings(
+                pattern,
+                fields,
+                scrutinee_type,
+                recover_unknown_bare_constructor,
+            ),
             PatternKind::Constructor { name, args } => {
+                if recover_unknown_bare_constructor
+                    && let [binding] = name.as_slice()
+                    && args.is_empty()
+                    && invalid_value_binding_name(binding)
+                    && !self.constructor_pattern_resolves(name)
+                {
+                    return vec![PatternBinding {
+                        name: binding.clone(),
+                        ty: scrutinee_type.clone(),
+                        node_id: pattern.node_id,
+                        span: pattern.span.clone(),
+                    }];
+                }
                 self.constructor_pattern_bindings(pattern, name, args, scrutinee_type)
             }
         }
@@ -3107,6 +3035,7 @@ impl<'a> FunctionChecker<'a> {
         pattern: &Pattern,
         fields: &[PatternField],
         scrutinee_type: &Type,
+        recover_unknown_bare_constructor: bool,
     ) -> Vec<PatternBinding> {
         let mut bindings = Vec::new();
         let mut seen_fields = BTreeMap::<String, (String, SourceSpan)>::new();
@@ -3128,9 +3057,24 @@ impl<'a> FunctionChecker<'a> {
                 );
             }
             let field_type = self.record_pattern_field_type(pattern, field, scrutinee_type);
-            bindings.extend(self.pattern_bindings(&field.pattern, &field_type));
+            bindings.extend(self.pattern_bindings_with_recovery(
+                &field.pattern,
+                &field_type,
+                recover_unknown_bare_constructor,
+            ));
         }
         bindings
+    }
+
+    fn constructor_pattern_resolves(&self, name: &[String]) -> bool {
+        matches!(
+            self.environment.adts.constructor(
+                name,
+                self.function.module_name.as_deref(),
+                &self.environment.uses,
+            ),
+            ConstructorLookup::Found(_) | ConstructorLookup::Ambiguous
+        )
     }
 
     fn record_pattern_field_type(

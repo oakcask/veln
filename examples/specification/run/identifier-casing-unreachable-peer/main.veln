@@ -1,11 +1,21 @@
-fn main() -> Int
-  let item = 1
+fn main() -> Item
+  let item = Value
   item
+end
+
+type Item
+  Value
+end
+
+fn good() -> Item
+  Value
 end
 
 fn Bad() -> Int
   2
 end
+
+pub fn Item = good
 
 type item
   value

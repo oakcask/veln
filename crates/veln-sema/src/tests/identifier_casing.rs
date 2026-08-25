@@ -27,10 +27,16 @@ fn covered_source_names_report_exact_casing_contract_details() {
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
     let module = lower_surface_ast(&parsed.tree);
 
-    let diagnostics = analyze_surface_module(&module)
+    let mut diagnostics = analyze_surface_module(&module)
         .into_iter()
         .filter(|diagnostic| diagnostic.id == "name.invalid_case")
         .collect::<Vec<_>>();
+    diagnostics.sort_by_key(|diagnostic| {
+        diagnostic
+            .span
+            .as_ref()
+            .map(|span| (span.start.offset, span.end.offset))
+    });
 
     let expected = [
         ("item", "type", "declaration", 1, 6, 10),
@@ -141,6 +147,81 @@ fn invalid_value_bindings_suppress_derivative_unresolved_without_lookup() {
         diagnostics
             .iter()
             .all(|diagnostic| diagnostic.id != "name.unresolved"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn later_invalid_value_binding_does_not_suppress_unresolved_call() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main() -> Int\n",
+            "  Bad()\n",
+            "  let Bad = 1\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.invalid_case"
+            && diagnostic.message == "binding name `Bad` must start with an ASCII lowercase letter"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved" && diagnostic.message == "unresolved call_target `Bad`"
+    }));
+}
+
+#[test]
+fn non_callable_invalid_value_binding_does_not_suppress_unresolved_call() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main() -> Int\n",
+            "  let Bad = 1\n",
+            "  Bad()\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.invalid_case"
+            && diagnostic.message == "binding name `Bad` must start with an ASCII lowercase letter"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved" && diagnostic.message == "unresolved call_target `Bad`"
+    }));
+}
+
+#[test]
+fn nullary_constructor_let_pattern_does_not_become_invalid_binding() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Option\n",
+            "  None\n",
+            "  Some(Int)\n",
+            "end\n",
+            "fn main(input: Option) -> Option\n",
+            "  let None = input\n",
+            "  None\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.invalid_case"),
         "{diagnostics:#?}"
     );
 }
