@@ -1,0 +1,36 @@
+name: Prepare and run Clippy
+description: Prepare cached Rust build inputs and check the workspace with Clippy.
+
+runs:
+  using: composite
+  steps:
+    - name: Install Clippy
+      shell: bash
+      run: rustup component add clippy
+    - name: Prepare Cargo dependencies
+      uses: ./.github/actions/cargo-dependencies
+      with:
+        save-cache: true
+    - name: Restore Clippy build cache
+      id: clippy-build-cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: target
+        key: clippy-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', '.cargo/config.toml') }}-${{ hashFiles('Cargo.toml', 'crates/**', 'examples/specification/**', 'tools/**', '.github/actions/clippy/action.yaml', '.github/workflows/lint--rust.yaml') }}
+        restore-keys: |
+          clippy-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', '.cargo/config.toml') }}-
+    - name: Reuse exact Clippy build inputs
+      if: steps.clippy-build-cache.outputs.cache-hit == 'true'
+      shell: bash
+      run: |
+        find crates examples/specification tools -exec touch -d @1 {} +
+        touch -d @1 Cargo.toml Cargo.lock rust-toolchain.toml
+    - name: Check Clippy lints
+      shell: bash
+      run: cargo clippy --locked --workspace --all-targets -- -D warnings
+    - name: Save Clippy build cache
+      if: steps.clippy-build-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: target
+        key: clippy-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', '.cargo/config.toml') }}-${{ hashFiles('Cargo.toml', 'crates/**', 'examples/specification/**', 'tools/**', '.github/actions/clippy/action.yaml', '.github/workflows/lint--rust.yaml') }}

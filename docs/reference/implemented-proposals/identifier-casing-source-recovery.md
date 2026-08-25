@@ -70,7 +70,7 @@ not become a project-wide or source-wide loading gate.
 
 | Source state | Required result | Completed evidence |
 | --- | --- | --- |
-| One compatible invalid declaration is referenced. | Keep one `name.invalid_case`; suppress only failures caused by absence of that declaration; emit no normal symbol or artifact for it. | Focused semantic and checked-artifact cases, including `identifier-casing-invalid-type-constructor-recovery`, plus direct artifact tests for surface exports, checked core, typed IR, and backend input. |
+| One compatible invalid declaration is referenced. | Keep one `name.invalid_case`; suppress only failures caused by absence of that declaration; emit no normal symbol or artifact for it. | Focused semantic and checked-artifact cases, including `identifier-casing-invalid-type-constructor-recovery` and `identifier-casing-qualified-constructor-recovery`, plus direct artifact tests for surface exports, checked core, typed IR, and backend input. |
 | A valid declaration and an invalid recovery record share a spelling. | The valid declaration wins normal lookup. | Lookup decision-table test. |
 | More than one compatible recovery record shares a spelling. | Select no recovery record and preserve independently provable ambiguity or unresolved facts. | `identifier-casing-recovery-ambiguous`. |
 | A use crosses an import or public alias boundary. | Do not expose the recovery record across the boundary. | `identifier-casing-import-boundary` and `identifier-casing-public-alias-boundary`. |

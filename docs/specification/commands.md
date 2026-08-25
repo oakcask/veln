@@ -470,6 +470,7 @@ requiring the full command reference on the first read.
   checked cases `identifier-casing-reachable-invalid`,
   `identifier-casing-reachable-binding`,
   `identifier-casing-reachable-handler-binding`,
+  `identifier-casing-qualified-constructor-recovery`,
   `identifier-casing-unreachable-peer`,
   `identifier-casing-entry-binding`,
   `identifier-casing-entry-binding-before-arguments`,

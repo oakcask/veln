@@ -1,5 +1,5 @@
 name: Prepare and run nextest
-description: Prepare Rust test caches and optionally run one nextest shard or seed the caches.
+description: Restore the latest main Rust test build and optionally run one nextest shard or update the cache.
 
 inputs:
   nextest-version:
@@ -12,7 +12,7 @@ inputs:
     description: Total number of nextest shards.
     required: false
   save-cache:
-    description: Whether to fetch dependencies and save cache misses.
+    description: Whether to build and save cache misses for the main branch.
     required: false
     default: "false"
 
@@ -26,9 +26,28 @@ runs:
         path: ~/.cargo/bin/cargo-nextest
         key: cargo-nextest-${{ runner.os }}-${{ inputs.nextest-version }}
     - name: Prepare Cargo dependencies
-      uses: ./actions/cargo-dependencies
+      uses: ./.github/actions/cargo-dependencies
       with:
         save-cache: ${{ inputs.save-cache }}
+    - name: Restore and update main Rust test build cache
+      if: inputs.save-cache == 'true'
+      id: rust-test-build-cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: target
+        key: rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-${{ github.run_id }}
+        restore-keys: |
+          rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-
+          rust-test-build-${{ runner.os }}-
+    - name: Restore main Rust test build cache
+      if: inputs.save-cache != 'true'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: target
+        key: rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-${{ github.run_id }}
+        restore-keys: |
+          rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-
+          rust-test-build-${{ runner.os }}-
     - name: Install cargo-nextest
       uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2
       with:
@@ -39,6 +58,13 @@ runs:
       with:
         path: ~/.cargo/bin/cargo-nextest
         key: cargo-nextest-${{ runner.os }}-${{ inputs.nextest-version }}
+    - name: Track Rust build artifacts in use
+      if: inputs.save-cache == 'true'
+      uses: BD103/cargo-sweep@28e53e462f3658c03a16ebd79651d2c168a27d4d # v2.1.2
+    - name: Build main Rust test cache
+      if: inputs.save-cache == 'true'
+      shell: bash
+      run: cargo nextest run --locked --workspace --profile ci --no-run
     - name: Run Rust tests
       if: inputs.shard != ''
       shell: bash

@@ -122,7 +122,10 @@ normal declaration wins over a compatible invalid recovery record. Multiple
 compatible recovery records with the same spelling remain ambiguous and do not
 suppress independent ambiguity or unresolved diagnostics. Recovery records do
 not cross import or public-alias boundaries. Value-binding recovery is scoped
-to the binding's lexical function body.
+to the binding's lexical function body. A same-source qualified constructor
+use can link to one unique invalid constructor recovery record only when the
+qualifier is the record's owner type name and the leaf name matches the invalid
+constructor name.
 
 ## Effect Labels
 

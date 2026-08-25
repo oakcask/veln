@@ -26,6 +26,9 @@ compiler-known calls.
   `identifier-casing-recovery-human`, and
   `identifier-casing-constructor-recovery` cover source spans, messages, JSON
   details, and non-cascading constructor recovery. The checked
+  `identifier-casing-qualified-constructor-recovery` case covers same-source
+  qualified constructor recovery without a derivative unresolved diagnostic.
+  The checked
   `identifier-casing-underscore-aliases` case covers underscore-led public
   function and type alias declaration recovery. The checked
   `identifier-casing-invalid-type-constructor-recovery` case covers an invalid

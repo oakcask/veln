@@ -492,13 +492,36 @@ fn recovery_record_matches_derivative_name(
     name: &str,
     compatible_name_classes: &[CasingNameClass],
 ) -> bool {
-    record.name == name && compatible_name_classes.contains(&record.name_class)
+    recovery_record_matches_direct_derivative_name(record, name, compatible_name_classes)
+        || recovery_record_matches_qualified_constructor_name(record, name, compatible_name_classes)
         || record.name_class == CasingNameClass::Type
             && compatible_name_classes.contains(&CasingNameClass::Constructor)
             && record
                 .dependent_constructor_names
                 .iter()
                 .any(|constructor| constructor == name)
+}
+
+fn recovery_record_matches_direct_derivative_name(
+    record: &CasingRecoveryRecord,
+    name: &str,
+    compatible_name_classes: &[CasingNameClass],
+) -> bool {
+    record.name == name && compatible_name_classes.contains(&record.name_class)
+}
+
+fn recovery_record_matches_qualified_constructor_name(
+    record: &CasingRecoveryRecord,
+    name: &str,
+    compatible_name_classes: &[CasingNameClass],
+) -> bool {
+    let Some((qualifier, leaf)) = name.rsplit_once("::") else {
+        return false;
+    };
+    record.name_class == CasingNameClass::Constructor
+        && compatible_name_classes.contains(&CasingNameClass::Constructor)
+        && record.name == leaf
+        && record.owner_type_name.as_deref() == Some(qualifier)
 }
 
 fn unique_recovery_record<'a>(

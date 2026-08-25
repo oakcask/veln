@@ -1,0 +1,14 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"name.invalid_case\"", "\"name_class\":\"constructor\"", "\"name\":\"bad\"", "constructor name must start with an ASCII uppercase letter"]
+not_contains = ["\"id\":\"name.unresolved\"", "unresolved call_target `Packet::bad`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

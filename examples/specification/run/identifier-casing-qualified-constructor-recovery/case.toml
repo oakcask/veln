@@ -1,0 +1,11 @@
+command = ["run", "main", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[name.invalid_case]: constructor name must start with an ASCII uppercase letter", "main.veln:2:3"]
+not_contains = ["error[name.unresolved]", "unresolved call_target `Packet::bad`"]

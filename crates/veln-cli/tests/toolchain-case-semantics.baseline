@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"a1ba8bfa4df1d6e53e9589b6d97aa0f158c90227"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1541
+case_count	1543
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -5635,6 +5635,25 @@ field	invocation.command[4]	"impl.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"6875c21f234f62098b8c76d2bce6b40aacb653687e3ea0accd371eb7ade372d5"
+case	"examples/specification/check/identifier-casing-qualified-constructor-recovery"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"name.invalid_case\""
+field	expectations.stdout.contains[1]	"\"name_class\":\"constructor\""
+field	expectations.stdout.contains[2]	"\"name\":\"bad\""
+field	expectations.stdout.contains[3]	"constructor name must start with an ASCII uppercase letter"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"\"id\":\"name.unresolved\""
+field	expectations.stdout.not_contains[1]	"unresolved call_target `Packet::bad`"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"718cfa78cd492a6028ae9fcf970bfa58477923cf6e2d526c8ef0c7209dbd00ee"
 case	"examples/specification/check/identifier-casing-recovery-ambiguous"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"error"
@@ -38033,6 +38052,20 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"0f9a1c310e848eaa4bf9a4cb4a478c6b818b102c149210f73ef1dcd28470c6f3"
+case	"examples/specification/run/identifier-casing-qualified-constructor-recovery"
+field	expectations.exit	1
+field	expectations.stderr.contains[0]	"error[name.invalid_case]: constructor name must start with an ASCII uppercase letter"
+field	expectations.stderr.contains[1]	"main.veln:2:3"
+field	expectations.stderr.format	"text"
+field	expectations.stderr.not_contains[0]	"error[name.unresolved]"
+field	expectations.stderr.not_contains[1]	"unresolved call_target `Packet::bad`"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"0e0e22b5fcb5d0c80370a3fa1506bba7f5a1cc6610db4f91b31184645b0f62f7"
 case	"examples/specification/run/identifier-casing-reachable-binding"
 field	expectations.exit	1
 field	expectations.stderr.contains[0]	"error[name.invalid_case]: binding name must start with an ASCII lowercase letter"
@@ -48554,4 +48587,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"7669ee082b474e584905a10ec00026a3e8e5cc81e1559ca8f15d4af5a662be0b"
+aggregate_digest	"83adb6c72f9a73dc66d9386d85735684089fc36fdde7bddfd79ab9707d6df6c0"

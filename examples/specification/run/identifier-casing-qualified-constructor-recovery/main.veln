@@ -1,0 +1,8 @@
+type Packet
+  bad(value: Int)
+end
+
+pub fn main() -> Int
+  let value = Packet::bad(1)
+  0
+end
