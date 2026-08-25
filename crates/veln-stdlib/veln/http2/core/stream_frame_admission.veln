@@ -64,7 +64,7 @@ end
 fn validate_push_promise_stream(offset: Int, frame_kind: Int, stream_id: Int, streams: CoreStreamCollection, preview: ByteChunk) -> CoreStreamFrameAdmissionDecision
 	match http2::core::stream_state::find_entry(streams, stream_id)
 		Some(entry) => match http2::core::stream_state::entry_lifecycle(entry)
-			CoreStreamClientPushAssociated => CoreStreamFrameAccepted
+			http2::core::stream_state::CoreStreamLifecycle::CoreStreamClientPushAssociated => CoreStreamFrameAccepted
 			_ => rejected(offset, frame_kind, stream_id, 1, "server-receive", "server_receives_no_push_promise", preview)
 		end
 		None => rejected(offset, frame_kind, stream_id, 1, "server-receive", "server_receives_no_push_promise", preview)

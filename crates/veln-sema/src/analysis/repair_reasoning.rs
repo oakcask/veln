@@ -2554,7 +2554,7 @@ pub(super) fn parse_repair_number_literal(text: &str) -> Option<RepairNumber> {
             scale: 0,
         });
     }
-    let (integer, fraction) = digits.split_once('.').map_or((digits, ""), |parts| parts);
+    let (integer, fraction) = digits.split_once('.').unwrap_or((digits, ""));
     if integer.is_empty()
         || !integer.chars().all(|ch| ch.is_ascii_digit())
         || !fraction.chars().all(|ch| ch.is_ascii_digit())
