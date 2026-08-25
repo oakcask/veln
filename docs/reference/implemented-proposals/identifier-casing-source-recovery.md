@@ -12,14 +12,17 @@ Current behavior is specified in
 [Names And Effects](../../specification/names-effects.md). The executable
 `identifier-casing-source-recovery-json`,
 `identifier-casing-source-recovery-human`,
+`identifier-casing-binding-positions-json`,
+`identifier-casing-binding-positions-human`,
 `identifier-casing-underscore-recovery-human`,
 `identifier-casing-reachable-recovery`, and
 `identifier-casing-unreachable-peer` cases cover exact diagnostics, parser
 recovery, checked-artifact blocking, and the `check`/`run` selection boundary.
 The checked `identifier-casing-public-alias-recovery-isolation-json` case
 covers the public-alias recovery boundary. Focused semantic tests cover
-accepted names, expression-hole preservation, valid lookup precedence,
-ambiguous recovery, and import isolation.
+accepted names, expression-hole preservation, valid lookup precedence including
+same-spelled constructor/function recovery, ambiguous recovery, and import
+isolation.
 
 ## Outcome
 

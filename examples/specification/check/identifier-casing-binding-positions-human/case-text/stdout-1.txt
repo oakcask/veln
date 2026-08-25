@@ -1,0 +1,7 @@
+main.veln:5:13: error[name.invalid_case]: binding name `Offset` must start with an ASCII lowercase letter
+main.veln:6:9: error[name.invalid_case]: binding name `Answer` must start with an ASCII lowercase letter
+main.veln:10:7: error[name.invalid_case]: binding name `Local` must start with an ASCII lowercase letter
+main.veln:15:18: error[name.invalid_case]: binding name `Candidate` must start with an ASCII lowercase letter
+main.veln:15:3: hint[hole.unfilled]: hole requires a `Int` value
+  note: main.veln:14:1: Return type declared here.
+  note: main.veln:15:10: Satisfy predicate contributes a repair constraint.

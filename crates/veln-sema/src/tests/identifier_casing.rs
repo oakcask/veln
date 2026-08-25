@@ -226,6 +226,49 @@ fn valid_function_lookup_ignores_same_source_recovery_records() {
 }
 
 #[test]
+fn valid_constructor_lookup_wins_over_same_spelled_function_recovery() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Bad\n",
+            "  Bad\n",
+            "end\n",
+            "fn main() -> Bad\n",
+            "  Bad\n",
+            "end\n",
+            "fn Bad() -> Bad\n",
+            "  Bad\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+            .count(),
+        1
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.unresolved"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| diagnostic.message
+            == "function name `Bad` must start with an ASCII lowercase letter"),
+        "{diagnostics:#?}"
+    );
+
+    let lowered = lower_checked_surface_module(&module);
+    assert!(lowered.core.is_none());
+    assert!(lowered.ir.is_none());
+}
+
+#[test]
 fn recovery_is_not_visible_through_an_import() {
     let module = merged_modules(vec![
         SourceFile::new(

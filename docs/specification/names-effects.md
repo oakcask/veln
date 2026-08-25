@@ -20,7 +20,12 @@ compiler-known calls.
   retained for recovery in these positions; standalone `_` remains a wildcard
   or discard. The checked `identifier-casing-source-recovery-json` and
   `identifier-casing-source-recovery-human` cases define exact JSON and human
-  diagnostics for the covered declaration and binding rows. The checked
+  diagnostics for the declaration rows and the function parameter, return
+  binding, and local `let` binding rows. The checked
+  `identifier-casing-binding-positions-json` and
+  `identifier-casing-binding-positions-human` cases define exact diagnostics
+  for handler parameters, operation-clause parameters, pattern-head bindings,
+  and hole `satisfy` bindings. The checked
   `identifier-casing-underscore-recovery-human` case defines underscore-led
   parser recovery without missing-name cascades. The run cases
   `identifier-casing-reachable-recovery` and `identifier-casing-unreachable-peer`
