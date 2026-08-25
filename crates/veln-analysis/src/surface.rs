@@ -2283,10 +2283,19 @@ fn reachable_invalid_name_declaration_spans(
         );
     }
     for alias in inputs.aliases() {
-        if alias
-            .name
-            .as_ref()
-            .is_some_and(|name| function_reference_names.contains(name))
+        if alias.kind == veln_ast::PublicAliasKind::Function
+            && alias
+                .name
+                .as_ref()
+                .is_some_and(|name| function_reference_names.contains(name))
+        {
+            spans.push(alias.span.clone());
+        }
+        if alias.kind == veln_ast::PublicAliasKind::Type
+            && alias
+                .name
+                .as_ref()
+                .is_some_and(|name| declaration_names.contains(name))
         {
             spans.push(alias.span.clone());
         }

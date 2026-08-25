@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"446492aa10826e2158bedb59e2eef69d8857786c"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1524
+case_count	1525
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -37785,6 +37785,16 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"d505a537bf4e200f2cdc4e29b87f5d89c398ca3868986dda03bd0631fdc5a32f"
+case	"examples/specification/run/identifier-casing-reachable-type-alias"
+field	expectations.exit	1
+field	expectations.stderr.format	"text"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"d505a537bf4e200f2cdc4e29b87f5d89c398ca3868986dda03bd0631fdc5a32f"
 case	"examples/specification/run/identifier-casing-unreachable-peer"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -48197,4 +48207,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"b42eb4e075ad6d1eb56f40026a33b070072e5869b9e1fe1f81d85800ed66c162"
+aggregate_digest	"f9ed6de646ebac87be66534130db662be8a9a90ce9d472752c0462fd5cfa467c"
