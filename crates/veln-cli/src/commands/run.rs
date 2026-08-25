@@ -2114,7 +2114,7 @@ mod tests {
             "production analysis should exclude companion diagnostics: {:#?}",
             analysis.checked_diagnostics()
         );
-        let ir = lower_run_entry(&analysis, "main", None)
+        let ir = lower_run_entry(false, &analysis, "main", None)
             .expect("entry should lower")
             .expect("entry should produce IR");
 

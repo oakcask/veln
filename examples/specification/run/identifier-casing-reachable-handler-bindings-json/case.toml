@@ -4,89 +4,10 @@ exit = 1
 
 [stdout]
 format = "json"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [stderr]
 format = "empty"
-
-[[json_assert]]
-path = "status"
-equals = "error"
-
-[[json_assert]]
-path = "diagnostics.0.id"
-equals = "name.invalid_case"
-
-[[json_assert]]
-path = "diagnostics.0.span.start.line"
-equals = 9
-
-[[json_assert]]
-path = "diagnostics.0.span.start.column"
-equals = 13
-
-[[json_assert]]
-path = "diagnostics.0.details.name"
-equals = "Context"
-
-[[json_assert]]
-path = "diagnostics.0.details.name_class"
-equals = "value_binding"
-
-[[json_assert]]
-path = "diagnostics.0.details.origin"
-equals = "source"
-
-[[json_assert]]
-path = "diagnostics.0.details.occurrence"
-equals = "binding"
-
-[[json_assert]]
-path = "diagnostics.0.details.required_initial"
-equals = "ascii_lowercase"
-
-[[json_assert]]
-path = "diagnostics.0.details.observed_initial"
-equals = "ascii_uppercase"
-
-[[json_assert]]
-path = "diagnostics.1.id"
-equals = "name.invalid_case"
-
-[[json_assert]]
-path = "diagnostics.1.span.start.line"
-equals = 10
-
-[[json_assert]]
-path = "diagnostics.1.span.start.column"
-equals = 9
-
-[[json_assert]]
-path = "diagnostics.1.details.name"
-equals = "Result"
-
-[[json_assert]]
-path = "diagnostics.1.details.name_class"
-equals = "value_binding"
-
-[[json_assert]]
-path = "diagnostics.1.details.origin"
-equals = "source"
-
-[[json_assert]]
-path = "diagnostics.1.details.occurrence"
-equals = "binding"
-
-[[json_assert]]
-path = "diagnostics.1.details.required_initial"
-equals = "ascii_lowercase"
-
-[[json_assert]]
-path = "diagnostics.1.details.observed_initial"
-equals = "ascii_uppercase"
-
-[[json_assert]]
-path = "summary.diagnostic_count"
-equals = 2
 
 [[diagnostics]]
 id = "name.invalid_case"

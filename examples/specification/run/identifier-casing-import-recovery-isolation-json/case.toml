@@ -5,29 +5,10 @@ exit = 1
 [stdout]
 format = "json"
 not_contains = ["name.invalid_case"]
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [stderr]
 format = "empty"
-
-[[json_assert]]
-path = "status"
-equals = "error"
-
-[[json_assert]]
-path = "diagnostics.0.id"
-equals = "name.unresolved"
-
-[[json_assert]]
-path = "diagnostics.0.span.file"
-equals = "app.veln"
-
-[[json_assert]]
-path = "diagnostics.0.details.symbol"
-equals = "helper::Bad"
-
-[[json_assert]]
-path = "summary.diagnostic_count"
-equals = 1
 
 [[diagnostics]]
 id = "name.unresolved"

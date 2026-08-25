@@ -3,8 +3,8 @@ source_errors = "expected"
 exit = 1
 
 [stdout]
-format = "empty"
+format = "json"
+equals_file = "case-text/json-assert-equals-1.txt"
 
 [stderr]
-format = "text"
-contains = ["error[schema.dispatch_payload]", "dispatch payload schema `MissingBasePacket` requires parent dispatch field `payload` to include a non-recursive primitive case"]
+format = "empty"
