@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The documented source surface or executable source evidence changes.
+update-when: The Veln source grammar, parser recovery behavior, formatter-relevant source surface, or executable source-surface evidence changes.
 ---
 
 # Source Surface

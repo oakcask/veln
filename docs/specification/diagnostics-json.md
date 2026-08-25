@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The documented diagnostics JSON behavior or executable diagnostic evidence changes.
+update-when: The diagnostic JSON envelope, stable detail fields, related-note shape, source span contract, or checked diagnostic examples change.
 ---
 
 # Check JSON And Diagnostics
