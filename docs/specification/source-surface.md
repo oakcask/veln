@@ -28,6 +28,10 @@ is not enough.
   [source-surface-full.md](source-surface-full.md).
 - Contract predicate grammar:
   [source-surface-full.md](source-surface-full.md).
+- Identifier casing for source-written ADT types, constructors, functions,
+  tests, public aliases, bindings, parser recovery, and selected-command
+  reachability:
+  [names-effects.md](names-effects.md).
 - Formatter layout and canonical comment spelling:
   [commands.md](commands.md).
 
