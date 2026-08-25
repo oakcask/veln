@@ -26,7 +26,8 @@ tracked in `../proposals/`.
 
 ## Fast Routes
 
-- Source files, grammar, names, types, effects, contracts, or holes:
+- Source files, grammar, identifier casing, names, types, effects, contracts,
+  or holes:
   [topic-map.md#source-surface](topic-map.md#source-surface) and
   [topic-map.md#contracts-and-holes](topic-map.md#contracts-and-holes).
 - Editor highlighting and semantic token behavior:
@@ -52,8 +53,9 @@ tracked in `../proposals/`.
 ## Read When
 
 - Unknown implemented-behavior topic: [topic-map.md](topic-map.md).
-- Source syntax and grammar details: [source-surface.md](source-surface.md),
-  [types.md](types.md), and [names-effects.md](names-effects.md).
+- Source syntax, parser recovery, identifier casing, and grammar details:
+  [source-surface.md](source-surface.md), [types.md](types.md), and
+  [names-effects.md](names-effects.md).
 - Contracts or holes: [contracts-holes.md](contracts-holes.md) first, then
   [contracts.md](contracts.md) or [holes.md](holes.md).
 - Commands and machine-readable output: [commands.md](commands.md) and

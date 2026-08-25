@@ -15,7 +15,8 @@ smallest specification page to read. Start with the short page; open the matchin
   [source-surface.md](source-surface.md).
 - Type annotations, inference, assignment compatibility, and operators:
   [types.md](types.md).
-- Names, stdio calls, prelude helpers, concurrency calls, and effects:
+- Identifier casing, name resolution, stdio calls, prelude helpers,
+  concurrency calls, and effects:
   [names-effects.md](names-effects.md).
 - Editor lexical fallback, semantic token classes, and LSP full-token encoding:
   [editor-support.md](editor-support.md).

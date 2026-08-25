@@ -146,6 +146,30 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
 
 ## Diagnostic Routes
 
+- Source-written identifier casing diagnostics, recovery, and quarantine:
+  `../../examples/specification/check/identifier-casing-recovery-json/`,
+  `../../examples/specification/check/identifier-casing-recovery-human/`,
+  `../../examples/specification/check/identifier-casing-binding-origins/`,
+  `../../examples/specification/check/identifier-casing-constructor-recovery/`,
+  `../../examples/specification/check/identifier-casing-invalid-duplicates/`,
+  `../../examples/specification/check/identifier-casing-valid-wins/`,
+  `../../examples/specification/check/identifier-casing-recovery-ambiguous/`,
+  `../../examples/specification/check/identifier-casing-import-boundary/`,
+  `../../examples/specification/check/identifier-casing-public-alias-boundary/`,
+  and
+  `../../examples/specification/check/identifier-casing-public-alias-kind-quarantine/`.
+- Source-written identifier casing parser recovery and command boundaries:
+  `../../examples/specification/check/identifier-casing-parse-recovery-independent/`,
+  `../../examples/specification/check/identifier-casing-schema-hole-boundary/`,
+  `../../examples/specification/check/identifier-casing-effect-operation-boundary/`,
+  `../../examples/specification/check/identifier-casing-test-declaration/`,
+  `../../examples/specification/check/identifier-casing-constructor-pattern-boundary/`,
+  `../../examples/specification/check/identifier-casing-value-recovery-scope/`,
+  `../../examples/specification/check/identifier-casing-underscore-aliases/`,
+  `../../examples/specification/check/identifier-casing-invalid-type-constructor-recovery/`,
+  `../../examples/specification/check/identifier-casing-qualified-constructor-recovery/`,
+  and the focused `identifier-casing-*` cases under
+  `../../examples/specification/run/`.
 - Schema field references and helper eligibility:
   `../../examples/specification/check/binary-schema-field-reference-diagnostics/`
   and
