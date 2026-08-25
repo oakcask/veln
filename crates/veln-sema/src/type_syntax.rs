@@ -1,5 +1,12 @@
 use crate::semantic_model::Type;
 
+pub fn type_annotation_reference_names(text: &str) -> Result<Vec<String>, String> {
+    let ty = parse_type_annotation(text)?;
+    let mut names = Vec::new();
+    collect_type_reference_names(&ty, &mut names);
+    Ok(names)
+}
+
 pub(crate) fn parse_type_or_unknown(text: Option<&str>) -> Type {
     text.and_then(|text| parse_type_annotation(text).ok())
         .unwrap_or(Type::Unknown)
@@ -13,6 +20,37 @@ pub(crate) fn parse_type_annotation(text: &str) -> Result<Type, String> {
         Ok(ty)
     } else {
         Err(format!("unexpected `{}`", &parser.text[parser.cursor..]))
+    }
+}
+
+fn collect_type_reference_names(ty: &Type, names: &mut Vec<String>) {
+    match ty {
+        Type::Named { name, args } => {
+            names.extend(name.split("::").map(str::to_string));
+            for arg in args {
+                collect_type_reference_names(arg, names);
+            }
+        }
+        Type::Record(fields) => {
+            for (_, field_type) in fields {
+                collect_type_reference_names(field_type, names);
+            }
+        }
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => {
+            for param in params {
+                collect_type_reference_names(param, names);
+            }
+            if let Some(variadic) = variadic {
+                collect_type_reference_names(variadic, names);
+            }
+            collect_type_reference_names(return_type, names);
+        }
+        Type::Unknown => {}
     }
 }
 
@@ -321,5 +359,33 @@ impl<'a> TypeParser<'a> {
 
     fn current(&self) -> Option<char> {
         self.text[self.cursor..].chars().next()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn type_annotation_reference_names_ignore_record_fields() {
+        let names =
+            type_annotation_reference_names("{item: Int, payload: module::Packet}").unwrap();
+
+        assert_eq!(names, vec!["Int", "module", "Packet"]);
+    }
+
+    #[test]
+    fn type_annotation_reference_names_collect_nested_function_types() {
+        let names = type_annotation_reference_names(
+            "fn({input: Request}, ...stream::Chunk) -> Result<Response, error::AppError>",
+        )
+        .unwrap();
+
+        assert_eq!(
+            names,
+            vec![
+                "Request", "stream", "Chunk", "Result", "Response", "error", "AppError"
+            ]
+        );
     }
 }

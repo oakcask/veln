@@ -32,6 +32,7 @@ pub use pipeline::{
     prepare_current_reusable_standard_surface_module_environment,
     prepare_reusable_standard_surface_module_environment,
 };
+pub use type_syntax::type_annotation_reference_names;
 pub use types::ReusableStandardEnvironment;
 #[cfg(test)]
 pub use types::standard_reuse_counters;

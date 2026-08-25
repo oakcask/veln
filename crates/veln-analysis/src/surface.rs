@@ -2374,15 +2374,8 @@ fn collect_type_reference_names(annotation: Option<&str>, names: &mut HashSet<St
     let Some(annotation) = annotation else {
         return;
     };
-    collect_token_reference_names(annotation, names);
-}
-
-fn collect_token_reference_names(text: &str, names: &mut HashSet<String>) {
-    let source = SourceFile::new("<reference>", text);
-    for token in lex(&source).tokens {
-        if token.kind == TokenKind::Ident {
-            names.insert(token.text);
-        }
+    if let Ok(type_names) = veln_sema::type_annotation_reference_names(annotation) {
+        names.extend(type_names);
     }
 }
 
@@ -5384,6 +5377,26 @@ mod tests {
             "fn main() -> Int\n",
             "  let item = 1\n",
             "  item\n",
+            "end\n",
+            "type item\n",
+            "  value\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert!(
+            reachable.invalid_names.is_empty(),
+            "{:#?}",
+            reachable.invalid_names
+        );
+    }
+
+    #[test]
+    fn run_entry_does_not_reach_invalid_type_from_record_field_spelling() {
+        let module = lower(concat!(
+            "fn main() -> {item: Int}\n",
+            "  {item: 1}\n",
             "end\n",
             "type item\n",
             "  value\n",
