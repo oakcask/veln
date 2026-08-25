@@ -5,3 +5,18 @@ end
 fn Bad() -> Int
   2
 end
+
+type item
+  value
+end
+
+pub fn Exported = Bad
+pub type exported = item
+
+effect Ask
+  value() -> Int
+end
+
+handler ask(Context: Int) handles Ask
+  value() => Context
+end

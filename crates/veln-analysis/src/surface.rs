@@ -1896,6 +1896,13 @@ impl<'a> ReachabilityInputs<'a> {
             .collect()
     }
 
+    fn types(&self) -> impl Iterator<Item = &'a veln_ast::TypeDecl> + '_ {
+        self.standard
+            .into_iter()
+            .flat_map(|module| module.types.iter())
+            .chain(self.application.types.iter())
+    }
+
     fn codecs(&self) -> impl Iterator<Item = &'a veln_ast::CodecDecl> + '_ {
         self.standard
             .into_iter()
@@ -2201,28 +2208,285 @@ fn module_with_reachable_functions(
     reachable: &HashSet<ReachableFunction>,
 ) -> SurfaceModule {
     let functions = materialize_reachable_functions(inputs, reachable);
+    let reachable_invalid_name_spans = reachable_invalid_name_declaration_spans(inputs, &functions);
     let invalid_names = inputs
         .cloned_declarations(|module| &module.invalid_names)
         .into_iter()
-        .filter(|invalid| {
-            invalid
-                .enclosing_function_span
-                .as_ref()
-                .is_none_or(|span| functions.iter().any(|function| &function.span == span))
-        })
+        .filter(|invalid| invalid_name_is_reachable(invalid, &reachable_invalid_name_spans))
         .collect();
     SurfaceModule {
         module: inputs.module_header(),
         uses: inputs.cloned_declarations(|module| &module.uses),
-        aliases: inputs.cloned_declarations(|module| &module.aliases),
+        aliases: inputs
+            .cloned_declarations(|module| &module.aliases)
+            .into_iter()
+            .filter(|alias| {
+                reachable_invalid_name_spans
+                    .iter()
+                    .any(|span| span == &alias.span)
+            })
+            .collect(),
         effects: inputs.cloned_declarations(|module| &module.effects),
-        handlers: inputs.cloned_declarations(|module| &module.handlers),
+        handlers: inputs
+            .cloned_declarations(|module| &module.handlers)
+            .into_iter()
+            .filter(|handler| {
+                reachable_invalid_name_spans
+                    .iter()
+                    .any(|span| span == &handler.span)
+            })
+            .collect(),
         types: inputs.cloned_declarations(|module| &module.types),
         schemas: inputs.cloned_declarations(|module| &module.schemas),
         codecs: inputs.cloned_declarations(|module| &module.codecs),
         functions,
         invalid_names,
     }
+}
+
+fn invalid_name_is_reachable(
+    invalid: &veln_ast::InvalidName,
+    reachable_spans: &[SourceSpan],
+) -> bool {
+    if let Some(span) = &invalid.enclosing_function_span {
+        return reachable_spans.iter().any(|reachable| reachable == span);
+    }
+    reachable_spans
+        .iter()
+        .any(|reachable| span_contains(reachable, &invalid.span))
+}
+
+fn reachable_invalid_name_declaration_spans(
+    inputs: &ReachabilityInputs<'_>,
+    functions: &[Function],
+) -> Vec<SourceSpan> {
+    let mut spans = functions
+        .iter()
+        .map(|function| function.span.clone())
+        .collect::<Vec<_>>();
+    let mut names = HashSet::new();
+    for function in functions {
+        collect_reachable_function_reference_names(function, &mut names);
+    }
+    for handler in inputs.handlers() {
+        if handler
+            .name
+            .as_ref()
+            .is_some_and(|name| names.contains(name))
+        {
+            spans.push(handler.span.clone());
+        }
+    }
+    for type_decl in inputs.types() {
+        let type_referenced = type_decl
+            .name
+            .as_ref()
+            .is_some_and(|name| names.contains(name));
+        let variant_referenced = type_decl.variants.iter().any(|variant| {
+            variant
+                .name
+                .as_ref()
+                .is_some_and(|name| names.contains(name))
+        });
+        if type_referenced || variant_referenced {
+            spans.push(type_decl.span.clone());
+        }
+    }
+    for alias in inputs.aliases() {
+        if alias.name.as_ref().is_some_and(|name| names.contains(name))
+            || alias.target.iter().any(|segment| names.contains(segment))
+        {
+            spans.push(alias.span.clone());
+        }
+    }
+    spans
+}
+
+fn collect_reachable_function_reference_names(function: &Function, names: &mut HashSet<String>) {
+    for param in &function.params {
+        collect_type_reference_names(param.ty.as_deref(), names);
+    }
+    collect_type_reference_names(function.return_type.as_deref(), names);
+    for contract in &function.contracts {
+        collect_token_reference_names(&contract.text, names);
+    }
+    for line in &function.body {
+        match &line.kind {
+            veln_ast::BodyLineKind::Let {
+                pattern,
+                annotation,
+                expr,
+            } => {
+                collect_pattern_reference_names(pattern, names);
+                collect_type_reference_names(annotation.as_deref(), names);
+                collect_expr_reference_names(expr, names);
+            }
+            veln_ast::BodyLineKind::Expr { expr } => {
+                collect_expr_reference_names(expr, names);
+            }
+        }
+    }
+}
+
+fn collect_type_reference_names(annotation: Option<&str>, names: &mut HashSet<String>) {
+    let Some(annotation) = annotation else {
+        return;
+    };
+    collect_token_reference_names(annotation, names);
+}
+
+fn collect_token_reference_names(text: &str, names: &mut HashSet<String>) {
+    let source = SourceFile::new("<reference>", text);
+    for token in lex(&source).tokens {
+        if token.kind == TokenKind::Ident {
+            names.insert(token.text);
+        }
+    }
+}
+
+fn collect_expr_reference_names(expr: &Expr, names: &mut HashSet<String>) {
+    match &expr.kind {
+        ExprKind::NamePath(segments) => collect_path_reference_names(segments, names),
+        ExprKind::Hole { satisfy, .. } => {
+            if let Some(candidate) = satisfy
+                .as_ref()
+                .and_then(|clause| clause.candidate.as_ref())
+            {
+                names.insert(candidate.clone());
+            }
+        }
+        ExprKind::TypeApply { callee, type_args } => {
+            collect_expr_reference_names(callee, names);
+            for type_arg in type_args {
+                collect_type_reference_names(Some(type_arg), names);
+            }
+        }
+        ExprKind::Call { callee, args } => {
+            collect_expr_reference_names(callee, names);
+            for arg in args {
+                collect_expr_reference_names(arg, names);
+            }
+        }
+        ExprKind::Perform { args, .. } => {
+            for arg in args {
+                collect_expr_reference_names(arg, names);
+            }
+        }
+        ExprKind::Handle {
+            body,
+            handler,
+            args,
+            ..
+        } => {
+            collect_expr_reference_names(body, names);
+            collect_path_reference_names(handler, names);
+            for arg in args {
+                collect_expr_reference_names(arg, names);
+            }
+        }
+        ExprKind::SchemaDecode {
+            schema,
+            input,
+            base,
+        } => {
+            collect_path_reference_names(schema, names);
+            collect_expr_reference_names(input, names);
+            collect_expr_reference_names(base, names);
+        }
+        ExprKind::SchemaEncode { schema, value } => {
+            collect_path_reference_names(schema, names);
+            collect_expr_reference_names(value, names);
+        }
+        ExprKind::FieldAccess { base, .. }
+        | ExprKind::Try(base)
+        | ExprKind::Prefix { expr: base, .. } => {
+            collect_expr_reference_names(base, names);
+        }
+        ExprKind::Record(fields) => {
+            for field in fields {
+                collect_expr_reference_names(&field.expr, names);
+            }
+        }
+        ExprKind::Dict(entries) => {
+            for entry in entries {
+                collect_expr_reference_names(&entry.key, names);
+                collect_expr_reference_names(&entry.value, names);
+            }
+        }
+        ExprKind::List(items) => {
+            for item in items {
+                collect_expr_reference_names(item, names);
+            }
+        }
+        ExprKind::Match { scrutinee, arms } => {
+            collect_expr_reference_names(scrutinee, names);
+            for arm in arms {
+                collect_pattern_reference_names(&arm.pattern, names);
+                collect_expr_reference_names(&arm.expr, names);
+            }
+        }
+        ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            collect_expr_reference_names(condition, names);
+            collect_expr_reference_names(then_branch, names);
+            for branch in else_if_branches {
+                collect_expr_reference_names(&branch.condition, names);
+                collect_expr_reference_names(&branch.expr, names);
+            }
+            collect_expr_reference_names(else_branch, names);
+        }
+        ExprKind::Binary { left, right, .. } => {
+            collect_expr_reference_names(left, names);
+            collect_expr_reference_names(right, names);
+        }
+        ExprKind::Missing
+        | ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
+        | ExprKind::Unit => {}
+    }
+}
+
+fn collect_pattern_reference_names(pattern: &Pattern, names: &mut HashSet<String>) {
+    match &pattern.kind {
+        PatternKind::Binding(name) => {
+            names.insert(name.clone());
+        }
+        PatternKind::Constructor { name, args } => {
+            collect_path_reference_names(name, names);
+            for arg in args {
+                collect_pattern_reference_names(arg, names);
+            }
+        }
+        PatternKind::Record(fields) => {
+            for field in fields {
+                collect_pattern_reference_names(&field.pattern, names);
+            }
+        }
+        PatternKind::Wildcard
+        | PatternKind::StringLiteral(_)
+        | PatternKind::IntLiteral(_)
+        | PatternKind::FloatLiteral(_)
+        | PatternKind::BoolLiteral(_)
+        | PatternKind::Unit => {}
+    }
+}
+
+fn collect_path_reference_names(segments: &[String], names: &mut HashSet<String>) {
+    for segment in segments {
+        names.insert(segment.clone());
+    }
+}
+
+fn span_contains(container: &SourceSpan, span: &SourceSpan) -> bool {
+    container.file == span.file
+        && container.start.offset <= span.start.offset
+        && span.end.offset <= container.end.offset
 }
 
 fn materialize_reachable_functions(
@@ -4874,6 +5138,60 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(with_functions, without_functions);
+    }
+
+    #[test]
+    fn run_entry_filters_unreachable_invalid_non_function_names() {
+        let module = lower(concat!(
+            "fn main() -> Int\n",
+            "  1\n",
+            "end\n",
+            "fn Bad() -> Int\n",
+            "  2\n",
+            "end\n",
+            "type item\n",
+            "  value\n",
+            "end\n",
+            "pub fn Exported = Bad\n",
+            "pub type exported = item\n",
+            "effect Ask\n",
+            "  value() -> Int\n",
+            "end\n",
+            "handler ask(Context: Int) handles Ask\n",
+            "  value() => Context\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert!(
+            reachable.invalid_names.is_empty(),
+            "{:#?}",
+            reachable.invalid_names
+        );
+        assert!(reachable.aliases.is_empty(), "{:#?}", reachable.aliases);
+        assert!(reachable.handlers.is_empty(), "{:#?}", reachable.handlers);
+    }
+
+    #[test]
+    fn run_entry_keeps_invalid_type_names_referenced_by_reachable_signature() {
+        let module = lower(concat!(
+            "type item\n",
+            "  value\n",
+            "end\n",
+            "fn main() -> item\n",
+            "  1\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let invalid_names = reachable
+            .invalid_names
+            .iter()
+            .map(|invalid| invalid.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(invalid_names, vec!["item", "value"]);
     }
 
     #[test]

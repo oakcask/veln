@@ -33,12 +33,24 @@ specification.
 
 ## Current Boundary
 
-The lexer distinguishes identifier text but does not assign a type-name or
-value-name class from its first letter. Type declarations, ADT variants,
-functions, and local bindings currently accept the same identifier token. It
-tokenizes `_` as a standalone underscore and `_label` as a named hole rather
-than as an identifier. The parser already interprets `_` as a non-binding
-wildcard in supported binding and pattern positions.
+The implemented recovery-aware source foundation validates source-written ADT
+type, ADT variant, function, test, public type-alias, public function-alias,
+and value-binding declarations. [Names And Effects](../specification/names-effects.md)
+specifies those current casing rules, quarantined recovery records, checked
+artifact exclusion, and the `check` and `run` selection boundary. The completed
+implementation record is
+[Recovery-Aware Source Identifier Casing](../reference/implemented-proposals/identifier-casing-source-recovery.md).
+
+The remaining proposal work covers module identities, qualified-use segment
+casing, alias target leaves, rename and recovery navigation, and source-less
+registries. It also depends on
+[Identifier Casing Selection Boundaries](identifier-casing-selection-boundaries.md)
+for `test`, `doc`, language-service snapshot and overlay, dependency,
+companion, and implicit-prelude selection evidence.
+
+The lexer still tokenizes `_` as a standalone underscore and `_label` as a
+named hole rather than as an identifier. The parser already interprets `_` as a
+non-binding wildcard in supported binding and pattern positions.
 
 Bare patterns already treat an uppercase initial as a constructor signal and a
 lowercase initial as a binding signal. A lowercase ADT variant can therefore be
@@ -48,8 +60,10 @@ that can collide with a same-spelled function or callable binding.
 
 [Names And Effects](../specification/names-effects-full.md#name-resolution)
 specifies current value shadowing. [Types](../specification/types-full.md)
-specifies source ADTs and constructor resolution. Neither page defines the
-identifier casing classes proposed here.
+specifies source ADTs and constructor resolution. The short
+[Names And Effects](../specification/names-effects.md) route names the checked
+casing evidence for the implemented source foundation; this proposal retains
+only the unimplemented casing extensions.
 
 ## Naming Contract
 
