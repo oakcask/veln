@@ -111,8 +111,9 @@ compiler-known calls.
   select unrelated same-leaf local recovery records. The
   `identifier-casing-record-field-reachability` run case
   fixes that record field labels remain outside this name-class reachability
-  boundary. Workspace snapshot and open-document overlay selection
-  evidence remains outside this source foundation.
+  boundary. Workspace snapshot and open-document overlay selection is current
+  editor-facing behavior specified by [editor-support.md](editor-support.md)
+  and checked by the LSP casing examples.
 
 - Namespaces, shadowing, duplicate checks, module ownership, external package
   imports, and manifest export checks:
