@@ -186,6 +186,7 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/run/identifier-casing-reachable-handler-bindings-json/`,
   `../../examples/specification/run/identifier-casing-reachable-handler-clauses-json/`,
   `../../examples/specification/run/identifier-casing-loaded-dependency-json/`,
+  `../../examples/specification/run/identifier-casing-loaded-unreachable-dependency-json/`,
   `../../examples/specification/run/identifier-casing-unloaded-dependency-json/`,
   and `../../examples/specification/run/identifier-casing-record-field-reachability/`.
 - Source identifier casing selected-suite static gates, unselected test peer
