@@ -1998,13 +1998,11 @@ impl<'a> FunctionChecker<'a> {
                                     )
                                 {
                                     function.ty()
-                                } else if self
-                                    .environment
-                                    .has_unique_local_constructor_value_recovery(
-                                        name,
-                                        self.function.module_name.as_deref(),
-                                    )
-                                    || self.has_unique_invalid_local_binding_recovery(name)
+                                } else if self.environment.local_value_recovery_candidate_count(
+                                    name,
+                                    self.function.module_name.as_deref(),
+                                ) + self.invalid_local_binding_recovery_count(name)
+                                    == 1
                                 {
                                     Type::Unknown
                                 } else {
@@ -2407,18 +2405,13 @@ impl<'a> FunctionChecker<'a> {
         {
             let recovered = matches!(segments, [name] if self
             .environment
-            .has_unique_local_function_call_recovery(
-                name,
-                self.function.module_name.as_deref(),
-                args.len(),
-            ) || self
-                .environment
-                .has_unique_local_constructor_call_recovery(
+                .local_call_recovery_candidate_count(
                     name,
                     self.function.module_name.as_deref(),
                     args.len(),
                 )
-                || self.has_unique_invalid_local_callable_recovery(name));
+                + self.invalid_local_callable_recovery_count(name)
+                == 1);
             if !recovered {
                 let symbol = segments.join("::");
                 self.push_unresolved_name(
@@ -2548,22 +2541,20 @@ impl<'a> FunctionChecker<'a> {
             )
     }
 
-    fn has_unique_invalid_local_binding_recovery(&self, name: &str) -> bool {
+    fn invalid_local_binding_recovery_count(&self, name: &str) -> usize {
         self.invalid_binding_recoveries
             .iter()
             .filter(|recovery| recovery.name == name)
             .count()
-            == 1
     }
 
-    fn has_unique_invalid_local_callable_recovery(&self, name: &str) -> bool {
+    fn invalid_local_callable_recovery_count(&self, name: &str) -> usize {
         self.invalid_binding_recoveries
             .iter()
             .filter(|recovery| {
                 recovery.name == name && matches!(recovery.ty, Type::Function { .. })
             })
             .count()
-            == 1
     }
 
     fn push_invalid_binding_recovery(&mut self, binding: PatternBinding) {

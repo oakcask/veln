@@ -160,6 +160,7 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/check/identifier-casing-accepted-names-json/`,
   `../../examples/specification/check/identifier-casing-valid-symbol-precedence-json/`,
   `../../examples/specification/check/identifier-casing-handler-binding-quarantine-json/`,
+  `../../examples/specification/check/identifier-casing-cross-class-ambiguous-recovery-json/`,
   and
   `../../examples/specification/check/identifier-casing-ambiguous-recovery-json/`.
 - Source identifier casing run reachability, recovery, import isolation,
@@ -176,6 +177,8 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/run/identifier-casing-import-recovery-isolation-json/`,
   `../../examples/specification/run/identifier-casing-qualified-type-import-isolation-json/`,
   `../../examples/specification/run/identifier-casing-valid-function-value-precedence-json/`,
+  `../../examples/specification/run/identifier-casing-cross-class-ambiguous-recovery-json/`,
+  `../../examples/specification/run/identifier-casing-same-name-recovery-arity-json/`,
   `../../examples/specification/run/identifier-casing-reachable-handler-annotation-json/`,
   `../../examples/specification/run/identifier-casing-reachable-handler-bindings-json/`,
   `../../examples/specification/run/identifier-casing-reachable-handler-clauses-json/`,

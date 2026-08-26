@@ -522,6 +522,38 @@ fn ambiguous_recovery_does_not_resolve() {
 }
 
 #[test]
+fn cross_class_recovery_ambiguity_preserves_unresolved_call() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main() -> Int\n",
+            "  Bad(1)\n",
+            "end\n",
+            "type item\n",
+            "  Bad(Int)\n",
+            "end\n",
+            "fn Bad(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.invalid_case"
+            && diagnostic.message == "type name `item` must start with an ASCII uppercase letter"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.invalid_case"
+            && diagnostic.message == "function name `Bad` must start with an ASCII lowercase letter"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved" && diagnostic.message == "unresolved call_target `Bad`"
+    }));
+}
+
+#[test]
 fn incompatible_recovery_does_not_suppress_unresolved_call() {
     let source = SourceFile::new(
         "main.veln",

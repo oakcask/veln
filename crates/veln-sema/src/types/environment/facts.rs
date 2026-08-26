@@ -63,7 +63,7 @@ pub(super) fn from_module_with_base(
         if function.kind != FunctionKind::Function {
             continue;
         }
-        if name.as_bytes().first().is_some_and(u8::is_ascii_lowercase) {
+        if !module_has_invalid_name(module, veln_ast::NameClass::Function, name, &function.span) {
             continue;
         }
         let (params, variadic) = function_signature_params(function);
@@ -98,7 +98,7 @@ pub(super) fn from_module_with_base(
         let Some(name) = &alias.name else {
             continue;
         };
-        if name.as_bytes().first().is_some_and(u8::is_ascii_lowercase) {
+        if !module_has_invalid_name(module, veln_ast::NameClass::Function, name, &alias.span) {
             continue;
         }
         let Some(target) = function_signature_path(
@@ -133,16 +133,19 @@ pub(super) fn from_module_with_base(
     }
     let mut constructor_recoveries = BTreeMap::new();
     for type_decl in &module.types {
-        let type_is_invalid = type_decl
-            .name
-            .as_deref()
-            .is_some_and(|name| !name.as_bytes().first().is_some_and(u8::is_ascii_uppercase));
+        let type_is_invalid = type_decl.name.as_deref().is_some_and(|name| {
+            module_has_invalid_name(module, veln_ast::NameClass::Type, name, &type_decl.span)
+        });
         for variant in &type_decl.variants {
             let Some(name) = &variant.name else {
                 continue;
             };
-            let constructor_is_invalid =
-                !name.as_bytes().first().is_some_and(u8::is_ascii_uppercase);
+            let constructor_is_invalid = module_has_invalid_name(
+                module,
+                veln_ast::NameClass::Constructor,
+                name,
+                &variant.span,
+            );
             if !type_is_invalid && !constructor_is_invalid {
                 continue;
             }
@@ -174,6 +177,21 @@ pub(super) fn from_module_with_base(
         companion_schema_access_targets: symbols.companion_schema_access_targets,
         companion_effect_access_targets: declarations.companion_effect_access_targets,
     }
+}
+
+fn module_has_invalid_name(
+    module: &SurfaceModule,
+    class: veln_ast::NameClass,
+    name: &str,
+    container: &veln_source::SourceSpan,
+) -> bool {
+    module.invalid_names.iter().any(|invalid| {
+        invalid.class == class
+            && invalid.name == name
+            && invalid.span.file == container.file
+            && container.start.offset <= invalid.span.start.offset
+            && invalid.span.end.offset <= container.end.offset
+    })
 }
 
 pub(super) fn function_name_index(functions: &[FunctionSignature]) -> HashMap<String, Vec<usize>> {

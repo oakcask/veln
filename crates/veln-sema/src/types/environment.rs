@@ -185,6 +185,9 @@ impl TypeEnvironment {
         name: &str,
         current_module: Option<&str>,
     ) -> Option<&FunctionSignature> {
+        if self.local_value_recovery_candidate_count(name, current_module) != 1 {
+            return None;
+        }
         let mut matches = self
             .function_recovery_signatures
             .iter()
@@ -195,12 +198,44 @@ impl TypeEnvironment {
         matches.next().is_none().then_some(first)
     }
 
-    pub(crate) fn has_unique_local_function_call_recovery(
+    pub(crate) fn local_value_recovery_candidate_count(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+    ) -> usize {
+        self.local_function_value_recovery_count(name, current_module)
+            + self.local_constructor_recovery_count(name, current_module, None)
+    }
+
+    fn local_function_value_recovery_count(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+    ) -> usize {
+        self.function_recovery_signatures
+            .iter()
+            .filter(|signature| {
+                signature.module_name.as_deref() == current_module && signature.name == name
+            })
+            .count()
+    }
+
+    pub(crate) fn local_call_recovery_candidate_count(
         &self,
         name: &str,
         current_module: Option<&str>,
         arg_count: usize,
-    ) -> bool {
+    ) -> usize {
+        self.local_function_call_recovery_count(name, current_module, arg_count)
+            + self.local_constructor_recovery_count(name, current_module, Some(arg_count))
+    }
+
+    fn local_function_call_recovery_count(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        arg_count: usize,
+    ) -> usize {
         self.function_recoveries
             .iter()
             .filter(|(key, _)| {
@@ -210,32 +245,14 @@ impl TypeEnvironment {
             })
             .map(|(_, count)| *count)
             .sum::<usize>()
-            == 1
     }
 
-    pub(crate) fn has_unique_local_constructor_value_recovery(
-        &self,
-        name: &str,
-        current_module: Option<&str>,
-    ) -> bool {
-        self.has_unique_local_constructor_recovery(name, current_module, None)
-    }
-
-    pub(crate) fn has_unique_local_constructor_call_recovery(
-        &self,
-        name: &str,
-        current_module: Option<&str>,
-        arg_count: usize,
-    ) -> bool {
-        self.has_unique_local_constructor_recovery(name, current_module, Some(arg_count))
-    }
-
-    fn has_unique_local_constructor_recovery(
+    fn local_constructor_recovery_count(
         &self,
         name: &str,
         current_module: Option<&str>,
         arg_count: Option<usize>,
-    ) -> bool {
+    ) -> usize {
         self.constructor_recoveries
             .iter()
             .filter(|(key, _)| {
@@ -245,7 +262,6 @@ impl TypeEnvironment {
             })
             .map(|(_, count)| *count)
             .sum::<usize>()
-            == 1
     }
 
     pub(crate) fn canonicalize_type_annotation(

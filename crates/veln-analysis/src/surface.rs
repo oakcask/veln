@@ -2094,6 +2094,7 @@ fn function_target(function: &Function) -> Option<FunctionTarget> {
         module_name: function.module_name.clone(),
         target_name: name,
         target_module_name: function.module_name.clone(),
+        target_node_id: function.node_id,
         visibility: function.visibility,
         shape: function_shape(function),
         bare_importable: true,
@@ -2144,6 +2145,7 @@ fn codec_with_targets(inputs: &ReachabilityInputs<'_>) -> Vec<FunctionTarget> {
                             module_name: codec.module_name.clone(),
                             target_name: function_name.clone(),
                             target_module_name: target.module_name.clone(),
+                            target_node_id: target.node_id,
                             visibility: codec.visibility,
                             shape: function_shape(target),
                             bare_importable: false,
@@ -2170,6 +2172,7 @@ fn reachable_functions(
         kind: entry_kind,
         name: entry.to_string(),
         module_name: None,
+        node_id: None,
     }];
 
     while let Some(key) = stack.pop() {
@@ -2185,6 +2188,10 @@ fn reachable_functions(
                     #[cfg(test)]
                     reachability_counters::record_function_lookup_scan();
                     inputs.function(*function_ref)
+                })
+                .filter(|function| {
+                    key.node_id
+                        .is_none_or(|node_id| function.node_id == node_id)
                 })
                 .flat_map(|function| {
                     direct_function_callees(
@@ -2561,8 +2568,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
             return;
         }
         if same_module_recovery_path(segments) {
-            self.select_unique_constructor_recovery(segments, current_module, None, spans);
-            self.select_unique_function_recovery(segments, current_module, None, spans);
+            self.select_unique_value_recovery(segments, current_module, spans);
         }
     }
 
@@ -2580,13 +2586,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
             return;
         }
         if same_module_recovery_path(segments) {
-            self.select_unique_function_recovery(segments, current_module, Some(arg_count), spans);
-            self.select_unique_constructor_recovery(
-                segments,
-                current_module,
-                Some(arg_count),
-                spans,
-            );
+            self.select_unique_call_recovery(segments, current_module, arg_count, spans);
         }
     }
 
@@ -2766,15 +2766,13 @@ impl<'a> ReachableInvalidNameSelector<'a> {
             .collect()
     }
 
-    fn select_unique_function_recovery(
+    fn function_recovery_candidates(
         &self,
         segments: &[String],
         current_module: Option<&str>,
         arg_count: Option<usize>,
-        spans: &mut Vec<ReachableInvalidNameSpan>,
-    ) {
-        let candidates = self
-            .visible_functions(segments, current_module)
+    ) -> Vec<Vec<ReachableInvalidNameSpan>> {
+        self.visible_functions(segments, current_module)
             .into_iter()
             .filter(|function| {
                 function.name.as_ref().is_some_and(|name| {
@@ -2782,8 +2780,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
                 }) && arg_count
                     .is_none_or(|count| function_shape(function).accepts_arg_count(count))
             })
-            .map(|function| function.span.clone())
-            .map(ReachableInvalidNameSpan::Declaration)
+            .map(|function| vec![ReachableInvalidNameSpan::Declaration(function.span.clone())])
             .chain(
                 self.visible_aliases(segments, current_module, PublicAliasKind::Function)
                     .into_iter()
@@ -2792,10 +2789,9 @@ impl<'a> ReachableInvalidNameSelector<'a> {
                             !name.as_bytes().first().is_some_and(u8::is_ascii_lowercase)
                         })
                     })
-                    .map(|alias| ReachableInvalidNameSpan::Declaration(alias.span.clone())),
+                    .map(|alias| vec![ReachableInvalidNameSpan::Declaration(alias.span.clone())]),
             )
-            .collect::<Vec<_>>();
-        push_unique_reachable_invalid_name_span(candidates, spans);
+            .collect()
     }
 
     fn select_unique_type_recovery(
@@ -2843,6 +2839,49 @@ impl<'a> ReachableInvalidNameSelector<'a> {
             })
             .map(|(type_decl, variant)| self.constructor_recovery_spans(type_decl, variant))
             .collect::<Vec<_>>();
+        push_unique_constructor_recovery_spans(candidates, spans);
+    }
+
+    fn constructor_recovery_candidates(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        arg_count: Option<usize>,
+    ) -> Vec<Vec<ReachableInvalidNameSpan>> {
+        self.visible_constructor_variants(segments, current_module)
+            .into_iter()
+            .filter(|(type_decl, variant)| {
+                Self::constructor_recovery_candidate(type_decl, variant, arg_count)
+            })
+            .map(|(type_decl, variant)| self.constructor_recovery_spans(type_decl, variant))
+            .collect()
+    }
+
+    fn select_unique_value_recovery(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        spans: &mut Vec<ReachableInvalidNameSpan>,
+    ) {
+        let mut candidates = self.constructor_recovery_candidates(segments, current_module, None);
+        candidates.extend(self.function_recovery_candidates(segments, current_module, None));
+        push_unique_constructor_recovery_spans(candidates, spans);
+    }
+
+    fn select_unique_call_recovery(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        arg_count: usize,
+        spans: &mut Vec<ReachableInvalidNameSpan>,
+    ) {
+        let mut candidates =
+            self.function_recovery_candidates(segments, current_module, Some(arg_count));
+        candidates.extend(self.constructor_recovery_candidates(
+            segments,
+            current_module,
+            Some(arg_count),
+        ));
         push_unique_constructor_recovery_spans(candidates, spans);
     }
 
@@ -3103,10 +3142,12 @@ fn materialize_reachable_functions(
                     kind: function.kind,
                     name: name.clone(),
                     module_name: None,
+                    node_id: None,
                 }) || reachable.contains(&ReachableFunction {
                     kind: function.kind,
                     name: name.clone(),
                     module_name: function.module_name.clone(),
+                    node_id: Some(function.node_id),
                 })
             })
         })
@@ -3125,6 +3166,7 @@ struct ReachableFunction {
     kind: FunctionKind,
     name: String,
     module_name: Option<String>,
+    node_id: Option<veln_ast::NodeId>,
 }
 
 #[derive(Clone, Debug)]
@@ -3133,6 +3175,7 @@ struct FunctionTarget {
     module_name: Option<String>,
     target_name: String,
     target_module_name: Option<String>,
+    target_node_id: veln_ast::NodeId,
     visibility: Visibility,
     shape: FunctionShape,
     bare_importable: bool,
@@ -3174,6 +3217,7 @@ fn function_alias_targets(
                 module_name: alias.module_name.clone(),
                 target_name: target.target_name.clone(),
                 target_module_name: target.target_module_name.clone(),
+                target_node_id: target.target_node_id,
                 visibility: Visibility::Public,
                 shape: target.shape.clone(),
                 bare_importable: true,
@@ -3331,6 +3375,7 @@ fn collect_contract_callees(
             uses,
             function_targets,
             companion_access_targets,
+            None,
         ) {
             push_reachable(callees, callee);
         }
@@ -3408,6 +3453,7 @@ fn collect_contract_function_value_references(
             uses,
             function_targets,
             &public_or_same_module_access,
+            None,
         ) {
             push_reachable(callees, callee);
         }
@@ -3603,6 +3649,7 @@ fn collect_opaque_function_value_callees(
                 kind: FunctionKind::Function,
                 name: target.name.clone(),
                 module_name: target.module_name.clone(),
+                node_id: None,
             },
         );
     }
@@ -3765,6 +3812,7 @@ fn collect_function_name_reference(
         uses,
         function_targets,
         access_targets,
+        arg_count,
     ) {
         push_reachable(callees, callee);
     }
@@ -3834,6 +3882,7 @@ fn resolve_function_reference(
     uses: &[&UseDecl],
     function_targets: &FunctionTargetIndex,
     companion_access_targets: &HashMap<String, String>,
+    arg_count: Option<usize>,
 ) -> Vec<ReachableFunction> {
     match segments {
         [name] => function_targets
@@ -3841,12 +3890,15 @@ fn resolve_function_reference(
             .filter(|target| {
                 #[cfg(test)]
                 reachability_counters::record_target_resolution_scan();
-                target.name == *name && bare_target_visible(target, current_module, uses)
+                target.name == *name
+                    && bare_target_visible(target, current_module, uses)
+                    && recovery_target_accepts_arg_count(target, arg_count)
             })
             .map(|target| ReachableFunction {
                 kind: FunctionKind::Function,
                 name: target.target_name.clone(),
                 module_name: target.target_module_name.clone(),
+                node_id: Some(target.target_node_id),
             })
             .collect(),
         [_, .., name] => {
@@ -3866,17 +3918,22 @@ fn resolve_function_reference(
                         use_decl,
                         current_module,
                         companion_access_targets,
-                    )
+                    ) && recovery_target_accepts_arg_count(target, arg_count)
                 })
                 .map(|target| ReachableFunction {
                     kind: FunctionKind::Function,
                     name: target.target_name.clone(),
                     module_name: target.target_module_name.clone(),
+                    node_id: Some(target.target_node_id),
                 })
                 .collect()
         }
         _ => Vec::new(),
     }
+}
+
+fn recovery_target_accepts_arg_count(target: &FunctionTarget, arg_count: Option<usize>) -> bool {
+    !target.recovery || arg_count.is_none_or(|count| target.shape.accepts_arg_count(count))
 }
 
 fn imported_use_for_path<'a>(
@@ -6148,6 +6205,75 @@ mod tests {
             reachable.invalid_names.is_empty(),
             "{:#?}",
             reachable.invalid_names
+        );
+    }
+
+    #[test]
+    fn run_entry_does_not_choose_cross_class_recovery_ambiguity() {
+        let module = lower(concat!(
+            "fn main() -> Int\n",
+            "  Bad(1)\n",
+            "end\n",
+            "type item\n",
+            "  Bad(Int)\n",
+            "end\n",
+            "fn Bad(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert!(
+            reachable.invalid_names.is_empty(),
+            "{:#?}",
+            reachable.invalid_names
+        );
+        assert_eq!(
+            reachable
+                .functions
+                .iter()
+                .filter(|function| {
+                    function.kind == FunctionKind::Function
+                        && function.name.as_deref() == Some("Bad")
+                })
+                .count(),
+            0
+        );
+    }
+
+    #[test]
+    fn run_entry_filters_same_name_recovery_peers_by_call_arity() {
+        let module = lower(concat!(
+            "fn main() -> Int\n",
+            "  Bad(1)\n",
+            "end\n",
+            "fn Bad(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+            "fn Bad(left: Int, right: Int) -> Int\n",
+            "  left + right\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let invalid_names = reachable
+            .invalid_names
+            .iter()
+            .map(|invalid| invalid.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(invalid_names, vec!["Bad"]);
+        assert_eq!(
+            reachable
+                .functions
+                .iter()
+                .filter(|function| {
+                    function.kind == FunctionKind::Function
+                        && function.name.as_deref() == Some("Bad")
+                })
+                .count(),
+            1
         );
     }
 
