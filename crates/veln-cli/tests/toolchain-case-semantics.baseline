@@ -38294,7 +38294,8 @@ field	invocation.command[2]	"main"
 field	invocation.command[3]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
-case_digest	"274aac24632b082893a97f8bff36212d3f3b7c29c7a414009c57555a8219c10c"
+field	tools.java	"missing"
+case_digest	"a05d69c65a482be9006a3a5b0a531f6192a9d0042da6d43271f447d783c39968"
 case	"examples/specification/run/identifier-casing-owned-constructor-ambiguous-recovery-human"
 field	expectations.exit	1
 field	expectations.stderr.format	"text"
@@ -49366,4 +49367,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"f1df2ba6a380cb841e3a4121148614bb25d864407fbb07506c0e3e4682aaf429"
+aggregate_digest	"0fdb9cc275a8f5899aa72518a7ecc6cd774bc2df040b61e57673bace585ada2b"

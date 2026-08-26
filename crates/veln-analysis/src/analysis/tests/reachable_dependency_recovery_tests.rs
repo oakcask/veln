@@ -3,7 +3,10 @@ use veln_source::SourceFile;
 
 use crate::surface::{CapturedDependencyProject, load_surface_modules_with_captured_dependencies};
 
-fn project_with_dependency(source: &str) -> (Project, Vec<CapturedDependencyProject>) {
+fn project_with_dependency(
+    source: &str,
+    dependency_source: &str,
+) -> (Project, Vec<CapturedDependencyProject>) {
     let project = Project {
         root: ".".into(),
         files: vec![SourceFile::new("main.veln", source)],
@@ -17,18 +20,7 @@ fn project_with_dependency(source: &str) -> (Project, Vec<CapturedDependencyProj
     };
     let dependency_project = Project {
         root: "vendor/lib".into(),
-        files: vec![SourceFile::new(
-            "math.veln",
-            concat!(
-                "pub fn good() -> Int\n",
-                "  Bad()\n",
-                "end\n",
-                "\n",
-                "pub fn Bad() -> Int\n",
-                "  1\n",
-                "end\n",
-            ),
-        )],
+        files: vec![SourceFile::new("math.veln", dependency_source)],
         manifest: Some(parse_manifest_text(
             "vendor/lib/veln.toml",
             concat!(
@@ -52,13 +44,24 @@ fn project_with_dependency(source: &str) -> (Project, Vec<CapturedDependencyProj
 
 #[test]
 fn dependency_recovery_record_does_not_cross_into_consumer() {
-    let (project, dependencies) = project_with_dependency(concat!(
-        "use math from \"example/lib\"\n",
-        "\n",
-        "fn main() -> Int\n",
-        "  Bad()\n",
-        "end\n",
-    ));
+    let (project, dependencies) = project_with_dependency(
+        concat!(
+            "use math from \"example/lib\"\n",
+            "\n",
+            "fn main() -> Int\n",
+            "  math::Bad()\n",
+            "end\n",
+        ),
+        concat!(
+            "pub fn good() -> Int\n",
+            "  1\n",
+            "end\n",
+            "\n",
+            "pub fn Bad() -> Int\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
     let (_loaded, diagnostics) =
         load_surface_modules_with_captured_dependencies(&project, &dependencies);
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
@@ -85,7 +88,7 @@ fn dependency_recovery_record_does_not_cross_into_consumer() {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.id == "name.unresolved"
-                && diagnostic.message == "unresolved call_target `Bad`"),
+                && diagnostic.message == "unresolved call_target `math::Bad`"),
         "{:#?}",
         reachable.lowered.diagnostics
     );
@@ -93,17 +96,20 @@ fn dependency_recovery_record_does_not_cross_into_consumer() {
 
 #[test]
 fn consumer_recovery_record_does_not_cross_into_dependency() {
-    let (project, dependencies) = project_with_dependency(concat!(
-        "use math from \"example/lib\"\n",
-        "\n",
-        "fn main() -> Int\n",
-        "  math::good()\n",
-        "end\n",
-        "\n",
-        "fn Bad() -> Int\n",
-        "  2\n",
-        "end\n",
-    ));
+    let (project, dependencies) = project_with_dependency(
+        concat!(
+            "use math from \"example/lib\"\n",
+            "\n",
+            "fn main() -> Int\n",
+            "  math::good()\n",
+            "end\n",
+            "\n",
+            "fn Bad() -> Int\n",
+            "  2\n",
+            "end\n",
+        ),
+        concat!("pub fn good() -> Int\n", "  Bad()\n", "end\n",),
+    );
     let (_loaded, diagnostics) =
         load_surface_modules_with_captured_dependencies(&project, &dependencies);
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
@@ -121,9 +127,8 @@ fn consumer_recovery_record_does_not_cross_into_dependency() {
         .map(|invalid| (invalid.span.file.as_str(), invalid.name.as_str()))
         .collect::<Vec<_>>();
 
-    assert_eq!(
-        invalid_names,
-        vec![("math.veln", "Bad")],
+    assert!(
+        invalid_names.is_empty(),
         "{:#?}",
         reachable.module.invalid_names
     );
@@ -132,7 +137,8 @@ fn consumer_recovery_record_does_not_cross_into_dependency() {
             .lowered
             .diagnostics
             .iter()
-            .all(|diagnostic| diagnostic.id != "name.unresolved"),
+            .any(|diagnostic| diagnostic.id == "name.unresolved"
+                && diagnostic.message == "unresolved call_target `Bad`"),
         "{:#?}",
         reachable.lowered.diagnostics
     );

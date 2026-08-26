@@ -2,6 +2,9 @@ command = ["run", "--json", "main", "main.veln"]
 source_errors = "expected"
 exit = 1
 
+[tools]
+java = "missing"
+
 [stdout]
 format = "json"
 
