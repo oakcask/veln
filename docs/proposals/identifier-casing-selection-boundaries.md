@@ -43,7 +43,7 @@ Those capabilities remain in
 
 | Source state | Required result | Planned evidence |
 | --- | --- | --- |
-| A use crosses a companion boundary. | Do not expose the recovery record to the companion or its target source. | Companion diagnostics and artifact assertions. |
+| A use crosses a companion boundary. | Do not expose the recovery record to the companion or its target source. | Implemented by `examples/specification/test/identifier-casing-companion-target-recovery-isolation-json/`, `examples/specification/test/identifier-casing-companion-source-recovery-isolation-json/`, and `veln-analysis` reachable-artifact tests. |
 | A use crosses a dependency boundary. | Do not expose the recovery record across the package boundary. | Loaded dependency diagnostics, lookup, and artifact assertions. |
 | A use crosses the implicit-prelude boundary. | A valid prelude symbol may win normal lookup; an invalid recovery record cannot enter or escape the prelude namespace. | Valid-prelude precedence and invalid-recovery isolation cases. |
 

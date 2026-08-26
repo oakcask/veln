@@ -70,7 +70,9 @@ This page routes implemented JSON output for `veln test --json`.
   [test-json-full.md](test-json-full.md#cases).
 - Static gate behavior: [test-json-full.md](test-json-full.md#static-gate).
 - Source identifier casing static-gate and selected-suite isolation coverage:
-  `../../examples/specification/test/identifier-casing-selected-static-gate-json/`
+  `../../examples/specification/test/identifier-casing-selected-static-gate-json/`,
+  `../../examples/specification/test/identifier-casing-companion-target-recovery-isolation-json/`,
+  `../../examples/specification/test/identifier-casing-companion-source-recovery-isolation-json/`,
   and
   `../../examples/specification/test/identifier-casing-unselected-peer-json/`.
 - Readable doctest runtime JSON coverage:

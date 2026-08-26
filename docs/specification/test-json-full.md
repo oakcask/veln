@@ -211,6 +211,10 @@ suite before Java compilation or execution. The top-level status is `blocked`,
 and diagnostics are reported in the run-level `diagnostics` array. Source
 identifier casing diagnostics outside the selected test analysis set are not
 reported by that invocation and do not block the selected suite.
+An invalid source identifier casing recovery record in an exact `.test.veln`
+companion or its target does not resolve a cross-boundary use. The selected
+invalid declaration still reports `name.invalid_case`, and the cross-boundary
+use reports the ordinary unresolved-name diagnostic.
 
 If a parse error prevents a test declaration from being parsed, no case is
 invented for that broken declaration. Parse-clean selected cases from other
