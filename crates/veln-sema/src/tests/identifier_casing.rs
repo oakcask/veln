@@ -750,3 +750,45 @@ fn invalid_public_function_alias_recovery_suppresses_derivative_unresolved_witho
             .is_none()
     );
 }
+
+#[test]
+fn recovery_facts_cover_functions_aliases_and_constructors_together() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type item\n",
+            "  Value(Int)\n",
+            "end\n",
+            "fn Bad(input: Int) -> Int\n",
+            "  input\n",
+            "end\n",
+            "fn good(input: Int) -> Int\n",
+            "  input\n",
+            "end\n",
+            "pub fn Exported = good\n",
+            "fn main() -> Int\n",
+            "  let direct = Bad(1)\n",
+            "  let aliased = Exported(1)\n",
+            "  let constructed = Value(1)\n",
+            "  direct\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+            .count(),
+        3,
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.unresolved"),
+        "{diagnostics:#?}"
+    );
+}
