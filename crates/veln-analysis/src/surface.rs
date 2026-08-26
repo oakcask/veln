@@ -2337,13 +2337,14 @@ struct ReachableInvalidNameSelector<'a> {
     functions_by_name: HashMap<(Option<String>, String), Vec<&'a Function>>,
     aliases_by_name: HashMap<(Option<String>, String), Vec<&'a veln_ast::PublicAlias>>,
     types_by_name: HashMap<(Option<String>, String), Vec<&'a veln_ast::TypeDecl>>,
-    constructors_by_name: HashMap<
-        (Option<String>, String),
-        Vec<(&'a veln_ast::TypeDecl, &'a veln_ast::TypeVariantDecl)>,
-    >,
+    constructors_by_name: ConstructorVariantsByName<'a>,
     invalid_names: Vec<&'a veln_ast::InvalidName>,
     companion_access_targets: HashMap<String, String>,
 }
+
+type ConstructorVariantRef<'a> = (&'a veln_ast::TypeDecl, &'a veln_ast::TypeVariantDecl);
+type ConstructorVariantsByName<'a> =
+    HashMap<(Option<String>, String), Vec<ConstructorVariantRef<'a>>>;
 
 fn index_functions_by_name<'a>(
     functions: &[&'a Function],
@@ -2392,12 +2393,8 @@ fn index_types_by_name<'a>(
 
 fn index_constructors_by_name<'a>(
     types: &[&'a veln_ast::TypeDecl],
-) -> HashMap<(Option<String>, String), Vec<(&'a veln_ast::TypeDecl, &'a veln_ast::TypeVariantDecl)>>
-{
-    let mut index = HashMap::<
-        (Option<String>, String),
-        Vec<(&'a veln_ast::TypeDecl, &'a veln_ast::TypeVariantDecl)>,
-    >::new();
+) -> ConstructorVariantsByName<'a> {
+    let mut index = ConstructorVariantsByName::new();
     for type_decl in types {
         for variant in &type_decl.variants {
             if let Some(name) = &variant.name {
