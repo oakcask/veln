@@ -281,16 +281,18 @@ operand so migrated cases stay reviewable. The
 selector, pointer, operation, independence, and aggregation boundaries.
 
 The `publish-diagnostics`, `semantic-tokens`,
-`semantic-tokens-unsaved-change`, `identifier-casing-snapshot-boundary`, and
-`identifier-casing-overlay-boundary` LSP cases use structured request fixtures
-with decoded LSP assertions. Those cases use `$workspace_file_uri` directives
-for document URIs and, when open-document content must replace saved source
-text, `$case_text` sidecars for exact UTF-8 document text. Their decoded
-assertions cover initialization capability values, non-empty and cleared
-diagnostic notifications, complete semantic token data, selected workspace
-diagnostics, empty navigation results for invalid declarations, and shutdown
-responses. Raw LSP cases remain only where protocol framing or an
-as-yet-unmigrated representation is still part of the fixture.
+`semantic-tokens-unsaved-change`, `identifier-casing-snapshot-boundary`,
+`identifier-casing-overlay-boundary`, and
+`identifier-casing-handler-binding-navigation` LSP cases use structured
+request fixtures with decoded LSP assertions. Those cases use
+`$workspace_file_uri` directives for document URIs and, when open-document
+content must replace saved source text, `$case_text` sidecars for exact UTF-8
+document text. Their decoded assertions cover initialization capability
+values, non-empty and cleared diagnostic notifications, complete semantic
+token data, selected workspace diagnostics, empty navigation results for
+invalid declarations and handler bindings, and shutdown responses. Raw LSP
+cases remain only where protocol framing or an as-yet-unmigrated
+representation is still part of the fixture.
 
 The `decoded_mcp_jsonl_*` and `manifest_mcp_assertions_*` tests in
 `toolchain_harness.rs` cover MCP JSONL decoding, ID selection, pointer

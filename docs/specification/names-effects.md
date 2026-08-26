@@ -86,6 +86,9 @@ compiler-known calls.
   `identifier-casing-overlay-boundary` LSP cases define selected workspace
   snapshot and open-document overlay casing diagnostics, exclusion of invalid
   declarations from LSP navigation, and unselected package-root isolation.
+  The `identifier-casing-handler-binding-navigation` LSP case defines invalid
+  handler context and operation-clause binding diagnostics and exclusion from
+  definition, references, prepare-rename, and rename.
   The checked `identifier-casing-import-recovery-isolation-json`,
   `identifier-casing-public-alias-recovery-isolation-json`,
   `identifier-casing-accepted-names-json`,
