@@ -8865,14 +8865,19 @@ fn lsp_and_mcp_operation_before_selector_path_errors_keep_resolved_context() {
     fs::remove_dir_all(root).expect("test root should be removed");
 }
 
-#[test]
-fn common_length_and_workspace_uri_failures_keep_section_context() {
+fn common_json_operation_test_root() -> (PathBuf, CaseRunContext<'static>) {
     let root = test_temp_root("common-json-operation-failures");
     fs::write(root.join("main.veln"), "").expect("workspace file should be written");
     let context = CaseRunContext {
         case_dir: Path::new("common-json-operation-failures"),
         run_number: 1,
     };
+    (root, context)
+}
+
+#[test]
+fn common_length_and_workspace_uri_operations_report_failed_facts() {
+    let (root, _) = common_json_operation_test_root();
 
     for (actual, operation, expected) in [
         (
@@ -8904,6 +8909,13 @@ fn common_length_and_workspace_uri_failures_keep_section_context() {
         );
     }
 
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn common_length_failure_keeps_json_section_context() {
+    let (root, context) = common_json_operation_test_root();
+
     let json_manifest = parse_manifest(
         &root.join("case.toml"),
         r#"command = ["check"]
@@ -8927,6 +8939,12 @@ length = 0
     assert!(message.contains("json_assert 0"));
     assert!(message.contains("path `missing`"));
     assert!(message.contains("was not found"));
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn common_length_failure_keeps_result_value_section_context() {
+    let (root, context) = common_json_operation_test_root();
 
     let result_manifest = parse_manifest(
         &root.join("case.toml"),
@@ -8954,6 +8972,12 @@ length = 0
     assert!(message.contains("result_value_assert 0"));
     assert!(message.contains("path `value.missing`"));
     assert!(message.contains("was not found"));
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn unsafe_workspace_uri_operands_keep_adapter_section_context() {
+    let (root, _) = common_json_operation_test_root();
 
     for (command, section, selectors) in [
         ("check", "json_assert", "path = \"uri\"\n"),
@@ -9045,15 +9069,19 @@ fn common_length_parser_accepts_full_usize_range_without_signed_intermediary() {
     fs::remove_dir_all(root).expect("test root should be removed");
 }
 
-#[test]
-fn common_operation_wrapper_failures_keep_full_context_matrix() {
+fn common_operation_wrapper_test_root() -> (PathBuf, CaseRunContext<'static>) {
     let root = test_temp_root("common-operation-wrapper-context");
     fs::write(root.join("main.veln"), "").expect("workspace file should be written");
     let context = CaseRunContext {
         case_dir: Path::new("common-operation-wrapper-context"),
         run_number: 1,
     };
-    let actual_uri = workspace_file_uri(&root, "main.veln").expect("workspace URI should resolve");
+    (root, context)
+}
+
+#[test]
+fn json_common_operation_failures_keep_full_adapter_context() {
+    let (root, context) = common_operation_wrapper_test_root();
     let wrong_uri = "file:///wrong";
 
     for (operation, actual, fragments) in [
@@ -9130,6 +9158,13 @@ fn common_operation_wrapper_failures_keep_full_context_matrix() {
         }
     }
 
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn result_value_common_operation_failures_keep_full_adapter_context() {
+    let (root, context) = common_operation_wrapper_test_root();
+
     for (operation, rendered_value, selected_path, fragments) in [
         (
             "length = 1",
@@ -9205,6 +9240,14 @@ fn common_operation_wrapper_failures_keep_full_context_matrix() {
             );
         }
     }
+
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn lsp_common_operation_failures_keep_full_adapter_context() {
+    let (root, context) = common_operation_wrapper_test_root();
+    let wrong_uri = "file:///wrong";
 
     for (manifest_fields, lsp_stdout, fragments) in [
         (
@@ -9314,10 +9357,55 @@ length = 2
         );
     }
 
-    assert!(
-        actual_uri.starts_with("file://"),
-        "test should create a real file URI"
-    );
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn mcp_common_operation_failures_keep_full_adapter_context() {
+    let root = test_temp_root("mcp-common-operation-wrapper-context");
+    fs::write(root.join("main.veln"), "").expect("workspace file should be written");
+    let context = CaseRunContext {
+        case_dir: Path::new("mcp-common-operation-wrapper-context"),
+        run_number: 1,
+    };
+    let assertions = parse_manifest(
+        &root.join("case.toml"),
+        r#"command = ["mcp"]
+exit = 0
+[[mcp_assert]]
+id = 1
+path = "/result/items"
+length = 2
+[[mcp_assert]]
+id = 2
+path = "/result/uri"
+workspace_file_uri = "main.veln"
+"#,
+    )
+    .expectations
+    .mcp_assertions;
+    let stdout = r#"{"jsonrpc":"2.0","id":1,"result":{"items":[1]}}
+{"jsonrpc":"2.0","id":2,"result":{"uri":"file:///wrong"}}
+"#;
+
+    let panic =
+        std::panic::catch_unwind(|| assert_mcp_assertions(&context, stdout, &assertions, &root))
+            .expect_err("MCP common operation assertions should fail");
+    let message = panic_message(panic);
+    for fragment in [
+        "mcp-common-operation-wrapper-context run 1",
+        "mcp_assert 0 response id 1 path \"/result/items\"",
+        "array length mismatch: expected 2, got 1",
+        "mcp_assert 1 response id 2 path \"/result/uri\"",
+        "workspace URI mismatch",
+        "main.veln",
+    ] {
+        assert!(
+            message.contains(fragment),
+            "expected `{fragment}` in `{message}`"
+        );
+    }
+
     fs::remove_dir_all(root).expect("test root should be removed");
 }
 
@@ -9504,7 +9592,7 @@ contains = "x"
 }
 
 #[test]
-fn contains_failures_retain_wrapper_context_through_every_adapter() {
+fn json_contains_failures_retain_wrapper_context() {
     let context = contains_adapter_context();
 
     let json_manifest = parse_manifest(
@@ -9532,6 +9620,11 @@ contains = "missing"
     assert!(message.contains("contains-adapters run 1"));
     assert!(message.contains("JSON path `text` mismatch"));
     assert!(message.contains("string does not contain \"missing\""));
+}
+
+#[test]
+fn result_value_contains_failures_retain_wrapper_context() {
+    let context = contains_adapter_context();
 
     let result_manifest = parse_manifest(
         Path::new("case.toml"),
@@ -9559,6 +9652,11 @@ contains = "missing"
     assert!(message.contains("contains-adapters run 1"));
     assert!(message.contains("result value path `constructor` mismatch"));
     assert!(message.contains("string does not contain \"missing\""));
+}
+
+#[test]
+fn lsp_contains_failures_retain_wrapper_context() {
+    let context = contains_adapter_context();
 
     let lsp_manifest = parse_manifest(
         Path::new("case.toml"),
@@ -9586,6 +9684,11 @@ contains = "missing"
     assert!(message.contains("contains-adapters run 1"));
     assert!(message.contains("response id 1 path \"/result/text\""));
     assert!(message.contains("string does not contain \"missing\""));
+}
+
+#[test]
+fn mcp_contains_failures_retain_wrapper_context() {
+    let context = contains_adapter_context();
 
     let mcp_manifest = parse_manifest(
         Path::new("case.toml"),
@@ -9660,7 +9763,7 @@ fn manifest_lsp_assertions_validate_selector_operation_and_pointer_contracts() {
 }
 
 #[test]
-fn manifest_mcp_assertions_validate_selector_operation_pointer_and_uri_contracts() {
+fn manifest_mcp_assertions_validate_selector_operation_and_pointer_contracts() {
     for (fields, expected) in [
         ("path = \"\"\nequals = null\n", "is missing `id`"),
         (
@@ -9704,8 +9807,11 @@ fn manifest_mcp_assertions_validate_selector_operation_pointer_and_uri_contracts
             "JSON Pointer",
         );
     }
+}
 
-    let root = test_temp_root("mcp-uri-manifest");
+#[test]
+fn manifest_mcp_assertions_validate_portable_workspace_uri_contracts() {
+    let root = test_temp_root("mcp-portable-uri-manifest");
     let manifest_path = root.join("case.toml");
     fs::write(root.join("main.veln"), "").expect("workspace file should be written");
     parse_manifest(
@@ -9749,6 +9855,14 @@ fn manifest_mcp_assertions_validate_selector_operation_pointer_and_uri_contracts
     })
     .expect_err("directory workspace_file_uri should fail");
     assert!(panic_message(error).contains("existing regular file"));
+
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn manifest_mcp_assertions_reject_link_like_workspace_uris() {
+    let root = test_temp_root("mcp-link-uri-manifest");
+    let manifest_path = root.join("case.toml");
 
     #[cfg(unix)]
     {
@@ -10271,12 +10385,16 @@ equals = [2,1]
     assert!(error.contains("value mismatch"));
 }
 
-#[test]
-fn ordered_json_arrays_succeed_and_length_mismatches_retain_adapter_context() {
-    let context = CaseRunContext {
+fn ordered_array_adapter_context() -> CaseRunContext<'static> {
+    CaseRunContext {
         case_dir: Path::new("json-array-length-adapters"),
         run_number: 1,
-    };
+    }
+}
+
+#[test]
+fn ordered_json_arrays_succeed_and_length_mismatches_keep_json_context() {
+    let context = ordered_array_adapter_context();
 
     let actual = parse_json(r#"{"selected":[1,2]}"#).expect("JSON adapter input should parse");
     assert_json_path(
@@ -10303,6 +10421,11 @@ fn ordered_json_arrays_succeed_and_length_mismatches_retain_adapter_context() {
     })
     .expect_err("JSON adapter should reject array length mismatch");
     assert!(panic_message(panic).contains("JSON path `selected` mismatch"));
+}
+
+#[test]
+fn ordered_json_arrays_succeed_and_length_mismatches_keep_result_value_context() {
+    let context = ordered_array_adapter_context();
 
     let rendered = parse_json(r#"{"rendered":"Cons(1, Cons(2, Nil))"}"#)
         .expect("result-value adapter input should parse");
@@ -10332,6 +10455,11 @@ fn ordered_json_arrays_succeed_and_length_mismatches_retain_adapter_context() {
     })
     .expect_err("result-value adapter should reject array length mismatch");
     assert!(panic_message(panic).contains("result value path `value` mismatch"));
+}
+
+#[test]
+fn ordered_json_arrays_succeed_and_length_mismatches_keep_lsp_context() {
+    let context = ordered_array_adapter_context();
 
     let lsp_stdout = lsp_frame(r#"{"jsonrpc":"2.0","id":1,"result":[1,2]}"#);
     let lsp_success = parsed_lsp_assertions(
@@ -10359,6 +10487,11 @@ equals = [1,2,3]
     let message = panic_message(panic);
     assert!(message.contains("response id 1 path \"/result\""));
     assert!(message.contains("value mismatch"));
+}
+
+#[test]
+fn ordered_json_arrays_succeed_and_length_mismatches_keep_mcp_context() {
+    let context = ordered_array_adapter_context();
 
     let mcp_stdout = r#"{"jsonrpc":"2.0","id":1,"result":[1,2]}
 "#;
@@ -10390,12 +10523,16 @@ equals = [1,2,3]
     assert!(message.contains("value mismatch"));
 }
 
-#[test]
-fn kind_and_nested_json_mismatches_retain_adapter_context() {
-    let context = CaseRunContext {
+fn kind_and_nested_adapter_context() -> CaseRunContext<'static> {
+    CaseRunContext {
         case_dir: Path::new("json-kind-nested-adapters"),
         run_number: 1,
-    };
+    }
+}
+
+#[test]
+fn kind_and_nested_json_mismatches_retain_json_context() {
+    let context = kind_and_nested_adapter_context();
 
     let actual = parse_json(r#"{"selected":{"outer":{"nested":1}}}"#)
         .expect("JSON adapter input should parse");
@@ -10412,6 +10549,11 @@ fn kind_and_nested_json_mismatches_retain_adapter_context() {
         assert!(message.contains("JSON path `selected` mismatch"));
         assert!(message.contains("value mismatch"));
     }
+}
+
+#[test]
+fn kind_and_nested_json_mismatches_retain_result_value_context() {
+    let context = kind_and_nested_adapter_context();
 
     let rendered = parse_json(r#"{"rendered":"ByteOffset(2)"}"#)
         .expect("result-value adapter input should parse");
@@ -10433,6 +10575,11 @@ fn kind_and_nested_json_mismatches_retain_adapter_context() {
         assert!(message.contains("result value path `value` mismatch"));
         assert!(message.contains("value mismatch"));
     }
+}
+
+#[test]
+fn kind_and_nested_json_mismatches_retain_lsp_context() {
+    let context = kind_and_nested_adapter_context();
 
     let lsp_stdout = lsp_frame(r#"{"jsonrpc":"2.0","id":1,"result":{"outer":{"nested":1}}}"#);
     let lsp_failures = parsed_lsp_assertions(
@@ -10454,6 +10601,11 @@ equals = {"outer":{"nested":2}}
     let message = panic_message(panic);
     assert!(message.contains("response id 1 path \"/result\""));
     assert!(message.matches("value mismatch").count() >= 2);
+}
+
+#[test]
+fn kind_and_nested_json_mismatches_retain_mcp_context() {
+    let context = kind_and_nested_adapter_context();
 
     let mcp_stdout = r#"{"jsonrpc":"2.0","id":1,"result":{"outer":{"nested":1}}}
 "#;
