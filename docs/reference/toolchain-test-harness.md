@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: normative
-update-when: The CLI integration harness discovery inventory, manifest grammar, common JSON assertion operations, structured JSON-RPC input directives, decoded MCP JSONL output assertion model, fixture diagnostics, semantic case baseline, manifest authoring policy, case-text fixture sidecar convention, workspace-file URI directive convention, or source-error guard evidence changes.
+update-when: The CLI integration harness discovery inventory, manifest grammar, common JSON assertion operations, file assertion operations, structured JSON-RPC input directives, decoded MCP JSONL output assertion model, fixture diagnostics, semantic case baseline, manifest authoring policy, case-text fixture sidecar convention, workspace-file URI directive convention, or source-error guard evidence changes.
 ---
 
 # Toolchain Test Harness
@@ -68,7 +68,8 @@ or command execution.
 
 Cases are grouped by command or behavior area. The harness owns command
 execution, fixture copying, exit-status checks, stream checks, JSON
-assertions, diagnostic selectors, and file content assertions.
+assertions, diagnostic selectors, file content assertions, and file absence
+assertions.
 
 ## Manifest Fields
 
@@ -370,14 +371,16 @@ Each JSON or result-value assertion must declare exactly one operation.
 omitted operation or `missing = false` before it reads later file-backed
 operands.
 
-Use `[[file_assert]]` to check command-written files. The command output path
-is read from the copied project after execution, while `equals_file` is still
-read from the immutable discovered case. Each file assertion must declare
-exactly one of `equals` or `equals_file` before later file-backed operands are
-read. Diagnostics and help fragments also accept file-backed text operands
-where their inline string forms are accepted. Diagnostic exact messages use
-`message_file`. Manifest-failure fragment checks use `[manifest_error]`
-`contains_file` and `contains_files`.
+Use `[[file_assert]]` to check command-written files or required absence. For
+`equals` and `equals_file`, the command output path is read from the copied
+project after execution, while `equals_file` is still read from the immutable
+discovered case. For `missing = true`, the copied project path must not exist
+after execution. Each file assertion must declare exactly one of `equals`,
+`equals_file`, or `missing = true` before later file-backed operands are read.
+`missing = false` is rejected while the manifest loads. Diagnostics and help
+fragments also accept file-backed text operands where their inline string forms
+are accepted. Diagnostic exact messages use `message_file`. Manifest-failure
+fragment checks use `[manifest_error]` `contains_file` and `contains_files`.
 
 Use `[help]` for command help output. It checks a help stream, defaulting to
 stdout, through stable help fragments instead of full-output equality. Its
@@ -469,6 +472,9 @@ The normal `toolchain_harness` target runs
 baseline and current manifests from the shared discovery inventory without
 writing either one. A mismatch reports added or removed cases before reporting
 case-qualified field differences.
+File assertions record their operation in the baseline. `equals` and
+`equals_file` record an `equals` operation plus the expected text, while
+`missing = true` records a `missing` operation without an expected text value.
 Run the focused non-mutating check with:
 
 ```sh
