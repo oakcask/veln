@@ -164,7 +164,8 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   and
   `../../examples/specification/check/identifier-casing-ambiguous-recovery-json/`.
 - Source identifier casing run reachability, recovery, import isolation,
-  handler annotations, handler clause expressions, and non-name record fields:
+  same-owner constructor ambiguity, handler annotations, handler clause
+  expressions, and non-name record fields:
   `../../examples/specification/run/identifier-casing-reachable-recovery-json/`,
   `../../examples/specification/run/identifier-casing-constructor-call-recovery-json/`,
   `../../examples/specification/run/identifier-casing-reachable-invalid-alias-json/`,
