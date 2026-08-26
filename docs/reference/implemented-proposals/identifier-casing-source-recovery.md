@@ -146,12 +146,15 @@ The implementation may use any internal representation that satisfies these
 outcomes. The quarantined representation is a required semantic boundary, not
 a requirement for a particular data structure.
 
-## Deferred Selection Boundaries
+## Selection Boundary Follow-Up
 
 [Identifier Casing Selection Boundaries](../../proposals/identifier-casing-selection-boundaries.md)
-owns the later `test`, `doc`, language-service snapshot and overlay, loaded and
-unloaded dependency, companion, dependency, and implicit-prelude evidence. It
-depends on this foundation and is not part of this slice's completion rule.
+owns the remaining implicit-prelude evidence. The later `test`, `doc`,
+language-service snapshot and overlay, companion, and loaded and unloaded
+direct-dependency boundaries now have current specification coverage in
+[Names And Effects](../../specification/names-effects.md) and
+[Editor Support](../../specification/editor-support.md). They depend on this
+foundation but are not part of this slice's completion rule.
 
 ## Completion
 

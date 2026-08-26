@@ -678,6 +678,82 @@ fn recovery_is_not_visible_through_an_import() {
 }
 
 #[test]
+fn dependency_function_recovery_does_not_cross_into_consumer_environment() {
+    let dependency = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "dependency/foo.veln",
+            concat!("mod foo\n", "pub fn Bad() -> Int\n", "  1\n", "end\n"),
+        ))
+        .tree,
+    );
+    let dependency_environment = TypeEnvironment::from_module(&dependency);
+    assert_eq!(
+        dependency_environment.local_call_recovery_candidate_count("Bad", Some("foo"), 0),
+        1
+    );
+    let consumer = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "main.veln",
+            concat!(
+                "mod main\n",
+                "use foo\n",
+                "fn main() -> Int\n",
+                "  Bad()\n",
+                "end\n",
+            ),
+        ))
+        .tree,
+    );
+
+    let environment =
+        TypeEnvironment::from_module_with_base_for_test(&consumer, &dependency_environment);
+
+    assert_eq!(
+        environment.local_call_recovery_candidate_count("Bad", Some("main"), 0),
+        0
+    );
+    assert_eq!(
+        environment.local_call_recovery_candidate_count("Bad", Some("foo"), 0),
+        0
+    );
+}
+
+#[test]
+fn consumer_function_recovery_does_not_cross_into_dependency_environment() {
+    let consumer = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "main.veln",
+            concat!("mod main\n", "pub fn Bad() -> Int\n", "  1\n", "end\n"),
+        ))
+        .tree,
+    );
+    let consumer_environment = TypeEnvironment::from_module(&consumer);
+    assert_eq!(
+        consumer_environment.local_call_recovery_candidate_count("Bad", Some("main"), 0),
+        1
+    );
+    let dependency = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "dependency/foo.veln",
+            concat!("mod foo\n", "fn read() -> Int\n", "  Bad()\n", "end\n",),
+        ))
+        .tree,
+    );
+
+    let environment =
+        TypeEnvironment::from_module_with_base_for_test(&dependency, &consumer_environment);
+
+    assert_eq!(
+        environment.local_call_recovery_candidate_count("Bad", Some("foo"), 0),
+        0
+    );
+    assert_eq!(
+        environment.local_call_recovery_candidate_count("Bad", Some("main"), 0),
+        0
+    );
+}
+
+#[test]
 fn recovery_is_not_visible_through_public_alias_targets() {
     let source = SourceFile::new(
         "main.veln",
