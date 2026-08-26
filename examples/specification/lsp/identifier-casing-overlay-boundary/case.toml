@@ -5,6 +5,9 @@ exit = 0
 [stderr]
 format = "empty"
 
+[stdout]
+not_contains = ["nested/hidden.veln"]
+
 [[lsp_assert]]
 id = 1
 path = "/result/capabilities/definitionProvider"
