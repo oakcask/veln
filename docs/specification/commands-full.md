@@ -151,6 +151,15 @@ companion is rejected before that path can contribute an exported module. The
 external import contributes only public declarations and public aliases from
 the exported dependency module to the importing source.
 
+Source identifier casing diagnostics are selected with loaded dependency
+sources. If a selected consumer imports a dependency module that contains an
+invalid covered source name, the command reports `name.invalid_case`, excludes
+the invalid declaration and its recovery record from cross-package lookup, and
+does not produce backend artifacts. If the same invalid dependency package is
+present in the manifest but no selected consumer imports it, the command does
+not report that dependency's casing diagnostic and does not block the selected
+consumer.
+
 The checked cases `external-package-direct-manifest` and
 `external-package-missing-direct-manifest` are executable command evidence for
 direct dependency package roots during source analysis. The checked cases
@@ -161,6 +170,10 @@ selection. The checked cases `external-package-import-boundaries`,
 `external-package-vendor-mirror-boundaries`, and
 `external-package-git-boundaries` are executable command evidence for the
 matching export and public visibility boundaries.
+The checked cases `identifier-casing-loaded-dependency-static-gate-json` and
+`identifier-casing-unloaded-dependency-boundary-json` are executable command
+evidence for source identifier casing selection across direct dependency
+packages.
 
 Semantic diagnostics are suppressed for a file that has parse diagnostics.
 Other parse-clean files in the same invocation may still produce semantic
