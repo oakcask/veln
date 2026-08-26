@@ -844,6 +844,22 @@ impl<'a> FunctionChecker<'a> {
         self.bindings.push(Binding::new(name.to_string(), ty));
     }
 
+    pub(super) fn admit_value_binding_without_duplicate_diagnostic(
+        &mut self,
+        name: &str,
+        ty: Type,
+    ) {
+        if invalid_value_binding_name(name) {
+            self.invalid_binding_recoveries
+                .push(InvalidBindingRecovery {
+                    name: name.to_string(),
+                    ty,
+                });
+            return;
+        }
+        self.bindings.push(Binding::new(name.to_string(), ty));
+    }
+
     pub(super) fn check_contracts(&mut self) {
         for contract in &self.function.contracts {
             let validation = self.validate_contract_predicate(contract.kind, &contract.text);
