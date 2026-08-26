@@ -74,7 +74,14 @@ compiler-known calls.
   `identifier-casing-reachable-handler-clauses`, and
   `identifier-casing-reachable-handler-clauses-json` run cases define
   reachable handler parameter, operation-clause parameter, handler annotation,
-  and handler clause-expression selection.
+  and handler clause-expression selection. The
+  `identifier-casing-selected-static-gate-json` and
+  `identifier-casing-unselected-peer-json` test cases define selected-suite
+  casing diagnostics and unselected-peer isolation for `veln test --json`. The
+  `identifier-casing-included-source`,
+  `identifier-casing-excluded-source`, and
+  `identifier-casing-excluded-companion` doc cases define selected
+  non-companion diagnostics and excluded-source isolation for `veln doc`.
   The checked `identifier-casing-import-recovery-isolation-json`,
   `identifier-casing-public-alias-recovery-isolation-json`,
   `identifier-casing-accepted-names-json`,

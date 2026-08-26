@@ -1,0 +1,9 @@
+use main
+
+fn Bad_helper() -> Int
+	main::visible()
+end
+
+test companion_case() -> Int
+	Bad_helper()
+end
