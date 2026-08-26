@@ -29,6 +29,17 @@ workflow_with_run(run) := {
   },
 }
 
+workflow_with_reusable(paths, uses) := {
+  "name": "test / reusable workflow",
+  "on": {
+    "pull_request": {"paths": paths},
+  },
+  "permissions": {"contents": "read"},
+  "jobs": {
+    "test": {"uses": uses},
+  },
+}
+
 test_accepts_exact_local_action_manifest_in_filtered_trigger if {
   violations := deny with input as workflow_with(
     [".github/workflows/test--local-action.yaml", ".github/actions/example/action.yaml"],
@@ -97,6 +108,67 @@ test_accepts_local_action_without_path_filter if {
         "runs-on": "ubuntu-latest",
         "steps": [{"uses": "./.github/actions/example"}],
       },
+    },
+  }
+  violations := deny with input as unfiltered
+  count(violations) == 0
+}
+
+test_accepts_exact_local_reusable_workflow_in_filtered_trigger if {
+  violations := deny with input as workflow_with_reusable(
+    [
+      ".github/workflows/test--reusable-workflow.yaml",
+      ".github/workflows/shared--example.yaml",
+    ],
+    "./.github/workflows/shared--example.yaml",
+  )
+  count(violations) == 0
+}
+
+test_rejects_missing_local_reusable_workflow_in_filtered_trigger if {
+  violations := deny with input as workflow_with_reusable(
+    [".github/workflows/test--reusable-workflow.yaml"],
+    "./.github/workflows/shared--example.yaml",
+  )
+  violations["add \".github/workflows/shared--example.yaml\" to on.pull_request.paths because this workflow uses local reusable workflow \"./.github/workflows/shared--example.yaml\""]
+}
+
+test_requires_each_local_reusable_workflow if {
+  workflow := {
+    "name": "test / reusable workflows",
+    "on": {
+      "pull_request": {
+        "paths": [
+          ".github/workflows/test--reusable-workflows.yaml",
+          ".github/workflows/shared--first.yaml",
+        ],
+      },
+    },
+    "permissions": {"contents": "read"},
+    "jobs": {
+      "first": {"uses": "./.github/workflows/shared--first.yaml"},
+      "second": {"uses": "./.github/workflows/shared--second.yaml"},
+    },
+  }
+  violations := deny with input as workflow
+  violations["add \".github/workflows/shared--second.yaml\" to on.pull_request.paths because this workflow uses local reusable workflow \"./.github/workflows/shared--second.yaml\""]
+}
+
+test_ignores_external_reusable_workflow if {
+  violations := deny with input as workflow_with_reusable(
+    [".github/workflows/test--reusable-workflow.yaml"],
+    "example/repository/.github/workflows/shared.yaml@main",
+  )
+  count(violations) == 0
+}
+
+test_accepts_local_reusable_workflow_without_path_filter if {
+  unfiltered := {
+    "name": "test / reusable workflow",
+    "on": {"pull_request": {}},
+    "permissions": {"contents": "read"},
+    "jobs": {
+      "test": {"uses": "./.github/workflows/shared--example.yaml"},
     },
   }
   violations := deny with input as unfiltered
