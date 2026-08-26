@@ -1,0 +1,11 @@
+command = ["doc"]
+source_errors = "expected"
+exit = 0
+
+[stdout]
+format = "text"
+contains = ["# doc-excluded-companion", "### main", "Source: `main.veln`", "##### fn visible() -> Int"]
+not_contains = ["main.test.veln", "Bad_helper", "name.invalid_case"]
+
+[stderr]
+format = "empty"

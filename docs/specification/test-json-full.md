@@ -206,9 +206,11 @@ stdout and stderr, including output produced by spawned tasks.
 
 ## Static Gate
 
-Parse and semantic diagnostics block the suite before Java compilation or
-execution. The top-level status is `blocked`, and diagnostics are reported in
-the run-level `diagnostics` array.
+Parse and semantic diagnostics in the selected test analysis set block the
+suite before Java compilation or execution. The top-level status is `blocked`,
+and diagnostics are reported in the run-level `diagnostics` array. Source
+identifier casing diagnostics outside the selected test analysis set are not
+reported by that invocation and do not block the selected suite.
 
 If a parse error prevents a test declaration from being parsed, no case is
 invented for that broken declaration. Parse-clean selected cases from other

@@ -1,0 +1,44 @@
+command = ["test", "--json", "selected_test.veln"]
+source_errors = "expected"
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "selection.mode"
+equals = "explicit"
+
+[[json_assert]]
+path = "selection.targets.0"
+equals = "selected_test.veln"
+
+[[json_assert]]
+path = "diagnostics"
+length = 0
+
+[[json_assert]]
+path = "summary.total"
+equals = 1
+
+[[json_assert]]
+path = "summary.passed"
+equals = 1
+
+[[json_assert]]
+path = "cases.0.name"
+equals = "selected_case"
+
+[[json_assert]]
+path = "cases.0.status"
+equals = "passed"

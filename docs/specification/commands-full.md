@@ -244,9 +244,13 @@ If discovery selects no non-companion source files, `doc` still emits package
 and tool metadata from `veln.toml` when present. The generated module section
 states that no source modules were selected.
 
-The command has a parse gate. If any selected source has parse diagnostics, or
-if manifest validation reports errors, `doc` emits human diagnostics on
-stderr, writes no documentation, and exits with failure.
+The command has parse, manifest, and semantic gates. If any selected source has
+parse diagnostics, if manifest validation reports errors, or if a selected
+non-companion source has semantic diagnostics such as source identifier casing
+errors, `doc` emits human diagnostics on stderr, writes no documentation, and
+exits with failure. Invalid source identifier casing in an excluded source or
+excluded `.test.veln` companion is not reported by `doc` and does not block the
+selected documentation set.
 
 For `check`, `run`, `test`, and `doc`, parse-clean package-relative sources
 derive local module identity from the selected `.veln` path. Path separators
@@ -509,6 +513,11 @@ class cache.
 
 Like `run`, `test` combines parse-clean selected files into one surface module
 before semantic analysis.
+Source identifier casing diagnostics inside the selected test analysis set
+keep the selected-suite static gate, mark selected cases as blocked, and
+prevent JVM artifact generation. Source identifier casing diagnostics outside
+the selected test analysis set are not reported by that invocation and do not
+block the selected suite.
 
 `-j <JOBS>` and `--jobs <JOBS>` set the maximum number of runnable test cases
 that may execute concurrently. `JOBS` is a positive decimal integer. When the

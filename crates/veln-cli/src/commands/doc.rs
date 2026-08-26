@@ -2,10 +2,9 @@ use std::io;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use veln_analysis::parse_diagnostic_to_envelope;
 use veln_analysis::{
-    derive_source_module_path, load_surface_module, validate_manifest_dependencies,
-    validate_manifest_exports,
+    DoctestMode, analyze_project, derive_source_module_path, load_surface_module,
+    parse_diagnostic_to_envelope, validate_manifest_dependencies, validate_manifest_exports,
 };
 use veln_ast::{PublicAliasKind as AstPublicAliasKind, SurfaceModule, UseDecl};
 use veln_diagnostics::{Diagnostic, DiagnosticEnvelope, DiagnosticKind, JsonValue, Severity};
@@ -115,6 +114,10 @@ fn validate_doc_sources(
 ) {
     diagnostics.extend(validate_manifest_exports(project));
     diagnostics.extend(validate_manifest_dependencies(project));
+    if diagnostics.is_empty() {
+        diagnostics
+            .extend(analyze_project(project.clone(), DoctestMode::Exclude).semantic_diagnostics());
+    }
     if diagnostics.is_empty() {
         let (surface_module, _) = load_surface_module(project);
         diagnostics.extend(doc_schema_reference_diagnostics(&surface_module, sources));

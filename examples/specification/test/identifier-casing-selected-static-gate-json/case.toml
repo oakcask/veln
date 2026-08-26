@@ -1,0 +1,49 @@
+command = ["test", "--json", "bad_test.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "blocked"
+
+[[json_assert]]
+path = "selection.mode"
+equals = "explicit"
+
+[[json_assert]]
+path = "selection.targets.0"
+equals = "bad_test.veln"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.0.message"
+equals = "function name `Bad_helper` must start with an ASCII lowercase letter"
+
+[[json_assert]]
+path = "summary.total"
+equals = 1
+
+[[json_assert]]
+path = "summary.blocked"
+equals = 1
+
+[[json_assert]]
+path = "cases.0.name"
+equals = "selected_case"
+
+[[json_assert]]
+path = "cases.0.status"
+equals = "blocked"
+
+[[json_assert]]
+path = "cases.0.reason"
+equals = "static_gate"

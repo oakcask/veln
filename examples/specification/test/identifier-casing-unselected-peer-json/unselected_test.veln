@@ -1,0 +1,7 @@
+fn Bad_helper() -> ()
+	()
+end
+
+test unselected_case() -> ()
+	Bad_helper()
+end

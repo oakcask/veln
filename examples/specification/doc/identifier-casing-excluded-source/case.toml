@@ -1,0 +1,11 @@
+command = ["doc", "main.veln"]
+source_errors = "expected"
+exit = 0
+
+[stdout]
+format = "text"
+contains = ["# doc-excluded-source", "### main", "Source: `main.veln`", "##### fn visible() -> Int"]
+not_contains = ["hidden.veln", "type name `item`"]
+
+[stderr]
+format = "empty"

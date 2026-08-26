@@ -29,11 +29,11 @@ Those capabilities remain in
 
 ## Command And Selection Boundary
 
-| Consumer state | Required result | Planned evidence |
+| Consumer state | Required result | Evidence |
 | --- | --- | --- |
-| `test` selects a test whose reachable closure contains an invalid covered name. | Preserve the selected-suite static gate and produce no backend artifact. | Selected and unselected test cases. |
-| `doc` includes a source with an invalid covered name. | Reject the selected documentation set before publishing generated documentation. | Included documentation-source case. |
-| `doc` excludes a source or companion with an invalid covered name. | Generate documentation without reporting the excluded casing diagnostic. | Excluded source and companion cases. |
+| `test` selects a test whose reachable closure contains an invalid covered name. | Preserve the selected-suite static gate and produce no backend artifact. | Implemented by `examples/specification/test/identifier-casing-selected-static-gate-json/` and `examples/specification/test/identifier-casing-unselected-peer-json/`. |
+| `doc` includes a source with an invalid covered name. | Reject the selected documentation set before publishing generated documentation. | Implemented by `examples/specification/doc/identifier-casing-included-source/`. |
+| `doc` excludes a source or companion with an invalid covered name. | Generate documentation without reporting the excluded casing diagnostic. | Implemented by `examples/specification/doc/identifier-casing-excluded-source/` and `examples/specification/doc/identifier-casing-excluded-companion/`. |
 | A language-service snapshot or open-document overlay contains an invalid covered name inside the selected analysis unit. | Publish the casing diagnostic for that selected unit and keep invalid symbols out of snapshot indexes. | Snapshot and overlay diagnostic cases. |
 | An invalid covered name exists outside the language-service operation's selected analysis unit. | Preserve the operation's snapshot and overlay boundary; do not report a workspace-global casing diagnostic. | Snapshot and overlay isolation cases. |
 | A dependency containing an invalid covered name is loaded for a selected consumer. | Report the selected diagnostic and prevent the invalid symbol from entering lookup or an artifact. | Loaded dependency diagnostic and artifact case. |
