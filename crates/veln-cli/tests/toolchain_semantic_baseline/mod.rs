@@ -557,15 +557,19 @@ fn describe_file_assertions(fields: &mut BTreeMap<String, String>, manifest: &Ca
     for (index, assertion) in manifest.expectations.file_assertions.iter().enumerate() {
         let base = format!("expectations.file_assertions[{index}]");
         text(fields, &format!("{base}.path"), &assertion.path);
-        enum_value(fields, &format!("{base}.operation"), "equals");
-        text(
-            fields,
-            &format!("{base}.equals"),
-            assertion
-                .equals
-                .as_deref()
-                .expect("file assertion should have expected text"),
-        );
+        if assertion.missing {
+            enum_value(fields, &format!("{base}.operation"), "missing");
+        } else {
+            enum_value(fields, &format!("{base}.operation"), "equals");
+            text(
+                fields,
+                &format!("{base}.equals"),
+                assertion
+                    .equals
+                    .as_deref()
+                    .expect("file assertion should have expected text"),
+            );
+        }
     }
 }
 

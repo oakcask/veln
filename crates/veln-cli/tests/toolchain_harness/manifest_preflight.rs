@@ -26,6 +26,7 @@ struct ManifestAssignmentPreflight<'a> {
     lsp_operations: Vec<LspAssertionPreflight>,
     mcp_operations: Vec<McpAssertionPreflight>,
     file_assert_operations: Vec<usize>,
+    file_assert_missing_false: Vec<bool>,
 }
 
 impl<'a> ManifestAssignmentPreflight<'a> {
@@ -40,6 +41,7 @@ impl<'a> ManifestAssignmentPreflight<'a> {
             lsp_operations: Vec::new(),
             mcp_operations: Vec::new(),
             file_assert_operations: Vec::new(),
+            file_assert_missing_false: Vec::new(),
         }
     }
 
@@ -74,6 +76,7 @@ impl<'a> ManifestAssignmentPreflight<'a> {
             }
             "[[file_assert]]" => {
                 self.file_assert_operations.push(0);
+                self.file_assert_missing_false.push(false);
                 Section::FileAssert(self.file_assert_operations.len() - 1)
             }
             _ => match fixed_section(name) {
@@ -121,8 +124,11 @@ impl<'a> ManifestAssignmentPreflight<'a> {
             Section::McpAssert(index) => {
                 self.mcp_operations[index].record_selector_or_path(self.path, key, value);
             }
-            Section::FileAssert(index) if matches!(key, "equals" | "equals_file") => {
+            Section::FileAssert(index) if matches!(key, "equals" | "equals_file" | "missing") => {
                 self.file_assert_operations[index] += 1;
+                if key == "missing" && !parse_bool(self.path, value) {
+                    self.file_assert_missing_false[index] = true;
+                }
             }
             _ => {}
         }
@@ -159,11 +165,20 @@ impl<'a> ManifestAssignmentPreflight<'a> {
             assertion.validate(self.path, index);
         }
         for (index, count) in self.file_assert_operations.iter().enumerate() {
+            if self.file_assert_missing_false[index] {
+                manifest_error(
+                    self.path,
+                    0,
+                    format!("file_assert {index} `missing` must be true when present"),
+                );
+            }
             if *count != 1 {
                 manifest_error(
                     self.path,
                     0,
-                    format!("file_assert {index} needs exactly one of `equals` or `equals_file`"),
+                    format!(
+                        "file_assert {index} needs exactly one of `equals`, `equals_file`, or `missing = true`"
+                    ),
                 );
             }
         }

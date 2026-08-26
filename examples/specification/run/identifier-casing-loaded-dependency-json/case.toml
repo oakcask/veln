@@ -18,3 +18,7 @@ message = "function name `Bad` must start with an ASCII lowercase letter"
 file = "foo.veln"
 line = 1
 column = 8
+
+[[file_assert]]
+path = ".veln-harness-cache/jvm"
+missing = true
