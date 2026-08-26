@@ -175,6 +175,7 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/run/identifier-casing-function-value-recovery-json/`,
   `../../examples/specification/run/identifier-casing-import-recovery-isolation-json/`,
   `../../examples/specification/run/identifier-casing-qualified-type-import-isolation-json/`,
+  `../../examples/specification/run/identifier-casing-valid-function-value-precedence-json/`,
   `../../examples/specification/run/identifier-casing-reachable-handler-annotation-json/`,
   `../../examples/specification/run/identifier-casing-reachable-handler-bindings-json/`,
   `../../examples/specification/run/identifier-casing-reachable-handler-clauses-json/`,

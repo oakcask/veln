@@ -2529,6 +2529,9 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         if self.has_valid_constructor(segments, current_module, None) {
             return;
         }
+        if self.has_valid_function(segments, current_module, None) {
+            return;
+        }
         if self.has_valid_function_alias(segments, current_module) {
             return;
         }
@@ -6074,6 +6077,30 @@ mod tests {
             "end\n",
             "fn Bad() -> Item\n",
             "  Bad\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert!(
+            reachable.invalid_names.is_empty(),
+            "{:#?}",
+            reachable.invalid_names
+        );
+    }
+
+    #[test]
+    fn run_entry_uses_valid_function_value_before_constructor_recovery() {
+        let module = lower(concat!(
+            "type Item\n",
+            "  bad\n",
+            "end\n",
+            "fn bad() -> Int\n",
+            "  1\n",
+            "end\n",
+            "fn main() -> Int\n",
+            "  let callable: fn() -> Int = bad\n",
+            "  callable()\n",
             "end\n",
         ));
 

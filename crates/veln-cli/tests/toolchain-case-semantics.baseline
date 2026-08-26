@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"23424e6beccb46e51c6dec18dad735fd2966997e"
+source_git_tree	"7220de228b2764878ca45fe1e16f49466c300f61"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1557
+case_count	1558
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -38289,6 +38289,18 @@ field	invocation.command[3]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"cd8cea6528bae39a23dafaa44f21f1653e6a3c4cc51a15c208e19fb5b32ec52a"
+case	"examples/specification/run/identifier-casing-valid-function-value-precedence-json"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"name.invalid_case"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"30c6bac3cd5c65f9b0847c13960a69179019030a42f3373b7e94390b3fc799f9"
 case	"examples/specification/run/implicit-prelude-imports"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -48690,4 +48702,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"443c13953af39165c8b897d82bfbc61fb5c3ceed8bf2d7de3e48f31cd0cefc8e"
+aggregate_digest	"583b89e1e87343cfdce0fe9961681383ddc7fa7ea5cebae791a64ba27efc38bb"

@@ -80,13 +80,14 @@ compiler-known calls.
   `identifier-casing-ambiguous-recovery-json` cases and the run
   `identifier-casing-import-recovery-isolation-json`,
   `identifier-casing-qualified-type-import-isolation-json`,
+  `identifier-casing-valid-function-value-precedence-json`,
   `identifier-casing-valid-function-precedence-cross-arity-json`, and
   `identifier-casing-valid-constructor-precedence-cross-arity-json` cases fix
   that accepted names keep normal behavior, quarantined recovery records do not
   cross import boundaries, do not satisfy public alias targets, valid symbols
-  win over same-source recovery records before call or constructor arity is
-  considered, ambiguous recovery records do not resolve, and qualified type
-  paths do not select unrelated same-leaf local
+  win over same-source recovery records in bare function-value references and
+  before call or constructor arity is considered, ambiguous recovery records do
+  not resolve, and qualified type paths do not select unrelated same-leaf local
   recovery records. The `identifier-casing-record-field-reachability` run case
   fixes that record field labels remain outside this name-class reachability
   boundary. Workspace snapshot and open-document overlay selection

@@ -1,0 +1,12 @@
+type Item
+  bad
+end
+
+fn bad() -> Int
+  1
+end
+
+fn main() -> Int
+  let callable: fn() -> Int = bad
+  callable()
+end
