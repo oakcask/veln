@@ -1,0 +1,2 @@
+[dependencies."example/lib"]
+path = "vendor/lib"

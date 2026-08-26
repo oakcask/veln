@@ -18,8 +18,7 @@ also states it.
 
 ## Ready
 
-- Identifier-casing selection boundaries for loaded and unloaded dependencies
-  and recovery isolation across dependencies and the implicit prelude:
+- Identifier-casing recovery isolation across the implicit prelude:
   [identifier-casing-selection-boundaries.md](identifier-casing-selection-boundaries.md).
 
 Only proposals and subsections listed in this section are selectable targets.

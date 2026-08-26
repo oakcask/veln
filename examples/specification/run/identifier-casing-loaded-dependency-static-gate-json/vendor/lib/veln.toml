@@ -1,0 +1,7 @@
+[package]
+name = "example/lib"
+
+[lib]
+exports = [
+  "math.veln",
+]

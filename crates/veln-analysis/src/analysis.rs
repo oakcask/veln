@@ -398,6 +398,7 @@ mod tests {
     use crate::surface::reachable_entry_module_with_cache;
 
     mod reachable_companion_recovery_tests;
+    mod reachable_dependency_recovery_tests;
 
     #[test]
     fn separated_reachable_lowering_matches_combined_lowering_outputs() {

@@ -60,13 +60,16 @@ compiler-known calls.
   `identifier-casing-owned-constructor-unreachable`,
   `identifier-casing-constructor-sibling-unreachable`,
   `identifier-casing-constructor-sibling-unreachable-json`,
-  `identifier-casing-function-value-recovery`, and
-  `identifier-casing-function-value-recovery-json` define selected-entry
+  `identifier-casing-function-value-recovery`,
+  `identifier-casing-function-value-recovery-json`,
+  `identifier-casing-loaded-dependency-static-gate-json`, and
+  `identifier-casing-unloaded-dependency-boundary-json` define selected-entry
   reachability for invalid functions, constructor calls, public aliases,
   expression-only constructor/type references, owned valid constructors of
   invalid types, same-type constructor siblings, function-value recovery, and
-  the rule that reachable local value spellings, record fields, and type
-  references do not make unrelated invalid declarations reachable. The
+  loaded dependency diagnostics, unloaded dependency isolation, and the rule
+  that reachable local value spellings, record fields, and type references do
+  not make unrelated invalid declarations reachable. The
   `identifier-casing-reachable-handler-bindings` and
   `identifier-casing-reachable-handler-bindings-json`,
   `identifier-casing-reachable-handler-annotation`,
@@ -118,6 +121,9 @@ compiler-known calls.
   would emit the same owner diagnostic, same-name recovery peers are selected
   only when compatible with the call arity, and qualified type paths do not
   select unrelated same-leaf local recovery records. The
+  `identifier-casing-loaded-dependency-static-gate-json` and
+  `identifier-casing-unloaded-dependency-boundary-json` run cases fix loaded
+  dependency diagnostics and unloaded dependency isolation. The
   `identifier-casing-record-field-reachability` run case
   fixes that record field labels remain outside this name-class reachability
   boundary. Workspace snapshot and open-document overlay selection is current

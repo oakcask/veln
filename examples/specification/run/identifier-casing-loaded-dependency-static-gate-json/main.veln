@@ -1,0 +1,5 @@
+use math from "example/lib"
+
+fn main() -> Int
+  math::good()
+end

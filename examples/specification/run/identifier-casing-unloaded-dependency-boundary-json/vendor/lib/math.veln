@@ -1,0 +1,3 @@
+pub fn Bad() -> Int
+  1
+end
