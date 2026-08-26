@@ -73,6 +73,8 @@ This page routes implemented JSON output for `veln test --json`.
   `../../examples/specification/test/identifier-casing-selected-static-gate-json/`,
   `../../examples/specification/test/identifier-casing-companion-target-recovery-isolation-json/`,
   `../../examples/specification/test/identifier-casing-companion-source-recovery-isolation-json/`,
+  `../../examples/specification/test/identifier-casing-companion-target-binding-recovery-isolation-json/`,
+  `../../examples/specification/test/identifier-casing-companion-source-binding-recovery-isolation-json/`,
   and
   `../../examples/specification/test/identifier-casing-unselected-peer-json/`.
 - Readable doctest runtime JSON coverage:
