@@ -134,6 +134,8 @@ not become a project-wide or source-wide loading gate.
 | One compatible invalid declaration is referenced. | Keeps one `name.invalid_case`; suppresses only failures caused by absence of that declaration; emits no normal symbol or artifact for it. | Focused semantic and checked-artifact cases. |
 | A valid declaration and an invalid recovery record share a spelling. | The valid declaration wins normal lookup. | Lookup decision-table test. |
 | More than one compatible recovery record shares a spelling. | Selects no recovery record and preserves independently provable ambiguity or unresolved facts. | Ambiguous recovery test. |
+| Same-spelled recovery records belong to different name classes. | Selects no recovery record for a use that could otherwise reach more than one class and preserves the unresolved call fact. | Cross-class ambiguous recovery cases. |
+| Same-spelled callable recovery records have different arity. | Selects only arity-compatible callable recovery records before applying the unique-recovery rule. | Same-name recovery arity case. |
 | A use crosses an import or public alias boundary. | Does not expose the recovery record across the boundary. | Checked diagnostics and artifact assertions for both boundaries. |
 
 The implementation may use any internal representation that satisfies these
