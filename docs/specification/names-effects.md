@@ -49,14 +49,19 @@ compiler-known calls.
   reachable. The `identifier-casing-reachable-handler-bindings` and
   `identifier-casing-reachable-handler-bindings-json` run cases define
   reachable handler parameter and operation-clause parameter selection.
-  The checked `identifier-casing-import-recovery-isolation-json` and
-  `identifier-casing-public-alias-recovery-isolation-json` cases and the run
+  The checked `identifier-casing-import-recovery-isolation-json`,
+  `identifier-casing-public-alias-recovery-isolation-json`,
+  `identifier-casing-accepted-names-json`,
+  `identifier-casing-valid-symbol-precedence-json`, and
+  `identifier-casing-ambiguous-recovery-json` cases and the run
   `identifier-casing-import-recovery-isolation-json` and
   `identifier-casing-qualified-type-import-isolation-json` cases fix that
-  quarantined recovery records do not cross import boundaries, do not satisfy
-  public alias targets, and keep qualified type paths from selecting unrelated
-  same-leaf local recovery records. Workspace snapshot and open-document
-  overlay selection evidence remains outside this source foundation.
+  accepted names keep normal behavior, quarantined recovery records do not
+  cross import boundaries, do not satisfy public alias targets, valid symbols
+  win over same-source recovery records, ambiguous recovery records do not
+  resolve, and qualified type paths do not select unrelated same-leaf local
+  recovery records. Workspace snapshot and open-document overlay selection
+  evidence remains outside this source foundation.
 
 - Namespaces, shadowing, duplicate checks, module ownership, external package
   imports, and manifest export checks:

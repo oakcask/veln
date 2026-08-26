@@ -1,0 +1,46 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 4
+
+[[diagnostics]]
+id = "name.unresolved"
+kind = "name"
+message = "unresolved call_target `Bad`"
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "function name `Bad` must start with an ASCII lowercase letter"
+
+[diagnostics.span]
+file = "main.veln"
+line = 5
+column = 4
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "function name `Bad` must start with an ASCII lowercase letter"
+
+[diagnostics.span]
+file = "main.veln"
+line = 9
+column = 4
+
+[[diagnostics]]
+id = "name.duplicate"
+kind = "name"
+message = "duplicate function declaration name `Bad`"

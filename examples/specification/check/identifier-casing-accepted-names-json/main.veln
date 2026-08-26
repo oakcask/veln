@@ -1,0 +1,15 @@
+type Item
+  Value(Int)
+end
+
+fn build(input: Int) -> output: Int
+  let local = input
+  local
+end
+
+test verify() -> ()
+  ()
+end
+
+pub fn exported = build
+pub type Exported = Item

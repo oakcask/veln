@@ -32,15 +32,16 @@ The `identifier-casing-reachable-handler-bindings` and
 `identifier-casing-reachable-handler-bindings-json` cases cover reachable
 handler binding diagnostics under `run`.
 The checked `identifier-casing-import-recovery-isolation-json` and
-`identifier-casing-public-alias-recovery-isolation-json` cases and the run
+`identifier-casing-public-alias-recovery-isolation-json`,
+`identifier-casing-accepted-names-json`,
+`identifier-casing-valid-symbol-precedence-json`, and
+`identifier-casing-ambiguous-recovery-json` cases and the run
 `identifier-casing-import-recovery-isolation-json` and
 `identifier-casing-qualified-type-import-isolation-json` cases cover the import
-and public-alias recovery boundaries, including qualified type references.
-Focused semantic tests cover
-accepted names, expression-hole preservation, valid lookup precedence including
-same-spelled constructor/function recovery, ambiguous recovery, invalid
-value-binding quarantine from lookup and repair candidates, and import
-isolation.
+and public-alias recovery boundaries, accepted names, valid lookup precedence,
+ambiguous recovery refusal, and qualified type references. Focused semantic
+tests cover expression-hole preservation, invalid value-binding quarantine from
+lookup and repair candidates, and import isolation.
 
 ## Outcome
 

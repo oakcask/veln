@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"03838007ad84dfcca0243974e668ec5a87a59f3c"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1536
+case_count	1539
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -5414,6 +5414,57 @@ field	invocation.command[1]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"af45c8120f1ed02128418f1ddaff7189a0b2f187e6ba6fcc14afe6797cddd434"
+case	"examples/specification/check/identifier-casing-accepted-names-json"
+field	expectations.exit	0
+field	expectations.json_assertions[0].equals	"ok"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	0
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"name.invalid_case"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"0f4872c89d85196ccded1fb7ff80b014b8758ef77bd6b49da6ff4585132ab60f"
+case	"examples/specification/check/identifier-casing-ambiguous-recovery-json"
+field	expectations.diagnostics[0].id	"name.unresolved"
+field	expectations.diagnostics[0].kind	"name"
+field	expectations.diagnostics[0].message	"unresolved call_target `Bad`"
+field	expectations.diagnostics[1].id	"name.invalid_case"
+field	expectations.diagnostics[1].kind	"name"
+field	expectations.diagnostics[1].message	"function name `Bad` must start with an ASCII lowercase letter"
+field	expectations.diagnostics[1].span.column	4
+field	expectations.diagnostics[1].span.file	"main.veln"
+field	expectations.diagnostics[1].span.line	5
+field	expectations.diagnostics[2].id	"name.invalid_case"
+field	expectations.diagnostics[2].kind	"name"
+field	expectations.diagnostics[2].message	"function name `Bad` must start with an ASCII lowercase letter"
+field	expectations.diagnostics[2].span.column	4
+field	expectations.diagnostics[2].span.file	"main.veln"
+field	expectations.diagnostics[2].span.line	9
+field	expectations.diagnostics[3].id	"name.duplicate"
+field	expectations.diagnostics[3].kind	"name"
+field	expectations.diagnostics[3].message	"duplicate function declaration name `Bad`"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	4
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"0df18ac1debf834aa97776ca99a631327c5bd2c4bb8b39f2e817d11f9ef40ed9"
 case	"examples/specification/check/identifier-casing-binding-positions-human"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -5687,6 +5738,26 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"aff5773b2faadbf25cda449e692dd18fca2eafab05e7e294e95916a178c9c919"
+case	"examples/specification/check/identifier-casing-valid-symbol-precedence-json"
+field	expectations.diagnostics[0].id	"name.invalid_case"
+field	expectations.diagnostics[0].kind	"name"
+field	expectations.diagnostics[0].message	"function name `Bad` must start with an ASCII lowercase letter"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	1
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"name.unresolved"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"c4646c98d595faf9c09f454ff1d3981d314c7952acd955cc82a7d54f744e4736"
 case	"examples/specification/check/if-branch-callback-inference"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -48359,4 +48430,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"997ced37f31b9a7c1ad9bf3b6abff04e05fdf0f2fc76f7af77839303b77d6494"
+aggregate_digest	"0965ed4fa9c75e109ffc68d28b99c8cd0582c4d2e5ea5f7cabde3a19b369dc0b"
